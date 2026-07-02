@@ -793,6 +793,20 @@ class FieldawareConfig:
 
 
 @dataclass
+class ComposeConfig:
+    """v2.3 Wave G — Compose-in-Target-Language (ADR-v2-049). OFF by default."""
+    enabled: bool = False
+    source: str = ""                 # your spoken language (empty = autodetect)
+    target: str = "en"               # language to inject
+
+
+@dataclass
+class GecConfig:
+    """v2.3 Wave G — Grammar Repair, minimal-edit GEC (ADR-v2-050). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -869,6 +883,8 @@ class Config:
     itn: ItnConfig = field(default_factory=ItnConfig)
     redaction: RedactionConfig = field(default_factory=RedactionConfig)
     fieldaware: FieldawareConfig = field(default_factory=FieldawareConfig)
+    compose: ComposeConfig = field(default_factory=ComposeConfig)
+    gec: GecConfig = field(default_factory=GecConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -957,6 +973,8 @@ def load_config(path: Path | None = None) -> Config:
         itn=ItnConfig(**data.get("itn", {})),
         redaction=RedactionConfig(**data.get("redaction", {})),
         fieldaware=FieldawareConfig(**data.get("fieldaware", {})),
+        compose=ComposeConfig(**data.get("compose", {})),
+        gec=GecConfig(**data.get("gec", {})),
     )
     return _apply_presets(cfg)
 

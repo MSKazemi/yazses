@@ -129,6 +129,8 @@ def _registry() -> list[_Def]:
     rd_on, rd_off = _bool("redaction")
     fa_on, fa_off = _bool("fieldaware")
     cvs_on, cvs_off = _bool("learning", "anonymize_audio")
+    cp_on, cp_off = _bool("compose")
+    gec_on, gec_off = _bool("gec")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -206,6 +208,14 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("compose", "Compose-in-Target-Language", "[compose] — speak L1, type L2", OPTIONAL,
+             "Speak your strongest language and inject the text in a target language you write "
+             "less fluently. Offline MT (translate extra). Off by default.",
+             lambda c: c.compose.enabled, cp_on, cp_off),
+        _Def("gec", "Grammar Repair", "[gec] — minimal-edit correction", OPTIONAL,
+             "Fixes article/agreement errors in dictated text with minimal edits, tuned for "
+             "non-native speakers. Register-preserving; local-only. Off by default.",
+             lambda c: c.gec.enabled, gec_on, gec_off),
         _Def("corpus_scrub", "Corpus Voiceprint Scrub", "[learning] anonymize_audio", OPTIONAL,
              "Speaker-anonymizes learning-corpus audio before storage so retained clips keep "
              "what was said but not an identifiable voice. Needs learning on. Off by default.",
@@ -390,6 +400,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "compose": "Speak Farsi with [compose] target='en' and type English.",
+    "gec": "Dictate 'a apple' and it's corrected to 'an apple'.",
     "corpus_scrub": "Stored learning clips are pitch-shifted to hide your voice identity.",
     "redaction": "Speak a card number and it's typed as [CARD], not the digits.",
     "fieldaware": "Focus a number field and 'forty two' is typed as 42.",
