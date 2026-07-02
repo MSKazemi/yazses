@@ -98,6 +98,7 @@ def _registry() -> list[_Def]:
     dn_on, dn_off = _bool("denoise")
     pr_on, pr_off = _bool("predict")
     vg_on, vg_off = _bool("voiceguard")
+    sc_on, sc_off = _bool("scribe")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -171,6 +172,10 @@ def _registry() -> list[_Def]:
              "Whisper/Low-Effort Mode lowers the mic gate so quiet or effortful speech "
              "is still captured (no shouting). Semantic capture is opt-in. Off by default.",
              lambda c: c.continuum.enabled, cn_on, cn_off),
+        _Def("scribe", "Meeting Scribe", "[scribe] — who-said-what transcript", OPTIONAL,
+             "Records a multi-speaker meeting transcript on-device, tagging you as 'You' "
+             "and others as Speaker N. Needs the scribe extra (diarization). Off by default.",
+             lambda c: c.scribe.enabled, sc_on, sc_off),
         _Def("denoise", "Noise Suppression", "[denoise] — clean mic before STT", OPTIONAL,
              "Removes background noise/echo before transcription so dictation works in "
              "noisy rooms. Needs the denoise extra (DeepFilterNet). Off by default.",

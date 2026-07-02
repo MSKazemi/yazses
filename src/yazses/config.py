@@ -594,6 +594,18 @@ class VoiceguardConfig:
 
 
 @dataclass
+class ScribeConfig:
+    """v2.1 Wave D — Ambient Meeting Scribe (ADR-v2-019).
+
+    On-device "who said what" transcript. Streaming diarization backend opt-in behind
+    the ``scribe`` extra; the enrolled user is labelled "You". OFF by default.
+    """
+    enabled: bool = False
+    backend: str = "sortformer"      # sortformer | none
+    max_speakers: int = 6
+
+
+@dataclass
 class Config:
     stt: SttConfig = field(default_factory=SttConfig)
     hotkey: HotkeyConfig = field(default_factory=HotkeyConfig)
@@ -633,6 +645,7 @@ class Config:
     denoise: DenoiseConfig = field(default_factory=DenoiseConfig)
     predict: PredictConfig = field(default_factory=PredictConfig)
     voiceguard: VoiceguardConfig = field(default_factory=VoiceguardConfig)
+    scribe: ScribeConfig = field(default_factory=ScribeConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -697,6 +710,7 @@ def load_config(path: Path | None = None) -> Config:
         denoise=DenoiseConfig(**data.get("denoise", {})),
         predict=PredictConfig(**data.get("predict", {})),
         voiceguard=VoiceguardConfig(**data.get("voiceguard", {})),
+        scribe=ScribeConfig(**data.get("scribe", {})),
     )
     return _apply_presets(cfg)
 
