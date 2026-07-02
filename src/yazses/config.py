@@ -741,6 +741,12 @@ class ScrubConfig:
 
 
 @dataclass
+class ReflowConfig:
+    """v2.2 Wave F — Dictation Reflow / Voice Outliner (ADR-v2-038). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class Config:
     stt: SttConfig = field(default_factory=SttConfig)
     hotkey: HotkeyConfig = field(default_factory=HotkeyConfig)
@@ -795,6 +801,7 @@ class Config:
     coach: CoachConfig = field(default_factory=CoachConfig)
     smartpaste: SmartpasteConfig = field(default_factory=SmartpasteConfig)
     scrub: ScrubConfig = field(default_factory=ScrubConfig)
+    reflow: ReflowConfig = field(default_factory=ReflowConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -874,6 +881,7 @@ def load_config(path: Path | None = None) -> Config:
         coach=CoachConfig(**data.get("coach", {})),
         smartpaste=SmartpasteConfig(**data.get("smartpaste", {})),
         scrub=ScrubConfig(**data.get("scrub", {})),
+        reflow=ReflowConfig(**data.get("reflow", {})),
     )
     return _apply_presets(cfg)
 

@@ -114,6 +114,7 @@ def _registry() -> list[_Def]:
     ch_on, ch_off = _bool("coach")
     sp_on, sp_off = _bool("smartpaste")
     scr_on, scr_off = _bool("scrub")
+    rf_on, rf_off = _bool("reflow")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -191,6 +192,10 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("reflow", "Dictation Reflow", "[reflow] — 'structure this' → outline", OPTIONAL,
+             "Say 'structure this' to rewrite your last ramble into bullets and action items. "
+             "Pure heuristic; a local SLM refines it via the reflow extra. Off by default.",
+             lambda c: c.reflow.enabled, rf_on, rf_off),
         _Def("smartpaste", "Smart-Paste", "[smartpaste] — adapt syntax to app", OPTIONAL,
              "Adapts injected syntax to the target app (markdown bullets, code casing, URL "
              "autolinking) using local window info. No model. Off by default.",
