@@ -198,10 +198,11 @@ phonate but not articulate discrete words, and for word-free eyes-free control.
 | **Earcon Feedback** | `earcon` | Non-speech state tones (rising motif = recording, buzz = low confidence) — eyes-free, faster than read-back. |
 | **Beam-Steered Spatial VAD** | `spatialvad` | With 2 mics, gates out sound not from your seat by its arrival direction (pure-numpy GCC-PHAT). |
 | **Prosodic Auto-Punctuation** | `prosodypunct` | Inserts periods/commas/question marks from how you speak — no need to say "comma". |
+| **Hesitation-Hold Endpointing** | `hesitation` | Holds the turn open on filled pauses ("uhh…") instead of cutting you off. |
+| **Pitch-Contour Gestures** | `contour` | Hum a shape — rise=confirm, fall=cancel, rise-fall=undo. Word-free. Experimental. |
 
 More Wave L features are designed (see `design/vision/v2-research/14-wave-l.md`): mouth-sound switch
-access, breath-paced dictation, whisper-aware mode, hesitation-hold endpointing,
-involuntary-vocalization excision, and pitch-contour gestures.
+access, breath-paced dictation, whisper-aware mode, and involuntary-vocalization excision.
 
 ## Privacy
 

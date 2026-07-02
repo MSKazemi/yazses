@@ -179,6 +179,8 @@ def _registry() -> list[_Def]:
     ec_on, ec_off = _bool("earcon")
     sv_on, sv_off = _bool("spatialvad")
     pp_on, pp_off = _bool("prosodypunct")
+    hes_on, hes_off = _bool("hesitation")
+    cg_on, cg_off = _bool("contour")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -256,6 +258,16 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("hesitation", "Hesitation-Hold Endpointing", "[hesitation] — don't cut off filled pauses",
+             RECOMMENDED,
+             "Holds the turn open when you trail off with a filled hesitation ('annnd… uhh…') instead "
+             "of cutting you off — for anyone who thinks out loud. Off by default.",
+             lambda c: c.hesitation.enabled, hes_on, hes_off),
+        _Def("contour", "Pitch-Contour Gestures", "[contour] — hum a shape to run a command",
+             EXPERIMENTAL,
+             "Hum a pitch shape as a word-free command: rising = confirm, falling = cancel, rise-fall "
+             "= undo. Language-independent, works in noise. Off by default.",
+             lambda c: c.contour.enabled, cg_on, cg_off),
         _Def("spatialvad", "Beam-Steered Spatial VAD", "[spatialvad] — 2-mic direction gate", OPTIONAL,
              "With a stereo/2-mic input, drops any sound not coming from your seat (a TV, a "
              "colleague) by its arrival direction — enrollment-free, complements Cocktail Filter. "
@@ -645,6 +657,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "hesitation": "Trail off with 'annnd… uhh…' and it waits instead of cutting you off.",
+    "contour": "Hum a rising note to confirm, a falling one to cancel — no words.",
     "spatialvad": "A colleague talks beside you and it's gated out by direction.",
     "prosodypunct": "Speak naturally and the periods and commas appear on their own.",
     "vocaljoystick": "Hum 'eee' and the cursor glides up — louder moves it faster.",

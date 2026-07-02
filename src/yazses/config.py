@@ -1116,6 +1116,20 @@ class ProsodypunctConfig:
 
 
 @dataclass
+class HesitationConfig:
+    """v2.8 Wave L — Hesitation-Hold Endpointing (ADR-v2-101). OFF by default."""
+    enabled: bool = False
+    commit_ms: float = 800.0
+    hold_extra_ms: float = 1200.0
+
+
+@dataclass
+class ContourConfig:
+    """v2.8 Wave L — Pitch-Contour Vocal Gestures (ADR-v2-103). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1240,6 +1254,8 @@ class Config:
     earcon: EarconConfig = field(default_factory=EarconConfig)
     spatialvad: SpatialvadConfig = field(default_factory=SpatialvadConfig)
     prosodypunct: ProsodypunctConfig = field(default_factory=ProsodypunctConfig)
+    hesitation: HesitationConfig = field(default_factory=HesitationConfig)
+    contour: ContourConfig = field(default_factory=ContourConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1376,6 +1392,8 @@ def load_config(path: Path | None = None) -> Config:
         earcon=EarconConfig(**data.get("earcon", {})),
         spatialvad=SpatialvadConfig(**data.get("spatialvad", {})),
         prosodypunct=ProsodypunctConfig(**data.get("prosodypunct", {})),
+        hesitation=HesitationConfig(**data.get("hesitation", {})),
+        contour=ContourConfig(**data.get("contour", {})),
     )
     return _apply_presets(cfg)
 
