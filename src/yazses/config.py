@@ -579,6 +579,21 @@ class PredictConfig:
 
 
 @dataclass
+class VoiceguardConfig:
+    """v2.1 Wave D — Voice-biometric gate + anti-spoof (ADR-v2-018).
+
+    Inject only when the live speaker matches the enrolled voiceprint and the audio
+    isn't synthetic/replayed. ECAPA match + anti-spoof models opt-in behind the
+    ``voiceguard`` extra. ``fail_open`` admits when a score is unavailable (avoids
+    lockout). EXPERIMENTAL, OFF by default.
+    """
+    enabled: bool = False
+    match_threshold: float = 0.5     # min cosine similarity to the enrolled voiceprint
+    spoof_threshold: float = 0.5     # max spoof probability allowed
+    fail_open: bool = True           # admit when a score is unavailable
+
+
+@dataclass
 class Config:
     stt: SttConfig = field(default_factory=SttConfig)
     hotkey: HotkeyConfig = field(default_factory=HotkeyConfig)
@@ -617,6 +632,7 @@ class Config:
     affect: AffectConfig = field(default_factory=AffectConfig)
     denoise: DenoiseConfig = field(default_factory=DenoiseConfig)
     predict: PredictConfig = field(default_factory=PredictConfig)
+    voiceguard: VoiceguardConfig = field(default_factory=VoiceguardConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -680,6 +696,7 @@ def load_config(path: Path | None = None) -> Config:
         affect=AffectConfig(**data.get("affect", {})),
         denoise=DenoiseConfig(**data.get("denoise", {})),
         predict=PredictConfig(**data.get("predict", {})),
+        voiceguard=VoiceguardConfig(**data.get("voiceguard", {})),
     )
     return _apply_presets(cfg)
 

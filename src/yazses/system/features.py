@@ -97,6 +97,7 @@ def _registry() -> list[_Def]:
     af_on, af_off = _bool("affect")
     dn_on, dn_off = _bool("denoise")
     pr_on, pr_off = _bool("predict")
+    vg_on, vg_off = _bool("voiceguard")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -202,6 +203,11 @@ def _registry() -> list[_Def]:
              "Tries to focus on your voice and reject other speakers. Currently "
              "over-rejects your OWN voice — leave off until improved.",
              lambda c: c.cocktail.enabled, co_on, co_off),
+        _Def("voiceguard", "Voice Guard (biometric + anti-spoof)", "[voiceguard] — experimental", EXPERIMENTAL,
+             "Types only when the live speaker matches your enrolled voiceprint and the "
+             "audio isn't a recording/synthetic. Needs enrollment + the voiceguard extra; "
+             "false-reject risk (fail-open by default). Off by default.",
+             lambda c: c.voiceguard.enabled, vg_on, vg_off),
         _Def("bridge", "Glasses↔Desktop Bridge", "[bridge] — phone/glasses mic, experimental", EXPERIMENTAL,
              "Dictate from a paired phone/glasses; the desktop does STT + typing. "
              "Reuses the remote transport; local link only. Experimental. Off by default.",
