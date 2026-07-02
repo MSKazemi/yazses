@@ -141,6 +141,8 @@ def _registry() -> list[_Def]:
     sr_on, sr_off = _bool("commands", "self_repair")
     ss_on, ss_off = _bool("spreadsheet")
     clh_on, clh_off = _bool("cliphistory")
+    ag2_on, ag2_off = _bool("audioguard")
+    cnd_on, cnd_off = _bool("condense")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -218,6 +220,14 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("audioguard", "Ambient Audio-Event Guard", "[audioguard] — pause on interruptions", OPTIONAL,
+             "Auto-pauses dictation (or alerts) when it hears a doorbell, phone, alarm or your "
+             "name. Needs the soundawareness extra. Off by default.",
+             lambda c: c.audioguard.enabled, ag2_on, ag2_off),
+        _Def("condense", "On-Device Condense", "[condense] — summarise your ramble", OPTIONAL,
+             "A condense variant inserts a tightened summary of your long dictation instead of "
+             "the verbatim text. Local extractive summary. Off by default.",
+             lambda c: c.condense.enabled, cnd_on, cnd_off),
         _Def("spreadsheet", "Spoken Spreadsheet", "[spreadsheet] — grid nav + cells", OPTIONAL,
              "Cell-addressed dictation + grid navigation for spreadsheets: 'next row', 'cell "
              "down', 'go to B7'. Hands-free 2D entry. Off by default.",
@@ -450,6 +460,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "audioguard": "The doorbell rings mid-dictation and recording auto-pauses.",
+    "condense": "Ramble for a paragraph and a tightened 2-sentence summary is typed.",
     "spreadsheet": "Say 'next row' or 'go to B7' to drive a spreadsheet.",
     "cliphistory": "Say 'paste the second thing I copied' to recall a copy.",
     "temporal": "Say 'next Friday' and it types the concrete date.",

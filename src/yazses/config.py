@@ -865,6 +865,20 @@ class CliphistoryConfig:
 
 
 @dataclass
+class AudioguardConfig:
+    """v2.4 Wave H — Ambient Audio-Event Guard (ADR-v2-061). OFF by default."""
+    enabled: bool = False
+    cooldown_frames: int = 30
+
+
+@dataclass
+class CondenseConfig:
+    """v2.4 Wave H — On-Device Condense (ADR-v2-062). OFF by default."""
+    enabled: bool = False
+    max_sentences: int = 2
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -951,6 +965,8 @@ class Config:
     temporal: TemporalConfig = field(default_factory=TemporalConfig)
     spreadsheet: SpreadsheetConfig = field(default_factory=SpreadsheetConfig)
     cliphistory: CliphistoryConfig = field(default_factory=CliphistoryConfig)
+    audioguard: AudioguardConfig = field(default_factory=AudioguardConfig)
+    condense: CondenseConfig = field(default_factory=CondenseConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1049,6 +1065,8 @@ def load_config(path: Path | None = None) -> Config:
         temporal=TemporalConfig(**data.get("temporal", {})),
         spreadsheet=SpreadsheetConfig(**data.get("spreadsheet", {})),
         cliphistory=CliphistoryConfig(**data.get("cliphistory", {})),
+        audioguard=AudioguardConfig(**data.get("audioguard", {})),
+        condense=CondenseConfig(**data.get("condense", {})),
     )
     return _apply_presets(cfg)
 
