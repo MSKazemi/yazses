@@ -277,6 +277,7 @@ class PersonalizeConfig:
     lora: bool = False                # P2 master switch (training is heavy)
     lora_base_model: str = "small.en"
     lora_min_events: int = 200
+    lora_min_improvement: float = 0.03  # min held-out relative WER win to apply (ADR-v2-021)
 
 
 @dataclass
