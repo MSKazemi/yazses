@@ -763,6 +763,13 @@ class Daemon:
                 if self._config.commands.voice_punctuation:
                     text = apply_voice_punctuation(text)
                     event["final_text"] = text
+                # Entity ITN: "john dot doe at gmail dot com" -> john.doe@gmail.com,
+                # "version two point one" -> v2.1. No command words. Opt-in (ADR-v2-045).
+                if self._config.itn.enabled:
+                    from yazses.itn.normalize import normalize_entities
+
+                    text = normalize_entities(text)
+                    event["final_text"] = text
                 # Prosody Ink: map vocal prosody (inter-word pause, emphasis) onto
                 # text formatting. Batch + dictation only; word timings drive the
                 # spacing/emphasis, content stays the cleaned text. Off by default.

@@ -771,6 +771,12 @@ class PronunciationConfig:
 
 
 @dataclass
+class ItnConfig:
+    """v2.3 Wave G — Entity Inverse Text Normalization (ADR-v2-045). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -844,6 +850,7 @@ class Config:
     pronunciation: PronunciationConfig = field(default_factory=PronunciationConfig)
     gesture: GestureConfig = field(default_factory=GestureConfig)
     interpret: InterpretConfig = field(default_factory=InterpretConfig)
+    itn: ItnConfig = field(default_factory=ItnConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -929,6 +936,7 @@ def load_config(path: Path | None = None) -> Config:
         pronunciation=PronunciationConfig(**data.get("pronunciation", {})),
         gesture=GestureConfig(**data.get("gesture", {})),
         interpret=InterpretConfig(**data.get("interpret", {})),
+        itn=ItnConfig(**data.get("itn", {})),
     )
     return _apply_presets(cfg)
 

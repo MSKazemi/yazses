@@ -125,6 +125,7 @@ def _registry() -> list[_Def]:
     rbc_on, rbc_off = _bool("tts", "clone_voice")
     ge_on, ge_off = _bool("gesture")
     ip_on, ip_off = _bool("interpret")
+    itn_on, itn_off = _bool("itn")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -202,6 +203,11 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("itn", "Entity ITN", "[itn] — spoken emails/versions → written", OPTIONAL,
+             "Turns spoken structured entities into written form with no command words: "
+             "'john dot doe at gmail dot com' → the email, 'version two point one' → v2.1. "
+             "Off by default.",
+             lambda c: c.itn.enabled, itn_on, itn_off),
         _Def("gesture", "Gesture Chords", "[gesture] — multi-input chords", OPTIONAL,
              "Bind chords (held key + nod / second key / sEMG squeeze) to actions like send or "
              "switch profile. Sensors need their own extras. Off by default.",
@@ -368,6 +374,7 @@ _EXAMPLES: dict[str, str] = {
     "context": "Open a file in your editor; dictation is primed from its LSP context.",
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
+    "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
     "gesture": "Hold the hotkey and nod to send (bind chords in [gesture]).",
     "interpret": "Set [interpret] pair='en-es'; each speaker's turn is translated.",
     "pronunciation": "Practice mode: dictate a phrase, see per-phoneme good/fair/poor.",
