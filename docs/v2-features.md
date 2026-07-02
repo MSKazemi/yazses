@@ -216,10 +216,12 @@ The lowest-bandwidth input methods and new text-intelligence layers.
 |---|---|---|
 | **Vocal Morse** | `morsevox` | Type by Morse using two vocal sounds (short/long); adaptive timing. Experimental. |
 | **Checksum-Validated Entry** | `checkdigit` | Verifies dictated account/ID numbers (Luhn/ISBN/Verhoeff) and suggests fixes. |
+| **Semantic Line Breaks** | `sembr` | Breaks prose one clause per source line so git diffs stay clean. |
+| **Acronym & Glossary Manager** | `acronyms` | Expands acronyms on first use, contracts after, warns on undefined. |
 
 More Wave M features are designed (see `design/vision/v2-research/15-wave-m.md`): diagrams-as-code,
-interruptible read-back proofreading, a style-consistency enforcer, screenplay auto-format, semantic
-line breaks, spoken spaced-repetition capture, suggestion-mode dictation, and an acronym manager.
+interruptible read-back proofreading, a style-consistency enforcer, screenplay auto-format, spoken
+spaced-repetition capture, and suggestion-mode dictation.
 
 ## Privacy
 

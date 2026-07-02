@@ -1176,6 +1176,19 @@ class CheckdigitConfig:
 
 
 @dataclass
+class SembrConfig:
+    """v2.9 Wave M — Semantic Line Breaks (ADR-v2-111). OFF by default."""
+    enabled: bool = False
+    max_len: int = 0
+
+
+@dataclass
+class AcronymsConfig:
+    """v2.9 Wave M — Acronym/Glossary First-Use Manager (ADR-v2-114). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1308,6 +1321,8 @@ class Config:
     involuntary: InvoluntaryConfig = field(default_factory=InvoluntaryConfig)
     morsevox: MorsevoxConfig = field(default_factory=MorsevoxConfig)
     checkdigit: CheckdigitConfig = field(default_factory=CheckdigitConfig)
+    sembr: SembrConfig = field(default_factory=SembrConfig)
+    acronyms: AcronymsConfig = field(default_factory=AcronymsConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1452,6 +1467,8 @@ def load_config(path: Path | None = None) -> Config:
         involuntary=InvoluntaryConfig(**data.get("involuntary", {})),
         morsevox=MorsevoxConfig(**data.get("morsevox", {})),
         checkdigit=CheckdigitConfig(**data.get("checkdigit", {})),
+        sembr=SembrConfig(**data.get("sembr", {})),
+        acronyms=AcronymsConfig(**data.get("acronyms", {})),
     )
     return _apply_presets(cfg)
 

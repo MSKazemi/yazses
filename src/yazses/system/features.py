@@ -187,6 +187,8 @@ def _registry() -> list[_Def]:
     iv_on, iv_off = _bool("involuntary")
     mv_on, mv_off = _bool("morsevox")
     ckd_on, ckd_off = _bool("checkdigit")
+    sb_on, sb_off = _bool("sembr")
+    ac_on, ac_off = _bool("acronyms")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -264,6 +266,14 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("sembr", "Semantic Line Breaks", "[sembr] — one clause per source line", OPTIONAL,
+             "Breaks dictated prose one clause per line so git diffs and merges stay clean — the "
+             "rendered output is unchanged. For anyone versioning prose in git. Off by default.",
+             lambda c: c.sembr.enabled, sb_on, sb_off),
+        _Def("acronyms", "Acronym & Glossary Manager", "[acronyms] — expand on first use", OPTIONAL,
+             "Expands an acronym on first mention ('World Health Organization (WHO)'), contracts it "
+             "after, and warns about acronyms you never defined. Off by default.",
+             lambda c: c.acronyms.enabled, ac_on, ac_off),
         _Def("morsevox", "Vocal Morse", "[morsevox] — two-tone Morse text entry", EXPERIMENTAL,
              "Type by Morse using two vocal sounds (short/long) — full text from a single reliable "
              "vocalization, with adaptive timing. For locked-in/minimal-ability users. Off by default.",
@@ -693,6 +703,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "sembr": "Dictate a paragraph and each clause lands on its own source line.",
+    "acronyms": "Say 'WHO' the first time and it writes out the full name for you.",
     "morsevox": "One short hum, one long — spell a whole word by voice-Morse.",
     "checkdigit": "Dictate a card number and a mis-heard digit is caught instantly.",
     "mouthswitch": "Pop your lips to move the highlight, cluck to select — no words.",
