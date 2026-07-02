@@ -145,6 +145,8 @@ def _registry() -> list[_Def]:
     cnd_on, cnd_off = _bool("condense")
     slf_on, slf_off = _bool("slotfill")
     cs2_on, cs2_off = _bool("cmdspotter")
+    csf_on, csf_off = _bool("cmdsafety")
+    srx_on, srx_off = _bool("spokenregex")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -222,6 +224,14 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("cmdsafety", "Terminal Command Safety Gate", "[cmdsafety] — confirm dangerous commands", RECOMMENDED,
+             "In a terminal, holds a destructive command (rm -rf, curl|sh, force-push) until you "
+             "say 'confirm', so a misrecognition can't fire it. Off by default.",
+             lambda c: c.cmdsafety.enabled, csf_on, csf_off),
+        _Def("spokenregex", "Spoken Regex Builder", "[spokenregex] — dictate search patterns", OPTIONAL,
+             "Build regexes by voice: 'four digits dash two digits' → \\d{4}-\\d{2}. Feeds find "
+             "dialogs and grep. Off by default.",
+             lambda c: c.spokenregex.enabled, srx_on, srx_off),
         _Def("slotfill", "Slot-Filling Dictation", "[slotfill] — one utterance → a form", OPTIONAL,
              "Speak once and fill a named-field template: 'bug in login, high priority, affects "
              "Firefox' routes each value to its field. Off by default.",
@@ -470,6 +480,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "cmdsafety": "Dictate 'rm -rf' in a terminal and it waits for you to say 'confirm'.",
+    "spokenregex": "Say 'four digits dash two digits' to build \\d{4}-\\d{2}.",
     "slotfill": "Say 'high priority, affects Firefox' to fill a bug-report form.",
     "cmdspotter": "Enroll 'send' once, then say it to fire the action instantly.",
     "audioguard": "The doorbell rings mid-dictation and recording auto-pauses.",

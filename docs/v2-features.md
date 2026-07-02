@@ -133,6 +133,20 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Slot-Filling Dictation** | `slotfill` | One utterance fills a named-field template. |
 | **Few-Shot Command Spotter** | `cmdspotter` | Enrolled low-latency micro-commands ("send", "stop"). |
 
+## Wave I — safety, patterns & power tools (v2.5, in progress)
+
+All OFF by default. Pure logic ships now; heavy models load only when you enable the feature.
+
+| Feature | `features` name | What it does |
+|---|---|---|
+| **Terminal Command Safety Gate** | `cmdsafety` | Holds a destructive terminal command until you say "confirm". |
+| **Spoken Regex Builder** | `spokenregex` | Build search patterns by voice ("four digits dash two digits" → `\d{4}-\d{2}`). |
+
+More Wave I features are designed (see `design/vision/v2-research/11-wave-i.md`): hard contextual
+biasing, diarized conversation capture with rename-by-voice, an adaptive latency governor,
+per-language auto model switching, document-wide find-and-replace, structured-markup dictation,
+voice window management, and citation-by-voice.
+
 ## Privacy
 
 Every v2 feature honours the same guarantees as the rest of YazSes: on-device

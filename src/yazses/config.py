@@ -892,6 +892,18 @@ class CmdspotterConfig:
 
 
 @dataclass
+class CmdsafetyConfig:
+    """v2.5 Wave I — Terminal Command Safety Gate (ADR-v2-065). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
+class SpokenregexConfig:
+    """v2.5 Wave I — Spoken Regex Builder (ADR-v2-066). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -982,6 +994,8 @@ class Config:
     condense: CondenseConfig = field(default_factory=CondenseConfig)
     slotfill: SlotfillConfig = field(default_factory=SlotfillConfig)
     cmdspotter: CmdspotterConfig = field(default_factory=CmdspotterConfig)
+    cmdsafety: CmdsafetyConfig = field(default_factory=CmdsafetyConfig)
+    spokenregex: SpokenregexConfig = field(default_factory=SpokenregexConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1084,6 +1098,8 @@ def load_config(path: Path | None = None) -> Config:
         condense=CondenseConfig(**data.get("condense", {})),
         slotfill=SlotfillConfig(**data.get("slotfill", {})),
         cmdspotter=CmdspotterConfig(**data.get("cmdspotter", {})),
+        cmdsafety=CmdsafetyConfig(**data.get("cmdsafety", {})),
+        spokenregex=SpokenregexConfig(**data.get("spokenregex", {})),
     )
     return _apply_presets(cfg)
 
