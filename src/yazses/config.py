@@ -971,6 +971,19 @@ class GitvoiceConfig:
 
 
 @dataclass
+class ReaskConfig:
+    """v2.6 Wave J — Confidence-Gated Re-Ask (ADR-v2-077). OFF by default."""
+    enabled: bool = False
+    threshold: float = -1.0
+
+
+@dataclass
+class VerbatimConfig:
+    """v2.6 Wave J — Verbatim⇄Autoformat Toggle (ADR-v2-078). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1073,6 +1086,8 @@ class Config:
     diarize: DiarizeConfig = field(default_factory=DiarizeConfig)
     spelling: SpellingConfig = field(default_factory=SpellingConfig)
     gitvoice: GitvoiceConfig = field(default_factory=GitvoiceConfig)
+    reask: ReaskConfig = field(default_factory=ReaskConfig)
+    verbatim: VerbatimConfig = field(default_factory=VerbatimConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1187,6 +1202,8 @@ def load_config(path: Path | None = None) -> Config:
         diarize=DiarizeConfig(**data.get("diarize", {})),
         spelling=SpellingConfig(**data.get("spelling", {})),
         gitvoice=GitvoiceConfig(**data.get("gitvoice", {})),
+        reask=ReaskConfig(**data.get("reask", {})),
+        verbatim=VerbatimConfig(**data.get("verbatim", {})),
     )
     return _apply_presets(cfg)
 

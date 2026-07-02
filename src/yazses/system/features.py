@@ -157,6 +157,8 @@ def _registry() -> list[_Def]:
     diz_on, diz_off = _bool("diarize")
     spl_on, spl_off = _bool("spelling")
     gv_on, gv_off = _bool("gitvoice")
+    rk_on, rk_off = _bool("reask")
+    vbt_on, vbt_off = _bool("verbatim")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -234,6 +236,14 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("reask", "Confidence-Gated Re-Ask", "[reask] — resolve uncertain words", RECOMMENDED,
+             "Instead of injecting a low-confidence guess, holds just the uncertain word and asks "
+             "you to pick or repeat it — closing the correction loop. Off by default.",
+             lambda c: c.reask.enabled, rk_on, rk_off),
+        _Def("verbatim", "Verbatim / Autoformat Toggle", "[verbatim] — freeze formatting on command", RECOMMENDED,
+             "Say 'dictate verbatim' to freeze all formatting (ITN, punctuation, reflow) for exact "
+             "capture, 'resume formatting' to restore — mid-burst. Off by default.",
+             lambda c: c.verbatim.enabled, vbt_on, vbt_off),
         _Def("spelling", "Phonetic Spelling Mode", "[spelling] — NATO → exact characters", RECOMMENDED,
              "A character-exact mode for passwords/codes/IDs: 'capital alpha bravo double lima' → "
              "'Abll'. Handles digits and symbols. Off by default.",
@@ -531,6 +541,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "reask": "An unsure 'their/there' pops a quick pick instead of guessing wrong.",
+    "verbatim": "Say 'dictate verbatim' and 'one hundred dollars' types literally.",
     "spelling": "Say 'capital alpha bravo double lima' to type 'Abll' exactly.",
     "gitvoice": "Say 'force push' and it waits for confirm, and tells you the undo.",
     "latency": "Dictation stays snappy when your CPU is busy, faster when it's idle.",
