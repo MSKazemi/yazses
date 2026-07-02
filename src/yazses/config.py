@@ -148,6 +148,9 @@ class TtsConfig:
     sample_rate: int = 24000          # Kokoro native rate
     speed: float = 1.0
     max_readback_chars: int = 600     # truncate very long bursts with "…"
+    # v2.2 Wave F — Personal Read-Back Voice (ADR-v2-042). OFF by default.
+    clone_voice: bool = False         # read back in a clone of the user's own voice
+    clone_backend: str = "openvoice"  # openvoice (permissive) | f5 | xtts (non-commercial, opt-in)
 
 
 @dataclass
@@ -760,6 +763,14 @@ class SentimentConfig:
 
 
 @dataclass
+class PronunciationConfig:
+    """v2.2 Wave F — Pronunciation Feedback L2 practice mode (ADR-v2-041). OFF by default."""
+    enabled: bool = False
+    good_threshold: float = 0.7      # GOP >= this is "good"
+    poor_threshold: float = 0.4      # GOP < this is "poor" (needs practice)
+
+
+@dataclass
 class Config:
     stt: SttConfig = field(default_factory=SttConfig)
     hotkey: HotkeyConfig = field(default_factory=HotkeyConfig)
@@ -817,6 +828,7 @@ class Config:
     reflow: ReflowConfig = field(default_factory=ReflowConfig)
     acoustic_profiles: AcousticProfilesConfig = field(default_factory=AcousticProfilesConfig)
     sentiment: SentimentConfig = field(default_factory=SentimentConfig)
+    pronunciation: PronunciationConfig = field(default_factory=PronunciationConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -899,6 +911,7 @@ def load_config(path: Path | None = None) -> Config:
         reflow=ReflowConfig(**data.get("reflow", {})),
         acoustic_profiles=AcousticProfilesConfig(**data.get("acoustic_profiles", {})),
         sentiment=SentimentConfig(**data.get("sentiment", {})),
+        pronunciation=PronunciationConfig(**data.get("pronunciation", {})),
     )
     return _apply_presets(cfg)
 

@@ -117,6 +117,8 @@ def _registry() -> list[_Def]:
     rf_on, rf_off = _bool("reflow")
     ap_on, ap_off = _bool("acoustic_profiles")
     se_on, se_off = _bool("sentiment")
+    pr_on, pr_off = _bool("pronunciation")
+    rbc_on, rbc_off = _bool("tts", "clone_voice")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -194,6 +196,14 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("pronunciation", "Pronunciation Feedback", "[pronunciation] — L2 practice", OPTIONAL,
+             "Practice mode: dictate a target phrase and get per-phoneme good/fair/poor "
+             "feedback for accent training. Needs the pronunciation extra. Off by default.",
+             lambda c: c.pronunciation.enabled, pr_on, pr_off),
+        _Def("readback_clone", "Personal Read-Back Voice", "[tts] clone_voice — your own voice", OPTIONAL,
+             "Read the transcript back in a clone of your own voice from a short enrollment. "
+             "Permissive OpenVoice V2 default; embedding stays in the encrypted corpus. Off by default.",
+             lambda c: c.tts.clone_voice, rbc_on, rbc_off),
         _Def("acoustic_profiles", "Acoustic Profiles", "[acoustic_profiles] — scene-adaptive", OPTIONAL,
              "Detects your environment (quiet/café/car/meeting) and auto-tunes the mic gate + "
              "noise suppression. Needs the acoustic extra (scene tagger). Off by default.",
