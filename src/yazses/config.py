@@ -606,6 +606,20 @@ class ScribeConfig:
 
 
 @dataclass
+class RagConfig:
+    """v2.1 Wave D — Voice-grounded RAG over personal notes (ADR-v2-020).
+
+    Ask by voice, answer cited from local docs. Embedding model + sqlite-vec index +
+    answer LLM opt-in behind the ``rag`` extra. OFF by default.
+    """
+    enabled: bool = False
+    top_k: int = 4
+    min_score: float = 0.2
+    embed_model: str = "embeddinggemma"   # embedding backend (lazy)
+    store_path: str = ""                  # sqlite-vec index; empty = disabled
+
+
+@dataclass
 class Config:
     stt: SttConfig = field(default_factory=SttConfig)
     hotkey: HotkeyConfig = field(default_factory=HotkeyConfig)
@@ -646,6 +660,7 @@ class Config:
     predict: PredictConfig = field(default_factory=PredictConfig)
     voiceguard: VoiceguardConfig = field(default_factory=VoiceguardConfig)
     scribe: ScribeConfig = field(default_factory=ScribeConfig)
+    rag: RagConfig = field(default_factory=RagConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -711,6 +726,7 @@ def load_config(path: Path | None = None) -> Config:
         predict=PredictConfig(**data.get("predict", {})),
         voiceguard=VoiceguardConfig(**data.get("voiceguard", {})),
         scribe=ScribeConfig(**data.get("scribe", {})),
+        rag=RagConfig(**data.get("rag", {})),
     )
     return _apply_presets(cfg)
 
