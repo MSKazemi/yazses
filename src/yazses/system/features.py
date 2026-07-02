@@ -115,6 +115,8 @@ def _registry() -> list[_Def]:
     sp_on, sp_off = _bool("smartpaste")
     scr_on, scr_off = _bool("scrub")
     rf_on, rf_off = _bool("reflow")
+    ap_on, ap_off = _bool("acoustic_profiles")
+    se_on, se_off = _bool("sentiment")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -192,6 +194,14 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("acoustic_profiles", "Acoustic Profiles", "[acoustic_profiles] — scene-adaptive", OPTIONAL,
+             "Detects your environment (quiet/café/car/meeting) and auto-tunes the mic gate + "
+             "noise suppression. Needs the acoustic extra (scene tagger). Off by default.",
+             lambda c: c.acoustic_profiles.enabled, ap_on, ap_off),
+        _Def("sentiment", "Mood Ledger", "[sentiment] — private mood journal", OPTIONAL,
+             "Tags each dictation with an emotion and builds a private mood-over-time view. "
+             "Labels stay in the encrypted corpus. Needs the sentiment extra. Off by default.",
+             lambda c: c.sentiment.enabled, se_on, se_off),
         _Def("reflow", "Dictation Reflow", "[reflow] — 'structure this' → outline", OPTIONAL,
              "Say 'structure this' to rewrite your last ramble into bullets and action items. "
              "Pure heuristic; a local SLM refines it via the reflow extra. Off by default.",

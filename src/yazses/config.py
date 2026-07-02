@@ -747,6 +747,19 @@ class ReflowConfig:
 
 
 @dataclass
+class AcousticProfilesConfig:
+    """v2.2 Wave F — Acoustic Context Profiles (ADR-v2-039). OFF by default."""
+    enabled: bool = False
+    min_stable: int = 3              # consecutive scene observations before switching
+
+
+@dataclass
+class SentimentConfig:
+    """v2.2 Wave F — Mood Ledger speech-sentiment journal (ADR-v2-040). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class Config:
     stt: SttConfig = field(default_factory=SttConfig)
     hotkey: HotkeyConfig = field(default_factory=HotkeyConfig)
@@ -802,6 +815,8 @@ class Config:
     smartpaste: SmartpasteConfig = field(default_factory=SmartpasteConfig)
     scrub: ScrubConfig = field(default_factory=ScrubConfig)
     reflow: ReflowConfig = field(default_factory=ReflowConfig)
+    acoustic_profiles: AcousticProfilesConfig = field(default_factory=AcousticProfilesConfig)
+    sentiment: SentimentConfig = field(default_factory=SentimentConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -882,6 +897,8 @@ def load_config(path: Path | None = None) -> Config:
         smartpaste=SmartpasteConfig(**data.get("smartpaste", {})),
         scrub=ScrubConfig(**data.get("scrub", {})),
         reflow=ReflowConfig(**data.get("reflow", {})),
+        acoustic_profiles=AcousticProfilesConfig(**data.get("acoustic_profiles", {})),
+        sentiment=SentimentConfig(**data.get("sentiment", {})),
     )
     return _apply_presets(cfg)
 
