@@ -522,15 +522,26 @@ class Daemon:
             event["audio_secs"] = padded.size / sample_rate
             event["level"] = float(np.abs(padded).mean()) if padded.size else 0.0
 
-            # VAD
-            if is_silent_calibrated(padded, self._config.accessibility):
+            # VAD. Accessibility Continuum — Whisper/Low-Effort Mode lowers the VAD
+            # threshold so quiet speech isn't gated as silence (ADR-v2-012). Guarded
+            # so it can never break the gate; off by default → base threshold.
+            acc = self._config.accessibility
+            try:
+                from dataclasses import replace
+                from yazses.continuum.whisper_mode import effective_vad_threshold
+                eff = effective_vad_threshold(acc.vad_threshold, self._config.continuum)
+                if eff != acc.vad_threshold:
+                    acc = replace(acc, vad_threshold=eff)
+            except Exception:
+                acc = self._config.accessibility
+            if is_silent_calibrated(padded, acc):
                 event["discard_reason"] = "silent"
                 level = float(np.abs(padded).mean()) if padded.size else 0.0
                 log.info(
                     "Silent audio -- discarding (level %.4f < vad_threshold %.4f; "
                     "run 'yazses mic-level --set' to retune).",
                     level,
-                    self._config.accessibility.vad_threshold,
+                    acc.vad_threshold,
                 )
                 if stream_injector is not None:
                     stream_injector.cancel()

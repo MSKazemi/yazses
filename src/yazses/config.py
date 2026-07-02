@@ -490,6 +490,20 @@ class ModalityConfig:
 
 
 @dataclass
+class ContinuumConfig:
+    """v2.0.0 Wave C — Accessibility Continuum (ADR-v2-012).
+
+    Opt-in capabilities for effortful/quiet speech: Whisper/Low-Effort Mode (scale
+    the VAD threshold down for quiet speech), Semantic Capture (meaning-not-words
+    via the LLM-cleanup path, dormant), and adaptive pacing. OFF by default.
+    """
+    enabled: bool = False
+    whisper_mode: bool = False
+    whisper_threshold_factor: float = 0.4   # VAD threshold multiplier for quiet speech
+    semantic_capture: bool = False          # reuse LLM cleanup for meaning capture
+
+
+@dataclass
 class Config:
     stt: SttConfig = field(default_factory=SttConfig)
     hotkey: HotkeyConfig = field(default_factory=HotkeyConfig)
@@ -522,6 +536,7 @@ class Config:
     agent: AgentConfig = field(default_factory=AgentConfig)
     pilot: PilotConfig = field(default_factory=PilotConfig)
     modality: ModalityConfig = field(default_factory=ModalityConfig)
+    continuum: ContinuumConfig = field(default_factory=ContinuumConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -579,6 +594,7 @@ def load_config(path: Path | None = None) -> Config:
         agent=AgentConfig(**data.get("agent", {})),
         pilot=PilotConfig(**data.get("pilot", {})),
         modality=ModalityConfig(**data.get("modality", {})),
+        continuum=ContinuumConfig(**data.get("continuum", {})),
     )
     return _apply_presets(cfg)
 

@@ -91,6 +91,7 @@ def _registry() -> list[_Def]:
     ag_on, ag_off = _bool("agent")
     pi_on, pi_off = _bool("pilot")
     md_on, md_off = _bool("modality")
+    cn_on, cn_off = _bool("continuum")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -160,6 +161,10 @@ def _registry() -> list[_Def]:
              "Primes STT with terms from the active window/selection so domain words "
              "are transcribed right. Read transiently, never stored. Off by default.",
              lambda c: c.context.enabled, ctx_on, ctx_off),
+        _Def("continuum", "Accessibility Continuum", "[continuum] — quiet-speech mode", OPTIONAL,
+             "Whisper/Low-Effort Mode lowers the mic gate so quiet or effortful speech "
+             "is still captured (no shouting). Semantic capture is opt-in. Off by default.",
+             lambda c: c.continuum.enabled, cn_on, cn_off),
         _Def("recall", "Spoken Recall & Scratch", "[recall] — query past dictation", OPTIONAL,
              "Search your past dictations ('yazses recall …') and capture spoken "
              "notes-to-self. Local corpus only; nothing leaves the machine. Off by default.",
