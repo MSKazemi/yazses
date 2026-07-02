@@ -133,6 +133,8 @@ def _registry() -> list[_Def]:
     gec_on, gec_off = _bool("gec")
     sg_on, sg_off = _bool("screengrounded")
     hp_on, hp_off = _bool("headpointer")
+    lr_on, lr_off = _bool("lipread")
+    sn2_on, sn2_off = _bool("sign")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -210,6 +212,14 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("lipread", "Silent Lip-Reading", "[lipread] — dictate with no voice", OPTIONAL,
+             "Dictate silently — a webcam reads your lips when you can't or shouldn't speak. "
+             "Needs a webcam (vsr extra). Off by default.",
+             lambda c: c.lipread.enabled, lr_on, lr_off),
+        _Def("sign", "Sign-Language Input", "[sign] — sign to the webcam", OPTIONAL,
+             "Deaf/HoH signers dictate by signing to the webcam; ASL is recognized on-device "
+             "and typed. Needs a webcam (sign extra). Off by default.",
+             lambda c: c.sign.enabled, sn2_on, sn2_off),
         _Def("screengrounded", "Screen-Grounded Dictation", "[screengrounded] — bias from screen", OPTIONAL,
              "Primes Whisper with names visible on screen so they transcribe right the first "
              "time — works in any app. Accessibility/clipboard now; OCR via extra. Off by default.",
@@ -410,6 +420,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "lipread": "Mouth the words silently and a webcam reads your lips into text.",
+    "sign": "Sign to the webcam and your ASL is recognized and typed.",
     "screengrounded": "A name shown on screen transcribes right the first time.",
     "headpointer": "Tilt your head to move the cursor; dwell to click.",
     "compose": "Speak Farsi with [compose] target='en' and type English.",

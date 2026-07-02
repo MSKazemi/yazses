@@ -99,6 +99,23 @@ Toggle with `yazses features enable <name>`.
 | **Gesture Chords** | `gesture` | Bind multi-input chords (held key + nod / key / sEMG squeeze) to actions. |
 | **Two-Way Live Interpreter** | `interpret` | Face-to-face mode: each turn is detected and translated into the other language. |
 
+## Wave G — normalization, privacy & new modalities (v2.3)
+
+All OFF by default. Pure logic ships now; heavy models load only when you enable the feature.
+
+| Feature | `features` name | What it does |
+|---|---|---|
+| **Entity ITN** | `itn` | Spoken emails/versions → written form, no command words ("john dot doe at gmail dot com"). |
+| **Redaction Ink** | `redaction` | Masks spoken secrets (cards via Luhn, SSNs, keys) before they're typed. |
+| **Field-Aware Dictation** | `fieldaware` | Shapes output by the focused field; refuses to type into password fields. |
+| **Corpus Voiceprint Scrub** | `corpus_scrub` | Speaker-anonymizes stored learning audio (keeps content, not voice). |
+| **Compose-in-Target-Language** | `compose` | Speak your strongest language, inject in a target language. |
+| **Grammar Repair** | `gec` | Minimal-edit article/agreement fixes for non-native dictation. |
+| **Screen-Grounded Dictation** | `screengrounded` | Primes STT with names visible on screen so they transcribe right. |
+| **Head-Pointer** | `headpointer` | Move + click the cursor by head pose; fully hands-free with voice. |
+| **Silent Lip-Reading** | `lipread` | Dictate with no audible voice; a webcam reads your lips. |
+| **Sign-Language Input** | `sign` | Deaf/HoH signers sign to the webcam; ASL is recognized and typed. |
+
 ## Privacy
 
 Every v2 feature honours the same guarantees as the rest of YazSes: on-device

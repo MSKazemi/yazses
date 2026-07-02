@@ -820,6 +820,20 @@ class HeadpointerConfig:
 
 
 @dataclass
+class LipreadConfig:
+    """v2.3 Wave G — Silent Lip-Reading Input / VSR (ADR-v2-053). OFF by default."""
+    enabled: bool = False
+    mouth_threshold: float = 0.35
+
+
+@dataclass
+class SignConfig:
+    """v2.3 Wave G — Sign-Language Input / SLR (ADR-v2-054). OFF by default."""
+    enabled: bool = False
+    pause_frames: int = 8
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -900,6 +914,8 @@ class Config:
     gec: GecConfig = field(default_factory=GecConfig)
     screengrounded: ScreengroundedConfig = field(default_factory=ScreengroundedConfig)
     headpointer: HeadpointerConfig = field(default_factory=HeadpointerConfig)
+    lipread: LipreadConfig = field(default_factory=LipreadConfig)
+    sign: SignConfig = field(default_factory=SignConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -992,6 +1008,8 @@ def load_config(path: Path | None = None) -> Config:
         gec=GecConfig(**data.get("gec", {})),
         screengrounded=ScreengroundedConfig(**data.get("screengrounded", {})),
         headpointer=HeadpointerConfig(**data.get("headpointer", {})),
+        lipread=LipreadConfig(**data.get("lipread", {})),
+        sign=SignConfig(**data.get("sign", {})),
     )
     return _apply_presets(cfg)
 
