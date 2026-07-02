@@ -591,6 +591,13 @@ class Daemon:
             # per-word probabilities; share the same decode as prosody.
             want_confidence = self._config.confidence.enabled and not use_streaming
             want_words = want_prosody or want_confidence
+            # Speech translation (ADR-v2-014): X→English via Whisper's translate task
+            # when [translate] is enabled (whisper backend, target en). None → normal.
+            try:
+                from yazses.translate.mode import translation_task
+                stt_task = translation_task(self._config.translate)
+            except Exception:
+                stt_task = None
             t_decode = time.monotonic()
             if use_streaming:
                 assert self._stream_engine is not None
@@ -600,12 +607,14 @@ class Daemon:
                     decode_audio,
                     self._config.audio.sample_rate,
                     initial_prompt=bias_prompt,
+                    task=stt_task,
                 )
             else:
                 text = self._engine.transcribe(
                     decode_audio,
                     self._config.audio.sample_rate,
                     initial_prompt=bias_prompt,
+                    task=stt_task,
                 )
             decode_ms = (time.monotonic() - t_decode) * 1000.0
             event["raw_text"] = text

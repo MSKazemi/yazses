@@ -29,8 +29,9 @@ class _CapEngine:
         self.prompt = "UNSET"
         self.audio_len = -1
 
-    def transcribe(self, audio, sample_rate=16000, initial_prompt=None):
+    def transcribe(self, audio, sample_rate=16000, initial_prompt=None, task=None):
         self.prompt = initial_prompt
+        self.task = task
         self.audio_len = int(np.asarray(audio).size)
         return "hello world"
 
@@ -152,7 +153,7 @@ class _FixedEngine:
     def __init__(self, text):
         self._text = text
 
-    def transcribe(self, audio, sample_rate=16000, initial_prompt=None):
+    def transcribe(self, audio, sample_rate=16000, initial_prompt=None, task=None):
         return self._text
 
 

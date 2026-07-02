@@ -22,10 +22,13 @@ class FasterWhisperEngine:
         audio: np.ndarray,
         sample_rate: int = 16000,
         initial_prompt: str | None = None,
+        task: str | None = None,
     ) -> str:
         if audio.size == 0:
             return ""
-        kwargs: dict = {"language": "en"}
+        # task="translate" (ADR-v2-014, X→English): let Whisper auto-detect the
+        # source language; otherwise keep the English fast path.
+        kwargs: dict = {"task": "translate"} if task == "translate" else {"language": "en"}
         if initial_prompt:
             kwargs["initial_prompt"] = initial_prompt
         segments, _ = self._model.transcribe(audio, **kwargs)
@@ -36,6 +39,7 @@ class FasterWhisperEngine:
         audio: np.ndarray,
         sample_rate: int = 16000,
         initial_prompt: str | None = None,
+        task: str | None = None,
     ) -> "tuple[str, list]":
         """Transcribe with per-word timestamps for Prosody Ink (spec-prosody-ink).
 
@@ -49,7 +53,8 @@ class FasterWhisperEngine:
 
         if audio.size == 0:
             return "", []
-        kwargs: dict = {"language": "en", "word_timestamps": True}
+        kwargs: dict = {"word_timestamps": True}
+        kwargs.update({"task": "translate"} if task == "translate" else {"language": "en"})
         if initial_prompt:
             kwargs["initial_prompt"] = initial_prompt
         segments, _ = self._model.transcribe(audio, **kwargs)

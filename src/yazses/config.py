@@ -527,6 +527,19 @@ class BridgeConfig:
 
 
 @dataclass
+class TranslateConfig:
+    """v2.1 Wave D — Real-time offline speech translation (ADR-v2-014).
+
+    Dictate in one language, inject another. ``whisper`` backend does X→English via
+    Whisper's built-in translate task (zero new deps); ``seamless`` (opt-in, behind
+    the translate extra) does N-to-M. OFF by default.
+    """
+    enabled: bool = False
+    target: str = "en"               # target language (whisper backend: English only)
+    backend: str = "whisper"         # whisper (X→English) | seamless (opt-in)
+
+
+@dataclass
 class Config:
     stt: SttConfig = field(default_factory=SttConfig)
     hotkey: HotkeyConfig = field(default_factory=HotkeyConfig)
@@ -561,6 +574,7 @@ class Config:
     modality: ModalityConfig = field(default_factory=ModalityConfig)
     continuum: ContinuumConfig = field(default_factory=ContinuumConfig)
     bridge: BridgeConfig = field(default_factory=BridgeConfig)
+    translate: TranslateConfig = field(default_factory=TranslateConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -620,6 +634,7 @@ def load_config(path: Path | None = None) -> Config:
         modality=ModalityConfig(**data.get("modality", {})),
         continuum=ContinuumConfig(**data.get("continuum", {})),
         bridge=BridgeConfig(**data.get("bridge", {})),
+        translate=TranslateConfig(**data.get("translate", {})),
     )
     return _apply_presets(cfg)
 

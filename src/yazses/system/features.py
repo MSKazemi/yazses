@@ -93,6 +93,7 @@ def _registry() -> list[_Def]:
     md_on, md_off = _bool("modality")
     cn_on, cn_off = _bool("continuum")
     br_on, br_off = _bool("bridge")
+    tr_on, tr_off = _bool("translate")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -166,6 +167,10 @@ def _registry() -> list[_Def]:
              "Whisper/Low-Effort Mode lowers the mic gate so quiet or effortful speech "
              "is still captured (no shouting). Semantic capture is opt-in. Off by default.",
              lambda c: c.continuum.enabled, cn_on, cn_off),
+        _Def("translate", "Speech Translation", "[translate] — dictate L1, type English", OPTIONAL,
+             "Speak another language and type English (Whisper's built-in translate; no "
+             "extra download). Other targets need the seamless extra. Off by default.",
+             lambda c: c.translate.enabled, tr_on, tr_off),
         _Def("recall", "Spoken Recall & Scratch", "[recall] — query past dictation", OPTIONAL,
              "Search your past dictations ('yazses recall …') and capture spoken "
              "notes-to-self. Local corpus only; nothing leaves the machine. Off by default.",
