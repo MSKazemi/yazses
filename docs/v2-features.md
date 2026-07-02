@@ -141,11 +141,12 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 |---|---|---|
 | **Terminal Command Safety Gate** | `cmdsafety` | Holds a destructive terminal command until you say "confirm". |
 | **Spoken Regex Builder** | `spokenregex` | Build search patterns by voice ("four digits dash two digits" → `\d{4}-\d{2}`). |
+| **Structured-Markup Dictation** | `markup` | Speak lists/tables → Markdown/org ("bullet list: apples; oranges"). |
+| **Document Find-and-Replace** | `findreplace` | Edit the whole document by voice ("replace every utilise with use"). |
 
 More Wave I features are designed (see `design/vision/v2-research/11-wave-i.md`): hard contextual
 biasing, diarized conversation capture with rename-by-voice, an adaptive latency governor,
-per-language auto model switching, document-wide find-and-replace, structured-markup dictation,
-voice window management, and citation-by-voice.
+per-language auto model switching, voice window management, and citation-by-voice.
 
 ## Privacy
 

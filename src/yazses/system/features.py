@@ -147,6 +147,8 @@ def _registry() -> list[_Def]:
     cs2_on, cs2_off = _bool("cmdspotter")
     csf_on, csf_off = _bool("cmdsafety")
     srx_on, srx_off = _bool("spokenregex")
+    mk_on, mk_off = _bool("markup")
+    fr_on, fr_off = _bool("findreplace")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -224,6 +226,14 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("markup", "Structured-Markup Dictation", "[markup] — speak lists & tables", OPTIONAL,
+             "Speak structure and get Markdown/org: 'bullet list: apples; oranges' → a list; "
+             "'table columns Name, Age; row Alice, 30' → a table. Off by default.",
+             lambda c: c.markup.enabled, mk_on, mk_off),
+        _Def("findreplace", "Document Find-and-Replace", "[findreplace] — edit the whole document", OPTIONAL,
+             "Edit the whole document by voice: 'replace every utilise with use'. Not just the "
+             "last utterance. Off by default.",
+             lambda c: c.findreplace.enabled, fr_on, fr_off),
         _Def("cmdsafety", "Terminal Command Safety Gate", "[cmdsafety] — confirm dangerous commands", RECOMMENDED,
              "In a terminal, holds a destructive command (rm -rf, curl|sh, force-push) until you "
              "say 'confirm', so a misrecognition can't fire it. Off by default.",
@@ -480,6 +490,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "markup": "Say 'bullet list: apples; oranges; pears' to type a Markdown list.",
+    "findreplace": "Say 'replace every utilise with use' to edit the whole document.",
     "cmdsafety": "Dictate 'rm -rf' in a terminal and it waits for you to say 'confirm'.",
     "spokenregex": "Say 'four digits dash two digits' to build \\d{4}-\\d{2}.",
     "slotfill": "Say 'high priority, affects Firefox' to fill a bug-report form.",

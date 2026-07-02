@@ -904,6 +904,19 @@ class SpokenregexConfig:
 
 
 @dataclass
+class MarkupConfig:
+    """v2.5 Wave I — Structured-Markup Dictation (ADR-v2-067). OFF by default."""
+    enabled: bool = False
+    flavor: str = "markdown"
+
+
+@dataclass
+class FindreplaceConfig:
+    """v2.5 Wave I — Document-Wide Find-and-Replace (ADR-v2-068). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -996,6 +1009,8 @@ class Config:
     cmdspotter: CmdspotterConfig = field(default_factory=CmdspotterConfig)
     cmdsafety: CmdsafetyConfig = field(default_factory=CmdsafetyConfig)
     spokenregex: SpokenregexConfig = field(default_factory=SpokenregexConfig)
+    markup: MarkupConfig = field(default_factory=MarkupConfig)
+    findreplace: FindreplaceConfig = field(default_factory=FindreplaceConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1100,6 +1115,8 @@ def load_config(path: Path | None = None) -> Config:
         cmdspotter=CmdspotterConfig(**data.get("cmdspotter", {})),
         cmdsafety=CmdsafetyConfig(**data.get("cmdsafety", {})),
         spokenregex=SpokenregexConfig(**data.get("spokenregex", {})),
+        markup=MarkupConfig(**data.get("markup", {})),
+        findreplace=FindreplaceConfig(**data.get("findreplace", {})),
     )
     return _apply_presets(cfg)
 
