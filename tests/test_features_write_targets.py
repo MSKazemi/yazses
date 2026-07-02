@@ -18,6 +18,7 @@ _ALIASES = {
     "read-back": "tts",            # + accessibility
     "dysfluency": "accessibility",
     "multiprofile": "voiceprint",
+    "corpus_scrub": "learning",
     "readback_clone": "tts",
     "llm-cleanup": "filters.disfluency",
 }

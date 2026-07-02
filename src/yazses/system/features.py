@@ -128,6 +128,7 @@ def _registry() -> list[_Def]:
     itn_on, itn_off = _bool("itn")
     rd_on, rd_off = _bool("redaction")
     fa_on, fa_off = _bool("fieldaware")
+    cvs_on, cvs_off = _bool("learning", "anonymize_audio")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -205,6 +206,10 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("corpus_scrub", "Corpus Voiceprint Scrub", "[learning] anonymize_audio", OPTIONAL,
+             "Speaker-anonymizes learning-corpus audio before storage so retained clips keep "
+             "what was said but not an identifiable voice. Needs learning on. Off by default.",
+             lambda c: c.learning.anonymize_audio, cvs_on, cvs_off),
         _Def("redaction", "Redaction Ink", "[redaction] — mask secrets before typing", OPTIONAL,
              "Detects spoken secrets (card numbers, SSNs, keys, emails) and masks them before "
              "they're typed into another window. Regex + Luhn, local-only. Off by default.",
@@ -385,6 +390,7 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "corpus_scrub": "Stored learning clips are pitch-shifted to hide your voice identity.",
     "redaction": "Speak a card number and it's typed as [CARD], not the digits.",
     "fieldaware": "Focus a number field and 'forty two' is typed as 42.",
     "gesture": "Hold the hotkey and nod to send (bind chords in [gesture]).",

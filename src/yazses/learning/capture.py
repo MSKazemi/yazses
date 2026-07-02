@@ -31,9 +31,17 @@ _REDACTABLE = ("raw_text", "cleaned_text", "filtered_text", "final_text")
 class CorpusWriter:
     """Enqueue dictation events; persist them off the hot path."""
 
-    def __init__(self, store: CorpusStore, redact_patterns: tuple[str, ...] = ()) -> None:
+    def __init__(
+        self,
+        store: CorpusStore,
+        redact_patterns: tuple[str, ...] = (),
+        anonymize_audio: bool = False,
+        anonymize_strength: float = 1.08,
+    ) -> None:
         self._store = store
         self._patterns = [re.compile(p) for p in redact_patterns]
+        self._anonymize_audio = anonymize_audio
+        self._anonymize_strength = anonymize_strength
         self._lock = threading.Lock()
         self._queue: queue.Queue = queue.Queue()
         self._thread = threading.Thread(
@@ -64,6 +72,11 @@ class CorpusWriter:
                 if item is None:
                     return
                 event, audio, sample_rate = item
+                if self._anonymize_audio and audio is not None and audio.size:
+                    # De-identify the clip before the encrypted write (ADR-v2-048).
+                    from yazses.voiceprivacy.anonymize import anonymize_clip
+
+                    audio = anonymize_clip(audio, sample_rate, self._anonymize_strength)
                 with self._lock:
                     self._store.add_event(event, audio, sample_rate)
             except Exception:
@@ -120,4 +133,9 @@ def build_writer(data_dir: Path, cfg: LearningConfig) -> CorpusWriter | None:
     cipher = Cipher(load_or_create_key(data_dir))
     store = CorpusStore(data_dir, cipher)
     log.info("Learning corpus enabled at %s (audio=%s)", data_dir, cfg.capture_audio)
-    return CorpusWriter(store, tuple(cfg.redact_patterns))
+    return CorpusWriter(
+        store,
+        tuple(cfg.redact_patterns),
+        anonymize_audio=cfg.anonymize_audio,
+        anonymize_strength=cfg.anonymize_strength,
+    )

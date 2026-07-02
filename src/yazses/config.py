@@ -195,6 +195,9 @@ class LearningConfig:
     tune_model: str = "small.en"
     # Regexes scrubbed (replaced with [REDACTED]) from text before it is stored.
     redact_patterns: list[str] = field(default_factory=list)
+    # v2.3 Wave G — Corpus Voiceprint Scrub (ADR-v2-048): speaker-anonymize stored clips.
+    anonymize_audio: bool = False
+    anonymize_strength: float = 1.08
     # Edit capture (signal b): after a dictation, read the editor line back and
     # record what you changed in place. Opt-in, editor-bridge only (NO keystroke
     # logging). Currently supports Neovim via a --listen socket.
