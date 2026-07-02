@@ -879,6 +879,19 @@ class CondenseConfig:
 
 
 @dataclass
+class SlotfillConfig:
+    """v2.4 Wave H — Structured Form / Slot-Filling Dictation (ADR-v2-063). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
+class CmdspotterConfig:
+    """v2.4 Wave H — Few-Shot Personal Command Spotter (ADR-v2-064). OFF by default."""
+    enabled: bool = False
+    threshold: float = 0.75
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -967,6 +980,8 @@ class Config:
     cliphistory: CliphistoryConfig = field(default_factory=CliphistoryConfig)
     audioguard: AudioguardConfig = field(default_factory=AudioguardConfig)
     condense: CondenseConfig = field(default_factory=CondenseConfig)
+    slotfill: SlotfillConfig = field(default_factory=SlotfillConfig)
+    cmdspotter: CmdspotterConfig = field(default_factory=CmdspotterConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1067,6 +1082,8 @@ def load_config(path: Path | None = None) -> Config:
         cliphistory=CliphistoryConfig(**data.get("cliphistory", {})),
         audioguard=AudioguardConfig(**data.get("audioguard", {})),
         condense=CondenseConfig(**data.get("condense", {})),
+        slotfill=SlotfillConfig(**data.get("slotfill", {})),
+        cmdspotter=CmdspotterConfig(**data.get("cmdspotter", {})),
     )
     return _apply_presets(cfg)
 

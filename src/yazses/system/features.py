@@ -143,6 +143,8 @@ def _registry() -> list[_Def]:
     clh_on, clh_off = _bool("cliphistory")
     ag2_on, ag2_off = _bool("audioguard")
     cnd_on, cnd_off = _bool("condense")
+    slf_on, slf_off = _bool("slotfill")
+    cs2_on, cs2_off = _bool("cmdspotter")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -220,6 +222,14 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("slotfill", "Slot-Filling Dictation", "[slotfill] — one utterance → a form", OPTIONAL,
+             "Speak once and fill a named-field template: 'bug in login, high priority, affects "
+             "Firefox' routes each value to its field. Off by default.",
+             lambda c: c.slotfill.enabled, slf_on, slf_off),
+        _Def("cmdspotter", "Few-Shot Command Spotter", "[cmdspotter] — enrolled micro-commands", OPTIONAL,
+             "Enroll a few examples of short commands ('send', 'stop') that fire instantly "
+             "without a full decode. Needs the kws extra. Off by default.",
+             lambda c: c.cmdspotter.enabled, cs2_on, cs2_off),
         _Def("audioguard", "Ambient Audio-Event Guard", "[audioguard] — pause on interruptions", OPTIONAL,
              "Auto-pauses dictation (or alerts) when it hears a doorbell, phone, alarm or your "
              "name. Needs the soundawareness extra. Off by default.",
@@ -460,6 +470,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "slotfill": "Say 'high priority, affects Firefox' to fill a bug-report form.",
+    "cmdspotter": "Enroll 'send' once, then say it to fire the action instantly.",
     "audioguard": "The doorbell rings mid-dictation and recording auto-pauses.",
     "condense": "Ramble for a paragraph and a tightened 2-sentence summary is typed.",
     "spreadsheet": "Say 'next row' or 'go to B7' to drive a spreadsheet.",

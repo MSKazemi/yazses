@@ -116,6 +116,23 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Silent Lip-Reading** | `lipread` | Dictate with no audible voice; a webcam reads your lips. |
 | **Sign-Language Input** | `sign` | Deaf/HoH signers sign to the webcam; ASL is recognized and typed. |
 
+## Wave H — normalization, structured input & awareness (v2.4)
+
+All OFF by default. Pure logic ships now; heavy models load only when you enable the feature.
+
+| Feature | `features` name | What it does |
+|---|---|---|
+| **Emoji & Symbol by Voice** | `symbols` | Speak symbols/emoji/arrows → Unicode ("right arrow" → →). |
+| **Voice Unit Conversion** | `convert` | "twenty miles in kilometers" → "32.19 kilometers", offline. |
+| **Spoken Temporal Normalizer** | `temporal` | "next Friday" → a concrete date, from the local clock. |
+| **Mid-Utterance Self-Repair** | `self_repair` | "email Sarah no I mean Sara" → "email Sara" before typing. |
+| **Spoken Spreadsheet** | `spreadsheet` | Grid navigation + cell addressing ("next row", "go to B7"). |
+| **Clipboard-History by Voice** | `cliphistory` | Recall recent copies by voice ("the second thing I copied"). |
+| **Ambient Audio-Event Guard** | `audioguard` | Auto-pause/alert on a doorbell, phone, alarm or your name. |
+| **On-Device Condense** | `condense` | Insert a tightened summary of your own long dictation. |
+| **Slot-Filling Dictation** | `slotfill` | One utterance fills a named-field template. |
+| **Few-Shot Command Spotter** | `cmdspotter` | Enrolled low-latency micro-commands ("send", "stop"). |
+
 ## Privacy
 
 Every v2 feature honours the same guarantees as the rest of YazSes: on-device
