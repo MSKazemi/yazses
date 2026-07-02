@@ -162,9 +162,11 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Verbatim / Autoformat Toggle** | `verbatim` | "dictate verbatim" freezes all formatting mid-burst; "resume formatting" restores it. |
 | **Self-Learning Correction Dictionary** | `corrdict` | Auto-fixes the ASR errors you keep correcting, learned from your edits. |
 | **Voice Fuzzy File Open** | `fileopen` | "open the mortgage notes" → fuzzy-matches and opens a local file. |
+| **Voice Jump-to-Symbol** | `jump` | "go to line 240" / "jump to function tokenize" → the editor moves there. |
+| **Spoken Shell Pipeline Builder** | `shellpipe` | Speak stages → render a shell pipeline as text; nothing runs until "run it". |
 
 More Wave J features are designed (see `design/vision/v2-research/12-wave-j.md`): crowd-proof
-dictation, voice jump-to-symbol, recording import, and a spoken shell pipeline builder.
+dictation and recording import (batch transcription).
 
 ## Privacy
 

@@ -998,6 +998,18 @@ class FileopenConfig:
 
 
 @dataclass
+class JumpConfig:
+    """v2.6 Wave J — Voice Jump-to-Symbol (ADR-v2-081). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
+class ShellpipeConfig:
+    """v2.6 Wave J — Spoken Shell Pipeline Builder (ADR-v2-082). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1104,6 +1116,8 @@ class Config:
     verbatim: VerbatimConfig = field(default_factory=VerbatimConfig)
     corrdict: CorrdictConfig = field(default_factory=CorrdictConfig)
     fileopen: FileopenConfig = field(default_factory=FileopenConfig)
+    jump: JumpConfig = field(default_factory=JumpConfig)
+    shellpipe: ShellpipeConfig = field(default_factory=ShellpipeConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1222,6 +1236,8 @@ def load_config(path: Path | None = None) -> Config:
         verbatim=VerbatimConfig(**data.get("verbatim", {})),
         corrdict=CorrdictConfig(**data.get("corrdict", {})),
         fileopen=FileopenConfig(**data.get("fileopen", {})),
+        jump=JumpConfig(**data.get("jump", {})),
+        shellpipe=ShellpipeConfig(**data.get("shellpipe", {})),
     )
     return _apply_presets(cfg)
 
