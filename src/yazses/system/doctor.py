@@ -463,9 +463,23 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
                          "speechbrain", "uv sync --extra voiceprint"),
             _extra_check("gaze extra (l2cs)", cfg.gaze.enabled,
                          "l2cs", "pip install l2cs mediapipe opencv-python"),
+            _extra_check("agent extra (Spoken MCP)", cfg.agent.enabled,
+                         "mcp", "uv sync --extra agent"),
+            _extra_check("pilot (AT-SPI)", cfg.pilot.enabled,
+                         "pyatspi", "apt install python3-pyatspi gir1.2-atspi-2.0"),
         ):
             if chk is not None:
                 checks.append(chk)
+        # v2 features gated on config (not a module): report when half-configured.
+        if cfg.agent.enabled and not cfg.agent.slm_model_path:
+            checks.append(("agent planner", "WARN",
+                           "dormant — set [agent] slm_model_path"))
+        if cfg.polyglot.enabled and not cfg.polyglot.adapter_path:
+            checks.append(("polyglot adapter", "WARN",
+                           "dormant — set [polyglot] adapter_path (out-of-band CS model)"))
+        if cfg.bridge.enabled:
+            checks.append(("glasses↔desktop bridge", "OK",
+                           f"will listen on port {cfg.bridge.listen_port}"))
     except Exception:
         pass
 
