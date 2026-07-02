@@ -111,6 +111,7 @@ def _registry() -> list[_Def]:
     ma_on, ma_off = _bool("math")
     ww_on, ww_off = _bool("wakeword")
     vh_on, vh_off = _bool("voicehealth")
+    ch_on, ch_off = _bool("coach")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -188,6 +189,10 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("coach", "Speaking Coach", "[coach] — private speech analytics", OPTIONAL,
+             "Private on-device analytics of your dictation: filler rate, words-per-minute, "
+             "vocabulary diversity, trend. From the encrypted corpus only. Off by default.",
+             lambda c: c.coach.enabled, ch_on, ch_off),
         _Def("voicehealth", "Vocal-Strain Guard", "[voicehealth] — break reminders", OPTIONAL,
              "Advises a break when your voice shows rising strain (jitter/shimmer/HNR) over a "
              "session. Advisory only, not diagnostic. Off by default.",

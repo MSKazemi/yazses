@@ -723,6 +723,12 @@ class VoicehealthConfig:
 
 
 @dataclass
+class CoachConfig:
+    """v2.2 Wave F — Speaking Coach private self-analytics (ADR-v2-035). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class Config:
     stt: SttConfig = field(default_factory=SttConfig)
     hotkey: HotkeyConfig = field(default_factory=HotkeyConfig)
@@ -774,6 +780,7 @@ class Config:
     math: MathConfig = field(default_factory=MathConfig)
     wakeword: WakewordConfig = field(default_factory=WakewordConfig)
     voicehealth: VoicehealthConfig = field(default_factory=VoicehealthConfig)
+    coach: CoachConfig = field(default_factory=CoachConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -850,6 +857,7 @@ def load_config(path: Path | None = None) -> Config:
         math=MathConfig(**data.get("math", {})),
         wakeword=WakewordConfig(**data.get("wakeword", {})),
         voicehealth=VoicehealthConfig(**data.get("voicehealth", {})),
+        coach=CoachConfig(**data.get("coach", {})),
     )
     return _apply_presets(cfg)
 
