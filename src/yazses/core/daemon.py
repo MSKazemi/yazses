@@ -666,6 +666,17 @@ class Daemon:
                     stream_injector.cancel()
                 return
 
+            # Hallucination Guard (ADR-v2-025): drop Whisper's fabricated ghost text
+            # (silence outros, repetition loops) before injection. Off by default.
+            if self._config.hallucination.enabled:
+                from yazses.postprocess.hallucination import should_drop
+                if should_drop(text, self._config.hallucination):
+                    event["discard_reason"] = "hallucination"
+                    log.info("Hallucination guard -- discarding fabricated transcript.")
+                    if stream_injector is not None:
+                        stream_injector.cancel()
+                    return
+
             if self._config.filters.disfluency.enabled:
                 result = filter_transcript(text, self._config.filters.disfluency)
                 text = result.text

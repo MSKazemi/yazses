@@ -633,6 +633,22 @@ class CodecConfig:
 
 
 @dataclass
+class HallucinationConfig:
+    """v2.1 Wave E — Hallucination Guard (ADR-v2-025).
+
+    Drop fabricated transcripts Whisper emits on silence/noise (ghost outro phrases,
+    repetition loops, and — when available — low-confidence segment signals). Pure text
+    checks wired into the daemon; conservative. OFF by default.
+    """
+    enabled: bool = False
+    drop_ghost_phrases: bool = True
+    drop_loops: bool = True
+    no_speech_threshold: float = 0.6
+    logprob_threshold: float = -1.0
+    compression_ratio_threshold: float = 2.4
+
+
+@dataclass
 class Config:
     stt: SttConfig = field(default_factory=SttConfig)
     hotkey: HotkeyConfig = field(default_factory=HotkeyConfig)
@@ -675,6 +691,7 @@ class Config:
     scribe: ScribeConfig = field(default_factory=ScribeConfig)
     rag: RagConfig = field(default_factory=RagConfig)
     codec: CodecConfig = field(default_factory=CodecConfig)
+    hallucination: HallucinationConfig = field(default_factory=HallucinationConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -742,6 +759,7 @@ def load_config(path: Path | None = None) -> Config:
         scribe=ScribeConfig(**data.get("scribe", {})),
         rag=RagConfig(**data.get("rag", {})),
         codec=CodecConfig(**data.get("codec", {})),
+        hallucination=HallucinationConfig(**data.get("hallucination", {})),
     )
     return _apply_presets(cfg)
 
