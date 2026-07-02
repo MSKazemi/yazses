@@ -44,6 +44,25 @@ Experimental features refuse `enable` unless you add `--force`.
 | **Gaze-Routed Dictation** | `[gaze] route_dictation` | Sends the next dictation to the window you look at, with a focus fallback and a confirm for destructive actions. Needs a webcam + calibration. |
 | **Glasses↔Desktop Bridge** | `bridge` | Dictate from a paired phone/glasses; the desktop does STT + typing. Local link only. |
 
+## Wave D (v2.1) — new frontier features (all off by default)
+
+A fresh 2026 state-of-the-art round. Manage them with `yazses features enable/disable`.
+
+| Feature | Toggle | What it does |
+|---|---|---|
+| **Speech Translation** | `translate` | Dictate in another language, type English — uses Whisper's built-in translate (X→English, no extra download); other targets via the `seamless` backend. |
+| **Tone-Aware Formatting** | `affect` | Adds `!`/`?` from your vocal tone (beyond pause punctuation). Conservative by default; needs the `affect` extra for tone detection. |
+| **Predictive Completion** | `predict` | A tiny on-device model suggests the rest of your sentence; accept by voice. Needs the `predict` extra + a model. |
+| **Noise Suppression** | `denoise` | Cleans background noise/echo before transcription so dictation works in noisy rooms. Needs the `denoise` extra (DeepFilterNet). |
+| **Meeting Scribe** | `scribe` | On-device "who said what" transcript — you are tagged **You**, others **Speaker N**. Needs the `scribe` extra (diarization). |
+| **Ask My Notes (voice RAG)** | `rag` | Ask a question by voice, get an answer grounded in and citing your own local notes/docs. Needs the `rag` extra. |
+| **Codec Streaming** | `codec` | Routes decoding to a low-latency streaming neural-codec engine (Kyutai/Mimi). Needs the `codec` extra; English/French-centric. |
+| **Voice Guard** (experimental) | `voiceguard` | Types only when the *live* speaker matches your enrolled voiceprint and the audio isn't a recording/synthetic. `--force`; needs the `voiceguard` extra. |
+
+Two more Wave D directions are designed but await hardware: **silent-speech (sEMG)**
+dictation by mouthing words, and **pure-vision screen commanding** for surfaces with no
+accessibility tree. See `design/adr/adr-v2-023/024` (internal).
+
 ## Privacy
 
 Every v2 feature honours the same guarantees as the rest of YazSes: on-device
