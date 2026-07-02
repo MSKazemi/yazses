@@ -63,6 +63,24 @@ Two more Wave D directions are designed but await hardware: **silent-speech (sEM
 dictation by mouthing words, and **pure-vision screen commanding** for surfaces with no
 accessibility tree. See `design/adr/adr-v2-023/024` (internal).
 
+## Wave E (v2.1) — more frontier features (all off by default)
+
+| Feature | Toggle | What it does |
+|---|---|---|
+| **Hallucination Guard** | `hallucination` | Drops Whisper's fabricated ghost text on silence/noise (the phantom "Thank you.") before it's typed. |
+| **Voice Snippets** | `snippets` | Say a trigger ("insert my signature") to type a stored template. |
+| **Phonetic Corrector** | `phonetic` | Fixes mis-heard proper nouns by sound ("Cuber Netties" → "Kubernetes"). |
+| **Multi-User Profiles** | `voiceprint` `multi_profile` | Loads each enrolled speaker's own vocab/hotkey/cleanup from their voiceprint. |
+| **Hands-Free Auto-Stop** | `autostop` | Tap once and speak; recording auto-stops when you finish. |
+| **Voice Mouse Grid** | `mousegrid` | Drive the cursor and click by voice via a numbered grid, on any pixels. |
+| **Spoken Code Mode** | `code` | Dictate code: spoken symbols → punctuation, word-groups → cased identifiers. |
+| **Spoken Math (LaTeX)** | `math` | Dictate equations → LaTeX ("x squared plus y squared" → `x^{2} + y^{2}`). |
+| **Wake-Word Activation** (exp) | `wakeword` | Start dictation hands-free on a keyword. Always-listening, local-only, `--force`. |
+| **Vocal-Strain Guard** | `voicehealth` | Advises a break when your voice shows rising strain over a session (advisory only). |
+
+The **zero-touch bundle** — Wake-Word + Auto-Stop + Voice Mouse Grid — composes into a
+complete hands-free operating mode.
+
 ## Privacy
 
 Every v2 feature honours the same guarantees as the rest of YazSes: on-device
