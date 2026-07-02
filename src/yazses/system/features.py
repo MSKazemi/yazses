@@ -195,6 +195,8 @@ def _registry() -> list[_Def]:
     srs_on, srs_off = _bool("srscap")
     dv_on, dv_off = _bool("diagramvox")
     pb_on, pb_off = _bool("proofback")
+    hs_on, hs_off = _bool("hatselect")
+    trl_on, trl_off = _bool("translit")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -272,6 +274,15 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("hatselect", "HatSelect Structural Editing", "[hatselect] — address tokens by spoken label",
+             EXPERIMENTAL,
+             "Every visible token gets a spoken label so you can edit structurally — 'select alpha to "
+             "charlie', 'delete bravo' — without cursor motions (Cursorless-style). Off by default.",
+             lambda c: c.hatselect.enabled, hs_on, hs_off),
+        _Def("translit", "Transliteration", "[translit] — romanized → native script", OPTIONAL,
+             "Dictate your native language in Latin letters ('salam, chetori?') and inject the native "
+             "script — Whisper nails romanized phonetics where native audio fails. Off by default.",
+             lambda c: c.translit.enabled, trl_on, trl_off),
         _Def("diagramvox", "Diagrams-as-Code by Voice", "[diagramvox] — dictate a flowchart", OPTIONAL,
              "Dictate a flowchart ('start goes to login; login goes to dashboard if success') and get "
              "Mermaid/Graphviz source — draw diagrams without a mouse or canvas. Off by default.",
@@ -735,6 +746,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "hatselect": "Say 'delete bravo' and the token labeled bravo is gone — no cursor.",
+    "translit": "Dictate 'salam' and it types سلام in Persian script.",
     "diagramvox": "Say 'A goes to B; B goes to C' and get a Mermaid flowchart.",
     "proofback": "Interrupt the read-back and the cursor lands on the word being read.",
     "screenplay": "Dictate a scene and it lands as proper INT./EXT. Fountain markup.",

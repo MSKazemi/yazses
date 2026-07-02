@@ -228,6 +228,19 @@ The lowest-bandwidth input methods and new text-intelligence layers.
 Wave M is complete — all ten features (see `design/vision/v2-research/15-wave-m.md`) are shipped,
 pure, 100%-covered, and off by default.
 
+## Structural editing, i18n & accessibility-output (Wave N)
+
+Structural code editing, internationalization, and accessibility-output correctness.
+
+| Feature | `features` name | What it does |
+|---|---|---|
+| **HatSelect** | `hatselect` | Address tokens by spoken label ("delete bravo") for structural editing. Experimental. |
+| **Transliteration** | `translit` | Dictate a native language in Latin letters → native script (Finglish→Persian). |
+
+More Wave N features are designed (see `design/vision/v2-research/16-wave-n.md`): Braille output,
+offline reverse-dictionary, own-audio replay, screen-reader-paced injection, cognitive-load
+guardrails, diacritic restoration, homoglyph safety, and spoken outline structuring.
+
 ## Privacy
 
 Every v2 feature honours the same guarantees as the rest of YazSes: on-device

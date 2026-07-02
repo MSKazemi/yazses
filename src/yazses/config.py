@@ -1226,6 +1226,19 @@ class ProofbackConfig:
 
 
 @dataclass
+class HatselectConfig:
+    """v2.10 Wave N — HatSelect spoken structural token addressing (ADR-v2-115). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
+class TranslitConfig:
+    """v2.10 Wave N — Romanized→Native-Script Transliteration (ADR-v2-116). OFF by default."""
+    enabled: bool = False
+    scheme: str = "finglish"
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1366,6 +1379,8 @@ class Config:
     srscap: SrscapConfig = field(default_factory=SrscapConfig)
     diagramvox: DiagramvoxConfig = field(default_factory=DiagramvoxConfig)
     proofback: ProofbackConfig = field(default_factory=ProofbackConfig)
+    hatselect: HatselectConfig = field(default_factory=HatselectConfig)
+    translit: TranslitConfig = field(default_factory=TranslitConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1518,6 +1533,8 @@ def load_config(path: Path | None = None) -> Config:
         srscap=SrscapConfig(**data.get("srscap", {})),
         diagramvox=DiagramvoxConfig(**data.get("diagramvox", {})),
         proofback=ProofbackConfig(**data.get("proofback", {})),
+        hatselect=HatselectConfig(**data.get("hatselect", {})),
+        translit=TranslitConfig(**data.get("translit", {})),
     )
     return _apply_presets(cfg)
 
