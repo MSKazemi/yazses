@@ -852,6 +852,19 @@ class TemporalConfig:
 
 
 @dataclass
+class SpreadsheetConfig:
+    """v2.4 Wave H — Spoken Spreadsheet / Table Mode (ADR-v2-059). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
+class CliphistoryConfig:
+    """v2.4 Wave H — Clipboard-History by Voice (ADR-v2-060). OFF by default."""
+    enabled: bool = False
+    capacity: int = 20
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -936,6 +949,8 @@ class Config:
     sign: SignConfig = field(default_factory=SignConfig)
     convert: ConvertConfig = field(default_factory=ConvertConfig)
     temporal: TemporalConfig = field(default_factory=TemporalConfig)
+    spreadsheet: SpreadsheetConfig = field(default_factory=SpreadsheetConfig)
+    cliphistory: CliphistoryConfig = field(default_factory=CliphistoryConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1032,6 +1047,8 @@ def load_config(path: Path | None = None) -> Config:
         sign=SignConfig(**data.get("sign", {})),
         convert=ConvertConfig(**data.get("convert", {})),
         temporal=TemporalConfig(**data.get("temporal", {})),
+        spreadsheet=SpreadsheetConfig(**data.get("spreadsheet", {})),
+        cliphistory=CliphistoryConfig(**data.get("cliphistory", {})),
     )
     return _apply_presets(cfg)
 
