@@ -509,6 +509,20 @@ class ContinuumConfig:
 
 
 @dataclass
+class BridgeConfig:
+    """v2.0.0 Wave C — Glasses↔Desktop Dictation Bridge (ADR-v2-013).
+
+    A companion device (phone-as-mic; glasses later) streams audio to the desktop,
+    which runs STT + injection. Reuses the remote/ transport; pairs over a shared
+    token. EXPERIMENTAL, off by default; nothing leaves the paired local link.
+    """
+    enabled: bool = False
+    listen_port: int = 9876
+    pair_token: str = ""              # shared secret the companion must present
+    device_name: str = ""            # last paired companion (informational)
+
+
+@dataclass
 class Config:
     stt: SttConfig = field(default_factory=SttConfig)
     hotkey: HotkeyConfig = field(default_factory=HotkeyConfig)
@@ -542,6 +556,7 @@ class Config:
     pilot: PilotConfig = field(default_factory=PilotConfig)
     modality: ModalityConfig = field(default_factory=ModalityConfig)
     continuum: ContinuumConfig = field(default_factory=ContinuumConfig)
+    bridge: BridgeConfig = field(default_factory=BridgeConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -600,6 +615,7 @@ def load_config(path: Path | None = None) -> Config:
         pilot=PilotConfig(**data.get("pilot", {})),
         modality=ModalityConfig(**data.get("modality", {})),
         continuum=ContinuumConfig(**data.get("continuum", {})),
+        bridge=BridgeConfig(**data.get("bridge", {})),
     )
     return _apply_presets(cfg)
 

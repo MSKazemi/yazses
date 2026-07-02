@@ -92,6 +92,7 @@ def _registry() -> list[_Def]:
     pi_on, pi_off = _bool("pilot")
     md_on, md_off = _bool("modality")
     cn_on, cn_off = _bool("continuum")
+    br_on, br_off = _bool("bridge")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -181,6 +182,10 @@ def _registry() -> list[_Def]:
              "Tries to focus on your voice and reject other speakers. Currently "
              "over-rejects your OWN voice — leave off until improved.",
              lambda c: c.cocktail.enabled, co_on, co_off),
+        _Def("bridge", "Glasses↔Desktop Bridge", "[bridge] — phone/glasses mic, experimental", EXPERIMENTAL,
+             "Dictate from a paired phone/glasses; the desktop does STT + typing. "
+             "Reuses the remote transport; local link only. Experimental. Off by default.",
+             lambda c: c.bridge.enabled, br_on, br_off),
         _Def("modality", "Modality Role Router", "[modality] — multi-input, experimental", EXPERIMENTAL,
              "Routes each input to its fastest role (gaze→point, EMG→command, "
              "voice→dictation). Needs EMG/gaze hardware; experimental. Off by default.",
