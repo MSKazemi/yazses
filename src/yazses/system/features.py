@@ -151,6 +151,8 @@ def _registry() -> list[_Def]:
     fr_on, fr_off = _bool("findreplace")
     hw_on, hw_off = _bool("hotwords")
     wc_on, wc_off = _bool("windowctl")
+    ci_on, ci_off = _bool("cite")
+    lrt_on, lrt_off = _bool("langroute")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -228,6 +230,14 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("cite", "Citation-by-Voice", "[cite] — cite from your local .bib", OPTIONAL,
+             "Say 'cite Vaswani 2017' and it inserts a formatted citation from your local BibTeX "
+             "library, fully offline. Off by default.",
+             lambda c: c.cite.enabled, ci_on, ci_off),
+        _Def("langroute", "Per-Language Auto Switching", "[langroute] — detect & swap model", OPTIONAL,
+             "Detects the language you speak and hot-swaps to its specialized model + punctuation, "
+             "no manual toggle. Needs the per-language model files. Off by default.",
+             lambda c: c.langroute.enabled, lrt_on, lrt_off),
         _Def("hotwords", "Hard Contextual Biasing", "[hotwords] — names/jargon actually win", RECOMMENDED,
              "Biases recognition toward your vocabulary with a hotword trie (not just a soft "
              "prompt), so rare names and jargon are transcribed right. Off by default.",
@@ -500,6 +510,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "cite": "Say 'cite Vaswani 2017' to insert a citation from your .bib.",
+    "langroute": "Switch languages mid-session and the right model loads automatically.",
     "hotwords": "Add 'Kubernetes' to vocab and it stops being mis-heard.",
     "windowctl": "Say 'move window left half' or 'workspace 3' to arrange your desktop.",
     "markup": "Say 'bullet list: apples; oranges; pears' to type a Markdown list.",

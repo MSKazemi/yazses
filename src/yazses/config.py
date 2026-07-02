@@ -930,6 +930,21 @@ class WindowctlConfig:
 
 
 @dataclass
+class CiteConfig:
+    """v2.5 Wave I — Citation-by-Voice (ADR-v2-071). OFF by default."""
+    enabled: bool = False
+    bib_path: str = ""
+    style: str = "latex"
+
+
+@dataclass
+class LangrouteConfig:
+    """v2.5 Wave I — Per-Language Auto Model Switching (ADR-v2-072). OFF by default."""
+    enabled: bool = False
+    min_confidence: float = 0.5
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1026,6 +1041,8 @@ class Config:
     findreplace: FindreplaceConfig = field(default_factory=FindreplaceConfig)
     hotwords: HotwordsConfig = field(default_factory=HotwordsConfig)
     windowctl: WindowctlConfig = field(default_factory=WindowctlConfig)
+    cite: CiteConfig = field(default_factory=CiteConfig)
+    langroute: LangrouteConfig = field(default_factory=LangrouteConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1134,6 +1151,8 @@ def load_config(path: Path | None = None) -> Config:
         findreplace=FindreplaceConfig(**data.get("findreplace", {})),
         hotwords=HotwordsConfig(**data.get("hotwords", {})),
         windowctl=WindowctlConfig(**data.get("windowctl", {})),
+        cite=CiteConfig(**data.get("cite", {})),
+        langroute=LangrouteConfig(**data.get("langroute", {})),
     )
     return _apply_presets(cfg)
 

@@ -145,10 +145,11 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Document Find-and-Replace** | `findreplace` | Edit the whole document by voice ("replace every utilise with use"). |
 | **Hard Contextual Biasing** | `hotwords` | Biases recognition toward your vocabulary with a hotword trie so rare names win. |
 | **Voice Window Management** | `windowctl` | Hands-free desktop layout ("move window left half", "workspace 3"). |
+| **Citation-by-Voice** | `cite` | "cite Vaswani 2017" → a formatted citation from your local .bib, offline. |
+| **Per-Language Auto Switching** | `langroute` | Detects the language you speak and hot-swaps to its model + ITN. |
 
 More Wave I features are designed (see `design/vision/v2-research/11-wave-i.md`): diarized
-conversation capture with rename-by-voice, an adaptive latency governor, per-language auto model
-switching, and citation-by-voice.
+conversation capture with rename-by-voice, and an adaptive latency governor.
 
 ## Privacy
 
