@@ -74,7 +74,7 @@ class PolyglotRouter:
         if self.mer_gate <= 0:
             return True
         in_pair = [lang for lang in langs if lang in self.pair]
-        if not in_pair:
+        if not in_pair:  # pragma: no cover — unreachable: is_code_switched guarantees ≥2 pair langs
             return False
         minority = min(in_pair.count(self.pair[0]), in_pair.count(self.pair[1]))
         return (minority / len(in_pair)) >= self.mer_gate

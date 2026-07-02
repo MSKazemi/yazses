@@ -64,3 +64,11 @@ def test_confirm_all_and_none_policies():
 
 def test_confirm_unknown_policy_defaults_to_safe_all():
     assert needs_confirm(_call("run_tests"), TOOLS, "bogus") is True
+
+
+def test_trigger_that_normalizes_to_empty_is_skipped():
+    # A punctuation-only trigger normalizes to "" and must be skipped, not matched.
+    tools = [ToolSpec("noop", ("!!!", "shutdown"), writes=True)]
+    assert plan_tool("please just talk normally", tools) is None
+    # the real trigger still works
+    assert plan_tool("shutdown now", tools).tool == "noop"

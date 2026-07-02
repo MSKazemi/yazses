@@ -85,3 +85,9 @@ def test_plan_none_when_no_match_or_not_command():
 
 def test_plan_ordinal_out_of_range_is_none():
     assert plan_action("click the fifth Cancel", ELEMENTS) is None
+
+
+def test_score_zero_when_label_has_no_content_tokens():
+    # An element whose label is all stopwords yields empty tokens → score 0.0 → filtered out.
+    only_stopwords = [Element("the", role="label")]
+    assert match_elements("cancel", only_stopwords, threshold=0.0) == [(only_stopwords[0], 0.0)]

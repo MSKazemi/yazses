@@ -60,3 +60,8 @@ def test_has_deixis_and_target():
     assert not has_deixis("rename the function")
     assert deictic_target(ContextSources(selection="  foo_bar  ")) == "foo_bar"
     assert deictic_target(ContextSources()) == ""
+
+
+def test_extract_terms_empty_text_returns_empty():
+    assert extract_terms("") == []
+    assert extract_terms("", max_terms=10) == []
