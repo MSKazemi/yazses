@@ -237,6 +237,11 @@ class GazeConfig:
     camera_index: int = 0
     calibration_points: int = 9
     confidence_min: float = 0.5
+    # v2.0.0 Wave C — Gaze-Routed Dictation (ADR-v2-010): route the next dictation
+    # to the looked-at window (else the focused window), and confirm destructive
+    # gaze-routed actions since coarse gaze can misroute. Off by default.
+    route_dictation: bool = False
+    confirm_destructive: bool = True
 
 
 @dataclass
