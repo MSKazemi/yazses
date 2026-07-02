@@ -1201,6 +1201,18 @@ class SuggestmodeConfig:
 
 
 @dataclass
+class ScreenplayConfig:
+    """v2.9 Wave M — Screenplay & Dialogue Auto-Format (ADR-v2-110). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
+class SrscapConfig:
+    """v2.9 Wave M — Spoken Spaced-Repetition Capture (ADR-v2-112). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1337,6 +1349,8 @@ class Config:
     acronyms: AcronymsConfig = field(default_factory=AcronymsConfig)
     styleguard: StyleguardConfig = field(default_factory=StyleguardConfig)
     suggestmode: SuggestmodeConfig = field(default_factory=SuggestmodeConfig)
+    screenplay: ScreenplayConfig = field(default_factory=ScreenplayConfig)
+    srscap: SrscapConfig = field(default_factory=SrscapConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1485,6 +1499,8 @@ def load_config(path: Path | None = None) -> Config:
         acronyms=AcronymsConfig(**data.get("acronyms", {})),
         styleguard=StyleguardConfig(**data.get("styleguard", {})),
         suggestmode=SuggestmodeConfig(**data.get("suggestmode", {})),
+        screenplay=ScreenplayConfig(**data.get("screenplay", {})),
+        srscap=SrscapConfig(**data.get("srscap", {})),
     )
     return _apply_presets(cfg)
 

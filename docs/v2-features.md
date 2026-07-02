@@ -220,9 +220,11 @@ The lowest-bandwidth input methods and new text-intelligence layers.
 | **Acronym & Glossary Manager** | `acronyms` | Expands acronyms on first use, contracts after, warns on undefined. |
 | **Style-Consistency Enforcer** | `styleguard` | Applies your house style sheet to each dictation (Vale-lite). |
 | **Suggestion-Mode Dictation** | `suggestmode` | Emits edits as CriticMarkup tracked changes for later review. |
+| **Screenplay Auto-Format** | `screenplay` | Formats dictated scenes/dialogue as Fountain screenplay markup. |
+| **Spaced-Repetition Capture** | `srscap` | "remember that X is Y" → a local Anki cloze card (SM-2). |
 
-More Wave M features are designed (see `design/vision/v2-research/15-wave-m.md`): diagrams-as-code,
-interruptible read-back proofreading, screenplay auto-format, and spoken spaced-repetition capture.
+More Wave M features are designed (see `design/vision/v2-research/15-wave-m.md`): diagrams-as-code and
+interruptible read-back proofreading.
 
 ## Privacy
 

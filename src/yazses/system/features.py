@@ -191,6 +191,8 @@ def _registry() -> list[_Def]:
     ac_on, ac_off = _bool("acronyms")
     stg_on, stg_off = _bool("styleguard")
     sug_on, sug_off = _bool("suggestmode")
+    scp_on, scp_off = _bool("screenplay")
+    srs_on, srs_off = _bool("srscap")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -268,6 +270,14 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("screenplay", "Screenplay Auto-Format", "[screenplay] — dialogue → Fountain", OPTIONAL,
+             "Formats dictated scenes and dialogue as Fountain screenplay markup (scene headings, "
+             "character cues, smart curly quotes). For screenwriters and playwrights. Off by default.",
+             lambda c: c.screenplay.enabled, scp_on, scp_off),
+        _Def("srscap", "Spaced-Repetition Capture", "[srscap] — voice → Anki cloze cards", OPTIONAL,
+             "Say 'remember that X is Y' mid-dictation and it makes a local Anki cloze study card, "
+             "scheduled by SM-2 — study material captured in the flow of work. Off by default.",
+             lambda c: c.srscap.enabled, srs_on, srs_off),
         _Def("styleguard", "Style-Consistency Enforcer", "[styleguard] — apply your house style", OPTIONAL,
              "Applies your style sheet to each dictation ('e-mail' not 'email', US spelling, 'cannot' "
              "not 'can not') so terminology stays consistent — a Vale-lite pass. Off by default.",
@@ -714,6 +724,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "screenplay": "Dictate a scene and it lands as proper INT./EXT. Fountain markup.",
+    "srscap": "Say 'remember that the capital of France is Paris' → a flashcard.",
     "styleguard": "Say 'email' and your style sheet rewrites it to 'e-mail' automatically.",
     "suggestmode": "Your edit lands as {~~old~>new~~} for the author to accept later.",
     "sembr": "Dictate a paragraph and each clause lands on its own source line.",
