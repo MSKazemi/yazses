@@ -729,6 +729,18 @@ class CoachConfig:
 
 
 @dataclass
+class SmartpasteConfig:
+    """v2.2 Wave F — Smart-Paste format adaptation (ADR-v2-036). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
+class ScrubConfig:
+    """v2.2 Wave F — Audio-Anchored Scrubbing (ADR-v2-037). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class Config:
     stt: SttConfig = field(default_factory=SttConfig)
     hotkey: HotkeyConfig = field(default_factory=HotkeyConfig)
@@ -781,6 +793,8 @@ class Config:
     wakeword: WakewordConfig = field(default_factory=WakewordConfig)
     voicehealth: VoicehealthConfig = field(default_factory=VoicehealthConfig)
     coach: CoachConfig = field(default_factory=CoachConfig)
+    smartpaste: SmartpasteConfig = field(default_factory=SmartpasteConfig)
+    scrub: ScrubConfig = field(default_factory=ScrubConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -858,6 +872,8 @@ def load_config(path: Path | None = None) -> Config:
         wakeword=WakewordConfig(**data.get("wakeword", {})),
         voicehealth=VoicehealthConfig(**data.get("voicehealth", {})),
         coach=CoachConfig(**data.get("coach", {})),
+        smartpaste=SmartpasteConfig(**data.get("smartpaste", {})),
+        scrub=ScrubConfig(**data.get("scrub", {})),
     )
     return _apply_presets(cfg)
 

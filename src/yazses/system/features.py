@@ -112,6 +112,8 @@ def _registry() -> list[_Def]:
     ww_on, ww_off = _bool("wakeword")
     vh_on, vh_off = _bool("voicehealth")
     ch_on, ch_off = _bool("coach")
+    sp_on, sp_off = _bool("smartpaste")
+    scr_on, scr_off = _bool("scrub")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -189,6 +191,14 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("smartpaste", "Smart-Paste", "[smartpaste] — adapt syntax to app", OPTIONAL,
+             "Adapts injected syntax to the target app (markdown bullets, code casing, URL "
+             "autolinking) using local window info. No model. Off by default.",
+             lambda c: c.smartpaste.enabled, sp_on, sp_off),
+        _Def("scrub", "Audio-Anchored Scrubbing", "[scrub] — replay/pinpoint a word", OPTIONAL,
+             "Keeps word-level timestamps so you can replay what you said or pick a word to "
+             "re-dictate just that word. Audio stays in RAM. Off by default.",
+             lambda c: c.scrub.enabled, scr_on, scr_off),
         _Def("coach", "Speaking Coach", "[coach] — private speech analytics", OPTIONAL,
              "Private on-device analytics of your dictation: filler rate, words-per-minute, "
              "vocabulary diversity, trend. From the encrypted corpus only. Off by default.",
