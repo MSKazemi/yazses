@@ -181,9 +181,11 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Session Bookmarks** | `bookmarks` | "bookmark here as intro" + "jump to my last bookmark" for long sessions. |
 | **Spoken Table Entry** | `tablecsv` | "row: Ada, 1815, London" → tab/comma cells, "next row" advances. |
 | **Word-Count & Goal Tracker** | `wordgoal` | Count dictated words, set a goal, ask "how many words so far?" |
+| **Local Voice Timer** | `voicetimer` | "set a timer for 25 minutes" — offline, spoken by read-back. |
+| **Focus-Class Auto-Profile** | `focusprofile` | Grammar profile follows the focused window's class (terminal→shell, editor→code). |
 
-More Wave K features are designed (see `design/vision/v2-research/13-wave-k.md`): focus-class
-auto-profile switching and a local voice timer.
+Wave K is complete — all ten features (see `design/vision/v2-research/13-wave-k.md`) are shipped,
+pure, 100%-covered, and off by default.
 
 ## Privacy
 

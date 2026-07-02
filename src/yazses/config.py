@@ -1073,6 +1073,18 @@ class WordgoalConfig:
 
 
 @dataclass
+class VoicetimerConfig:
+    """v2.7 Wave K — Local Voice Timer & Break Reminder (ADR-v2-093). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
+class FocusprofileConfig:
+    """v2.7 Wave K — Focus-Class Auto-Profile Switching (ADR-v2-094). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1191,6 +1203,8 @@ class Config:
     bookmarks: BookmarksConfig = field(default_factory=BookmarksConfig)
     tablecsv: TablecsvConfig = field(default_factory=TablecsvConfig)
     wordgoal: WordgoalConfig = field(default_factory=WordgoalConfig)
+    voicetimer: VoicetimerConfig = field(default_factory=VoicetimerConfig)
+    focusprofile: FocusprofileConfig = field(default_factory=FocusprofileConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1321,6 +1335,8 @@ def load_config(path: Path | None = None) -> Config:
         bookmarks=BookmarksConfig(**data.get("bookmarks", {})),
         tablecsv=TablecsvConfig(**data.get("tablecsv", {})),
         wordgoal=WordgoalConfig(**data.get("wordgoal", {})),
+        voicetimer=VoicetimerConfig(**data.get("voicetimer", {})),
+        focusprofile=FocusprofileConfig(**data.get("focusprofile", {})),
     )
     return _apply_presets(cfg)
 

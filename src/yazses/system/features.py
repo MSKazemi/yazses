@@ -173,6 +173,8 @@ def _registry() -> list[_Def]:
     bm_on, bm_off = _bool("bookmarks")
     tbl_on, tbl_off = _bool("tablecsv")
     wg_on, wg_off = _bool("wordgoal")
+    vt_on, vt_off = _bool("voicetimer")
+    fp_on, fp_off = _bool("focusprofile")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -250,6 +252,15 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("voicetimer", "Local Voice Timer", "[voicetimer] — offline timers & break reminders", OPTIONAL,
+             "Set a timer or break reminder by voice ('set a timer for 25 minutes'), announced by "
+             "read-back — fully offline, no phone or cloud assistant. Off by default.",
+             lambda c: c.voicetimer.enabled, vt_on, vt_off),
+        _Def("focusprofile", "Focus-Class Auto-Profile", "[focusprofile] — auto grammar per app class",
+             RECOMMENDED,
+             "Auto-selects the dictation profile from the focused window's class (terminal→shell, "
+             "editor→code, browser→prose) so you never switch profiles by hand. Off by default.",
+             lambda c: c.focusprofile.enabled, fp_on, fp_off),
         _Def("tablecsv", "Spoken Table Entry", "[tablecsv] — dictate rows of data", OPTIONAL,
              "Bulk data entry by voice: 'row: Ada, 1815, London' types tab/comma cells and 'next "
              "row' moves down. For spreadsheets and forms. Off by default.",
@@ -611,6 +622,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "voicetimer": "Say 'set a timer for 25 minutes' — it reminds you, fully offline.",
+    "focusprofile": "Move from your editor to a terminal and the grammar follows.",
     "tablecsv": "Say 'row: Ada, 1815, London' to fill a spreadsheet row.",
     "wordgoal": "Say 'how many words so far?' and it tells you your progress.",
     "timeline": "Say 'undo the last sentence' to take back what YazSes just typed.",
