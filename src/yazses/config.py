@@ -705,6 +705,24 @@ class MathConfig:
 
 
 @dataclass
+class WakewordConfig:
+    """v2.1 Wave E — Wake-Word Activation (ADR-v2-033). Always-listening → EXPERIMENTAL,
+    OFF by default; the spotter model is opt-in behind the ``wakeword`` extra."""
+    enabled: bool = False
+    keyword: str = "hey yaz"
+    threshold: float = 0.5
+    cooldown_ms: int = 2000
+
+
+@dataclass
+class VoicehealthConfig:
+    """v2.1 Wave E — Vocal-Strain Guard (ADR-v2-034). Advisory only. OFF by default."""
+    enabled: bool = False
+    threshold: float = 0.6           # mean strain over the window to advise a break
+    min_samples: int = 20
+
+
+@dataclass
 class Config:
     stt: SttConfig = field(default_factory=SttConfig)
     hotkey: HotkeyConfig = field(default_factory=HotkeyConfig)
@@ -754,6 +772,8 @@ class Config:
     mousegrid: MousegridConfig = field(default_factory=MousegridConfig)
     code: CodeConfig = field(default_factory=CodeConfig)
     math: MathConfig = field(default_factory=MathConfig)
+    wakeword: WakewordConfig = field(default_factory=WakewordConfig)
+    voicehealth: VoicehealthConfig = field(default_factory=VoicehealthConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -828,6 +848,8 @@ def load_config(path: Path | None = None) -> Config:
         mousegrid=MousegridConfig(**data.get("mousegrid", {})),
         code=CodeConfig(**data.get("code", {})),
         math=MathConfig(**data.get("math", {})),
+        wakeword=WakewordConfig(**data.get("wakeword", {})),
+        voicehealth=VoicehealthConfig(**data.get("voicehealth", {})),
     )
     return _apply_presets(cfg)
 

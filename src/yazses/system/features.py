@@ -109,6 +109,8 @@ def _registry() -> list[_Def]:
     mg_on, mg_off = _bool("mousegrid")
     co_on2, co_off2 = _bool("code")
     ma_on, ma_off = _bool("math")
+    ww_on, ww_off = _bool("wakeword")
+    vh_on, vh_off = _bool("voicehealth")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -182,6 +184,14 @@ def _registry() -> list[_Def]:
              "Whisper/Low-Effort Mode lowers the mic gate so quiet or effortful speech "
              "is still captured (no shouting). Semantic capture is opt-in. Off by default.",
              lambda c: c.continuum.enabled, cn_on, cn_off),
+        _Def("wakeword", "Wake-Word Activation", "[wakeword] — 'Hey Yaz', experimental", EXPERIMENTAL,
+             "Start dictation hands-free by saying a keyword. Always-listening (local only, "
+             "nothing stored until it fires). Needs the wakeword extra. Off by default.",
+             lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("voicehealth", "Vocal-Strain Guard", "[voicehealth] — break reminders", OPTIONAL,
+             "Advises a break when your voice shows rising strain (jitter/shimmer/HNR) over a "
+             "session. Advisory only, not diagnostic. Off by default.",
+             lambda c: c.voicehealth.enabled, vh_on, vh_off),
         _Def("code", "Spoken Code Mode", "[code] — dictate code syntax", OPTIONAL,
              "Dictate code: spoken symbols become punctuation and word-groups become cased "
              "identifiers (snake/camel/pascal). Activate via a command key. Off by default.",
