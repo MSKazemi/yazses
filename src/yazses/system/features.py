@@ -131,6 +131,8 @@ def _registry() -> list[_Def]:
     cvs_on, cvs_off = _bool("learning", "anonymize_audio")
     cp_on, cp_off = _bool("compose")
     gec_on, gec_off = _bool("gec")
+    sg_on, sg_off = _bool("screengrounded")
+    hp_on, hp_off = _bool("headpointer")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -208,6 +210,14 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("screengrounded", "Screen-Grounded Dictation", "[screengrounded] — bias from screen", OPTIONAL,
+             "Primes Whisper with names visible on screen so they transcribe right the first "
+             "time — works in any app. Accessibility/clipboard now; OCR via extra. Off by default.",
+             lambda c: c.screengrounded.enabled, sg_on, sg_off),
+        _Def("headpointer", "Head-Pointer", "[headpointer] — cursor by head pose", OPTIONAL,
+             "Move and click the mouse by tilting your head; pair with voice for a fully "
+             "hands-free desktop. Needs a webcam (headpointer extra). Off by default.",
+             lambda c: c.headpointer.enabled, hp_on, hp_off),
         _Def("compose", "Compose-in-Target-Language", "[compose] — speak L1, type L2", OPTIONAL,
              "Speak your strongest language and inject the text in a target language you write "
              "less fluently. Offline MT (translate extra). Off by default.",
@@ -400,6 +410,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "screengrounded": "A name shown on screen transcribes right the first time.",
+    "headpointer": "Tilt your head to move the cursor; dwell to click.",
     "compose": "Speak Farsi with [compose] target='en' and type English.",
     "gec": "Dictate 'a apple' and it's corrected to 'an apple'.",
     "corpus_scrub": "Stored learning clips are pitch-shifted to hide your voice identity.",

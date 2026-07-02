@@ -807,6 +807,19 @@ class GecConfig:
 
 
 @dataclass
+class ScreengroundedConfig:
+    """v2.3 Wave G — Screen-Grounded Dictation (ADR-v2-051). OFF by default."""
+    enabled: bool = False
+    max_terms: int = 32
+
+
+@dataclass
+class HeadpointerConfig:
+    """v2.3 Wave G — Head-Pointer hands-free cursor (ADR-v2-052). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -885,6 +898,8 @@ class Config:
     fieldaware: FieldawareConfig = field(default_factory=FieldawareConfig)
     compose: ComposeConfig = field(default_factory=ComposeConfig)
     gec: GecConfig = field(default_factory=GecConfig)
+    screengrounded: ScreengroundedConfig = field(default_factory=ScreengroundedConfig)
+    headpointer: HeadpointerConfig = field(default_factory=HeadpointerConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -975,6 +990,8 @@ def load_config(path: Path | None = None) -> Config:
         fieldaware=FieldawareConfig(**data.get("fieldaware", {})),
         compose=ComposeConfig(**data.get("compose", {})),
         gec=GecConfig(**data.get("gec", {})),
+        screengrounded=ScreengroundedConfig(**data.get("screengrounded", {})),
+        headpointer=HeadpointerConfig(**data.get("headpointer", {})),
     )
     return _apply_presets(cfg)
 
