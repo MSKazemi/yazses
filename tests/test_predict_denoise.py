@@ -73,3 +73,24 @@ def test_features_registered():
     from yazses.system.features import feature_status
     slugs = [f.slug for f in feature_status(Config())]
     assert "denoise" in slugs and "predict" in slugs
+
+
+def test_denoise_calls_backend_when_available(monkeypatch):
+    # Inject a stub deepfilter backend so the successful-import path runs.
+    import sys
+    import types
+
+    mod = types.ModuleType("yazses.denoise.deepfilter")
+    calls = {}
+
+    def _denoise(audio, sample_rate, strength=1.0):
+        calls["seen"] = (sample_rate, strength)
+        return audio * 2
+
+    mod.denoise = _denoise
+    monkeypatch.setitem(sys.modules, "yazses.denoise.deepfilter", mod)
+
+    audio = np.ones(4, dtype=np.float32)
+    out = apply_denoise(audio, _DnCfg(enabled=True, backend="deepfilternet", strength=0.7), sample_rate=8000)
+    assert np.array_equal(out, audio * 2)
+    assert calls["seen"] == (8000, 0.7)
