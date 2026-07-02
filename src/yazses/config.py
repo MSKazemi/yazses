@@ -1023,6 +1023,18 @@ class CrowdproofConfig:
 
 
 @dataclass
+class ChordsConfig:
+    """v2.7 Wave K — Chorded Shortcut Synthesis (ADR-v2-085). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
+class ComputeConfig:
+    """v2.7 Wave K — Inline Compute (ADR-v2-086). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1133,6 +1145,8 @@ class Config:
     shellpipe: ShellpipeConfig = field(default_factory=ShellpipeConfig)
     recimport: RecimportConfig = field(default_factory=RecimportConfig)
     crowdproof: CrowdproofConfig = field(default_factory=CrowdproofConfig)
+    chords: ChordsConfig = field(default_factory=ChordsConfig)
+    compute: ComputeConfig = field(default_factory=ComputeConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1255,6 +1269,8 @@ def load_config(path: Path | None = None) -> Config:
         shellpipe=ShellpipeConfig(**data.get("shellpipe", {})),
         recimport=RecimportConfig(**data.get("recimport", {})),
         crowdproof=CrowdproofConfig(**data.get("crowdproof", {})),
+        chords=ChordsConfig(**data.get("chords", {})),
+        compute=ComputeConfig(**data.get("compute", {})),
     )
     return _apply_presets(cfg)
 

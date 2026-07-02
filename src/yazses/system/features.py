@@ -165,6 +165,8 @@ def _registry() -> list[_Def]:
     shp_on, shp_off = _bool("shellpipe")
     ri_on, ri_off = _bool("recimport")
     cwp_on, cwp_off = _bool("crowdproof")
+    chd_on, chd_off = _bool("chords")
+    cmp_on, cmp_off = _bool("compute")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -242,6 +244,14 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut by voice", RECOMMENDED,
+             "Say any shortcut and it's pressed — 'press control shift P', 'escape twice', 'hit "
+             "F5' — no macro registration needed. Off by default.",
+             lambda c: c.chords.enabled, chd_on, chd_off),
+        _Def("compute", "Inline Compute", "[compute] — types the answer", RECOMMENDED,
+             "Say 'what's 15% of 240' and it types 36. On-device arithmetic and percentages, no "
+             "cloud calculator. Off by default.",
+             lambda c: c.compute.enabled, cmp_on, cmp_off),
         _Def("recimport", "Recording Import", "[recimport] — transcribe existing files", OPTIONAL,
              "Batch-transcribe voice memos/lectures/meetings offline to .txt/.srt/.vtt with "
              "timestamps — your audio archive becomes searchable. Off by default.",
@@ -571,6 +581,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "chords": "Say 'press control shift P' and the command palette opens.",
+    "compute": "Say \"what's 15% of 240\" and it types 36.",
     "recimport": "Drop in a lecture recording and get a searchable .srt transcript.",
     "crowdproof": "Dictate in a noisy café and the interfering voices are stripped out.",
     "jump": "Say 'go to line 240' or 'jump to function tokenize' to navigate.",

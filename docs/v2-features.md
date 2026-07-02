@@ -167,6 +167,20 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Recording Import** | `recimport` | Batch-transcribe existing recordings offline to .txt/.srt/.vtt with timestamps. |
 | **Crowd-Proof Dictation** (experimental) | `crowdproof` | Reconstructs your voice out of overlapping babble before STT (open-plan/café). |
 
+## Wave K — keyboard, compute & session tools (v2.7, in progress)
+
+All OFF by default. Pure logic ships now; heavy models load only when you enable the feature.
+
+| Feature | `features` name | What it does |
+|---|---|---|
+| **Chorded Shortcut Synthesis** | `chords` | Say any keyboard shortcut ("press control shift P", "hit F5") — no macro needed. |
+| **Inline Compute** | `compute` | "what's 15% of 240" → types 36, on-device (never `eval`). |
+
+More Wave K features are designed (see `design/vision/v2-research/13-wave-k.md`): focus-class
+auto-profile switching, a voice undo/redo timeline, voice case/identifier transforms, auto-pairing
+& wrap-selection, spoken table→CSV entry, session bookmarks, a word-count/goal tracker, and a local
+voice timer.
+
 ## Privacy
 
 Every v2 feature honours the same guarantees as the rest of YazSes: on-device
