@@ -1189,6 +1189,18 @@ class AcronymsConfig:
 
 
 @dataclass
+class StyleguardConfig:
+    """v2.9 Wave M — Local Style-Consistency Enforcer (ADR-v2-109). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
+class SuggestmodeConfig:
+    """v2.9 Wave M — Suggestion-Mode Dictation (ADR-v2-113). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1323,6 +1335,8 @@ class Config:
     checkdigit: CheckdigitConfig = field(default_factory=CheckdigitConfig)
     sembr: SembrConfig = field(default_factory=SembrConfig)
     acronyms: AcronymsConfig = field(default_factory=AcronymsConfig)
+    styleguard: StyleguardConfig = field(default_factory=StyleguardConfig)
+    suggestmode: SuggestmodeConfig = field(default_factory=SuggestmodeConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1469,6 +1483,8 @@ def load_config(path: Path | None = None) -> Config:
         checkdigit=CheckdigitConfig(**data.get("checkdigit", {})),
         sembr=SembrConfig(**data.get("sembr", {})),
         acronyms=AcronymsConfig(**data.get("acronyms", {})),
+        styleguard=StyleguardConfig(**data.get("styleguard", {})),
+        suggestmode=SuggestmodeConfig(**data.get("suggestmode", {})),
     )
     return _apply_presets(cfg)
 

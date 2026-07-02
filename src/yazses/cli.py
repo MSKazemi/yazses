@@ -37,6 +37,8 @@ _APP_EPILOG = (
         "yazses doctor                check mic, keyboard, and injection prerequisites",
         "yazses mic-level --set       calibrate the mic threshold to your voice",
         "yazses test                  type a test phrase to confirm injection works",
+        "yazses features              browse every capability + what's on/off",
+        "yazses features info <name>  what a capability does + a usage example",
     )
     + "\n\n[bold]Tab completion[/bold]\n\n"
     + "yazses --install-completion  enable <Tab> completion for your shell\n\n"

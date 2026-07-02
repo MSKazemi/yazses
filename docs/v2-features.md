@@ -218,10 +218,11 @@ The lowest-bandwidth input methods and new text-intelligence layers.
 | **Checksum-Validated Entry** | `checkdigit` | Verifies dictated account/ID numbers (Luhn/ISBN/Verhoeff) and suggests fixes. |
 | **Semantic Line Breaks** | `sembr` | Breaks prose one clause per source line so git diffs stay clean. |
 | **Acronym & Glossary Manager** | `acronyms` | Expands acronyms on first use, contracts after, warns on undefined. |
+| **Style-Consistency Enforcer** | `styleguard` | Applies your house style sheet to each dictation (Vale-lite). |
+| **Suggestion-Mode Dictation** | `suggestmode` | Emits edits as CriticMarkup tracked changes for later review. |
 
 More Wave M features are designed (see `design/vision/v2-research/15-wave-m.md`): diagrams-as-code,
-interruptible read-back proofreading, a style-consistency enforcer, screenplay auto-format, spoken
-spaced-repetition capture, and suggestion-mode dictation.
+interruptible read-back proofreading, screenplay auto-format, and spoken spaced-repetition capture.
 
 ## Privacy
 

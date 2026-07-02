@@ -189,6 +189,8 @@ def _registry() -> list[_Def]:
     ckd_on, ckd_off = _bool("checkdigit")
     sb_on, sb_off = _bool("sembr")
     ac_on, ac_off = _bool("acronyms")
+    stg_on, stg_off = _bool("styleguard")
+    sug_on, sug_off = _bool("suggestmode")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -266,6 +268,15 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("styleguard", "Style-Consistency Enforcer", "[styleguard] — apply your house style", OPTIONAL,
+             "Applies your style sheet to each dictation ('e-mail' not 'email', US spelling, 'cannot' "
+             "not 'can not') so terminology stays consistent — a Vale-lite pass. Off by default.",
+             lambda c: c.styleguard.enabled, stg_on, stg_off),
+        _Def("suggestmode", "Suggestion-Mode Dictation", "[suggestmode] — edits as tracked changes",
+             OPTIONAL,
+             "Emits dictated edits as CriticMarkup tracked changes ({++add++}, {--cut--}, {~~old~>"
+             "new~~}) for an editor to review later, instead of applying them. Off by default.",
+             lambda c: c.suggestmode.enabled, sug_on, sug_off),
         _Def("sembr", "Semantic Line Breaks", "[sembr] — one clause per source line", OPTIONAL,
              "Breaks dictated prose one clause per line so git diffs and merges stay clean — the "
              "rendered output is unchanged. For anyone versioning prose in git. Off by default.",
@@ -703,6 +714,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "styleguard": "Say 'email' and your style sheet rewrites it to 'e-mail' automatically.",
+    "suggestmode": "Your edit lands as {~~old~>new~~} for the author to accept later.",
     "sembr": "Dictate a paragraph and each clause lands on its own source line.",
     "acronyms": "Say 'WHO' the first time and it writes out the full name for you.",
     "morsevox": "One short hum, one long — spell a whole word by voice-Morse.",
