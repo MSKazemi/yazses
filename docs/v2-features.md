@@ -208,6 +208,19 @@ phonate but not articulate discrete words, and for word-free eyes-free control.
 Wave L is complete — all ten features (see `design/vision/v2-research/14-wave-l.md`) are shipped,
 pure, 100%-covered, and off by default.
 
+## Minimal-bandwidth AAC & text-intelligence (Wave M)
+
+The lowest-bandwidth input methods and new text-intelligence layers.
+
+| Feature | `features` name | What it does |
+|---|---|---|
+| **Vocal Morse** | `morsevox` | Type by Morse using two vocal sounds (short/long); adaptive timing. Experimental. |
+| **Checksum-Validated Entry** | `checkdigit` | Verifies dictated account/ID numbers (Luhn/ISBN/Verhoeff) and suggests fixes. |
+
+More Wave M features are designed (see `design/vision/v2-research/15-wave-m.md`): diagrams-as-code,
+interruptible read-back proofreading, a style-consistency enforcer, screenplay auto-format, semantic
+line breaks, spoken spaced-repetition capture, suggestion-mode dictation, and an acronym manager.
+
 ## Privacy
 
 Every v2 feature honours the same guarantees as the rest of YazSes: on-device

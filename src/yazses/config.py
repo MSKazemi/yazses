@@ -1161,6 +1161,21 @@ class InvoluntaryConfig:
 
 
 @dataclass
+class MorsevoxConfig:
+    """v2.9 Wave M — Vocal Morse two-tone AAC (ADR-v2-105). OFF by default."""
+    enabled: bool = False
+    dot_max_ms: float = 200.0
+    letter_gap_ms: float = 600.0
+    word_gap_ms: float = 1400.0
+
+
+@dataclass
+class CheckdigitConfig:
+    """v2.9 Wave M — Checksum-Validated Data Entry (ADR-v2-106). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1291,6 +1306,8 @@ class Config:
     whispermode: WhispermodeConfig = field(default_factory=WhispermodeConfig)
     mouthswitch: MouthswitchConfig = field(default_factory=MouthswitchConfig)
     involuntary: InvoluntaryConfig = field(default_factory=InvoluntaryConfig)
+    morsevox: MorsevoxConfig = field(default_factory=MorsevoxConfig)
+    checkdigit: CheckdigitConfig = field(default_factory=CheckdigitConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1433,6 +1450,8 @@ def load_config(path: Path | None = None) -> Config:
         whispermode=WhispermodeConfig(**data.get("whispermode", {})),
         mouthswitch=MouthswitchConfig(**data.get("mouthswitch", {})),
         involuntary=InvoluntaryConfig(**data.get("involuntary", {})),
+        morsevox=MorsevoxConfig(**data.get("morsevox", {})),
+        checkdigit=CheckdigitConfig(**data.get("checkdigit", {})),
     )
     return _apply_presets(cfg)
 
