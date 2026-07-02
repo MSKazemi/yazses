@@ -168,6 +168,10 @@ class CommandsConfig:
     # last-injected span ("change X to Y", "delete the last sentence"). Command-key
     # gated to avoid dictate-vs-command ambiguity. OFF by default.
     spoken_edit: bool = False
+    # Allow destructive spoken edits (delete last sentence/words). OFF by default;
+    # when on, a destructive edit still updates the ledger so "scratch that" undoes
+    # it. Requires spoken_edit. (ADR-v2-003)
+    spoken_edit_destructive: bool = False
 
 
 @dataclass

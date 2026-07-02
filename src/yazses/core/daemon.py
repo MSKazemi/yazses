@@ -1078,9 +1078,11 @@ class Daemon:
         Returns True if the phrase was an edit command (so the caller returns
         without typing it literally). Reuses the Punch-In delete-and-retype
         mechanism + ledger. Non-destructive ops (replace, recase) apply
-        immediately; destructive ops (delete) are recognised but SKIPPED in P1
-        because the spoken/overlay confirm loop is not wired yet — they are never
-        typed literally. Guarded so it can never break dictation.
+        immediately; destructive ops (delete) apply only when
+        ``[commands] spoken_edit_destructive`` is on (and then remain undoable via
+        "scratch that", since the ledger is updated) — otherwise they are
+        recognised but skipped, never typed literally. Guarded so it can never
+        break dictation.
         """
         try:
             from yazses.commands.edit_ops import DESTRUCTIVE, apply_edit, parse_edit
@@ -1088,10 +1090,11 @@ class Daemon:
             if parsed is None:
                 return False
             op = parsed[0]
-            if op in DESTRUCTIVE:
+            if op in DESTRUCTIVE and not self._config.commands.spoken_edit_destructive:
                 event["intent_type"] = "spoken_edit_skipped"
-                log.info("Spoken Edit: destructive op '%s' needs confirm; "
-                         "skipped (P1, not typed).", op)
+                log.info("Spoken Edit: destructive op '%s' skipped; enable "
+                         "[commands] spoken_edit_destructive to allow it "
+                         "(undo with 'scratch that').", op)
                 return True
             last = self._ledger.last_text()
             if not last:
