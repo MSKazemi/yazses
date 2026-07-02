@@ -771,6 +771,19 @@ class PronunciationConfig:
 
 
 @dataclass
+class GestureConfig:
+    """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
+class InterpretConfig:
+    """v2.2 Wave F — Two-Way Live Interpreter (ADR-v2-044). OFF by default."""
+    enabled: bool = False
+    pair: str = "en-es"              # language pair to interpret between
+
+
+@dataclass
 class Config:
     stt: SttConfig = field(default_factory=SttConfig)
     hotkey: HotkeyConfig = field(default_factory=HotkeyConfig)
@@ -829,6 +842,8 @@ class Config:
     acoustic_profiles: AcousticProfilesConfig = field(default_factory=AcousticProfilesConfig)
     sentiment: SentimentConfig = field(default_factory=SentimentConfig)
     pronunciation: PronunciationConfig = field(default_factory=PronunciationConfig)
+    gesture: GestureConfig = field(default_factory=GestureConfig)
+    interpret: InterpretConfig = field(default_factory=InterpretConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -912,6 +927,8 @@ def load_config(path: Path | None = None) -> Config:
         acoustic_profiles=AcousticProfilesConfig(**data.get("acoustic_profiles", {})),
         sentiment=SentimentConfig(**data.get("sentiment", {})),
         pronunciation=PronunciationConfig(**data.get("pronunciation", {})),
+        gesture=GestureConfig(**data.get("gesture", {})),
+        interpret=InterpretConfig(**data.get("interpret", {})),
     )
     return _apply_presets(cfg)
 

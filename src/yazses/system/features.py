@@ -33,6 +33,9 @@ class Feature:
     slug: str = ""
     tier: str = OPTIONAL
     why: str = ""
+    # A concrete "how to use it" example (spoken trigger or command) shown by
+    # `yazses features info <slug>`.
+    example: str = ""
     # config writes to flip it; empty = not toggleable from the CLI (core).
     on_writes: tuple = ()
     off_writes: tuple = ()
@@ -56,6 +59,7 @@ class _Def:
     status: Callable
     on_writes: tuple = ()
     off_writes: tuple = ()
+    example: str = ""
 
 
 def _bool(section: str, key: str = "enabled") -> tuple:
@@ -96,7 +100,7 @@ def _registry() -> list[_Def]:
     tr_on, tr_off = _bool("translate")
     af_on, af_off = _bool("affect")
     dn_on, dn_off = _bool("denoise")
-    pr_on, pr_off = _bool("predict")
+    pd_on, pd_off = _bool("predict")
     vg_on, vg_off = _bool("voiceguard")
     sc_on, sc_off = _bool("scribe")
     rg_on, rg_off = _bool("rag")
@@ -116,9 +120,11 @@ def _registry() -> list[_Def]:
     scr_on, scr_off = _bool("scrub")
     rf_on, rf_off = _bool("reflow")
     ap_on, ap_off = _bool("acoustic_profiles")
-    se_on, se_off = _bool("sentiment")
-    pr_on, pr_off = _bool("pronunciation")
+    st_on, st_off = _bool("sentiment")
+    pn_on, pn_off = _bool("pronunciation")
     rbc_on, rbc_off = _bool("tts", "clone_voice")
+    ge_on, ge_off = _bool("gesture")
+    ip_on, ip_off = _bool("interpret")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -196,10 +202,18 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("gesture", "Gesture Chords", "[gesture] — multi-input chords", OPTIONAL,
+             "Bind chords (held key + nod / second key / sEMG squeeze) to actions like send or "
+             "switch profile. Sensors need their own extras. Off by default.",
+             lambda c: c.gesture.enabled, ge_on, ge_off),
+        _Def("interpret", "Two-Way Interpreter", "[interpret] — face-to-face translate", OPTIONAL,
+             "Face-to-face mode: two speakers alternate and each turn is translated into the "
+             "other language. Reuses the offline translate + TTS path. Off by default.",
+             lambda c: c.interpret.enabled, ip_on, ip_off),
         _Def("pronunciation", "Pronunciation Feedback", "[pronunciation] — L2 practice", OPTIONAL,
              "Practice mode: dictate a target phrase and get per-phoneme good/fair/poor "
              "feedback for accent training. Needs the pronunciation extra. Off by default.",
-             lambda c: c.pronunciation.enabled, pr_on, pr_off),
+             lambda c: c.pronunciation.enabled, pn_on, pn_off),
         _Def("readback_clone", "Personal Read-Back Voice", "[tts] clone_voice — your own voice", OPTIONAL,
              "Read the transcript back in a clone of your own voice from a short enrollment. "
              "Permissive OpenVoice V2 default; embedding stays in the encrypted corpus. Off by default.",
@@ -211,7 +225,7 @@ def _registry() -> list[_Def]:
         _Def("sentiment", "Mood Ledger", "[sentiment] — private mood journal", OPTIONAL,
              "Tags each dictation with an emotion and builds a private mood-over-time view. "
              "Labels stay in the encrypted corpus. Needs the sentiment extra. Off by default.",
-             lambda c: c.sentiment.enabled, se_on, se_off),
+             lambda c: c.sentiment.enabled, st_on, st_off),
         _Def("reflow", "Dictation Reflow", "[reflow] — 'structure this' → outline", OPTIONAL,
              "Say 'structure this' to rewrite your last ramble into bullets and action items. "
              "Pure heuristic; a local SLM refines it via the reflow extra. Off by default.",
@@ -284,7 +298,7 @@ def _registry() -> list[_Def]:
         _Def("predict", "Predictive Completion", "[predict] — voice autosuggest", OPTIONAL,
              "A tiny local model suggests the rest of your sentence; accept by voice. "
              "Needs the predict extra + a model. Off by default.",
-             lambda c: c.predict.enabled, pr_on, pr_off),
+             lambda c: c.predict.enabled, pd_on, pd_off),
         _Def("affect", "Tone-Aware Formatting", "[affect] — tone → !/?", OPTIONAL,
              "Adds ! or ? based on your vocal tone (excited/question), beyond pause "
              "punctuation. Needs the affect extra for detection; conservative by default. Off.",
