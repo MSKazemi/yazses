@@ -1085,6 +1085,20 @@ class FocusprofileConfig:
 
 
 @dataclass
+class VocaljoystickConfig:
+    """v2.8 Wave L — Vocal Joystick continuous analog control (ADR-v2-095). OFF by default."""
+    enabled: bool = False
+    max_speed: float = 20.0
+    click_pitch: float = 250.0
+
+
+@dataclass
+class EarconConfig:
+    """v2.8 Wave L — Earcon Feedback Language (ADR-v2-096). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1205,6 +1219,8 @@ class Config:
     wordgoal: WordgoalConfig = field(default_factory=WordgoalConfig)
     voicetimer: VoicetimerConfig = field(default_factory=VoicetimerConfig)
     focusprofile: FocusprofileConfig = field(default_factory=FocusprofileConfig)
+    vocaljoystick: VocaljoystickConfig = field(default_factory=VocaljoystickConfig)
+    earcon: EarconConfig = field(default_factory=EarconConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1337,6 +1353,8 @@ def load_config(path: Path | None = None) -> Config:
         wordgoal=WordgoalConfig(**data.get("wordgoal", {})),
         voicetimer=VoicetimerConfig(**data.get("voicetimer", {})),
         focusprofile=FocusprofileConfig(**data.get("focusprofile", {})),
+        vocaljoystick=VocaljoystickConfig(**data.get("vocaljoystick", {})),
+        earcon=EarconConfig(**data.get("earcon", {})),
     )
     return _apply_presets(cfg)
 

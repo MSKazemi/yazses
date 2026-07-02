@@ -187,6 +187,21 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 Wave K is complete — all ten features (see `design/vision/v2-research/13-wave-k.md`) are shipped,
 pure, 100%-covered, and off by default.
 
+## Non-speech & prosodic interaction (Wave L)
+
+A new area: non-speech vocal signals and acoustic prosody as interaction channels — for users who can
+phonate but not articulate discrete words, and for word-free eyes-free control.
+
+| Feature | `features` name | What it does |
+|---|---|---|
+| **Vocal Joystick** | `vocaljoystick` | Continuous analog cursor control by sustaining vowels ("eee"→up, louder=faster, pitch-jump=click). Experimental. |
+| **Earcon Feedback** | `earcon` | Non-speech state tones (rising motif = recording, buzz = low confidence) — eyes-free, faster than read-back. |
+
+More Wave L features are designed (see `design/vision/v2-research/14-wave-l.md`): mouth-sound switch
+access, beam-steered spatial VAD, breath-paced dictation, whisper-aware mode, hesitation-hold
+endpointing, involuntary-vocalization excision, pitch-contour gestures, and prosodic
+auto-punctuation.
+
 ## Privacy
 
 Every v2 feature honours the same guarantees as the rest of YazSes: on-device

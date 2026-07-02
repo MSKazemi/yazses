@@ -175,6 +175,8 @@ def _registry() -> list[_Def]:
     wg_on, wg_off = _bool("wordgoal")
     vt_on, vt_off = _bool("voicetimer")
     fp_on, fp_off = _bool("focusprofile")
+    vj_on, vj_off = _bool("vocaljoystick")
+    ec_on, ec_off = _bool("earcon")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -252,6 +254,15 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("vocaljoystick", "Vocal Joystick", "[vocaljoystick] — analog cursor control by voice",
+             EXPERIMENTAL,
+             "Continuous cursor/scroll control by sustaining vowels — 'ahh' right, 'eee' up, louder "
+             "= faster, pitch-jump = click. No words. For severe motor impairment. Off by default.",
+             lambda c: c.vocaljoystick.enabled, vj_on, vj_off),
+        _Def("earcon", "Earcon Feedback", "[earcon] — non-speech state tones", OPTIONAL,
+             "Tiny structured tones signal daemon state eyes-free (rising motif = recording, buzz = "
+             "low confidence, chime = command done) — faster than spoken read-back. Off by default.",
+             lambda c: c.earcon.enabled, ec_on, ec_off),
         _Def("voicetimer", "Local Voice Timer", "[voicetimer] — offline timers & break reminders", OPTIONAL,
              "Set a timer or break reminder by voice ('set a timer for 25 minutes'), announced by "
              "read-back — fully offline, no phone or cloud assistant. Off by default.",
@@ -622,6 +633,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "vocaljoystick": "Hum 'eee' and the cursor glides up — louder moves it faster.",
+    "earcon": "A rising two-note beep tells you recording started, no glance needed.",
     "voicetimer": "Say 'set a timer for 25 minutes' — it reminds you, fully offline.",
     "focusprofile": "Move from your editor to a terminal and the grammar follows.",
     "tablecsv": "Say 'row: Ada, 1815, London' to fill a spreadsheet row.",
