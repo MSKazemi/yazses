@@ -126,6 +126,8 @@ def _registry() -> list[_Def]:
     ge_on, ge_off = _bool("gesture")
     ip_on, ip_off = _bool("interpret")
     itn_on, itn_off = _bool("itn")
+    rd_on, rd_off = _bool("redaction")
+    fa_on, fa_off = _bool("fieldaware")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -203,6 +205,14 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("redaction", "Redaction Ink", "[redaction] — mask secrets before typing", OPTIONAL,
+             "Detects spoken secrets (card numbers, SSNs, keys, emails) and masks them before "
+             "they're typed into another window. Regex + Luhn, local-only. Off by default.",
+             lambda c: c.redaction.enabled, rd_on, rd_off),
+        _Def("fieldaware", "Field-Aware Dictation", "[fieldaware] — shape output by field", OPTIONAL,
+             "Reshapes output to the focused control: number field → digits, search box → no "
+             "trailing period, password field → refuses to type. Off by default.",
+             lambda c: c.fieldaware.enabled, fa_on, fa_off),
         _Def("itn", "Entity ITN", "[itn] — spoken emails/versions → written", OPTIONAL,
              "Turns spoken structured entities into written form with no command words: "
              "'john dot doe at gmail dot com' → the email, 'version two point one' → v2.1. "
@@ -375,6 +385,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "redaction": "Speak a card number and it's typed as [CARD], not the digits.",
+    "fieldaware": "Focus a number field and 'forty two' is typed as 42.",
     "gesture": "Hold the hotkey and nod to send (bind chords in [gesture]).",
     "interpret": "Set [interpret] pair='en-es'; each speaker's turn is translated.",
     "pronunciation": "Practice mode: dictate a phrase, see per-phoneme good/fair/poor.",

@@ -777,6 +777,19 @@ class ItnConfig:
 
 
 @dataclass
+class RedactionConfig:
+    """v2.3 Wave G — Redaction Ink: mask secrets at injection time (ADR-v2-046). OFF by default."""
+    enabled: bool = False
+    mode: str = "mask"               # mask | hold
+
+
+@dataclass
+class FieldawareConfig:
+    """v2.3 Wave G — Field-Aware Dictation (ADR-v2-047). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -851,6 +864,8 @@ class Config:
     gesture: GestureConfig = field(default_factory=GestureConfig)
     interpret: InterpretConfig = field(default_factory=InterpretConfig)
     itn: ItnConfig = field(default_factory=ItnConfig)
+    redaction: RedactionConfig = field(default_factory=RedactionConfig)
+    fieldaware: FieldawareConfig = field(default_factory=FieldawareConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -937,6 +952,8 @@ def load_config(path: Path | None = None) -> Config:
         gesture=GestureConfig(**data.get("gesture", {})),
         interpret=InterpretConfig(**data.get("interpret", {})),
         itn=ItnConfig(**data.get("itn", {})),
+        redaction=RedactionConfig(**data.get("redaction", {})),
+        fieldaware=FieldawareConfig(**data.get("fieldaware", {})),
     )
     return _apply_presets(cfg)
 

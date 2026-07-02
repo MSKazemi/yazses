@@ -770,6 +770,13 @@ class Daemon:
 
                     text = normalize_entities(text)
                     event["final_text"] = text
+                # Redaction Ink: mask spoken secrets (card/SSN/key/email/...) before they
+                # are typed into another window. Opt-in (ADR-v2-046).
+                if self._config.redaction.enabled:
+                    from yazses.redaction.scrub import redact
+
+                    text = redact(text, mode=self._config.redaction.mode).text
+                    event["final_text"] = text
                 # Prosody Ink: map vocal prosody (inter-word pause, emphasis) onto
                 # text formatting. Batch + dictation only; word timings drive the
                 # spacing/emphasis, content stays the cleaned text. Off by default.
