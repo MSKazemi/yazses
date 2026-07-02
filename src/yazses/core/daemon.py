@@ -777,6 +777,18 @@ class Daemon:
 
                     text = redact(text, mode=self._config.redaction.mode).text
                     event["final_text"] = text
+                # Emoji & Symbol by Voice: "right arrow" -> "→". Opt-in (ADR-v2-055).
+                if self._config.commands.symbols:
+                    from yazses.symbols.lookup import apply_symbols
+
+                    text = apply_symbols(text)
+                    event["final_text"] = text
+                # Voice Unit Conversion: "20 miles in km" -> "32.19 km". Opt-in (ADR-v2-056).
+                if self._config.convert.enabled:
+                    from yazses.convert.units import apply_conversions
+
+                    text = apply_conversions(text)
+                    event["final_text"] = text
                 # Prosody Ink: map vocal prosody (inter-word pause, emphasis) onto
                 # text formatting. Batch + dictation only; word timings drive the
                 # spacing/emphasis, content stays the cleaned text. Off by default.

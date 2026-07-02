@@ -13,6 +13,7 @@ from yazses.system.features import _registry
 _ALIASES = {
     "voice-punctuation": "commands",
     "spoken-edit": "commands",
+    "symbols": "commands",
     "undo": "revise",
     "ghost-ahead": "endpoint",
     "read-back": "tts",            # + accessibility

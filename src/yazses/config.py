@@ -167,6 +167,9 @@ class CommandsConfig:
     # v1.4.0 — spoken punctuation/formatting in dictation ("comma", "new line").
     # Off by default: these words also occur in ordinary speech.
     voice_punctuation: bool = False
+    # v2.4 Wave H — Emoji & Symbol by Voice (ADR-v2-055): "shrug emoji"→🤷, "right arrow"→→.
+    # Off by default: the names also occur in ordinary speech.
+    symbols: bool = False
     # v2.0.0 Wave A — Spoken Edit Mode (ADR-v2-003): open-ended voice editing of the
     # last-injected span ("change X to Y", "delete the last sentence"). Command-key
     # gated to avoid dictate-vs-command ambiguity. OFF by default.
@@ -834,6 +837,12 @@ class SignConfig:
 
 
 @dataclass
+class ConvertConfig:
+    """v2.4 Wave H — Voice Unit Conversion (ADR-v2-056). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -916,6 +925,7 @@ class Config:
     headpointer: HeadpointerConfig = field(default_factory=HeadpointerConfig)
     lipread: LipreadConfig = field(default_factory=LipreadConfig)
     sign: SignConfig = field(default_factory=SignConfig)
+    convert: ConvertConfig = field(default_factory=ConvertConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1010,6 +1020,7 @@ def load_config(path: Path | None = None) -> Config:
         headpointer=HeadpointerConfig(**data.get("headpointer", {})),
         lipread=LipreadConfig(**data.get("lipread", {})),
         sign=SignConfig(**data.get("sign", {})),
+        convert=ConvertConfig(**data.get("convert", {})),
     )
     return _apply_presets(cfg)
 

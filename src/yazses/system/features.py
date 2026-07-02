@@ -135,6 +135,8 @@ def _registry() -> list[_Def]:
     hp_on, hp_off = _bool("headpointer")
     lr_on, lr_off = _bool("lipread")
     sn2_on, sn2_off = _bool("sign")
+    sym_on, sym_off = _bool("commands", "symbols")
+    cv_on, cv_off = _bool("convert")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -212,6 +214,14 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("symbols", "Emoji & Symbol by Voice", "[commands] symbols", OPTIONAL,
+             "Speak emoji, symbols and arrows: 'shrug emoji' → 🤷, 'right arrow' → →, "
+             "'degree sign' → °. Off by default — the names occur in ordinary speech.",
+             lambda c: c.commands.symbols, sym_on, sym_off),
+        _Def("convert", "Voice Unit Conversion", "[convert] — inline conversions", OPTIONAL,
+             "Evaluate spoken conversions inline: 'twenty miles in kilometers' → '32.19 "
+             "kilometers'. Offline, no cloud. Off by default.",
+             lambda c: c.convert.enabled, cv_on, cv_off),
         _Def("lipread", "Silent Lip-Reading", "[lipread] — dictate with no voice", OPTIONAL,
              "Dictate silently — a webcam reads your lips when you can't or shouldn't speak. "
              "Needs a webcam (vsr extra). Off by default.",
@@ -420,6 +430,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "symbols": "Say 'right arrow' → → or 'shrug emoji' → 🤷.",
+    "convert": "Say 'twenty miles in kilometers' → '32.19 kilometers'.",
     "lipread": "Mouth the words silently and a webcam reads your lips into text.",
     "sign": "Sign to the webcam and your ASL is recognized and typed.",
     "screengrounded": "A name shown on screen transcribes right the first time.",
