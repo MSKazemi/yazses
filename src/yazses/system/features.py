@@ -193,6 +193,8 @@ def _registry() -> list[_Def]:
     sug_on, sug_off = _bool("suggestmode")
     scp_on, scp_off = _bool("screenplay")
     srs_on, srs_off = _bool("srscap")
+    dv_on, dv_off = _bool("diagramvox")
+    pb_on, pb_off = _bool("proofback")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -270,6 +272,15 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("diagramvox", "Diagrams-as-Code by Voice", "[diagramvox] — dictate a flowchart", OPTIONAL,
+             "Dictate a flowchart ('start goes to login; login goes to dashboard if success') and get "
+             "Mermaid/Graphviz source — draw diagrams without a mouse or canvas. Off by default.",
+             lambda c: c.diagramvox.enabled, dv_on, dv_off),
+        _Def("proofback", "Interruptible Proofreading", "[proofback] — barge-in read-back editing",
+             OPTIONAL,
+             "Interrupt the spoken read-back ('stop — change that') and the cursor lands on the exact "
+             "word being read — eyes-free proofreading. Off by default.",
+             lambda c: c.proofback.enabled, pb_on, pb_off),
         _Def("screenplay", "Screenplay Auto-Format", "[screenplay] — dialogue → Fountain", OPTIONAL,
              "Formats dictated scenes and dialogue as Fountain screenplay markup (scene headings, "
              "character cues, smart curly quotes). For screenwriters and playwrights. Off by default.",
@@ -724,6 +735,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "diagramvox": "Say 'A goes to B; B goes to C' and get a Mermaid flowchart.",
+    "proofback": "Interrupt the read-back and the cursor lands on the word being read.",
     "screenplay": "Dictate a scene and it lands as proper INT./EXT. Fountain markup.",
     "srscap": "Say 'remember that the capital of France is Paris' → a flashcard.",
     "styleguard": "Say 'email' and your style sheet rewrites it to 'e-mail' automatically.",

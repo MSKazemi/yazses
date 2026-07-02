@@ -23,6 +23,7 @@ prints the script to inspect or customise).
 | `yazses restart` | Stop **all** daemons (including stray/detached ones) and start exactly one. Use this if dictation is being typed twice. |
 | `yazses status` | Show state, hotkey, model, injection backend, uptime (over IPC). |
 | `yazses features` | List every capability, whether it's on/off, its toggle name, and what's advised. |
+| `yazses features info` | Describe **every** capability — name, what it does, and a usage example (the full catalog). |
 | `yazses features info <name>` | Describe one capability — what it does, a usage example, and how to enable it. |
 | `yazses features enable <name>` | Turn a capability **on** (writes your config), then `yazses restart`. |
 | `yazses features disable <name>` | Turn a capability **off**, then `yazses restart`. |
@@ -36,6 +37,7 @@ prints the script to inspect or customise).
 
 ```bash
 yazses features                      # see everything + the TOGGLE NAME column + advice
+yazses features info                 # describe ALL capabilities + usage examples (pipe to less)
 yazses features info dysfluency      # what it does + a usage example + how to enable
 yazses features enable dysfluency    # turn one on  (use the TOGGLE NAME)
 yazses features disable streaming    # turn one off

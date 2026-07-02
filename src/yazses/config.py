@@ -1213,6 +1213,19 @@ class SrscapConfig:
 
 
 @dataclass
+class DiagramvoxConfig:
+    """v2.9 Wave M — Diagrams-as-Code by Voice (ADR-v2-107). OFF by default."""
+    enabled: bool = False
+    flavor: str = "mermaid"
+
+
+@dataclass
+class ProofbackConfig:
+    """v2.9 Wave M — Interruptible Read-Back Proofreading (ADR-v2-108). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1351,6 +1364,8 @@ class Config:
     suggestmode: SuggestmodeConfig = field(default_factory=SuggestmodeConfig)
     screenplay: ScreenplayConfig = field(default_factory=ScreenplayConfig)
     srscap: SrscapConfig = field(default_factory=SrscapConfig)
+    diagramvox: DiagramvoxConfig = field(default_factory=DiagramvoxConfig)
+    proofback: ProofbackConfig = field(default_factory=ProofbackConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1501,6 +1516,8 @@ def load_config(path: Path | None = None) -> Config:
         suggestmode=SuggestmodeConfig(**data.get("suggestmode", {})),
         screenplay=ScreenplayConfig(**data.get("screenplay", {})),
         srscap=SrscapConfig(**data.get("srscap", {})),
+        diagramvox=DiagramvoxConfig(**data.get("diagramvox", {})),
+        proofback=ProofbackConfig(**data.get("proofback", {})),
     )
     return _apply_presets(cfg)
 

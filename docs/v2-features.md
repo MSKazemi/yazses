@@ -222,9 +222,11 @@ The lowest-bandwidth input methods and new text-intelligence layers.
 | **Suggestion-Mode Dictation** | `suggestmode` | Emits edits as CriticMarkup tracked changes for later review. |
 | **Screenplay Auto-Format** | `screenplay` | Formats dictated scenes/dialogue as Fountain screenplay markup. |
 | **Spaced-Repetition Capture** | `srscap` | "remember that X is Y" → a local Anki cloze card (SM-2). |
+| **Diagrams-as-Code by Voice** | `diagramvox` | Dictate a flowchart → Mermaid/Graphviz source, no canvas. |
+| **Interruptible Proofreading** | `proofback` | Interrupt the read-back and land the cursor on the exact word. |
 
-More Wave M features are designed (see `design/vision/v2-research/15-wave-m.md`): diagrams-as-code and
-interruptible read-back proofreading.
+Wave M is complete — all ten features (see `design/vision/v2-research/15-wave-m.md`) are shipped,
+pure, 100%-covered, and off by default.
 
 ## Privacy
 

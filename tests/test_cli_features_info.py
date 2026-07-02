@@ -37,3 +37,14 @@ def test_info_works_for_every_registered_feature():
         r = runner.invoke(cli.app, ["features", "info", f.slug], env=WIDE)
         assert r.exit_code == 0, f"features info {f.slug} failed: {r.output}"
         assert "Example:" in r.output, f"no example shown for {f.slug}"
+
+
+def test_info_no_arg_lists_every_capability():
+    # `yazses features info` with no name is the one place that shows ALL features,
+    # each with its name and example.
+    r = runner.invoke(cli.app, ["features", "info"], env=WIDE)
+    assert r.exit_code == 0
+    feats = feature_status(Config())
+    assert f"{len(feats)} total" in r.output
+    for f in feats:
+        assert f.name in r.output, f"catalog omitted {f.name!r}"

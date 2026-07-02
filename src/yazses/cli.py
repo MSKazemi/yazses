@@ -284,7 +284,8 @@ def _echo_feature_card(feat, *, full: bool) -> None:
     if feat.why:
         typer.echo(f"       {feat.why}")
     if feat.example:
-        typer.echo(f"       e.g.  {feat.example}")
+        label = "Example:" if full else "e.g.    "
+        typer.echo(f"       {label}  {feat.example}")
     if full:
         if feat.toggleable:
             typer.echo(f"\n  Enable:   yazses features enable {feat.slug}")
