@@ -164,9 +164,8 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Voice Fuzzy File Open** | `fileopen` | "open the mortgage notes" → fuzzy-matches and opens a local file. |
 | **Voice Jump-to-Symbol** | `jump` | "go to line 240" / "jump to function tokenize" → the editor moves there. |
 | **Spoken Shell Pipeline Builder** | `shellpipe` | Speak stages → render a shell pipeline as text; nothing runs until "run it". |
-
-More Wave J features are designed (see `design/vision/v2-research/12-wave-j.md`): crowd-proof
-dictation and recording import (batch transcription).
+| **Recording Import** | `recimport` | Batch-transcribe existing recordings offline to .txt/.srt/.vtt with timestamps. |
+| **Crowd-Proof Dictation** (experimental) | `crowdproof` | Reconstructs your voice out of overlapping babble before STT (open-plan/café). |
 
 ## Privacy
 

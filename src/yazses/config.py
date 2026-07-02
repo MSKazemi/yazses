@@ -1010,6 +1010,19 @@ class ShellpipeConfig:
 
 
 @dataclass
+class RecimportConfig:
+    """v2.6 Wave J — Recording Import (ADR-v2-083). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
+class CrowdproofConfig:
+    """v2.6 Wave J — Crowd-Proof Dictation (ADR-v2-084). OFF by default."""
+    enabled: bool = False
+    threshold: float = 0.5
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1118,6 +1131,8 @@ class Config:
     fileopen: FileopenConfig = field(default_factory=FileopenConfig)
     jump: JumpConfig = field(default_factory=JumpConfig)
     shellpipe: ShellpipeConfig = field(default_factory=ShellpipeConfig)
+    recimport: RecimportConfig = field(default_factory=RecimportConfig)
+    crowdproof: CrowdproofConfig = field(default_factory=CrowdproofConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1238,6 +1253,8 @@ def load_config(path: Path | None = None) -> Config:
         fileopen=FileopenConfig(**data.get("fileopen", {})),
         jump=JumpConfig(**data.get("jump", {})),
         shellpipe=ShellpipeConfig(**data.get("shellpipe", {})),
+        recimport=RecimportConfig(**data.get("recimport", {})),
+        crowdproof=CrowdproofConfig(**data.get("crowdproof", {})),
     )
     return _apply_presets(cfg)
 

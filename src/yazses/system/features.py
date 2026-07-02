@@ -163,6 +163,8 @@ def _registry() -> list[_Def]:
     fo_on, fo_off = _bool("fileopen")
     jmp_on, jmp_off = _bool("jump")
     shp_on, shp_off = _bool("shellpipe")
+    ri_on, ri_off = _bool("recimport")
+    cwp_on, cwp_off = _bool("crowdproof")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -240,6 +242,14 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("recimport", "Recording Import", "[recimport] — transcribe existing files", OPTIONAL,
+             "Batch-transcribe voice memos/lectures/meetings offline to .txt/.srt/.vtt with "
+             "timestamps — your audio archive becomes searchable. Off by default.",
+             lambda c: c.recimport.enabled, ri_on, ri_off),
+        _Def("crowdproof", "Crowd-Proof Dictation", "[crowdproof] — dictate in a crowd", EXPERIMENTAL,
+             "Reconstructs your enrolled voice out of overlapping babble before STT, so dictation "
+             "survives an open-plan office or café. Needs the crowdproof extra. Off by default.",
+             lambda c: c.crowdproof.enabled, cwp_on, cwp_off),
         _Def("jump", "Voice Jump-to-Symbol", "[jump] — navigate code by voice", OPTIONAL,
              "'Jump to function tokenize', 'go to line 240' → the editor moves there (fuzzy symbol "
              "match, or a search fallback). Off by default.",
@@ -561,6 +571,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "recimport": "Drop in a lecture recording and get a searchable .srt transcript.",
+    "crowdproof": "Dictate in a noisy café and the interfering voices are stripped out.",
     "jump": "Say 'go to line 240' or 'jump to function tokenize' to navigate.",
     "shellpipe": "Speak 'list files pipe to grep error' to build a previewed pipeline.",
     "corrdict": "You keep fixing 'yaz says'→'YazSes'; soon it's fixed automatically.",
