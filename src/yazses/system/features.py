@@ -159,6 +159,8 @@ def _registry() -> list[_Def]:
     gv_on, gv_off = _bool("gitvoice")
     rk_on, rk_off = _bool("reask")
     vbt_on, vbt_off = _bool("verbatim")
+    cdx_on, cdx_off = _bool("corrdict")
+    fo_on, fo_off = _bool("fileopen")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -236,6 +238,14 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("corrdict", "Self-Learning Correction Dictionary", "[corrdict] — auto-fix your recurring errors", RECOMMENDED,
+             "Learns the ASR errors you keep fixing (e.g. 'yaz says' → 'YazSes') and applies them "
+             "automatically to future output. High-precision, from your own edits. Off by default.",
+             lambda c: c.corrdict.enabled, cdx_on, cdx_off),
+        _Def("fileopen", "Voice Fuzzy File Open", "[fileopen] — open files by voice", OPTIONAL,
+             "'Open the notes about the mortgage' → fuzzy-matches your local files and opens the "
+             "best one. Mouse-free. Off by default.",
+             lambda c: c.fileopen.enabled, fo_on, fo_off),
         _Def("reask", "Confidence-Gated Re-Ask", "[reask] — resolve uncertain words", RECOMMENDED,
              "Instead of injecting a low-confidence guess, holds just the uncertain word and asks "
              "you to pick or repeat it — closing the correction loop. Off by default.",
@@ -541,6 +551,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "corrdict": "You keep fixing 'yaz says'→'YazSes'; soon it's fixed automatically.",
+    "fileopen": "Say 'open the mortgage notes' to launch the right file.",
     "reask": "An unsure 'their/there' pops a quick pick instead of guessing wrong.",
     "verbatim": "Say 'dictate verbatim' and 'one hundred dollars' types literally.",
     "spelling": "Say 'capital alpha bravo double lima' to type 'Abll' exactly.",

@@ -160,10 +160,11 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Voice Git Choreographer** | `gitvoice` | Safe git by voice: destructive ops wait for a spoken confirm; the undo is always spoken. |
 | **Confidence-Gated Re-Ask** | `reask` | Holds an uncertain word and asks you to pick/repeat it instead of guessing (flagship). |
 | **Verbatim / Autoformat Toggle** | `verbatim` | "dictate verbatim" freezes all formatting mid-burst; "resume formatting" restores it. |
+| **Self-Learning Correction Dictionary** | `corrdict` | Auto-fixes the ASR errors you keep correcting, learned from your edits. |
+| **Voice Fuzzy File Open** | `fileopen` | "open the mortgage notes" → fuzzy-matches and opens a local file. |
 
 More Wave J features are designed (see `design/vision/v2-research/12-wave-j.md`): crowd-proof
-dictation, a self-learning correction dictionary, voice fuzzy file open, voice jump-to-symbol,
-recording import, and a spoken shell pipeline builder.
+dictation, voice jump-to-symbol, recording import, and a spoken shell pipeline builder.
 
 ## Privacy
 

@@ -984,6 +984,20 @@ class VerbatimConfig:
 
 
 @dataclass
+class CorrdictConfig:
+    """v2.6 Wave J — Self-Learning Correction Dictionary (ADR-v2-079). OFF by default."""
+    enabled: bool = False
+    min_support: int = 3
+
+
+@dataclass
+class FileopenConfig:
+    """v2.6 Wave J — Voice Fuzzy File Open (ADR-v2-080). OFF by default."""
+    enabled: bool = False
+    threshold: float = 0.4
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1088,6 +1102,8 @@ class Config:
     gitvoice: GitvoiceConfig = field(default_factory=GitvoiceConfig)
     reask: ReaskConfig = field(default_factory=ReaskConfig)
     verbatim: VerbatimConfig = field(default_factory=VerbatimConfig)
+    corrdict: CorrdictConfig = field(default_factory=CorrdictConfig)
+    fileopen: FileopenConfig = field(default_factory=FileopenConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1204,6 +1220,8 @@ def load_config(path: Path | None = None) -> Config:
         gitvoice=GitvoiceConfig(**data.get("gitvoice", {})),
         reask=ReaskConfig(**data.get("reask", {})),
         verbatim=VerbatimConfig(**data.get("verbatim", {})),
+        corrdict=CorrdictConfig(**data.get("corrdict", {})),
+        fileopen=FileopenConfig(**data.get("fileopen", {})),
     )
     return _apply_presets(cfg)
 
