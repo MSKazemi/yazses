@@ -1035,6 +1035,18 @@ class ComputeConfig:
 
 
 @dataclass
+class CasetransformConfig:
+    """v2.7 Wave K — Voice Case & Identifier Transform (ADR-v2-087). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
+class AutopairConfig:
+    """v2.7 Wave K — Auto-Pairing & Wrap-Selection (ADR-v2-088). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1147,6 +1159,8 @@ class Config:
     crowdproof: CrowdproofConfig = field(default_factory=CrowdproofConfig)
     chords: ChordsConfig = field(default_factory=ChordsConfig)
     compute: ComputeConfig = field(default_factory=ComputeConfig)
+    casetransform: CasetransformConfig = field(default_factory=CasetransformConfig)
+    autopair: AutopairConfig = field(default_factory=AutopairConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1271,6 +1285,8 @@ def load_config(path: Path | None = None) -> Config:
         crowdproof=CrowdproofConfig(**data.get("crowdproof", {})),
         chords=ChordsConfig(**data.get("chords", {})),
         compute=ComputeConfig(**data.get("compute", {})),
+        casetransform=CasetransformConfig(**data.get("casetransform", {})),
+        autopair=AutopairConfig(**data.get("autopair", {})),
     )
     return _apply_presets(cfg)
 

@@ -175,11 +175,12 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 |---|---|---|
 | **Chorded Shortcut Synthesis** | `chords` | Say any keyboard shortcut ("press control shift P", "hit F5") — no macro needed. |
 | **Inline Compute** | `compute` | "what's 15% of 240" → types 36, on-device (never `eval`). |
+| **Voice Case Transform** | `casetransform` | Recase the selection ("make this snake_case", "camelCase", "SHOUT"). |
+| **Auto-Pairing & Wrap** | `autopair` | Balances brackets/quotes in dictated code; "wrap this in parens". |
 
 More Wave K features are designed (see `design/vision/v2-research/13-wave-k.md`): focus-class
-auto-profile switching, a voice undo/redo timeline, voice case/identifier transforms, auto-pairing
-& wrap-selection, spoken table→CSV entry, session bookmarks, a word-count/goal tracker, and a local
-voice timer.
+auto-profile switching, a voice undo/redo timeline, spoken table→CSV entry, session bookmarks, a
+word-count/goal tracker, and a local voice timer.
 
 ## Privacy
 

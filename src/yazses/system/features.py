@@ -167,6 +167,8 @@ def _registry() -> list[_Def]:
     cwp_on, cwp_off = _bool("crowdproof")
     chd_on, chd_off = _bool("chords")
     cmp_on, cmp_off = _bool("compute")
+    cst_on, cst_off = _bool("casetransform")
+    apr_on, apr_off = _bool("autopair")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -244,6 +246,14 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("casetransform", "Voice Case Transform", "[casetransform] — recase the selection", OPTIONAL,
+             "Recase the selected text by voice: 'make this snake_case', 'Title Case', 'SHOUT', "
+             "'camelCase'. Off by default.",
+             lambda c: c.casetransform.enabled, cst_on, cst_off),
+        _Def("autopair", "Auto-Pairing & Wrap", "[autopair] — balance brackets, wrap selection", OPTIONAL,
+             "Balances brackets/quotes in dictated code and wraps a selection ('wrap this in "
+             "parens'). Off by default.",
+             lambda c: c.autopair.enabled, apr_on, apr_off),
         _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut by voice", RECOMMENDED,
              "Say any shortcut and it's pressed — 'press control shift P', 'escape twice', 'hit "
              "F5' — no macro registration needed. Off by default.",
@@ -581,6 +591,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "casetransform": "Select a name, say 'make this snake_case', and it rewrites.",
+    "autopair": "Dictate '(a plus b' and it closes to '(a plus b)'.",
     "chords": "Say 'press control shift P' and the command palette opens.",
     "compute": "Say \"what's 15% of 240\" and it types 36.",
     "recimport": "Drop in a lecture recording and get a searchable .srt transcript.",
