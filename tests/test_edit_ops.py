@@ -84,3 +84,44 @@ def test_apply_edit_end_to_end():
 def test_destructive_set_marks_deletes():
     assert "delete_sentence" in DESTRUCTIVE and "delete_words" in DESTRUCTIVE
     assert "replace" not in DESTRUCTIVE
+
+
+# ── edge-case / no-op branches (hardening) ──────────────────────────────────
+
+def test_replace_empty_old_is_noop():
+    r = replace_words("hello world", "", "x")
+    assert r.changed is False and r.text == "hello world"
+
+
+def test_delete_last_sentence_on_blank_is_noop():
+    r = delete_last_sentence("   ")
+    assert r.changed is False
+
+
+def test_delete_last_words_on_empty_is_noop():
+    assert delete_last_words("", 2).changed is False
+    assert delete_last_words("hi", 0).changed is False
+
+
+def test_recase_no_word_is_noop():
+    assert capitalize_last_word("").changed is False
+    assert uppercase_last_word("   ").changed is False
+
+
+def test_recase_already_in_target_case_is_noop():
+    # last word already uppercase → uppercase is a no-op
+    assert uppercase_last_word("say HELLO").changed is False
+
+
+def test_parse_edit_empty_after_strip_is_none():
+    assert parse_edit("...") is None
+    assert parse_edit("   ") is None
+
+
+def test_parse_edit_lowercase_op():
+    assert parse_edit("lowercase that") == ("lowercase", {})
+
+
+def test_apply_edit_lowercase_roundtrip():
+    r = apply_edit("make it BIG", "lowercase that")
+    assert r.changed is True and r.text.endswith("big")
