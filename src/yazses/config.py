@@ -170,6 +170,9 @@ class CommandsConfig:
     # v2.4 Wave H — Emoji & Symbol by Voice (ADR-v2-055): "shrug emoji"→🤷, "right arrow"→→.
     # Off by default: the names also occur in ordinary speech.
     symbols: bool = False
+    # v2.4 Wave H — Mid-Utterance Self-Repair (ADR-v2-058): "email Sarah no I mean Sara"→"Sara".
+    # Off by default: editing phrases also occur in ordinary speech.
+    self_repair: bool = False
     # v2.0.0 Wave A — Spoken Edit Mode (ADR-v2-003): open-ended voice editing of the
     # last-injected span ("change X to Y", "delete the last sentence"). Command-key
     # gated to avoid dictate-vs-command ambiguity. OFF by default.
@@ -843,6 +846,12 @@ class ConvertConfig:
 
 
 @dataclass
+class TemporalConfig:
+    """v2.4 Wave H — Spoken Temporal Normalizer (ADR-v2-057). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -926,6 +935,7 @@ class Config:
     lipread: LipreadConfig = field(default_factory=LipreadConfig)
     sign: SignConfig = field(default_factory=SignConfig)
     convert: ConvertConfig = field(default_factory=ConvertConfig)
+    temporal: TemporalConfig = field(default_factory=TemporalConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1021,6 +1031,7 @@ def load_config(path: Path | None = None) -> Config:
         lipread=LipreadConfig(**data.get("lipread", {})),
         sign=SignConfig(**data.get("sign", {})),
         convert=ConvertConfig(**data.get("convert", {})),
+        temporal=TemporalConfig(**data.get("temporal", {})),
     )
     return _apply_presets(cfg)
 

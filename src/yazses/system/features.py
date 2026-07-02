@@ -137,6 +137,8 @@ def _registry() -> list[_Def]:
     sn2_on, sn2_off = _bool("sign")
     sym_on, sym_off = _bool("commands", "symbols")
     cv_on, cv_off = _bool("convert")
+    tmp_on, tmp_off = _bool("temporal")
+    sr_on, sr_off = _bool("commands", "self_repair")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -214,6 +216,14 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("temporal", "Spoken Temporal Normalizer", "[temporal] — dates from speech", OPTIONAL,
+             "Resolves spoken dates against the clock: 'next Friday' → a concrete date, "
+             "'tomorrow', 'in two weeks'. Uses only the local clock. Off by default.",
+             lambda c: c.temporal.enabled, tmp_on, tmp_off),
+        _Def("self_repair", "Mid-Utterance Self-Repair", "[commands] self_repair", OPTIONAL,
+             "Applies in-burst corrections before typing: 'email Sarah no I mean Sara' → "
+             "'email Sara'. Off by default — editing phrases occur in ordinary speech.",
+             lambda c: c.commands.self_repair, sr_on, sr_off),
         _Def("symbols", "Emoji & Symbol by Voice", "[commands] symbols", OPTIONAL,
              "Speak emoji, symbols and arrows: 'shrug emoji' → 🤷, 'right arrow' → →, "
              "'degree sign' → °. Off by default — the names occur in ordinary speech.",
@@ -430,6 +440,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "temporal": "Say 'next Friday' and it types the concrete date.",
+    "self_repair": "Say 'email Sarah no I mean Sara' → 'email Sara'.",
     "symbols": "Say 'right arrow' → → or 'shrug emoji' → 🤷.",
     "convert": "Say 'twenty miles in kilometers' → '32.19 kilometers'.",
     "lipread": "Mouth the words silently and a webcam reads your lips into text.",

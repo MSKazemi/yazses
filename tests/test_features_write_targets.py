@@ -14,6 +14,7 @@ _ALIASES = {
     "voice-punctuation": "commands",
     "spoken-edit": "commands",
     "symbols": "commands",
+    "self_repair": "commands",
     "undo": "revise",
     "ghost-ahead": "endpoint",
     "read-back": "tts",            # + accessibility

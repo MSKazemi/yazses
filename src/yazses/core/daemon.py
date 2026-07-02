@@ -759,6 +759,13 @@ class Daemon:
 
             if is_dictation:
                 text = self._clean_dictation(text, event)
+                # Mid-Utterance Self-Repair: apply "no I mean X" corrections before anything
+                # else consumes the text. Opt-in (ADR-v2-058).
+                if self._config.commands.self_repair:
+                    from yazses.selfrepair.repair import apply_self_repair
+
+                    text = apply_self_repair(text)
+                    event["final_text"] = text
                 # Spoken punctuation/formatting ("comma" -> ","). Opt-in.
                 if self._config.commands.voice_punctuation:
                     text = apply_voice_punctuation(text)
@@ -788,6 +795,14 @@ class Daemon:
                     from yazses.convert.units import apply_conversions
 
                     text = apply_conversions(text)
+                    event["final_text"] = text
+                # Spoken Temporal Normalizer: "next Friday" -> a concrete date. Opt-in (ADR-v2-057).
+                if self._config.temporal.enabled:
+                    from datetime import datetime as _dt
+
+                    from yazses.temporal.resolve import resolve_temporal
+
+                    text = resolve_temporal(text, _dt.now())
                     event["final_text"] = text
                 # Prosody Ink: map vocal prosody (inter-word pause, emphasis) onto
                 # text formatting. Batch + dictation only; word timings drive the
