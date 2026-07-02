@@ -134,6 +134,9 @@ class Daemon:
         # Personal Adapter P1 (ADR-v2-009): corpus-mined biasing terms, computed
         # once and cached (None = not yet computed). Off unless [personalize].
         self._personal_bias: list[str] | None = None
+        # Confidence Ink (ADR-v2-001): low-confidence word count from the last
+        # burst, surfaced in `yazses status` (metadata only, never the words).
+        self._last_low_confidence_words: int = 0
         self._edit_watcher = None
         self._cleaner: LlmCleaner | None = None
         # Read-Back Loop TTS backend (None when [tts] disabled — dormant).
@@ -626,6 +629,7 @@ class Daemon:
                     spans = low_confidence_spans(pairs, self._config.confidence.threshold)
                     n_low = sum(e - s for s, e in spans)
                     event["low_confidence_words"] = n_low
+                    self._last_low_confidence_words = n_low
                     if n_low:
                         log.info(
                             "Confidence Ink: %d low-confidence word(s) (threshold %.2f).",
@@ -1267,6 +1271,9 @@ class Daemon:
                 # For the voice-activity overlay (yazses-overlay).
                 "audio_level": round(self._state.audio_level, 6),
                 "vad_threshold": self._config.accessibility.vad_threshold,
+                # Confidence Ink (ADR-v2-001): feature state + last-burst count.
+                "confidence_enabled": self._config.confidence.enabled,
+                "low_confidence_last": self._last_low_confidence_words,
             }
 
     def _handle_shutdown(self, _request: Request) -> dict[str, bool]:
