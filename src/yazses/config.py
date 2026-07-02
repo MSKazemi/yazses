@@ -693,6 +693,18 @@ class MousegridConfig:
 
 
 @dataclass
+class CodeConfig:
+    """v2.1 Wave E — Spoken Code Mode (ADR-v2-031). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
+class MathConfig:
+    """v2.1 Wave E — Spoken Math → LaTeX (ADR-v2-032). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class Config:
     stt: SttConfig = field(default_factory=SttConfig)
     hotkey: HotkeyConfig = field(default_factory=HotkeyConfig)
@@ -740,6 +752,8 @@ class Config:
     phonetic: PhoneticConfig = field(default_factory=PhoneticConfig)
     autostop: AutoStopConfig = field(default_factory=AutoStopConfig)
     mousegrid: MousegridConfig = field(default_factory=MousegridConfig)
+    code: CodeConfig = field(default_factory=CodeConfig)
+    math: MathConfig = field(default_factory=MathConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -812,6 +826,8 @@ def load_config(path: Path | None = None) -> Config:
         phonetic=PhoneticConfig(**data.get("phonetic", {})),
         autostop=AutoStopConfig(**data.get("autostop", {})),
         mousegrid=MousegridConfig(**data.get("mousegrid", {})),
+        code=CodeConfig(**data.get("code", {})),
+        math=MathConfig(**data.get("math", {})),
     )
     return _apply_presets(cfg)
 

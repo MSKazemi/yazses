@@ -107,6 +107,8 @@ def _registry() -> list[_Def]:
     mp_on, mp_off = _bool("voiceprint", "multi_profile")
     as_on, as_off = _bool("autostop")
     mg_on, mg_off = _bool("mousegrid")
+    co_on2, co_off2 = _bool("code")
+    ma_on, ma_off = _bool("math")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -180,6 +182,14 @@ def _registry() -> list[_Def]:
              "Whisper/Low-Effort Mode lowers the mic gate so quiet or effortful speech "
              "is still captured (no shouting). Semantic capture is opt-in. Off by default.",
              lambda c: c.continuum.enabled, cn_on, cn_off),
+        _Def("code", "Spoken Code Mode", "[code] — dictate code syntax", OPTIONAL,
+             "Dictate code: spoken symbols become punctuation and word-groups become cased "
+             "identifiers (snake/camel/pascal). Activate via a command key. Off by default.",
+             lambda c: c.code.enabled, co_on2, co_off2),
+        _Def("math", "Spoken Math (LaTeX)", "[math] — dictate equations", OPTIONAL,
+             "Dictate math and inject LaTeX ('x squared plus y squared' -> x^{2} + y^{2}). "
+             "Common cases pure; nested expressions need the mathspeech extra. Off by default.",
+             lambda c: c.math.enabled, ma_on, ma_off),
         _Def("autostop", "Hands-Free Auto-Stop", "[autostop] — tap & speak", OPTIONAL,
              "Tap once and speak; recording auto-stops when you finish (silence timeout + "
              "duration cap). Semantic end-of-turn needs the turn extra. Off by default.",
