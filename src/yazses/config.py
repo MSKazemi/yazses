@@ -621,6 +621,18 @@ class RagConfig:
 
 
 @dataclass
+class CodecConfig:
+    """v2.1 Wave D — Neural-codec ultra-low-latency streaming STT (ADR-v2-022).
+
+    Route decoding to a streaming-native codec engine (Kyutai/Mimi) when enabled, else
+    keep faster-whisper. Engine opt-in behind the ``codec`` extra. OFF by default.
+    """
+    enabled: bool = False
+    backend: str = "kyutai"          # kyutai (Mimi) | none
+    max_delay_ms: int = 500
+
+
+@dataclass
 class Config:
     stt: SttConfig = field(default_factory=SttConfig)
     hotkey: HotkeyConfig = field(default_factory=HotkeyConfig)
@@ -662,6 +674,7 @@ class Config:
     voiceguard: VoiceguardConfig = field(default_factory=VoiceguardConfig)
     scribe: ScribeConfig = field(default_factory=ScribeConfig)
     rag: RagConfig = field(default_factory=RagConfig)
+    codec: CodecConfig = field(default_factory=CodecConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -728,6 +741,7 @@ def load_config(path: Path | None = None) -> Config:
         voiceguard=VoiceguardConfig(**data.get("voiceguard", {})),
         scribe=ScribeConfig(**data.get("scribe", {})),
         rag=RagConfig(**data.get("rag", {})),
+        codec=CodecConfig(**data.get("codec", {})),
     )
     return _apply_presets(cfg)
 

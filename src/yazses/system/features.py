@@ -100,6 +100,7 @@ def _registry() -> list[_Def]:
     vg_on, vg_off = _bool("voiceguard")
     sc_on, sc_off = _bool("scribe")
     rg_on, rg_off = _bool("rag")
+    cd_on, cd_off = _bool("codec")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -173,6 +174,10 @@ def _registry() -> list[_Def]:
              "Whisper/Low-Effort Mode lowers the mic gate so quiet or effortful speech "
              "is still captured (no shouting). Semantic capture is opt-in. Off by default.",
              lambda c: c.continuum.enabled, cn_on, cn_off),
+        _Def("codec", "Codec Streaming (low latency)", "[codec] — Kyutai/Mimi engine", OPTIONAL,
+             "Routes decoding to a streaming neural-codec engine for lower latency. "
+             "Needs the codec extra (Kyutai/Mimi); English/French-centric. Off by default.",
+             lambda c: c.codec.enabled, cd_on, cd_off),
         _Def("rag", "Ask My Notes (voice RAG)", "[rag] — cited answers from local docs", OPTIONAL,
              "Ask a question by voice and get an answer grounded in — and citing — your own "
              "local notes/docs. Needs the rag extra (embeddings + index). Off by default.",
