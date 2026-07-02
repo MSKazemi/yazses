@@ -343,12 +343,75 @@ def _registry() -> list[_Def]:
     ]
 
 
+# A concrete "how to use it" example per capability, keyed by slug. Kept beside the
+# registry (still a single source of truth) and enforced complete by
+# tests/test_features_examples.py so every new feature ships with a usage example.
+_EXAMPLES: dict[str, str] = {
+    "dictation": "Hold your hotkey and speak; release to type.",
+    "commands": "Hold the command key and say 'undo' or 'save'.",
+    "voice-punctuation": "Say 'hello comma world period' → 'hello, world.'",
+    "undo": "Say 'scratch that' to drop the last phrase.",
+    "overlay": "Watch the sonar rings near the cursor while you talk.",
+    "dysfluency": "Say 'b-b-because' → 'because' (stutters collapsed).",
+    "punch-in": "Re-speak a phrase right after to correct the last one.",
+    "prosody": "Pause between thoughts → a new paragraph; stress a word → bold.",
+    "ghost-ahead": "Nothing to do — the decoder pre-warms for faster first words.",
+    "macros": "Say your trigger word to expand canned text (configure [macros]).",
+    "read-back": "yazses features enable read-back — then it speaks the transcript back.",
+    "personalize": "yazses features enable personalize — biases STT to your frequent terms.",
+    "polyglot": "Set [polyglot] pair='fa-en'; dictate mixing the two languages.",
+    "streaming": "yazses features enable streaming — text appears as you speak.",
+    "learning": "yazses features enable learning; then 'yazses tune' to review proposals.",
+    "llm-cleanup": "yazses features enable llm-cleanup — offline LLM tidies dictation.",
+    "confidence": "See the low-confidence word count in 'yazses status'.",
+    "spoken-edit": "Say 'delete last sentence' or 'capitalize that'.",
+    "context": "Open a file in your editor; dictation is primed from its LSP context.",
+    "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
+    "wakeword": "Say your wake word to start dictation hands-free (--force).",
+    "gesture": "Hold the hotkey and nod to send (bind chords in [gesture]).",
+    "interpret": "Set [interpret] pair='en-es'; each speaker's turn is translated.",
+    "pronunciation": "Practice mode: dictate a phrase, see per-phoneme good/fair/poor.",
+    "readback_clone": "Enroll once; read-back then uses a clone of your own voice.",
+    "acoustic_profiles": "Move to a café — the mic gate + denoise auto-adapt.",
+    "sentiment": "yazses features enable sentiment — builds a private mood-over-time view.",
+    "reflow": "Ramble, then say 'structure this' → a bulleted outline.",
+    "smartpaste": "Dictate into markdown vs a terminal — syntax adapts to the app.",
+    "scrub": "Say a word to replay its audio or re-dictate just that word.",
+    "coach": "yazses features enable coach — see filler rate + words-per-minute.",
+    "voicehealth": "Get a break reminder when your voice shows rising strain.",
+    "code": "Dictate 'def foo open paren' → 'def foo(' in code mode.",
+    "math": "Say 'x squared plus y squared' → 'x^{2} + y^{2}'.",
+    "autostop": "Tap once and speak; recording stops when you finish.",
+    "mousegrid": "Say a grid number to move the cursor, then 'click'.",
+    "multiprofile": "Each enrolled speaker loads their own vocab/hotkey automatically.",
+    "snippets": "Say 'insert my signature' to type a stored template.",
+    "phonetic": "'Cuber Netties' is auto-corrected to 'Kubernetes'.",
+    "hallucination": "Nothing to do — fabricated silence transcripts are dropped.",
+    "codec": "yazses features enable codec — streaming decode engine selection.",
+    "rag": "Ask 'what did I note about the budget?' to recall past dictation.",
+    "scribe": "Meeting mode: turns are diarized into a labelled transcript.",
+    "denoise": "yazses features enable denoise — background noise is filtered pre-STT.",
+    "predict": "Accept the greyed-ahead completion by continuing to speak.",
+    "affect": "Excited speech → an exclamation mark; questions → a question mark.",
+    "translate": "yazses features enable translate — speak any language, type English.",
+    "recall": "yazses recall 'the address I dictated yesterday'.",
+    "agent": "Say 'create a calendar event tomorrow at 3' (allowlisted tools).",
+    "pilot": "Say 'click the Save button' to drive the focused app via AT-SPI.",
+    "cocktail": "yazses features enable cocktail --force — filters other voices (experimental).",
+    "voiceguard": "yazses features enable voiceguard --force — only your voice dictates.",
+    "bridge": "Pair smart glasses to relay audio to the desktop (experimental).",
+    "modality": "Route dictation vs commands to different targets by role.",
+    "gaze": "Glance at a screen zone to choose where the next dictation lands.",
+}
+
+
 def feature_status(cfg) -> list[Feature]:
     """Return every user-facing capability and whether it's enabled in *cfg*."""
     return [
         Feature(
             name=d.name, on=bool(d.status(cfg)), note=d.note, slug=d.slug,
             tier=d.tier, why=d.why, on_writes=d.on_writes, off_writes=d.off_writes,
+            example=_EXAMPLES.get(d.slug, ""),
         )
         for d in _registry()
     ]

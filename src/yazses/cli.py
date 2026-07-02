@@ -240,6 +240,7 @@ app.add_typer(features_app, rich_help_panel=_DAEMON)
     invoke_without_command=True,
     epilog=_examples(
         "yazses features                  list every capability + advice",
+        "yazses features info reflow       describe one + show a usage example",
         "yazses features enable read-back  turn one on",
         "yazses features disable cocktail  turn one off",
     ),
@@ -266,7 +267,37 @@ def features(ctx: typer.Context) -> None:
     typer.echo(
         "\n  ●/○ = on/off.  Apply changes with `yazses restart`."
         "\n  Tip: `yazses features enable dysfluency` (use the TOGGLE NAME column)."
+        "\n  Details + a usage example for any capability: `yazses features info <name>`."
     )
+
+
+@features_app.command("info")
+def features_info(
+    name: str = typer.Argument(..., help="Feature name, e.g. reflow (see `yazses features`)."),
+) -> None:
+    """Show one capability's description, how to use it, and how to turn it on/off."""
+    from yazses.config import load_config
+    from yazses.system.features import feature_status, find_feature
+
+    platform = get_platform()
+    cfg = load_config(platform.paths.config_file)
+    feat = find_feature(cfg, name)
+    if feat is None:
+        known = ", ".join(f.slug for f in feature_status(cfg))
+        typer.echo(f"Unknown feature {name!r}. Names: {known}", err=True)
+        raise typer.Exit(1)
+    state = "● ON" if feat.on else "○ off"
+    typer.echo(f"{feat.name}  [{feat.slug}]   {state}   ({feat.tier_label})")
+    if feat.why:
+        typer.echo(f"\n  {feat.why}")
+    if feat.example:
+        typer.echo(f"\n  Example:  {feat.example}")
+    if feat.toggleable:
+        typer.echo(f"\n  Enable:   yazses features enable {feat.slug}")
+        typer.echo(f"  Disable:  yazses features disable {feat.slug}")
+        typer.echo("  Apply:    yazses restart")
+    else:
+        typer.echo("\n  Always on — not toggleable.")
 
 
 def _apply_feature_writes(config_file, writes) -> None:
