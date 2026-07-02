@@ -1,0 +1,53 @@
+# v2 Voice-First Interaction Layer (preview)
+
+YazSes v2 grows from a dictation daemon into a broader **voice-first interaction
+layer** — still 100% on-device and privacy-first. **Every v2 feature is opt-in and
+off by default**, so your day-to-day dictation is unchanged until you turn one on.
+v1.4.x remains the stable release; the features below are a developer preview
+(`v2.0.0-dev`).
+
+Manage all of them with the switchboard:
+
+```bash
+yazses features                 # list every capability + on/off + how to toggle
+yazses features enable <name>   # turn one on (writes your config)
+yazses restart                  # apply
+```
+
+Experimental features refuse `enable` unless you add `--force`.
+
+## Dictation upgrades (Wave A)
+
+| Feature | Toggle | What it does |
+|---|---|---|
+| **Confidence Ink** | `confidence` | Flags words the recognizer was unsure about (from Whisper's own probabilities) so you can re-pick them by voice instead of re-dictating. Local only. |
+| **Prosody pause→sentence** | `[prosody] pause_sentence_ms` | Inserts a period when you pause for a sentence-length gap. |
+| **Spoken Edit Mode** | `spoken-edit` | Edit the last dictation by voice — "change *their* to *there*", "delete the last sentence". Command-key gated. |
+| **Context-Primed Dictation** | `context` | Primes the recognizer with terms from the active window/selection so domain words are transcribed right. Read transiently, **never stored**. |
+
+## New capabilities (Wave B)
+
+| Feature | Toggle | What it does |
+|---|---|---|
+| **Personal Adapter** | `personalize` | Biases the recognizer toward *your* jargon and names, mined from your local corpus. Nothing leaves the machine. |
+| **Spoken Recall & Scratch** | `recall` | Search your past dictations (`yazses recall <query>`) and capture spoken notes-to-self (`yazses scratch`). Corpus-local. |
+| **True Code-Switch** | `polyglot` | Routes mixed-language speech to a code-switch model (you supply the adapter). |
+| **Voice-to-Tool (Spoken MCP)** | `agent` | Run allowlisted tools by voice via MCP; state-changing tools ask first. Needs the `agent` extra + a local planner model. |
+| **Voice Pilot (AT-SPI)** | `pilot` | Drive the desktop by voice via the accessibility tree — "click Save", "focus the terminal". Reads labels only, **no screenshots**. |
+
+## Experimental (Wave C — `--force` to enable)
+
+| Feature | Toggle | What it does |
+|---|---|---|
+| **Accessibility Continuum** | `continuum` | Whisper/Low-Effort Mode lowers the mic gate so quiet or effortful speech is still captured (no shouting). |
+| **Modality Role Router** | `modality` | Assigns each input its fastest role (gaze→point, EMG→command, voice→dictation). Needs EMG/gaze hardware. |
+| **Gaze-Routed Dictation** | `[gaze] route_dictation` | Sends the next dictation to the window you look at, with a focus fallback and a confirm for destructive actions. Needs a webcam + calibration. |
+| **Glasses↔Desktop Bridge** | `bridge` | Dictate from a paired phone/glasses; the desktop does STT + typing. Local link only. |
+
+## Privacy
+
+Every v2 feature honours the same guarantees as the rest of YazSes: on-device
+processing, no telemetry, and no transcript persistence unless you explicitly enable
+the encrypted learning corpus. Context and gaze signals are read transiently and never
+stored; the bridge stays on your local link. See the
+[privacy statement](https://github.com/MSKazemi/yazses/blob/main/docs/privacy-statement.md).

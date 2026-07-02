@@ -73,6 +73,7 @@ Hold hotkey → record audio → VAD gate → faster-whisper (CPU)
 - [Install on macOS](https://github.com/MSKazemi/yazses/blob/main/docs/macos-install.md)
 - [Install on Windows](https://github.com/MSKazemi/yazses/blob/main/docs/windows-install.md)
 - [CLI reference](https://github.com/MSKazemi/yazses/blob/main/docs/cli-reference.md)
+- [v2 features (preview)](https://github.com/MSKazemi/yazses/blob/main/docs/v2-features.md)
 - [Privacy statement](https://github.com/MSKazemi/yazses/blob/main/docs/privacy-statement.md)
 
 ## FAQ
