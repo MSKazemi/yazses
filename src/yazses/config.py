@@ -1099,6 +1099,23 @@ class EarconConfig:
 
 
 @dataclass
+class SpatialvadConfig:
+    """v2.8 Wave L — Beam-Steered Spatial VAD (ADR-v2-098). OFF by default."""
+    enabled: bool = False
+    target_angle: float = 0.0
+    tolerance_deg: float = 35.0
+    mic_distance_m: float = 0.14
+
+
+@dataclass
+class ProsodypunctConfig:
+    """v2.8 Wave L — Prosodic Auto-Punctuation (ADR-v2-104). OFF by default."""
+    enabled: bool = False
+    sentence_pause_ms: float = 700.0
+    comma_pause_ms: float = 250.0
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1221,6 +1238,8 @@ class Config:
     focusprofile: FocusprofileConfig = field(default_factory=FocusprofileConfig)
     vocaljoystick: VocaljoystickConfig = field(default_factory=VocaljoystickConfig)
     earcon: EarconConfig = field(default_factory=EarconConfig)
+    spatialvad: SpatialvadConfig = field(default_factory=SpatialvadConfig)
+    prosodypunct: ProsodypunctConfig = field(default_factory=ProsodypunctConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1355,6 +1374,8 @@ def load_config(path: Path | None = None) -> Config:
         focusprofile=FocusprofileConfig(**data.get("focusprofile", {})),
         vocaljoystick=VocaljoystickConfig(**data.get("vocaljoystick", {})),
         earcon=EarconConfig(**data.get("earcon", {})),
+        spatialvad=SpatialvadConfig(**data.get("spatialvad", {})),
+        prosodypunct=ProsodypunctConfig(**data.get("prosodypunct", {})),
     )
     return _apply_presets(cfg)
 

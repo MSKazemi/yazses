@@ -177,6 +177,8 @@ def _registry() -> list[_Def]:
     fp_on, fp_off = _bool("focusprofile")
     vj_on, vj_off = _bool("vocaljoystick")
     ec_on, ec_off = _bool("earcon")
+    sv_on, sv_off = _bool("spatialvad")
+    pp_on, pp_off = _bool("prosodypunct")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -254,6 +256,16 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("spatialvad", "Beam-Steered Spatial VAD", "[spatialvad] — 2-mic direction gate", OPTIONAL,
+             "With a stereo/2-mic input, drops any sound not coming from your seat (a TV, a "
+             "colleague) by its arrival direction — enrollment-free, complements Cocktail Filter. "
+             "Off by default.",
+             lambda c: c.spatialvad.enabled, sv_on, sv_off),
+        _Def("prosodypunct", "Prosodic Auto-Punctuation", "[prosodypunct] — punctuation from prosody",
+             RECOMMENDED,
+             "Inserts periods, commas, and question marks from how you speak (pauses, pitch) — no "
+             "need to say 'comma' or 'period'. Off by default.",
+             lambda c: c.prosodypunct.enabled, pp_on, pp_off),
         _Def("vocaljoystick", "Vocal Joystick", "[vocaljoystick] — analog cursor control by voice",
              EXPERIMENTAL,
              "Continuous cursor/scroll control by sustaining vowels — 'ahh' right, 'eee' up, louder "
@@ -633,6 +645,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "spatialvad": "A colleague talks beside you and it's gated out by direction.",
+    "prosodypunct": "Speak naturally and the periods and commas appear on their own.",
     "vocaljoystick": "Hum 'eee' and the cursor glides up — louder moves it faster.",
     "earcon": "A rising two-note beep tells you recording started, no glance needed.",
     "voicetimer": "Say 'set a timer for 25 minutes' — it reminds you, fully offline.",

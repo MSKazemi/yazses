@@ -196,11 +196,12 @@ phonate but not articulate discrete words, and for word-free eyes-free control.
 |---|---|---|
 | **Vocal Joystick** | `vocaljoystick` | Continuous analog cursor control by sustaining vowels ("eee"→up, louder=faster, pitch-jump=click). Experimental. |
 | **Earcon Feedback** | `earcon` | Non-speech state tones (rising motif = recording, buzz = low confidence) — eyes-free, faster than read-back. |
+| **Beam-Steered Spatial VAD** | `spatialvad` | With 2 mics, gates out sound not from your seat by its arrival direction (pure-numpy GCC-PHAT). |
+| **Prosodic Auto-Punctuation** | `prosodypunct` | Inserts periods/commas/question marks from how you speak — no need to say "comma". |
 
 More Wave L features are designed (see `design/vision/v2-research/14-wave-l.md`): mouth-sound switch
-access, beam-steered spatial VAD, breath-paced dictation, whisper-aware mode, hesitation-hold
-endpointing, involuntary-vocalization excision, pitch-contour gestures, and prosodic
-auto-punctuation.
+access, breath-paced dictation, whisper-aware mode, hesitation-hold endpointing,
+involuntary-vocalization excision, and pitch-contour gestures.
 
 ## Privacy
 
