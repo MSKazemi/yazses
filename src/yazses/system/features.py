@@ -149,6 +149,8 @@ def _registry() -> list[_Def]:
     srx_on, srx_off = _bool("spokenregex")
     mk_on, mk_off = _bool("markup")
     fr_on, fr_off = _bool("findreplace")
+    hw_on, hw_off = _bool("hotwords")
+    wc_on, wc_off = _bool("windowctl")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -226,6 +228,14 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("hotwords", "Hard Contextual Biasing", "[hotwords] — names/jargon actually win", RECOMMENDED,
+             "Biases recognition toward your vocabulary with a hotword trie (not just a soft "
+             "prompt), so rare names and jargon are transcribed right. Off by default.",
+             lambda c: c.hotwords.enabled, hw_on, hw_off),
+        _Def("windowctl", "Voice Window Management", "[windowctl] — layout by voice", OPTIONAL,
+             "Hands-free desktop layout: 'move window left half', 'maximize', 'workspace 3'. "
+             "Needs the windowctl extra for your compositor. Off by default.",
+             lambda c: c.windowctl.enabled, wc_on, wc_off),
         _Def("markup", "Structured-Markup Dictation", "[markup] — speak lists & tables", OPTIONAL,
              "Speak structure and get Markdown/org: 'bullet list: apples; oranges' → a list; "
              "'table columns Name, Age; row Alice, 30' → a table. Off by default.",
@@ -490,6 +500,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "hotwords": "Add 'Kubernetes' to vocab and it stops being mis-heard.",
+    "windowctl": "Say 'move window left half' or 'workspace 3' to arrange your desktop.",
     "markup": "Say 'bullet list: apples; oranges; pears' to type a Markdown list.",
     "findreplace": "Say 'replace every utilise with use' to edit the whole document.",
     "cmdsafety": "Dictate 'rm -rf' in a terminal and it waits for you to say 'confirm'.",

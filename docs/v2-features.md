@@ -143,10 +143,12 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Spoken Regex Builder** | `spokenregex` | Build search patterns by voice ("four digits dash two digits" → `\d{4}-\d{2}`). |
 | **Structured-Markup Dictation** | `markup` | Speak lists/tables → Markdown/org ("bullet list: apples; oranges"). |
 | **Document Find-and-Replace** | `findreplace` | Edit the whole document by voice ("replace every utilise with use"). |
+| **Hard Contextual Biasing** | `hotwords` | Biases recognition toward your vocabulary with a hotword trie so rare names win. |
+| **Voice Window Management** | `windowctl` | Hands-free desktop layout ("move window left half", "workspace 3"). |
 
-More Wave I features are designed (see `design/vision/v2-research/11-wave-i.md`): hard contextual
-biasing, diarized conversation capture with rename-by-voice, an adaptive latency governor,
-per-language auto model switching, voice window management, and citation-by-voice.
+More Wave I features are designed (see `design/vision/v2-research/11-wave-i.md`): diarized
+conversation capture with rename-by-voice, an adaptive latency governor, per-language auto model
+switching, and citation-by-voice.
 
 ## Privacy
 

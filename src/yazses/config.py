@@ -917,6 +917,19 @@ class FindreplaceConfig:
 
 
 @dataclass
+class HotwordsConfig:
+    """v2.5 Wave I — Hard Contextual Biasing (ADR-v2-069). OFF by default."""
+    enabled: bool = False
+    boost: float = 2.0
+
+
+@dataclass
+class WindowctlConfig:
+    """v2.5 Wave I — Voice Window/Workspace Management (ADR-v2-070). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1011,6 +1024,8 @@ class Config:
     spokenregex: SpokenregexConfig = field(default_factory=SpokenregexConfig)
     markup: MarkupConfig = field(default_factory=MarkupConfig)
     findreplace: FindreplaceConfig = field(default_factory=FindreplaceConfig)
+    hotwords: HotwordsConfig = field(default_factory=HotwordsConfig)
+    windowctl: WindowctlConfig = field(default_factory=WindowctlConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1117,6 +1132,8 @@ def load_config(path: Path | None = None) -> Config:
         spokenregex=SpokenregexConfig(**data.get("spokenregex", {})),
         markup=MarkupConfig(**data.get("markup", {})),
         findreplace=FindreplaceConfig(**data.get("findreplace", {})),
+        hotwords=HotwordsConfig(**data.get("hotwords", {})),
+        windowctl=WindowctlConfig(**data.get("windowctl", {})),
     )
     return _apply_presets(cfg)
 
