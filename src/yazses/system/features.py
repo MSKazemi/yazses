@@ -102,6 +102,8 @@ def _registry() -> list[_Def]:
     rg_on, rg_off = _bool("rag")
     cd_on, cd_off = _bool("codec")
     hl_on, hl_off = _bool("hallucination")
+    sn_on, sn_off = _bool("snippets")
+    ph_on, ph_off = _bool("phonetic")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -175,6 +177,14 @@ def _registry() -> list[_Def]:
              "Whisper/Low-Effort Mode lowers the mic gate so quiet or effortful speech "
              "is still captured (no shouting). Semantic capture is opt-in. Off by default.",
              lambda c: c.continuum.enabled, cn_on, cn_off),
+        _Def("snippets", "Voice Snippets", "[snippets] — spoken text expander", OPTIONAL,
+             "Say a trigger ('insert my signature') to type a stored template. Add entries "
+             "under [snippets]. Off by default.",
+             lambda c: c.snippets.enabled, sn_on, sn_off),
+        _Def("phonetic", "Phonetic Corrector", "[phonetic] — fix mis-heard names", OPTIONAL,
+             "Fixes mis-heard proper nouns by sound against your vocabulary "
+             "('Cuber Netties'->'Kubernetes'). Pure, conservative. Off by default.",
+             lambda c: c.phonetic.enabled, ph_on, ph_off),
         _Def("hallucination", "Hallucination Guard", "[hallucination] — drop ghost text", OPTIONAL,
              "Drops Whisper's fabricated text on silence/noise (the phantom 'Thank you.', "
              "'please subscribe', or looped phrases) before it's typed. Pure, conservative. Off.",

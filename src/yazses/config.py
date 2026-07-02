@@ -649,6 +649,27 @@ class HallucinationConfig:
 
 
 @dataclass
+class SnippetsConfig:
+    """v2.1 Wave E — Voice Snippets spoken text expander (ADR-v2-026).
+
+    ``entries`` maps a spoken trigger phrase to a template string. OFF by default.
+    """
+    enabled: bool = False
+    entries: dict = field(default_factory=dict)
+
+
+@dataclass
+class PhoneticConfig:
+    """v2.1 Wave E — Phonetic Corrector (ADR-v2-027).
+
+    Fix mis-heard proper nouns against the personal vocabulary in sound space. A stronger
+    G2P backend is opt-in behind the ``phonetic`` extra. OFF by default.
+    """
+    enabled: bool = False
+    max_distance: float = 0.34       # normalized phonetic-key distance to accept a fix
+
+
+@dataclass
 class Config:
     stt: SttConfig = field(default_factory=SttConfig)
     hotkey: HotkeyConfig = field(default_factory=HotkeyConfig)
@@ -692,6 +713,8 @@ class Config:
     rag: RagConfig = field(default_factory=RagConfig)
     codec: CodecConfig = field(default_factory=CodecConfig)
     hallucination: HallucinationConfig = field(default_factory=HallucinationConfig)
+    snippets: SnippetsConfig = field(default_factory=SnippetsConfig)
+    phonetic: PhoneticConfig = field(default_factory=PhoneticConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -760,6 +783,8 @@ def load_config(path: Path | None = None) -> Config:
         rag=RagConfig(**data.get("rag", {})),
         codec=CodecConfig(**data.get("codec", {})),
         hallucination=HallucinationConfig(**data.get("hallucination", {})),
+        snippets=SnippetsConfig(**data.get("snippets", {})),
+        phonetic=PhoneticConfig(**data.get("phonetic", {})),
     )
     return _apply_presets(cfg)
 
