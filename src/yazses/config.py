@@ -540,6 +540,19 @@ class TranslateConfig:
 
 
 @dataclass
+class AffectConfig:
+    """v2.1 Wave D — Emotion/tone-aware formatting (ADR-v2-017).
+
+    Reflect vocal tone as light punctuation (``!``/``?``). ``conservative`` acts only
+    on clear excitement/question; ``expressive`` widens the set. The SER model is opt-
+    in behind the ``affect`` extra; absent → neutral label → no-op. OFF by default.
+    """
+    enabled: bool = False
+    mode: str = "conservative"       # conservative | expressive
+    min_confidence: float = 0.6
+
+
+@dataclass
 class Config:
     stt: SttConfig = field(default_factory=SttConfig)
     hotkey: HotkeyConfig = field(default_factory=HotkeyConfig)
@@ -575,6 +588,7 @@ class Config:
     continuum: ContinuumConfig = field(default_factory=ContinuumConfig)
     bridge: BridgeConfig = field(default_factory=BridgeConfig)
     translate: TranslateConfig = field(default_factory=TranslateConfig)
+    affect: AffectConfig = field(default_factory=AffectConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -635,6 +649,7 @@ def load_config(path: Path | None = None) -> Config:
         continuum=ContinuumConfig(**data.get("continuum", {})),
         bridge=BridgeConfig(**data.get("bridge", {})),
         translate=TranslateConfig(**data.get("translate", {})),
+        affect=AffectConfig(**data.get("affect", {})),
     )
     return _apply_presets(cfg)
 

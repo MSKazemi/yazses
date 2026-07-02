@@ -94,6 +94,7 @@ def _registry() -> list[_Def]:
     cn_on, cn_off = _bool("continuum")
     br_on, br_off = _bool("bridge")
     tr_on, tr_off = _bool("translate")
+    af_on, af_off = _bool("affect")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -167,6 +168,10 @@ def _registry() -> list[_Def]:
              "Whisper/Low-Effort Mode lowers the mic gate so quiet or effortful speech "
              "is still captured (no shouting). Semantic capture is opt-in. Off by default.",
              lambda c: c.continuum.enabled, cn_on, cn_off),
+        _Def("affect", "Tone-Aware Formatting", "[affect] — tone → !/?", OPTIONAL,
+             "Adds ! or ? based on your vocal tone (excited/question), beyond pause "
+             "punctuation. Needs the affect extra for detection; conservative by default. Off.",
+             lambda c: c.affect.enabled, af_on, af_off),
         _Def("translate", "Speech Translation", "[translate] — dictate L1, type English", OPTIONAL,
              "Speak another language and type English (Whisper's built-in translate; no "
              "extra download). Other targets need the seamless extra. Off by default.",
