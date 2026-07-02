@@ -1047,6 +1047,18 @@ class AutopairConfig:
 
 
 @dataclass
+class TimelineConfig:
+    """v2.7 Wave K — Voice Undo/Redo Timeline (ADR-v2-089). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
+class BookmarksConfig:
+    """v2.7 Wave K — Session Bookmarks & Resume (ADR-v2-090). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1161,6 +1173,8 @@ class Config:
     compute: ComputeConfig = field(default_factory=ComputeConfig)
     casetransform: CasetransformConfig = field(default_factory=CasetransformConfig)
     autopair: AutopairConfig = field(default_factory=AutopairConfig)
+    timeline: TimelineConfig = field(default_factory=TimelineConfig)
+    bookmarks: BookmarksConfig = field(default_factory=BookmarksConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1287,6 +1301,8 @@ def load_config(path: Path | None = None) -> Config:
         compute=ComputeConfig(**data.get("compute", {})),
         casetransform=CasetransformConfig(**data.get("casetransform", {})),
         autopair=AutopairConfig(**data.get("autopair", {})),
+        timeline=TimelineConfig(**data.get("timeline", {})),
+        bookmarks=BookmarksConfig(**data.get("bookmarks", {})),
     )
     return _apply_presets(cfg)
 

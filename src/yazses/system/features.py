@@ -169,6 +169,8 @@ def _registry() -> list[_Def]:
     cmp_on, cmp_off = _bool("compute")
     cst_on, cst_off = _bool("casetransform")
     apr_on, apr_off = _bool("autopair")
+    tl_on, tl_off = _bool("timeline")
+    bm_on, bm_off = _bool("bookmarks")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -246,6 +248,14 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("timeline", "Voice Undo/Redo Timeline", "[timeline] — undo YazSes output by voice", RECOMMENDED,
+             "Undo/redo YazSes's own output across bursts by voice — 'undo the last sentence', "
+             "'redo' — even where the app's Ctrl+Z is unreliable. Off by default.",
+             lambda c: c.timeline.enabled, tl_on, tl_off),
+        _Def("bookmarks", "Session Bookmarks", "[bookmarks] — checkpoints in a long session", OPTIONAL,
+             "Drop named anchors in a long dictation ('bookmark here as intro') and jump back "
+             "('jump to my last bookmark') after a break. Off by default.",
+             lambda c: c.bookmarks.enabled, bm_on, bm_off),
         _Def("casetransform", "Voice Case Transform", "[casetransform] — recase the selection", OPTIONAL,
              "Recase the selected text by voice: 'make this snake_case', 'Title Case', 'SHOUT', "
              "'camelCase'. Off by default.",
@@ -591,6 +601,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "timeline": "Say 'undo the last sentence' to take back what YazSes just typed.",
+    "bookmarks": "Say 'bookmark here', then 'jump to my last bookmark' after a break.",
     "casetransform": "Select a name, say 'make this snake_case', and it rewrites.",
     "autopair": "Dictate '(a plus b' and it closes to '(a plus b)'.",
     "chords": "Say 'press control shift P' and the command palette opens.",

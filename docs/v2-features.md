@@ -177,10 +177,11 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Inline Compute** | `compute` | "what's 15% of 240" → types 36, on-device (never `eval`). |
 | **Voice Case Transform** | `casetransform` | Recase the selection ("make this snake_case", "camelCase", "SHOUT"). |
 | **Auto-Pairing & Wrap** | `autopair` | Balances brackets/quotes in dictated code; "wrap this in parens". |
+| **Voice Undo/Redo Timeline** | `timeline` | Undo/redo YazSes output across bursts by voice, even where Ctrl+Z is unreliable. |
+| **Session Bookmarks** | `bookmarks` | "bookmark here as intro" + "jump to my last bookmark" for long sessions. |
 
 More Wave K features are designed (see `design/vision/v2-research/13-wave-k.md`): focus-class
-auto-profile switching, a voice undo/redo timeline, spoken table→CSV entry, session bookmarks, a
-word-count/goal tracker, and a local voice timer.
+auto-profile switching, spoken table→CSV entry, a word-count/goal tracker, and a local voice timer.
 
 ## Privacy
 
