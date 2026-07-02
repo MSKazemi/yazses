@@ -308,6 +308,8 @@ class VoiceprintConfig:
     enabled: bool = False
     backend: str = "ecapa"            # ecapa (speechbrain) | resemblyzer
     enroll_seconds: float = 25.0      # speech captured during enrollment
+    multi_profile: bool = False       # v2.1 Wave E — N-way per-speaker routing (ADR-v2-028)
+    profile_min_similarity: float = 0.5  # min cosine to switch to a matched profile
 
 
 @dataclass

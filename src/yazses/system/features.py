@@ -104,6 +104,7 @@ def _registry() -> list[_Def]:
     hl_on, hl_off = _bool("hallucination")
     sn_on, sn_off = _bool("snippets")
     ph_on, ph_off = _bool("phonetic")
+    mp_on, mp_off = _bool("voiceprint", "multi_profile")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -177,6 +178,11 @@ def _registry() -> list[_Def]:
              "Whisper/Low-Effort Mode lowers the mic gate so quiet or effortful speech "
              "is still captured (no shouting). Semantic capture is opt-in. Off by default.",
              lambda c: c.continuum.enabled, cn_on, cn_off),
+        _Def("multiprofile", "Multi-User Profiles", "[voiceprint] multi_profile", OPTIONAL,
+             "On a shared machine, loads each enrolled speaker's own vocab/hotkey/cleanup "
+             "from their voiceprint — no manual switching. Needs the voiceprint extra + 2+ "
+             "enrolled profiles. Off by default.",
+             lambda c: c.voiceprint.multi_profile, mp_on, mp_off),
         _Def("snippets", "Voice Snippets", "[snippets] — spoken text expander", OPTIONAL,
              "Say a trigger ('insert my signature') to type a stored template. Add entries "
              "under [snippets]. Off by default.",
