@@ -183,6 +183,8 @@ def _registry() -> list[_Def]:
     cg_on, cg_off = _bool("contour")
     bre_on, bre_off = _bool("breath")
     wm_on, wm_off = _bool("whispermode")
+    ms_on, ms_off = _bool("mouthswitch")
+    iv_on, iv_off = _bool("involuntary")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -260,6 +262,17 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("mouthswitch", "Mouth-Sound Switch Access", "[mouthswitch] — scan-and-select by mouth sounds",
+             EXPERIMENTAL,
+             "Drive a scanning selector with non-verbal mouth sounds ('pop' = advance, cluck = "
+             "select) — the switch-access method for people who can't produce reliable speech. Off "
+             "by default.",
+             lambda c: c.mouthswitch.enabled, ms_on, ms_off),
+        _Def("involuntary", "Involuntary-Vocalization Excision", "[involuntary] — drop coughs & sneezes",
+             OPTIONAL,
+             "Detects and deletes involuntary sounds (cough, throat-clear, sneeze) from the stream so "
+             "they never become garbage tokens or spurious commands. Off by default.",
+             lambda c: c.involuntary.enabled, iv_on, iv_off),
         _Def("breath", "Breath-Paced Dictation", "[breath] — segment by natural breath groups", OPTIONAL,
              "Uses your natural breath onsets as sentence/paragraph boundaries, so dictation chunks "
              "the way you actually breathe — even without silent pauses. Off by default.",
@@ -668,6 +681,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "mouthswitch": "Pop your lips to move the highlight, cluck to select — no words.",
+    "involuntary": "Cough mid-sentence and it's dropped before it reaches the text.",
     "breath": "Take a breath and YazSes commits that phrase and starts a new one.",
     "whispermode": "Drop to a whisper and it turns up the gain so it still hears you.",
     "hesitation": "Trail off with 'annnd… uhh…' and it waits instead of cutting you off.",

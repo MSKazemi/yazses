@@ -1148,6 +1148,19 @@ class WhispermodeConfig:
 
 
 @dataclass
+class MouthswitchConfig:
+    """v2.8 Wave L — Mouth-Sound Switch Access (ADR-v2-097). OFF by default."""
+    enabled: bool = False
+    dwell_s: float = 1.2
+
+
+@dataclass
+class InvoluntaryConfig:
+    """v2.8 Wave L — Involuntary-Vocalization Auto-Excision (ADR-v2-102). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1276,6 +1289,8 @@ class Config:
     contour: ContourConfig = field(default_factory=ContourConfig)
     breath: BreathConfig = field(default_factory=BreathConfig)
     whispermode: WhispermodeConfig = field(default_factory=WhispermodeConfig)
+    mouthswitch: MouthswitchConfig = field(default_factory=MouthswitchConfig)
+    involuntary: InvoluntaryConfig = field(default_factory=InvoluntaryConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1416,6 +1431,8 @@ def load_config(path: Path | None = None) -> Config:
         contour=ContourConfig(**data.get("contour", {})),
         breath=BreathConfig(**data.get("breath", {})),
         whispermode=WhispermodeConfig(**data.get("whispermode", {})),
+        mouthswitch=MouthswitchConfig(**data.get("mouthswitch", {})),
+        involuntary=InvoluntaryConfig(**data.get("involuntary", {})),
     )
     return _apply_presets(cfg)
 

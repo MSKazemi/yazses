@@ -202,9 +202,11 @@ phonate but not articulate discrete words, and for word-free eyes-free control.
 | **Pitch-Contour Gestures** | `contour` | Hum a shape — rise=confirm, fall=cancel, rise-fall=undo. Word-free. Experimental. |
 | **Breath-Paced Dictation** | `breath` | Segments dictation by your natural breath groups, not silence. |
 | **Whisper-Aware Mode** | `whispermode` | Detects a whisper and adapts gain/VAD/prompt so quiet dictation stays accurate. |
+| **Mouth-Sound Switch Access** | `mouthswitch` | Non-verbal mouth sounds drive a scan-and-select selector (AAC switch access). Experimental. |
+| **Involuntary-Vocalization Excision** | `involuntary` | Drops cough/throat-clear/sneeze before they corrupt the transcript. |
 
-More Wave L features are designed (see `design/vision/v2-research/14-wave-l.md`): mouth-sound switch
-access and involuntary-vocalization excision.
+Wave L is complete — all ten features (see `design/vision/v2-research/14-wave-l.md`) are shipped,
+pure, 100%-covered, and off by default.
 
 ## Privacy
 
