@@ -81,6 +81,24 @@ accessibility tree. See `design/adr/adr-v2-023/024` (internal).
 The **zero-touch bundle** — Wake-Word + Auto-Stop + Voice Mouse Grid — composes into a
 complete hands-free operating mode.
 
+## Wave F — self-improvement, adaptation & new modalities (v2.2)
+
+All OFF by default. Pure logic ships now; heavy models load only when you enable the feature.
+Toggle with `yazses features enable <name>`.
+
+| Feature | `features` name | What it does |
+|---|---|---|
+| **Speaking Coach** | `coach` | Private analytics of your dictation: filler rate, words-per-minute, vocabulary diversity. |
+| **Smart-Paste** | `smartpaste` | Adapts injected syntax to the target app (markdown bullets, code casing, URL autolinking). |
+| **Audio-Anchored Scrubbing** | `scrub` | Keeps word timestamps so you can replay what you said or re-dictate one word. |
+| **Dictation Reflow** | `reflow` | Say "structure this" to rewrite a ramble into bullets + action items. |
+| **Acoustic Context Profiles** | `acoustic_profiles` | Detects your environment (quiet/café/car/meeting) and auto-tunes the mic gate + denoise. |
+| **Mood Ledger** | `sentiment` | Private speech-sentiment journal; labels stay in the encrypted corpus. |
+| **Pronunciation Feedback** | `pronunciation` | Per-phoneme good/fair/poor practice scoring for accent/L2 training. |
+| **Personal Read-Back Voice** | `readback_clone` | Read the transcript back in a clone of your own voice (permissive OpenVoice V2). |
+| **Gesture Chords** | `gesture` | Bind multi-input chords (held key + nod / key / sEMG squeeze) to actions. |
+| **Two-Way Live Interpreter** | `interpret` | Face-to-face mode: each turn is detected and translated into the other language. |
+
 ## Privacy
 
 Every v2 feature honours the same guarantees as the rest of YazSes: on-device
