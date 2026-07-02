@@ -945,6 +945,20 @@ class LangrouteConfig:
 
 
 @dataclass
+class LatencyConfig:
+    """v2.5 Wave I — Adaptive Latency Governor (ADR-v2-073). OFF by default."""
+    enabled: bool = False
+    high_load: float = 85.0
+    low_load: float = 40.0
+
+
+@dataclass
+class DiarizeConfig:
+    """v2.5 Wave I — Diarized Conversation Capture (ADR-v2-074). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1043,6 +1057,8 @@ class Config:
     windowctl: WindowctlConfig = field(default_factory=WindowctlConfig)
     cite: CiteConfig = field(default_factory=CiteConfig)
     langroute: LangrouteConfig = field(default_factory=LangrouteConfig)
+    latency: LatencyConfig = field(default_factory=LatencyConfig)
+    diarize: DiarizeConfig = field(default_factory=DiarizeConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1153,6 +1169,8 @@ def load_config(path: Path | None = None) -> Config:
         windowctl=WindowctlConfig(**data.get("windowctl", {})),
         cite=CiteConfig(**data.get("cite", {})),
         langroute=LangrouteConfig(**data.get("langroute", {})),
+        latency=LatencyConfig(**data.get("latency", {})),
+        diarize=DiarizeConfig(**data.get("diarize", {})),
     )
     return _apply_presets(cfg)
 

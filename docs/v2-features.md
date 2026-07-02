@@ -147,9 +147,8 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Voice Window Management** | `windowctl` | Hands-free desktop layout ("move window left half", "workspace 3"). |
 | **Citation-by-Voice** | `cite` | "cite Vaswani 2017" → a formatted citation from your local .bib, offline. |
 | **Per-Language Auto Switching** | `langroute` | Detects the language you speak and hot-swaps to its model + ITN. |
-
-More Wave I features are designed (see `design/vision/v2-research/11-wave-i.md`): diarized
-conversation capture with rename-by-voice, and an adaptive latency governor.
+| **Adaptive Latency Governor** | `latency` | Keeps dictation responsive under CPU load, faster when idle (speculative decoding). |
+| **Diarized Conversation Capture** | `diarize` | Attributed multi-speaker Markdown (**Alice:** …) with rename-by-voice. |
 
 ## Privacy
 

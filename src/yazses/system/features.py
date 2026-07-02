@@ -153,6 +153,8 @@ def _registry() -> list[_Def]:
     wc_on, wc_off = _bool("windowctl")
     ci_on, ci_off = _bool("cite")
     lrt_on, lrt_off = _bool("langroute")
+    lat_on, lat_off = _bool("latency")
+    diz_on, diz_off = _bool("diarize")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -230,6 +232,15 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("latency", "Adaptive Latency Governor", "[latency] — load-aware decode", RECOMMENDED,
+             "Keeps dictation responsive under CPU load (lighter model/beam) and losslessly "
+             "faster when idle (speculative decoding). Needs the latency extra for a draft model. "
+             "Off by default.",
+             lambda c: c.latency.enabled, lat_on, lat_off),
+        _Def("diarize", "Diarized Conversation Capture", "[diarize] — attributed multi-speaker", OPTIONAL,
+             "Capture a live conversation as attributed Markdown (**Alice:** …) and rename "
+             "speakers by voice ('call speaker two Alice'). Needs the diarize extra. Off by default.",
+             lambda c: c.diarize.enabled, diz_on, diz_off),
         _Def("cite", "Citation-by-Voice", "[cite] — cite from your local .bib", OPTIONAL,
              "Say 'cite Vaswani 2017' and it inserts a formatted citation from your local BibTeX "
              "library, fully offline. Off by default.",
@@ -510,6 +521,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "latency": "Dictation stays snappy when your CPU is busy, faster when it's idle.",
+    "diarize": "A two-person chat is typed as **Alice:** … **Bob:** … you can rename by voice.",
     "cite": "Say 'cite Vaswani 2017' to insert a citation from your .bib.",
     "langroute": "Switch languages mid-session and the right model loads automatically.",
     "hotwords": "Add 'Kubernetes' to vocab and it stops being mis-heard.",
