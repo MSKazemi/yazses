@@ -95,6 +95,8 @@ def _registry() -> list[_Def]:
     br_on, br_off = _bool("bridge")
     tr_on, tr_off = _bool("translate")
     af_on, af_off = _bool("affect")
+    dn_on, dn_off = _bool("denoise")
+    pr_on, pr_off = _bool("predict")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -168,6 +170,14 @@ def _registry() -> list[_Def]:
              "Whisper/Low-Effort Mode lowers the mic gate so quiet or effortful speech "
              "is still captured (no shouting). Semantic capture is opt-in. Off by default.",
              lambda c: c.continuum.enabled, cn_on, cn_off),
+        _Def("denoise", "Noise Suppression", "[denoise] — clean mic before STT", OPTIONAL,
+             "Removes background noise/echo before transcription so dictation works in "
+             "noisy rooms. Needs the denoise extra (DeepFilterNet). Off by default.",
+             lambda c: c.denoise.enabled, dn_on, dn_off),
+        _Def("predict", "Predictive Completion", "[predict] — voice autosuggest", OPTIONAL,
+             "A tiny local model suggests the rest of your sentence; accept by voice. "
+             "Needs the predict extra + a model. Off by default.",
+             lambda c: c.predict.enabled, pr_on, pr_off),
         _Def("affect", "Tone-Aware Formatting", "[affect] — tone → !/?", OPTIONAL,
              "Adds ! or ? based on your vocal tone (excited/question), beyond pause "
              "punctuation. Needs the affect extra for detection; conservative by default. Off.",

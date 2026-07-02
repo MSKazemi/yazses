@@ -581,6 +581,16 @@ class Daemon:
                 )
                 decode_audio = np.concatenate([lead, padded])
 
+            # Noise-suppression front-end (ADR-v2-015): identity passthrough when
+            # off/unavailable; never raises. Improves STT input in noisy rooms.
+            try:
+                from yazses.denoise.frontend import apply_denoise
+                decode_audio = apply_denoise(
+                    decode_audio, self._config.denoise, self._config.audio.sample_rate
+                )
+            except Exception:
+                pass
+
             audio_secs = padded.size / self._config.audio.sample_rate
             # Prosody Ink (batch only) needs per-word timestamps; capture them on
             # the non-streaming path when [prosody] enabled, else use the fast

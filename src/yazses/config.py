@@ -553,6 +553,32 @@ class AffectConfig:
 
 
 @dataclass
+class DenoiseConfig:
+    """v2.1 Wave D — Real-time noise-suppression front-end (ADR-v2-015).
+
+    Denoise/dereverb before STT so noisy rooms and quiet speech work. Identity
+    passthrough when off; the DeepFilterNet backend is opt-in behind the ``denoise``
+    extra. OFF by default.
+    """
+    enabled: bool = False
+    backend: str = "deepfilternet"   # deepfilternet | none
+    strength: float = 1.0            # graded suppression (higher = more aggressive)
+
+
+@dataclass
+class PredictConfig:
+    """v2.1 Wave D — Predictive dictation completion (ADR-v2-016).
+
+    A tiny on-device LLM proposes the rest of a phrase; accept by voice. The
+    generator (llama.cpp) is opt-in behind the ``predict`` extra and runs in a
+    background thread. OFF by default.
+    """
+    enabled: bool = False
+    model_path: str = ""             # local planner/completion GGUF; empty = disabled
+    max_tokens: int = 12
+
+
+@dataclass
 class Config:
     stt: SttConfig = field(default_factory=SttConfig)
     hotkey: HotkeyConfig = field(default_factory=HotkeyConfig)
@@ -589,6 +615,8 @@ class Config:
     bridge: BridgeConfig = field(default_factory=BridgeConfig)
     translate: TranslateConfig = field(default_factory=TranslateConfig)
     affect: AffectConfig = field(default_factory=AffectConfig)
+    denoise: DenoiseConfig = field(default_factory=DenoiseConfig)
+    predict: PredictConfig = field(default_factory=PredictConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -650,6 +678,8 @@ def load_config(path: Path | None = None) -> Config:
         bridge=BridgeConfig(**data.get("bridge", {})),
         translate=TranslateConfig(**data.get("translate", {})),
         affect=AffectConfig(**data.get("affect", {})),
+        denoise=DenoiseConfig(**data.get("denoise", {})),
+        predict=PredictConfig(**data.get("predict", {})),
     )
     return _apply_presets(cfg)
 
