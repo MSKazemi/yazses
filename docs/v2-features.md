@@ -150,6 +150,20 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Adaptive Latency Governor** | `latency` | Keeps dictation responsive under CPU load, faster when idle (speculative decoding). |
 | **Diarized Conversation Capture** | `diarize` | Attributed multi-speaker Markdown (**Alice:** …) with rename-by-voice. |
 
+## Wave J — precision input, safety & recovery (v2.6, in progress)
+
+All OFF by default. Pure logic ships now; heavy models load only when you enable the feature.
+
+| Feature | `features` name | What it does |
+|---|---|---|
+| **Phonetic Spelling Mode** | `spelling` | NATO words → exact characters for passwords/codes ("capital alpha bravo double lima" → `Abll`). |
+| **Voice Git Choreographer** | `gitvoice` | Safe git by voice: destructive ops wait for a spoken confirm; the undo is always spoken. |
+
+More Wave J features are designed (see `design/vision/v2-research/12-wave-j.md`): confidence-gated
+re-ask (flagship), a verbatim⇄autoformat live toggle, crowd-proof dictation, a self-learning
+correction dictionary, voice fuzzy file open, voice jump-to-symbol, recording import, and a spoken
+shell pipeline builder.
+
 ## Privacy
 
 Every v2 feature honours the same guarantees as the rest of YazSes: on-device

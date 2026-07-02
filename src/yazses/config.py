@@ -959,6 +959,18 @@ class DiarizeConfig:
 
 
 @dataclass
+class SpellingConfig:
+    """v2.6 Wave J — Phonetic Spelling Mode (ADR-v2-075). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
+class GitvoiceConfig:
+    """v2.6 Wave J — Voice Git Choreographer (ADR-v2-076). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1059,6 +1071,8 @@ class Config:
     langroute: LangrouteConfig = field(default_factory=LangrouteConfig)
     latency: LatencyConfig = field(default_factory=LatencyConfig)
     diarize: DiarizeConfig = field(default_factory=DiarizeConfig)
+    spelling: SpellingConfig = field(default_factory=SpellingConfig)
+    gitvoice: GitvoiceConfig = field(default_factory=GitvoiceConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1171,6 +1185,8 @@ def load_config(path: Path | None = None) -> Config:
         langroute=LangrouteConfig(**data.get("langroute", {})),
         latency=LatencyConfig(**data.get("latency", {})),
         diarize=DiarizeConfig(**data.get("diarize", {})),
+        spelling=SpellingConfig(**data.get("spelling", {})),
+        gitvoice=GitvoiceConfig(**data.get("gitvoice", {})),
     )
     return _apply_presets(cfg)
 

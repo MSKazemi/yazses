@@ -155,6 +155,8 @@ def _registry() -> list[_Def]:
     lrt_on, lrt_off = _bool("langroute")
     lat_on, lat_off = _bool("latency")
     diz_on, diz_off = _bool("diarize")
+    spl_on, spl_off = _bool("spelling")
+    gv_on, gv_off = _bool("gitvoice")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -232,6 +234,14 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("spelling", "Phonetic Spelling Mode", "[spelling] — NATO → exact characters", RECOMMENDED,
+             "A character-exact mode for passwords/codes/IDs: 'capital alpha bravo double lima' → "
+             "'Abll'. Handles digits and symbols. Off by default.",
+             lambda c: c.spelling.enabled, spl_on, spl_off),
+        _Def("gitvoice", "Voice Git Choreographer", "[gitvoice] — safe git by voice", OPTIONAL,
+             "Drive git by voice via a structured grammar; destructive ops (force-push, reset "
+             "--hard) wait for a spoken confirm and the undo is always spoken. Off by default.",
+             lambda c: c.gitvoice.enabled, gv_on, gv_off),
         _Def("latency", "Adaptive Latency Governor", "[latency] — load-aware decode", RECOMMENDED,
              "Keeps dictation responsive under CPU load (lighter model/beam) and losslessly "
              "faster when idle (speculative decoding). Needs the latency extra for a draft model. "
@@ -521,6 +531,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "spelling": "Say 'capital alpha bravo double lima' to type 'Abll' exactly.",
+    "gitvoice": "Say 'force push' and it waits for confirm, and tells you the undo.",
     "latency": "Dictation stays snappy when your CPU is busy, faster when it's idle.",
     "diarize": "A two-person chat is typed as **Alice:** … **Bob:** … you can rename by voice.",
     "cite": "Say 'cite Vaswani 2017' to insert a citation from your .bib.",
