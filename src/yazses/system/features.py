@@ -105,6 +105,8 @@ def _registry() -> list[_Def]:
     sn_on, sn_off = _bool("snippets")
     ph_on, ph_off = _bool("phonetic")
     mp_on, mp_off = _bool("voiceprint", "multi_profile")
+    as_on, as_off = _bool("autostop")
+    mg_on, mg_off = _bool("mousegrid")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -178,6 +180,14 @@ def _registry() -> list[_Def]:
              "Whisper/Low-Effort Mode lowers the mic gate so quiet or effortful speech "
              "is still captured (no shouting). Semantic capture is opt-in. Off by default.",
              lambda c: c.continuum.enabled, cn_on, cn_off),
+        _Def("autostop", "Hands-Free Auto-Stop", "[autostop] — tap & speak", OPTIONAL,
+             "Tap once and speak; recording auto-stops when you finish (silence timeout + "
+             "duration cap). Semantic end-of-turn needs the turn extra. Off by default.",
+             lambda c: c.autostop.enabled, as_on, as_off),
+        _Def("mousegrid", "Voice Mouse Grid", "[mousegrid] — click by voice", OPTIONAL,
+             "Drive the cursor and click by voice via a numbered grid ('three, seven, click') "
+             "where no accessibility tree exists. Reuses the overlay. Off by default.",
+             lambda c: c.mousegrid.enabled, mg_on, mg_off),
         _Def("multiprofile", "Multi-User Profiles", "[voiceprint] multi_profile", OPTIONAL,
              "On a shared machine, loads each enrolled speaker's own vocab/hotkey/cleanup "
              "from their voiceprint — no manual switching. Needs the voiceprint extra + 2+ "

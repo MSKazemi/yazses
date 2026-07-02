@@ -672,6 +672,27 @@ class PhoneticConfig:
 
 
 @dataclass
+class AutoStopConfig:
+    """v2.1 Wave E — hands-free tap-and-speak auto-stop (ADR-v2-029).
+
+    Tap to start; auto-stop on trailing silence or a hard duration cap. The Smart Turn v2
+    semantic model is opt-in behind the ``turn`` extra. OFF by default.
+    """
+    enabled: bool = False
+    mode: str = "silence"            # silence | semantic
+    silence_timeout_ms: int = 800
+    max_duration_ms: int = 30000
+
+
+@dataclass
+class MousegridConfig:
+    """v2.1 Wave E — Voice Mouse Grid pointer control (ADR-v2-030). OFF by default."""
+    enabled: bool = False
+    cols: int = 3
+    rows: int = 3
+
+
+@dataclass
 class Config:
     stt: SttConfig = field(default_factory=SttConfig)
     hotkey: HotkeyConfig = field(default_factory=HotkeyConfig)
@@ -717,6 +738,8 @@ class Config:
     hallucination: HallucinationConfig = field(default_factory=HallucinationConfig)
     snippets: SnippetsConfig = field(default_factory=SnippetsConfig)
     phonetic: PhoneticConfig = field(default_factory=PhoneticConfig)
+    autostop: AutoStopConfig = field(default_factory=AutoStopConfig)
+    mousegrid: MousegridConfig = field(default_factory=MousegridConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -787,6 +810,8 @@ def load_config(path: Path | None = None) -> Config:
         hallucination=HallucinationConfig(**data.get("hallucination", {})),
         snippets=SnippetsConfig(**data.get("snippets", {})),
         phonetic=PhoneticConfig(**data.get("phonetic", {})),
+        autostop=AutoStopConfig(**data.get("autostop", {})),
+        mousegrid=MousegridConfig(**data.get("mousegrid", {})),
     )
     return _apply_presets(cfg)
 
