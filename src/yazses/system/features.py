@@ -171,6 +171,8 @@ def _registry() -> list[_Def]:
     apr_on, apr_off = _bool("autopair")
     tl_on, tl_off = _bool("timeline")
     bm_on, bm_off = _bool("bookmarks")
+    tbl_on, tbl_off = _bool("tablecsv")
+    wg_on, wg_off = _bool("wordgoal")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -248,6 +250,14 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("tablecsv", "Spoken Table Entry", "[tablecsv] — dictate rows of data", OPTIONAL,
+             "Bulk data entry by voice: 'row: Ada, 1815, London' types tab/comma cells and 'next "
+             "row' moves down. For spreadsheets and forms. Off by default.",
+             lambda c: c.tablecsv.enabled, tbl_on, tbl_off),
+        _Def("wordgoal", "Word-Count & Goal Tracker", "[wordgoal] — track your writing goal", OPTIONAL,
+             "Counts dictated words and tracks a goal: say 'goal 500 words', then 'how many words "
+             "so far?' for spoken progress. Off by default.",
+             lambda c: c.wordgoal.enabled, wg_on, wg_off),
         _Def("timeline", "Voice Undo/Redo Timeline", "[timeline] — undo YazSes output by voice", RECOMMENDED,
              "Undo/redo YazSes's own output across bursts by voice — 'undo the last sentence', "
              "'redo' — even where the app's Ctrl+Z is unreliable. Off by default.",
@@ -601,6 +611,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "tablecsv": "Say 'row: Ada, 1815, London' to fill a spreadsheet row.",
+    "wordgoal": "Say 'how many words so far?' and it tells you your progress.",
     "timeline": "Say 'undo the last sentence' to take back what YazSes just typed.",
     "bookmarks": "Say 'bookmark here', then 'jump to my last bookmark' after a break.",
     "casetransform": "Select a name, say 'make this snake_case', and it rewrites.",

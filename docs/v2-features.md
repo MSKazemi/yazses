@@ -179,9 +179,11 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Auto-Pairing & Wrap** | `autopair` | Balances brackets/quotes in dictated code; "wrap this in parens". |
 | **Voice Undo/Redo Timeline** | `timeline` | Undo/redo YazSes output across bursts by voice, even where Ctrl+Z is unreliable. |
 | **Session Bookmarks** | `bookmarks` | "bookmark here as intro" + "jump to my last bookmark" for long sessions. |
+| **Spoken Table Entry** | `tablecsv` | "row: Ada, 1815, London" → tab/comma cells, "next row" advances. |
+| **Word-Count & Goal Tracker** | `wordgoal` | Count dictated words, set a goal, ask "how many words so far?" |
 
 More Wave K features are designed (see `design/vision/v2-research/13-wave-k.md`): focus-class
-auto-profile switching, spoken table→CSV entry, a word-count/goal tracker, and a local voice timer.
+auto-profile switching and a local voice timer.
 
 ## Privacy
 

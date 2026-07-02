@@ -1059,6 +1059,20 @@ class BookmarksConfig:
 
 
 @dataclass
+class TablecsvConfig:
+    """v2.7 Wave K — Spoken Table→CSV Data Entry (ADR-v2-091). OFF by default."""
+    enabled: bool = False
+    delimiter: str = ","
+
+
+@dataclass
+class WordgoalConfig:
+    """v2.7 Wave K — Word-Count & Goal Tracker (ADR-v2-092). OFF by default."""
+    enabled: bool = False
+    goal: int = 0
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1175,6 +1189,8 @@ class Config:
     autopair: AutopairConfig = field(default_factory=AutopairConfig)
     timeline: TimelineConfig = field(default_factory=TimelineConfig)
     bookmarks: BookmarksConfig = field(default_factory=BookmarksConfig)
+    tablecsv: TablecsvConfig = field(default_factory=TablecsvConfig)
+    wordgoal: WordgoalConfig = field(default_factory=WordgoalConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1303,6 +1319,8 @@ def load_config(path: Path | None = None) -> Config:
         autopair=AutopairConfig(**data.get("autopair", {})),
         timeline=TimelineConfig(**data.get("timeline", {})),
         bookmarks=BookmarksConfig(**data.get("bookmarks", {})),
+        tablecsv=TablecsvConfig(**data.get("tablecsv", {})),
+        wordgoal=WordgoalConfig(**data.get("wordgoal", {})),
     )
     return _apply_presets(cfg)
 
