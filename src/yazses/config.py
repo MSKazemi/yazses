@@ -1130,6 +1130,24 @@ class ContourConfig:
 
 
 @dataclass
+class BreathConfig:
+    """v2.8 Wave L — Breath-Paced Dictation (ADR-v2-099). OFF by default."""
+    enabled: bool = False
+    min_gap_s: float = 1.0
+    onset_threshold: float = 0.6
+
+
+@dataclass
+class WhispermodeConfig:
+    """v2.8 Wave L — Whisper-Aware Mode (ADR-v2-100). OFF by default."""
+    enabled: bool = False
+    voicing_max: float = 0.3
+    tilt_min: float = -1.0
+    gain_db: float = 6.0
+    vad_scale: float = 0.5
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1256,6 +1274,8 @@ class Config:
     prosodypunct: ProsodypunctConfig = field(default_factory=ProsodypunctConfig)
     hesitation: HesitationConfig = field(default_factory=HesitationConfig)
     contour: ContourConfig = field(default_factory=ContourConfig)
+    breath: BreathConfig = field(default_factory=BreathConfig)
+    whispermode: WhispermodeConfig = field(default_factory=WhispermodeConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1394,6 +1414,8 @@ def load_config(path: Path | None = None) -> Config:
         prosodypunct=ProsodypunctConfig(**data.get("prosodypunct", {})),
         hesitation=HesitationConfig(**data.get("hesitation", {})),
         contour=ContourConfig(**data.get("contour", {})),
+        breath=BreathConfig(**data.get("breath", {})),
+        whispermode=WhispermodeConfig(**data.get("whispermode", {})),
     )
     return _apply_presets(cfg)
 

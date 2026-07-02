@@ -200,9 +200,11 @@ phonate but not articulate discrete words, and for word-free eyes-free control.
 | **Prosodic Auto-Punctuation** | `prosodypunct` | Inserts periods/commas/question marks from how you speak — no need to say "comma". |
 | **Hesitation-Hold Endpointing** | `hesitation` | Holds the turn open on filled pauses ("uhh…") instead of cutting you off. |
 | **Pitch-Contour Gestures** | `contour` | Hum a shape — rise=confirm, fall=cancel, rise-fall=undo. Word-free. Experimental. |
+| **Breath-Paced Dictation** | `breath` | Segments dictation by your natural breath groups, not silence. |
+| **Whisper-Aware Mode** | `whispermode` | Detects a whisper and adapts gain/VAD/prompt so quiet dictation stays accurate. |
 
 More Wave L features are designed (see `design/vision/v2-research/14-wave-l.md`): mouth-sound switch
-access, breath-paced dictation, whisper-aware mode, and involuntary-vocalization excision.
+access and involuntary-vocalization excision.
 
 ## Privacy
 

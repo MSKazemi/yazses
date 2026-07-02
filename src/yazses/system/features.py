@@ -181,6 +181,8 @@ def _registry() -> list[_Def]:
     pp_on, pp_off = _bool("prosodypunct")
     hes_on, hes_off = _bool("hesitation")
     cg_on, cg_off = _bool("contour")
+    bre_on, bre_off = _bool("breath")
+    wm_on, wm_off = _bool("whispermode")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -258,6 +260,15 @@ def _registry() -> list[_Def]:
              "Start dictation hands-free by saying a keyword. Always-listening (local only, "
              "nothing stored until it fires). Needs the wakeword extra. Off by default.",
              lambda c: c.wakeword.enabled, ww_on, ww_off),
+        _Def("breath", "Breath-Paced Dictation", "[breath] — segment by natural breath groups", OPTIONAL,
+             "Uses your natural breath onsets as sentence/paragraph boundaries, so dictation chunks "
+             "the way you actually breathe — even without silent pauses. Off by default.",
+             lambda c: c.breath.enabled, bre_on, bre_off),
+        _Def("whispermode", "Whisper-Aware Mode", "[whispermode] — accurate whispered dictation",
+             OPTIONAL,
+             "Detects when you drop to a whisper and adapts gain, VAD, and the STT prompt so quiet "
+             "dictation stays accurate in shared or private spaces. Off by default.",
+             lambda c: c.whispermode.enabled, wm_on, wm_off),
         _Def("hesitation", "Hesitation-Hold Endpointing", "[hesitation] — don't cut off filled pauses",
              RECOMMENDED,
              "Holds the turn open when you trail off with a filled hesitation ('annnd… uhh…') instead "
@@ -657,6 +668,8 @@ _EXAMPLES: dict[str, str] = {
     "continuum": "yazses features enable continuum — whisper-quiet speech still registers.",
     "wakeword": "Say your wake word to start dictation hands-free (--force).",
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
+    "breath": "Take a breath and YazSes commits that phrase and starts a new one.",
+    "whispermode": "Drop to a whisper and it turns up the gain so it still hears you.",
     "hesitation": "Trail off with 'annnd… uhh…' and it waits instead of cutting you off.",
     "contour": "Hum a rising note to confirm, a falling one to cancel — no words.",
     "spatialvad": "A colleague talks beside you and it's gated out by direction.",
