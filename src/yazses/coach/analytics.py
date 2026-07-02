@@ -70,3 +70,14 @@ def analyze(text: str, duration_s: float = 0.0) -> SpeechStats:
         wpm=words_per_minute(total, duration_s),
         type_token_ratio=(len(set(ws)) / total if total else 0.0),
     )
+
+
+def aggregate_stats(samples) -> SpeechStats:
+    """Aggregate ``(text, duration_s)`` samples into one :class:`SpeechStats`. Pure.
+
+    Texts are concatenated and durations summed, so ``filler_rate``/``wpm``/``type_token_ratio``
+    describe the whole history. Empty/None texts and non-positive durations are ignored.
+    """
+    text = " ".join(s for s, _ in samples if s)
+    duration = sum(d for _, d in samples if d and d > 0)
+    return analyze(text, duration)

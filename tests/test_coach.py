@@ -56,6 +56,39 @@ def test_analyze_empty_is_safe():
     assert s.words == 0 and s.filler_rate == 0.0 and s.wpm == 0.0 and s.type_token_ratio == 0.0
 
 
+def test_aggregate_stats_sums_texts_and_durations():
+    from yazses.coach.analytics import aggregate_stats
+    s = aggregate_stats([("um the report", 30.0), ("the report is done", 30.0)])
+    # 7 words total over 60s → 7 wpm; one filler ("um")
+    assert s.words == 7
+    assert s.filler_count == 1
+    assert round(s.wpm, 1) == 7.0
+    assert 0.0 < s.type_token_ratio <= 1.0
+
+
+def test_aggregate_stats_ignores_empty_and_bad_duration():
+    from yazses.coach.analytics import aggregate_stats
+    s = aggregate_stats([("", 0.0), (None, -5.0), ("hello world", 0.0)])
+    assert s.words == 2 and s.wpm == 0.0
+
+
+def test_coach_cli_no_corpus(tmp_path, monkeypatch):
+    from typer.testing import CliRunner
+
+    import yazses.cli as cli
+
+    class _Paths:
+        data_dir = tmp_path
+
+    class _Plat:
+        paths = _Paths()
+
+    monkeypatch.setattr(cli, "get_platform", lambda: _Plat())
+    r = CliRunner().invoke(cli.app, ["coach"], env={"COLUMNS": "220", "TERM": "dumb"})
+    assert r.exit_code == 0
+    assert "No corpus yet" in r.output
+
+
 def test_feature_registered_off_by_default():
     from yazses.config import Config
     from yazses.system.features import feature_status

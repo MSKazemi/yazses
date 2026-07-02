@@ -1008,6 +1008,56 @@ def mark_wrong(
 @app.command(
     rich_help_panel=_LEARNING,
     epilog=_examples(
+        "yazses coach            speaking-style stats from your recent dictations",
+        "yazses coach -n 200     analyse the last 200 dictations",
+    ),
+)
+def coach(
+    limit: int = typer.Option(
+        100, "--limit", "-n", help="How many recent dictations to analyse."
+    ),
+) -> None:
+    """Show private speaking-style analytics (filler rate, words-per-minute, vocabulary).
+
+    Reads only your local encrypted learning corpus (requires `[learning] enabled = true`).
+    Nothing leaves the machine.
+    """
+    from yazses.coach.analytics import aggregate_stats
+    from yazses.learning.capture import open_store
+
+    platform = get_platform()
+    data_dir = platform.paths.data_dir
+    if not (data_dir / "corpus.db").exists():
+        typer.echo("No corpus yet. Enable it with: yazses features enable learning")
+        return
+    store = open_store(data_dir)
+    try:
+        events = store.events()
+    finally:
+        store.close()
+    # Only real dictations (injected, non-discarded) carry meaningful style signal.
+    samples = [
+        (e.final_text, e.audio_secs or 0.0)
+        for e in events
+        if e.injected and not e.discard_reason and e.final_text
+    ]
+    samples = samples[-max(1, limit):]
+    if not samples:
+        typer.echo("No dictations captured yet to analyse.")
+        return
+    s = aggregate_stats(samples)
+    typer.echo(f"Speaking Coach — last {len(samples)} dictation(s):\n")
+    typer.echo(f"  words:              {s.words}")
+    typer.echo(f"  filler words:       {s.filler_count}  ({s.filler_rate * 100:.1f}% of words)")
+    if s.wpm:
+        typer.echo(f"  speaking pace:      {s.wpm:.0f} words/min")
+    typer.echo(f"  vocabulary variety: {s.type_token_ratio * 100:.0f}% unique words")
+    typer.echo("\n  Private + on-device. `yazses corpus destroy` forgets everything.")
+
+
+@app.command(
+    rich_help_panel=_LEARNING,
+    epilog=_examples(
         "yazses recall kubernetes deploy   search past dictations for those words",
         "yazses recall                     show your most recent dictations",
     ),
