@@ -1253,6 +1253,18 @@ class OutlineConfig:
 
 
 @dataclass
+class DiacritizeConfig:
+    """v2.10 Wave N — Diacritics restoration (ADR-v2-122). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
+class SafeglyphConfig:
+    """v2.10 Wave N — SafeGlyph confusable-hazard detection (ADR-v2-123). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1397,6 +1409,8 @@ class Config:
     translit: TranslitConfig = field(default_factory=TranslitConfig)
     brailleout: BrailleoutConfig = field(default_factory=BrailleoutConfig)
     outline: OutlineConfig = field(default_factory=OutlineConfig)
+    diacritize: DiacritizeConfig = field(default_factory=DiacritizeConfig)
+    safeglyph: SafeglyphConfig = field(default_factory=SafeglyphConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1553,6 +1567,8 @@ def load_config(path: Path | None = None) -> Config:
         translit=TranslitConfig(**data.get("translit", {})),
         brailleout=BrailleoutConfig(**data.get("brailleout", {})),
         outline=OutlineConfig(**data.get("outline", {})),
+        diacritize=DiacritizeConfig(**data.get("diacritize", {})),
+        safeglyph=SafeglyphConfig(**data.get("safeglyph", {})),
     )
     return _apply_presets(cfg)
 

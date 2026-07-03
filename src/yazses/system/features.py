@@ -199,6 +199,8 @@ def _registry() -> list[_Def]:
     trl_on, trl_off = _bool("translit")
     bo_on, bo_off = _bool("brailleout")
     ol_on, ol_off = _bool("outline")
+    dia_on, dia_off = _bool("diacritize")
+    sgl_on, sgl_off = _bool("safeglyph")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -293,6 +295,14 @@ def _registry() -> list[_Def]:
              "Say 'new item / indent / promote / collapse' to drive a live outline tree and render "
              "it as Markdown or OPML — structured idea capture by voice. Off by default.",
              lambda c: c.outline.enabled, ol_on, ol_off),
+        _Def("diacritize", "Diacritize", "[diacritize] — restore dropped diacritics", OPTIONAL,
+             "Restore the diacritics ASR drops — 'cafe' → 'café', 'naive' → 'naïve' — via an "
+             "unambiguous lexicon (ambiguous words left alone). Off by default.",
+             lambda c: c.diacritize.enabled, dia_on, dia_off),
+        _Def("safeglyph", "SafeGlyph", "[safeglyph] — flag homoglyph hazards", OPTIONAL,
+             "Flag Unicode confusables in dictated identifiers/URLs — Cyrillic 'а' vs Latin 'a', "
+             "zero-width characters, mixed-script words — before they are injected. Off by default.",
+             lambda c: c.safeglyph.enabled, sgl_on, sgl_off),
         _Def("diagramvox", "Diagrams-as-Code by Voice", "[diagramvox] — dictate a flowchart", OPTIONAL,
              "Dictate a flowchart ('start goes to login; login goes to dashboard if success') and get "
              "Mermaid/Graphviz source — draw diagrams without a mouse or canvas. Off by default.",
@@ -760,6 +770,8 @@ _EXAMPLES: dict[str, str] = {
     "translit": "Dictate 'salam' and it types سلام in Persian script.",
     "brailleout": "Dictate 'hello' and your Braille display gets ⠓⠑⠇⠇⠕ directly.",
     "outline": "Say 'new item groceries, indent, new item milk' → a nested outline.",
+    "diacritize": "Dictate 'a cafe cliche' and get 'a café cliché'.",
+    "safeglyph": "A pasted 'pаypal.com' (Cyrillic а) gets flagged before injection.",
     "diagramvox": "Say 'A goes to B; B goes to C' and get a Mermaid flowchart.",
     "proofback": "Interrupt the read-back and the cursor lands on the word being read.",
     "screenplay": "Dictate a scene and it lands as proper INT./EXT. Fountain markup.",
