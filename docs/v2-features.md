@@ -236,10 +236,12 @@ Structural code editing, internationalization, and accessibility-output correctn
 |---|---|---|
 | **HatSelect** | `hatselect` | Address tokens by spoken label ("delete bravo") for structural editing. Experimental. |
 | **Transliteration** | `translit` | Dictate a native language in Latin letters → native script (Finglish→Persian). |
+| **BrailleOut** | `brailleout` | Emit dictation as Grade-2 UEB Unicode Braille for Braille displays. |
+| **Spoken Outline** | `outline` | "New item / indent / promote / collapse" drives an outline tree → Markdown/OPML. |
 
-More Wave N features are designed (see `design/vision/v2-research/16-wave-n.md`): Braille output,
-offline reverse-dictionary, own-audio replay, screen-reader-paced injection, cognitive-load
-guardrails, diacritic restoration, homoglyph safety, and spoken outline structuring.
+More Wave N features are designed (see `design/vision/v2-research/16-wave-n.md`): offline
+reverse-dictionary, own-audio replay, screen-reader-paced injection, cognitive-load guardrails,
+diacritic restoration, and homoglyph safety.
 
 ## Privacy
 

@@ -1239,6 +1239,20 @@ class TranslitConfig:
 
 
 @dataclass
+class BrailleoutConfig:
+    """v2.10 Wave N — BrailleOut Unicode Braille output (ADR-v2-117). OFF by default."""
+    enabled: bool = False
+    grade: int = 2
+
+
+@dataclass
+class OutlineConfig:
+    """v2.10 Wave N — Spoken Outline structuring (ADR-v2-124). OFF by default."""
+    enabled: bool = False
+    format: str = "markdown"
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1381,6 +1395,8 @@ class Config:
     proofback: ProofbackConfig = field(default_factory=ProofbackConfig)
     hatselect: HatselectConfig = field(default_factory=HatselectConfig)
     translit: TranslitConfig = field(default_factory=TranslitConfig)
+    brailleout: BrailleoutConfig = field(default_factory=BrailleoutConfig)
+    outline: OutlineConfig = field(default_factory=OutlineConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1535,6 +1551,8 @@ def load_config(path: Path | None = None) -> Config:
         proofback=ProofbackConfig(**data.get("proofback", {})),
         hatselect=HatselectConfig(**data.get("hatselect", {})),
         translit=TranslitConfig(**data.get("translit", {})),
+        brailleout=BrailleoutConfig(**data.get("brailleout", {})),
+        outline=OutlineConfig(**data.get("outline", {})),
     )
     return _apply_presets(cfg)
 

@@ -197,6 +197,8 @@ def _registry() -> list[_Def]:
     pb_on, pb_off = _bool("proofback")
     hs_on, hs_off = _bool("hatselect")
     trl_on, trl_off = _bool("translit")
+    bo_on, bo_off = _bool("brailleout")
+    ol_on, ol_off = _bool("outline")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -283,6 +285,14 @@ def _registry() -> list[_Def]:
              "Dictate your native language in Latin letters ('salam, chetori?') and inject the native "
              "script — Whisper nails romanized phonetics where native audio fails. Off by default.",
              lambda c: c.translit.enabled, trl_on, trl_off),
+        _Def("brailleout", "BrailleOut", "[brailleout] — dictation as Unicode Braille", OPTIONAL,
+             "Emit Grade-2 (UEB) Unicode Braille cells so a Braille-display or DeafBlind user gets "
+             "dictation directly in Braille — no screen-reader round-trip. Off by default.",
+             lambda c: c.brailleout.enabled, bo_on, bo_off),
+        _Def("outline", "Spoken Outline", "[outline] — voice-driven outline tree", OPTIONAL,
+             "Say 'new item / indent / promote / collapse' to drive a live outline tree and render "
+             "it as Markdown or OPML — structured idea capture by voice. Off by default.",
+             lambda c: c.outline.enabled, ol_on, ol_off),
         _Def("diagramvox", "Diagrams-as-Code by Voice", "[diagramvox] — dictate a flowchart", OPTIONAL,
              "Dictate a flowchart ('start goes to login; login goes to dashboard if success') and get "
              "Mermaid/Graphviz source — draw diagrams without a mouse or canvas. Off by default.",
@@ -748,6 +758,8 @@ _EXAMPLES: dict[str, str] = {
     "itn": "Say 'john dot doe at gmail dot com' → john.doe@gmail.com.",
     "hatselect": "Say 'delete bravo' and the token labeled bravo is gone — no cursor.",
     "translit": "Dictate 'salam' and it types سلام in Persian script.",
+    "brailleout": "Dictate 'hello' and your Braille display gets ⠓⠑⠇⠇⠕ directly.",
+    "outline": "Say 'new item groceries, indent, new item milk' → a nested outline.",
     "diagramvox": "Say 'A goes to B; B goes to C' and get a Mermaid flowchart.",
     "proofback": "Interrupt the read-back and the cursor lands on the word being read.",
     "screenplay": "Dictate a scene and it lands as proper INT./EXT. Fountain markup.",
