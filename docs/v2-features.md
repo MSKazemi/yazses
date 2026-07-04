@@ -242,9 +242,11 @@ Structural code editing, internationalization, and accessibility-output correctn
 | **SafeGlyph** | `safeglyph` | Flag Unicode confusables/invisibles in identifiers and URLs before injection. |
 | **WordFind** | `wordfind` | Offline reverse dictionary — describe a word, get a ranked shortlist. |
 | **LoadGuard** | `loadguard` | Widen confirmations / defer risky actions when speech shows rising cognitive load. |
+| **Echo** | `echo` | "Play that back" replays your own captured audio for a text span (not TTS). |
+| **Screen-Reader Pacing** | `srpace` | Pace injection to a screen reader's reading rate, clause-chunked. |
 
-More Wave N features are designed (see `design/vision/v2-research/16-wave-n.md`): own-audio
-replay and screen-reader-paced injection.
+Wave N is complete — all ten features (see `design/vision/v2-research/16-wave-n.md`) are shipped,
+pure, 100%-covered, and off by default.
 
 ## Privacy
 

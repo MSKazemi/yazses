@@ -1279,6 +1279,19 @@ class LoadguardConfig:
 
 
 @dataclass
+class EchoConfig:
+    """v2.10 Wave N — Echo own-audio replay (ADR-v2-119). OFF by default."""
+    enabled: bool = False
+
+
+@dataclass
+class SrpaceConfig:
+    """v2.10 Wave N — SRPace screen-reader-paced injection (ADR-v2-120). OFF by default."""
+    enabled: bool = False
+    wpm: float = 180.0
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1427,6 +1440,8 @@ class Config:
     safeglyph: SafeglyphConfig = field(default_factory=SafeglyphConfig)
     wordfind: WordfindConfig = field(default_factory=WordfindConfig)
     loadguard: LoadguardConfig = field(default_factory=LoadguardConfig)
+    echo: EchoConfig = field(default_factory=EchoConfig)
+    srpace: SrpaceConfig = field(default_factory=SrpaceConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1587,6 +1602,8 @@ def load_config(path: Path | None = None) -> Config:
         safeglyph=SafeglyphConfig(**data.get("safeglyph", {})),
         wordfind=WordfindConfig(**data.get("wordfind", {})),
         loadguard=LoadguardConfig(**data.get("loadguard", {})),
+        echo=EchoConfig(**data.get("echo", {})),
+        srpace=SrpaceConfig(**data.get("srpace", {})),
     )
     return _apply_presets(cfg)
 

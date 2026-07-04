@@ -203,6 +203,8 @@ def _registry() -> list[_Def]:
     sgl_on, sgl_off = _bool("safeglyph")
     wf_on, wf_off = _bool("wordfind")
     lg_on, lg_off = _bool("loadguard")
+    eco_on, eco_off = _bool("echo")
+    srp_on, srp_off = _bool("srpace")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -313,6 +315,14 @@ def _registry() -> list[_Def]:
              "When your speech shows rising cognitive load (pauses, fillers, slowdown), widen "
              "confirmations and defer risky actions instead of firing them. Off by default.",
              lambda c: c.loadguard.enabled, lg_on, lg_off),
+        _Def("echo", "Echo Own-Audio Replay", "[echo] — 'play that back'", OPTIONAL,
+             "Say 'play that back' to replay your own captured audio for a text span (not TTS) — "
+             "catch homophone/ASR errors by ear, eyes-free. Off by default.",
+             lambda c: c.echo.enabled, eco_on, eco_off),
+        _Def("srpace", "Screen-Reader Pacing", "[srpace] — pace injection to a screen reader", OPTIONAL,
+             "Pace injected text to a screen reader's reading rate, clause-chunked, instead of one "
+             "burst — so the screen reader can announce it coherently. Off by default.",
+             lambda c: c.srpace.enabled, srp_on, srp_off),
         _Def("diagramvox", "Diagrams-as-Code by Voice", "[diagramvox] — dictate a flowchart", OPTIONAL,
              "Dictate a flowchart ('start goes to login; login goes to dashboard if success') and get "
              "Mermaid/Graphviz source — draw diagrams without a mouse or canvas. Off by default.",
@@ -784,6 +794,8 @@ _EXAMPLES: dict[str, str] = {
     "safeglyph": "A pasted 'pаypal.com' (Cyrillic а) gets flagged before injection.",
     "wordfind": "Say 'the word for when water turns to gas' → evaporation.",
     "loadguard": "Sounding overloaded? Destructive commands wait for a wider confirm.",
+    "echo": "Say 'play that back' and hear your own recording of the last words.",
+    "srpace": "Dictate a paragraph and your screen reader keeps up, clause by clause.",
     "diagramvox": "Say 'A goes to B; B goes to C' and get a Mermaid flowchart.",
     "proofback": "Interrupt the read-back and the cursor lands on the word being read.",
     "screenplay": "Dictate a scene and it lands as proper INT./EXT. Fountain markup.",
