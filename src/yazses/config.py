@@ -1011,8 +1011,25 @@ class ShellpipeConfig:
 
 @dataclass
 class RecimportConfig:
-    """v2.6 Wave J — Recording Import (ADR-v2-083). OFF by default."""
+    """Recording Import — offline batch file transcription with speaker attribution.
+
+    ADR-v2-083 (batch transcription) + ADR-v2-125 (diarization + naming). OFF by default.
+    Diarization is transient; speaker naming is opt-in, consent-gated, and on-device.
+    """
     enabled: bool = False
+    diarize: bool = False              # attribute speakers; false = plain transcript
+    backend: str = "sherpa"            # sherpa | pyannote (dormant) | none
+    max_speakers: int = 0              # 0 = auto-detect
+    min_speakers: int = 0
+    cluster_threshold: float = 0.5     # sherpa fast-clustering threshold (auto-count mode)
+    output_format: str = "txt"         # txt | md | srt | vtt | json
+    model: str = ""                    # "" => inherit the [stt] model
+    language: str = "en"               # "en" fast path, or "translate" (X→English)
+    batched: bool = True               # BatchedInferencePipeline on long files
+    name_from_voiceprints: bool = True # match enrolled voiceprints (needs enrollment)
+    min_speaker_seconds: float = 3.0   # min aggregated cluster speech to attempt naming
+    name_threshold: float = 0.5        # reject-biased cosine similarity to accept a name
+    model_dir: str = ""                # "" => <data_dir>/diarization
 
 
 @dataclass

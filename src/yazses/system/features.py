@@ -458,8 +458,10 @@ def _registry() -> list[_Def]:
              "cloud calculator. Off by default.",
              lambda c: c.compute.enabled, cmp_on, cmp_off),
         _Def("recimport", "Recording Import", "[recimport] — transcribe existing files", OPTIONAL,
-             "Batch-transcribe voice memos/lectures/meetings offline to .txt/.srt/.vtt with "
-             "timestamps — your audio archive becomes searchable. Off by default.",
+             "Run `yazses transcribe <file>` to batch-transcribe voice memos/lectures/meetings "
+             "offline to .txt/.md/.srt/.vtt/.json. Add --diarize to tag who said what "
+             "('Speaker 1: …'), --names/--rename or an enrolled voiceprint for real names. "
+             "Needs the diarization extra for speaker tags. Off by default.",
              lambda c: c.recimport.enabled, ri_on, ri_off),
         _Def("crowdproof", "Crowd-Proof Dictation", "[crowdproof] — dictate in a crowd", EXPERIMENTAL,
              "Reconstructs your enrolled voice out of overlapping babble before STT, so dictation "

@@ -3,6 +3,7 @@ PID-file fallback for status.
 """
 
 from importlib.metadata import version as _pkg_version
+from pathlib import Path
 from typing import Optional
 
 import typer
@@ -1273,6 +1274,153 @@ def tune(
         )
     finally:
         store.close()
+
+
+@app.command(
+    rich_help_panel=_DICTATION,
+    epilog=_examples(
+        "yazses transcribe talk.mp3                 transcribe → talk.txt next to it",
+        "yazses transcribe mtg.m4a --diarize        tag speakers: 'Speaker 1: …'",
+        "yazses transcribe mtg.wav --diarize --names 'Alice,Bob'   name them",
+        "yazses transcribe lecture.mp3 --format srt  subtitle file with timestamps",
+    ),
+)
+def transcribe(
+    audio_file: Path = typer.Argument(
+        ..., exists=True, dir_okay=False, readable=True,
+        help="Audio file to transcribe (wav/mp3/m4a/ogg/flac/opus/mp4…).",
+    ),
+    fmt: str = typer.Option("txt", "--format", "-f", help="txt | md | srt | vtt | json."),
+    diarize: Optional[bool] = typer.Option(
+        None, "--diarize/--no-diarize", help="Tag speakers (needs the diarization extra)."),
+    speakers: int = typer.Option(0, "--speakers", help="Exact speaker count (0 = auto)."),
+    min_speakers: int = typer.Option(0, "--min-speakers", help="Lower bound on speakers."),
+    max_speakers: int = typer.Option(0, "--max-speakers", help="Upper bound on speakers."),
+    names: Optional[str] = typer.Option(
+        None, "--names", help="Comma list mapped to speakers in order: 'Alice,Bob'."),
+    rename: Optional[list[str]] = typer.Option(
+        None, "--rename", help="Explicit map, repeatable: --rename speaker_0=Alice."),
+    language: Optional[str] = typer.Option(
+        None, "--language", help="'en' (default) or 'translate' (any language → English)."),
+    model: Optional[str] = typer.Option(None, "--model", help="STT model (default: your [stt] model)."),
+    out: Optional[str] = typer.Option(None, "--out", "-o", help="Output path (default: <file>.<fmt>)."),
+    download_models: bool = typer.Option(
+        False, "--download-models", help="Fetch the sherpa diarization models, then exit."),
+) -> None:
+    """Transcribe an audio file offline, optionally tagging who said what.
+
+    Writes a sidecar file next to the audio (e.g. talk.mp3 → talk.txt). With
+    --diarize, each utterance is prefixed by a speaker label; provide --names or
+    --rename to use real names, or let an enrolled voiceprint name you ("You").
+    Everything stays on this machine (ADR-011). Speaker naming stores no new data
+    and never enrolls anyone automatically.
+    """
+    import dataclasses
+
+    from yazses.config import load_config
+    from yazses.recimport.render import VALID_FORMATS, render_transcript
+
+    fmt = (fmt or "txt").lower()
+    if fmt not in VALID_FORMATS:
+        typer.echo(f"Unknown --format {fmt!r}; expected one of {', '.join(VALID_FORMATS)}.", err=True)
+        raise typer.Exit(1)
+
+    platform = get_platform()
+    cfg = load_config(platform.paths.config_file)
+    ri = cfg.recimport
+
+    if download_models:
+        from yazses.recimport.download import download_models as _dl
+
+        try:
+            _dl(ri, echo=typer.echo)
+        except Exception as exc:  # pragma: no cover - network/tooling dependent
+            typer.echo(f"Model download failed: {exc}", err=True)
+            raise typer.Exit(1)
+        return
+
+    want_diarize = ri.diarize if diarize is None else diarize
+    eff = dataclasses.replace(
+        ri,
+        diarize=want_diarize,
+        max_speakers=speakers or max_speakers or ri.max_speakers,
+        min_speakers=min_speakers or ri.min_speakers,
+        output_format=fmt,
+        model=model or ri.model,
+        language=language or ri.language,
+    )
+
+    # Build the STT engine from the configured [stt] settings.
+    from yazses.stt.faster_whisper import FasterWhisperEngine
+
+    typer.echo(f"Loading model '{eff.model or cfg.stt.model}'…", err=True)
+    engine = FasterWhisperEngine(
+        model_name=eff.model or cfg.stt.model,
+        device=cfg.stt.device,
+        compute_type=cfg.stt.compute_type,
+    )
+
+    # Speaker naming: parse explicit maps; load the enrolled voiceprint (→ "You").
+    name_list = [n.strip() for n in names.split(",")] if names else None
+    rename_map: dict = {}
+    for item in rename or []:
+        if "=" in item:
+            key, val = item.split("=", 1)
+            rename_map[key.strip()] = val.strip()
+    embedder, profiles = None, None
+    if want_diarize and eff.name_from_voiceprints:
+        embedder, profiles = _load_voiceprints(cfg, platform)
+        if profiles:
+            typer.echo(
+                "Speaker naming uses voiceprints stored only on this machine; "
+                "unrecognised speakers stay labelled 'Speaker N'.", err=True)
+
+    from yazses.recimport.pipeline import transcribe_file
+
+    if want_diarize:
+        typer.echo("Transcribing and diarizing… (first diarized run downloads ~15 MB of models)", err=True)
+    else:
+        typer.echo("Transcribing…", err=True)
+    try:
+        result = transcribe_file(
+            str(audio_file), eff,
+            names=name_list, renames=rename_map,
+            engine=engine, embedder=embedder, profiles=profiles,
+        )
+    except Exception as exc:
+        typer.echo(f"Transcription failed: {exc}", err=True)
+        raise typer.Exit(1)
+
+    if want_diarize and not result.diarized:
+        typer.echo(
+            "Note: diarization was unavailable (install the `diarization` extra and run "
+            "`yazses transcribe --download-models`); wrote a plain transcript.", err=True)
+
+    text = render_transcript(result, fmt)
+    out_path = Path(out) if out else Path(audio_file).with_suffix("." + fmt)
+    out_path.write_text(text, encoding="utf-8")
+    n_spk = len({u.speaker for u in result.utterances if u.speaker})
+    summary = f" ({n_spk} speaker{'s' if n_spk != 1 else ''})" if result.diarized else ""
+    typer.echo(f"Wrote {out_path}{summary}")
+
+
+def _load_voiceprints(cfg, platform):
+    """Return (embedder, {name: embedding}) from the enrolled voiceprint, or (None, None)."""
+    try:
+        from yazses.learning.crypto import Cipher, load_or_create_key
+        from yazses.voiceprint.factory import build_embedder
+        from yazses.voiceprint.store import load_voiceprint
+
+        embedder = build_embedder(cfg.voiceprint)
+        if embedder is None:
+            return None, None
+        cipher = Cipher(load_or_create_key(platform.paths.data_dir))
+        emb = load_voiceprint(platform.paths.data_dir / "voiceprint.enc", cipher)
+        if emb is None:
+            return embedder, None
+        return embedder, {"You": emb.vector}
+    except Exception:  # pragma: no cover - optional/beckend dependent
+        return None, None
 
 
 @corpus_app.command("status")

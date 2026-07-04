@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "yazses"
-version = "2.10.0.dev5"
+version = "2.11.0.dev1"
 description = "Local, offline voice dictation for Linux, macOS, and Windows — hold a key, speak, release"
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -112,6 +112,12 @@ tts = [
 voiceprint = [
     "speechbrain>=1.1",
 ]
+# Wave O — Diarized Recording Import (ADR-v2-125). sherpa-onnx bundles ONNX Runtime
+# (no torch, no GPU, no HF token); imported lazily only when `[recimport] diarize`.
+# Audio decoding needs no extra (PyAV rides in with faster-whisper).
+diarization = [
+    "sherpa-onnx>=1.10",
+]
 # v2.0.0 Wave B — Voice-to-Tool / offline Spoken MCP (ADR-v2-006). Heavy; opt-in.
 # The MCP client is imported lazily only when [agent] enabled; absent → dormant.
 agent = [
@@ -138,6 +144,7 @@ all = [
     "onnxruntime>=1.20",
     "soundfile>=0.13",
     "speechbrain>=1.1",
+    "sherpa-onnx>=1.10",
 ]
 
 [dependency-groups]

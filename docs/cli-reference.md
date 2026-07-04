@@ -177,6 +177,34 @@ After a successful update, restart the daemon to load it:
 | `yazses logs -n N` | Show the last `N` lines. |
 | `yazses logs --path` | Print the log file path only (`~/.local/state/yazses/log/daemon.log`). |
 
+## Transcribe a recording (file → text, off by default)
+
+`yazses transcribe <file>` transcribes an existing audio file **offline** and writes a text file next
+to it (`talk.mp3 → talk.txt`). With `--diarize` it also tags who said what. Everything stays on your
+machine (nothing is uploaded).
+
+| Command | Description |
+|---|---|
+| `yazses transcribe talk.mp3` | Transcribe to `talk.txt` next to the input. Accepts wav/mp3/m4a/ogg/flac/opus/mp4. |
+| `yazses transcribe mtg.m4a --diarize` | Tag speakers: each line is `Speaker 1: …`, `Speaker 2: …`. |
+| `yazses transcribe mtg.wav --diarize --names "Alice,Bob"` | Use real names, mapped to speakers in order. |
+| `yazses transcribe mtg.wav --diarize --rename speaker_0=Alice` | Name a specific speaker (repeatable). |
+| `yazses transcribe lecture.mp3 --format srt` | Write a subtitle file (`txt \| md \| srt \| vtt \| json`). |
+| `yazses transcribe call.ogg --diarize --speakers 2` | Force an exact speaker count (`0`/omitted = auto). Also `--min-speakers` / `--max-speakers`. |
+| `yazses transcribe note.m4a --language translate` | Transcribe any language into English. |
+| `yazses transcribe clip.wav -o out.txt` | Write to an explicit path instead of the sidecar default. |
+| `yazses transcribe --download-models` | Fetch the ~15 MB sherpa diarization models (one-time; needed for `--diarize`). |
+
+Notes:
+- **Speaker tags need the diarization extra:** `uv sync --extra diarization` (sherpa-onnx — CPU-only, no
+  PyTorch, no GPU, no account). Without it, `--diarize` degrades to a plain transcript and tells you.
+- **Speaker naming is opt-in and private.** With `--diarize` and an enrolled voiceprint
+  (`yazses enroll-voice`), your own voice is auto-labelled **"You"**; everyone else is `Speaker N`
+  unless you name them. No new data is stored and no one is ever enrolled automatically — speaker
+  voiceprints are biometric data and stay encrypted on this machine. You are responsible for having
+  permission to record and transcribe the audio.
+- `json` output is lossless (per-word timestamps + speaker); `srt`/`vtt` are subtitles.
+
 ## Dictation & injection
 
 | Command | Description |

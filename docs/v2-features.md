@@ -164,7 +164,7 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Voice Fuzzy File Open** | `fileopen` | "open the mortgage notes" → fuzzy-matches and opens a local file. |
 | **Voice Jump-to-Symbol** | `jump` | "go to line 240" / "jump to function tokenize" → the editor moves there. |
 | **Spoken Shell Pipeline Builder** | `shellpipe` | Speak stages → render a shell pipeline as text; nothing runs until "run it". |
-| **Recording Import** | `recimport` | Batch-transcribe existing recordings offline to .txt/.srt/.vtt with timestamps. |
+| **Recording Import** | `recimport` | `yazses transcribe <file>` — transcribe existing recordings offline (wav/mp3/m4a/ogg/flac/opus/mp4) to a sidecar .txt/.md/.srt/.vtt/.json. `--diarize` tags speakers ("Speaker 1:"); `--names`/`--rename` or an enrolled voiceprint name them. Diarizer = sherpa-onnx (`diarization` extra). |
 | **Crowd-Proof Dictation** (experimental) | `crowdproof` | Reconstructs your voice out of overlapping babble before STT (open-plan/café). |
 
 ## Wave K — keyboard, compute & session tools (v2.7, in progress)
