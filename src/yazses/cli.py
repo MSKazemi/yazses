@@ -859,6 +859,108 @@ def overlay() -> None:
 
 
 @app.command(
+    rich_help_panel=_DICTATION,
+    epilog=_examples(
+        'yazses reflow "First, set up. Then test. I need to ship."   bulleted outline',
+        "cat notes.txt | yazses reflow    reflow piped text (e.g. a transcript)",
+    ),
+)
+def reflow(
+    text: Optional[str] = typer.Argument(None, help="Text to reflow (omit to read stdin)."),
+) -> None:
+    """Reflow a monologue into a bulleted outline — offline (ADR-v2-038).
+
+    Splits on sentence boundaries; strips a leading discourse marker
+    ('first', 'then', 'finally', …); sentences with an action phrase
+    ('I need to', 'to do', 'follow up') become '- [ ]' checkboxes. Reads the
+    TEXT argument, or standard input when omitted (pipe a transcript in).
+    """
+    import sys as _sys
+
+    from yazses.reflow.outline import reflow as _reflow
+
+    src = text if text is not None else _sys.stdin.read()
+    typer.echo(_reflow(src))
+
+
+@app.command(
+    rich_help_panel=_DICTATION,
+    epilog=_examples(
+        'yazses table "row: Ada, 1815, London next row Bob, 1990, Paris"   -> CSV rows',
+        "yazses table --sep ';' \"a, b next row c, d\"    use a semicolon separator",
+    ),
+)
+def table(
+    text: Optional[str] = typer.Argument(None, help="Spoken-style rows (omit to read stdin)."),
+    sep: str = typer.Option(",", "--sep", help="Field separator for the output (default: comma)."),
+) -> None:
+    """Turn spoken rows into delimited (CSV) lines — offline (ADR-v2-091).
+
+    Cells split on commas/semicolons or the word 'and'; rows split on 'next row'
+    or newlines; a leading 'row:'/'entry:'/'record:' marker is stripped. Reads the
+    TEXT argument, or standard input when omitted.
+    """
+    import sys as _sys
+
+    from yazses.tablecsv.entry import rows_to_delimited
+
+    src = text if text is not None else _sys.stdin.read()
+    for line in rows_to_delimited(src, sep=sep):
+        typer.echo(line)
+
+
+@app.command(
+    rich_help_panel=_DICTATION,
+    epilog=_examples(
+        'yazses shellpipe "list files then filter for python then count lines"',
+        "  -> ls | grep 'python' | wc -l   (printed, never executed)",
+    ),
+)
+def shellpipe(
+    text: Optional[str] = typer.Argument(None, help="Spoken pipeline (omit to read stdin)."),
+) -> None:
+    """Render a spoken pipeline into a shell command — offline (ADR-v2-082).
+
+    Recognises stages like 'list files', 'filter for X', 'count lines', 'sort',
+    'unique'. Prints the pipeline for you to review and run — it NEVER executes
+    anything. Exits non-zero (emitting nothing) if a stage isn't recognised.
+    """
+    import sys as _sys
+
+    from yazses.shellpipe.build import parse_stages, render_pipeline
+
+    src = text if text is not None else _sys.stdin.read()
+    pipeline = render_pipeline(parse_stages(src))
+    if not pipeline:
+        typer.echo("Could not map every stage to a command; nothing emitted.", err=True)
+        raise typer.Exit(1)
+    typer.echo(pipeline)
+
+
+@app.command(
+    rich_help_panel=_DICTATION,
+    epilog=_examples(
+        'yazses braille "hello world"       -> ⠓⠑⠇⠇⠕ ⠺⠕⠗⠇⠙',
+        'yazses braille --grade 1 "abc"     Grade 1 (uncontracted)',
+    ),
+)
+def braille(
+    text: Optional[str] = typer.Argument(None, help="Text to translate (omit to read stdin)."),
+    grade: int = typer.Option(2, "--grade", help="UEB grade: 1 (uncontracted) or 2 (contracted)."),
+) -> None:
+    """Translate text to Unicode Braille, UEB subset — offline (ADR-v2-117).
+
+    Reads the TEXT argument, or standard input when omitted.
+    """
+    import sys as _sys
+
+    from yazses.brailleout.ueb import to_braille
+
+    src = text if text is not None else _sys.stdin.read()
+    typer.echo(to_braille(src, grade=grade))
+
+
+@app.command(
     rich_help_panel=_REMOTE,
     epilog=_examples(
         "yazses remote dev.example.com           forward voice typing over SSH",

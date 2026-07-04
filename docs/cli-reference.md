@@ -207,6 +207,18 @@ Notes:
   permission to record and transcribe the audio.
 - `json` output is lossless (per-word timestamps + speaker); `srt`/`vtt` are subtitles.
 
+## Offline text tools
+
+One-shot, fully-offline text transforms. Each reads its `TEXT` argument, or standard input when
+omitted (so you can pipe a transcript in). Nothing is uploaded.
+
+| Command | Description |
+|---|---|
+| `yazses reflow "First, set up. Then test. I need to ship."` | Reflow a monologue into a bulleted outline; action phrases become `- [ ]` checkboxes (ADR-v2-038). |
+| `yazses table "row: Ada, 1815, London next row Bob, 1990, Paris"` | Turn spoken rows into delimited CSV lines; `--sep ';'` for a different separator (ADR-v2-091). |
+| `yazses shellpipe "list files then count lines"` | Render a spoken pipeline into a shell command (`ls \| wc -l`) — **printed, never executed** (ADR-v2-082). |
+| `yazses braille "hello world"` | Translate text to Unicode Braille (UEB subset); `--grade 1` for uncontracted (ADR-v2-117). |
+
 ## Dictation & injection
 
 | Command | Description |
