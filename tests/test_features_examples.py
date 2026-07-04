@@ -18,3 +18,14 @@ def test_examples_are_reasonably_descriptive():
     # a one-word example is almost certainly a placeholder
     thin = [f.slug for f in feature_status(Config()) if len((f.example or "").split()) < 3]
     assert not thin, f"features with a too-thin example: {thin}"
+
+
+def test_every_feature_has_a_nonempty_use_case():
+    # `yazses features info` shows a "Use when:" line for every capability.
+    missing = [f.slug for f in feature_status(Config()) if not (f.use_case or "").strip()]
+    assert not missing, f"features missing a use-case: {missing}"
+
+
+def test_use_cases_are_reasonably_descriptive():
+    thin = [f.slug for f in feature_status(Config()) if len((f.use_case or "").split()) < 5]
+    assert not thin, f"features with a too-thin use-case: {thin}"

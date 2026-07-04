@@ -284,6 +284,8 @@ def _echo_feature_card(feat, *, full: bool) -> None:
     typer.echo(f"{state} {feat.name}  [{slug}]  ({feat.tier_label})")
     if feat.why:
         typer.echo(f"       {feat.why}")
+    if feat.use_case:
+        typer.echo(f"       Use when:  {feat.use_case}")
     if feat.example:
         label = "Example:" if full else "e.g.    "
         typer.echo(f"       {label}  {feat.example}")
@@ -870,6 +872,10 @@ def reflow(
 ) -> None:
     """Reflow a monologue into a bulleted outline — offline (ADR-v2-038).
 
+    Use it when: you dictated or recorded a long rambling monologue (a meeting,
+    a brain-dump, a transcript) and want it structured into scannable bullets and
+    a to-do list without re-typing it.
+
     Splits on sentence boundaries; strips a leading discourse marker
     ('first', 'then', 'finally', …); sentences with an action phrase
     ('I need to', 'to do', 'follow up') become '- [ ]' checkboxes. Reads the
@@ -896,6 +902,10 @@ def table(
 ) -> None:
     """Turn spoken rows into delimited (CSV) lines — offline (ADR-v2-091).
 
+    Use it when: you want to capture tabular data by voice or from a transcript —
+    dictate rows of a table and get CSV you can paste into a spreadsheet, instead
+    of tabbing between cells by hand.
+
     Cells split on commas/semicolons or the word 'and'; rows split on 'next row'
     or newlines; a leading 'row:'/'entry:'/'record:' marker is stripped. Reads the
     TEXT argument, or standard input when omitted.
@@ -920,6 +930,10 @@ def shellpipe(
     text: Optional[str] = typer.Argument(None, help="Spoken pipeline (omit to read stdin)."),
 ) -> None:
     """Render a spoken pipeline into a shell command — offline (ADR-v2-082).
+
+    Use it when: you know what you want a shell pipeline to do but not the exact
+    flags — describe it in words and get a ready-to-review command, without
+    anything running until you decide to run it.
 
     Recognises stages like 'list files', 'filter for X', 'count lines', 'sort',
     'unique'. Prints the pipeline for you to review and run — it NEVER executes
@@ -949,6 +963,9 @@ def braille(
     grade: int = typer.Option(2, "--grade", help="UEB grade: 1 (uncontracted) or 2 (contracted)."),
 ) -> None:
     """Translate text to Unicode Braille, UEB subset — offline (ADR-v2-117).
+
+    Use it when: you need to produce Braille output for a refreshable display or a
+    DeafBlind reader from dictated or piped text, entirely on-device.
 
     Reads the TEXT argument, or standard input when omitted.
     """
