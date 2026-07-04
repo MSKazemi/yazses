@@ -296,7 +296,14 @@ def _echo_feature_card(feat, *, full: bool) -> None:
             typer.echo("\n  Always on — not toggleable.")
 
 
-@features_app.command("info")
+@features_app.command(
+    "info",
+    epilog=_examples(
+        "yazses features info            describe EVERY capability + a usage example",
+        "yazses features info reflow     describe one capability + how to toggle it",
+        "yazses features info | less     page the full catalog",
+    ),
+)
 def features_info(
     name: Optional[str] = typer.Argument(
         None,
@@ -346,12 +353,23 @@ def _apply_feature_writes(config_file, writes) -> None:
         set_config_key(config_file, section, key, value, quote=quote)
 
 
-@features_app.command("enable")
+@features_app.command(
+    "enable",
+    epilog=_examples(
+        "yazses features enable read-back        turn a capability on",
+        "yazses features enable cocktail --force  enable an experimental one",
+        "yazses restart                          apply the change",
+    ),
+)
 def features_enable(
     name: str = typer.Argument(..., help="Toggle name, e.g. read-back (see `yazses features`)."),
     force: bool = typer.Option(False, "--force", help="Allow enabling experimental features."),
 ) -> None:
-    """Turn a capability ON (writes your config), then `yazses restart` to apply."""
+    """Turn a capability ON (writes your config), then `yazses restart` to apply.
+
+    Use the TOGGLE NAME column from `yazses features`. Experimental features
+    (e.g. cocktail, gaze) refuse to enable without --force.
+    """
     from yazses.config import load_config
     from yazses.system.features import EXPERIMENTAL, find_feature, toggleable_slugs
 
@@ -374,7 +392,13 @@ def features_enable(
     typer.echo("Apply it:  yazses restart")
 
 
-@features_app.command("disable")
+@features_app.command(
+    "disable",
+    epilog=_examples(
+        "yazses features disable cocktail    turn a capability off",
+        "yazses restart                      apply the change",
+    ),
+)
 def features_disable(
     name: str = typer.Argument(..., help="Toggle name, e.g. cocktail (see `yazses features`)."),
 ) -> None:
@@ -405,11 +429,22 @@ vocab_app = typer.Typer(
 app.add_typer(vocab_app, rich_help_panel=_SETUP)
 
 
-@vocab_app.command("add")
+@vocab_app.command(
+    "add",
+    epilog=_examples(
+        "yazses vocab add YazSes             add one word/name",
+        "yazses vocab add Kubernetes kubectl  add several at once",
+        "yazses restart                      apply so STT spells them right",
+    ),
+)
 def vocab_add(
     words: list[str] = typer.Argument(..., help="One or more words/names to add."),
 ) -> None:
-    """Add words to the dictionary so YazSes spells them right (then `yazses restart`)."""
+    """Add words to the dictionary so YazSes spells them right (then `yazses restart`).
+
+    Good for names, jargon, and acronyms that Whisper keeps mis-hearing. The
+    words are primed into the STT prompt; they bias recognition, not force it.
+    """
     from yazses.system.vocabulary import add_vocab, vocab_path
 
     platform = get_platform()
@@ -419,7 +454,10 @@ def vocab_add(
     typer.echo("Apply it: yazses restart")
 
 
-@vocab_app.command("list")
+@vocab_app.command(
+    "list",
+    epilog=_examples("yazses vocab list    show every word in your personal dictionary"),
+)
 def vocab_list() -> None:
     """Show the words in your personal dictionary."""
     from yazses.system.vocabulary import load_vocab, vocab_path
@@ -433,7 +471,10 @@ def vocab_list() -> None:
         typer.echo(f"  {w}")
 
 
-@vocab_app.command("remove")
+@vocab_app.command(
+    "remove",
+    epilog=_examples("yazses vocab remove kubectl    drop a word, then yazses restart"),
+)
 def vocab_remove(word: str = typer.Argument(..., help="The word to remove.")) -> None:
     """Remove a word from your personal dictionary (then `yazses restart`)."""
     from yazses.system.vocabulary import remove_vocab, vocab_path
@@ -458,7 +499,10 @@ hotkey_app = typer.Typer(
 app.add_typer(hotkey_app, rich_help_panel=_SETUP)
 
 
-@hotkey_app.command("show")
+@hotkey_app.command(
+    "show",
+    epilog=_examples("yazses hotkey show    print the hold-to-talk key, the command key, and the choices"),
+)
 def hotkey_show() -> None:
     """Show the current hold-to-talk key (and command key, if set)."""
     from yazses.config import load_config
@@ -474,7 +518,13 @@ def hotkey_show() -> None:
     typer.echo(f"Choices: {', '.join(_HOTKEYS)}")
 
 
-@hotkey_app.command("set")
+@hotkey_app.command(
+    "set",
+    epilog=_examples(
+        "yazses hotkey set right_ctrl    hold Right-Ctrl to dictate",
+        "yazses restart                  apply the new key",
+    ),
+)
 def hotkey_set(
     key: str = typer.Argument(..., help="The key to hold to talk (e.g. right_ctrl)."),
 ) -> None:
@@ -495,7 +545,14 @@ def hotkey_set(
     typer.echo(f"Hold-to-talk key set to {key!r}. Apply it:  yazses restart")
 
 
-@hotkey_app.command("command")
+@hotkey_app.command(
+    "command",
+    epilog=_examples(
+        "yazses hotkey command right_ctrl    dictate on right_alt, commands on right_ctrl",
+        "yazses hotkey command off           remove the command key",
+        "yazses restart                      apply the change",
+    ),
+)
 def hotkey_command(
     key: str = typer.Argument(
         ...,
@@ -540,9 +597,16 @@ def hotkey_command(
     typer.echo("Apply it:  yazses restart")
 
 
-@app.command(rich_help_panel=_DAEMON)
+@app.command(
+    rich_help_panel=_DAEMON,
+    epilog=_examples("yazses stop    stop the running daemon (dictation off until you start again)"),
+)
 def stop() -> None:
-    """Stop the running daemon."""
+    """Stop the running daemon.
+
+    Dictation stays off until you `yazses start` again. To pick up a config or
+    version change instead, use `yazses restart` (stop + start in one step).
+    """
     platform = get_platform()
     pid = platform.lifecycle.read_pid()
     if pid is None or not platform.lifecycle.is_running():
@@ -778,7 +842,10 @@ def say(text: str = typer.Argument(..., help="Text to speak aloud.")) -> None:
         raise typer.Exit(1)
 
 
-@app.command(rich_help_panel=_DICTATION)
+@app.command(
+    rich_help_panel=_DICTATION,
+    epilog=_examples("yazses overlay    preview the sonar voice-activity rings in the foreground"),
+)
 def overlay() -> None:
     """Run the sonar voice-activity overlay (needs the `overlay` extra: PySide6).
 
@@ -880,7 +947,10 @@ def setup(
     typer.echo("\nSetup complete. If you were just added to the `input` group, log out and back in.")
 
 
-@app.command(rich_help_panel=_SETUP)
+@app.command(
+    rich_help_panel=_SETUP,
+    epilog=_examples("yazses enroll    calibrate the mic/VAD thresholds to your voice (20 short utterances)"),
+)
 def enroll() -> None:
     """Run the accessibility enrollment wizard to calibrate VAD thresholds.
 
@@ -949,7 +1019,10 @@ gaze_app = typer.Typer(name="gaze", help="Look-to-pane gaze targeting (Glance-Ty
 app.add_typer(gaze_app, rich_help_panel=_SETUP)
 
 
-@gaze_app.command("calibrate")
+@gaze_app.command(
+    "calibrate",
+    epilog=_examples("yazses gaze calibrate    fit the webcam gaze → screen-zone mapping (look at each point)"),
+)
 def gaze_calibrate() -> None:
     """Calibrate webcam gaze → screen zones (Glance-Type look-to-pane).
 
@@ -976,7 +1049,10 @@ def gaze_calibrate() -> None:
     )
 
 
-@model_app.command("list")
+@model_app.command(
+    "list",
+    epilog=_examples("yazses model list    show SLM intent-router models + which are downloaded"),
+)
 def model_list() -> None:
     """List available SLM models and their download status."""
     from yazses.commands.model_manager import list_models, local_path
@@ -1279,10 +1355,17 @@ def tune(
 @app.command(
     rich_help_panel=_DICTATION,
     epilog=_examples(
-        "yazses transcribe talk.mp3                 transcribe → talk.txt next to it",
-        "yazses transcribe mtg.m4a --diarize        tag speakers: 'Speaker 1: …'",
-        "yazses transcribe mtg.wav --diarize --names 'Alice,Bob'   name them",
-        "yazses transcribe lecture.mp3 --format srt  subtitle file with timestamps",
+        "yazses transcribe talk.mp3                          transcribe → talk.txt beside it",
+        "yazses transcribe talk.mp3 -o notes.txt             choose the output path",
+        "yazses transcribe lecture.mp3 --format srt          subtitle file with timestamps",
+        "yazses transcribe lecture.mp3 -f md                 Markdown (also: vtt, json)",
+        "yazses transcribe talk.mp3 --model small.en         more accurate, slower model",
+        "yazses transcribe talk.fr.m4a --language translate  any language → English text",
+        "yazses transcribe mtg.m4a --diarize                 tag speakers: 'Speaker 1: …'",
+        "yazses transcribe mtg.m4a --diarize --speakers 3    force an exact speaker count",
+        "yazses transcribe mtg.wav --diarize --names 'Alice,Bob,Carol'   name them in order",
+        "yazses transcribe mtg.wav --diarize --rename speaker_0=Alice    name one speaker",
+        "yazses transcribe mtg.m4a --download-models         fetch the ~15 MB diarize models, then exit",
     ),
 )
 def transcribe(
@@ -1290,30 +1373,59 @@ def transcribe(
         ..., exists=True, dir_okay=False, readable=True,
         help="Audio file to transcribe (wav/mp3/m4a/ogg/flac/opus/mp4…).",
     ),
-    fmt: str = typer.Option("txt", "--format", "-f", help="txt | md | srt | vtt | json."),
+    fmt: str = typer.Option(
+        "txt", "--format", "-f",
+        help="Output format: txt (default) | md | srt | vtt | json (srt/vtt add timestamps)."),
     diarize: Optional[bool] = typer.Option(
-        None, "--diarize/--no-diarize", help="Tag speakers (needs the diarization extra)."),
-    speakers: int = typer.Option(0, "--speakers", help="Exact speaker count (0 = auto)."),
-    min_speakers: int = typer.Option(0, "--min-speakers", help="Lower bound on speakers."),
-    max_speakers: int = typer.Option(0, "--max-speakers", help="Upper bound on speakers."),
+        None, "--diarize/--no-diarize",
+        help="Tag who said what with local speaker models (needs the diarization extra)."),
+    speakers: int = typer.Option(
+        0, "--speakers", help="Force an exact speaker count (0 = auto-detect)."),
+    min_speakers: int = typer.Option(
+        0, "--min-speakers", help="Lower bound on the auto-detected speaker count."),
+    max_speakers: int = typer.Option(
+        0, "--max-speakers", help="Upper bound on the auto-detected speaker count."),
     names: Optional[str] = typer.Option(
-        None, "--names", help="Comma list mapped to speakers in order: 'Alice,Bob'."),
+        None, "--names",
+        help="Comma list mapped to speakers in order of first appearance: 'Alice,Bob,Carol'."),
     rename: Optional[list[str]] = typer.Option(
-        None, "--rename", help="Explicit map, repeatable: --rename speaker_0=Alice."),
+        None, "--rename",
+        help="Explicit speaker→name map, repeatable: --rename speaker_0=Alice --rename speaker_1=Bob."),
     language: Optional[str] = typer.Option(
-        None, "--language", help="'en' (default) or 'translate' (any language → English)."),
-    model: Optional[str] = typer.Option(None, "--model", help="STT model (default: your [stt] model)."),
-    out: Optional[str] = typer.Option(None, "--out", "-o", help="Output path (default: <file>.<fmt>)."),
+        None, "--language",
+        help="'en' (default) or 'translate' to render any-language audio into English text."),
+    model: Optional[str] = typer.Option(
+        None, "--model",
+        help="STT model override, e.g. base.en (fast) or small.en (more accurate). Default: your config model."),
+    out: Optional[str] = typer.Option(
+        None, "--out", "-o", help="Output file path (default: sidecar <audio_file>.<format>)."),
     download_models: bool = typer.Option(
-        False, "--download-models", help="Fetch the sherpa diarization models, then exit."),
+        False, "--download-models",
+        help="Download the ~15 MB sherpa diarization models, then exit (no transcription)."),
 ) -> None:
-    """Transcribe an audio file offline, optionally tagging who said what.
+    """Transcribe an audio file to text — fully offline, on your machine.
 
-    Writes a sidecar file next to the audio (e.g. talk.mp3 → talk.txt). With
-    --diarize, each utterance is prefixed by a speaker label; provide --names or
-    --rename to use real names, or let an enrolled voiceprint name you ("You").
-    Everything stays on this machine (ADR-011). Speaker naming stores no new data
-    and never enrolls anyone automatically.
+    Runs faster-whisper (the same local Whisper STT engine as live dictation)
+    over any audio/video file and writes a sidecar next to it (talk.mp3 →
+    talk.txt). No cloud, no network, no account — the audio and the transcript
+    never leave this computer.
+
+    Input formats: wav, mp3, m4a, ogg, flac, opus, mp4 and most other
+    ffmpeg-decodable media (decoded to 16 kHz mono; no extra dependency).
+
+    Output formats (-f / --format): txt (default), md, srt, vtt, json.
+    srt/vtt carry timestamps for subtitles. The model defaults to your STT
+    config; override per-run with --model (e.g. small.en for better accuracy).
+    --language translate transcribes non-English audio into English text.
+
+    With --diarize it also tags who said what, using local sherpa-onnx speaker
+    models (install the `diarization` extra; the first run downloads ~15 MB, or
+    pre-fetch with --download-models). Each utterance is then prefixed by a
+    speaker label; provide --names (positional) or --rename (explicit map) to use
+    real names, cap the count with --speakers / --min-speakers / --max-speakers,
+    or let an enrolled voiceprint name you ("You"). Everything stays on this
+    machine (ADR-011); speaker naming stores no new data and never enrolls anyone
+    automatically.
     """
     import dataclasses
 
@@ -1423,7 +1535,10 @@ def _load_voiceprints(cfg, platform):
         return None, None
 
 
-@corpus_app.command("status")
+@corpus_app.command(
+    "status",
+    epilog=_examples("yazses corpus status    show corpus location, event counts, size, and date range"),
+)
 def corpus_status() -> None:
     """Show the learning corpus size, event counts, and date range."""
     import datetime as _dt
@@ -1472,7 +1587,10 @@ def corpus_forget(
     typer.echo(f"Forgot {n} event(s) from the last {minutes:g} minute(s).")
 
 
-@corpus_app.command("destroy")
+@corpus_app.command(
+    "destroy",
+    epilog=_examples("yazses corpus destroy --i-mean-it    irreversibly wipe the whole corpus (DB + clips)"),
+)
 def corpus_destroy(
     confirm: bool = typer.Option(False, "--i-mean-it", help="Required: confirm irreversible wipe."),
 ) -> None:

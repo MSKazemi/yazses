@@ -1,14 +1,14 @@
-# CLI Reference (Python v0.4 line)
+# CLI Reference
 
 All commands are available as `yazses <command>` once installed globally
 (`uv tool install` / `pipx install`), or as `uv run yazses <command>` from the
 repo.
 
 **Getting help.** Every command and subcommand accepts both `-h` and `--help`;
-each shows its options plus an **Examples** block. `yazses --help` lists all
-commands grouped into panels (Daemon, Setup & calibration, Dictation &
-correction, Remote, Learning & tuning); bare `yazses` shows the same help.
-`yazses --version` / `-V` prints the version.
+each shows its options plus a worked **Examples** block. `yazses --help` lists
+all commands grouped into panels (Daemon, Setup & calibration, Dictation &
+correction, Remote, Learning & tuning, Updates & maintenance); bare `yazses`
+shows the same help. `yazses --version` / `-V` prints the version.
 
 **Tab completion.** Run `yazses --install-completion` once to enable `<Tab>`
 completion of commands and options in your shell (`yazses --show-completion`
@@ -177,23 +177,25 @@ After a successful update, restart the daemon to load it:
 | `yazses logs -n N` | Show the last `N` lines. |
 | `yazses logs --path` | Print the log file path only (`~/.local/state/yazses/log/daemon.log`). |
 
-## Transcribe a recording (file → text, off by default)
+## Transcribe a recording (file → text, fully offline)
 
 `yazses transcribe <file>` transcribes an existing audio file **offline** and writes a text file next
-to it (`talk.mp3 → talk.txt`). With `--diarize` it also tags who said what. Everything stays on your
-machine (nothing is uploaded).
+to it (`talk.mp3 → talk.txt`). It runs the same local `faster-whisper` STT engine as live dictation —
+nothing is uploaded, no cloud, no account. With `--diarize` it also tags who said what. This is a
+CLI-only path; it doesn't touch the daemon, hotkey, or your dictation config.
 
 | Command | Description |
 |---|---|
 | `yazses transcribe talk.mp3` | Transcribe to `talk.txt` next to the input. Accepts wav/mp3/m4a/ogg/flac/opus/mp4. |
 | `yazses transcribe mtg.m4a --diarize` | Tag speakers: each line is `Speaker 1: …`, `Speaker 2: …`. |
-| `yazses transcribe mtg.wav --diarize --names "Alice,Bob"` | Use real names, mapped to speakers in order. |
+| `yazses transcribe mtg.wav --diarize --names "Alice,Bob"` | Use real names, mapped to speakers in order of first appearance. |
 | `yazses transcribe mtg.wav --diarize --rename speaker_0=Alice` | Name a specific speaker (repeatable). |
 | `yazses transcribe lecture.mp3 --format srt` | Write a subtitle file (`txt \| md \| srt \| vtt \| json`). |
 | `yazses transcribe call.ogg --diarize --speakers 2` | Force an exact speaker count (`0`/omitted = auto). Also `--min-speakers` / `--max-speakers`. |
+| `yazses transcribe talk.mp3 --model small.en` | Override the STT model for this run — `small.en` is more accurate (slower) than `base.en`. Defaults to your `[stt]` model. |
 | `yazses transcribe note.m4a --language translate` | Transcribe any language into English. |
 | `yazses transcribe clip.wav -o out.txt` | Write to an explicit path instead of the sidecar default. |
-| `yazses transcribe --download-models` | Fetch the ~15 MB sherpa diarization models (one-time; needed for `--diarize`). |
+| `yazses transcribe mtg.m4a --download-models` | Fetch the ~15 MB sherpa diarization models (one-time; needed for `--diarize`), then exit. |
 
 Notes:
 - **Speaker tags need the diarization extra:** `uv sync --extra diarization` (sherpa-onnx — CPU-only, no
@@ -306,6 +308,20 @@ on the machine, encrypted at rest with a machine-bound key.
 | `yazses corpus status` | Show corpus location, event/discard/flag counts, size, and date range. |
 | `yazses corpus forget --minutes N` | Delete events captured in the last `N` minutes (e.g. after dictating something private). |
 | `yazses corpus destroy --i-mean-it` | Irreversibly wipe the corpus (database + audio clips). |
+
+### Insights from your corpus (private, on-device)
+
+These read only your local encrypted corpus and require `[learning] enabled = true`.
+Nothing leaves the machine.
+
+| Command | Description |
+|---|---|
+| `yazses coach` | Speaking-style analytics from your recent dictations — filler-word rate, words-per-minute, vocabulary variety. |
+| `yazses coach -n 200` | Analyse the last `N` dictations (default `100`). |
+| `yazses recall <words…>` | Search your past dictations for those words (Spoken Recall). Also needs `[recall] enabled = true`. |
+| `yazses recall` | Show your most recent dictations (no query). |
+| `yazses scratch` | Show ambient scratch notes captured by saying "note to self …" in command mode (needs `[recall] scratch = true`). `list` is the default. |
+| `yazses scratch clear` | Delete all scratch notes. |
 
 ## Models (Tier 2 SLM intent routing)
 

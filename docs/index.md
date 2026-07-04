@@ -49,6 +49,7 @@ Hold the hotkey (Space on Linux, Right Option on macOS, Right Ctrl on Windows), 
 ## What it does
 
 - **Offline dictation** — type into any focused app with on-device faster-whisper (CPU, int8). No GPU needed.
+- **Transcribe recordings** — `yazses transcribe meeting.m4a` turns any audio/video file into text, fully offline. Add `--diarize` to tag who said what and `--format srt` for subtitles. See the [transcription guide](https://github.com/MSKazemi/yazses/blob/main/docs/tutorials/transcribe-recordings.md).
 - **Voice commands** — a regex grammar (plus an optional ~0.5B SLM router) maps phrases to editor/terminal key sequences: *"undo that"*, *"save file"*, *"go to line 42"*, *"run the tests"*, *"rename this to user_id"*.
 - **Macros & personal vocabulary** — define multi-step commands and teach YazSes your mis-heard words.
 - **Dysfluency-Friendly Mode** — opt-in collapse of stutters/repeats for stuttered or dysarthric speech.
@@ -73,6 +74,7 @@ Hold hotkey → record audio → VAD gate → faster-whisper (CPU)
 - [Install on macOS](https://github.com/MSKazemi/yazses/blob/main/docs/macos-install.md)
 - [Install on Windows](https://github.com/MSKazemi/yazses/blob/main/docs/windows-install.md)
 - [CLI reference](https://github.com/MSKazemi/yazses/blob/main/docs/cli-reference.md)
+- [Transcribe recordings (tutorial)](https://github.com/MSKazemi/yazses/blob/main/docs/tutorials/transcribe-recordings.md)
 - [v2 features (preview)](https://github.com/MSKazemi/yazses/blob/main/docs/v2-features.md)
 - [Privacy statement](https://github.com/MSKazemi/yazses/blob/main/docs/privacy-statement.md)
 
