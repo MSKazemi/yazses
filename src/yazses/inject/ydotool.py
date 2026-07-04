@@ -50,7 +50,19 @@ def ydotool_key_args(combo: str) -> list[str]:
 # does this intermittently with synthetic input), no character can stay "held" and
 # auto-repeat into a flood (`mmmm…`). A key-up for a key that isn't down is a
 # harmless no-op, so this is safe and layout-independent.
-_RELEASE_ALL_TYPED_KEYS = [f"{code}:0" for code in range(2, 58)]
+#
+# We ALSO release the right-side modifier/meta keycodes that fall *outside* 2..57
+# and are common hold-to-talk hotkeys: right_ctrl=97, right_alt=100, left_meta=125,
+# right_meta=126. (left_ctrl/left_alt/both shifts are already inside 2..57.) If the
+# hotkey is one of these and mutter drops its key-up, the modifier stays logically
+# held — which turns the next Space into Alt+Space (the GNOME window menu, whose
+# first item is "Take Screenshot") and mangles typed letters via the AltGr layer.
+# Injection only runs after hold-end (the key is physically released), so releasing
+# it here is safe. See the stuck-right_alt report.
+_HOTKEY_MODIFIER_KEYCODES = (97, 100, 125, 126)
+_RELEASE_ALL_TYPED_KEYS = [f"{code}:0" for code in range(2, 58)] + [
+    f"{code}:0" for code in _HOTKEY_MODIFIER_KEYCODES
+]
 
 
 class YdotoolInjector:

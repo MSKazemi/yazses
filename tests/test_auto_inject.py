@@ -113,3 +113,24 @@ def test_ydotool_type_uses_speed_flags():
     with patch("yazses.inject.ydotool.subprocess.run", side_effect=fake_run):
         YdotoolInjector().inject("hello")
     assert "-d" in seen["cmd"] and "-H" in seen["cmd"]
+
+
+def test_flood_guard_releases_right_side_modifiers():
+    # The post-type flood guard must release right_alt (100), the default
+    # hold-to-talk hotkey — otherwise a dropped key-up leaves Alt logically held,
+    # turning the next Space into Alt+Space (the GNOME window menu / screenshot)
+    # and mangling typed characters. left_alt/left_ctrl/shifts are in 2..57;
+    # right_ctrl(97)/right_alt(100)/meta(125,126) are the ones that were missing.
+    from unittest.mock import MagicMock
+    key_cmds = []
+    def fake_run(cmd, *a, **kw):
+        if cmd[:2] == ["ydotool", "key"]:
+            key_cmds.append(cmd[2:])
+        return MagicMock(returncode=0)
+    with patch("yazses.inject.ydotool.subprocess.run", side_effect=fake_run):
+        YdotoolInjector().inject("hello")
+    released = set().union(*key_cmds) if key_cmds else set()
+    for code in (97, 100, 125, 126):   # right_ctrl, right_alt, left_meta, right_meta
+        assert f"{code}:0" in released, f"flood guard did not release keycode {code}"
+    # and the original character-row releases are still there
+    assert "56:0" in released and "57:0" in released
