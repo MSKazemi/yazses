@@ -201,6 +201,8 @@ def _registry() -> list[_Def]:
     ol_on, ol_off = _bool("outline")
     dia_on, dia_off = _bool("diacritize")
     sgl_on, sgl_off = _bool("safeglyph")
+    wf_on, wf_off = _bool("wordfind")
+    lg_on, lg_off = _bool("loadguard")
 
     return [
         _Def("dictation", "Dictation core", "always on", CORE,
@@ -303,6 +305,14 @@ def _registry() -> list[_Def]:
              "Flag Unicode confusables in dictated identifiers/URLs — Cyrillic 'а' vs Latin 'a', "
              "zero-width characters, mixed-script words — before they are injected. Off by default.",
              lambda c: c.safeglyph.enabled, sgl_on, sgl_off),
+        _Def("wordfind", "WordFind Reverse Dictionary", "[wordfind] — describe a word, get it", OPTIONAL,
+             "Offline reverse dictionary for tip-of-the-tongue moments — 'the word for when water "
+             "turns to gas' → a ranked shortlist (evaporation, …). Anomia/AAC-friendly. Off by default.",
+             lambda c: c.wordfind.enabled, wf_on, wf_off),
+        _Def("loadguard", "LoadGuard", "[loadguard] — cognitive-load guardrails", OPTIONAL,
+             "When your speech shows rising cognitive load (pauses, fillers, slowdown), widen "
+             "confirmations and defer risky actions instead of firing them. Off by default.",
+             lambda c: c.loadguard.enabled, lg_on, lg_off),
         _Def("diagramvox", "Diagrams-as-Code by Voice", "[diagramvox] — dictate a flowchart", OPTIONAL,
              "Dictate a flowchart ('start goes to login; login goes to dashboard if success') and get "
              "Mermaid/Graphviz source — draw diagrams without a mouse or canvas. Off by default.",
@@ -772,6 +782,8 @@ _EXAMPLES: dict[str, str] = {
     "outline": "Say 'new item groceries, indent, new item milk' → a nested outline.",
     "diacritize": "Dictate 'a cafe cliche' and get 'a café cliché'.",
     "safeglyph": "A pasted 'pаypal.com' (Cyrillic а) gets flagged before injection.",
+    "wordfind": "Say 'the word for when water turns to gas' → evaporation.",
+    "loadguard": "Sounding overloaded? Destructive commands wait for a wider confirm.",
     "diagramvox": "Say 'A goes to B; B goes to C' and get a Mermaid flowchart.",
     "proofback": "Interrupt the read-back and the cursor lands on the word being read.",
     "screenplay": "Dictate a scene and it lands as proper INT./EXT. Fountain markup.",

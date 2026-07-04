@@ -240,10 +240,11 @@ Structural code editing, internationalization, and accessibility-output correctn
 | **Spoken Outline** | `outline` | "New item / indent / promote / collapse" drives an outline tree → Markdown/OPML. |
 | **Diacritize** | `diacritize` | Restore dropped diacritics — "cafe" → "café", "naive" → "naïve". |
 | **SafeGlyph** | `safeglyph` | Flag Unicode confusables/invisibles in identifiers and URLs before injection. |
+| **WordFind** | `wordfind` | Offline reverse dictionary — describe a word, get a ranked shortlist. |
+| **LoadGuard** | `loadguard` | Widen confirmations / defer risky actions when speech shows rising cognitive load. |
 
-More Wave N features are designed (see `design/vision/v2-research/16-wave-n.md`): offline
-reverse-dictionary, own-audio replay, screen-reader-paced injection, and cognitive-load
-guardrails.
+More Wave N features are designed (see `design/vision/v2-research/16-wave-n.md`): own-audio
+replay and screen-reader-paced injection.
 
 ## Privacy
 

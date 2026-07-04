@@ -1265,6 +1265,20 @@ class SafeglyphConfig:
 
 
 @dataclass
+class WordfindConfig:
+    """v2.10 Wave N — WordFind offline reverse dictionary (ADR-v2-118). OFF by default."""
+    enabled: bool = False
+    max_candidates: int = 5
+
+
+@dataclass
+class LoadguardConfig:
+    """v2.10 Wave N — LoadGuard cognitive-load guardrails (ADR-v2-121). OFF by default."""
+    enabled: bool = False
+    threshold: float = 0.7
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1411,6 +1425,8 @@ class Config:
     outline: OutlineConfig = field(default_factory=OutlineConfig)
     diacritize: DiacritizeConfig = field(default_factory=DiacritizeConfig)
     safeglyph: SafeglyphConfig = field(default_factory=SafeglyphConfig)
+    wordfind: WordfindConfig = field(default_factory=WordfindConfig)
+    loadguard: LoadguardConfig = field(default_factory=LoadguardConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
@@ -1569,6 +1585,8 @@ def load_config(path: Path | None = None) -> Config:
         outline=OutlineConfig(**data.get("outline", {})),
         diacritize=DiacritizeConfig(**data.get("diacritize", {})),
         safeglyph=SafeglyphConfig(**data.get("safeglyph", {})),
+        wordfind=WordfindConfig(**data.get("wordfind", {})),
+        loadguard=LoadguardConfig(**data.get("loadguard", {})),
     )
     return _apply_presets(cfg)
 
