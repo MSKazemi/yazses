@@ -240,6 +240,32 @@ def test_command_hold_start_arms_mode():
     assert d._command_mode is True
 
 
+# ---- hold-end releases the stuck hotkey modifier (right_alt → Alt+Space fix) ----
+
+def test_hotkey_release_codes_include_right_alt():
+    d = _base_daemon(np.full(16000, 0.5, dtype="float32"))
+    d._config.hotkey.key = "right_alt"
+    d._config.hotkey.command_key = ""
+    assert 100 in d._hotkey_release_codes()   # KEY_RIGHTALT
+
+
+def test_hotkey_release_codes_include_command_key_too():
+    d = _base_daemon(np.full(16000, 0.5, dtype="float32"))
+    d._config.hotkey.key = "right_alt"
+    d._config.hotkey.command_key = "right_ctrl"
+    codes = d._hotkey_release_codes()
+    assert 100 in codes and 97 in codes       # both the dictation and command keys
+
+
+def test_on_hold_end_calls_release(monkeypatch):
+    # The release fires on every hold-end, even a silent-discard burst.
+    d = _base_daemon(np.zeros(16000, dtype="float32"))   # silence → discarded
+    called = {"n": 0}
+    monkeypatch.setattr(d, "_release_hotkey_modifier", lambda: called.__setitem__("n", called["n"] + 1))
+    d._on_hold_end()
+    assert called["n"] == 1
+
+
 # ---- DICTATE-path pure-text transforms (batch 1: gec, diacritize, sembr, safeglyph) ----
 
 def _text_daemon(text):

@@ -483,8 +483,69 @@ class Daemon:
                     self._state.last_error = f"Microphone unavailable: {exc}"
                     self._state.state = TrayState.IDLE
 
+    # Evdev/ydotool keycodes for the hold-to-talk hotkeys (Linux input-event-codes;
+    # ydotool uses the same numbers). Mirrors platform/linux/hotkey.py's keymap.
+    _HOTKEY_KEYCODES = {
+        "space": 57, "right_ctrl": 97, "left_ctrl": 29, "right_alt": 100,
+        "left_alt": 56, "right_meta": 126, "left_meta": 125,
+        "right_shift": 54, "left_shift": 42,
+    }
+
+    def _hotkey_release_codes(self) -> set:
+        """The evdev keycodes to synth-release on hold-end: the dictation hotkey
+        plus the command key (if configured), resolved from names. Pure."""
+        names = {
+            (self._config.hotkey.key or "").strip(),
+            (self._config.hotkey.command_key or "").strip(),
+        }
+        default = getattr(self._platform, "default_hotkey", "right_alt")
+        codes = set()
+        for name in names:
+            if name in ("", "auto"):
+                name = default
+            code = self._HOTKEY_KEYCODES.get(name)
+            if code is not None:
+                codes.add(code)
+        return codes
+
+    def _release_hotkey_modifier(self) -> None:
+        """Synthesise a key-up for the hold-to-talk key(s) so the compositor's
+        view matches reality.
+
+        yazses reads the physical input device, so it reliably knows the hold
+        ended — but GNOME Wayland's mutter intermittently drops the *same* key-up
+        for modifier events, leaving right_alt logically held: the next Space
+        becomes Alt+Space (the window menu whose first item is 'Take Screenshot')
+        and typed letters mangle through the AltGr layer. Sending a synthetic
+        key-up via ydotool forces mutter to release it. Runs on every hold-end
+        (dictation OR silent discard). Best-effort: Linux-only, never raises.
+        """
+        import os as _os
+        import sys as _sys
+
+        if _sys.platform != "linux":
+            return
+        # Don't fire real key events (or spawn ydotool) inside the test suite.
+        if _os.environ.get("PYTEST_CURRENT_TEST"):
+            return
+        try:
+            codes = self._hotkey_release_codes()
+            if not codes:
+                return
+            import subprocess
+            args = ["ydotool", "key"] + [f"{c}:0" for c in sorted(codes)]
+            subprocess.run(args, check=False, timeout=3)
+        except Exception:  # pragma: no cover - best-effort, environment dependent
+            log.debug("hotkey-modifier release (best-effort) failed", exc_info=True)
+
     def _on_hold_end(self) -> None:
         log.info("Recording stopped, transcribing...")
+
+        # Force the compositor to release the hold-to-talk key NOW, before the
+        # (slow) transcription, and regardless of whether this burst ends in an
+        # injection or a silent discard. Fixes stuck right_alt → Alt+Space window
+        # menu / screenshots on GNOME Wayland. Best-effort; never breaks dictation.
+        self._release_hotkey_modifier()
 
         # Consume the dedicated-command-key flag for this burst (reset for next).
         command_mode = self._command_mode
