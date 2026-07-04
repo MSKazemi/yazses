@@ -766,6 +766,28 @@ class Daemon:
 
                     text = apply_self_repair(text)
                     event["final_text"] = text
+                # Inline Compute: a whole-utterance arithmetic expression -> its answer
+                # ("what's 15% of 240" -> "36"). Self-gating: evaluate() returns None
+                # (no-op) unless the utterance is arithmetic. Opt-in (ADR-v2-086).
+                if self._config.compute.enabled:
+                    from yazses.compute.evaluate import evaluate
+
+                    _ans = evaluate(text)
+                    if _ans is not None:
+                        text = _ans
+                        event["final_text"] = text
+                # Phonetic Corrector: fix mis-heard names/jargon against your personal
+                # dictionary by sound ("kubernetis" -> "Kubernetes"). Opt-in (ADR-v2-027).
+                if self._config.phonetic.enabled:
+                    from yazses.postprocess.phonetic import correct_text
+                    from yazses.system.vocabulary import load_vocab, vocab_path
+
+                    _vocab = load_vocab(vocab_path(self._platform.paths.config_file.parent))
+                    _raw = os.environ.get("YAZSES_VOCABULARY", "")
+                    _vocab += [t.strip() for t in _raw.split(",") if t.strip()]
+                    if _vocab:
+                        text = correct_text(text, _vocab)
+                        event["final_text"] = text
                 # Spoken punctuation/formatting ("comma" -> ","). Opt-in.
                 if self._config.commands.voice_punctuation:
                     text = apply_voice_punctuation(text)
@@ -803,6 +825,65 @@ class Daemon:
                     from yazses.temporal.resolve import resolve_temporal
 
                     text = resolve_temporal(text, _dt.now())
+                    event["final_text"] = text
+                # Grammar Repair (GEC): minimal-edit fixes like "a apple" -> "an apple".
+                # Rule tier only. Opt-in (ADR-v2-050).
+                if self._config.gec.enabled:
+                    from yazses.gec.guard import fix_articles
+
+                    text = fix_articles(text)
+                    event["final_text"] = text
+                # Diacritize: restore dropped diacritics ("cafe cliche" -> "café cliché")
+                # from a dictionary of known words. Opt-in (ADR-v2-122).
+                if self._config.diacritize.enabled:
+                    from yazses.diacritize.restore import restore_diacritics
+
+                    text = restore_diacritics(text)
+                    event["final_text"] = text
+                # Transliteration: romanized input in the configured scheme -> native
+                # script ("finglish" Persian, etc.). Opt-in mode (ADR-v2-116).
+                if self._config.translit.enabled:
+                    from yazses.translit.scheme import detect_scheme, transliterate
+
+                    _scheme = detect_scheme(text, self._config.translit.scheme)
+                    if _scheme:
+                        text = transliterate(text, _scheme)
+                        event["final_text"] = text
+                # Semantic Line Breaks: put one clause per source line for diff-friendly
+                # prose. Opt-in (ADR-v2-111).
+                if self._config.sembr.enabled:
+                    from yazses.sembr.breaks import semantic_breaks
+
+                    text = semantic_breaks(text)
+                    event["final_text"] = text
+                # Structured-Markup Dictation: spoken lists/tables -> Markdown/org.
+                # Self-gating: parse_structure() returns None for ordinary prose.
+                # Opt-in (ADR-v2-067).
+                if self._config.markup.enabled:
+                    from yazses.markup.render import parse_structure, render_markup
+
+                    _struct = parse_structure(text)
+                    if _struct is not None:
+                        text = render_markup(_struct, self._config.markup.flavor)
+                        event["final_text"] = text
+                # SafeGlyph: flag confusable homoglyphs (e.g. Cyrillic look-alikes) in the
+                # outgoing text before injection. Non-destructive — logs a warning only.
+                # Opt-in (ADR-v2-123).
+                if self._config.safeglyph.enabled:
+                    from yazses.safeglyph.confusables import scan_confusables
+
+                    _sg = scan_confusables(text)
+                    if _sg:
+                        log.warning(
+                            "SafeGlyph: %d confusable glyph(s) in dictated text: %s",
+                            len(_sg), _sg,
+                        )
+                # Auto-Pairing: append the closers needed to balance brackets/quotes
+                # ("(a plus b" -> "(a plus b)"). Opt-in (ADR-v2-088).
+                if self._config.autopair.enabled:
+                    from yazses.autopair.balance import balance_delimiters
+
+                    text = balance_delimiters(text)
                     event["final_text"] = text
                 # Prosody Ink: map vocal prosody (inter-word pause, emphasis) onto
                 # text formatting. Batch + dictation only; word timings drive the

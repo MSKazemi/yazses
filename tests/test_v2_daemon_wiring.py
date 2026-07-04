@@ -238,3 +238,116 @@ def test_command_hold_start_arms_mode():
     d._command_mode = False
     d._on_command_hold_start(0)
     assert d._command_mode is True
+
+
+# ---- DICTATE-path pure-text transforms (batch 1: gec, diacritize, sembr, safeglyph) ----
+
+def _text_daemon(text):
+    """Daemon whose STT returns a fixed transcript, so we can assert what gets typed."""
+    d = _base_daemon(np.full(16000, 0.5, dtype="float32"))
+    d._engine = _FixedEngine(text)
+    return d
+
+
+def test_gec_wired_fixes_articles_when_enabled():
+    d = _text_daemon("this is a apple")
+    d._config.gec.enabled = True
+    d._on_hold_end()
+    assert d._injector.calls == ["this is an apple"]
+
+
+def test_gec_off_by_default_leaves_text_untouched():
+    d = _text_daemon("this is a apple")
+    d._on_hold_end()
+    assert d._injector.calls == ["this is a apple"]
+
+
+def test_diacritize_wired_restores_accents_when_enabled():
+    d = _text_daemon("a cafe cliche")
+    d._config.diacritize.enabled = True
+    d._on_hold_end()
+    assert d._injector.calls == ["a café cliché"]
+
+
+def test_sembr_wired_breaks_clauses_when_enabled():
+    d = _text_daemon("first clause, and the second clause here")
+    d._config.sembr.enabled = True
+    d._on_hold_end()
+    # One injection, but its text now contains a newline (one clause per line).
+    assert len(d._injector.calls) == 1
+    assert "\n" in d._injector.calls[0]
+
+
+def test_safeglyph_is_non_destructive_when_enabled():
+    d = _text_daemon("plain ascii text")
+    d._config.safeglyph.enabled = True
+    d._on_hold_end()
+    # SafeGlyph only warns; the injected text is unchanged.
+    assert d._injector.calls == ["plain ascii text"]
+
+
+# ---- DICTATE-path transforms (batch 2: compute, autopair) ----
+
+def test_compute_wired_types_the_answer_when_enabled():
+    d = _text_daemon("what's 15 percent of 240")
+    d._config.compute.enabled = True
+    d._on_hold_end()
+    assert d._injector.calls == ["36"]
+
+
+def test_compute_is_a_no_op_on_non_arithmetic_text():
+    d = _text_daemon("just some ordinary dictation")
+    d._config.compute.enabled = True
+    d._on_hold_end()
+    assert d._injector.calls == ["just some ordinary dictation"]
+
+
+def test_autopair_wired_balances_delimiters_when_enabled():
+    d = _text_daemon("print(a plus b")
+    d._config.autopair.enabled = True
+    d._on_hold_end()
+    assert d._injector.calls == ["print(a plus b)"]
+
+
+def test_autopair_off_by_default_leaves_unbalanced_text():
+    d = _text_daemon("print(a plus b")
+    d._on_hold_end()
+    assert d._injector.calls == ["print(a plus b"]
+
+
+# ---- DICTATE-path transforms (batch 3: phonetic, translit, markup) ----
+
+def test_phonetic_wired_corrects_against_vocab(monkeypatch):
+    monkeypatch.setenv("YAZSES_VOCABULARY", "Kubernetes,deploy")
+    d = _text_daemon("deploy to kubernetis now")
+    d._config.phonetic.enabled = True
+    d._on_hold_end()
+    assert d._injector.calls == ["deploy to Kubernetes now"]
+
+
+def test_phonetic_off_by_default_keeps_mishearing(monkeypatch):
+    monkeypatch.setenv("YAZSES_VOCABULARY", "Kubernetes")
+    d = _text_daemon("deploy to kubernetis now")
+    d._on_hold_end()
+    assert d._injector.calls == ["deploy to kubernetis now"]
+
+
+def test_translit_wired_converts_romanized_when_enabled():
+    d = _text_daemon("salam donya")
+    d._config.translit.enabled = True
+    d._on_hold_end()
+    assert d._injector.calls == ["سالام دونیا"]
+
+
+def test_markup_wired_renders_spoken_list_when_enabled():
+    d = _text_daemon("bullet list apple banana cherry")
+    d._config.markup.enabled = True
+    d._on_hold_end()
+    assert d._injector.calls == ["- apple banana cherry"]
+
+
+def test_markup_is_a_no_op_on_ordinary_prose():
+    d = _text_daemon("this is just an ordinary sentence")
+    d._config.markup.enabled = True
+    d._on_hold_end()
+    assert d._injector.calls == ["this is just an ordinary sentence"]
