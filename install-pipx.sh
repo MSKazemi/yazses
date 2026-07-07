@@ -49,7 +49,7 @@ fi
 cat > "$SYSTEMD_DIR/yazses.service" <<EOF
 [Unit]
 Description=YazSes voice dictation daemon
-Documentation=https://github.com/novafabric/yazses
+Documentation=https://github.com/MSKazemi/yazses
 After=graphical-session.target sound.target
 Wants=graphical-session.target
 

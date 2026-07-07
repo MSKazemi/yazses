@@ -1,14 +1,14 @@
 # Maintainer: Mohsen Seyedkazemi Moghadam <mohsen.seyedkazemi@gmail.com>
 #
 # AUR package for YazSes — local, offline voice dictation.
-# Source: https://github.com/novafabric/yazses
+# Source: https://github.com/MSKazemi/yazses
 
 pkgname=yazses
 pkgver=0.4.0
 pkgrel=1
 pkgdesc='Local, offline voice dictation — hold a key, speak, release'
 arch=('any')
-url='https://github.com/novafabric/yazses'
+url='https://github.com/MSKazemi/yazses'
 license=('Apache-2.0')
 
 depends=(

@@ -2,7 +2,7 @@
 # To bump for a new release: update PackageVersion, the URL, and recompute
 # InstallerSha256 with `Get-FileHash <file> -Algorithm SHA256`.
 
-PackageIdentifier: NovaFabric.YazSes
+PackageIdentifier: MSKazemi.YazSes
 PackageVersion: 0.2.0
 MinimumOSVersion: 10.0.0.0
 InstallerType: inno
@@ -24,7 +24,7 @@ ReleaseDate: 2026-05-08
 
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/novafabric/yazses/releases/download/v0.2.0/YazSes-0.2.0-windows-x64.exe
+    InstallerUrl: https://github.com/MSKazemi/yazses/releases/download/v0.2.0/YazSes-0.2.0-windows-x64.exe
     InstallerSha256: 3F306A9091A5327D7C2B5D8EAEDA33318FF73820FC5295BA23E01F269DA6C213
 
 ManifestType: installer

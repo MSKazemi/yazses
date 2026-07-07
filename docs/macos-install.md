@@ -15,7 +15,7 @@
 ## Install
 
 1. Download `YazSes-<version>.dmg` from the
-   [Releases](https://github.com/novafabric/yazses/releases) page.
+   [Releases](https://github.com/MSKazemi/yazses/releases) page.
 2. Open the `.dmg`. Drag **YazSes.app** into the **Applications** folder shown
    in the Finder window.
 3. Eject the `.dmg`.

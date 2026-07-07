@@ -24,7 +24,7 @@ packaging/
 4. Users install with:
 
    ```sh
-   brew tap novafabric/yazses
+   brew tap MSKazemi/yazses
    brew install --cask yazses
    ```
 
@@ -34,9 +34,9 @@ Homebrew's main `cask` repo accepts user submissions but requires a real SHA
 (no `:no_check`). That means signed builds first. Defer until after we sign
 and notarise.
 
-## winget (Windows) — `winget install NovaFabric.YazSes`
+## winget (Windows) — `winget install MSKazemi.YazSes`
 
-`winget/manifests/n/NovaFabric/YazSes/0.4.0/` contains the three manifest
+`winget/manifests/m/MSKazemi/YazSes/0.4.0/` contains the three manifest
 files (version, installer, locale) per the v1.6 schema. To publish:
 
 1. Build and tag a release so `YazSes-0.4.0-windows-x64.exe` is downloadable
@@ -51,13 +51,13 @@ files (version, installer, locale) per the v1.6 schema. To publish:
    `installer.yaml` with that hash.
 4. Fork [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs).
 5. Copy the three manifest files into the fork at the same path:
-   `manifests/n/NovaFabric/YazSes/0.4.0/`.
+   `manifests/m/MSKazemi/YazSes/0.4.0/`.
 6. Open a PR. The validation pipeline runs automated checks; expect ~1–3
    days to merge.
 7. Once merged, users install with:
 
    ```powershell
-   winget install NovaFabric.YazSes
+   winget install MSKazemi.YazSes
    ```
 
    (or `winget install yazses` thanks to the `Moniker` field).

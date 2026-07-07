@@ -77,9 +77,9 @@ if [ ! -f index.html ]; then
 <body>
 <h1>YazSes APT Repository</h1>
 <pre>
-curl -fsSL https://novafabric.github.io/yazses/apt/KEY.gpg \
+curl -fsSL https://mskazemi.github.io/yazses/apt/KEY.gpg \
   | sudo gpg --dearmor --yes -o /usr/share/keyrings/yazses.gpg
-echo "deb [signed-by=/usr/share/keyrings/yazses.gpg] https://novafabric.github.io/yazses/apt ./" \
+echo "deb [signed-by=/usr/share/keyrings/yazses.gpg] https://mskazemi.github.io/yazses/apt ./" \
   | sudo tee /etc/apt/sources.list.d/yazses.list
 sudo apt update
 sudo apt install yazses

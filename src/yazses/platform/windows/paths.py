@@ -12,7 +12,7 @@ _APP = "yazses"
 
 
 def build_paths() -> Paths:
-    # appauthor=False so platformdirs doesn't insert a vendor segment ("novafabric")
+    # appauthor=False so platformdirs doesn't insert a vendor segment ("MSKazemi")
     # into the path; users get %APPDATA%\yazses\ directly.
     dirs = PlatformDirs(appname=_APP, appauthor=False, ensure_exists=False)
     return Paths(

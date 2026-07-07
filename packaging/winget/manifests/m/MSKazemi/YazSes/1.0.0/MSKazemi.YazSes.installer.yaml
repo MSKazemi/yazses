@@ -1,10 +1,10 @@
-PackageIdentifier: novafabric.YazSes
+PackageIdentifier: MSKazemi.YazSes
 PackageVersion: 1.0.0
 MinimumOSVersion: "10.0.19041.0"
 InstallerType: zip
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/novafabric/yazses/releases/download/v1.0.0/yazses-v1.0.0-x86_64-pc-windows-msvc.zip
+    InstallerUrl: https://github.com/MSKazemi/yazses/releases/download/v1.0.0/yazses-v1.0.0-x86_64-pc-windows-msvc.zip
     # Replace after CI build
     InstallerSha256: PLACEHOLDER_WIN64_V100_SHA256
     NestedInstallerType: portable
@@ -14,7 +14,7 @@ Installers:
       - RelativeFilePath: yazses-v1.0.0-x86_64-pc-windows-msvc\yazses-daemon.exe
         PortableCommandAlias: yazses-daemon
   - Architecture: arm64
-    InstallerUrl: https://github.com/novafabric/yazses/releases/download/v1.0.0/yazses-v1.0.0-aarch64-pc-windows-msvc.zip
+    InstallerUrl: https://github.com/MSKazemi/yazses/releases/download/v1.0.0/yazses-v1.0.0-aarch64-pc-windows-msvc.zip
     # Replace after CI build
     InstallerSha256: PLACEHOLDER_WINARM64_V100_SHA256
     NestedInstallerType: portable

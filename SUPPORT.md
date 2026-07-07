@@ -23,7 +23,7 @@ If dictation does nothing and `yazses logs` shows `Silent audio -- discarding`, 
 
 ## Reporting a bug
 
-Open an issue at https://github.com/novafabric/yazses/issues and include:
+Open an issue at https://github.com/MSKazemi/yazses/issues and include:
 
 - OS and version
 - Output of `yazses --version`

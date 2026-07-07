@@ -124,14 +124,14 @@ jobs:
 
             **One-line installer (Debian/Ubuntu):**
             ```bash
-            bash <(curl -fsSL https://raw.githubusercontent.com/novafabric/yazses/main/install.sh)
+            bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)
             ```
 
             **APT repository:**
             ```bash
-            curl -fsSL https://novafabric.github.io/yazses/apt/KEY.gpg \
+            curl -fsSL https://mskazemi.github.io/yazses/apt/KEY.gpg \
               | sudo gpg --dearmor --yes -o /usr/share/keyrings/yazses.gpg
-            echo "deb [signed-by=/usr/share/keyrings/yazses.gpg] https://novafabric.github.io/yazses/apt ./" \
+            echo "deb [signed-by=/usr/share/keyrings/yazses.gpg] https://mskazemi.github.io/yazses/apt ./" \
               | sudo tee /etc/apt/sources.list.d/yazses.list
             sudo apt update && sudo apt install yazses
             sudo usermod -aG input $USER && logout
@@ -140,7 +140,7 @@ jobs:
 
             **Launchpad PPA (Ubuntu):**
             ```bash
-            sudo add-apt-repository ppa:novafabric/yazses
+            sudo add-apt-repository ppa:mskazemi/yazses
             sudo apt update && sudo apt install yazses
             sudo usermod -aG input $USER && logout
             systemctl --user enable --now yazses.service

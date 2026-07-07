@@ -1,13 +1,13 @@
-PackageIdentifier: novafabric.YazSes
+PackageIdentifier: MSKazemi.YazSes
 PackageVersion: 1.0.0
 PackageLocale: en-US
-Publisher: novafabric
-PublisherUrl: https://github.com/novafabric
+Publisher: MSKazemi
+PublisherUrl: https://github.com/MSKazemi
 Author: Mohsen Seyedkazemi Ardebili
 PackageName: YazSes
-PackageUrl: https://github.com/novafabric/yazses
+PackageUrl: https://github.com/MSKazemi/yazses
 License: Apache-2.0
-LicenseUrl: https://github.com/novafabric/yazses/blob/main/LICENSE
+LicenseUrl: https://github.com/MSKazemi/yazses/blob/main/LICENSE
 Copyright: Copyright 2026 Mohsen Seyedkazemi Ardebili
 ShortDescription: Local, offline, hold-to-talk voice dictation — agentic OS layer (Rust core)
 Description: |-
@@ -36,6 +36,6 @@ ReleaseNotes: |-
   Phases 0–6 complete: IPC, audio, STT, LLM tool dispatch, editor bridges
   (Neovim + VSCode), personal encrypted memory, doctor, enroll, AT-SPI, NVDA.
   arm64 Windows binary added. Zero warnings across the full codebase.
-ReleaseNotesUrl: https://github.com/novafabric/yazses/releases/tag/v1.0.0
+ReleaseNotesUrl: https://github.com/MSKazemi/yazses/releases/tag/v1.0.0
 ManifestType: defaultLocale
 ManifestVersion: 1.6.0

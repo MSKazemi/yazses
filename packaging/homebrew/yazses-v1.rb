@@ -1,17 +1,17 @@
 class YazsesV1 < Formula
   desc "Local, offline voice dictation daemon — v1.0 Rust core"
-  homepage "https://github.com/novafabric/yazses"
+  homepage "https://github.com/MSKazemi/yazses"
   license "MIT"
   version "1.0.0"
 
   # Replace after CI build — run scripts/patch-release-shas.sh v1.0.0
   on_macos do
     on_arm do
-      url "https://github.com/novafabric/yazses/releases/download/v#{version}/yazses-v#{version}-aarch64-apple-darwin.tar.gz"
+      url "https://github.com/MSKazemi/yazses/releases/download/v#{version}/yazses-v#{version}-aarch64-apple-darwin.tar.gz"
       sha256 "PLACEHOLDER_MACOS_ARM64_SHA256"
     end
     on_intel do
-      url "https://github.com/novafabric/yazses/releases/download/v#{version}/yazses-v#{version}-x86_64-apple-darwin.tar.gz"
+      url "https://github.com/MSKazemi/yazses/releases/download/v#{version}/yazses-v#{version}-x86_64-apple-darwin.tar.gz"
       sha256 "PLACEHOLDER_MACOS_X86_64_SHA256"
     end
   end

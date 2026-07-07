@@ -17,7 +17,7 @@ cd yazses && makepkg -si
 2. **Compute the source tarball SHA-256** for the v0.4.0 GitHub tarball:
 
    ```sh
-   curl -sL https://github.com/novafabric/yazses/archive/refs/tags/v0.4.0.tar.gz \
+   curl -sL https://github.com/MSKazemi/yazses/archive/refs/tags/v0.4.0.tar.gz \
      | sha256sum
    ```
 
@@ -49,7 +49,7 @@ The package shows up in AUR within minutes. Subsequent releases bump
 # In packaging/arch/, after a new release tag lands upstream:
 sed -i 's/^pkgver=.*/pkgver=NEW_VERSION/' PKGBUILD
 sed -i 's/^pkgrel=.*/pkgrel=1/' PKGBUILD
-NEW_SHA=$(curl -sL https://github.com/novafabric/yazses/archive/refs/tags/vNEW_VERSION.tar.gz | sha256sum | awk '{print $1}')
+NEW_SHA=$(curl -sL https://github.com/MSKazemi/yazses/archive/refs/tags/vNEW_VERSION.tar.gz | sha256sum | awk '{print $1}')
 sed -i "s/sha256sums=.*/sha256sums=('${NEW_SHA}')/" PKGBUILD
 makepkg --printsrcinfo > .SRCINFO
 

@@ -1,18 +1,18 @@
 # Default-locale (en-US) manifest — descriptive metadata shown in winget search.
 
-PackageIdentifier: NovaFabric.YazSes
+PackageIdentifier: MSKazemi.YazSes
 PackageVersion: 0.2.0
 PackageLocale: en-US
-Publisher: NovaFabric
-PublisherUrl: https://github.com/novafabric
-PublisherSupportUrl: https://github.com/novafabric/yazses/issues
+Publisher: MSKazemi
+PublisherUrl: https://github.com/MSKazemi
+PublisherSupportUrl: https://github.com/MSKazemi/yazses/issues
 Author: Mohsen Seyedkazemi Moghadam
 PackageName: YazSes
-PackageUrl: https://github.com/novafabric/yazses
+PackageUrl: https://github.com/MSKazemi/yazses
 License: Apache-2.0
-LicenseUrl: https://github.com/novafabric/yazses/blob/main/LICENSE
-Copyright: Copyright (c) NovaFabric
-CopyrightUrl: https://github.com/novafabric/yazses/blob/main/LICENSE
+LicenseUrl: https://github.com/MSKazemi/yazses/blob/main/LICENSE
+Copyright: Copyright (c) MSKazemi
+CopyrightUrl: https://github.com/MSKazemi/yazses/blob/main/LICENSE
 ShortDescription: Local, offline voice dictation — hold a key, speak, release.
 Description: |-
   YazSes is a local, offline voice-to-text dictation app for Windows.
@@ -36,11 +36,11 @@ ReleaseNotes: |-
 
   This is an unsigned developer preview; SmartScreen will warn on first
   launch. Code signing is planned before public beta.
-ReleaseNotesUrl: https://github.com/novafabric/yazses/releases/tag/v0.2.0
+ReleaseNotesUrl: https://github.com/MSKazemi/yazses/releases/tag/v0.2.0
 
 Documentations:
   - DocumentLabel: Install guide
-    DocumentUrl: https://github.com/novafabric/yazses/blob/main/docs/windows-install.md
+    DocumentUrl: https://github.com/MSKazemi/yazses/blob/main/docs/windows-install.md
 
 ManifestType: defaultLocale
 ManifestVersion: 1.6.0

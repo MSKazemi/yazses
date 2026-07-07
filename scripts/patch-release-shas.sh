@@ -6,14 +6,14 @@
 # Requires: curl, sha256sum (Linux) or shasum (macOS), gh (GitHub CLI, for auth)
 # The script downloads release assets from GitHub, computes SHA256s, and patches:
 #   packaging/homebrew/yazses-v1.rb
-#   packaging/winget/manifests/n/novafabric/YazSes/<version>/novafabric.YazSes.installer.yaml
+#   packaging/winget/manifests/m/MSKazemi/YazSes/<version>/MSKazemi.YazSes.installer.yaml
 set -euo pipefail
 
 VERSION="${1:-}"
 [[ -n "$VERSION" ]] || { echo "Usage: $0 <version>  (e.g. 1.0.0)"; exit 1; }
 
 TAG="v${VERSION}"
-BASE_URL="https://github.com/novafabric/yazses/releases/download/${TAG}"
+BASE_URL="https://github.com/MSKazemi/yazses/releases/download/${TAG}"
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
@@ -69,7 +69,7 @@ sed -i.bak \
 rm -f "${FORMULA}.bak"
 echo "    Done."
 
-WINGET_INSTALLER="packaging/winget/manifests/n/novafabric/YazSes/${VERSION}/novafabric.YazSes.installer.yaml"
+WINGET_INSTALLER="packaging/winget/manifests/m/MSKazemi/YazSes/${VERSION}/MSKazemi.YazSes.installer.yaml"
 echo "==> Patching ${WINGET_INSTALLER}"
 sed -i.bak \
   -e "s/PLACEHOLDER_WIN64_V100_SHA256/${SHA_WIN_X64}/" \
@@ -80,7 +80,7 @@ echo "    Done."
 
 echo ""
 echo "==> Verification — grep for remaining placeholders:"
-grep -r "PLACEHOLDER" packaging/homebrew/yazses-v1.rb packaging/winget/manifests/n/novafabric/YazSes/"${VERSION}"/ \
+grep -r "PLACEHOLDER" packaging/homebrew/yazses-v1.rb packaging/winget/manifests/m/MSKazemi/YazSes/"${VERSION}"/ \
   && { echo "ERROR: placeholders remain — check the output above"; exit 1; } \
   || echo "    None found. All SHAs patched."
 
@@ -88,5 +88,5 @@ echo ""
 echo "==> Next steps:"
 echo "    git add packaging/homebrew/yazses-v1.rb '${WINGET_INSTALLER}'"
 echo "    git commit -m 'chore(release): patch SHA256s for ${TAG}'"
-echo "    # For Homebrew tap: copy yazses-v1.rb → novafabric/homebrew-yazses repo and open PR"
+echo "    # For Homebrew tap: copy yazses-v1.rb → MSKazemi/homebrew-yazses repo and open PR"
 echo "    # For winget: open PR to microsoft/winget-pkgs with the updated manifests"

@@ -47,7 +47,7 @@ Download the archive for your platform, extract it, and put `yazses` and
 On macOS, the Homebrew tap is the simplest path:
 
 ```sh
-brew tap novafabric/tap
+brew tap MSKazemi/tap
 brew install yazses
 ```
 

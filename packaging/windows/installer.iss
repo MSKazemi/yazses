@@ -17,8 +17,8 @@
 #if MyAppVersion == ""
   #define MyAppVersion "0.0.0"
 #endif
-#define MyAppPublisher "NovaFabric"
-#define MyAppURL "https://github.com/novafabric/yazses"
+#define MyAppPublisher "MSKazemi"
+#define MyAppURL "https://github.com/MSKazemi/yazses"
 #define MyAppExeName "YazSes.exe"
 
 [Setup]

@@ -5,7 +5,7 @@ Thank you for your interest in contributing. The shipping product is the **Pytho
 ## Getting started (Python — the active product)
 
 ```sh
-git clone https://github.com/novafabric/yazses
+git clone https://github.com/MSKazemi/yazses
 cd yazses
 uv sync
 uv run python -m pytest tests/ -v   # run the test suite
@@ -34,7 +34,7 @@ Optional Rust feature flags: `--features whisper`, `--features moonshine`, `--fe
 
 ## Reporting bugs
 
-Open an issue at https://github.com/novafabric/yazses/issues and include:
+Open an issue at https://github.com/MSKazemi/yazses/issues and include:
 - OS and version
 - `yazses --version` output
 - Steps to reproduce

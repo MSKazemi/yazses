@@ -2,11 +2,11 @@ cask "yazses" do
   version "0.2.0"
   sha256 "c6c967eb80b75f0047008f5f8571994ba9236541b6627a1ffed4b27153eb879d"
 
-  url "https://github.com/novafabric/yazses/releases/download/v#{version}/YazSes-#{version}.dmg",
-      verified: "github.com/novafabric/yazses/"
+  url "https://github.com/MSKazemi/yazses/releases/download/v#{version}/YazSes-#{version}.dmg",
+      verified: "github.com/MSKazemi/yazses/"
   name "YazSes"
   desc "Local, offline voice dictation — hold a key, speak, release"
-  homepage "https://github.com/novafabric/yazses"
+  homepage "https://github.com/MSKazemi/yazses"
 
   # livecheck do
   #   url :url

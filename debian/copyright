@@ -1,7 +1,7 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: yazses
 Upstream-Contact: Mohsen Seyedkazemi Moghadam <mohsen.seyedkazemi@gmail.com>
-Source: https://github.com/novafabric/yazses
+Source: https://github.com/MSKazemi/yazses
 
 Files: *
 Copyright: 2024-2026 Mohsen Seyedkazemi Moghadam <mohsen.seyedkazemi@gmail.com>

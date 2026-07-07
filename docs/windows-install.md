@@ -15,7 +15,7 @@
 ## Install
 
 1. Download `YazSes-<version>-windows-x64.exe` from the
-   [Releases](https://github.com/novafabric/yazses/releases) page.
+   [Releases](https://github.com/MSKazemi/yazses/releases) page.
 2. Double-click the installer.
 3. **SmartScreen warning:** Windows shows
    *"Microsoft Defender SmartScreen prevented an unrecognized app from starting."*

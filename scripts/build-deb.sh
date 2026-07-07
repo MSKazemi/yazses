@@ -50,7 +50,7 @@ Description: Local, offline voice dictation daemon for Linux
  No internet required after initial model download. CPU-only inference.
  .
  Powered by faster-whisper (CTranslate2 backend).
-Homepage: https://github.com/novafabric/yazses
+Homepage: https://github.com/MSKazemi/yazses
 EOF
 
 cat > "$STAGING/DEBIAN/postinst" <<'EOF'

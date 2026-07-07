@@ -32,7 +32,7 @@ jobs:
           [yazses-ppa]
           fqdn = ppa.launchpad.net
           method = ftp
-          incoming = ~novafabric/ubuntu/yazses/
+          incoming = ~mskazemi/ubuntu/yazses/
           login = anonymous
           allow_unsigned_uploads = 0
           EOF

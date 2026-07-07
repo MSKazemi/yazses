@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds and uploads a Debian source package to Launchpad PPA.
 # Usage: bash scripts/upload-ppa.sh <version> <key-id> <ppa-address>
-# Example: bash scripts/upload-ppa.sh 0.1.3 ABCDEF1234567890 ppa:novafabric/yazses
+# Example: bash scripts/upload-ppa.sh 0.1.3 ABCDEF1234567890 ppa:mskazemi/yazses
 # Env: DEBEMAIL, DEBFULLNAME
 set -euo pipefail
 
