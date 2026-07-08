@@ -50,6 +50,13 @@ apps:
       - home
       - network
       - opengl
+  # KNOWN LIMITATION (2026-07-08): the ALSA env below stops PortAudio aborting, but
+  # actual mic *capture* still fails under strict confinement on PipeWire — the pulse
+  # socket is reachable yet libpulse returns 0 devices (auth/session env). The proper
+  # fix is the snapcraft `gnome` extension (or a `desktop-launch` command-chain), which
+  # sets up the full PulseAudio client env; that needs a real snapcraft build to apply
+  # and cannot be hand-packed. Until then the snap can start/inject but not record;
+  # `uv run`/pipx installs record fine. TODO: adopt `extensions: [gnome]`.
   yazses-daemon:
     command: bin/yazses-daemon-wrapper
     environment:
@@ -95,6 +102,9 @@ parts:
       # snap/local/asound.conf routes the default device through.
       - libasound2-data
       - libasound2-plugins
+      # X11 keystroke injection. Without a bundled injector the confined snap has
+      # no way to type on X11 sessions (`yazses doctor` -> "no X11 injector").
+      - xdotool
       - python3.12
       - python3.12-minimal
       - libpython3.12-minimal
