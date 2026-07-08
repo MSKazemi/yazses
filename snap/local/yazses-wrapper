@@ -3,4 +3,5 @@ set -euo pipefail
 export PYTHONPATH="$SNAP/lib/python3.12/site-packages:${PYTHONPATH:-}"
 export PATH="$SNAP/bin:$SNAP/usr/bin:$PATH"
 export PULSE_SERVER="${PULSE_SERVER:-unix:/run/user/$(id -u)/pulse/native}"
+export LD_LIBRARY_PATH="$SNAP/usr/lib/x86_64-linux-gnu/pulseaudio:${LD_LIBRARY_PATH:-}"
 exec "$SNAP/usr/bin/python3.12" -c 'import sys; sys.argv[0]="yazses"; from yazses.cli import app; sys.exit(app())' "$@"
