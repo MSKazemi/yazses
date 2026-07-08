@@ -173,6 +173,26 @@ def input_group_pending_relogin(user: str | None = None) -> bool:
     return gid not in os.getgroups()
 
 
+def snap_mic_pending(env: dict[str, str] | None = None, *, runner=subprocess.run) -> bool:
+    """True when running inside the yazses snap with the microphone (`audio-record`)
+    interface not yet connected.
+
+    Strictly-confined snaps can't self-connect interfaces, and `audio-record` is
+    not auto-connected by snapd, so a fresh `snap install yazses` has no mic until
+    the user runs `snap connect yazses:audio-record`. We surface that as an install
+    step instead of letting dictation silently capture nothing. Detected via
+    `snapctl is-connected`, which is always available to a snap's own apps.
+    """
+    env = os.environ if env is None else env
+    if env.get("SNAP_NAME") != "yazses":
+        return False  # not the snap build — apt/pipx grant mic access directly
+    try:
+        r = runner(["snapctl", "is-connected", "audio-record"], capture_output=True)
+    except (FileNotFoundError, OSError):
+        return False
+    return getattr(r, "returncode", 0) != 0
+
+
 def preflight_hints(
     env: dict[str, str] | None = None,
     *,
@@ -191,6 +211,13 @@ def preflight_hints(
     plan = build_plan(env) if plan is None else plan
     pending = input_group_pending_relogin() if pending_relogin is None else pending_relogin
     hints: list[str] = []
+
+    # Snap-only: the microphone interface must be connected once after install.
+    if snap_mic_pending(env):
+        hints.append(
+            "Microphone access isn't granted to the snap yet — dictation can't hear you.\n"
+            "  Grant it once:  sudo snap connect yazses:audio-record"
+        )
 
     if plan.apt_packages or plan.add_to_input_group or plan.setup_ydotoold:
         missing = []

@@ -408,10 +408,17 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
 
     # Microphone
     mic = perms.check_microphone()
+    mic_detail = mic.value
+    if mic not in (PermissionState.OK, PermissionState.NOT_APPLICABLE):
+        # In the snap, a mic FAIL is almost always the un-connected interface.
+        from yazses.system.setup import snap_mic_pending
+
+        if snap_mic_pending():
+            mic_detail = "not granted — run: sudo snap connect yazses:audio-record"
     checks.append((
         "Microphone",
         "OK" if mic in (PermissionState.OK, PermissionState.NOT_APPLICABLE) else "FAIL",
-        mic.value,
+        mic_detail,
     ))
 
     # Opt-in passive mic-level vs VAD threshold (records a short ambient clip).

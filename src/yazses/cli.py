@@ -1055,8 +1055,9 @@ def setup(
     from yazses.system import setup as _setup
 
     plan = _setup.build_plan()
+    mic_pending = _setup.snap_mic_pending()
     typer.echo(f"Session: {plan.session}")
-    if plan.is_noop:
+    if plan.is_noop and not mic_pending:
         typer.echo("All Linux requirements already satisfied — nothing to do.")
         raise typer.Exit(0)
 
@@ -1067,6 +1068,11 @@ def setup(
         typer.echo("  • add you to the `input` group (sudo)")
     if plan.setup_ydotoold:
         typer.echo("  • set up + enable the ydotoold user service (Wayland injection)")
+    if mic_pending:
+        # The snap can't self-connect interfaces; this is the one manual step and
+        # must be run outside confinement, so we print it rather than auto-apply.
+        typer.echo("  • grant the snap microphone access (run this yourself, once):")
+        typer.echo("      sudo snap connect yazses:audio-record")
 
     if dry_run:
         typer.echo("\n(dry run — no changes made)")
@@ -1082,6 +1088,11 @@ def setup(
     if not ok:
         typer.echo("\nSome steps need attention — see warnings above.", err=True)
         raise typer.Exit(1)
+    if mic_pending:
+        typer.echo(
+            "\nOne manual step remains — grant the snap microphone access:"
+            "\n    sudo snap connect yazses:audio-record"
+        )
     typer.echo("\nSetup complete. If you were just added to the `input` group, log out and back in.")
 
 

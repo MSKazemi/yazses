@@ -131,6 +131,46 @@ def test_preflight_no_hints_when_fully_provisioned():
     assert setup.preflight_hints(plan=plan, pending_relogin=False) == []
 
 
+class _Rc:
+    def __init__(self, returncode):
+        self.returncode = returncode
+
+
+def _runner(returncode):
+    return lambda *a, **k: _Rc(returncode)
+
+
+def test_snap_mic_pending_false_outside_snap():
+    # Not the snap build (apt/pipx grant mic access directly) — never prompt.
+    assert setup.snap_mic_pending({}, runner=_runner(1)) is False
+    assert setup.snap_mic_pending({"SNAP_NAME": "somethingelse"}, runner=_runner(1)) is False
+
+
+def test_snap_mic_pending_true_when_interface_unconnected():
+    env = {"SNAP_NAME": "yazses"}
+    assert setup.snap_mic_pending(env, runner=_runner(1)) is True
+
+
+def test_snap_mic_pending_false_when_interface_connected():
+    env = {"SNAP_NAME": "yazses"}
+    assert setup.snap_mic_pending(env, runner=_runner(0)) is False
+
+
+def test_snap_mic_pending_false_when_snapctl_missing():
+    def _raise(*a, **k):
+        raise FileNotFoundError("snapctl")
+
+    assert setup.snap_mic_pending({"SNAP_NAME": "yazses"}, runner=_raise) is False
+
+
+def test_preflight_hint_when_snap_mic_unconnected(monkeypatch):
+    # In the snap with audio-record not connected, surface the connect step.
+    monkeypatch.setattr(setup, "snap_mic_pending", lambda env=None: True)
+    plan = _fully_provisioned_plan()
+    hints = setup.preflight_hints(plan=plan, pending_relogin=False)
+    assert any("snap connect yazses:audio-record" in h for h in hints)
+
+
 def test_missing_packages_take_priority_over_relogin_hint():
     # If packages are also missing, surface the actionable `yazses setup` hint,
     # not the (secondary) re-login one.
