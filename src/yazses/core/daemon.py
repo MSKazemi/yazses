@@ -1483,6 +1483,7 @@ class Daemon:
             uptime = (time.monotonic() - self._state.started_at) if self._state.started_at else 0.0
             return {
                 "state": self._state.state.value,
+                "ready": self._state.ready,
                 "model": self._config.stt.model,
                 "hotkey": self._resolved_hotkey(),
                 "injection_backend": self._injection_backend_name(),

@@ -89,6 +89,10 @@ if [ "$1" = "configure" ]; then
     echo ""
     echo "Auto-start on login:"
     echo "  systemctl --user enable --now yazses.service"
+    echo ""
+    echo "See everything YazSes can do (all capabilities, on/off):"
+    echo "  yazses features            # list every capability"
+    echo "  yazses features info       # describe them all with examples"
 fi
 EOF
 chmod 755 "$STAGING/DEBIAN/postinst"

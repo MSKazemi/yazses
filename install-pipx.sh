@@ -55,6 +55,8 @@ Description=YazSes voice dictation daemon
 Documentation=https://github.com/MSKazemi/yazses
 After=graphical-session.target sound.target
 Wants=graphical-session.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -94,4 +96,11 @@ echo "    yazses status   — check if running"
 echo "    yazses doctor   — check prerequisites"
 echo "    yazses stop     — stop the daemon"
 echo "    yazses start    — start the daemon"
+echo ""
+
+# Show every capability (● on / ○ off) so a new user sees the full feature set.
+# `yazses features` is the single source of truth and needs no running daemon.
+echo "  What YazSes can do — every capability (● on / ○ off):"
+echo ""
+yazses features 2>/dev/null || echo "    Run 'yazses features' to list all capabilities."
 echo ""

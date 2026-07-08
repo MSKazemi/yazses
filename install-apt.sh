@@ -132,3 +132,10 @@ echo "  Test commands:"
 echo "    yazses doctor"
 echo "    yazses status"
 echo ""
+
+# Show every capability (● on / ○ off) so a new user sees the full feature set.
+# `yazses features` is the single source of truth and needs no running daemon.
+echo "  What YazSes can do — every capability (● on / ○ off):"
+echo ""
+yazses features 2>/dev/null || echo "    Run 'yazses features' to list all capabilities."
+echo ""

@@ -3,6 +3,11 @@ Description=YazSes voice dictation daemon
 Documentation=https://github.com/MSKazemi/yazses
 After=graphical-session.target sound.target
 Wants=graphical-session.target
+# Self-healing with a crash-loop bound: restart on failure, but if it fails 5
+# times within 60s (e.g. a persistent bad config or missing audio stack) stop
+# retrying so it doesn't spin forever. `yazses doctor` then explains why.
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple

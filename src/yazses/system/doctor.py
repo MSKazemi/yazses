@@ -383,6 +383,49 @@ def _install_consistency_checks() -> list[_Check]:
     return out
 
 
+# ANSI colours for the doctor report. Emitted only to a real terminal so piped
+# or redirected output (logs, `yazses doctor | grep`) stays plain text.
+_ANSI = {
+    "reset": "\033[0m", "bold": "\033[1m", "dim": "\033[2m",
+    "red": "\033[31m", "green": "\033[32m", "yellow": "\033[33m",
+    "bred": "\033[1;31m", "bgred": "\033[1;97;41m",
+}
+
+
+def _color_enabled() -> bool:
+    return sys.stdout.isatty() and os.environ.get("NO_COLOR") is None
+
+
+def _c(text: str, *styles: str) -> str:
+    if not _color_enabled():
+        return text
+    return "".join(_ANSI[s] for s in styles) + text + _ANSI["reset"]
+
+
+def _format_check(name: str, status: str, detail: str) -> str:
+    """Render one doctor line, colouring the status tag and — for failures —
+    making the fix (and any `sudo …` command in it) stand out in red/bold."""
+    tag_style = {
+        "OK": ("green",), "FAIL": ("bgred",), "WARN": ("yellow", "bold"),
+        "SKIP": ("dim",),
+    }.get(status, ("bold",))
+    tag = _c(f"[{status}]", *tag_style)
+    # Highlight command lines (indented `sudo …`/tool invocations) so the one
+    # action a user must take — e.g. `sudo usermod -aG input $USER` — is obvious.
+    lines = detail.split("\n")
+    styled = []
+    for ln in lines:
+        stripped = ln.strip()
+        if stripped.startswith(("sudo ", "sg ", "yazses ")) or " sudo " in ln:
+            styled.append(_c(ln, "bred", "bold") if status == "FAIL" else _c(ln, "bold"))
+        elif status == "FAIL":
+            styled.append(_c(ln, "red"))
+        else:
+            styled.append(ln)
+    detail_out = "\n".join(styled)
+    return f"  {tag} {name}: {detail_out}"
+
+
 def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     platform = get_platform()
     perms = platform.permissions
@@ -543,7 +586,7 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
 
     print(f"YazSes doctor ({platform.name}):")
     for name, status, detail in checks:
-        print(f"  [{status}] {name}: {detail}")
+        print(_format_check(name, status, detail))
 
     # Contact footer — where to report a problem doctor surfaced, or ask for a
     # feature. Keep this in step with src/yazses/branding.py.

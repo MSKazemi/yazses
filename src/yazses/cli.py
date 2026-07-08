@@ -207,10 +207,84 @@ def _restart_daemon(platform) -> None:
     except Exception:
         pass
     platform.lifecycle.clear_pid()
+    _spawn_daemon(platform)
+
+
+def _spawn_daemon(platform) -> None:
+    """Launch exactly one daemon. When a systemd user unit is installed we start
+    it through systemd so it is supervised and self-heals (``Restart=on-failure``);
+    otherwise we fall back to a detached process."""
     if _systemd_managed():
         __import__("subprocess").run(["systemctl", "--user", "start", "yazses"])
     else:
         platform.lifecycle.start_daemon_detached()
+
+
+def _wait_until_ready(platform, timeout: float = 20.0):
+    """Poll the freshly-spawned daemon until it reports ready.
+
+    The daemon writes its PID *before* loading the STT model / opening the mic,
+    so a crash during startup (e.g. a PortAudio/ALSA abort) shows up as the PID
+    appearing and then vanishing. Returns one of:
+
+    - ``"ready"``   — daemon is up and listening for the hotkey.
+    - ``"died"``    — the process exited during startup (crash / bad config).
+    - ``"loading"`` — still alive but not ready before ``timeout`` (slow first-run
+      model load); not an error, just informational.
+
+    Second element is the last IPC ``status`` dict seen (or ``None``).
+    """
+    import time
+
+    deadline = time.monotonic() + timeout
+    client = platform.ipc_client_factory(platform.paths.ipc_socket)
+    saw_pid = False
+    last_info = None
+    while time.monotonic() < deadline:
+        running = platform.lifecycle.is_running()
+        if running:
+            saw_pid = True
+        elif saw_pid:
+            # The PID file appeared and then the process died → crashed on startup.
+            return "died", last_info
+        try:
+            info = client.call("status")
+            last_info = info
+            state = str(info.get("state", "")).lower()
+            if info.get("ready") or state in ("idle", "recording", "injecting"):
+                return "ready", info
+            if state == "error":
+                return "died", info
+        except IpcUnreachableError:
+            pass  # IPC socket not up yet (or already gone) — keep polling
+        time.sleep(0.25)
+    return "loading", last_info
+
+
+def _report_start_outcome(platform, outcome: str, info) -> None:
+    """Print an honest, actionable message for a start/restart outcome and set a
+    non-zero exit code when the daemon failed to come up."""
+    hotkey = _resolved_hotkey(platform)
+    if outcome == "ready":
+        typer.echo(f"YazSes started. Hold {hotkey} to dictate.")
+        return
+    if outcome == "loading":
+        typer.echo(
+            "YazSes is starting — the speech model is still loading "
+            "(first run can take 10–30s). It'll be ready shortly; "
+            "check with `yazses status`."
+        )
+        return
+    # died
+    typer.echo("YazSes failed to start — the daemon exited during startup.", err=True)
+    last_error = (info or {}).get("last_error") if isinstance(info, dict) else None
+    if last_error:
+        typer.echo(f"  reason: {last_error}", err=True)
+    typer.echo(
+        "  Run `yazses doctor` to check prerequisites and `yazses logs` for details.",
+        err=True,
+    )
+    raise typer.Exit(1)
 
 
 @app.command(
@@ -229,11 +303,11 @@ def start() -> None:
     if platform.lifecycle.is_running():
         typer.echo("YazSes is already running — restarting it cleanly...")
         _restart_daemon(platform)
-        typer.echo(f"YazSes restarted. Hold {_resolved_hotkey(platform)} to dictate.")
-        return
-    platform.lifecycle.clear_pid()
-    platform.lifecycle.start_daemon_detached()
-    typer.echo(f"YazSes started. Hold {_resolved_hotkey(platform)} to dictate.")
+    else:
+        platform.lifecycle.clear_pid()
+        _spawn_daemon(platform)
+    outcome, info = _wait_until_ready(platform)
+    _report_start_outcome(platform, outcome, info)
 
 
 @app.command(
@@ -248,7 +322,8 @@ def restart() -> None:
     platform = get_platform()
     _warn_unmet_prereqs()
     _restart_daemon(platform)
-    typer.echo(f"YazSes restarted. Hold {_resolved_hotkey(platform)} to dictate.")
+    outcome, info = _wait_until_ready(platform)
+    _report_start_outcome(platform, outcome, info)
 
 
 def _warn_unmet_prereqs() -> None:
@@ -263,9 +338,25 @@ def _warn_unmet_prereqs() -> None:
         from yazses.system.setup import preflight_hints
 
         for hint in preflight_hints():
-            typer.echo(f"⚠  {hint}", err=True)
+            _echo_action_hint(hint)
     except Exception:
         pass  # a diagnostic must never prevent the daemon from starting
+
+
+def _echo_action_hint(hint: str) -> None:
+    """Print a preflight warning to stderr, red + bold, with any `sudo …`/`yazses …`
+    command line highlighted so the one action the user must take is unmissable."""
+    err = True
+    typer.secho("⚠  ACTION NEEDED", fg=typer.colors.BRIGHT_RED, bold=True, err=err)
+    for ln in hint.split("\n"):
+        stripped = ln.strip()
+        if stripped.startswith(("sudo ", "sg ", "yazses ")):
+            # The actual command — brightest treatment (bold white on red).
+            typer.secho(f"    {stripped}", fg=typer.colors.BRIGHT_WHITE,
+                        bg=typer.colors.RED, bold=True, err=err)
+        else:
+            typer.secho(f"   {ln}" if not ln.startswith(" ") else ln,
+                        fg=typer.colors.RED, err=err)
 
 
 features_app = typer.Typer(
@@ -296,12 +387,21 @@ def features(ctx: typer.Context) -> None:
     """
     if ctx.invoked_subcommand is not None:
         return  # a subcommand (enable/disable) is running instead
+    _echo_capabilities(get_platform())
+
+
+def _echo_capabilities(platform, *, header: str | None = None) -> None:
+    """Print every capability (● on / ○ off) with toggle names + advice.
+
+    Shared by `yazses features` and the post-install/`yazses setup` summary so a
+    new user always sees the full feature set. Needs no running daemon — reads the
+    config file, defaulting when it doesn't exist yet.
+    """
     from yazses.config import load_config
     from yazses.system.features import feature_status
 
-    platform = get_platform()
     cfg = load_config(platform.paths.config_file)
-    typer.echo("YazSes capabilities — toggle with `yazses features enable/disable <name>`:\n")
+    typer.echo(header or "YazSes capabilities — toggle with `yazses features enable/disable <name>`:\n")
     typer.echo(f"  {'':5}  {'NAME':<32} {'TOGGLE NAME':<14} ADVICE")
     for f in feature_status(cfg):
         mark = "● ON " if f.on else "○ off"
@@ -1092,7 +1192,8 @@ def setup(
         # The snap can't self-connect interfaces; this is the one manual step and
         # must be run outside confinement, so we print it rather than auto-apply.
         typer.echo("  • grant the snap microphone access (run this yourself, once):")
-        typer.echo("      sudo snap connect yazses:audio-record")
+        typer.secho("      sudo snap connect yazses:audio-record",
+                    fg=typer.colors.BRIGHT_WHITE, bg=typer.colors.RED, bold=True)
 
     if dry_run:
         typer.echo("\n(dry run — no changes made)")
@@ -1109,11 +1210,25 @@ def setup(
         typer.echo("\nSome steps need attention — see warnings above.", err=True)
         raise typer.Exit(1)
     if mic_pending:
-        typer.echo(
-            "\nOne manual step remains — grant the snap microphone access:"
-            "\n    sudo snap connect yazses:audio-record"
-        )
-    typer.echo("\nSetup complete. If you were just added to the `input` group, log out and back in.")
+        typer.secho("\nOne manual step remains — grant the snap microphone access:",
+                    fg=typer.colors.BRIGHT_RED, bold=True)
+        typer.secho("    sudo snap connect yazses:audio-record",
+                    fg=typer.colors.BRIGHT_WHITE, bg=typer.colors.RED, bold=True)
+    if plan.add_to_input_group or _setup.input_group_pending_relogin():
+        typer.secho(
+            "\n⚠  IMPORTANT: the hotkey will NOT work until you log out and back in",
+            fg=typer.colors.BRIGHT_RED, bold=True)
+        typer.secho(
+            "   (or reboot) so `input`-group membership takes effect. If you have not"
+            " joined it yet:", fg=typer.colors.RED)
+        typer.secho("    sudo usermod -aG input $USER",
+                    fg=typer.colors.BRIGHT_WHITE, bg=typer.colors.RED, bold=True)
+    typer.echo("\nSetup complete.")
+    typer.echo("")
+    _echo_capabilities(
+        get_platform(),
+        header="What YazSes can do — every capability (● on / ○ off):\n",
+    )
 
 
 @app.command(

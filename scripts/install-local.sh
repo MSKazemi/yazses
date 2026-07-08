@@ -112,6 +112,16 @@ if [[ $WITH_OVERLAY -eq 0 ]]; then
     echo ""
     warn "Overlay not installed (PySide6 skipped). Re-run with --with-overlay to enable sonar rings."
 fi
+
+# ── Capabilities showcase ────────────────────────────────────────────────────
+# Show everything YazSes can do (● on / ○ off) so a new user sees the full
+# feature set right after install. `yazses features` is the single source of
+# truth and needs no running daemon (it reads config, defaulting when absent).
+echo ""
+info "What YazSes can do — every capability (● on / ○ off):"
+echo ""
+yazses features 2>/dev/null || warn "Run 'yazses features' to list all capabilities."
+
 if [[ "${PENDING_RELOGIN:-0}" -eq 1 ]]; then
     echo ""
     warn "One-time step: LOG OUT and back in (or reboot) to activate 'input' group membership."
