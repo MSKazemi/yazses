@@ -8,6 +8,7 @@ from typing import Optional
 
 import typer
 
+from yazses import branding
 from yazses.ipc.client import IpcUnreachableError
 from yazses.platform import get_platform
 from yazses.system.updater import check_update, run_upgrade
@@ -44,6 +45,10 @@ _APP_EPILOG = (
     + "\n\n[bold]Tab completion[/bold]\n\n"
     + "yazses --install-completion  enable <Tab> completion for your shell\n\n"
     + "yazses --show-completion     print the completion script to inspect/customise"
+    + "\n\n[bold]Help & contact[/bold]\n\n"
+    + "yazses about                 author, links, and where to report issues\n\n"
+    + f"Report a bug or request a feature: {branding.ISSUES}\n\n"
+    + f"Made by {branding.AUTHOR} <{branding.EMAIL}>"
 )
 
 app = typer.Typer(
@@ -97,6 +102,21 @@ def _version_callback(value: bool) -> None:
     if value:
         typer.echo(f"yazses {_pkg_version('yazses')}")
         raise typer.Exit()
+
+
+@app.command(rich_help_panel=_MAINT)
+def about() -> None:
+    """Show author, version, links, and where to report issues or request features."""
+    typer.echo(f"{branding.APP_NAME} {branding.version()}")
+    typer.echo(branding.TAGLINE)
+    typer.echo("")
+    for line in branding.contact_lines():
+        typer.echo(line)
+    typer.echo("")
+    typer.echo(
+        "Found a bug or want a new feature? Open an issue at the Issues link above, "
+        f"or email {branding.EMAIL}."
+    )
 
 
 @app.callback()

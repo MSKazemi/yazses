@@ -544,3 +544,12 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     print(f"YazSes doctor ({platform.name}):")
     for name, status, detail in checks:
         print(f"  [{status}] {name}: {detail}")
+
+    # Contact footer — where to report a problem doctor surfaced, or ask for a
+    # feature. Keep this in step with src/yazses/branding.py.
+    from yazses import branding
+
+    print("")
+    print("Need help, hit a bug, or want a feature?")
+    print(f"  Author: {branding.AUTHOR} <{branding.EMAIL}>")
+    print(f"  Issues: {branding.ISSUES}")

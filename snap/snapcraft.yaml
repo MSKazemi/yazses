@@ -143,6 +143,11 @@ parts:
       - libxcb-randr0
       - libxcb-render-util0
       - libxcb-shape0
+      # The Qt xcb platform plugin (libqxcb.so) also links libxcb-xkb + the X11
+      # variant of libxkbcommon; without them the overlay dies with "Could not
+      # load the Qt platform plugin xcb" and no sonar window appears.
+      - libxcb-xkb1
+      - libxkbcommon-x11-0
       - libfontconfig1
       - libdbus-1-3
     python-packages:
