@@ -232,6 +232,18 @@ def _mic_level_check(cfg, seconds: float = 2.0) -> _Check:
     )
 
 
+def _input_group_pending_relogin() -> bool:
+    """True when the user is in the `input` group per /etc/group but this session
+    predates the change (so keyboard capture fails only because of a stale login).
+    Best-effort; never raises."""
+    try:
+        from yazses.system.setup import input_group_pending_relogin
+
+        return input_group_pending_relogin()
+    except Exception:
+        return False
+
+
 def _hotkey_device_check(cfg) -> _Check | None:
     """Report which /dev/input device the hotkey will bind to (Linux/evdev).
 
@@ -371,11 +383,22 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
 
     # Keyboard capture
     kb = perms.check_keyboard_capture()
-    checks.append((
-        "Keyboard capture",
-        "OK" if kb is PermissionState.OK else "FAIL",
-        kb.value if kb is PermissionState.OK else f"{kb.value} — {perms.how_to_grant()}",
-    ))
+    if kb is PermissionState.OK:
+        kb_detail = kb.value
+    elif _input_group_pending_relogin():
+        # You ARE in the `input` group, but THIS process's session predates the
+        # change, so the generic "add yourself to the group" advice is wrong and
+        # confusing. Tell the truth: re-login (a running daemon started under
+        # `sg input` is unaffected — this only reflects the shell running doctor).
+        kb_detail = (
+            f"{kb.value} — you're in the `input` group, but this session started before "
+            "that change. Log out and back in (or reboot). A daemon started with "
+            '`sg input -c "yazses restart"` already has access — this line only reflects '
+            "the shell running doctor."
+        )
+    else:
+        kb_detail = f"{kb.value} — {perms.how_to_grant()}"
+    checks.append(("Keyboard capture", "OK" if kb is PermissionState.OK else "FAIL", kb_detail))
 
     # Which input device the hotkey actually binds to (real keyboard vs a virtual
     # injector device). Surfaces the dead-hotkey failure mode directly.

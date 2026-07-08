@@ -1,6 +1,6 @@
 name: yazses
 base: core24
-version: "1.4.1"
+version: "2.11.0-dev.9"
 summary: Local, offline voice dictation for Linux
 description: |
   YazSes is offline, on-device voice dictation. Hold a key (Space by default),
@@ -34,6 +34,12 @@ confinement: strict
 apps:
   yazses:
     command: bin/yazses-wrapper
+    environment:
+      # Give libasound a config (the confined snap can't see the host's
+      # /usr/share/alsa) so PortAudio's Pa_Initialize routes through PulseAudio
+      # instead of aborting. See snap/local/asound.conf.
+      ALSA_CONFIG_PATH: $SNAP/etc/asound.conf
+      ALSA_PLUGIN_DIR: $SNAP/usr/lib/x86_64-linux-gnu/alsa-lib
     plugs:
       - audio-record
       - audio-playback
@@ -46,6 +52,9 @@ apps:
       - opengl
   yazses-daemon:
     command: bin/yazses-daemon-wrapper
+    environment:
+      ALSA_CONFIG_PATH: $SNAP/etc/asound.conf
+      ALSA_PLUGIN_DIR: $SNAP/usr/lib/x86_64-linux-gnu/alsa-lib
     plugs:
       - audio-record
       - audio-playback
@@ -79,6 +88,13 @@ parts:
       - python3-dev
     stage-packages:
       - libportaudio2
+      # ALSA runtime config + plugins. libportaudio2 pulls in libasound2 (the
+      # library) but NOT its config data or plugins; without these PortAudio
+      # aborts on Pa_Initialize inside strict confinement. libasound2-data ships
+      # /usr/share/alsa/*; libasound2-plugins ships the pulse bridge that
+      # snap/local/asound.conf routes the default device through.
+      - libasound2-data
+      - libasound2-plugins
       - python3.12
       - python3.12-minimal
       - libpython3.12-minimal
@@ -118,6 +134,9 @@ parts:
       install -Dm755 snap/local/yazses-daemon-wrapper "$CRAFT_PART_INSTALL/bin/yazses-daemon-wrapper"
       install -Dm755 snap/local/yazses-overlay-wrapper "$CRAFT_PART_INSTALL/bin/yazses-overlay-wrapper"
       install -Dm755 snap/local/yazses-tray-wrapper "$CRAFT_PART_INSTALL/bin/yazses-tray-wrapper"
+      # ALSA config so PortAudio can initialise under strict confinement (routes
+      # the default device through PulseAudio). Referenced by ALSA_CONFIG_PATH.
+      install -Dm644 snap/local/asound.conf "$CRAFT_PART_INSTALL/etc/asound.conf"
       # XDG autostart so the daemon's DISPLAY is populated on every graphical login
       install -Dm644 contrib/yazses-session.desktop \
         "$CRAFT_PART_INSTALL/etc/xdg/autostart/yazses-session.desktop"

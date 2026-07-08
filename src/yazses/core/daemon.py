@@ -519,6 +519,13 @@ class Daemon:
         and typed letters mangle through the AltGr layer. Sending a synthetic
         key-up via ydotool forces mutter to release it. Runs on every hold-end
         (dictation OR silent discard). Best-effort: Linux-only, never raises.
+
+        Only spawns ydotool when ydotoold's socket is actually present. Without a
+        running ydotoold the ``ydotool`` client ``abort()``s (SIGABRT), which the
+        desktop's crash reporter (Apport) surfaces as a "ydotool has stopped
+        unexpectedly" dialog on every hold-end. This synthetic key-up is a GNOME
+        Wayland/mutter workaround anyway — X11 delivers the real key-up itself, so
+        skipping it there (where there is no ydotoold) is both safe and correct.
         """
         import os as _os
         import sys as _sys
@@ -531,6 +538,12 @@ class Daemon:
         try:
             codes = self._hotkey_release_codes()
             if not codes:
+                return
+            # ydotool aborts (→ Apport crash dialog) when ydotoold isn't running;
+            # only invoke it when its socket exists (i.e. it will actually work).
+            from yazses.inject.auto import ydotool_ready
+
+            if not ydotool_ready():
                 return
             import subprocess
             args = ["ydotool", "key"] + [f"{c}:0" for c in sorted(codes)]
@@ -1705,6 +1718,15 @@ class Daemon:
 
 def run() -> None:
     """Entry point used by `yazses-daemon` and `python -m yazses.main`."""
+    try:
+        # First run: seed a config that enables the recommended feature set so a
+        # fresh install (snap/pipx/apt) gets the good experience out of the box.
+        # No-op once a config exists — never overrides the user's choices.
+        from yazses.system.firstrun import ensure_recommended_config
+
+        ensure_recommended_config()
+    except Exception:  # noqa: BLE001 — config seeding must never block startup
+        pass
     try:
         Daemon().run()
     except KeyboardInterrupt:

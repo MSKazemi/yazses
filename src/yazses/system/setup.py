@@ -150,6 +150,72 @@ def _current_user() -> str:
     return os.environ.get("SUDO_USER") or os.environ.get("USER") or pwd.getpwuid(os.getuid()).pw_name
 
 
+def input_group_pending_relogin(user: str | None = None) -> bool:
+    """True when *user* is in the `input` group per /etc/group but the CURRENT
+    process/session doesn't have it live.
+
+    This is the classic post-`usermod` trap: `getent group input` lists the user,
+    yet the running desktop session (and every terminal it spawns, including the
+    daemon) started *before* the group change, so `/dev/input/event*` is still
+    unreadable. A fresh login (or reboot) is the only fix; a new terminal tab is
+    not enough. `sg input -c ...` is a same-session workaround for testing.
+    """
+    if os.name != "posix":
+        return False
+    user = user or _current_user()
+    if not _user_in_input_group(user):
+        return False  # not in the group at all — that's a `yazses setup` problem, not a relogin one
+    try:
+        import grp
+        gid = grp.getgrnam("input").gr_gid
+    except (KeyError, ImportError):
+        return False
+    return gid not in os.getgroups()
+
+
+def preflight_hints(
+    env: dict[str, str] | None = None,
+    *,
+    plan: SetupPlan | None = None,
+    pending_relogin=None,
+) -> list[str]:
+    """Actionable one-line warnings about unmet runtime prerequisites.
+
+    Called by `yazses start`/`restart` so a missing dependency or a pending
+    re-login is surfaced the moment the user starts the daemon — instead of
+    silently producing a daemon that can't hear the hotkey. Returns [] when the
+    machine is fully provisioned.
+    """
+    if os.name != "posix":
+        return []
+    plan = build_plan(env) if plan is None else plan
+    pending = input_group_pending_relogin() if pending_relogin is None else pending_relogin
+    hints: list[str] = []
+
+    if plan.apt_packages or plan.add_to_input_group or plan.setup_ydotoold:
+        missing = []
+        if plan.apt_packages:
+            missing.append(f"packages ({', '.join(plan.apt_packages)})")
+        if plan.add_to_input_group:
+            missing.append("`input` group membership")
+        if plan.setup_ydotoold:
+            missing.append("ydotoold (Wayland injection)")
+        hints.append(
+            "Missing prerequisites: " + "; ".join(missing) + ".\n"
+            "  Fix everything in one step:  yazses setup"
+        )
+    elif pending:
+        # Fully provisioned, but this session predates the group change: the
+        # daemon will start yet the hotkey won't fire until a real re-login.
+        hints.append(
+            "You're in the `input` group, but this login session started before that\n"
+            "  change — so the hotkey can't read the keyboard yet. Log out and back in\n"
+            "  (or reboot) to fix it permanently. To test right now without logging out:\n"
+            "    sg input -c \"yazses restart\""
+        )
+    return hints
+
+
 def _has_apt() -> bool:
     return shutil.which("apt-get") is not None
 

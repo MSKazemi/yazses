@@ -1074,3 +1074,29 @@ def find_feature(cfg, slug: str) -> Feature | None:
 
 def toggleable_slugs() -> list[str]:
     return [d.slug for d in _registry() if d.on_writes]
+
+
+# Tiers we turn on for a fresh install. DEFAULT_ON are already on by dataclass
+# default; RECOMMENDED are "safe and useful" and enabled on first run so a new
+# user (snap/pipx/apt) gets the good experience without hand-editing config.
+_DEFAULT_ENABLED_TIERS = (DEFAULT_ON, RECOMMENDED)
+
+
+def default_enabled_slugs() -> list[str]:
+    """Slugs of the recommended-by-default feature set (DEFAULT_ON + RECOMMENDED)."""
+    return [d.slug for d in _registry() if d.tier in _DEFAULT_ENABLED_TIERS]
+
+
+def default_enabled_writes() -> list[tuple]:
+    """Config writes that enable the recommended-by-default feature set.
+
+    Each item is a ``(section, key, value, quote)`` tuple ready for
+    ``configedit.set_config_key``. Registry is the single source of truth, so new
+    recommended features are picked up automatically. Drives first-run config
+    generation (``system/firstrun.ensure_recommended_config``).
+    """
+    writes: list[tuple] = []
+    for d in _registry():
+        if d.tier in _DEFAULT_ENABLED_TIERS:
+            writes.extend(d.on_writes)
+    return writes

@@ -5,6 +5,7 @@ on:
     tags:
       - "v0.*"
       - "v1.*"  # Part 1 owns the 1.x line (Rust release workflow archived)
+      - "v2.*"  # v2 Python line (cognitive layer); publishes to stable like 1.x
   workflow_dispatch:
     inputs:
       version:

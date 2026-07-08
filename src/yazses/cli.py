@@ -205,6 +205,7 @@ def start() -> None:
     a second one — so you never end up double-typing.
     """
     platform = get_platform()
+    _warn_unmet_prereqs()
     if platform.lifecycle.is_running():
         typer.echo("YazSes is already running — restarting it cleanly...")
         _restart_daemon(platform)
@@ -225,8 +226,26 @@ def restart() -> None:
     Use this if dictation is being typed twice (a sign of duplicate daemons).
     """
     platform = get_platform()
+    _warn_unmet_prereqs()
     _restart_daemon(platform)
     typer.echo(f"YazSes restarted. Hold {_resolved_hotkey(platform)} to dictate.")
+
+
+def _warn_unmet_prereqs() -> None:
+    """Print actionable warnings if system prerequisites are missing or a pending
+    `input`-group re-login would leave the hotkey dead. Best-effort and silent
+    when fully provisioned; never blocks startup."""
+    import sys as _sys
+
+    if _sys.platform != "linux":
+        return
+    try:
+        from yazses.system.setup import preflight_hints
+
+        for hint in preflight_hints():
+            typer.echo(f"⚠  {hint}", err=True)
+    except Exception:
+        pass  # a diagnostic must never prevent the daemon from starting
 
 
 features_app = typer.Typer(

@@ -266,6 +266,34 @@ def test_on_hold_end_calls_release(monkeypatch):
     assert called["n"] == 1
 
 
+def test_release_hotkey_modifier_skips_ydotool_without_ydotoold(monkeypatch):
+    # On X11 (no ydotoold socket) the ydotool client abort()s → Apport "ydotool
+    # has stopped unexpectedly" dialog on every hold-end. The release must NOT
+    # spawn ydotool unless ydotoold is actually ready.
+    d = _base_daemon(np.zeros(16000, dtype="float32"))
+    d._config.hotkey.key = "right_alt"
+    d._config.hotkey.command_key = ""
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)   # else it early-returns
+    monkeypatch.setattr("yazses.inject.auto.ydotool_ready", lambda: False)
+    calls = []
+    monkeypatch.setattr("subprocess.run", lambda *a, **k: calls.append(a))
+    d._release_hotkey_modifier()
+    assert calls == []   # no ydotool spawned when the socket is absent
+
+
+def test_release_hotkey_modifier_spawns_ydotool_when_ready(monkeypatch):
+    d = _base_daemon(np.zeros(16000, dtype="float32"))
+    d._config.hotkey.key = "right_alt"
+    d._config.hotkey.command_key = ""
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.setattr("yazses.inject.auto.ydotool_ready", lambda: True)
+    calls = []
+    monkeypatch.setattr("subprocess.run", lambda *a, **k: calls.append(a[0]))
+    d._release_hotkey_modifier()
+    assert calls and calls[0][:2] == ["ydotool", "key"]
+    assert "100:0" in calls[0]   # KEY_RIGHTALT (right_alt) key-up
+
+
 # ---- DICTATE-path pure-text transforms (batch 1: gec, diacritize, sembr, safeglyph) ----
 
 def _text_daemon(text):

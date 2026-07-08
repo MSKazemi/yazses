@@ -54,6 +54,13 @@ yazses setup        # installs audio + injection deps, joins the input group, se
 # then log out and back in (the input-group change needs a fresh login)
 ```
 
+> **The log-out/in is mandatory and one-time.** Joining the `input` group only
+> takes effect in a *new login session* — opening another terminal tab is **not**
+> enough, because it inherits the old session's groups and the hotkey stays dead.
+> `yazses start` will warn you if this re-login is still pending. To dictate
+> immediately without logging out, bridge the group for one session:
+> `sg input -c "yazses restart"`. After a real re-login, plain `yazses start` just works.
+
 `yazses setup` fixes everything dictation needs and is safe to re-run — it only does what's missing:
 - **`libportaudio2`** — audio capture (without it the daemon crashes on start with `OSError: PortAudio library not found`).
 - **injection backends** — `xdotool`/`xclip` (X11) and `wtype`/`ydotool`/`wl-clipboard` (Wayland).
@@ -303,6 +310,11 @@ sudo snap install yazses
 sudo apt install libportaudio2 xdotool ydotool wtype xclip wl-clipboard pipx
 sudo usermod -aG input "$USER"   # hotkey access — then log out and back in
 pipx install yazses
+
+# From source (contributors) — one command does the whole loop:
+# editable install + `yazses setup` provisioning + start (bridges the input
+# group so you can test before logging out).
+bash scripts/dev-install.sh
 ```
 
 ### macOS

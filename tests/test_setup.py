@@ -88,3 +88,59 @@ def test_apply_noop_plan_does_nothing():
     ok = setup.apply_plan(plan, runner=lambda *a, **k: calls.append(a), echo=lambda *_: None)
     assert ok is True
     assert calls == []
+
+
+# ── preflight_hints / input_group_pending_relogin ──────────────────────────────
+
+def _fully_provisioned_plan():
+    """A plan on a machine where nothing is missing."""
+    return setup.build_plan(
+        {"DISPLAY": ":0"},
+        which=_which(ALL_TOOLS),
+        portaudio_present=lambda: True,
+        user="u",
+        user_in_input_group=lambda u: True,
+    )
+
+
+def test_preflight_hint_when_packages_missing():
+    plan = setup.build_plan(
+        {"DISPLAY": ":0"},
+        which=_which([]),  # every injector binary missing
+        portaudio_present=lambda: False,
+        user="u",
+        user_in_input_group=lambda u: True,
+    )
+    hints = setup.preflight_hints(plan=plan, pending_relogin=False)
+    assert len(hints) == 1
+    assert "yazses setup" in hints[0]
+    assert "Missing prerequisites" in hints[0]
+
+
+def test_preflight_hint_when_relogin_pending():
+    # Fully provisioned, but the group change hasn't taken effect in this session.
+    plan = _fully_provisioned_plan()
+    hints = setup.preflight_hints(plan=plan, pending_relogin=True)
+    assert len(hints) == 1
+    assert "log out" in hints[0].lower()
+    assert "sg input" in hints[0]
+
+
+def test_preflight_no_hints_when_fully_provisioned():
+    plan = _fully_provisioned_plan()
+    assert setup.preflight_hints(plan=plan, pending_relogin=False) == []
+
+
+def test_missing_packages_take_priority_over_relogin_hint():
+    # If packages are also missing, surface the actionable `yazses setup` hint,
+    # not the (secondary) re-login one.
+    plan = setup.build_plan(
+        {"DISPLAY": ":0"},
+        which=_which([]),
+        portaudio_present=lambda: False,
+        user="u",
+        user_in_input_group=lambda u: True,
+    )
+    hints = setup.preflight_hints(plan=plan, pending_relogin=True)
+    assert len(hints) == 1
+    assert "yazses setup" in hints[0]

@@ -57,14 +57,25 @@ sudo usermod -aG input "$USER"   # add yourself to the input group
 ```
 
 Then **log out and back in (or reboot)** — group membership only refreshes on a
-new login session. Confirm it took effect:
+new login session. **Opening another terminal tab is not enough**: it inherits
+the old session's groups, so the hotkey stays dead and `yazses doctor` still
+reports `[FAIL] Keyboard capture` (that line reflects the shell running doctor,
+not a running daemon). Confirm it took effect:
 
 ```bash
 id -nG | tr ' ' '\n' | grep -x input   # should print: input
 yazses doctor                          # should show [OK] Keyboard capture
 ```
 
-Do this **before** starting the daemon (step 3).
+Do this **before** starting the daemon (step 3). `yazses start`/`restart` will
+warn you if this re-login is still pending. To dictate **immediately** without
+logging out, bridge the group for one session:
+
+```bash
+sg input -c "yazses restart"           # runs the daemon with input-group access now
+```
+
+After a real re-login, a plain `yazses start` just works — no bridge needed.
 
 ### 1b. Wayland keystroke injection — `ydotoold` (GNOME/KDE Wayland)
 

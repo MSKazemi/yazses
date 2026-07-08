@@ -18,9 +18,9 @@ prints the script to inspect or customise).
 
 | Command | Description |
 |---|---|
-| `yazses start` | Start the daemon detached (PID-file tracked). Under systemd, prefer `systemctl --user start yazses`. |
+| `yazses start` | Start the daemon detached (PID-file tracked). Under systemd, prefer `systemctl --user start yazses`. Warns if a runtime prerequisite is missing (run `yazses setup`) or if an `input`-group re-login is still pending. |
 | `yazses stop` | Stop the running daemon (SIGTERM). |
-| `yazses restart` | Stop **all** daemons (including stray/detached ones) and start exactly one. Use this if dictation is being typed twice. |
+| `yazses restart` | Stop **all** daemons (including stray/detached ones) and start exactly one. Use this if dictation is being typed twice. Same prerequisite warnings as `start`. |
 | `yazses status` | Show state, hotkey, model, injection backend, uptime (over IPC). |
 | `yazses features` | List every capability, whether it's on/off, its toggle name, and what's advised. |
 | `yazses features info` | Describe **every** capability — name, what it does, and a usage example (the full catalog). |

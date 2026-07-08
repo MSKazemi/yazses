@@ -16,25 +16,28 @@ echo "  YazSes Installer"
 echo "  Hold Space → speak → release → text appears anywhere"
 echo ""
 
-# 1. System dependencies
-info "Installing system dependencies..."
+# 1. Bootstrap dependency: pipx (the rest are provisioned by `yazses setup` below,
+#    which installs the full audio + injection stack for BOTH X11 and Wayland and
+#    joins the `input` group — the single source of truth so this never drifts).
+info "Installing pipx..."
 sudo apt-get update -qq
-sudo apt-get install -y libportaudio2 xdotool xclip pipx
+sudo apt-get install -y pipx
 
-# 2. Input group (evdev keyboard access)
-if ! groups "$USER" | grep -qw input; then
-    info "Adding $USER to the 'input' group (for keyboard access)..."
-    sudo usermod -aG input "$USER"
-    NEEDS_RELOGIN=1
-else
-    info "User $USER is already in the 'input' group."
-    NEEDS_RELOGIN=0
-fi
-
-# 3. Install YazSes via pipx
+# 2. Install YazSes via pipx
 info "Installing YazSes..."
 pipx install yazses || pipx upgrade yazses
 pipx ensurepath
+YZ="$(command -v yazses || echo "$HOME/.local/bin/yazses")"
+
+# 3. Provision every runtime prerequisite in one shot (PortAudio, xdotool/xclip,
+#    ydotool/wtype/wl-clipboard, `input` group, and ydotoold on Wayland).
+info "Provisioning system requirements (yazses setup)..."
+if getent group input 2>/dev/null | grep -qw "$USER"; then NEEDS_RELOGIN=0; else NEEDS_RELOGIN=1; fi
+"$YZ" setup || warn "yazses setup reported issues — see above."
+# Re-check: setup may have just added us to the group (needs a fresh login).
+if getent group input 2>/dev/null | grep -qw "$USER" && ! id -nG | grep -qw input; then
+    NEEDS_RELOGIN=1
+fi
 
 # 4. Systemd user service
 info "Installing systemd user service..."

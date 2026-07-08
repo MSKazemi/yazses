@@ -57,6 +57,20 @@ if [[ $WITH_VOICEPRINT -eq 1 ]]; then
 fi
 uv tool install --force --reinstall "${EXTRA_WITH[@]}" "$REPO_ROOT"
 
+# ── 3b. Provision system prerequisites (idempotent) ─────────────────────────────
+# A wheel can't install PortAudio, the injector binaries, or the `input` group,
+# so run `yazses setup` here — the single source of truth for what dictation needs.
+YZ="$(command -v yazses || echo "$HOME/.local/bin/yazses")"
+if [[ -x "$YZ" ]]; then
+    info "Provisioning system requirements (yazses setup)..."
+    "$YZ" setup || warn "yazses setup reported issues — see above."
+    if getent group input 2>/dev/null | grep -qw "$USER" && ! id -nG | grep -qw input; then
+        PENDING_RELOGIN=1
+    fi
+else
+    warn "yazses not on PATH yet — run 'yazses setup' in a new shell to finish provisioning."
+fi
+
 # ── 4. XDG autostart — makes DISPLAY available to the systemd user manager ──
 # This runs at every graphical login and is the reliable cross-DE fix so that
 # xdotool injection and the overlay work for any user without manual setup.
@@ -97,4 +111,10 @@ info "Run 'yazses status' to confirm IPC is up."
 if [[ $WITH_OVERLAY -eq 0 ]]; then
     echo ""
     warn "Overlay not installed (PySide6 skipped). Re-run with --with-overlay to enable sonar rings."
+fi
+if [[ "${PENDING_RELOGIN:-0}" -eq 1 ]]; then
+    echo ""
+    warn "One-time step: LOG OUT and back in (or reboot) to activate 'input' group membership."
+    warn "Until then the hotkey can't read the keyboard. To test now without a logout:"
+    warn "  sg input -c \"yazses restart\""
 fi
