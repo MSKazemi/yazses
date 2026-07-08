@@ -35,6 +35,22 @@ def _tool(label: str, *, required: bool) -> _Check:
 _UINPUT_ONLY_DESKTOPS = ("gnome", "kde", "plasma", "cinnamon", "unity", "mate", "xfce", "lxqt")
 
 
+def _binary_runs(cmd: list[str]) -> bool:
+    """True when *cmd* executes and exits 0 within a short timeout.
+
+    Distinguishes "the binary is on PATH" from "the binary actually runs" — a
+    bundle that ships an executable without its shared libraries exits 127
+    (loader error) even though ``shutil.which`` finds it.
+    """
+    import subprocess
+
+    try:
+        r = subprocess.run(cmd, capture_output=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return r.returncode == 0
+
+
 def _injection_readiness(is_wayland: bool, is_x11: bool) -> list[_Check]:
     """Report whether keystroke injection will actually work, with the fix."""
     from yazses.inject.auto import ydotool_ready, ydotool_socket_path
@@ -67,7 +83,19 @@ def _injection_readiness(is_wayland: bool, is_x11: bool) -> list[_Check]:
             out.append(("Injection", "FAIL", "no Wayland injector installed — run `yazses setup`"))
     elif is_x11:
         if shutil.which("xdotool"):
-            out.append(("Injection", "OK", "xdotool (X11)"))
+            # Presence isn't enough: a snap that bundles the xdotool binary but
+            # not its library (libxdo.so.3) exits 127 on every type() and injection
+            # silently fails. Actually invoke it so a broken bundle is caught here.
+            if _binary_runs(["xdotool", "getdisplaygeometry"]):
+                out.append(("Injection", "OK", "xdotool (X11)"))
+            elif shutil.which("xclip") and _binary_runs(["xclip", "-version"]):
+                out.append(("Injection", "WARN",
+                            "xdotool present but not runnable (missing libxdo.so.3?); "
+                            "using clipboard paste"))
+            else:
+                out.append(("Injection", "FAIL",
+                            "xdotool installed but fails to run — missing shared library "
+                            "(libxdo.so.3). Reinstall/upgrade the package."))
         elif shutil.which("xclip"):
             out.append(("Injection", "WARN", "clipboard paste only (install xdotool for direct typing)"))
         else:

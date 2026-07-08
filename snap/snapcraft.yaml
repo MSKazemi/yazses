@@ -1,6 +1,6 @@
 name: yazses
 base: core24
-version: "2.11.0-dev.10"
+version: "2.11.0-dev.11"
 summary: Local, offline voice dictation for Linux
 description: |
   YazSes is offline, on-device voice dictation. Hold a key (Space by default),
@@ -112,7 +112,17 @@ parts:
       - libpulse0
       # X11 keystroke injection. Without a bundled injector the confined snap has
       # no way to type on X11 sessions (`yazses doctor` -> "no X11 injector").
+      # xdotool needs its own library libxdo3 (libxdo.so.3) — a real snapcraft
+      # build pulls it as a dependency, but list it explicitly so a hand/partial
+      # build can't ship the xdotool binary without the .so it loads (which makes
+      # every type() exit 127 and injection silently fail).
       - xdotool
+      - libxdo3
+      # Clipboard tools: the ClipboardInjector fallback + the context readers shell
+      # out to xclip (X11) / wl-copy (Wayland). Bundle both so a missing tool never
+      # aborts an injection.
+      - xclip
+      - wl-clipboard
       - python3.12
       - python3.12-minimal
       - libpython3.12-minimal
