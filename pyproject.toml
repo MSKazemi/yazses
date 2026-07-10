@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "yazses"
-version = "2.12.0.dev1"
+version = "2.12.0.dev2"
 description = "Local, offline voice dictation for Linux, macOS, and Windows — hold a key, speak, release"
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -48,27 +48,27 @@ classifiers = [
 dependencies = [
     "faster-whisper>=1.2.1",
     "sounddevice>=0.5.5",
-    "numpy>=2.4.5",
-    "typer>=0.25.1",
-    "platformdirs>=4.9.6",
+    "numpy>=2.4.6",
+    "typer>=0.26.8",
+    "platformdirs>=4.10.0",
     # Linux
     'evdev>=1.9.3; sys_platform == "linux"',
     'python-xlib>=0.33; sys_platform == "linux"',
     # macOS
-    'pyobjc-framework-Quartz>=12.1; sys_platform == "darwin"',
-    'pyobjc-framework-Cocoa>=12.1; sys_platform == "darwin"',
-    'pyobjc-framework-ApplicationServices>=12.1; sys_platform == "darwin"',
-    'pyobjc-framework-AVFoundation>=12.1; sys_platform == "darwin"',
+    'pyobjc-framework-Quartz>=12.2.1; sys_platform == "darwin"',
+    'pyobjc-framework-Cocoa>=12.2.1; sys_platform == "darwin"',
+    'pyobjc-framework-ApplicationServices>=12.2.1; sys_platform == "darwin"',
+    'pyobjc-framework-AVFoundation>=12.2.1; sys_platform == "darwin"',
     'rumps>=0.4.0; sys_platform == "darwin"',
     # Windows
-    'pywin32>=311; sys_platform == "win32"',
+    'pywin32>=312; sys_platform == "win32"',
     'pystray>=0.19.5; sys_platform == "win32"',
-    'Pillow>=12.2.0; sys_platform == "win32"',
+    'Pillow>=12.3.0; sys_platform == "win32"',
     "onnx-asr>=0.11.0",
-    "cryptography>=48.0.0",
+    "cryptography>=49.0.0",
     # Voice-activity overlay (yazses-overlay). Shipped in the base install so the
     # overlay works everywhere out of the box (pip + snap), with no extra step.
-    "PySide6>=6.8",
+    "PySide6>=6.11.1",
 ]
 
 [project.urls]
@@ -85,7 +85,7 @@ yazses-overlay = "yazses.overlay.app:run"
 
 [project.optional-dependencies]
 slm = [
-    "llama-cpp-python>=0.3.23",
+    "llama-cpp-python>=0.3.33",
 ]
 lsp = [
     "pygls>=2.1.1",
@@ -98,15 +98,15 @@ ble = [
     "bleak>=3.0.2",
 ]
 overlay = [
-    "PySide6>=6.8",
+    "PySide6>=6.11.1",
 ]
 prosody = [
-    "praat-parselmouth>=0.4.6",
+    "praat-parselmouth>=0.4.7",
 ]
 tts = [
-    "kokoro-onnx>=0.4.9",
-    "onnxruntime>=1.20",
-    "soundfile>=0.13",
+    "kokoro-onnx>=0.5.0",
+    "onnxruntime>=1.27.0",
+    "soundfile>=0.14.0",
 ]
 # v2 cognitive layer — speaker voiceprint (Cocktail Filter + Voiceprint Mind)
 voiceprint = [
@@ -116,40 +116,47 @@ voiceprint = [
 # (no torch, no GPU, no HF token); imported lazily only when `[recimport] diarize`.
 # Audio decoding needs no extra (PyAV rides in with faster-whisper).
 diarization = [
-    "sherpa-onnx>=1.10",
+    "sherpa-onnx>=1.13.4",
 ]
 # v2.0.0 Wave B — Voice-to-Tool / offline Spoken MCP (ADR-v2-006). Heavy; opt-in.
 # The MCP client is imported lazily only when [agent] enabled; absent → dormant.
 agent = [
-    "mcp>=1.9",
+    "mcp>=1.28.1",
 ]
 # v2.0.0 Wave B — AT-SPI Voice Pilot (ADR-v2-007). Linux only. pyatspi ships via
 # system packages (e.g. `apt install python3-pyatspi gir1.2-atspi-2.0`), NOT pip,
 # so it is intentionally NOT declared here; the backend imports it lazily when
 # [pilot] enabled → absent means Voice Pilot stays dormant.
 # v2 cognitive layer — Glance-Type look-to-pane (webcam gaze).
-# NOTE: l2cs pins an older torch that conflicts with a unified resolution, so it
-# is intentionally NOT declared here — install manually when enabling gaze:
-#   pip install "l2cs>=2.0" "mediapipe>=0.10" "opencv-python>=4.10"
-# The gaze backend imports them at runtime; absent → look-to-pane stays dormant.
+# Default backend is MediaPipe FaceLandmarker (light, CPU-only, no torch); it
+# downloads a ~3.7 MB model once on first use. The heavier L2CS backend pins an
+# older torch that conflicts with a unified resolution, so it is intentionally
+# NOT declared — install it manually (`pip install "l2cs>=2.0"`) only if you set
+# `[gaze] backend = "l2cs"`. Gaze deps are imported lazily; absent → dormant.
+gaze = [
+    "mediapipe>=0.10.35",
+    "opencv-python>=5.0",
+]
 all = [
-    "llama-cpp-python>=0.3.23",
+    "llama-cpp-python>=0.3.33",
     "pygls>=2.1.1",
     "pynvim>=0.6.0",
     "pyserial>=3.5",
     "bleak>=3.0.2",
-    "PySide6>=6.8",
-    "praat-parselmouth>=0.4.6",
-    "kokoro-onnx>=0.4.9",
-    "onnxruntime>=1.20",
-    "soundfile>=0.13",
+    "PySide6>=6.11.1",
+    "praat-parselmouth>=0.4.7",
+    "kokoro-onnx>=0.5.0",
+    "onnxruntime>=1.27.0",
+    "soundfile>=0.14.0",
     "speechbrain>=1.1",
-    "sherpa-onnx>=1.10",
+    "sherpa-onnx>=1.13.4",
+    "mediapipe>=0.10.35",
+    "opencv-python>=5.0",
 ]
 
 [dependency-groups]
 dev = [
-    "pytest>=9.0.3",
+    "pytest>=9.1.1",
     "pytest-mock>=3.15.1",
     "pytest-cov>=7.1.0",
     "useful-moonshine-onnx>=20251121",

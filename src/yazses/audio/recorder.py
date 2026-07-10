@@ -20,15 +20,22 @@ class AudioRecorder:
         sample_rate: int = 16000,
         max_seconds: int = 90,
         on_chunk: Callable[[np.ndarray], None] | None = None,
+        accumulate: bool = True,
     ) -> None:
         self._sample_rate = sample_rate
         self._max_seconds = max_seconds
         self._on_chunk = on_chunk
+        # Meeting mode streams chunks to disk via ``on_chunk`` and does not need the
+        # in-memory buffer; ``accumulate=False`` keeps memory bounded over a long run
+        # (hold-to-talk keeps the default ``True``). ``max_seconds=0`` disables the cap.
+        self._accumulate = accumulate
         self._chunks: list[np.ndarray] = []
+        self._n_samples = 0
         self._stream: sd.InputStream | None = None
 
     def start(self) -> None:
         self._chunks = []
+        self._n_samples = 0
         self._stream = None
         last_exc: Exception | None = None
         for attempt in range(1, _OPEN_ATTEMPTS + 1):
@@ -65,11 +72,12 @@ class AudioRecorder:
     ) -> None:
         if status:
             log.warning("Audio callback status: %s", status)
-        total_samples = sum(c.shape[0] for c in self._chunks) + frames
-        if total_samples > self._max_seconds * self._sample_rate:
+        if self._max_seconds and (self._n_samples + frames) > self._max_seconds * self._sample_rate:
             return
+        self._n_samples += frames
         chunk = indata.copy().flatten()
-        self._chunks.append(chunk)
+        if self._accumulate:
+            self._chunks.append(chunk)
         if self._on_chunk is not None:
             self._on_chunk(chunk)
 

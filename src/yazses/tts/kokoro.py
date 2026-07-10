@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Iterator
+from pathlib import Path
 
 from yazses.tts.chunking import sentence_chunks
 
@@ -26,9 +27,23 @@ class KokoroTtsBackend:
         self._voice = config.voice if config.voice != "default" else "af_heart"
         self._speed = config.speed
         self._sample_rate = config.sample_rate
-        # model_path empty => kokoro-onnx resolves its bundled/cached default.
-        self._kokoro = Kokoro(config.model_path) if config.model_path else Kokoro()
+        # kokoro-onnx >=0.4 needs an explicit (model, voices) pair. Honour config
+        # overrides, else resolve the shared cache dir and download on first use.
+        model_path, voices_path = self._resolve_models()
+        self._kokoro = Kokoro(str(model_path), str(voices_path))
         self._cancel = threading.Event()
+
+    def _resolve_models(self):
+        from yazses.tts.download import download_models, model_paths
+
+        default_model, default_voices = model_paths()
+        model = self._config.model_path or str(default_model)
+        voices = getattr(self._config, "voices_path", "") or str(default_voices)
+        # Only reach for the network when a file is genuinely missing.
+        if not (Path(model).exists() and Path(voices).exists()):
+            log.info("Read-Back voice model missing; downloading (one-time, ~340 MB)…")
+            download_models(echo=lambda m: log.info("%s", m))
+        return model, voices
 
     @property
     def name(self) -> str:

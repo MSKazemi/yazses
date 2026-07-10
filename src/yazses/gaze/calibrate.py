@@ -7,6 +7,7 @@ by design — it drives look-to-PANE, not look-to-caret.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Callable
 
 import numpy as np
 
@@ -37,3 +38,57 @@ def fit_calibration(
     # Solve M @ coeffs = targets for coeffs (3x2); A is its transpose (2x3).
     coeffs, *_ = np.linalg.lstsq(M, targets, rcond=None)
     return CalibrationMap(A=coeffs.T)
+
+
+# ---- interactive calibration (I/O-agnostic, so it is unit-testable) --------
+
+
+def default_targets(width: int, height: int, points: int) -> list[tuple[str, tuple[int, int]]]:
+    """Screen calibration points as ``(label, (x, y))``, inset from the edges.
+
+    ``points >= 9`` gives a labelled 3x3 grid; ``4`` gives the corners; anything
+    else the four corners plus centre (5). Coarse by design — look-to-PANE.
+    """
+    m = 0.1  # 10% inset so the user isn't asked to look off-screen
+    xs = (int(width * m), width // 2, int(width * (1 - m)))
+    ys = (int(height * m), height // 2, int(height * (1 - m)))
+    grid = [
+        ("top-left", (xs[0], ys[0])), ("top-centre", (xs[1], ys[0])), ("top-right", (xs[2], ys[0])),
+        ("middle-left", (xs[0], ys[1])), ("centre", (xs[1], ys[1])), ("middle-right", (xs[2], ys[1])),
+        ("bottom-left", (xs[0], ys[2])), ("bottom-centre", (xs[1], ys[2])), ("bottom-right", (xs[2], ys[2])),
+    ]
+    if points >= 9:
+        return grid
+    if points == 4:
+        return [grid[0], grid[2], grid[6], grid[8]]
+    return [grid[0], grid[2], grid[4], grid[6], grid[8]]  # corners + centre
+
+
+def collect_samples(
+    backend,
+    targets: list[tuple[str, tuple[int, int]]],
+    before_point: Callable[[str, tuple[int, int]], None],
+    per_point: int = 8,
+) -> list[tuple[tuple[float, float], tuple[float, float]]]:
+    """Sample gaze at each target and pair the mean angle with the screen point.
+
+    ``before_point(label, xy)`` is called once per target to prompt the user (in
+    the CLI it prints "look here" and waits for Enter); tests pass a no-op. For
+    each target up to ``per_point`` gaze reads are averaged, skipping ``None``
+    (no-face) reads. Targets with no valid read are dropped. Returns the
+    ``[((yaw, pitch), (x, y)), ...]`` list ready for :func:`fit_calibration`.
+    """
+    samples: list[tuple[tuple[float, float], tuple[float, float]]] = []
+    for label, xy in targets:
+        before_point(label, xy)
+        reads = []
+        for _ in range(per_point):
+            g = backend.estimate()
+            if g is not None:
+                reads.append(g)
+        if not reads:
+            continue
+        arr = np.array(reads, dtype="float64")
+        yaw, pitch = float(arr[:, 0].mean()), float(arr[:, 1].mean())
+        samples.append(((yaw, pitch), (float(xy[0]), float(xy[1]))))
+    return samples

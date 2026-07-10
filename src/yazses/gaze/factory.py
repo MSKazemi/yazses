@@ -18,8 +18,12 @@ def build_gaze(config) -> GazeBackend | None:
     """Return a gaze backend for *config*, or None when dormant/unavailable."""
     if not getattr(config, "enabled", False):
         return None
-    backend = getattr(config, "backend", "l2cs")
+    backend = getattr(config, "backend", "mediapipe")
     try:
+        if backend == "mediapipe":
+            from yazses.gaze.mediapipe_backend import MediapipeGazeBackend
+
+            return MediapipeGazeBackend(config)
         if backend == "l2cs":
             from yazses.gaze.l2cs import L2csGazeBackend
 

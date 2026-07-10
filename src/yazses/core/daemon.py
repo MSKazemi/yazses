@@ -114,6 +114,9 @@ class Daemon:
         self._remote_injector: RemoteInjectorProxy | None = None
         self._stream_engine: StreamingEngine | None = None
         self._stream_injector: StreamingInjector | None = None
+        # Glance-Type look-to-pane targeter (None unless [gaze] enabled + routing
+        # + calibration + an X11 desktop backend all present — otherwise dormant).
+        self._gaze_targeter: GazeTargeter | None = None
         # Ghost Ahead endpoint anticipator (None when [endpoint] disabled — dormant).
         self._endpoint: EndpointAnticipator | None = (
             EndpointAnticipator(
@@ -155,6 +158,11 @@ class Daemon:
         )
         # Mid-Thought Undo: ledger of injected dictation bursts for "scratch that".
         self._ledger = DictationLedger()
+        # Meeting Mode (ADR-v2-127): active controller + its dedicated mic recorder,
+        # None when no meeting is running. `_meeting_finalizing` guards the post-pass.
+        self._meeting_controller = None
+        self._meeting_recorder = None
+        self._meeting_finalizing = False
 
     # ---- Public entrypoints -----------------------------------------------
 
@@ -302,6 +310,10 @@ class Daemon:
         # mode while held. Ignored if unset or the same as the dictation key.
         self._command_hotkey = self._make_command_hotkey(cfg, key_id)
 
+        # Glance-Type look-to-pane (design/v2-cognitive-layer §3.3). Dormant unless
+        # [gaze] enabled + route_dictation, with a calibration + X11 desktop + deps.
+        self._gaze_targeter = self._build_gaze_targeter(cfg)
+
         # Opt-in self-improvement corpus (ADR-012). Dormant unless enabled.
         self._corpus = build_writer(self._platform.paths.data_dir, cfg.learning)
 
@@ -400,6 +412,9 @@ class Daemon:
         server.register("readback_speak", self._handle_readback_speak)
         server.register("recall", self._handle_recall)
         server.register("scratch", self._handle_scratch)
+        server.register("meeting_start", self._handle_meeting_start)
+        server.register("meeting_stop", self._handle_meeting_stop)
+        server.register("meeting_status", self._handle_meeting_status)
         server.serve_in_thread()
         self._ipc_server = server
 
@@ -422,6 +437,39 @@ class Daemon:
             self._on_command_hold_end,
         )
 
+    def _build_gaze_targeter(self, cfg):
+        """Build the look-to-pane targeter, or None when any piece is missing.
+
+        Requires ``[gaze] enabled`` + ``route_dictation``, a saved calibration,
+        an X11 desktop backend (xdotool), and the gaze deps. Any absent → None,
+        so dictation simply stays on the focused window.
+        """
+        if not (cfg.gaze.enabled and cfg.gaze.route_dictation):
+            return None
+        try:
+            from yazses.gaze.desktop import build_desktop
+            from yazses.gaze.factory import build_gaze
+            from yazses.gaze.store import load_calibration
+            from yazses.gaze.targeter import GazeTargeter
+
+            desktop = build_desktop()
+            if desktop is None:
+                log.warning("Gaze routing enabled but no X11 desktop backend; dormant.")
+                return None
+            calibration = load_calibration(self._platform.paths.data_dir)
+            if calibration is None:
+                log.warning("Gaze routing enabled but not calibrated; run `yazses gaze calibrate`.")
+                return None
+            backend = build_gaze(cfg.gaze)
+            if backend is None:
+                log.warning("Gaze routing enabled but gaze deps unavailable; dormant.")
+                return None
+            log.info("Glance-Type look-to-pane routing active.")
+            return GazeTargeter(backend, calibration, desktop, cfg.gaze.confidence_min)
+        except Exception:
+            log.debug("Gaze targeter init failed; skipping", exc_info=True)
+            return None
+
     def _on_command_hold_start(self, leaked: int) -> None:
         """Hold-start for the dedicated command key — arm force-command mode."""
         self._command_mode = True
@@ -442,6 +490,14 @@ class Daemon:
         with self._lock:
             self._state.state = TrayState.RECORDING
         log.info("Recording started (cleaning up %d leaked char(s))", leaked)
+
+        # Glance-Type: focus the looked-at window now (while the user is looking
+        # at their target) so this burst's injection lands there. Best-effort.
+        if self._gaze_targeter is not None:
+            try:
+                self._gaze_targeter.retarget()
+            except Exception as exc:
+                log.warning("Gaze retarget failed: %s", exc)
         if leaked > 0 and self._injector is not None:
             try:
                 self._injector.inject_backspaces(leaked)
@@ -1406,6 +1462,122 @@ class Daemon:
         except Exception as exc:
             return {"ok": False, "reason": f"scratch failed: {exc}"}
 
+    # ---- Meeting Mode (ADR-v2-127) ----------------------------------------
+
+    def _handle_meeting_start(self, _request: Request) -> dict[str, object]:
+        """IPC: begin a hands-free meeting recording. Streams a live transcript."""
+        cfg = self._config.meeting
+        if not cfg.enabled:
+            return {"ok": False, "reason": "meeting mode is off; run `yazses features enable meeting`"}
+        with self._lock:
+            if not self._state.ready or self._engine is None:
+                return {"ok": False, "reason": "daemon still loading; try again in a moment"}
+            if self._meeting_controller is not None:
+                return {"ok": False, "reason": "a meeting is already running; `yazses meeting stop` first"}
+            if self._state.state not in (TrayState.IDLE, TrayState.PAUSED):
+                return {"ok": False, "reason": f"busy ({self._state.state.value})"}
+            try:
+                from yazses.meeting import store
+                from yazses.meeting.controller import MeetingController
+                from yazses.recimport.factory import build_diarizer
+
+                meeting_id = time.strftime("%Y%m%d-%H%M%S")
+                meeting_dir = store.new_meeting(cfg, meeting_id)
+                sr = self._config.audio.sample_rate
+                acc = self._config.accessibility
+                controller = MeetingController(
+                    cfg, meeting_dir, meeting_id,
+                    engine=self._engine,
+                    is_silent=lambda chunk: is_silent_calibrated(chunk, acc),
+                    embedder=self._embedder,
+                    voiceprint=self._voiceprint,
+                    diarizer=build_diarizer(cfg),
+                    sample_rate=sr,
+                    started_at=time.monotonic(),
+                    clock=time.monotonic,
+                )
+                recorder = AudioRecorder(
+                    sample_rate=sr,
+                    max_seconds=cfg.max_minutes * 60,
+                    on_chunk=controller.feed,
+                    accumulate=False,
+                )
+                controller.start()
+                recorder.start()
+            except Exception as exc:
+                log.exception("Meeting start failed")
+                return {"ok": False, "reason": f"could not start meeting: {exc}"}
+            self._meeting_controller = controller
+            self._meeting_recorder = recorder
+            self._state.state = TrayState.MEETING
+        log.info("Meeting started: %s", meeting_id)
+        return {"ok": True, "meeting_id": meeting_id, "dir": str(meeting_dir),
+                "live_transcript": cfg.live_transcript}
+
+    def _handle_meeting_status(self, _request: Request) -> dict[str, object]:
+        """IPC: report the running meeting, or list recent stored meetings."""
+        with self._lock:
+            controller = self._meeting_controller
+            finalizing = self._meeting_finalizing
+        if controller is not None:
+            return {"ok": True, "active": True, "finalizing": finalizing, **controller.status()}
+        try:
+            from yazses.meeting import store
+
+            recent = store.list_meetings(self._config.meeting)[:10]
+        except Exception:
+            recent = []
+        return {"ok": True, "active": False, "finalizing": finalizing, "recent": recent}
+
+    def _handle_meeting_stop(self, _request: Request) -> dict[str, object]:
+        """IPC: stop capture and kick off the batch diarization post-pass."""
+        with self._lock:
+            controller = self._meeting_controller
+            recorder = self._meeting_recorder
+            if controller is None:
+                return {"ok": False, "reason": "no meeting is running"}
+            self._meeting_controller = None
+            self._meeting_recorder = None
+            self._meeting_finalizing = True
+            self._state.state = TrayState.TRANSCRIBING
+
+        cfg = self._config.meeting
+        try:
+            if recorder is not None:
+                recorder.stop()
+            wav_path = controller.stop_capture()
+            from yazses.meeting.session import read_wav_mono_f32
+
+            audio = read_wav_mono_f32(wav_path)
+            if not cfg.retain_audio:
+                try:
+                    wav_path.unlink()
+                except OSError:
+                    pass
+        except Exception as exc:
+            log.exception("Meeting stop/capture failed")
+            with self._lock:
+                self._meeting_finalizing = False
+                self._state.state = TrayState.IDLE
+            return {"ok": False, "reason": f"could not stop meeting: {exc}"}
+
+        def _finalize() -> None:
+            try:
+                info = controller.finalize(audio)
+                log.info("Meeting finalized: %s (%d speakers)",
+                         info["id"], info["num_speakers"])
+            except Exception:
+                log.exception("Meeting finalize failed")
+            finally:
+                with self._lock:
+                    self._meeting_finalizing = False
+                    if self._state.state == TrayState.TRANSCRIBING:
+                        self._state.state = TrayState.IDLE
+
+        threading.Thread(target=_finalize, name="meeting-finalize", daemon=True).start()
+        return {"ok": True, "meeting_id": controller.meeting_id,
+                "dir": str(controller.dir), "finalizing": True}
+
     def _handle_readback_speak(self, request: Request) -> dict[str, object]:
         """IPC: speak arbitrary text via the TTS backend (`yazses say "..."`)."""
         text = str(request.params.get("text", "")).strip()
@@ -1696,6 +1868,18 @@ class Daemon:
                 self._edit_watcher.cancel()
             except Exception:
                 log.exception("Edit watcher cancel raised")
+        if self._gaze_targeter is not None:
+            try:
+                self._gaze_targeter.close()  # release the camera
+            except Exception:
+                log.exception("Gaze targeter close raised")
+        if self._meeting_recorder is not None:
+            try:
+                self._meeting_recorder.stop()
+                if self._meeting_controller is not None:
+                    self._meeting_controller.stop_capture()
+            except Exception:
+                log.exception("Meeting recorder stop raised")
         if self._corpus is not None:
             try:
                 self._corpus.stop()

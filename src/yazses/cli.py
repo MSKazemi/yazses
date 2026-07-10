@@ -77,6 +77,187 @@ corpus_app = typer.Typer(
 )
 app.add_typer(corpus_app, rich_help_panel=_LEARNING)
 
+meeting_app = typer.Typer(
+    name="meeting",
+    help="Hands-free meeting recording with who-said-what speaker labels + notes.",
+    context_settings=CONTEXT_SETTINGS,
+    no_args_is_help=True,
+)
+app.add_typer(meeting_app, rich_help_panel=_DICTATION)
+
+
+def _meeting_dir(meeting_id: str):
+    """Resolve a stored meeting's folder from its id (works without the daemon)."""
+    from yazses.config import load_config
+    from yazses.meeting import store
+
+    cfg = load_config(get_platform().paths.config_file)
+    return store.meetings_dir(cfg.meeting) / meeting_id
+
+
+def _parse_pairs(items):
+    """Parse ``["a=b", "c=d"]`` into ``{"a": "b", "c": "d"}`` for --merge/--rename."""
+    out = {}
+    for item in items or []:
+        if "=" not in item:
+            raise typer.BadParameter(f"expected KEY=VALUE, got {item!r}")
+        key, val = item.split("=", 1)
+        out[key.strip()] = val.strip()
+    return out
+
+
+@meeting_app.command("start")
+def meeting_start() -> None:
+    """Start recording a meeting (hands-free — no key to hold).
+
+    Requires `[meeting] enabled = true` (`yazses features enable meeting`). Records
+    continuously, streams a live transcript, and — at `yazses meeting stop` — writes a
+    speaker-attributed transcript (and opt-in notes) to a per-meeting folder. On-device;
+    audio is deleted after the post-pass unless `[meeting] retain_audio = true`.
+    """
+    platform = get_platform()
+    client = platform.ipc_client_factory(platform.paths.ipc_socket)
+    try:
+        result = client.call("meeting_start")
+    except IpcUnreachableError:
+        typer.echo("Daemon is not running. Start it with: yazses start", err=True)
+        raise typer.Exit(1)
+    if result.get("ok"):
+        typer.echo(f"Recording meeting {result['meeting_id']}.")
+        typer.echo(f"  Folder: {result['dir']}")
+        typer.echo("  Watch it:  yazses meeting status")
+        typer.echo("  Finish it: yazses meeting stop")
+    else:
+        typer.echo(f"Could not start meeting: {result.get('reason')}", err=True)
+        raise typer.Exit(1)
+
+
+@meeting_app.command("stop")
+def meeting_stop() -> None:
+    """Stop the recording and generate the speaker-labelled transcript (and notes)."""
+    platform = get_platform()
+    client = platform.ipc_client_factory(platform.paths.ipc_socket)
+    try:
+        result = client.call("meeting_stop")
+    except IpcUnreachableError:
+        typer.echo("Daemon is not running.", err=True)
+        raise typer.Exit(1)
+    if result.get("ok"):
+        typer.echo(f"Stopped meeting {result['meeting_id']}. Transcribing + finding speakers…")
+        typer.echo(f"  Results will appear in: {result['dir']}")
+        typer.echo("  Check progress: yazses meeting status")
+    else:
+        typer.echo(f"Could not stop meeting: {result.get('reason')}", err=True)
+        raise typer.Exit(1)
+
+
+@meeting_app.command("status")
+def meeting_status() -> None:
+    """Show the running meeting (elapsed + live transcript) or recent meetings."""
+    platform = get_platform()
+    client = platform.ipc_client_factory(platform.paths.ipc_socket)
+    try:
+        result = client.call("meeting_status")
+    except IpcUnreachableError:
+        typer.echo("Daemon is not running.", err=True)
+        raise typer.Exit(1)
+    if result.get("active"):
+        typer.echo(f"● Recording {result['id']} — {result['elapsed_s']:.0f}s, "
+                   f"{result['line_count']} utterances")
+        for line in result.get("live_lines", []):
+            typer.echo(f"    {line}")
+    elif result.get("finalizing"):
+        typer.echo("Finalizing the last meeting (transcribing + diarizing)…")
+    else:
+        recent = result.get("recent", [])
+        if not recent:
+            typer.echo("No meetings yet. Start one with: yazses meeting start")
+            return
+        typer.echo("Recent meetings:")
+        for m in recent:
+            spk = m.get("num_speakers", "?")
+            note = " +notes" if m.get("has_notes") else ""
+            typer.echo(f"  {m.get('id')}  {spk} speaker(s){note}  {m.get('dir', '')}")
+
+
+@meeting_app.command("list")
+def meeting_list() -> None:
+    """List stored meetings on this machine (no daemon required)."""
+    from yazses.config import load_config
+    from yazses.meeting import store
+
+    cfg = load_config(get_platform().paths.config_file)
+    meetings = store.list_meetings(cfg.meeting)
+    if not meetings:
+        typer.echo("No meetings found.")
+        return
+    for m in meetings:
+        spk = m.get("num_speakers", "?")
+        note = " +notes" if m.get("has_notes") else ""
+        typer.echo(f"{m.get('id')}  {spk} speaker(s){note}  {m.get('dir', '')}")
+
+
+@meeting_app.command("relabel")
+def meeting_relabel(
+    meeting_id: str = typer.Argument(..., help="Meeting id (see `yazses meeting list`)."),
+    merge: list[str] = typer.Option(
+        None, "--merge", help="Fold one speaker into another: SPEAKER_2=speaker_1 (repeatable)."
+    ),
+    rename: list[str] = typer.Option(
+        None, "--rename", help="Name a speaker: speaker_1=Alice (repeatable)."
+    ),
+    fmt: str = typer.Option("md", "--format", "-f", help="Transcript format to re-render."),
+) -> None:
+    """Fix speaker labels — merge two clusters and/or rename them — and re-render.
+
+    Corrects an auto-count miscount without re-transcribing or re-diarizing (it only
+    re-renders from the stored `transcript.json`). Runs locally, no daemon needed.
+    """
+    from yazses.meeting import store
+
+    d = _meeting_dir(meeting_id)
+    if not (d / "transcript.json").exists():
+        typer.echo(f"No transcript for meeting {meeting_id} in {d}.", err=True)
+        raise typer.Exit(1)
+    written = store.relabel(
+        d, merges=_parse_pairs(merge), renames=_parse_pairs(rename), fmt=fmt
+    )
+    typer.echo(f"Re-rendered {meeting_id}:")
+    for name, path in written.items():
+        typer.echo(f"  {name}: {path}")
+
+
+@meeting_app.command("notes")
+def meeting_notes(
+    meeting_id: str = typer.Argument(..., help="Meeting id to (re)generate notes for."),
+) -> None:
+    """Generate meeting minutes (summary, decisions, action items) from the transcript.
+
+    Needs `[meeting] notes = true` and a local `notes_model` GGUF (ADR-v2-128). Runs the
+    model locally — expect this to take a while on CPU.
+    """
+    from yazses.config import load_config
+    from yazses.meeting import store
+    from yazses.meeting.notes import generate_minutes, render_minutes_md
+
+    cfg = load_config(get_platform().paths.config_file)
+    d = _meeting_dir(meeting_id)
+    if not (d / "transcript.json").exists():
+        typer.echo(f"No transcript for meeting {meeting_id} in {d}.", err=True)
+        raise typer.Exit(1)
+    view = store.load_result_view(d)
+    typer.echo("Generating minutes locally… (this can take a few minutes)")
+    minutes = generate_minutes(view.utterances, cfg.meeting, speaker_names=view.speaker_names)
+    if minutes is None:
+        typer.echo(
+            "Notes are off or no local model is set. Enable `[meeting] notes` and set "
+            "`[meeting] notes_model` to a local GGUF.", err=True,
+        )
+        raise typer.Exit(1)
+    out = d / "notes.md"
+    out.write_text(render_minutes_md(minutes), encoding="utf-8")
+    typer.echo(f"Wrote {out}")
+
 
 def _resolved_hotkey(platform) -> str:
     """The hotkey the daemon will actually bind: the configured ``[hotkey] key``
@@ -586,11 +767,16 @@ def _apply_feature_writes(config_file, writes) -> None:
 def features_enable(
     name: str = typer.Argument(..., help="Toggle name, e.g. read-back (see `yazses features`)."),
     force: bool = typer.Option(False, "--force", help="Allow enabling experimental features."),
+    no_install: bool = typer.Option(
+        False, "--no-install", help="Don't auto-install the feature's optional deps."
+    ),
 ) -> None:
     """Turn a capability ON (writes your config), then `yazses restart` to apply.
 
     Use the TOGGLE NAME column from `yazses features`. Experimental features
-    (e.g. cocktail, gaze) refuse to enable without --force.
+    (e.g. cocktail, gaze) refuse to enable without --force. Any optional Python
+    dependencies the feature needs are installed automatically (skip with
+    --no-install).
     """
     from yazses.config import load_config
     from yazses.system.features import EXPERIMENTAL, find_feature, toggleable_slugs
@@ -611,7 +797,26 @@ def features_enable(
         raise typer.Exit(1)
     _apply_feature_writes(platform.paths.config_file, feat.on_writes)
     typer.echo(f"Enabled {feat.name}.  {feat.why}")
+    _install_feature_deps(feat, skip=no_install)
     typer.echo("Apply it:  yazses restart")
+
+
+def _install_feature_deps(feat, *, skip: bool) -> None:
+    """Install a feature's optional pip deps when any are missing."""
+    if not feat.pip_packages:
+        return
+    from yazses.system.deps import install_packages, missing_modules
+
+    missing = missing_modules(feat.check_modules) if feat.check_modules else list(feat.pip_packages)
+    if not missing:
+        return
+    if skip:
+        typer.echo(
+            "Skipping dependency install (--no-install). This feature needs:\n  "
+            + " ".join(feat.pip_packages)
+        )
+        return
+    install_packages(feat.pip_packages, echo=typer.echo)
 
 
 @features_app.command(
@@ -1510,12 +1715,16 @@ app.add_typer(gaze_app, rich_help_panel=_SETUP)
 def gaze_calibrate() -> None:
     """Calibrate the webcam so your gaze maps to screen zones.
 
-    Requires `[gaze] enabled = true` and a webcam, with the gaze deps installed
-    (`pip install l2cs mediapipe opencv-python`). You look at a few on-screen
-    points to fit the gaze→screen mapping.
+    Requires `[gaze] enabled = true`, an X11 session with `xdotool`, and a webcam
+    with the gaze deps installed (`pip install l2cs mediapipe opencv-python`). You
+    look at each on-screen point in turn; the fitted map is saved so the daemon
+    can route dictation to the pane you look at (set `[gaze] route_dictation`).
     """
     from yazses.config import load_config
+    from yazses.gaze.calibrate import collect_samples, default_targets, fit_calibration
+    from yazses.gaze.desktop import build_desktop
     from yazses.gaze.factory import build_gaze
+    from yazses.gaze.store import save_calibration
 
     platform = get_platform()
     cfg = load_config(platform.paths.config_file)
@@ -1527,10 +1736,89 @@ def gaze_calibrate() -> None:
             err=True,
         )
         raise typer.Exit(1)
+    desktop = build_desktop()
+    if desktop is None:
+        typer.echo(
+            "Gaze routing needs an X11 session with `xdotool` installed "
+            "(Wayland forbids external window focus).",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    width, height = desktop.screen_size()
+    targets = default_targets(width, height, cfg.gaze.calibration_points)
     typer.echo(
-        f"Gaze backend '{backend.name}' ready ({cfg.gaze.calibration_points} points). "
-        "Interactive calibration UI is in progress; see design/v2-cognitive-layer/03-glance-type.md."
+        f"Gaze backend '{backend.name}' ready — {len(targets)} points on a "
+        f"{width}x{height} screen.\nLook at each point and press Enter (hold your gaze steady).\n"
     )
+
+    def before_point(label: str, xy: tuple[int, int]) -> None:
+        typer.prompt(
+            f"  Look at the {label} of your screen {xy}, then press Enter",
+            default="", show_default=False,
+        )
+
+    try:
+        samples = collect_samples(backend, targets, before_point)
+    finally:
+        backend.close()
+
+    if len(samples) < 3:
+        typer.echo(
+            f"Only {len(samples)} point(s) captured a face — need at least 3. "
+            "Improve lighting / camera framing and retry.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    cal = fit_calibration(samples)
+    path = save_calibration(cal, platform.paths.data_dir)
+    typer.echo(
+        f"\n✓ Calibrated on {len(samples)}/{len(targets)} points → {path}\n"
+        "Enable routing with `yazses features enable gaze` (already on if you set "
+        "[gaze] route_dictation), then `yazses restart`."
+    )
+
+
+@gaze_app.command(
+    "status",
+    epilog=_examples("yazses gaze status    show gaze deps, X11/xdotool, and calibration state"),
+)
+def gaze_status() -> None:
+    """Show whether look-to-pane is ready: deps, desktop backend, calibration."""
+    from yazses.config import load_config
+    from yazses.gaze.desktop import build_desktop
+    from yazses.gaze.factory import build_gaze
+    from yazses.gaze.store import calibration_path, load_calibration
+
+    platform = get_platform()
+    cfg = load_config(platform.paths.config_file)
+
+    def mark(ok: bool) -> str:
+        return "✓" if ok else "✗"
+
+    import dataclasses
+
+    enabled = cfg.gaze.enabled
+    # Probe deps regardless of the enabled flag so the row means "deps present",
+    # not "feature on" (the factory returns None when disabled).
+    backend = build_gaze(dataclasses.replace(cfg.gaze, enabled=True))
+    if backend is not None:
+        backend.close()
+    desktop = build_desktop()
+    cal = load_calibration(platform.paths.data_dir)
+
+    typer.echo("Glance-Type (look-to-pane) status:")
+    typer.echo(f"  {mark(enabled)} [gaze] enabled = {enabled}")
+    typer.echo(f"  {mark(cfg.gaze.route_dictation)} route_dictation = {cfg.gaze.route_dictation}")
+    typer.echo(f"  {mark(backend is not None)} gaze backend/deps ({cfg.gaze.backend})")
+    typer.echo(f"  {mark(desktop is not None)} X11 desktop backend (xdotool)")
+    typer.echo(f"  {mark(cal is not None)} calibration ({calibration_path(platform.paths.data_dir)})")
+    ready = all((enabled, cfg.gaze.route_dictation, backend is not None, desktop is not None, cal is not None))
+    if ready:
+        typer.echo("\nReady — dictation will land in the window you look at.")
+    elif cal is None and desktop is not None and backend is not None:
+        typer.echo("\nNext: run `yazses gaze calibrate`.")
 
 
 @model_app.command(

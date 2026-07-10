@@ -305,6 +305,19 @@ yazses restart
 
 ## All install options
 
+### Install or upgrade to the latest version
+
+`pipx install yazses` always pulls the **latest published release** from PyPI. If you
+already have YazSes installed, upgrade in place:
+
+```bash
+pipx upgrade yazses          # upgrade an existing install to the latest release
+pipx install --force yazses  # reinstall the latest (if upgrade reports "already at latest")
+```
+
+Pin an exact version if you need one: `pipx install yazses==1.4.1`. Check what you have
+with `yazses --version` (or `yazses doctor`, which also reports the running daemon).
+
 ### Linux
 
 ```bash

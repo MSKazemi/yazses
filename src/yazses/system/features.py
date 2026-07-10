@@ -95,6 +95,10 @@ class _Def:
     on_writes: tuple = ()
     off_writes: tuple = ()
     example: str = ""
+    # Optional pip deps installed automatically on `features enable`: the import
+    # names to probe, and the packages to install when any are missing.
+    check_modules: tuple = ()
+    pip_packages: tuple = ()
 
 
 def _bool(section: str, key: str = "enabled") -> tuple:
@@ -118,7 +122,10 @@ def _registry() -> list[_Def]:
     o_on, o_off = _bool("overlay")
     pe_on, pe_off = _bool("personalize")
     co_on, co_off = _bool("cocktail")
-    g_on, g_off = _bool("gaze")
+    # Gaze: enabling also turns on routing, so the feature actually targets the
+    # looked-at pane (enabled alone samples the camera but changes nothing).
+    g_on = (("gaze", "enabled", "true", False), ("gaze", "route_dictation", "true", False))
+    g_off = (("gaze", "enabled", "false", False), ("gaze", "route_dictation", "false", False))
     pg_on, pg_off = _bool("polyglot")
     llm_on, llm_off = _bool("filters.disfluency", "llm_enabled")
     dys_on, dys_off = _bool("accessibility", "dysfluency_friendly")
@@ -199,6 +206,7 @@ def _registry() -> list[_Def]:
     jmp_on, jmp_off = _bool("jump")
     shp_on, shp_off = _bool("shellpipe")
     ri_on, ri_off = _bool("recimport")
+    mtg_on, mtg_off = _bool("meeting")
     cwp_on, cwp_off = _bool("crowdproof")
     chd_on, chd_off = _bool("chords")
     cmp_on, cmp_off = _bool("compute")
@@ -241,7 +249,7 @@ def _registry() -> list[_Def]:
     eco_on, eco_off = _bool("echo")
     srp_on, srp_off = _bool("srpace")
 
-    return [
+    defs = [
         _Def("dictation", "Dictation core", "always on", CORE,
              "The core hold-to-talk transcription. Can't be turned off.",
              lambda c: True),
@@ -498,6 +506,13 @@ def _registry() -> list[_Def]:
              "('Speaker 1: …'), --names/--rename or an enrolled voiceprint for real names. "
              "Needs the diarization extra for speaker tags. Off by default.",
              lambda c: c.recimport.enabled, ri_on, ri_off),
+        _Def("meeting", "Meeting Mode", "[meeting] — hands-free meeting scribe", OPTIONAL,
+             "`yazses meeting start` records a whole meeting hands-free (no key to hold), "
+             "streams a live transcript, and at `yazses meeting stop` writes a speaker-labelled "
+             "transcript ('Alice: …', 'You: …') plus opt-in notes. Speakers are found by voice "
+             "embedding + clustering (auto count); fix a miscount with `yazses meeting relabel`. "
+             "Needs the diarization extra for speaker tags. On-device; off by default.",
+             lambda c: c.meeting.enabled, mtg_on, mtg_off),
         _Def("crowdproof", "Crowd-Proof Dictation", "[crowdproof] — dictate in a crowd", EXPERIMENTAL,
              "Reconstructs your enrolled voice out of overlapping babble before STT, so dictation "
              "survives an open-plan office or café. Needs the crowdproof extra. Off by default.",
@@ -794,9 +809,42 @@ def _registry() -> list[_Def]:
              lambda c: c.modality.enabled, md_on, md_off),
         _Def("gaze", "Glance-Type (camera)", "[gaze] — look-to-pane, experimental", EXPERIMENTAL,
              "Uses the webcam to route dictation to the pane you look at. "
-             "Experimental; heavy deps.",
+             "Experimental; needs a webcam + X11.",
              lambda c: c.gaze.enabled, g_on, g_off),
     ]
+    return [_attach_deps(d) for d in defs]
+
+
+# Optional pip extras installed on-demand when a heavy feature is enabled
+# (`yazses features enable <name>`). slug → (import names to probe, packages to
+# install). Only features whose deps are declared pip extras appear here; the
+# many pure-logic features install nothing. Keep in sync with pyproject extras.
+_FEATURE_DEPS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
+    "gaze": (("cv2", "mediapipe"), ("mediapipe>=0.10", "opencv-python>=4.10")),
+    "overlay": (("PySide6",), ("PySide6>=6.8",)),
+    "prosody": (("parselmouth",), ("praat-parselmouth>=0.4.6",)),
+    "voicehealth": (("parselmouth",), ("praat-parselmouth>=0.4.6",)),
+    "read-back": (("kokoro_onnx", "onnxruntime", "soundfile"),
+                  ("kokoro-onnx>=0.4.9", "onnxruntime>=1.20", "soundfile>=0.13")),
+    "readback_clone": (("kokoro_onnx", "onnxruntime", "soundfile"),
+                       ("kokoro-onnx>=0.4.9", "onnxruntime>=1.20", "soundfile>=0.13")),
+    "llm-cleanup": (("llama_cpp",), ("llama-cpp-python>=0.3.23",)),
+    "agent": (("mcp",), ("mcp>=1.9",)),
+    "cocktail": (("speechbrain",), ("speechbrain>=1.1",)),
+    "multiprofile": (("speechbrain",), ("speechbrain>=1.1",)),
+    "voiceguard": (("speechbrain",), ("speechbrain>=1.1",)),
+    "diarize": (("sherpa_onnx",), ("sherpa-onnx>=1.10",)),
+}
+
+
+def _attach_deps(d: "_Def") -> "_Def":
+    """Attach a feature's optional pip deps from :data:`_FEATURE_DEPS`, if any."""
+    dep = _FEATURE_DEPS.get(d.slug)
+    if dep is None:
+        return d
+    import dataclasses
+
+    return dataclasses.replace(d, check_modules=dep[0], pip_packages=dep[1])
 
 
 # A concrete "how to use it" example per capability, keyed by slug. Kept beside the
@@ -866,6 +914,7 @@ _EXAMPLES: dict[str, str] = {
     "chords": "Say 'press control shift P' and the command palette opens.",
     "compute": "Say \"what's 15% of 240\" and it types 36.",
     "recimport": "Drop in a lecture recording and get a searchable .srt transcript.",
+    "meeting": "Hit start, put the phone down, and get who-said-what minutes at the end.",
     "crowdproof": "Dictate in a noisy café and the interfering voices are stripped out.",
     "jump": "Say 'go to line 240' or 'jump to function tokenize' to navigate.",
     "shellpipe": "Speak 'list files pipe to grep error' to build a previewed pipeline.",
@@ -1009,6 +1058,7 @@ _USE_CASES: dict[str, str] = {
     "chords": "When you want to fire arbitrary keyboard shortcuts hands-free without registering each as a macro.",
     "compute": "When you need a quick sum or percentage typed straight into your text without a calculator.",
     "recimport": "When you have existing voice memos, lectures, or meeting recordings to batch-transcribe offline.",
+    "meeting": "When you're in a live meeting and want a hands-free, speaker-labelled transcript and notes afterwards.",
     "crowdproof": "When you must dictate in an open-plan office or café where overlapping voices swamp the mic.",
     "jump": "When you're navigating a code file hands-free and want to jump to a function or line by voice.",
     "shellpipe": "When you want to build a shell pipeline by voice and see it as text before anything runs.",
@@ -1143,6 +1193,7 @@ _CATEGORIES: dict[str, str] = {
     "corpus_scrub": CAT_LEARN, "multiprofile": CAT_LEARN, "predict": CAT_LEARN,
     # Conversation & recording capture.
     "diarize": CAT_CAPTURE, "scribe": CAT_CAPTURE, "recimport": CAT_CAPTURE,
+    "meeting": CAT_CAPTURE,
     "crowdproof": CAT_CAPTURE, "cocktail": CAT_CAPTURE, "voiceguard": CAT_CAPTURE,
     "bridge": CAT_CAPTURE,
 }

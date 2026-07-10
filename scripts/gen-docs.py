@@ -178,8 +178,10 @@ def _walk_click(cmd: click.Command, name: str, depth: int, out: io.StringIO) -> 
     out.write(f"{heading} `{prefix}`\n\n")
     if cmd.help:
         out.write(cmd.help.strip().split("\n\n")[0].strip() + "\n\n")
-    params = [p for p in cmd.params if isinstance(p, click.Option)]
-    args = [p for p in cmd.params if isinstance(p, click.Argument)]
+    # Typer >=0.13 vendors its own click fork, so isinstance against upstream
+    # ``click`` no longer matches. Duck-type on the stable ``param_type_name`` API.
+    params = [p for p in cmd.params if p.param_type_name == "option"]
+    args = [p for p in cmd.params if p.param_type_name == "argument"]
     if args:
         out.write("- **Arguments:** " + ", ".join(f"`{a.name}`" for a in args) + "\n")
     for opt in params:
@@ -190,7 +192,7 @@ def _walk_click(cmd: click.Command, name: str, depth: int, out: io.StringIO) -> 
         out.write(f"- {flags} — {help_txt}\n")
     if args or [p for p in params if p.name != "help"]:
         out.write("\n")
-    if isinstance(cmd, click.Group):
+    if hasattr(cmd, "commands"):
         for sub_name in sorted(cmd.commands):
             child = cmd.commands[sub_name]
             full = f"{name} {sub_name}".strip()
@@ -210,7 +212,7 @@ def gen_command_index() -> str:
         "[CLI reference](cli-reference.md).\n\n"
     )
     # top-level commands (Click group)
-    assert isinstance(click_app, click.Group)
+    assert hasattr(click_app, "commands")
     for sub_name in sorted(click_app.commands):
         _walk_click(click_app.commands[sub_name], sub_name, 1, out)
     return out.getvalue()

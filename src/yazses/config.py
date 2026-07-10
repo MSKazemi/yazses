@@ -144,7 +144,8 @@ class TtsConfig:
     enabled: bool = False
     engine: str = "kokoro"            # kokoro | melo | kitten
     voice: str = "default"
-    model_path: str = ""
+    model_path: str = ""              # override; empty => auto-resolved/downloaded
+    voices_path: str = ""             # Kokoro voices file; empty => auto-resolved
     sample_rate: int = 24000          # Kokoro native rate
     speed: float = 1.0
     max_readback_chars: int = 600     # truncate very long bursts with "…"
@@ -248,7 +249,8 @@ class GazeConfig:
     in-RAM during a hold and never stored or sent (ADR-011).
     """
     enabled: bool = False
-    backend: str = "l2cs"             # l2cs | none
+    backend: str = "mediapipe"        # mediapipe (light, offline) | l2cs | none
+    model_path: str = ""              # override the mediapipe model asset; "" = auto-download
     zones: str = "grid3x3"            # grid3x3 | grid2x2 | windows
     camera_index: int = 0
     calibration_points: int = 9
@@ -1033,6 +1035,44 @@ class RecimportConfig:
 
 
 @dataclass
+class MeetingConfig:
+    """Meeting Mode — hands-free continuous capture + hybrid speaker diarization.
+
+    ADR-v2-127 (live meeting mode) + ADR-v2-128 (on-device minutes). OFF by default.
+    Transcript streams live for the status view; the *authoritative* speaker-attributed
+    transcript is produced by a batch diarization post-pass over the whole recording at
+    stop (reusing the ADR-v2-125 ``recimport`` cores). On-device only (ADR-011): audio is
+    a local temp file, kept only for the post-pass and deleted unless ``retain_audio``.
+    The diarization/naming fields mirror ``RecimportConfig`` so the finalize step can pass
+    this config straight to ``recimport.pipeline.transcribe_file``.
+    """
+    enabled: bool = False
+    output_dir: str = ""               # "" => <data_dir>/meetings
+    retain_audio: bool = False         # keep audio.wav after finalize (else deleted)
+    live_transcript: bool = True       # stream a rolling transcript for `meeting status`
+    # --- diarization (batch post-pass; RecimportConfig-compatible) ---
+    diarize: bool = True               # attribute speakers at stop
+    backend: str = "sherpa"            # sherpa | pyannote (dormant) | none
+    max_speakers: int = 0              # 0 = auto-detect the count
+    min_speakers: int = 0
+    cluster_threshold: float = 0.5     # sherpa fast-clustering threshold (auto-count mode)
+    model: str = ""                    # "" => inherit the [stt] model
+    language: str = "en"               # "en" fast path, or "translate" (X→English)
+    vad_backend: str = "calibrated"    # calibrated | silero (utterance segmentation)
+    name_from_voiceprints: bool = True # match enrolled voiceprints (needs enrollment)
+    min_speaker_seconds: float = 3.0   # min aggregated cluster speech to attempt naming
+    name_threshold: float = 0.5        # reject-biased cosine similarity to accept a name
+    model_dir: str = ""                # "" => <data_dir>/diarization
+    output_format: str = "md"          # md | txt | srt | vtt | json
+    max_minutes: int = 180             # auto-stop safety cap (0 = unlimited)
+    # --- minutes / notes (ADR-v2-128; opt-in, dormant unless a model is set) ---
+    notes: bool = False                # generate notes.md at stop
+    notes_model: str = ""              # path to a local GGUF; "" = dormant
+    notes_window_turns: int = 40       # map-reduce window size (utterance turns)
+    notes_max_tokens: int = 1024       # per-window generation cap
+
+
+@dataclass
 class CrowdproofConfig:
     """v2.6 Wave J — Crowd-Proof Dictation (ADR-v2-084). OFF by default."""
     enabled: bool = False
@@ -1418,6 +1458,7 @@ class Config:
     jump: JumpConfig = field(default_factory=JumpConfig)
     shellpipe: ShellpipeConfig = field(default_factory=ShellpipeConfig)
     recimport: RecimportConfig = field(default_factory=RecimportConfig)
+    meeting: MeetingConfig = field(default_factory=MeetingConfig)
     crowdproof: CrowdproofConfig = field(default_factory=CrowdproofConfig)
     chords: ChordsConfig = field(default_factory=ChordsConfig)
     compute: ComputeConfig = field(default_factory=ComputeConfig)
@@ -1580,6 +1621,7 @@ def load_config(path: Path | None = None) -> Config:
         jump=JumpConfig(**data.get("jump", {})),
         shellpipe=ShellpipeConfig(**data.get("shellpipe", {})),
         recimport=RecimportConfig(**data.get("recimport", {})),
+        meeting=MeetingConfig(**data.get("meeting", {})),
         crowdproof=CrowdproofConfig(**data.get("crowdproof", {})),
         chords=ChordsConfig(**data.get("chords", {})),
         compute=ComputeConfig(**data.get("compute", {})),

@@ -36,6 +36,7 @@ class TrayState(str, Enum):
     REMOTE_SETUP = "remote_setup"    # establishing SSH tunnel
     REMOTE_ACTIVE = "remote_active"  # tunnel up, forwarding voice to remote
     ENROLLING = "enrolling"          # accessibility enrollment wizard running
+    MEETING = "meeting"              # hands-free meeting-mode capture in progress
 
 
 @dataclass(frozen=True)
