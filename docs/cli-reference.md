@@ -414,6 +414,7 @@ yazses gaze calibrate    # fit the webcam gaze → screen-zone mapping
 | `yazses braille [text]` | Translate text to Unicode Braille (UEB subset) — fully offline. |
 | `yazses punch-in` | Correct the last dictation by re-speaking just the wrong phrase. |
 | `yazses transcribe <file>` | Transcribe an audio file to text — fully offline. |
+| `yazses meeting` | Record a whole meeting hands-free → speaker-labelled transcript + optional minutes. |
 | `yazses test` | End-to-end self-test: confirm the injector works without speaking. |
 
 ### `yazses test`
@@ -574,6 +575,48 @@ Notes:
   one is ever enrolled automatically — speaker voiceprints are biometric data and
   stay encrypted on this machine. You are responsible for having permission to
   record and transcribe the audio.
+
+### `yazses meeting` — hands-free meeting capture + minutes
+
+Record a **whole meeting** without holding a key, then get a speaker-labelled
+transcript (and optional minutes) — all **offline**. While recording it streams a
+rolling live transcript for the `status` view; at `stop` it runs an accurate batch
+diarization post-pass over the full recording (reusing the same local sherpa speaker
+models as `yazses transcribe --diarize`, so **no new dependency**), then optionally
+generates minutes with a local LLM. Speakers are told apart by voice **embeddings +
+clustering**, not pitch. Off by default — enable with `yazses features enable meeting`.
+
+| Command | Effect |
+|---|---|
+| `yazses meeting start` | Start recording hands-free (no key to hold). Requires `[meeting] enabled = true`. |
+| `yazses meeting stop` | Stop; run the diarization post-pass and write the speaker-labelled transcript (and notes if enabled). |
+| `yazses meeting status` | Show the running meeting (elapsed + live transcript), or recent meetings. |
+| `yazses meeting list` | List stored meetings on this machine (no daemon required). |
+| `yazses meeting relabel <id>` | Fix speaker labels and re-render: `--merge SPEAKER_2=speaker_1` folds clusters, `--rename speaker_1=Alice` names one (both repeatable); `--format`/`-f` picks the re-render format (default `md`). |
+| `yazses meeting notes <id>` | Generate minutes (summary, decisions, action items) from a stored transcript. Needs `[meeting] notes = true` and a local `notes_model` GGUF; runs locally (slow on CPU). |
+
+```bash
+yazses features enable meeting     # turn it on (writes [meeting] enabled = true)
+yazses meeting start               # begin hands-free capture
+yazses meeting status              # elapsed + live rolling transcript
+yazses meeting stop                # diarize + write the labelled transcript
+yazses meeting list                # see stored meetings
+yazses meeting relabel <id> --rename speaker_1=Alice --merge speaker_2=speaker_1
+yazses meeting notes <id>          # local-LLM minutes (needs notes_model)
+```
+
+Notes:
+
+- **Reuses the diarization extra:** the speaker post-pass uses the same sherpa-onnx
+  models as `transcribe --diarize` (`uv sync --extra diarization` — CPU-only, no
+  PyTorch/GPU/account). Key `[meeting]` knobs: `retain_audio` (default `false` — the
+  recording is deleted after transcription), `live_transcript`, `diarize`,
+  `min/max_speakers`, `cluster_threshold`, `name_from_voiceprints` (auto-label your
+  own enrolled voice), `output_format`, and the `notes*` fields. See
+  [configuration.md](configuration.md) for the full list.
+- **Minutes are opt-in and local.** `notes` stays off until you set `notes = true`
+  and point `notes_model` at a local GGUF — nothing is sent anywhere.
+- You are responsible for having consent to record and transcribe the meeting.
 
 ### Voice command reference
 
