@@ -99,9 +99,7 @@ yazses start      # start the dictation daemon
 - [Install on macOS](docs/macos-install.md)
 - [Install on Windows](docs/windows-install.md)
 - [CLI reference](docs/cli-reference.md)
-- [Plugin SDK](docs/plugin-sdk.md)
 - [Privacy statement](docs/privacy-statement.md)
-- [Migration guide v0.4 → v1.0](docs/migration-v04-to-v10.md)
 
 ## Project info
 

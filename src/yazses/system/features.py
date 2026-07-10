@@ -24,6 +24,36 @@ _TIER_LABEL = {
     EXPERIMENTAL: "experimental — not advised yet",
 }
 
+# Functional categories — group the (large) capability list under headings in
+# `yazses features` instead of one flat table. Order here is the display order.
+# A one-line blurb per category explains what the group is for.
+CAT_CORE = "Core dictation"
+CAT_ACCURACY = "Accuracy & correction"
+CAT_FORMAT = "Formatting & structure"
+CAT_EDIT = "Editing & navigation"
+CAT_COMMANDS = "Commands & automation"
+CAT_LANG = "Multilingual"
+CAT_ACCESS = "Accessibility & input modalities"
+CAT_LEARN = "Learning, memory & analytics"
+CAT_CAPTURE = "Conversation & recording capture"
+
+CATEGORY_ORDER: tuple[str, ...] = (
+    CAT_CORE, CAT_ACCURACY, CAT_FORMAT, CAT_EDIT, CAT_COMMANDS,
+    CAT_LANG, CAT_ACCESS, CAT_LEARN, CAT_CAPTURE,
+)
+
+CATEGORY_BLURB: dict[str, str] = {
+    CAT_CORE: "The hold-to-talk essentials and how speech is captured and turned into text.",
+    CAT_ACCURACY: "Get the words right — bias, correction, and cleanup of what was heard.",
+    CAT_FORMAT: "Shape the output — punctuation, structure, casing, code, math, and markup.",
+    CAT_EDIT: "Revise, navigate, and manage text and windows by voice.",
+    CAT_COMMANDS: "Fire shortcuts, run tools, and automate actions by voice.",
+    CAT_LANG: "Dictate, translate, and switch between languages.",
+    CAT_ACCESS: "Alternative input, eyes-free feedback, and accessibility aids.",
+    CAT_LEARN: "On-device learning, personal memory, and private analytics.",
+    CAT_CAPTURE: "Multi-speaker capture, recordings, and noisy-environment focus.",
+}
+
 
 @dataclass(frozen=True)
 class Feature:
@@ -42,6 +72,8 @@ class Feature:
     # config writes to flip it; empty = not toggleable from the CLI (core).
     on_writes: tuple = ()
     off_writes: tuple = ()
+    # Functional group (one of CATEGORY_ORDER), used to cluster the list.
+    category: str = ""
 
     @property
     def tier_label(self) -> str:
@@ -638,7 +670,8 @@ def _registry() -> list[_Def]:
              lambda c: c.pronunciation.enabled, pn_on, pn_off),
         _Def("readback_clone", "Personal Read-Back Voice", "[tts] clone_voice — your own voice", OPTIONAL,
              "Read the transcript back in a clone of your own voice from a short enrollment. "
-             "Permissive OpenVoice V2 default; embedding stays in the encrypted corpus. Off by default.",
+             "Permissive OpenVoice V2 default; embedding stays in the encrypted corpus. Needs the "
+             "tts extra and downloads a voice-clone model on first use. Off by default.",
              lambda c: c.tts.clone_voice, rbc_on, rbc_off),
         _Def("acoustic_profiles", "Acoustic Profiles", "[acoustic_profiles] — scene-adaptive", OPTIONAL,
              "Detects your environment (quiet/café/car/meeting) and auto-tunes the mic gate + "
@@ -731,7 +764,8 @@ def _registry() -> list[_Def]:
              lambda c: c.translate.enabled, tr_on, tr_off),
         _Def("recall", "Spoken Recall & Scratch", "[recall] — query past dictation", OPTIONAL,
              "Search your past dictations ('yazses recall …') and capture spoken "
-             "notes-to-self. Local corpus only; nothing leaves the machine. Off by default.",
+             "notes-to-self. Search requires the learning corpus enabled ([learning]); "
+             "local corpus only, nothing leaves the machine. Off by default.",
              lambda c: c.recall.enabled, re_on, re_off),
         _Def("agent", "Voice-to-Tool (Spoken MCP)", "[agent] — run tools by voice", OPTIONAL,
              "Speak an intent to run allowlisted tools via MCP; state-changing tools "
@@ -890,7 +924,7 @@ _EXAMPLES: dict[str, str] = {
     "phonetic": "'Cuber Netties' is auto-corrected to 'Kubernetes'.",
     "hallucination": "Nothing to do — fabricated silence transcripts are dropped.",
     "codec": "yazses features enable codec — streaming decode engine selection.",
-    "rag": "Ask 'what did I note about the budget?' to recall past dictation.",
+    "rag": "Ask 'what did I note about the budget?' → a cited answer from your local docs.",
     "scribe": "Meeting mode: turns are diarized into a labelled transcript.",
     "denoise": "yazses features enable denoise — background noise is filtered pre-STT.",
     "predict": "Accept the greyed-ahead completion by continuing to speak.",
@@ -1050,6 +1084,70 @@ _USE_CASES: dict[str, str] = {
 }
 
 
+# Functional category per capability, keyed by slug. Kept beside the registry as a
+# single source of truth and enforced complete (every slug present, every value in
+# CATEGORY_ORDER) by tests/test_features_categories.py so grouping never drifts.
+_CATEGORIES: dict[str, str] = {
+    # Core dictation — the hold-to-talk flow and how audio becomes text.
+    "dictation": CAT_CORE, "commands": CAT_CORE, "voice-punctuation": CAT_CORE,
+    "undo": CAT_CORE, "overlay": CAT_CORE, "streaming": CAT_CORE,
+    "ghost-ahead": CAT_CORE, "autostop": CAT_CORE, "hesitation": CAT_CORE,
+    "breath": CAT_CORE, "continuum": CAT_CORE, "whispermode": CAT_CORE,
+    "wakeword": CAT_CORE, "focusprofile": CAT_CORE, "latency": CAT_CORE,
+    "codec": CAT_CORE,
+    # Accuracy & correction — get the words right.
+    "dysfluency": CAT_ACCURACY, "punch-in": CAT_ACCURACY, "confidence": CAT_ACCURACY,
+    "reask": CAT_ACCURACY, "corrdict": CAT_ACCURACY, "phonetic": CAT_ACCURACY,
+    "hallucination": CAT_ACCURACY, "hotwords": CAT_ACCURACY, "gec": CAT_ACCURACY,
+    "diacritize": CAT_ACCURACY, "involuntary": CAT_ACCURACY, "denoise": CAT_ACCURACY,
+    "self_repair": CAT_ACCURACY, "safeglyph": CAT_ACCURACY, "checkdigit": CAT_ACCURACY,
+    "acoustic_profiles": CAT_ACCURACY, "scrub": CAT_ACCURACY, "spelling": CAT_ACCURACY,
+    "context": CAT_ACCURACY, "screengrounded": CAT_ACCURACY,
+    # Formatting & structure — shape the output.
+    "prosody": CAT_FORMAT, "prosodypunct": CAT_FORMAT, "itn": CAT_FORMAT,
+    "markup": CAT_FORMAT, "sembr": CAT_FORMAT, "outline": CAT_FORMAT,
+    "screenplay": CAT_FORMAT, "tablecsv": CAT_FORMAT, "spreadsheet": CAT_FORMAT,
+    "math": CAT_FORMAT, "code": CAT_FORMAT, "symbols": CAT_FORMAT,
+    "casetransform": CAT_FORMAT, "autopair": CAT_FORMAT, "verbatim": CAT_FORMAT,
+    "styleguard": CAT_FORMAT, "suggestmode": CAT_FORMAT, "condense": CAT_FORMAT,
+    "reflow": CAT_FORMAT, "smartpaste": CAT_FORMAT, "temporal": CAT_FORMAT,
+    "convert": CAT_FORMAT, "compute": CAT_FORMAT, "acronyms": CAT_FORMAT,
+    "spokenregex": CAT_FORMAT, "diagramvox": CAT_FORMAT, "brailleout": CAT_FORMAT,
+    "redaction": CAT_FORMAT, "fieldaware": CAT_FORMAT, "llm-cleanup": CAT_FORMAT,
+    "affect": CAT_FORMAT,  # "Tone-Aware Formatting" — adds !/? from vocal tone
+    # Editing & navigation — revise and move around.
+    "spoken-edit": CAT_EDIT, "timeline": CAT_EDIT, "findreplace": CAT_EDIT,
+    "bookmarks": CAT_EDIT, "cliphistory": CAT_EDIT, "jump": CAT_EDIT,
+    "fileopen": CAT_EDIT, "windowctl": CAT_EDIT, "hatselect": CAT_EDIT,
+    "wordfind": CAT_EDIT, "wordgoal": CAT_EDIT, "srscap": CAT_EDIT, "cite": CAT_EDIT,
+    # Commands & automation — shortcuts, tools, actions.
+    "chords": CAT_COMMANDS, "gitvoice": CAT_COMMANDS, "shellpipe": CAT_COMMANDS,
+    "cmdsafety": CAT_COMMANDS, "cmdspotter": CAT_COMMANDS, "slotfill": CAT_COMMANDS,
+    "snippets": CAT_COMMANDS, "macros": CAT_COMMANDS, "agent": CAT_COMMANDS,
+    "pilot": CAT_COMMANDS, "gesture": CAT_COMMANDS, "audioguard": CAT_COMMANDS,
+    # Multilingual.
+    "polyglot": CAT_LANG, "translit": CAT_LANG, "langroute": CAT_LANG,
+    "translate": CAT_LANG, "compose": CAT_LANG, "interpret": CAT_LANG,
+    "pronunciation": CAT_LANG,
+    # Accessibility & input modalities.
+    "headpointer": CAT_ACCESS, "lipread": CAT_ACCESS, "sign": CAT_ACCESS,
+    "vocaljoystick": CAT_ACCESS, "mouthswitch": CAT_ACCESS, "morsevox": CAT_ACCESS,
+    "contour": CAT_ACCESS, "earcon": CAT_ACCESS, "srpace": CAT_ACCESS,
+    "echo": CAT_ACCESS, "proofback": CAT_ACCESS, "read-back": CAT_ACCESS,
+    "readback_clone": CAT_ACCESS, "voicehealth": CAT_ACCESS, "loadguard": CAT_ACCESS,
+    "voicetimer": CAT_ACCESS, "spatialvad": CAT_ACCESS, "modality": CAT_ACCESS,
+    "gaze": CAT_ACCESS, "mousegrid": CAT_ACCESS,
+    # Learning, memory & analytics.
+    "learning": CAT_LEARN, "personalize": CAT_LEARN, "coach": CAT_LEARN,
+    "sentiment": CAT_LEARN, "recall": CAT_LEARN, "rag": CAT_LEARN,
+    "corpus_scrub": CAT_LEARN, "multiprofile": CAT_LEARN, "predict": CAT_LEARN,
+    # Conversation & recording capture.
+    "diarize": CAT_CAPTURE, "scribe": CAT_CAPTURE, "recimport": CAT_CAPTURE,
+    "crowdproof": CAT_CAPTURE, "cocktail": CAT_CAPTURE, "voiceguard": CAT_CAPTURE,
+    "bridge": CAT_CAPTURE,
+}
+
+
 def feature_status(cfg) -> list[Feature]:
     """Return every user-facing capability and whether it's enabled in *cfg*."""
     return [
@@ -1058,9 +1156,26 @@ def feature_status(cfg) -> list[Feature]:
             tier=d.tier, why=d.why, on_writes=d.on_writes, off_writes=d.off_writes,
             example=_EXAMPLES.get(d.slug, ""),
             use_case=_USE_CASES.get(d.slug, ""),
+            category=_CATEGORIES.get(d.slug, ""),
         )
         for d in _registry()
     ]
+
+
+def grouped_features(cfg) -> list[tuple[str, str, list[Feature]]]:
+    """Every capability grouped by functional category, in CATEGORY_ORDER.
+
+    Returns ``(category, blurb, features)`` tuples; empty categories are skipped.
+    Used by ``yazses features`` to cluster the list under headings instead of one
+    long flat table, and by the docs generator.
+    """
+    feats = feature_status(cfg)
+    out: list[tuple[str, str, list[Feature]]] = []
+    for cat in CATEGORY_ORDER:
+        members = [f for f in feats if f.category == cat]
+        if members:
+            out.append((cat, CATEGORY_BLURB.get(cat, ""), members))
+    return out
 
 
 def find_feature(cfg, slug: str) -> Feature | None:

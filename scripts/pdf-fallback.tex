@@ -1,0 +1,14 @@
+% Font fallback for xelatex so the non-Latin glyphs in YazSes feature examples
+% render instead of blanking: Arabic (transliteration example) and Braille cells
+% (BrailleOut example) via ucharclasses — both blocks are disjoint from Basic
+% Latin, so there is no ASCII leakage. The lone warning sign (⚠) is mapped
+% directly. Colour emoji, which xelatex cannot draw, is text-substituted in the
+% build script.
+\usepackage{fontspec}
+\usepackage{newunicodechar}
+\newfontfamily\yazArabic{Noto Sans Arabic}[Script=Arabic]
+\newfontfamily\yazSym{Noto Sans Symbols2}
+\usepackage[Arabic,BraillePatterns]{ucharclasses}
+\setTransitionsForArabics{\yazArabic}{\normalfont}
+\setTransitionsFor{BraillePatterns}{\yazSym}{\normalfont}
+\newunicodechar{⚠}{{\yazSym ⚠}}

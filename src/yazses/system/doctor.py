@@ -588,6 +588,11 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     for name, status, detail in checks:
         print(_format_check(name, status, detail))
 
+    # Bottom-line verdict — the one thing a user wants to know: "am I good, and
+    # what do I do next?" Summarises the checks above into a single next step.
+    print("")
+    print(_verdict_line(checks, cfg, platform))
+
     # Contact footer — where to report a problem doctor surfaced, or ask for a
     # feature. Keep this in step with src/yazses/branding.py.
     from yazses import branding
@@ -596,3 +601,35 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     print("Need help, hit a bug, or want a feature?")
     print(f"  Author: {branding.AUTHOR} <{branding.EMAIL}>")
     print(f"  Issues: {branding.ISSUES}")
+
+
+def _verdict_line(checks: list[_Check], cfg, platform) -> str:
+    """One-line summary of the doctor run + the concrete next command to run.
+
+    ``✗`` when anything failed, ``▲`` when only optional warnings remain, ``✓``
+    when everything passed. Coloured to match the check tags above.
+    """
+    fails = sum(1 for c in checks if c[1] == "FAIL")
+    warns = sum(1 for c in checks if c[1] == "WARN")
+    running = any(c[0] == "Daemon" and c[1] == "OK" for c in checks)
+    # Resolve the hotkey for the "hold X to dictate" hint (sentinels → default).
+    key = getattr(getattr(cfg, "hotkey", None), "key", "") or ""
+    if key in ("", "auto"):
+        key = getattr(platform, "default_hotkey", "your hotkey")
+    dictate_hint = "hold %s to dictate" % key
+    if fails:
+        n = fails
+        return _c(
+            f"✗ {n} problem{'s' if n != 1 else ''} to fix — see the [FAIL] line"
+            f"{'s' if n != 1 else ''} above, fix "
+            f"{'them' if n != 1 else 'it'}, then re-run `yazses doctor`.",
+            "bred", "bold",
+        )
+    start_hint = "you're all set — " + dictate_hint if running else f"run `yazses start`, then {dictate_hint}"
+    if warns:
+        n = warns
+        return _c(
+            f"▲ Good to go ({n} optional warning{'s' if n != 1 else ''} above) — {start_hint}.",
+            "yellow", "bold",
+        )
+    return _c(f"✓ Everything looks good — {start_hint}.", "green", "bold")

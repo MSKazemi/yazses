@@ -1,49 +1,71 @@
+---
+layout: default
+title: Privacy Statement
+description: What YazSes does and does not do with your voice, text, and data. Offline by design — nothing leaves your machine unless you explicitly turn on the SSH remote path.
+---
+
 # YazSes Privacy Statement
 
-**Last updated: 2026-05-19**
-**Applies to: YazSes v0.4.0 and later**
+**Last updated: 2026-07-10**
 
----
+YazSes is designed from the ground up to keep your voice and text on your device.
+**By default, no audio, transcripts, editor context, or usage data ever leave your
+machine.** There is no cloud dependency, no telemetry, and no account. Everything
+below describes local behaviour; the only outbound path is the SSH remote feature
+you turn on yourself, and even then only the final typed text is sent.
 
-## Summary
+## Audio
 
-YazSes is designed from the ground up to keep your voice and text on your device. By default, no audio, transcripts, editor context, or usage data ever leave your machine. There is no cloud dependency, no telemetry, and no account required.
+Audio is captured from your microphone **only while you hold the hold-to-talk key**
+(or squeeze a connected EMG device). It is held in a short in-memory buffer, fed
+directly to the on-device transcription model, and then discarded. Because YazSes is
+push-to-talk, nothing is recorded while the key is up. Audio is never written to disk,
+never logged, and never transmitted anywhere — unless you explicitly opt in to the
+learning corpus (below) with audio capture enabled.
 
----
+## Transcription (speech-to-text)
 
-## 1. Audio
+Transcription runs entirely on your device using
+[faster-whisper](https://github.com/SYSTRAN/faster-whisper) (CPU, int8; no GPU
+required). The model weights are downloaded once to `~/.local/share/yazses/`
+(Linux), `~/Library/Application Support/yazses/` (macOS), or `%APPDATA%\yazses\`
+(Windows) and run offline thereafter. The resulting transcript is held in memory
+only long enough to inject the text (and, if commands are enabled, to check whether
+you spoke a command). It is not written to any log file and is not transmitted
+anywhere.
 
-Audio is captured from your microphone only while you hold the designated hotkey (or squeeze your EMG device). It is held in a short in-memory ring buffer, fed directly to the on-device transcription model, and then discarded. Audio is never written to disk, never logged, and never transmitted anywhere.
+The diagnostic log (`yazses logs`) records **metadata only** — timing and state,
+never your dictated text.
 
----
+## The learning corpus (opt-in, off by default)
 
-## 2. Transcription (Speech-to-Text)
+YazSes can improve its accuracy for your voice over time, but only if you opt in.
+The `[learning]` feature is **disabled by default**; when it is off, nothing is
+captured.
 
-Transcription runs entirely on your device using a locally stored model (Moonshine v2 or Whisper.cpp, depending on your configuration). The model weights are downloaded once to `~/.local/share/yazses/models/` (Linux), `~/Library/Application Support/yazses/models/` (macOS), or `%APPDATA%\yazses\models\` (Windows) and run offline thereafter.
+When you enable it (`yazses features enable learning`), the daemon records one event
+per hold-release into a **machine-bound, encrypted local corpus** at
+`~/.local/share/yazses/corpus.db` (with audio clips under `clips/`). The transcript
+text and any stored audio are encrypted with **AES-256-GCM** using a key derived from
+your machine — there is no passphrase to remember and no cloud backup. Only coarse
+metadata is kept in the clear. Capture happens on a background thread and nothing is
+ever uploaded.
 
-The resulting transcript is held in memory long enough to inject text and, when Personal Memory is enabled, to evaluate whether a remember command was spoken. The transcript is not written to any log file and is not transmitted anywhere.
+You stay in control of the corpus:
 
----
-
-## 3. Personal Memory Database
-
-Personal Memory is **opt-in** and disabled by default. When enabled, YazSes stores only the memories you explicitly dictate (for example, "remember that my project uses Python 3.12"). Nothing is stored automatically.
-
-**Storage location:**
-
-| Platform | Path |
+| Action | How |
 |---|---|
-| Linux | `~/.local/share/yazses/memory.db` |
-| macOS | `~/Library/Application Support/yazses/memory.db` |
-| Windows | `%APPDATA%\yazses\memory.db` |
+| Never capture anything | Leave `[learning]` disabled (the default) |
+| Turn capture off again | `yazses features disable learning` |
+| Store text but not audio | Set `capture_audio = false` under `[learning]` |
+| Auto-expire old events | `retention_days` / `max_corpus_mb` under `[learning]` |
+| Inspect what is stored | `yazses corpus status` |
+| Erase everything | `yazses corpus destroy` (or delete `corpus.db`) |
 
-**Encryption:** The database is an encrypted SQLite file (SQLCipher). The encryption key is derived from your passphrase using PBKDF2. YazSes never stores your passphrase in plaintext. After five consecutive incorrect passphrase attempts, access is locked for 15 minutes to limit brute-force attacks.
+The `recall` and `scratch` note features read from this same local corpus and never
+leave the machine.
 
-**Deletion:** To permanently erase all stored memories, delete `memory.db` at the path above. There is no cloud backup and no way for Anthropic or any third party to recover deleted memories.
-
----
-
-## 4. Configuration File
+## Configuration file
 
 YazSes reads a TOML configuration file at startup:
 
@@ -53,102 +75,85 @@ YazSes reads a TOML configuration file at startup:
 | macOS | `~/Library/Application Support/yazses/config.toml` |
 | Windows | `%APPDATA%\yazses\config.toml` |
 
-This file contains your personal preferences (hotkey, microphone device, model selection, optional EMG port, and so on). It is read locally and never transmitted anywhere.
+It holds your preferences (hotkey, microphone device, model selection, optional EMG
+port, feature toggles, and so on). It is read locally and never transmitted anywhere.
 
----
+## IPC (inter-process communication)
 
-## 5. IPC (Inter-Process Communication)
+The daemon communicates with the CLI and tray through a **local, host-only** channel:
+a Unix domain socket on Linux/macOS, a named pipe on Windows. YazSes does not open a
+network port or listen on any external interface for this.
 
-The YazSes daemon communicates with the CLI and tray application through a local socket:
+## Editor context (optional)
 
-- **Linux / macOS:** Unix domain socket at `~/.local/share/yazses/yazses.sock`
-- **Windows:** Named pipe
+When the LSP editor-context feature is enabled (`lsp_enabled = true` under
+`[commands]`; **off by default**), YazSes reads the active file path, language, and
+cursor line from your editor and uses them only as a prefix to the transcription
+prompt, so code identifiers from your current file are recognised. This context is
+never transmitted outside your device and is discarded after each transcription.
 
-The IPC channel is strictly localhost-only. YazSes does not open any network port or listen on any external interface.
+## On-device language models (optional)
 
----
+Two optional features use a **local** language model, loaded from a model file on
+your disk via `llama-cpp-python`. Both run entirely on-device — there is **no cloud
+LLM, no OpenAI/Azure backend, and no HTTP API call**:
 
-## 6. Editor Context
+- **SLM intent router** (`[commands] slm_model_path`) — a small local model that
+  resolves a spoken command when the fast regex grammar is unsure.
+- **Offline dictation cleanup** (`[filters.disfluency] llm_enabled`) — a local model
+  that lightly reformats dictation. Off by default.
 
-When the LSP context feature is enabled (`lsp_enabled = true` in config), YazSes reads the active file path, programming language, and cursor line from your editor. This information is used only as a prefix to the transcription prompt so that the speech-to-text model can produce context-aware output (for example, recognising code identifiers from your current file).
+If you do not configure a model path, neither feature is active and no model runs.
 
-Editor context is never transmitted outside your device and is discarded after each transcription.
+## Remote mode (`yazses remote <host>`)
 
----
+Remote mode lets you dictate into an application on another machine you control.
+**Your speech is still captured and transcribed locally** — only the **final typed
+text** is forwarded over an SSH tunnel to the remote host, where `yazses-agent`
+injects it. Your audio never leaves your machine. The target host is always specified
+by you on the command line; YazSes never connects anywhere automatically. Ensure you
+trust and control the remote host before using this feature.
 
-## 7. Local LLM (llama.cpp / Ollama)
+## What leaves your device
 
-When an LLM backend is configured, YazSes sends text (your spoken command, relevant memory fragments, and editor context) to a locally running model via llama.cpp or the Ollama API at `localhost:11434`. This communication never leaves your machine.
-
----
-
-## 8. Opt-in OpenAI-Compatible Backend
-
-YazSes includes optional support for an OpenAI-compatible LLM API (for example, OpenAI, Azure OpenAI, or a compatible self-hosted endpoint). **This feature is never active by default.** It is a compile-time feature gate that requires explicit configuration:
-
-```toml
-[llm]
-backend = "openai"
-base_url = "https://api.openai.com/v1"
-api_key  = "sk-..."
-```
-
-If you configure this backend, your spoken commands and any relevant memory fragments will be sent to the endpoint you specify. You are responsible for reviewing the privacy policy of that third-party service before enabling this feature. YazSes itself does not control how that service handles your data.
-
-If you do not set `backend = "openai"` in your config, no data is ever sent to OpenAI or any other external API.
-
----
-
-## 9. Remote Mode (`yazses remote <host>`)
-
-Remote mode forwards your audio and transcripts over an SSH tunnel to a host you control. The target host is always specified explicitly by you on the command line; YazSes never connects to any host automatically or without your instruction.
-
-Data in transit is protected by SSH encryption. No third-party relay server is involved. The remote host runs `yazses-agent`, which performs text injection on that machine. Ensure you trust and control the remote host before using this feature.
-
----
-
-## 10. What Leaves Your Device
-
-The table below summarises data flows under each configuration:
-
-| Data | Default (local-only) | Remote mode | OpenAI backend enabled |
-|---|---|---|---|
-| Audio | Stays on device | Forwarded over SSH to your remote host | Stays on device |
-| Transcripts | Stays on device | Forwarded over SSH to your remote host | Sent to the configured API endpoint |
-| Editor context | Stays on device | Not forwarded | May be sent to the configured API endpoint |
-| Personal memories | Stays on device | Not forwarded | May be sent to the configured API endpoint |
-| Usage statistics / telemetry | Never collected | Never collected | Never collected |
+| Data | Default (local-only) | Remote mode (`yazses remote`) |
+|---|---|---|
+| Audio | Stays on device | Stays on device (never forwarded) |
+| Transcript / typed text | Stays on device | Final text forwarded over SSH to your host |
+| Editor context | Stays on device | Not forwarded |
+| Learning corpus | Stays on device | Not forwarded |
+| Telemetry / usage stats | Never collected | Never collected |
 
 In the default configuration, **nothing leaves your device**.
 
----
+## Telemetry, analytics, and updates
 
-## 11. Telemetry, Analytics, and Update Checks
+YazSes collects **no telemetry, no usage analytics, and no crash reports**, and makes
+no automatic outbound connections. Update checks are a manual, explicit action
+(`yazses update`); YazSes does not phone home on its own.
 
-YazSes collects no telemetry, no usage analytics, and no crash reports. It performs no automatic update checks and makes no outbound network connections unless you have explicitly configured a remote host or an external LLM backend.
+## Third-party dependencies
 
----
+YazSes builds on open-source libraries — faster-whisper, sounddevice, and (optionally)
+llama-cpp-python, among others — all of which run on your device. You can audit them
+through the project's dependency manifest (`pyproject.toml`).
 
-## 12. Third-Party Dependencies
-
-YazSes depends on open-source libraries (faster-whisper, llama.cpp, SQLCipher, sounddevice, and others). These libraries run entirely on your device and do not make independent network requests. You can audit their source code through the links in the project's dependency manifest (`pyproject.toml`).
-
----
-
-## 13. Your Rights and Controls
+## Your rights and controls
 
 | Action | How |
 |---|---|
-| Disable Personal Memory | Remove or do not set the `[memory]` section in `config.toml` |
-| Erase all stored memories | Delete `memory.db` at the path listed in Section 3 |
-| Disable LSP editor context | Set `lsp_enabled = false` in `config.toml` (the default) |
-| Stop using an external LLM | Remove `[llm]` or set `backend = "local"` in `config.toml` |
-| Inspect stored data | Open `memory.db` with any SQLCipher-compatible tool after unlocking with your passphrase |
+| Disable the learning corpus | Leave `[learning]` off (default), or `yazses features disable learning` |
+| Erase all captured data | `yazses corpus destroy` (or delete `corpus.db`) |
+| Disable editor context | Set `lsp_enabled = false` under `[commands]` (the default) |
+| Disable the offline cleanup LLM | Set `llm_enabled = false` under `[filters.disfluency]` (the default) |
+| Inspect stored data | `yazses corpus status` |
 
-Because all data is stored locally and no account is required, there is no server-side data to request deletion of. You have full control over every file YazSes writes.
+Because all data is stored locally and no account is required, there is no
+server-side data to request deletion of. You have full control over every file
+YazSes writes.
 
----
+## Contact
 
-## 14. Contact
-
-YazSes is an open-source project. If you find a privacy concern or a discrepancy between this statement and the actual behaviour of the software, please open an issue on the project's GitHub repository so it can be investigated and corrected.
+YazSes is an open-source project. If you find a privacy concern or a discrepancy
+between this statement and the software's actual behaviour, please open an issue on
+the project's GitHub repository so it can be investigated and corrected.

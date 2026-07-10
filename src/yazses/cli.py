@@ -34,6 +34,7 @@ def _examples(*lines: str) -> str:
 
 _APP_EPILOG = (
     _examples(
+        "yazses quickstart            new here? the 3 steps to get dictating",
         "yazses start                 start dictating — hold the hotkey, speak, release",
         "yazses status                is it running? show state, model, and hotkey",
         "yazses doctor                check mic, keyboard, and injection prerequisites",
@@ -104,11 +105,15 @@ def _version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
-@app.command(rich_help_panel=_MAINT)
+@app.command(
+    rich_help_panel=_MAINT,
+    epilog=_examples(
+        "yazses about    author, version, links, and where to report a bug or request a feature",
+    ),
+)
 def about() -> None:
     """Show author, version, links, and where to report issues or request features."""
-    typer.echo(f"{branding.APP_NAME} {branding.version()}")
-    typer.echo(branding.TAGLINE)
+    typer.echo(branding.banner())
     typer.echo("")
     for line in branding.contact_lines():
         typer.echo(line)
@@ -372,44 +377,120 @@ app.add_typer(features_app, rich_help_panel=_DAEMON)
 @features_app.callback(
     invoke_without_command=True,
     epilog=_examples(
-        "yazses features                  list every capability + advice",
+        "yazses features                  list every capability, grouped, + advice",
+        "yazses features --on             show only what's currently enabled",
+        "yazses features --tier rec       show only the recommended tier",
+        "yazses features --category Multilingual   show one category",
         "yazses features info              describe ALL capabilities + usage examples",
         "yazses features info reflow       describe one + show a usage example",
         "yazses features enable read-back  turn one on",
         "yazses features disable cocktail  turn one off",
     ),
 )
-def features(ctx: typer.Context) -> None:
-    """Show every YazSes capability, whether it's on/off, and what's advised.
+def features(
+    ctx: typer.Context,
+    on_only: bool = typer.Option(
+        False, "--on", help="Show only capabilities that are currently ON."
+    ),
+    tier: Optional[str] = typer.Option(
+        None, "--tier",
+        help="Filter by advice tier: core, on, rec, opt, exp.",
+    ),
+    category: Optional[str] = typer.Option(
+        None, "--category", "-c",
+        help="Filter by category name (partial, case-insensitive), e.g. 'access'.",
+    ),
+) -> None:
+    """Show every YazSes capability, grouped by what it does, with on/off + advice.
 
-    Turn things on or off with `yazses features enable <name>` /
+    Capabilities are clustered into functional groups (Core dictation, Accuracy &
+    correction, Formatting & structure, …). Narrow the list with --on, --tier, or
+    --category. Turn things on/off with `yazses features enable <name>` /
     `yazses features disable <name>` — then `yazses restart` to apply.
     """
     if ctx.invoked_subcommand is not None:
         return  # a subcommand (enable/disable) is running instead
-    _echo_capabilities(get_platform())
+    _echo_capabilities(get_platform(), on_only=on_only, tier=tier, category=category)
 
 
-def _echo_capabilities(platform, *, header: str | None = None) -> None:
-    """Print every capability (● on / ○ off) with toggle names + advice.
+# Advice-tier synonyms accepted by `yazses features --tier`.
+_TIER_ALIASES = {
+    "core": "core", "on": "on", "default": "on", "default-on": "on",
+    "rec": "rec", "recommended": "rec", "opt": "opt", "optional": "opt",
+    "exp": "exp", "experimental": "exp",
+}
+
+
+def _echo_capabilities(
+    platform,
+    *,
+    header: str | None = None,
+    on_only: bool = False,
+    tier: str | None = None,
+    category: str | None = None,
+) -> None:
+    """Print every capability (● on / ○ off), grouped by category, with advice.
 
     Shared by `yazses features` and the post-install/`yazses setup` summary so a
     new user always sees the full feature set. Needs no running daemon — reads the
-    config file, defaulting when it doesn't exist yet.
+    config file, defaulting when it doesn't exist yet. Optional filters narrow the
+    view by state (on_only), advice tier, or category name.
     """
     from yazses.config import load_config
-    from yazses.system.features import feature_status
+    from yazses.system.features import grouped_features
 
     cfg = load_config(platform.paths.config_file)
-    typer.echo(header or "YazSes capabilities — toggle with `yazses features enable/disable <name>`:\n")
-    typer.echo(f"  {'':5}  {'NAME':<32} {'TOGGLE NAME':<14} ADVICE")
-    for f in feature_status(cfg):
-        mark = "● ON " if f.on else "○ off"
-        slug = f.slug if f.toggleable else "—"
-        typer.echo(f"  {mark}  {f.name:<32} {slug:<14} {f.tier_label}")
+
+    tier_key = None
+    if tier is not None:
+        tier_key = _TIER_ALIASES.get(tier.strip().lower())
+        if tier_key is None:
+            typer.echo(
+                f"Unknown tier {tier!r}. Use one of: core, on, rec, opt, exp.",
+                err=True,
+            )
+            raise typer.Exit(1)
+    cat_needle = category.strip().lower() if category else None
+
+    def _keep(f) -> bool:
+        if on_only and not f.on:
+            return False
+        if tier_key is not None and f.tier != tier_key:
+            return False
+        return True
+
+    groups = grouped_features(cfg)
+    if cat_needle:
+        groups = [g for g in groups if cat_needle in g[0].lower()]
+
     typer.echo(
-        "\n  ●/○ = on/off.  Apply changes with `yazses restart`."
+        header
+        or "YazSes capabilities — toggle with `yazses features enable/disable <name>`:\n"
+    )
+    total = 0
+    for cat, blurb, feats in groups:
+        shown = [f for f in feats if _keep(f)]
+        if not shown:
+            continue
+        on_n = sum(1 for f in shown if f.on)
+        typer.echo(f"┌─ {cat}  ({on_n}/{len(shown)} on)")
+        if blurb:
+            typer.echo(f"│  {blurb}")
+        typer.echo(f"│  {'':5}  {'NAME':<32} {'TOGGLE NAME':<16} ADVICE")
+        for f in shown:
+            mark = "● ON " if f.on else "○ off"
+            slug = f.slug if f.toggleable else "—"
+            typer.echo(f"│  {mark}  {f.name:<32} {slug:<16} {f.tier_label}")
+        typer.echo("└" + "─" * 40)
+        total += len(shown)
+
+    if total == 0:
+        typer.echo("  No capabilities match that filter.")
+        return
+    typer.echo(
+        f"\n  {total} shown.  ●/○ = on/off.  Apply changes with `yazses restart`."
         "\n  Tip: `yazses features enable dysfluency` (use the TOGGLE NAME column)."
+        "\n  Filter:  --on · --tier rec · --category access"
         "\n  Describe ALL capabilities (use case + example): `yazses features info`."
         "\n  Just one: `yazses features info <name>`."
     )
@@ -751,10 +832,10 @@ def stop() -> None:
     platform = get_platform()
     pid = platform.lifecycle.read_pid()
     if pid is None or not platform.lifecycle.is_running():
-        typer.echo("YazSes is not running.")
+        typer.echo("YazSes is not running — nothing to stop.")
         raise typer.Exit(1)
     platform.lifecycle.stop_daemon(pid)
-    typer.echo("YazSes stopped.")
+    typer.echo("YazSes stopped. Start it again with `yazses start`.")
 
 
 @app.command(
@@ -765,7 +846,8 @@ def status() -> None:
     """Show daemon status. Queries the daemon over IPC when reachable."""
     platform = get_platform()
     if not platform.lifecycle.is_running():
-        typer.echo("YazSes is not running.")
+        typer.echo("YazSes is not running. Start it with `yazses start`.")
+        typer.echo("New here? Run `yazses quickstart` for the 3-step setup.")
         return
 
     pid = platform.lifecycle.read_pid()
@@ -773,7 +855,10 @@ def status() -> None:
     try:
         info = client.call("status")
     except IpcUnreachableError:
-        typer.echo(f"YazSes is running (PID {pid}); IPC not yet ready.")
+        typer.echo(
+            f"YazSes is running (PID {pid}) but still starting up — it's loading the "
+            "speech model (first run can take 10–30s). Re-run `yazses status` shortly."
+        )
         return
 
     typer.echo(f"YazSes is running (PID {pid}).")
@@ -784,6 +869,84 @@ def status() -> None:
     typer.echo(f"  uptime:   {info.get('uptime_s')}s")
     if info.get("last_error"):
         typer.echo(f"  last err: {info['last_error']}")
+
+
+@app.command(
+    rich_help_panel=_SETUP,
+    epilog=_examples("yazses quickstart    the 3 steps to get dictating, tailored to your machine"),
+)
+def quickstart() -> None:
+    """Get dictating in 3 steps — a friendly guide tailored to your machine.
+
+    Looks at what's already set up (prerequisites, whether the daemon is running,
+    the speech model, your hotkey) and prints exactly what to do next. Safe to run
+    anytime — it changes nothing.
+    """
+    import shutil
+    import sys as _sys
+
+    platform = get_platform()
+    hotkey = _resolved_hotkey(platform)
+    running = platform.lifecycle.is_running()
+
+    typer.secho("Welcome to YazSes — offline, hold-to-talk voice dictation.\n", bold=True)
+    typer.echo("Everything runs on your machine. No cloud, no account, nothing leaves your computer.\n")
+
+    step = 1
+
+    def _say_step(title: str, *body: str) -> None:
+        nonlocal step
+        typer.secho(f"  {step}. {title}", bold=True)
+        for line in body:
+            typer.echo(f"     {line}")
+        typer.echo("")
+        step += 1
+
+    # Step 1 — prerequisites (Linux needs system packages + input-group).
+    if _sys.platform == "linux":
+        needs_setup = False
+        try:
+            from yazses.system import setup as _setup
+
+            needs_setup = not _setup.build_plan().is_noop
+        except Exception:
+            needs_setup = False
+        if needs_setup:
+            _say_step(
+                "Install the prerequisites",
+                "Run:  yazses setup",
+                "(installs audio + typing tools, adds you to the `input` group)",
+                "Then log out and back in if it asks you to.",
+            )
+        else:
+            _say_step("Prerequisites — already set up ✓", "Verify anytime with:  yazses doctor")
+    else:
+        _say_step("Check prerequisites", "Run:  yazses doctor")
+
+    # Step 2 — start the daemon.
+    if running:
+        _say_step("Start YazSes — already running ✓", "Check it with:  yazses status")
+    else:
+        _say_step(
+            "Start YazSes",
+            "Run:  yazses start",
+            "It loads the speech model once (first run can take 10–30s), then waits for your hotkey.",
+        )
+
+    # Step 3 — actually dictate.
+    _say_step(
+        "Dictate",
+        f"Hold  {hotkey}  , speak, then release. Your words type into the focused window.",
+        "Change the key with:  yazses hotkey set <key>",
+    )
+
+    typer.secho("Handy next steps", bold=True)
+    typer.echo("  yazses test              type a test phrase (no speaking) to confirm typing works")
+    typer.echo("  yazses mic-level --set   tune the mic to your voice if words get dropped")
+    typer.echo("  yazses features          see everything YazSes can do, and turn things on/off")
+    typer.echo("  yazses doctor            diagnose anything that isn't working")
+    if not shutil.which("yazses"):  # pragma: no cover - defensive
+        typer.echo("\n  (If `yazses` isn't found, restart your shell to refresh PATH.)")
 
 
 @app.command(
@@ -870,6 +1033,60 @@ def update(
         raise typer.Exit(code or 1)
 
 
+def _calibrate_mic(*, seconds: float = 4.0, set_threshold: bool = False) -> bool:
+    """Record a short clip, report the speech level, and (optionally) write the
+    recommended VAD threshold. Shared by `yazses mic-level` and `yazses setup`'s
+    "connect to voice" step. Returns False when no speech was detected."""
+    from yazses.config import load_config
+    from yazses.system.miclevel import analyze, record, update_threshold_in_config
+
+    platform = get_platform()
+    cfg = load_config(platform.paths.config_file)
+    sr = cfg.audio.sample_rate
+
+    typer.echo(f"Recording {seconds:.0f}s -- speak normally now...")
+    stats = analyze(record(seconds, sr), sr)
+
+    typer.echo(f"  mean level:            {stats.mean_abs:.4f}")
+    typer.echo(f"  peak level:            {stats.peak:.4f}")
+    typer.echo(f"  current vad_threshold: {cfg.accessibility.vad_threshold}")
+
+    if stats.is_silent:
+        typer.echo("No speech detected -- check the microphone and try again.")
+        return False
+
+    rec = stats.recommended_threshold
+    typer.echo(f"  recommended:           {rec}")
+
+    if set_threshold:
+        msg = update_threshold_in_config(platform.paths.config_file, rec)
+        typer.echo(f"Applied: {msg}")
+        typer.echo("Restart to pick it up:  yazses stop && yazses start")
+    else:
+        typer.echo("Re-run with --set to apply, or put in config.toml:")
+        typer.echo(f"  [accessibility]\n  vad_threshold = {rec}")
+    return True
+
+
+def _print_next_steps(steps) -> None:
+    """Render the ordered install checklist from setup.next_steps() — the steps
+    only the user can do (connect the mic, re-login, calibrate, start)."""
+    typer.secho("\nFinish installing — a few steps only you can do:",
+                fg=typer.colors.BRIGHT_CYAN, bold=True)
+    for i, step in enumerate(steps, start=1):
+        typer.secho(f"  {i}. {step.title}", fg=typer.colors.BRIGHT_WHITE, bold=True)
+        if step.command:
+            # Commands that need sudo (or undo a silent failure) stand out in red.
+            urgent = step.command.startswith("sudo")
+            typer.secho(f"       {step.command}",
+                        fg=typer.colors.BRIGHT_WHITE,
+                        bg=typer.colors.RED if urgent else typer.colors.BLUE, bold=True)
+        else:
+            typer.secho("       (log out of your desktop session, then log back in)",
+                        fg=typer.colors.BRIGHT_RED, bold=True)
+        typer.secho(f"       -> {step.why}", fg=typer.colors.BRIGHT_BLACK)
+
+
 @app.command(
     name="mic-level",
     rich_help_panel=_SETUP,
@@ -889,34 +1106,8 @@ def mic_level(
     when its average level is below vad_threshold, so if dictation shows
     "Silent audio -- discarding", run this to find a level that fits your voice.
     """
-    from yazses.config import load_config
-    from yazses.system.miclevel import analyze, record, update_threshold_in_config
-
-    platform = get_platform()
-    cfg = load_config(platform.paths.config_file)
-    sr = cfg.audio.sample_rate
-
-    typer.echo(f"Recording {seconds:.0f}s -- speak normally now...")
-    stats = analyze(record(seconds, sr), sr)
-
-    typer.echo(f"  mean level:            {stats.mean_abs:.4f}")
-    typer.echo(f"  peak level:            {stats.peak:.4f}")
-    typer.echo(f"  current vad_threshold: {cfg.accessibility.vad_threshold}")
-
-    if stats.is_silent:
-        typer.echo("No speech detected -- check the microphone and try again.")
+    if not _calibrate_mic(seconds=seconds, set_threshold=set_threshold):
         raise typer.Exit(code=1)
-
-    rec = stats.recommended_threshold
-    typer.echo(f"  recommended:           {rec}")
-
-    if set_threshold:
-        msg = update_threshold_in_config(platform.paths.config_file, rec)
-        typer.echo(f"Applied: {msg}")
-        typer.echo("Restart to pick it up:  yazses stop && yazses start")
-    else:
-        typer.echo("Re-run with --set to apply, or put in config.toml:")
-        typer.echo(f"  [accessibility]\n  vad_threshold = {rec}")
 
 
 @app.command(
@@ -964,7 +1155,7 @@ def inject(text: str = typer.Argument(..., help="Text to inject into the focused
     epilog=_examples('yazses say "hello there"    speak text aloud via offline TTS'),
 )
 def say(text: str = typer.Argument(..., help="Text to speak aloud.")) -> None:
-    """Speak text aloud through the offline TTS voice (Read-Back Loop).
+    """Speak text aloud with the built-in offline voice.
 
     Requires `[tts] enabled = true` (install the voice with `uv sync --extra tts`).
     Routes through the running daemon so it reuses the loaded TTS backend.
@@ -1009,7 +1200,7 @@ def overlay() -> None:
 def reflow(
     text: Optional[str] = typer.Argument(None, help="Text to reflow (omit to read stdin)."),
 ) -> None:
-    """Reflow a monologue into a bulleted outline — offline (ADR-v2-038).
+    """Reflow a monologue into a bulleted outline — fully offline.
 
     Use it when: you dictated or recorded a long rambling monologue (a meeting,
     a brain-dump, a transcript) and want it structured into scannable bullets and
@@ -1039,7 +1230,7 @@ def table(
     text: Optional[str] = typer.Argument(None, help="Spoken-style rows (omit to read stdin)."),
     sep: str = typer.Option(",", "--sep", help="Field separator for the output (default: comma)."),
 ) -> None:
-    """Turn spoken rows into delimited (CSV) lines — offline (ADR-v2-091).
+    """Turn spoken rows into delimited (CSV) lines — fully offline.
 
     Use it when: you want to capture tabular data by voice or from a transcript —
     dictate rows of a table and get CSV you can paste into a spreadsheet, instead
@@ -1068,7 +1259,7 @@ def table(
 def shellpipe(
     text: Optional[str] = typer.Argument(None, help="Spoken pipeline (omit to read stdin)."),
 ) -> None:
-    """Render a spoken pipeline into a shell command — offline (ADR-v2-082).
+    """Render a spoken pipeline into a shell command — fully offline.
 
     Use it when: you know what you want a shell pipeline to do but not the exact
     flags — describe it in words and get a ready-to-review command, without
@@ -1101,7 +1292,7 @@ def braille(
     text: Optional[str] = typer.Argument(None, help="Text to translate (omit to read stdin)."),
     grade: int = typer.Option(2, "--grade", help="UEB grade: 1 (uncontracted) or 2 (contracted)."),
 ) -> None:
-    """Translate text to Unicode Braille, UEB subset — offline (ADR-v2-117).
+    """Translate text to Unicode Braille (UEB subset) — fully offline.
 
     Use it when: you need to produce Braille output for a refreshable display or a
     DeafBlind reader from dictated or piped text, entirely on-device.
@@ -1178,7 +1369,10 @@ def setup(
     mic_pending = _setup.snap_mic_pending()
     typer.echo(f"Session: {plan.session}")
     if plan.is_noop and not mic_pending:
-        typer.echo("All Linux requirements already satisfied — nothing to do.")
+        typer.echo("All Linux requirements already satisfied.")
+        # Nothing to provision, but a fresh user still benefits from calibrating
+        # their voice and starting the daemon — surface those as next steps.
+        _print_next_steps(_setup.next_steps(plan=plan, mic_pending=mic_pending))
         raise typer.Exit(0)
 
     typer.echo("Plan:")
@@ -1197,6 +1391,7 @@ def setup(
 
     if dry_run:
         typer.echo("\n(dry run — no changes made)")
+        _print_next_steps(_setup.next_steps(plan=plan, mic_pending=mic_pending))
         return
 
     typer.echo("")
@@ -1208,21 +1403,26 @@ def setup(
     run_doctor()
     if not ok:
         typer.echo("\nSome steps need attention — see warnings above.", err=True)
+
+    # Ordered checklist of everything the user must still do themselves (the parts
+    # a confined/unprivileged process can't do): connect the mic, re-login, tune
+    # the voice, start dictating. Single source of truth: setup.next_steps().
+    _print_next_steps(_setup.next_steps(plan=plan, mic_pending=mic_pending))
+
+    # Offer to "connect to voice" now — run the mic calibration interactively when
+    # we have a terminal and nothing blocks recording (mic granted, no re-login due).
+    can_calibrate = not mic_pending and not (plan.add_to_input_group or _setup.input_group_pending_relogin())
+    if can_calibrate and _sys.stdin.isatty() and typer.confirm(
+        "\nCalibrate the mic to your voice now?", default=True
+    ):
+        try:
+            _calibrate_mic(seconds=4.0, set_threshold=True)
+        except Exception as exc:  # never let calibration failure fail setup
+            typer.secho(f"  (skipped — {exc}; run `yazses mic-level --set` later)",
+                        fg=typer.colors.YELLOW)
+
+    if not ok:
         raise typer.Exit(1)
-    if mic_pending:
-        typer.secho("\nOne manual step remains — grant the snap microphone access:",
-                    fg=typer.colors.BRIGHT_RED, bold=True)
-        typer.secho("    sudo snap connect yazses:audio-record",
-                    fg=typer.colors.BRIGHT_WHITE, bg=typer.colors.RED, bold=True)
-    if plan.add_to_input_group or _setup.input_group_pending_relogin():
-        typer.secho(
-            "\n⚠  IMPORTANT: the hotkey will NOT work until you log out and back in",
-            fg=typer.colors.BRIGHT_RED, bold=True)
-        typer.secho(
-            "   (or reboot) so `input`-group membership takes effect. If you have not"
-            " joined it yet:", fg=typer.colors.RED)
-        typer.secho("    sudo usermod -aG input $USER",
-                    fg=typer.colors.BRIGHT_WHITE, bg=typer.colors.RED, bold=True)
     typer.echo("\nSetup complete.")
     typer.echo("")
     _echo_capabilities(
@@ -1265,7 +1465,7 @@ def enroll() -> None:
     epilog=_examples("yazses enroll-voice    record a sample → save your speaker voiceprint"),
 )
 def enroll_voice() -> None:
-    """Create your speaker voiceprint (for Cocktail Filter + Voiceprint Mind).
+    """Record a short voiceprint so YazSes can recognise your voice.
 
     Records a short sample of your voice, computes a speaker embedding, and stores
     it encrypted on this machine (never leaves the machine). Requires
@@ -1299,7 +1499,7 @@ def enroll_voice() -> None:
     typer.echo("  systemctl --user restart yazses")
 
 
-gaze_app = typer.Typer(name="gaze", help="Look-to-pane gaze targeting (Glance-Type).")
+gaze_app = typer.Typer(name="gaze", help="Aim dictation with your gaze — type into whichever pane you look at.")
 app.add_typer(gaze_app, rich_help_panel=_SETUP)
 
 
@@ -1308,7 +1508,7 @@ app.add_typer(gaze_app, rich_help_panel=_SETUP)
     epilog=_examples("yazses gaze calibrate    fit the webcam gaze → screen-zone mapping (look at each point)"),
 )
 def gaze_calibrate() -> None:
-    """Calibrate webcam gaze → screen zones (Glance-Type look-to-pane).
+    """Calibrate the webcam so your gaze maps to screen zones.
 
     Requires `[gaze] enabled = true` and a webcam, with the gaze deps installed
     (`pip install l2cs mediapipe opencv-python`). You look at a few on-screen
@@ -1466,7 +1666,7 @@ def recall(
         None, help="Words to search your past dictations for (omit for most recent)."
     ),
 ) -> None:
-    """Search your past dictations (Spoken Recall).
+    """Search your past dictations.
 
     Requires `[learning] enabled = true` and `[recall] enabled = true`. Reads the
     local encrypted corpus only — nothing leaves the machine.
@@ -1543,7 +1743,7 @@ def punch_in(
         0, "--choose", "-n", help="Apply the candidate at this rank (0 = best)."
     ),
 ) -> None:
-    """Correct the last dictation by re-speaking just the wrong phrase (spec-punch-in).
+    """Correct the last dictation by re-speaking just the wrong phrase.
 
     Requires `[punch_in] enabled = true`. The daemon records a short window, aligns
     the respoken phrase against the last burst it typed, then deletes that burst and
@@ -1708,7 +1908,7 @@ def transcribe(
     speaker label; provide --names (positional) or --rename (explicit map) to use
     real names, cap the count with --speakers / --min-speakers / --max-speakers,
     or let an enrolled voiceprint name you ("You"). Everything stays on this
-    machine (ADR-011); speaker naming stores no new data and never enrolls anyone
+    machine; speaker naming stores no new data and never enrolls anyone
     automatically.
     """
     import dataclasses

@@ -9,7 +9,6 @@ description: Hold a key, speak, release — your words are transcribed on-device
 **Hold a key → speak → release.** YazSes is an open-source, **offline** voice‑dictation daemon for **Linux, macOS, and Windows**. It transcribes your speech locally with [faster-whisper](https://github.com/SYSTRAN/faster-whisper) and types the result into whatever window has focus — plus voice commands and macros. **No cloud. No API key. No subscription. Nothing leaves your machine.**
 
 [Get it on PyPI](https://pypi.org/project/yazses/){: .btn }
-[Get it on the Snap Store](https://snapcraft.io/yazses){: .btn }
 [Source on GitHub](https://github.com/MSKazemi/yazses){: .btn }
 
 ![yazses doctor — all green, fully offline](screenshots/yazses-doctor.png)
@@ -22,10 +21,10 @@ pipx install yazses
 
 # Linux (Debian/Ubuntu)
 bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)
-
-# Linux (any distro) — strict snap; keystroke injection works on X11
-sudo snap install yazses
 ```
+
+> **Not the snap.** The strict-confinement snap can't read the keyboard, so
+> hold-to-talk never fires — use the APT script or `pipx` above.
 
 **Linux only — provision the system in one command** (the `install-apt.sh` / APT path does it automatically):
 
@@ -84,7 +83,7 @@ Hold hotkey → record audio → VAD gate → faster-whisper (CPU)
 
 **What GPU do I need?** None. It runs on CPU; 4 GB RAM minimum, 8 GB comfortable.
 
-**Does it work on Wayland?** Yes via the pipx install (uses wtype/ydotool). The strict snap injects on X11; for Wayland prefer pipx.
+**Does it work on Wayland?** Yes via the APT or pipx install (uses wtype/ydotool). Use one of those, not the snap — strict confinement stops the snap from reading the keyboard, so the hold-to-talk hotkey never fires.
 
 **Is it a replacement for Talon?** YazSes focuses on offline dictation plus a practical command grammar. Talon has far more advanced scripting. They can coexist.
 

@@ -14,9 +14,13 @@ yazses setup    # installs deps, joins the input group, sets up ydotoold (Waylan
 ```
 
 `yazses setup` is idempotent (safe to re-run) and provisions everything below
-automatically. The rest of this section explains what it does, for when you want
-to do it by hand or understand the pieces. Verify anytime with `yazses doctor`
-(want `[OK] Keyboard capture`, `[OK] Microphone`, `[OK] Injection`).
+automatically. It finishes by printing a numbered **"finish installing" checklist**
+of the steps only you can do — join the `input` group, log out and back in,
+calibrate your voice (`yazses mic-level --set`), and `yazses start` — and offers
+to run the mic calibration for you there and then. The rest of this section
+explains what it does, for when you want to do it by hand or understand the
+pieces. Verify anytime with `yazses doctor` (want `[OK] Keyboard capture`,
+`[OK] Microphone`, `[OK] Injection`).
 
 ```bash
 yazses doctor   # after install: checks injection backend, mic, input group, ydotoold

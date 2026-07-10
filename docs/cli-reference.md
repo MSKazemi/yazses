@@ -1,77 +1,342 @@
+---
+title: CLI Reference
+description: Hand-written, example-first guide to every yazses command and subcommand, grouped by the panels the CLI itself uses.
+---
+
 # CLI Reference
 
 All commands are available as `yazses <command>` once installed globally
 (`uv tool install` / `pipx install`), or as `uv run yazses <command>` from the
 repo.
 
+> **Looking for the exhaustive, option-by-option list?** See the auto-generated
+> [Command Index](command-index.md) — every command, argument and flag, generated
+> straight from the app. This page is the hand-written companion: it groups the
+> commands the way `yazses --help` does, and gives each a synopsis, its key
+> options, and at least one worked example. For the **full config surface** see the
+> [Configuration Reference](configuration.md); for the **full feature catalogue**
+> see the [Feature Reference](features.md).
+
 **Getting help.** Every command and subcommand accepts both `-h` and `--help`;
-each shows its options plus a worked **Examples** block. `yazses --help` lists
-all commands grouped into panels (Daemon, Setup & calibration, Dictation &
-correction, Remote, Learning & tuning, Updates & maintenance); bare `yazses`
-shows the same help. `yazses --version` / `-V` prints the version.
+each shows its options plus a worked **Examples** block. `yazses --help` lists all
+commands grouped into six panels — **Updates & maintenance**, **Daemon**,
+**Setup & calibration**, **Dictation & correction**, **Remote**, and
+**Learning & tuning** — and bare `yazses` shows the same help. `yazses --version` /
+`-V` prints the version.
 
 **Tab completion.** Run `yazses --install-completion` once to enable `<Tab>`
 completion of commands and options in your shell (`yazses --show-completion`
 prints the script to inspect or customise).
 
-## Daemon lifecycle
+The sections below follow the same six panels.
+
+---
+
+## Updates & maintenance
 
 | Command | Description |
 |---|---|
-| `yazses start` | Start the daemon detached (PID-file tracked). Under systemd, prefer `systemctl --user start yazses`. Warns if a runtime prerequisite is missing (run `yazses setup`) or if an `input`-group re-login is still pending. |
-| `yazses stop` | Stop the running daemon (SIGTERM). |
-| `yazses restart` | Stop **all** daemons (including stray/detached ones) and start exactly one. Use this if dictation is being typed twice. Same prerequisite warnings as `start`. |
-| `yazses status` | Show state, hotkey, model, injection backend, uptime (over IPC). |
-| `yazses features` | List every capability, whether it's on/off, its toggle name, and what's advised. |
-| `yazses features info` | Describe **every** capability — name, what it does, and a usage example (the full catalog). |
-| `yazses features info <name>` | Describe one capability — what it does, a usage example, and how to enable it. |
-| `yazses features enable <name>` | Turn a capability **on** (writes your config), then `yazses restart`. |
-| `yazses features disable <name>` | Turn a capability **off**, then `yazses restart`. |
-| `yazses-daemon` | Run the daemon in the **foreground** (logs to console) — useful for debugging. |
+| `yazses about` | Print a branded banner with the author, version, project links, and where to report a bug or request a feature. |
+| `yazses update` | Check for a newer version and offer to install it. |
 
-`yazses start` restarts cleanly if a daemon is already running (never spawns a duplicate).
+### `yazses about`
 
-### Turning features on and off
-
-`yazses features` is the friendly switchboard — no config-file editing needed:
+Shows a branded banner: author, installed version, project links, and where to
+report issues or request features (issues:
+<https://github.com/MSKazemi/yazses/issues>; author: Mohsen Seyedkazemi Ardebili
+<mohsen.seyedkazemi@gmail.com>). Read-only.
 
 ```bash
-yazses features                      # see everything + the TOGGLE NAME column + advice
-yazses features info                 # describe ALL capabilities + usage examples (pipe to less)
-yazses features info dysfluency      # what it does + a usage example + how to enable
-yazses features enable dysfluency    # turn one on  (use the TOGGLE NAME)
-yazses features disable streaming    # turn one off
-yazses restart                       # apply
+yazses about    # author, version, links, and where to report a bug or request a feature
+```
+
+### `yazses update`
+
+Detects how YazSes was installed and checks the matching source — the tracked
+**snap** channel for snap installs, **PyPI** for pip / pipx / uv-tool — then
+upgrades only when the available version is strictly newer (never a downgrade).
+
+**Options:** `--check` (report only, don't install) · `--yes` / `-y` (install
+without prompting).
+
+```bash
+yazses update           # check for a newer version and offer to install it
+yazses update --check   # only report what's available (don't install)
+yazses update --yes     # install without asking
+```
+
+After a successful update, restart the daemon to load it:
+`systemctl --user restart yazses` (or `yazses stop && yazses start`).
+
+---
+
+## Daemon
+
+| Command | Description |
+|---|---|
+| `yazses start` | Start the daemon; restarts cleanly if one is already running (never a duplicate). |
+| `yazses restart` | Stop **all** daemons (including stray/detached ones) and start exactly one. |
+| `yazses stop` | Stop the running daemon. |
+| `yazses status` | Show state, hotkey, model, injection backend, and uptime over IPC. |
+| `yazses features` | See capabilities and turn them on/off — no config-file editing. |
+| `yazses-daemon` | Run the daemon in the **foreground** (logs to console) — useful for debugging. |
+
+### `yazses start`
+
+Loads the speech model once (first run 10–30 s) and listens for the hotkey.
+Routes through systemd when a `yazses.service` user unit is installed (so it's
+supervised and self-heals), else spawns detached. **Verifies the daemon actually
+came up**: reports when it's ready, notes when it's still loading, or reports a
+startup crash with the reason and exits non-zero. If one is already running it
+**restarts** it (killing any stray duplicates) rather than spawning a second — so
+you never double-type. Warns if a runtime prerequisite is missing (run
+`yazses setup`) or if an `input`-group re-login is still pending.
+
+```bash
+yazses start    # start dictating — hold the hotkey, speak, release
+```
+
+### `yazses restart`
+
+Stop **all** daemons (including stray/detached ones) and start exactly one, then
+verify readiness (same as `start`). Use this if dictation is being typed twice (a
+sign of duplicate daemons). Same prerequisite warnings as `start`.
+
+```bash
+yazses restart    # stop every daemon and start exactly one
+```
+
+### `yazses stop`
+
+Stop the running daemon (SIGTERM). Dictation stays off until you `yazses start`
+again; to pick up a config or version change instead, use `yazses restart`. Exits
+non-zero (with "nothing to stop") when none is running.
+
+```bash
+yazses stop    # dictation off until you start again
+```
+
+### `yazses status`
+
+Show state, hotkey, model, injection backend, and uptime over IPC. When not
+running, points you at `yazses start` (and `yazses quickstart` for new users);
+while the model is still loading it says so rather than looking broken.
+
+```bash
+yazses status    # is it running? show state, model, and hotkey
+```
+
+### `yazses features`
+
+The friendly switchboard for turning capabilities on and off — no config-file
+editing. Bare `yazses features` lists **every** capability **grouped by category**,
+showing whether each is on/off, its toggle name, and an advice tier.
+
+**Options (on the list view):**
+
+| Option | Effect |
+|---|---|
+| `--on` | Show only capabilities that are currently **ON**. |
+| `--tier <tier>` | Filter by advice tier: `core`, `on`, `rec`, `opt`, `exp`. |
+| `--category` / `-c <name>` | Filter by category name (partial, case-insensitive), e.g. `access`. |
+
+**Subcommands:**
+
+| Command | Description |
+|---|---|
+| `yazses features info` | Describe **every** capability — name, what it does, a usage example (the full catalogue; pipe to `less`). |
+| `yazses features info <name>` | Describe one capability — what it does, a usage example, and how to toggle it. |
+| `yazses features enable <name>` | Turn a capability **on** (writes your config), then `yazses restart` to apply. |
+| `yazses features disable <name>` | Turn a capability **off**, then `yazses restart`. |
+
+```bash
+yazses features                          # every capability, grouped, + advice
+yazses features --on                     # show only what's currently enabled
+yazses features --tier rec               # show only the recommended tier
+yazses features --category Multilingual  # show one category
+yazses features info                     # describe ALL capabilities + usage examples
+yazses features info reflow              # describe one + show a usage example
+yazses features enable read-back         # turn one on  (use the TOGGLE NAME)
+yazses features disable cocktail         # turn one off
+yazses restart                           # apply
 ```
 
 Each row shows an **advice** tier:
 
-| Tier | Meaning |
+| Tier (`--tier`) | Meaning |
 |---|---|
 | `core` | Always on (e.g. Dictation core) — can't be toggled. |
-| `recommended (on by default)` | Shipped on; keep it (Voice commands, Mid-Thought Undo, overlay). |
-| `recommended` | Safe and useful — worth enabling (e.g. Dysfluency-Friendly if you stutter). |
-| `optional` | Enable only if you want that capability (Punch-In, Prosody Ink, Read-Back, …). |
-| `experimental — not advised yet` | Known rough edges (Cocktail Filter, Glance-Type). Refused unless you pass `--force`. |
+| `on` | `recommended (on by default)` — shipped on; keep it (Voice commands, Mid-Thought Undo, overlay). |
+| `rec` | `recommended` — safe and useful, worth enabling (e.g. Dysfluency-Friendly if you stutter). |
+| `opt` | `optional` — enable only if you want that capability (Punch-In, Prosody Ink, Read-Back, …). |
+| `exp` | `experimental — not advised yet` — known rough edges (Cocktail Filter, Glance-Type). Refused unless you pass `--force`. |
 
-Experimental features are guarded: `yazses features enable cocktail` prints why it's
-not advised and exits; add `--force` to override.
+Experimental features are guarded: `yazses features enable cocktail` prints why
+it's not advised and exits; add `--force` to override.
 
-## Personal dictionary (words STT mis-hears)
+> The complete catalogue lives in the [Feature Reference](features.md).
+
+### `yazses-daemon`
+
+Run the daemon in the **foreground**, logging to the console — useful for
+debugging. This is the entry point `yazses start` supervises in the background.
+
+---
+
+## Setup & calibration
 
 | Command | Description |
 |---|---|
-| `yazses vocab add <word> ...` | Add words/names to your dictionary so they're spelled right. Then `yazses restart`. |
-| `yazses vocab list` | Show your dictionary. |
+| `yazses quickstart` | **New here? Start here.** A 3-step, machine-tailored getting-started guide (read-only). |
+| `yazses doctor` | Health check: what's OK / missing, ending in a one-line verdict. |
+| `yazses mic-level` | Measure your mic speech level and recommend (or set) the VAD threshold. |
+| `yazses logs` | Show the daemon's diagnostic log (metadata only — no dictated text). |
+| `yazses setup` | Provision all Linux runtime requirements so dictation works out of the box. |
+| `yazses enroll` | Accessibility enrollment wizard: calibrate VAD thresholds to your voice. |
+| `yazses enroll-voice` | Record an encrypted speaker voiceprint (for Cocktail Filter + Voiceprint Mind). |
+| `yazses model` | Manage the SLM intent-routing models (list / download). |
+| `yazses vocab` | Manage your personal dictionary (words STT mis-hears). |
+| `yazses hotkey` | Show or change the key you hold to talk. |
+| `yazses gaze` | Aim dictation with your gaze — type into whichever pane you look at. |
+
+### `yazses quickstart`
+
+Looks at what's already set up (prerequisites, whether the daemon is running, the
+speech model, your hotkey) and prints exactly what to do next (`setup` → `start` →
+hold the key), plus handy follow-ups. Safe to run anytime — it changes nothing.
+
+```bash
+yazses quickstart    # the 3 steps to get dictating, tailored to your machine
+```
+
+### `yazses doctor`
+
+Reports the installed version and daemon status (PID/state/model), then verifies
+platform, keyboard-capture and microphone permissions, **which input device the
+hotkey binds to** (flags a virtual injector device that would make the hotkey
+dead), the session type (X11/Wayland) and its injection tools, **injection
+readiness + `ydotoold` status**, the STT model and model cache, the config dir,
+the active config + hotkey summary, and any configured extras (EMG port, prosody).
+Each line is `OK` / `WARN` / `FAIL` / `SKIP`, and it ends with a one-line
+**verdict**: `✓` everything's good, `▲` only optional warnings remain, or `✗` N
+problems to fix — each with the concrete next command.
+
+**Options:** `--mic` (also record a short ambient clip and warn if room level
+meets/exceeds `accessibility.vad_threshold`).
+
+```bash
+yazses doctor          # run this first if dictation isn't working
+yazses doctor --mic    # also sample the mic and compare it to the VAD gate
+```
+
+### `yazses mic-level`
+
+Records a few seconds while you speak, reports your average mic level vs the
+current `vad_threshold`, and recommends a threshold. Use it when dictation logs
+`Silent audio -- discarding`.
+
+**Options:** `--set` (write the recommended threshold to `config.toml` in place,
+comments preserved) · `--seconds` / `-s N` (record for `N` seconds instead of 4).
+
+```bash
+yazses mic-level          # measure and recommend a threshold
+yazses mic-level --set    # measure and write it to config.toml
+yazses mic-level -s 6     # record for 6 seconds instead of 4
+```
+
+### `yazses logs`
+
+Print the diagnostic log — **metadata only**, never your dictated text.
+
+**Options:** `--lines` / `-n N` (show the last `N` lines; default 40) · `--path`
+(print the log file path and exit — `~/.local/state/yazses/log/daemon.log`).
+
+```bash
+yazses logs          # last 40 log lines
+yazses logs -n 100   # last 100 lines
+yazses logs --path   # just print the log file path
+```
+
+### `yazses setup`
+
+**Linux provisioning, one command.** Installs the audio + injection system
+packages (`libportaudio2`, `xdotool`, `ydotool`, `wtype`, `xclip`,
+`wl-clipboard`), adds you to the `input` group (needed for the hotkey and for
+ydotool's `/dev/uinput` access), and on Wayland sets up + enables the `ydotoold`
+user service (required for injection on GNOME/KDE Wayland, where `wtype` is
+blocked). Idempotent — only fixes what's missing. Finishes by printing a numbered
+**"finish installing" checklist** of the steps only you can do (join the `input`
+group with `sudo usermod -aG input $USER`, log out and back in, calibrate your
+voice, then `yazses start`) and offers to run the mic calibration for you.
+
+**Options:** `--dry-run` (show what it would install/change — plus the same
+finish-installing checklist — without making any changes).
+
+```bash
+yazses setup            # install deps, join input group, set up ydotoold
+yazses setup --dry-run  # preview the changes + checklist
+```
+
+### `yazses enroll`
+
+Accessibility enrollment wizard. Records ~20 short utterances to derive
+`vad_threshold` and `min_silence_ms` values tuned to your voice and microphone,
+then writes them to `config.toml`.
+
+> Can set a too-high threshold in a noisy room — verify with `yazses mic-level`.
+
+```bash
+yazses enroll    # calibrate the mic/VAD thresholds to your voice
+```
+
+### `yazses enroll-voice`
+
+Records a short sample of your voice, computes a speaker embedding, and stores it
+**encrypted on this machine** (never leaves it). Needed by Cocktail Filter and
+Voiceprint Mind. Requires `[voiceprint] enabled = true` and the voiceprint extra
+(`uv sync --extra voiceprint`). Run once; re-run to re-enroll.
+
+```bash
+yazses enroll-voice    # record a sample → save your speaker voiceprint
+```
+
+### `yazses model`
+
+Manage the optional Tier 2 SLM intent-routing models.
+
+| Command | Description |
+|---|---|
+| `yazses model list` | List available SLM models and their download status. |
+| `yazses model download <model_id>` | Download a GGUF model for Tier 2 SLM intent routing. |
+
+```bash
+yazses model list                # show SLM models + which are downloaded
+yazses model download qwen2.5-0.5b  # download an SLM for intent routing
+```
+
+### `yazses vocab` — personal dictionary
+
+Words STT keeps mis-hearing (names, jargon, acronyms) are primed into Whisper's
+`initial_prompt` so they're spelled right. Stored at
+`~/.config/yazses/vocabulary.txt`; run `yazses restart` after changing it.
+
+| Command | Description |
+|---|---|
+| `yazses vocab add <word> ...` | Add one or more words/names to your dictionary. |
+| `yazses vocab list` | Show every word in your dictionary. |
 | `yazses vocab remove <word>` | Remove a word. |
 
-Stored at `~/.config/yazses/vocabulary.txt`; the daemon merges these into Whisper's
-`initial_prompt` on every dictation.
+```bash
+yazses vocab add YazSes               # add one word/name
+yazses vocab add Kubernetes kubectl   # add several at once
+yazses vocab list                     # show the dictionary
+yazses vocab remove kubectl           # drop a word
+yazses restart                        # apply so STT spells them right
+```
 
-### Moving your dictionary to another device
-
-Your dictionary and settings are plain files under `~/.config/yazses/`, so they
-move with a simple copy — no export step:
+**Moving your dictionary to another device.** Your dictionary and settings are
+plain files under `~/.config/yazses/`, so they move with a simple copy — no export
+step:
 
 ```bash
 # on the new device, after installing YazSes:
@@ -81,12 +346,11 @@ scp olddevice:~/.config/yazses/config.toml    ~/.config/yazses/   # hotkey, VAD,
 yazses restart
 ```
 
-Keep `vocabulary.txt` in your dotfiles/backup and it follows you everywhere. The
-opt-in learning corpus (`~/.local/share/yazses/`) is **not** part of this — it is
-encrypted on-device data and is intentionally not portable (see the
+The opt-in learning corpus (`~/.local/share/yazses/`) is **not** part of this — it
+is encrypted on-device data and is intentionally not portable (see the
 [privacy statement](privacy-statement.md)).
 
-## Hold-to-talk key
+### `yazses hotkey` — hold-to-talk key
 
 | Command | Description |
 |---|---|
@@ -94,39 +358,229 @@ encrypted on-device data and is intentionally not portable (see the
 | `yazses hotkey set <key>` | Change the key you hold to **dictate** (e.g. `right_ctrl`), then `yazses restart`. |
 | `yazses hotkey command <key>` | Set a dedicated **command** key, or `off` to disable it. Then `yazses restart`. |
 
-Choices: `right_alt` (default), `left_alt`, `right_ctrl`, `left_ctrl`, `right_shift`,
-`left_shift`, `right_meta`, `left_meta`, `space`. Prefer a dedicated modifier so it
-doesn't collide with normal typing.
-
-### Dedicated command key (force command mode)
-
-By default one key does both jobs: you hold the dictation key, speak, and YazSes
-**auto-detects** whether your phrase was a command ("save", "undo") or text. That's
-fine for most use, but an exactly-matching phrase can fire a command when you meant
-to type it.
-
-A dedicated command key removes the ambiguity. Bind a **second** key — when you hold
-it, everything you say is parsed as a command and **never typed as literal text**
-(an unrecognised phrase is simply ignored, not inserted):
+Choices: `right_alt` (default), `left_alt`, `right_ctrl`, `left_ctrl`,
+`right_shift`, `left_shift`, `right_meta`, `left_meta`, `space`. Prefer a
+dedicated modifier so it doesn't collide with normal typing.
 
 ```bash
-yazses hotkey command right_ctrl   # dictate on right_alt, command on right_ctrl
-yazses restart
-yazses hotkey command off           # back to single-key auto-detect
+yazses hotkey show                # print the keys + the choices
+yazses hotkey set right_ctrl      # hold Right-Ctrl to dictate
+yazses hotkey command right_ctrl  # dictate on right_alt, commands on right_ctrl
+yazses hotkey command off         # remove the command key
+yazses restart                    # apply
 ```
+
+**Dedicated command key (force command mode).** By default one key does both
+jobs: you hold the dictation key, speak, and YazSes **auto-detects** whether your
+phrase was a command ("save", "undo") or text. Binding a **second** key removes the
+ambiguity — while you hold it, everything you say is parsed as a command and
+**never typed as literal text** (an unrecognised phrase is simply ignored):
 
 - The command key must be **different** from your dictation key.
 - Holding the **dictation** key still works exactly as before (text, with command
   auto-detection).
-- Holding the **command** key: "save" → Ctrl+S even though it would normally be text;
-  "hello there" → ignored (no command matched), nothing typed.
+- Holding the **command** key: "save" → Ctrl+S even though it would normally be
+  text; "hello there" → ignored (no command matched), nothing typed.
+
+See the [voice command reference](#voice-command-reference) below for the phrases.
+
+### `yazses gaze` — Glance-Type (webcam gaze targeting)
+
+| Command | Description |
+|---|---|
+| `yazses gaze calibrate` | Calibrate the webcam so your gaze maps to screen zones. |
+
+Requires `[gaze] enabled = true`, a webcam, and the gaze deps
+(`pip install l2cs mediapipe opencv-python`). You look at a few on-screen points
+to fit the gaze→screen mapping; frames are used in-RAM during a hold only — never
+stored or sent.
+
+```bash
+yazses gaze calibrate    # fit the webcam gaze → screen-zone mapping
+```
+
+---
+
+## Dictation & correction
+
+| Command | Description |
+|---|---|
+| `yazses inject <text>` | Type text into the focused window without recording (tests the injector). |
+| `yazses say <text>` | Speak text aloud with the built-in offline voice. |
+| `yazses overlay` | Run the sonar voice-activity overlay in the foreground (preview/debug). |
+| `yazses reflow [text]` | Reflow a monologue into a bulleted outline — fully offline. |
+| `yazses table [text]` | Turn spoken rows into delimited (CSV) lines — fully offline. |
+| `yazses shellpipe [text]` | Render a spoken pipeline into a shell command (printed, never run). |
+| `yazses braille [text]` | Translate text to Unicode Braille (UEB subset) — fully offline. |
+| `yazses punch-in` | Correct the last dictation by re-speaking just the wrong phrase. |
+| `yazses transcribe <file>` | Transcribe an audio file to text — fully offline. |
+| `yazses test` | End-to-end self-test: confirm the injector works without speaking. |
+
+### `yazses test`
+
+Types `YazSes OK` into the focused window (no speaking) so you can confirm
+injection works. Focus a text editor first.
+
+```bash
+yazses test    # focus an editor first, then watch for 'YazSes OK'
+```
+
+### `yazses inject`
+
+Inject text into the focused app without recording — the quickest way to test the
+injection backend.
+
+```bash
+yazses inject "hello world"    # type it into the focused window
+```
+
+### Choosing the injection backend
+
+On Wayland the default (`auto`) **types** via ydotool, which works in every app —
+editors, browsers, **and terminals** — and never touches your clipboard. If you'd
+rather paste (instant, but a no-op in terminals where `Ctrl+V` is literal, and
+overwrites the clipboard), set the backend:
+
+```toml
+[injection]
+backend = "clipboard"   # "auto" (default) | "type" | "clipboard" | "wtype"
+```
+
+Or per-run without editing config: `YAZSES_INJECTOR=clipboard`. Run
+`yazses restart` after changing it. `yazses status` shows the backend actually in
+use.
+
+### `yazses say`
+
+Speak arbitrary text aloud through the offline TTS voice (Read-Back Loop). Routes
+through the running daemon so it reuses the loaded TTS backend. Requires
+`[tts] enabled = true` (install the voice with `uv sync --extra tts`).
+
+```bash
+yazses say "hello there"    # speak text aloud via offline TTS
+```
+
+### `yazses overlay`
+
+Runs the sonar voice-activity overlay in the foreground (preview/debug) — neon
+rings near the cursor that pulse with your voice while dictating. Normally the
+daemon auto-launches it (`[overlay] enabled = true`); the direct console script
+`yazses-overlay` does the same thing. PySide6 ships in the base install and is
+bundled in the snap, so it works out of the box. For true see-through rings on X11
+you need a compositor (e.g. `picom`).
+
+```bash
+yazses overlay    # preview the sonar rings in the foreground
+```
+
+Auto-launch is **on by default**; the daemon only spawns the overlay when a
+display (`DISPLAY`/`WAYLAND_DISPLAY`) is present **and** PySide6 is installed. See
+the [Configuration Reference](configuration.md) for the `[overlay]` keys
+(`style`, `position`, `react_to_voice`, `accent`, `size_px`, `fps`,
+`cursor_offset_px`).
+
+### Offline text tools
+
+One-shot, fully-offline text transforms. Each reads its `TEXT` argument, or
+standard input when omitted (so you can pipe a transcript in). Nothing is
+uploaded.
+
+| Command | Options | Example |
+|---|---|---|
+| `yazses reflow` | — | `yazses reflow "First, set up. Then test. I need to ship."` |
+| `yazses table` | `--sep <char>` (default `,`) | `yazses table "row: Ada, 1815, London next row Bob, 1990, Paris"` |
+| `yazses shellpipe` | — | `yazses shellpipe "list files then count lines"` → `ls \| wc -l` |
+| `yazses braille` | `--grade <1\|2>` (default `2`) | `yazses braille "hello world"` → `⠓⠑⠇⠇⠕ ⠺⠕⠗⠇⠙` |
+
+- **`reflow`** splits on sentence boundaries, strips a leading discourse marker
+  (`first`, `then`, `finally`, …), and turns action phrases (`I need to`, `to do`,
+  `follow up`) into `- [ ]` checkboxes.
+- **`table`** splits cells on commas/semicolons or the word `and`; rows split on
+  `next row` or newlines; a leading `row:`/`entry:`/`record:` marker is stripped.
+- **`shellpipe`** recognises stages like `list files`, `filter for X`,
+  `count lines`, `sort`, `unique`, and **prints** the pipeline for you to review —
+  it **never executes** anything; it exits non-zero (emitting nothing) if a stage
+  isn't recognised.
+- **`braille`** translates to Unicode Braille; `--grade 1` is uncontracted.
+
+```bash
+cat notes.txt | yazses reflow          # reflow a piped transcript
+yazses table --sep ';' "a, b next row c, d"   # semicolon-separated CSV
+yazses braille --grade 1 "abc"         # Grade 1 (uncontracted)
+```
+
+### `yazses punch-in`
+
+Re-speak just the wrong phrase to correct the last dictation burst. The daemon
+records a short window, aligns the respoken phrase against the last burst it
+typed, then deletes that burst and retypes it corrected. Because pure respeak
+fixes only ~35% on the first try (Suhm 2001), the alignment surfaces the top
+candidates rather than silently splicing. Requires `[punch_in] enabled = true`.
+
+**Options:** `--dry-run` (list candidate spans without editing, so you can confirm
+first) · `--choose` / `-n N` (apply the candidate at rank `N`; `0` = best,
+default).
+
+```bash
+yazses punch-in              # re-speak the phrase; correct the best match
+yazses punch-in --dry-run    # list candidate spans without editing
+yazses punch-in --choose 1   # apply the 2nd-ranked candidate
+```
+
+### `yazses transcribe`
+
+Transcribe an existing audio file **offline** and write a sidecar text file next
+to it (`talk.mp3 → talk.txt`), using the same local `faster-whisper` engine as
+live dictation — no cloud, no network, no account. CLI-only; it doesn't touch the
+daemon, hotkey, or your dictation config. Accepts wav/mp3/m4a/ogg/flac/opus/mp4
+and most other ffmpeg-decodable media.
+
+**Options:**
+
+| Option | Effect |
+|---|---|
+| `--format` / `-f <fmt>` | Output format: `txt` (default) `\| md \| srt \| vtt \| json`. `srt`/`vtt` add timestamps; `json` is lossless (per-word timestamps + speaker). |
+| `--out` / `-o <path>` | Write to an explicit path instead of the sidecar default. |
+| `--model <name>` | Override the STT model for this run (e.g. `small.en` = more accurate, slower). Defaults to your `[stt]` model. |
+| `--language <lang>` | `en` (default) or `translate` to render any-language audio into English. |
+| `--diarize` / `--no-diarize` | Tag who said what with local speaker models (needs the `diarization` extra). |
+| `--speakers <N>` | Force an exact speaker count (`0` = auto-detect). |
+| `--min-speakers <N>` / `--max-speakers <N>` | Bounds on the auto-detected speaker count. |
+| `--names "Alice,Bob"` | Comma list mapped to speakers in order of first appearance. |
+| `--rename speaker_0=Alice` | Explicit speaker→name map, repeatable. |
+| `--download-models` | Fetch the ~15 MB sherpa diarization models, then exit (no transcription). |
+
+```bash
+yazses transcribe talk.mp3                     # → talk.txt beside it
+yazses transcribe talk.mp3 -o notes.txt        # choose the output path
+yazses transcribe lecture.mp3 --format srt     # subtitle file with timestamps
+yazses transcribe talk.mp3 --model small.en    # more accurate, slower
+yazses transcribe talk.fr.m4a --language translate   # any language → English
+yazses transcribe mtg.m4a --diarize            # tag speakers: 'Speaker 1: …'
+yazses transcribe mtg.m4a --diarize --speakers 3           # exact speaker count
+yazses transcribe mtg.wav --diarize --names 'Alice,Bob'    # name them in order
+yazses transcribe mtg.wav --diarize --rename speaker_0=Alice  # name one speaker
+yazses transcribe mtg.m4a --download-models    # fetch diarize models, then exit
+```
+
+Notes:
+
+- **Speaker tags need the diarization extra:** `uv sync --extra diarization`
+  (sherpa-onnx — CPU-only, no PyTorch, no GPU, no account). Without it, `--diarize`
+  degrades to a plain transcript and tells you.
+- **Speaker naming is opt-in and private.** With `--diarize` and an enrolled
+  voiceprint (`yazses enroll-voice`), your own voice is auto-labelled **"You"**;
+  everyone else is `Speaker N` unless you name them. No new data is stored and no
+  one is ever enrolled automatically — speaker voiceprints are biometric data and
+  stay encrypted on this machine. You are responsible for having permission to
+  record and transcribe the audio.
 
 ### Voice command reference
 
 Hold the command key (or, with auto-detect, the dictation key) and say one of
-these. Phrases are matched case-insensitively and trailing punctuation is
-ignored, so "Save file." works the same as "save". Spelled-out numbers
-("delete the last **three** words") are accepted.
+these. Phrases are matched case-insensitively and trailing punctuation is ignored,
+so "Save file." works the same as "save". Spelled-out numbers ("delete the last
+**three** words") are accepted.
 
 | Say | Does |
 |---|---|
@@ -147,105 +601,9 @@ ignored, so "Save file." works the same as "save". Spelled-out numbers
 | "run the tests" · "run the build" · "run CMD" | run in terminal |
 | "rename this to NAME" | rename symbol (F2) |
 
-Don't see a command you want? Tell us — the grammar is easily extended. Natural-
-language commands beyond this fixed list require the optional Tier 2 SLM router
-(`[commands] slm_model_path`), which is off by default.
-
-## Updating
-
-| Command | Description |
-|---|---|
-| `yazses update` | Check for a newer version and offer to install it. Detects the install method and checks the matching source — the tracked **snap** channel for snap installs, **PyPI** for pip / pipx / uv-tool. Only upgrades when the available version is strictly newer (never a downgrade). |
-| `yazses update --check` | Only report what's available; don't install. |
-| `yazses update --yes` | Install the update without prompting. |
-
-After a successful update, restart the daemon to load it:
-`systemctl --user restart yazses` (or `yazses stop && yazses start`).
-
-## Diagnostics & tuning
-
-| Command | Description |
-|---|---|
-| `yazses setup` | **Linux provisioning, one command.** Installs the audio + injection system packages (`libportaudio2`, `xdotool`, `ydotool`, `wtype`, `xclip`, `wl-clipboard`), adds you to the `input` group, and on Wayland sets up + enables the `ydotoold` user service (required for injection on GNOME/KDE Wayland, where `wtype` is blocked). Idempotent — only fixes what's missing. Re-login after a group change. |
-| `yazses setup --dry-run` | Show what `setup` would install/change without doing it. |
-| `yazses doctor` | Health check: installed version, daemon status (PID/state/model), **install consistency** (duplicate `yazses` on `PATH`; systemd `ExecStart` pointing at a missing/different binary), keyboard capture, **which input device the hotkey binds to** (flags a virtual injector device that would make the hotkey dead), microphone, session type, injection tools, **injection readiness + `ydotoold` status**, STT model availability, model cache, config dir, active config + hotkey summary, (EMG port / enabled extras if configured). |
-| `yazses doctor --mic` | As above, plus record a short ambient clip and warn if room level meets/exceeds `accessibility.vad_threshold`. |
-| `yazses mic-level` | Record ~4s, report your average mic level vs the current `vad_threshold`, and recommend a threshold. |
-| `yazses mic-level --set` | Same, and write the recommended `vad_threshold` to `config.toml` in place (comments preserved). |
-| `yazses mic-level -s N` | Record for `N` seconds instead of 4. |
-| `yazses logs` | Print the last 40 lines of the diagnostic log (**metadata only** — never your dictated text). |
-| `yazses logs -n N` | Show the last `N` lines. |
-| `yazses logs --path` | Print the log file path only (`~/.local/state/yazses/log/daemon.log`). |
-
-## Transcribe a recording (file → text, fully offline)
-
-`yazses transcribe <file>` transcribes an existing audio file **offline** and writes a text file next
-to it (`talk.mp3 → talk.txt`). It runs the same local `faster-whisper` STT engine as live dictation —
-nothing is uploaded, no cloud, no account. With `--diarize` it also tags who said what. This is a
-CLI-only path; it doesn't touch the daemon, hotkey, or your dictation config.
-
-| Command | Description |
-|---|---|
-| `yazses transcribe talk.mp3` | Transcribe to `talk.txt` next to the input. Accepts wav/mp3/m4a/ogg/flac/opus/mp4. |
-| `yazses transcribe mtg.m4a --diarize` | Tag speakers: each line is `Speaker 1: …`, `Speaker 2: …`. |
-| `yazses transcribe mtg.wav --diarize --names "Alice,Bob"` | Use real names, mapped to speakers in order of first appearance. |
-| `yazses transcribe mtg.wav --diarize --rename speaker_0=Alice` | Name a specific speaker (repeatable). |
-| `yazses transcribe lecture.mp3 --format srt` | Write a subtitle file (`txt \| md \| srt \| vtt \| json`). |
-| `yazses transcribe call.ogg --diarize --speakers 2` | Force an exact speaker count (`0`/omitted = auto). Also `--min-speakers` / `--max-speakers`. |
-| `yazses transcribe talk.mp3 --model small.en` | Override the STT model for this run — `small.en` is more accurate (slower) than `base.en`. Defaults to your `[stt]` model. |
-| `yazses transcribe note.m4a --language translate` | Transcribe any language into English. |
-| `yazses transcribe clip.wav -o out.txt` | Write to an explicit path instead of the sidecar default. |
-| `yazses transcribe mtg.m4a --download-models` | Fetch the ~15 MB sherpa diarization models (one-time; needed for `--diarize`), then exit. |
-
-Notes:
-- **Speaker tags need the diarization extra:** `uv sync --extra diarization` (sherpa-onnx — CPU-only, no
-  PyTorch, no GPU, no account). Without it, `--diarize` degrades to a plain transcript and tells you.
-- **Speaker naming is opt-in and private.** With `--diarize` and an enrolled voiceprint
-  (`yazses enroll-voice`), your own voice is auto-labelled **"You"**; everyone else is `Speaker N`
-  unless you name them. No new data is stored and no one is ever enrolled automatically — speaker
-  voiceprints are biometric data and stay encrypted on this machine. You are responsible for having
-  permission to record and transcribe the audio.
-- `json` output is lossless (per-word timestamps + speaker); `srt`/`vtt` are subtitles.
-
-## Offline text tools
-
-One-shot, fully-offline text transforms. Each reads its `TEXT` argument, or standard input when
-omitted (so you can pipe a transcript in). Nothing is uploaded.
-
-| Command | Description |
-|---|---|
-| `yazses reflow "First, set up. Then test. I need to ship."` | Reflow a monologue into a bulleted outline; action phrases become `- [ ]` checkboxes (ADR-v2-038). |
-| `yazses table "row: Ada, 1815, London next row Bob, 1990, Paris"` | Turn spoken rows into delimited CSV lines; `--sep ';'` for a different separator (ADR-v2-091). |
-| `yazses shellpipe "list files then count lines"` | Render a spoken pipeline into a shell command (`ls \| wc -l`) — **printed, never executed** (ADR-v2-082). |
-| `yazses braille "hello world"` | Translate text to Unicode Braille (UEB subset); `--grade 1` for uncontracted (ADR-v2-117). |
-
-## Dictation & injection
-
-| Command | Description |
-|---|---|
-| `yazses test` | End-to-end self-test: types `YazSes OK` into the focused window (no speaking) so you can confirm injection works. Focus a text editor first. |
-| `yazses inject "text"` | Inject text into the focused app without recording (tests the injection backend). |
-| `yazses enroll` | Run the accessibility calibration wizard (writes `vad_threshold`, etc.). Note: can set a too-high threshold in a noisy room — verify with `yazses mic-level`. |
-| `yazses punch-in` | Re-speak just the wrong phrase to correct the last dictation burst. Records a short window, aligns it against the last burst, deletes it and retypes it corrected. Requires `[punch_in] enabled = true`. |
-| `yazses punch-in --dry-run` | List candidate spans without editing, so you can confirm first. |
-| `yazses punch-in --choose N` | Apply the candidate at rank `N` (0 = best match). |
-| `yazses say "text"` | Speak text aloud through the offline TTS voice (Read-Back Loop). Requires `[tts] enabled = true`. |
-
-### Choosing the injection backend
-
-YazSes types your words into the focused app. On Wayland the default (`auto`)
-**types** via ydotool, which works in every app — editors, browsers, **and
-terminals** — and never touches your clipboard. If you'd rather paste (instant,
-but does nothing in terminals where `Ctrl+V` is literal, and overwrites the
-clipboard), set the backend:
-
-```toml
-[injection]
-backend = "clipboard"   # "auto" (default) | "type" | "clipboard" | "wtype"
-```
-
-Or per-run without editing config: `YAZSES_INJECTOR=clipboard`. Run `yazses
-restart` after changing it. `yazses status` shows the backend actually in use.
+Don't see a command you want? Tell us — the grammar is easily extended.
+Natural-language commands beyond this fixed list require the optional Tier 2 SLM
+router (`[commands] slm_model_path`), which is off by default.
 
 ### Voice punctuation (opt-in)
 
@@ -266,83 +624,152 @@ mark to insert it (say `yazses restart` after enabling):
 Example: *"the tests pass comma ship it period"* → `the tests pass, ship it.`
 It is **off by default** because these words also appear in ordinary speech.
 
-## Voice-activity overlay (sonar)
+### Mid-Thought Undo
 
-A standalone process that draws neon "sonar" rings near the cursor, expanding and
-pulsing with your live voice level while you dictate. PySide6 ships in the base
-install (and is bundled in the snap), so the overlay works out of the box — no
-extra step. For true see-through rings on X11 you need a compositor (e.g.
-`picom`) running.
+On by default (`[revise] enabled = true`). Say **"scratch that"** (or "delete
+that" / "no scratch that") as a whole utterance to delete the last thing YazSes
+typed — it issues backspaces, so it works in any text field, and a buffer ledger
+ensures it never deletes more than YazSes injected. Saying the phrase inside a
+sentence ("scratch the surface") does not trigger it.
 
-| Command | Description |
-|---|---|
-| `yazses overlay` | Run the overlay in the foreground (preview/debug). Connects to the running daemon over IPC. |
-| `yazses-overlay` | Same, as a direct console script (this is what the daemon auto-launches). |
+---
 
-Auto-launch with the daemon is **on by default** (`[overlay] enabled = true`);
-set it to `false` to opt out. The daemon only spawns the overlay when a display
-(`DISPLAY`/`WAYLAND_DISPLAY`) is present **and** PySide6 is installed — if the
-`overlay` extra is missing it logs a one-line hint and carries on, so dictation
-is never affected.
-
-`[overlay]` config keys:
-
-| Key | Default | Description |
-|---|---|---|
-| `enabled` | `true` | Auto-launch the overlay alongside the daemon (soft no-op without PySide6). |
-| `style` | `"sonar"` | Visual style (reserved for future styles). |
-| `position` | `"cursor"` | `cursor` \| `bottom_center` \| `top_center` \| `corner`. |
-| `react_to_voice` | `true` | Drive the animation from live mic level (vs a steady pulse). |
-| `accent` | `"#00e5ff"` | Ring colour (neon cyan). |
-| `size_px` | `220` | Overlay window square size. |
-| `fps` | `60` | Render frame rate. |
-| `cursor_offset_px` | `28` | Offset from the pointer (so it isn't under the caret). |
-
-## Remote dictation
+## Remote
 
 | Command | Description |
 |---|---|
-| `yazses remote <host>` | Forward voice typing to a remote SSH host. `--port/-p`, `--key-file/-i`, `--stop`. |
+| `yazses remote <host>` | Forward voice typing to a remote host over SSH. |
 | `yazses-agent --listen <port>` | Run the remote injection agent on the remote host. |
 
-## Self-improvement loop (opt-in, local, encrypted)
+### `yazses remote`
 
-Requires `[learning] enabled = true` (off by default; ADR-012). All data stays
-on the machine, encrypted at rest with a machine-bound key.
+Speak on your local machine and have the text typed into the focused app on a
+remote SSH host (via a reverse tunnel).
+
+**Options:** `--port` / `-p <n>` (SSH port; default 22) · `--key-file` / `-i
+<path>` (SSH private key) · `--stop` (disconnect the active remote session).
+
+```bash
+yazses remote dev.example.com           # forward voice typing over SSH
+yazses remote dev.example.com -p 2222   # non-default SSH port
+yazses remote dev.example.com --stop    # disconnect the session
+```
+
+On the **remote** host, run the injection agent that receives the keystrokes:
+
+```bash
+yazses-agent --listen 9875
+```
+
+---
+
+## Learning & tuning
+
+The self-improvement loop is **opt-in, local, and encrypted**. It requires
+`[learning] enabled = true` (off by default; ADR-012). All data stays on the
+machine, encrypted at rest with a machine-bound key.
 
 | Command | Description |
 |---|---|
-| `yazses tune` | Analyse the captured corpus and **print** proposed config diffs (vocabulary, `vad_threshold`, model, disfluency rules, SLM few-shots). Each proposal is checked against a recent **held-out** slice of the corpus and labelled *validated (N/M held-out)* / *unverified* / *unvalidated (corpus too small)* (ADR-014); corroborated proposals are listed first. Dry-run; changes nothing. |
-| `yazses tune --apply` | Same, but review each proposal interactively and write approved ones to `config.toml` (comments preserved). |
-| `yazses tune --no-retranscribe` | Skip the larger-model re-transcription pass (faster; uses only flagged/edited signals). |
-| `yazses mark-wrong` | Flag the last dictation as a misrecognition (a learning signal). Routed through the running daemon. |
-| `yazses mark-wrong -c "what you said"` | Same, attaching the correct text. |
+| `yazses mark-wrong` | Flag the last dictation as a misrecognition (a learning signal). |
+| `yazses coach` | Show private speaking-style analytics (filler rate, WPM, vocabulary). |
+| `yazses recall [words…]` | Search your past dictations (Spoken Recall). |
+| `yazses scratch [list\|clear]` | Show or clear ambient "note to self …" scratch notes. |
+| `yazses tune` | Analyse the corpus and propose accuracy improvements. |
+| `yazses corpus` | Inspect or clear the local learning corpus. |
+
+### `yazses mark-wrong`
+
+Flag the last dictation as a misrecognition. Routes through the running daemon so
+the flag lands on the event it just captured. **Options:** `--correction` / `-c
+"..."` (attach what you actually said).
+
+```bash
+yazses mark-wrong                      # flag the last dictation as wrong
+yazses mark-wrong -c "kubernetes pod"  # flag it and attach the correct text
+```
+
+### `yazses coach`
+
+Speaking-style analytics from your recent dictations — filler-word rate,
+words-per-minute, vocabulary variety. Reads only your local encrypted corpus.
+**Options:** `--limit` / `-n N` (how many recent dictations to analyse; default
+100).
+
+```bash
+yazses coach          # stats from your recent dictations
+yazses coach -n 200   # analyse the last 200
+```
+
+### `yazses recall`
+
+Search your past dictations for words, or show the most recent with no query.
+Requires `[learning] enabled = true` **and** `[recall] enabled = true`. Reads the
+local encrypted corpus only.
+
+```bash
+yazses recall kubernetes deploy   # search past dictations for those words
+yazses recall                     # show your most recent dictations
+```
+
+### `yazses scratch`
+
+Show (`list`, the default) or `clear` ambient scratch notes captured by saying
+"note to self …" in command mode. Requires `[recall] scratch = true`; notes are
+stored in a plain local file.
+
+```bash
+yazses scratch          # list your ambient note-to-self notes
+yazses scratch clear    # delete all scratch notes
+```
+
+### `yazses tune`
+
+Analyse the captured corpus and **print** proposed config diffs (vocabulary,
+`vad_threshold`, model, disfluency rules, SLM few-shots). Each proposal is checked
+against a recent **held-out** slice of the corpus and labelled *validated (N/M
+held-out)* / *unverified* / *unvalidated (corpus too small)* (ADR-014);
+corroborated proposals are listed first. Dry-run by default — changes nothing.
+
+**Options:** `--apply` (review each proposal interactively and write approved ones
+to `config.toml`, comments preserved) · `--retranscribe` / `--no-retranscribe`
+(re-transcribe captured audio with a larger model to find errors; on by default —
+skip for a faster run that uses only flagged/edited signals).
+
+```bash
+yazses tune                     # dry-run: print proposed config changes
+yazses tune --apply             # review and write approved changes
+yazses tune --no-retranscribe   # skip the slower re-transcription pass
+```
+
+### `yazses corpus`
+
+Inspect or clear the local learning corpus.
+
+| Command | Description |
+|---|---|
 | `yazses corpus status` | Show corpus location, event/discard/flag counts, size, and date range. |
-| `yazses corpus forget --minutes N` | Delete events captured in the last `N` minutes (e.g. after dictating something private). |
-| `yazses corpus destroy --i-mean-it` | Irreversibly wipe the corpus (database + audio clips). |
+| `yazses corpus forget --minutes N` / `-m N` | Delete events captured in the last `N` minutes (e.g. after dictating something private). |
+| `yazses corpus destroy --i-mean-it` | Irreversibly wipe the corpus (database + audio clips). `--i-mean-it` is required. |
 
-### Insights from your corpus (private, on-device)
+```bash
+yazses corpus status                 # location, counts, size, date range
+yazses corpus forget -m 10           # delete the last 10 minutes of events
+yazses corpus destroy --i-mean-it    # irreversibly wipe the whole corpus
+```
 
-These read only your local encrypted corpus and require `[learning] enabled = true`.
-Nothing leaves the machine.
+---
 
-| Command | Description |
-|---|---|
-| `yazses coach` | Speaking-style analytics from your recent dictations — filler-word rate, words-per-minute, vocabulary variety. |
-| `yazses coach -n 200` | Analyse the last `N` dictations (default `100`). |
-| `yazses recall <words…>` | Search your past dictations for those words (Spoken Recall). Also needs `[recall] enabled = true`. |
-| `yazses recall` | Show your most recent dictations (no query). |
-| `yazses scratch` | Show ambient scratch notes captured by saying "note to self …" in command mode (needs `[recall] scratch = true`). `list` is the default. |
-| `yazses scratch clear` | Delete all scratch notes. |
+## Feature configuration snapshots
 
-## Models (Tier 2 SLM intent routing)
+Most capabilities are toggled with `yazses features enable/disable <name>` (see
+[Daemon → `yazses features`](#yazses-features) above) and configured in
+`config.toml`. This section is a quick snapshot of the most-asked-about knobs; the
+**complete, generated config surface** is in the
+[Configuration Reference](configuration.md), and the **full capability catalogue**
+is in the [Feature Reference](features.md).
 
-| Command | Description |
-|---|---|
-| `yazses model list` | List available / downloaded SLM intent-routing models. |
-| `yazses model download <name>` | Download an SLM model. |
-
-## Voice macros (Say-Macro)
+### Voice macros (Say-Macro)
 
 Off by default. Enable in `config.toml`, then define triggers in a sibling
 `macros.toml`:
@@ -375,26 +802,11 @@ snippet = "try:\n    ${cursor}\nexcept Exception as exc:\n    raise"
 - **Placeholders:** `${cursor}` (snippet caret, first occurrence), `${date}`
   (`YYYY-MM-DD`), `${time}` (`HH:MM`), `${author}` (from config), `${clipboard}`.
   Unknown `${...}` tokens are left literal. No shell/command execution.
-- `type = "actions"` (OS/app key chains) is parsed but dormant in this release
-  (lands in P2).
+- `type = "actions"` (OS/app key chains) is parsed but dormant in this release.
 
-## Mid-Thought Undo
+### Punch-In (correct by re-speaking)
 
-On by default (`[revise] enabled = true`). Say **"scratch that"** (or "delete
-that" / "no scratch that") as a whole utterance to delete the last thing YazSes
-typed — it issues backspaces, so it works in any text field, and a buffer ledger
-ensures it never deletes more than YazSes injected. Saying the phrase inside a
-sentence ("scratch the surface") does not trigger it. Disable with
-`[revise] enabled = false`.
-
-## Punch-In — correct by re-speaking (off by default)
-
-Enable with `[punch_in] enabled = true`. Run `yazses punch-in`, re-speak just the
-wrong phrase, and YazSes locates the closest span in the last burst it typed
-(stdlib `difflib`), deletes that burst, and retypes it corrected. Because pure
-respeak fixes only ~35% on the first try (Suhm 2001), the alignment surfaces the
-top candidates rather than silently splicing — use `--dry-run` to review them and
-`--choose N` to apply a specific span.
+Enable with `[punch_in] enabled = true`; run with `yazses punch-in` (above).
 
 ```toml
 [punch_in]
@@ -404,15 +816,11 @@ max_candidates = 3
 record_seconds = 4.0    # re-record window for the respoken phrase
 ```
 
-## Prosody Ink — prosody-driven formatting (off by default, batch dictation only)
+### Prosody Ink (prosody-driven formatting)
 
-Enable with `[prosody] enabled = true`. A long inter-word pause becomes a
-paragraph break; with `format = "markdown"` and the `prosody` extra
+Off by default, batch dictation only. A long inter-word pause becomes a paragraph
+break; with `format = "markdown"` and the `prosody` extra
 (`uv sync --extra prosody` → parselmouth) vocal emphasis becomes **bold**.
-`format = "none"` keeps paragraph breaks (universal whitespace) and drops bold.
-Dictation only; skipped on the streaming path. When enabled, `yazses doctor`
-reports whether the `prosody` extra is importable (WARN if missing — pause→¶ still
-works, only emphasis is disabled).
 
 ```toml
 [prosody]
@@ -424,36 +832,32 @@ emphasis_sensitivity = 0.65
 max_latency_ms = 150       # above this, logs a warning and degrades to pause-only
 ```
 
-## Dysfluency-Friendly Mode — clean stuttered / dysarthric dictation (off by default)
+### Dysfluency-Friendly Mode
 
-Enable with `[accessibility] dysfluency_friendly = true`. The disfluency filter then
-collapses sub-word repetitions (`b-b-because` → `because`), short fragment runs
-(`b b because` → `because`), heavy unigram repeats (`the the the` → `the`), and
-prolongations (`sooo` → `so`) out of the final text — while protecting proper nouns,
-code identifiers, URLs, intentional hyphenation (`re-read`), and emphasis (`very very`).
-It also widens pre-speech padding for delayed voice onset. It does **not** change
-endpointing: YazSes is hold-to-talk, so you control when the utterance ends (ADR-015).
-Fully offline, no model training. When on, `yazses doctor` shows the mode's status.
+Clean stuttered / dysarthric dictation. Off by default. One switch enables the
+collapse pass (`b-b-because` → `because`, `the the the` → `the`, `sooo` → `so`)
+plus wider onset padding — while protecting proper nouns, code identifiers, URLs,
+intentional hyphenation (`re-read`), and emphasis (`very very`). Hold-to-talk, so
+endpointing is unchanged (ADR-015). Fully offline, no model training.
 
 ```toml
 [accessibility]
-dysfluency_friendly = true     # one switch: enables the collapse pass + wider onset padding
+dysfluency_friendly = true     # collapse pass + wider onset padding
 
 # Fine-grained knobs (set individually instead of the preset if you prefer):
 [filters.disfluency]
-collapse_repetitions = true        # b-b-because / b b because / the the the
-collapse_prolongations = true      # sooo -> so
-prolongation_min_run = 3           # letter-run length that triggers collapse
-repetition_max_fragment_len = 2    # max length of a stutter "fragment"
+collapse_repetitions = true
+collapse_prolongations = true
+prolongation_min_run = 3
+repetition_max_fragment_len = 2
 ```
 
-## Read-Back Loop — hear your dictation (off by default)
+### Read-Back Loop (hear your dictation)
 
-Enable with `[tts] enabled = true` and `[accessibility] read_back = "final"`, then
-install the offline voice: `uv sync --extra tts` (Kokoro-82M, Apache-2.0). After
-each dictation YazSes speaks the transcript back so you can verify by ear — useful
-eyes-free or with low vision. Commands are never read back. `yazses say "text"`
-speaks arbitrary text on demand. A hold during playback barges in (stops the voice).
+Off by default. After each dictation YazSes speaks the transcript back so you can
+verify by ear — useful eyes-free or with low vision. `yazses say "text"` speaks
+arbitrary text on demand. Install the offline voice with `uv sync --extra tts`
+(Kokoro-82M, Apache-2.0).
 
 ```toml
 [tts]
@@ -464,16 +868,14 @@ speed = 1.0
 max_readback_chars = 600   # longer bursts are truncated with "…"
 
 [accessibility]
-read_back = "final"        # off (default) | final | confirm (P2: spoken yes/no/redo)
+read_back = "final"        # off (default) | final | confirm (P2)
 ```
 
-## Ghost Ahead — endpoint pre-warm (off by default)
+### Ghost Ahead (endpoint pre-warm)
 
-Enable with `[endpoint] enabled = true`. The daemon predicts *when* you stop
-(stable confirmed prefix + trailing silence) and pre-warms the decode path to hide
-release latency. Pre-warm is harmless — the authoritative transcript still happens
-on real hold-release, so a wrong guess can never truncate text. Speculative
-finalize stays gated behind `speculative_finalize` (Phase 2).
+Off by default. The daemon predicts *when* you stop (stable confirmed prefix +
+trailing silence) and pre-warms the decode path to hide release latency. Pre-warm
+is harmless — the authoritative transcript still happens on real hold-release.
 
 ```toml
 [endpoint]
@@ -482,33 +884,27 @@ prewarm = true
 debounce_ms = 500          # anti-thrash between endpoint fires
 ```
 
----
+### v2 perceptual & personalization layer
 
-# v2 — perceptual & personalization layer (all off by default)
+Four advanced features that personalize and focus recognition — all **off by
+default**, **fully local**, each needing an optional extra and/or hardware
+(mic/webcam) or a one-time training step. `yazses doctor` reports whether each
+enabled feature's extra is importable. Plans: `design/v2-cognitive-layer/`.
 
-Four advanced features that personalize and focus recognition. All are **off by
-default**, **fully local**, and need an optional extra and/or hardware (mic/webcam)
-or a one-time training step. Plans: `design/v2-cognitive-layer/`.
+**Voiceprint Mind — personalize STT to your voice (`[personalize]`).** P1 (now)
+biases the recognizer toward your vocabulary so it spells your jargon and proper
+nouns:
 
-| Command | Description |
-|---|---|
-| `yazses enroll-voice` | Record a sample and save your encrypted **speaker voiceprint** (needed by Cocktail Filter + Voiceprint Mind). Requires `[voiceprint] enabled` + `uv sync --extra voiceprint`. |
-| `yazses gaze calibrate` | Calibrate webcam gaze → screen zones for **Glance-Type**. Requires `[gaze] enabled` + a webcam + `pip install l2cs mediapipe opencv-python`. |
-
-## Voiceprint Mind — personalize STT to your voice (`[personalize]`)
-P1 (available now): bias the recognizer toward your vocabulary so it spells your
-jargon and proper nouns. Set `YAZSES_VOCABULARY="GitHub,Kubernetes,kubectl"` and:
 ```toml
 [personalize]
 enabled = true
 max_prompt_terms = 64
-# lora = true   # P2: opt-in nightly LoRA personal fine-tune (needs compute; gated)
+# lora = true   # P2: opt-in nightly LoRA personal fine-tune (gated on a WER win)
 ```
-P2 (LoRA fine-tune on your own audio) is planned and gated on a held-out WER win.
 
-## Cocktail Filter — ignore other voices (`[cocktail]`)
-Drops audio frames that aren't *you* before transcription, so a nearby voice never
-enters the text. Enroll once (`yazses enroll-voice`), then:
+**Cocktail Filter — ignore other voices (`[cocktail]`).** Drops audio frames that
+aren't *you* before transcription. Enroll once (`yazses enroll-voice`), then:
+
 ```toml
 [voiceprint]
 enabled = true             # speaker embedder (uv sync --extra voiceprint)
@@ -517,21 +913,23 @@ enabled = true             # mode = "gate" (P1); "suppress" (P2) is gated on a m
 target_threshold = 0.6     # higher = stricter "is this me?"
 ```
 
-## Glance-Type — look at a pane to target it (`[gaze]`)
-Coarse webcam gaze picks the screen zone/window your next dictation lands in
-(look-to-pane, not look-to-caret). Needs a webcam + a one-time `yazses gaze calibrate`:
+**Glance-Type — look at a pane to target it (`[gaze]`).** Coarse webcam gaze picks
+the screen zone/window your next dictation lands in. Needs a webcam + a one-time
+`yazses gaze calibrate`:
+
 ```toml
 [gaze]
 enabled = true
 zones = "grid3x3"          # grid3x3 | grid2x2 | windows
 camera_index = 0
 ```
+
 The camera is used in-RAM during a hold only — frames are never stored or sent.
 
-## Polyglot Switch — mixed-language dictation (`[polyglot]`)
-Transcribe speech that mixes two languages (e.g. `fa-en`). Needs a trained
-code-switch adapter for the pair (stock Whisper can't code-switch); the routing is
-scaffolded and the adapter is gated on a held-out MER win.
+**Polyglot Switch — mixed-language dictation (`[polyglot]`).** Transcribe speech
+that mixes two languages (e.g. `fa-en`). Needs a trained code-switch adapter for
+the pair; the routing is scaffolded and the adapter is gated on a held-out MER win.
+
 ```toml
 [polyglot]
 enabled = true
@@ -539,7 +937,7 @@ pair = "fa-en"
 adapter_path = ""          # path to the trained CS adapter; empty = dormant
 ```
 
-`yazses doctor` reports whether each enabled feature's extra is importable.
+---
 
 ## Diagnostic log format
 

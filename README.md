@@ -2,7 +2,6 @@
 
 [![Tests](https://github.com/MSKazemi/yazses/actions/workflows/test.yml/badge.svg)](https://github.com/MSKazemi/yazses/actions/workflows/test.yml)
 [![PyPI](https://img.shields.io/pypi/v/yazses)](https://pypi.org/project/yazses/)
-[![Snap Store](https://img.shields.io/snapcraft/v/yazses?logo=snapcraft&label=snap&color=82BEA0)](https://snapcraft.io/yazses)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
 **Hold a key → speak → release.** On-device voice dictation that types into any app, plus voice commands and macros — entirely offline. No cloud. No API key. No subscription.
@@ -44,8 +43,12 @@ This repo holds **one product** with **two implementations** — not two separat
 | Platform | Command |
 |---|---|
 | **Linux** (Debian/Ubuntu) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)` |
-| **Linux** (any distro) | `sudo snap install yazses` |
+| **Linux** (any distro) | `pipx install yazses` |
 | **Any OS** (Python ≥ 3.11) | `pipx install yazses` |
+
+> **Not the snap.** `sudo snap install yazses` runs under strict confinement,
+> which blocks reading the keyboard — so hold-to-talk never fires. Use the APT
+> script or `pipx` instead (both run unconfined and capture the hotkey).
 
 **Step 2 — Provision the system** *(Linux — one command; the APT install does it automatically)*
 
@@ -53,6 +56,11 @@ This repo holds **one product** with **two implementations** — not two separat
 yazses setup        # installs audio + injection deps, joins the input group, sets up ydotoold
 # then log out and back in (the input-group change needs a fresh login)
 ```
+
+`yazses setup` ends by printing a numbered **finish-installing checklist** of the
+steps only you can do — the `input`-group re-login, calibrate your voice
+(`yazses mic-level --set`), and `yazses start` — and offers to run the mic
+calibration for you right away.
 
 > **The log-out/in is mandatory and one-time.** Joining the `input` group only
 > takes effect in a *new login session* — opening another terminal tab is **not**
@@ -72,10 +80,13 @@ yazses setup        # installs audio + injection deps, joins the input group, se
 **Step 3 — Set up**
 
 ```sh
+yazses quickstart           # not sure what's next? a 3-step guide tailored to your machine
 yazses doctor               # check mic, injection backend, permissions (want all [OK])
 yazses enroll               # calibrate your microphone (~30 seconds)
 yazses start                # start the dictation daemon
 ```
+
+> New to YazSes? Run **`yazses quickstart`** anytime — it looks at what's already set up and tells you exactly what to do next. It changes nothing.
 
 **Step 4 — Use it** — hold the hotkey, speak, release. The text is typed into the focused app.
 
@@ -204,7 +215,7 @@ Choose **YazSes** when you specifically want dictation *and* voice commands that
 
 **What is YazSes?** YazSes is an open-source, offline hold-to-talk voice-dictation daemon for Linux, macOS, and Windows. You hold a key, speak, and release; your speech is transcribed on-device with faster-whisper and typed into the focused application, with support for editor and terminal voice commands and macros.
 
-**Is there a good offline voice-dictation tool for Linux?** Yes — YazSes runs natively on Linux (X11 and Wayland), transcribes locally on the CPU, and needs no cloud service or API key. It installs via an APT script, snap, or `pipx`.
+**Is there a good offline voice-dictation tool for Linux?** Yes — YazSes runs natively on Linux (X11 and Wayland), transcribes locally on the CPU, and needs no cloud service or API key. It installs via an APT script or `pipx`.
 
 **YazSes vs Talon?** Both are cross-platform and work offline. YazSes focuses on plug-and-play dictation plus a practical command grammar (with an optional small SLM router). Talon offers far more advanced, scriptable voice control. They can be used side by side.
 
@@ -222,11 +233,12 @@ Choose **YazSes** when you specifically want dictation *and* voice commands that
 
 | Command | Description |
 |---|---|
-| `yazses start` | Start the YazSes daemon in the background (restarts cleanly if one is already running) |
+| `yazses quickstart` | New here? A 3-step, machine-tailored getting-started guide (read-only) |
+| `yazses start` | Start the YazSes daemon in the background (restarts cleanly if one is already running; verifies it actually came up) |
 | `yazses restart` | Stop all daemons (including detached) and start exactly one |
 | `yazses stop` | Stop the running daemon |
 | `yazses status` | Show daemon status — queries the daemon over IPC when reachable |
-| `yazses doctor` | Check prerequisites (version, daemon, model, mic, injection backend, permissions) |
+| `yazses doctor` | Check prerequisites (version, daemon, model, mic, injection backend, permissions) — ends with a ✓/▲/✗ verdict |
 | `yazses enroll` | Calibrate your microphone — tunes `vad_threshold` for your voice and room |
 | `yazses mic-level` | Measure mic speech level and recommend (or `--set`) the VAD threshold |
 | `yazses features` | List capabilities and toggle them (`enable`/`disable <name>`) |
@@ -299,10 +311,6 @@ yazses restart
 # APT script — Debian / Ubuntu (recommended)
 bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)
 
-# Snap — any distro (strict confinement; keystroke injection works on X11.
-# On Wayland, prefer pipx below for full input access.)
-sudo snap install yazses
-
 # pipx — any distro with Python ≥ 3.11
 # Debian/Ubuntu runtime deps. libportaudio2 = audio capture (required);
 # xdotool/xclip = X11 injection+clipboard; wtype/ydotool/wl-clipboard = Wayland.
@@ -315,6 +323,11 @@ pipx install yazses
 # editable install + `yazses setup` provisioning + start (bridges the input
 # group so you can test before logging out).
 bash scripts/dev-install.sh
+
+# Snap — NOT recommended for dictation. The strict-confinement snap cannot read
+# /dev/input, so hold-to-talk never fires (only the offline `yazses transcribe
+# <file>` path works). Use the APT script or pipx above for a working hotkey.
+# sudo snap install yazses
 ```
 
 ### macOS

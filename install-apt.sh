@@ -128,9 +128,17 @@ if [ "${NEEDS_RELOGIN:-0}" = "1" ]; then
   warn "Log out and back in before using YazSes. The input group change needs a new login session."
 fi
 
-echo "  Test commands:"
-echo "    yazses doctor"
-echo "    yazses status"
+echo "  Next steps — finish setting up:"
+if [ "${NEEDS_RELOGIN:-0}" = "1" ]; then
+  echo "    1. Log out and back in            (so the 'input' group takes effect)"
+  echo "    2. yazses mic-level --set         connect your voice — tune the mic threshold"
+  echo "    3. yazses start                   start dictating (hold the hotkey, speak, release)"
+else
+  echo "    1. yazses mic-level --set         connect your voice — tune the mic threshold"
+  echo "    2. yazses start                   start dictating (hold the hotkey, speak, release)"
+fi
+echo ""
+echo "  Anytime:  yazses doctor  (check prerequisites)   yazses status  (is it running?)"
 echo ""
 
 # Show every capability (● on / ○ off) so a new user sees the full feature set.

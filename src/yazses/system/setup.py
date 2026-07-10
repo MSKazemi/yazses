@@ -243,6 +243,82 @@ def preflight_hints(
     return hints
 
 
+@dataclass
+class ManualStep:
+    """A step the user must do themselves — one that a Python process cannot (or
+    must not) perform for them: connecting a confined snap interface, a re-login,
+    a voice calibration, or starting the daemon. Rendered as an ordered install
+    checklist by `yazses setup` (and reusable by first-run / install scripts)."""
+
+    title: str      # short imperative, e.g. "Grant microphone access"
+    command: str    # exact command to run, or "" when the step is an action (log out)
+    why: str        # one-line reason
+
+
+def next_steps(
+    env: dict[str, str] | None = None,
+    *,
+    plan: SetupPlan | None = None,
+    mic_pending: bool | None = None,
+    pending_relogin: bool | None = None,
+) -> list[ManualStep]:
+    """The ordered list of manual actions the user must complete to finish
+    installing — the single source of truth behind the `yazses setup` checklist.
+
+    Order matches the install flow: grant the mic → join `input` → re-login →
+    calibrate the voice → start dictating. Steps that don't apply to this machine
+    (e.g. the snap mic connect on an apt install) are omitted.
+    """
+    env = os.environ if env is None else env
+    plan = build_plan(env) if plan is None else plan
+    mic_pending = snap_mic_pending(env) if mic_pending is None else mic_pending
+    pending = input_group_pending_relogin() if pending_relogin is None else pending_relogin
+
+    steps: list[ManualStep] = []
+
+    # 1. Connect the microphone (snap only — confinement blocks self-connect).
+    if mic_pending:
+        steps.append(ManualStep(
+            "Grant microphone access (connect your voice)",
+            "sudo snap connect yazses:audio-record",
+            "the strictly-confined snap can't hear you until this interface is connected.",
+        ))
+
+    # 2. Join the `input` group if not a member yet.
+    if plan.add_to_input_group:
+        steps.append(ManualStep(
+            "Join the `input` group",
+            "sudo usermod -aG input $USER",
+            "needed to read the hold-to-talk hotkey and to inject keystrokes.",
+        ))
+
+    # 3. Re-login when membership won't be live until a fresh session (either we
+    #    just added the user, or /etc/group lists them but this session predates it).
+    if plan.add_to_input_group or pending:
+        steps.append(ManualStep(
+            "Log out and back in (or reboot)",
+            "",
+            "so the `input`-group change takes effect — a new terminal tab is not enough.",
+        ))
+
+    # 4. Calibrate the mic to the user's voice ("connect to voice"). Always worth
+    #    doing on a fresh install so quiet speech isn't dropped by the VAD gate.
+    steps.append(ManualStep(
+        "Calibrate the mic to your voice",
+        "yazses mic-level --set",
+        "measures your speaking level and sets the VAD threshold so words aren't dropped.",
+    ))
+
+    # 5. Start dictating.
+    steps.append(ManualStep(
+        "Start dictating",
+        "yazses start",
+        "starts the daemon — then hold the hotkey, speak, and release to type anywhere.",
+    ))
+
+    return steps
+
+
 def _has_apt() -> bool:
     return shutil.which("apt-get") is not None
 
