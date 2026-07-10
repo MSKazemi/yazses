@@ -81,3 +81,23 @@ def test_pure_logic_feature_declares_no_deps():
     # A representative pure-logic feature installs nothing on enable.
     casetransform = next(d for d in _registry() if d.slug == "casetransform")
     assert casetransform.pip_packages == ()
+
+
+def test_public_feature_exposes_deps_for_cli():
+    """Regression: ``cli._install_feature_deps`` reads ``pip_packages`` /
+    ``check_modules`` off the public :class:`Feature` returned by
+    ``find_feature`` — not the internal ``_Def``. Those fields must survive the
+    ``_Def``→``Feature`` conversion, else `features enable <name>` crashes with
+    ``AttributeError: 'Feature' object has no attribute 'pip_packages'``.
+    """
+    from yazses.config import load_config
+    from yazses.system.features import feature_status, find_feature
+
+    cfg = load_config()
+    feat = find_feature(cfg, "read-back")
+    assert feat is not None
+    assert "kokoro_onnx" in feat.check_modules
+    assert any("kokoro-onnx" in p for p in feat.pip_packages)
+    # every public Feature must carry both fields (CLI touches them unguarded).
+    for f in feature_status(cfg):
+        assert hasattr(f, "pip_packages") and hasattr(f, "check_modules")

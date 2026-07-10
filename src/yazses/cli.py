@@ -1712,27 +1712,43 @@ app.add_typer(gaze_app, rich_help_panel=_SETUP)
     "calibrate",
     epilog=_examples("yazses gaze calibrate    fit the webcam gaze → screen-zone mapping (look at each point)"),
 )
-def gaze_calibrate() -> None:
+def gaze_calibrate(
+    no_install: bool = typer.Option(
+        False, "--no-install", help="Don't auto-install the gaze deps (mediapipe, opencv)."
+    ),
+) -> None:
     """Calibrate the webcam so your gaze maps to screen zones.
 
-    Requires `[gaze] enabled = true`, an X11 session with `xdotool`, and a webcam
-    with the gaze deps installed (`pip install l2cs mediapipe opencv-python`). You
-    look at each on-screen point in turn; the fitted map is saved so the daemon
-    can route dictation to the pane you look at (set `[gaze] route_dictation`).
+    Requires `[gaze] enabled = true` and an X11 session with `xdotool`. The webcam
+    gaze deps (mediapipe + opencv) are installed automatically on first run into
+    the running environment (skip with --no-install). You look at each on-screen
+    point in turn; the fitted map is saved so the daemon can route dictation to
+    the pane you look at (set `[gaze] route_dictation`).
     """
+    import importlib
+
     from yazses.config import load_config
     from yazses.gaze.calibrate import collect_samples, default_targets, fit_calibration
     from yazses.gaze.desktop import build_desktop
     from yazses.gaze.factory import build_gaze
     from yazses.gaze.store import save_calibration
+    from yazses.system.features import find_feature
 
     platform = get_platform()
     cfg = load_config(platform.paths.config_file)
+
+    # Auto-install the webcam gaze deps on first run (same path as
+    # `yazses features enable gaze`), so calibration is turnkey.
+    feat = find_feature(cfg, "gaze")
+    if feat is not None:
+        _install_feature_deps(feat, skip=no_install)
+        importlib.invalidate_caches()  # let build_gaze import the freshly-installed deps
+
     backend = build_gaze(cfg.gaze)
     if backend is None:
         typer.echo(
-            "Gaze unavailable. Set `[gaze] enabled = true` and install the deps:\n"
-            "  pip install l2cs mediapipe opencv-python",
+            "Gaze backend unavailable. Ensure `[gaze] enabled = true` and that the "
+            "webcam deps installed:\n  yazses features enable gaze --force",
             err=True,
         )
         raise typer.Exit(1)
@@ -1817,7 +1833,12 @@ def gaze_status() -> None:
     ready = all((enabled, cfg.gaze.route_dictation, backend is not None, desktop is not None, cal is not None))
     if ready:
         typer.echo("\nReady — dictation will land in the window you look at.")
-    elif cal is None and desktop is not None and backend is not None:
+    elif backend is None:
+        typer.echo(
+            "\nNext: install the webcam deps — `yazses features enable gaze --force` "
+            "(or run `yazses gaze calibrate`, which auto-installs them)."
+        )
+    elif cal is None and desktop is not None:
         typer.echo("\nNext: run `yazses gaze calibrate`.")
 
 

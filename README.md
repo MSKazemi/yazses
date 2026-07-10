@@ -389,6 +389,16 @@ uv run python -m pytest tests/ -v
 bash scripts/install-local.sh        # install locally + run as a user service
 ```
 
+**Install the latest dev build from source** (ahead of the published PyPI release —
+this is how a working copy is installed system-wide as an unconfined `uv` tool, which
+Linux hold-to-talk needs because the strict-confinement snap cannot read `/dev/input`):
+
+```bash
+uv tool install --from . yazses --force   # (re)install the working tree as the `yazses` command
+yazses restart                            # restart the daemon onto the new build
+yazses --version                          # confirm the installed build
+```
+
 ### Rust HCI exploration (archived)
 
 The early-stage Rust rewrite lives on the **`archive/rust-hci-v1`** branch, not on

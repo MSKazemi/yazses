@@ -128,6 +128,30 @@ def test_xdotool_screen_size_and_geometry_parse():
     assert d.focused_window() == 222
 
 
+def test_list_windows_drops_fullscreen_desktop_container():
+    # The desktop/root window (1674) spans the whole screen; it must be filtered
+    # out so it can't shadow the real windows in window_at_point.
+    geometries = {
+        "1674": "Window 1674\n  Position: 0,0 (screen: 0)\n  Geometry: 1920x1200\n",
+        "111": "Window 111\n  Position: 0,0 (screen: 0)\n  Geometry: 960x1080\n",
+        "222": "Window 222\n  Position: 960,0 (screen: 0)\n  Geometry: 960x1080\n",
+    }
+
+    def run(argv):
+        verb = argv[1]
+        if verb == "getdisplaygeometry":
+            return "1920 1200\n"
+        if verb == "search":
+            return "1674\n111\n222\n"
+        if verb == "getwindowgeometry":
+            return geometries[argv[2]]
+        raise AssertionError(verb)
+
+    wins = XdotoolDesktop(runner=run).list_windows()
+    ids = [w[0] for w in wins]
+    assert ids == [111, 222]  # 1674 (full-screen desktop) dropped
+
+
 def test_xdotool_activate_issues_windowactivate():
     calls = []
     d = XdotoolDesktop(runner=lambda argv: calls.append(argv) or "")

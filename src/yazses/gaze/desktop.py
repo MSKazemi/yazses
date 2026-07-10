@@ -64,15 +64,38 @@ class XdotoolDesktop:
 
     def list_windows(self) -> list[Window]:
         out = self._run(["xdotool", "search", "--onlyvisible", "--name", ""])
+        try:
+            screen_w, screen_h = self.screen_size()
+        except Exception:
+            screen_w = screen_h = 0
         windows: list[Window] = []
         for line in out.splitlines():
             line = line.strip()
             if not line.isdigit():
                 continue
             geo = self._geometry(int(line))
-            if geo is not None:
-                windows.append(geo)
+            if geo is None:
+                continue
+            if self._is_fullscreen_container(geo, screen_w, screen_h):
+                # The desktop/root window spans the whole screen and would shadow
+                # every real window in window_at_point — never a gaze target.
+                continue
+            windows.append(geo)
         return windows
+
+    @staticmethod
+    def _is_fullscreen_container(geo: Window, screen_w: int, screen_h: int) -> bool:
+        """True for a window covering (almost) the whole screen at the origin.
+
+        That is the desktop/root (or a lone maximised window); routing gaze to it
+        is meaningless because it fills every zone. Dropping it lets the smallest
+        real window under the gaze point win. No-op when the screen size is
+        unknown (screen_w/h == 0).
+        """
+        if not screen_w or not screen_h:
+            return False
+        _wid, wx, wy, ww, wh = geo
+        return wx <= 0 and wy <= 0 and ww >= screen_w * 0.98 and wh >= screen_h * 0.98
 
     def _geometry(self, wid: int) -> Window | None:
         try:

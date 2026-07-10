@@ -390,10 +390,12 @@ See the [voice command reference](#voice-command-reference) below for the phrase
 |---|---|
 | `yazses gaze calibrate` | Calibrate the webcam so your gaze maps to screen zones. |
 
-Requires `[gaze] enabled = true`, a webcam, and the gaze deps
-(`pip install l2cs mediapipe opencv-python`). You look at a few on-screen points
-to fit the gaze→screen mapping; frames are used in-RAM during a hold only — never
-stored or sent.
+Requires `[gaze] enabled = true`, an X11 session with `xdotool`, and a webcam. The
+webcam gaze deps (mediapipe + opencv) are installed automatically on first run
+into the running environment — no manual `pip install` (pass `--no-install` to skip,
+or install them up front with `yazses features enable gaze --force`). You look at a
+few on-screen points to fit the gaze→screen mapping; frames are used in-RAM during a
+hold only — never stored or sent.
 
 ```bash
 yazses gaze calibrate    # fit the webcam gaze → screen-zone mapping

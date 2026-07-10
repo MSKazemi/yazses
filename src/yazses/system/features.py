@@ -74,6 +74,10 @@ class Feature:
     off_writes: tuple = ()
     # Functional group (one of CATEGORY_ORDER), used to cluster the list.
     category: str = ""
+    # Optional pip deps auto-installed on `features enable`: import names to
+    # probe, and packages to install when any are missing. Empty = nothing to do.
+    check_modules: tuple = ()
+    pip_packages: tuple = ()
 
     @property
     def tier_label(self) -> str:
@@ -1208,6 +1212,7 @@ def feature_status(cfg) -> list[Feature]:
             example=_EXAMPLES.get(d.slug, ""),
             use_case=_USE_CASES.get(d.slug, ""),
             category=_CATEGORIES.get(d.slug, ""),
+            check_modules=d.check_modules, pip_packages=d.pip_packages,
         )
         for d in _registry()
     ]

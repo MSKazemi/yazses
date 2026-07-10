@@ -41,7 +41,7 @@ Experimental features refuse `enable` unless you add `--force`.
 |---|---|---|
 | **Accessibility Continuum** | `continuum` | Whisper/Low-Effort Mode lowers the mic gate so quiet or effortful speech is still captured (no shouting). |
 | **Modality Role Router** | `modality` | Assigns each input its fastest role (gaze→point, EMG→command, voice→dictation). Needs EMG/gaze hardware. |
-| **Gaze-Routed Dictation** | `[gaze] route_dictation` | Sends the next dictation to the window you look at, with a focus fallback and a confirm for destructive actions. Needs a webcam + calibration. |
+| **Gaze-Routed Dictation** | `[gaze] route_dictation` | Sends the next dictation to the window you look at, with a focus fallback and a confirm for destructive actions. Needs a webcam + calibration (X11). |
 | **Glasses↔Desktop Bridge** | `bridge` | Dictate from a paired phone/glasses; the desktop does STT + typing. Local link only. |
 
 ## Wave D (v2.1) — new frontier features (all off by default)

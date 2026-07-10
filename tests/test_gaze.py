@@ -57,6 +57,18 @@ def test_window_at_point_selects_containing_window():
     assert window_at_point(99999, 500, windows) is None  # outside all
 
 
+def test_window_at_point_prefers_smallest_containing_window():
+    # A full-screen desktop/root window listed first must NOT shadow the real
+    # window under the gaze point — the smallest (most specific) one wins.
+    windows = [
+        ("desktop", 0, 0, 1920, 1200),   # spans everything, listed first
+        ("editor", 0, 0, 960, 1080),
+        ("browser", 960, 0, 960, 1080),
+    ]
+    assert window_at_point(100, 500, windows) == "editor"
+    assert window_at_point(1500, 500, windows) == "browser"
+
+
 # ---- factory dormancy ------------------------------------------------------
 
 def test_factory_none_when_dormant():
