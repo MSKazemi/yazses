@@ -3591,6 +3591,20 @@ wheels = [
 ]
 
 [[package]]
+name = "silero-vad"
+version = "6.2.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "packaging" },
+    { name = "torch" },
+    { name = "torchaudio" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/32/d3/e31f526482782764aa4f70e20fd4545cf2e4a81a60b6fb0f089f6d107991/silero_vad-6.2.1.tar.gz", hash = "sha256:b23062b0e39fad17b1266fc23c1e7b4290219dbe82ce08510889e32f681f4b3b", size = 28913811, upload-time = "2026-02-24T08:41:59.329Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0b/2b/48566f29a8b53d856ceb1994f209122749b3fda0a733a07e82047257de7a/silero_vad-6.2.1-py3-none-any.whl", hash = "sha256:09de93c4d874bb19c53e62a47dd38be5f163cedad2b5599583231f2a84ef79cb", size = 9146242, upload-time = "2026-02-24T08:41:56.955Z" },
+]
+
+[[package]]
 name = "six"
 version = "1.17.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4252,7 +4266,7 @@ wheels = [
 
 [[package]]
 name = "yazses"
-version = "2.12.0.dev2"
+version = "2.12.0.dev4"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
@@ -4312,11 +4326,18 @@ lsp = [
     { name = "pygls" },
     { name = "pynvim" },
 ]
+notes = [
+    { name = "llama-cpp-python" },
+]
 overlay = [
     { name = "pyside6" },
 ]
 prosody = [
     { name = "praat-parselmouth" },
+]
+silero = [
+    { name = "onnxruntime" },
+    { name = "silero-vad" },
 ]
 slm = [
     { name = "llama-cpp-python" },
@@ -4348,6 +4369,7 @@ requires-dist = [
     { name = "kokoro-onnx", marker = "extra == 'all'", specifier = ">=0.5.0" },
     { name = "kokoro-onnx", marker = "extra == 'tts'", specifier = ">=0.5.0" },
     { name = "llama-cpp-python", marker = "extra == 'all'", specifier = ">=0.3.33" },
+    { name = "llama-cpp-python", marker = "extra == 'notes'", specifier = ">=0.3.33" },
     { name = "llama-cpp-python", marker = "extra == 'slm'", specifier = ">=0.3.33" },
     { name = "mcp", marker = "extra == 'agent'", specifier = ">=1.28.1" },
     { name = "mediapipe", marker = "extra == 'all'", specifier = ">=0.10.35" },
@@ -4355,6 +4377,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.4.6" },
     { name = "onnx-asr", specifier = ">=0.11.0" },
     { name = "onnxruntime", marker = "extra == 'all'", specifier = ">=1.27.0" },
+    { name = "onnxruntime", marker = "extra == 'silero'", specifier = ">=1.27.0" },
     { name = "onnxruntime", marker = "extra == 'tts'", specifier = ">=1.27.0" },
     { name = "opencv-python", marker = "extra == 'all'", specifier = ">=5.0" },
     { name = "opencv-python", marker = "extra == 'gaze'", specifier = ">=5.0" },
@@ -4381,6 +4404,7 @@ requires-dist = [
     { name = "rumps", marker = "sys_platform == 'darwin'", specifier = ">=0.4.0" },
     { name = "sherpa-onnx", marker = "extra == 'all'", specifier = ">=1.13.4" },
     { name = "sherpa-onnx", marker = "extra == 'diarization'", specifier = ">=1.13.4" },
+    { name = "silero-vad", marker = "extra == 'silero'", specifier = ">=5.1.2" },
     { name = "sounddevice", specifier = ">=0.5.5" },
     { name = "soundfile", marker = "extra == 'all'", specifier = ">=0.14.0" },
     { name = "soundfile", marker = "extra == 'tts'", specifier = ">=0.14.0" },
@@ -4388,7 +4412,7 @@ requires-dist = [
     { name = "speechbrain", marker = "extra == 'voiceprint'", specifier = ">=1.1" },
     { name = "typer", specifier = ">=0.26.8" },
 ]
-provides-extras = ["slm", "lsp", "emg", "ble", "overlay", "prosody", "tts", "voiceprint", "diarization", "agent", "gaze", "all"]
+provides-extras = ["slm", "lsp", "emg", "ble", "overlay", "prosody", "tts", "voiceprint", "diarization", "notes", "silero", "agent", "gaze", "all"]
 
 [package.metadata.requires-dev]
 dev = [
