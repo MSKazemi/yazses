@@ -4,6 +4,47 @@ title: YazSes — offline voice dictation for Linux, macOS & Windows
 description: Hold a key, speak, release — your words are transcribed on-device with faster-whisper and typed into any focused app. No cloud, no API key, no subscription.
 ---
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "name": "YazSes",
+      "applicationCategory": "UtilitiesApplication",
+      "applicationSubCategory": "Voice dictation / speech-to-text",
+      "operatingSystem": "Linux, macOS, Windows",
+      "description": "Offline, on-device hold-to-talk voice dictation for Linux, macOS and Windows. Hold a key, speak, release — speech is transcribed locally with faster-whisper and typed into any focused app, plus voice commands and macros. No cloud, no API key, no subscription.",
+      "url": "https://mskazemi.github.io/yazses/",
+      "downloadUrl": "https://pypi.org/project/yazses/",
+      "codeRepository": "https://github.com/MSKazemi/yazses",
+      "license": "https://www.apache.org/licenses/LICENSE-2.0",
+      "isAccessibleForFree": true,
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "featureList": [
+        "Fully offline on-device speech-to-text (faster-whisper)",
+        "Hold-to-talk dictation into any focused application",
+        "Voice commands and user-defined macros",
+        "Dysfluency-friendly mode for stuttered or dysarthric speech",
+        "EMG/USB muscle-sensor trigger for hands-free accessibility use"
+      ],
+      "author": {
+        "@type": "Person",
+        "name": "Mohsen Seyedkazemi Ardebili"
+      }
+    },
+    {
+      "@type": "SoftwareSourceCode",
+      "name": "YazSes",
+      "codeRepository": "https://github.com/MSKazemi/yazses",
+      "programmingLanguage": "Python",
+      "runtimePlatform": "Python 3.11+",
+      "license": "https://www.apache.org/licenses/LICENSE-2.0"
+    }
+  ]
+}
+</script>
+
 # YazSes
 
 **Hold a key → speak → release.** YazSes is an open-source, **offline** voice‑dictation daemon for **Linux, macOS, and Windows**. It transcribes your speech locally with [faster-whisper](https://github.com/SYSTRAN/faster-whisper) and types the result into whatever window has focus — plus voice commands and macros. **No cloud. No API key. No subscription. Nothing leaves your machine.**

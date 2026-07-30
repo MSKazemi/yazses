@@ -1,0 +1,81 @@
+# YazSes
+
+> YazSes is an open-source, offline voice-dictation daemon for Linux, macOS, and Windows. Hold a key, speak, release — your speech is transcribed locally with faster-whisper and typed into the focused app. It also recognises editor/terminal voice commands and user-defined macros. No cloud, no API key, no subscription; nothing leaves the machine by default.
+
+## What it is
+
+YazSes is a hold-to-talk voice daemon that replaces cloud dictation tools. When you hold the hotkey it records audio, runs a calibrated voice-activity gate, transcribes with faster-whisper (CPU, int8), and classifies the utterance: by default the text is typed at the cursor (dictation); a fast regex command grammar (with an optional small SLM router for low-confidence cases) instead maps recognised phrases to editor/terminal key sequences. It is not an LLM agent.
+
+## Who it is for
+
+- Writers and developers who want offline dictation without sending audio to Google, Apple, or Microsoft
+- Developers who want hands-free editor/terminal voice commands (undo, save, go-to-line, run tests, rename symbol)
+- Accessibility users who need hold-to-talk or EMG-triggered hands-free input with full privacy
+- Anyone who wants a self-improving, on-device dictation tool with no subscription
+
+## What makes it different
+
+- **Fully offline**: audio and text stay on the machine by default; no cloud, no API key, no subscription
+- **Dictation + voice commands**: speak to type, or use a regex command grammar (+ optional SLM router) that maps phrases to key sequences
+- **Hold-to-talk**: natural push-to-talk that works in any focused app
+- **Dysfluency-Friendly Mode**: opt-in collapse of stutters/repeats for stuttered or dysarthric speech
+- **Self-improving**: opt-in, encrypted on-device learning corpus; `yazses tune` proposes accuracy fixes from your own corrections
+- **EMG support**: can be triggered by a USB muscle sensor for hands-free use by people with motor disabilities
+
+## Compared to alternatives
+
+| Tool | Offline | Voice commands | Linux | Free |
+|---|---|---|---|---|
+| YazSes | yes | yes (grammar + optional SLM) | yes | yes |
+| Dragon NaturallySpeaking | yes | yes | no | no |
+| Talon Voice | yes | yes (advanced scripting) | yes | freemium |
+| Google Dictation | no | no | yes | yes |
+| Apple Dictation | partial | limited | no | yes |
+| Whisper + scripts | yes | no | yes | yes |
+
+## Quick start
+
+```sh
+# Any OS with Python >= 3.11
+pipx install yazses
+
+# Linux (Debian/Ubuntu)
+bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)
+
+# Any distro (snap)
+sudo snap install yazses
+
+# First run
+yazses doctor     # check mic, injection backend, permissions
+yazses enroll     # calibrate your microphone (~30 s)
+yazses start      # start the dictation daemon
+```
+
+## Frequently asked questions
+
+**Does it work without internet?** Yes. Transcription runs locally with faster-whisper. No audio or text is sent anywhere by default.
+
+**Is it an AI agent?** No. YazSes dictates text and runs editor/terminal voice commands. It does not browse, reason over files, or hold a conversation.
+
+**What GPU do I need?** None — it runs on CPU. 4 GB RAM minimum, 8 GB comfortable.
+
+**Does it work with Wayland?** Yes, via wtype or ydotool.
+
+**Is it a replacement for Talon?** YazSes focuses on offline dictation plus a practical command grammar. Talon has far more advanced scripting. They can coexist.
+
+## Documentation
+
+- Install on Linux: https://mskazemi.github.io/yazses/install-linux
+- Install on macOS: https://mskazemi.github.io/yazses/macos-install
+- Install on Windows: https://mskazemi.github.io/yazses/windows-install
+- CLI reference: https://mskazemi.github.io/yazses/cli-reference
+- Privacy statement: https://mskazemi.github.io/yazses/privacy-statement
+
+## Project info
+
+- Repository: https://github.com/MSKazemi/yazses
+- PyPI: https://pypi.org/project/yazses/
+- Snap Store: https://snapcraft.io/yazses
+- Issues: https://github.com/MSKazemi/yazses/issues
+- License: Apache 2.0
+- Maintainer: Mohsen Seyedkazemi Ardebili (mohsen.seyedkazemi@gmail.com)
