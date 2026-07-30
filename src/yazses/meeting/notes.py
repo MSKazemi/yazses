@@ -103,6 +103,32 @@ def generate_minutes(utterances, config, *, llm=None, speaker_names=None):
         return _merge_partials(partials)
 
 
+def minutes_gbnf() -> str:
+    """GBNF grammar constraining the minutes JSON shape (ADR-v2-128). Pure.
+
+    Guarantees a parseable object with ``summary`` (string), ``decisions`` (string
+    list), and ``action_items`` (``{owner, task}`` objects). ``per_speaker`` is
+    *optional* so the same grammar validates both the per-window replies (which omit
+    it) and the final reduce reply (which includes it). When llama.cpp is asked to
+    decode against this grammar the output shape cannot drift, so the tolerant parser
+    in :func:`_parse_minutes` only ever handles the (rare) ungrammared fallback path.
+    """
+    return (
+        'root       ::= "{" ws "\\"summary\\":" ws string "," ws '
+        '"\\"decisions\\":" ws strlist "," ws '
+        '"\\"action_items\\":" ws actlist '
+        '( "," ws "\\"per_speaker\\":" ws spklist )? ws "}"\n'
+        'action     ::= "{" ws "\\"owner\\":" ws string "," ws "\\"task\\":" ws string ws "}"\n'
+        'speaker    ::= "{" ws "\\"name\\":" ws string "," ws "\\"points\\":" ws strlist ws "}"\n'
+        'strlist    ::= "[" ws ( string ( ws "," ws string )* )? ws "]"\n'
+        'actlist    ::= "[" ws ( action ( ws "," ws action )* )? ws "]"\n'
+        'spklist    ::= "[" ws ( speaker ( ws "," ws speaker )* )? ws "]"\n'
+        'string     ::= "\\"" char* "\\""\n'
+        'char       ::= [^"\\\\] | "\\\\" ["\\\\/bfnrt]\n'
+        'ws         ::= [ \\t\\n]*\n'
+    )
+
+
 def render_minutes_md(minutes: Minutes) -> str:
     """Render :class:`Minutes` to Markdown. Pure."""
     out = ["# Meeting minutes", "",
@@ -202,8 +228,22 @@ def _build_llm(config):
         llm = Llama(model_path=model_path, n_ctx=4096, verbose=False)
         max_tokens = int(getattr(config, "notes_max_tokens", 1024) or 1024)
 
+        grammar = None
+        if getattr(config, "notes_grammar", True):
+            try:
+                from llama_cpp import LlamaGrammar
+
+                grammar = LlamaGrammar.from_string(minutes_gbnf(), verbose=False)
+            except Exception as exc:
+                log.warning(
+                    "GBNF grammar unavailable (%s); using tolerant JSON parse.", exc
+                )
+
         def _call(prompt: str) -> str:
-            out = llm(prompt, max_tokens=max_tokens, temperature=0.2)
+            kwargs = {"max_tokens": max_tokens, "temperature": 0.2}
+            if grammar is not None:
+                kwargs["grammar"] = grammar
+            out = llm(prompt, **kwargs)
             return out["choices"][0]["text"]
 
         return _call

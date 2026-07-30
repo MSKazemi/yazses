@@ -28,8 +28,8 @@ def _fake_dev(name, path="/dev/input/event3"):
 @pytest.mark.skipif(sys.platform != "linux", reason="evdev/hotkey path is Linux-only")
 def test_hotkey_device_ok_for_real_keyboard(mocker):
     mocker.patch(
-        "yazses.hotkeys.evdev_hold.EvdevHoldListener._find_keyboard",
-        return_value=_fake_dev("AT Translated Set 2 keyboard"),
+        "yazses.hotkeys.evdev_hold.EvdevHoldListener._find_keyboards",
+        return_value=[_fake_dev("AT Translated Set 2 keyboard")],
     )
     name, status, detail = doctor._hotkey_device_check(_Cfg())
     assert status == "OK"
@@ -37,10 +37,26 @@ def test_hotkey_device_ok_for_real_keyboard(mocker):
 
 
 @pytest.mark.skipif(sys.platform != "linux", reason="evdev/hotkey path is Linux-only")
+def test_hotkey_device_lists_all_real_keyboards(mocker):
+    """A laptop + external keyboard: doctor reports both, since both are watched."""
+    mocker.patch(
+        "yazses.hotkeys.evdev_hold.EvdevHoldListener._find_keyboards",
+        return_value=[
+            _fake_dev("Logitech USB Keyboard", "/dev/input/event17"),
+            _fake_dev("AT Translated Set 2 keyboard", "/dev/input/event3"),
+        ],
+    )
+    name, status, detail = doctor._hotkey_device_check(_Cfg())
+    assert status == "OK"
+    assert "Logitech USB Keyboard" in detail
+    assert "AT Translated Set 2 keyboard" in detail
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="evdev/hotkey path is Linux-only")
 def test_hotkey_device_fail_for_virtual(mocker):
     mocker.patch(
-        "yazses.hotkeys.evdev_hold.EvdevHoldListener._find_keyboard",
-        return_value=_fake_dev("ydotoold virtual device", "/dev/input/event16"),
+        "yazses.hotkeys.evdev_hold.EvdevHoldListener._find_keyboards",
+        return_value=[_fake_dev("ydotoold virtual device", "/dev/input/event16")],
     )
     name, status, detail = doctor._hotkey_device_check(_Cfg())
     assert status == "FAIL"
@@ -50,7 +66,7 @@ def test_hotkey_device_fail_for_virtual(mocker):
 @pytest.mark.skipif(sys.platform != "linux", reason="evdev/hotkey path is Linux-only")
 def test_hotkey_device_skip_on_enumeration_error(mocker):
     mocker.patch(
-        "yazses.hotkeys.evdev_hold.EvdevHoldListener._find_keyboard",
+        "yazses.hotkeys.evdev_hold.EvdevHoldListener._find_keyboards",
         side_effect=PermissionError("no access to /dev/input"),
     )
     name, status, detail = doctor._hotkey_device_check(_Cfg())

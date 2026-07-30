@@ -98,6 +98,42 @@ def test_finalize_writes_outputs_and_meta(tmp_path):
     assert store.list_meetings(_cfg(tmp_path))[0]["id"] == "m1"
 
 
+def test_auto_stop_fires_once_at_cap(tmp_path):
+    fired = {"n": 0}
+    cfg = _cfg(tmp_path, live_transcript=False)
+    d = store.new_meeting(cfg, "cap1")
+    ctl = MeetingController(
+        cfg, d, "cap1", engine=_FakeEngine(), is_silent=_silent, diarizer=_FakeDiarizer(),
+        sample_rate=SR, max_seconds=2.0,  # SR=1000 → 2s = 2000 samples
+        on_auto_stop=lambda: fired.__setitem__("n", fired["n"] + 1),
+    )
+    ctl.start()
+    # Under the cap: no fire.
+    ctl.feed(np.ones(SR, dtype="float32"))
+    assert fired["n"] == 0
+    # Cross the cap: fires exactly once, even as more audio arrives afterwards.
+    ctl.feed(np.ones(SR, dtype="float32"))
+    ctl.feed(np.ones(SR, dtype="float32"))
+    assert fired["n"] == 1
+    ctl.stop_capture()
+
+
+def test_no_auto_stop_when_cap_disabled(tmp_path):
+    fired = {"n": 0}
+    cfg = _cfg(tmp_path, live_transcript=False)
+    d = store.new_meeting(cfg, "cap0")
+    ctl = MeetingController(
+        cfg, d, "cap0", engine=_FakeEngine(), is_silent=_silent, diarizer=_FakeDiarizer(),
+        sample_rate=SR, max_seconds=0.0,  # unlimited
+        on_auto_stop=lambda: fired.__setitem__("n", fired["n"] + 1),
+    )
+    ctl.start()
+    for _ in range(10):
+        ctl.feed(np.ones(SR, dtype="float32"))
+    assert fired["n"] == 0
+    ctl.stop_capture()
+
+
 def test_finalize_names_enrolled_user_as_you(tmp_path):
     # a voiceprint that the fake embedder will match to speaker_0's centroid
     class _FakeEmbedder:
@@ -117,3 +153,24 @@ def test_finalize_names_enrolled_user_as_you(tmp_path):
     audio = read_wav_mono_f32(ctl.stop_capture())
     info = ctl.finalize(audio)
     assert "You" in info["speakers"]
+
+
+def test_enrolled_participant_auto_named_in_finalize(tmp_path):
+    class _FakeEmbedder:
+        def embed(self, audio, sample_rate=16000):
+            return type("E", (), {"vector": np.array([1.0, 0.0], dtype="float32")})()
+
+    cfg = _cfg(tmp_path, live_transcript=False, name_from_voiceprints=True,
+               min_speaker_seconds=0.0, name_threshold=0.5)
+    d = store.new_meeting(cfg, "mp")
+    ctl = MeetingController(
+        cfg, d, "mp", engine=_FakeEngine(), is_silent=_silent, diarizer=_FakeDiarizer(),
+        embedder=_FakeEmbedder(),
+        participants={"Alice": np.array([1.0, 0.0], dtype="float32")},
+        sample_rate=SR,
+    )
+    ctl.start()
+    ctl.feed(np.ones(4 * SR, dtype="float32"))
+    audio = read_wav_mono_f32(ctl.stop_capture())
+    info = ctl.finalize(audio)
+    assert "Alice" in info["speakers"]

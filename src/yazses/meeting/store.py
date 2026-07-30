@@ -19,6 +19,7 @@ from yazses.recimport.render import render_transcript
 
 _META = "meeting.json"
 _CANONICAL = "transcript.json"
+_LIVE = "live.jsonl"
 _EXT = {"md": "transcript.md", "txt": "transcript.txt", "srt": "transcript.srt",
         "vtt": "transcript.vtt", "json": _CANONICAL}
 
@@ -68,8 +69,51 @@ def list_meetings(config) -> list[dict]:
         meta = read_meta(d)
         meta.setdefault("id", d.name)
         meta["dir"] = str(d)
+        # A meeting that never reached a clean finalize but left a live.jsonl can be
+        # recovered from that partial transcript.
+        if meta.get("status") != "done" and (d / _LIVE).exists():
+            meta["recoverable"] = True
         out.append(meta)
     out.sort(key=lambda m: m.get("id", ""), reverse=True)
+    return out
+
+
+def append_live_line(meeting_dir: str | Path, text: str, t: float | None = None) -> None:
+    """Append one finalized live-transcript line to ``live.jsonl`` (crash-resilient).
+
+    Written incrementally during capture so a daemon crash mid-meeting still leaves a
+    partial transcript on disk. This is a *recovery* artefact, separate from the
+    authoritative ``transcript.json`` produced by the batch post-pass at stop. Best
+    effort — a write failure never interrupts capture.
+    """
+    text = (text or "").strip()
+    if not text:
+        return
+    rec = {"text": text}
+    if t is not None:
+        rec["t"] = round(float(t), 2)
+    try:
+        line = json.dumps(rec, ensure_ascii=False)
+        with (Path(meeting_dir) / _LIVE).open("a", encoding="utf-8") as fh:
+            fh.write(line + "\n")
+    except OSError:  # pragma: no cover - disk-full/permission; capture must not crash
+        pass
+
+
+def read_live_lines(meeting_dir: str | Path) -> list[dict]:
+    """Read back ``live.jsonl`` as a list of ``{text, t?}`` records (empty if absent)."""
+    p = Path(meeting_dir) / _LIVE
+    if not p.exists():
+        return []
+    out: list[dict] = []
+    for line in p.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            out.append(json.loads(line))
+        except ValueError:
+            continue
     return out
 
 

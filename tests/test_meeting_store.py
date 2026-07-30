@@ -61,6 +61,31 @@ def test_list_meetings_newest_first(tmp_path):
     assert store.list_meetings(_cfg(tmp_path / "empty")) == []
 
 
+def test_live_jsonl_append_and_read(tmp_path):
+    cfg = _cfg(tmp_path)
+    d = store.new_meeting(cfg, "live1")
+    store.append_live_line(d, "  first line  ", t=1.2)
+    store.append_live_line(d, "", t=2.0)          # blank ignored
+    store.append_live_line(d, "second line")       # no timestamp
+    recs = store.read_live_lines(d)
+    assert [r["text"] for r in recs] == ["first line", "second line"]
+    assert recs[0]["t"] == 1.2
+    assert "t" not in recs[1]
+    # absent file reads as empty
+    assert store.read_live_lines(store.new_meeting(cfg, "live2")) == []
+
+
+def test_list_meetings_flags_recoverable(tmp_path):
+    cfg = _cfg(tmp_path)
+    crashed = store.new_meeting(cfg, "20260730-010000")
+    store.append_live_line(crashed, "captured before the crash")  # no meeting.json
+    done = store.new_meeting(cfg, "20260730-020000")
+    store.write_meta(done, {"id": done.name, "status": "done"})
+    by_id = {m["id"]: m for m in store.list_meetings(cfg)}
+    assert by_id["20260730-010000"].get("recoverable") is True
+    assert "recoverable" not in by_id["20260730-020000"]
+
+
 def test_relabel_merges_speakers(tmp_path):
     cfg = _cfg(tmp_path)
     d = store.new_meeting(cfg, "m")

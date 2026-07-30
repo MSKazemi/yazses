@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "yazses"
-version = "2.12.0.dev2"
+version = "2.12.0.dev4"
 description = "Local, offline voice dictation for Linux, macOS, and Windows — hold a key, speak, release"
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -117,6 +117,20 @@ voiceprint = [
 # Audio decoding needs no extra (PyAV rides in with faster-whisper).
 diarization = [
     "sherpa-onnx>=1.13.4",
+]
+# Meeting Mode minutes (ADR-v2-128). Optional local-LLM notes at `yazses meeting stop`;
+# imported lazily only when `[meeting] notes = true` AND `[meeting] notes_model` points at
+# a local GGUF. Recommended models (Q4_K_M, CPU-fit): Phi-4-mini-instruct or Qwen2.5-3B.
+# Same runtime as the `slm` extra; declared separately so `yazses[notes]` reads by intent.
+notes = [
+    "llama-cpp-python>=0.3.33",
+]
+# Meeting Mode neural VAD (ADR-v2-127 P4). Optional Silero VAD for utterance
+# segmentation in noisier rooms; imported lazily only when `[meeting] vad_backend =
+# "silero"`. ONNX path (no torch). Absent → the calibrated RMS gate is used instead.
+silero = [
+    "silero-vad>=5.1.2",
+    "onnxruntime>=1.27.0",
 ]
 # v2.0.0 Wave B — Voice-to-Tool / offline Spoken MCP (ADR-v2-006). Heavy; opt-in.
 # The MCP client is imported lazily only when [agent] enabled; absent → dormant.

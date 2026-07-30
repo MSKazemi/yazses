@@ -294,17 +294,21 @@ def _hotkey_device_check(cfg) -> _Check | None:
         return ("Hotkey device", "WARN", f"unknown hotkey {key_id!r}")
     try:
         listener = EvdevHoldListener(200, lambda _l: None, lambda: None, key_code=code)
-        dev = listener._find_keyboard()
+        devs = listener._find_keyboards()
     except Exception as exc:
         # Permission / no-device issues are already surfaced by "Keyboard capture".
         return ("Hotkey device", "SKIP", f"could not enumerate input devices ({exc})")
-    if _is_virtual_device(dev):
+    real = [d for d in devs if not _is_virtual_device(d)]
+    if not real:
+        dev = devs[0]
         return (
             "Hotkey device", "FAIL",
             f"bound to virtual device {dev.name!r} — real keypresses are not seen. "
             "Ensure your keyboard is in /dev/input and you are in the 'input' group.",
         )
-    return ("Hotkey device", "OK", f"{dev.name} ({dev.path})")
+    # The listener watches every real keyboard, so the hotkey fires no matter
+    # which one you type on. Report them all.
+    return ("Hotkey device", "OK", ", ".join(f"{d.name} ({d.path})" for d in real))
 
 
 def _yazses_paths_on_path() -> list[str]:

@@ -1059,15 +1059,19 @@ class MeetingConfig:
     model: str = ""                    # "" => inherit the [stt] model
     language: str = "en"               # "en" fast path, or "translate" (X→English)
     vad_backend: str = "calibrated"    # calibrated | silero (utterance segmentation)
+    silero_threshold: float = 0.5      # silero speech-probability gate (needs the `silero` extra)
     name_from_voiceprints: bool = True # match enrolled voiceprints (needs enrollment)
+    participants_dir: str = ""         # "" => <data_dir>/participants (enrolled speakers)
     min_speaker_seconds: float = 3.0   # min aggregated cluster speech to attempt naming
     name_threshold: float = 0.5        # reject-biased cosine similarity to accept a name
     model_dir: str = ""                # "" => <data_dir>/diarization
     output_format: str = "md"          # md | txt | srt | vtt | json
     max_minutes: int = 180             # auto-stop safety cap (0 = unlimited)
     # --- minutes / notes (ADR-v2-128; opt-in, dormant unless a model is set) ---
-    notes: bool = False                # generate notes.md at stop
+    notes: bool = False                # generate notes.md at stop (needs the `notes` extra)
     notes_model: str = ""              # path to a local GGUF; "" = dormant
+    # Recommended GGUF (Q4_K_M, CPU-fit): Phi-4-mini-instruct or Qwen2.5-3B-Instruct.
+    notes_grammar: bool = True         # constrain minutes JSON with a GBNF grammar (falls back to tolerant parse)
     notes_window_turns: int = 40       # map-reduce window size (utterance turns)
     notes_max_tokens: int = 1024       # per-window generation cap
 

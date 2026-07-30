@@ -838,6 +838,8 @@ _FEATURE_DEPS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     "multiprofile": (("speechbrain",), ("speechbrain>=1.1",)),
     "voiceguard": (("speechbrain",), ("speechbrain>=1.1",)),
     "diarize": (("sherpa_onnx",), ("sherpa-onnx>=1.10",)),
+    "recimport": (("sherpa_onnx",), ("sherpa-onnx>=1.13.4",)),
+    "meeting": (("sherpa_onnx",), ("sherpa-onnx>=1.13.4",)),
 }
 
 

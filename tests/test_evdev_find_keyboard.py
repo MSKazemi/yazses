@@ -102,3 +102,36 @@ def test_works_for_modifier_hotkeys(mocker):
     chosen = _listener(key_code=ecodes.KEY_RIGHTALT)._find_keyboard()
 
     assert chosen.name == "AT Translated Set 2 keyboard"
+
+
+def test_listens_on_all_real_keyboards(mocker):
+    """Laptop built-in + external USB keyboard: BOTH must be watched so the
+    hotkey fires whichever one the user types on (the root cause of a hotkey
+    that works on one keyboard but not the other). The virtual injector device
+    is still excluded."""
+    keys = _FULL_KEYBOARD | {ecodes.KEY_RIGHTCTRL}
+    laptop = _FakeDevice("/dev/input/event3", "AT Translated Set 2 keyboard", keys)
+    usb = _FakeDevice("/dev/input/event17", "Logitech USB Keyboard", keys)
+    virtual = _FakeDevice("/dev/input/event16", "ydotoold virtual device", keys)
+    _patch_devices(mocker, [usb, virtual, laptop])
+
+    chosen = _listener(key_code=ecodes.KEY_RIGHTCTRL)._find_keyboards()
+
+    names = {d.name for d in chosen}
+    assert names == {"AT Translated Set 2 keyboard", "Logitech USB Keyboard"}
+
+
+def test_find_keyboards_excludes_partial_blocks_when_full_exists(mocker):
+    """A partial hotkey block that happens to expose the key is dropped when a
+    real full keyboard is present, so it can't spuriously fire."""
+    full = _FakeDevice(
+        "/dev/input/event3",
+        "AT Translated Set 2 keyboard",
+        _FULL_KEYBOARD | {ecodes.KEY_RIGHTCTRL},
+    )
+    block = _FakeDevice("/dev/input/event8", "ThinkPad Extra Buttons", {ecodes.KEY_RIGHTCTRL})
+    _patch_devices(mocker, [full, block])
+
+    chosen = _listener(key_code=ecodes.KEY_RIGHTCTRL)._find_keyboards()
+
+    assert [d.name for d in chosen] == ["AT Translated Set 2 keyboard"]

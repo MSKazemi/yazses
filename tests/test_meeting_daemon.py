@@ -71,6 +71,35 @@ def test_status_lists_when_idle(tmp_path):
     assert status["recent"] == []
 
 
+def test_diarization_status_reports_missing_models(tmp_path):
+    from yazses.config import MeetingConfig
+    from yazses.recimport.factory import diarization_status
+
+    cfg = MeetingConfig(diarize=True, model_dir=str(tmp_path / "absent"))
+    status = diarization_status(cfg)
+    assert status["requested"] is True
+    assert status["models_present"] is False
+    assert status["ready"] is False
+
+
+def test_start_warns_when_diarization_models_absent(tmp_path, monkeypatch):
+    monkeypatch.setattr(daemon_mod, "AudioRecorder", _FakeRecorder)
+    d = _daemon(tmp_path)
+    d._config.meeting.diarize = True                       # ask for speaker labels
+    d._config.meeting.model_dir = str(tmp_path / "absent")  # but no models on disk
+    started = d._handle_meeting_start(None)
+    assert started["ok"] is True
+    assert "warning" in started and "not be attributed" in started["warning"]
+    # status also surfaces the unavailability when idle
+    d._handle_meeting_stop(None)
+    for _ in range(200):
+        if not d._meeting_finalizing:
+            break
+        time.sleep(0.02)
+    idle = d._handle_meeting_status(None)
+    assert idle["diarization"]["ready"] is False
+
+
 def test_full_start_feed_stop_finalize(tmp_path, monkeypatch):
     monkeypatch.setattr(daemon_mod, "AudioRecorder", _FakeRecorder)
     d = _daemon(tmp_path)

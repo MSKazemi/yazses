@@ -105,6 +105,10 @@ class Daemon:
         self._command_hotkey: HotkeyBackend | None = None
         self._command_thread: threading.Thread | None = None
         self._command_mode: bool = False
+        # Verbatim/autoformat mode (ADR-v2-078): a persistent gate toggled by the
+        # spoken commands "dictate verbatim" / "resume formatting". Lazily created on
+        # first use when [verbatim] enabled; holds mode across bursts. None = feature off.
+        self._verbatim_gate = None
         self._injector: InjectorBackend | None = None
         self._engine: FasterWhisperEngine | None = None
         self._recorder: AudioRecorder | None = None
@@ -394,6 +398,20 @@ class Daemon:
         except Exception as exc:
             log.debug("Voiceprint load failed: %s", exc)
             return None
+
+    def _load_meeting_participants(self):
+        """Load enrolled meeting participants ({name: vector}); empty if none/no embedder."""
+        if self._embedder is None:
+            return {}
+        try:
+            from yazses.learning.crypto import Cipher, load_or_create_key
+            from yazses.meeting.participants import load_participants
+
+            cipher = Cipher(load_or_create_key(self._platform.paths.data_dir))
+            return load_participants(self._config.meeting, cipher)
+        except Exception as exc:
+            log.debug("Participant load failed: %s", exc)
+            return {}
 
     def _start_ipc_server(self) -> None:
         socket_path = self._platform.paths.ipc_socket
@@ -887,8 +905,27 @@ class Daemon:
                 log.info("Mid-thought undo: scratched %d chars.", n)
                 return
 
+            # Verbatim/Autoformat mode (ADR-v2-078): the spoken commands "dictate
+            # verbatim" / "resume formatting" toggle a persistent gate and type nothing;
+            # while verbatim, all formatting transforms are bypassed (literal capture).
+            verbatim_active = False
+            if is_dictation and self._config.verbatim.enabled:
+                if self._verbatim_gate is None:
+                    from yazses.verbatim.gate import VerbatimGate
+
+                    self._verbatim_gate = VerbatimGate()
+                if self._verbatim_gate.handle_command(text):
+                    event["intent_type"] = "verbatim_mode"
+                    event["verbatim_mode"] = self._verbatim_gate.mode
+                    if stream_injector is not None:
+                        stream_injector.cancel()
+                    log.info("Formatting mode set to %s.", self._verbatim_gate.mode)
+                    return
+                verbatim_active = self._verbatim_gate.is_verbatim()
+
             if is_dictation:
                 text = self._clean_dictation(text, event)
+                verbatim_literal = text  # cleaned literal, before any formatting transform
                 # Mid-Utterance Self-Repair: apply "no I mean X" corrections before anything
                 # else consumes the text. Opt-in (ADR-v2-058).
                 if self._config.commands.self_repair:
@@ -1032,6 +1069,12 @@ class Daemon:
                     event["prosody_breaks"] = presult.paragraph_breaks
                     event["prosody_emphasized"] = presult.emphasized
                     event["final_text"] = text
+                # Verbatim mode: discard every formatting transform above and inject the
+                # cleaned literal text (ITN/punctuation/reflow/etc. all bypassed).
+                if verbatim_active:
+                    text = verbatim_literal
+                    event["final_text"] = text
+                    event["verbatim"] = True
                 # Prepend a separating space when this dictation continues a
                 # recent burst, so consecutive hold-to-talk utterances don't
                 # glue together at the boundary ("words together" + "I mean"
@@ -1479,6 +1522,7 @@ class Daemon:
             try:
                 from yazses.meeting import store
                 from yazses.meeting.controller import MeetingController
+                from yazses.meeting.vad import build_is_silent
                 from yazses.recimport.factory import build_diarizer
 
                 meeting_id = time.strftime("%Y%m%d-%H%M%S")
@@ -1488,17 +1532,20 @@ class Daemon:
                 controller = MeetingController(
                     cfg, meeting_dir, meeting_id,
                     engine=self._engine,
-                    is_silent=lambda chunk: is_silent_calibrated(chunk, acc),
+                    is_silent=build_is_silent(cfg, acc),
                     embedder=self._embedder,
                     voiceprint=self._voiceprint,
+                    participants=self._load_meeting_participants(),
                     diarizer=build_diarizer(cfg),
                     sample_rate=sr,
                     started_at=time.monotonic(),
                     clock=time.monotonic,
+                    max_seconds=cfg.max_minutes * 60,
+                    on_auto_stop=self._auto_stop_meeting,
                 )
                 recorder = AudioRecorder(
                     sample_rate=sr,
-                    max_seconds=cfg.max_minutes * 60,
+                    max_seconds=0,  # controller owns the cap (finalizes, no silent drop)
                     on_chunk=controller.feed,
                     accumulate=False,
                 )
@@ -1511,8 +1558,22 @@ class Daemon:
             self._meeting_recorder = recorder
             self._state.state = TrayState.MEETING
         log.info("Meeting started: %s", meeting_id)
-        return {"ok": True, "meeting_id": meeting_id, "dir": str(meeting_dir),
-                "live_transcript": cfg.live_transcript}
+        resp: dict[str, object] = {
+            "ok": True, "meeting_id": meeting_id, "dir": str(meeting_dir),
+            "live_transcript": cfg.live_transcript,
+        }
+        if cfg.diarize:
+            from yazses.recimport.factory import diarization_status
+
+            diar = diarization_status(cfg)
+            if not diar["ready"]:
+                miss = "the diarization extra" if not diar["extra_installed"] else "the speaker models"
+                resp["warning"] = (
+                    f"Speaker labels are on but {miss} are missing — this meeting's "
+                    "transcript will not be attributed. Install with `yazses features "
+                    "enable meeting` and fetch models via `yazses transcribe --download-models`."
+                )
+        return resp
 
     def _handle_meeting_status(self, _request: Request) -> dict[str, object]:
         """IPC: report the running meeting, or list recent stored meetings."""
@@ -1527,7 +1588,11 @@ class Daemon:
             recent = store.list_meetings(self._config.meeting)[:10]
         except Exception:
             recent = []
-        return {"ok": True, "active": False, "finalizing": finalizing, "recent": recent}
+        from yazses.recimport.factory import diarization_status
+
+        diar = diarization_status(self._config.meeting)
+        return {"ok": True, "active": False, "finalizing": finalizing,
+                "recent": recent, "diarization": diar}
 
     def _handle_meeting_stop(self, _request: Request) -> dict[str, object]:
         """IPC: stop capture and kick off the batch diarization post-pass."""
@@ -1577,6 +1642,18 @@ class Daemon:
         threading.Thread(target=_finalize, name="meeting-finalize", daemon=True).start()
         return {"ok": True, "meeting_id": controller.meeting_id,
                 "dir": str(controller.dir), "finalizing": True}
+
+    def _auto_stop_meeting(self) -> None:
+        """Auto-stop hook fired from the controller when ``max_minutes`` is reached.
+
+        Runs the normal stop path on a worker thread — the controller invokes this
+        from the mic-callback thread, and stopping the mic stream from inside its own
+        callback would deadlock PortAudio, so the actual stop is deferred here.
+        """
+        threading.Thread(
+            target=lambda: self._handle_meeting_stop(None),
+            name="meeting-autostop", daemon=True,
+        ).start()
 
     def _handle_readback_speak(self, request: Request) -> dict[str, object]:
         """IPC: speak arbitrary text via the TTS backend (`yazses say "..."`)."""

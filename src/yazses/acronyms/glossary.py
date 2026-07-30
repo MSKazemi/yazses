@@ -44,6 +44,19 @@ def _find_definitions(text: str) -> dict:
     return defs
 
 
+def expand_document(text: str, definitions: dict) -> str:
+    """Expand each known acronym on its first occurrence, contract after. Pure.
+
+    ``definitions`` maps ``ACR`` → full name. The first time an acronym appears it becomes
+    ``Full Name (ACR)``; later occurrences stay as ``ACR``. Unknown acronyms pass through.
+    Drives the persistent-glossary ``yazses acronyms expand`` command.
+    """
+    state = AcronymState()
+    for acr, full in (definitions or {}).items():
+        state.define(acr, full)
+    return _ACR.sub(lambda m: state.resolve(m.group(0)), text or "")
+
+
 class AcronymState:
     """Tracks acronym definitions and first-use expansion for one document. Pure state."""
 

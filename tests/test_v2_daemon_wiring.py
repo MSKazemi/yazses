@@ -405,3 +405,40 @@ def test_markup_is_a_no_op_on_ordinary_prose():
     d._config.markup.enabled = True
     d._on_hold_end()
     assert d._injector.calls == ["this is just an ordinary sentence"]
+
+
+def test_verbatim_mode_command_types_nothing_and_toggles():
+    d = _text_daemon("dictate verbatim")
+    d._config.verbatim.enabled = True
+    d._on_hold_end()
+    assert d._injector.calls == []                 # command consumed, nothing typed
+    assert d._verbatim_gate is not None and d._verbatim_gate.mode == "verbatim"
+
+
+def test_verbatim_bypasses_formatting_then_resumes():
+    d = _text_daemon("dictate verbatim")
+    d._config.verbatim.enabled = True
+    d._config.gec.enabled = True                   # a formatting transform
+    d._config.injection.continuation_window_ms = 0  # no inter-burst spacing in this test
+    d._on_hold_end()                                # enter verbatim
+    assert d._injector.calls == []
+
+    d._engine = _FixedEngine("this is a apple")     # gec would "fix" this
+    d._on_hold_end()
+    assert d._injector.calls == ["this is a apple"]  # gec bypassed in verbatim
+
+    d._engine = _FixedEngine("resume formatting")   # leave verbatim
+    d._on_hold_end()
+    assert d._injector.calls == ["this is a apple"]  # command typed nothing
+    assert d._verbatim_gate.mode == "auto"
+
+    d._engine = _FixedEngine("this is a apple")     # now gec applies again
+    d._on_hold_end()
+    assert d._injector.calls == ["this is a apple", "this is an apple"]
+
+
+def test_verbatim_off_by_default_types_the_phrase():
+    d = _text_daemon("dictate verbatim")
+    d._on_hold_end()
+    assert d._injector.calls == ["dictate verbatim"]
+    assert d._verbatim_gate is None

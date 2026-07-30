@@ -123,6 +123,8 @@ def meeting_start() -> None:
         typer.echo("Daemon is not running. Start it with: yazses start", err=True)
         raise typer.Exit(1)
     if result.get("ok"):
+        if result.get("warning"):
+            typer.echo(f"⚠ {result['warning']}", err=True)
         typer.echo(f"Recording meeting {result['meeting_id']}.")
         typer.echo(f"  Folder: {result['dir']}")
         typer.echo("  Watch it:  yazses meeting status")
@@ -169,6 +171,11 @@ def meeting_status() -> None:
     elif result.get("finalizing"):
         typer.echo("Finalizing the last meeting (transcribing + diarizing)…")
     else:
+        diar = result.get("diarization")
+        if diar and diar.get("requested") and not diar.get("ready"):
+            what = "extra not installed" if not diar.get("extra_installed") else "models missing"
+            typer.echo(f"Speaker labels: unavailable ({what}) — "
+                       "run `yazses transcribe --download-models`.")
         recent = result.get("recent", [])
         if not recent:
             typer.echo("No meetings yet. Start one with: yazses meeting start")
@@ -257,6 +264,50 @@ def meeting_notes(
     out = d / "notes.md"
     out.write_text(render_minutes_md(minutes), encoding="utf-8")
     typer.echo(f"Wrote {out}")
+
+
+@meeting_app.command("enroll")
+def meeting_enroll(
+    meeting_id: str = typer.Argument(..., help="Meeting id (see `yazses meeting list`)."),
+    speaker: str = typer.Option(..., "--speaker", help="Cluster id to enroll, e.g. speaker_1."),
+    name: str = typer.Option(..., "--name", help="The person's name, e.g. Alice."),
+) -> None:
+    """Enroll a meeting speaker as a named voiceprint so they're auto-named next time.
+
+    Takes that cluster's audio from the stored recording, embeds it, and saves an
+    encrypted voiceprint locally (ADR-011/012 — biometric, on-device, never uploaded).
+    Explicit and opt-in: it enrolls only the speaker you name. Requires the recording to
+    still exist, i.e. the meeting was recorded with `[meeting] retain_audio = true`.
+    """
+    from yazses.config import load_config
+    from yazses.learning.crypto import Cipher, load_or_create_key
+    from yazses.meeting.participants import enroll_participant
+    from yazses.voiceprint.factory import build_embedder
+
+    platform = get_platform()
+    cfg = load_config(platform.paths.config_file)
+    d = _meeting_dir(meeting_id)
+    if not (d / "transcript.json").exists():
+        typer.echo(f"No transcript for meeting {meeting_id} in {d}.", err=True)
+        raise typer.Exit(1)
+    embedder = build_embedder(cfg.voiceprint)
+    if embedder is None:
+        typer.echo(
+            "Voiceprint embedder unavailable — install it with "
+            "`yazses features enable voiceprint`.", err=True,
+        )
+        raise typer.Exit(1)
+    cipher = Cipher(load_or_create_key(platform.paths.data_dir))
+    try:
+        path = enroll_participant(
+            d, speaker, name, embedder=embedder, cipher=cipher, config=cfg.meeting,
+            sample_rate=cfg.audio.sample_rate,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        typer.echo(f"Could not enroll {name}: {exc}", err=True)
+        raise typer.Exit(1)
+    typer.echo(f"Enrolled {name} (from {speaker}). Future meetings will auto-name them.")
+    typer.echo(f"  Voiceprint: {path}  (encrypted, on-device — ADR-011/012)")
 
 
 def _resolved_hotkey(platform) -> str:
@@ -911,6 +962,396 @@ def vocab_remove(word: str = typer.Argument(..., help="The word to remove.")) ->
     typer.echo(f"Removed {word!r}. Dictionary now has {len(remaining)} word(s).")
 
 
+acronyms_app = typer.Typer(
+    name="acronyms",
+    help="Manage a persistent acronym glossary and expand acronyms in text — offline.",
+    context_settings=CONTEXT_SETTINGS,
+    no_args_is_help=True,
+)
+app.add_typer(acronyms_app, rich_help_panel=_DICTATION)
+
+
+def _acronyms_path():
+    from yazses.acronyms.store import glossary_path
+
+    return glossary_path(get_platform().paths.config_file.parent)
+
+
+@acronyms_app.command(
+    "add",
+    epilog=_examples('yazses acronyms add API "Application Programming Interface"'),
+)
+def acronyms_add(
+    acronym: str = typer.Argument(..., help="The acronym, e.g. API."),
+    full: list[str] = typer.Argument(..., help="Its full form, e.g. Application Programming Interface."),
+) -> None:
+    """Register an acronym → full-form expansion in your glossary."""
+    from yazses.acronyms.store import add_entry
+
+    glossary = add_entry(_acronyms_path(), acronym, " ".join(full))
+    typer.echo(f"Saved {acronym.upper()}. Glossary now has {len(glossary)} entr(y/ies).")
+
+
+@acronyms_app.command("list", epilog=_examples("yazses acronyms list    show every stored acronym"))
+def acronyms_list() -> None:
+    """Show your stored acronym glossary."""
+    from yazses.acronyms.store import load_glossary
+
+    glossary = load_glossary(_acronyms_path())
+    if not glossary:
+        typer.echo("Glossary is empty. Add one with: yazses acronyms add <ACR> <full form>")
+        return
+    for acr, full in glossary.items():
+        typer.echo(f"  {acr}\t{full}")
+
+
+@acronyms_app.command("remove", epilog=_examples("yazses acronyms remove API    drop an entry"))
+def acronyms_remove(acronym: str = typer.Argument(..., help="The acronym to remove.")) -> None:
+    """Remove an acronym from your glossary."""
+    from yazses.acronyms.store import remove_entry
+
+    glossary = remove_entry(_acronyms_path(), acronym)
+    typer.echo(f"Removed {acronym.upper()}. Glossary now has {len(glossary)} entr(y/ies).")
+
+
+@acronyms_app.command(
+    "expand",
+    epilog=_examples(
+        'yazses acronyms expand "The API and the API"   -> expands first use only',
+        "cat notes.txt | yazses acronyms expand           read stdin",
+    ),
+)
+def acronyms_expand(
+    text: Optional[str] = typer.Argument(None, help="Text to expand (omit to read stdin)."),
+) -> None:
+    """Expand known acronyms on first use ('Full Name (ACR)'), contract after — offline.
+
+    Use it when: you have a stored glossary and want a draft where every acronym is
+    spelled out the first time it appears, per house style, without hand-editing.
+
+    Uses your saved glossary (`yazses acronyms add`). Reads the TEXT argument, or
+    standard input when omitted.
+    """
+    import sys as _sys
+
+    from yazses.acronyms.glossary import expand_document
+    from yazses.acronyms.store import load_glossary
+
+    glossary = load_glossary(_acronyms_path())
+    src = text if text is not None else _sys.stdin.read()
+    typer.echo(expand_document(src, glossary))
+
+
+wordgoal_app = typer.Typer(
+    name="wordgoal",
+    help="Track words written against a writing goal, across invocations — offline.",
+    context_settings=CONTEXT_SETTINGS,
+    no_args_is_help=True,
+)
+app.add_typer(wordgoal_app, rich_help_panel=_DICTATION)
+
+
+def _wordgoal_path():
+    from yazses.wordgoal.store import wordgoal_path
+
+    return wordgoal_path(get_platform().paths.config_file.parent)
+
+
+@wordgoal_app.command(
+    "add",
+    epilog=_examples(
+        'yazses wordgoal add "the words I just wrote"   add a chunk to the running count',
+        "cat draft.txt | yazses wordgoal add             count a whole file",
+    ),
+)
+def wordgoal_add(
+    text: Optional[str] = typer.Argument(None, help="Text to count (omit to read stdin)."),
+) -> None:
+    """Add a chunk of text to your running word count and show progress."""
+    import sys as _sys
+
+    from yazses.wordgoal.store import load_state, save_state
+    from yazses.wordgoal.tracker import count_words, render_progress
+
+    src = text if text is not None else _sys.stdin.read()
+    st = load_state(_wordgoal_path())
+    st = save_state(_wordgoal_path(), count=st["count"] + count_words(src), goal=st["goal"])
+    typer.echo(render_progress(st["count"], st["goal"]))
+
+
+@wordgoal_app.command("status", epilog=_examples("yazses wordgoal status    show progress toward your goal"))
+def wordgoal_status() -> None:
+    """Show your current word count and goal progress."""
+    from yazses.wordgoal.store import load_state
+    from yazses.wordgoal.tracker import render_progress
+
+    st = load_state(_wordgoal_path())
+    typer.echo(render_progress(st["count"], st["goal"]))
+
+
+@wordgoal_app.command("goal", epilog=_examples("yazses wordgoal goal 500    set a 500-word target"))
+def wordgoal_goal(
+    words: int = typer.Argument(..., help="Target word count (0 clears the goal)."),
+) -> None:
+    """Set (or clear, with 0) your writing goal."""
+    from yazses.wordgoal.store import load_state, save_state
+    from yazses.wordgoal.tracker import render_progress
+
+    st = load_state(_wordgoal_path())
+    st = save_state(_wordgoal_path(), count=st["count"], goal=words)
+    typer.echo(render_progress(st["count"], st["goal"]))
+
+
+@wordgoal_app.command("reset", epilog=_examples("yazses wordgoal reset    zero the count (keeps the goal)"))
+def wordgoal_reset() -> None:
+    """Reset the word count to zero (keeps the goal)."""
+    from yazses.wordgoal.store import load_state, save_state
+
+    st = load_state(_wordgoal_path())
+    save_state(_wordgoal_path(), count=0, goal=st["goal"])
+    typer.echo("Word count reset to 0.")
+
+
+cliphistory_app = typer.Typer(
+    name="cliphistory",
+    help="A persistent clipboard history you can recall by voice-style reference — offline.",
+    context_settings=CONTEXT_SETTINGS,
+    no_args_is_help=True,
+)
+app.add_typer(cliphistory_app, rich_help_panel=_DICTATION)
+
+
+def _cliphistory_path():
+    from yazses.cliphistory.store import cliphistory_path
+
+    return cliphistory_path(get_platform().paths.config_file.parent)
+
+
+@cliphistory_app.command(
+    "add",
+    epilog=_examples(
+        'yazses cliphistory add "https://example.com"   remember a copied string',
+        "cat snippet.txt | yazses cliphistory add          remember piped text",
+    ),
+)
+def cliphistory_add(
+    text: Optional[str] = typer.Argument(None, help="Text to remember (omit to read stdin)."),
+) -> None:
+    """Add an entry to your clipboard history (newest first, de-duplicated, capped)."""
+    import sys as _sys
+
+    from yazses.cliphistory.store import add_item
+
+    src = text if text is not None else _sys.stdin.read()
+    src = src.strip("\n")
+    if not src:
+        typer.echo("Nothing to add (empty input).", err=True)
+        raise typer.Exit(1)
+    items = add_item(_cliphistory_path(), src)
+    typer.echo(f"Saved. History now has {len(items)} entr(y/ies).")
+
+
+@cliphistory_app.command("list", epilog=_examples("yazses cliphistory list    show history, newest first"))
+def cliphistory_list() -> None:
+    """Show your clipboard history, newest first."""
+    from yazses.cliphistory.store import load_items
+
+    items = load_items(_cliphistory_path())
+    if not items:
+        typer.echo("Clipboard history is empty. Add one with: yazses cliphistory add <text>")
+        return
+    for i, it in enumerate(items, start=1):
+        typer.echo(f"  {i}. {it}")
+
+
+@cliphistory_app.command(
+    "recall",
+    epilog=_examples(
+        'yazses cliphistory recall "the last url"     print the newest URL entry',
+        'yazses cliphistory recall "the second one"    print entry #2',
+    ),
+)
+def cliphistory_recall(
+    query: str = typer.Argument(..., help="Spoken-style reference, e.g. 'the last url', 'number 3'."),
+) -> None:
+    """Print the history entry a spoken reference points to — offline.
+
+    Understands url/link, email, ordinals (last/second/…), first/oldest, and 'number N';
+    defaults to the most recent entry. Exits non-zero if nothing matches.
+    """
+    from yazses.cliphistory.history import resolve_reference
+    from yazses.cliphistory.store import load_items
+
+    hit = resolve_reference(query, load_items(_cliphistory_path()))
+    if hit is None:
+        typer.echo("No matching clipboard entry.", err=True)
+        raise typer.Exit(1)
+    typer.echo(hit)
+
+
+outline_app = typer.Typer(
+    name="outline",
+    help="Build a nested outline incrementally and render it to Markdown/OPML — offline.",
+    context_settings=CONTEXT_SETTINGS,
+    no_args_is_help=True,
+)
+app.add_typer(outline_app, rich_help_panel=_DICTATION)
+
+
+def _outline_path():
+    from yazses.outline.store import outline_path
+
+    return outline_path(get_platform().paths.config_file.parent)
+
+
+def _outline_apply_and_render(op: str, text: str = "") -> None:
+    from yazses.outline.store import load_outline, save_outline
+    from yazses.outline.tree import apply_outline_op, render
+
+    state = apply_outline_op(load_outline(_outline_path()), op, text)
+    save_outline(_outline_path(), state)
+    rendered = render(state, "markdown")
+    typer.echo(rendered if rendered else "(empty outline)")
+
+
+@outline_app.command(
+    "add",
+    epilog=_examples(
+        'yazses outline add "Chapter 1"    add an item at the current level',
+        'yazses outline add "Intro" && yazses outline indent   nest the last item',
+    ),
+)
+def outline_add(
+    text: str = typer.Argument(..., help="The outline item text."),
+) -> None:
+    """Add an item after the cursor (same level) and show the outline."""
+    _outline_apply_and_render("add", text)
+
+
+@outline_app.command("indent", epilog=_examples("yazses outline indent    nest the last item one level deeper"))
+def outline_indent() -> None:
+    """Indent the current item one level deeper (max one deeper than the item above)."""
+    _outline_apply_and_render("indent")
+
+
+@outline_app.command("promote", epilog=_examples("yazses outline promote    move the last item one level shallower"))
+def outline_promote() -> None:
+    """Promote the current item one level shallower (floor 0)."""
+    _outline_apply_and_render("promote")
+
+
+@outline_app.command(
+    "render",
+    epilog=_examples(
+        "yazses outline render               Markdown bullets",
+        "yazses outline render --format opml  OPML for an outliner",
+    ),
+)
+def outline_render(
+    fmt: str = typer.Option("markdown", "--format", "-f", help="markdown | opml."),
+) -> None:
+    """Render the current outline to Markdown or OPML."""
+    from yazses.outline.store import load_outline
+    from yazses.outline.tree import render
+
+    out = render(load_outline(_outline_path()), fmt)
+    typer.echo(out if out else "(empty outline)")
+
+
+@outline_app.command("clear", epilog=_examples("yazses outline clear    start a fresh outline"))
+def outline_clear() -> None:
+    """Discard the current outline and start fresh."""
+    from yazses.outline.store import save_outline
+    from yazses.outline.tree import new_outline
+
+    save_outline(_outline_path(), new_outline())
+    typer.echo("Outline cleared.")
+
+
+srs_app = typer.Typer(
+    name="srs",
+    help="Capture facts as spaced-repetition flashcards and schedule reviews (SM-2) — offline.",
+    context_settings=CONTEXT_SETTINGS,
+    no_args_is_help=True,
+)
+app.add_typer(srs_app, rich_help_panel=_DICTATION)
+
+
+def _srs_path():
+    from yazses.srscap.store import srscap_path
+
+    return srscap_path(get_platform().paths.config_file.parent)
+
+
+@srs_app.command(
+    "capture",
+    epilog=_examples(
+        'yazses srs capture "remember that the capital of France is Paris"',
+        "cat fact.txt | yazses srs capture    capture a fact from piped text",
+    ),
+)
+def srs_capture(
+    text: Optional[str] = typer.Argument(None, help="An utterance containing a fact (omit for stdin)."),
+) -> None:
+    """Capture a 'remember that X is Y' fact as a cloze flashcard — offline.
+
+    Use it when: something worth remembering comes up mid-dictation and you want it as a
+    review card without breaking flow. Exits non-zero if no fact is detected.
+    """
+    import sys as _sys
+
+    from yazses.srscap.cards import detect_fact, to_cloze
+    from yazses.srscap.store import add_card
+
+    src = text if text is not None else _sys.stdin.read()
+    fact = detect_fact(src)
+    if fact is None:
+        typer.echo(
+            "No fact detected. Phrase it like 'remember that <X> is <Y>'.", err=True,
+        )
+        raise typer.Exit(1)
+    card = to_cloze(fact)
+    deck = add_card(_srs_path(), card)
+    typer.echo(f"Captured card #{len(deck)}: {card.cloze}")
+
+
+@srs_app.command("list", epilog=_examples("yazses srs list    show the deck + each card's interval"))
+def srs_list() -> None:
+    """Show your flashcard deck and each card's next-review interval (days)."""
+    from yazses.srscap.store import load_cards
+
+    cards = load_cards(_srs_path())
+    if not cards:
+        typer.echo("Deck is empty. Capture one with: yazses srs capture \"remember that ...\"")
+        return
+    for i, c in enumerate(cards, start=1):
+        typer.echo(f"  {i}. {c.get('front')}  →  {c.get('back')}   "
+                   f"[reps {c.get('reps', 0)}, interval {c.get('interval', 0)}d]")
+
+
+@srs_app.command(
+    "review",
+    epilog=_examples(
+        "yazses srs review 1 --grade 5    graded it easy → longer interval",
+        "yazses srs review 1 --grade 2    lapsed (grade < 3) → back to 1 day",
+    ),
+)
+def srs_review(
+    card: int = typer.Argument(..., help="Card number (see `yazses srs list`)."),
+    grade: int = typer.Option(..., "--grade", "-g", min=0, max=5, help="Recall quality 0–5 (<3 lapses)."),
+) -> None:
+    """Grade a card's recall (SM-2) and update its schedule."""
+    from yazses.srscap.store import review_card
+
+    try:
+        updated = review_card(_srs_path(), card - 1, grade)
+    except IndexError as exc:
+        typer.echo(f"Could not review: {exc}", err=True)
+        raise typer.Exit(1)
+    typer.echo(f"Card #{card} scheduled: review again in {updated['interval']} day(s) "
+               f"(reps {updated['reps']}, ease {updated['ease']}).")
+
+
 # Valid hold-to-talk keys (mirror platform/linux/hotkey.py keymap).
 _HOTKEYS = [
     "right_alt", "left_alt", "right_ctrl", "left_ctrl",
@@ -1510,6 +1951,276 @@ def braille(
 
     src = text if text is not None else _sys.stdin.read()
     typer.echo(to_braille(src, grade=grade))
+
+
+@app.command(
+    rich_help_panel=_DICTATION,
+    epilog=_examples(
+        'yazses case --style snake "myVariableName"    -> my_variable_name',
+        'yazses case "make this kebab case: My Title"   detect the style from the words',
+        "cat name.txt | yazses case --style constant     read stdin",
+    ),
+)
+def case(
+    text: Optional[str] = typer.Argument(None, help="Text to recase (omit to read stdin)."),
+    style: Optional[str] = typer.Option(
+        None, "--style",
+        help="Target case: snake|kebab|camel|pascal|title|sentence|upper|lower|constant. "
+             "Omit to detect a spoken 'make this … case' command in the text.",
+    ),
+) -> None:
+    """Recase text to a naming convention — fully offline.
+
+    Use it when: you dictated or pasted an identifier/phrase and want it in a
+    specific case (snake_case, kebab-case, camelCase, CONSTANT_CASE, Title Case, …)
+    without hand-editing it.
+
+    With --style, recases the whole TEXT. Without it, detects a spoken style command
+    ('make this snake case: …') and recases the remainder. Reads the TEXT argument,
+    or standard input when omitted.
+    """
+    import sys as _sys
+
+    from yazses.casetransform.transform import detect_style_command, transform_case
+
+    src = text if text is not None else _sys.stdin.read()
+    chosen = style
+    payload = src
+    if chosen is None:
+        chosen = detect_style_command(src)
+        if chosen is None:
+            typer.echo(
+                "No --style given and no spoken style command detected. "
+                "Pass --style snake|kebab|camel|pascal|title|sentence|upper|lower|constant.",
+                err=True,
+            )
+            raise typer.Exit(1)
+        # strip a leading "make this … case:" command so only the payload is recased
+        if ":" in src:
+            payload = src.split(":", 1)[1]
+    typer.echo(transform_case(payload.strip(), chosen))
+
+
+@app.command(
+    rich_help_panel=_DICTATION,
+    epilog=_examples(
+        'yazses screenplay "scene: interior coffee shop, day"   -> INT. COFFEE SHOP - DAY',
+        'yazses screenplay "Alice (character) hello there"       -> ALICE / dialogue',
+        "cat lines.txt | yazses screenplay    format each line as Fountain",
+    ),
+)
+def screenplay(
+    text: Optional[str] = typer.Argument(None, help="Utterance(s) to format (omit to read stdin)."),
+) -> None:
+    """Format dictated lines as Fountain screenplay markup — fully offline.
+
+    Use it when: you're drafting a script by voice and want scene headings,
+    character cues, transitions, and smart-quoted dialogue formatted for you.
+
+    Recognises 'scene: interior/exterior <place>, <time>' → 'INT./EXT. …',
+    '<Name> (character) <dialogue>' → a character cue, and 'transition: cut to'
+    → 'CUT TO:'; anything else becomes a smart-quoted action line. Each input line
+    is formatted independently. Reads the TEXT argument, or standard input when omitted.
+    """
+    import sys as _sys
+
+    from yazses.screenplay.fountain import to_fountain
+
+    src = text if text is not None else _sys.stdin.read()
+    lines = [ln for ln in src.splitlines()] or [src]
+    out = [to_fountain(ln) for ln in lines if ln.strip()]
+    typer.echo("\n\n".join(out))
+
+
+@app.command(
+    rich_help_panel=_DICTATION,
+    epilog=_examples(
+        'yazses findreplace "replace every cat with dog" --in "the cat sat"   -> the dog sat',
+        'echo "foo foo" | yazses findreplace "replace first foo with bar"      -> bar foo',
+    ),
+)
+def findreplace(
+    command: str = typer.Argument(..., help="Spoken find/replace, e.g. 'replace every X with Y'."),
+    in_text: Optional[str] = typer.Option(
+        None, "--in", help="Text to apply it to (omit to read stdin)."),
+) -> None:
+    """Apply a spoken find-and-replace to text — fully offline.
+
+    Use it when: you want to preview or script a 'replace every X with Y' edit from
+    words, without an editor — dictate the command, get the rewritten text.
+
+    Parses commands like 'replace every/first X with Y' (add 'case-sensitive' to match
+    case). Applies it to --in, or standard input when omitted. Exits non-zero if the
+    command can't be parsed.
+    """
+    import sys as _sys
+
+    from yazses.findreplace.parse import apply_replace, parse_replace_command
+
+    op = parse_replace_command(command)
+    if op is None:
+        typer.echo(
+            "Could not parse a find/replace command. Try: "
+            "'replace every X with Y' (optionally 'case-sensitive').", err=True,
+        )
+        raise typer.Exit(1)
+    src = in_text if in_text is not None else _sys.stdin.read()
+    typer.echo(apply_replace(op, src))
+
+
+@app.command(
+    rich_help_panel=_DICTATION,
+    epilog=_examples(
+        'yazses chords "press control shift P"   -> ctrl+shift+p',
+        'yazses chords "escape twice"            -> Escape (one per line)',
+    ),
+)
+def chords(
+    text: Optional[str] = typer.Argument(None, help="Spoken key chord (omit to read stdin)."),
+) -> None:
+    """Turn a spoken key chord into injectable key combos — fully offline.
+
+    Use it when: you want the exact key-combo string for a spoken shortcut
+    ('press control shift P' → 'ctrl+shift+p') to review, script, or bind.
+
+    Recognises modifiers (control/alt/shift/super), named keys (enter/escape/tab/…),
+    F-keys, and a trailing repeat ('twice', 'three times'). Prints one combo per line.
+    Reads the TEXT argument, or standard input when omitted; exits non-zero if unparsed.
+    """
+    import sys as _sys
+
+    from yazses.chords.parse import parse_chord, render_chord
+
+    src = text if text is not None else _sys.stdin.read()
+    parsed = parse_chord(src)
+    if not parsed:
+        typer.echo(
+            "Could not parse a key chord. Try: 'press control shift P' or 'escape twice'.",
+            err=True,
+        )
+        raise typer.Exit(1)
+    for chord in parsed:
+        typer.echo(render_chord(chord))
+
+
+@app.command(
+    rich_help_panel=_DICTATION,
+    epilog=_examples(
+        'yazses wordfind "finding something good by happy accident"   -> serendipity',
+        "yazses wordfind \"smell after rain\" --limit 3               top 3 guesses",
+    ),
+)
+def wordfind(
+    description: str = typer.Argument(..., help="A description of the word you're reaching for."),
+    limit: int = typer.Option(5, "--limit", "-n", help="Max candidates to show."),
+    lexicon: Optional[str] = typer.Option(
+        None, "--lexicon", help="Path to a JSON {word: definition} lexicon to merge in."),
+) -> None:
+    """Reverse dictionary: describe a word and get candidates — fully offline.
+
+    Use it when: a word is on the tip of your tongue — describe what it means and get
+    ranked guesses. Ships a small demo lexicon; extend it with --lexicon (a JSON object
+    mapping words to definitions). Exits non-zero if nothing matches.
+    """
+    import json as _json
+    import sys as _sys
+
+    from yazses.wordfind.rank import rank_candidates
+
+    user_lex = None
+    if lexicon:
+        try:
+            user_lex = _json.loads(Path(lexicon).read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            typer.echo(f"Could not read --lexicon: {exc}", err=True)
+            raise typer.Exit(1)
+    results = rank_candidates(description, user_lex, limit=limit)
+    if not results:
+        typer.echo("No candidates — try describing it differently.", err=True)
+        raise typer.Exit(1)
+    for word, score in results:
+        typer.echo(f"  {word}\t({score})")
+    _ = _sys  # (kept for symmetry with the other one-shots' stdin pattern)
+
+
+@app.command(
+    rich_help_panel=_DICTATION,
+    epilog=_examples(
+        'yazses cite "vaswani 2017" --bib refs.bib             -> \\cite{vaswani2017}',
+        'yazses cite "attention 2017" --bib refs.bib --style apa  -> Vaswani et al. (2017)',
+    ),
+)
+def cite(
+    query: str = typer.Argument(..., help="Spoken 'author year' reference, e.g. 'vaswani 2017'."),
+    bib: str = typer.Option(..., "--bib", help="Path to a BibTeX (.bib) file."),
+    style: str = typer.Option("latex", "--style", help="latex | plain | apa."),
+) -> None:
+    """Resolve a spoken 'author year' reference against a .bib file — fully offline.
+
+    Use it when: you're writing and want the right citation key/label without leaving
+    your flow — say the author and year, get the formatted citation. Exits non-zero if
+    the file can't be read or no entry matches confidently.
+    """
+    from yazses.cite.library import format_citation, parse_bibtex, resolve_citation
+
+    try:
+        text = Path(bib).read_text(encoding="utf-8")
+    except OSError as exc:
+        typer.echo(f"Could not read --bib: {exc}", err=True)
+        raise typer.Exit(1)
+    hit = resolve_citation(query, parse_bibtex(text))
+    if hit is None:
+        typer.echo("No confident citation match. Try 'surname year'.", err=True)
+        raise typer.Exit(1)
+    typer.echo(format_citation(hit, style))
+
+
+@app.command(
+    rich_help_panel=_DICTATION,
+    epilog=_examples(
+        'yazses slotfill "set priority high, open firefox" '
+        '--slot priority:after=priority --slot browser:choices=firefox,chrome',
+        "  -> {\"browser\": \"firefox\", \"priority\": \"high\"}",
+    ),
+)
+def slotfill(
+    text: str = typer.Argument(..., help="The utterance to extract fields from."),
+    slot: list[str] = typer.Option(
+        ..., "--slot",
+        help="A field spec (repeatable): NAME:after=kw1,kw2  or  NAME:choices=a,b,c.",
+    ),
+) -> None:
+    """Extract structured fields from one utterance by a schema — fully offline.
+
+    Use it when: you want to turn a spoken sentence into structured values (a form, a
+    command's arguments) — define each field as a trigger keyword ('after') or an enum
+    ('choices') and get back JSON of the matched fields.
+
+    ``after`` captures the token following a trigger keyword ('priority high' → 'high');
+    ``choices`` picks the first enum member present. Prints a JSON object of matched fields.
+    """
+    import json as _json
+
+    from yazses.slotfill.fill import Slot, fill_slots
+
+    slots = []
+    for spec in slot:
+        if ":" not in spec or "=" not in spec:
+            typer.echo(f"Bad --slot {spec!r}. Use NAME:after=... or NAME:choices=...", err=True)
+            raise typer.Exit(1)
+        name, rest = spec.split(":", 1)
+        kind, raw = rest.split("=", 1)
+        values = tuple(v.strip() for v in raw.split(",") if v.strip())
+        kind = kind.strip().lower()
+        if kind == "after":
+            slots.append(Slot(name.strip(), after=values))
+        elif kind == "choices":
+            slots.append(Slot(name.strip(), choices=values))
+        else:
+            typer.echo(f"Unknown slot kind {kind!r}; use 'after' or 'choices'.", err=True)
+            raise typer.Exit(1)
+    result = fill_slots(text, slots)
+    typer.echo(_json.dumps(result, ensure_ascii=False, sort_keys=True))
 
 
 @app.command(

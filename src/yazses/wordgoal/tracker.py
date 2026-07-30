@@ -17,6 +17,16 @@ def count_words(text: str) -> int:
     return len(_WORD.findall(text or ""))
 
 
+def render_progress(count: int, goal: int) -> str:
+    """A spoken-ready progress line for ``count`` words against ``goal`` (0 = none). Pure."""
+    if goal > 0:
+        remaining = goal - count
+        if remaining <= 0:
+            return f"You've reached your goal of {goal} words, with {count} typed."
+        return f"{count} of {goal} words — {remaining} to go."
+    return f"{count} words so far."
+
+
 class WordGoalTracker:
     """Accumulates injected word counts against an optional goal. Pure state."""
 
@@ -39,12 +49,7 @@ class WordGoalTracker:
 
     def progress(self) -> str:
         """A spoken-ready progress line, with or without a goal. Pure."""
-        if self._goal > 0:
-            remaining = self._goal - self._count
-            if remaining <= 0:
-                return f"You've reached your goal of {self._goal} words, with {self._count} typed."
-            return f"{self._count} of {self._goal} words — {remaining} to go."
-        return f"{self._count} words so far."
+        return render_progress(self._count, self._goal)
 
 
 def parse_goal_command(text: str):

@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import json
+import re
+
+import pytest
 
 from yazses.config import MeetingConfig
 from yazses.meeting.notes import (
@@ -9,6 +12,7 @@ from yazses.meeting.notes import (
     Minutes,
     SpeakerNote,
     generate_minutes,
+    minutes_gbnf,
     render_minutes_md,
     window_turns,
 )
@@ -68,6 +72,30 @@ def test_parses_json_inside_prose_and_fences():
     m = generate_minutes(UTTS[:1], MeetingConfig(notes=True), llm=lambda p: reply)
     assert m.summary == "ok"
     assert m.decisions == ["d1"]
+
+
+def test_minutes_gbnf_is_closed_and_rooted():
+    """Every referenced rule is defined and `root` exists (well-formed grammar)."""
+    grammar = minutes_gbnf()
+    defined, referenced = set(), set()
+    for line in grammar.splitlines():
+        if "::=" not in line:
+            continue
+        lhs, rhs = line.split("::=", 1)
+        defined.add(lhs.strip())
+        # strip string literals and char classes so only rule refs remain
+        rhs = re.sub(r'"(?:[^"\\]|\\.)*"', " ", rhs)
+        rhs = re.sub(r"\[(?:[^\]\\]|\\.)*\]", " ", rhs)
+        referenced.update(re.findall(r"[a-z][a-z0-9_]*", rhs))
+    assert "root" in defined
+    assert referenced <= defined, f"undefined rules: {referenced - defined}"
+
+
+def test_minutes_gbnf_parses_with_llama_when_available():
+    """When the `notes` extra is installed, llama.cpp accepts the grammar."""
+    llama_grammar = pytest.importorskip("llama_cpp").LlamaGrammar
+    # Raises on a malformed grammar; a clean parse is the assertion.
+    assert llama_grammar.from_string(minutes_gbnf(), verbose=False) is not None
 
 
 def test_render_minutes_md():

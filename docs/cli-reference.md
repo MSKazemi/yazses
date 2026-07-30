@@ -196,6 +196,11 @@ debugging. This is the entry point `yazses start` supervises in the background.
 | `yazses enroll-voice` | Record an encrypted speaker voiceprint (for Cocktail Filter + Voiceprint Mind). |
 | `yazses model` | Manage the SLM intent-routing models (list / download). |
 | `yazses vocab` | Manage your personal dictionary (words STT mis-hears). |
+| `yazses acronyms` | Manage a persistent acronym glossary and expand acronyms in text. |
+| `yazses wordgoal` | Track words written against a writing goal, across invocations. |
+| `yazses cliphistory` | A persistent clipboard history you can recall by voice-style reference. |
+| `yazses outline` | Build a nested outline incrementally and render it to Markdown/OPML. |
+| `yazses srs` | Capture facts as flashcards and schedule reviews (SM-2). |
 | `yazses hotkey` | Show or change the key you hold to talk. |
 | `yazses gaze` | Aim dictation with your gaze — type into whichever pane you look at. |
 
@@ -334,6 +339,99 @@ yazses vocab remove kubectl           # drop a word
 yazses restart                        # apply so STT spells them right
 ```
 
+### `yazses acronyms` — acronym glossary
+
+A persistent `{ACR: full name}` glossary stored at `~/.config/yazses/acronyms.json`.
+`yazses acronyms expand` rewrites text so each known acronym is spelled out on its
+first occurrence (`Full Name (ACR)`) and contracted afterwards — fully offline.
+
+| Command | Description |
+|---|---|
+| `yazses acronyms add <ACR> <full form>` | Register/replace an expansion. |
+| `yazses acronyms list` | Show the stored glossary. |
+| `yazses acronyms remove <ACR>` | Drop an entry. |
+| `yazses acronyms expand [text]` | Expand acronyms in TEXT (or stdin) on first use. |
+
+```bash
+yazses acronyms add API "Application Programming Interface"
+yazses acronyms expand "The API and the API"
+#   -> The Application Programming Interface (API) and the API
+```
+
+### `yazses wordgoal` — writing-goal tracker
+
+A running word count persisted at `~/.config/yazses/wordgoal.json`, so it accumulates
+across invocations (dictate or pipe text in and watch progress toward a target).
+
+| Command | Description |
+|---|---|
+| `yazses wordgoal add [text]` | Add TEXT (or stdin) to the running count; show progress. |
+| `yazses wordgoal status` | Show the current count and goal progress. |
+| `yazses wordgoal goal <n>` | Set a target word count (`0` clears it). |
+| `yazses wordgoal reset` | Zero the count (keeps the goal). |
+
+```bash
+yazses wordgoal goal 500
+yazses wordgoal add "the paragraph I just wrote"
+yazses wordgoal status        # -> N of 500 words — M to go.
+```
+
+### `yazses cliphistory` — clipboard history
+
+A newest-first, de-duplicated, capped clipboard history stored at
+`~/.config/yazses/cliphistory.json`. `recall` resolves a spoken-style reference to one
+entry — fully offline.
+
+| Command | Description |
+|---|---|
+| `yazses cliphistory add [text]` | Remember TEXT (or stdin). |
+| `yazses cliphistory list` | Show history, newest first. |
+| `yazses cliphistory recall <query>` | Print the entry a reference points to. |
+
+`recall` understands `url`/`link`, `email`, ordinals (`last`, `second`, …),
+`first`/`oldest`, and `number N`; it defaults to the most recent entry.
+
+```bash
+yazses cliphistory add "https://example.com"
+yazses cliphistory recall "the last url"     # -> https://example.com
+```
+
+### `yazses outline` — incremental outline builder
+
+Builds a nested outline across invocations (state at `~/.config/yazses/outline.json`)
+and renders it to Markdown or OPML — fully offline.
+
+| Command | Description |
+|---|---|
+| `yazses outline add <text>` | Add an item after the cursor at the current level. |
+| `yazses outline indent` | Nest the last item one level deeper. |
+| `yazses outline promote` | Move the last item one level shallower. |
+| `yazses outline render [--format markdown\|opml]` | Render the outline. |
+| `yazses outline clear` | Start a fresh outline. |
+
+```bash
+yazses outline add "Chapter 1"
+yazses outline add "Section A"
+yazses outline indent
+yazses outline render          # -> - Chapter 1 / (indented) - Section A
+```
+
+### `yazses srs` — spaced-repetition capture
+
+Capture "remember that X is Y" facts as cloze flashcards (stored at
+`~/.config/yazses/srscap.json`) and schedule reviews with the SM-2 algorithm — offline.
+
+| Command | Description |
+|---|---|
+| `yazses srs capture [text]` | Detect a fact in TEXT (or stdin) and store it as a card. |
+| `yazses srs list` | Show the deck and each card's next-review interval (days). |
+| `yazses srs review <n> --grade <0-5>` | Grade recall; `<3` lapses, higher grades lengthen the interval. |
+
+```bash
+yazses srs capture "remember that the capital of France is Paris"
+yazses srs review 1 --grade 5     # -> review again in 1 day(s)
+```
+
 **Moving your dictionary to another device.** Your dictionary and settings are
 plain files under `~/.config/yazses/`, so they move with a simple copy — no export
 step:
@@ -414,6 +512,13 @@ yazses gaze calibrate    # fit the webcam gaze → screen-zone mapping
 | `yazses table [text]` | Turn spoken rows into delimited (CSV) lines — fully offline. |
 | `yazses shellpipe [text]` | Render a spoken pipeline into a shell command (printed, never run). |
 | `yazses braille [text]` | Translate text to Unicode Braille (UEB subset) — fully offline. |
+| `yazses case [text]` | Recase text to a naming convention (snake/kebab/camel/…) — fully offline. |
+| `yazses screenplay [text]` | Format dictated lines as Fountain screenplay markup — fully offline. |
+| `yazses findreplace <command>` | Apply a spoken 'replace X with Y' edit to text — fully offline. |
+| `yazses chords [text]` | Turn a spoken key chord into injectable key combos — fully offline. |
+| `yazses wordfind <description>` | Reverse dictionary: describe a word, get ranked candidates. |
+| `yazses cite <query> --bib <file>` | Resolve a spoken 'author year' reference against a .bib. |
+| `yazses slotfill <text> --slot ...` | Extract structured fields from an utterance by a schema. |
 | `yazses punch-in` | Correct the last dictation by re-speaking just the wrong phrase. |
 | `yazses transcribe <file>` | Transcribe an audio file to text — fully offline. |
 | `yazses meeting` | Record a whole meeting hands-free → speaker-labelled transcript + optional minutes. |
@@ -494,6 +599,13 @@ uploaded.
 | `yazses table` | `--sep <char>` (default `,`) | `yazses table "row: Ada, 1815, London next row Bob, 1990, Paris"` |
 | `yazses shellpipe` | — | `yazses shellpipe "list files then count lines"` → `ls \| wc -l` |
 | `yazses braille` | `--grade <1\|2>` (default `2`) | `yazses braille "hello world"` → `⠓⠑⠇⠇⠕ ⠺⠕⠗⠇⠙` |
+| `yazses case` | `--style <name>` | `yazses case --style snake "myVariableName"` → `my_variable_name` |
+| `yazses screenplay` | — | `yazses screenplay "scene: interior coffee shop, day"` → `INT. COFFEE SHOP - DAY` |
+| `yazses findreplace` | `--in <text>` | `yazses findreplace "replace every cat with dog" --in "the cat"` → `the dog` |
+| `yazses chords` | — | `yazses chords "press control shift P"` → `ctrl+shift+p` |
+| `yazses wordfind` | `--limit <n>`, `--lexicon <file>` | `yazses wordfind "happy accident"` → `serendipity` |
+| `yazses cite` | `--bib <file>` (req), `--style <latex\|plain\|apa>` | `yazses cite "vaswani 2017" --bib refs.bib` → `\cite{vaswani2017}` |
+| `yazses slotfill` | `--slot NAME:after=… \| NAME:choices=…` (repeatable) | `yazses slotfill "priority high" --slot priority:after=priority` → `{"priority": "high"}` |
 
 - **`reflow`** splits on sentence boundaries, strips a leading discourse marker
   (`first`, `then`, `finally`, …), and turns action phrases (`I need to`, `to do`,
@@ -505,6 +617,23 @@ uploaded.
   it **never executes** anything; it exits non-zero (emitting nothing) if a stage
   isn't recognised.
 - **`braille`** translates to Unicode Braille; `--grade 1` is uncontracted.
+- **`case`** recases text to a naming convention (`snake`, `kebab`, `camel`, `pascal`,
+  `title`, `sentence`, `upper`, `lower`, `constant`); with no `--style` it detects a
+  spoken `make this … case:` command and recases the remainder.
+- **`screenplay`** formats each line as Fountain: `scene: interior/exterior <place>,
+  <time>` → `INT./EXT. …`, `<Name> (character) <dialogue>` → a character cue,
+  `transition: cut to` → `CUT TO:`; other lines become smart-quoted action lines.
+- **`findreplace`** parses `replace every/first X with Y` (add `case-sensitive`) and
+  applies it to `--in`/stdin; exits non-zero if the command can't be parsed.
+- **`chords`** parses a spoken chord (modifiers + a named/F/char key + an optional
+  repeat like `twice`) into `ctrl+shift+p`-style combos, one per line.
+- **`wordfind`** ranks a small built-in lexicon by content-word overlap with your
+  description; extend it with `--lexicon` (a JSON `{word: definition}` object).
+- **`cite`** parses a local `.bib`, matches a spoken `author year` query, and formats
+  the entry (`--style latex|plain|apa`); exits non-zero if nothing matches confidently.
+- **`slotfill`** extracts structured fields from one utterance: each `--slot` is either
+  `NAME:after=kw1,kw2` (capture the token after a keyword) or `NAME:choices=a,b,c` (pick
+  the first enum member present); prints a JSON object of the matched fields.
 
 ```bash
 cat notes.txt | yazses reflow          # reflow a piped transcript

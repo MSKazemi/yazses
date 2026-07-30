@@ -84,10 +84,17 @@ class MeetingSession:
         self._sink.write(chunk)
 
     def add_live_line(self, text: str) -> None:
-        """Append a finalized live-transcript line for the status view."""
+        """Append a finalized live-transcript line for the status view.
+
+        Also streams the line to ``<dir>/live.jsonl`` so a crash mid-meeting leaves a
+        partial transcript on disk (recovery artefact, separate from ``transcript.json``).
+        """
         text = (text or "").strip()
         if text:
             self.live_lines.append(text)
+            from yazses.meeting import store
+
+            store.append_live_line(self.dir, text, self.elapsed_s())
 
     def duration_s(self) -> float:
         """Captured audio duration in seconds (from sample count, clock-independent)."""

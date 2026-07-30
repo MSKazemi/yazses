@@ -44,15 +44,27 @@ class MeetingController:
         started_at: float = 0.0,
         clock=None,
         session=None,
+        max_seconds: float = 0.0,
+        on_auto_stop=None,
+        participants=None,
     ) -> None:
         self._config = config
         self._engine = engine
         self._sr = sample_rate
         self._embedder = embedder
         self._voiceprint = voiceprint
+        self._participants = dict(participants or {})
         self._diarizer = diarizer
         self._llm = llm
         self.meeting_id = meeting_id
+        # Safety auto-stop: the controller owns the cap (not the recorder), so audio
+        # up to the cap is finalized rather than silently dropped. ``on_auto_stop`` is
+        # invoked at most once, from the audio-callback thread; the daemon defers the
+        # real stop to a worker so the mic stream is never stopped from its own callback.
+        self._max_seconds = float(max_seconds or 0.0)
+        self._on_auto_stop = on_auto_stop
+        self._auto_stop_fired = False
+        self._auto_lock = threading.Lock()
         self._session = session or MeetingSession(
             meeting_id, meeting_dir, sample_rate=sample_rate,
             started_at=started_at, clock=clock,
@@ -86,6 +98,24 @@ class MeetingController:
             utt = self._seg.push(chunk)
             if utt is not None:
                 self._queue.put(utt)
+        self._check_auto_stop()
+
+    def _check_auto_stop(self) -> None:
+        """Fire ``on_auto_stop`` once when captured audio reaches ``max_seconds``."""
+        if not self._max_seconds or self._on_auto_stop is None:
+            return
+        if self._session.duration_s() < self._max_seconds:
+            return
+        with self._auto_lock:
+            if self._auto_stop_fired:
+                return
+            self._auto_stop_fired = True
+        log.info("Meeting %s hit the %.0fs cap; auto-stopping.",
+                 self.meeting_id, self._max_seconds)
+        try:
+            self._on_auto_stop()
+        except Exception:  # pragma: no cover - defensive; callback owns its errors
+            log.exception("Meeting auto-stop callback failed")
 
     def _live_loop(self) -> None:
         while True:
@@ -125,10 +155,14 @@ class MeetingController:
         embedder = None
         if (
             getattr(self._config, "name_from_voiceprints", True)
-            and self._voiceprint is not None
             and self._embedder is not None
+            and (self._voiceprint is not None or self._participants)
         ):
-            profiles = {"You": self._voiceprint}
+            profiles = {}
+            if self._voiceprint is not None:
+                profiles["You"] = self._voiceprint
+            # Enrolled meeting participants auto-name their clusters in future meetings.
+            profiles.update(self._participants)
             embedder = self._embedder
 
         result = finalize_meeting(
