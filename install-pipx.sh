@@ -98,6 +98,15 @@ echo "    yazses stop     — stop the daemon"
 echo "    yazses start    — start the daemon"
 echo ""
 
+# Verify the install end-to-end: `yazses doctor` checks every prerequisite (audio,
+# injection + clipboard backends, input group, model) and prints a one-line verdict, so
+# a missing tool surfaces here — during install — instead of as a silent failure later.
+# (A [WARN] about the `input` group is expected until you log out and back in.)
+info "Verifying your installation (yazses doctor)..."
+echo ""
+"$YZ" doctor 2>/dev/null || warn "Could not run 'yazses doctor' yet — run it after the re-login above."
+echo ""
+
 # Show every capability (● on / ○ off) so a new user sees the full feature set.
 # `yazses features` is the single source of truth and needs no running daemon.
 echo "  What YazSes can do — every capability (● on / ○ off):"
