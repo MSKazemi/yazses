@@ -1639,12 +1639,24 @@ def stop() -> None:
 
 @app.command(
     rich_help_panel=_DAEMON,
-    epilog=_examples("yazses status    show state, model, hotkey, and uptime"),
+    epilog=_examples(
+        "yazses status         show state, model, hotkey, and uptime",
+        "yazses status --json  dump status as JSON for scripts and status bars",
+    ),
 )
-def status() -> None:
+def status(
+    json_output: bool = typer.Option(
+        False, "--json", help="Output status as JSON for scripts and status bars."
+    ),
+) -> None:
     """Show daemon status. Queries the daemon over IPC when reachable."""
+    import json as _json
+
     platform = get_platform()
     if not platform.lifecycle.is_running():
+        if json_output:
+            typer.echo(_json.dumps({"running": False, "state": "stopped", "pid": None, "ready": False}))
+            return
         typer.echo("YazSes is not running. Start it with `yazses start`.")
         typer.echo("New here? Run `yazses quickstart` for the 3-step setup.")
         return
@@ -1654,10 +1666,23 @@ def status() -> None:
     try:
         info = client.call("status")
     except IpcUnreachableError:
+        if json_output:
+            typer.echo(_json.dumps({"running": True, "state": "starting", "pid": pid, "ready": False}))
+            return
         typer.echo(
             f"YazSes is running (PID {pid}) but still starting up — it's loading the "
             "speech model (first run can take 10–30s). Re-run `yazses status` shortly."
         )
+        return
+
+    if json_output:
+        data = dict(info)
+        data["running"] = True
+        data["pid"] = pid
+        if "ready" not in data:
+            state = str(data.get("state", "")).lower()
+            data["ready"] = state in ("idle", "recording", "injecting")
+        typer.echo(_json.dumps(data))
         return
 
     typer.echo(f"YazSes is running (PID {pid}).")

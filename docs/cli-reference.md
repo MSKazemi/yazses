@@ -121,10 +121,12 @@ yazses stop    # dictation off until you start again
 
 Show state, hotkey, model, injection backend, and uptime over IPC. When not
 running, points you at `yazses start` (and `yazses quickstart` for new users);
-while the model is still loading it says so rather than looking broken.
+while the model is still loading it says so rather than looking broken. Pass `--json`
+for machine-readable JSON output for status bars or scripts.
 
 ```bash
-yazses status    # is it running? show state, model, and hotkey
+yazses status         # is it running? show state, model, and hotkey
+yazses status --json  # output state, pid, model, and ready as JSON
 ```
 
 ### `yazses tray`

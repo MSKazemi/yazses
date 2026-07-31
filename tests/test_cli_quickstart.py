@@ -109,6 +109,69 @@ def test_status_not_running_is_actionable(monkeypatch):
     assert "quickstart" in result.output  # points a new user at onboarding
 
 
+def test_status_json_not_running(monkeypatch):
+    import json
+    plat = _Platform(running=False)
+    _patch(monkeypatch, plat)
+    result = runner.invoke(cli.app, ["status", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["running"] is False
+    assert data["state"] == "stopped"
+    assert data["pid"] is None
+    assert data["ready"] is False
+
+
+def test_status_json_running(monkeypatch):
+    import json
+    plat = _Platform(running=True)
+    _patch(monkeypatch, plat)
+    mock_status = {
+        "state": "idle",
+        "ready": True,
+        "model": "base.en",
+        "hotkey": "right_ctrl",
+        "injection_backend": "uinput",
+        "uptime_s": 42.0,
+    }
+
+    class _MockClient:
+        def call(self, method):
+            if method == "status":
+                return mock_status
+            raise RuntimeError(f"Unexpected method: {method}")
+
+    plat.ipc_client_factory = lambda _sock: _MockClient()
+    result = runner.invoke(cli.app, ["status", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["running"] is True
+    assert data["pid"] == 4321
+    assert data["state"] == "idle"
+    assert data["ready"] is True
+    assert data["model"] == "base.en"
+    assert data["hotkey"] == "right_ctrl"
+
+
+def test_status_json_starting_ipc_unreachable(monkeypatch):
+    import json
+    plat = _Platform(running=True)
+    _patch(monkeypatch, plat)
+
+    class _MockClientUnreachable:
+        def call(self, method):
+            raise cli.IpcUnreachableError("Socket unreachable")
+
+    plat.ipc_client_factory = lambda _sock: _MockClientUnreachable()
+    result = runner.invoke(cli.app, ["status", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["running"] is True
+    assert data["state"] == "starting"
+    assert data["pid"] == 4321
+    assert data["ready"] is False
+
+
 def test_stop_not_running_says_nothing_to_stop(monkeypatch):
     plat = _Platform(running=False)
     _patch(monkeypatch, plat)
