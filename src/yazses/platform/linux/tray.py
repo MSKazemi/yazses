@@ -125,22 +125,27 @@ class LinuxTray:
             log.exception("Tray icon update failed")
 
     def _make_icon(self, color_hex: str):
-        """Draw a simple filled-circle mic indicator in ``color_hex`` → QIcon."""
+        """Draw the YazSes mark — a rounded badge in ``color_hex`` with a bold "Y"."""
         from PySide6.QtCore import QRectF, Qt
-        from PySide6.QtGui import QBrush, QColor, QIcon, QPainter, QPixmap
+        from PySide6.QtGui import QBrush, QColor, QFont, QIcon, QPainter, QPixmap
 
         pm = QPixmap(_ICON_PX, _ICON_PX)
         pm.fill(Qt.transparent)
         p = QPainter(pm)
         try:
             p.setRenderHint(QPainter.Antialiasing)
+            p.setRenderHint(QPainter.TextAntialiasing)
+            # Rounded-square badge in the state colour (blue = working, red = idle/problem).
             p.setBrush(QBrush(QColor(color_hex)))
             p.setPen(Qt.NoPen)
-            p.drawEllipse(QRectF(8, 8, _ICON_PX - 16, _ICON_PX - 16))
-            # A small white "mic" bar so it reads as a microphone, not just a dot.
-            # drawRoundedRect(x, y, w, h, xRadius, yRadius) — plain floats, not a QRectF.
-            p.setBrush(QBrush(QColor("#ffffff")))
-            p.drawRoundedRect(float(_ICON_PX / 2 - 6), 18.0, 12.0, 22.0, 6.0, 6.0)
+            p.drawRoundedRect(QRectF(5, 5, _ICON_PX - 10, _ICON_PX - 10), 15.0, 15.0)
+            # Bold white "Y" — the YazSes mark.
+            font = QFont()
+            font.setBold(True)
+            font.setPixelSize(int(_ICON_PX * 0.62))
+            p.setFont(font)
+            p.setPen(QColor("#ffffff"))
+            p.drawText(QRectF(0, 0, _ICON_PX, _ICON_PX), Qt.AlignCenter, "Y")
         finally:
             p.end()
         return QIcon(pm)

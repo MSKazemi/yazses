@@ -49,11 +49,17 @@ def test_menu_marks_os_default_label():
 
 
 def test_icon_spec_state_colors():
-    assert icon_spec({"state": "recording"})[0] == "#ea4335"
-    assert icon_spec({"state": "idle"})[0] == "#1a73e8"
-    # A live silent-streak forces the warning colour regardless of state.
-    assert icon_spec({"state": "idle", "silent_streak": 2})[0] == "#ff6d00"
-    assert icon_spec({"state": "error"})[0] == "#ff6d00"
+    _BLUE, _RED = "#1a73e8", "#e53935"
+    # Actively working → blue.
+    assert icon_spec({"state": "recording"})[0] == _BLUE
+    assert icon_spec({"state": "transcribing"})[0] == _BLUE
+    assert icon_spec({"state": "injecting"})[0] == _BLUE
+    # Idle / loading / paused → reddish.
+    assert icon_spec({"state": "idle"})[0] == _RED
+    assert icon_spec({"state": "loading"})[0] == _RED
+    # Problems → reddish, overriding any state.
+    assert icon_spec({"state": "recording", "silent_streak": 2})[0] == _RED
+    assert icon_spec({"state": "error"})[0] == _RED
 
 
 def test_icon_spec_tooltip_has_mic_and_hotkey():

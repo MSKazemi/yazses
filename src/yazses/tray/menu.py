@@ -11,24 +11,24 @@ from dataclasses import dataclass
 
 from yazses.audio.devices import InputDevice, resolve_input_device
 
-# Icon colours per daemon state (hex). A live silent-streak overrides these with a
-# warning colour so the top bar flags "we're not hearing you" at a glance.
-_STATE_COLOR = {
-    "loading": "#9aa0a6",       # grey
-    "idle": "#1a73e8",          # blue
-    "recording": "#ea4335",     # red
-    "transcribing": "#fbbc04",  # amber
-    "injecting": "#34a853",     # green
-    "readback": "#a142f4",      # purple
-    "paused": "#9aa0a6",
-    "error": "#ff6d00",         # orange
-    "remote_setup": "#1a73e8",
-    "remote_active": "#34a853",
-    "enrolling": "#1a73e8",
-    "meeting": "#a142f4",
-}
-_WARNING_COLOR = "#ff6d00"      # orange — silent-streak / error
-_DEFAULT_COLOR = "#1a73e8"
+# Two-colour scheme: BLUE while YazSes is actively working (capturing / transcribing /
+# injecting), REDDISH when it is idle, still starting, or in trouble (error / a live
+# silent-streak). So a glance at the top bar says "busy" vs "resting or needs attention".
+_BLUE = "#1a73e8"       # actively working
+_RED = "#e53935"        # idle or problem
+# The daemon states that mean "actively working" → blue; everything else → reddish.
+_WORKING_STATES = frozenset(
+    {
+        "recording",
+        "transcribing",
+        "injecting",
+        "readback",
+        "remote_setup",
+        "remote_active",
+        "enrolling",
+        "meeting",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -89,15 +89,18 @@ def build_menu_model(
 def icon_spec(status: dict) -> tuple[str, str]:
     """Return ``(hex_color, tooltip)`` for the tray icon given a status dict.
 
-    A live silent-streak forces the warning colour regardless of state, so a mic that
-    stopped being heard is visible in the top bar without opening the menu.
+    Blue while actively working; reddish when idle, starting up, or in trouble. A live
+    silent-streak or an error is always reddish, so a mic that stopped being heard shows
+    in the top bar without opening the menu.
     """
     state = str(status.get("state") or "idle")
     streak = int(status.get("silent_streak") or 0)
     if streak or state == "error":
-        color = _WARNING_COLOR
+        color = _RED  # problem
+    elif state in _WORKING_STATES:
+        color = _BLUE  # working correctly
     else:
-        color = _STATE_COLOR.get(state, _DEFAULT_COLOR)
+        color = _RED  # idle / loading / paused
 
     mic = status.get("input_device") or "default"
     hotkey = status.get("hotkey") or "?"
