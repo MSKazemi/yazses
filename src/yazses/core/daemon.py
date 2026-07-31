@@ -21,6 +21,7 @@ import numpy as np
 from dataclasses import dataclass
 from types import FrameType
 
+from yazses.audio.device_monitor import DeviceMonitor, SilentStreakTracker
 from yazses.audio.padding import PreSpeechRingBuffer
 from yazses.audio.recorder import AudioRecorder
 from yazses.audio.vad_calibrated import is_silent_calibrated
@@ -85,6 +86,14 @@ class _DaemonState:
     # Live mic level (mean(|samples|)) of the most recent audio chunk while
     # recording; 0.0 otherwise. Surfaced over `status` to drive the overlay.
     audio_level: float = 0.0
+    # Audio-input health (surfaced over `status`, driven by the device monitor +
+    # silent-streak detector): the device capture last opened, the last device that
+    # produced usable audio ("last-good", the auto-heal target), the current run of
+    # consecutive silent-discards, and when the default input last changed.
+    input_device: str | None = None
+    last_good_device: str | None = None
+    silent_streak: int = 0
+    device_changed_at: float | None = None
 
 
 class Daemon:
@@ -167,6 +176,15 @@ class Daemon:
         self._meeting_controller = None
         self._meeting_recorder = None
         self._meeting_finalizing = False
+        # Audio-input resilience: count consecutive silent-discards and watch the OS
+        # default input device so a mic that silently switches (e.g. a USB-C monitor
+        # stealing capture) is auto-healed to the last-good device + notified, instead
+        # of dropping speech in silence. Built in _build_pipeline; monitor may be None.
+        self._silent_streak = SilentStreakTracker()
+        self._device_monitor: DeviceMonitor | None = None
+        # True once we've auto-healed for the current silent streak, so a device that
+        # is genuinely gone doesn't re-trigger the switch on every subsequent clip.
+        self._healed_this_streak = False
 
     # ---- Public entrypoints -----------------------------------------------
 
@@ -219,6 +237,10 @@ class Daemon:
                     name="command-hotkey",
                 )
                 self._command_thread.start()
+            # Watch for the OS default input device changing under us.
+            if self._device_monitor is not None:
+                self._device_monitor.start()
+                log.info("Watching for audio-input device changes.")
             self._hotkey.run()
         finally:
             self._shutdown()
@@ -293,12 +315,30 @@ class Daemon:
             cfg.audio.sample_rate,
             cfg.audio.max_record_seconds,
             on_chunk=self._on_audio_chunk,
+            device=cfg.audio.device or None,
         )
 
         self._padding_buffer = PreSpeechRingBuffer(
             padding_ms=cfg.accessibility.pre_speech_padding_ms,
             sample_rate=cfg.audio.sample_rate,
         )
+
+        # Watch the OS default input device so a silent switch (a plugged-in monitor /
+        # headset stealing capture) is surfaced + auto-healed. Polls only while idle,
+        # so PortAudio is never re-initialised mid-recording. Dormant when disabled.
+        if cfg.audio.device_change_notify and cfg.audio.device_poll_interval_s > 0:
+            from yazses.audio.devices import current_default_input_name, reinit_portaudio
+
+            def _poll_default() -> str | None:
+                reinit_portaudio()  # refresh so hotplugged devices are visible
+                return current_default_input_name()
+
+            self._device_monitor = DeviceMonitor(
+                poll_fn=_poll_default,
+                is_idle=self._audio_idle,
+                on_change=self._on_default_device_changed,
+                interval_s=cfg.audio.device_poll_interval_s,
+            )
 
         key_id = cfg.hotkey.key
         if key_id == "auto":
@@ -694,6 +734,9 @@ class Daemon:
                     level,
                     acc.vad_threshold,
                 )
+                # A run of these is the "dictation silently stopped writing" symptom
+                # (mic switched to a dead/quiet source): auto-heal + notify the user.
+                self._note_silent_discard()
                 if stream_injector is not None:
                     stream_injector.cancel()
                 return
@@ -1117,6 +1160,10 @@ class Daemon:
                 except Exception:
                     pass
         finally:
+            # Non-silent capture that produced a transcript means the mic is working:
+            # reset the silent streak and remember this device as the auto-heal target.
+            if event.get("raw_text") and not event.get("discard_reason"):
+                self._note_good_capture()
             if self._corpus is not None and (
                 event.get("raw_text") or event.get("discard_reason")
             ):
@@ -1146,6 +1193,185 @@ class Daemon:
                 self._state.audio_level = float(np.abs(chunk).mean())
         if self._streaming_active and self._stream_engine is not None:
             self._stream_engine.push(chunk)
+
+    # ---- Audio-input resilience (device change + silent-streak) -------------
+
+    def _audio_idle(self) -> bool:
+        """True when no recording is in flight — safe to poll/reinit the mic."""
+        with self._lock:
+            return self._state.state == TrayState.IDLE
+
+    def _active_device_name(self) -> str | None:
+        """The mic capture would currently use: the pin, else the OS default."""
+        pinned = self._config.audio.device
+        if pinned:
+            return pinned
+        try:
+            from yazses.audio.devices import current_default_input_name
+
+            return current_default_input_name()
+        except Exception:
+            return None
+
+    def _mic_actions(self):
+        """The [Re-calibrate] [Pin this mic] [Ignore] buttons for a mic toast."""
+        from yazses.system.notify import NotifyAction
+
+        return [
+            NotifyAction("recalibrate", "Re-calibrate"),
+            NotifyAction("pin", "Pin this mic"),
+            NotifyAction("ignore", "Ignore"),
+        ]
+
+    def _on_mic_action(self, key: str) -> None:
+        """Dispatch a clicked notification button (runs on the notifier thread)."""
+        if key == "recalibrate":
+            self._recalibrate_mic()
+        elif key == "pin":
+            self._pin_current_mic()
+        # "ignore" (and anything else) — no-op.
+
+    def _notify_mic(self, title: str, body: str, *, actions: bool = True) -> None:
+        """Fire a desktop notification about the mic; never raises."""
+        try:
+            from yazses.system import notify as notify_mod
+
+            notify_mod.notify(
+                title,
+                body,
+                urgency="critical",
+                actions=self._mic_actions() if actions else None,
+                on_action=self._on_mic_action if actions else None,
+            )
+        except Exception:
+            log.exception("Mic notification failed")
+
+    def _on_default_device_changed(self, prev: str | None, cur: str | None) -> None:
+        """Callback from the DeviceMonitor when the OS default input flips."""
+        log.info("Default input device changed: %r -> %r", prev, cur)
+        with self._lock:
+            self._state.device_changed_at = time.time()
+            self._state.input_device = cur
+        body = (
+            f"Input switched to '{cur}' (was '{prev}').\n"
+            "If dictation stops working, re-calibrate or pin your mic:\n"
+            "  yazses mic-level --set   ·   yazses audio use <name>"
+        )
+        self._notify_mic("🎤 Microphone changed", body)
+
+    def _note_silent_discard(self) -> None:
+        """Register a silent-discard; auto-heal + notify once a streak forms."""
+        streak = self._silent_streak.record_silent()
+        with self._lock:
+            self._state.silent_streak = streak
+        threshold = self._config.audio.silent_streak_threshold
+        if not self._silent_streak.should_notify(threshold):
+            return
+        if self._healed_this_streak:
+            return  # already acted for this streak; don't re-fire every clip
+        self._healed_this_streak = True
+
+        active = self._active_device_name()
+        last_good = self._state.last_good_device
+        healed = False
+        if (
+            self._config.audio.auto_heal_device
+            and last_good
+            and last_good != active
+            and self._recorder is not None
+        ):
+            # Switch the live recorder back to the last device that produced usable
+            # audio. Resolved by name at the next start(), so it survives index shifts.
+            self._recorder.device = last_good
+            with self._lock:
+                self._state.input_device = last_good
+            healed = True
+            log.info("Auto-healed capture: '%s' -> '%s' (last-good).", active, last_good)
+
+        if not self._config.audio.silent_streak_notify:
+            return
+        if healed:
+            body = (
+                f"Heard nothing on '{active}' {streak}× in a row.\n"
+                f"Switched capture back to '{last_good}' (last worked).\n"
+                "Not right? Pin a mic:  yazses audio use <name>"
+            )
+            self._notify_mic("🔇 Mic recovered", body)
+        else:
+            body = (
+                f"Heard nothing {streak}× in a row — your mic may have changed.\n"
+                "Fix it:  yazses mic-level --set   ·   yazses audio devices"
+            )
+            self._notify_mic("🔇 Dictation isn't hearing you", body)
+
+    def _note_good_capture(self) -> None:
+        """A clip produced usable audio — reset the streak, remember the device."""
+        self._silent_streak.record_success()
+        self._healed_this_streak = False
+        name = getattr(self._recorder, "current_device_name", None)
+        with self._lock:
+            self._state.silent_streak = 0
+            if name:
+                self._state.last_good_device = name
+                self._state.input_device = name
+
+    def _recalibrate_mic(self) -> None:
+        """[Re-calibrate] action: measure the active mic and write vad_threshold."""
+        try:
+            from yazses.system import miclevel
+
+            sr = self._config.audio.sample_rate
+            audio = miclevel.record(3.0, sr, device=self._config.audio.device or None)
+            stats = miclevel.analyze(audio, sr)
+            path = self._platform.paths.config_file
+            miclevel.update_threshold_in_config(path, stats.recommended_threshold)
+            with self._lock:
+                from dataclasses import replace
+
+                self._config = replace(
+                    self._config,
+                    accessibility=replace(
+                        self._config.accessibility,
+                        vad_threshold=stats.recommended_threshold,
+                    ),
+                )
+            log.info("Re-calibrated vad_threshold -> %.4f", stats.recommended_threshold)
+            self._notify_mic(
+                "✅ Mic re-calibrated",
+                f"vad_threshold set to {stats.recommended_threshold:.4f}. "
+                "Try dictating again.",
+                actions=False,
+            )
+        except Exception:
+            log.exception("Re-calibrate action failed")
+
+    def _pin_current_mic(self) -> None:
+        """[Pin this mic] action: write [audio] device to the current default."""
+        try:
+            from yazses.audio.devices import current_default_input_name
+            from yazses.system.configedit import set_config_key
+
+            name = current_default_input_name()
+            if not name:
+                return
+            set_config_key(self._platform.paths.config_file, "audio", "device", name)
+            if self._recorder is not None:
+                self._recorder.device = name
+            with self._lock:
+                from dataclasses import replace
+
+                self._config = replace(
+                    self._config, audio=replace(self._config.audio, device=name)
+                )
+                self._state.input_device = name
+            log.info("Pinned input device: %r", name)
+            self._notify_mic(
+                "📌 Microphone pinned",
+                f"Capture pinned to '{name}'. It won't be stolen by a device change.",
+                actions=False,
+            )
+        except Exception:
+            log.exception("Pin-mic action failed")
 
     def _partial_poll_loop(self, stop: threading.Event) -> None:
         """Background thread: drain partial hypotheses and inject them."""
@@ -1548,6 +1774,7 @@ class Daemon:
                     max_seconds=0,  # controller owns the cap (finalizes, no silent drop)
                     on_chunk=controller.feed,
                     accumulate=False,
+                    device=self._config.audio.device or None,
                 )
                 controller.start()
                 recorder.start()
@@ -1747,6 +1974,10 @@ class Daemon:
                 # For the voice-activity overlay (yazses-overlay).
                 "audio_level": round(self._state.audio_level, 6),
                 "vad_threshold": self._config.accessibility.vad_threshold,
+                # Audio-input health (device change + silent-streak resilience).
+                "input_device": self._state.input_device or self._config.audio.device or None,
+                "last_good_device": self._state.last_good_device,
+                "silent_streak": self._state.silent_streak,
                 # Confidence Ink (ADR-v2-001): feature state + last-burst count.
                 "confidence_enabled": self._config.confidence.enabled,
                 "low_confidence_last": self._last_low_confidence_words,
@@ -1930,6 +2161,11 @@ class Daemon:
         return self._platform.default_hotkey if key == "auto" else key
 
     def _shutdown(self) -> None:
+        if self._device_monitor is not None:
+            try:
+                self._device_monitor.stop()
+            except Exception:
+                log.exception("Device monitor stop raised")
         if self._instance_lock is not None:
             try:
                 self._instance_lock.release()

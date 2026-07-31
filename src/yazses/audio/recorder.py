@@ -21,6 +21,7 @@ class AudioRecorder:
         max_seconds: int = 90,
         on_chunk: Callable[[np.ndarray], None] | None = None,
         accumulate: bool = True,
+        device: str | int | None = None,
     ) -> None:
         self._sample_rate = sample_rate
         self._max_seconds = max_seconds
@@ -29,14 +30,47 @@ class AudioRecorder:
         # in-memory buffer; ``accumulate=False`` keeps memory bounded over a long run
         # (hold-to-talk keeps the default ``True``). ``max_seconds=0`` disables the cap.
         self._accumulate = accumulate
+        # Pinned input device: a name substring (``[audio] device``) resolved fresh at
+        # each ``start()``, an explicit PortAudio index, or None to follow the OS
+        # default. Mutable so the daemon's auto-heal can retarget a live recorder.
+        self.device = device
+        # Name of the device actually opened by the last ``start()`` — the daemon
+        # records this as "last-good" when the clip yields usable audio.
+        self.current_device_name: str | None = None
         self._chunks: list[np.ndarray] = []
         self._n_samples = 0
         self._stream: sd.InputStream | None = None
+
+    def _resolve_device(self) -> int | None:
+        """Resolve ``self.device`` to a PortAudio index (or None = OS default)."""
+        dev = self.device
+        if isinstance(dev, int):
+            return dev
+        if not isinstance(dev, str) or not dev.strip():
+            return None
+        # Name substring: resolve against a fresh device list so a hotplug index
+        # shift can't break the pin. No match → None → fall back to OS default.
+        from yazses.audio.devices import list_input_devices, resolve_input_device
+
+        return resolve_input_device(dev, list_input_devices())
+
+    def _opened_device_name(self, index: int | None) -> str | None:
+        """Best-effort name of the device at ``index`` (or the OS default)."""
+        try:
+            from yazses.audio.devices import current_default_input_name
+
+            if index is None:
+                return current_default_input_name()
+            info = sd.query_devices(index)
+            return str(info.get("name")) if info else None
+        except Exception:
+            return None
 
     def start(self) -> None:
         self._chunks = []
         self._n_samples = 0
         self._stream = None
+        device_index = self._resolve_device()
         last_exc: Exception | None = None
         for attempt in range(1, _OPEN_ATTEMPTS + 1):
             try:
@@ -45,6 +79,7 @@ class AudioRecorder:
                     channels=1,
                     dtype="float32",
                     callback=self._callback,
+                    device=device_index,
                 )
                 stream.start()
             except Exception as exc:  # PortAudioError and friends
@@ -57,7 +92,8 @@ class AudioRecorder:
                     time.sleep(_OPEN_RETRY_DELAY_S)
                 continue
             self._stream = stream
-            log.debug("Audio recording started")
+            self.current_device_name = self._opened_device_name(device_index)
+            log.debug("Audio recording started (device=%s)", self.current_device_name)
             return
         raise RuntimeError(
             f"Could not open microphone after {_OPEN_ATTEMPTS} attempts: {last_exc}"

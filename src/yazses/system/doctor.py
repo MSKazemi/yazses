@@ -215,6 +215,20 @@ def _config_summary(cfg, config_file: Path) -> list[_Check]:
         "Hotkey", "OK",
         f"{cfg.hotkey.key} (hold {cfg.hotkey.hold_threshold_ms} ms)",
     ))
+    pinned = (getattr(cfg.audio, "device", "") or "").strip()
+    if pinned:
+        out.append(("Microphone", "OK", f"pinned: {pinned!r}"))
+    else:
+        try:
+            from yazses.audio.devices import current_default_input_name
+
+            default = current_default_input_name()
+        except Exception:
+            default = None
+        out.append((
+            "Microphone", "OK",
+            f"OS default: {default or 'unknown'} (pin with `yazses audio use <name>`)",
+        ))
     prompt = (cfg.stt.initial_prompt or "").strip()
     if prompt:
         preview = prompt if len(prompt) <= 40 else prompt[:37] + "..."

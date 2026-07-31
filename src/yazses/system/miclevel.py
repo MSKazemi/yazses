@@ -51,12 +51,30 @@ def analyze(audio: np.ndarray, sample_rate: int) -> LevelStats:
     )
 
 
-def record(seconds: float, sample_rate: int = 16000) -> np.ndarray:
-    """Record ``seconds`` of mono float32 audio from the default microphone."""
+def record(
+    seconds: float, sample_rate: int = 16000, device: str | int | None = None
+) -> np.ndarray:
+    """Record ``seconds`` of mono float32 audio.
+
+    ``device`` pins the input: a name substring (resolved against the current device
+    list), an explicit PortAudio index, or None to follow the OS default. Pinning lets
+    ``yazses mic-level`` and the daemon's re-calibrate action measure the *active* mic
+    rather than whatever the OS default happens to be.
+    """
     import sounddevice as sd
 
+    device_index: int | None = None
+    if isinstance(device, int):
+        device_index = device
+    elif isinstance(device, str) and device.strip():
+        from yazses.audio.devices import list_input_devices, resolve_input_device
+
+        device_index = resolve_input_device(device, list_input_devices())
+
     frames = int(seconds * sample_rate)
-    buf = sd.rec(frames, samplerate=sample_rate, channels=1, dtype="float32")
+    buf = sd.rec(
+        frames, samplerate=sample_rate, channels=1, dtype="float32", device=device_index
+    )
     sd.wait()
     return np.asarray(buf, dtype=np.float32).flatten()
 

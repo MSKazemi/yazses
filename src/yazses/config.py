@@ -40,6 +40,25 @@ class AudioConfig:
     # Hard cap on a single hold-to-talk recording. Generous so long dictations
     # aren't cut off mid-sentence; raise further in config for very long takes.
     max_record_seconds: int = 300
+    # Pin the input microphone by name (case-insensitive substring). Empty =
+    # follow the OS default input device. Resolved fresh on each recording, so a
+    # hotplug that shifts device indices can't break the pin. Set it with
+    # `yazses audio use <name>` so a monitor/headset can't silently steal capture.
+    device: str = ""
+    # Desktop-notify (with action buttons where supported) when the OS default
+    # input device changes — so a silent switch that breaks dictation is visible.
+    device_change_notify: bool = True
+    # Desktop-notify after a run of consecutive silent-discards (the direct
+    # "dictation stopped writing" symptom of a mic that switched to a dead source).
+    silent_streak_notify: bool = True
+    # How many silent-discards in a row trigger the notify + auto-heal.
+    silent_streak_threshold: int = 3
+    # On a device change / silent streak, automatically switch capture back to the
+    # last device that produced usable audio ("last-good"), then notify what changed.
+    auto_heal_device: bool = True
+    # Cadence of the background default-input-device watcher, in seconds. 0 disables
+    # the watcher (the silent-streak detector still works, being on the hot path).
+    device_poll_interval_s: float = 3.0
 
 
 @dataclass

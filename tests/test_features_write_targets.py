@@ -23,6 +23,7 @@ _ALIASES = {
     "corpus_scrub": "learning",
     "readback_clone": "tts",
     "llm-cleanup": "filters.disfluency",
+    "mic-guard": "audio",          # device-change + silent-streak notify live under [audio]
 }
 
 

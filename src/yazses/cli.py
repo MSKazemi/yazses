@@ -1358,6 +1358,123 @@ _HOTKEYS = [
     "right_shift", "left_shift", "right_meta", "left_meta", "space",
 ]
 
+audio_app = typer.Typer(
+    name="audio",
+    help="See and pin the input microphone (fixes a mic that silently switches).",
+    context_settings=CONTEXT_SETTINGS,
+    no_args_is_help=True,
+)
+app.add_typer(audio_app, rich_help_panel=_SETUP)
+
+
+@audio_app.command(
+    "devices",
+    epilog=_examples("yazses audio devices    list microphones (● = OS default, ★ = pinned)"),
+)
+def audio_devices() -> None:
+    """List capture-capable audio input devices."""
+    from yazses.audio.devices import list_input_devices
+    from yazses.config import load_config
+
+    platform = get_platform()
+    cfg = load_config(platform.paths.config_file)
+    pinned = (cfg.audio.device or "").strip().lower()
+    try:
+        devices = list_input_devices()
+    except Exception as exc:  # pragma: no cover - hardware/backend dependent
+        typer.echo(f"Could not list audio devices: {exc}")
+        raise typer.Exit(1) from exc
+    if not devices:
+        typer.echo("No input devices found. Is a microphone connected?")
+        return
+    typer.echo("Input devices:")
+    for dev in devices:
+        default_mark = "●" if dev.is_default else " "
+        pin_mark = "★" if pinned and pinned in dev.name.lower() else " "
+        typer.echo(f"  {default_mark}{pin_mark} [{dev.index}] {dev.name}")
+    typer.echo("\n  ● = OS default   ★ = pinned in config")
+    if pinned:
+        typer.echo(f"  Pinned to: {cfg.audio.device!r}")
+    else:
+        typer.echo("  Not pinned — follows the OS default. Pin with `yazses audio use <name>`.")
+
+
+@audio_app.command(
+    "use",
+    epilog=_examples(
+        "yazses audio use 'AT Translated'    pin the built-in laptop mic (name substring)",
+        "yazses audio use --clear            unpin; follow the OS default again",
+        "yazses restart                      apply the change",
+    ),
+)
+def audio_use(
+    name: str = typer.Argument("", help="Microphone name (case-insensitive substring)."),
+    clear: bool = typer.Option(False, "--clear", help="Unpin; follow the OS default."),
+) -> None:
+    """Pin the input microphone by name so a monitor/headset can't steal capture.
+
+    The name is a case-insensitive substring, resolved fresh on every recording, so it
+    survives a hotplug that renumbers devices. Run `yazses audio devices` to see names.
+    """
+    from yazses.audio.devices import list_input_devices, resolve_input_device
+    from yazses.system.configedit import set_config_key
+
+    platform = get_platform()
+    if clear:
+        set_config_key(platform.paths.config_file, "audio", "device", "")
+        typer.echo("Unpinned — capture will follow the OS default input device.")
+        typer.echo("Apply it:  yazses restart")
+        return
+    if not name.strip():
+        typer.echo("Give a microphone name (or --clear). See `yazses audio devices`.")
+        raise typer.Exit(2)
+    try:
+        match = resolve_input_device(name, list_input_devices())
+    except Exception:  # pragma: no cover - hardware/backend dependent
+        match = None
+    if match is None:
+        typer.echo(
+            f"No input device matches {name!r}. Run `yazses audio devices` to see names."
+        )
+        typer.echo("Pinning it anyway — it will apply if that device appears later.")
+    set_config_key(platform.paths.config_file, "audio", "device", name)
+    typer.echo(f"Pinned input microphone to {name!r}.")
+    typer.echo("Apply it:  yazses restart")
+
+
+@audio_app.command(
+    "status",
+    epilog=_examples("yazses audio status    show pinned vs default mic + live capture health"),
+)
+def audio_status() -> None:
+    """Show the pinned mic, the OS default, and (if running) live capture health."""
+    from yazses.audio.devices import current_default_input_name
+    from yazses.config import load_config
+
+    platform = get_platform()
+    cfg = load_config(platform.paths.config_file)
+    pinned = (cfg.audio.device or "").strip()
+    typer.echo(f"Pinned mic:    {pinned or '(none — follows OS default)'}")
+    try:
+        typer.echo(f"OS default:    {current_default_input_name() or '(unknown)'}")
+    except Exception:  # pragma: no cover - hardware/backend dependent
+        typer.echo("OS default:    (unavailable)")
+    if not platform.lifecycle.is_running():
+        typer.echo("Daemon:        not running")
+        return
+    client = platform.ipc_client_factory(platform.paths.ipc_socket)
+    try:
+        info = client.call("status")
+    except IpcUnreachableError:
+        typer.echo("Daemon:        starting up")
+        return
+    typer.echo(f"Live capture:  {info.get('input_device') or '(default)'}")
+    typer.echo(f"Last-good mic: {info.get('last_good_device') or '(none yet)'}")
+    streak = info.get("silent_streak") or 0
+    if streak:
+        typer.echo(f"⚠ silent clips in a row: {streak} — mic may have changed.")
+
+
 hotkey_app = typer.Typer(
     name="hotkey",
     help="Change the key you hold to talk.",
@@ -1512,7 +1629,14 @@ def status() -> None:
     typer.echo(f"  hotkey:   {info.get('hotkey')}")
     typer.echo(f"  model:    {info.get('model')}")
     typer.echo(f"  backend:  {info.get('injection_backend')}")
+    if info.get("input_device"):
+        typer.echo(f"  mic:      {info.get('input_device')}")
     typer.echo(f"  uptime:   {info.get('uptime_s')}s")
+    if info.get("silent_streak"):
+        typer.echo(
+            f"  ⚠ mic:    {info['silent_streak']} silent clips in a row — "
+            "run `yazses audio status`"
+        )
     if info.get("last_error"):
         typer.echo(f"  last err: {info['last_error']}")
 

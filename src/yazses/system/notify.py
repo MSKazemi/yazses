@@ -1,0 +1,157 @@
+"""Best-effort desktop notifications with optional action buttons (Linux).
+
+Used to make audio-input problems *visible* instead of silently dropping speech: when
+the mic changes or dictation goes quiet, the daemon pops a toast — ideally with clickable
+buttons ([Re-calibrate] / [Pin this mic] / [Ignore]) — telling the user what happened and
+offering a one-click fix.
+
+Implementation is ``notify-send`` (libnotify). Action buttons need ``--wait`` +
+``--action`` (libnotify >= 0.8, present on current Ubuntu/GNOME/KDE); where unavailable
+we degrade to a plain informational toast whose body already contains the fix commands,
+and where ``notify-send`` is absent entirely we log only. Nothing here ever raises into
+the daemon. macOS/Windows backends are a future extension; this is the Linux path.
+"""
+from __future__ import annotations
+
+import logging
+import shutil
+import subprocess
+import threading
+from collections.abc import Callable
+from dataclasses import dataclass
+
+log = logging.getLogger(__name__)
+
+_DEFAULT_ICON = "audio-input-microphone"
+_APP_NAME = "YazSes"
+# Actionable notifications block on --wait until clicked or dismissed. Cap it so a
+# forgotten toast can't pin a daemon thread forever.
+_ACTION_TIMEOUT_S = 120.0
+
+
+@dataclass(frozen=True)
+class NotifyAction:
+    """A clickable button on a notification. ``key`` is echoed back on click."""
+
+    key: str
+    label: str
+
+
+def build_notify_argv(
+    title: str,
+    body: str,
+    *,
+    urgency: str = "normal",
+    app_name: str = _APP_NAME,
+    icon: str | None = _DEFAULT_ICON,
+    actions: list[NotifyAction] | None = None,
+    wait: bool = False,
+) -> list[str]:
+    """Assemble the ``notify-send`` argv. Pure — no process is spawned."""
+    argv = ["notify-send", "--app-name", app_name, "--urgency", urgency]
+    if icon:
+        argv += ["--icon", icon]
+    if wait:
+        argv.append("--wait")
+    for action in actions or []:
+        argv.append(f"--action={action.key}={action.label}")
+    argv += [title, body]
+    return argv
+
+
+def parse_action_result(stdout: str | None, actions: list[NotifyAction] | None) -> str | None:
+    """Return the clicked action key from ``notify-send --wait`` stdout, or None.
+
+    ``notify-send`` prints the invoked action's key (the part before ``=``) and nothing
+    when the toast expires or is dismissed without a choice.
+    """
+    key = (stdout or "").strip()
+    valid = {a.key for a in (actions or [])}
+    return key if key in valid else None
+
+
+def notifier_available(which: Callable[[str], str | None] = shutil.which) -> bool:
+    """True when ``notify-send`` is on PATH."""
+    return which("notify-send") is not None
+
+
+def supports_actions(runner: Callable[..., subprocess.CompletedProcess] = subprocess.run) -> bool:
+    """True when the installed ``notify-send`` understands ``--action`` and ``--wait``.
+
+    Probed from ``notify-send --help`` (cheap, no toast). Failures degrade to False so
+    we fall back to a plain informational toast rather than erroring.
+    """
+    try:
+        proc = runner(
+            ["notify-send", "--help"],
+            capture_output=True,
+            text=True,
+            timeout=5.0,
+        )
+    except Exception:  # pragma: no cover - hardware/backend dependent
+        return False
+    help_text = f"{proc.stdout or ''}{proc.stderr or ''}"
+    return "--action" in help_text and "--wait" in help_text
+
+
+def notify(
+    title: str,
+    body: str,
+    *,
+    urgency: str = "normal",
+    icon: str | None = _DEFAULT_ICON,
+    actions: list[NotifyAction] | None = None,
+    on_action: Callable[[str], None] | None = None,
+    runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+    available: bool | None = None,
+    actions_supported: bool | None = None,
+    spawn: bool = True,
+) -> None:
+    """Show a desktop notification; never raises.
+
+    With ``actions`` and a notifier that supports them, an actionable toast is shown
+    and — because ``--wait`` blocks until the user chooses — it runs on a background
+    thread that invokes ``on_action(key)`` with the clicked key. Otherwise a plain
+    informational toast is shown (its ``body`` should already spell out the fix). When
+    ``notify-send`` is missing, the message is logged only.
+
+    ``available``/``actions_supported`` override the capability probes (for tests);
+    ``spawn=False`` runs the actionable path inline instead of on a thread (for tests).
+    """
+    avail = notifier_available() if available is None else available
+    if not avail:
+        log.info("Desktop notification (notify-send unavailable): %s — %s", title, body)
+        return
+
+    use_actions = bool(actions) and (
+        supports_actions(runner) if actions_supported is None else actions_supported
+    )
+
+    if not use_actions:
+        argv = build_notify_argv(title, body, urgency=urgency, icon=icon)
+        try:
+            runner(argv, timeout=10.0)
+        except Exception as exc:  # never let a toast break the caller
+            log.debug("notify-send failed: %s", exc)
+        return
+
+    def _run() -> None:
+        argv = build_notify_argv(
+            title, body, urgency=urgency, icon=icon, actions=actions, wait=True
+        )
+        try:
+            proc = runner(argv, capture_output=True, text=True, timeout=_ACTION_TIMEOUT_S)
+        except Exception as exc:
+            log.debug("actionable notify-send failed: %s", exc)
+            return
+        key = parse_action_result(getattr(proc, "stdout", ""), actions)
+        if key and on_action is not None:
+            try:
+                on_action(key)
+            except Exception:
+                log.exception("Notification action handler raised")
+
+    if spawn:
+        threading.Thread(target=_run, daemon=True, name="yazses-notify").start()
+    else:
+        _run()

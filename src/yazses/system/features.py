@@ -124,6 +124,17 @@ def _registry() -> list[_Def]:
     e_on, e_off = _bool("endpoint")
     l_on, l_off = _bool("learning")
     o_on, o_off = _bool("overlay")
+    # Mic-change guard: one toggle drives both the device-change monitor and the
+    # silent-streak notifier (both live under [audio]). Distinct var names — `mg_*`
+    # is already taken by mousegrid below (a toggle-collision the tests guard against).
+    micguard_on = (
+        ("audio", "device_change_notify", "true", False),
+        ("audio", "silent_streak_notify", "true", False),
+    )
+    micguard_off = (
+        ("audio", "device_change_notify", "false", False),
+        ("audio", "silent_streak_notify", "false", False),
+    )
     pe_on, pe_off = _bool("personalize")
     co_on, co_off = _bool("cocktail")
     # Gaze: enabling also turns on routing, so the feature actually targets the
@@ -270,6 +281,10 @@ def _registry() -> list[_Def]:
         _Def("overlay", "Voice-activity overlay", "[overlay] — sonar rings", DEFAULT_ON,
              "Sonar rings near the cursor while you talk. Visual only; safe.",
              lambda c: c.overlay.enabled, o_on, o_off),
+        _Def("mic-guard", "Mic-change guard", "[audio] device_change_notify", DEFAULT_ON,
+             "Notifies + auto-heals when your microphone silently switches (e.g. a "
+             "USB-C monitor stealing capture) so dictation never dies in silence. Keep on.",
+             lambda c: c.audio.device_change_notify, micguard_on, micguard_off),
         _Def("dysfluency", "Dysfluency-Friendly", "[accessibility]", RECOMMENDED,
              "Collapses stutters/repeats (b-b-because→because). Try it if you "
              "stutter or have dysarthria.",
@@ -974,6 +989,7 @@ _EXAMPLES: dict[str, str] = {
     "math": "Say 'x squared plus y squared' → 'x^{2} + y^{2}'.",
     "autostop": "Tap once and speak; recording stops when you finish.",
     "mousegrid": "Say a grid number to move the cursor, then 'click'.",
+    "mic-guard": "Plug in a USB-C monitor; YazSes notices the mic switched and pops a fix.",
     "multiprofile": "Each enrolled speaker loads their own vocab/hotkey automatically.",
     "snippets": "Say 'insert my signature' to type a stored template.",
     "phonetic": "'Cuber Netties' is auto-corrected to 'Kubernetes'.",
@@ -1114,6 +1130,7 @@ _USE_CASES: dict[str, str] = {
     "math": "When you're writing equations by voice and want them injected as LaTeX.",
     "autostop": "When holding the hotkey the whole time is tiring and you'd rather tap once and let it stop itself.",
     "mousegrid": "When you need to click somewhere no accessibility tree exists and want to do it hands-free.",
+    "mic-guard": "When plugging in a monitor/headset silently switches your mic and dictation stops working with no clue why.",
     "multiprofile": "When several people share one machine and each wants their own vocab and settings loaded.",
     "snippets": "When you keep typing the same boilerplate (signature, address) and want a spoken shortcut.",
     "phonetic": "When STT keeps mangling the same proper nouns or jargon and you want them auto-fixed by sound.",
@@ -1146,7 +1163,7 @@ _USE_CASES: dict[str, str] = {
 _CATEGORIES: dict[str, str] = {
     # Core dictation — the hold-to-talk flow and how audio becomes text.
     "dictation": CAT_CORE, "commands": CAT_CORE, "voice-punctuation": CAT_CORE,
-    "undo": CAT_CORE, "overlay": CAT_CORE, "streaming": CAT_CORE,
+    "undo": CAT_CORE, "overlay": CAT_CORE, "streaming": CAT_CORE, "mic-guard": CAT_CORE,
     "ghost-ahead": CAT_CORE, "autostop": CAT_CORE, "hesitation": CAT_CORE,
     "breath": CAT_CORE, "continuum": CAT_CORE, "whispermode": CAT_CORE,
     "wakeword": CAT_CORE, "focusprofile": CAT_CORE, "latency": CAT_CORE,

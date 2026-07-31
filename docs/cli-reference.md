@@ -202,6 +202,7 @@ debugging. This is the entry point `yazses start` supervises in the background.
 | `yazses outline` | Build a nested outline incrementally and render it to Markdown/OPML. |
 | `yazses srs` | Capture facts as flashcards and schedule reviews (SM-2). |
 | `yazses hotkey` | Show or change the key you hold to talk. |
+| `yazses audio` | See and pin the input microphone (fixes a mic that silently switches). |
 | `yazses gaze` | Aim dictation with your gaze — type into whichever pane you look at. |
 
 ### `yazses quickstart`
@@ -481,6 +482,38 @@ ambiguity — while you hold it, everything you say is parsed as a command and
   text; "hello there" → ignored (no command matched), nothing typed.
 
 See the [voice command reference](#voice-command-reference) below for the phrases.
+
+### `yazses audio` — input microphone
+
+| Command | Description |
+|---|---|
+| `yazses audio devices` | List capture devices (`●` = OS default, `★` = pinned). |
+| `yazses audio use <name>` | Pin the input mic by name (substring), then `yazses restart`. |
+| `yazses audio use --clear` | Unpin — follow the OS default input again. |
+| `yazses audio status` | Show pinned vs OS-default mic + live capture health. |
+
+```bash
+yazses audio devices                 # which mics exist, and which one is in use
+yazses audio use "AT Translated"     # pin the built-in laptop mic by name
+yazses audio use --clear             # go back to following the OS default
+yazses restart                       # apply
+```
+
+**Why pin a mic.** By default capture follows the OS **default input device**. Plugging
+in a USB-C monitor, a dock, or a headset can make the OS silently re-pick that as the
+default input — often a dead or very quiet endpoint — and dictation "stops working" with
+no error (every clip is discarded as silence). Two things fix this:
+
+- **Pin your real mic** with `yazses audio use <name>`. The name is a case-insensitive
+  substring, re-resolved on every recording, so it keeps working even if a hotplug
+  renumbers devices.
+- **The mic-change guard** (on by default, `yazses features disable mic-guard` to turn
+  off) watches for the default input changing and for a run of silent clips. When it
+  sees trouble it **auto-heals** — switching capture back to the last mic that worked —
+  and shows a desktop notification with **Re-calibrate / Pin this mic / Ignore** buttons.
+
+If dictation goes quiet after changing your audio setup, run `yazses audio status` (or
+`yazses status`) to see the live capture device and whether clips are being discarded.
 
 ### `yazses gaze` — Glance-Type (webcam gaze targeting)
 
