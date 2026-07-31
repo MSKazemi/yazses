@@ -42,3 +42,55 @@ Thumbs.db
 # Logs / databases
 *.log
 *.db
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PRIVATE / INTERNAL MATERIALS — NEVER PUBLISH
+# This repo is the single source of truth. The paths below live in the working
+# tree so they can be edited locally, but must never be committed/pushed.
+# (Enforced twice: here, and by the pre-commit guard in .git/hooks/pre-commit.)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# AI / assistant tooling
+.claude/
+CLAUDE.md
+GEMINI.md
+AGENTS.md
+.superpowers/
+.playwright-mcp/
+.mcp.json
+mcp.json
+.cursor/
+.run/
+
+# Internal developer docs & working notes (see "Three Documentation Tiers")
+design/
+research/
+notes/
+drafts/
+vision/
+paper/
+.craft/
+
+# Private-only docs — deliberately not published (were p2p [exclude]).
+# Delete a line here to publish that doc.
+docs/architecture.md
+docs/roadmap.md
+docs/how-to/
+docs/diagrams/
+docs/yazses-complete-reference.pdf
+
+# Retired p2p sync metadata (kept local; project no longer uses p2p)
+.p2p.toml
+.p2p-manifest.json
+.p2p-history.jsonl
+.p2p-baseline.json
+.p2p-undo/
+
+# Extra secret belt-and-suspenders
+*.local
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+secrets/
+credentials/
