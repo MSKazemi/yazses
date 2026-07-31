@@ -94,3 +94,7 @@ id_ed25519
 id_ed25519.*
 secrets/
 credentials/
+
+# Local backup checkout of the old private repo (also on yazses-private remote) — never commit
+/1private/
+/2public/
