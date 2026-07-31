@@ -42,12 +42,17 @@ This repo holds **one product** with **two implementations** — not two separat
 
 | Platform | Command |
 |---|---|
-| **Linux** (Debian/Ubuntu) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)` |
-| **Linux** (any distro) | `pipx install yazses` |
+| **Linux** (recommended) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)` |
+| **Linux** (Debian/Ubuntu, APT) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)` |
 | **Any OS** (Python ≥ 3.11) | `pipx install yazses` |
 
+The **recommended** one-liner installs `uv` if needed, installs the latest YazSes, provisions
+every system prerequisite (audio, keystroke injection, clipboard, `input` group, Wayland
+`ydotoold`), and finishes by running **`yazses doctor`** so any missing tool surfaces *during*
+install. The APT and `pipx` paths install the last tagged release.
+
 > **Not the snap.** `sudo snap install yazses` runs under strict confinement,
-> which blocks reading the keyboard — so hold-to-talk never fires. Use the APT
+> which blocks reading the keyboard — so hold-to-talk never fires. Use the install
 > script or `pipx` instead (both run unconfined and capture the hotkey).
 
 **Step 2 — Provision the system** *(Linux — one command; the APT install does it automatically)*
