@@ -1,0 +1,35 @@
+# examples/config.terminal.toml
+# A YazSes setup tuned for dictating into a TERMINAL (works everywhere on Wayland via ydotool).
+# Copy to ~/.config/yazses/config.toml and edit as needed.
+#
+# This is a per-use-case example. Want to share a config for YOUR app/editor?
+# Copy this file to examples/config.<app>.toml, tweak it, and open a PR — see SHOWCASE.md.
+
+[stt]
+model = "base.en"          # base.en is a good accuracy/speed balance for commands + prose
+device = "cpu"
+compute_type = "int8"
+
+[hotkey]
+key = "right_ctrl"         # avoids bare-Alt focusing GTK/Electron menus; comfortable for hold-to-talk
+hold_threshold_ms = 400
+
+[audio]
+sample_rate = 16000
+channels = 1
+max_record_seconds = 60
+
+[injection]
+backend = "type"           # type via ydotool works in terminals (clipboard-paste does not)
+fallback_to_clipboard = true
+
+[commands]
+voice_punctuation = true   # say "comma"/"period"/"new line" — handy for shell one-liners
+
+[general]
+log_level = "INFO"
+
+[overlay]
+enabled = true
+style = "sonar"
+position = "cursor"
