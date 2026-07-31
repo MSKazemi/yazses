@@ -56,11 +56,8 @@ This repo holds **one product** with **two implementations** — not two separat
 The **recommended** one-liner installs `uv` if needed, installs the latest YazSes, provisions
 every system prerequisite (audio, keystroke injection, clipboard, `input` group, Wayland
 `ydotoold`), and finishes by running **`yazses doctor`** so any missing tool surfaces *during*
-install. The APT and `pipx` paths install the last tagged release.
-
-> **Not the snap.** `sudo snap install yazses` runs under strict confinement,
-> which blocks reading the keyboard — so hold-to-talk never fires. Use the install
-> script or `pipx` instead (both run unconfined and capture the hotkey).
+install. The APT and `pipx` paths install the last tagged release. YazSes is also on the
+[Snap Store](https://snapcraft.io/yazses) (`sudo snap install yazses`).
 
 **Step 2 — Provision the system** *(Linux — one command; the APT install does it automatically)*
 
@@ -349,10 +346,9 @@ pipx install yazses
 # group so you can test before logging out).
 bash scripts/dev-install.sh
 
-# Snap — NOT recommended for dictation. The strict-confinement snap cannot read
-# /dev/input, so hold-to-talk never fires (only the offline `yazses transcribe
-# <file>` path works). Use the APT script or pipx above for a working hotkey.
-# sudo snap install yazses
+# Snap Store — https://snapcraft.io/yazses
+sudo snap install yazses
+sudo snap connect yazses:audio-record   # grant microphone access (one time)
 ```
 
 ### macOS
