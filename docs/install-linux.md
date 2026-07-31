@@ -1,4 +1,4 @@
-# Installing YazSes on Linux (Python v0.4 line)
+# Installing YazSes on Linux
 
 This guide installs the Python daemon as a global command and starts it
 automatically at login. It targets the reliable batch (transcribe-on-release)

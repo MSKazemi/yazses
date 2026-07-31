@@ -1,8 +1,8 @@
 # YazSes on macOS — install & first-run guide
 
-> **Version:** This document covers all YazSes releases including v0.4.0 (2026-05-17).
+> **Version:** Applies to the current YazSes release (v2.x). Install the latest with `pipx install yazses`.
 
-> **Developer preview.** v0 macOS builds are **unsigned** and **not notarized**.
+> **Developer preview.** macOS builds are **unsigned** and **not notarized**.
 > macOS will warn you on first launch; the steps below show how to bypass
 > Gatekeeper safely. Signing and notarization land before public beta.
 
@@ -22,7 +22,7 @@
 
 ## First launch — Gatekeeper bypass
 
-Because v0 is unsigned, macOS shows
+Because the app is unsigned, macOS shows
 *"YazSes can’t be opened because Apple cannot check it for malicious software"*
 the first time you double-click the app. To get past this:
 
@@ -110,7 +110,7 @@ some IME apps). Try a different hotkey by editing `config.toml`.
 *System Settings → Privacy & Security → Microphone* that YazSes is enabled.
 Run `--cli doctor` to see what YazSes is detecting.
 
-**"Antivirus flags YazSes."** v0 is unsigned, which trips conservative AV
+**"Antivirus flags YazSes."** These builds are unsigned, which trips conservative AV
 heuristics. Build from source (`scripts/build-macos.sh`) if you prefer.
 
 ## Uninstall

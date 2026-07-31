@@ -1,8 +1,8 @@
 # YazSes on Windows — install & first-run guide
 
-> **Version:** This document covers all YazSes releases including v0.4.0 (2026-05-17).
+> **Version:** Applies to the current YazSes release (v2.x). Install the latest with `pipx install yazses`.
 
-> **Developer preview.** v0 Windows builds are **unsigned**. Windows SmartScreen
+> **Developer preview.** Windows builds are **unsigned**. Windows SmartScreen
 > warns on first launch; the steps below show how to bypass it safely. Code
 > signing lands before public beta.
 
@@ -82,7 +82,7 @@ to work in any shell.
 
 ## Troubleshooting
 
-**"My antivirus flagged YazSes."** v0 is unsigned, which trips
+**"My antivirus flagged YazSes."** These builds are unsigned, which trips
 conservative AV heuristics — especially because the daemon installs a
 low-level keyboard hook. Either build from source
 (`scripts/build-windows.ps1`) or wait for signed builds (planned). The
