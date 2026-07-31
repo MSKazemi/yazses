@@ -11,21 +11,20 @@ from dataclasses import dataclass
 
 from yazses.audio.devices import InputDevice, resolve_input_device
 
-# Two-colour scheme: BLUE while YazSes is actively working (capturing / transcribing /
-# injecting), REDDISH when it is idle, still starting, or in trouble (error / a live
-# silent-streak). So a glance at the top bar says "busy" vs "resting or needs attention".
-_BLUE = "#1a73e8"       # actively working
-_RED = "#e53935"        # idle or problem
-# The daemon states that mean "actively working" → blue; everything else → reddish.
-_WORKING_STATES = frozenset(
+# Three-colour scheme: GREEN while recording your voice (you're holding the key and
+# speaking, through the brief transcribe/inject that finishes that dictation), BLUE for
+# the normal ready/idle state, RED for a problem (error or a live silent-streak). So a
+# glance at the top bar says recording vs ready vs needs-attention.
+_GREEN = "#34a853"      # recording — holding the key and speaking
+_BLUE = "#1a73e8"       # normal / ready / idle
+_RED = "#e53935"        # problem — error or silent-streak
+# Actively capturing/handling your dictation → green. Everything else that is not a
+# problem → blue (normal). Meeting Mode also captures audio, so it is green too.
+_RECORDING_STATES = frozenset(
     {
         "recording",
         "transcribing",
         "injecting",
-        "readback",
-        "remote_setup",
-        "remote_active",
-        "enrolling",
         "meeting",
     }
 )
@@ -89,18 +88,18 @@ def build_menu_model(
 def icon_spec(status: dict) -> tuple[str, str]:
     """Return ``(hex_color, tooltip)`` for the tray icon given a status dict.
 
-    Blue while actively working; reddish when idle, starting up, or in trouble. A live
-    silent-streak or an error is always reddish, so a mic that stopped being heard shows
-    in the top bar without opening the menu.
+    Green while recording your voice, blue for the normal ready/idle state, red for a
+    problem (error or a live silent-streak). A silent-streak or error is always red, so a
+    mic that stopped being heard shows in the top bar without opening the menu.
     """
     state = str(status.get("state") or "idle")
     streak = int(status.get("silent_streak") or 0)
     if streak or state == "error":
         color = _RED  # problem
-    elif state in _WORKING_STATES:
-        color = _BLUE  # working correctly
+    elif state in _RECORDING_STATES:
+        color = _GREEN  # recording — holding the key and speaking
     else:
-        color = _RED  # idle / loading / paused
+        color = _BLUE  # normal / ready / idle
 
     mic = status.get("input_device") or "default"
     hotkey = status.get("hotkey") or "?"
