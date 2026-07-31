@@ -299,6 +299,33 @@ def _input_group_pending_relogin() -> bool:
         return False
 
 
+def _keyboard_capture_check(perms, platform_name: str) -> _Check:
+    """Report keyboard-capture access with an actionable permission fix."""
+    state = perms.check_keyboard_capture()
+    if state is PermissionState.OK:
+        detail = state.value
+    elif _input_group_pending_relogin():
+        # You ARE in the `input` group, but THIS process's session predates the
+        # change, so the generic "add yourself to the group" advice is wrong and
+        # confusing. Tell the truth: re-login (a running daemon started under
+        # `sg input` is unaffected — this only reflects the shell running doctor).
+        detail = (
+            f"{state.value} — you're in the `input` group, but this session started before "
+            "that change. Log out and back in (or reboot). A daemon started with "
+            '`sg input -c "yazses restart"` already has access — this line only reflects '
+            "the shell running doctor."
+        )
+    elif platform_name == "linux" and state is PermissionState.DENIED:
+        detail = (
+            f"{state.value} — run:\n"
+            "    sudo usermod -aG input $USER\n"
+            "Then log out and back in for the change to take effect."
+        )
+    else:
+        detail = f"{state.value} — {perms.how_to_grant()}"
+    return ("Keyboard capture", "OK" if state is PermissionState.OK else "FAIL", detail)
+
+
 def _hotkey_device_check(cfg) -> _Check | None:
     """Report which /dev/input device the hotkey will bind to (Linux/evdev).
 
@@ -484,23 +511,7 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     checks.extend(_install_consistency_checks())
 
     # Keyboard capture
-    kb = perms.check_keyboard_capture()
-    if kb is PermissionState.OK:
-        kb_detail = kb.value
-    elif _input_group_pending_relogin():
-        # You ARE in the `input` group, but THIS process's session predates the
-        # change, so the generic "add yourself to the group" advice is wrong and
-        # confusing. Tell the truth: re-login (a running daemon started under
-        # `sg input` is unaffected — this only reflects the shell running doctor).
-        kb_detail = (
-            f"{kb.value} — you're in the `input` group, but this session started before "
-            "that change. Log out and back in (or reboot). A daemon started with "
-            '`sg input -c "yazses restart"` already has access — this line only reflects '
-            "the shell running doctor."
-        )
-    else:
-        kb_detail = f"{kb.value} — {perms.how_to_grant()}"
-    checks.append(("Keyboard capture", "OK" if kb is PermissionState.OK else "FAIL", kb_detail))
+    checks.append(_keyboard_capture_check(perms, platform.name))
 
     # Which input device the hotkey actually binds to (real keyboard vs a virtual
     # injector device). Surfaces the dead-hotkey failure mode directly.
