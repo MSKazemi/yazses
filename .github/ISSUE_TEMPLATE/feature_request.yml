@@ -1,0 +1,31 @@
+name: 💡 Feature request
+description: Suggest an improvement, a new voice command, or platform support.
+title: "[feat]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Start with the frustration, not the solution — it helps us find the best fix.
+      placeholder: When I dictate into a terminal, …
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to see?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+    validations:
+      required: false
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Would you be willing to help?
+      options:
+        - label: I'd be interested in opening a PR for this (we'll help you get started)

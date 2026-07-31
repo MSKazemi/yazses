@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Questions & ideas (Discussions)
+    url: https://github.com/MSKazemi/yazses/discussions
+    about: Ask how to do something, share a setup, or float an idea before filing an issue.
+  - name: 📦 Install & troubleshooting docs
+    url: https://mskazemi.github.io/yazses/
+    about: Install options, the doctor self-check, and troubleshooting for each platform.

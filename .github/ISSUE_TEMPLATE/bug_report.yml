@@ -1,0 +1,62 @@
+name: 🐞 Bug report
+description: Something isn't working — a crash, wrong behaviour, or a hotkey/dictation problem.
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. The fastest way to a fix is the output of
+        `yazses doctor` plus the exact steps you took. Please don't paste transcribed audio you'd
+        rather keep private — YazSes is offline by design and we don't need it.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+      placeholder: I held the hotkey and spoke, but nothing was typed…
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. yazses start
+        2. Focus a text field
+        3. Hold right_ctrl, say "hello world", release
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `yazses doctor`
+      description: Paste the full output. This resolves most reports on its own.
+      render: text
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux (X11)
+        - Linux (Wayland)
+        - macOS
+        - Windows
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: YazSes version
+      description: Output of `yazses --version`.
+    validations:
+      required: true
+  - type: input
+    id: install-method
+    attributes:
+      label: How did you install it?
+      placeholder: install.sh / pipx / APT / from source
+    validations:
+      required: true
