@@ -1,6 +1,19 @@
 """Tests for the pure provisioning planner in yazses.system.setup."""
 
+import os
+
+import pytest
+
 from yazses.system import setup
+
+# `preflight_hints` short-circuits to [] on non-POSIX platforms (`os.name != "posix"`,
+# i.e. Windows), since `yazses setup` provisions POSIX runtime prerequisites. Tests that
+# assert a hint is produced therefore can't run on Windows; they still run on Linux and
+# macOS (both POSIX).
+posix_only = pytest.mark.skipif(
+    os.name != "posix",
+    reason="preflight_hints returns [] on non-POSIX platforms (Windows)",
+)
 
 
 def _which(available):
@@ -103,6 +116,7 @@ def _fully_provisioned_plan():
     )
 
 
+@posix_only
 def test_preflight_hint_when_packages_missing():
     plan = setup.build_plan(
         {"DISPLAY": ":0"},
@@ -117,6 +131,7 @@ def test_preflight_hint_when_packages_missing():
     assert "Missing prerequisites" in hints[0]
 
 
+@posix_only
 def test_preflight_hint_when_relogin_pending():
     # Fully provisioned, but the group change hasn't taken effect in this session.
     plan = _fully_provisioned_plan()
@@ -163,6 +178,7 @@ def test_snap_mic_pending_false_when_snapctl_missing():
     assert setup.snap_mic_pending({"SNAP_NAME": "yazses"}, runner=_raise) is False
 
 
+@posix_only
 def test_preflight_hint_when_snap_mic_unconnected(monkeypatch):
     # In the snap with audio-record not connected, surface the connect step.
     monkeypatch.setattr(setup, "snap_mic_pending", lambda env=None: True)
@@ -171,6 +187,7 @@ def test_preflight_hint_when_snap_mic_unconnected(monkeypatch):
     assert any("snap connect yazses:audio-record" in h for h in hints)
 
 
+@posix_only
 def test_missing_packages_take_priority_over_relogin_hint():
     # If packages are also missing, surface the actionable `yazses setup` hint,
     # not the (secondary) re-login one.
