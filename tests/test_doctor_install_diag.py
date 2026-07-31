@@ -10,7 +10,27 @@ import types
 
 import pytest
 
+from yazses.platform import PermissionState
+from yazses.platform.linux.permissions import LinuxPermissions
 from yazses.system import doctor
+
+
+# ---- keyboard capture permissions -----------------------------------------
+
+
+def test_keyboard_capture_denied_includes_input_group_fix(monkeypatch):
+    perms = LinuxPermissions()
+    monkeypatch.setattr(perms, "check_keyboard_capture", lambda: PermissionState.DENIED)
+    monkeypatch.setattr(perms, "how_to_grant", lambda: "Ask an administrator.")
+    monkeypatch.setattr(doctor, "_input_group_pending_relogin", lambda: False)
+
+    name, status, detail = doctor._keyboard_capture_check(perms, "linux")
+    rendered = doctor._format_check(name, status, detail)
+
+    assert name == "Keyboard capture"
+    assert status == "FAIL"
+    assert "sudo usermod -aG input $USER" in rendered
+    assert "log out and back in" in rendered.lower()
 
 
 # ---- _hotkey_device_check --------------------------------------------------
