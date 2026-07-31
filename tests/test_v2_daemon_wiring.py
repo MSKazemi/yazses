@@ -6,7 +6,10 @@ non-target-speaker frames before STT. Off by default → unchanged behaviour.
 """
 from __future__ import annotations
 
+import sys
+
 import numpy as np
+import pytest
 
 from yazses.config import Config
 from yazses.core.daemon import Daemon
@@ -281,6 +284,10 @@ def test_release_hotkey_modifier_skips_ydotool_without_ydotoold(monkeypatch):
     assert calls == []   # no ydotool spawned when the socket is absent
 
 
+@pytest.mark.skipif(
+    sys.platform != "linux",
+    reason="_release_hotkey_modifier only spawns ydotool on Linux (no-ops elsewhere)",
+)
 def test_release_hotkey_modifier_spawns_ydotool_when_ready(monkeypatch):
     d = _base_daemon(np.zeros(16000, dtype="float32"))
     d._config.hotkey.key = "right_alt"
