@@ -1,0 +1,2231 @@
+# Changelog
+
+All notable changes to YazSes are documented in this file. The format is
+based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
+project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### "No text target" guard — never dictate into the wrong place
+
+- **Speaking with no text field focused no longer loses your words.** If you dictate before
+  clicking into a text box, YazSes now detects there's no text target and — instead of typing
+  the transcript into the wrong window (or nowhere) — **copies it to the clipboard and notifies
+  you** ("paste with Ctrl+V"), and the tray icon turns **yellow** while recording so you see it
+  before you release. Detection is **AT-SPI** when available (precise editable-element check;
+  `apt install python3-pyatspi gir1.2-atspi-2.0`), else a **best-effort X11** focus check;
+  it only acts on a *confident* no-target, so normal dictation is never affected.
+- Configurable via `[injection] target_guard` (`clipboard` default | `warn` | `off`) and the
+  new `target-guard` feature (on by default). Tray icon is now **5 colours**: green (dictating
+  into a field), yellow (dictating, no text target), purple (command mode — holding the command
+  key), blue (idle), red (problem).
+- New: `src/yazses/inject/target.py`, `src/yazses/system/clipboard.py`; wired in `core/daemon.py`.
+  Tests: `test_target_detection.py`, `test_clipboard.py`, `test_target_guard_daemon.py` (+19).
+  Also fixed a clipboard-set hang (xclip/wl-copy inherit stdout → `subprocess.run` blocked; now DEVNULL).
+
+### System-tray icon with a click-menu (Linux top-bar indicator)
+
+- **A microphone icon in the top bar** (`yazses tray`, and auto-launched with the daemon
+  when a desktop is present) with a click-menu to **pick/pin your input mic** from a live
+  device list, **re-calibrate**, and **restart/stop** the daemon — no terminal needed. The
+  icon is the YazSes mark — a rounded badge with a bold "Y" — in a three-colour scheme:
+  **green while recording** your voice (holding the key and speaking, through the brief
+  transcribe/inject), **blue for the normal ready/idle** state, and **red for a problem**
+  (error or a live silent-streak). So a glance says recording vs ready vs needs-attention.
+  Built on
+  **PySide6 `QSystemTrayIcon`** (already a base dependency — zero new deps; needs an
+  SNI/AppIndicator host, standard on Ubuntu GNOME). macOS/Windows keep their existing
+  rumps/pystray trays.
+- Mic actions apply **live over IPC** (new `pin_mic` / `recalibrate_mic` daemon methods
+  reusing the mic-guard internals) — pinning takes effect immediately, no restart. "Quit
+  tray" closes the icon but leaves dictation running; a single-instance lock prevents a
+  duplicate tray after `yazses restart`.
+- New: `src/yazses/tray/{menu,controller,launch}.py` (pure, unit-tested),
+  `src/yazses/platform/linux/tray.py` (`LinuxTray`), `[tray]` config, a `tray` feature
+  (on by default), and the `yazses tray` command. Tests: `test_tray_menu.py`,
+  `test_tray_controller.py`, `test_tray_launch.py`, `test_daemon_audio_ipc.py` (+21).
+
+### Microphone-change guard — auto-heal + actionable notifications
+
+- **Dictation no longer dies in silence when your mic switches.** Capture used to follow
+  the OS default input device with no way to pin it, so plugging in a USB-C monitor (or a
+  headset) that steals the default input made every clip fall below the VAD gate and get
+  silently discarded — no crash, no message. YazSes now detects this two ways: a run of
+  consecutive silent-discards (`SilentStreakTracker`) and a background watcher of the OS
+  default input device (`DeviceMonitor`, polls only while idle). On either, it **auto-heals**
+  — switching capture back to the last device that produced usable audio — and pops a
+  desktop notification with **[Re-calibrate] / [Pin this mic] / [Ignore]** buttons
+  (`notify-send`; degrades to a plain toast, then to log-only, never crashes the daemon).
+- **Pin your microphone by name.** New `[audio] device` (a case-insensitive name
+  substring, resolved fresh every recording so it survives a hotplug that renumbers
+  devices) threads through `AudioRecorder` and `yazses mic-level`. Set/see it with the new
+  **`yazses audio devices` / `use <name>` / `status`** command group; the current mic is
+  now shown in `yazses status` and `yazses doctor`.
+- New `[audio]` keys (`device`, `device_change_notify`, `silent_streak_notify`,
+  `silent_streak_threshold`, `auto_heal_device`, `device_poll_interval_s`), all on by
+  default; toggle both notifies with `yazses features enable/disable mic-guard`.
+- New: `src/yazses/audio/devices.py`, `src/yazses/audio/device_monitor.py`,
+  `src/yazses/system/notify.py`; wired in `core/daemon.py`. Tests: `test_audio_devices.py`,
+  `test_device_monitor.py`, `test_notify.py`, `test_recorder_device.py`,
+  `test_cli_audio.py`, `test_device_heal_daemon.py` (+36).
+
+## [2.12.0-dev.4] - 2026-07-30
+
+### Schema slot-filling exposed as an offline CLI command
+
+- **`yazses slotfill <text> --slot ...`** (ADR-v2-063) — extract structured fields from
+  one utterance by a schema: each `--slot` is `NAME:after=kw1,kw2` (capture the token
+  after a trigger keyword) or `NAME:choices=a,b,c` (pick the first enum member present).
+  Prints a JSON object of matched fields. `src/yazses/cli.py`; tests
+  `tests/test_cli_slotfill.py` (+4).
+
+### Verbatim / autoformat mode wired into the dictation path
+
+- **Verbatim mode** (ADR-v2-078, `[verbatim]`) is now live: say **"dictate verbatim"**
+  (or "raw mode"/"stop formatting") to freeze all formatting — ITN, voice punctuation,
+  GEC, transliteration, markup, auto-pairing, prosody, etc. — for subsequent bursts, and
+  **"resume formatting"** (or "normal mode") to restore it. The mode commands type nothing;
+  a persistent `VerbatimGate` holds the mode across bursts. Off by default
+  (`yazses features enable verbatim`). Wired in `core/daemon.py::_on_hold_end` (bypasses
+  the transform chain, injecting the cleaned literal text); tests in
+  `tests/test_v2_daemon_wiring.py` (+3).
+
+### Reverse dictionary + citation resolver exposed as offline CLI commands
+
+- **`yazses wordfind <description>`** (ADR-v2-118) — a reverse dictionary: describe a
+  word and get ranked candidates from a built-in demo lexicon (extend with `--lexicon`,
+  a JSON `{word: definition}` file).
+- **`yazses cite <query> --bib <file>`** (ADR-v2-071) — resolve a spoken "author year"
+  reference against a local BibTeX file and format it (`--style latex|plain|apa`).
+
+Both exit non-zero when nothing matches. `src/yazses/cli.py`; tests
+`tests/test_cli_wordfind_cite.py` (+7).
+
+### Spaced-repetition capture — fifth stateful core given a persistent store
+
+- **`yazses srs capture/list/review`** (ADR-v2-112) — capture "remember that X is Y"
+  facts as cloze flashcards persisted at `~/.config/yazses/srscap.json`, and schedule
+  reviews with the SM-2 algorithm (`review <n> --grade 0-5`). Reuses the `Sm2State` /
+  `sm2_schedule` cores. New `src/yazses/srscap/store.py` + `src/yazses/cli.py`; tests
+  `tests/test_srscap_store.py`, `tests/test_cli_srs.py` (+9).
+
+### Outline builder — fourth stateful core given a persistent store
+
+- **`yazses outline add/indent/promote/render/clear`** (ADR-v2-124) — build a nested
+  outline incrementally across invocations (state at `~/.config/yazses/outline.json`)
+  and render it to Markdown or OPML. New `src/yazses/outline/store.py` (OutlineItem
+  (de)serialisation) + `src/yazses/cli.py`; tests `tests/test_outline_store.py`,
+  `tests/test_cli_outline.py` (+7).
+
+### Clipboard history — third stateful core given a persistent store
+
+- **`yazses cliphistory add/list/recall`** (ADR-v2-060) — a newest-first, de-duplicated,
+  capped clipboard history persisted at `~/.config/yazses/cliphistory.json`. `recall`
+  resolves a spoken-style reference (`the last url`, `email`, `the second one`,
+  `number 3`, …) to one entry. Reuses the `ClipboardRing` core for dedup/cap semantics.
+  New `src/yazses/cliphistory/store.py` + `src/yazses/cli.py`; tests
+  `tests/test_cliphistory_store.py`, `tests/test_cli_cliphistory.py` (+9).
+
+### Writing-goal tracker — second stateful core given a persistent store
+
+- **`yazses wordgoal add/status/goal/reset`** (ADR-v2-092) — a running word count
+  persisted at `~/.config/yazses/wordgoal.json` that accumulates across invocations;
+  `add` counts a chunk (arg or stdin), `goal <n>` sets a target, `status` reports
+  progress, `reset` zeroes the count. `WordGoalTracker.progress()` was refactored to a
+  shared pure `render_progress()` reused by the CLI. New `src/yazses/wordgoal/store.py` +
+  `src/yazses/cli.py`; tests `tests/test_wordgoal_store.py`, `tests/test_cli_wordgoal.py` (+8).
+
+### Acronym glossary — first stateful dormant core given a persistent store
+
+- **`yazses acronyms add/list/remove/expand`** (ADR-v2-114) — a persistent acronym
+  glossary stored at `~/.config/yazses/acronyms.json`. `expand` rewrites text so each
+  known acronym is spelled out on first use (`Full Name (ACR)`) and contracted after.
+  This is the first of the "stateful" dormant cores to get a runtime path — via a small
+  JSON file store (mirroring the personal-dictionary pattern) rather than a daemon session.
+  New `src/yazses/acronyms/store.py` + `expand_document()` in `acronyms/glossary.py` +
+  `src/yazses/cli.py`; tests `tests/test_acronyms_store.py`, `tests/test_cli_acronyms.py` (+9).
+
+### Two more dormant cores exposed as offline CLI commands
+
+- **`yazses findreplace <command> --in <text>`** — apply a spoken find-and-replace
+  (`replace every/first X with Y`, optionally `case-sensitive`) to text (ADR-v2-068).
+- **`yazses chords [text]`** — turn a spoken key chord (`press control shift P`,
+  `escape twice`) into injectable `ctrl+shift+p`-style combos, one per line (ADR-v2-085).
+
+Both read the argument or stdin and exit non-zero on an unparseable input. `src/yazses/cli.py`;
+tests `tests/test_cli_findreplace_chords.py` (+7).
+
+### Two dormant text cores exposed as offline CLI commands
+
+Continuing the "wire dormant feature cores into a runtime path" effort, two more pure,
+tested cores now have a real entry point (offline, no daemon):
+
+- **`yazses case [text] --style <name>`** — recase text to a naming convention
+  (snake/kebab/camel/pascal/title/sentence/upper/lower/constant, ADR-v2-087). With no
+  `--style` it detects a spoken `make this … case:` command and recases the remainder.
+- **`yazses screenplay [text]`** — format dictated lines as Fountain screenplay markup
+  (ADR-v2-110): scene headings, character cues, transitions, and smart-quoted dialogue.
+
+Both read the argument or stdin. `src/yazses/cli.py`; tests
+`tests/test_cli_case_screenplay.py` (+9).
+
+### Meeting Mode hardening (P2–P5)
+
+Robustness and completeness pass over Meeting Mode (`yazses meeting`, ADR-v2-127/128),
+all on-device and off by default:
+
+- **Clean auto-stop at `max_minutes`.** The recorder no longer silently drops audio once
+  the safety cap is reached — the controller now owns the cap and, when captured audio
+  reaches it, fires a one-shot finalize (the same path as `yazses meeting stop`), so the
+  meeting up to the cap is transcribed and written instead of quietly discarded.
+- **Crash-resilient live transcript.** Each finalized live line is streamed to
+  `<meeting>/live.jsonl` during capture, so a daemon crash mid-meeting still leaves a
+  partial transcript on disk; `yazses meeting list` flags such folders as recoverable.
+  This stays separate from the authoritative `transcript.json` (the batch post-pass at stop).
+- **No silent diarization degrade.** `yazses meeting start` now warns when speaker labels
+  are requested but the diarization extra/models are missing (the transcript would be
+  un-attributed), and `yazses meeting status` reports speaker-label availability. Fetch the
+  models with `yazses transcribe --download-models`.
+- **Grammar-constrained minutes.** Local-LLM minutes (`[meeting] notes`) can decode against
+  a GBNF grammar (`[meeting] notes_grammar`, default on) so the JSON shape is guaranteed,
+  with the tolerant parser kept as a fallback. New `notes` optional extra (llama-cpp-python);
+  recommended GGUF: Phi-4-mini-instruct or Qwen2.5-3B (Q4_K_M).
+- **Selectable VAD backend.** `[meeting] vad_backend` is now honoured via a factory that
+  builds the calibrated RMS gate by default or a Silero neural VAD (new optional `silero`
+  extra) when selected, falling back to calibrated whenever Silero is unavailable.
+- **Participant enrollment.** New `yazses meeting enroll <id> --speaker <cluster> --name
+  <name>` embeds a speaker's audio from a retained recording and saves it as an encrypted,
+  on-device voiceprint (explicit/opt-in, ADR-011/012), so that person is auto-named in
+  future meetings. Requires `[meeting] retain_audio = true`.
+- `yazses features enable meeting` (and `recimport`) now auto-install their diarization
+  backend on demand. `src/yazses/meeting/{controller,session,store,notes,vad,silero_vad,
+  participants}.py`, `src/yazses/recimport/factory.py`, `src/yazses/core/daemon.py`,
+  `src/yazses/cli.py`, `src/yazses/config.py`. Tests: `tests/test_meeting_*`, +23.
+
+### Hotkey fix: dead hold-to-talk with more than one keyboard
+
+- **fix(hotkey): listen on every real keyboard, not just one.** On a machine
+  with more than one keyboard (a laptop's built-in keyboard plus an external
+  USB keyboard, which each appear as separate `/dev/input/event*` nodes), the
+  daemon bound to a single device chosen by sorted path — so it could lock onto
+  the keyboard you *weren't* typing on and the hold-to-talk hotkey did nothing
+  (recording never even started; no text appeared). `EvdevHoldListener` now
+  discovers all real full keyboards (`_find_keyboards`) and reads them together
+  via `select()`, so the hotkey fires whichever keyboard you use — built-in,
+  USB, or both at once. Virtual injector devices (ydotool/wtype uinput) are
+  still excluded so they can't shadow a real keyboard. `yazses doctor` now lists
+  every watched keyboard so a mismatch is visible at a glance.
+  `src/yazses/hotkeys/evdev_hold.py`, `src/yazses/system/doctor.py`. Tests:
+  `tests/test_evdev_find_keyboard.py`, `tests/test_doctor_install_diag.py`.
+
+## [2.12.0-dev.3] - 2026-07-10
+
+### Glance-Type routing fix, on-demand gaze deps, features-enable crash fix
+
+- **docs(gaze): new how-to guide for Glance-Type look-to-pane.**
+  `docs/how-to/gaze-look-to-pane.md` — what it is, requirements (X11 + webcam +
+  xdotool), setup (enable → auto-install → calibrate → start), how to use it, a
+  concrete two-window test with live-log verification, and troubleshooting
+  (camera conflict, always-same-window, Wayland). Linked from the how-to index
+  and a new gaze section in `troubleshooting.md`.
+- **fix(gaze): look-to-pane always routed to the desktop, never the looked-at
+  window.** `XdotoolDesktop.list_windows` returned the full-screen desktop/root
+  window (spanning `0,0`→screen size) alongside real windows, and
+  `zones.window_at_point` returned the *first* bbox match — so the desktop, which
+  contains every point, shadowed every real window and gaze always resolved to it
+  (focusing the desktop is a no-op, so dictation stayed on the focused window
+  regardless of gaze). Fixed on two fronts: `list_windows` now drops any
+  window covering ≥98% of the screen at the origin (the desktop/root — never a
+  meaningful gaze target), and `window_at_point` now returns the *smallest*
+  (most specific) containing window so a real pane always wins over a larger
+  container behind it. Tests: `tests/test_gaze.py`, `tests/test_gaze_wiring.py`.
+- **feat(gaze): `yazses gaze calibrate` now auto-installs the webcam deps.** Running
+  `gaze calibrate` (or `gaze status`) with mediapipe/opencv absent used to dead-end on
+  a manual `pip install l2cs mediapipe opencv-python` hint — misleading, since l2cs is
+  not the default backend and a `pip install` can't reach the uv-tool venv. Calibrate
+  now installs the deps into the running environment on first run (reusing the same
+  `_install_feature_deps` path as `features enable gaze`; `--no-install` to skip), and
+  the hints across `calibrate`/`status`/docs point at the turnkey commands. Tests:
+  `tests/test_cli_gaze_autoinstall.py`.
+- **fix(features): `yazses features enable <name>` crashed for any feature with
+  optional deps.** The on-demand-deps fields (`pip_packages` / `check_modules`)
+  lived only on the internal `_Def` and were dropped when building the public
+  `Feature` the CLI consumes, so `_install_feature_deps` raised
+  `AttributeError: 'Feature' object has no attribute 'pip_packages'`. They now
+  survive the conversion; added a regression test for the CLI contract.
+
+## [2.12.0-dev.2] - 2026-07-10
+
+### Meeting Mode, Glance-Type on X11, Read-Back fix, feature-dependency doctor
+
+- **feat(meeting): hands-free whole-meeting capture + hybrid diarization (ADR-v2-127/128).**
+  New `yazses meeting` command group (`start`, `stop`, `status`, `list`, `relabel`,
+  `notes`): records a full meeting without hold-to-talk, streams a rolling transcript
+  for the status view, and at *stop* runs an accurate batch diarization post-pass over
+  the whole recording — reusing the ADR-v2-125 `recimport` cores (no new dependency) —
+  then optionally generates speaker-aware minutes with a local LLM. Speakers are
+  identified by embeddings + clustering (not pitch). New `src/yazses/meeting/`
+  (`store`/`segmenter`/`session`/`finalize`/`notes`/`controller`), `MeetingConfig`
+  (OFF by default, RecimportConfig-compatible diarization/naming fields), and
+  `design/meeting-mode/` + ADRs 127/128. Tests: `tests/test_meeting_*.py`.
+- **feat(gaze): Glance-Type look-to-pane now fully wired and tested on X11.** New default
+  backend is MediaPipe FaceLandmarker (iris-offset → gaze; light, no torch,
+  auto-downloads the 3.7 MB model) — glance at a coarse screen zone to choose where the
+  next dictation lands; `xdotool` focuses the target window. Adds
+  `gaze/{desktop,store,targeter,mediapipe_backend,download}.py`, real `yazses gaze
+  calibrate` / `gaze status`, daemon `_on_hold_start` routing, and a `gaze` pip extra.
+  l2cs stays opt-in (heavy CUDA). Still dormant on GNOME/Wayland (no external
+  window-focus). Frames are processed in-RAM only, never stored or sent (ADR-011).
+  Tests: `tests/test_gaze_{mediapipe,l2cs,wiring}.py`.
+- **fix(tts): Read-Back was silently a no-op.** The code called the old `Kokoro()`
+  constructor, but `kokoro-onnx >= 0.4` requires `Kokoro(model, voices)`, so the backend
+  resolved to `None`. New `tts/download.py` fetches the v1.0 ONNX model + voices into
+  `~/.local/share/yazses/tts`; `TtsConfig.voices_path` and `kokoro.py` now auto-resolve
+  and download. No `espeak-ng` needed.
+- **feat(features): on-demand dependency install on `features enable`.** Enabling a
+  heavy feature now installs *only that feature's* optional extras (never all of them
+  up front). New `system/deps.py` (`missing_modules` + `install_packages`, preferring
+  `uv pip` and falling back to `pip`, targeting the running interpreter) plus a central
+  `_FEATURE_DEPS` map wire 12 heavy features (gaze, overlay, prosody, voicehealth,
+  read-back, readback_clone, llm-cleanup, agent, cocktail, multiprofile, voiceguard,
+  diarize) to their pip packages. `yazses features enable <name>` probes the feature's
+  imports and installs what is missing (`--no-install` to skip); pure-logic features
+  install nothing. Tests: `tests/test_feature_deps.py`.
+- **fix(docs-gen): Typer 0.26 compatibility.** Typer now vendors its own `click` fork, so
+  `scripts/gen-docs.py`'s `isinstance` checks against upstream `click` broke the
+  command-index generator (and its sync test). Switched to duck-typing on the stable
+  `param_type_name` / `.commands` API.
+- **chore(deps): refresh every dependency to its latest compatible stable.** Audited all
+  32 declared packages and ran `uv lock --upgrade`, bumping the lagging lower bounds to
+  the resolved versions — notably `PySide6` 6.8→6.11.1, `opencv-python` 4.10→5.0,
+  `cryptography` 48→49, `typer` 0.25→0.26.8, `mcp` 1.9→1.28.1, `onnxruntime` 1.20→1.27,
+  `kokoro-onnx` 0.4.9→0.5.0, plus numpy, platformdirs, Pillow, pywin32, pyobjc, soundfile,
+  sherpa-onnx, mediapipe, llama-cpp-python, praat-parselmouth and pytest. Floors track the
+  resolver's latest *compatible* pick (numpy is capped at 2.4.6 by a transitive
+  constraint), so resolution stays clean across platforms.
+
+## [2.12.0-dev.1] - 2026-07-10
+
+### CLI help + docs: grouped feature switchboard, branded banner, full reference set + master PDF
+
+- **feat(cli): `yazses features` now clusters all 135 capabilities into functional
+  groups** (Core dictation, Accuracy & correction, Formatting & structure, Editing
+  & navigation, Commands & automation, Multilingual, Accessibility & input
+  modalities, Learning/memory & analytics, Conversation & recording capture)
+  instead of one flat 135-row table, and gains `--on`, `--tier <core|on|rec|opt|exp>`,
+  and `--category <name>` filters. New `category` field on `Feature` + a slug→category
+  map in `system/features.py` (single source of truth, enforced complete by tests);
+  new `grouped_features()` helper. Tests: `tests/test_features_categories.py`,
+  `tests/test_cli_features_grouped.py`.
+- **feat(cli): `yazses about` shows a branded ASCII wordmark banner** (`branding.banner()`)
+  with a plain-text fallback on non-TTY / `NO_COLOR`, and `about` gained a usage
+  example. Tests: `tests/test_about_branding.py`.
+- **fix(features): accuracy pass** — corrected the `rag` example (answers from local
+  docs, not "recall past dictation"), moved `affect` (Tone-Aware Formatting) from the
+  Learning category to Formatting, and noted the optional extra/model dependency on
+  `readback_clone` and the learning-corpus dependency on `recall`.
+- **docs: a complete, non-drifting reference set.** New generator
+  `scripts/gen-docs.py` emits `docs/features.md` (all 135, grouped), `docs/configuration.md`
+  (every `config.toml` section/key/default from `config.py`), and `docs/command-index.md`
+  (every CLI command/option from the Typer app) directly from source — kept in
+  lockstep by `tests/test_gen_docs.py`. New hand-written `docs/architecture.md`
+  (user-facing), `docs/roadmap.md`, `docs/troubleshooting.md`, and `docs/how-to/`
+  guides (vocabulary, macros/snippets, hotkey, remote, performance tuning); refreshed
+  `docs/cli-reference.md` and `docs/index.md`.
+- **docs: subsystem architecture diagram in three formats.** `docs/diagrams/`
+  ships the same YazSes subsystem map as Mermaid (`.mmd`, renders on GitHub), ASCII
+  (`.txt`, also embedded in `docs/architecture.md` and the PDF), and a self-contained
+  styled `.html` page — covering the CLI/tray control plane, the daemon pipeline,
+  injection/remote paths, and the cross-cutting config, registry, platform, and
+  opt-in subsystems.
+- **docs: one master PDF.** `scripts/build-docs-pdf.sh` assembles the whole doc set
+  into `docs/yazses-complete-reference.pdf` — a ~130-page, table-of-contents
+  reference — via pandoc (`pypandoc-binary`) + xelatex, all user-space (no system
+  install). Gitignored; regenerate on demand.
+- **fix(docs): correct the privacy statement — it described a never-shipped Rust
+  build.** `docs/privacy-statement.md` claimed a "Personal Memory" SQLCipher
+  `memory.db`, an OpenAI-compatible cloud LLM backend, `llama.cpp`/Ollama at
+  `localhost:11434`, "Moonshine v2 / Whisper.cpp" STT, and that remote mode
+  "forwards your audio" — none of which match the real Python implementation.
+  Rewritten to reflect reality: faster-whisper STT, the opt-in AES-256-GCM
+  `[learning]` corpus (`corpus.db`), on-device-only optional local models
+  (`llama-cpp-python`, no cloud/OpenAI), and remote mode forwarding **final text
+  only** (audio never leaves the machine).
+- **fix(docs/pdf): the reference PDF no longer double-numbers headings, overflows
+  wide tables, or leaks a literal `\newpage`.** Dropped pandoc `--number-sections`
+  (source docs carry their own manual section numbers/cross-refs that collided as
+  "19.14 13. …"); added `scripts/pandoc-tablewrap.lua` so wide table cells wrap
+  instead of running off the page; page breaks now come from `report`-class chapter
+  starts. The fictional `docs/migration-v04-to-v10.md` (Rust "v1.0") is excluded
+  from the PDF.
+
+### Docs: stop recommending the snap for dictation (confinement blocks the hotkey)
+
+- **docs: lead Linux installs with the APT script / `pipx`, not the snap.** The
+  strictly-confined snap cannot read `/dev/input`, so hold-to-talk never fires —
+  only the offline `yazses transcribe <file>` path works under confinement.
+  README and `docs/index.md` now install via APT/pipx, carry an explicit
+  "Not the snap" note, and drop the Snap Store badge/button; the snap-specific
+  `snap connect yazses:audio-record` step was removed from the `yazses setup`
+  checklist copy (README, `docs/install-linux.md`, `docs/cli-reference.md`).
+  The snap remains only as a clearly-labelled, not-recommended option for the
+  file-transcription use case. (Snap packaging itself to be updated separately.)
+
+### Install: `yazses setup` prompts every manual step + offers voice calibration
+
+- **feat(setup): an ordered "finish installing" checklist.** After provisioning,
+  `yazses setup` prints the numbered steps only the user can do — grant the snap
+  microphone (`sudo snap connect yazses:audio-record`), join the `input` group
+  (`sudo usermod -aG input $USER`), log out and back in so it takes effect,
+  calibrate the mic to your voice (`yazses mic-level --set`), and start dictating
+  (`yazses start`). Steps that don't apply are omitted; shown on the apply,
+  `--dry-run`, and already-provisioned paths. Single source of truth: new
+  `system/setup.py::next_steps()` (+ `ManualStep`). Also offers to run the mic
+  calibration for you, and the APT installer now points at those next steps.
+  Tests: `tests/test_setup_next_steps.py`.
+
+### UX: friendlier, clearer, more helpful CLI
+
+- **feat(cli): new `yazses quickstart` — a 3-step, machine-tailored getting-started
+  guide.** It checks what's already set up (prerequisites, whether the daemon is
+  running, your hotkey) and prints exactly what to do next (`setup` → `start` → hold
+  the key), plus handy follow-ups (`test`, `mic-level`, `features`, `doctor`). Safe to
+  run anytime — changes nothing. Surfaced first in the Setup panel and top-level help.
+- **feat(doctor): a bottom-line verdict.** After the check list, `yazses doctor` now
+  prints one summary line — ✓ all good / ▲ optional warnings only / ✗ N problems to fix
+  — each ending in the concrete next command (and "hold <hotkey> to dictate" when ready).
+- **fix(cli): actionable, consistent 'not running' messages.** `yazses status` and
+  `yazses stop` used to dead-end at "YazSes is not running."; they now tell you the
+  next command (`yazses start`, and `quickstart` for new users). The status
+  IPC-not-ready line now explains the daemon is loading the speech model rather than
+  looking broken.
+- **fix(help): stop leaking internal jargon into user help.** Removed developer
+  codenames (`ADR-v2-038/091/082/117`, `spec-punch-in`, `ADR-011`) from the `reflow`,
+  `table`, `shellpipe`, `braille`, `punch-in`, and `transcribe` command descriptions,
+  and rewrote the `say`, `enroll-voice`, `gaze`, and `recall` help to lead with a
+  plain description instead of internal feature codenames (Read-Back Loop, Cocktail
+  Filter, Voiceprint Mind, Glance-Type, Spoken Recall).
+- Tests: `tests/test_cli_quickstart.py`, `tests/test_doctor_verdict.py`.
+
+### UX: make the required setup commands unmissable (colour)
+
+- **`yazses doctor`, `yazses start`/`restart`, and `yazses setup` now colour their
+  output.** Failures render as bold white-on-red `[FAIL]` tags, and the one action a
+  user must take — e.g. `sudo usermod -aG input $USER` (the hotkey won't work without
+  it) or `sudo snap connect yazses:audio-record` — is highlighted in bold red so it
+  can't be missed. Colour is emitted only to a real terminal (auto-disabled when
+  piped/redirected, honours `NO_COLOR`). New `doctor._format_check` + `cli._echo_action_hint`.
+
+### `start`/`restart` verify the daemon actually came up + bounded self-healing (`v2.11.0-dev.13`)
+
+- **feat(cli): `yazses start`/`restart` no longer lie about readiness.** They used
+  to print "YazSes started" the instant the process was spawned — even when the
+  daemon core-dumped a moment later during model/audio init (e.g. a PortAudio/ALSA
+  abort). Now they poll the daemon over IPC after spawning and report the truth:
+  - **ready** → "YazSes started. Hold <key> to dictate."
+  - **still loading** → an informative note that the speech model is loading
+    (first run can take 10–30s) and to check `yazses status` — not treated as a
+    failure.
+  - **crashed on startup** → an error with the daemon's `last_error`, a pointer to
+    `yazses doctor` / `yazses logs`, and a **non-zero exit code**. Detection is
+    robust: the daemon writes its PID before loading the model, so a startup crash
+    shows up as the PID appearing and then vanishing.
+- **feat(cli): a fresh `yazses start` now routes through systemd when a user unit
+  is installed**, instead of spawning an unsupervised detached process — so the
+  daemon is supervised and self-heals (`Restart=on-failure`) even when started by
+  hand. (The already-running case already restarted cleanly with no duplicate.)
+- **fix(systemd): bound the crash-loop.** `contrib/yazses.service` and the
+  `install-pipx.sh` unit gained `StartLimitIntervalSec=60` / `StartLimitBurst=5`,
+  so a persistently-broken daemon (bad config, missing audio stack) stops retrying
+  after 5 failures/min rather than restarting forever.
+- Status IPC now also reports `ready`. Tests: `tests/test_cli_start_restart.py`.
+
+### Installation now shows every capability
+
+- **feat(install): the install phase prints the full capability list.** After a
+  successful install, `install-local.sh`, `install-pipx.sh`, `install-apt.sh`, and
+  `yazses setup` now show every YazSes capability (● on / ○ off) with its toggle
+  name and advice, so a new user immediately sees what the tool can do and how to
+  enable more — instead of just "installed". The `.deb` postinstall (runs as root)
+  points to `yazses features` / `yazses features info`. Rendering is shared in-process
+  via the new `cli._echo_capabilities()` helper (single source of truth with
+  `yazses features`; needs no running daemon).
+
+### Author & contact surfaced in the app — `yazses about` (`v2.11.0-dev.12`)
+
+- **feat(cli): `yazses about` prints author, version, links, and where to report
+  issues or request features.** The running app now names its author
+  (Mohsen Seyedkazemi Ardebili <mohsen.seyedkazemi@gmail.com>) and points people
+  at the project website, source, and Issues tracker. The top-level `--help`
+  epilog gained a **Help & contact** section, and `yazses doctor` prints a contact
+  footer so anyone who hits a problem knows exactly where to report it or ask for a
+  feature. Single source of truth: new `src/yazses/branding.py`, kept in step with
+  `pyproject.toml` and `snap/snapcraft.yaml`.
+
+### Snap: fix broken keystroke injection — bundle libxdo3 + clipboard tools (`v2.11.0-dev.11`)
+
+- **fix(snap): dictation is now actually typed.** The snap bundled the `xdotool`
+  binary but not the shared library it loads (`libxdo.so.3`, from `libxdo3`), plus
+  the injector's other X11 client libs (`libXinerama`, `libXtst`, `libXmu`, …). Every
+  `xdotool type` therefore exited 127 ("error while loading shared libraries"), so
+  transcription succeeded but nothing reached the focused window — and the failure
+  cascaded into a clipboard fallback that also failed because `xclip` wasn't bundled.
+  `stage-packages` now includes `libxdo3`, `xclip`, and `wl-clipboard`; a real
+  snapcraft build pulls the full library closure automatically.
+- **fix(doctor): the Injection check now runs xdotool, not just finds it.** `yazses
+  doctor` previously printed `[OK] Injection: xdotool (X11)` whenever the binary was
+  on `PATH`, hiding exactly this loader failure. It now invokes `xdotool
+  getdisplaygeometry` and reports `FAIL` (with the `libxdo.so.3` hint) when the binary
+  is present but can't run. New `system/doctor.py::_binary_runs`.
+- **fix(snap): the voice-activity overlay (sonar) now appears.** The Qt `xcb`
+  platform plugin failed to initialise ("Could not load the Qt platform plugin
+  xcb") because `libxcb-xkb1` + `libxkbcommon-x11-0` (and `libxcb-cursor0`) weren't
+  in the bundle, so `yazses-overlay` crashed on launch and no rings showed. Added
+  them to `stage-packages`.
+
+### Snap: prompt for the one-time microphone permission (`v2.11.0-dev.10`)
+
+- **feat(snap): the setup/startup flow now asks you to grant the microphone.** A
+  strictly-confined snap can't self-connect interfaces, and snapd does not auto-connect
+  `audio-record`, so a fresh `snap install yazses` has no mic until the interface is
+  connected once. Instead of dictation silently capturing nothing, `yazses setup`,
+  `yazses start`/`restart` (via the preflight hints), and `yazses doctor`'s Microphone
+  check now detect the un-connected interface (`snapctl is-connected audio-record`) and
+  print the exact one-liner to run: `sudo snap connect yazses:audio-record`. Non-snap
+  installs (apt/pipx) are unaffected — they grant mic access directly. New
+  `system/setup.py::snap_mic_pending`.
+
+### Snap: fix the audio crash + recommended features on by default (`v2.11.0-dev.9`)
+
+- **fix(snap): the snap no longer core-dumps on start.** A strictly-confined snap can't
+  see the host's `/usr/share/alsa` config tree, so libasound had no configuration and
+  `PortAudio`'s `Pa_Initialize()` aborted (`BuildDeviceList: Assertion 'devIdx < numDeviceNames'
+  failed`) the moment `sounddevice` was imported — taking down `yazses doctor` and the daemon
+  with a silent `SIGABRT`, while `--version`/`--help` still worked. The recipe now stages
+  `libasound2-data` + `libasound2-plugins` and ships `snap/local/asound.conf` (referenced by
+  `ALSA_CONFIG_PATH`) that routes the default device through PulseAudio — reached via the
+  existing `audio-playback`/`audio-record` interfaces. Validated against the live snap: with a
+  config present `Pa_Initialize()` returns cleanly instead of aborting. The rebuild also pulls
+  the pending python3.12 security update (USN-8509-1).
+- **feat: recommended features are enabled on a fresh install.** New `system/firstrun.py`
+  (`ensure_recommended_config`) seeds `config.toml` on first daemon start, enabling the
+  DEFAULT_ON + RECOMMENDED tiers (overlay, voice commands, mid-thought undo, dysfluency-friendly,
+  and the rest) — derived from the capability registry so it stays in sync. Dataclass defaults
+  stay dormant (the "loads with no config = dormant" contract and library use are unchanged),
+  and an existing config is never overwritten, so a user's own `yazses features disable` choices
+  are always respected. The overlay was already on by default; it simply never appeared because
+  the daemon crashed before it could launch.
+
+### Install: self-provisioning installers + a startup prereq warning (`v2.11.0-dev.8`)
+
+- **feat(setup): `yazses start`/`restart` now warn about unmet runtime prerequisites** instead of
+  starting a daemon that silently can't hear the hotkey. New `system/setup.preflight_hints()` surfaces
+  two cases: (a) missing packages / `input`-group membership → points to `yazses setup`; (b) the classic
+  post-`usermod` trap — you *are* in the `input` group per `/etc/group` but the current login session
+  predates the change, so the hotkey can't read the keyboard until you log out and back in. New
+  `system/setup.input_group_pending_relogin()` detects that by comparing the `input` gid against
+  `os.getgroups()`. The re-login hint also gives the one-session bridge: `sg input -c "yazses restart"`.
+- **feat(install): every installer now provisions the full system stack via `yazses setup`.**
+  `install-pipx.sh` and `scripts/install-local.sh` call `yazses setup` (single source of truth for
+  PortAudio + injector binaries + the `input` group + ydotoold) rather than a partial hand-rolled apt
+  list, and print the re-login note when a group change is pending. New `scripts/dev-install.sh` does
+  the whole from-source loop in one command: editable `uv tool` install → `yazses setup` → start (via
+  `sg input` when the group isn't live yet, so you can test before logging out).
+- **docs(readme):** Step 2 now spells out that the log-out/in is mandatory and one-time (a new terminal
+  tab is not enough) and documents the `sg input` bridge; added a from-source `bash scripts/dev-install.sh`
+  line. Regression tests in `tests/test_setup.py`. **1524 tests green.**
+
+### Fix: release the hold-to-talk key on EVERY hold-end, not just on injection (`v2.11.0-dev.7`)
+
+- **fix(daemon): `_on_hold_end` now synth-releases the hotkey key up-front, before transcription.**
+  The `dev.6` flood guard only released `right_alt` when text was *injected* — so a **silent/discarded**
+  dictation (very common when the VAD threshold is set too high) left `right_alt` stuck, and the stuck
+  Alt kept re-appearing as the Alt+Space window menu / screenshots. yazses reads the physical input
+  device, so it reliably knows the hold ended; it now sends a synthetic key-up (via ydotool, Linux-only,
+  best-effort) at the *start* of every hold-end — dictation or discard — forcing mutter's view to match.
+  Also releases the dedicated command key when configured. New `Daemon._release_hotkey_modifier()` /
+  `_hotkey_release_codes()`; regression tests in `tests/test_v2_daemon_wiring.py`. **1520 tests green.**
+
+### Fix: stuck `right_alt` after dictation → Alt+Space window menu / screenshots (`v2.11.0-dev.6`)
+
+- **fix(inject): the ydotool flood guard now also releases the right-side modifier keycodes**
+  (right_ctrl=97, right_alt=100, left_meta=125, right_meta=126). Previously it released only
+  keycodes 2–57, which covers left_alt/left_ctrl/both shifts but **not `right_alt`** — the default
+  hold-to-talk hotkey. On GNOME Wayland, when mutter intermittently drops the hotkey's key-up, Alt
+  stayed logically held: the next Space became Alt+Space (opening the window menu, whose first item
+  is "Take Screenshot") and typed letters were mangled through the AltGr layer. Injection only runs
+  after hold-end, so releasing these is a safe no-op when the key isn't down. Regression test in
+  `tests/test_auto_inject.py`. **1517 tests green.**
+
+### Per-feature "use case" in help (`v2.11.0-dev.5`)
+
+- **feat(features): every capability now shows a "Use when:" line.** `yazses features info <name>`
+  (and the full `yazses features info` catalog) now prints, for each of the **135** capabilities, a
+  one-line scenario describing *when you'd reach for it* — distinct from the existing description
+  (what it does) and example (how to trigger it). Backed by a new slug-keyed `_USE_CASES` map in
+  `system/features.py`, mirroring `_EXAMPLES`, and enforced complete by `tests/test_features_examples.py`
+  (a missing/thin use-case now fails CI).
+- **docs(cli): "Use it when:" added to the offline text-tool commands' `-h`** — `reflow`, `table`,
+  `shellpipe`, `braille` each open with a plain-language "use it when …" scenario.
+- **1516 tests green** (+2 completeness guards).
+
+### Wire dormant feature cores — batch 2: offline text-tool CLI commands (`v2.11.0-dev.4`)
+
+Continues connecting built-but-unwired feature cores to a runtime path. This batch exposes four
+pure-text cores as real, offline `yazses` subcommands (each reads an argument or stdin):
+
+- **feat(cli): `yazses reflow`** (ADR-v2-038) — reflow a monologue into a bulleted outline; action
+  phrases ("I need to", "to do") become `- [ ]` checkboxes.
+- **feat(cli): `yazses table`** (ADR-v2-091) — turn spoken rows ("row: a, b next row c, d") into
+  delimited CSV lines; `--sep` sets the separator.
+- **feat(cli): `yazses shellpipe`** (ADR-v2-082) — render a spoken pipeline ("list files then count
+  lines") into a shell command; **printed, never executed**.
+- **feat(cli): `yazses braille`** (ADR-v2-117) — translate text to Unicode Braille (UEB subset);
+  `--grade 1` for uncontracted.
+- **test:** `tests/test_cli_reflow_table.py` (11 cases) drives each command via `CliRunner`. **1514
+  tests green.** Deferred with reasons: `diagramvox` (core parses only one edge), `gitvoice` (parser
+  phrasing), and the stateful cores (outline/wordgoal/cliphistory/srscap/…) that need session state.
+
+### Wire dormant feature cores into the live pipeline — batch 1 (`v2.11.0-dev.3`)
+
+Many v2 feature cores were built + tested + registered but **not connected to any runtime path**, so
+enabling them did nothing. This begins closing that gap, one feature at a time, each with a daemon
+wiring test. All remain **OFF by default** (existing behaviour unchanged; full suite still green).
+
+- **feat(daemon): 9 DICTATE-path text transforms are now live when enabled** — wired into the
+  `_on_hold_end` post-process chain following the proven guarded pattern (ITN/redaction/symbols/…):
+  - **Grammar Repair** (ADR-v2-050, `[gec]`) — "a apple" → "an apple".
+  - **Diacritize** (ADR-v2-122, `[diacritize]`) — "a cafe cliche" → "a café cliché".
+  - **Semantic Line Breaks** (ADR-v2-111, `[sembr]`) — one clause per source line.
+  - **SafeGlyph** (ADR-v2-123, `[safeglyph]`) — warns on confusable homoglyphs (non-destructive).
+  - **Inline Compute** (ADR-v2-086, `[compute]`) — "what's 15% of 240" → "36" (self-gating).
+  - **Auto-Pairing** (ADR-v2-088, `[autopair]`) — "(a plus b" → "(a plus b)".
+  - **Phonetic Corrector** (ADR-v2-027, `[phonetic]`) — fixes mis-heard names against your personal
+    dictionary ("kubernetis" → "Kubernetes").
+  - **Transliteration** (ADR-v2-116, `[translit]`) — romanized → native script (e.g. finglish).
+  - **Structured-Markup Dictation** (ADR-v2-067, `[markup]`) — spoken lists/tables → Markdown (self-gating).
+- **test:** 14 new daemon-wiring tests in `tests/test_v2_daemon_wiring.py` drive the real `_on_hold_end`
+  and assert each transform fires only when enabled. **1503 tests green.**
+
+### CLI help & documentation polish (`v2.11.0-dev.2`)
+
+- **docs(cli): every command now carries a worked `Examples` block.** Added `Examples`
+  epilogs to the ~19 commands/subcommands that lacked them (`stop`, `overlay`, `enroll`,
+  `gaze calibrate`, `model list`, and all `features` / `vocab` / `hotkey` / `corpus`
+  subcommands), so `yazses <cmd> -h` shows copy-pasteable usage for the whole surface, not
+  just a flag list. Verified: all 39 commands render `-h` cleanly and every one has an
+  `Examples` section.
+- **docs(cli): richer `yazses transcribe` help.** The docstring now states plainly that
+  transcription is fully offline (local `faster-whisper`, no cloud/account), lists all input
+  and output formats, and explains `--model`, `--language translate`, and diarization/speaker
+  naming; each flag reads as a full sentence; added 11 worked examples. Fixed a rich-markup
+  bug where `[stt]` was swallowed in help text.
+- **docs(cli-reference): fill gaps** — documented the previously-undocumented `coach`,
+  `recall`, and `scratch` commands; added the `transcribe --model` row; refreshed the stale
+  "v0.4 line" title and the help-panel list (now includes "Updates & maintenance").
+
+### v2.11.0 — Wave O opens: offline media ingestion & speaker attribution (developer preview, `v2.11.0-dev.1`, all OFF by default)
+
+New SoA round (`design/vision/v2-research/17-diarized-recording-import.md`, ~70 cited sources) opens
+Wave O — offline transcription of pre-recorded audio files with speaker diarization:
+
+- **feat(recimport): Diarized Recording Import** (ADR-v2-125) — `yazses transcribe <file>` decodes any
+  common audio format (wav/mp3/m4a/ogg/flac/opus/mp4), transcribes offline on CPU, optionally tags who
+  said what (`--diarize` → "Speaker 1: …"), and writes a sidecar file next to the input
+  (`talk.mp3 → talk.txt`, or `--format md|srt|vtt|json`). Names come from `--names`/`--rename` or an
+  enrolled voiceprint (auto-labels you as "You"); unknown speakers stay "Speaker N". Completes the
+  batch-transcription ADR-v2-083 (which had only pure subtitle writers) and reuses the live-path
+  diarization cores (ADR-v2-019/074) on the file path.
+  - Diarizer backend = **sherpa-onnx** (int8 ONNX, no PyTorch, no GPU, no HF token; ~15 MB models,
+    lazy behind the new `diarization` extra). Audio decode reuses `faster_whisper.decode_audio` (PyAV) —
+    **no new dependency** for full-format coverage. Word↔turn alignment is pure-numpy max-overlap.
+  - Privacy (ADR-011/012): fully offline; diarization labels are transient; voiceprint naming is
+    opt-in, consent-gated, on-device, and **never auto-enrolls** third parties.
+- **feat(recimport): Cloud escalation designed & deferred** (ADR-v2-126) — a future opt-in
+  `--cloud <provider>` path (Deepgram/AssemblyAI/OpenAI) is designed with hard guardrails but **not
+  implemented**; offline stays the only path.
+- `yazses features` still lists **135** capabilities (Recording Import was already counted; it is now
+  fully implemented with diarization + naming, not a stub). New pure cores 100%-covered. **1489 tests
+  green.** Base install and the v1 dictation path unchanged.
+
+### v2.10.0 — Wave N complete: structural editing, i18n & accessibility-output (developer preview, `v2.10.0-dev.5`, all OFF by default)
+
+New SoA round (`design/vision/v2-research/16-wave-n.md`): structural code editing, internationalization,
+accessibility-output correctness; **all ten features shipped** + ADRs 115-124, pure and 100%-covered.
+
+Eyes-free & blind-output tier (`dev.5`, Wave N complete):
+- **feat(echo): Echo** (ADR-v2-119) — "play that back" replays your own captured audio for a text
+  span (not TTS) to catch homophone/ASR errors eyes-free.
+- **feat(srpace): SRPace** (ADR-v2-120) — pace injection to a screen reader's reading rate,
+  clause-chunked, so it announces coherently.
+- `yazses features` now **135**. Both cores 100% covered. 1453 tests green. **Wave N complete
+  (all 10, ADRs 115-124).**
+
+Word-finding & cognitive-load tier (`dev.4`):
+- **feat(wordfind): WordFind** (ADR-v2-118) — offline reverse dictionary ("the word for when water
+  turns to gas" → ranked shortlist); anomia/tip-of-the-tongue.
+- **feat(loadguard): LoadGuard** (ADR-v2-121) — cognitive-load-aware guardrails: widen
+  confirmations and defer risky actions when speech signals rising load.
+- `yazses features` now **133**. Both cores 100% covered. 1445 tests green.
+
+i18n & glyph-integrity tier (`dev.3`):
+- **feat(diacritize): Diacritize** (ADR-v2-122) — restore dropped diacritics ("cafe" → "café"),
+  unambiguous lexicon, case-preserving.
+- **feat(safeglyph): SafeGlyph** (ADR-v2-123) — flag Unicode confusables/invisibles/mixed-script
+  words (UTS-39 subset) before injection.
+- `yazses features` now **131**. Both cores 100% covered. 1437 tests green.
+
+Accessibility-output tier (`dev.2`):
+- **feat(brailleout): BrailleOut** (ADR-v2-117) — dictation as Grade-2 UEB Unicode Braille
+  (table-driven, liblouis stays optional).
+- **feat(outline): Spoken Outline** (ADR-v2-124) — voice-driven outline tree → Markdown/OPML.
+- `yazses features` now **129**. Both cores 100% covered. 1428 tests green.
+
+Opener (`dev.1`):
+- **feat(hatselect): HatSelect** (ADR-v2-115) — spoken structural token addressing (Cursorless-style).
+- **feat(translit): Transliteration** (ADR-v2-116) — romanized → native script (Finglish→Persian
+  built-in).
+- `yazses features` now **127**. Both cores 100% covered. 1415 tests green.
+
+CLI:
+- **feat(cli):** `yazses features info` with no name prints the whole feature catalog (every
+  capability + description + example); top-level `-h` points to it.
+
+### v2.9.0 — Wave M complete: minimal-bandwidth AAC & text-intelligence (developer preview, `v2.9.0-dev.5`, all OFF by default)
+
+New SoA round (`design/vision/v2-research/15-wave-m.md`): lowest-bandwidth AAC input + text-intelligence
+layers; **all ten features shipped** + ADRs 105-114, pure and 100%-covered.
+
+Authoring/proofing tier (`dev.5`):
+- **feat(diagramvox): Diagrams-as-Code by Voice** (ADR-v2-107) — dictate a flowchart → Mermaid/DOT.
+- **feat(proofback): Interruptible Read-Back Proofreading** (ADR-v2-108) — barge-in maps to the exact
+  word being read.
+- `yazses features` now **125**. Both cores 100% covered. 1408 tests green.
+
+Formatting/capture tier (`dev.4`):
+- **feat(screenplay): Screenplay Auto-Format** (ADR-v2-110) — dictated dialogue → Fountain markup.
+- **feat(srscap): Spoken Spaced-Repetition Capture** (ADR-v2-112) — "remember that X is Y" → an Anki
+  cloze card (SM-2).
+- `yazses features` now **123**. Both cores 100% covered. 1399 tests green.
+
+Editing-workflow tier (`dev.3`):
+- **feat(styleguard): Style-Consistency Enforcer** (ADR-v2-109) — a Vale-lite house-style pass.
+- **feat(suggestmode): Suggestion-Mode Dictation** (ADR-v2-113) — dictated edits as CriticMarkup
+  tracked changes.
+- `yazses features` now **121**. Both cores 100% covered. 1392 tests green.
+
+Text-intelligence tier (`dev.2`):
+- **feat(sembr): Semantic Line Breaks** (ADR-v2-111) — one clause per source line for clean git diffs.
+- **feat(acronyms): Acronym & Glossary Manager** (ADR-v2-114) — expand on first use, contract after,
+  warn on undefined (Schwartz-Hearst matcher).
+- `yazses features` now **119**. Both cores 100% covered. 1386 tests green.
+
+Opener (`dev.1`):
+- **feat(morsevox): Vocal Morse** (ADR-v2-105) — type by Morse using two vocal sounds; full text from
+  a single vocalization, with adaptive timing.
+- **feat(checkdigit): Checksum-Validated Data Entry** (ADR-v2-106) — verify dictated account/ID
+  numbers (Luhn/ISBN/Verhoeff) and suggest fixes.
+- `yazses features` now **117**. Both cores 100% covered. 1378 tests green.
+
+### v2.8.0 — Wave L complete: non-speech & prosodic voice interaction (developer preview, `v2.8.0-dev.5`, all OFF by default)
+
+New SoA round (`design/vision/v2-research/14-wave-l.md`): non-speech vocal signals + acoustic prosody
+as interaction channels; **all ten features shipped** + ADRs 095-104, pure and 100%-covered.
+
+Accessibility tier (`dev.5`):
+- **feat(mouthswitch): Mouth-Sound Switch Access** (ADR-v2-097) — scan-and-select from non-verbal
+  mouth sounds (AAC switch access).
+- **feat(involuntary): Involuntary-Vocalization Excision** (ADR-v2-102) — drop cough/throat-clear/
+  sneeze from the stream.
+- `yazses features` now **115**. Both cores 100% covered. 1369 tests green.
+
+Robustness tier (`dev.4`):
+- **feat(breath): Breath-Paced Dictation** (ADR-v2-099) — segment by natural breath onsets, not
+  silence.
+- **feat(whispermode): Whisper-Aware Mode** (ADR-v2-100) — detect whispered phonation and adapt
+  gain/VAD/prompt.
+- `yazses features` now **113**. Both cores 100% covered. 1363 tests green.
+
+Turn-taking tier (`dev.3`):
+- **feat(hesitation): Hesitation-Hold Endpointing** (ADR-v2-101) — hold the turn open on filled
+  pauses ("uhh…") instead of cutting off.
+- **feat(contour): Pitch-Contour Vocal Gestures** (ADR-v2-103) — hum a shape (rise=confirm,
+  fall=cancel) as a word-free command.
+- `yazses features` now **111**. Both cores 100% covered. 1356 tests green.
+
+Robustness/reach tier (`dev.2`):
+- **feat(spatialvad): Beam-Steered Spatial VAD** (ADR-v2-098) — 2-mic direction-of-arrival gate
+  (pure-numpy GCC-PHAT), enrollment-free, composes with Cocktail Filter.
+- **feat(prosodypunct): Prosodic Auto-Punctuation** (ADR-v2-104) — insert `. , ?` from prosody
+  alone, no spoken punctuation words.
+- `yazses features` now **109**. Both cores 100% covered. 1350 tests green.
+
+Opener (`dev.1`):
+- **feat(vocaljoystick): Vocal Joystick** (ADR-v2-095) — continuous analog cursor control by
+  sustaining vowels (no words); a new modality for severe motor impairment.
+- **feat(earcon): Earcon Feedback Language** (ADR-v2-096) — non-speech state tones, eyes-free.
+- `yazses features` now **107**. Both cores 100% covered. 1344 tests green.
+
+### v2.7.0 — Wave K complete (developer preview, `v2.7.0-dev.5`, all OFF by default)
+
+Fresh SoA round (`design/vision/v2-research/13-wave-k.md`) + ADRs 085-094. **All ten Wave K features
+shipped**, pure and 100%-covered.
+
+Utilities tier (`dev.5`):
+- **feat(voicetimer): Local Voice Timer & Break Reminder** (ADR-v2-093) — offline voice timers,
+  spoken by read-back.
+- **feat(focusprofile): Focus-Class Auto-Profile** (ADR-v2-094) — auto grammar profile from the
+  focused window's class.
+- `yazses features` now **105**. Both cores 100% covered. 1337 tests green.
+
+Data/tracking tier (`dev.4`):
+- **feat(tablecsv): Spoken Table Entry** (ADR-v2-091) — bulk row/field data entry ("row: Ada, 1815,
+  London") with a Tab/Enter cadence.
+- **feat(wordgoal): Word-Count & Goal Tracker** (ADR-v2-092) — count dictated words, track a goal,
+  spoken progress.
+- `yazses features` now 103. Both cores 100% covered. 1331 tests green.
+
+Session tier (`dev.3`):
+- **feat(timeline): Voice Undo/Redo Timeline** (ADR-v2-089) — undo/redo YazSes output across bursts
+  by voice (word/sentence/burst), even where Ctrl+Z is unreliable.
+- **feat(bookmarks): Session Bookmarks & Resume** (ADR-v2-090) — named anchors + jump-back for long
+  sessions.
+- `yazses features` now **101** (past triple digits). Both cores 100% covered. 1322 tests green.
+
+Ship-now cores (`dev.1`-`dev.2`), four fully-pure:
+
+- **feat(casetransform): Voice Case & Identifier Transform** (ADR-v2-087) — recase the selection
+  ("make this snake_case"), nine styles.
+- **feat(autopair): Auto-Pairing & Wrap-Selection** (ADR-v2-088) — balance brackets/quotes, wrap a
+  selection; fixed a real delimiter-nesting bug.
+- `yazses features` now 99. Both cores 100% covered. 1314 tests green.
+
+Opening cores (`dev.1`):
+
+- **feat(chords): Chorded Shortcut Synthesis** (ADR-v2-085) — say any keyboard shortcut ("press
+  control shift P", "escape twice", "hit F5") and it's pressed; no macro registration.
+- **feat(compute): Inline Compute** (ADR-v2-086) — "what's 15% of 240" → types 36, via a safe AST
+  evaluator (never eval).
+- `yazses features` now 97. Both cores 100% covered. 1306 tests green.
+
+### v2.6.0 — Wave J complete (developer preview, `v2.6.0-dev.5`, all OFF by default)
+
+Full 10-feature SoA round (`design/vision/v2-research/12-wave-j.md`) + ADRs 075-084.
+
+Final tier (`dev.5`), pure core + deferred backend:
+- **feat(recimport): Recording Import** (ADR-v2-083) — batch-transcribe archives to .srt/.vtt with
+  timestamps; STT backend deferred.
+- **feat(crowdproof): Crowd-Proof Dictation** (ADR-v2-084, experimental) — numpy TSE plumbing
+  (frame/mask/overlap-add); Conv-TasNet model deferred.
+- `yazses features` now 95. All Wave J cores 100% covered. 1295 tests green.
+
+Navigation/shell tier (`dev.4`), pure core + deferred backend:
+- **feat(jump): Voice Jump-to-Symbol** (ADR-v2-081) — "go to line 240"/"jump to function tokenize"
+  → editor motion (fuzzy symbol match, search fallback); LSP feed deferred.
+- **feat(shellpipe): Spoken Shell Pipeline Builder** (ADR-v2-082) — speak stages → render a shell
+  pipeline as text, preview-first (nothing runs until "run it"); NL2Bash SLM deferred.
+- `yazses features` now 93. Both cores 100% covered. 1288 tests green.
+
+Learning/navigation tier (`dev.3`), pure core + deferred backend:
+- **feat(corrdict): Self-Learning Correction Dictionary** (ADR-v2-079) — auto-fix recurring ASR
+  errors mined from your own edits (support-gated, high precision).
+- **feat(fileopen): Voice Fuzzy File Open** (ADR-v2-080) — "open the mortgage notes" → fuzzy-match
+  and open a local file; semantic tier deferred.
+- `yazses features` now 91. Both cores 100% covered. 1279 tests green.
+
+Flagship tier (`dev.2`):
+- **feat(reask): Confidence-Gated Re-Ask** (ADR-v2-077, flagship) — hold a low-confidence span and
+  resolve it interactively (confusable A/B pick or repeat), instead of guessing.
+- **feat(verbatim): Verbatim⇄Autoformat Live Toggle** (ADR-v2-078) — reserved phrases freeze/restore
+  ITN+punctuation+reflow mid-burst; the only runtime ITN switch.
+- `yazses features` now 89. Both cores 100% covered. 1270 tests green.
+
+Opening tier (`dev.1`), two fully-pure cores:
+
+- **feat(spelling): Phonetic Spelling Mode** (ADR-v2-075) — NATO words → exact characters for
+  passwords/codes/IDs ("capital alpha bravo double lima" → Abll).
+- **feat(gitvoice): Voice Git Choreographer** (ADR-v2-076) — structured git-argv grammar;
+  destructive ops gated behind spoken confirm, undo always spoken; no deferred backend.
+
+### v2.5.0 — Wave I complete (developer preview, `v2.5.0-dev.5`, all OFF by default)
+
+Full 10-feature SoA round (`design/vision/v2-research/11-wave-i.md`) + ADRs 065-074.
+
+Final tier (`dev.5`), pure core + deferred backend:
+- **feat(latency): Adaptive Latency Governor** (ADR-v2-073) — load-aware decode policy +
+  speculative decoding when idle; psutil/draft/spec-decode deferred.
+- **feat(diarize): Diarized Conversation Capture** (ADR-v2-074) — attributed multi-speaker Markdown
+  + rename-by-voice; pyannote deferred.
+- `yazses features` now 85. All Wave I cores 100% covered. 1252 tests green.
+
+Heavier tier (`dev.3`-`dev.4`), pure core + deferred backend:
+- **feat(hotwords): Hard Contextual Biasing** (ADR-v2-069) — hotword trie + N-best rescorer,
+  retraining-free rare-word biasing (in-decoder hook deferred).
+- **feat(windowctl): Voice Window Management** (ADR-v2-070) — spoken desktop layout (snap/maximize/
+  workspace); per-compositor backends deferred.
+- **feat(cite): Citation-by-Voice** (ADR-v2-071) — "cite Vaswani 2017" → a formatted citation from
+  your local .bib, fully offline.
+- **feat(langroute): Per-Language Auto Model Switching** (ADR-v2-072) — detect the spoken language
+  and hot-swap to its model + ITN; model files deferred.
+- **fix(features): resolve a real langroute/lipread variable-name collision** in the feature
+  registry, caught by the write-target regression guard.
+- `yazses features` now 83. All cores 100% covered. 1243 tests green.
+
+Ship-now tier (`dev.2`), four dependency-free cores:
+
+- **feat(cmdsafety): Terminal Command Safety Gate** (ADR-v2-065) — hold destructive shell commands
+  (rm -rf, dd, mkfs, force-push, curl|sh, fork bomb) until spoken "confirm".
+- **feat(spokenregex): Spoken Regex Builder** (ADR-v2-066) — dictate search patterns
+  ("four digits dash two digits" → \d{4}-\d{2}).
+- **feat(markup): Structured-Markup Dictation** (ADR-v2-067) — speak lists/tables → Markdown/org.
+- **feat(findreplace): Document Find-and-Replace** (ADR-v2-068) — "replace every utilise with use"
+  edits the whole document, not just the last utterance.
+- `yazses features` now 79. All four cores 100% covered. 1223 tests green.
+
+### v2.4.0 — Wave H complete (developer preview, `v2.4.0-dev.2`, all OFF by default)
+
+Full 10-feature SoA round (`design/vision/v2-research/10-wave-h.md`) + ADRs 055-064.
+
+Medium tier (`dev.2`), pure core + deferred backend:
+- **feat(audioguard): Ambient Audio-Event Guard** (ADR-v2-061) — pause/alert on interrupting sounds.
+- **feat(condense): On-Device Condense** (ADR-v2-062) — insert a tightened summary of your ramble.
+- **feat(slotfill): Slot-Filling Dictation** (ADR-v2-063) — one utterance fills a named-field form.
+- **feat(cmdspotter): Few-Shot Command Spotter** (ADR-v2-064) — enrolled low-latency micro-commands.
+- `yazses features` now 75. All Wave H cores 100% covered. 1202 tests green.
+
+Ship-now tier (`dev.1`) + ADRs 055-060, six dependency-free features:
+
+- **feat(commands): Emoji & Symbol by Voice** (ADR-v2-055) — spoken symbols/emoji → Unicode.
+- **feat(convert): Voice Unit Conversion** (ADR-v2-056) — inline offline unit/temperature conversion.
+- **feat(temporal): Spoken Temporal Normalizer** (ADR-v2-057) — "next Friday" → a concrete date.
+- **feat(commands): Mid-Utterance Self-Repair** (ADR-v2-058) — "no I mean X" corrections pre-injection.
+- **feat(spreadsheet): Spoken Spreadsheet** (ADR-v2-059) — grid nav + cell addressing.
+- **feat(cliphistory): Clipboard-History by Voice** (ADR-v2-060) — recall recent copies by voice.
+- `yazses features` now 71. All Wave H cores 100% covered. 1186 tests green.
+
+### v2.3.0 — Wave G complete (developer preview, `v2.3.0-dev.2`, all OFF by default)
+
+Full 10-feature SoA round (`design/vision/v2-research/09-wave-g.md`) + ADRs 045-054.
+
+Medium + hardware tier (`dev.2`), pure core + deferred backend:
+- **feat(compose): Compose-in-Target-Language** (ADR-v2-049) — speak L1, type L2.
+- **feat(gec): Grammar Repair** (ADR-v2-050) — minimal-edit L2 correction.
+- **feat(screengrounded): Screen-Grounded Dictation** (ADR-v2-051) — bias STT from on-screen text.
+- **feat(headpointer): Head-Pointer** (ADR-v2-052) — cursor + click by head pose.
+- **feat(lipread): Silent Lip-Reading** (ADR-v2-053) — dictate with no voice via webcam.
+- **feat(sign): Sign-Language Input** (ADR-v2-054) — sign to the webcam, ASL → text.
+- `yazses features` now 65. All Wave G cores 100% covered. 1153 tests green.
+
+Ship-now tier (`dev.1`) + ADRs 045-048, privacy-forward, dependency-light:
+
+- **feat(itn): Entity ITN** (ADR-v2-045) — spoken emails/versions → written form, no command
+  words; wired on the dictate path.
+- **feat(redaction): Redaction Ink** (ADR-v2-046) — mask spoken secrets (card-Luhn/SSN/key/…)
+  before injection; wired on the dictate path.
+- **feat(fieldaware): Field-Aware Dictation** (ADR-v2-047) — shape output by the focused field's
+  role; password fields refused.
+- **feat(learning): Corpus Voiceprint Scrub** (ADR-v2-048) — speaker-anonymize stored corpus
+  audio; wired in the corpus writer.
+- `yazses features` now 59. All Wave G cores 100% covered. 1124 tests green.
+
+### v2.2.0 — Wave F complete (developer preview, `v2.2.0-dev.2`, all OFF by default)
+
+Full 10-feature SoA round (`design/vision/v2-research/08-wave-f.md`) + ADRs 035-044.
+
+Ship-now pure tier (`dev.1`), no new dependency:
+- **feat(coach): Speaking Coach** (ADR-v2-035) — private filler/WPM/vocabulary analytics.
+- **feat(smartpaste): Smart-Paste** (ADR-v2-036) — adapt injected syntax to the target app.
+- **feat(scrub): Audio-Anchored Scrubbing** (ADR-v2-037) — word→audio replay/pinpoint re-dictate.
+- **feat(reflow): Dictation Reflow** (ADR-v2-038) — "structure this" → bulleted outline + actions.
+
+Medium + hardware tier (`dev.2`), pure core + deferred backend:
+- **feat(acoustic_profiles): Acoustic Context Profiles** (ADR-v2-039) — scene-adaptive mic tuning.
+- **feat(sentiment): Mood Ledger** (ADR-v2-040) — private speech-sentiment journal.
+- **feat(pronunciation): Pronunciation Feedback** (ADR-v2-041) — per-phoneme L2 practice scoring.
+- **feat(tts): Personal Read-Back Voice** (ADR-v2-042) — read back in a clone of your own voice.
+- **feat(gesture): Gesture Chords** (ADR-v2-043) — multi-input chords → actions.
+- **feat(interpret): Two-Way Live Interpreter** (ADR-v2-044) — face-to-face alternating translate.
+
+- **fix(features):** corrected an enable/disable config-section collision (prosody/predict/
+  spoken-edit wrote to the wrong section) + write-target regression guard.
+- `yazses features` now 55. All Wave F pure cores 100% covered. 1086 tests green.
+
+### v2.1.0 — Wave E complete (developer preview, `v2.1.0-dev.5`, all OFF by default)
+
+ADRs 029-034 complete Wave E (10/10 features). Zero-touch bundle + language modes + health:
+
+- **feat(autostop): Hands-Free Auto-Stop** (ADR-v2-029) — tap-and-speak, silence/duration stop.
+- **feat(mousegrid): Voice Mouse Grid** (ADR-v2-030) — click-by-voice grid subdivision.
+- **feat(code): Spoken Code Mode** (ADR-v2-031) — symbols→punctuation + cased identifiers.
+- **feat(math): Spoken Math→LaTeX** (ADR-v2-032) — spoken equations → LaTeX.
+- **feat(wakeword): Wake-Word Activation** (ADR-v2-033, experimental) — hands-free keyword start.
+- **feat(voicehealth): Vocal-Strain Guard** (ADR-v2-034) — session strain → break advice.
+- `yazses features` now 45. All Wave E pure cores 100% covered. 1032 tests green.
+
+### v2.1.0 — Wave E ship-now tier (developer preview, `v2.1.0-dev.4`, all OFF by default)
+
+Fresh SoA round (`design/vision/v2-research/07-wave-e.md`) + ADRs 025-028. First four features:
+
+- **feat(hallucination): Hallucination Guard** (ADR-v2-025) — drops Whisper's fabricated ghost
+  text (silence outros, loops) before injection; pure detector, wired into the decode path.
+- **feat(snippets): Voice Snippets** (ADR-v2-026) — spoken trigger → stored template.
+- **feat(phonetic): Phonetic Corrector** (ADR-v2-027) — fixes mis-heard names by sound vs vocab.
+- **feat(voiceprint): Multi-User Profiles** (ADR-v2-028) — per-speaker profile routing from the
+  voiceprint (distinct from Voice Guard's binary gate).
+- `yazses features` now 39. All new pure cores 100% covered. 994 tests green.
+
+### v2.1.0 — Wave D hardening + seams (developer preview, `v2.1.0-dev.3`, all OFF by default)
+
+ADRs 021-022. Pure safety/decision seams for hard-tier features (heavy engines deferred) + hardening:
+
+- **feat(personalize): atypical-speech LoRA held-out gate** (ADR-v2-021) — pure
+  `should_apply_adapter`; applies an adapter only on a held-out WER win (`lora_min_improvement`).
+- **feat(codec): neural-codec streaming engine-selection seam** (ADR-v2-022) — pure
+  `select_engine` (codec vs faster-whisper); `[codec]`, feature #35. Engine lazy behind the extra.
+- **test(v2): all pure v2 cores → 100%** — agent/pilot/polyglot/context + adapter_gate/codec
+  100% covered (+targeted edge tests; one unreachable defensive branch marked no-cover). 947 green.
+
+### v2.1.0 — Wave D medium tier (developer preview, `v2.1.0-dev.2`, all OFF by default)
+
+ADRs 018-020. Three more on-device features:
+
+- **feat(voiceguard): Voice Guard** (ADR-v2-018, experimental) — biometric + anti-spoof
+  injection gate; pure `admit()`, fail-open default; ECAPA/anti-spoof lazy behind the extra.
+- **feat(scribe): Meeting Scribe** (ADR-v2-019) — who-said-what transcript (You/Speaker N);
+  pure label/merge/format; Sortformer diarization lazy behind the extra.
+- **feat(rag): Ask My Notes** (ADR-v2-020) — voice-grounded, cited RAG over local docs; pure
+  cosine/rank/format-context; embeddings + sqlite-vec + LLM lazy behind the extra.
+- `yazses features` now 34 (new: `voiceguard`, `scribe`, `rag`). 934 tests green.
+
+### v2.1.0 — Wave D (developer preview, `v2.1.0-dev.1`, all OFF by default)
+
+Fresh SoA research (11 candidates, `design/vision/v2-research/06-wave-d.md`) + ADRs 014-017.
+First four features, all on-device:
+
+- **feat(translate): Speech Translation** (ADR-v2-014) — dictate L1, type English via Whisper's
+  built-in translate task (zero new downloads); `seamless` backend opt-in for other targets.
+- **feat(affect): Tone-Aware Formatting** (ADR-v2-017) — vocal tone → `!`/`?`; SER model opt-in.
+- **feat(predict): Predictive Completion** (ADR-v2-016) — on-device next-phrase suggestion,
+  accept by voice; generator opt-in, background thread.
+- **feat(denoise): Noise Suppression** (ADR-v2-015) — DeepFilterNet denoise/dereverb before STT;
+  identity passthrough when off, wired into the decode path.
+- New `yazses features` entries: `translate`, `affect`, `predict`, `denoise` (31 total).
+- Hardening: `edit_ops.py` coverage 92%→100%. 910 tests green.
+
+### v2.0.0 — Voice-First Interaction Layer · Wave A (developer preview, all OFF by default)
+
+Tagged `v2.0.0-dev.1` (developer preview — **not published**; v1.4.1 remains the
+stable release). Design in `design/adr/adr-v2-*` + `design/vision/v2-2026/`.
+
+- **feat(confidence): Confidence Ink** (`[confidence]`) — flags low-confidence words
+  from Whisper's per-word token probabilities and re-picks from n-best by voice;
+  wired into the decode path (metadata-count only, no transcript persisted). ADR-v2-001.
+- **feat(prosody): pause→sentence punctuation** (`[prosody] pause_sentence_ms`) — a
+  sentence-length pause inserts a period (opt-in; default keeps prior behaviour). ADR-v2-002.
+- **feat(commands): Spoken Edit Mode** (`[commands] spoken_edit`) — open-ended voice
+  edits of the last dictation ("change X to Y", "delete the last sentence");
+  command-key gated, destructive ops deferred to a confirm loop. ADR-v2-003.
+- **feat(context): Context-Primed Dictation** (`[context]`) — folds salient terms from
+  the active window title / selection / clipboard into the STT prompt; transient reads,
+  never stored, fully guarded. ADR-v2-004.
+- New `yazses features` entries: `confidence`, `spoken-edit`, `context` (all off by default).
+
+Wave B (`v2.0.0-dev.2`) — new packages, all off by default:
+
+- **feat(personalize): Personal Adapter P1** (ADR-v2-009) — corpus n-gram + unigram
+  prompt-mining biases STT toward your jargon; reads the encrypted corpus once (cached).
+- **feat(recall): Spoken Recall & Ambient Scratch** (ADR-v2-005) — `yazses recall <query>`
+  searches past dictations; `yazses scratch` captures/lists spoken notes-to-self. Corpus-local.
+- **feat(polyglot): True Code-Switch routing** (ADR-v2-008) — routing layer; dormant until a
+  user supplies an out-of-band code-switch adapter.
+- **feat(agent): Voice-to-Tool / Spoken MCP** (ADR-v2-006) — voice→tool planner + confirm
+  guard (`all|writes|none`); SLM + MCP client behind the `agent` extra.
+- **feat(pilot): AT-SPI Voice Pilot** (ADR-v2-007) — "click Save"-style desktop control via
+  the accessibility tree; pyatspi backend lazy/system-package, labels only (no screenshots).
+- New `yazses features` entries: `recall`, `agent`, `pilot` (24 capabilities total, v2 ones off).
+
+Wave C (`v2.0.0-dev.3`) — experimental, all off by default (`--force` to enable):
+
+- **feat(modality): Modality Role Router** (ADR-v2-011) — assign each input its fastest role
+  (voice→dictation, EMG→command, gaze→targeting) with presets + priority arbitration.
+- **feat(continuum): Accessibility Continuum** (ADR-v2-012) — Whisper/Low-Effort Mode lowers
+  the VAD gate so quiet speech is captured; wired into the daemon VAD path.
+- **feat(gaze): Gaze-Routed Dictation** (ADR-v2-010) — route dictation to the looked-at window
+  (confidence-gated, focus fallback, destructive-confirm).
+- **feat(bridge): Glasses↔Desktop Bridge** (ADR-v2-013) — pair a phone/glasses as a mic;
+  desktop runs STT + injection (reuses the remote transport).
+- New `yazses features` entries: `continuum`, `modality`, `bridge` (27 capabilities total).
+- **All 13 v2 features implemented** across Waves A/B/C. 876 tests green.
+
+Polish (`v2.0.0-dev.4`) — discoverability, observability, safety (no new features):
+
+- **docs:** `docs/v2-features.md` user guide for all 13 features (toggle names verified).
+- **feat(commands):** `spoken_edit_destructive` gate — destructive voice edits opt-in + undoable.
+- **feat(daemon):** `yazses status` exposes `confidence_enabled` + `low_confidence_last`.
+- **feat(doctor):** per-enabled-feature v2 readiness (extra/config presence) reporting.
+- **docs:** `design/architecture.md` v2 layer section.
+
+## [1.4.1] — 2026-07-01
+
+### Fixed
+- **Cross-platform imports.** `yazses.system.setup`, `inject/auto`, and
+  `inject/clipboard` now import cleanly on Windows and macOS — the Unix-only
+  `grp`/`pwd` modules are imported lazily and `os.getuid` is guarded with
+  `hasattr`. Test collection no longer errors out on non-Linux, restoring a green
+  test matrix across Linux × macOS × Windows on Python 3.11 and 3.12.
+
+### Changed
+- **Snap release reliability.** A tagged release on the canonical repository now
+  fails with a clear error when the Snap Store credential is absent, instead of
+  silently skipping the publish (which had left the snap channel stale while the
+  workflow still reported success). The PyPI publish step gained `skip-existing`
+  so manual re-publishes are idempotent.
+
+## [1.4.0] — 2026-07-01
+
+### Added — voice punctuation & formatting (opt-in)
+- Speak punctuation to insert it: "hello comma world period" → "hello, world.".
+  Supports comma, period/full stop, question mark, exclamation mark, colon,
+  semicolon, and formatting: "new line", "new paragraph", "tab key". Off by
+  default (these words also occur in ordinary speech); enable with
+  `yazses features enable voice-punctuation` (writes `[commands]
+  voice_punctuation = true`). Longest phrase wins ("new paragraph" over "new
+  line") and word boundaries protect substrings ("command" is untouched).
+  `postprocess/voice_punctuation.py`, applied on the dictation path only. Tested
+  in `tests/test_voice_punctuation.py`.
+
+### Added — `[injection] backend` config (choose the injector)
+- The injection method is now selectable per machine:
+  `[injection] backend = "auto" | "type" | "clipboard" | "wtype"` (or the
+  `YAZSES_INJECTOR` env var). `auto` (default) types via ydotool on Wayland —
+  works everywhere including terminals. Set `clipboard` if you prefer instant
+  paste (no-op in terminals, clobbers the clipboard). Bridged through
+  `core/daemon.py` → `inject.auto.get_injector`; non-Linux platforms ignore it.
+  Tested in `tests/test_auto_inject.py`.
+
+## [1.3.9] — 2026-07-01
+
+### Fixed — long dictations were typed twice
+- On a long transcript, `ydotool type` (at its slow default speed) exceeded the
+  fixed 10 s subprocess timeout and was killed mid-type. `LinuxInjector` treated
+  that as a failure and ran the **clipboard fallback**, which re-injected the
+  whole text — so it appeared typed *and* pasted ("typed twice"). Two fixes:
+  `YdotoolInjector` now types faster (`-d 6 -H 6`, ~12 ms/char vs the 40 ms/char
+  default) and scales the timeout with text length (`10 s + 30 ms/char`) so it
+  cannot time out on a long take. Tested in `tests/test_auto_inject.py`
+  (`test_ydotool_type_timeout_scales_with_length`, `test_ydotool_type_uses_speed_flags`).
+
+### Changed — longer maximum recording
+- A single hold-to-talk recording was capped at 90 s, cutting off long dictations
+  mid-sentence. Raised the `[audio] max_record_seconds` default to 300 s (5 min);
+  raise it further in config for very long takes.
+
+## [1.3.8] — 2026-07-01
+
+### Changed — restore "type everywhere" (revert v1.3.7's clipboard default)
+- v1.3.7 dodged the Ubuntu-26 `mmmm…` flood by pasting via the clipboard, but
+  that broke dictation in **terminals** (where `Ctrl+V` is literal, not paste) —
+  which had worked on Ubuntu 24. The default is back to **typing** the text with
+  ydotool, which works in every focused app (terminals included) and never
+  touches the clipboard. The flood is not ydotool dropping events (its virtual
+  device emits balanced key up/down) — it's the Ubuntu-26+ compositor
+  intermittently dropping the final synthetic key-up. `YdotoolInjector` now sends
+  a **flood guard** after each `ydotool type`: a key-up for every keycode `type`
+  can press (input codes 2–57, incl. both shifts), which releases any key the
+  compositor failed to release before the ~0.5 s auto-repeat can begin. A key-up
+  for a key that isn't down is a no-op, so it is safe and layout-independent.
+- Clipboard-paste is still available as an override via `get_injector("clipboard")`
+  or the `YAZSES_INJECTOR=clipboard` environment variable, for anyone who prefers
+  it. Tested in `tests/test_auto_inject.py` (`test_gnome_wayland_types_by_default`,
+  `test_prefer_clipboard_forces_clipboard`, `test_env_override_clipboard`).
+
+### Fixed — first word of a dictation was dropped (no STT lead-in)
+- faster-whisper drops or clips the opening word when a clip starts abruptly
+  mid-utterance, and the pre-speech ring buffer that was meant to supply lead-in
+  audio was never fed (dead code). The daemon now prepends a short silence
+  lead-in (`[accessibility] pre_speech_padding_ms`, default raised 200 → 300 ms)
+  to the audio just before decode — after the VAD gate, so the added zeros can't
+  trigger a false "silent" discard, and only on the batch path (streaming commits
+  its own buffer). Tested in `tests/test_v2_daemon_wiring.py`
+  (`test_onset_lead_in_prepended_before_stt`, `test_onset_lead_in_disabled_when_zero`).
+
+### Fixed — `ydotool key` (voice commands, backspaces, clipboard paste) sent nothing on ydotool 1.x
+- v1.3.7 switched GNOME/KDE Wayland injection to clipboard-paste, but the paste
+  keystroke was `ydotool key ctrl+v` — and ydotool 1.x's `key` command **silently
+  ignores symbolic key names**. Verified against ydotoold's own virtual input
+  device: `ctrl+v` and even `KEY_LEFTCTRL+KEY_V` emit **zero** key events; only
+  numeric `29:1 47:1 47:0 29:0` works. So the transcript was copied to the
+  clipboard but never pasted, and dictation appeared to do nothing. The same
+  latent bug meant every `ydotool key` call in the codebase (voice commands,
+  backspaces, streaming correction) had been a no-op on ydotool 1.x. Added
+  `inject/ydotool.py::ydotool_key_args`, which converts any combo (`ctrl+v`,
+  `shift+Left`, `KEY_BACKSPACE`) into numeric `<keycode>:<state>` tokens (press
+  in order, release in reverse), and routed the clipboard paste, backspaces, and
+  the Linux key-sequence path through it. Tested in
+  `tests/test_grammar_punctuation_and_keys.py`
+  (`test_ydotool_key_args_numeric`, `test_ydotool_ctrl_v_exact_keycodes`).
+
+### Fixed — intermittent clipboard paste ("worked randomly")
+- Even with a valid Ctrl+V, the paste landed only sometimes: `wl-copy` set the
+  clipboard and the very next instruction fired Ctrl+V microseconds later, before
+  the new Wayland selection had propagated to the compositor, so the app pasted
+  nothing (manual Ctrl+V seconds later always worked). `ClipboardInjector` now
+  waits 150 ms after `wl-copy` for the selection to settle, and sends the paste
+  with `ydotool key -d 40` so the compositor reliably registers Ctrl held when V
+  is pressed.
+
+## [1.3.7] — 2026-07-01
+
+### Fixed — repeated-character flood on GNOME/KDE Wayland (ydotool stuck key)
+- On GNOME/KDE Wayland, dictation typed runs of a single repeated character
+  (`mmmm…`, `eeee…`) that the user never spoke, mangled the last word, and only
+  stopped when a real key was pressed. Root cause: those compositors block
+  `wtype` and force `ydotool`, whose `type` command drops the final key-up event
+  under Wayland — the kernel then treats the last key as held and auto-repeats
+  it. `inject/auto.py::get_injector` now prefers clipboard-paste (`wl-copy` + one
+  `Ctrl+V`) on GNOME/KDE when `wl-copy` and `ydotoold` are both available, so no
+  content character is ever sent as a keystroke and nothing can stick. Other
+  Wayland compositors and X11 are unchanged; ydotool remains the fallback when
+  `wl-copy` is missing. Tested in `tests/test_auto_inject.py`
+  (`test_gnome_wayland_prefers_clipboard`,
+  `test_gnome_wayland_without_wlcopy_falls_back_to_ydotool`).
+- Trade-off: clipboard-paste uses the system clipboard and sends `Ctrl+V`, which
+  pastes literally in terminals that expect `Ctrl+Shift+V`.
+
+## [1.3.6] — 2026-06-27
+
+### Fixed — voice commands never matched (Whisper punctuation broke the grammar)
+- The command grammar matches anchored `^…$` patterns, but Whisper transcribes
+  short utterances with a leading capital and a trailing period ("Undo." / "Save
+  file." / "Select all."), so almost every spoken command fell through to
+  dictation and was ignored in command mode. `commands/grammar.py::classify` now
+  strips outer punctuation/whitespace before matching (interior punctuation like
+  "main.py" is preserved). Matching was already case-insensitive.
+
+### Added — basic keystroke voice commands
+- Command mode gained the everyday keys it was missing: "new line"/"enter",
+  "tab", "escape", "press backspace", "cut", "page up"/"page down",
+  "go up/down/left/right" (arrows), "beginning of line"/"end of line". Mapped to
+  real keys for both X11 (xdotool) and Wayland (ydotool); the ydotool key table
+  gained `Page_Up`/`Page_Down`/`Home`/`End`. Documented in
+  `docs/cli-reference.md` (new "Voice command reference" table). Tested in
+  `tests/test_grammar_punctuation_and_keys.py`.
+
+## [1.3.5] — 2026-06-27
+
+### Fixed — first words of dictation were lost (voice-onset clipping)
+- With a modifier hotkey (the default `right_alt`), recording only began after
+  the hold threshold — which fires on a **kernel key-repeat event ~0.5 s after
+  the press** — so the first one-to-three words spoken were never captured.
+  `EvdevHoldListener` now starts recording the instant a modifier key goes down
+  (`produces_char=False`), independent of the threshold and key-repeat. Character
+  keys (e.g. `space`) keep the threshold gate and leaked-character cleanup, since
+  for them a hold can only be told from a tap after the threshold. The press/
+  repeat/release state machine was extracted to `_handle_event` and unit-tested
+  in `tests/test_evdev_hold_onset.py`.
+- Fixed the pre-speech padding path in `core/daemon.py`, which pushed each
+  finished recording into the ring buffer and then prepended that same tail to
+  the **front** of the audio — corrupting the start instead of recovering onset
+  (and seeding stale audio into the streaming path). The recording now carries
+  its own onset directly, so no prepend is needed.
+
+## [1.3.4] — 2026-06-27
+
+### Changed — Linux default hold-to-talk key is now `right_alt` (was `space`)
+- The Linux platform default and the built-in `[hotkey] key` default now resolve
+  to **`right_alt`** instead of `space`, matching the documentation, the macOS
+  (`right_option`) and Windows (`right_ctrl`) defaults, and avoiding the obvious
+  collision where the space bar doubles as the push-to-talk key. `[hotkey] key`
+  now defaults to `"auto"`, which resolves to each OS's modifier-key default; set
+  an explicit key in `config.toml` (or `yazses hotkey set <key>`) to override.
+  Only affects users who never configured a hotkey; existing configs are
+  unchanged. Fixes `cli._resolved_hotkey` so status/start messages show the
+  resolved key rather than the literal `auto` sentinel.
+
+### Documentation
+- `docs/cli-reference.md`: documented the new `yazses doctor` install/lifecycle
+  and hotkey-device checks, and added a "Moving your dictionary to another
+  device" section (copy `~/.config/yazses/vocabulary.txt` + `config.toml`).
+- `docs/install-linux.md`: added a "Troubleshooting: the hotkey does nothing"
+  section covering virtual-device binding, a broken systemd `ExecStart`
+  (`203/EXEC`), duplicate installs, and the `input`-group requirement.
+
+## [1.3.3] — 2026-06-27
+
+### Fixed — hotkey never detected when `ydotoold` is running (wrong input device)
+- The evdev hold-listener selected the **first** `/dev/input` device advertising
+  the hotkey, which on a Wayland box with `ydotoold` set up is the *injector's own*
+  "ydotoold virtual device" — a uinput device that exposes the full key range but
+  only ever carries synthetic events. The daemon listened there instead of the
+  real keyboard, so holding the hotkey did nothing (no recording, no mic
+  activity). This surfaced once `yazses setup` (1.3.2) started provisioning
+  `ydotoold`. `hotkeys/evdev_hold.py::_find_keyboard` now skips
+  virtual/injection devices by name (`ydotool`/`uinput`/`virtual`/`wtype`/
+  `yazses`), prefers a device that looks like a full keyboard (complete letter
+  row + Enter), and only falls back to a virtual device as a last resort with a
+  loud warning. Regression-tested in `tests/test_evdev_find_keyboard.py`.
+
+### Added — `yazses doctor` install/lifecycle diagnostics
+- `yazses doctor` now reports three failure modes that previously required deep
+  manual probing: a **Hotkey device** line showing which `/dev/input` device the
+  hotkey binds to (FAIL if it resolves to a virtual injector device); an
+  **Install** warning when multiple `yazses` executables are on `PATH` (stale
+  pipx/apt copies alongside the active one); and a **systemd unit** check that
+  flags an `ExecStart` pointing at a missing binary (the `203/EXEC` crash-loop
+  where `yazses start`/`restart` silently start nothing) or one that differs from
+  the `yazses-daemon` on `PATH`. Tested in `tests/test_doctor_install_diag.py`.
+
+## [1.3.2] — 2026-06-27
+
+### Added — `yazses setup`: one-command turnkey Linux provisioning
+- New `yazses setup` command provisions **every** runtime requirement so a
+  `pipx`/`uv`/`snap` install works out of the box, eliminating the three classic
+  "YazSes does nothing" failures: missing `libportaudio2` (daemon crash), not in
+  the `input` group (no hotkey), and no `ydotoold` (no injection on GNOME/KDE
+  Wayland). It detects the session, installs the missing apt packages, joins the
+  `input` group, and sets up + enables the `ydotoold` user service on Wayland.
+  Idempotent and `--dry-run`-able. Backed by the pure, unit-tested planner in
+  `system/setup.py`.
+
+### Fixed — injection on GNOME/KDE Wayland (and robust backend selection)
+- Keystroke injection failed on GNOME/KDE Wayland: the auto-probe picked
+  `ydotool` whenever it was *installed*, but `ydotool` is useless without a
+  running `ydotoold` (`failed to connect socket … .ydotool_socket`), and `wtype`
+  — the alternative — is blocked by Mutter/KWin. Injector selection now gates
+  `ydotool` on its socket actually existing (`inject/auto.py`, `inject/clipboard.py`):
+  it picks `ydotool` only when `ydotoold` is up (works on any compositor), else
+  falls back to `wtype` (wlroots) instead of hard-failing.
+- `yazses doctor` gained an **Injection** readiness check + a `ydotoold` line:
+  on GNOME/KDE Wayland with no socket it reports `[FAIL] … run yazses setup`,
+  giving the exact fix instead of a runtime traceback.
+
+### Changed — every install path sets up Wayland injection
+- Ship `contrib/ydotoold.service`; `install-apt.sh` and the `.deb` postinst now
+  install + enable it on Wayland, and the `.deb` points users at `yazses setup`.
+  Docs (README, `docs/index.md`, `docs/install-linux.md`) lead with `yazses setup`
+  and document the GNOME/KDE Wayland `ydotool`+`ydotoold` requirement.
+
+### Changed — install-apt.sh: raw-GitHub URL is now the canonical apt channel
+- GitHub Pages on this repo serves the docs site from `main`, so it cannot also
+  serve the apt repo from `gh-pages` — the `mskazemi.github.io/yazses/apt` URL
+  permanently 404s. `install-apt.sh` now tries the working
+  `raw.githubusercontent.com/.../gh-pages/apt` URL first (Pages only as a
+  fallback if ever reconfigured), removing the misleading "Pages not reachable
+  yet, falling back" warning that printed on every run. `YAZSES_APT_BASE_URL`
+  still overrides both. Verified end-to-end: signed `InRelease` (good signature),
+  `Packages` lists 1.3.1, and the `.deb` (a thin bootstrap that `pipx install`s
+  yazses and pulls `libportaudio2`/injection tools as real `Depends`) downloads.
+
+## [1.3.1] — 2026-06-27
+
+### Fixed — APT repository now actually publishes
+- The advertised APT install (`install-apt.sh` → `mskazemi.github.io/yazses/apt`)
+  had **never worked** — the `apt-repo` CI job failed on every release: the GPG
+  signing secrets (`APT_REPO_GPG_PRIVATE_KEY` / `APT_REPO_GPG_KEY_ID`) were never
+  set, so the "Import GPG signing key" step hard-failed (v1.0.0, v1.2.0), and
+  v1.3.0 never built a `.deb` at all (its tagged `test` job failed on missing
+  Qt/xcb libs, skipping `release-linux`). With the signing key now configured and
+  the `test` gate fixed (`a22849a`), a tagged release builds the `.deb`, the
+  `apt-repo` workflow signs it and publishes the `gh-pages` apt repo, and
+  `sudo apt install yazses` works for the first time.
+- `apt-repo.yml`: dropped the dead `Rust Release` `workflow_run` trigger and
+  changed the `workflow_dispatch` default source from the non-existent
+  `rust-release` to `release`.
+
+### Changed — install: `install-apt.sh` now installs every injection/clipboard backend explicitly
+- `install-apt.sh` previously relied on the `.deb`'s `Depends` for the injection
+  and clipboard tools, but those are **alternatives** (`xdotool | ydotool | wtype`,
+  `xclip | wl-clipboard`), so apt installed only the first (`xdotool`, an X11 tool)
+  — leaving pure-Wayland machines with no working backend. The script now installs
+  the full set (`libportaudio2 xdotool ydotool wtype xclip wl-clipboard`) in a
+  per-package-tolerant loop, so dictation works on **both** X11 and Wayland out of
+  the box. The runtime then auto-selects the right backend (`inject/auto.py`).
+- Docs (`README.md`, `docs/index.md`, `docs/install-linux.md`) now give a single
+  one-line `apt install` for all runtime deps on the `pipx`/`uv tool` path, with a
+  table explaining what each package is for.
+
+### Changed — docs: surface the two Linux prerequisites for `pipx`/`uv`/`snap` installs
+- Promoted **both** Linux prerequisites — `libportaudio2` (PortAudio system
+  library) and `input`-group membership — from a buried footnote/single line to
+  explicit, ordered steps that run **before** `yazses start` across the install
+  surfaces (`README.md` Quick Start, `docs/index.md`, `docs/install-linux.md`).
+  Rationale: the APT `.deb` already declares `libportaudio2` and `install-apt.sh`
+  already adds the user to `input`, but the `pipx`/`uv tool`/`snap` install paths
+  do neither — so a manual install crashes on start with
+  `OSError: PortAudio library not found`, or (once that's fixed) silently fails to
+  detect the hotkey because the user isn't in the `input` group. These are the two
+  most common "YazSes does nothing / won't start" causes on Linux. Each surface
+  now also shows how to verify (`yazses doctor` → `[OK] Keyboard capture`,
+  `[OK] Microphone`) and reminds users to re-login for the group change to take
+  effect.
+
+## [1.3.0] — 2026-06-23
+
+### Added — social-preview card
+- **1280×640 GitHub/social-preview card** (`snap/gui/social-preview.png`, source
+  `snap/gui/social-card.html`) for link unfurls on GitHub, Reddit, Hacker News and
+  social posts — dark-navy brand gradient, app icon, sonar motif and an install
+  line. Upload via the repo's *Settings → Social preview*.
+
+### Changed — voice-activity overlay on by default
+- **`[overlay] enabled` now defaults to `true`** (was `false`), matching the
+  `features` registry which already listed the overlay as on-by-default.
+- **PySide6 is now a base dependency** (was the optional `overlay` extra), so the
+  overlay works out of the box on every install — `pip install yazses`, the
+  global `uv tool`, and the snap (which now bundles PySide6 plus the Qt
+  xcb/wayland runtime libs in `stage-packages`). `yazses overlay` no longer
+  fails with a "needs PySide6" hint on a fresh install. The `overlay` extra is
+  retained for backward compatibility. The PySide6 wheels still need glibc ≥ 2.28
+  (Ubuntu 20.04+); on older distros the daemon logs a one-line hint and skips the
+  overlay launch (`core/daemon.py`, `overlay_dependency_available()`) instead of
+  dying on the import — dictation is unaffected either way. Set
+  `[overlay] enabled = false` to opt out. Docs (`cli-reference`, `install-linux`,
+  `examples/config.example.toml`) updated. 689 tests pass.
+
+## [1.2.0] — 2026-06-20
+
+**CLI usability — control YazSes without hand-editing TOML.** A friendlier command
+surface: a capabilities switchboard, a personal dictionary, hotkey management
+(including a dedicated command key), and duplicate-daemon-proof lifecycle commands.
+All config writes preserve comments and prompt `yazses restart`. 680 tests pass.
+
+### Added — dedicated command key (force command mode)
+- **`yazses hotkey command <key>`** (+ `off`)** — bind a *second* hold key that forces
+  command mode: while held, whatever you say is parsed as a command and **never typed
+  as literal text** (an unrecognised phrase is ignored, not inserted). The dictation
+  key keeps its current behaviour (text + command auto-detection). New `[hotkey]
+  command_key` config (default `""` = single-key auto-detect); the daemon runs the
+  command-key listener in a background thread and forces command interpretation in
+  `core/daemon.py::_on_hold_end`. Must differ from the dictation key. `yazses hotkey
+  show` now reports both keys. 8 new tests.
+
+### Added — CLI usability
+- **`yazses hotkey show/set`** — view or change the key you hold to talk
+  (`right_alt`/`right_ctrl`/`space`/…) from the CLI; writes `[hotkey] key`
+  preserving comments (`system/configedit.py`), then `yazses restart`.
+- **`yazses features`** — a table of every capability and whether it's on/off, now with
+  a **toggle name** and an **advice tier** (core / recommended / optional / experimental)
+  so you can see what to turn on at a glance (`system/features.py`).
+- **`yazses features enable/disable <name>`** — turn any capability on or off without
+  hand-editing TOML; writes the right config key(s) preserving comments, then
+  `yazses restart`. Experimental features (Cocktail Filter, Glance-Type) are refused
+  unless `--force` is passed, with an explanation of why they're not advised yet.
+- **`yazses vocab add/list/remove`** — manage a personal dictionary of words STT
+  mis-hears (`~/.config/yazses/vocabulary.txt`); the daemon always merges these into
+  Whisper's `initial_prompt` so hard names are spelled right (`system/vocabulary.py`).
+- **`yazses restart`** — stop **all** daemons (including detached `yazses.main` ones
+  that survive `systemctl`) and start exactly one. **`yazses start` now restarts**
+  cleanly if a daemon is already running instead of spawning a duplicate — directly
+  preventing the double-typing that duplicate daemons cause.
+
+### Changed
+- **Cocktail Filter (voice focus) default OFF and unenrolled-safe.** Live testing
+  showed the 0.5 s-window personal-VAD gate false-rejects the user's *own* voice
+  (~90% of speech dropped) — ECAPA is unreliable on sub-second windows. Documented in
+  `design/v2-cognitive-layer/02-cocktail-filter.md`; revisit needs a real
+  target-speaker model. `[cocktail]` stays dormant; the enrolled voiceprint is kept.
+- New `[polyglot]` config section (was referenced but missing).
+
+### Docs
+- Synced documentation to the new CLI surface: `design/architecture.md` gains a
+  `src/yazses/system/` section (`features.py`/`configedit.py`/`vocabulary.py`/
+  `single_instance.py`/`updater.py`); `CLAUDE.md` lists the new commands + modules;
+  `docs/cli-reference.md` adds the missing `yazses test`; `ROADMAP.md` records the
+  CLI-usability batch.
+
+## [1.1.0] — 2026-06-19
+
+### Added — v2 perceptual/personalization layer (P1/P0 cores; all off by default)
+First implementation increment of the four remaining v2 features (plans in
+`design/v2-cognitive-layer/`). Each ships its dependency-free, fully-tested core now;
+the model/sensor/training-dependent parts are behind optional extras and gated.
+- **Shared `voiceprint/`** — speaker-embedding foundation (cosine similarity +
+  per-frame target/non-target decision, `SpeakerEmbedder` Protocol, dormant factory).
+  `[voiceprint]`, `voiceprint` extra (speechbrain).
+- **Glance-Type P1** (`[gaze]`) — look-to-pane core: gaze→screen calibration
+  (least-squares) + zone/window mapping. `gaze` extra (l2cs-net/mediapipe/opencv);
+  webcam used in-RAM during a hold only (ADR-011).
+- **Cocktail Filter P1** (`[cocktail]`) — personal-VAD gate: drops audio frames that
+  aren't the enrolled target speaker before STT (reuses the voiceprint).
+- **Voiceprint Mind P1** (`[personalize]`) — biasing prompt builder: composes
+  `initial_prompt` from the user vocabulary + frequent personal corpus terms (no training).
+- **Polyglot Switch P0** (`[polyglot]`) — LID routing scaffolding (pair parsing,
+  dominant-language, code-switch detection); the CS adapter needs training and is gated.
+- **Daemon wiring (now functional, off by default):** Cocktail Filter gates
+  non-target frames in `_on_hold_end` before STT; Voiceprint Mind biases the STT
+  `initial_prompt` from `YAZSES_VOCABULARY`. Model/sensor backends written —
+  `voiceprint/ecapa.py` (speechbrain ECAPA) and `gaze/l2cs.py` (L2CS-Net) — imported
+  only when their extra is installed; `doctor` reports each when enabled.
+- **CLI + enrollment:** `yazses enroll-voice` records + saves your encrypted speaker
+  voiceprint; `yazses gaze calibrate` checks the gaze backend. The daemon builds the
+  embedder + loads the voiceprint at startup when `[voiceprint]`/`[cocktail]` enabled.
+- **Docs:** the CLI reference gained a *v2 perceptual & personalization layer* section
+  (commands, config, how-to per feature); `design/architecture.md` documents the new
+  `voiceprint/`/`personalize/`/`gaze/`/`polyglot/` modules + `audio/personal_vad.py`.
+- 47 new TDD tests (632 total). Still gated (need hardware/compute): the gaze
+  hold-start window-routing, the LoRA personalization pipeline, and the code-switch
+  adapter — all behind their LOFA/WER/MER gates.
+
+### Added — recognise the spoken app name "YazSes"
+- **Built-in STT vocabulary** (`stt/vocabulary.py`): the app's own coined name is
+  always primed into Whisper's `initial_prompt` (via `merge_initial_prompt`), so
+  dictating "YazSes" no longer mis-transcribes to "yes ses" / "yaz says". Merged
+  ahead of any configured `[stt] initial_prompt` and the personalization vocab in
+  `core/daemon.py::_effective_initial_prompt`.
+
+### Improved — `yazses doctor`
+- Now reports the **installed version** and **daemon status** (PID + live
+  state/model over IPC), checks the **configured STT model** is downloaded
+  (vs. fetched-on-first-use), and prints a **config summary** (active config file,
+  resolved hotkey + hold time, STT-prompt status).
+- New `--mic` flag: records a short ambient clip and warns when the resting room
+  level meets/exceeds `accessibility.vad_threshold` (would pass noise as spurious
+  transcripts). Points at `yazses mic-level` for speech-level calibration.
+- 16 new TDD tests (648 total).
+
+### Packaging — fixed
+- `.gitignore` had an unanchored `overlay/` pattern (intended for snapcraft's
+  build dir) that also matched `src/yazses/overlay/`; hatchling honours
+  `.gitignore`, so the overlay package was silently dropped from the wheel and
+  `yazses overlay` failed with `ModuleNotFoundError`. Anchored to `/overlay/`.
+
+## [1.0.0] — 2026-06-19
+
+**First stable release of the Python app — YazSes "Part 1".** Hold a key, speak,
+release: fully offline voice dictation for Linux/macOS/Windows, now with eyes-free
+read-back, a friendly CLI, an opt-in self-improvement loop, and a deep set of
+accessibility + dictation features — all off-by-default and local-only (ADR-011).
+This 1.0.0 marks the point where the Python line became the canonical YazSes; the
+earlier Rust v1.0 exploration is archived on `archive/rust-hci-v1` (see the README's
+*Two versions of YazSes*). The headline additions since 0.9.0:
+
+### Added — Read-Back Loop (Python, `[tts]` + `[accessibility] read_back`)
+- **Eyes-free dictation: YazSes can now speak the transcript back** through an
+  offline neural TTS voice after each dictation (spec-read-back-loop, P1). Off by
+  default; enable with `[tts] enabled = true` + `[accessibility] read_back =
+  "final"`. New `yazses say "<text>"` command speaks arbitrary text on demand.
+- New `src/yazses/tts/` module: `TtsBackend` Protocol, sentence chunking (streams
+  audio sentence-by-sentence for low time-to-first-audio), `KokoroTtsBackend`
+  (Apache-2.0 Kokoro-82M, default), `NullTtsBackend` + `build_tts` factory
+  (dormant → None; enabled-but-unavailable → silent, never crashes).
+- New optional `tts` extra (`kokoro-onnx`, `onnxruntime`, `soundfile`) — imported
+  only when enabled (ADR-011). New `READBACK` daemon state; the recorder stays
+  push-to-talk so TTS audio is never re-captured (echo-loop interlock), and a hold
+  during playback barges in. Permissive engines only (GPL Piper fork / XTTS excluded).
+- `status` now reports `read_back` and `tts_backend`; `readback_speak` IPC method.
+
+### Fixed — reliability (Python)
+- **No more double-typing from duplicate daemons.** A detached `yazses start`
+  ran independently of the systemd unit, so two daemons could grab the hotkey and
+  inject every dictation twice. The daemon now takes an exclusive single-instance
+  `flock` (`~/.local/share/yazses/daemon.lock`) at startup and refuses to start if
+  another already holds it — making the detached and systemd starts mutually
+  exclusive. The kernel releases the lock on exit/crash, so it never wedges
+  startup like a stale PID file could. (`system/single_instance.py`)
+
+### Changed / Fixed — repository & release infrastructure (Python)
+- **Repository: the Rust v1.0 HCI rewrite moved off `main`** to the
+  `archive/rust-hci-v1` branch. `main` is now purely the Python app ("Part 1").
+  The README gained a *Two versions of YazSes* section + capability table; the old
+  `v1.0-dev` branch was deleted (fully contained in the archive branch).
+- **CI: PyPI publishing restored.** The `publish-pypi` job's job-level
+  `permissions:` block dropped `contents: read`, so `actions/checkout` couldn't
+  clone the private repo ("repository not found", exit 128) — every release had
+  silently failed since v0.5.1, freezing PyPI at 0.4.1. Added `contents: read` and
+  a `workflow_dispatch` re-publish path. (PyPI Trusted Publisher registration is
+  the remaining one-time account setup.)
+- **CI: snap publish hardened.** A convenience "upload .snap artefact" step that
+  fails when the Actions artifact-storage quota is full no longer sinks the job —
+  the Snap Store publish now proceeds (`continue-on-error`). `snapcraft.yaml`
+  version tracks the release. 0.9.0 published to the snap stable channel.
+
+### Feature set at 1.0.0 (all off by default unless noted; fully offline)
+- **Dictation core** — hold-to-talk, faster-whisper STT (`small.en` default),
+  calibrated VAD, pre-speech padding, three-pass disfluency filter, continuation
+  spacing; optional streaming transcription.
+- **Accessibility** — enrollment wizard, mic-level calibration, **Dysfluency-Friendly
+  Mode** (collapse stutters/prolongations; ADR-015), **Read-Back Loop** (eyes-free
+  TTS; new this release).
+- **Editing by voice** — command grammar (28+ intents) + optional SLM router,
+  **Say-Macro**, **Mid-Thought Undo** ("scratch that"), **Punch-In** (re-speak to
+  correct), **Prosody Ink** (pause→¶, emphasis→bold), custom vocabulary biasing.
+- **Latency** — **Ghost Ahead** endpoint pre-warm.
+- **Self-improvement** — opt-in encrypted learning corpus + `yazses tune` with
+  held-out validation (ADR-012/014).
+- **Reach** — SSH remote dictation, sonar voice-activity overlay, EMG/BLE silent-speech
+  backend, optional offline LLM cleanup (ADR-013), Neovim/VS Code LSP context.
+- **CLI** — friendly help (`-h` everywhere, examples, grouped panels, completion),
+  `yazses update` self-update, `yazses doctor`/`logs`/`status`.
+
+> The detailed per-feature history is in the v0.5.0–v0.9.0 sections below. Entries
+> that previously sat under *Unreleased* describing the **Rust v1.0 HCI rewrite**
+> (dual STT, on-device LLM agent, PersonalMemory, its pre-release docs/packaging)
+> moved with that code to the `archive/rust-hci-v1` branch — see *Two versions of
+> YazSes* in the README.
+
+---
+
+## [0.9.0] — 2026-06-19
+
+### Added — CLI (Python)
+- **`yazses update`** — check for a newer YazSes and install it. Detects how it
+  was installed and checks the matching source (the tracked **snap** channel for
+  snap installs, **PyPI** for pip / pipx / uv-tool), then upgrades only when the
+  available version is strictly newer (never a downgrade). `--check` reports
+  without installing; `--yes` skips the prompt. (`system/updater.py`)
+
+### Improved — CLI usability (Python)
+- **`-h` works everywhere** — every command and subcommand now accepts `-h` as
+  well as `--help` (previously only `--help`).
+- **Examples in help** — each command's `--help` ends with a copy-pasteable
+  **Examples** block; `yazses --help` adds a top-level examples + completion guide.
+- **Grouped help** — commands are organised into rich panels (Daemon, Setup &
+  calibration, Dictation & correction, Remote, Learning & tuning) instead of one
+  flat list.
+- **Friendlier basics** — bare `yazses` shows help instead of an error;
+  `--version` gains a `-V` short flag; `--install-completion` enables `<Tab>`
+  completion for the shell.
+
+### Fixed — install (Python)
+- **`scripts/install-local.sh` now rebuilds same-version source changes** — busts
+  the `uv` build cache and adds `--reinstall`, so editing source without bumping
+  the version still reinstalls (previously the cached wheel was reused).
+
+## [0.8.0] — 2026-06-19
+
+### Added — accessibility
+- **Dysfluency-Friendly Mode** (`[accessibility] dysfluency_friendly = true`, off by
+  default; ADR-015). An opt-in collapse pass in the disfluency filter cleans atypical
+  speech out of the final text: sub-word repetitions (`b-b-because` → `because`), short
+  fragment runs (`b b because` → `because`), heavy unigram repeats (`the the the` →
+  `the`), and prolongations (`sooo` → `so`) — while protecting proper nouns, code
+  identifiers, URLs, intentional hyphenation (`re-read`), and emphasis (`very very`). The
+  preset also widens pre-speech padding for delayed voice onset. Grounded in Lea et al.,
+  CHI 2023 (endpoint + posthoc refinement, not retraining). Fully offline, no new
+  dependency, no model training; default pipeline byte-identical. A pre-registered eval
+  gate (`tests/test_dysfluency_eval.py`) enforces < 2% false-collapse on clean control
+  and ≥ 60% recall on labelled dysfluency spans (measured: 0% / 92.9%). Fine-grained
+  knobs under `[filters.disfluency]` (`collapse_repetitions`, `collapse_prolongations`,
+  `prolongation_min_run`, `repetition_max_fragment_len`); `yazses doctor` reports status.
+  Endpointing is intentionally out of scope (YazSes is hold-to-talk). 536 tests pass (+20).
+
+## [0.7.0] — 2026-06-19
+
+### Added — learning loop
+- **Held-out validation for `yazses tune` proposals (ADR-014).** Each proposal is
+  now corroborated against a recent, chronologically *held-out* slice of the
+  corpus that it was **not** derived from, and `yazses tune` prints an explicit
+  status per proposal: *validated (N/M held-out)* · *unverified — no held-out
+  corroboration* · *unvalidated (corpus too small)*. Corroborated proposals sort
+  first. This closes the self-evaluation gap where a proposal could look good only
+  because it was fit to the same recordings it was then scored against (the
+  train/test-overlap failure mode documented across the accountable-autonomy
+  research corpus). New `analysis.analyze_validated()`; a leakage guard drops
+  held-out events whose text duplicates a fit event; below 20 events the corpus
+  is too small to split, so behaviour is unchanged except for an honest
+  "unvalidated" label. Fully offline (ADR-011) — nothing new is captured or
+  transmitted. 522 tests pass (+6).
+
+## [0.6.0] — 2026-06-19
+
+Python daemon runtime wiring for three v2 decision cores (Prosody Ink, Ghost
+Ahead, Punch-In). All three are **off by default**; with the flags unset the
+pipeline behaves exactly as 0.5.1. 507 tests pass (+40).
+
+### Added — Prosody Ink Phase 1 (`[prosody] enabled`, off by default)
+- Vocal prosody now shapes dictation formatting on the **batch** path (dictation
+  only): a long inter-word pause becomes a **paragraph break** (Phase 1, no
+  acoustic dep), and — with `format = "markdown"` and the new `prosody` extra —
+  vocal emphasis becomes **bold**. `format = "none"` keeps the universal pause→¶
+  whitespace and suppresses emphasis.
+- New `FasterWhisperEngine.transcribe_words()` opt-in word-timestamp path (only
+  used when `[prosody] enabled`, so non-prosody users never pay the
+  `word_timestamps` decode cost) and `postprocess/prosody.py::annotate()` wired
+  into `core/daemon.py::_on_hold_end`.
+- New optional dependency group `prosody` → `praat-parselmouth` (Phase 2 emphasis
+  degrades to pause-only when absent). Pitch→question stays excluded (unreliable).
+- `ProsodyConfig` reconciled to the spec fields: `format`, `pause_paragraph_ms`,
+  `emphasis_enabled`, `emphasis_sensitivity`, `max_latency_ms`.
+- `yazses doctor` now reports whether the `prosody` extra (parselmouth) is
+  importable when `[prosody] enabled` (WARN, not FAIL — pause→¶ works without it).
+
+### Added — Ghost Ahead Phase 1 pre-warm (`[endpoint] enabled`, off by default)
+- Endpoint anticipation now wired into the Python streaming poll loop: on a likely
+  end-of-utterance (stable confirmed prefix + trailing silence) the daemon
+  **pre-warms** the decode path. Pre-warm is harmless — it eagerly decodes the
+  streaming buffer and discards the result; the **authoritative** transcript still
+  happens on real hold-release, so a wrong guess can never truncate text.
+- New building blocks: `StreamingEngine.prefix_stable_for_ms()` accessor,
+  `audio/vad_calibrated.py::trailing_energy_falling()`, and an `EndpointAnticipator`
+  debounce (anti-thrash). `EndpointConfig` gains `prewarm`, `speculative_finalize`
+  (Phase 2, gated), `debounce_ms`, `prefix_stable_ms`, `falling_window_ms`.
+
+### Added — Punch-In re-record + confirm (`[punch_in] enabled`, off by default)
+- New `yazses punch-in` command (and `punch_in` IPC method): re-speak just the
+  wrong phrase; the daemon records a short window, aligns it against the last burst
+  it typed (`difflib`), then deletes that burst and retypes it corrected. `--dry-run`
+  lists candidate spans to confirm first; `--choose N` applies a specific rank.
+- `DictationLedger` now retains each burst's **text** (not just its char count) via
+  `last_text()` / `replace_last()`, so Punch-In can align against — and update — the
+  exact span, and a later "scratch that" still works. Buffer-ownership invariant
+  preserved (only YazSes-injected text is ever tracked).
+- New `PunchInConfig.record_seconds` (re-record window).
+
+## [0.5.1] — 2026-05-31
+
+### Fixed — systemd service no longer loses DISPLAY on reinstall
+- **Root cause fixed**: the systemd user service had no mechanism to inherit
+  `DISPLAY`/`XAUTHORITY` from the desktop session, so xdotool injection and the
+  overlay both failed silently after every reinstall. Fixed with two artifacts
+  that now ship in the deb and snap:
+  - `contrib/yazses-session.desktop` — XDG autostart entry installed to
+    `/etc/xdg/autostart/` (deb) that runs
+    `systemctl --user import-environment DISPLAY XAUTHORITY …` at every graphical
+    login, making `PassEnvironment` reliable across all desktop environments
+    (GNOME, KDE, XFCE, etc.) without any manual steps.
+  - `contrib/yazses.service` updated to `PassEnvironment=DISPLAY XAUTHORITY`.
+- **Double overlay eliminated**: removed the superfluous `yazses-overlay.service`
+  (the daemon already manages the overlay as a child process via
+  `should_launch_overlay()`; a second service caused two overlay windows).
+- **New `scripts/install-local.sh`**: one-command dev reinstall
+  (`bash scripts/install-local.sh --with-overlay`) — stops, uninstalls, reinstalls
+  via `uv tool`, installs the XDG autostart file, and starts the service.
+- **snap**: bumped spec to v0.5.1; added `yazses-overlay` app entry and autostart
+  file bundled into the snap.
+- **`examples/config.example.toml`**: added `[overlay]` section so users discover
+  the sonar-rings feature.
+
+### Fixed — words glued together across dictation bursts
+- Consecutive hold-to-talk utterances were injected back-to-back with no
+  separator, so the last word of one burst fused with the first word of the next
+  (`...words together` + `I mean` → `...words togetherI mean`) — worst at sentence
+  ends. The daemon now prepends a separating space when a dictation continues a
+  recent burst, suppressing it before closing punctuation (`, ! ? ; : )`) so you
+  still get `word.` not `word .`. New `[injection] continuation_window_ms`
+  (default `30000`, `0` disables). Implemented in `postprocess/spacing.py`.
+
+### Added — offline LLM dictation cleanup (Python parity, ADR-013)
+- `postprocess/llm_cleanup.py` — `LlmCleaner` / `build_cleaner()` for optional
+  offline LLM reformatting of transcribed text. Opt-in via
+  `[filters.disfluency] llm_enabled = true`. Length-ratio + token-preservation
+  guards reject unsafe rewrites. Brings Python daemon to parity with the Rust core
+  on the LLM cleanup path.
+
+### Added — learning loop: post-dictation correction signals (ADR-012)
+- **Inferred corrections from re-dictation** (no keystroke logging): `yazses tune`
+  detects when a follow-up utterance opens with a self-correction trigger ("scratch
+  that", "no wait", …) or closely re-dictates the previous one, and treats the
+  follow-up as an implicit correction. Persisted as `edit_signal`.
+- **Opt-in editor edit capture** (`[learning] capture_edits = true`): a short delay
+  after dictation, YazSes reads the editor line back via an editor bridge and
+  records any in-place fix you made. **No global keystroke capture** — editor
+  read-back only; currently Neovim via a `--listen` socket (`[learning]
+  editor_socket`). New config keys: `capture_edits`, `edit_capture_delay_s`,
+  `editor_socket`.
+
+### Added — release tooling
+- `scripts/patch-release-shas.sh` — downloads CI release assets, computes SHA256s,
+  and patches Homebrew formula + winget manifests in one command:
+  `bash scripts/patch-release-shas.sh 1.0.0`
+- `apt-repo.yml` now triggers on both "Release" (Python) and "Rust Release"
+  workflows, so v1.0 `.deb` packages publish automatically on tag push.
+
+---
+
+## [0.5.0] — 2026-05-29
+
+### Added — futuristic voice-activity overlay (`yazses-overlay`)
+- **Sonar overlay**: a standalone process that draws neon "sonar" rings near the
+  cursor that expand and pulse with your **live voice level** while you dictate —
+  visible feedback that you're talking to your machine. The window is frameless,
+  always-on-top, and fully click-through, so it never interrupts typing.
+- **Daemon-agnostic**: it's a thin IPC client that polls the daemon's `status`
+  RPC, so **either** the Python or the Rust daemon drives it. Both daemons now
+  report `audio_level` (live `mean(|samples|)` while recording) and
+  `vad_threshold` in their `status` response.
+- **`yazses overlay`** command runs it in the foreground (preview/debug); set
+  `[overlay] enabled = true` to have the daemon auto-launch it when a display is
+  present (X11/Wayland; headless sessions never spawn it).
+- New `[overlay]` config section: `enabled`, `style`, `position`
+  (`cursor`/`bottom_center`/`top_center`/`corner`), `react_to_voice`, `accent`,
+  `size_px`, `fps`, `cursor_offset_px`.
+- Requires the optional `overlay` extra (PySide6): `uv sync --extra overlay` or
+  `pip install 'yazses[overlay]'`. Core/headless installs are unaffected.
+
+### Added — opt-in self-improvement loop (ADR-012)
+- **Local learning corpus**: with `[learning] enabled = true`, each dictation
+  event (every text stage + optional source audio) is captured to a local,
+  **encrypted** store at `~/.local/share/yazses/` so YazSes can be tuned against
+  your real usage. **OFF by default** (honours ADR-011): nothing is captured,
+  nothing leaves the machine, and re-transcription runs locally. AES-256-GCM with
+  a machine-bound key file (`corpus.key`, `0600`).
+- **`yazses tune`** — analyses the corpus and proposes concrete, reviewable
+  config diffs: Whisper `initial_prompt` vocabulary, `vad_threshold`, STT model,
+  disfluency rules, and SLM few-shot examples. Dry-run by default; `--apply`
+  writes approved changes to `config.toml` (comments preserved). `--retranscribe`
+  re-runs captured audio through a larger model to find errors automatically.
+- **`yazses mark-wrong [-c "what you said"]`** — flag the last dictation as a
+  misrecognition (a high-signal training label).
+- **`yazses corpus status | forget --minutes N | destroy --i-mean-it`** — inspect
+  and manage the corpus (verbs mirror the Rust `memory_*` API).
+- New `[stt] initial_prompt` config key — vocabulary primed into Whisper; now
+  wired into the batch transcribe path.
+- New `[learning]` config section: `enabled`, `capture_audio`, `retention_days`,
+  `max_corpus_mb`, `tune_model`, `redact_patterns`.
+
+### Added — diagnostic logging, `logs` command, install docs
+- **Persistent diagnostic log**: the daemon now writes a rotating log to
+  `~/.local/state/yazses/log/daemon.log` (1 MB × 3) in addition to the console,
+  so `yazses start` / the systemd service leave a record. **Metadata only** at
+  INFO — audio level, decode latency, model, char/word counts, and errors; the
+  transcript text appears only at `log_level = "DEBUG"`.
+- **`yazses logs`** command to view the diagnostic log (`-n` lines, `--path`).
+- Each transcription logs `Transcribed Ns audio in M ms (model …, level …)`; the
+  inject line is now `Injecting N chars, M words` (no text) at INFO.
+- **`docs/install-linux.md`** — global install (`uv tool`/`pipx`) + systemd user
+  service (with the `DISPLAY`/`XAUTHORITY` requirement for X11 injection).
+- **`docs/cli-reference.md`** — full command reference including `mic-level` and
+  `logs`.
+
+### Fixed — microphone open resilience
+- `AudioRecorder.start()` now retries opening the input stream up to 3× with a
+  short backoff instead of failing on the first transient PortAudio/PipeWire
+  "device busy" error — recovers automatically where previously a daemon restart
+  was needed. `stop()` no longer raises if the stream is already torn down, and
+  the daemon catches an unavailable mic, logs it, records `last_error`, and
+  returns to `IDLE` rather than getting stuck in `RECORDING`.
+
+### Added — VAD threshold calibration
+- **`yazses mic-level`** command: records a few seconds, reports your average mic
+  level against the current `accessibility.vad_threshold`, and recommends a
+  threshold (half your measured speech level, floored at `0.002`). `--set` writes
+  it to `config.toml` in place, preserving comments. Fixes the case where quiet
+  speech is silently discarded by a too-high threshold (e.g. a noisy
+  `yazses enroll` calibration, or low late-night speaking volume).
+- The `Silent audio -- discarding` log now includes the measured level, the
+  active `vad_threshold`, and a pointer to `yazses mic-level --set`.
+
+### Changed — reliable defaults
+- **Live streaming injection disabled by default** (`[streaming] enabled = false`).
+  The correction-on-commit path selected the streamed partials with `shift+Left`
+  and overtyped them on key-release; in apps where `shift+Left` is not "extend
+  selection" this deleted the dictated text instead of replacing it. Batch
+  transcribe-on-release is the reliable, higher-accuracy pattern used by
+  nerd-dictation and faster-whisper-dictation. Re-enable with
+  `[streaming] enabled = true`.
+- **Default STT model changed `tiny.en` → `base.en`.** Benchmarked on an
+  i7-1370P: `tiny.en` made frequent word errors ("brown"→"round", "writes"→
+  "rides"), while `base.en` transcribed the sample perfectly at ~10× realtime
+  (~0.8 s decode). Override via `[stt] model = "..."`.
+
+---
+
+## [1.0.0-dev.5] — 2026-05-18
+
+### Changed — Feature-complete merge to main
+
+- Merged `v1.0-dev` branch into `main`; the Rust core is now the default
+  development track alongside the preserved Python v0.4.x pipeline.
+- `v1.0-dev` branch remains for ongoing development work.
+- 94 Rust tests pass; zero warnings; full CI green on Linux + macOS.
+
+### Tags
+- `v1.0.0-dev.5` — merge commit on `main` (9a881bc)
+- `v1.0.0-dev.4` — last commit on `v1.0-dev` pre-merge (098a67f)
+
+---
+
+## [1.0.0-dev.4] — 2026-05-18
+
+### Added — Agentic OS actions, protocol completeness, memory, observability
+
+**Dispatcher OS actions** (all formerly stubs, now real implementations)
+- `open_file`: `xdg-open <path>` spawned asynchronously.
+- `git_commit`: `git commit -m <message>` with SHA extraction from stdout.
+- `app_launch`: direct process spawn → `xdg-open` fallback.
+- `window_focus`: `wmctrl -a` → `xdotool search --name windowfocus` fallback.
+- `volume_set`: `wpctl set-volume @DEFAULT_AUDIO_SINK@` → `pactl` fallback (0–100%).
+- `media_play_pause`: `playerctl play-pause` → `xdotool key XF86AudioPlay` fallback.
+- `screenshot_named`: `grim` (Wayland) → `scrot` (X11) → `gnome-screenshot`; creates `~/Pictures/`.
+- `note_quick`: async append to `~/notes.md` with ISO-8601 timestamp heading.
+- `time_set_timer`: `tokio::spawn` + `tokio::time::sleep` + `notify-send` (returns immediately).
+- `dismiss_notification`: `dunstctl close` → `notify-send -t 100 " "` fallback.
+- `goto_symbol`: `nvim --server $NVIM --remote-send '/<symbol><CR>'` when `$NVIM` set.
+- `mode_switch`: logged, daemon mode wiring reserved for next release.
+- `inject_key_sequence` on Wayland now uses `wtype -k <key>` per key → `ydotool` fallback.
+
+**LLM protocol** (FR-19, ADR north-star commitment 5)
+- `Tier` enum (`Fast` | `Deep`) added to `LLMRequest`; `Tier::Fast` default.
+- All backends bail on `Tier::Deep` with a clear "reserved for v2" message.
+- `OpenAICompatibleBackend`: opt-in cloud backend, feature-gated `openai-compatible`;
+  never active in default config (NFR-SEC03, production readiness S-06).
+
+**Personal memory** (production readiness R-06, Op-04)
+- `OnnxEmbedder` now fully implemented: `tokenizers` crate tokenization → ONNX inference
+  → mean-pool over non-padding tokens → L2-normalize to 384-dim unit vector.
+- Passphrase lockout: 5 wrong attempts trigger a 15-minute cooldown (`AtomicU32`
+  failure counter + `Mutex<Option<Instant>>` lockout window; R-06).
+- `yazses memory destroy --i-mean-it`: permanently deletes `memory.db` (Op-04).
+
+**Observability** (NFR-O01, NFR-O02, O-03, O-04)
+- `LatencyTracker`: 100-sample `VecDeque<u64>` sliding window; P50/P95 computed on demand.
+- `yazses status` now reports `latency_p50_ms`, `latency_p95_ms`, and `turn_count`.
+- `yazzes bugreport`: packages `daemon.log` + `~/.config/yazses/` + `version.txt`
+  into `~/yazses-bugreport-<unix-ts>.tar.gz` (O-04).
+- Silero VAD v4 feature gate (`--features silero`) added to `yazses-audio`: wraps
+  Silero ONNX model with stateful h/c tensors; `is_speech()` per 512-sample chunk.
+
+---
+
+## [1.0.0-dev.3] — 2026-05-18
+
+### Fixed — End-to-end pipeline stabilisation
+
+- **Whisper verbose stdout** suppressed: `whisper_rs::install_logging_hooks()` +
+  `tracing_backend` feature redirect all whisper.cpp/GGML C-level output through
+  Rust `tracing` (silent at INFO, available at TRACE/DEBUG).
+- **WhisperState reuse**: `WhisperState` is now created once in `WhisperBackend::new()`
+  and held in a `tokio::sync::Mutex`, eliminating ~230 MB buffer re-allocation
+  (kv-cache + encode/decode scratch) on every transcription call.
+- **Word spacing**: `inject_text()` now appends a trailing space so consecutive
+  dictation utterances do not concatenate in the target window.
+- **xdotool character drop**: added `--delay 12` to `xdotool type` to prevent
+  characters being dropped on fast typematic repeat.
+- **LLM system prompt**: replaced vague prompt with explicit JSON-only instruction
+  showing the model exactly what format to return for dictation vs. command intents;
+  eliminates null `message.content` errors that caused fallback to raw transcript.
+
+---
+
+## [1.0.0-dev.2] — 2026-05-18
+
+### Added — Distribution infrastructure (Phase 7, commit 85809fd)
+- `.github/workflows/rust-ci.yml`: cargo test + clippy + fmt on every push/PR
+  (Ubuntu 22.04 + macOS 14 matrix).
+- `.github/workflows/rust-release.yml`: cross-platform binary releases on
+  `v1.*` tags — Linux x86_64 + aarch64 (via `cross`), macOS arm64 + x86_64,
+  Windows x86_64 MSVC; `.deb` (cargo-deb) and `.rpm` (cargo-generate-rpm)
+  uploads to GitHub Release.
+- `[workspace.metadata.dist]` cargo-dist 0.28 config for 5 targets; Homebrew
+  tap `MSKazemi/homebrew-tap`.
+- `packaging/homebrew/yazses-formula.rb`: Homebrew CLI formula template
+  (SHA256 placeholders; patched by `brew bump-formula-pr` after CI builds).
+- `packaging/winget/manifests/m/MSKazemi/YazSes/1.0.0-dev.1/`: winget
+  version + locale + installer manifests (SHA256 placeholder; patched after
+  CI produces the Windows zip).
+
+### Fixed
+- `.gitignore`: add `doc/` (cargo doc output) and SOTAForge research paths
+  (`docs/research/`, `docs/vision/`, `docs/prd/`, ADR draft globs).
+
+---
+
+## [1.0.0-dev.1] — 2026-05-18
+
+v1.0 is a full ground-up rewrite in **Rust** (Rust-core + Python-plugin
+architecture, adr-001). The Python v0.4.x pipeline is preserved and continues
+to operate via `uv run yazses`. The Rust core is tracked on the `v1.0-dev`
+branch; Phase 7 (cargo-dist packaging) will produce the first distributable
+binaries.
+
+### Added — Rust core (`v1.0-dev` branch, Phases 0–6)
+
+**Phase 0 — Foundations** (commit a452ad7)
+- `crates/yazses-ipc`: JSON-RPC 2.0 over Unix socket / named pipe; `handler!`
+  macro, `SyncIpcClient` (adr-010).
+- `crates/yazses-core`: 9-state daemon state machine (`DaemonState`); full
+  daemon orchestrator with tokio event loop; PID file + SIGTERM/SIGINT shutdown.
+- `crates/yazses-cli`: Rust `yazses` binary preserving all v0.4 subcommands
+  (`start`, `stop`, `status`, `doctor`, `inject`, `remote`, `enroll`, `model`,
+  `memory`, `test`) via `clap`.
+
+**Phase 1 — Input + Audio** (commit 3735c4d)
+- `crates/yazses-inputs`: `InputBackend` Protocol (adr-005); `HoldDetector`
+  state machine; `KeyboardHoldBackend` (Linux evdev 0.13, cfg-gated);
+  `EmgYespBackend` (YESP serial, feature `emg`); `MockInputBackend`.
+- `crates/yazses-audio`: `AudioCapture` (cpal 0.17, stereo→mono, f32/i16/u16);
+  `VadGate` (RMS); `PaddingBuffer` ring buffer.
+
+**Phase 2 — STT** (commit cac7321)
+- `crates/yazses-stt`: `STTBackend` Protocol (adr-002); `STTRouter`
+  (duration-based dispatch, default threshold 4 s); `MoonshineV2Backend`
+  (PyO3, feature `moonshine`); `WhisperBackend` (whisper-rs, feature
+  `whisper`); `MockSTTBackend`.
+
+**Phase 3 — LLM + Constraint** (commit 1987ab2)
+- `crates/yazses-llm`: `LLMBackend` Protocol (adr-003); `LlamaCppBackend`
+  (llama-cpp-2, feature `llama-cpp`); `OllamaBackend` (reqwest); `MockLLMBackend`.
+- Tool registry (adr-004): all 20 v1.0 tools with JSON Schema parameters.
+- GBNF grammar compiler: 100% syntactic tool-call validity by construction.
+
+**Phase 4 — Editor Bridges** (commit 4006852)
+- `crates/yazses-editors`: `EditorBridge` Protocol + `EditorContext` with
+  `to_initial_prompt(224)` and `to_llm_block()` (adr-006).
+- Five-tier `WindowDetector`: Hyprland IPC → Sway IPC → wlr-foreign-toplevel
+  → X11 EWMH → Null.
+- `NeovimBridge` (nvim-rs 0.9, `neovim` feature); `VSCodeBridge` (TCP push,
+  `vscode` feature).
+
+**Phase 5 — Memory + Dispatcher + Orchestration** (commit 4d5ee68)
+- `crates/yazses-memory`: SQLite BLOB-based L2 KNN (O(n)); `PersonalMemory`
+  with commit / recall / forget_last / sweep_expired; PBKDF2-HMAC-SHA256 key
+  derivation (256k iterations, getrandom); SQLCipher feature gate (adr-007);
+  ONNX BGE-small-en stub (`onnx` feature).
+- `Dispatcher`: routes all 20 LLM tool calls; memory tools fully implemented.
+- `daemon.rs`: full pipeline wiring — InputEvent → HoldStart/HoldEnd →
+  STTRouter → TranscriptReady → LLM → ToolCallReady/DispatchComplete → Idle;
+  memory IPC handlers (`memory_commit`, `memory_recall`, `memory_forget`).
+
+**Phase 6 — Onboarding + Doctor + Accessibility** (commit 84c6d2d)
+- `yazses doctor` (Rust, FR-22): keyboard capture (evdev group), microphone
+  (ALSA cards), session type, injection tools, model cache, config dir,
+  screen reader check, Talon coexistence (auto-creates
+  `~/.talon/user/yazses_coexist.talon`); exits 1 on failures.
+- `yazses enroll` (Rust): VAD calibration wizard — 20 Harvard Sentences,
+  noise floor/pause analysis, percentile derivation, TOML config write;
+  injectable `AudioRecorder` trait.
+- `config.rs`: `config_dir()`, `config_file()`, `data_dir()`,
+  `memory_db_path()`, `salt_path()` (cross-platform).
+- `crates/yazses-atspi`: Linux AT-SPI announcer (spd-say → espeak-ng →
+  espeak → silent); `probe()` + `announce()`.
+- `crates/yazses-nvda`: Windows NVDA controller DLL + SAPI/PowerShell
+  fallback (cfg-gated `libloading`); non-Windows no-op.
+- **85 Rust tests** across 9 crates; zero warnings.
+
+---
+
+## [0.4.2] — 2026-05-17
+
+### Fixed
+
+- **`yazses doctor`**: Wayland-only tools (`ydotool`, `wtype`, `wl-copy`) now
+  show `[SKIP]` on X11 sessions instead of `[FAIL]`, and vice versa for X11
+  tools on Wayland. Config dir is auto-created on first run.
+- **CI — test job**: added explicit `python-version: "3.12"` to `setup-uv@v5`;
+  missing Python version was the root cause of 16-second test job failures on
+  every release tag.
+- **CI — release workflow**: merged `build-deb` + `github-release` into a
+  single `release-linux` job, eliminating the cross-job artifact transfer that
+  caused "Artifact not found for name: deb-package" errors.
+- **CI — PortAudio**: install `libportaudio2` on Linux runners; deferred the
+  `AudioRecorder` import in `enroll.py` to the `recorder_factory is None`
+  branch so mock-injected tests never trigger sounddevice's module-level
+  PortAudio load.
+- **CI**: `setup-uv@v3` → `setup-uv@v5` across all workflows.
+
+---
+
+## [0.4.1] — 2026-05-17
+
+Wireless EMG, model downloads, VS Code context bridge, and dependency refresh.
+
+### Added
+
+- **BLE EMG backend** (`BLEEMGBackend`) — same YESP message protocol as the
+  USB serial backend but over Bluetooth LE using the Nordic UART Service.
+  Configure with `[emg] ble_address = "AA:BB:CC:DD:EE:FF"`. Optional dep:
+  `pip install 'yazses[ble]'` (bleak 3.0.2).
+- **`yazses model list`** — lists available GGUF models for Tier 2 SLM
+  routing with download status and size.
+- **`yazses model download <id>`** — downloads a GGUF model to
+  `~/.cache/yazses/models/` with a progress bar. Supported models:
+  `qwen2.5-0.5b` (397 MB, recommended) and `phi3-mini` (2.2 GB).
+- **`VSCodeBridge`** in `LspContextProvider` — reads `vscode-context.json`
+  written by the YazSes VS Code companion extension. Auto-detected in
+  `lsp_editor = "auto"` mode alongside Neovim. Set `lsp_editor = "vscode"`
+  to prefer it explicitly.
+- **`EmgConfig.ble_address`** config field — new `[emg]` key for wireless
+  EMG devices; set either `device_port` (USB) or `ble_address` (BLE).
+
+### Fixed
+
+- **snap**: added `python3-pip-whl` to `stage-packages` — fixes the
+  snapcraft prime build on some core24 builder configurations where the
+  Python plugin's shebang fix helper could not find pip's wheel.
+
+### Changed
+
+- All dependencies updated to latest stable (2026-05-17):
+  `numpy 2.4.5`, `platformdirs 4.9.6`, `pyobjc-framework-* 12.1`,
+  `pywin32 311`, `Pillow 12.2.0`, `llama-cpp-python 0.3.23`, `pygls 2.1.1`,
+  `pynvim 0.6.0`, `bleak 3.0.2`, `pytest 9.0.3`, `pytest-mock 3.15.1`.
+- Added `pytest-cov 7.1.0` to dev dependencies.
+
+---
+
+## [0.4.0] — 2026-05-17
+
+Three new capabilities from the second SoA2Prod innovation pipeline
+(`research/yazses-future-voice-hci/`), plus full ADR documentation for all
+v0.4.0 architectural decisions.
+
+### Added
+
+- **cap-001 Offline SLM intent routing** — Tier 2 grammar classifier using
+  `llama-cpp-python` (optional). When the Tier 1 regex grammar returns
+  DICTATE, a locally-quantised GGUF model (Phi-3-mini-Q4 or TinyLlama-Q4)
+  classifies the transcript using natural phrasing — "close this tab" and
+  "save file now" both resolve to the same intent. Disabled automatically when
+  `[commands] slm_model_path` is unset or the GGUF file is absent. Install
+  optional dep group: `pip install yazses[slm]`.
+- **cap-002 LSP code context injection** — `LspContextProvider` reads the
+  active editor's language, scope chain, and recent identifiers via the
+  Language Server Protocol and injects the result into the faster-whisper
+  `initial_prompt`, improving recognition of code-specific vocabulary. Neovim
+  is supported via `pynvim`; VS Code companion extension is planned for
+  v0.4.1. 50 ms hard timeout — never blocks the audio pipeline. Enable with
+  `[commands] lsp_enabled = true`. Install: `pip install yazses[lsp]`.
+- **cap-003 EMG silent speech backend** — `EMGBackend` implements the
+  `HotkeyBackend` protocol over USB CDC serial (YESP protocol, 115200 baud).
+  Open-plan office users can articulate commands silently into an EMG device
+  (OpenBCI, DIY Arduino, or any YESP-compatible hardware) and have them
+  dispatched through the same grammar/injection pipeline as acoustic voice.
+  Configure via `[emg] device_port`. Install: `pip install yazses[emg]`.
+- **YESP protocol spec** (`docs/emg-protocol.md`) — hardware-agnostic ASCII
+  message protocol for EMG devices. Any firmware developer can add YazSes
+  compatibility by implementing 2–5 ASCII message types.
+- **ADR-v04-001** — llama-cpp-python as Tier 2 SLM inference backend
+  (`docs/adr/adr-v04-001-slm-inference.md`).
+- **ADR-v04-002** — pygls + pynvim for LSP context extraction
+  (`docs/adr/adr-v04-002-lsp-context.md`).
+- **ADR-v04-003** — USB CDC serial with YESP for EMG devices
+  (`docs/adr/adr-v04-003-emg-serial.md`).
+- `FasterWhisperEngine.transcribe()` now accepts an optional `initial_prompt`
+  parameter passed through to the underlying faster-whisper model.
+- `grammar.classify()` now accepts an optional `slm_router` parameter; when
+  provided, it is called after Tier 1 regex fails before returning DICTATE.
+- New config fields: `[commands] slm_model_path`, `slm_confidence_threshold`,
+  `lsp_enabled`, `lsp_editor`; new `[emg]` section with `device_port`,
+  `baud_rate`, `mode`, `command_map`. All fields have defaults; existing
+  configs load without changes.
+- `pyproject.toml` optional dep groups: `slm`, `lsp`, `emg`, `all`.
+
+### Changed
+
+- `grammar.classify()` signature extended with optional `slm_router` kwarg
+  (backward-compatible; existing callers unaffected).
+
+---
+
+## [0.3.1] — 2026-05-17
+
+### Fixed
+
+- **Snap runtime** — launcher commands now export `PYTHONPATH` pointing to the
+  bundled site-packages (`$SNAP/lib/python3.12/site-packages`) via explicit
+  wrapper scripts. Previously, `yazses`, `yazses-daemon`, and `yazses-tray`
+  would fail silently inside the snap because the Python plugin does not
+  automatically propagate the install-time path at runtime.
+
+### Changed
+
+- **Project renamed** from `novavoice` / `NovaVoice` to `yazses` / `YazSes`
+  across all source files, docs, and packaging manifests.
+- Snap store metadata added: `title`, `contact`, `license`, `website`,
+  `source-code`, `issues`.
+
+---
+
+## [0.3.0] — 2026-05-14
+
+### Added
+
+- **cap-001 SSH/Remote voice forwarding** — `yazses remote <host>` forwards
+  voice typing to a remote machine over SSH reverse tunnelling. Audio is
+  captured locally; only the transcript travels over the network. Introduces
+  `yazses-agent` entry point (lightweight injector daemon for the remote
+  side) and `RemoteForwarder` / `RemoteInjectorProxy` classes.
+- **cap-002 Streaming transcription + correction** — `StreamingEngine`
+  implements LocalAgreement (emit only the stable common prefix between
+  consecutive decode results). `StreamingInjector` tracks how many characters
+  were injected as partials and selects them back with `Shift+Left × N` on
+  commit, replacing them with the final transcript.
+- **cap-003 Code command grammar** — regex-based classifier recognises 28+
+  voice command intents (undo, save, delete N words/lines, go to line N, go to
+  function X, etc.) with precision ≥ 90% and zero false positives on a
+  500-word dictation corpus. Profile system allows per-editor customisation.
+- **cap-004 Offline disfluency filter** — three-pass filter: filler-word
+  removal (word-boundary regex, identity-token guard), consecutive 2-gram
+  deduplication, and self-correction rollback ("scratch that" removes text back
+  to the last sentence boundary). Runs in < 10 ms.
+- **cap-005 Accessibility profile** — `yazses enroll` wizard records 20
+  utterances and derives `vad_threshold` and `min_silence_ms` tuned to your
+  voice. `PreSpeechRingBuffer` prepends the last N ms of audio to each
+  recording to recover voice-onset that a hard VAD gate would otherwise clip.
+  Calibrated VAD uses `config.accessibility.vad_threshold` instead of the
+  hardcoded 0.01.
+- `inject_key_sequence(keys)` method on `InjectorBackend` protocol and all
+  platform injectors (Linux: xdotool/ydotool/wtype; macOS: CGEventSetFlags;
+  Windows: SendInput+VK) plus all inject/ module backends.
+- New IPC methods: `remote_start`, `remote_stop`, `remote_status`,
+  `enroll_start`, `streaming_enable`, `streaming_disable`.
+- New `TrayState` values: `REMOTE_SETUP`, `REMOTE_ACTIVE`, `ENROLLING`.
+- New config sections: `[streaming]`, `[filters.disfluency]`,
+  `[accessibility]`, `[commands]`, `[remote]`. All fields have defaults;
+  existing config files load without changes.
+
+## [0.2.0] — 2026-05-08
+
+First cross-platform release. YazSes now runs on Linux, macOS, and Windows
+from a shared codebase with platform-specific backends.
+
+### Added
+
+- **macOS** support: `CGEventTap` for the global hotkey, `CGEvent` Unicode
+  injection, `launchd` autostart plist, `rumps` menu-bar tray. Default hotkey:
+  Right Option. Ships as an unsigned `.dmg` built on `macos-latest` CI.
+- **Windows** support: `WH_KEYBOARD_LL` low-level keyboard hook, `SendInput`
+  Unicode injection (UTF-16 with surrogate-pair handling), per-user named-pipe
+  IPC, `pystray` tray, HKCU\Run autostart. Default hotkey: Right Ctrl
+  (deliberately *not* Right Alt to avoid AltGr collisions on international
+  layouts). Ships as an unsigned Inno Setup `.exe` installer.
+- **Platform abstraction layer** (`src/yazses/platform/`) — Protocol-based
+  interfaces for hotkey, injector, lifecycle, IPC, permissions, paths, and
+  tray. New platforms slot in as sibling packages.
+- **JSON-RPC IPC** (`src/yazses/ipc/`) over Unix socket on Linux/macOS and
+  named pipe on Windows. Used for daemon ↔ CLI ↔ tray communication.
+- **Cross-platform tray application** (`yazses-tray` console script /
+  `--tray` mode) that polls the daemon and reflects state in the menu bar.
+- **`__main__.py` mode dispatch** (`--daemon | --tray | --cli`) so a single
+  PyInstaller binary can play any of the three roles inside an `.app` /
+  `.exe` bundle.
+- **CI matrix** extended to `[ubuntu-latest, macos-latest, windows-latest] ×
+  [Python 3.11, 3.12]`.
+- **Build-and-package workflows**: `build-macos.yml` and `build-windows.yml`
+  produce unsigned installers on tag push, on relevant PRs, and via manual
+  dispatch.
+- **Install docs** for macOS (`docs/macos-install.md`) and Windows
+  (`docs/windows-install.md`) covering Gatekeeper / SmartScreen bypass,
+  permission grants, troubleshooting, and uninstall.
+
+### Changed
+
+- `yazses status` queries the daemon over IPC and reports `state`,
+  `hotkey`, `model`, `injection_backend`, `uptime_s`, and `last_error`. Falls
+  back to PID-file inspection if IPC isn't yet reachable (covers the few
+  seconds during model load).
+- `yazses doctor` now delegates platform-specific checks to
+  `platform.permissions` and prints a per-OS report.
+- The hotkey is configurable per platform with the new `key = "auto"` value
+  resolving to the OS default.
+- `pyproject.toml` runtime deps use `sys_platform` env markers so a single
+  `pip install yazses` pulls only the right backend libraries.
+
+### Backwards compatibility
+
+- Linux v1 behavior is unchanged for end users. `yazses start`, the
+  systemd unit, and the existing `.deb` / apt / snap / PPA install paths all
+  continue to work.
+
+### Notes
+
+- macOS and Windows builds in v0.2.0 are **unsigned developer previews**.
+  Users see Gatekeeper / SmartScreen warnings on first launch; the install
+  docs walk through the bypass. Code signing + Apple notarization land
+  before public beta.
+
+## [0.1.2] — 2026-05-07
+
+Linux V1 release — see git history for the V1 design and implementation
+notes (`refactor: introduce platform abstraction layer` is the boundary
+between V1 and V2 in the log).
