@@ -125,6 +125,9 @@ def _registry() -> list[_Def]:
     l_on, l_off = _bool("learning")
     o_on, o_off = _bool("overlay")
     tray_on, tray_off = _bool("tray")
+    # Text-target guard is a string setting (clipboard|warn|off), not a bool.
+    tgt_on = (("injection", "target_guard", "clipboard", True),)
+    tgt_off = (("injection", "target_guard", "off", True),)
     # Mic-change guard: one toggle drives both the device-change monitor and the
     # silent-streak notifier (both live under [audio]). Distinct var names — `mg_*`
     # is already taken by mousegrid below (a toggle-collision the tests guard against).
@@ -287,6 +290,12 @@ def _registry() -> list[_Def]:
              "re-calibrate, and start/stop the daemon. Needs a system tray (GNOME: "
              "AppIndicator extension).",
              lambda c: c.tray.enabled, tray_on, tray_off),
+        _Def("target-guard", "Text-target guard", "[injection] target_guard", DEFAULT_ON,
+             "When you dictate with no text field focused, don't type into the wrong place "
+             "— turn the tray icon yellow and copy the transcript to the clipboard instead. "
+             "Precise with AT-SPI (apt install python3-pyatspi gir1.2-atspi-2.0), else "
+             "best-effort on X11.",
+             lambda c: c.injection.target_guard != "off", tgt_on, tgt_off),
         _Def("mic-guard", "Mic-change guard", "[audio] device_change_notify", DEFAULT_ON,
              "Notifies + auto-heals when your microphone silently switches (e.g. a "
              "USB-C monitor stealing capture) so dictation never dies in silence. Keep on.",
@@ -997,6 +1006,7 @@ _EXAMPLES: dict[str, str] = {
     "mousegrid": "Say a grid number to move the cursor, then 'click'.",
     "mic-guard": "Plug in a USB-C monitor; YazSes notices the mic switched and pops a fix.",
     "tray": "Click the top-bar mic icon → pick a microphone or re-calibrate, no terminal.",
+    "target-guard": "Dictate with no text box focused → it's copied to the clipboard, not lost.",
     "multiprofile": "Each enrolled speaker loads their own vocab/hotkey automatically.",
     "snippets": "Say 'insert my signature' to type a stored template.",
     "phonetic": "'Cuber Netties' is auto-corrected to 'Kubernetes'.",
@@ -1139,6 +1149,7 @@ _USE_CASES: dict[str, str] = {
     "mousegrid": "When you need to click somewhere no accessibility tree exists and want to do it hands-free.",
     "mic-guard": "When plugging in a monitor/headset silently switches your mic and dictation stops working with no clue why.",
     "tray": "When you'd rather click a top-bar icon to switch mics or restart than remember terminal commands.",
+    "target-guard": "When you sometimes speak before clicking into a text field and your words vanish into the wrong window.",
     "multiprofile": "When several people share one machine and each wants their own vocab and settings loaded.",
     "snippets": "When you keep typing the same boilerplate (signature, address) and want a spoken shortcut.",
     "phonetic": "When STT keeps mangling the same proper nouns or jargon and you want them auto-fixed by sound.",
@@ -1172,7 +1183,7 @@ _CATEGORIES: dict[str, str] = {
     # Core dictation — the hold-to-talk flow and how audio becomes text.
     "dictation": CAT_CORE, "commands": CAT_CORE, "voice-punctuation": CAT_CORE,
     "undo": CAT_CORE, "overlay": CAT_CORE, "streaming": CAT_CORE, "mic-guard": CAT_CORE,
-    "tray": CAT_CORE,
+    "tray": CAT_CORE, "target-guard": CAT_CORE,
     "ghost-ahead": CAT_CORE, "autostop": CAT_CORE, "hesitation": CAT_CORE,
     "breath": CAT_CORE, "continuum": CAT_CORE, "whispermode": CAT_CORE,
     "wakeword": CAT_CORE, "focusprofile": CAT_CORE, "latency": CAT_CORE,

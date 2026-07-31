@@ -48,6 +48,10 @@ class TrayModel:
     model: str = "tiny.en"
     last_error: str | None = None
     uptime_s: float = 0.0
+    # Audio/target health that colours the tray icon: a live silent-streak (→ red) and
+    # whether the current burst has a text target (False → yellow "no place to type").
+    silent_streak: int = 0
+    target_ok: bool | None = None
 
 
 @dataclass(frozen=True)

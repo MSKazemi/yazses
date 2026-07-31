@@ -70,6 +70,13 @@ class InjectionConfig:
     # so words don't glue together at the boundary (postprocess/spacing.py).
     # 0 disables continuation spacing entirely.
     continuation_window_ms: int = 30000
+    # "No text target" guard: what to do when you dictate with no editable field focused
+    # (so the text would be typed into the wrong place / nowhere). "clipboard" (default) —
+    # copy the transcript to the clipboard + notify instead of typing; "warn" — notify but
+    # still type; "off" — no guard. Detection is AT-SPI when available (precise; needs
+    # python3-pyatspi), else a best-effort X11 focus check. Only acts on a *confident* "no
+    # target", so it never drops normal dictation.
+    target_guard: str = "clipboard"
 
 
 @dataclass

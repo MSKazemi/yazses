@@ -92,6 +92,8 @@ class LinuxTray:
             "state": model.state.value if isinstance(model.state, TrayState) else model.state,
             "hotkey": model.hotkey,
             "model": model.model,
+            "silent_streak": model.silent_streak,
+            "target_ok": model.target_ok,
         }
         with self._lock:
             self._latest.update(status)

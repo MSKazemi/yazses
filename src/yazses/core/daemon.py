@@ -94,6 +94,9 @@ class _DaemonState:
     last_good_device: str | None = None
     silent_streak: int = 0
     device_changed_at: float | None = None
+    # "No text target" guard: whether the focused element accepts text for the current
+    # burst — True (editable field), False (no target → warn/clipboard), None (unknown).
+    target_ok: bool | None = None
 
 
 class Daemon:
@@ -183,6 +186,10 @@ class Daemon:
         # of dropping speech in silence. Built in _build_pipeline; monitor may be None.
         self._silent_streak = SilentStreakTracker()
         self._device_monitor: DeviceMonitor | None = None
+        # "No text target" guard: detects whether the focused element accepts text so a
+        # burst with no field focused is warned (yellow tray) + saved to the clipboard
+        # instead of typed into the wrong place. None until built ([injection] target_guard).
+        self._target_detector = None
         # True once we've auto-healed for the current silent streak, so a device that
         # is genuinely gone doesn't re-trigger the switch on every subsequent clip.
         self._healed_this_streak = False
@@ -363,6 +370,22 @@ class Daemon:
                 is_idle=self._audio_idle,
                 on_change=self._on_default_device_changed,
                 interval_s=cfg.audio.device_poll_interval_s,
+            )
+
+        # "No text target" guard: build the detector (AT-SPI focus tracker when available,
+        # else best-effort xdotool). Dormant when [injection] target_guard == "off".
+        if cfg.injection.target_guard != "off":
+            from yazses.inject.target import AtspiFocusTracker, TargetDetector
+
+            tracker = AtspiFocusTracker()
+            if tracker.available() and tracker.start():
+                self._target_detector = TargetDetector(atspi=tracker)
+            else:
+                self._target_detector = TargetDetector()  # best-effort xdotool only
+            log.info(
+                "Text-target guard enabled (%s; action=%s).",
+                "AT-SPI" if tracker.available() else "best-effort X11",
+                cfg.injection.target_guard,
             )
 
         key_id = cfg.hotkey.key
@@ -575,6 +598,11 @@ class Daemon:
         with self._lock:
             self._state.state = TrayState.RECORDING
         log.info("Recording started (cleaning up %d leaked char(s))", leaked)
+
+        # "No text target" guard: detect (off the hot path, so recording onset isn't
+        # delayed) whether the focused element accepts text. Drives the yellow tray state
+        # and lets _on_hold_end save to the clipboard instead of typing into the wrong place.
+        self._detect_target_async()
 
         # Glance-Type: focus the looked-at window now (while the user is looking
         # at their target) so this burst's injection lands there. Best-effort.
@@ -1166,6 +1194,19 @@ class Daemon:
                              macro_table=self._macro_table,
                              macro_context=self._build_macro_context())
             else:
+                # "No text target" guard: if there was no editable field focused, don't
+                # type into the wrong place — copy to the clipboard + notify (or warn only).
+                with self._lock:
+                    target_ok = self._state.target_ok
+                if (
+                    self._config.injection.target_guard != "off"
+                    and target_ok is False
+                    and self._handle_no_target(text)
+                ):
+                    event["discard_reason"] = "no_target"
+                    if use_streaming and stream_injector is not None:
+                        stream_injector.cancel()
+                    return
                 if use_streaming:
                     assert stream_injector is not None
                     stream_injector.commit(text)
@@ -1413,6 +1454,54 @@ class Daemon:
             )
         else:
             log.info("Unpinned input device — following OS default.")
+
+    def _detect_target_async(self) -> None:
+        """Resolve whether there's a text target for this burst, off the hot path."""
+        with self._lock:
+            self._state.target_ok = None
+        detector = self._target_detector
+        if detector is None or self._command_mode:
+            return  # guard off, or command mode types no text
+
+        def _run() -> None:
+            try:
+                ok = detector.resolve()
+            except Exception:
+                ok = None
+            with self._lock:
+                self._state.target_ok = ok
+
+        threading.Thread(target=_run, name="target-detect", daemon=True).start()
+
+    def _handle_no_target(self, text: str) -> bool:
+        """Handle a dictation with no text target. Returns True if injection was suppressed.
+
+        ``clipboard`` → copy the transcript so it isn't lost, notify, and skip typing.
+        ``warn`` → notify but let the caller type as usual. ``off`` never reaches here.
+        """
+        action = self._config.injection.target_guard
+        if action == "clipboard":
+            from yazses.system.clipboard import set_clipboard
+
+            copied = set_clipboard(text)
+            log.info("No text target -- transcript %s the clipboard.",
+                     "copied to" if copied else "could NOT be copied to")
+            body = (
+                "No text field was focused, so your dictation was copied to the clipboard "
+                "— click where you want it and paste (Ctrl+V)."
+                if copied
+                else "No text field was focused and the clipboard copy failed; "
+                "click into a text field and dictate again."
+            )
+            self._notify_mic("⌨ No place to type", body, actions=False)
+            return True
+        # "warn" — tell the user but still type (below).
+        self._notify_mic(
+            "⌨ No text field focused",
+            "You may be dictating into the wrong place — click a text field first.",
+            actions=False,
+        )
+        return False
 
     def _partial_poll_loop(self, stop: threading.Event) -> None:
         """Background thread: drain partial hypotheses and inject them."""
@@ -2019,6 +2108,8 @@ class Daemon:
                 "input_device": self._state.input_device or self._config.audio.device or None,
                 "last_good_device": self._state.last_good_device,
                 "silent_streak": self._state.silent_streak,
+                # "No text target" guard: True/False/None for the current burst (drives yellow).
+                "target_ok": self._state.target_ok,
                 # Confidence Ink (ADR-v2-001): feature state + last-burst count.
                 "confidence_enabled": self._config.confidence.enabled,
                 "low_confidence_last": self._last_low_confidence_words,
@@ -2228,6 +2319,13 @@ class Daemon:
                 self._device_monitor.stop()
             except Exception:
                 log.exception("Device monitor stop raised")
+        if self._target_detector is not None:
+            tracker = getattr(self._target_detector, "_atspi", None)
+            if tracker is not None:
+                try:
+                    tracker.stop()
+                except Exception:
+                    log.exception("AT-SPI tracker stop raised")
         if self._instance_lock is not None:
             try:
                 self._instance_lock.release()

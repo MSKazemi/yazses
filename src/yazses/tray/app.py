@@ -25,6 +25,10 @@ log = logging.getLogger(__name__)
 
 
 _POLL_INTERVAL_S = 1.0
+# Poll faster while recording so the icon reflects the burst (green ↔ yellow when there's
+# no text target) during a short hold, instead of lagging a full second behind.
+_FAST_POLL_INTERVAL_S = 0.15
+_RECORDING_STATES = frozenset({"recording", "transcribing", "injecting", "meeting"})
 _DAEMON_BOOT_TIMEOUT_S = 30.0
 
 
@@ -58,6 +62,7 @@ def run() -> None:
     def _poller() -> None:
         boot_deadline = time.monotonic() + _DAEMON_BOOT_TIMEOUT_S
         while not stop_event.is_set():
+            interval = _POLL_INTERVAL_S
             try:
                 info = client.call("status")
                 state = _state_from_string(info.get("state"))
@@ -68,8 +73,12 @@ def run() -> None:
                         model=str(info.get("model", "")),
                         last_error=info.get("last_error"),
                         uptime_s=float(info.get("uptime_s", 0.0)),
+                        silent_streak=int(info.get("silent_streak") or 0),
+                        target_ok=info.get("target_ok"),
                     )
                 )
+                if str(info.get("state") or "") in _RECORDING_STATES:
+                    interval = _FAST_POLL_INTERVAL_S  # keep the icon live during a burst
             except IpcUnreachableError:
                 if time.monotonic() > boot_deadline:
                     log.warning("Daemon never became reachable; stopping poll.")
@@ -81,7 +90,7 @@ def run() -> None:
             except Exception:
                 log.exception("Tray poller crashed")
                 return
-            stop_event.wait(_POLL_INTERVAL_S)
+            stop_event.wait(interval)
 
     poll_thread = threading.Thread(target=_poller, name="tray-poller", daemon=True)
     poll_thread.start()

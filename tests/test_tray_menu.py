@@ -49,18 +49,24 @@ def test_menu_marks_os_default_label():
 
 
 def test_icon_spec_state_colors():
-    _GREEN, _BLUE, _RED = "#34a853", "#1a73e8", "#e53935"
-    # Recording your voice → green.
+    _GREEN, _YELLOW, _BLUE, _RED = "#34a853", "#fbbc04", "#1a73e8", "#e53935"
+    # Recording into a text field → green.
     assert icon_spec({"state": "recording"})[0] == _GREEN
+    assert icon_spec({"state": "recording", "target_ok": True})[0] == _GREEN
     assert icon_spec({"state": "transcribing"})[0] == _GREEN
     assert icon_spec({"state": "injecting"})[0] == _GREEN
     assert icon_spec({"state": "meeting"})[0] == _GREEN
-    # Normal / ready / idle → blue.
+    # Recording with NO text field focused → yellow (unknown stays green, no false alarm).
+    assert icon_spec({"state": "recording", "target_ok": False})[0] == _YELLOW
+    assert icon_spec({"state": "recording", "target_ok": None})[0] == _GREEN
+    # Normal / ready / idle → blue (target_ok irrelevant when not recording).
     assert icon_spec({"state": "idle"})[0] == _BLUE
+    assert icon_spec({"state": "idle", "target_ok": False})[0] == _BLUE
     assert icon_spec({"state": "loading"})[0] == _BLUE
     assert icon_spec({"state": "paused"})[0] == _BLUE
-    # Problems → red, overriding any state.
+    # Problems → red, overriding recording/target.
     assert icon_spec({"state": "recording", "silent_streak": 2})[0] == _RED
+    assert icon_spec({"state": "recording", "target_ok": False, "silent_streak": 1})[0] == _RED
     assert icon_spec({"state": "error"})[0] == _RED
 
 

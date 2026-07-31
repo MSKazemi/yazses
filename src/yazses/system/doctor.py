@@ -229,6 +229,19 @@ def _config_summary(cfg, config_file: Path) -> list[_Check]:
             "Microphone", "OK",
             f"OS default: {default or 'unknown'} (pin with `yazses audio use <name>`)",
         ))
+    guard = getattr(cfg.injection, "target_guard", "off")
+    if guard != "off":
+        try:
+            from yazses.inject.target import AtspiFocusTracker
+
+            precise = AtspiFocusTracker.available()
+        except Exception:
+            precise = False
+        detail = (
+            f"{guard} (AT-SPI precise)" if precise
+            else f"{guard} (best-effort; apt install python3-pyatspi gir1.2-atspi-2.0 for precision)"
+        )
+        out.append(("Text-target guard", "OK", detail))
     prompt = (cfg.stt.initial_prompt or "").strip()
     if prompt:
         preview = prompt if len(prompt) <= 40 else prompt[:37] + "..."

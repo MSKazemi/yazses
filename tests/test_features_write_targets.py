@@ -24,6 +24,7 @@ _ALIASES = {
     "readback_clone": "tts",
     "llm-cleanup": "filters.disfluency",
     "mic-guard": "audio",          # device-change + silent-streak notify live under [audio]
+    "target-guard": "injection",   # text-target guard writes [injection] target_guard
 }
 
 

@@ -15,7 +15,8 @@ from yazses.audio.devices import InputDevice, resolve_input_device
 # speaking, through the brief transcribe/inject that finishes that dictation), BLUE for
 # the normal ready/idle state, RED for a problem (error or a live silent-streak). So a
 # glance at the top bar says recording vs ready vs needs-attention.
-_GREEN = "#34a853"      # recording — holding the key and speaking
+_GREEN = "#34a853"      # recording — holding the key and speaking (into a text field)
+_YELLOW = "#fbbc04"     # recording but NO text field focused (would type nowhere)
 _BLUE = "#1a73e8"       # normal / ready / idle
 _RED = "#e53935"        # problem — error or silent-streak
 # Actively capturing/handling your dictation → green. Everything else that is not a
@@ -88,16 +89,18 @@ def build_menu_model(
 def icon_spec(status: dict) -> tuple[str, str]:
     """Return ``(hex_color, tooltip)`` for the tray icon given a status dict.
 
-    Green while recording your voice, blue for the normal ready/idle state, red for a
-    problem (error or a live silent-streak). A silent-streak or error is always red, so a
-    mic that stopped being heard shows in the top bar without opening the menu.
+    Green while recording into a text field, yellow while recording with NO text field
+    focused (your words would go nowhere — they'll be saved to the clipboard instead),
+    blue for the normal ready/idle state, red for a problem (error or a live silent-streak).
     """
     state = str(status.get("state") or "idle")
     streak = int(status.get("silent_streak") or 0)
+    target_ok = status.get("target_ok")
     if streak or state == "error":
         color = _RED  # problem
     elif state in _RECORDING_STATES:
-        color = _GREEN  # recording — holding the key and speaking
+        # Recording: green normally, yellow when we're confident there's no text target.
+        color = _YELLOW if target_ok is False else _GREEN
     else:
         color = _BLUE  # normal / ready / idle
 
@@ -106,4 +109,6 @@ def icon_spec(status: dict) -> tuple[str, str]:
     tooltip = f"YazSes — {state}\nMic: {mic}\nHold {hotkey} to dictate"
     if streak:
         tooltip += f"\n⚠ {streak} silent clip(s) in a row"
+    if state in _RECORDING_STATES and target_ok is False:
+        tooltip += "\n⚠ no text field focused — will save to clipboard"
     return color, tooltip
