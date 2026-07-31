@@ -432,6 +432,8 @@ Start the YazSes daemon (restarts cleanly if one is already running).
 
 Show daemon status. Queries the daemon over IPC when reachable.
 
+- `--json` — Output status as JSON for scripts and status bars.
+
 ## `yazses stop`
 
 Stop the running daemon.

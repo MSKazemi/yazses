@@ -1,6 +1,6 @@
 name: yazses
 base: core24
-version: "2.11.0-dev.11"
+version: "2.12.0"
 summary: Local, offline voice dictation for Linux
 description: |
   YazSes is offline, on-device voice dictation. Hold a key (Space by default),

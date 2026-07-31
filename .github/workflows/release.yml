@@ -5,6 +5,7 @@ on:
     tags:
       - "v0.*"
       - "v1.*"  # Part 1 owns the 1.x line (Rust release workflow archived)
+      - "v2.*"  # v2 Python line (cognitive layer) — publishes GitHub Release + PyPI
   workflow_dispatch: {}  # allow a manual re-publish from main (e.g. after a CI fix)
 
 permissions:

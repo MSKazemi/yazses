@@ -6,6 +6,13 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.12.0] - 2026-07-31
+
+First stable **v2** release — the on-device cognitive layer (Meeting Mode, diarized
+recording import, gaze routing, learning corpus, and the tray/mic/target-guard
+reliability work) graduates from the `2.x` pre-release line to a supported release.
+`pip install yazses` now installs v2.
+
 ### "No text target" guard — never dictate into the wrong place
 
 - **Speaking with no text field focused no longer loses your words.** If you dictate before
