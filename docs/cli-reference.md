@@ -153,6 +153,8 @@ The friendly switchboard for turning capabilities on and off — no config-file
 editing. Bare `yazses features` lists **every** capability **grouped by category**,
 showing whether each is on/off, its toggle name, and an advice tier.
 
+![yazses features — capabilities grouped by category, each with its on/off state, toggle name, and advice tier](screenshots/yazses-features.png)
+
 **Options (on the list view):**
 
 | Option | Effect |
