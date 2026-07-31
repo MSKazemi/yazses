@@ -447,6 +447,21 @@ class OverlayConfig:
 
 
 @dataclass
+class TrayConfig:
+    """System-tray / top-bar indicator icon with a click-menu.
+
+    A standalone ``yazses-tray`` process (like the overlay) that polls the daemon's
+    ``status`` RPC and shows a menu-bar / indicator icon whose click-menu lets you pick
+    the input microphone, re-calibrate, and start/stop the daemon. On Linux it is a
+    PySide6 ``QSystemTrayIcon`` (needs an SNI/AppIndicator host — standard on Ubuntu
+    GNOME); on macOS/Windows the existing rumps/pystray backends. Soft no-op where no
+    system tray is available.
+    """
+    enabled: bool = True             # auto-launch the tray with the daemon
+    poll_interval_s: float = 1.0     # how often the tray refreshes daemon state
+
+
+@dataclass
 class ConfidenceConfig:
     """v2.0.0 Wave A — Confidence Ink & Voice Re-pick (ADR-v2-001).
 
@@ -1404,6 +1419,7 @@ class Config:
     emg: EmgConfig = field(default_factory=EmgConfig)
     learning: LearningConfig = field(default_factory=LearningConfig)
     overlay: OverlayConfig = field(default_factory=OverlayConfig)
+    tray: TrayConfig = field(default_factory=TrayConfig)
     tts: TtsConfig = field(default_factory=TtsConfig)
     voiceprint: VoiceprintConfig = field(default_factory=VoiceprintConfig)
     gaze: GazeConfig = field(default_factory=GazeConfig)
@@ -1568,6 +1584,7 @@ def load_config(path: Path | None = None) -> Config:
         emg=_load_emg(data),
         learning=LearningConfig(**data.get("learning", {})),
         overlay=OverlayConfig(**data.get("overlay", {})),
+        tray=TrayConfig(**data.get("tray", {})),
         tts=TtsConfig(**data.get("tts", {})),
         voiceprint=VoiceprintConfig(**data.get("voiceprint", {})),
         gaze=GazeConfig(**data.get("gaze", {})),

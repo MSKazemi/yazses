@@ -165,6 +165,7 @@ class Daemon:
         # vs the systemd unit) from grabbing the hotkey and double-injecting.
         self._instance_lock = None
         self._overlay_proc: subprocess.Popen | None = None
+        self._tray_proc: subprocess.Popen | None = None
         # Say-Macro table (None when [macros] disabled — feature dormant).
         self._macro_table = build_macro_table(
             self._config, self._platform.paths.config_file.parent
@@ -228,6 +229,7 @@ class Daemon:
             assert self._hotkey is not None
             log.info("YazSes ready. Hold %s to dictate.", self._resolved_hotkey())
             self._maybe_launch_overlay()
+            self._maybe_launch_tray()
             # Run the optional command-key listener in the background; the
             # dictation listener owns the main thread (blocking) as before.
             if self._command_hotkey is not None:
@@ -265,6 +267,29 @@ class Daemon:
             log.info("Launched voice-activity overlay (pid %d).", self._overlay_proc.pid)
         except Exception:
             log.exception("Failed to launch overlay; continuing without it")
+
+    def _maybe_launch_tray(self) -> None:
+        """Spawn the system-tray indicator as a detached process when configured."""
+        from yazses.tray.launch import should_launch_tray, tray_dependency_available
+
+        if not should_launch_tray(self._config, os.environ):
+            return
+        if not tray_dependency_available():
+            log.info(
+                "Tray is enabled but PySide6 is not installed; skipping. "
+                "Install it with: uv sync --extra overlay  (or pip install 'yazses[overlay]')"
+            )
+            return
+        try:
+            self._tray_proc = subprocess.Popen(
+                [sys.executable, "-m", "yazses.tray.app"],
+                start_new_session=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            log.info("Launched system-tray indicator (pid %d).", self._tray_proc.pid)
+        except Exception:
+            log.exception("Failed to launch tray; continuing without it")
 
     def shutdown(self) -> None:
         log.info("Shutting down.")
@@ -473,6 +498,8 @@ class Daemon:
         server.register("meeting_start", self._handle_meeting_start)
         server.register("meeting_stop", self._handle_meeting_stop)
         server.register("meeting_status", self._handle_meeting_status)
+        server.register("pin_mic", self._handle_pin_mic)
+        server.register("recalibrate_mic", self._handle_recalibrate_mic)
         server.serve_in_thread()
         self._ipc_server = server
 
@@ -1349,29 +1376,43 @@ class Daemon:
         """[Pin this mic] action: write [audio] device to the current default."""
         try:
             from yazses.audio.devices import current_default_input_name
-            from yazses.system.configedit import set_config_key
 
             name = current_default_input_name()
             if not name:
                 return
-            set_config_key(self._platform.paths.config_file, "audio", "device", name)
-            if self._recorder is not None:
-                self._recorder.device = name
-            with self._lock:
-                from dataclasses import replace
+            self._apply_pin(name)
+        except Exception:
+            log.exception("Pin-mic action failed")
 
-                self._config = replace(
-                    self._config, audio=replace(self._config.audio, device=name)
-                )
-                self._state.input_device = name
+    def _apply_pin(self, name: str) -> None:
+        """Pin capture to ``name`` (a device-name substring); ``""`` = follow OS default.
+
+        Writes ``[audio] device``, retargets the live recorder, updates config + state,
+        and notifies. Shared by the notification [Pin] action and the tray/IPC path so
+        pinning takes effect immediately without a restart.
+        """
+        from dataclasses import replace
+
+        from yazses.system.configedit import set_config_key
+
+        name = (name or "").strip()
+        set_config_key(self._platform.paths.config_file, "audio", "device", name)
+        if self._recorder is not None:
+            self._recorder.device = name or None
+        with self._lock:
+            self._config = replace(
+                self._config, audio=replace(self._config.audio, device=name)
+            )
+            self._state.input_device = name or None
+        if name:
             log.info("Pinned input device: %r", name)
             self._notify_mic(
                 "📌 Microphone pinned",
                 f"Capture pinned to '{name}'. It won't be stolen by a device change.",
                 actions=False,
             )
-        except Exception:
-            log.exception("Pin-mic action failed")
+        else:
+            log.info("Unpinned input device — following OS default.")
 
     def _partial_poll_loop(self, stop: threading.Event) -> None:
         """Background thread: drain partial hypotheses and inject them."""
@@ -1987,6 +2028,27 @@ class Daemon:
         threading.Thread(target=self.shutdown, name="ipc-shutdown", daemon=True).start()
         return {"ok": True}
 
+    def _handle_pin_mic(self, request: Request) -> dict[str, object]:
+        """Pin capture to a mic by name (empty = follow OS default). Applies live."""
+        device = str(request.params.get("device", "")).strip()
+        try:
+            self._apply_pin(device)
+        except Exception as exc:
+            log.exception("pin_mic failed")
+            return {"ok": False, "error": str(exc)}
+        return {"ok": True, "device": device}
+
+    def _handle_recalibrate_mic(self, _request: Request) -> dict[str, object]:
+        """Re-measure the active mic and write vad_threshold. Async (records ~3s)."""
+        with self._lock:
+            busy = self._state.state != TrayState.IDLE
+        if busy:
+            return {"ok": False, "reason": "busy — try again when idle"}
+        threading.Thread(
+            target=self._recalibrate_mic, name="tray-recalibrate", daemon=True
+        ).start()
+        return {"ok": True, "started": True}
+
     def _handle_inject(self, request: Request) -> dict[str, object]:
         text = str(request.params.get("text", ""))
         if not text:
@@ -2176,6 +2238,11 @@ class Daemon:
                 self._overlay_proc.terminate()
             except Exception:
                 log.exception("Overlay terminate raised")
+        if self._tray_proc is not None:
+            try:
+                self._tray_proc.terminate()
+            except Exception:
+                log.exception("Tray terminate raised")
         if self._edit_watcher is not None:
             try:
                 self._edit_watcher.cancel()

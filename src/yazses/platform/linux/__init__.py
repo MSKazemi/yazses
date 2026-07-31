@@ -36,6 +36,13 @@ def _make_hotkey(key_id: str, threshold_ms: int, on_start, on_end):
     )
 
 
+def _make_tray():
+    """Build the Linux tray backend (PySide6 QSystemTrayIcon)."""
+    from yazses.platform.linux.tray import LinuxTray
+
+    return LinuxTray()
+
+
 def build_platform() -> Platform:
     from yazses.platform.linux.injector import LinuxInjector
     from yazses.platform.linux.ipc import UnixSocketIpcClient, UnixSocketIpcServer
@@ -53,8 +60,8 @@ def build_platform() -> Platform:
         injector_factory=LinuxInjector,
         ipc_server_factory=lambda socket_path: UnixSocketIpcServer(socket_path),
         ipc_client_factory=lambda socket_path: UnixSocketIpcClient(socket_path),
-        tray_factory=None,
-        tray_default_enabled=False,
+        tray_factory=_make_tray,
+        tray_default_enabled=True,
     )
 
 

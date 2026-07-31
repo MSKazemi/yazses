@@ -37,6 +37,15 @@ def run() -> None:
         log.error("Platform %r has no tray backend; nothing to do.", platform.name)
         sys.exit(1)
 
+    # One tray only: the daemon auto-launches it, and `yazses restart` would spawn a
+    # second. An exclusive lock (freed by the OS on exit) makes a duplicate exit quietly.
+    from yazses.system.single_instance import SingleInstanceLock
+
+    lock = SingleInstanceLock(platform.paths.data_dir / "tray.lock")
+    if not lock.acquire():
+        log.info("A YazSes tray is already running; exiting.")
+        return
+
     tray = platform.tray_factory()
     client = platform.ipc_client_factory(platform.paths.ipc_socket)
 

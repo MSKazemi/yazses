@@ -28,8 +28,9 @@ def test_factory_returns_linux_platform():
     assert isinstance(p, Platform)
     assert p.name == "linux"
     assert p.default_hotkey == "right_alt"
-    assert p.tray_factory is None
-    assert p.tray_default_enabled is False
+    # Linux gained a PySide6 QSystemTrayIcon tray backend (top-bar indicator).
+    assert p.tray_factory is not None
+    assert p.tray_default_enabled is True
 
 
 @pytest.mark.skipif(sys.platform != "linux", reason="Linux-specific bundle")

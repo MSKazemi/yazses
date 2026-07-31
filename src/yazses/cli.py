@@ -563,6 +563,42 @@ def restart() -> None:
     _report_start_outcome(platform, outcome, info)
 
 
+@app.command(
+    rich_help_panel=_DAEMON,
+    epilog=_examples(
+        "yazses tray                show the top-bar icon (blocks; Ctrl-C to stop)",
+        "yazses tray --background   launch it detached and return",
+    ),
+)
+def tray(
+    background: bool = typer.Option(
+        False, "--background", "-b", help="Launch detached instead of blocking."
+    ),
+) -> None:
+    """Show the system-tray / top-bar icon with a click-menu (mic + daemon controls).
+
+    Pick or pin your microphone, re-calibrate, and start/stop the daemon from the menu.
+    The daemon also launches this automatically when a desktop is present; run this to
+    show it right now without a restart. Needs a system tray (on GNOME, the AppIndicator
+    extension — standard on Ubuntu).
+    """
+    if background:
+        import subprocess
+        import sys
+
+        subprocess.Popen(
+            [sys.executable, "-m", "yazses.tray.app"],
+            start_new_session=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        typer.echo("Tray launched. Look for the microphone icon in your top bar.")
+        return
+    from yazses.tray.app import run as run_tray
+
+    run_tray()
+
+
 def _warn_unmet_prereqs() -> None:
     """Print actionable warnings if system prerequisites are missing or a pending
     `input`-group re-login would leave the hotkey dead. Best-effort and silent

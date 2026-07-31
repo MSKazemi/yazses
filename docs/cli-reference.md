@@ -78,6 +78,7 @@ After a successful update, restart the daemon to load it:
 | `yazses restart` | Stop **all** daemons (including stray/detached ones) and start exactly one. |
 | `yazses stop` | Stop the running daemon. |
 | `yazses status` | Show state, hotkey, model, injection backend, and uptime over IPC. |
+| `yazses tray` | Show the top-bar tray icon + click-menu (pick/pin mic, re-calibrate, start/stop). |
 | `yazses features` | See capabilities and turn them on/off — no config-file editing. |
 | `yazses-daemon` | Run the daemon in the **foreground** (logs to console) — useful for debugging. |
 
@@ -125,6 +126,24 @@ while the model is still loading it says so rather than looking broken.
 ```bash
 yazses status    # is it running? show state, model, and hotkey
 ```
+
+### `yazses tray`
+
+Show a **microphone icon in the top bar** with a click-menu — a no-terminal way to
+manage the mic and daemon. The menu lets you **pick/pin the input microphone** from a
+live device list, **re-calibrate** the mic level, and **restart/stop** the daemon; the
+icon reflects daemon state and turns orange when it detects a run of silent clips.
+
+```bash
+yazses tray               # show it now (blocks; Ctrl-C to stop)
+yazses tray --background   # launch it detached and return
+```
+
+Mic changes from the menu take effect **live** (no restart). The daemon also launches
+the tray automatically when a desktop is present — `yazses tray` just shows it right now.
+"Quit tray" closes the icon but leaves dictation running (use "Stop daemon" to stop it).
+Needs a system tray host — on GNOME that's the **AppIndicator extension** (standard on
+Ubuntu); disable auto-launch with `yazses features disable tray`.
 
 ### `yazses features`
 
