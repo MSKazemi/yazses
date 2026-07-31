@@ -1,0 +1,209 @@
+# MkDocs + Material configuration for the YazSes documentation site.
+# Build:  uv run --group docs mkdocs build --strict
+# Serve:  uv run --group docs mkdocs serve
+# Deploy: handled by .github/workflows/docs.yml (GitHub Pages).
+
+site_name: YazSes
+site_url: https://mskazemi.github.io/yazses/
+site_author: Mohsen Seyedkazemi Ardebili
+site_description: >-
+  Offline, on-device hold-to-talk voice dictation for Linux, macOS & Windows.
+  Hold a key, speak, release — your words are transcribed locally with
+  faster-whisper and typed into any focused app. No cloud, no API key, no subscription.
+
+repo_name: MSKazemi/yazses
+repo_url: https://github.com/MSKazemi/yazses
+edit_uri: edit/main/docs/
+copyright: >-
+  Copyright &copy; Mohsen Seyedkazemi Ardebili — Apache-2.0 licensed.
+
+docs_dir: docs
+
+# Keep page URLs identical to the previous Jekyll site (foo.html, not foo/),
+# so every already-indexed link survives the cutover with no redirects needed.
+use_directory_urls: false
+
+# Keep Jekyll leftovers and heavy binaries out of the built site.
+exclude_docs: |
+  _config.yml
+  yazses-complete-reference.pdf
+
+# Individual release notes are built and linkable but kept out of the sidebar
+# (46 files would swamp it); the Releases index links the notable ones.
+not_in_nav: |
+  /releases/v*.md
+
+theme:
+  name: material
+  language: en
+  logo: assets/logo.svg
+  favicon: assets/favicon.svg
+  icon:
+    repo: fontawesome/brands/github
+    edit: material/pencil
+    view: material/eye
+  font:
+    text: Inter
+    code: JetBrains Mono
+  palette:
+    # Palette toggle — light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    # Palette toggle — dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.tooltips
+    - announce.dismiss
+
+extra:
+  homepage: https://mskazemi.github.io/yazses/
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/MSKazemi/yazses
+      name: YazSes on GitHub
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/yazses/
+      name: YazSes on PyPI
+  generator: false
+
+extra_css:
+  - assets/extra.css
+
+plugins:
+  - search
+  - glightbox:
+      touchNavigation: true
+      loop: false
+      effect: zoom
+      slide_effect: slide
+      width: 100%
+      height: auto
+      zoomable: true
+      draggable: true
+  - git-revision-date-localized:
+      enable_creation_date: true
+      enable_git_follow: false
+      type: timeago
+      fallback_to_build_date: true
+      # Don't let git-history quirks (file renames, shallow CI clones) fail the
+      # strict build; timestamps are informational, not correctness-critical.
+      strict: false
+  # Social preview cards (Open Graph / Twitter). Needs libcairo at build time;
+  # disable by exporting MKDOCS_SOCIAL=false if that toolchain is unavailable.
+  - social:
+      enabled: !ENV [MKDOCS_SOCIAL, true]
+      cards_layout_options:
+        background_color: "#4527a0"
+        color: "#ffffff"
+  - minify:
+      minify_html: true
+      minify_js: true
+      minify_css: true
+      htmlmin_opts:
+        remove_comments: true
+      cache_safe: true
+
+markdown_extensions:
+  # Python-Markdown core
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      permalink_title: Anchor link to this section
+      title: On this page
+  # PyMdown Extensions
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.mark
+  - pymdownx.tilde
+  - pymdownx.critic
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.smartsymbols
+  - pymdownx.snippets:
+      base_path:
+        - docs
+      check_paths: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+nav:
+  - Home: index.md
+  - Get started:
+      - Install on Linux: install-linux.md
+      - Install on macOS: macos-install.md
+      - Install on Windows: windows-install.md
+  - Guides:
+      - Overview: how-to/index.md
+      - Change the hotkey: how-to/change-hotkey.md
+      - Personal vocabulary: how-to/personal-vocabulary.md
+      - Macros & snippets: how-to/macros-and-snippets.md
+      - Remote dictation: how-to/remote-dictation.md
+      - Performance tuning: how-to/performance-tuning.md
+      - Glance-Type (look to pane): how-to/gaze-look-to-pane.md
+      - Transcribe recordings: tutorials/transcribe-recordings.md
+  - Reference:
+      - Features: features.md
+      - v2 features (preview): v2-features.md
+      - CLI reference: cli-reference.md
+      - Command index: command-index.md
+      - Configuration: configuration.md
+      - Tray icon & overlay: tray-and-overlay.md
+      - Privacy statement: privacy-statement.md
+  - Architecture:
+      - Overview: architecture.md
+      - Diagrams: diagrams/index.md
+  - Troubleshooting: troubleshooting.md
+  - Roadmap: roadmap.md
+  - Releases: releases/index.md

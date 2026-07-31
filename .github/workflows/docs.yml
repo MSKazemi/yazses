@@ -1,0 +1,73 @@
+name: Docs
+
+# Builds the MkDocs + Material documentation site and deploys it to GitHub Pages.
+#
+# One-time setup in the repo: Settings → Pages → "Build and deployment" →
+# Source = "GitHub Actions" (switches away from the old Jekyll branch build).
+#
+# After that, this runs automatically on any push to main that touches the docs,
+# and can also be launched by hand from the Actions tab (workflow_dispatch).
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "pyproject.toml"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch:
+
+# Least-privilege token scoped for Pages deployment.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one concurrent deployment; don't cancel an in-progress run.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history so "last updated" dates are accurate
+
+      # Material social cards render via Cairo/Pango + Pillow.
+      - name: Install social-card system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcairo2-dev libfreetype6-dev libffi-dev \
+            libjpeg-dev libpng-dev libz-dev
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          python-version: "3.12"
+
+      - name: Install docs toolchain
+        run: uv sync --group docs --no-install-project
+
+      - name: Build site (strict)
+        run: uv run --group docs mkdocs build --strict
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

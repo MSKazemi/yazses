@@ -6,6 +6,23 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Documentation site — modern MkDocs + Material
+
+- **The documentation site is now built with [MkDocs + Material](https://squidfunk.github.io/mkdocs-material/)**,
+  replacing the previous Jekyll (cayman) theme. It adds instant navigation, full-text search,
+  a light/dark theme toggle, code-copy buttons, Mermaid diagram rendering, tabbed content,
+  grid-card layouts, per-page "last updated" dates, and auto-generated Open Graph / Twitter
+  social preview cards. A redesigned landing page leads with a hero, feature grid, and tabbed
+  install instructions.
+- **Page URLs are unchanged** (`use_directory_urls: false` keeps the `*.html` paths), so every
+  already-indexed link and the existing `robots.txt` → `sitemap.xml` SEO wiring survive the
+  cutover with no redirects. MkDocs now generates the sitemap automatically.
+- The how-to guides, architecture overview, architecture diagrams, roadmap, and troubleshooting
+  pages — previously kept out of the published site — are now **included in the public docs**.
+- Build/serve via the new `docs` dependency group (`uv sync --group docs`; `uv run mkdocs serve`).
+  A `Docs` GitHub Actions workflow builds the site with `--strict` and deploys it to GitHub Pages
+  (Pages source must be switched to "GitHub Actions" once, in repo settings).
+
 ## [2.12.0] - 2026-07-31
 
 First stable **v2** release — the on-device cognitive layer (Meeting Mode, diarized

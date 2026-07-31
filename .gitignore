@@ -16,6 +16,10 @@ build/
 .coverage
 htmlcov/
 
+# MkDocs build output + Material social-card cache
+site/
+.cache/
+
 # Snap build artifacts
 stage/
 prime/
@@ -73,10 +77,9 @@ paper/
 
 # Private-only docs — deliberately not published (were p2p [exclude]).
 # Delete a line here to publish that doc.
-docs/architecture.md
-docs/roadmap.md
-docs/how-to/
-docs/diagrams/
+# architecture.md, roadmap.md, how-to/, diagrams/ are now PUBLISHED on the
+# MkDocs documentation site (see mkdocs.yml) — unblocked here and in the
+# pre-commit hook. The master-reference PDF stays private (heavy binary).
 docs/yazses-complete-reference.pdf
 
 # Retired p2p sync metadata (kept local; project no longer uses p2p)

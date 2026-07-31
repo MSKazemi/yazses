@@ -1,5 +1,4 @@
 ---
-layout: default
 title: Tray icon states & voice-activity overlay — YazSes
 description: What the YazSes top-bar “Y” tray icon colours mean, and the sonar voice-activity overlay that shows YazSes is listening while you hold to talk.
 ---

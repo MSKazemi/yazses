@@ -1,0 +1,60 @@
+%% YazSes — subsystem architecture (Mermaid).
+%% Renders on GitHub in a ```mermaid code block, or with the Mermaid CLI/Live Editor.
+%% Source of truth for the same diagram shipped as ASCII (.txt) and HTML (.html).
+flowchart TB
+  classDef ui fill:#e8f0fe,stroke:#4285f4,color:#1a2b4a;
+  classDef core fill:#fff7e6,stroke:#f5a623,color:#4a3b1a;
+  classDef stage fill:#ffffff,stroke:#8a8a8a,color:#222;
+  classDef store fill:#eafaf1,stroke:#27ae60,color:#14532d;
+  classDef opt fill:#f3e8ff,stroke:#8e44ad,color:#3b1a4a,stroke-dasharray: 4 3;
+  classDef out fill:#fdecea,stroke:#e74c3c,color:#4a1a14;
+
+  subgraph UI["User-facing control"]
+    direction LR
+    CLI["yazses CLI<br/>(44 cmds · 6 panels)"]:::ui
+    TRAY["yazses-tray<br/>(macOS/Windows)"]:::ui
+  end
+
+  UI -->|"JSON-RPC 2.0 · newline-delimited<br/>Unix socket / Windows named pipe"| IPC[["IPC server (ipc/)"]]:::core
+  IPC --> DAEMON
+
+  subgraph DAEMON["yazses-daemon — orchestrator (core/daemon.py)"]
+    direction TB
+    HK["1 · Hotkey backend<br/>keyboard hook OR EMG (USB serial)"]:::stage
+    AUD["2 · Audio<br/>recorder → VAD (calibrated) → pre-speech padding"]:::stage
+    STT["3 · STT<br/>faster-whisper (CPU int8) · streaming · disfluency filter"]:::stage
+    PP["4 · Post-process<br/>cleaner · voice-punctuation · continuation spacing · LLM cleanup"]:::stage
+    CMD["5 · Commands<br/>Tier1 regex grammar · Tier2 SLM router · LSP context"]:::stage
+    DIS{"6 · dispatch()"}:::core
+    HK --> AUD --> STT --> PP --> CMD --> DIS
+  end
+
+  CFG[("config.toml<br/>config.py — every section")]:::store
+  FEAT[("Feature registry<br/>system/features.py — 135 capabilities")]:::store
+  CFG -. reads .-> DAEMON
+  FEAT -. drives .-> CLI
+
+  DIS -->|dictate| INJ["Injector (inject/)<br/>auto → ydotool / xdotool / wtype / clipboard"]:::out
+  DIS -->|command| KEYS["Key sequence<br/>ctrl+z, ctrl+s, arrows, …"]:::out
+  INJ --> APP["Focused application (local)"]:::out
+  KEYS --> APP
+  INJ -. "SSH reverse tunnel (remote/)" .-> AGENT["yazses-agent<br/>(remote host)"]:::out
+
+  subgraph PLAT["Platform abstraction — Protocol interfaces (platform/base.py)"]
+    direction LR
+    LNX["linux"]:::stage
+    MAC["macos"]:::stage
+    WIN["windows"]:::stage
+    EMG["emg (USB/BLE)"]:::stage
+  end
+  PLAT -. "implements Hotkey/Injector/Lifecycle/IPC/Permissions/Tray" .-> DAEMON
+
+  subgraph OPT["Opt-in subsystems — OFF by default, deps behind extras"]
+    direction LR
+    LEARN["Learning loop (learning/)<br/>crypto · encrypted store · analysis · yazses tune"]:::opt
+    V2["v2 cognitive layer<br/>voiceprint · gaze · personalize · polyglot · cocktail"]:::opt
+    RECIMP["Recording import (recimport/)<br/>yazses transcribe · diarization"]:::opt
+  end
+  DAEMON -. optional .-> LEARN
+  DAEMON -. optional .-> V2
+  CLI -. optional .-> RECIMP

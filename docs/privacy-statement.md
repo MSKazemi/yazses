@@ -1,5 +1,4 @@
 ---
-layout: default
 title: Privacy Statement
 description: What YazSes does and does not do with your voice, text, and data. Offline by design — nothing leaves your machine unless you explicitly turn on the SSH remote path.
 ---

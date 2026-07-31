@@ -1,0 +1,65 @@
+YazSes — Subsystem Architecture (ASCII)
+=======================================
+Same diagram as yazses-architecture.mmd (Mermaid) and .html (browser). Plain
+ASCII so it renders in any terminal, code review, or the master reference PDF.
+
+                        ┌───────────────────────────────────────┐
+   USER-FACING CONTROL  │   yazses CLI            yazses-tray     │
+                        │   (44 cmds, 6 panels)   (macOS/Windows) │
+                        └───────────────────┬───────────────────┘
+                                            │  JSON-RPC 2.0 (newline-delimited)
+                                            │  Unix socket / Windows named pipe
+                                            ▼
+                                   ┌──────────────────┐
+                                   │  IPC server      │  (ipc/)
+                                   └────────┬─────────┘
+                                            ▼
+ ┌──────────────────────────────────────────────────────────────────────────────┐
+ │  yazses-daemon — orchestrator (core/daemon.py)                                 │
+ │                                                                                │
+ │   [1] HOTKEY        keyboard hook  OR  EMG muscle-sensor (USB serial / BLE)    │
+ │        │                                                                       │
+ │        ▼                                                                       │
+ │   [2] AUDIO         recorder ──► VAD gate (calibrated) ──► pre-speech padding  │
+ │        │                                                                       │
+ │        ▼                                                                       │
+ │   [3] STT           faster-whisper (CPU int8) · streaming decode ·             │
+ │        │            disfluency filter        ◄── initial_prompt (vocab/LSP)    │
+ │        ▼                                                                       │
+ │   [4] POST-PROCESS  cleaner · voice-punctuation · continuation spacing ·       │
+ │        │            optional offline LLM cleanup                               │
+ │        ▼                                                                       │
+ │   [5] COMMANDS      Tier-1 regex grammar ─► (low conf) ─► Tier-2 SLM router    │
+ │        │            LSP context provider                                       │
+ │        ▼                                                                       │
+ │   [6] dispatch() ───────────────┬───────────────────────────┐                 │
+ │        │ dictate                │ command                                     │
+ └────────┼────────────────────────┼──────────────────────────────────────────────┘
+          ▼                        ▼
+ ┌──────────────────────┐   ┌────────────────────┐
+ │ INJECTOR (inject/)   │   │ KEY SEQUENCE       │   ctrl+z · ctrl+s · arrows …
+ │ auto → ydotool /     │   └─────────┬──────────┘
+ │ xdotool / wtype /    │             │
+ │ clipboard            │             ▼
+ └───────┬──────────┬───┘   ┌────────────────────────────┐
+         │          │       │  Focused application (local)│
+         │          └──────►│                            │
+         │  SSH reverse      └────────────────────────────┘
+         │  tunnel (remote/)
+         ▼
+ ┌────────────────────────┐
+ │ yazses-agent           │   text-only injection on a remote host
+ │ (remote host)          │   (audio never leaves the local machine)
+ └────────────────────────┘
+
+ ── Cross-cutting ────────────────────────────────────────────────────────────────
+ CONFIG        config.toml / config.py  ── every section has defaults ──► daemon
+ FEATURES      system/features.py — 135 capabilities (9 categories) ──► CLI
+ PLATFORM      platform/base.py Protocols  →  linux · macos · windows · emg
+               (HotkeyBackend · InjectorBackend · LifecycleBackend ·
+                IpcServer/Client · PermissionsBackend · TrayBackend)
+
+ ── Opt-in subsystems (OFF by default; heavy deps behind install extras) ──────────
+ LEARNING      learning/  — crypto · encrypted SQLite corpus · analysis · `yazses tune`
+ v2 COGNITIVE  voiceprint · gaze · personalize · polyglot · cocktail
+ REC IMPORT    recimport/ — `yazses transcribe <file>` · speaker diarization

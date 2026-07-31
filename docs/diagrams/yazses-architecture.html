@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YazSes — Subsystem Architecture</title>
+<style>
+  :root{
+    --ink:#1f2733; --muted:#5b6675; --line:#c7cdd6;
+    --ui:#e8f0fe; --ui-b:#4285f4; --core:#fff7e6; --core-b:#f5a623;
+    --store:#eafaf1; --store-b:#27ae60; --opt:#f4e9ff; --opt-b:#8e44ad;
+    --out:#fdecea; --out-b:#e74c3c; --stage:#ffffff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:28px;font:15px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+       color:var(--ink);background:#f6f7f9}
+  h1{font-size:22px;margin:0 0 2px}
+  .sub{color:var(--muted);margin:0 0 22px;font-size:13.5px}
+  .wrap{max-width:1080px;margin:0 auto}
+  .col{display:flex;flex-direction:column;align-items:center;gap:0}
+  .box{border:1.5px solid var(--line);border-radius:10px;background:#fff;padding:12px 16px;
+       width:100%;max-width:760px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .box b{display:block;font-size:14.5px}
+  .box small{color:var(--muted);font-size:12.5px}
+  .row{display:flex;gap:14px;width:100%;max-width:760px;justify-content:center;flex-wrap:wrap}
+  .row .box{flex:1 1 0;min-width:200px}
+  .arrow{color:var(--muted);font-size:20px;line-height:1;margin:6px 0}
+  .lbl{color:var(--muted);font-size:12px;text-align:center;margin:2px 0}
+  .ui{background:var(--ui);border-color:var(--ui-b)}
+  .core{background:var(--core);border-color:var(--core-b)}
+  .store{background:var(--store);border-color:var(--store-b)}
+  .opt{background:var(--opt);border-color:var(--opt-b);border-style:dashed}
+  .out{background:var(--out);border-color:var(--out-b)}
+  .daemon{border:2px solid var(--core-b);border-radius:14px;background:#fffdf7;padding:14px;
+          width:100%;max-width:820px;margin:4px 0}
+  .daemon>.dh{font-weight:700;text-align:center;margin-bottom:10px;color:#7a5a12}
+  .stage{background:var(--stage)}
+  .stage .n{display:inline-block;min-width:20px;font-weight:700;color:var(--core-b)}
+  .split{display:flex;gap:14px;width:100%;max-width:760px;justify-content:center;flex-wrap:wrap;margin-top:2px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%;max-width:820px;margin-top:26px}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:26px;font-size:12.5px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .sw{width:14px;height:14px;border-radius:3px;border:1.5px solid}
+  .cap{text-align:center;color:var(--muted);font-size:12px;margin-top:24px}
+  @media(max-width:620px){.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>YazSes — Subsystem Architecture</h1>
+  <p class="sub">Local, offline hold-to-talk voice dictation. Same diagram as
+     <code>yazses-architecture.mmd</code> (Mermaid) and <code>.txt</code> (ASCII).</p>
+
+  <div class="col">
+    <div class="row">
+      <div class="box ui"><b>yazses CLI</b><small>44 commands · 6 help panels</small></div>
+      <div class="box ui"><b>yazses-tray</b><small>menu-bar UI (macOS / Windows)</small></div>
+    </div>
+    <div class="lbl">JSON-RPC 2.0 · newline-delimited · Unix socket / Windows named pipe</div>
+    <div class="arrow">▼</div>
+    <div class="box core" style="max-width:340px;text-align:center"><b>IPC server</b><small>ipc/</small></div>
+    <div class="arrow">▼</div>
+
+    <div class="daemon">
+      <div class="dh">yazses-daemon — orchestrator (core/daemon.py)</div>
+      <div class="col" style="gap:0">
+        <div class="box stage"><b><span class="n">1</span> Hotkey backend</b><small>keyboard hook OR EMG muscle-sensor (USB serial / BLE)</small></div>
+        <div class="arrow">▼</div>
+        <div class="box stage"><b><span class="n">2</span> Audio</b><small>recorder → VAD gate (calibrated) → pre-speech padding</small></div>
+        <div class="arrow">▼</div>
+        <div class="box stage"><b><span class="n">3</span> STT</b><small>faster-whisper (CPU int8) · streaming · disfluency filter · initial_prompt bias</small></div>
+        <div class="arrow">▼</div>
+        <div class="box stage"><b><span class="n">4</span> Post-process</b><small>cleaner · voice-punctuation · continuation spacing · optional LLM cleanup</small></div>
+        <div class="arrow">▼</div>
+        <div class="box stage"><b><span class="n">5</span> Commands</b><small>Tier-1 regex grammar → Tier-2 SLM router (low confidence) · LSP context</small></div>
+        <div class="arrow">▼</div>
+        <div class="box core" style="text-align:center"><b>6 · dispatch()</b></div>
+      </div>
+    </div>
+
+    <div class="split">
+      <div class="col" style="flex:1;min-width:220px">
+        <div class="lbl">dictate</div>
+        <div class="box out"><b>Injector</b><small>auto → ydotool / xdotool / wtype / clipboard</small></div>
+      </div>
+      <div class="col" style="flex:1;min-width:220px">
+        <div class="lbl">command</div>
+        <div class="box out"><b>Key sequence</b><small>ctrl+z · ctrl+s · arrows · …</small></div>
+      </div>
+    </div>
+    <div class="arrow">▼</div>
+    <div class="box out" style="max-width:420px;text-align:center"><b>Focused application (local)</b></div>
+    <div class="lbl">— or — SSH reverse tunnel (remote/), text only, audio stays local</div>
+    <div class="box out" style="max-width:420px;text-align:center"><b>yazses-agent</b><small>remote host</small></div>
+  </div>
+
+  <div class="grid2">
+    <div class="box store"><b>Configuration</b><small>config.toml / config.py — every section has defaults; v2 features default off</small></div>
+    <div class="box store"><b>Feature registry</b><small>system/features.py — 135 capabilities across 9 categories</small></div>
+    <div class="box"><b>Platform abstraction</b><small>platform/base.py Protocols → linux · macos · windows · emg (Hotkey / Injector / Lifecycle / IPC / Permissions / Tray)</small></div>
+    <div class="box opt"><b>Opt-in subsystems (OFF by default)</b><small>Learning loop (encrypted corpus · <code>yazses tune</code>) · v2 cognitive layer (voiceprint · gaze · personalize · polyglot · cocktail) · Recording import (<code>yazses transcribe</code> · diarization)</small></div>
+  </div>
+
+  <div class="legend">
+    <span><i class="sw" style="background:var(--ui);border-color:var(--ui-b)"></i>User-facing</span>
+    <span><i class="sw" style="background:var(--core);border-color:var(--core-b)"></i>Orchestrator / core</span>
+    <span><i class="sw" style="background:var(--out);border-color:var(--out-b)"></i>Output / injection</span>
+    <span><i class="sw" style="background:var(--store);border-color:var(--store-b)"></i>Config / registry</span>
+    <span><i class="sw" style="background:var(--opt);border-color:var(--opt-b)"></i>Opt-in (off by default)</span>
+  </div>
+
+  <p class="cap">Everything runs on-device. Nothing leaves the machine except the optional SSH remote path (final text only).</p>
+</div>
+</body>
+</html>

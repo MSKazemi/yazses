@@ -1,7 +1,8 @@
 ---
-layout: default
 title: YazSes — offline voice dictation for Linux, macOS & Windows
 description: Hold a key, speak, release — your words are transcribed on-device with faster-whisper and typed into any focused app. No cloud, no API key, no subscription.
+hide:
+  - navigation
 ---
 
 <script type="application/ld+json">
@@ -45,27 +46,105 @@ description: Hold a key, speak, release — your words are transcribed on-device
 }
 </script>
 
+<div class="yz-hero" markdown>
+
 # YazSes
 
-**Hold a key → speak → release.** YazSes is an open-source, **offline** voice‑dictation daemon for **Linux, macOS, and Windows**. It transcribes your speech locally with [faster-whisper](https://github.com/SYSTRAN/faster-whisper) and types the result into whatever window has focus — plus voice commands and macros. **No cloud. No API key. No subscription. Nothing leaves your machine.**
+Offline, on-device voice dictation for **Linux, macOS & Windows**.
+Hold a key, speak, release — your words are transcribed locally with
+[faster-whisper](https://github.com/SYSTRAN/faster-whisper) and typed into any
+focused app. **No cloud. No API key. No subscription. Nothing leaves your machine.**
+{ .yz-hero__tagline }
 
-[Get it on PyPI](https://pypi.org/project/yazses/){: .btn }
-[Source on GitHub](https://github.com/MSKazemi/yazses){: .btn }
+[Get started :material-rocket-launch:](install-linux.md){ .md-button .md-button--primary }
+[Install from PyPI :simple-pypi:](https://pypi.org/project/yazses/){ .md-button }
+[Star on GitHub :material-star:](https://github.com/MSKazemi/yazses){ .md-button }
+
+<div class="yz-chips">
+  <span>hold</span><span>→ speak</span><span>→ release</span><span>→ text appears</span>
+</div>
+
+</div>
 
 ![yazses doctor — all green, fully offline](screenshots/yazses-doctor.png)
 
+## Why YazSes
+
+<div class="grid cards" markdown>
+
+-   :material-shield-lock:{ .lg .middle } **100% offline & private**
+
+    ---
+
+    Speech is transcribed on-device with CPU faster-whisper (int8). No GPU,
+    no network, no account. Nothing you say ever leaves the machine.
+
+    [:octicons-arrow-right-24: Privacy statement](privacy-statement.md)
+
+-   :material-keyboard:{ .lg .middle } **Types into any app**
+
+    ---
+
+    Hold the hotkey, speak, release — the text lands in whatever window has
+    focus: editor, browser, terminal, chat. Works on X11 and Wayland.
+
+    [:octicons-arrow-right-24: Install on Linux](install-linux.md)
+
+-   :material-console:{ .lg .middle } **Voice commands & macros**
+
+    ---
+
+    A regex grammar (plus an optional ~0.5B SLM router) maps *"undo that"*,
+    *"save file"*, *"go to line 42"* to real key sequences.
+
+    [:octicons-arrow-right-24: Command index](command-index.md)
+
+-   :material-file-music:{ .lg .middle } **Transcribe recordings**
+
+    ---
+
+    `yazses transcribe meeting.m4a` turns any audio/video file into text —
+    offline, with `--diarize` speaker labels and subtitle export.
+
+    [:octicons-arrow-right-24: Transcription guide](tutorials/transcribe-recordings.md)
+
+-   :material-human-cane:{ .lg .middle } **Built for accessibility**
+
+    ---
+
+    VAD calibration, mic-level tuning, dysfluency-friendly mode, and an
+    EMG muscle-sensor trigger for fully hands-free use.
+
+    [:octicons-arrow-right-24: Features](features.md)
+
+-   :material-tune:{ .lg .middle } **Self-improving, on your terms**
+
+    ---
+
+    An opt-in, encrypted, on-device learning corpus lets `yazses tune`
+    propose accuracy fixes from your own corrections.
+
+    [:octicons-arrow-right-24: Performance tuning](how-to/performance-tuning.md)
+
+</div>
+
 ## Install
 
-```sh
-# Any OS with Python ≥ 3.11
-pipx install yazses
+=== ":material-language-python: Any OS (Python ≥ 3.11)"
 
-# Linux (Debian/Ubuntu)
-bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)
-```
+    ```sh
+    pipx install yazses
+    ```
 
-> **Not the snap.** The strict-confinement snap can't read the keyboard, so
-> hold-to-talk never fires — use the APT script or `pipx` above.
+=== ":material-debian: Linux (Debian/Ubuntu)"
+
+    ```sh
+    bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)
+    ```
+
+!!! warning "Not the snap"
+    The strict-confinement snap can't read the keyboard, so hold-to-talk never
+    fires — use the APT script or `pipx` above.
 
 **Linux only — provision the system in one command** (the `install-apt.sh` / APT path does it automatically):
 
@@ -89,7 +168,7 @@ Hold the hotkey (Space on Linux, Right Option on macOS, Right Ctrl on Windows), 
 ## What it does
 
 - **Offline dictation** — type into any focused app with on-device faster-whisper (CPU, int8). No GPU needed.
-- **Transcribe recordings** — `yazses transcribe meeting.m4a` turns any audio/video file into text, fully offline. Add `--diarize` to tag who said what and `--format srt` for subtitles. See the [transcription guide](https://github.com/MSKazemi/yazses/blob/main/docs/tutorials/transcribe-recordings.md).
+- **Transcribe recordings** — `yazses transcribe meeting.m4a` turns any audio/video file into text, fully offline. Add `--diarize` to tag who said what and `--format srt` for subtitles. See the [transcription guide](tutorials/transcribe-recordings.md).
 - **Voice commands** — a regex grammar (plus an optional ~0.5B SLM router) maps phrases to editor/terminal key sequences: *"undo that"*, *"save file"*, *"go to line 42"*, *"run the tests"*, *"rename this to user_id"*.
 - **Macros & personal vocabulary** — define multi-step commands and teach YazSes your mis-heard words.
 - **Dysfluency-Friendly Mode** — opt-in collapse of stutters/repeats for stuttered or dysarthric speech.
@@ -108,19 +187,20 @@ Hold hotkey → record audio → VAD gate → faster-whisper (CPU)
               optional Tier 2 SLM router) → dictate? type it · command? send keys
 ```
 
-Two at-a-glance signals show you what YazSes is doing: a top-bar **“Y” tray icon** whose colour is a live state indicator (🔵 idle · 🟢 dictating · 🟡 no text target → clipboard · 🟣 command mode · 🔴 problem) and an optional **sonar overlay** that pulses near your cursor while it's listening. See [Tray icon & overlay](tray-and-overlay.md) for what each colour means.
+Two at-a-glance signals show you what YazSes is doing: a top-bar **"Y" tray icon** whose colour is a live state indicator (🔵 idle · 🟢 dictating · 🟡 no text target → clipboard · 🟣 command mode · 🔴 problem) and an optional **sonar overlay** that pulses near your cursor while it's listening. See [Tray icon & overlay](tray-and-overlay.md) for what each colour means.
 
 ## Documentation
 
-- [Install on Linux](https://github.com/MSKazemi/yazses/blob/main/docs/install-linux.md)
-- [Install on macOS](https://github.com/MSKazemi/yazses/blob/main/docs/macos-install.md)
-- [Install on Windows](https://github.com/MSKazemi/yazses/blob/main/docs/windows-install.md)
-- [CLI reference](https://github.com/MSKazemi/yazses/blob/main/docs/cli-reference.md)
-- [Tray icon & voice-activity overlay](https://github.com/MSKazemi/yazses/blob/main/docs/tray-and-overlay.md)
-- [Troubleshooting](https://github.com/MSKazemi/yazses/blob/main/docs/troubleshooting.md)
-- [Transcribe recordings (tutorial)](https://github.com/MSKazemi/yazses/blob/main/docs/tutorials/transcribe-recordings.md)
-- [v2 features (preview)](https://github.com/MSKazemi/yazses/blob/main/docs/v2-features.md)
-- [Privacy statement](https://github.com/MSKazemi/yazses/blob/main/docs/privacy-statement.md)
+<div class="grid cards" markdown>
+
+- :material-book-open-variant: **[Install on Linux](install-linux.md)** · [macOS](macos-install.md) · [Windows](windows-install.md)
+- :material-console-line: **[CLI reference](cli-reference.md)** — every command and flag
+- :material-cog: **[Configuration](configuration.md)** — every `config.toml` section
+- :material-star-four-points: **[Features](features.md)** & **[v2 preview](v2-features.md)**
+- :material-sitemap: **[Architecture](architecture.md)** & **[diagrams](diagrams/index.md)**
+- :material-lifebuoy: **[Troubleshooting](troubleshooting.md)** & **[roadmap](roadmap.md)**
+
+</div>
 
 ## FAQ
 

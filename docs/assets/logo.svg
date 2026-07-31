@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" role="img" aria-label="YazSes logo">
+  <!-- White mark for the coloured header bar. A "Y" over a listening sound-wave. -->
+  <path d="M13 12 L24 26 L35 12" stroke="#ffffff" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M24 26 L24 34" stroke="#ffffff" stroke-width="4.4" stroke-linecap="round"/>
+  <g stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" opacity="0.92">
+    <path d="M8 38 L8 40"/>
+    <path d="M14 35 L14 43"/>
+    <path d="M20 37 L20 41"/>
+    <path d="M28 37 L28 41"/>
+    <path d="M34 35 L34 43"/>
+    <path d="M40 38 L40 40"/>
+  </g>
+</svg>

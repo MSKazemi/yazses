@@ -175,6 +175,16 @@ dev = [
     "pytest-cov>=7.1.0",
     "useful-moonshine-onnx>=20251121",
 ]
+# Documentation site (MkDocs + Material). Build-only; never shipped in the wheel.
+# `uv sync --group docs` then `uv run mkdocs serve`. Deployed to GitHub Pages by
+# .github/workflows/docs.yml. The `[imaging]` extra enables Material social cards
+# (needs libcairo at build time — present on CI via apt).
+docs = [
+    "mkdocs-material[imaging]>=9.6.14",
+    "mkdocs-minify-plugin>=0.8.0",
+    "mkdocs-git-revision-date-localized-plugin>=1.4.5",
+    "mkdocs-glightbox>=0.4.0",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -14,14 +14,14 @@ YazSes ships **139 capabilities**. All but the core are **off by default** — t
 ## Contents
 
 - [Core dictation](#core-dictation) (19)
-- [Accuracy & correction](#accuracy--correction) (20)
-- [Formatting & structure](#formatting--structure) (31)
-- [Editing & navigation](#editing--navigation) (13)
-- [Commands & automation](#commands--automation) (12)
+- [Accuracy & correction](#accuracy-correction) (20)
+- [Formatting & structure](#formatting-structure) (31)
+- [Editing & navigation](#editing-navigation) (13)
+- [Commands & automation](#commands-automation) (12)
 - [Multilingual](#multilingual) (7)
-- [Accessibility & input modalities](#accessibility--input-modalities) (20)
-- [Learning, memory & analytics](#learning-memory--analytics) (9)
-- [Conversation & recording capture](#conversation--recording-capture) (8)
+- [Accessibility & input modalities](#accessibility-input-modalities) (20)
+- [Learning, memory & analytics](#learning-memory-analytics) (9)
+- [Conversation & recording capture](#conversation-recording-capture) (8)
 
 ## Core dictation
 
