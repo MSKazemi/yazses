@@ -73,6 +73,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/MSKazemi/yazses"
+Documentation = "https://mskazemi.github.io/yazses/"
 Repository = "https://github.com/MSKazemi/yazses"
 "Bug Tracker" = "https://github.com/MSKazemi/yazses/issues"
 

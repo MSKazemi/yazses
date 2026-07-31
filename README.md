@@ -5,10 +5,15 @@
 [![Downloads](https://static.pepy.tech/badge/yazses)](https://pepy.tech/project/yazses)
 [![PyPI Downloads](https://img.shields.io/pypi/dm/yazses)](https://pypi.org/project/yazses/)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Documentation](https://img.shields.io/badge/docs-mskazemi.github.io%2Fyazses-5e35b1)](https://mskazemi.github.io/yazses/)
+
+[![Get it from the Snap Store](https://snapcraft.io/en/light/install.svg)](https://snapcraft.io/yazses)
 
 **Hold a key → speak → release.** On-device voice dictation that types into any app, plus voice commands and macros — entirely offline. No cloud. No API key. No subscription.
 
 YazSes is an open-source, offline voice-dictation daemon for Linux, macOS, and Windows. It transcribes your speech locally with [faster-whisper](https://github.com/SYSTRAN/faster-whisper) and types the result into whatever window has focus. Use it when you want hands-free dictation and editor/terminal voice commands without sending audio to Google, Apple, or Microsoft. Unlike cloud dictation such as Wispr Flow, YazSes runs entirely on-device; unlike Talon Voice, it aims at plug-and-play dictation rather than advanced scripting. YazSes is **not** recommended if you need a conversational AI agent, non-English models out of the box, or a mobile/web app.
+
+📖 **Full documentation: [mskazemi.github.io/yazses](https://mskazemi.github.io/yazses/)** — install guides, CLI reference, configuration, features, and troubleshooting.
 
 ![yazses doctor — all green, fully offline](docs/screenshots/yazses-doctor.png)
 
@@ -373,6 +378,10 @@ pipx install yazses
 ---
 
 ## Documentation
+
+**→ Full documentation site: [mskazemi.github.io/yazses](https://mskazemi.github.io/yazses/)** — searchable, with install guides, the complete CLI & configuration reference, feature catalog, architecture, and troubleshooting.
+
+Quick links:
 
 | | |
 |---|---|
