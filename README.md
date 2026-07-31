@@ -419,6 +419,24 @@ cargo build && cargo test --workspace   # optional backends: whisper, moonshine,
 
 ---
 
+## Contributing
+
+Contributions are very welcome — bug reports, docs, packaging, and code.
+
+- 🌱 **New here?** Start with a [good first issue](https://github.com/MSKazemi/yazses/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) — each is small and self-contained, and we're happy to help you through your first PR.
+- 🐞 **Found a bug or have an idea?** Open an [issue](https://github.com/MSKazemi/yazses/issues/new/choose) (the `yazses doctor` output resolves most reports on its own) or ask in [Discussions](https://github.com/MSKazemi/yazses/discussions).
+- 🔧 **Sending a PR?** See [CONTRIBUTING.md](CONTRIBUTING.md). The gates are quick:
+
+```bash
+uv run python -m pytest tests/   # tests
+uv run ruff check src tests      # lint
+uv run mypy src                  # types
+```
+
+Everything is offline-first — please don't add network calls or telemetry.
+
+---
+
 ## Citation
 
 If YazSes is useful in your research or projects, please cite it — see [CITATION.cff](CITATION.cff) for machine-readable metadata (CFF 1.2.0), or:
