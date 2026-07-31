@@ -1,0 +1,21 @@
+# Contributors 💛
+
+YazSes is built by its community. **Everyone who lands a merged PR is added here** — code, docs,
+translations, a mic entry, a showcase, anything. Thank you for making it better.
+
+## Maintainer
+- [@MSKazemi](https://github.com/MSKazemi) — creator & maintainer
+
+## Contributors
+- [@HeaTTap](https://github.com/HeaTTap)
+- [@jackie-cqz](https://github.com/jackie-cqz)
+- [@lntutor](https://github.com/lntutor)
+
+<!-- New contributors: added on merge, alphabetical. Want to be here? See CONTRIBUTING.md and grab a
+     good first issue: https://github.com/MSKazemi/yazses/labels/good%20first%20issue -->
+
+---
+
+*Want to join this list? It's easier than you think — pick a
+[good first issue](https://github.com/MSKazemi/yazses/labels/good%20first%20issue), open a PR, and
+we'll help you through it. We review fast.*
