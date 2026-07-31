@@ -52,6 +52,8 @@ class TrayModel:
     # whether the current burst has a text target (False → yellow "no place to type").
     silent_streak: int = 0
     target_ok: bool | None = None
+    # True while the dedicated command key is held (command mode → purple icon).
+    command_mode: bool = False
 
 
 @dataclass(frozen=True)

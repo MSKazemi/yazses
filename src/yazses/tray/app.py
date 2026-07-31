@@ -75,6 +75,7 @@ def run() -> None:
                         uptime_s=float(info.get("uptime_s", 0.0)),
                         silent_streak=int(info.get("silent_streak") or 0),
                         target_ok=info.get("target_ok"),
+                        command_mode=bool(info.get("command_mode")),
                     )
                 )
                 if str(info.get("state") or "") in _RECORDING_STATES:

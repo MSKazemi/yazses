@@ -48,6 +48,18 @@ def test_menu_marks_os_default_label():
     assert any("(OS default)" in lbl for lbl in labels)
 
 
+def test_icon_spec_command_mode_is_purple():
+    _PURPLE, _GREEN = "#9c27b0", "#34a853"
+    # Holding the command key (command mode) → purple, distinct from green dictation.
+    assert icon_spec({"state": "recording", "command_mode": True})[0] == _PURPLE
+    # Command mode wins over the no-text-target yellow (commands don't type text).
+    assert icon_spec({"state": "recording", "command_mode": True, "target_ok": False})[0] == _PURPLE
+    # Not in command mode → normal dictation green.
+    assert icon_spec({"state": "recording", "command_mode": False})[0] == _GREEN
+    # command_mode only matters while recording (ignored when idle).
+    assert icon_spec({"state": "idle", "command_mode": True})[0] == "#1a73e8"
+
+
 def test_icon_spec_state_colors():
     _GREEN, _YELLOW, _BLUE, _RED = "#34a853", "#fbbc04", "#1a73e8", "#e53935"
     # Recording into a text field → green.

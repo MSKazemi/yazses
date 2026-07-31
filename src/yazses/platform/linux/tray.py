@@ -94,6 +94,7 @@ class LinuxTray:
             "model": model.model,
             "silent_streak": model.silent_streak,
             "target_ok": model.target_ok,
+            "command_mode": model.command_mode,
         }
         with self._lock:
             self._latest.update(status)

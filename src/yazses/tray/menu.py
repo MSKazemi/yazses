@@ -17,6 +17,7 @@ from yazses.audio.devices import InputDevice, resolve_input_device
 # glance at the top bar says recording vs ready vs needs-attention.
 _GREEN = "#34a853"      # recording — holding the key and speaking (into a text field)
 _YELLOW = "#fbbc04"     # recording but NO text field focused (would type nowhere)
+_PURPLE = "#9c27b0"     # command mode — holding the command key (a command, not dictation)
 _BLUE = "#1a73e8"       # normal / ready / idle
 _RED = "#e53935"        # problem — error or silent-streak
 # Actively capturing/handling your dictation → green. Everything else that is not a
@@ -89,26 +90,33 @@ def build_menu_model(
 def icon_spec(status: dict) -> tuple[str, str]:
     """Return ``(hex_color, tooltip)`` for the tray icon given a status dict.
 
-    Green while recording into a text field, yellow while recording with NO text field
-    focused (your words would go nowhere — they'll be saved to the clipboard instead),
-    blue for the normal ready/idle state, red for a problem (error or a live silent-streak).
+    Purple while holding the command key (command mode — a command, not dictation),
+    green while dictating into a text field, yellow while dictating with NO text field
+    focused (your words would go nowhere — saved to the clipboard instead), blue for the
+    normal ready/idle state, red for a problem (error or a live silent-streak).
     """
     state = str(status.get("state") or "idle")
     streak = int(status.get("silent_streak") or 0)
     target_ok = status.get("target_ok")
-    if streak or state == "error":
+    command_mode = bool(status.get("command_mode"))
+    if state in _RECORDING_STATES and command_mode:
+        color = _PURPLE  # command mode — holding the command key
+    elif streak or state == "error":
         color = _RED  # problem
     elif state in _RECORDING_STATES:
-        # Recording: green normally, yellow when we're confident there's no text target.
+        # Dictation: green normally, yellow when we're confident there's no text target.
         color = _YELLOW if target_ok is False else _GREEN
     else:
         color = _BLUE  # normal / ready / idle
 
     mic = status.get("input_device") or "default"
     hotkey = status.get("hotkey") or "?"
-    tooltip = f"YazSes — {state}\nMic: {mic}\nHold {hotkey} to dictate"
+    label = "command mode" if (state in _RECORDING_STATES and command_mode) else state
+    tooltip = f"YazSes — {label}\nMic: {mic}\nHold {hotkey} to dictate"
+    if state in _RECORDING_STATES and command_mode:
+        tooltip += "\n⌘ command mode — parsing a command, not typing"
     if streak:
         tooltip += f"\n⚠ {streak} silent clip(s) in a row"
-    if state in _RECORDING_STATES and target_ok is False:
+    if state in _RECORDING_STATES and not command_mode and target_ok is False:
         tooltip += "\n⚠ no text field focused — will save to clipboard"
     return color, tooltip

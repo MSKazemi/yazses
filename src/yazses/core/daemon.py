@@ -2110,6 +2110,8 @@ class Daemon:
                 "silent_streak": self._state.silent_streak,
                 # "No text target" guard: True/False/None for the current burst (drives yellow).
                 "target_ok": self._state.target_ok,
+                # Command mode: True while the dedicated command key is held (drives purple).
+                "command_mode": self._command_mode,
                 # Confidence Ink (ADR-v2-001): feature state + last-burst count.
                 "confidence_enabled": self._config.confidence.enabled,
                 "low_confidence_last": self._last_low_confidence_words,
