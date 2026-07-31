@@ -108,12 +108,15 @@ Hold hotkey → record audio → VAD gate → faster-whisper (CPU)
               optional Tier 2 SLM router) → dictate? type it · command? send keys
 ```
 
+Two at-a-glance signals show you what YazSes is doing: a top-bar **“Y” tray icon** whose colour is a live state indicator (🔵 idle · 🟢 dictating · 🟡 no text target → clipboard · 🟣 command mode · 🔴 problem) and an optional **sonar overlay** that pulses near your cursor while it's listening. See [Tray icon & overlay](tray-and-overlay.md) for what each colour means.
+
 ## Documentation
 
 - [Install on Linux](https://github.com/MSKazemi/yazses/blob/main/docs/install-linux.md)
 - [Install on macOS](https://github.com/MSKazemi/yazses/blob/main/docs/macos-install.md)
 - [Install on Windows](https://github.com/MSKazemi/yazses/blob/main/docs/windows-install.md)
 - [CLI reference](https://github.com/MSKazemi/yazses/blob/main/docs/cli-reference.md)
+- [Tray icon & voice-activity overlay](https://github.com/MSKazemi/yazses/blob/main/docs/tray-and-overlay.md)
 - [Troubleshooting](https://github.com/MSKazemi/yazses/blob/main/docs/troubleshooting.md)
 - [Transcribe recordings (tutorial)](https://github.com/MSKazemi/yazses/blob/main/docs/tutorials/transcribe-recordings.md)
 - [v2 features (preview)](https://github.com/MSKazemi/yazses/blob/main/docs/v2-features.md)
