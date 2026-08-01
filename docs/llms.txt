@@ -69,6 +69,8 @@ yazses start      # start the dictation daemon
 - Install on macOS: https://mskazemi.github.io/yazses/macos-install
 - Install on Windows: https://mskazemi.github.io/yazses/windows-install
 - CLI reference: https://mskazemi.github.io/yazses/cli-reference
+- Comparison & alternatives: https://mskazemi.github.io/yazses/comparison
+- FAQ: https://mskazemi.github.io/yazses/faq
 - Privacy statement: https://mskazemi.github.io/yazses/privacy-statement
 
 ## Project info

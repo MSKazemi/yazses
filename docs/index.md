@@ -204,6 +204,8 @@ Two at-a-glance signals show you what YazSes is doing: a top-bar **"Y" tray icon
 - :material-console-line: **[CLI reference](cli-reference.md)** — every command and flag
 - :material-cog: **[Configuration](configuration.md)** — every `config.toml` section
 - :material-star-four-points: **[Features](features.md)** & **[v2 preview](v2-features.md)**
+- :material-scale-balance: **[Comparison & alternatives](comparison.md)** — vs Talon, Dragon, Wispr Flow
+- :material-frequently-asked-questions: **[FAQ](faq.md)** — common questions answered
 - :material-sitemap: **[Architecture](architecture.md)** & **[diagrams](diagrams/index.md)**
 - :material-lifebuoy: **[Troubleshooting](troubleshooting.md)** & **[roadmap](roadmap.md)**
 
@@ -218,6 +220,8 @@ Two at-a-glance signals show you what YazSes is doing: a top-bar **"Y" tray icon
 **Does it work on Wayland?** Yes via the APT or pipx install (uses wtype/ydotool). Use one of those, not the snap — strict confinement stops the snap from reading the keyboard, so the hold-to-talk hotkey never fires.
 
 **Is it a replacement for Talon?** YazSes focuses on offline dictation plus a practical command grammar. Talon has far more advanced scripting. They can coexist.
+
+More answers in the **[full FAQ](faq.md)**, and a side-by-side in **[Comparison & alternatives](comparison.md)**.
 
 ---
 

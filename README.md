@@ -237,6 +237,8 @@ Choose **YazSes** when you specifically want dictation *and* voice commands that
 
 **Is it an AI agent?** No. YazSes dictates text and runs editor/terminal voice commands; it does not browse, reason over your files, or hold a conversation. (An agentic version was prototyped in the archived Rust branch but is not shipped.)
 
+More in the **[full FAQ](https://mskazemi.github.io/yazses/faq.html)** and a side-by-side in **[Comparison & alternatives](https://mskazemi.github.io/yazses/comparison.html)** (YazSes vs Talon, Dragon, Wispr Flow, nerd-dictation…).
+
 ---
 
 ## CLI commands
