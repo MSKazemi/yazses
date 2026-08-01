@@ -36,6 +36,9 @@ not_in_nav: |
 theme:
   name: material
   language: en
+  # Local template overrides (overrides/main.html injects search-console
+  # verification tags from the extra.* fields below).
+  custom_dir: overrides
   logo: assets/logo.svg
   favicon: assets/favicon.svg
   icon:
@@ -84,6 +87,11 @@ theme:
 
 extra:
   homepage: https://mskazemi.github.io/yazses/
+  # Search-engine ownership verification — paste the token from the provider's
+  # "HTML tag" method here, then push (see overrides/main.html for the flow).
+  # Empty = no tag emitted (build-safe).
+  google_site_verification: ""
+  bing_site_verification: ""
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/MSKazemi/yazses
@@ -195,6 +203,7 @@ nav:
       - Transcribe recordings: tutorials/transcribe-recordings.md
   - Reference:
       - Features: features.md
+      - Comparison & alternatives: comparison.md
       - v2 features (preview): v2-features.md
       - CLI reference: cli-reference.md
       - Command index: command-index.md

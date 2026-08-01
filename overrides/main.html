@@ -1,0 +1,25 @@
+{#-
+  Theme override for the YazSes docs site.
+  Extends MkDocs Material's base to inject search-engine verification tags.
+
+  To verify the site in Google Search Console:
+    1. In GSC add a URL-prefix property for https://mskazemi.github.io/yazses/
+    2. Pick the "HTML tag" method; copy the content="..." token.
+    3. Paste it into mkdocs.yml under:  extra.google_site_verification
+    4. Commit + push — the docs.yml workflow redeploys and the tag goes live.
+       Then click "Verify" in GSC.
+
+  Same pattern for Bing Webmaster Tools via extra.bing_site_verification.
+  Both are conditional, so an empty value simply emits nothing (build-safe).
+-#}
+{% extends "base.html" %}
+
+{% block extrahead %}
+  {{ super() }}
+  {% if config.extra.google_site_verification %}
+  <meta name="google-site-verification" content="{{ config.extra.google_site_verification }}">
+  {% endif %}
+  {% if config.extra.bing_site_verification %}
+  <meta name="msvalidate.01" content="{{ config.extra.bing_site_verification }}">
+  {% endif %}
+{% endblock %}
