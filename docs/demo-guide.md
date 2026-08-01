@@ -17,15 +17,12 @@ Keep the recording short and focused so the resulting GIF is easy to view.
 
 ## Recording Tools
 
-You can use any screen recorder that can capture a selected region or window.
+Choose a recording tool based on your Linux display system:
 
-Some options include:
-
-- **Peek** — a simple GIF recorder for Linux.
-- **wf-recorder** — a screen recorder for Wayland.
-- **gifski** — converts recorded video frames into high-quality GIFs.
-
-Choose whichever tool works best for your operating system and desktop environment.
+- **Peek** — a simple option for recording short demos, commonly used on X11.
+- **wf-recorder** — a screen recorder designed for Wayland.
+- **gifski** — converts recorded video frames into a high-quality, optimized GIF.
+- **ffmpeg** — can also be used to convert a screen recording into GIF format.
 
 ## Recording the Demo
 
