@@ -19,6 +19,11 @@ hide:
       "url": "https://mskazemi.github.io/yazses/",
       "downloadUrl": "https://pypi.org/project/yazses/",
       "codeRepository": "https://github.com/MSKazemi/yazses",
+      "sameAs": [
+        "https://github.com/MSKazemi/yazses",
+        "https://pypi.org/project/yazses/",
+        "https://snapcraft.io/yazses"
+      ],
       "license": "https://www.apache.org/licenses/LICENSE-2.0",
       "isAccessibleForFree": true,
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
@@ -31,7 +36,9 @@ hide:
       ],
       "author": {
         "@type": "Person",
-        "name": "Mohsen Seyedkazemi Ardebili"
+        "name": "Mohsen Seyedkazemi Ardebili",
+        "url": "https://github.com/MSKazemi",
+        "sameAs": [ "https://github.com/MSKazemi" ]
       }
     },
     {

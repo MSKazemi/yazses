@@ -27,7 +27,7 @@ This repo holds **one product** with **two implementations** — not two separat
 | | **Part 1 — Python** · `main` | **Rust HCI exploration** · `archive/rust-hci-v1` |
 |---|---|---|
 | What it is | The shipping app — voice dictation, commands, macros | An early-stage rewrite exploring deeper **human–computer interaction**: an on-device *agent* (LLM tool-use, personal memory, editor awareness) |
-| Status | ✅ **Active — current product** (v1.4.1, installed & maintained) | ⏸️ **Paused / archived** — not shipped, not installable |
+| Status | ✅ **Active — current product** (v2.12.0, installed & maintained) | ⏸️ **Paused / archived** — not shipped, not installable |
 | Hold-to-talk dictation | ✅ | ✅ |
 | Offline STT | ✅ faster-whisper (CPU int8) | ✅ Whisper + Moonshine v2 (~9 ms) |
 | Voice commands | ✅ regex grammar (+ optional SLM router) → key sequences | ✅ via LLM tool-calls |
@@ -325,7 +325,7 @@ pipx upgrade yazses          # upgrade an existing install to the latest release
 pipx install --force yazses  # reinstall the latest (if upgrade reports "already at latest")
 ```
 
-Pin an exact version if you need one: `pipx install yazses==1.4.1`. Check what you have
+Pin an exact version if you need one: `pipx install yazses==2.12.0`. Check what you have
 with `yazses --version` (or `yazses doctor`, which also reports the running daemon).
 
 ### Linux
