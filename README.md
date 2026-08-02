@@ -390,6 +390,7 @@ Quick links:
 | [CLI reference](docs/cli-reference.md) | All commands and flags (incl. macros & vocabulary for custom voice commands) |
 | [Privacy statement](docs/privacy-statement.md) | What stays on-device, what is never collected |
 | [Record your own demo GIF](docs/demo-guide.md) | How to capture a short hold-to-talk demo GIF |
+
 ---
 
 ## Development
