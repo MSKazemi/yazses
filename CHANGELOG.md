@@ -23,6 +23,13 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   A `Docs` GitHub Actions workflow builds the site with `--strict` and deploys it to GitHub Pages
   (Pages source must be switched to "GitHub Actions" once, in repo settings).
 
+### Community & contributor experience
+
+- Added a **contributor recognition wall** to the README (all-contributors table +
+  `.all-contributorsrc`), crediting the four external contributors alongside the maintainer.
+- Merged the community **"record your own demo GIF" guide** (`docs/demo-guide.md`), linked from
+  the README documentation index — a first contribution from a new contributor (closes #5).
+
 ## [2.12.0] - 2026-07-31
 
 First stable **v2** release — the on-device cognitive layer (Meeting Mode, diarized
