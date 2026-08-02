@@ -1,0 +1,50 @@
+{
+  "projectName": "yazses",
+  "projectOwner": "MSKazemi",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "files": ["README.md"],
+  "imageSize": 100,
+  "commit": true,
+  "commitConvention": "angular",
+  "contributorsPerLine": 7,
+  "contributorsSortAlphabetically": false,
+  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-5-orange.svg?style=flat-square)](#contributors)",
+  "contributors": [
+    {
+      "login": "MSKazemi",
+      "name": "Mohsen Seyedkazemi Ardebili",
+      "avatar_url": "https://avatars.githubusercontent.com/u/13011878?v=4",
+      "profile": "https://github.com/MSKazemi",
+      "contributions": ["maintenance", "code", "doc"]
+    },
+    {
+      "login": "lntutor",
+      "name": "lntutor",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1948922?v=4",
+      "profile": "https://github.com/lntutor",
+      "contributions": ["doc"]
+    },
+    {
+      "login": "HeaTTap",
+      "name": "HeaTTap",
+      "avatar_url": "https://avatars.githubusercontent.com/u/83951176?v=4",
+      "profile": "https://github.com/HeaTTap",
+      "contributions": ["code"]
+    },
+    {
+      "login": "jackie-cqz",
+      "name": "jackie-cqz",
+      "avatar_url": "https://avatars.githubusercontent.com/u/88996311?v=4",
+      "profile": "https://github.com/jackie-cqz",
+      "contributions": ["code"]
+    },
+    {
+      "login": "Parinitha-26",
+      "name": "Parinitha-26",
+      "avatar_url": "https://avatars.githubusercontent.com/u/199358281?v=4",
+      "profile": "https://github.com/Parinitha-26",
+      "contributions": ["doc"]
+    }
+  ]
+}
