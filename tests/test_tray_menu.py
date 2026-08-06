@@ -76,10 +76,41 @@ def test_icon_spec_state_colors():
     assert icon_spec({"state": "idle", "target_ok": False})[0] == _BLUE
     assert icon_spec({"state": "loading"})[0] == _BLUE
     assert icon_spec({"state": "paused"})[0] == _BLUE
-    # Problems → red, overriding recording/target.
-    assert icon_spec({"state": "recording", "silent_streak": 2})[0] == _RED
-    assert icon_spec({"state": "recording", "target_ok": False, "silent_streak": 1})[0] == _RED
+    # Problems → red, overriding recording/target. A streak only counts as a problem
+    # once it reaches the daemon's own silent_streak_threshold.
+    assert icon_spec({"state": "recording", "silent_streak": 2,
+                      "silent_streak_threshold": 2})[0] == _RED
+    assert icon_spec({"state": "recording", "target_ok": False, "silent_streak": 1,
+                      "silent_streak_threshold": 1})[0] == _RED
     assert icon_spec({"state": "error"})[0] == _RED
+
+
+def test_icon_spec_tolerates_one_silent_clip():
+    """A single discarded clip is ordinary — a brushed hotkey, or a hold with no speech.
+
+    Regression: the icon went red at the first silent clip and stayed red until the next
+    successful dictation, reporting a working daemon as faulty. The daemon itself only
+    treats a streak as trouble at `[audio] silent_streak_threshold` (default 3).
+    """
+    _BLUE, _RED = "#1a73e8", "#e53935"
+    status = {"state": "idle", "silent_streak": 1, "silent_streak_threshold": 3}
+
+    assert icon_spec(status)[0] == _BLUE
+    assert icon_spec({**status, "silent_streak": 2})[0] == _BLUE
+    assert icon_spec({**status, "silent_streak": 3})[0] == _RED
+
+
+def test_icon_spec_falls_back_to_the_config_default_threshold():
+    """An older daemon omits the key; don't fall back to alarming at one."""
+    _BLUE, _RED = "#1a73e8", "#e53935"
+
+    assert icon_spec({"state": "idle", "silent_streak": 1})[0] == _BLUE
+    assert icon_spec({"state": "idle", "silent_streak": 3})[0] == _RED
+    # A nonsensical threshold must not disable the red state entirely.
+    assert icon_spec({"state": "idle", "silent_streak": 3,
+                      "silent_streak_threshold": 0})[0] == _RED
+    assert icon_spec({"state": "idle", "silent_streak": 3,
+                      "silent_streak_threshold": "oops"})[0] == _RED
 
 
 def test_icon_spec_tooltip_has_mic_and_hotkey():

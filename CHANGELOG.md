@@ -6,6 +6,20 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the tray icon called a working daemon faulty after one silent clip
+
+Red is the icon's "something is wrong" colour, and `icon_spec` reached for it as soon as
+`silent_streak` was non-zero — a single discarded clip, which is ordinary: the hotkey gets
+brushed, or a hold is released before speaking starts. It then stayed red until the next
+successful dictation.
+
+The daemon does not agree that one clip is trouble. It has a setting for precisely this
+judgement, `[audio] silent_streak_threshold` (default 3), and checks it before notifying.
+The daemon now reports that threshold in its status payload and the icon colours on the
+same rule, falling back to the default of 3 when an older daemon omits it. A red badge
+that appears when nothing is wrong is worse than no badge, because it teaches you to
+ignore the real one. (#55)
+
 ### Fixed — the tray icon could freeze on a stale colour after a restart
 
 `yazses restart` takes the IPC socket down for a second or two. The tray's poll thread

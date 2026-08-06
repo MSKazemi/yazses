@@ -2164,6 +2164,10 @@ class Daemon:
                 "input_device": self._state.input_device or self._config.audio.device or None,
                 "last_good_device": self._state.last_good_device,
                 "silent_streak": self._state.silent_streak,
+                # How many consecutive silent clips count as trouble. The tray needs this
+                # to colour the icon on the same rule the daemon notifies on, instead of
+                # calling a single discarded clip a fault.
+                "silent_streak_threshold": self._config.audio.silent_streak_threshold,
                 # "No text target" guard: True/False/None for the current burst (drives yellow).
                 "target_ok": self._state.target_ok,
                 # Command mode: True while the dedicated command key is held (drives purple).

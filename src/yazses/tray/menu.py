@@ -20,6 +20,8 @@ _YELLOW = "#fbbc04"     # recording but NO text field focused (would type nowher
 _PURPLE = "#9c27b0"     # command mode — holding the command key (a command, not dictation)
 _BLUE = "#1a73e8"       # normal / ready / idle
 _RED = "#e53935"        # problem — error or silent-streak
+# Mirrors AudioConfig.silent_streak_threshold; used when status doesn't carry it.
+_DEFAULT_SILENT_STREAK_LIMIT = 3
 # Actively capturing/handling your dictation → green. Everything else that is not a
 # problem → blue (normal). Meeting Mode also captures audio, so it is green too.
 _RECORDING_STATES = frozenset(
@@ -87,6 +89,27 @@ def build_menu_model(
     return TrayMenuModel(header=header, mic_line=mic_line, warning=warning, devices=items)
 
 
+def _silent_streak_limit(status: dict) -> int:
+    """How many consecutive silent clips make the icon red.
+
+    The daemon only treats a silent streak as trouble once it reaches
+    ``[audio] silent_streak_threshold`` (default 3) — one discarded clip is ordinary:
+    the hotkey gets brushed, or a burst is released before speaking. The icon used to
+    go red at the first one, so a single stray press left a red "something is broken"
+    badge over a daemon that was working, until the next successful dictation cleared
+    it. Colour on the daemon's own rule instead.
+
+    Falls back to the config default when the key is absent, so an older daemon still
+    gets sane behaviour rather than the old alarm-at-one.
+    """
+    raw = status.get("silent_streak_threshold")
+    try:
+        limit = int(raw)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return _DEFAULT_SILENT_STREAK_LIMIT
+    return limit if limit > 0 else _DEFAULT_SILENT_STREAK_LIMIT
+
+
 def icon_spec(status: dict) -> tuple[str, str]:
     """Return ``(hex_color, tooltip)`` for the tray icon given a status dict.
 
@@ -101,7 +124,7 @@ def icon_spec(status: dict) -> tuple[str, str]:
     command_mode = bool(status.get("command_mode"))
     if state in _RECORDING_STATES and command_mode:
         color = _PURPLE  # command mode — holding the command key
-    elif streak or state == "error":
+    elif streak >= _silent_streak_limit(status) or state == "error":
         color = _RED  # problem
     elif state in _RECORDING_STATES:
         # Dictation: green normally, yellow when we're confident there's no text target.
