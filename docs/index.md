@@ -207,6 +207,7 @@ Hold the hotkey (Space on Linux, Right Option on macOS, Right Ctrl on Windows), 
 - :material-linux: **[Voice typing on Linux](use-cases/voice-dictation-linux.md)** — dictation that works on X11 *and* Wayland
 - :material-shield-lock: **[Confidential & offline work](use-cases/private-offline-dictation.md)** — clinical, legal, air-gapped
 - :material-code-braces: **[Coding by voice](use-cases/voice-coding.md)** — spoken symbols, identifiers, LaTeX, git
+- :material-microphone-message: **[Control by voice](use-cases/voice-commands.md)** — commands, macros, hands-free actions
 - :material-human-cane: **[Accessibility & RSI](use-cases/accessibility-rsi-hands-free.md)** — hands-free and dysfluency-friendly
 - :material-file-music: **[Transcribe recordings](use-cases/transcribe-audio-offline.md)** — offline, with speaker labels
 - :material-translate: **[More than one language](use-cases/multilingual-dictation.md)** — non-English and code-switching

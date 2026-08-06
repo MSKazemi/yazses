@@ -42,6 +42,15 @@ falls short.
 
     [:octicons-arrow-right-24: Voice coding](voice-coding.md)
 
+-   :material-microphone-message:{ .lg .middle } **Controlling the computer**
+
+    ---
+
+    Undo, save, jump to a line, run the tests, or fire a multi-step macro —
+    with the same key that types your words.
+
+    [:octicons-arrow-right-24: Voice commands & macros](voice-commands.md)
+
 -   :material-human-cane:{ .lg .middle } **RSI & hands-free access**
 
     ---
