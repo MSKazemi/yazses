@@ -188,13 +188,24 @@ def meeting_status() -> None:
 
 
 @meeting_app.command("list")
-def meeting_list() -> None:
+def meeting_list(
+    as_json: bool = typer.Option(
+        False,
+        "--json",
+        help="Print meetings as a JSON array (machine-readable; empty list is []).",
+    ),
+) -> None:
     """List stored meetings on this machine (no daemon required)."""
+    import json
+
     from yazses.config import load_config
     from yazses.meeting import store
 
     cfg = load_config(get_platform().paths.config_file)
     meetings = store.list_meetings(cfg.meeting)
+    if as_json:
+        typer.echo(json.dumps(meetings, ensure_ascii=False, default=str))
+        return
     if not meetings:
         typer.echo("No meetings found.")
         return

@@ -788,6 +788,7 @@ yazses meeting start               # begin hands-free capture
 yazses meeting status              # elapsed + live rolling transcript
 yazses meeting stop                # diarize + write the labelled transcript
 yazses meeting list                # see stored meetings
+yazses meeting list --json         # machine-readable array
 yazses meeting relabel <id> --rename speaker_1=Alice --merge speaker_2=speaker_1
 yazses meeting notes <id>          # local-LLM minutes (needs notes_model)
 ```
