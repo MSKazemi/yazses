@@ -24,14 +24,23 @@ YazSes is a hold-to-talk voice daemon that replaces cloud dictation tools. When 
 
 ## Compared to alternatives
 
-| Tool | Offline | Voice commands | Linux | Free |
-|---|---|---|---|---|
-| YazSes | yes | yes (grammar + optional SLM) | yes | yes |
-| Dragon NaturallySpeaking | yes | yes | no | no |
-| Talon Voice | yes | yes (advanced scripting) | yes | freemium |
-| Google Dictation | no | no | yes | yes |
-| Apple Dictation | partial | limited | no | yes |
-| Whisper + scripts | yes | no | yes | yes |
+| Tool | Offline | Voice commands | Linux | macOS/Windows | Free | Open source |
+|---|---|---|---|---|---|---|
+| YazSes | yes | yes (grammar + optional SLM) | yes (X11 & Wayland) | yes | yes | yes (Apache-2.0) |
+| Dragon NaturallySpeaking | yes | yes | no | Windows | no | no |
+| Talon Voice | yes | yes (advanced scripting) | yes | yes | freemium | no |
+| nerd-dictation | yes (VOSK) | via Python config | yes | no | yes | yes (GPLv3) |
+| Vocalinux | yes (whisper.cpp/VOSK) | yes | yes (X11 & Wayland) | no | yes | yes (GPLv3) |
+| Wispr Flow | no (cloud) | limited | no | yes | no | no |
+| Google Dictation | no | no | yes | yes | yes | no |
+| Apple Dictation | partial | limited | no | macOS | yes | no |
+| Whisper + scripts | yes | no | yes | yes | yes | yes |
+
+YazSes's distinguishing combination: it is the only one of these that is **both**
+cross-platform (Linux + macOS + Windows) **and** covers live dictation, offline file
+transcription, and whole-meeting capture with speaker labels from one install.
+nerd-dictation is more minimal; Vocalinux has GPU acceleration; Talon is more powerful
+for voice control; Dragon is more accurate on specialist medical/legal vocabulary.
 
 ## Quick start
 

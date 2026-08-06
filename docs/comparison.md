@@ -1,6 +1,6 @@
 ---
 title: YazSes vs Dragon, Talon, Wispr Flow & nerd-dictation — offline dictation compared
-description: "An honest comparison of offline voice dictation tools for Linux, macOS and Windows: YazSes vs Dragon NaturallySpeaking, Talon Voice, Wispr Flow, nerd-dictation, Google and Apple dictation — which runs offline, which does voice commands, which is free."
+description: "An honest comparison of offline voice dictation tools for Linux, macOS and Windows: YazSes vs Dragon NaturallySpeaking, Talon Voice, nerd-dictation, Vocalinux, Wispr Flow, Google and Apple dictation — which runs offline, which does voice commands, which supports Wayland, and which is free."
 ---
 
 # YazSes vs. other dictation tools
@@ -15,15 +15,17 @@ wins.
 
 ## At a glance
 
-| Tool | Runs offline | Voice commands | Linux | Cost | Open source |
-|---|---|---|---|---|---|
-| **YazSes** | **Yes** (on-device faster-whisper) | **Yes** (regex grammar + optional SLM router) | **Yes** (X11 & Wayland) | **Free** | **Yes (Apache-2.0)** |
-| Dragon (Nuance) | Yes | Yes | No | Paid (commercial) | No |
-| Talon Voice | Yes | Yes (advanced scripting) | Yes | Freemium | No (free tier + paid beta) |
-| Wispr Flow | No (cloud) | Limited | No | Subscription | No |
-| Google Voice Typing | No (cloud) | No | Via browser | Free | No |
-| Apple Dictation | Partial | Limited | No | Free | No |
-| Whisper + DIY scripts | Yes | No (you build it) | Yes | Free | Yes |
+| Tool | Runs offline | Voice commands | Linux | macOS / Windows | Cost | Open source |
+|---|---|---|---|---|---|---|
+| **YazSes** | **Yes** (on-device faster-whisper) | **Yes** (regex grammar + optional SLM router) | **Yes** (X11 & Wayland) | **Yes** | **Free** | **Yes (Apache-2.0)** |
+| Dragon (Nuance) | Yes | Yes | No | Windows | Paid (commercial) | No |
+| Talon Voice | Yes | Yes (advanced scripting) | Yes | Yes | Freemium | No (free tier + paid beta) |
+| nerd-dictation | Yes (VOSK) | Via Python config | Yes | No | Free | Yes (GPLv3) |
+| Vocalinux | Yes (whisper.cpp / Whisper / VOSK) | Yes (text manipulation) | Yes (X11 & Wayland) | No | Free | Yes (GPLv3) |
+| Wispr Flow | No (cloud) | Limited | No | Yes | Subscription | No |
+| Google Voice Typing | No (cloud) | No | Via browser | Yes | Free | No |
+| Apple Dictation | Partial | Limited | No | macOS only | Free | No |
+| Whisper + DIY scripts | Yes | No (you build it) | Yes | Yes | Free | Yes |
 
 > **Looking for meeting notes rather than dictation?** YazSes also records whole
 > meetings and transcribes existing recordings offline. That is a different
@@ -53,28 +55,100 @@ wins.
 
 ## When another tool is the better choice
 
+### YazSes vs Dragon NaturallySpeaking
+
 **Choose Dragon** if you need best-in-class accuracy for professional
 medical/legal dictation on Windows and a commercial license is acceptable. Dragon
-is a mature, paid, Windows-focused product; YazSes is free, open-source, and
-Linux-first.
+is a mature, paid, Windows-focused product with specialist vocabularies YazSes
+does not ship.
 
-**Choose Talon Voice** if your priority is deep, scriptable *voice coding* —
-Talon has a powerful scripting ecosystem (Python configs, community grammars, eye
-tracking). YazSes aims to be simpler and dictation-first with commands as a
-built-in extra, not a scripting platform.
+**Choose YazSes** if you are on Linux or macOS (Dragon is Windows-only), if a
+per-seat commercial licence is a blocker, or if you want the source to be
+auditable. On accuracy for general prose the gap is much smaller than it used to
+be; on specialist terminology it is not.
 
-**Choose Wispr Flow** if you want polished, cloud-based AI formatting/rewriting
-and don't need offline operation or Linux support. YazSes is the opposite
-trade-off: everything stays local, nothing is sent to a server.
+### YazSes vs Talon Voice
 
-**Use Google or Apple Dictation** if built-in OS dictation is enough and you're
-comfortable with cloud (Google) or a walled ecosystem (Apple). YazSes exists for
-people who specifically want offline, cross-platform, scriptable dictation.
+**Choose Talon** if your priority is deep, scriptable *voice coding*. Talon has a
+powerful scripting ecosystem — Python configs, a large community grammar library,
+eye tracking — and for people who drive their whole desktop by voice it remains
+the most capable option.
 
-**Use Whisper + your own scripts** if you enjoy building and maintaining the glue
-yourself. YazSes *is* that glue, productized: hotkey capture, VAD, padding,
-command grammar, injection into any app, learning loop, and packaging — already
-wired and tested.
+**Choose YazSes** if you want dictation that works out of the box without
+learning a scripting system, want it fully open-source (Apache-2.0), or want file
+transcription and meeting capture from the same install. The two coexist happily;
+they are aimed at different points on the effort/power curve.
+
+### YazSes vs nerd-dictation
+
+[nerd-dictation](https://github.com/ideasman42/nerd-dictation) is a single Python
+file using the VOSK API, GPLv3, with famously small models and no background
+process — dictation is started and stopped with explicit begin/end commands, and
+you customise output by writing Python string operations.
+
+**Choose nerd-dictation** if you want maximum minimalism and hackability, the
+lowest possible resource footprint, or you like configuring behaviour in code.
+
+**Choose YazSes** if you want a hold-to-talk key instead of begin/end commands,
+Whisper-class accuracy rather than VOSK, macOS/Windows support (nerd-dictation is
+Linux-only), or the packaged extras — voice commands, macros, personal
+vocabulary, file transcription, meeting capture.
+
+### YazSes vs Vocalinux
+
+[Vocalinux](https://github.com/jatinkrmalik/vocalinux) is GPLv3, supports
+whisper.cpp / Whisper / VOSK, runs on X11 and Wayland, has voice commands for
+text manipulation, and — notably — offers **Vulkan GPU acceleration** across AMD,
+Intel and NVIDIA.
+
+**Choose Vocalinux** if you have a capable GPU and want to use it, or you want to
+pick between three recognition engines.
+
+**Choose YazSes** if you need macOS or Windows too (Vocalinux is Linux-only), if
+you want the same install to also transcribe recordings and capture meetings with
+speaker labels, or if you need the accessibility-oriented pieces —
+dysfluency-friendly mode, EMG triggering, VAD calibration — and the opt-in
+on-device learning loop.
+
+YazSes deliberately targets **CPU int8** rather than GPU, so it runs on modest
+hardware; if you have the GPU, a whisper.cpp-based tool will transcribe faster.
+
+### YazSes vs Wispr Flow
+
+**Choose Wispr Flow** if you want polished, cloud-based AI formatting and
+rewriting and do not need offline operation or Linux support.
+
+**Choose YazSes** if the audio must not leave the machine, if you are on Linux,
+or if you do not want a subscription. This is the clearest trade-off on the page:
+cloud polish versus local privacy.
+
+### YazSes vs Google / Apple / Windows built-in dictation
+
+**Use the built-in** if it is already good enough and you are comfortable with
+cloud processing (Google), a walled ecosystem (Apple), or Windows-only
+(Windows Speech Recognition). They cost nothing and need no setup.
+
+**Choose YazSes** if you want the same dictation behaviour across all three
+operating systems, need it to work with no network, or want voice commands that
+the built-ins largely do not offer. Note that Linux has no comparable built-in at
+all — that gap is the reason this project exists.
+
+### YazSes vs Whisper + your own scripts
+
+**Roll your own** if you enjoy building and maintaining the glue.
+
+**Choose YazSes** if you would rather not: it *is* that glue, productized and
+tested — hotkey capture across multiple keyboards, VAD calibration, pre-speech
+padding, command grammar, text injection that works on X11 *and* Wayland *and* in
+terminals, a no-text-target guard, mic-change auto-healing, and packaging for
+APT/Snap/PyPI.
+
+### Others in this space
+
+[Whispering](https://github.com/epicenter-so/epicenter), OpenWhispr, Handy and
+VOXD are also active open-source offline dictation projects, mostly built on
+whisper.cpp. They are worth a look if the tools above do not fit — this page is a
+comparison, not a claim that YazSes wins every case.
 
 ## Common questions
 
@@ -99,6 +173,23 @@ audio; see [Offline meeting notes](meeting-notes-offline.md).
 **Can I transcribe an existing recording offline?** Yes —
 `yazses transcribe interview.m4a` converts any audio or video file to txt, md,
 srt, vtt, or json, with `--diarize` for who-said-what speaker tags.
+
+**What is the best open-source dictation tool for Linux?** It depends on what you
+weight. nerd-dictation is the most minimal, Vocalinux has GPU acceleration, Talon
+is the most powerful for voice *control*, and YazSes is the one that is
+cross-platform and covers dictation, file transcription and meeting capture from a
+single install. All four are free and run offline; the sections above lay out the
+trade-offs honestly.
+
+**Does YazSes work on Wayland?** Yes. It probes the session at runtime and injects
+text through `ydotool` or `wtype` on Wayland and `xdotool` on X11. This is the
+part that most Linux dictation tools struggle with — see
+[voice dictation on Linux](use-cases/voice-dictation-linux.md).
+
+**Is there an alternative to Dragon NaturallySpeaking for Linux?** Dragon does not
+run on Linux at all. The closest open-source options are YazSes, Talon Voice,
+Vocalinux and nerd-dictation. For general prose dictation the accuracy gap to
+Dragon is modest; for specialist medical or legal vocabularies it is not.
 
 ## Honest limitations
 
