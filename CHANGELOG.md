@@ -6,6 +6,24 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the tray icon could freeze on a stale colour after a restart
+
+`yazses restart` takes the IPC socket down for a second or two. The tray's poll thread
+computed its boot deadline once at start and never reset it, so that deadline — meant
+only as a "did the daemon we spawned ever come up?" grace period — also governed every
+later outage. Any tray running longer than 30 seconds, which is every tray in normal
+use, exited its poll thread on the first blip and never repainted again.
+
+The colour it froze on was usually red: a daemon closing the socket mid-call surfaces as
+an RPC error, which paints red, and the poll that would have cleared it never happened.
+Nor could a restart heal it — the frozen tray still held `tray.lock`, so each replacement
+tray exited as a duplicate. A healthy daemon could sit behind a red icon indefinitely.
+
+Giving up now applies only to a daemon that has never answered. After a successful call
+the loop always survives an outage: blue while a restart is plausibly in flight, red once
+past a short grace period, so a genuinely dead daemon is still reported honestly. The
+decision is a pure `unreachable_decision()` with unit tests. (#54)
+
 ### Documentation — diagnosing a config mistake that produces an unrelated error
 
 A quoted number in `config.toml` (`vad_threshold = "0.004"` instead of `0.004`) loads
