@@ -250,6 +250,8 @@ Enroll a meeting speaker as a named voiceprint so they're auto-named next time.
 
 List stored meetings on this machine (no daemon required).
 
+- `--json` — Print meetings as a JSON array (machine-readable; empty list is []).
+
 ### `yazses meeting notes`
 
 Generate meeting minutes (summary, decisions, action items) from the transcript.
