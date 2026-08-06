@@ -109,8 +109,12 @@ _add(r'^new\s+class\s+(?:called?\s+)?(.+)$', IntentType.EDIT, "new_class", ["nam
 _add(r'^new\s+file\s+(?:called?\s+)?(.+)$', IntentType.EDIT, "new_file", ["name"])
 
 
+class _MacroHit(Protocol):
+    trigger: str
+
+
 class _MacroTable(Protocol):
-    def match(self, text: str) -> object | None: ...
+    def match(self, text: str) -> _MacroHit | None: ...
 
 
 class _SlmRouter(Protocol):
