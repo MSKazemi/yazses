@@ -6,6 +6,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the docs site was telling search engines the wrong canonical domain
+
+`mskazemi.github.io/yazses/` now **301-redirects to `mskazemi.com/yazses/`** and serves no
+content at any path, but the site was still built as if github.io were its home. Every
+indexable signal therefore pointed at a URL that only redirects: all 82 `sitemap.xml`
+entries, the `Sitemap:` directive in `robots.txt`, every `rel=canonical`, `og:url`, the
+homepage JSON-LD `url`, and the documentation links in the README, `llms.txt`,
+`pyproject.toml`, `CITATION.cff` and the issue-template config.
+
+Repointed `site_url` and all 34 references to `https://mskazemi.com/yazses/`.
+
+!!! note "Owner action still required"
+    The Google Search Console and Bing Webmaster properties are registered against
+    `https://mskazemi.github.io/yazses/`, which now returns only redirects. A property for
+    `mskazemi.com` is needed for indexing coverage to be reported at all.
+
 ### Documentation — pages that answer the questions people actually search
 
 Every page on the docs site was brand-navigational ("Features", "CLI reference",

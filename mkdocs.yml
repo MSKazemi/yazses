@@ -4,7 +4,7 @@
 # Deploy: handled by .github/workflows/docs.yml (GitHub Pages).
 
 site_name: YazSes
-site_url: https://mskazemi.github.io/yazses/
+site_url: https://mskazemi.com/yazses/
 site_author: Mohsen Seyedkazemi Ardebili
 site_description: >-
   Offline, on-device hold-to-talk voice dictation for Linux, macOS & Windows.
@@ -86,7 +86,7 @@ theme:
     - announce.dismiss
 
 extra:
-  homepage: https://mskazemi.github.io/yazses/
+  homepage: https://mskazemi.com/yazses/
   # Search-engine ownership verification — paste the token from the provider's
   # "HTML tag" method here, then push (see overrides/main.html for the flow).
   # Empty = no tag emitted (build-safe).

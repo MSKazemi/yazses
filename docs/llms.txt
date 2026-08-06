@@ -65,25 +65,25 @@ yazses start      # start the dictation daemon
 
 ## Use cases
 
-- Voice dictation on Linux (X11 and Wayland): https://mskazemi.github.io/yazses/use-cases/voice-dictation-linux
-- Private/confidential dictation with no cloud (clinical, legal, air-gapped): https://mskazemi.github.io/yazses/use-cases/private-offline-dictation
-- Coding by voice (spoken symbols, cased identifiers, LaTeX, git): https://mskazemi.github.io/yazses/use-cases/voice-coding
-- Accessibility, RSI and hands-free use (incl. dysfluency-friendly mode): https://mskazemi.github.io/yazses/use-cases/accessibility-rsi-hands-free
-- Transcribing recordings offline with speaker labels: https://mskazemi.github.io/yazses/use-cases/transcribe-audio-offline
-- Multilingual dictation and code-switching: https://mskazemi.github.io/yazses/use-cases/multilingual-dictation
-- Dictation over SSH into a remote server: https://mskazemi.github.io/yazses/how-to/remote-dictation
-- Offline meeting transcription and minutes: https://mskazemi.github.io/yazses/meeting-notes-offline
+- Voice dictation on Linux (X11 and Wayland): https://mskazemi.com/yazses/use-cases/voice-dictation-linux
+- Private/confidential dictation with no cloud (clinical, legal, air-gapped): https://mskazemi.com/yazses/use-cases/private-offline-dictation
+- Coding by voice (spoken symbols, cased identifiers, LaTeX, git): https://mskazemi.com/yazses/use-cases/voice-coding
+- Accessibility, RSI and hands-free use (incl. dysfluency-friendly mode): https://mskazemi.com/yazses/use-cases/accessibility-rsi-hands-free
+- Transcribing recordings offline with speaker labels: https://mskazemi.com/yazses/use-cases/transcribe-audio-offline
+- Multilingual dictation and code-switching: https://mskazemi.com/yazses/use-cases/multilingual-dictation
+- Dictation over SSH into a remote server: https://mskazemi.com/yazses/how-to/remote-dictation
+- Offline meeting transcription and minutes: https://mskazemi.com/yazses/meeting-notes-offline
 
 ## Documentation
 
-- Use cases overview: https://mskazemi.github.io/yazses/use-cases/
-- Install on Linux: https://mskazemi.github.io/yazses/install-linux
-- Install on macOS: https://mskazemi.github.io/yazses/macos-install
-- Install on Windows: https://mskazemi.github.io/yazses/windows-install
-- CLI reference: https://mskazemi.github.io/yazses/cli-reference
-- Comparison & alternatives: https://mskazemi.github.io/yazses/comparison
-- FAQ: https://mskazemi.github.io/yazses/faq
-- Privacy statement: https://mskazemi.github.io/yazses/privacy-statement
+- Use cases overview: https://mskazemi.com/yazses/use-cases/
+- Install on Linux: https://mskazemi.com/yazses/install-linux
+- Install on macOS: https://mskazemi.com/yazses/macos-install
+- Install on Windows: https://mskazemi.com/yazses/windows-install
+- CLI reference: https://mskazemi.com/yazses/cli-reference
+- Comparison & alternatives: https://mskazemi.com/yazses/comparison
+- FAQ: https://mskazemi.com/yazses/faq
+- Privacy statement: https://mskazemi.com/yazses/privacy-statement
 
 ## Citation
 

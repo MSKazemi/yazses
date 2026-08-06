@@ -34,4 +34,4 @@ Allow: /
 User-agent: Applebot-Extended
 Allow: /
 
-Sitemap: https://mskazemi.github.io/yazses/sitemap.xml
+Sitemap: https://mskazemi.com/yazses/sitemap.xml

@@ -5,7 +5,7 @@
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/yazses?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/yazses)
 [![PyPI Downloads](https://img.shields.io/pypi/dm/yazses)](https://pypi.org/project/yazses/)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Documentation](https://img.shields.io/badge/docs-mskazemi.github.io%2Fyazses-5e35b1)](https://mskazemi.github.io/yazses/)
+[![Documentation](https://img.shields.io/badge/docs-mskazemi.com%2Fyazses-5e35b1)](https://mskazemi.com/yazses/)
 [![Open Source Helpers](https://www.codetriage.com/mskazemi/yazses/badges/users.svg)](https://www.codetriage.com/mskazemi/yazses)
 
 [![Get it from the Snap Store](https://snapcraft.io/en/light/install.svg)](https://snapcraft.io/yazses)
@@ -14,7 +14,7 @@
 
 YazSes is an open-source, offline speech daemon for Linux, macOS, and Windows, built on [faster-whisper](https://github.com/SYSTRAN/faster-whisper). Use it when audio must not be sent to Google, Apple, Microsoft, or Otter — because the meeting is confidential, the machine is air-gapped, or you simply don't want a subscription. Unlike cloud dictation such as Wispr Flow, YazSes runs entirely on-device; unlike Talon Voice, it aims at plug-and-play use rather than advanced scripting. YazSes is **not** recommended if you need a conversational AI agent, non-English models out of the box, or a mobile/web app.
 
-📖 **Full documentation: [mskazemi.github.io/yazses](https://mskazemi.github.io/yazses/)** — install guides, CLI reference, configuration, features, and troubleshooting.
+📖 **Full documentation: [mskazemi.com/yazses](https://mskazemi.com/yazses/)** — install guides, CLI reference, configuration, features, and troubleshooting.
 
 ![yazses doctor — all green, fully offline](docs/screenshots/yazses-doctor.png)
 
@@ -186,12 +186,12 @@ Everything runs on your CPU — no GPU, no network. Transcription uses **faster-
 - **Offline / air-gapped environments** — dictation on machines with no reliable internet or where external network calls are disallowed.
 
 **In depth, with setup steps for each:**
-[voice typing on Linux (X11 & Wayland)](https://mskazemi.github.io/yazses/use-cases/voice-dictation-linux) ·
-[private & confidential work](https://mskazemi.github.io/yazses/use-cases/private-offline-dictation) ·
-[coding by voice](https://mskazemi.github.io/yazses/use-cases/voice-coding) ·
-[accessibility & RSI](https://mskazemi.github.io/yazses/use-cases/accessibility-rsi-hands-free) ·
-[transcribing recordings](https://mskazemi.github.io/yazses/use-cases/transcribe-audio-offline) ·
-[multilingual dictation](https://mskazemi.github.io/yazses/use-cases/multilingual-dictation)
+[voice typing on Linux (X11 & Wayland)](https://mskazemi.com/yazses/use-cases/voice-dictation-linux) ·
+[private & confidential work](https://mskazemi.com/yazses/use-cases/private-offline-dictation) ·
+[coding by voice](https://mskazemi.com/yazses/use-cases/voice-coding) ·
+[accessibility & RSI](https://mskazemi.com/yazses/use-cases/accessibility-rsi-hands-free) ·
+[transcribing recordings](https://mskazemi.com/yazses/use-cases/transcribe-audio-offline) ·
+[multilingual dictation](https://mskazemi.com/yazses/use-cases/multilingual-dictation)
 
 ---
 
@@ -245,7 +245,7 @@ Choose **YazSes** when you specifically want dictation *and* voice commands that
 
 **Is it an AI agent?** No. YazSes dictates text and runs editor/terminal voice commands; it does not browse, reason over your files, or hold a conversation. (An agentic version was prototyped in the archived Rust branch but is not shipped.)
 
-More in the **[full FAQ](https://mskazemi.github.io/yazses/faq.html)** and a side-by-side in **[Comparison & alternatives](https://mskazemi.github.io/yazses/comparison.html)** (YazSes vs Talon, Dragon, Wispr Flow, nerd-dictation…).
+More in the **[full FAQ](https://mskazemi.com/yazses/faq.html)** and a side-by-side in **[Comparison & alternatives](https://mskazemi.com/yazses/comparison.html)** (YazSes vs Talon, Dragon, Wispr Flow, nerd-dictation…).
 
 ---
 
@@ -386,7 +386,7 @@ pipx install yazses
 
 ## Documentation
 
-**→ Full documentation site: [mskazemi.github.io/yazses](https://mskazemi.github.io/yazses/)** — searchable, with install guides, the complete CLI & configuration reference, feature catalog, architecture, and troubleshooting.
+**→ Full documentation site: [mskazemi.com/yazses](https://mskazemi.com/yazses/)** — searchable, with install guides, the complete CLI & configuration reference, feature catalog, architecture, and troubleshooting.
 
 Quick links:
 

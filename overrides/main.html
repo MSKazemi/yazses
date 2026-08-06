@@ -3,7 +3,9 @@
   Extends MkDocs Material's base to inject search-engine verification tags.
 
   To verify the site in Google Search Console:
-    1. In GSC add a URL-prefix property for https://mskazemi.github.io/yazses/
+    1. In GSC add a URL-prefix property for https://mskazemi.com/yazses/
+       (NOT mskazemi.github.io — that host now 301-redirects to the custom
+        domain and serves no content, so a property on it sees only redirects.)
     2. Pick the "HTML tag" method; copy the content="..." token.
     3. Paste it into mkdocs.yml under:  extra.google_site_verification
     4. Commit + push — the docs.yml workflow redeploys and the tag goes live.

@@ -16,7 +16,7 @@ hide:
       "applicationSubCategory": "Voice dictation / speech-to-text",
       "operatingSystem": "Linux, macOS, Windows",
       "description": "Offline, on-device hold-to-talk voice dictation for Linux, macOS and Windows. Hold a key, speak, release — speech is transcribed locally with faster-whisper and typed into any focused app, plus voice commands and macros. No cloud, no API key, no subscription.",
-      "url": "https://mskazemi.github.io/yazses/",
+      "url": "https://mskazemi.com/yazses/",
       "downloadUrl": "https://pypi.org/project/yazses/",
       "codeRepository": "https://github.com/MSKazemi/yazses",
       "sameAs": [
