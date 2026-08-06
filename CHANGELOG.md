@@ -6,6 +6,20 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Documentation — diagnosing a config mistake that produces an unrelated error
+
+A quoted number in `config.toml` (`vad_threshold = "0.004"` instead of `0.004`) loads
+without complaint and then makes every dictation burst fail with a numpy `TypeError` that
+names neither the file nor the key. Troubleshooting now leads with that failure signature
+and its fix, and the generated configuration reference states that only `str` values take
+quotes. Also documented: reading the daemon's startup banner as the record of which
+settings are actually in effect, and diffing it against the rotated log to find what
+changed — plus the two settings (`[streaming] enabled`, `[accessibility] vad_threshold`)
+that alter how dictation behaves without ever raising an error.
+
+The underlying defects are tracked in #52 (the config reader never type-checks) and #53
+(the config writer quotes by default, turning numbers into strings).
+
 ## [2.12.1] - 2026-08-06
 
 A bug-fix release. Four defects in the "enabled but doing nothing" class: a leaked
