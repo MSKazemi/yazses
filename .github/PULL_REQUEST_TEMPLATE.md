@@ -16,11 +16,23 @@
 - [ ] Refactor / internal
 - [ ] Build / CI / packaging
 
+## How I tested it
+
+<!-- Commands you ran and the platform you ran them on. For behaviour changes, say how you
+     verified it live, not just that tests pass. -->
+
+```sh
+uv run python -m pytest tests/ -v
+uv run ruff check src tests
+uv run mypy
+```
+
 ## Checklist
 
 - [ ] Tests added or updated, and `uv run python -m pytest tests/ -v` passes locally
 - [ ] Docs updated if behaviour, CLI, or config changed
 - [ ] Change is cross-platform aware (Linux / macOS / Windows) where relevant
+- [ ] The change is offline-first — no new network calls or telemetry
 - [ ] No secrets, credentials, or personal data added
 
 ## Notes for reviewers
