@@ -71,3 +71,11 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          # The action's 10-minute default is the time it waits for the Pages
+          # service itself, not for our build. When Pages is congested a deploy
+          # can sit in `deployment_queued` past that and abort mid
+          # `syncing_files` — the run goes red even though the site built fine,
+          # and the change silently never goes live. Seen on 2026-08-06.
+          timeout: 1200000 # 20 minutes, in milliseconds
+          error_count: 10 # tolerate more transient polling errors before giving up
