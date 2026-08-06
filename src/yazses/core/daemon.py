@@ -136,6 +136,9 @@ class Daemon:
         # spoken commands "dictate verbatim" / "resume formatting". Lazily created on
         # first use when [verbatim] enabled; holds mode across bursts. None = feature off.
         self._verbatim_gate: VerbatimGate | None = None
+        # Features that are switched on but cannot actually run: warned once each, so a
+        # user never sits through a whole session wondering why nothing changed.
+        self._warned_inert: set[str] = set()
         self._injector: InjectorBackend | None = None
         self._engine: FasterWhisperEngine | None = None
         self._recorder: AudioRecorder | None = None
@@ -879,8 +882,14 @@ class Daemon:
             # Speech translation (ADR-v2-014): X→English via Whisper's translate task
             # when [translate] is enabled (whisper backend, target en). None → normal.
             try:
-                from yazses.translate.mode import translation_task
+                from yazses.translate.mode import inactive_reason, translation_task
                 stt_task = translation_task(self._config.translate)
+                # Enabled-but-inert is indistinguishable from "translation isn't
+                # working" unless we say so. Once per process, not per burst.
+                if stt_task is None:
+                    self._warn_feature_inert(
+                        "translate", inactive_reason(self._config.translate)
+                    )
             except Exception:
                 stt_task = None
             t_decode = time.monotonic()
@@ -1660,6 +1669,17 @@ class Daemon:
                 pass  # context priming is best-effort; never break dictation
         # Always prime the coined app name so Whisper spells "YazSes".
         return merge_initial_prompt(base)
+
+    def _warn_feature_inert(self, feature: str, reason: str | None) -> None:
+        """Log once that *feature* is enabled but cannot do anything, and why.
+
+        A no-op when *reason* is None (the feature is working). Best-effort: a
+        diagnostic must never interrupt dictation.
+        """
+        if not reason or feature in self._warned_inert:
+            return
+        self._warned_inert.add(feature)
+        log.warning("[%s] is enabled but inactive: %s.", feature, reason)
 
     def _maybe_cocktail_gate(self, audio: np.ndarray) -> np.ndarray:
         """Drop non-target-speaker frames before STT (Cocktail Filter P1).

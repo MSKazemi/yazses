@@ -6,6 +6,19 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — enabling a translation that cannot run silently transcribed instead
+
+`[translate]` only supports Whisper's X→English task. Selecting the unimplemented
+`seamless` backend, or any non-English `target`, made `translation_task()` return `None` —
+correct behaviour, but the user got their speech transcribed untranslated with nothing in
+the log. Enabling "translate to French" and receiving untranslated French back is
+indistinguishable from translation being broken.
+
+New pure `translate.mode.inactive_reason()` names the specific reason, and the daemon logs
+it **once per process** via a new `_warn_feature_inert` helper (shared, so other
+enabled-but-inert features can report the same way). Behaviour is unchanged — this only
+makes an existing silent degrade audible.
+
 ### Fixed — three backends you could select had never been built, and said so misleadingly
 
 `[denoise] backend = "deepfilternet"`, `[voiceprint] backend = "resemblyzer"` and
