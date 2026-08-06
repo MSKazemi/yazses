@@ -6,6 +6,13 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.12.1] - 2026-08-06
+
+A bug-fix release. Four defects in the "enabled but doing nothing" class: a leaked
+transcription thread that burned CPU indefinitely, and three features that reported
+themselves as working while silently doing nothing (or telling users to install something
+that could not help). Also the documentation and discoverability work since 2.12.0.
+
 ### Fixed — enabling a translation that cannot run silently transcribed instead
 
 `[translate]` only supports Whisper's X→English task. Selecting the unimplemented
