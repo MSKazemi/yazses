@@ -33,8 +33,36 @@ def build_embedder(config) -> SpeakerEmbedder | None:
         return None
     except Exception as exc:
         log.warning(
-            "Voiceprint backend %r unavailable (%s); install the `voiceprint` extra. "
+            "Voiceprint backend %r unavailable: %s. "
             "Voiceprint-dependent features stay dormant.",
-            backend, exc,
+            backend, _unavailable_detail(backend, exc),
         )
         return None
+
+
+def _unavailable_detail(backend: str, exc: Exception) -> str:
+    """Explain *why* a backend failed, without misdirecting the user.
+
+    ``resemblyzer`` has no adapter module in this build, so the old blanket "install
+    the `voiceprint` extra" advice could never work — that extra ships speechbrain
+    only. Route the message through the shared probe so each case is named honestly.
+    """
+    try:
+        from yazses.system.backends import probe_backend
+
+        adapters = {
+            "ecapa": ("yazses.voiceprint.ecapa", ("speechbrain",), "voiceprint"),
+            "resemblyzer": (
+                "yazses.voiceprint.resemblyzer_backend",
+                ("resemblyzer",),
+                None,
+            ),
+        }
+        if backend in adapters:
+            adapter, requires, extra = adapters[backend]
+            return probe_backend(
+                backend, adapter=adapter, requires=requires, extra=extra
+            ).message
+    except Exception:  # pragma: no cover - diagnostics must never mask the real error
+        pass
+    return str(exc)

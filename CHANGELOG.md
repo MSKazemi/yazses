@@ -6,6 +6,40 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — three backends you could select had never been built, and said so misleadingly
+
+`[denoise] backend = "deepfilternet"`, `[voiceprint] backend = "resemblyzer"` and
+`[recimport]/[meeting] backend = "pyannote"` are all selectable, documented options whose
+adapter modules **do not exist in this build**. Each factory caught the resulting
+`ImportError` and told the user to install an extra — advice that can never work: there is
+no `denoise` extra at all, the `voiceprint` extra ships speechbrain only, and `diarization`
+ships sherpa-onnx only.
+
+Worst of the three, **`yazses features enable denoise` reported the feature ON while
+`apply_denoise` silently returned untouched audio** — no log line, no warning, no way to
+tell it apart from denoising that simply wasn't helping.
+
+- New `system/backends.py` (`probe_backend`) separates "the optional dependency is missing"
+  (installing the named extra fixes it) from "the adapter was never shipped" (nothing can),
+  and produces the honest message. Wired into all three factories.
+- Denoise now logs **once per backend** — not once per dictation burst — explaining that
+  audio is passing through unprocessed. This follows the same "never degrade silently" rule
+  as the Meeting Mode diarization-model warning.
+- The `denoise` feature is re-tiered `optional` → `experimental`, so enabling a no-op needs
+  `--force`, and its description says plainly that the backend isn't implemented yet.
+
+Behaviour is otherwise unchanged: every path still degrades to a working fallback and never
+raises into dictation.
+
+### Fixed — the mypy quality gate had no configuration
+
+`CLAUDE.md` names `uv run mypy src` a quality gate, but no `[tool.mypy]` section existed, so
+it ran on bare defaults and buried its real findings under ~35 import errors from optional
+backends that a base install *correctly* omits — errors no contributor could fix. Added a
+documented `[tool.mypy]` config; the gate now reports **100 genuine errors across 25 files**
+(was 135 across 50), making the module-by-module cleanup in issue #47 actually actionable.
+Not yet green — the remaining errors are pre-existing and tracked.
+
 ### Fixed — a discarded dictation burst leaked a Whisper decode loop forever
 
 With `[streaming] enabled`, every hold started `StreamingEngine`'s background decode

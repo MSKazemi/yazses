@@ -222,6 +222,40 @@ ignore = [
 # Re-exports: package __init__ files intentionally import names they do not use.
 "__init__.py" = ["F401"]
 
+# CLAUDE.md names `uv run mypy src` as a quality gate, but the gate had no config, so it
+# ran with bare defaults and buried its real findings under ~35 unfixable import errors:
+# yazses loads every heavy backend lazily behind an optional extra (ADR-011), so on a base
+# install those imports are *correctly* absent and no contributor can "fix" them.
+# The overrides below silence exactly that class, leaving only genuine, actionable type
+# errors — which is what makes "fix mypy errors in one module" a real good first issue.
+# Widening this (disallow_untyped_defs, strict) is deliberately NOT done yet: land the
+# module-by-module cleanup first, then tighten one flag at a time.
+[tool.mypy]
+python_version = "3.11"
+files = ["src"]
+# Optional/lazy backends and platform-specific modules that a base install omits, plus
+# third-party packages that simply ship no type stubs.
+[[tool.mypy.overrides]]
+module = [
+    "bleak.*", "cv2.*", "df.*", "faster_whisper.*", "kokoro_onnx.*", "l2cs.*",
+    "llama_cpp.*", "mediapipe.*", "pyannote.*", "pyatspi.*", "pynvim.*", "pywintypes.*",
+    "resemblyzer.*", "sherpa_onnx.*", "silero_vad.*", "sounddevice.*", "speechbrain.*",
+    "tomli_w.*", "torch.*", "win32file.*", "win32pipe.*", "Xlib.*",
+]
+ignore_missing_imports = true
+
+# In-tree adapters that are referenced by a `backend = ...` config option but were never
+# shipped in this build. The factories import them lazily inside try/except and degrade
+# honestly (see yazses/system/backends.py), so their absence is by design, not drift.
+# Delete an entry here when its adapter actually lands.
+[[tool.mypy.overrides]]
+module = [
+    "yazses.denoise.deepfilter",
+    "yazses.recimport.pyannote_backend",
+    "yazses.voiceprint.resemblyzer_backend",
+]
+ignore_missing_imports = true
+
 [tool.hatch.build.targets.wheel]
 # Include the whole package. `artifacts` un-ignores src/yazses/overlay/ in case a
 # broad `overlay/` VCS-ignore rule (snapcraft's build dir) would otherwise drop it

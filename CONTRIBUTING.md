@@ -25,10 +25,14 @@ uv run mypy src                     # type checking       (advisory — see belo
 need a working microphone, a Whisper model, or the optional extras to contribute: the test
 suite is fully offline and mocks the audio and model layers, and runs in about 15 seconds.
 
-**mypy is advisory.** There are ~135 pre-existing type errors, so a clean run is not
-expected of you. Just don't add new ones to the files you touch. (Chipping away at that
-number, one module per PR, is a genuinely useful contribution — say so in the PR and we'll
-take it.)
+**mypy is advisory.** There are ~100 pre-existing type errors across 25 files, so a clean
+run is not expected of you. Just don't add new ones to the files you touch. (Chipping away
+at that number, one module per PR, is a genuinely useful contribution — say so in the PR
+and we'll take it; see [issue #47](https://github.com/MSKazemi/yazses/issues/47).)
+
+Every remaining error is a *real* one you can actually fix. The `[tool.mypy]` section in
+`pyproject.toml` silences the imports of optional backends that a base install deliberately
+omits — those are absent by design, not bugs, and no PR should try to "fix" them.
 
 Changed a CLI command, flag, or config key? Regenerate the reference docs, or the doc-sync
 test will fail:

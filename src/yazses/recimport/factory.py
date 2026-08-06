@@ -57,8 +57,36 @@ def build_diarizer(config):
         return None
     except Exception as exc:
         log.warning(
-            "Diarization backend %r unavailable (%s); install the `diarization` extra "
-            "and run `yazses transcribe --download-models`. Producing a plain transcript.",
-            backend, exc,
+            "Diarization backend %r unavailable: %s. Producing a plain transcript.",
+            backend, _unavailable_detail(backend, exc),
         )
         return None
+
+
+def _unavailable_detail(backend: str, exc: Exception) -> str:
+    """Explain *why* a diarization backend failed, without misdirecting the user.
+
+    ``pyannote`` has no adapter module in this build, so the old blanket "install the
+    `diarization` extra" advice could never work — that extra ships sherpa-onnx only.
+    Route the message through the shared probe so each case is named honestly.
+    """
+    try:
+        from yazses.system.backends import probe_backend
+
+        adapters = {
+            "sherpa": ("yazses.recimport.diarizer", ("sherpa_onnx",), "diarization"),
+            "pyannote": ("yazses.recimport.pyannote_backend", ("pyannote.audio",), None),
+        }
+        if backend in adapters:
+            adapter, requires, extra = adapters[backend]
+            status = probe_backend(
+                backend, adapter=adapter, requires=requires, extra=extra
+            )
+            if backend == "sherpa" and status.implemented:
+                return (
+                    f"{status.message} and run `yazses transcribe --download-models`"
+                )
+            return status.message
+    except Exception:  # pragma: no cover - diagnostics must never mask the real error
+        pass
+    return str(exc)
