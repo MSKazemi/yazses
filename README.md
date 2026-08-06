@@ -10,9 +10,9 @@
 
 [![Get it from the Snap Store](https://snapcraft.io/en/light/install.svg)](https://snapcraft.io/yazses)
 
-**Hold a key → speak → release.** On-device voice dictation that types into any app, plus voice commands and macros — entirely offline. No cloud. No API key. No subscription.
+**Your voice never leaves your machine.** Dictate into any app, transcribe a recording, or capture a whole meeting with speaker names and minutes — all on your own CPU. No cloud. No API key. No subscription.
 
-YazSes is an open-source, offline voice-dictation daemon for Linux, macOS, and Windows. It transcribes your speech locally with [faster-whisper](https://github.com/SYSTRAN/faster-whisper) and types the result into whatever window has focus. Use it when you want hands-free dictation and editor/terminal voice commands without sending audio to Google, Apple, or Microsoft. Unlike cloud dictation such as Wispr Flow, YazSes runs entirely on-device; unlike Talon Voice, it aims at plug-and-play dictation rather than advanced scripting. YazSes is **not** recommended if you need a conversational AI agent, non-English models out of the box, or a mobile/web app.
+YazSes is an open-source, offline speech daemon for Linux, macOS, and Windows, built on [faster-whisper](https://github.com/SYSTRAN/faster-whisper). Use it when audio must not be sent to Google, Apple, Microsoft, or Otter — because the meeting is confidential, the machine is air-gapped, or you simply don't want a subscription. Unlike cloud dictation such as Wispr Flow, YazSes runs entirely on-device; unlike Talon Voice, it aims at plug-and-play use rather than advanced scripting. YazSes is **not** recommended if you need a conversational AI agent, non-English models out of the box, or a mobile/web app.
 
 📖 **Full documentation: [mskazemi.github.io/yazses](https://mskazemi.github.io/yazses/)** — install guides, CLI reference, configuration, features, and troubleshooting.
 
@@ -20,27 +20,22 @@ YazSes is an open-source, offline voice-dictation daemon for Linux, macOS, and W
 
 ---
 
-## Two versions of YazSes
+## Three things it does
 
-This repo holds **one product** with **two implementations** — not two separate apps, but two generations of the same idea. The one you install and run is **Part 1 (Python)**, on this `main` branch.
-
-| | **Part 1 — Python** · `main` | **Rust HCI exploration** · `archive/rust-hci-v1` |
+| | What you run | What you get |
 |---|---|---|
-| What it is | The shipping app — voice dictation, commands, macros | An early-stage rewrite exploring deeper **human–computer interaction**: an on-device *agent* (LLM tool-use, personal memory, editor awareness) |
-| Status | ✅ **Active — current product** (v2.12.0, installed & maintained) | ⏸️ **Paused / archived** — not shipped, not installable |
-| Hold-to-talk dictation | ✅ | ✅ |
-| Offline STT | ✅ faster-whisper (CPU int8) | ✅ Whisper + Moonshine v2 (~9 ms) |
-| Voice commands | ✅ regex grammar (+ optional SLM router) → key sequences | ✅ via LLM tool-calls |
-| Voice macros · Mid-Thought Undo · Punch-In · Prosody Ink · Ghost Ahead | ✅ | ❌ |
-| Dysfluency-Friendly Mode · learning corpus + `yazses tune` | ✅ | ❌ |
-| Friendly CLI (`-h`, examples, `yazses update`) | ✅ | ❌ |
-| On-device **LLM agent** (OS tools: git commit, media, notes, screenshots…) | ❌ (optional offline text *cleanup* only) | ✅ |
-| **Personal memory** (encrypted on-device vector store) | ❌ | ✅ |
-| Editor context (Neovim / VS Code) | ✅ LSP context, opt-in | ✅ 5-tier window detection + bridges |
-| Screen-reader integration (AT-SPI / NVDA) | ❌ | ✅ |
-| Packaged & distributed (PyPI, snap, APT) | ✅ | ❌ |
+| 🎙️ **Dictate** | Hold a key, speak, release | The text is typed into whatever window has focus — editor, browser, terminal, chat. Plus voice commands (*"undo that"*, *"go to line 42"*) and macros. |
+| 📄 **Transcribe a file** | `yazses transcribe interview.m4a` | A transcript of any audio/video file, optionally tagged **who said what**. Output as txt, md, srt, vtt, or json. |
+| 👥 **Capture a meeting** | `yazses meeting start` … `yazses meeting stop` | Hands-free whole-meeting recording → a **speaker-labelled transcript** and, optionally, **minutes** (summary, decisions, action items) written by a local LLM. |
 
-**Bottom line:** if you want YazSes, use **Part 1** (this branch) — an offline dictation + voice-command daemon. The Rust branch is kept only for reference; nothing on `main` builds, installs, or depends on it. The Rust effort aimed at a more ambitious agentic HCI layer but was left in early stages — revisiting it is a deliberate future decision, not part of day-to-day work here.
+All three run on your CPU with no network access. The meeting recording is deleted after
+transcription unless you ask to keep it, and speaker names come from voiceprints you
+enroll yourself — never from a cloud account.
+
+> **What's optional:** dictation works out of the box. Speaker labels need the
+> diarization extra (`pipx install 'yazses[diarization]'`, ~15 MB of models, downloaded
+> once); meeting minutes additionally need the `notes` extra plus a local GGUF model you
+> point at. Both are off by default — see [offline meeting notes](docs/meeting-notes-offline.md).
 
 ---
 
@@ -168,6 +163,8 @@ Everything runs on your CPU — no GPU, no network. Transcription uses **faster-
 
 - **Fully offline** — no audio, no text, nothing leaves the machine by default; no cloud, API key, or subscription
 - **Hold-to-talk dictation** — type into any focused app on Linux, macOS, or Windows
+- **Meeting Mode** — hands-free whole-meeting capture → speaker-labelled transcript, plus optional local-LLM minutes (summary, decisions, action items); audio is deleted after transcription unless you keep it
+- **Offline file transcription** — `yazses transcribe <file>` turns any audio/video into txt/md/srt/vtt/json, with optional *who-said-what* speaker tags
 - **Voice commands** — editor/terminal actions (undo, save, go-to-line, run tests, rename…) via regex grammar + an optional SLM router
 - **Macros & personal vocabulary** — define multi-step commands and teach YazSes your mis-heard words
 - **Dysfluency-Friendly Mode** — opt-in collapse of stutters/repeats (`b-b-because` → `because`) for stuttered or dysarthric speech
@@ -183,6 +180,8 @@ Everything runs on your CPU — no GPU, no network. Transcription uses **faster-
 - **Writers & journalists** — draft long-form text hands-free without your words leaving the machine.
 - **Developers** — dictate code comments and commit messages, and drive the editor/terminal by voice (undo, save, go-to-line, run tests, rename a symbol).
 - **Privacy-conscious professionals** — dictate in fields like law, medicine, or research where audio must never touch a cloud service.
+- **Teams with confidential meetings** — record and summarise internal, clinical, legal, or pre-publication research meetings without uploading them to a note-taking SaaS or inviting a bot into the call.
+- **Researchers & journalists with recordings** — batch-transcribe interviews, lectures, and field recordings offline, with speaker tags, under your own retention rules.
 - **Accessibility & motor-disability users** — hold-to-talk or EMG (muscle-sensor) triggering for hands-free input, with Dysfluency-Friendly Mode for stuttered or dysarthric speech.
 - **Offline / air-gapped environments** — dictation on machines with no reliable internet or where external network calls are disallowed.
 
@@ -190,7 +189,8 @@ Everything runs on your CPU — no GPU, no network. Transcription uses **faster-
 
 ## Limitations / when *not* to use YazSes
 
-- **Not an LLM agent.** YazSes dictates text and runs editor/terminal commands. It does **not** browse, reason over your files, set timers, or hold a conversation — that was the paused Rust exploration (see *Two versions* above).
+- **Not an LLM agent.** YazSes dictates text, transcribes recordings, and runs editor/terminal commands. It does **not** browse, reason over your files, set timers, or hold a conversation — that was the paused [Rust exploration](#rust-hci-exploration-archived).
+- **Speaker labels and minutes are extras, not defaults.** `--diarize` and meeting minutes each need an opt-in extra (and, for minutes, a local GGUF model you supply). Plain dictation and plain transcription need neither.
 - **CPU faster-whisper, not a cloud service.** For the absolute lowest word-error rate on a noisy mic, a cloud STT may still beat it; the trade-off is that nothing leaves your machine.
 - **English-tuned by default.** It ships with `*.en` Whisper models; other languages need a different model.
 - **Desktop only.** No mobile or web build.
@@ -417,9 +417,27 @@ yazses --version                          # confirm the installed build
 
 ### Rust HCI exploration (archived)
 
-The early-stage Rust rewrite lives on the **`archive/rust-hci-v1`** branch, not on
-`main`. It is not built or installed by anything here — see *Two versions of
-YazSes* above for what it does and doesn't have. To look at it:
+This repo holds **one product** with **two implementations** — two generations of the same
+idea, not two apps. The one you install and run is the **Python** implementation on `main`.
+The early-stage Rust rewrite lives on the **`archive/rust-hci-v1`** branch and is not built,
+installed, or depended on by anything here.
+
+| | **Python** · `main` | **Rust HCI exploration** · `archive/rust-hci-v1` |
+|---|---|---|
+| What it is | The shipping app — dictation, file transcription, Meeting Mode, voice commands, macros | An early-stage rewrite exploring deeper **human–computer interaction**: an on-device *agent* (LLM tool-use, personal memory, editor awareness) |
+| Status | ✅ **Active — current product** (v2.12.0, installed & maintained) | ⏸️ **Paused / archived** — not shipped, not installable |
+| Offline STT | ✅ faster-whisper (CPU int8) | ✅ Whisper + Moonshine v2 (~9 ms) |
+| Voice commands | ✅ regex grammar (+ optional SLM router) → key sequences | ✅ via LLM tool-calls |
+| Voice macros · Mid-Thought Undo · Punch-In · Prosody Ink · Ghost Ahead | ✅ | ❌ |
+| Dysfluency-Friendly Mode · learning corpus + `yazses tune` | ✅ | ❌ |
+| On-device **LLM agent** (OS tools: git commit, media, notes, screenshots…) | ❌ (optional offline text *cleanup* only) | ✅ |
+| **Personal memory** (encrypted on-device vector store) | ❌ | ✅ |
+| Editor context (Neovim / VS Code) | ✅ LSP context, opt-in | ✅ 5-tier window detection + bridges |
+| Screen-reader integration (AT-SPI / NVDA) | ❌ | ✅ |
+| Packaged & distributed (PyPI, snap, APT) | ✅ | ❌ |
+
+Revisiting the Rust effort is a deliberate future decision, not part of day-to-day work
+here. To look at it:
 
 ```bash
 git checkout archive/rust-hci-v1
@@ -437,10 +455,13 @@ Contributions are very welcome — bug reports, docs, packaging, and code.
 - 🔧 **Sending a PR?** See [CONTRIBUTING.md](CONTRIBUTING.md). The gates are quick:
 
 ```bash
-uv run python -m pytest tests/   # tests
-uv run ruff check src tests      # lint
-uv run mypy src                  # types
+uv run python -m pytest tests/   # tests — must be green
+uv run ruff check src tests      # lint  — must be green
+uv run mypy src                  # types — advisory (known pre-existing errors)
 ```
+
+Or just `make check`. Tests run fully offline in about 15 seconds — no microphone, model
+download, or optional extras needed.
 
 Everything is offline-first — please don't add network calls or telemetry.
 

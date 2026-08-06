@@ -20,6 +20,11 @@ wins.
 | Apple Dictation | Partial | Limited | No | Free | No |
 | Whisper + DIY scripts | Yes | No (you build it) | Yes | Free | Yes |
 
+> **Looking for meeting notes rather than dictation?** YazSes also records whole
+> meetings and transcribes existing recordings offline. That is a different
+> competitor set (Otter.ai, Fireflies, Granola, Meetily) and has its own page:
+> **[Offline meeting notes](meeting-notes-offline.md)**.
+
 ## What makes YazSes different
 
 - **Fully offline & private by default.** Audio is transcribed on-device with CPU
@@ -36,6 +41,10 @@ wins.
   hands-free use.
 - **Self-improving on your terms.** An opt-in, encrypted, on-device learning corpus
   lets `yazses tune` propose accuracy fixes from your own corrections.
+- **One tool for three jobs.** The same install and the same downloaded model do
+  live dictation, offline transcription of existing recordings
+  (`yazses transcribe`), and whole-meeting capture with speaker labels
+  (`yazses meeting`). Every other tool on this page does one of the three.
 
 ## When another tool is the better choice
 
@@ -74,6 +83,17 @@ hold-to-talk key both types text and triggers editor/terminal actions.
 
 **Does YazSes send my audio anywhere?** No. Transcription runs locally with
 faster-whisper; by default nothing leaves your machine.
+
+**Is there an offline, open-source alternative to Otter.ai for meeting notes?**
+Yes. `yazses meeting start` / `yazses meeting stop` records a meeting hands-free
+and produces a speaker-labelled transcript on-device, with optional minutes from a
+local LLM — no account, no per-seat fee, and no bot joining the call. It records
+the room through your microphone rather than capturing a video call's system
+audio; see [Offline meeting notes](meeting-notes-offline.md).
+
+**Can I transcribe an existing recording offline?** Yes —
+`yazses transcribe interview.m4a` converts any audio or video file to txt, md,
+srt, vtt, or json, with `--diarize` for who-said-what speaker tags.
 
 ## Honest limitations
 

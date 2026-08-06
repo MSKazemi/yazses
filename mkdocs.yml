@@ -201,6 +201,7 @@ nav:
       - Performance tuning: how-to/performance-tuning.md
       - Glance-Type (look to pane): how-to/gaze-look-to-pane.md
       - Transcribe recordings: tutorials/transcribe-recordings.md
+      - Offline meeting notes: meeting-notes-offline.md
   - Reference:
       - Features: features.md
       - Comparison & alternatives: comparison.md
