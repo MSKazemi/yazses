@@ -104,6 +104,13 @@ extra:
 extra_css:
   - assets/extra.css
 
+# Build-time hooks. `faq_schema` derives schema.org FAQPage JSON-LD from the
+# FAQ page's own markdown, so the structured data cannot drift out of sync with
+# what a reader actually sees (which Google requires, and which a hand-written
+# duplicate block would eventually violate).
+hooks:
+  - hooks/faq_schema.py
+
 plugins:
   - search
   - glightbox:
