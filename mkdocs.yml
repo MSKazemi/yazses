@@ -216,6 +216,7 @@ nav:
       - Control your computer by voice: use-cases/voice-commands.md
       - Accessibility & RSI: use-cases/accessibility-rsi-hands-free.md
       - Transcribe recordings offline: use-cases/transcribe-audio-offline.md
+      - Meeting notes & minutes: meeting-notes-offline.md
       - Multilingual dictation: use-cases/multilingual-dictation.md
   - Guides:
       - Overview: how-to/index.md
@@ -226,7 +227,6 @@ nav:
       - Performance tuning: how-to/performance-tuning.md
       - Glance-Type (look to pane): how-to/gaze-look-to-pane.md
       - Transcribe recordings: tutorials/transcribe-recordings.md
-      - Offline meeting notes: meeting-notes-offline.md
   - Reference:
       - Features: features.md
       - Comparison & alternatives: comparison.md

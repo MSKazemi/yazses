@@ -3,6 +3,11 @@ title: Offline meeting transcription & minutes — no cloud, no upload
 description: Record, transcribe and summarise whole meetings entirely on-device with speaker labels. A private alternative to Otter.ai, Fireflies and Granola for confidential meetings.
 ---
 
+---
+title: Offline meeting notes — a local, open-source Otter.ai alternative
+description: Record a meeting and get a speaker-labelled transcript and minutes entirely on your own machine. No cloud, no account, no per-seat fee, and no bot joining the call. Free and open source.
+---
+
 # Offline meeting notes — transcripts and minutes without the cloud
 
 **Short answer:** if your meetings must not be uploaded anywhere — clinical, legal,
@@ -120,9 +125,10 @@ record; it does not give you the legal right to. Tell people they are being reco
 follow the law where you are. Voiceprint enrollment in particular is biometric data — only
 enroll people who have agreed to it.
 
-## Next steps
+## Related
 
 - [Meeting Mode reference](features.md#meeting-mode) — every flag and config key
-- [Transcribe existing recordings](tutorials/transcribe-recordings.md) — the `yazses transcribe` path
+- [Transcribe recordings offline](use-cases/transcribe-audio-offline.md) — the `yazses transcribe` path for files you already have
+- [Private & confidential work](use-cases/private-offline-dictation.md) — the wider case for keeping audio on the machine
+- [YazSes vs. other dictation tools](comparison.md) — Dragon, Talon, Wispr Flow
 - [Install guide](install-linux.md) · [Configuration](configuration.md) · [FAQ](faq.md)
-- Comparison with **dictation** tools (Dragon, Talon, Wispr Flow): [YazSes vs. other dictation tools](comparison.md)

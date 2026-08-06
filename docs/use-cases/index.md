@@ -1,6 +1,6 @@
 ---
 title: What people use YazSes for — offline voice dictation use cases
-description: Real use cases for offline, on-device voice dictation — Linux and Wayland voice typing, confidential work, coding by voice, RSI and hands-free accessibility, offline transcription, dictating to remote servers, and multilingual dictation.
+description: Real use cases for offline, on-device voice dictation — Linux and Wayland voice typing, confidential work, coding by voice, RSI and hands-free accessibility, offline transcription, meeting notes and minutes, dictating to remote servers, and multilingual dictation.
 ---
 
 # What people use YazSes for
@@ -68,6 +68,15 @@ falls short.
     uploading it anywhere.
 
     [:octicons-arrow-right-24: Offline transcription](transcribe-audio-offline.md)
+
+-   :material-account-group:{ .lg .middle } **Meetings & minutes**
+
+    ---
+
+    Record a whole meeting hands-free and get a speaker-labelled transcript —
+    and optional minutes — without a bot joining the call.
+
+    [:octicons-arrow-right-24: Offline meeting notes](../meeting-notes-offline.md)
 
 -   :material-console-network:{ .lg .middle } **Dictating to a remote server**
 
