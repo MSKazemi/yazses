@@ -31,6 +31,27 @@ tell it apart from denoising that simply wasn't helping.
 Behaviour is otherwise unchanged: every path still degrades to a working fallback and never
 raises into dictation.
 
+### Changed — the daemon orchestrator and Meeting Mode are now type-clean
+
+Typed the ~20 daemon attributes that were declared bare `None` and the two
+`MeetingResult` fields that were declared bare `object`, so `core/daemon.py` and the whole
+`meeting/` package now pass `mypy` (75 errors across 22 leaf modules remain, down from 100
+across 25). These are the highest-blast-radius modules in the codebase and the worst place
+to send a first-time contributor, so they are cleared ahead of the per-module cleanup in
+issue #47.
+
+Typing them surfaced two real robustness gaps, both fixed:
+
+- `_maybe_cocktail_gate` re-read `self._embedder` inside its per-frame closure, so a
+  concurrent shutdown clearing the attribute could raise mid-gate; it is now bound to a
+  local before the closure is built.
+- `_voiceprint` was documented as an `Embedding` but actually holds the unwrapped d-vector
+  (`emb.vector`), which the type checker caught against the `gate()` signature.
+
+Added the first direct tests for the Cocktail Filter gate wiring (dormancy conditions,
+embedder-failure fallback, and the matching-frame happy path) — it sits on the dictation
+hot path and previously had none.
+
 ### Fixed — the mypy quality gate had no configuration
 
 `CLAUDE.md` names `uv run mypy src` a quality gate, but no `[tool.mypy]` section existed, so

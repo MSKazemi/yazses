@@ -23,9 +23,18 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 if TYPE_CHECKING:
-    # Imported lazily at runtime (see _build_gaze_targeter) so the optional gaze
-    # dependencies stay dormant; needed here only for the annotation.
+    # All imported lazily at runtime (in _build_gaze_targeter and the other builders
+    # below) so the optional/heavy dependencies stay dormant; the names exist here only
+    # so the `X | None` attribute annotations resolve for the type checker.
     from yazses.gaze.targeter import GazeTargeter
+    from yazses.inject.target import TargetDetector
+    from yazses.learning.edit_watch import EditWatcher
+    from yazses.meeting.controller import MeetingController
+    from yazses.polyglot.router import PolyglotRouter
+    from yazses.system.single_instance import SingleInstanceLock
+    from yazses.tts.base import TtsBackend
+    from yazses.verbatim.gate import VerbatimGate
+    from yazses.voiceprint.base import SpeakerEmbedder
 
 from yazses.audio.device_monitor import DeviceMonitor, SilentStreakTracker
 from yazses.audio.padding import PreSpeechRingBuffer
@@ -126,7 +135,7 @@ class Daemon:
         # Verbatim/autoformat mode (ADR-v2-078): a persistent gate toggled by the
         # spoken commands "dictate verbatim" / "resume formatting". Lazily created on
         # first use when [verbatim] enabled; holds mode across bursts. None = feature off.
-        self._verbatim_gate = None
+        self._verbatim_gate: VerbatimGate | None = None
         self._injector: InjectorBackend | None = None
         self._engine: FasterWhisperEngine | None = None
         self._recorder: AudioRecorder | None = None
@@ -162,17 +171,19 @@ class Daemon:
         # Confidence Ink (ADR-v2-001): low-confidence word count from the last
         # burst, surfaced in `yazses status` (metadata only, never the words).
         self._last_low_confidence_words: int = 0
-        self._edit_watcher = None
+        self._edit_watcher: EditWatcher | None = None
         self._cleaner: LlmCleaner | None = None
         # Read-Back Loop TTS backend (None when [tts] disabled — dormant).
-        self._tts = None
+        self._tts: TtsBackend | None = None
         # v2 cognitive layer: speaker embedder + enrolled voiceprint (Cocktail Filter).
         # None when [voiceprint]/[cocktail] dormant or unavailable.
-        self._embedder = None
-        self._voiceprint = None
+        self._embedder: SpeakerEmbedder | None = None
+        # The enrolled speaker's d-vector itself, not the Embedding wrapper —
+        # `_load_voiceprint_vector` unwraps it (`emb.vector`).
+        self._voiceprint: np.ndarray | None = None
         # Single-instance lock; prevents a second daemon (detached `yazses start`
         # vs the systemd unit) from grabbing the hotkey and double-injecting.
-        self._instance_lock = None
+        self._instance_lock: SingleInstanceLock | None = None
         self._overlay_proc: subprocess.Popen | None = None
         self._tray_proc: subprocess.Popen | None = None
         # Say-Macro table (None when [macros] disabled — feature dormant).
@@ -183,8 +194,8 @@ class Daemon:
         self._ledger = DictationLedger()
         # Meeting Mode (ADR-v2-127): active controller + its dedicated mic recorder,
         # None when no meeting is running. `_meeting_finalizing` guards the post-pass.
-        self._meeting_controller = None
-        self._meeting_recorder = None
+        self._meeting_controller: MeetingController | None = None
+        self._meeting_recorder: AudioRecorder | None = None
         self._meeting_finalizing = False
         # Audio-input resilience: count consecutive silent-discards and watch the OS
         # default input device so a mic that silently switches (e.g. a USB-C monitor
@@ -195,7 +206,7 @@ class Daemon:
         # "No text target" guard: detects whether the focused element accepts text so a
         # burst with no field focused is warned (yellow tray) + saved to the clipboard
         # instead of typed into the wrong place. None until built ([injection] target_guard).
-        self._target_detector = None
+        self._target_detector: TargetDetector | None = None
         # True once we've auto-healed for the current silent streak, so a device that
         # is genuinely gone doesn't re-trigger the switch on every subsequent clip.
         self._healed_this_streak = False
@@ -417,12 +428,15 @@ class Daemon:
 
         # True Code-Switch routing (ADR-v2-008). Dormant unless [polyglot] is
         # fully configured with an out-of-band adapter; surface a hint otherwise.
+        self._polyglot: PolyglotRouter | None = None
         try:
             from yazses.polyglot.router import PolyglotRouter
             self._polyglot = PolyglotRouter.from_config(cfg.polyglot)
-            if self._polyglot.active:
-                log.info("Polyglot code-switch routing active (pair %s-%s).",
-                         *self._polyglot.pair)
+            # `active` already implies a parsed pair, but bind it locally so the
+            # unpacking below is provably safe rather than relying on that.
+            pair = self._polyglot.pair
+            if self._polyglot.active and pair is not None:
+                log.info("Polyglot code-switch routing active (pair %s-%s).", *pair)
             else:
                 reason = self._polyglot.status_reason()
                 if reason:
@@ -1666,9 +1680,12 @@ class Daemon:
 
         sr = self._config.audio.sample_rate
         target = self._voiceprint
+        # Bind the embedder locally: the closure runs per frame, and reading the
+        # attribute again would race a concurrent shutdown that clears it.
+        embedder = self._embedder
 
         def embed_frame(frame: np.ndarray) -> np.ndarray:
-            return self._embedder.embed(frame, sr).vector
+            return embedder.embed(frame, sr).vector
 
         try:
             return gate(
@@ -1966,8 +1983,12 @@ class Daemon:
         return {"ok": True, "active": False, "finalizing": finalizing,
                 "recent": recent, "diarization": diar}
 
-    def _handle_meeting_stop(self, _request: Request) -> dict[str, object]:
-        """IPC: stop capture and kick off the batch diarization post-pass."""
+    def _handle_meeting_stop(self, _request: Request | None) -> dict[str, object]:
+        """IPC: stop capture and kick off the batch diarization post-pass.
+
+        The request is unused, so ``_auto_stop_meeting`` reuses this path with None
+        when ``max_minutes`` fires — the stop is identical, it just has no caller.
+        """
         with self._lock:
             controller = self._meeting_controller
             recorder = self._meeting_recorder

@@ -89,7 +89,7 @@ def append_live_line(meeting_dir: str | Path, text: str, t: float | None = None)
     text = (text or "").strip()
     if not text:
         return
-    rec = {"text": text}
+    rec: dict[str, object] = {"text": text}
     if t is not None:
         rec["t"] = round(float(t), 2)
     try:
