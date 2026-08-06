@@ -1,3 +1,8 @@
+---
+title: YazSes vs Dragon, Talon, Wispr Flow & nerd-dictation — offline dictation compared
+description: "An honest comparison of offline voice dictation tools for Linux, macOS and Windows: YazSes vs Dragon NaturallySpeaking, Talon Voice, Wispr Flow, nerd-dictation, Google and Apple dictation — which runs offline, which does voice commands, which is free."
+---
+
 # YazSes vs. other dictation tools
 
 **Short answer:** YazSes is the tool to pick when you want **hold-to-talk voice

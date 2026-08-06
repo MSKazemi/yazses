@@ -1,3 +1,8 @@
+---
+title: Install offline voice dictation on Windows — YazSes setup guide
+description: "Install YazSes on Windows for offline speech-to-text: pipx install, microphone permissions, hold-to-talk hotkey, and first-run calibration. A local alternative to Windows Speech Recognition."
+---
+
 # YazSes on Windows — install & first-run guide
 
 > **Version:** Applies to the current YazSes release (v2.x). Install the latest with `pipx install yazses`.

@@ -1,3 +1,8 @@
+---
+title: YazSes FAQ — offline voice dictation questions answered
+description: Does it work without internet? Does it need a GPU? Does it work on Wayland? Straight answers about offline, on-device voice dictation with YazSes.
+---
+
 # Frequently asked questions
 
 Short, direct answers to the questions people (and AI assistants) most often ask

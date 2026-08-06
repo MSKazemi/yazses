@@ -1,5 +1,6 @@
 ---
-title: Troubleshooting
+title: YazSes troubleshooting — dictation not working, no text, mic issues
+description: Fixes for the most common YazSes problems — hotkey not firing, no text appearing, silent audio discarded, microphone switching, and Wayland text injection.
 ---
 
 # Troubleshooting

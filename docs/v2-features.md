@@ -1,3 +1,8 @@
+---
+title: YazSes v2 voice-first interaction layer (preview)
+description: "Preview of the YazSes v2 features: voice-first interaction beyond dictation — perception, personalization and multi-modal input, all opt-in and off by default."
+---
+
 # v2 Voice-First Interaction Layer (preview)
 
 YazSes v2 grows from a dictation daemon into a broader **voice-first interaction

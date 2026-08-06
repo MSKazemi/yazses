@@ -1,3 +1,8 @@
+---
+title: Install offline voice dictation on macOS — YazSes setup guide
+description: "Install YazSes on macOS for private, on-device dictation: pipx install, microphone and accessibility permissions, hotkey setup, and first-run calibration. No cloud account needed."
+---
+
 # YazSes on macOS — install & first-run guide
 
 > **Version:** Applies to the current YazSes release (v2.x). Install the latest with `pipx install yazses`.

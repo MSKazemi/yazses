@@ -1,3 +1,8 @@
+---
+title: Offline meeting transcription & minutes — no cloud, no upload
+description: Record, transcribe and summarise whole meetings entirely on-device with speaker labels. A private alternative to Otter.ai, Fireflies and Granola for confidential meetings.
+---
+
 # Offline meeting notes — transcripts and minutes without the cloud
 
 **Short answer:** if your meetings must not be uploaded anywhere — clinical, legal,

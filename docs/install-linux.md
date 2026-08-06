@@ -1,3 +1,8 @@
+---
+title: Install offline voice dictation on Linux (Ubuntu, Debian, Fedora, Arch)
+description: Step-by-step install of YazSes offline voice dictation on Linux — apt, snap or pipx, microphone calibration, hotkey setup, and text injection on both X11 and Wayland.
+---
+
 # Installing YazSes on Linux
 
 This guide installs the Python daemon as a global command and starts it

@@ -22,8 +22,10 @@ hide:
       "sameAs": [
         "https://github.com/MSKazemi/yazses",
         "https://pypi.org/project/yazses/",
-        "https://snapcraft.io/yazses"
+        "https://snapcraft.io/yazses",
+        "https://arxiv.org/abs/2607.28878"
       ],
+      "citation": "https://arxiv.org/abs/2607.28878",
       "license": "https://www.apache.org/licenses/LICENSE-2.0",
       "isAccessibleForFree": true,
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
@@ -48,6 +50,22 @@ hide:
       "programmingLanguage": "Python",
       "runtimePlatform": "Python 3.11+",
       "license": "https://www.apache.org/licenses/LICENSE-2.0"
+    },
+    {
+      "@type": "ScholarlyArticle",
+      "name": "YazSes: An Offline, Privacy-First, Cross-Platform Hold-to-Talk Voice-Dictation System",
+      "headline": "YazSes: An Offline, Privacy-First, Cross-Platform Hold-to-Talk Voice-Dictation System",
+      "@id": "https://arxiv.org/abs/2607.28878",
+      "url": "https://arxiv.org/abs/2607.28878",
+      "identifier": "arXiv:2607.28878",
+      "datePublished": "2026-07-30",
+      "publisher": { "@type": "Organization", "name": "arXiv" },
+      "author": {
+        "@type": "Person",
+        "name": "Mohsen Seyedkazemi Ardebili",
+        "url": "https://github.com/MSKazemi"
+      },
+      "about": { "@type": "SoftwareApplication", "name": "YazSes" }
     }
   ]
 }
@@ -181,6 +199,21 @@ Hold the hotkey (Space on Linux, Right Option on macOS, Right Ctrl on Windows), 
 - **Dysfluency-Friendly Mode** — opt-in collapse of stutters/repeats for stuttered or dysarthric speech.
 - **Self-improving** — opt-in, encrypted on-device learning corpus; `yazses tune` proposes accuracy fixes from your own corrections.
 - **Accessibility** — VAD calibration, mic-level tuning, and EMG (muscle-sensor) trigger support.
+
+## What people use it for
+
+<div class="grid cards" markdown>
+
+- :material-linux: **[Voice typing on Linux](use-cases/voice-dictation-linux.md)** — dictation that works on X11 *and* Wayland
+- :material-shield-lock: **[Confidential & offline work](use-cases/private-offline-dictation.md)** — clinical, legal, air-gapped
+- :material-code-braces: **[Coding by voice](use-cases/voice-coding.md)** — spoken symbols, identifiers, LaTeX, git
+- :material-human-cane: **[Accessibility & RSI](use-cases/accessibility-rsi-hands-free.md)** — hands-free and dysfluency-friendly
+- :material-file-music: **[Transcribe recordings](use-cases/transcribe-audio-offline.md)** — offline, with speaker labels
+- :material-translate: **[More than one language](use-cases/multilingual-dictation.md)** — non-English and code-switching
+
+</div>
+
+[Browse all use cases :octicons-arrow-right-24:](use-cases/index.md){ .md-button }
 
 ## When *not* to use it
 

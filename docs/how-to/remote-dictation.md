@@ -1,6 +1,6 @@
 ---
-title: Dictate into a remote SSH host
-description: Type with your voice into a shell or editor running on another machine.
+title: Dictation over SSH — voice typing into a remote server
+description: Speak into your laptop microphone and have the text typed on a remote machine you are SSH'd into. Transcription stays local; only the finished text crosses the encrypted tunnel, so the remote host needs no microphone, GPU or speech engine.
 ---
 
 # Dictate into a remote SSH host

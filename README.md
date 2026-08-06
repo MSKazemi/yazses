@@ -185,6 +185,14 @@ Everything runs on your CPU — no GPU, no network. Transcription uses **faster-
 - **Accessibility & motor-disability users** — hold-to-talk or EMG (muscle-sensor) triggering for hands-free input, with Dysfluency-Friendly Mode for stuttered or dysarthric speech.
 - **Offline / air-gapped environments** — dictation on machines with no reliable internet or where external network calls are disallowed.
 
+**In depth, with setup steps for each:**
+[voice typing on Linux (X11 & Wayland)](https://mskazemi.github.io/yazses/use-cases/voice-dictation-linux) ·
+[private & confidential work](https://mskazemi.github.io/yazses/use-cases/private-offline-dictation) ·
+[coding by voice](https://mskazemi.github.io/yazses/use-cases/voice-coding) ·
+[accessibility & RSI](https://mskazemi.github.io/yazses/use-cases/accessibility-rsi-hands-free) ·
+[transcribing recordings](https://mskazemi.github.io/yazses/use-cases/transcribe-audio-offline) ·
+[multilingual dictation](https://mskazemi.github.io/yazses/use-cases/multilingual-dictation)
+
 ---
 
 ## Limitations / when *not* to use YazSes
@@ -495,9 +503,21 @@ Want on this wall? Grab a [good first issue](https://github.com/MSKazemi/yazses/
 
 ## Citation
 
-If YazSes is useful in your research or projects, please cite it — see [CITATION.cff](CITATION.cff) for machine-readable metadata (CFF 1.2.0), or:
+YazSes is described in a preprint. If it is useful in your research or projects, please cite:
 
-> Seyedkazemi Ardebili, M. *YazSes: offline hold-to-talk voice dictation for Linux, macOS & Windows.* https://github.com/MSKazemi/yazses
+> Seyedkazemi Ardebili, M. (2026). *YazSes: An Offline, Privacy-First, Cross-Platform Hold-to-Talk Voice-Dictation System.* arXiv:2607.28878. <https://arxiv.org/abs/2607.28878>
+
+```bibtex
+@article{seyedkazemi2026yazses,
+  title   = {YazSes: An Offline, Privacy-First, Cross-Platform Hold-to-Talk Voice-Dictation System},
+  author  = {Seyedkazemi Ardebili, Mohsen},
+  journal = {arXiv preprint arXiv:2607.28878},
+  year    = {2026},
+  url     = {https://arxiv.org/abs/2607.28878}
+}
+```
+
+See [CITATION.cff](CITATION.cff) for machine-readable metadata (CFF 1.2.0).
 
 ## License
 

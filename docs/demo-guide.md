@@ -1,3 +1,8 @@
+---
+title: Record a YazSes demo GIF — contributor guide
+description: How to record a short hold-to-talk dictation demo GIF for the YazSes README, including recommended tools and settings on Linux, macOS and Windows.
+---
+
 # Record Your Own Demo GIF
 
 A short demo GIF is a convenient way to show YazSes hold-to-talk dictation in action. This guide explains how to record your own demo.

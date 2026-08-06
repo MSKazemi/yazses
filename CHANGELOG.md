@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Documentation — pages that answer the questions people actually search
+
+Every page on the docs site was brand-navigational ("Features", "CLI reference",
+"Install on Linux"). Nobody searches for those, so the site could not surface for any
+question a person asks *before* they know YazSes exists.
+
+- **New "Use cases" section** — six problem-framed pages, each covering a distinct
+  audience end to end and honest about where YazSes is the wrong choice:
+  [voice dictation on Linux](docs/use-cases/voice-dictation-linux.md) (X11 vs Wayland
+  injection), [private & confidential work](docs/use-cases/private-offline-dictation.md)
+  (clinical, legal, air-gapped), [coding by voice](docs/use-cases/voice-coding.md),
+  [accessibility & RSI](docs/use-cases/accessibility-rsi-hands-free.md),
+  [transcribing recordings](docs/use-cases/transcribe-audio-offline.md), and
+  [multilingual dictation](docs/use-cases/multilingual-dictation.md).
+- **The paper is now linked from the project.** `arXiv:2607.28878` describes the system
+  and links out to this repo, but nothing here linked back. Added a BibTeX entry and
+  citation to the README, a `preferred-citation` to `CITATION.cff`, a `ScholarlyArticle`
+  node plus `citation`/`sameAs` to the homepage structured data, and a citation block to
+  `llms.txt`.
+- **Per-page metadata.** Nine pages shipped with no `description:` front-matter and were
+  falling back to the site-wide default; each now has its own title and description.
+- `CITATION.cff` no longer claims version 1.4.1 or lists Rust as a language.
+
 ### Contributor experience — the documented gate now actually runs
 
 - **`ruff` and `mypy` are now dev dependencies.** They were documented as the contributor
