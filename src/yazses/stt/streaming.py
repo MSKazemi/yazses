@@ -71,8 +71,20 @@ class StreamingEngine:
         self._thread = threading.Thread(target=self._decode_loop, daemon=True)
         self._thread.start()
 
+    def request_stop(self) -> None:
+        """Ask the decode loop to exit, without waiting for it.
+
+        The decode loop re-decodes the whole rolling buffer every
+        ``partial_interval_ms``, so a loop left running after a burst ends spins
+        a Whisper decode per second forever on a buffer that never grows again.
+        Callers on the hold-release hot path use this instead of :meth:`stop` so
+        ending a burst never blocks on an in-flight decode; the loop observes the
+        flag and exits within one cycle.
+        """
+        self._running = False
+
     def stop(self) -> None:
-        """Stop the decode loop."""
+        """Stop the decode loop and wait for it to exit."""
         self._running = False
         if self._thread:
             self._thread.join(timeout=2.0)

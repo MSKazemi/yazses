@@ -746,6 +746,14 @@ class Daemon:
         if self._poll_thread is not None:
             self._poll_thread.join(timeout=1.0)
             self._poll_thread = None
+        # Stop the engine's decode loop too. Only commit() used to end it, so any
+        # burst that returned early below (silent discard, cocktail gate, no
+        # recorder) left the loop re-decoding its frozen buffer once per interval
+        # forever — one leaked Whisper decode per second, per discarded burst,
+        # surviving until the process exited. Non-blocking so hold-release stays
+        # on the hot path; commit() still joins before the final decode.
+        if self._stream_engine is not None:
+            self._stream_engine.request_stop()
 
         if self._recorder is None or self._engine is None or self._injector is None:
             return
@@ -2323,6 +2331,11 @@ class Daemon:
         return self._platform.default_hotkey if key == "auto" else key
 
     def _shutdown(self) -> None:
+        if self._stream_engine is not None:
+            try:
+                self._stream_engine.stop()  # join the decode loop before exit
+            except Exception:
+                log.exception("Streaming engine stop raised")
         if self._device_monitor is not None:
             try:
                 self._device_monitor.stop()

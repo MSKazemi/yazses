@@ -6,6 +6,21 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a discarded dictation burst leaked a Whisper decode loop forever
+
+With `[streaming] enabled`, every hold started `StreamingEngine`'s background decode
+loop, but only `commit()` ever stopped it — and `commit()` runs solely on the successful
+transcription path. Any burst that returned early instead (audio below the VAD gate, a
+Cocktail Filter gate-out, or no recorder) left its loop alive, re-decoding a rolling
+buffer that could never grow again: **one leaked Whisper decode per interval, per
+discarded burst, compounding until the daemon exited**. A few mis-fired holds were enough
+to put a steady multi-core transcription load on an otherwise idle machine.
+
+`_on_hold_end` now ends the loop before any early return, via a new non-blocking
+`StreamingEngine.request_stop()` — so hold-release never waits on an in-flight decode,
+while `commit()` keeps its blocking join before the final decode. `_shutdown()` calls the
+blocking `stop()` so no decode thread outlives the process.
+
 ### Fixed — the docs site was telling search engines the wrong canonical domain
 
 `mskazemi.github.io/yazses/` now **301-redirects to `mskazemi.com/yazses/`** and serves no
