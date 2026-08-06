@@ -11,7 +11,6 @@ from yazses.gaze.calibrate import fit_calibration
 from yazses.gaze.factory import build_gaze
 from yazses.gaze.zones import grid_zone, window_at_point
 
-
 # ---- calibration fit (pure least-squares) ----------------------------------
 
 def test_calibration_recovers_a_linear_mapping():

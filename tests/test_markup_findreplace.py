@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.findreplace.parse import ReplaceOp, apply_replace, parse_replace_command
 from yazses.markup.render import parse_structure, render_markup, spoken_to_markup
 
-
 # ---- structured markup -----------------------------------------------------
 
 def test_bullet_list():

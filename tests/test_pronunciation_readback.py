@@ -5,7 +5,6 @@ from yazses.config import PronunciationConfig, TtsConfig
 from yazses.pronunciation.score import PhonemeScore, classify, overall_score, problem_phonemes
 from yazses.readback.clone import clone_ready, select_clone_backend
 
-
 # ---- pronunciation ---------------------------------------------------------
 
 def test_classify_bands():

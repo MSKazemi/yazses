@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.acronyms.glossary import AcronymState
 from yazses.sembr.breaks import semantic_breaks
 
-
 # ---- semantic line breaks --------------------------------------------------
 
 def test_semantic_breaks_sentences_and_clauses():

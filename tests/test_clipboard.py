@@ -1,5 +1,4 @@
 """set_clipboard argv shape + graceful degradation."""
-from yazses.system import clipboard
 from yazses.system.clipboard import set_clipboard
 
 

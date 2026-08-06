@@ -8,13 +8,11 @@ X11, or the heavy gaze deps.
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from yazses.gaze.calibrate import CalibrationMap, collect_samples, default_targets, fit_calibration
 from yazses.gaze.desktop import XdotoolDesktop, build_desktop
 from yazses.gaze.store import calibration_path, load_calibration, save_calibration
 from yazses.gaze.targeter import GazeTargeter
-
 
 # ---- calibration store round-trip ------------------------------------------
 

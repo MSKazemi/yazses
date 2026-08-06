@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.chords.parse import KeyChord, parse_chord, render_chord
 from yazses.compute.evaluate import evaluate
 
-
 # ---- chord synthesis -------------------------------------------------------
 
 def test_parse_chord_modifiers():

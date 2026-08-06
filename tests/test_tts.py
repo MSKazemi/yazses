@@ -12,7 +12,6 @@ from yazses.tts.chunking import sentence_chunks
 from yazses.tts.factory import build_tts
 from yazses.tts.null import NullTtsBackend
 
-
 # ---- sentence_chunks (pure, no dep) ----------------------------------------
 
 def test_chunks_split_on_sentence_punctuation():

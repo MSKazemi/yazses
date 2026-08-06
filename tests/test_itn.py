@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from yazses.itn.normalize import normalize_entities
 
-
 # ---- emails ----------------------------------------------------------------
 
 def test_email_simple():

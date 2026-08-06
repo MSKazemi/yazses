@@ -14,7 +14,6 @@ from yazses.platform import PermissionState
 from yazses.platform.linux.permissions import LinuxPermissions
 from yazses.system import doctor
 
-
 # ---- keyboard capture permissions -----------------------------------------
 
 

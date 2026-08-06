@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 import time
-import threading
+from unittest.mock import MagicMock
+
 import numpy as np
-import pytest
-from unittest.mock import MagicMock, patch
-from yazses.stt.streaming import StreamingEngine, PartialHypothesis, _common_prefix
+
+from yazses.stt.streaming import StreamingEngine, _common_prefix
 
 
 class MockWhisperModel:

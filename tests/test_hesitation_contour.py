@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.contour.gesture import classify_contour, gesture_to_command, normalize_contour
 from yazses.hesitation.endpoint import endpoint_decision, is_filled_pause
 
-
 # ---- hesitation-hold endpointing -------------------------------------------
 
 def test_is_filled_pause():

@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.loadguard.policy import estimate_load, guard_policy
 from yazses.wordfind.rank import rank_candidates
 
-
 # ---- wordfind ---------------------------------------------------------------
 
 def test_rank_top_hit():

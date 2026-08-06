@@ -103,21 +103,21 @@ class MacosHotkey:
 
     def run(self) -> None:
         from Quartz import (  # type: ignore[import-not-found]
+            CFMachPortCreateRunLoopSource,
             CFRunLoopAddSource,
             CFRunLoopGetCurrent,
-            CFMachPortCreateRunLoopSource,
             CFRunLoopRun,
             CFRunLoopStop,  # noqa: F401  (used by stop())
             CGEventMaskBit,
             CGEventTapCreate,
             CGEventTapEnable,
+            kCFRunLoopCommonModes,
             kCGEventFlagsChanged,
             kCGEventKeyDown,
             kCGEventKeyUp,
             kCGEventTapOptionListenOnly,
             kCGHeadInsertEventTap,
             kCGSessionEventTap,
-            kCFRunLoopCommonModes,
         )
 
         if self._kind == "modifier":

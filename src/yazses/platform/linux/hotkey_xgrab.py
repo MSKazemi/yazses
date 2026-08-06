@@ -61,7 +61,7 @@ class X11GrabHotkey:
     # ── public interface ──────────────────────────────────────────────────────
 
     def run(self) -> None:
-        from Xlib import X, XK
+        from Xlib import XK, X
         from Xlib import display as xdisplay
 
         d = xdisplay.Display()

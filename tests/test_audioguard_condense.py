@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.audioguard.policy import EventDebouncer, event_policy
 from yazses.condense.extract import condense
 
-
 # ---- audio-event guard -----------------------------------------------------
 
 def test_event_policy():

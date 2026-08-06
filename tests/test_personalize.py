@@ -13,7 +13,6 @@ from yazses.personalize.prompt_builder import (
     mine_terms,
 )
 
-
 # ---- build_prompt ----------------------------------------------------------
 
 def test_build_prompt_unions_vocab_and_mined_terms():

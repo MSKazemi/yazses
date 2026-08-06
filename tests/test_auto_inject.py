@@ -1,10 +1,10 @@
 from unittest.mock import patch
-import pytest
+
 from yazses.inject.auto import get_injector
+from yazses.inject.clipboard import ClipboardInjector
+from yazses.inject.wtype import WtypeInjector
 from yazses.inject.xdotool import XdotoolInjector
 from yazses.inject.ydotool import YdotoolInjector
-from yazses.inject.wtype import WtypeInjector
-from yazses.inject.clipboard import ClipboardInjector
 
 
 def _which(available: list[str]):

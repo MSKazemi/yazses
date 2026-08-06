@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.diacritize.restore import restore_diacritics
 from yazses.safeglyph.confusables import normalize_ascii, scan_confusables
 
-
 # ---- diacritize -------------------------------------------------------------
 
 def test_restore_words():

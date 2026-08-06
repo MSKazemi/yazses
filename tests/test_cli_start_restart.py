@@ -7,8 +7,6 @@ These cover the goal that a `start`:
 """
 from __future__ import annotations
 
-import types
-
 import pytest
 from typer.testing import CliRunner
 

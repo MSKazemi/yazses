@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from yazses.system import updater
 
-
 # ---- install-method detection ---------------------------------------------
 
 def test_detect_snap_install():

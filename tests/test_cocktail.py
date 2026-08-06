@@ -10,7 +10,6 @@ import numpy as np
 
 from yazses.audio.personal_vad import gate
 
-
 # Target/interferer "embeddings" the fake embedder returns, keyed by a frame's
 # first sample value so tests can script which frames are whose.
 _TARGET = np.array([1.0, 0.0], dtype="float32")

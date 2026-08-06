@@ -8,7 +8,6 @@ import pytest
 from yazses.endpoint.autostop import should_stop
 from yazses.mousegrid.grid import resolve_point, subdivide
 
-
 # ---- auto-stop -------------------------------------------------------------
 
 @dataclass

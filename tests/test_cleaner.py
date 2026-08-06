@@ -1,8 +1,7 @@
 import numpy as np
-import pytest
-from yazses.postprocess.cleaner import clean_text
-from yazses.audio.vad import is_silent
 
+from yazses.audio.vad import is_silent
+from yazses.postprocess.cleaner import clean_text
 
 # --- text cleaner ---
 

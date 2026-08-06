@@ -14,7 +14,6 @@ import pytest
 
 from yazses.config import GazeConfig
 
-
 # ---- fake landmark tree -----------------------------------------------------
 
 

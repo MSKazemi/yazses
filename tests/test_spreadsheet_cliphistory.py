@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.cliphistory.history import ClipboardRing, resolve_reference
 from yazses.spreadsheet.grid import parse_cell_reference, parse_grid_move
 
-
 # ---- spreadsheet -----------------------------------------------------------
 
 def test_grid_moves():

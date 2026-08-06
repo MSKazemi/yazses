@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from yazses.voicehealth.strain import should_suggest_break, strain_level
 from yazses.wakeword.detector import should_activate
 
-
 # ---- wake-word -------------------------------------------------------------
 
 @dataclass

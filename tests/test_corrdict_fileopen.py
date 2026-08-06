@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.corrdict.mine import apply_corrections, mine_substitutions
 from yazses.fileopen.match import fuzzy_rank, resolve_open
 
-
 # ---- correction dictionary -------------------------------------------------
 
 def test_mine_keeps_supported_dominant():

@@ -4,8 +4,10 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
+
 import pytest
-from yazses.commands.grammar import classify, IntentType, CommandIntent
+
+from yazses.commands.grammar import IntentType, classify
 
 COMMANDS_PATH = Path(__file__).parent / "fixtures" / "commands" / "command_phrases.json"
 DICTATION_PATH = Path(__file__).parent / "fixtures" / "commands" / "dictation_corpus.txt"
@@ -58,7 +60,7 @@ def test_zero_false_positives_on_dictation():
         if classify(s).intent != IntentType.DICTATE
     ]
     assert len(false_positives) == 0, (
-        f"False positive commands detected in dictation corpus:\n" +
+        "False positive commands detected in dictation corpus:\n" +
         "\n".join(f"  {s!r} → {classify(s).action}" for s in false_positives[:5])
     )
 

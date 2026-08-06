@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.brailleout.ueb import to_braille
 from yazses.outline.tree import OutlineItem, apply_outline_op, new_outline, render
 
-
 # ---- brailleout -------------------------------------------------------------
 
 def test_grade1_letters():

@@ -4,8 +4,8 @@ from __future__ import annotations
 from typer.testing import CliRunner
 
 from yazses.cli import app
-from yazses.system.features import CATEGORY_ORDER, feature_status
 from yazses.config import Config
+from yazses.system.features import feature_status
 
 runner = CliRunner()
 

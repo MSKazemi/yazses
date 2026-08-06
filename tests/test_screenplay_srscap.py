@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.screenplay.fountain import smart_quote_dialogue, to_fountain
 from yazses.srscap.cards import Sm2State, detect_fact, sm2_schedule, to_cloze
 
-
 # ---- screenplay auto-format ------------------------------------------------
 
 def test_to_fountain_scene_and_transition():

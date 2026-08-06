@@ -11,7 +11,6 @@ from yazses.recimport.subtitles import (
     write_vtt,
 )
 
-
 # ---- recording import ------------------------------------------------------
 
 def test_format_timestamp():

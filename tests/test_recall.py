@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.recall.query import RecallHit, parse_recall, rank_events
 from yazses.recall.scratch import ScratchPad, parse_scratch
 
-
 # ---- parse_recall ----------------------------------------------------------
 
 def test_parse_recall_extracts_query():

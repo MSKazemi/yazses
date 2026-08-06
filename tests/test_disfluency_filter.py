@@ -1,9 +1,12 @@
 """Tests for the offline disfluency filter."""
 from __future__ import annotations
+
 import json
 import time
 from pathlib import Path
+
 import pytest
+
 from yazses.config import DisfluencyConfig
 from yazses.stt.filters.disfluency import filter_transcript
 

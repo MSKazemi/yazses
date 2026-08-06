@@ -113,7 +113,7 @@ def run_wizard(
     min_silence_ms = int(max(500, np.percentile(pause_durations, 95)))
     min_silence_ms = min(min_silence_ms, 5000)  # max 5 s
 
-    output_fn(f"\nDerived settings:")
+    output_fn("\nDerived settings:")
     output_fn(f"  vad_threshold   = {vad_threshold:.4f}")
     output_fn(f"  min_silence_ms  = {min_silence_ms}")
 

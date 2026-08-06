@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.focusprofile.resolve import classify_focus, resolve_profile
 from yazses.voicetimer.parse import format_duration, parse_duration, parse_timer_command
 
-
 # ---- voice timer -----------------------------------------------------------
 
 def test_parse_duration():

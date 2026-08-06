@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.autopair.balance import balance_delimiters, detect_wrap_command, wrap
 from yazses.casetransform.transform import detect_style_command, transform_case
 
-
 # ---- case transform --------------------------------------------------------
 
 def test_transform_programmer_cases():

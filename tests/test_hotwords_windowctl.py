@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.biasing.trie import build_hotword_trie, rescore_nbest
 from yazses.windowctl.commands import WmAction, parse_wm_command
 
-
 # ---- hotword trie ----------------------------------------------------------
 
 def test_trie_membership_and_prefix():

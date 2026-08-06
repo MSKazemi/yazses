@@ -6,22 +6,18 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
-
-from yazses.commands.grammar import classify, CommandIntent, IntentType
 from yazses.commands.dispatch import dispatch
-from yazses.commands import macros as M
+from yazses.commands.grammar import CommandIntent, IntentType, classify
 from yazses.commands.macros import (
     Macro,
     MacroContext,
     MacroTable,
-    normalize,
+    build_macro_table,
     expand,
     load_macros,
-    build_macro_table,
+    normalize,
 )
 from yazses.config import load_config
-
 
 # --- normalize -------------------------------------------------------------
 

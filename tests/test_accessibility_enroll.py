@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
+
 import numpy as np
-import pytest
 
 
 def make_mock_recorder(noise_level=0.002, speech_level=0.1):
@@ -67,7 +67,7 @@ def test_run_wizard_writes_config(tmp_path, monkeypatch):
     def recorder_factory():
         return make_mock_recorder()
 
-    result = run_wizard(
+    run_wizard(
         config_path=config_path,
         recorder_factory=recorder_factory,
         output_fn=lambda s: None,

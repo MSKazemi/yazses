@@ -7,8 +7,8 @@ import sys
 import pytest
 
 from yazses.platform import (
-    Platform,
     PermissionState,
+    Platform,
     UnsupportedPlatformError,
     get_platform,
 )

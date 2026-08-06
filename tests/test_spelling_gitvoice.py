@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.gitvoice.plan import build_git_argv, reversibility, undo_hint
 from yazses.spelling.nato import spell_parse
 
-
 # ---- phonetic spelling -----------------------------------------------------
 
 def test_spell_basic_and_case():

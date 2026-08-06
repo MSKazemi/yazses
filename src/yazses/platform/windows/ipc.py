@@ -83,7 +83,6 @@ class NamedPipeIpcServer:
 
     def _accept_loop(self) -> None:
         import pywintypes  # type: ignore[import-not-found]
-        import win32file  # type: ignore[import-not-found]
         import win32pipe  # type: ignore[import-not-found]
 
         while not self._stop.is_set():

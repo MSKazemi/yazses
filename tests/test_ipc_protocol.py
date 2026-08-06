@@ -22,7 +22,6 @@ from yazses.ipc.protocol import (
 )
 from yazses.ipc.server import JsonRpcServer
 
-
 # ---- Pure protocol round-trips ------------------------------------------
 
 

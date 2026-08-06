@@ -10,14 +10,13 @@ from __future__ import annotations
 import pytest
 
 from yazses.platform.macos.hotkey import (
+    KVK_SPACE,
     NX_DEVICELALTKEYMASK,
     NX_DEVICERALTKEYMASK,
     NX_DEVICERCTLKEYMASK,
-    KVK_SPACE,
     resolve_key_id,
 )
 from yazses.platform.macos.injector import _utf16_chunks
-
 
 # ---- Hotkey resolution -------------------------------------------------
 

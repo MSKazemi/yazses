@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
+
 from yazses.audio.vad_calibrated import is_silent_calibrated
 from yazses.config import AccessibilityConfig
 

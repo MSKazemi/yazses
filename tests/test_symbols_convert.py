@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.convert.units import apply_conversions
 from yazses.symbols.lookup import apply_symbols
 
-
 # ---- symbols ---------------------------------------------------------------
 
 def test_apply_symbols_basic():

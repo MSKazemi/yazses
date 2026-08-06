@@ -11,7 +11,6 @@ import pytest
 
 from yazses.polyglot.lid import dominant_language, is_code_switched, parse_pair
 
-
 # ---- parse_pair ------------------------------------------------------------
 
 def test_parse_valid_pair():

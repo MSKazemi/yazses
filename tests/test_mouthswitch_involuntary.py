@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.involuntary.excise import excise_nonspeech_spans, is_involuntary_vocalization
 from yazses.mouthswitch.scan import ScanSelector, classify_mouth_sound
 
-
 # ---- mouth-sound switch access ---------------------------------------------
 
 def test_classify_mouth_sound():

@@ -8,7 +8,6 @@ import numpy as np
 from yazses.denoise.frontend import apply_denoise
 from yazses.predict.complete import merge_completion, parse_accept
 
-
 # ---- predictive completion -------------------------------------------------
 
 def test_parse_accept_variants():

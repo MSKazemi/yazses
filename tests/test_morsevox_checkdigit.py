@@ -12,7 +12,6 @@ from yazses.morsevox.decode import (
     classify_pulse,
 )
 
-
 # ---- vocal morse -----------------------------------------------------------
 
 def test_classify_pulse_and_gap():

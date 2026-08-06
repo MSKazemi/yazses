@@ -6,7 +6,7 @@ ones — exactly which config key(s) `yazses features enable/disable` must write
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Callable
 
 # Recommendation tiers (drive the advice column + enable/disable guard).

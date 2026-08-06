@@ -6,7 +6,6 @@ import pytest
 from yazses.bridge.frame import decode_frame, encode_frame
 from yazses.bridge.session import BridgeSession, BridgeState
 
-
 # ---- pairing state machine -------------------------------------------------
 
 def test_full_pairing_lifecycle():

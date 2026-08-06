@@ -48,14 +48,15 @@ def test_generated_doc_is_in_sync(gen, fname, fn_name):
 
 def test_features_doc_lists_all_135(gen):
     text = gen.gen_features()
-    from yazses.system.features import feature_status
     from yazses.config import Config
+    from yazses.system.features import feature_status
     for f in feature_status(Config()):
         assert f"### {f.name}" in text, f"{f.name} missing from features.md"
 
 
 def test_config_doc_covers_every_section(gen):
     import dataclasses
+
     from yazses.config import Config
     text = gen.gen_configuration()
     for fld in dataclasses.fields(Config()):

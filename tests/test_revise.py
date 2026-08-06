@@ -6,8 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from yazses.commands.revise import parse_revise, DictationLedger
-
+from yazses.commands.revise import DictationLedger, parse_revise
 
 # --- parse_revise (whole-utterance only) -----------------------------------
 

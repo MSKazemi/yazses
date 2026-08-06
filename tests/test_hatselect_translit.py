@@ -10,7 +10,6 @@ from yazses.hatselect.labels import (
 )
 from yazses.translit.scheme import detect_scheme, transliterate
 
-
 # ---- hatselect -------------------------------------------------------------
 
 def test_assign_labels():

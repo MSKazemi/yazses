@@ -140,8 +140,6 @@ class WindowsInjector:
             "alt": 0xA4,    # VK_LMENU
             "meta": 0x5B,   # VK_LWIN
         }
-        KEYEVENTF_EXTENDEDKEY = 0x0001
-
         def _make_vk_event(vk: int, flags: int) -> _INPUT:
             inp = _INPUT()
             inp.type = INPUT_KEYBOARD

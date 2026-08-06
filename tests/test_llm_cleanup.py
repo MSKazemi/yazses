@@ -6,7 +6,6 @@ all return the input unchanged; only a guard-passing reformat is accepted.
 from __future__ import annotations
 
 from yazses.config import DisfluencyConfig
-from yazses.postprocess import llm_cleanup
 from yazses.postprocess.llm_cleanup import (
     LlmCleaner,
     _critical_tokens,
@@ -14,7 +13,6 @@ from yazses.postprocess.llm_cleanup import (
     _tokens_preserved,
     build_cleaner,
 )
-
 
 # ── guards ──────────────────────────────────────────────────────────────────
 

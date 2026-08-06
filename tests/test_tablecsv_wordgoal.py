@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.tablecsv.entry import parse_row, row_plan, rows_to_delimited
 from yazses.wordgoal.tracker import WordGoalTracker, count_words, parse_goal_command
 
-
 # ---- table → csv -----------------------------------------------------------
 
 def test_parse_row():

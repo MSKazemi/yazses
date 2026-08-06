@@ -22,7 +22,6 @@ from yazses.platform.windows.hotkey import (
 from yazses.platform.windows.injector import _utf16_units
 from yazses.platform.windows.ipc import _pipe_name_from_path
 
-
 # ---- Hotkey resolution -------------------------------------------------
 
 

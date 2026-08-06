@@ -1,19 +1,19 @@
-from yazses.platform.factory import get_platform
 from yazses.platform.base import (
     HotkeyBackend,
     InjectorBackend,
-    LifecycleBackend,
-    IpcServer,
     IpcClient,
-    PermissionsBackend,
-    TrayBackend,
+    IpcServer,
+    LifecycleBackend,
     Paths,
+    PermissionsBackend,
     PermissionState,
-    TrayState,
-    TrayModel,
     Platform,
+    TrayBackend,
+    TrayModel,
+    TrayState,
     UnsupportedPlatformError,
 )
+from yazses.platform.factory import get_platform
 
 __all__ = [
     "get_platform",

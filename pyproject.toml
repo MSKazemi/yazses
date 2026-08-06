@@ -175,6 +175,11 @@ dev = [
     "pytest-mock>=3.15.1",
     "pytest-cov>=7.1.0",
     "useful-moonshine-onnx>=20251121",
+    # Lint + type gates. CONTRIBUTING.md and the README tell contributors to run
+    # `uv run ruff check src tests` and `uv run mypy src`; they belong here so a
+    # fresh `uv sync` can actually run them.
+    "ruff>=0.14.5",
+    "mypy>=1.19.1",
 ]
 # Documentation site (MkDocs + Material). Build-only; never shipped in the wheel.
 # `uv sync --group docs` then `uv run mkdocs serve`. Deployed to GitHub Pages by
@@ -189,6 +194,27 @@ docs = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+# Lint gate. Deliberately a small, high-signal core (pyflakes + the serious pycodestyle
+# checks + import ordering) so `uv run ruff check src tests` is green and a contributor's
+# first run is not a wall of style noise. Widening the ruleset (UP / B / SIM …) is tracked
+# as a good first issue — do it one rule family at a time.
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+ignore = [
+    "E402",  # module-level import not at top — deliberate for lazy/optional imports
+    "E741",  # ambiguous variable name (l, I, O) — a couple of legitimate uses
+    "E731",  # lambda assignment — used in tests as compact stubs
+    "E702",  # `x = 1; i += 2; continue` — deliberate in the table-driven parsers
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Re-exports: package __init__ files intentionally import names they do not use.
+"__init__.py" = ["F401"]
 
 [tool.hatch.build.targets.wheel]
 # Include the whole package. `artifacts` un-ignores src/yazses/overlay/ in case a

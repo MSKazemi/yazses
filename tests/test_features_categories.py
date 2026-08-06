@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from yazses.config import Config
 from yazses.system.features import (
-    CATEGORY_ORDER,
     _CATEGORIES,
+    CATEGORY_ORDER,
     _registry,
     feature_status,
     grouped_features,

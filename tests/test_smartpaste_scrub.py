@@ -6,7 +6,6 @@ import pytest
 from yazses.scrub.index import TimedWord, find_word, range_bounds, slice_bounds
 from yazses.smartpaste.adapt import adapt, classify_surface
 
-
 # ---- smart-paste -----------------------------------------------------------
 
 def test_classify_surface_by_app():

@@ -5,7 +5,6 @@ from yazses.commands.grammar import CommandIntent, IntentType, classify
 from yazses.commands.profiles import ProfileRegistry, load_profiles
 from yazses.config import CommandsConfig
 
-
 # ---- profiles --------------------------------------------------------------
 
 def test_load_profiles_returns_registry():

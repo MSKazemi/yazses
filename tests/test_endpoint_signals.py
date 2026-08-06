@@ -16,7 +16,6 @@ from yazses.config import AccessibilityConfig
 from yazses.stt.endpoint import EndpointAnticipator
 from yazses.stt.streaming import StreamingEngine
 
-
 # ---- prefix_stable_for_ms() accessor ---------------------------------------
 
 class _NoopModel:

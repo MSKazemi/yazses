@@ -1,8 +1,8 @@
 """Tests for StreamingInjector state machine (ADR-004)."""
 from __future__ import annotations
 
-import pytest
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
+
 from yazses.inject.streaming import StreamingInjector
 
 

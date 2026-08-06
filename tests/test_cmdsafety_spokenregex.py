@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.cmdsafety.classify import ConfirmGate, assess_command
 from yazses.spokenregex.build import nl_to_regex
 
-
 # ---- command safety --------------------------------------------------------
 
 def test_assess_dangerous():

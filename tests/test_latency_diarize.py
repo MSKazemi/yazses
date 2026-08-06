@@ -9,7 +9,6 @@ from yazses.diarize.labels import (
 )
 from yazses.latency.governor import DecodePolicy, GovernorConfig, pick_policy
 
-
 # ---- latency governor ------------------------------------------------------
 
 def _cfg(draft=""):

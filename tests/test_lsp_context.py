@@ -6,9 +6,6 @@ from __future__ import annotations
 
 import time
 
-import pytest
-
-
 # ---------------------------------------------------------------------------
 # NullBridge
 # ---------------------------------------------------------------------------
@@ -175,8 +172,6 @@ def test_provider_bridge_exception_returns_none(monkeypatch):
 
         def get_context(self):
             raise RuntimeError("pynvim crashed")
-
-    original_build = lsp_mod.LspContextProvider._build_bridge
 
     def _inject_broken_bridge(self, editor: str):
         return BrokenBridge()

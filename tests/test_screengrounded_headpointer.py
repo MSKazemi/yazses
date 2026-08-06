@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.headpointer.pointer import DwellClicker, PointerCalib, pose_to_cursor
 from yazses.screengrounded.harvest import extract_terms, harvest_terms
 
-
 # ---- screen-grounded -------------------------------------------------------
 
 def test_extract_terms_kinds():

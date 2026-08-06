@@ -6,7 +6,6 @@ import pytest
 from yazses.gesture.chords import normalize_chord, resolve_chord
 from yazses.interpret.turns import parse_pair, route_turn
 
-
 # ---- gesture chords --------------------------------------------------------
 
 def test_normalize_chord_order_and_dedup():

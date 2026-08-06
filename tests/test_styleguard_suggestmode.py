@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.styleguard.rules import Change, apply_style, load_stylerules
 from yazses.suggestmode.critic import diff_to_critic, to_criticmarkup
 
-
 # ---- style-consistency enforcer --------------------------------------------
 
 def test_load_and_apply_word_rules():

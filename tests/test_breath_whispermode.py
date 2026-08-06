@@ -6,7 +6,6 @@ import numpy as np
 from yazses.breath.segment import breath_envelope, detect_breath_onsets, segment_by_breath
 from yazses.whispermode.detect import is_whispered, spectral_tilt, voicing_ratio, whisper_adaptation
 
-
 # ---- breath-paced dictation ------------------------------------------------
 
 def test_breath_envelope_smooths():

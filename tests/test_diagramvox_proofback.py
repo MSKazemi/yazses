@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.diagramvox.graph import Edge, parse_graph_utterance
 from yazses.proofback.align import Span, build_schedule, resolve_target, word_at
 
-
 # ---- diagrams-as-code ------------------------------------------------------
 
 def test_parse_graph_utterance():

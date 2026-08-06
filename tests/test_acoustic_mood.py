@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.acoustic.profiles import policy_for, should_switch
 from yazses.mood.ledger import aggregate, dominant_mood, mood_shift
 
-
 # ---- acoustic profiles -----------------------------------------------------
 
 def test_policy_for_known_scenes():

@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.echo.span import Span, build_span_index, resolve_playback_target
 from yazses.srpace.schedule import Chunk, chunk_clauses, plan_injection_schedule
 
-
 # ---- echo -------------------------------------------------------------------
 
 WORDS = [("hello", 0.0, 0.4), ("there", 0.5, 0.9), ("world", 1.0, 1.5)]

@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.compose.route import compose_route, is_plausible
 from yazses.gec.guard import fix_articles, is_minimal_edit
 
-
 # ---- compose ---------------------------------------------------------------
 
 def test_compose_route_valid_and_same():

@@ -14,7 +14,6 @@ from yazses.config import VoiceprintConfig
 from yazses.voiceprint.embedding import Embedding, cosine_similarity, is_target_frame
 from yazses.voiceprint.factory import build_embedder
 
-
 # ---- cosine_similarity (pure) ----------------------------------------------
 
 def test_cosine_identical_is_one():

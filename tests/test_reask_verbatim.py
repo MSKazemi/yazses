@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.reask.confidence import Span, confusion_set, low_confidence_spans, parse_choice
 from yazses.verbatim.gate import VerbatimGate, detect_mode_command
 
-
 # ---- confidence re-ask -----------------------------------------------------
 
 def test_low_confidence_spans_groups_runs():

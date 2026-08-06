@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.jump.target import Motion, Target, fuzzy_pick, plan_motion, resolve_target
 from yazses.shellpipe.build import dryrun_wrap, parse_stages, render_pipeline
 
-
 # ---- jump to symbol --------------------------------------------------------
 
 def test_resolve_target_line():

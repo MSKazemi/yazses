@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import asyncio
 import json
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 
 def make_mock_injector(inject_fn=None):
@@ -150,8 +151,9 @@ def test_remote_injector_proxy_is_reachable_false():
 
 def test_forwarder_raises_on_missing_ssh():
     """RemoteForwarder.connect() should raise FileNotFoundError if ssh not found."""
-    from yazses.remote.forwarder import RemoteForwarder
     import unittest.mock as mock
+
+    from yazses.remote.forwarder import RemoteForwarder
     forwarder = RemoteForwarder()
     with mock.patch("shutil.which", return_value=None):
         with pytest.raises(FileNotFoundError, match="ssh is not installed"):

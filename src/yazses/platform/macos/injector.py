@@ -86,9 +86,9 @@ class MacosInjector:
             CGEventCreateKeyboardEvent,
             CGEventPost,
             CGEventSetFlags,
+            kCGEventFlagMaskAlternate,
             kCGEventFlagMaskCommand,
             kCGEventFlagMaskControl,
-            kCGEventFlagMaskAlternate,
             kCGEventFlagMaskShift,
             kCGHIDEventTap,
         )

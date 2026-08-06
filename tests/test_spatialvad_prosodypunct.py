@@ -6,7 +6,6 @@ import numpy as np
 from yazses.prosodypunct.punctuate import punctuate_from_prosody
 from yazses.spatialvad.beam import gcc_phat, spatial_gate, tdoa_to_angle
 
-
 # ---- spatial VAD -----------------------------------------------------------
 
 def test_gcc_phat_recovers_known_delay():

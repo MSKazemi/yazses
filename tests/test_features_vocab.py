@@ -10,7 +10,6 @@ from yazses.system.features import (
 )
 from yazses.system.vocabulary import add_vocab, load_vocab, remove_vocab, vocab_path
 
-
 # ---- feature_status: capabilities on/off ----------------------------------
 
 def _by_name(features):

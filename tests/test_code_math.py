@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.code.spoken import spoken_symbols, to_case
 from yazses.math.latex import spoken_to_latex
 
-
 # ---- spoken code: symbols --------------------------------------------------
 
 def test_symbols_basic():

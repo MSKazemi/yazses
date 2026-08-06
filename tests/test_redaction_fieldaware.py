@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.fieldaware.profile import FormatProfile, apply_profile, profile_for_role
 from yazses.redaction.scrub import redact
 
-
 # ---- redaction -------------------------------------------------------------
 
 def test_redact_masks_valid_card_luhn():

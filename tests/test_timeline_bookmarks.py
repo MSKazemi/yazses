@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.bookmarks.store import BookmarkStore, parse_bookmark_command
 from yazses.timeline.history import InjectionTimeline, UndoOp
 
-
 # ---- undo/redo timeline ----------------------------------------------------
 
 def test_undo_last_burst():

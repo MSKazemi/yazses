@@ -9,7 +9,6 @@ from yazses.vocaljoystick.control import (
     vowel_to_direction,
 )
 
-
 # ---- vocal joystick --------------------------------------------------------
 
 def test_vowel_to_direction():

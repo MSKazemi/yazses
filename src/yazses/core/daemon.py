@@ -16,10 +16,16 @@ import sys
 import threading
 import time
 from collections.abc import Mapping
-
-import numpy as np
 from dataclasses import dataclass
 from types import FrameType
+from typing import TYPE_CHECKING
+
+import numpy as np
+
+if TYPE_CHECKING:
+    # Imported lazily at runtime (see _build_gaze_targeter) so the optional gaze
+    # dependencies stay dormant; needed here only for the annotation.
+    from yazses.gaze.targeter import GazeTargeter
 
 from yazses.audio.device_monitor import DeviceMonitor, SilentStreakTracker
 from yazses.audio.padding import PreSpeechRingBuffer
@@ -44,10 +50,10 @@ from yazses.postprocess.voice_punctuation import apply_voice_punctuation
 from yazses.remote.forwarder import RemoteForwarder
 from yazses.remote.local_proxy import RemoteInjectorProxy
 from yazses.stt.endpoint import EndpointAnticipator
-from yazses.tts.factory import build_tts
 from yazses.stt.faster_whisper import FasterWhisperEngine
 from yazses.stt.filters.disfluency import filter_transcript
 from yazses.stt.streaming import StreamingEngine
+from yazses.tts.factory import build_tts
 
 log = logging.getLogger(__name__)
 
@@ -774,6 +780,7 @@ class Daemon:
             acc = self._config.accessibility
             try:
                 from dataclasses import replace
+
                 from yazses.continuum.whisper_mode import effective_vad_threshold
                 eff = effective_vad_threshold(acc.vad_threshold, self._config.continuum)
                 if eff != acc.vad_threshold:

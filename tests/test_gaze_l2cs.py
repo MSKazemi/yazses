@@ -15,7 +15,6 @@ import pytest
 
 from yazses.config import GazeConfig
 
-
 # ---- fakes ------------------------------------------------------------------
 
 

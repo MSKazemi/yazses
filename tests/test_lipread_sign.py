@@ -4,7 +4,6 @@ from __future__ import annotations
 from yazses.lipread.gate import mouth_active, mouth_aspect_ratio
 from yazses.sign.segment import SignSegmenter, hands_present
 
-
 # ---- lip-reading -----------------------------------------------------------
 
 def test_mouth_aspect_ratio():

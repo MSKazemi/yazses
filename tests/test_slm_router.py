@@ -7,10 +7,7 @@ from __future__ import annotations
 import importlib
 import sys
 
-import pytest
-
 from yazses.commands.grammar import CommandIntent, IntentType
-
 
 # ---------------------------------------------------------------------------
 # Disabled-router tests (no model, no library)
