@@ -1,52 +1,94 @@
 ---
 title: Record a YazSes demo GIF — contributor guide
-description: How to record a short hold-to-talk dictation demo GIF for the YazSes README, including recommended tools and settings on Linux, macOS and Windows.
+description: How to record a short hold-to-talk dictation demo GIF for the YazSes README, with a one-command recorder that needs no system packages on X11.
 ---
 
-# Record Your Own Demo GIF
+# Record a demo GIF
 
-A short demo GIF is a convenient way to show YazSes hold-to-talk dictation in action. This guide explains how to record your own demo.
+A dictation tool is hard to explain and easy to show: hold a key, speak, watch the text
+appear. A 10–15 second GIF does that better than any paragraph, which is why it belongs at
+the top of the README.
 
-## What to Record
+The repo ships a recorder so you don't have to install anything:
 
-A useful demo should clearly show:
+```sh
+uv run scripts/record-demo.py --window --seconds 15 --out docs/screenshots/demo.gif
+```
 
-1. Start YazSes.
-2. Place the cursor in a text field or editor.
-3. Hold the configured hold-to-talk key.
-4. Speak a short sentence.
-5. Release the key.
-6. Show the transcribed text appearing in the active window.
+It asks you to click the window to record, counts down from three, captures, then writes a
+size-optimised GIF. `uv` fetches its two dependencies (`mss`, `pillow`) into its own cache
+on first run — nothing is installed system-wide, no `sudo`, and they are not added to the
+project's dependencies.
 
-Keep the recording short and focused so the resulting GIF is easy to view.
+X11 only. On Wayland the screen cannot be read this way; see [Wayland](#wayland) below.
 
-## Recording Tools
+## What to show
 
-Choose a recording tool based on your Linux display system:
+Keep it to one idea. The demo answers *"what happens when I hold the key?"* — nothing else.
 
-- **Peek** — a simple option for recording short demos, commonly used on X11.
-- **wf-recorder** — a screen recorder designed for Wayland.
-- **gifski** — converts recorded video frames into a high-quality, optimized GIF.
-- **ffmpeg** — can also be used to convert a screen recording into GIF format.
+| Time | On screen |
+|---:|---|
+| 0–2 s | A real editor with the cursor already blinking in it. No terminal. |
+| 2–3 s | You press and hold the key. The tray icon turns **green** and the overlay rings appear — that is the visible feedback that it is listening. |
+| 3–8 s | You speak one natural sentence. Nothing appears yet; that is correct and worth showing, because it is what a real user sees. |
+| 8–11 s | You release. The text appears in the editor. |
+| 11–13 s | One beat of stillness on the finished text, so the loop doesn't cut mid-word. |
 
-## Recording the Demo
+Say something that demonstrates the product rather than the technology. A sentence with
+ordinary punctuation reads better than "testing one two three", because the transcript
+shows capitalisation and a full stop — details a viewer notices without being told.
 
-Before recording:
+## Before you hit record
 
-- Open YazSes and make sure dictation is working.
-- Open the application where you want the dictated text to appear.
-- Resize the windows so only the relevant area needs to be recorded.
-- Avoid displaying private or sensitive information.
+- **Check dictation actually works right now** — `yazses status`, then dictate once into a
+  scratch file. Re-recording because the daemon was in a bad state is the most common waste.
+- **Raise the editor's font size** to ~16–18 pt. The GIF is scaled down to 900 px wide; text
+  that is comfortable on your screen is unreadable after scaling.
+- **Shrink the window** to roughly 900×500. A tighter region means fewer pixels per frame,
+  which is the single biggest lever on file size.
+- **Clear the screen of anything private** — file paths, tabs, notifications, email. The GIF
+  is permanent and public.
+- **Include the tray icon** in the region if you can. Watching it turn green mid-recording
+  demonstrates the state feedback for free.
 
-Start your screen recorder, demonstrate the hold-to-talk workflow, and stop recording once the transcribed text appears.
+## Size
 
-## Tips for a Good Demo
+GitHub renders README images at about 900 px wide, and a demo that takes seconds to load
+has already lost the visitor it was meant to convert. The script targets **under 5 MB** and
+warns when it misses. If it warns, in order of what costs least:
 
-- Keep the GIF short.
-- Record only the relevant part of the screen.
-- Make the dictated text easy to read.
-- Avoid unnecessary mouse movement.
-- Remove or hide personal information before recording.
-- Compress the GIF when possible to keep the file size small.
+| Knob | Effect |
+|---|---|
+| Tighter `--region` | Biggest win — pixels are multiplied by every frame |
+| `--fps 10` | Barely visible at this length |
+| `--colors 64` | Fine for text on a flat background |
+| Shorter `--seconds` | Cut the lead-in, not the result |
 
-Once your GIF is ready, it can be used in documentation, bug reports, or feature demonstrations.
+The recorder already collapses runs of identical frames, so the still parts of the clip —
+the pause while you speak — cost almost nothing.
+
+## Stills
+
+Same script, `--shot`, for screenshots such as the tray in a particular state:
+
+```sh
+uv run scripts/record-demo.py --window --shot --out docs/screenshots/tray-green.png
+```
+
+## Wayland
+
+`mss` cannot capture the screen under Wayland. Record with
+[`wf-recorder`](https://github.com/ammen99/wf-recorder), then convert:
+
+```sh
+wf-recorder -g "$(slurp)" -f demo.mp4          # select a region, record, Ctrl-C to stop
+ffmpeg -i demo.mp4 -vf "fps=12,scale=900:-1" -f gif - | gifski -o demo.gif -
+```
+
+`gifski` produces noticeably better GIFs than ffmpeg's own encoder at the same size.
+
+## Where it goes
+
+Above the fold in `README.md` — before the `yazses doctor` screenshot, which shows a
+diagnostic rather than the result. The same file is reused in the docs landing page and in
+any launch post, so record it once and use it everywhere.

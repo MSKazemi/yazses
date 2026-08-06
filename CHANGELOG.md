@@ -6,6 +6,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — a one-command demo recorder, so the README can finally show the product
+
+A dictation tool is hard to describe and trivial to show, but the README's only visual is a
+`yazses doctor` screenshot — a diagnostic, not the result — and recording a real clip meant
+first installing a screen recorder, which nobody had.
+
+`scripts/record-demo.py` records a region or a clicked window straight to a size-optimised
+GIF: countdown, capture, resize to README width, shared-palette quantisation, identical-frame
+collapsing, and a 5 MB budget with advice when it is missed. It runs via `uv run` with inline
+script metadata, so its two dependencies land in uv's cache — nothing installed system-wide,
+no `sudo`, and nothing added to the project's dependencies. `--shot` takes a still instead.
+
+`docs/demo-guide.md` is now a recipe rather than a list of tools: the exact command, a
+timed shot list, what to check before recording, and which knob to turn when the file is
+too big.
+
 ### Fixed — the tray icon called a working daemon faulty after one silent clip
 
 Red is the icon's "something is wrong" colour, and `icon_spec` reached for it as soon as
