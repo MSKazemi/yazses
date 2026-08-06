@@ -1,11 +1,10 @@
 """Code command grammar classifier — detects voice commands in transcribed text."""
 from __future__ import annotations
 
-from typing import Protocol
-
 import re
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Protocol
 
 
 class IntentType(str, Enum):
@@ -110,7 +109,12 @@ _add(r'^new\s+file\s+(?:called?\s+)?(.+)$', IntentType.EDIT, "new_file", ["name"
 
 
 class _MacroHit(Protocol):
-    trigger: str
+    # Read-only on purpose: the real collaborator is `commands.macros.Macro`, a
+    # frozen dataclass. A bare `trigger: str` here would declare a *settable*
+    # attribute, and those are invariant — a frozen dataclass cannot satisfy it,
+    # which pushes the type error out to the daemon's classify() call sites.
+    @property
+    def trigger(self) -> str: ...
 
 
 class _MacroTable(Protocol):
