@@ -1,6 +1,8 @@
 """Code command grammar classifier — detects voice commands in transcribed text."""
 from __future__ import annotations
 
+from typing import Protocol
+
 import re
 from dataclasses import dataclass, field
 from enum import Enum
@@ -107,11 +109,19 @@ _add(r'^new\s+class\s+(?:called?\s+)?(.+)$', IntentType.EDIT, "new_class", ["nam
 _add(r'^new\s+file\s+(?:called?\s+)?(.+)$', IntentType.EDIT, "new_file", ["name"])
 
 
+class _MacroTable(Protocol):
+    def match(self, text: str) -> object | None: ...
+
+
+class _SlmRouter(Protocol):
+    def classify(self, text: str, profile: str) -> CommandIntent | None: ...
+
+
 def classify(
     text: str,
     profile: str = "default",
-    slm_router: object | None = None,
-    macro_table: object | None = None,
+    slm_router: _SlmRouter | None = None,
+    macro_table: _MacroTable | None = None,
 ) -> CommandIntent:
     """Classify transcribed text as a command or plain dictation.
 
@@ -125,7 +135,7 @@ def classify(
 
     # Tier 0: user-defined macros (run before the regex grammar).
     if macro_table is not None:
-        macro = macro_table.match(text)  # type: ignore[union-attr]
+        macro = macro_table.match(text)
         if macro is not None:
             return CommandIntent(
                 intent=IntentType.MACRO,
@@ -148,7 +158,7 @@ def classify(
             return CommandIntent(intent=intent, action=action, args=args, raw_text=text)
 
     if slm_router is not None:
-        slm_result = slm_router.classify(text, profile)  # type: ignore[union-attr]
+        slm_result = slm_router.classify(text, profile)
         if slm_result is not None:
             return slm_result
 
