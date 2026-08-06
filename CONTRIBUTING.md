@@ -76,11 +76,11 @@ If you are adding support for a new platform or injection backend, implement all
 ## Using an AI coding assistant
 
 That is fine, and increasingly common — but the PR is yours, so please read and understand
-every line before you open it, and confirm the tests pass locally rather than assuming. Point
-your assistant at this file and at `docs/architecture.md` for the project conventions, and
-give it the two rules it is most likely to break: **no network calls or telemetry**, and
-**new features ship off by default**. Mention in the PR body if a change was largely
-AI-generated; it only changes how carefully we review, never whether we accept it.
+every line before you open it, and confirm the tests pass locally rather than assuming.
+[`AGENTS.md`](AGENTS.md) gives your assistant the project conventions, the gates, and the two
+rules it is most likely to break (**no network calls or telemetry**, and **new features ship
+off by default**). Mention in the PR body if a change was largely AI-generated; it only
+changes how carefully we review, never whether we accept it.
 
 ## License
 
