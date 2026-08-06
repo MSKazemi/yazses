@@ -7,9 +7,18 @@ that it does not make on screen. Deriving the markup from the markdown removes
 that failure mode entirely — the schema cannot drift because there is only one
 source.
 
-FAQ rich results are also one of the formats AI answer engines read directly, so
-this is the highest-value structured-data surface on the site after the
-SoftwareApplication block on the homepage.
+What this does NOT buy, so nobody re-litigates it later: **Google FAQ rich
+results no longer exist.** They were restricted to authoritative government and
+health sites in August 2023 and switched off entirely on 2026-05-07. This markup
+will not add an expanded listing in Google Search, and no amount of tuning it
+will change that. HowTo rich results are likewise gone (mobile August 2023,
+desktop September 2023) — which is why there is no HowTo schema on the install
+pages.
+
+It is still worth emitting: `FAQPage` remains a valid schema.org type, Google
+continues to parse it to understand what a page covers, and AI answer engines
+read structured data directly when deciding what to quote. That is the
+justification — machine comprehension, not a SERP feature.
 
 Registered via `hooks:` in mkdocs.yml.
 """
