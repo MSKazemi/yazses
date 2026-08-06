@@ -6,6 +6,36 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Contributor experience — the documented gate now actually runs
+
+- **`ruff` and `mypy` are now dev dependencies.** They were documented as the contributor
+  gate in the README and `CONTRIBUTING.md` but were not installed, so a newcomer's first
+  command failed with `Failed to spawn: ruff`.
+- **Added a `[tool.ruff]` config** with a deliberately small, high-signal ruleset (pyflakes,
+  the serious pycodestyle checks, import ordering) so the lint gate is green instead of a
+  wall of style noise. Widening it is tracked as a good first issue. Applied the resulting
+  safe fixes across the codebase; fixed an unresolved `GazeTargeter` forward reference and
+  removed three dead local assignments.
+- **The `Makefile` is Python again.** Every target still drove the archived Rust build, so
+  `make test` ran `cargo test` in a Python project. It now has `check`, `test`, `test-cov`,
+  `lint`, `lint-fix`, `types`, `docs`, `docs-serve`, daemon lifecycle, `build`, and `clean`.
+- **Regenerated `docs/features.md`**, which was stale and failing the doc-sync test on a
+  clean checkout.
+- `mypy` is documented as **advisory** (135 pre-existing errors) rather than hidden behind a
+  lenient config, and reducing that count one module at a time is now a good first issue.
+
+### Documentation — lead with meeting capture and file transcription
+
+- **The README now leads with all three capabilities** — hold-to-talk dictation, offline
+  file transcription, and hands-free meeting capture. Meeting Mode previously appeared
+  nowhere in the README or the comparison page. The archived Rust comparison table moved
+  out of the above-the-fold position into the development section.
+- **New [`docs/meeting-notes-offline.md`](docs/meeting-notes-offline.md)** — an honest
+  comparison against Otter.ai, Fireflies, and the local-first tools, stating plainly that
+  Meeting Mode records the room microphone rather than a video call's system audio, and
+  that speaker labels and minutes are opt-in extras.
+- `CONTRIBUTING.md` de-Rustified, with the blocking gates separated from the advisory one.
+
 ### Documentation site — modern MkDocs + Material
 
 - **The documentation site is now built with [MkDocs + Material](https://squidfunk.github.io/mkdocs-material/)**,
