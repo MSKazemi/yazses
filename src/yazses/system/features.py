@@ -795,9 +795,12 @@ def _registry() -> list[_Def]:
              "Records a multi-speaker meeting transcript on-device, tagging you as 'You' "
              "and others as Speaker N. Needs the scribe extra (diarization). Off by default.",
              lambda c: c.scribe.enabled, sc_on, sc_off),
-        _Def("denoise", "Noise Suppression", "[denoise] — clean mic before STT", OPTIONAL,
+        _Def("denoise", "Noise Suppression", "[denoise] — clean mic before STT",
+             EXPERIMENTAL,
              "Removes background noise/echo before transcription so dictation works in "
-             "noisy rooms. Needs the denoise extra (DeepFilterNet). Off by default.",
+             "noisy rooms. The DeepFilterNet backend is NOT implemented in this build "
+             "yet, so enabling this currently passes audio through unchanged (it logs "
+             "why). Off by default.",
              lambda c: c.denoise.enabled, dn_on, dn_off),
         _Def("predict", "Predictive Completion", "[predict] — voice autosuggest", OPTIONAL,
              "A tiny local model suggests the rest of your sentence; accept by voice. "

@@ -33,7 +33,10 @@ class EditWatcher:
     def __init__(
         self,
         read_current_text: Callable[[], str | None],
-        on_correction: Callable[[str, str], None],
+        # Return value is ignored, so `object` keeps this compatible with the real
+        # collaborator (`CorpusWriter.update_correction_for`, which returns bool and
+        # takes an optional third `signal` argument) without narrowing the contract.
+        on_correction: Callable[[str, str], object],
         delay_s: float = 8.0,
         timer_factory: Callable = threading.Timer,
     ) -> None:

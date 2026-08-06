@@ -6,6 +6,74 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — enabling a translation that cannot run silently transcribed instead
+
+`[translate]` only supports Whisper's X→English task. Selecting the unimplemented
+`seamless` backend, or any non-English `target`, made `translation_task()` return `None` —
+correct behaviour, but the user got their speech transcribed untranslated with nothing in
+the log. Enabling "translate to French" and receiving untranslated French back is
+indistinguishable from translation being broken.
+
+New pure `translate.mode.inactive_reason()` names the specific reason, and the daemon logs
+it **once per process** via a new `_warn_feature_inert` helper (shared, so other
+enabled-but-inert features can report the same way). Behaviour is unchanged — this only
+makes an existing silent degrade audible.
+
+### Fixed — three backends you could select had never been built, and said so misleadingly
+
+`[denoise] backend = "deepfilternet"`, `[voiceprint] backend = "resemblyzer"` and
+`[recimport]/[meeting] backend = "pyannote"` are all selectable, documented options whose
+adapter modules **do not exist in this build**. Each factory caught the resulting
+`ImportError` and told the user to install an extra — advice that can never work: there is
+no `denoise` extra at all, the `voiceprint` extra ships speechbrain only, and `diarization`
+ships sherpa-onnx only.
+
+Worst of the three, **`yazses features enable denoise` reported the feature ON while
+`apply_denoise` silently returned untouched audio** — no log line, no warning, no way to
+tell it apart from denoising that simply wasn't helping.
+
+- New `system/backends.py` (`probe_backend`) separates "the optional dependency is missing"
+  (installing the named extra fixes it) from "the adapter was never shipped" (nothing can),
+  and produces the honest message. Wired into all three factories.
+- Denoise now logs **once per backend** — not once per dictation burst — explaining that
+  audio is passing through unprocessed. This follows the same "never degrade silently" rule
+  as the Meeting Mode diarization-model warning.
+- The `denoise` feature is re-tiered `optional` → `experimental`, so enabling a no-op needs
+  `--force`, and its description says plainly that the backend isn't implemented yet.
+
+Behaviour is otherwise unchanged: every path still degrades to a working fallback and never
+raises into dictation.
+
+### Changed — the daemon orchestrator and Meeting Mode are now type-clean
+
+Typed the ~20 daemon attributes that were declared bare `None` and the two
+`MeetingResult` fields that were declared bare `object`, so `core/daemon.py` and the whole
+`meeting/` package now pass `mypy` (75 errors across 22 leaf modules remain, down from 100
+across 25). These are the highest-blast-radius modules in the codebase and the worst place
+to send a first-time contributor, so they are cleared ahead of the per-module cleanup in
+issue #47.
+
+Typing them surfaced two real robustness gaps, both fixed:
+
+- `_maybe_cocktail_gate` re-read `self._embedder` inside its per-frame closure, so a
+  concurrent shutdown clearing the attribute could raise mid-gate; it is now bound to a
+  local before the closure is built.
+- `_voiceprint` was documented as an `Embedding` but actually holds the unwrapped d-vector
+  (`emb.vector`), which the type checker caught against the `gate()` signature.
+
+Added the first direct tests for the Cocktail Filter gate wiring (dormancy conditions,
+embedder-failure fallback, and the matching-frame happy path) — it sits on the dictation
+hot path and previously had none.
+
+### Fixed — the mypy quality gate had no configuration
+
+`CLAUDE.md` names `uv run mypy src` a quality gate, but no `[tool.mypy]` section existed, so
+it ran on bare defaults and buried its real findings under ~35 import errors from optional
+backends that a base install *correctly* omits — errors no contributor could fix. Added a
+documented `[tool.mypy]` config; the gate now reports **100 genuine errors across 25 files**
+(was 135 across 50), making the module-by-module cleanup in issue #47 actually actionable.
+Not yet green — the remaining errors are pre-existing and tracked.
+
 ### Fixed — a discarded dictation burst leaked a Whisper decode loop forever
 
 With `[streaming] enabled`, every hold started `StreamingEngine`'s background decode

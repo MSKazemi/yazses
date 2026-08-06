@@ -10,12 +10,21 @@ injectable; with fakes the whole flow is unit-testable with no model download.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    # Annotation-only imports: the real modules are imported lazily inside
+    # finalize_meeting so the heavy STT/diarization backends stay dormant until a
+    # meeting is actually finalized. Typing these properly (they used to be bare
+    # `object`) is what lets callers read `.transcript.speaker_names` type-checked.
+    from yazses.meeting.notes import Minutes
+    from yazses.recimport.pipeline import TranscriptResult
 
 
 @dataclass(frozen=True)
 class MeetingResult:
-    transcript: object          # recimport.pipeline.TranscriptResult
-    minutes: object | None      # meeting.notes.Minutes | None
+    transcript: TranscriptResult
+    minutes: Minutes | None
 
 
 def finalize_meeting(

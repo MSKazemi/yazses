@@ -337,8 +337,8 @@ YazSes ships **139 capabilities**. All but the core are **off by default** — t
 
 ### Noise Suppression
 
-- **Toggle:** `denoise`  ·  **Tier:** optional  ·  **Config:** `[denoise] — clean mic before STT`
-- **What it does:** Removes background noise/echo before transcription so dictation works in noisy rooms. Needs the denoise extra (DeepFilterNet). Off by default.
+- **Toggle:** `denoise`  ·  **Tier:** experimental — not advised yet  ·  **Config:** `[denoise] — clean mic before STT`
+- **What it does:** Removes background noise/echo before transcription so dictation works in noisy rooms. The DeepFilterNet backend is NOT implemented in this build yet, so enabling this currently passes audio through unchanged (it logs why). Off by default.
 - **Use when:** When you're dictating in a noisy room and background sound is hurting accuracy.
 - **Example:** yazses features enable denoise — background noise is filtered pre-STT.
 - **Activate:** `yazses features enable denoise` then `yazses restart`
