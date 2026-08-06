@@ -101,7 +101,7 @@ yazses start                # start the dictation daemon
 | macOS | `Right Option` | *"delete the last word"* · *"save file"* · *"new function parse config"* |
 | Windows | `Right Ctrl` | *"undo that"* · *"select all"* · *"comment this line"* |
 
-Release the key — YazSes transcribes and acts within about a second.
+Release the key — YazSes transcribes and acts. On a modern laptop CPU that is a median of **1.6 s** with the default `base.en` model, or **0.9 s** with `tiny.en` ([measured](docs/benchmarks.md)).
 
 > **First time on macOS?** v0 builds are unsigned: right-click the app → Open (Gatekeeper), then grant Accessibility + Microphone when prompted.
 >
@@ -138,7 +138,9 @@ Hold hotkey → record audio → VAD gate → faster-whisper (CPU) → clean + d
             → dictate? type the text   ·   command? send the key sequence
 ```
 
-Everything runs on your CPU — no GPU, no network. Transcription uses **faster-whisper** (int8). A fast regex grammar classifies each utterance as dictation or a command; when its confidence is low, an optional ~0.5B SLM router takes a second look. The result appears in the focused window within about a second on a modern laptop.
+Everything runs on your CPU — no GPU, no network. Transcription uses **faster-whisper** (int8). A fast regex grammar classifies each utterance as dictation or a command; when its confidence is low, an optional ~0.5B SLM router takes a second look.
+
+Measured on a 13th-gen Core i7 laptop, int8 on CPU: **4.07 % WER** on LibriSpeech test-clean with the default `base.en`, a **1.56 s median** decode, and **0.29 ms** of total non-decode pipeline overhead — i.e. essentially all the latency is the speech model. Everything, including the method and the commands to reproduce it, is on the [benchmarks page](docs/benchmarks.md).
 
 **Models:**
 - **Speech-to-text:** faster-whisper — `tiny.en` (fast) / `base.en` / `small.en` (more accurate), int8 on CPU

@@ -45,6 +45,19 @@ question a person asks *before* they know YazSes exists.
   falling back to the site-wide default; each now has its own title and description.
 - `CITATION.cff` no longer claims version 1.4.1 or lists Rust as a language.
 
+### Benchmarks are now public — and the latency claim is corrected
+
+- **New [`docs/benchmarks.md`](docs/benchmarks.md)** publishes the measurements that
+  previously existed only in the paper's working directory: WER on LibriSpeech test-clean
+  across `tiny.en`/`base.en`/`small.en`, decode latency and memory, the VAD gate, command
+  classification, and the Dysfluency-Friendly Mode gate — with the hardware, the method,
+  and the commands to reproduce every number, plus an explicit list of what is *not*
+  measured.
+- **Corrected the README's "within about a second" claim.** Measured median decode is
+  0.89 s (`tiny.en`), 1.56 s (`base.en`, the default) and 5.05 s (`small.en`) on a 13th-gen
+  Core i7. The old wording overstated the default configuration and badly overstated
+  `small.en`. The README and comparison page now cite the measured figures.
+
 ### Contributor experience — the documented gate now actually runs
 
 - **`ruff` and `mypy` are now dev dependencies.** They were documented as the contributor

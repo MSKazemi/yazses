@@ -193,8 +193,10 @@ Dragon is modest; for specialist medical or legal vocabularies it is not.
 
 ## Honest limitations
 
-- Accuracy is Whisper-class (defaults to `small.en`); it is not tuned for
-  specialized medical/legal vocabularies the way Dragon is.
+- Accuracy is Whisper-class — **4.07 % WER** on LibriSpeech test-clean with the
+  default model, [measured and reproducible](benchmarks.md). It is not tuned for
+  specialized medical/legal vocabularies the way Dragon is, and real dictation in
+  a room will be worse than a clean read-speech benchmark.
 - On Wayland, global-hotkey and injection setup needs `ydotool`/`ydotoold`.
 - The first run downloads the STT model.
 - It is a dictation + command tool, **not** an LLM agent or a full voice-scripting

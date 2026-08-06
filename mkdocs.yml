@@ -230,6 +230,7 @@ nav:
   - Reference:
       - Features: features.md
       - Comparison & alternatives: comparison.md
+      - Benchmarks: benchmarks.md
       - FAQ: faq.md
       - v2 features (preview): v2-features.md
       - CLI reference: cli-reference.md
