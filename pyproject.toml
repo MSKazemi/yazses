@@ -31,6 +31,12 @@ keywords = [
     "macos",
     "windows",
     "accessibility",
+    "wayland",
+    "x11",
+    "transcription",
+    "speaker-diarization",
+    "meeting-notes",
+    "open-source",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
