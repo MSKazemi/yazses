@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     from yazses.verbatim.gate import VerbatimGate
     from yazses.voiceprint.base import SpeakerEmbedder
 
+from yazses.audio.adaptive_vad import AdaptiveThreshold
 from yazses.audio.device_monitor import DeviceMonitor, SilentStreakTracker
 from yazses.audio.padding import PreSpeechRingBuffer
 from yazses.audio.recorder import AudioRecorder
@@ -205,6 +206,9 @@ class Daemon:
         # stealing capture) is auto-healed to the last-good device + notified, instead
         # of dropping speech in silence. Built in _build_pipeline; monitor may be None.
         self._silent_streak = SilentStreakTracker()
+        # Learns the silence gate from outcomes, so a threshold that no longer fits this
+        # mic stops being a silent "I speak and nothing happens".
+        self._adaptive_vad = AdaptiveThreshold()
         self._device_monitor: DeviceMonitor | None = None
         # "No text target" guard: detects whether the focused element accepts text so a
         # burst with no field focused is warned (yellow tray) + saved to the clipboard
@@ -823,6 +827,8 @@ class Daemon:
                 )
                 # A run of these is the "dictation silently stopped writing" symptom
                 # (mic switched to a dead/quiet source): auto-heal + notify the user.
+                self._adaptive_vad.observe_discard(level)
+                self._maybe_retune_threshold(acc.vad_threshold)
                 self._note_silent_discard()
                 if stream_injector is not None:
                     stream_injector.cancel()
@@ -1413,6 +1419,8 @@ class Daemon:
     def _note_good_capture(self) -> None:
         """A clip produced usable audio — reset the streak, remember the device."""
         self._silent_streak.record_success()
+        # Working dictation is proof the gate is fine; don't retune off stale evidence.
+        self._adaptive_vad.observe_speech(0.0)
         self._healed_this_streak = False
         name = getattr(self._recorder, "current_device_name", None)
         with self._lock:
@@ -1420,6 +1428,52 @@ class Daemon:
             if name:
                 self._state.last_good_device = name
                 self._state.input_device = name
+
+    def _maybe_retune_threshold(self, current: float) -> None:
+        """Lower the silence gate when it is demonstrably swallowing this user's voice.
+
+        The threshold is machine-, room- and voice-dependent, so the shipped default fits
+        nobody in particular and a value calibrated once stops fitting as soon as anything
+        changes. When it drifts too high the failure is invisible — you speak and nothing
+        appears — so it is the one worth healing without being asked. Raising the gate
+        stays manual: leaked room noise shows up in the transcript, where the user can see
+        it and act.
+
+        Persisted to config.toml so the fix survives a restart, and announced, because a
+        setting that changes itself silently is its own kind of unreliability.
+        """
+        proposed = self._adaptive_vad.suggest(current)
+        if proposed is None:
+            return
+        self._adaptive_vad.reset()
+        try:
+            from dataclasses import replace
+
+            from yazses.system import miclevel
+
+            miclevel.update_threshold_in_config(
+                self._platform.paths.config_file, round(proposed, 5)
+            )
+            with self._lock:
+                self._config = replace(
+                    self._config,
+                    accessibility=replace(
+                        self._config.accessibility, vad_threshold=proposed
+                    ),
+                )
+            log.info(
+                "Speech kept falling below the silence gate — lowered vad_threshold "
+                "%.4f -> %.4f and saved it. Say something to check.",
+                current, proposed,
+            )
+            self._notify_mic(
+                "🎤 Microphone sensitivity adjusted",
+                f"Your voice was being treated as silence. The threshold is now "
+                f"{proposed:.4f} (was {current:.4f}). Try dictating again.",
+                actions=False,
+            )
+        except Exception:
+            log.exception("Adaptive threshold retune failed")
 
     def _recalibrate_mic(self) -> None:
         """[Re-calibrate] action: measure the active mic and write vad_threshold."""

@@ -1405,6 +1405,55 @@ _HOTKEYS = [
     "right_shift", "left_shift", "right_meta", "left_meta", "space",
 ]
 
+@app.command(
+    rich_help_panel=_SETUP,
+    epilog=_examples(
+        "yazses report                 write a diagnostic file you can attach to an issue",
+        "yazses report --print         show it instead of writing it",
+        "yazses report -o /tmp/r.json  choose where it goes",
+    ),
+)
+def report(
+    out: Optional[str] = typer.Option(None, "--output", "-o", help="Where to write it."),
+    show: bool = typer.Option(False, "--print", help="Print it instead of writing a file."),
+    log_lines: int = typer.Option(200, "--log-lines", help="How much log tail to include."),
+) -> None:
+    """Collect a diagnostic report locally — nothing is uploaded.
+
+    Includes versions, the daemon's state, your settings with paths and identifiers
+    removed, and the tail of the metadata-only log. Your dictated text and the learning
+    corpus are never included. Read it, then attach it to an issue yourself if you want to.
+    """
+    from yazses.system import report as report_mod
+
+    platform = get_platform()
+    try:
+        client = platform.ipc_client_factory(platform.paths.ipc_socket)
+        status = client.call("status")
+    except Exception:  # noqa: BLE001 — a dead daemon is exactly when this is needed
+        status = None
+
+    data = report_mod.collect(
+        config_file=platform.paths.config_file,
+        log_file=platform.paths.log_dir / "daemon.log",
+        data_dir=platform.paths.data_dir,
+        status=status,
+        log_lines=log_lines,
+    )
+    if show:
+        import json
+
+        typer.echo(json.dumps(data, indent=2, sort_keys=True, default=str))
+        return
+
+    target = Path(out) if out else platform.paths.data_dir / "yazses-report.json"
+    bundle = report_mod.write(data, target)
+    typer.echo(f"Wrote {bundle.path}")
+    typer.echo(f"  {bundle.summary}")
+    typer.echo("\nNothing was sent anywhere. Read it, then attach it to an issue if you like:")
+    typer.echo("  https://github.com/MSKazemi/yazses/issues/new")
+
+
 autostart_app = typer.Typer(
     name="autostart",
     help="Start YazSes automatically at login, so it survives a reboot.",

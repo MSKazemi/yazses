@@ -6,6 +6,44 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the silence gate now retunes itself when it is swallowing your voice
+
+`[accessibility] vad_threshold` is one float deciding whether a burst was speech, and it is
+wrong by construction: the right value depends on the microphone, the room and the speaker,
+so a number calibrated once stops fitting the moment any of them changes. When it drifts too
+high the failure is the worst kind — you hold the key, you speak, nothing is typed, and the
+only evidence is a log line you have no reason to read.
+
+Not hypothetical: on the machine this was written on, a laptop's digital mic array produced
+`mean|audio|` of 0.003–0.005 **at full gain** against a 0.0024 gate. "Turn the microphone up"
+was not available — it was already at 100%.
+
+So YazSes watches outcomes instead. A run of bursts discarded as silence, with no successful
+transcription between them, is the signature of a gate set above the user's voice, and those
+bursts say where it should have been. The threshold is lowered to pass them, saved to
+`config.toml` so the fix survives a restart, and announced — a setting that changes itself
+silently is its own kind of unreliability.
+
+Deliberately one-directional. Lowering the gate when speech is being lost repairs a broken
+setup; raising it when noise leaks through only trims transcripts the user can already see.
+Only the first failure is invisible, so only the first is automated. Discards *above* the
+gate produce no suggestion at all, because a muted or dead microphone makes the same symptom
+and lowering the threshold would fix nothing.
+
+### Added — `yazses report`, a diagnostic bundle that never leaves the machine
+
+Written locally, printed as a path, and reviewable before it goes anywhere. It carries
+versions, daemon state, config-with-identifiers-removed and the tail of the metadata-only
+log; the learning corpus is reported by size and never opened. No upload, no telemetry — a
+daemon that phones home with diagnostics would trade away the property YazSes is chosen for.
+
+### Fixed — `yazses.__version__` had been wrong for several releases
+
+It was a hardcoded `2.10.0.dev5` while `yazses --version`, which reads package metadata,
+correctly said 2.12.1. Anything trusting the constant reported a build that no longer
+existed — worse than reporting nothing when the question is what someone is running. It is
+now derived from the metadata, so there is one answer.
+
 ### Added — `yazses autostart`, so a daemon behaves like a daemon
 
 `install_autostart()` refused to do anything unless `install.sh` had already written the

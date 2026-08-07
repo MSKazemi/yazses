@@ -380,6 +380,14 @@ Forward voice typing to a remote host over SSH.
 - `--key-file`, `-i` — Path to SSH private key.
 - `--stop` — Disconnect active remote session.
 
+## `yazses report`
+
+Collect a diagnostic report locally — nothing is uploaded.
+
+- `--output`, `-o` — Where to write it.
+- `--print` — Print it instead of writing a file.
+- `--log-lines` — How much log tail to include.
+
 ## `yazses restart`
 
 Restart the daemon — kills any stray/duplicate daemons and starts exactly one.
