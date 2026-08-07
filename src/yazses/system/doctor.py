@@ -201,6 +201,39 @@ def _model_check(model: str, hf_cache: Path) -> _Check:
     )
 
 
+def _config_validity(config_file: Path) -> list[_Check]:
+    """Report values the loader had to repair or fall back on.
+
+    These never stop the daemon — that is the point — which is exactly why they need a
+    place to be seen. A repaired value means the file says one thing and YazSes is doing
+    another, and a defaulted value means a setting the user believes is applied is not.
+    Both drift silently until something feels wrong and nobody can say when it started.
+    """
+    if not config_file.exists():
+        return []
+    try:
+        from yazses.config import load_config_checked
+
+        problems = load_config_checked(config_file).problems
+    except Exception as exc:  # noqa: BLE001 — doctor must survive anything
+        return [("Config validity", "WARN", f"could not be checked ({exc})")]
+    if not problems:
+        return [("Config validity", "OK", "every setting has the expected type")]
+
+    out: list[_Check] = []
+    defaulted = [p for p in problems if not p.repaired]
+    status = "FAIL" if defaulted else "WARN"
+    out.append((
+        "Config validity", status,
+        f"{len(problems)} problem(s): {len(problems) - len(defaulted)} repaired, "
+        f"{len(defaulted)} using defaults — fix them in {config_file}",
+    ))
+    for problem in problems:
+        verb = "repaired" if problem.repaired else "using default"
+        out.append((f"  └ {verb}", "WARN" if problem.repaired else "FAIL", str(problem)))
+    return out
+
+
 def _config_summary(cfg, config_file: Path) -> list[_Check]:
     """Surface the active config file, resolved hotkey, and STT prompt status."""
     out: list[_Check] = []
@@ -211,6 +244,7 @@ def _config_summary(cfg, config_file: Path) -> list[_Check]:
             "Config file", "WARN",
             f"{config_file} (absent — using built-in defaults)",
         ))
+    out.extend(_config_validity(config_file))
     out.append((
         "Hotkey", "OK",
         f"{cfg.hotkey.key} (hold {cfg.hotkey.hold_threshold_ms} ms)",

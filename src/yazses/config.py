@@ -1,6 +1,13 @@
+import dataclasses
+import logging
 import tomllib
+import typing
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from yazses.configcheck import ConfigProblem, build_section
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -1565,153 +1572,65 @@ def _load_emg(data: dict) -> EmgConfig:
     )
 
 
-def load_config(path: Path | None = None) -> Config:
+@dataclass(frozen=True)
+class LoadedConfig:
+    """A config, plus everything that was wrong with the file it came from."""
+
+    config: Config
+    problems: list[ConfigProblem]
+    path: Path | None
+
+
+def load_config_checked(path: Path | None = None) -> LoadedConfig:
+    """Load the config, repairing what can be repaired and reporting the rest.
+
+    Deliberately total: there is no input to this function that makes it raise. A
+    dictation daemon that refuses to start because of one mistyped line is useless in
+    exactly the moment you reach for the key, so a broken file degrades to defaults and
+    the reasons come back in ``problems`` for the daemon to log and ``doctor`` to show.
+
+    Sections are built by walking ``Config``'s own fields, so a new section is covered the
+    day it is added rather than the day someone remembers to update this function.
+    """
     if path is None:
         path = Path.home() / ".config" / "yazses" / "config.toml"
+    problems: list[ConfigProblem] = []
     if not path.exists():
-        return Config()
-    with open(path, "rb") as f:
-        data = tomllib.load(f)
-    cfg = Config(
-        stt=SttConfig(**data.get("stt", {})),
-        hotkey=HotkeyConfig(**data.get("hotkey", {})),
-        audio=AudioConfig(**data.get("audio", {})),
-        injection=InjectionConfig(**data.get("injection", {})),
-        general=GeneralConfig(**data.get("general", {})),
-        streaming=StreamingConfig(**data.get("streaming", {})),
-        filters=_load_filters(data),
-        accessibility=AccessibilityConfig(**data.get("accessibility", {})),
-        commands=CommandsConfig(**data.get("commands", {})),
-        macros=MacrosConfig(**data.get("macros", {})),
-        revise=ReviseConfig(**data.get("revise", {})),
-        punch_in=PunchInConfig(**data.get("punch_in", {})),
-        endpoint=EndpointConfig(**data.get("endpoint", {})),
-        prosody=ProsodyConfig(**data.get("prosody", {})),
-        remote=RemoteConfig(**data.get("remote", {})),
-        emg=_load_emg(data),
-        learning=LearningConfig(**data.get("learning", {})),
-        overlay=OverlayConfig(**data.get("overlay", {})),
-        tray=TrayConfig(**data.get("tray", {})),
-        tts=TtsConfig(**data.get("tts", {})),
-        voiceprint=VoiceprintConfig(**data.get("voiceprint", {})),
-        gaze=GazeConfig(**data.get("gaze", {})),
-        cocktail=CocktailConfig(**data.get("cocktail", {})),
-        personalize=PersonalizeConfig(**data.get("personalize", {})),
-        polyglot=PolyglotConfig(**data.get("polyglot", {})),
-        confidence=ConfidenceConfig(**data.get("confidence", {})),
-        context=ContextConfig(**data.get("context", {})),
-        recall=RecallConfig(**data.get("recall", {})),
-        agent=AgentConfig(**data.get("agent", {})),
-        pilot=PilotConfig(**data.get("pilot", {})),
-        modality=ModalityConfig(**data.get("modality", {})),
-        continuum=ContinuumConfig(**data.get("continuum", {})),
-        bridge=BridgeConfig(**data.get("bridge", {})),
-        translate=TranslateConfig(**data.get("translate", {})),
-        affect=AffectConfig(**data.get("affect", {})),
-        denoise=DenoiseConfig(**data.get("denoise", {})),
-        predict=PredictConfig(**data.get("predict", {})),
-        voiceguard=VoiceguardConfig(**data.get("voiceguard", {})),
-        scribe=ScribeConfig(**data.get("scribe", {})),
-        rag=RagConfig(**data.get("rag", {})),
-        codec=CodecConfig(**data.get("codec", {})),
-        hallucination=HallucinationConfig(**data.get("hallucination", {})),
-        snippets=SnippetsConfig(**data.get("snippets", {})),
-        phonetic=PhoneticConfig(**data.get("phonetic", {})),
-        autostop=AutoStopConfig(**data.get("autostop", {})),
-        mousegrid=MousegridConfig(**data.get("mousegrid", {})),
-        code=CodeConfig(**data.get("code", {})),
-        math=MathConfig(**data.get("math", {})),
-        wakeword=WakewordConfig(**data.get("wakeword", {})),
-        voicehealth=VoicehealthConfig(**data.get("voicehealth", {})),
-        coach=CoachConfig(**data.get("coach", {})),
-        smartpaste=SmartpasteConfig(**data.get("smartpaste", {})),
-        scrub=ScrubConfig(**data.get("scrub", {})),
-        reflow=ReflowConfig(**data.get("reflow", {})),
-        acoustic_profiles=AcousticProfilesConfig(**data.get("acoustic_profiles", {})),
-        sentiment=SentimentConfig(**data.get("sentiment", {})),
-        pronunciation=PronunciationConfig(**data.get("pronunciation", {})),
-        gesture=GestureConfig(**data.get("gesture", {})),
-        interpret=InterpretConfig(**data.get("interpret", {})),
-        itn=ItnConfig(**data.get("itn", {})),
-        redaction=RedactionConfig(**data.get("redaction", {})),
-        fieldaware=FieldawareConfig(**data.get("fieldaware", {})),
-        compose=ComposeConfig(**data.get("compose", {})),
-        gec=GecConfig(**data.get("gec", {})),
-        screengrounded=ScreengroundedConfig(**data.get("screengrounded", {})),
-        headpointer=HeadpointerConfig(**data.get("headpointer", {})),
-        lipread=LipreadConfig(**data.get("lipread", {})),
-        sign=SignConfig(**data.get("sign", {})),
-        convert=ConvertConfig(**data.get("convert", {})),
-        temporal=TemporalConfig(**data.get("temporal", {})),
-        spreadsheet=SpreadsheetConfig(**data.get("spreadsheet", {})),
-        cliphistory=CliphistoryConfig(**data.get("cliphistory", {})),
-        audioguard=AudioguardConfig(**data.get("audioguard", {})),
-        condense=CondenseConfig(**data.get("condense", {})),
-        slotfill=SlotfillConfig(**data.get("slotfill", {})),
-        cmdspotter=CmdspotterConfig(**data.get("cmdspotter", {})),
-        cmdsafety=CmdsafetyConfig(**data.get("cmdsafety", {})),
-        spokenregex=SpokenregexConfig(**data.get("spokenregex", {})),
-        markup=MarkupConfig(**data.get("markup", {})),
-        findreplace=FindreplaceConfig(**data.get("findreplace", {})),
-        hotwords=HotwordsConfig(**data.get("hotwords", {})),
-        windowctl=WindowctlConfig(**data.get("windowctl", {})),
-        cite=CiteConfig(**data.get("cite", {})),
-        langroute=LangrouteConfig(**data.get("langroute", {})),
-        latency=LatencyConfig(**data.get("latency", {})),
-        diarize=DiarizeConfig(**data.get("diarize", {})),
-        spelling=SpellingConfig(**data.get("spelling", {})),
-        gitvoice=GitvoiceConfig(**data.get("gitvoice", {})),
-        reask=ReaskConfig(**data.get("reask", {})),
-        verbatim=VerbatimConfig(**data.get("verbatim", {})),
-        corrdict=CorrdictConfig(**data.get("corrdict", {})),
-        fileopen=FileopenConfig(**data.get("fileopen", {})),
-        jump=JumpConfig(**data.get("jump", {})),
-        shellpipe=ShellpipeConfig(**data.get("shellpipe", {})),
-        recimport=RecimportConfig(**data.get("recimport", {})),
-        meeting=MeetingConfig(**data.get("meeting", {})),
-        crowdproof=CrowdproofConfig(**data.get("crowdproof", {})),
-        chords=ChordsConfig(**data.get("chords", {})),
-        compute=ComputeConfig(**data.get("compute", {})),
-        casetransform=CasetransformConfig(**data.get("casetransform", {})),
-        autopair=AutopairConfig(**data.get("autopair", {})),
-        timeline=TimelineConfig(**data.get("timeline", {})),
-        bookmarks=BookmarksConfig(**data.get("bookmarks", {})),
-        tablecsv=TablecsvConfig(**data.get("tablecsv", {})),
-        wordgoal=WordgoalConfig(**data.get("wordgoal", {})),
-        voicetimer=VoicetimerConfig(**data.get("voicetimer", {})),
-        focusprofile=FocusprofileConfig(**data.get("focusprofile", {})),
-        vocaljoystick=VocaljoystickConfig(**data.get("vocaljoystick", {})),
-        earcon=EarconConfig(**data.get("earcon", {})),
-        spatialvad=SpatialvadConfig(**data.get("spatialvad", {})),
-        prosodypunct=ProsodypunctConfig(**data.get("prosodypunct", {})),
-        hesitation=HesitationConfig(**data.get("hesitation", {})),
-        contour=ContourConfig(**data.get("contour", {})),
-        breath=BreathConfig(**data.get("breath", {})),
-        whispermode=WhispermodeConfig(**data.get("whispermode", {})),
-        mouthswitch=MouthswitchConfig(**data.get("mouthswitch", {})),
-        involuntary=InvoluntaryConfig(**data.get("involuntary", {})),
-        morsevox=MorsevoxConfig(**data.get("morsevox", {})),
-        checkdigit=CheckdigitConfig(**data.get("checkdigit", {})),
-        sembr=SembrConfig(**data.get("sembr", {})),
-        acronyms=AcronymsConfig(**data.get("acronyms", {})),
-        styleguard=StyleguardConfig(**data.get("styleguard", {})),
-        suggestmode=SuggestmodeConfig(**data.get("suggestmode", {})),
-        screenplay=ScreenplayConfig(**data.get("screenplay", {})),
-        srscap=SrscapConfig(**data.get("srscap", {})),
-        diagramvox=DiagramvoxConfig(**data.get("diagramvox", {})),
-        proofback=ProofbackConfig(**data.get("proofback", {})),
-        hatselect=HatselectConfig(**data.get("hatselect", {})),
-        translit=TranslitConfig(**data.get("translit", {})),
-        brailleout=BrailleoutConfig(**data.get("brailleout", {})),
-        outline=OutlineConfig(**data.get("outline", {})),
-        diacritize=DiacritizeConfig(**data.get("diacritize", {})),
-        safeglyph=SafeglyphConfig(**data.get("safeglyph", {})),
-        wordfind=WordfindConfig(**data.get("wordfind", {})),
-        loadguard=LoadguardConfig(**data.get("loadguard", {})),
-        echo=EchoConfig(**data.get("echo", {})),
-        srpace=SrpaceConfig(**data.get("srpace", {})),
-    )
-    return _apply_presets(cfg)
+        return LoadedConfig(Config(), problems, None)
+
+    try:
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+    except (tomllib.TOMLDecodeError, OSError, ValueError) as exc:
+        # Unparseable file: still start, on defaults, and say so loudly. Refusing to run
+        # would turn a typo into "my dictation is gone" with no way to hear why.
+        problems.append(
+            ConfigProblem("", "", f"could not be read ({exc}); using defaults throughout", False)
+        )
+        return LoadedConfig(Config(), problems, path)
+
+    hints = typing.get_type_hints(Config)
+    fields = {f.name for f in dataclasses.fields(Config)}
+    for name in data:
+        if name not in fields:
+            problems.append(
+                ConfigProblem(str(name), "", "is not a known section; ignored", False)
+            )
+
+    sections = {
+        name: build_section(hints[name], data[name], name, problems)
+        for name in fields
+        if name in data
+    }
+    return LoadedConfig(_apply_presets(Config(**sections)), problems, path)
+
+
+def load_config(path: Path | None = None) -> Config:
+    """Load the config. Never raises; problems are logged and the daemon carries on."""
+    loaded = load_config_checked(path)
+    for problem in loaded.problems:
+        log.warning("config.toml: %s", problem)
+    return loaded.config
 
 
 def _apply_presets(cfg: Config) -> Config:

@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a config file can no longer stop YazSes from starting, or break it silently
+
+Python dataclasses enforce nothing at runtime, so `load_config` accepted whatever TOML
+contained and the mistake surfaced much later, somewhere unrelated. One quoted number —
+`vad_threshold = "0.004"` instead of `0.004` — turned every dictation burst into `ufunc
+'less' did not contain a loop ...` while the daemon reported itself healthy and typed
+nothing. A mistyped *key* was worse: an unexpected keyword argument aborted the entire
+load, so a single bad character meant no daemon at all.
+
+Config loading is now total — there is no file that makes it raise. Values that can be
+repaired are repaired (`"0.004"` → `0.004`, `"false"` → `false`, `7.0` → `7`), values that
+cannot fall back to their documented default, unknown keys and sections are dropped, and
+unparseable TOML starts on defaults rather than not starting. Every one of those decisions
+is recorded and reported: the daemon lists them at startup, and `yazses doctor` gains a
+**Config validity** check naming each faulty line and whether it was repaired or defaulted.
+
+Degrading loudly beats failing silently, and both beat refusing to start — which is the
+worst outcome for a tool you reach for by holding a key. The checker is generic over the
+config dataclasses, so new sections are covered the day they are added. (#52)
+
 ### Added — a one-command demo recorder, so the README can finally show the product
 
 A dictation tool is hard to describe and trivial to show, but the README's only visual is a

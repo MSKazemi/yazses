@@ -2457,7 +2457,36 @@ def run() -> None:
         ensure_recommended_config()
     except Exception:  # noqa: BLE001 — config seeding must never block startup
         pass
+    _report_config_problems()
     try:
         Daemon().run()
     except KeyboardInterrupt:
         sys.exit(0)
+
+
+def _report_config_problems() -> None:
+    """Say out loud what was wrong with config.toml, before anything else is logged.
+
+    The config loader repairs what it can and falls back for the rest, so the daemon runs
+    either way — but silently running on a value the user did not write is how a config
+    drifts for days without anyone noticing. Naming each fault at startup puts it in the
+    log the user will read when something feels off, and `yazses doctor` shows the same
+    list on demand.
+    """
+    try:
+        from yazses.config import load_config_checked
+        from yazses.platform import get_platform
+
+        loaded = load_config_checked(get_platform().paths.config_file)
+        if not loaded.problems:
+            return
+        repaired = sum(1 for p in loaded.problems if p.repaired)
+        log.warning(
+            "config.toml has %d problem(s) — %d repaired, %d fell back to defaults. "
+            "Run `yazses doctor` for the list.",
+            len(loaded.problems), repaired, len(loaded.problems) - repaired,
+        )
+        for problem in loaded.problems:
+            log.warning("  config.toml: %s", problem)
+    except Exception:  # noqa: BLE001 — diagnostics must never block startup
+        pass
