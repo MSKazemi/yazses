@@ -71,7 +71,7 @@ dependencies = [
     'pystray>=0.19.5; sys_platform == "win32"',
     'Pillow>=12.3.0; sys_platform == "win32"',
     "onnx-asr>=0.11.0",
-    "cryptography>=49.0.0",
+    "cryptography>=50.0.0",
     # Voice-activity overlay (yazses-overlay). Shipped in the base install so the
     # overlay works everywhere out of the box (pip + snap), with no extra step.
     "PySide6>=6.11.1",
