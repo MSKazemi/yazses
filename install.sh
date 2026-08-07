@@ -31,9 +31,18 @@ case "$(uname -s)" in
 esac
 
 # 1. Ensure uv (fast, isolated Python-tool installer). Installed to ~/.local/bin.
+#    Pinned to a specific uv release and checksummed before it runs, rather than piping
+#    whatever astral.sh/uv/install.sh currently serves straight into sh.
+UV_INSTALLER_VERSION="0.12.3"
+UV_INSTALLER_SHA256="a7e3924ea1cd06bf1518c577d635c624ae2e2db030e0fc8ff8cf426224384e17"
 if ! command -v uv >/dev/null 2>&1; then
-  info "Installing uv (Python tool manager)..."
-  curl -LsSf https://astral.sh/uv/install.sh | sh
+  info "Installing uv ${UV_INSTALLER_VERSION} (Python tool manager)..."
+  uv_installer="$(mktemp)"
+  curl -LsSf "https://astral.sh/uv/${UV_INSTALLER_VERSION}/install.sh" -o "$uv_installer"
+  echo "${UV_INSTALLER_SHA256}  ${uv_installer}" | sha256sum -c - >/dev/null \
+    || error "uv installer checksum mismatch — refusing to run it. Expected ${UV_INSTALLER_SHA256}."
+  sh "$uv_installer"
+  rm -f "$uv_installer"
   export PATH="$HOME/.local/bin:$PATH"
 fi
 command -v uv >/dev/null 2>&1 || error "uv is not on PATH. Add ~/.local/bin to PATH and re-run."

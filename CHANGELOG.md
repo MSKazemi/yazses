@@ -144,6 +144,15 @@ cloning noticeably slower. It runs in a new cheap `repo-hygiene` CI job.
 That job also runs **ruff**, which CI had never enforced. Lint was a local-only gate, so
 `main` was carrying two lint errors nobody was told about; both are fixed here.
 
+### Security — `install.sh` no longer pipes an unpinned, unverified script into `sh`
+
+The `uv` bootstrap step downloaded `astral.sh/uv/install.sh` and ran it straight off the
+network. It now pins a specific `uv` release, downloads that version's installer to a temp
+file, and checks its sha256 before executing — a mismatch aborts the install instead of
+running whatever the URL happens to serve that day. This is the script the README tells
+people to run with `curl | bash`, so it is the one place in the project where a supply-chain
+substitution would matter most (part of #116).
+
 ### Added
 
 - Research section rebuilt as a citable, audience-routed survey. Each page now
