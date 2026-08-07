@@ -56,6 +56,9 @@ every system prerequisite (audio, keystroke injection, clipboard, `input` group,
 install. The APT and `pipx` paths install the last tagged release. YazSes is also on the
 [Snap Store](https://snapcraft.io/yazses) (`sudo snap install yazses`).
 
+
+**Shell completion:** `yazses --install-completion` (or `yazses --show-completion` to print the script). See the [CLI reference](docs/cli-reference.md).
+
 **Step 2 — Provision the system** *(Linux — one command; the APT install does it automatically)*
 
 ```sh
