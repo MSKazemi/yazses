@@ -58,7 +58,8 @@ Thumbs.db
 .claude/
 CLAUDE.md
 GEMINI.md
-AGENTS.md
+# AGENTS.md is deliberately NOT ignored: unlike CLAUDE.md it holds no private
+# config, it is the public agents.md contributor standard that coding agents read.
 .superpowers/
 .playwright-mcp/
 .mcp.json
