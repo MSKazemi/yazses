@@ -36,12 +36,26 @@ hide:
         "Dysfluency-friendly mode for stuttered or dysarthric speech",
         "EMG/USB muscle-sensor trigger for hands-free accessibility use"
       ],
-      "author": {
-        "@type": "Person",
-        "name": "Mohsen Seyedkazemi Ardebili",
-        "url": "https://github.com/MSKazemi",
-        "sameAs": [ "https://github.com/MSKazemi" ]
-      }
+      "softwareVersion": "2.14.0",
+      "author": { "@id": "https://orcid.org/0000-0002-1166-6559" },
+      "publisher": { "@id": "https://orcid.org/0000-0002-1166-6559" }
+    },
+    {
+      "@type": "Person",
+      "@id": "https://orcid.org/0000-0002-1166-6559",
+      "name": "Mohsen Seyedkazemi Ardebili",
+      "url": "https://mskazemi.com/",
+      "identifier": {
+        "@type": "PropertyValue",
+        "propertyID": "ORCID",
+        "value": "0000-0002-1166-6559"
+      },
+      "sameAs": [
+        "https://orcid.org/0000-0002-1166-6559",
+        "https://scholar.google.com/citations?user=xP64pZsAAAAJ",
+        "https://www.linkedin.com/in/mskazemi/",
+        "https://github.com/MSKazemi"
+      ]
     },
     {
       "@type": "SoftwareSourceCode",
@@ -60,11 +74,7 @@ hide:
       "identifier": "arXiv:2607.28878",
       "datePublished": "2026-07-30",
       "publisher": { "@type": "Organization", "name": "arXiv" },
-      "author": {
-        "@type": "Person",
-        "name": "Mohsen Seyedkazemi Ardebili",
-        "url": "https://github.com/MSKazemi"
-      },
+      "author": { "@id": "https://orcid.org/0000-0002-1166-6559" },
       "about": { "@type": "SoftwareApplication", "name": "YazSes" }
     }
   ]
