@@ -1,6 +1,6 @@
 {
   "unit": "filters.disfluency",
-  "contract_version": "1.1.0",
+  "contract_version": "2.0.0",
   "source": "src/yazses/stt/filters/disfluency.py::filter_transcript (.text)",
   "cases": [
     {
@@ -48,18 +48,32 @@
       "expected": "the meeting is at noon"
     },
     {
-      "id": "capitalised-filler-is-protected",
-      "description": "the guard protects any token with an uppercase letter, so a sentence-initial 'Um' — the commonest filler position, because Whisper capitalises it — is NOT removed. Deliberate (it is also how proper nouns survive), but a real limitation; see issue #117",
+      "id": "removes-sentence-initial-capitalised-filler",
+      "description": "Option 2 for #117: utterance-initial capitalised fillers are stripped — Whisper capitalises the first word, so 'Um' at position 0 is almost always a filler, not a proper noun",
       "options": {},
       "input": "Um the meeting is at noon",
-      "expected": "Um the meeting is at noon"
+      "expected": "the meeting is at noon"
+    },
+    {
+      "id": "removes-sentence-initial-capitalised-multiword-filler",
+      "description": "utterance-initial multi-word filler with Whisper capitalisation",
+      "options": {},
+      "input": "You know the meeting is at noon",
+      "expected": "the meeting is at noon"
     },
     {
       "id": "protects-proper-noun-lookalike",
-      "description": "Rule A must not strip a capitalised token that happens to be a filler word — 'Like' could be a product name",
+      "description": "Rule A must not strip a capitalised token that happens to be a filler word mid-utterance — 'Like' could be a product name",
       "options": {},
       "input": "the Like button is broken",
       "expected": "the Like button is broken"
+    },
+    {
+      "id": "protects-mid-sentence-capitalised-filler-lookalike",
+      "description": "mid-utterance capitalised filler lookalikes stay protected even after the sentence-initial relaxation (#117 option 2)",
+      "options": {},
+      "input": "open the Actually settings panel",
+      "expected": "open the Actually settings panel"
     },
     {
       "id": "protects-code-identifier",

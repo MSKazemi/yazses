@@ -211,16 +211,22 @@ CASES: dict[str, list[dict[str, Any]]] = {
          "input": "um so like the meeting is uh at noon"},
         {"id": "removes-multiword-filler", "description": "Rule A: multi-word fillers ('you know')",
          "input": "the meeting you know is at noon"},
-        {"id": "capitalised-filler-is-protected",
-         "description": "the guard protects any token with an uppercase letter, so a "
-                        "sentence-initial 'Um' — the commonest filler position, because "
-                        "Whisper capitalises it — is NOT removed. Deliberate (it is also how "
-                        "proper nouns survive), but a real limitation; see issue #117",
+        {"id": "removes-sentence-initial-capitalised-filler",
+         "description": "Option 2 for #117: utterance-initial capitalised fillers are "
+                        "stripped — Whisper capitalises the first word, so 'Um' at "
+                        "position 0 is almost always a filler, not a proper noun",
          "input": "Um the meeting is at noon"},
+        {"id": "removes-sentence-initial-capitalised-multiword-filler",
+         "description": "utterance-initial multi-word filler with Whisper capitalisation",
+         "input": "You know the meeting is at noon"},
         {"id": "protects-proper-noun-lookalike",
          "description": "Rule A must not strip a capitalised token that happens to be a "
-                        "filler word — 'Like' could be a product name",
+                        "filler word mid-utterance — 'Like' could be a product name",
          "input": "the Like button is broken"},
+        {"id": "protects-mid-sentence-capitalised-filler-lookalike",
+         "description": "mid-utterance capitalised filler lookalikes stay protected even "
+                        "after the sentence-initial relaxation (#117 option 2)",
+         "input": "open the Actually settings panel"},
         {"id": "protects-code-identifier",
          "description": "a filler appearing INSIDE a code identifier must not be stripped — "
                         "this returned 'call _fn in main.py' until the guard was fixed to "
