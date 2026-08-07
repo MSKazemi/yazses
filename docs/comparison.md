@@ -1,6 +1,6 @@
 ---
 title: YazSes vs Dragon, Talon, Wispr Flow & nerd-dictation — offline dictation compared
-description: "An honest comparison of offline voice dictation tools for Linux, macOS and Windows: YazSes vs Dragon NaturallySpeaking, Talon Voice, nerd-dictation, Vocalinux, Wispr Flow, Google and Apple dictation — which runs offline, which does voice commands, which supports Wayland, and which is free."
+description: "An honest comparison of offline voice dictation tools for Linux, macOS and Windows: YazSes vs Dragon NaturallySpeaking, Talon Voice, nerd-dictation, Vocalinux, TalkType, VOXD, Speech Note, Wispr Flow, Google and Apple dictation — which runs offline, which does voice commands, which supports Wayland, and which is free."
 ---
 
 # YazSes vs. other dictation tools
@@ -113,6 +113,20 @@ on-device learning loop.
 YazSes deliberately targets **CPU int8** rather than GPU, so it runs on modest
 hardware; if you have the GPU, a whisper.cpp-based tool will transcribe faster.
 
+### YazSes vs TalkType
+
+[TalkType](https://github.com/ronb1964/TalkType) is the closest thing to YazSes on
+Linux: it is offline, Whisper-based, Wayland-first, and uses the **same
+hold-to-talk gesture** — press a key to talk, release to type. It ships as a
+zero-config AppImage with optional GPU acceleration.
+
+**Choose TalkType** if you want a single-file AppImage with nothing to configure,
+and Linux is the only machine you dictate on.
+
+**Choose YazSes** if you also work on macOS or Windows, if you want the same
+install to transcribe existing recordings and capture meetings with speaker
+labels, or if you need the accessibility and voice-command layers.
+
 ### YazSes vs Wispr Flow
 
 **Choose Wispr Flow** if you want polished, cloud-based AI formatting and
@@ -146,9 +160,17 @@ APT/Snap/PyPI.
 ### Others in this space
 
 [Whispering](https://github.com/epicenter-so/epicenter), OpenWhispr, Handy and
-VOXD are also active open-source offline dictation projects, mostly built on
-whisper.cpp. They are worth a look if the tools above do not fit — this page is a
-comparison, not a claim that YazSes wins every case.
+[VOXD](https://github.com/jakovius/voxd) are also active open-source offline
+dictation projects, mostly built on whisper.cpp.
+
+[Speech Note](https://github.com/mkiol/dsnote) is worth calling out separately
+because it is a **different shape of tool**: a notepad application you dictate
+*into*, which also does text-to-speech and offline translation. If you want a
+document to write in rather than dictation injected into whatever window has
+focus, it is the better fit — and it does more than YazSes on translation.
+
+These are worth a look if the tools above do not fit; this page is a comparison,
+not a claim that YazSes wins every case.
 
 ## Common questions
 
