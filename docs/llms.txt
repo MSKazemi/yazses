@@ -82,6 +82,10 @@ yazses start      # start the dictation daemon
 - Transcribing recordings offline with speaker labels: https://mskazemi.com/yazses/use-cases/transcribe-audio-offline
 - Multilingual dictation and code-switching: https://mskazemi.com/yazses/use-cases/multilingual-dictation
 - Dictation over SSH into a remote server: https://mskazemi.com/yazses/how-to/remote-dictation
+- Research — the science of post-keyboard input (overview, cited): https://mskazemi.com/yazses/research/
+- Research — eye control with a webcam (gaze accuracy, deixis, citations): https://mskazemi.com/yazses/research/eye-control
+- Research — local speech recognition state of the art (WER, latency, whisper channel): https://mskazemi.com/yazses/research/voice-control
+- Research — muscle (EMG) vs brain (EEG) computer control, measured: https://mskazemi.com/yazses/research/muscle-brain-control
 - Offline meeting transcription and minutes: https://mskazemi.com/yazses/meeting-notes-offline
 
 ## Documentation

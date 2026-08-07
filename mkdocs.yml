@@ -227,6 +227,11 @@ nav:
       - Performance tuning: how-to/performance-tuning.md
       - Glance-Type (look to pane): how-to/gaze-look-to-pane.md
       - Transcribe recordings: tutorials/transcribe-recordings.md
+  - Research:
+      - The science of post-keyboard input: research/index.md
+      - Eye control: research/eye-control.md
+      - Voice control: research/voice-control.md
+      - Muscle & brain control: research/muscle-brain-control.md
   - Reference:
       - Features: features.md
       - Comparison & alternatives: comparison.md

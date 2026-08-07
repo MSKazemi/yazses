@@ -69,7 +69,9 @@ mcp.json
 
 # Internal developer docs & working notes (see "Three Documentation Tiers")
 design/
-research/
+# Anchored to the repo root: the private research notes live at /research;
+# docs/research/ is the PUBLIC research section of the docs site.
+/research/
 notes/
 drafts/
 vision/
