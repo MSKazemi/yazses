@@ -24,7 +24,8 @@ hide:
         "https://pypi.org/project/yazses/",
         "https://snapcraft.io/yazses",
         "https://arxiv.org/abs/2607.28878",
-        "https://www.youtube.com/watch?v=nn8WUKsCvZ4"
+        "https://www.youtube.com/watch?v=nn8WUKsCvZ4",
+        "https://www.wikidata.org/wiki/Q140935593"
       ],
       "citation": "https://arxiv.org/abs/2607.28878",
       "license": "https://www.apache.org/licenses/LICENSE-2.0",
