@@ -1,9 +1,53 @@
 ---
-title: Dictation over SSH — voice typing into a remote server
-description: Speak into your laptop microphone and have the text typed on a remote machine you are SSH'd into. Transcription stays local; only the finished text crosses the encrypted tunnel, so the remote host needs no microphone, GPU or speech engine.
+title: Voice dictation over SSH — VS Code Remote-SSH, Cursor and remote terminals
+description: Dictation that works in remote SSH sessions. Because YazSes types at the OS level rather than inside an application, it works in VS Code Remote-SSH panes, Cursor, integrated terminals and containers with no setup — and can forward text to a remote host's own display over an encrypted tunnel.
 ---
 
 # Dictate into a remote SSH host
+
+**Read this first — there are two different situations, and the common one needs
+no setup at all.**
+
+## Are you in VS Code, Cursor or a local terminal? Then it already works
+
+If you use **VS Code Remote-SSH**, **Cursor**, a JetBrains remote workspace, or
+just a terminal emulator with `ssh` open in it, **you do not need anything on
+this page.** Install YazSes and dictate — it already works.
+
+The reason is where the typing happens. YazSes does not type *into an
+application*; it synthesises keystrokes at the **operating-system level**
+(`ydotool` on Wayland, `xdotool` on X11) into whichever window currently has
+focus. In a Remote-SSH session the editor window and its integrated terminal are
+running **locally** on your laptop — only the backend is remote. So from the
+injection layer's point of view there is nothing remote about it, and the text
+lands exactly as it does in a local editor.
+
+This is the practical difference between OS-level dictation and the
+**in-application** dictation built into editors and AI coding tools. In-app voice
+input is bound to that application's own input handling, and commonly does not
+reach places the application does not own — Remote-SSH editor panes, integrated
+terminals, SSH sessions, containers, VMs, or a second app you alt-tab to.
+Keystrokes injected below the application have no such boundary: if a window can
+receive a keypress, it can receive dictation.
+
+Concretely, YazSes works in all of these with no extra configuration:
+
+| Where you are typing | Works |
+|---|---|
+| VS Code / Cursor **Remote-SSH** editor pane | ✅ |
+| VS Code / Cursor **integrated terminal** (remote shell) | ✅ |
+| A terminal emulator with `ssh` / `tmux` / `mosh` open | ✅ |
+| A shell inside a Docker container or VM | ✅ |
+| Any other focused window — browser, chat, notes | ✅ |
+
+**When you need the rest of this page instead:** you are sitting at a *different
+physical machine* — a bare SSH console, a headless box, a machine with no
+microphone — and you want the text to appear in an application running **on that
+remote host's own display**. That is what `yazses remote` below is for.
+
+---
+
+## Forwarding to a remote host's own display
 
 Run YazSes on your **local** machine — where the microphone and the STT engine
 live — and have the transcribed text typed into an application on a **remote**

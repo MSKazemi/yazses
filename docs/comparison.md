@@ -157,6 +157,37 @@ padding, command grammar, text injection that works on X11 *and* Wayland *and* i
 terminals, a no-text-target guard, mic-change auto-healing, and packaging for
 APT/Snap/PyPI.
 
+### YazSes vs the dictation built into your editor or AI coding tool
+
+VS Code, Cursor and several AI coding assistants ship their own voice input, and
+for typing a prompt into that tool's own box they are the path of least
+resistance. The limitation is structural rather than a matter of quality:
+**in-application dictation only reaches what the application owns.**
+
+YazSes types at the **operating-system level** — `ydotool` on Wayland, `xdotool`
+on X11 — into whichever window currently has focus. Nothing about the target
+window is special to it, so it does not care whether the shell behind that window
+is local, SSH'd, containerised or on the other side of the planet.
+
+The practical consequence, and the reason developers working on remote machines
+tend to notice it first:
+
+| Typing target | In-app dictation | YazSes |
+|---|---|---|
+| That tool's own prompt box | ✅ | ✅ |
+| **VS Code / Cursor Remote-SSH editor pane** | often not | ✅ |
+| **Integrated terminal running a remote shell** | often not | ✅ |
+| A separate terminal with `ssh` / `tmux` / `mosh` | ❌ | ✅ |
+| A shell inside a Docker container or VM | ❌ | ✅ |
+| Any other window you alt-tab to | ❌ | ✅ |
+
+If most of your work happens over Remote-SSH — editing on a server, driving a
+build box, working in a container — this is the single biggest day-to-day
+difference, and it needs no configuration: install YazSes and dictate.
+
+Details and the forwarding case (text typed on a *remote host's own display*):
+[dictation over SSH](how-to/remote-dictation.md).
+
 ### Others in this space
 
 [Whispering](https://github.com/epicenter-so/epicenter), OpenWhispr, Handy and
@@ -184,6 +215,14 @@ hold-to-talk key both types text and triggers editor/terminal actions.
 
 **Does YazSes send my audio anywhere?** No. Transcription runs locally with
 faster-whisper; by default nothing leaves your machine.
+
+**Does voice dictation work over SSH, or in a VS Code Remote-SSH session?** Yes,
+with no extra setup. YazSes injects keystrokes at the operating-system level into
+the focused window, not inside a particular application, so Remote-SSH editor
+panes, integrated terminals running a remote shell, `tmux` sessions and container
+shells all receive dictated text normally. This is where it differs most from the
+voice input built into editors and AI coding tools, which is bound to that
+application's own input handling.
 
 **Is there an offline, open-source alternative to Otter.ai for meeting notes?**
 Yes. `yazses meeting start` / `yazses meeting stop` records a meeting hands-free

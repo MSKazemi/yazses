@@ -74,6 +74,18 @@ dictation** plus a practical command grammar (with an optional small SLM router)
 Talon offers far more advanced, scriptable voice control. They can be used side by
 side. See the [full comparison](comparison.md).
 
+## Does dictation work over SSH, or in VS Code Remote-SSH and Cursor?
+
+Yes, with no extra setup. YazSes injects keystrokes at the operating-system level
+into whichever window has focus, rather than inside a particular application, so a
+Remote-SSH editor pane, an integrated terminal running a remote shell, a `tmux`
+session or a container shell all receive dictated text normally. This is the main
+practical difference from the voice input built into editors and AI coding tools,
+which is tied to that application's own input handling and often stops at the
+remote boundary. If instead you want text typed on a *remote machine's own
+display*, `yazses remote HOST` forwards it over an SSH tunnel — see
+[dictation over SSH](how-to/remote-dictation.md).
+
 ## Can YazSes run voice commands, not just dictation?
 
 Yes. A fast regex command grammar (with an optional ~0.5B SLM router for

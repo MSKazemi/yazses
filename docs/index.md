@@ -144,6 +144,16 @@ focused app. **No cloud. No API key. No subscription. Nothing leaves your machin
 
     [:octicons-arrow-right-24: Install on Linux](install-linux.md)
 
+-   :material-server-network:{ .lg .middle } **Works over SSH and Remote-SSH**
+
+    ---
+
+    Because text is injected at the OS level, not inside an app, it lands in
+    VS Code / Cursor Remote-SSH panes, integrated terminals, `tmux` and
+    container shells — where in-app dictation usually can't reach.
+
+    [:octicons-arrow-right-24: Dictation over SSH](how-to/remote-dictation.md)
+
 -   :material-console:{ .lg .middle } **Voice commands & macros**
 
     ---
