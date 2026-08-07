@@ -179,8 +179,21 @@ focused app. **No cloud. No API key. No subscription. Nothing leaves your machin
     ```
 
 !!! warning "Not the snap"
-    The strict-confinement snap can't read the keyboard, so hold-to-talk never
-    fires — use the APT script or `pipx` above.
+    Strict confinement blocks raw keyboard reads, so hold-to-talk never fires on
+    a snap install out of the box — use the APT script or `pipx` above.
+
+    The snap now declares the `raw-input` interface, which is what grants that
+    access, but snapd does **not** connect it automatically. From the next
+    published snap build you can try:
+
+    ```sh
+    sudo snap connect yazses:raw-input
+    yazses restart && yazses doctor        # expect: Keyboard capture: ok
+    ```
+
+    Wayland keystroke *injection* stays unavailable under confinement either
+    way. If you need Wayland, or want it to work without extra steps, install
+    via APT or `pipx`.
 
 **Linux only — provision the system in one command** (the `install-apt.sh` / APT path does it automatically):
 

@@ -54,6 +54,11 @@ apps:
       - home
       - network
       - opengl
+      # Hold-to-talk reads /dev/input/event* via evdev, which strict confinement
+      # blocks outright — the `input` group cannot grant it (issue #44). Not
+      # auto-connected: users run `sudo snap connect yazses:raw-input`, and
+      # `yazses doctor` says so when capture is denied inside a snap.
+      - raw-input
   # Audio (2026-07-08): the ALSA env below stops PortAudio aborting; mic *capture*
   # additionally needs libpulse0 staged (see parts) and PULSE_SERVER pointed at the
   # host pulse socket (set in the wrappers, since the snap's private XDG_RUNTIME_DIR
@@ -74,6 +79,8 @@ apps:
       - home
       - network
       - opengl
+      # The daemon is the process that actually holds the evdev device.
+      - raw-input
   yazses-overlay:
     command: bin/yazses-overlay-wrapper
     plugs:

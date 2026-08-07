@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — inside a snap, `doctor` gave keyboard advice that could never work
+
+On a strictly confined snap, `yazses doctor` reported `Keyboard capture: denied` and told
+the user to run `sudo usermod -aG input $USER` and log back in. That advice is not merely
+incomplete — it is impossible: snapd blocks raw reads of `/dev/input/event*` regardless of
+group membership, so users followed it in circles and concluded the app was broken (#44).
+
+`doctor` now detects that it is running inside a confined snap and names the only two things
+that can actually fix it — connecting the `raw-input` interface, or installing unconfined:
+
+```
+sudo snap connect yazses:raw-input
+yazses restart
+```
+
+The snap also declares `raw-input` for the first time, which is the missing precondition
+(`snap/snapcraft.yaml` previously had no interface that could ever grant keyboard access).
+snapd does not auto-connect it, so the manual `snap connect` above is still required, and
+Wayland keystroke *injection* remains unavailable under confinement either way — the docs
+continue to steer anyone who needs it to the APT or `pipx` install.
+
 ### Fixed — `"So um …"` survived, and `"Uh…"` was mistaken for a file path (contract **3.0.0 → 4.0.0**)
 
 Two position-0 cases left over from the previous two entries, both reachable in ordinary

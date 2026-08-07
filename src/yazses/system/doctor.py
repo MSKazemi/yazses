@@ -16,6 +16,7 @@ from pathlib import Path
 
 from yazses.platform import PermissionState, get_platform
 from yazses.system.miclevel import LevelStats
+from yazses.system.snap import in_strict_snap, keyboard_capture_advice
 
 # (name, status, detail) — status is "OK" | "FAIL" | "SKIP" | "WARN"
 _Check = tuple[str, str, str]
@@ -363,6 +364,12 @@ def _keyboard_capture_check(perms, platform_name: str) -> _Check:
     state = perms.check_keyboard_capture()
     if state is PermissionState.OK:
         detail = state.value
+    elif state is PermissionState.DENIED and in_strict_snap():
+        # Check this BEFORE the `input` group advice below. Under strict
+        # confinement snapd blocks the read outright, so the group advice is not
+        # merely incomplete — it is impossible, and users followed it in circles
+        # (issue #44).
+        detail = f"{state.value} — {keyboard_capture_advice()}"
     elif _input_group_pending_relogin():
         # You ARE in the `input` group, but THIS process's session predates the
         # change, so the generic "add yourself to the group" advice is wrong and
