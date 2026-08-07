@@ -116,6 +116,11 @@ hooks:
   # "## References" section, so the structured data and the visible bibliography
   # cannot disagree.
   - hooks/research_schema.py
+  # Emits a `.md` twin of every page plus a <link rel="alternate"> pointing at
+  # it. AI crawlers and coding agents ingest dedicated Markdown URLs (and prefer
+  # them — ~80% fewer tokens, no chrome) while largely ignoring llms.txt, so
+  # this is the delivery mechanism that actually reaches the machine audience.
+  - hooks/markdown_mirrors.py
 
 plugins:
   - search
@@ -217,6 +222,7 @@ nav:
   - Use cases:
       - Overview: use-cases/index.md
       - Voice dictation on Linux: use-cases/voice-dictation-linux.md
+      - Voice dictation on Wayland: use-cases/voice-dictation-wayland.md
       - Private & confidential work: use-cases/private-offline-dictation.md
       - Coding by voice: use-cases/voice-coding.md
       - Control your computer by voice: use-cases/voice-commands.md

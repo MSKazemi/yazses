@@ -192,6 +192,7 @@ Measured on a 13th-gen Core i7 laptop, int8 on CPU: **4.07 % WER** on LibriSpeec
 
 **In depth, with setup steps for each:**
 [voice typing on Linux (X11 & Wayland)](https://mskazemi.com/yazses/use-cases/voice-dictation-linux) ·
+[voice dictation on Wayland](https://mskazemi.com/yazses/use-cases/voice-dictation-wayland) ·
 [private & confidential work](https://mskazemi.com/yazses/use-cases/private-offline-dictation) ·
 [coding by voice](https://mskazemi.com/yazses/use-cases/voice-coding) ·
 [accessibility & RSI](https://mskazemi.com/yazses/use-cases/accessibility-rsi-hands-free) ·

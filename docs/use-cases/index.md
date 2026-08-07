@@ -24,6 +24,15 @@ falls short.
 
     [:octicons-arrow-right-24: Voice dictation on Linux](voice-dictation-linux.md)
 
+-   :material-wave:{ .lg .middle } **Dictation on Wayland**
+
+    ---
+
+    Wayland blocks apps from typing into each other, which silently breaks most
+    dictation tools. How YazSes gets around it on GNOME, KDE, sway and Hyprland.
+
+    [:octicons-arrow-right-24: Voice dictation on Wayland](voice-dictation-wayland.md)
+
 -   :material-shield-lock:{ .lg .middle } **Confidential & offline work**
 
     ---

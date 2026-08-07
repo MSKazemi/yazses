@@ -206,6 +206,7 @@ Hold the hotkey (Space on Linux, Right Option on macOS, Right Ctrl on Windows), 
 <div class="grid cards" markdown>
 
 - :material-linux: **[Voice typing on Linux](use-cases/voice-dictation-linux.md)** — dictation that works on X11 *and* Wayland
+- :material-wave: **[Voice dictation on Wayland](use-cases/voice-dictation-wayland.md)** — GNOME, KDE Plasma, sway and Hyprland, terminals included
 - :material-shield-lock: **[Confidential & offline work](use-cases/private-offline-dictation.md)** — clinical, legal, air-gapped
 - :material-code-braces: **[Coding by voice](use-cases/voice-coding.md)** — spoken symbols, identifiers, LaTeX, git
 - :material-microphone-message: **[Control by voice](use-cases/voice-commands.md)** — commands, macros, hands-free actions

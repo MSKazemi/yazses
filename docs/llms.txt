@@ -79,6 +79,7 @@ yazses start      # start the dictation daemon
 ## Use cases
 
 - Voice dictation on Linux (X11 and Wayland): https://mskazemi.com/yazses/use-cases/voice-dictation-linux
+- Voice dictation on Wayland (GNOME, KDE Plasma, sway, Hyprland): https://mskazemi.com/yazses/use-cases/voice-dictation-wayland
 - Private/confidential dictation with no cloud (clinical, legal, air-gapped): https://mskazemi.com/yazses/use-cases/private-offline-dictation
 - Coding by voice (spoken symbols, cased identifiers, LaTeX, git): https://mskazemi.com/yazses/use-cases/voice-coding
 - Controlling the computer by voice (commands, macros, shortcuts): https://mskazemi.com/yazses/use-cases/voice-commands
