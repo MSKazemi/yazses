@@ -19,8 +19,10 @@ def filter_transcript(text: str, config: DisfluencyConfig | None = None) -> Filt
     Rule A: filler word removal (case-insensitive word boundary regex).
             Guard: do NOT remove tokens that contain uppercase, underscore, slash, or dot
             (those are proper nouns or code identifiers). Exception: a capitalised filler
-            at utterance position 0 is removed — Whisper capitalises sentence starts, so
-            leading "Um"/"Uh" would otherwise never be stripped (see #117).
+            at utterance position 0 is removed only when it is an unambiguous filler —
+            Whisper capitalises sentence starts, so leading "Um"/"Uh" would otherwise
+            never be stripped (see #117). Content words like "Right"/"Like" and
+            multi-word fillers like "You know" stay protected (see #120).
     Rule B: consecutive 2-gram deduplication (repeat until stable).
     Rule B.5: sub-word repetition & prolongation collapse (opt-in; ADR-015).
     Rule C: self-correction trigger detection — if found, remove from last sentence
@@ -64,6 +66,9 @@ def _is_protected(token: str) -> bool:
 def _is_code_or_path_token(token: str) -> bool:
     """True when the token looks like a code identifier or path/URL fragment."""
     return '_' in token or '/' in token or '.' in token
+
+
+_UNAMBIGUOUS_FILLERS = frozenset({'um', 'uh', 'er', 'err', 'ah', 'hmm'})
 
 
 def _is_utterance_initial(text: str, match_start: int) -> bool:
@@ -175,14 +180,16 @@ def _remove_fillers(text: str, filler_words: list[str]) -> str:
         # identifier into "_fn" mid-dictation.
         enclosing = _enclosing_token(m.start(1), m.end(1))
         if _is_protected(enclosing):
-            # Exception (issue #117 / option 2): Whisper capitalises the first
-            # word of an utterance, so sentence-initial fillers ("Um …") trip
-            # the uppercase guard and would otherwise never be removed.
-            # Relax the *uppercase* check only for position 0; code/path tokens
-            # and mid-utterance capitalised lookalikes ("the Like button") stay
-            # protected.
-            if _is_code_or_path_token(enclosing) or not _is_utterance_initial(
-                text, m.start()
+            # Exception (issue #117 / option 2, narrowed by #120): Whisper
+            # capitalises the first word of an utterance, so sentence-initial
+            # fillers ("Um …") trip the uppercase guard and would otherwise
+            # never be removed. Relax the *uppercase* check only at position 0,
+            # and only for fillers that are never ordinary content words.
+            filler = m.group(1).lower()
+            if (
+                _is_code_or_path_token(enclosing)
+                or not _is_utterance_initial(text, m.start())
+                or filler not in _UNAMBIGUOUS_FILLERS
             ):
                 return matched
         return ''

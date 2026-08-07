@@ -6,6 +6,21 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — sentence-initial filler stripping is narrowed to unambiguous fillers (contract **2.0.0 → 3.0.0**)
+
+The #117 relaxation allowed any capitalised filler at utterance position 0 to be removed.
+That fixed `"Um the meeting is at noon"` but also ate ordinary content words: `"Right turn at
+the corner"`, `"Like button is broken"`, and `"Actually is a strong word"` all lost their
+first word. The relaxation now applies only to fillers that are never ordinary
+sentence-initial content words (`um`, `uh`, `er`, `err`, `ah`, `hmm`).
+
+Multi-word fillers are deliberately **not** relaxed at position 0: `"You know the meeting is
+at noon"` can be a real sentence addressed to someone, so it stays protected. Lowercase
+multi-word fillers mid-utterance keep their existing removal behaviour.
+
+The contract vectors were regenerated and the version was bumped because this changes a
+shared expectation (closes #120).
+
 ### Changed — a filler at the start of a sentence is finally removed (contract **1.1.0 → 2.0.0**)
 
 Filler removal always advertised itself as case-insensitive, and the regex genuinely was.
