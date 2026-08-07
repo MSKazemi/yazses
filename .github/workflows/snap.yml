@@ -91,4 +91,10 @@ jobs:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         with:
           snap: ${{ steps.snap-build.outputs.snap }}
-          release: stable
+          # Publish to edge as well as stable. This workflow only ever runs for a
+          # release tag, so there is no separate dev stream feeding edge — and a
+          # channel that is never written to does not stay empty, it stays *stale*:
+          # edge sat on 1.4.1 while stable was 2.15.0, so `snap install --edge`
+          # handed people a build eleven releases old. A channel we do not maintain
+          # should track stable rather than rot.
+          release: stable,edge
