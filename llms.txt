@@ -93,6 +93,10 @@ yazses start      # start the dictation daemon
 
 **Can I customise commands?** Yes — define macros, add a personal vocabulary, and set/disable the hold-to-talk and command keys via `yazses hotkey` / `yazses vocab` / `yazses features`.
 
+**Is there an Android app?** Not yet — no APK exists today. The Android port is in design in the open: ten public architecture decision records and seventeen open issues, at https://mskazemi.com/yazses/mobile/index.html. It will be a keyboard whose mic key you hold to dictate into any app, fully on-device.
+
+**Is there an iPhone/iPad app?** No, and it follows Android deliberately: no iOS app extension — including a custom keyboard — may access the microphone (Apple's rule since iOS 8), so an iOS version must be a different product shape. macOS is already supported by the desktop app.
+
 ## Documentation
 
 - [Install on Linux](docs/install-linux.md)

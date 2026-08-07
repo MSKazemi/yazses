@@ -81,6 +81,25 @@ agentic version was prototyped in the archived Rust branch but is not shipped.)
 The default model is English (`small.en`). Other Whisper models can be configured,
 but multilingual support is not the out-of-the-box default today.
 
+## Is there an Android app?
+
+Not yet — there is no APK to install today. The Android app is **in design, in the
+open**: the architecture and ten decision records are public, and seventeen issues
+are open for contributors. It will be a keyboard whose mic key you hold to dictate
+into any app, fully on-device, and it will keep working with the app's network
+access revoked. See [the mobile programme](mobile/index.md).
+
+## Is there an iPhone or iPad app?
+
+No, and it will come after Android for a platform reason worth knowing: **no iOS
+app extension — including a custom keyboard — may access the microphone.** That has
+been Apple's rule since iOS 8, which is why iOS dictation apps make you switch to
+the app and back. Android's `InputMethodService` has no such restriction, so it can
+reproduce YazSes' hold-to-talk model exactly. iOS is planned as a deliberately
+different product shape — see [ADR-MOB-010](mobile/adr/adr-mob-010-apple-second-wave.md).
+
+**macOS is already supported** by the desktop app today.
+
 ## How do I install YazSes?
 
 `pipx install yazses` on any OS with Python ≥ 3.11, or the one-line Linux
