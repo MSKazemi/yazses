@@ -1,37 +1,120 @@
 ---
 title: Roadmap
-description: Where YazSes is today — what has shipped, what is being wired up now, and what is planned or explicitly deferred.
+description: Where YazSes is going — the vision of keyboard-optional, fully private computing, the eras that get us there, and the working milestones you can join today.
 ---
 
 # Roadmap
 
-YazSes is under active development. It is a fully-offline, hold-to-talk voice
-dictation daemon for Linux, macOS, and Windows — no cloud, no account, nothing
-leaves your machine. This page is the honest, user-facing picture of where the
-project stands: what has already shipped, what is being connected to the live
-dictation pipeline right now, and what is planned versus merely designed.
+YazSes is a fully-offline, hold-to-talk voice dictation daemon for Linux,
+macOS, and Windows — no cloud, no account, nothing leaves your machine.
+**The current stable release is v2.14.0**, published on PyPI, GitHub
+Releases, Snap, and the APT repository.
 
-Three principles hold across everything below:
+This page is two things at once: an honest status report, and a statement of
+where we are going. If you only read one thing, read the pictures.
 
-- **Offline first.** Transcription runs on your CPU with `faster-whisper`. There
-  is no telemetry and no network dependency for dictation.
+## The destination
+
+The keyboard is a 150-year-old constraint, not a law of nature. YazSes exists
+to make it **optional** — to become the private layer between you and your
+computer that *hears* you, *understands* you, and *acts* for you, entirely on
+your own hardware. Not a cloud assistant that rents you access to your own
+words: an instrument you own, that gets better the more it learns about you,
+and that never tells anyone what it learned.
+
+The finished shape has three faculties, wrapped in two promises:
+
+```mermaid
+mindmap
+  root((YazSes))
+    Perceive
+      Voice through Whisper and Parakeet
+      Gaze knows where you look
+      Muscle signals for silent input
+      Meetings and recordings
+    Understand
+      Your personal vocabulary
+      Dictation or command intent
+      Who said what
+      Your languages mixed freely
+    Act
+      Type into any app
+      Command the desktop
+      Write the meeting minutes
+      Recall your own words
+    Trust
+      Offline always
+      Encrypted on device
+      Off by default
+    Everywhere
+      Linux macOS Windows
+      Android next
+      Every package manager
+```
+
+## The eras
+
+Each era is a promise kept before the next one starts. Foundation is shipped.
+Perception is shipping now. Understanding is the active frontier. Recall is
+the reason the project exists.
+
+```mermaid
+timeline
+    title From dictation tool to keyboard-optional computing
+    section Foundation — shipped
+        v0.x to v1.4 : Hold-to-talk dictation that just works : Linux, macOS and Windows : Encrypted on-device learning loop
+    section Perception — shipping now
+        v2.x : Meeting Mode with speaker diarization : Second STT engine (Parakeet TDT) : Gaze deixis and EMG activation : Sotto-voce command channel
+    section Understanding — next
+        v2.15+ : Settings GUI (no terminal needed) : Offline command mode over selected text : Vocabulary biasing in every engine : Android dictation keyboard
+    section Recall — the horizon
+        v3 : Spoken recall over everything you ever dictated : Ambient scribe you control : A computer you talk with, that stays yours
+```
+
+```mermaid
+flowchart LR
+    F["🏗️ Foundation<br><em>a tool that works</em>"] --> P["👁️ Perception<br><em>it hears and sees well</em>"]
+    P --> U["🧠 Understanding<br><em>it knows what you mean</em>"]
+    U --> R["💬 Recall<br><em>it remembers for you</em>"]
+    style F stroke-width:1px
+    style P stroke-width:3px
+    style U stroke-dasharray: 5 5
+    style R stroke-dasharray: 2 4
+```
+
+*(solid = shipped · bold = in progress · dashed = ahead)*
+
+## Working milestones — where you can join
+
+Every open issue belongs to exactly one milestone, and every milestone is an
+outcome, not a bucket. Pick the one that sounds like you:
+
+| Milestone | The promise | Flavour |
+|---|---|---|
+| [Settings GUI — click, not config](https://github.com/MSKazemi/yazses/milestone/5) | Configure everything from a window and a tray icon | Desktop / Python / Qt |
+| [Install anywhere](https://github.com/MSKazemi/yazses/milestone/6) | One command on every distro and OS — you own a channel | Packaging |
+| [Hear better — speech intelligence](https://github.com/MSKazemi/yazses/milestone/7) | Accuracy measured, not asserted: benchmarks, denoising, new engines | Speech / ML |
+| [Voice control — beyond dictation](https://github.com/MSKazemi/yazses/milestone/8) | Git, files, windows, and symbols — commanded, not typed | Systems / HCI |
+| [Welcome mat](https://github.com/MSKazemi/yazses/milestone/9) | The first hour is easy, the first contribution is likely | Docs / testing / no-code |
+| [M0–M3 — Android](https://github.com/MSKazemi/yazses/milestones) | An offline dictation keyboard in your pocket, designed in the open | Mobile / Kotlin |
+
+Start at the [pinned contributor guide](https://github.com/MSKazemi/yazses/issues/22),
+or — for research-shaped work — at
+[Students, researchers & industry](research/get-involved.md).
+
+## Three principles that never move
+
+- **Offline first.** Transcription runs on your CPU. No telemetry, no network
+  dependency for dictation, ever. The one designed cloud-escalation path stays
+  deliberately unbuilt so this promise is never quietly weakened.
 - **Off by default.** The stable dictation path is small and predictable. The
-  large catalogue of extra capabilities is opt-in — you enable exactly what you
-  want with `yazses features enable <name>` and apply with `yazses restart`.
-- **Nothing you didn't ask for.** New capabilities land dormant and are activated
-  incrementally, so an upgrade never changes how your dictation behaves unless you
-  turn something on.
-
-For the full catalogue of individual capabilities — what each does and how to
-enable it — see the [Feature Reference](features.md).
-
----
+  large catalogue of capabilities is opt-in: `yazses features enable <name>`,
+  then `yazses restart`. An upgrade never changes behaviour you didn't ask for.
+- **Honest about what exists.** `yazses features` distinguishes what is wired
+  and working from what is designed-but-planned, and refuses to pretend
+  otherwise. This roadmap follows the same rule.
 
 ## Shipped
-
-The **stable release is v1.4.1.** The table below groups milestones by minor
-version and gives the headline capability each one added; see `CHANGELOG.md` for
-per-release detail.
 
 | Version | Date | Headline |
 |---|---|---|
@@ -49,52 +132,10 @@ per-release detail.
 | **v1.2.0** | 2026-06-20 | CLI usability without hand-editing TOML: `yazses features` / `vocab` / `hotkey`, a dedicated command key, and no more duplicate daemons. |
 | **v1.3.0** | 2026-06-23 | Voice-activity overlay on by default (PySide6 promoted to a base dependency). |
 | **v1.3.x** | 2026-07-01 | Wayland injection reliability: type-everywhere via ydotool, a flood guard for Ubuntu 26+ compositors, and longer maximum recordings. |
-| **v1.4.0** | 2026-07-01 | Opt-in voice punctuation ("comma"/"period"/"new line" → symbols) and a selectable injection backend. |
-| **v1.4.1** | 2026-07-01 | Cross-platform CI green again and more reliable releases. **Current stable release.** |
-
----
-
-## In progress / near-term
-
-The current focus is **wiring the large catalogue of built capability cores into
-the live dictation pipeline, one batch at a time.**
-
-Over a long series of research rounds, roughly **135 capabilities** have been
-designed, implemented as self-contained cores, tested, and registered in
-`yazses features`. Many of these cores were built and verified but were **not yet
-connected to any runtime path** — so registering them was not the same as being
-able to use them. Closing that gap is the near-term work: each batch connects a
-few more cores to the real dictation flow, with a test proving each one fires only
-when you enable it. Everything stays **off by default**, so existing behaviour is
-unchanged.
-
-Concretely, the batches wired in so far include:
-
-- **Live DICTATE-path text transforms** — grammar repair, diacritic restoration,
-  semantic line breaks, confusable-glyph warnings, inline compute, auto-pairing of
-  brackets, phonetic correction of mis-heard names, transliteration, and
-  structured-markup dictation now run in-pipeline when enabled.
-- **Offline text-tool commands** — `yazses reflow` (monologue → outline),
-  `yazses table` (spoken rows → CSV), `yazses shellpipe` (spoken pipeline →
-  shell command text, never executed), and `yazses braille` (text → Unicode
-  Braille).
-- **Offline recording import** — `yazses transcribe <file>` decodes any common
-  audio format, transcribes offline on CPU, and optionally tags who said what
-  (`--diarize`), writing a `.txt`/`.md`/`.srt`/`.vtt`/`.json` sidecar. Speaker
-  naming is opt-in and consent-gated; it never auto-enrolls other people.
-
-Alongside this, recent near-term work has focused on making installation and
-first-run **honest and unmissable**: `yazses setup` now prints an ordered
-"finish installing" checklist, `yazses start`/`restart` verify the daemon
-actually came up (instead of reporting success while it crashed), and
-`yazses doctor` ends with a plain-language verdict and the exact next command to
-run.
-
-The remaining cores will keep activating incrementally in the same way. A subset
-of the catalogue is live in the DICTATE pipeline today; the rest come online batch
-by batch.
-
----
+| **v1.4.x** | 2026-07-01 | Opt-in voice punctuation, a selectable injection backend, and cross-platform CI green again. |
+| **v2.12.0** | 2026-07-31 | **First stable v2**: Meeting Mode (hands-free capture → speaker-labelled transcript + minutes), offline recording import with diarization (`yazses transcribe`), Glance-Type on X11, mic-change guard, system tray, "no text target" guard. |
+| **v2.13.0** | 2026-08-07 | The reliability release: config self-repair, `yazses autostart enable` for pipx/uv installs, self-retuning VAD gate, supervised tray, `yazses verify` end-to-end proof. |
+| **v2.14.0** | 2026-08-07 | The perception release: **Parakeet TDT** second STT engine, gaze deixis with real confidence, sotto-voce command channel, EMG activation seam, honest feature registry. **Current stable release.** |
 
 ## Future work
 
@@ -103,81 +144,60 @@ The items below are planned directions. We distinguish clearly between what is
 
 **Designed, but explicitly deferred:**
 
-- **Cloud escalation for transcription.** An opt-in path to send audio to a hosted
-  provider for a hard recording was fully designed, with strict guardrails — but it
-  is **not implemented**, and offline remains the only path. It stays deferred so
-  the "nothing leaves your machine" default is never quietly weakened.
-- **Personal speech adapters (LoRA).** On-device fine-tuning that adapts the model
-  to your voice and vocabulary — including atypical speech (dysarthria, ALS,
-  Parkinson's) — is designed and gated on a measured accuracy win on held-out data,
-  so it only ever applies when it genuinely helps. Prompt-level personalization
-  from your own corpus already ships; the training-based adapter is the deferred
-  part.
-- **Per-language model auto-switching.** Detecting the spoken language and hot-
-  swapping to the right model is designed as a routing layer; the language-specific
-  model files are deferred.
-- **Code-switch dictation.** Routing for mixed-language speech is in place, but
-  stays dormant until a suitable code-switch model is supplied out of band.
+- **Cloud escalation for transcription.** Fully designed with strict
+  guardrails — and **not implemented**, so the "nothing leaves your machine"
+  default is never quietly weakened. Offline remains the only path.
+- **Personal speech adapters (LoRA).** On-device fine-tuning that adapts the
+  model to your voice — including atypical speech (dysarthria, ALS,
+  Parkinson's) — gated on a measured accuracy win on held-out data.
+  Prompt-level personalization from your own corpus already ships.
+- **Per-language model auto-switching** and **code-switch dictation.** The
+  routing layers exist; the language-specific and code-switch models are the
+  deferred part.
 
 **Hardware- or model-gated (designed, waiting on the missing piece):**
 
-- **Silent-speech input (sEMG).** Fully silent dictation via a surface-EMG
-  wristband is designed; it activates when the hardware is present.
-- **Gaze- and vision-based targeting.** Look-to-pane dictation routing and pure-
-  vision screen commanding are designed, but depend on a webcam plus platform
-  support that is not universally available today.
+- **Silent-speech input (sEMG).** The activation seam ships today; it comes
+  alive when the wristband hardware is present.
+- **Vision-based screen commanding.** Gaze targeting ships on X11; deeper
+  pure-vision commanding depends on platform support that is not universal yet.
 
 **Speculative / research directions:**
 
-- Deeper multi-step reasoning and agentic task chaining over long sessions.
-- Semantic retrieval (RAG) over your personal note corpus, fully offline.
+- Spoken recall — semantic retrieval (RAG) over your personal dictation
+  corpus, fully offline. This is the Recall era's core bet.
+- Deeper multi-step task chaining over long sessions.
 
-These research directions are explored as fresh state-of-the-art rounds and may or
-may not become shipped features. When they do, they follow the same rule as
-everything else: off by default, opt-in, on-device.
-
----
+When research directions ship, they follow the same rule as everything else:
+off by default, opt-in, on-device.
 
 ## Known limitations
 
-A short, honest list of current constraints. For hands-on help with specific
-problems, see `docs/troubleshooting.md`.
-
-- **CPU transcription latency.** Whisper runs on your CPU (int8). It is fully
-  offline and private, but on a first run the model can take roughly 10–30 seconds
-  to load, and larger/more-accurate models trade latency for quality. Choose a
-  model to suit your machine.
+- **CPU transcription latency.** Whisper runs on your CPU (int8). First model
+  load takes roughly 10–30 seconds, and larger models trade latency for
+  accuracy. Choose a model to suit your machine.
 - **English-tuned by default.** The default configuration targets English
-  (`small.en` / `base.en`). Other languages work, but per-language models and
-  code-switch support are still in progress (see Future work).
-- **Desktop-only, today.** YazSes targets Linux, macOS, and Windows desktops. There
-  is no mobile or web version you can install. An **Android app is in design** — see
-  [the mobile programme](mobile/index.md) for the architecture, the decision records
-  and how to help build it. iOS/iPadOS follows Android, for a platform reason
-  explained there; macOS is already covered by the desktop app.
-- **Some capabilities need optional extras or hardware.** Heavier features (speaker
-  diarization, gaze, EMG, neural denoise, and others) depend on optional Python
-  extras or external hardware that are not bundled with the base install. They stay
-  dormant until you install what they need and enable them.
-- **Linux packaging caveat.** Install via the APT script or `pipx` for hold-to-talk
-  dictation. The strictly-confined snap cannot read the keyboard device, so the
-  hotkey does not fire there — the snap only serves the offline file-transcription
-  use case.
-
----
+  (`small.en` / `base.en`). Other languages work; per-language auto-switching
+  and code-switch support are still in progress.
+- **Desktop-only, today.** An **Android app is in design** — see
+  [the mobile programme](mobile/index.md) for the architecture and how to help.
+  iOS follows Android for a platform reason explained there.
+- **Some capabilities need optional extras or hardware.** Diarization, gaze,
+  EMG, neural denoise and others stay dormant until you install their extras
+  and enable them.
+- **Linux packaging caveat.** Install via the APT script or `pipx` for
+  hold-to-talk dictation. The strictly-confined snap cannot read the keyboard
+  device, so the snap only serves the offline file-transcription use case.
 
 ## Requesting features and reporting bugs
 
-Feedback drives what gets built next. To report a bug or request a feature, open a
-GitHub issue on the project's Issues tracker.
-
-The quickest way to find the exact link (and the current version you're running)
-is to run:
+Feedback drives what gets built next. To report a bug or request a feature,
+open a GitHub issue — or run:
 
 ```bash
 yazses about
 ```
 
-It prints the author, version, project links, and where to report issues or
-request features. `yazses doctor` also ends with a contact footer, so if you hit a
-problem you always know where to go.
+It prints the author, version, project links, and where to report issues.
+`yazses doctor` also ends with a contact footer, so if you hit a problem you
+always know where to go.

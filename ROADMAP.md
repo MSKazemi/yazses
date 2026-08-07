@@ -1,13 +1,20 @@
 # YazSes Roadmap
 
+> **The visionary, graphical roadmap lives in the docs:**
+> [Roadmap — eras, milestones, and the destination](https://mskazemi.com/yazses/roadmap.html)
+> (`docs/roadmap.md`). Every open issue is filed under one
+> [GitHub milestone](https://github.com/MSKazemi/yazses/milestones) —
+> Settings GUI · Install anywhere · Hear better · Voice control · Welcome mat ·
+> Android M0–M3. This file is the contributor-facing changelog-style detail.
+
 ---
 
-## Current frontier — Waves F–O (developer preview, all OFF by default)
+## Current frontier — Waves F–O (all OFF by default)
 
-**Stable release: v1.4.1.** The v2 line is an ongoing developer preview delivered as a long series of
-research waves, each a fresh state-of-the-art sweep → ADRs → pure, 100%-covered, off-by-default
-cores. **v2 dev tags never auto-publish** (publish workflows are pinned to `v0.*`/`v1.*`); v1.4.1
-stays the stable release until the v2 line is promoted.
+**Stable release: v2.14.0**, published on PyPI, GitHub Releases, Snap, and the APT repo (all
+release workflows fire on `v*` tags; Windows `.exe` and macOS `.dmg` builds attach from the next
+tag onward). The v2 line is delivered as a long series of research waves, each a fresh
+state-of-the-art sweep → ADRs → pure, 100%-covered, off-by-default cores.
 
 As of `v2.14.0`: **141 capabilities (68 wired / 72 honestly marked "planned")**, **2066 tests
 green**, ADRs `adr-v2-001..129`, research reports in `design/vision/v2-research/` and
