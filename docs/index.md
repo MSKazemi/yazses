@@ -97,12 +97,13 @@ focused app. **No cloud. No API key. No subscription. Nothing leaves your machin
 
 <div class="grid cards" markdown>
 
--   :material-shield-lock:{ .lg .middle } **100% offline & private**
+-   :material-shield-lock:{ .lg .middle } **Fully offline by default & private**
 
     ---
 
     Speech is transcribed on-device with CPU faster-whisper (int8). No GPU,
-    no network, no account. Nothing you say ever leaves the machine.
+    no network, no account. No audio, no text — nothing leaves the machine
+    by default.
 
     [:octicons-arrow-right-24: Privacy statement](privacy-statement.md)
 
