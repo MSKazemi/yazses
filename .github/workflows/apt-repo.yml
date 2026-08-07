@@ -32,7 +32,7 @@ jobs:
       actions: read
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -64,7 +64,7 @@ jobs:
           fi
 
       - name: Download .deb artifact from release workflow
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: deb-package
           path: /tmp/debs
