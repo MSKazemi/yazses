@@ -37,7 +37,7 @@ class DwellClicker:
     def __init__(self, radius: float = 15.0, hold_frames: int = 20) -> None:
         self._radius2 = radius * radius
         self._hold = hold_frames
-        self._anchor = None
+        self._anchor: tuple[float, float] | None = None
         self._count = 0
 
     def update(self, x: float, y: float) -> bool:

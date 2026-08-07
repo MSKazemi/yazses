@@ -24,7 +24,7 @@ def dominant_language(lang_probs: dict[str, float]) -> str | None:
     """Return the highest-probability language id, or None for an empty mapping."""
     if not lang_probs:
         return None
-    return max(lang_probs, key=lang_probs.get)
+    return max(lang_probs, key=lambda lang: lang_probs[lang])
 
 
 def is_code_switched(span_languages, pair: tuple[str, str]) -> bool:

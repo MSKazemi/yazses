@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable
+from typing import Any
 
 from yazses.platform.base import TrayModel, TrayState
 
@@ -34,7 +35,8 @@ class MacosTray:
     """TrayBackend implementation for macOS, backed by rumps."""
 
     def __init__(self) -> None:
-        self._app = None
+        # rumps is imported lazily, so the concrete _App type is not nameable here.
+        self._app: Any = None
         self._on_quit: Callable[[], None] | None = None
         self._lock = threading.Lock()
 

@@ -21,27 +21,29 @@ class HotwordTrie:
 
     def insert(self, term: str) -> None:
         """Add a hotword (case-insensitive)."""
-        node = self._root
+        node: dict = self._root
         for ch in term.lower():
             node = node.setdefault(ch, {})
         node[_END] = True
 
     def is_term(self, word: str) -> bool:
         """True if ``word`` is a complete enrolled hotword. Pure."""
-        node = self._root
+        node: dict = self._root
         for ch in word.lower():
-            node = node.get(ch)
-            if node is None:
+            child = node.get(ch)
+            if child is None:
                 return False
+            node = child
         return _END in node
 
     def has_prefix(self, prefix: str) -> bool:
         """True if any hotword starts with ``prefix``. Pure."""
-        node = self._root
+        node: dict = self._root
         for ch in prefix.lower():
-            node = node.get(ch)
-            if node is None:
+            child = node.get(ch)
+            if child is None:
                 return False
+            node = child
         return True
 
     def __bool__(self) -> bool:

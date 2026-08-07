@@ -21,9 +21,9 @@ from pathlib import Path
 import click
 import typer
 
-from yazses.config import Config
-from yazses.system.features import CATEGORY_BLURB, grouped_features
 from yazses import branding
+from yazses.config import Config
+from yazses.system.features import grouped_features
 
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"

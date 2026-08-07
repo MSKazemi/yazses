@@ -845,12 +845,12 @@ def features_info(
         )
         return
 
-    feat = find_feature(cfg, name)
-    if feat is None:
+    found = find_feature(cfg, name)
+    if found is None:
         known = ", ".join(f.slug for f in feature_status(cfg))
         typer.echo(f"Unknown feature {name!r}. Names: {known}", err=True)
         raise typer.Exit(1)
-    _echo_feature_card(feat, full=True)
+    _echo_feature_card(found, full=True)
 
 
 def _apply_feature_writes(config_file, writes) -> None:
@@ -2055,6 +2055,18 @@ def update(
         return
 
     typer.echo(f"\nUpdate available: {current} → {status.latest}")
+    if not status.command:
+        # upgrade_command() returns None for any install method it has no recipe
+        # for. Today detect_install_method() only ever yields snap/uv/pipx/pip, so
+        # this is unreachable from here — but it is one `apt` branch away from
+        # being live, and joining None would crash instead of telling the user
+        # what to do.
+        typer.echo(
+            f"No automatic upgrade is available for a {status.method!r} install. "
+            "Upgrade it the same way you installed it.",
+            err=True,
+        )
+        raise typer.Exit(1)
     typer.echo(f"Command: {' '.join(status.command)}")
 
     if check:

@@ -26,8 +26,14 @@ def merge_word_timestamps(words, max_gap: float = 0.8, max_chars: int = 80):
     Starts a new segment on a silence gap larger than ``max_gap`` or when the line would exceed
     ``max_chars``.
     """
-    segments = []
-    cur, seg_start, last_end = [], None, None
+    segments: list[tuple[float, float, str]] = []
+    cur: list[str] = []
+    # Set together with the first word of a segment, so they are floats whenever
+    # ``cur`` is non-empty — which is the only condition under which a segment is
+    # emitted. Kept as 0.0 rather than None so that invariant is expressed in the
+    # types instead of relying on the reader to reconstruct it.
+    seg_start: float = 0.0
+    last_end: float = 0.0
     for word, start, end in words or ():
         if not cur:
             cur, seg_start, last_end = [word], start, end

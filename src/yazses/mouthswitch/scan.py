@@ -32,7 +32,7 @@ class ScanSelector:
         self._items = list(items)
         self._dwell = dwell_s
         self._idx = 0
-        self._last_advance = None
+        self._last_advance: float | None = None
 
     def current(self):
         return self._items[self._idx] if self._items else None

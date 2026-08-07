@@ -17,7 +17,7 @@ git clone https://github.com/MSKazemi/yazses
 cd yazses
 uv sync
 uv run python -m pytest tests/ -v   # run the test suite  (must be green)
-uv run ruff check src tests         # lint                (must be green)
+uv run ruff check src tests scripts # lint                (must be green)
 uv run mypy src                     # type checking       (advisory — see below)
 ```
 

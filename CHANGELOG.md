@@ -6,6 +6,32 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — the type gate is real now: `mypy src` is clean, and it found a latent crash
+
+`mypy src` had been carrying a **73-error backlog across 21 files**, which meant the gate
+could not distinguish a new mistake from the pile — a red gate that is always red is not a
+gate. It is now **0 errors**, and `ruff` covers `scripts/` too (it had silently drifted out
+of scope, and had 2 errors nobody could see).
+
+Almost all of it was annotation debt rather than defects — `None`-initialised attributes that
+were never annotated `T | None`, two lambdas mypy could not infer, a `Match | None` rebound to
+`str`, and `os.environ` typed as `dict` when it is a `Mapping`. Three Windows modules use
+`ctypes.windll`/`winreg`, which typeshed declares only for `sys.platform == "win32"`; those
+are scoped to an `attr-defined` override in `pyproject.toml` with the reasoning next to it,
+narrow enough that real mistakes in those files still fail.
+
+**One real defect fell out of it.** `yazses update` did `" ".join(status.command)` while
+`command` is `list[str] | None` — `None` for any install method `upgrade_command()` has no
+recipe for. `detect_install_method()` only ever returns snap/uv/pipx/pip today, so it was not
+reachable in production, but APT is a shipped install channel and the day an `apt` branch is
+added it would have been a `TypeError` instead of a helpful message. It now says which method
+has no automatic upgrade and exits non-zero, with a test that fails without the guard.
+
+Also fixed while checking: `linux/tray.py` used the unscoped Qt enum spellings
+(`Qt.transparent`, `QPainter.Antialiasing`, `Qt.AlignCenter`). They work today, but the
+scoped forms are what the stubs and Qt6 document; verified both resolve to the same values
+before switching.
+
 ### Fixed — "To err is human" no longer becomes "To is human" (contract **4.0.0 → 5.0.0**)
 
 `err` shipped in the default `[filters.disfluency] filler_words`, and it is also an ordinary

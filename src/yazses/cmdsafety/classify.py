@@ -55,7 +55,7 @@ class ConfirmGate:
     """Hold a dangerous command until :meth:`confirm`; safe/caution pass straight through. Pure."""
 
     def __init__(self) -> None:
-        self._pending = None
+        self._pending: str | None = None
 
     @property
     def pending(self):

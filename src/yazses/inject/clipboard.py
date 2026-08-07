@@ -68,7 +68,7 @@ class ClipboardInjector:
             if _ydotool_ready():
                 subprocess.run(["ydotool", "key"] + ydotool_key_args("KEY_BACKSPACE") * count, check=True, timeout=10)
             elif shutil.which("wtype"):
-                args: list[str] = []
+                args = []
                 for _ in range(count):
                     args += ["-k", "BackSpace"]
                 subprocess.run(["wtype"] + args, check=True, timeout=10)
@@ -92,7 +92,7 @@ class ClipboardInjector:
                     args += ydotool_key_args(combo)
                 subprocess.run(["ydotool", "key"] + args, check=True, timeout=10)
             elif shutil.which("wtype"):
-                args: list[str] = []
+                args = []
                 for key in keys:
                     parts = key.split("+")
                     modifiers = parts[:-1]

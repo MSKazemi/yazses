@@ -24,6 +24,7 @@ import subprocess
 
 # NOTE: `grp` and `pwd` are Unix-only; imported lazily inside the functions that
 # use them so this module (and `yazses setup`) stays importable on Windows.
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 # The robust superset of Debian/Ubuntu runtime packages. We install all of them
@@ -96,7 +97,7 @@ def _user_in_input_group(user: str) -> bool:
         return False
 
 
-def detect_session(env: dict[str, str] | None = None) -> str:
+def detect_session(env: Mapping[str, str] | None = None) -> str:
     env = os.environ if env is None else env
     if env.get("WAYLAND_DISPLAY"):
         return "wayland"
@@ -106,7 +107,7 @@ def detect_session(env: dict[str, str] | None = None) -> str:
 
 
 def build_plan(
-    env: dict[str, str] | None = None,
+    env: Mapping[str, str] | None = None,
     *,
     which=shutil.which,
     portaudio_present=_portaudio_present,
@@ -174,7 +175,7 @@ def input_group_pending_relogin(user: str | None = None) -> bool:
     return gid not in os.getgroups()
 
 
-def snap_mic_pending(env: dict[str, str] | None = None, *, runner=subprocess.run) -> bool:
+def snap_mic_pending(env: Mapping[str, str] | None = None, *, runner=subprocess.run) -> bool:
     """True when running inside the yazses snap with the microphone (`audio-record`)
     interface not yet connected.
 
@@ -195,7 +196,7 @@ def snap_mic_pending(env: dict[str, str] | None = None, *, runner=subprocess.run
 
 
 def preflight_hints(
-    env: dict[str, str] | None = None,
+    env: Mapping[str, str] | None = None,
     *,
     plan: SetupPlan | None = None,
     pending_relogin=None,
@@ -257,7 +258,7 @@ class ManualStep:
 
 
 def next_steps(
-    env: dict[str, str] | None = None,
+    env: Mapping[str, str] | None = None,
     *,
     plan: SetupPlan | None = None,
     mic_pending: bool | None = None,

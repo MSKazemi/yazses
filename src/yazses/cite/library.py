@@ -55,8 +55,8 @@ def _surnames(authors: str):
 def resolve_citation(query: str, entries):
     """Return the entry best matching a spoken "author year" query, or ``None``. Pure."""
     q = (query or "").lower()
-    q_year = _YEAR.search(q)
-    q_year = q_year.group(1) if q_year else ""
+    q_year_match = _YEAR.search(q)
+    q_year = q_year_match.group(1) if q_year_match else ""
     q_words = {w for w in _WORD.findall(q) if w not in ("cite", "citation", "reference")}
 
     best, best_score = None, 0

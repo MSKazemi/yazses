@@ -209,11 +209,11 @@ def annotate(
         style="markdown",
     )
     breaks = rendered.count("\n\n")
-    emphasized = sum(1 for m in marks if m.emphasized)
+    emphasized_count = sum(1 for m in marks if m.emphasized)
     latency_ms = (time.monotonic() - t0) * 1000.0
     return ProsodyResult(
         text=rendered,
         paragraph_breaks=breaks,
-        emphasized=emphasized,
+        emphasized=emphasized_count,
         latency_ms=latency_ms,
     )
