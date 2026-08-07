@@ -17,6 +17,22 @@ transcribed on-device with [faster-whisper](https://github.com/SYSTRAN/faster-wh
 and typed into whatever application has focus — with support for editor/terminal
 voice commands and user-defined macros.
 
+## How do I use my voice to dictate text on my computer?
+
+Install YazSes, then **hold the hotkey, speak, and release**. The audio is turned
+into text on your own machine and typed straight into whatever application has
+focus — an editor, a browser field, a terminal, or a chat window. There is no
+separate dictation window to copy out of, and no "start/stop dictation" mode to
+remember: the key is held only while you are talking.
+
+## Is there free dictation software that works offline?
+
+Yes. YazSes is free and open source (Apache-2.0) and does all of its
+**speech-to-text** locally, so there is no subscription, no per-minute
+transcription charge, and no account. Most alternatives that convert **voice to
+text** at this quality upload your audio to a paid cloud service; YazSes runs the
+model on your own CPU instead.
+
 ## Is there a good offline voice-dictation tool for Linux?
 
 Yes — YazSes runs natively on Linux (both **X11 and Wayland**), transcribes

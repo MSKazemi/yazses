@@ -1,23 +1,31 @@
 {#-
   Theme override for the YazSes docs site.
-  Extends MkDocs Material's base to inject search-engine verification tags.
+  Extends MkDocs Material's base to inject crawler directives and, if ever
+  needed, search-engine verification tags.
 
-  To verify the site in Google Search Console:
-    1. In GSC add a URL-prefix property for https://mskazemi.com/yazses/
-       (NOT mskazemi.github.io — that host now 301-redirects to the custom
-        domain and serves no content, so a property on it sees only redirects.)
-    2. Pick the "HTML tag" method; copy the content="..." token.
-    3. Paste it into mkdocs.yml under:  extra.google_site_verification
-    4. Commit + push — the docs.yml workflow redeploys and the tag goes live.
-       Then click "Verify" in GSC.
+  Google Search Console
+  ---------------------
+  A URL-prefix property for https://mskazemi.com/ was verified on 2026-08-07 via
+  the DNS ("Domain name provider") method, which covers this /yazses/ subdirectory
+  and needs no meta tag at all. The token hooks below therefore stay EMPTY on
+  purpose — they exist only as a fallback if DNS verification is ever lost.
 
-  Same pattern for Bing Webmaster Tools via extra.bing_site_verification.
-  Both are conditional, so an empty value simply emits nothing (build-safe).
+  To use the fallback: add a URL-prefix property in GSC (NOT on
+  mskazemi.github.io — that host now 301-redirects here and serves no content),
+  pick the "HTML tag" method, and paste the token into mkdocs.yml under
+  extra.google_site_verification. Same pattern for Bing via
+  extra.bing_site_verification. Both are conditional, so an empty value emits
+  nothing and the build stays green.
 -#}
 {% extends "base.html" %}
 
 {% block extrahead %}
   {{ super() }}
+  {#- Explicit crawler directives. Without this no robots meta is emitted at all:
+      indexing still defaults to allowed, but the snippet and image-preview
+      limits below are what let Google show a full-length snippet and a large
+      image rather than truncating both to its conservative defaults. -#}
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
   {% if config.extra.google_site_verification %}
   <meta name="google-site-verification" content="{{ config.extra.google_site_verification }}">
   {% endif %}
