@@ -1,6 +1,6 @@
 {
   "unit": "commands.grammar",
-  "contract_version": "4.0.0",
+  "contract_version": "5.0.0",
   "source": "src/yazses/commands/grammar.py::classify",
   "cases": [
     {

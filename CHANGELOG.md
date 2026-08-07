@@ -6,6 +6,35 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — "To err is human" no longer becomes "To is human" (contract **4.0.0 → 5.0.0**)
+
+`err` shipped in the default `[filters.disfluency] filler_words`, and it is also an ordinary
+English verb. Disfluency filtering is on by default, so ordinary dictation lost a real word:
+
+```
+"To err is human"             ->  "To is human"
+"Err on the side of caution"  ->  "on the side of caution"
+```
+
+This is **not** part of the #117 → #120 → #122 sentence-initial chain, and none of those fixes
+touched it: the first case is lowercase and mid-utterance, so plain filler removal did it with
+no guard involved. It had been there far longer and was invisible because `err` reads as a
+hesitation spelling (#125).
+
+`err` is now absent from the default filler list and from the hesitation particles, so a
+sentence-initial `Err` is safe too. The accepted cost is the one #120 already settled in this
+direction: someone who genuinely hesitates with "err" keeps it, because leaving a filler in
+beats deleting a word. Adding it back is one line of config.
+
+**`ah` was decided at the same time and deliberately kept.** The line is lexical rather than
+phonetic: `ah` is an interjection in every dictionary sense, so removing it costs tone and
+never meaning, while `err` has a verb sense and cannot qualify. That test is now written down
+next to the particle set instead of being rediscovered a fourth time.
+
+As with #122, the regenerated vector diff is **additions-only** — no previously pinned
+expectation changed — so the major bump is by intent: the default filler list is shared
+behaviour other platforms must reproduce, and it changed.
+
 ## [2.15.0] - 2026-08-07
 
 **The honesty release.** Every headline item here is the same shape of defect: the software

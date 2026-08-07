@@ -114,7 +114,11 @@ class StreamingConfig:
 class DisfluencyConfig:
     enabled: bool = True
     filler_words: list[str] = field(default_factory=lambda: [
-        "um", "uh", "er", "err", "ah", "hmm", "like", "you know",
+        # "err" is deliberately absent: it is an ordinary English verb
+        # ("to err is human", "err on the side of caution"), so stripping it by
+        # default deleted real words mid-sentence (issue #125). Users who really
+        # do hesitate with "err" can add it back to [filters.disfluency].
+        "um", "uh", "er", "ah", "hmm", "like", "you know",
         "i mean", "basically", "right", "okay so",
         "sort of", "kind of", "literally", "actually",
         "so um", "so uh",

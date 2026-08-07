@@ -1,6 +1,6 @@
 {
   "unit": "filters.disfluency",
-  "contract_version": "4.0.0",
+  "contract_version": "5.0.0",
   "source": "src/yazses/stt/filters/disfluency.py::filter_transcript (.text)",
   "cases": [
     {
@@ -130,6 +130,27 @@
       "options": {},
       "input": "Literally means literally",
       "expected": "Literally means"
+    },
+    {
+      "id": "protects-err-as-a-verb",
+      "description": "'err' is an ordinary English verb, so it is not a default filler — this returned 'To is human' until #125. Mid-utterance and lowercase, so no position-0 or capitalisation guard applies",
+      "options": {},
+      "input": "To err is human",
+      "expected": "To err is human"
+    },
+    {
+      "id": "protects-sentence-initial-err",
+      "description": "'Err on the side of caution' is an instruction, not a hesitation — 'err' is excluded from the hesitation particles too (#125)",
+      "options": {},
+      "input": "Err on the side of caution",
+      "expected": "Err on the side of caution"
+    },
+    {
+      "id": "strips-sentence-initial-ah",
+      "description": "'ah' stays a filler where 'err' does not: it is an interjection in every dictionary sense, so removing it costs tone, never meaning (#125 decision)",
+      "options": {},
+      "input": "Ah yes the meeting",
+      "expected": "yes the meeting"
     },
     {
       "id": "protects-proper-noun-lookalike",

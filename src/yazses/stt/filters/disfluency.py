@@ -84,7 +84,13 @@ def _is_code_or_path_token(token: str) -> bool:
 # Non-lexical hesitation sounds. These are never ordinary English words, which
 # is what makes them safe to strip at utterance position 0 despite Whisper's
 # capitalisation.
-_HESITATION_PARTICLES = frozenset({'um', 'uh', 'er', 'err', 'ah', 'hmm'})
+#
+# The membership test is lexical, not phonetic: a particle qualifies only when
+# it has no dictionary sense outside interjection. "err" looked like it belonged
+# here and does not — it is a verb ("to err is human"), so it was removed from
+# both this set and the default filler list (issue #125). "ah" stays: it is an
+# interjection in every sense, so dropping it costs tone, never meaning.
+_HESITATION_PARTICLES = frozenset({'um', 'uh', 'er', 'ah', 'hmm'})
 
 
 def _is_unambiguous_filler(filler: str) -> bool:

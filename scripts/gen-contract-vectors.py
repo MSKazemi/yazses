@@ -265,6 +265,20 @@ CASES: dict[str, list[dict[str, Any]]] = {
          "description": "the leading 'Literally' survives while the trailing lowercase "
                         "'literally' is still removed as a filler",
          "input": "Literally means literally"},
+        {"id": "protects-err-as-a-verb",
+         "description": "'err' is an ordinary English verb, so it is not a default filler "
+                        "— this returned 'To is human' until #125. Mid-utterance and "
+                        "lowercase, so no position-0 or capitalisation guard applies",
+         "input": "To err is human"},
+        {"id": "protects-sentence-initial-err",
+         "description": "'Err on the side of caution' is an instruction, not a hesitation "
+                        "— 'err' is excluded from the hesitation particles too (#125)",
+         "input": "Err on the side of caution"},
+        {"id": "strips-sentence-initial-ah",
+         "description": "'ah' stays a filler where 'err' does not: it is an interjection in "
+                        "every dictionary sense, so removing it costs tone, never meaning "
+                        "(#125 decision)",
+         "input": "Ah yes the meeting"},
         {"id": "protects-proper-noun-lookalike",
          "description": "Rule A must not strip a capitalised token that happens to be a "
                         "filler word mid-utterance — 'Like' could be a product name",
