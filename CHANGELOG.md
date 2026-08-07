@@ -6,6 +6,33 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `"So um …"` survived, and `"Uh…"` was mistaken for a file path (contract **3.0.0 → 4.0.0**)
+
+Two position-0 cases left over from the previous two entries, both reachable in ordinary
+dictation (#122).
+
+**`"So um the meeting is at noon"` came through untouched.** Narrowing the relaxation to
+unambiguous fillers used "is it a single word?" as the test, which excluded `so um` and
+`so uh` along with genuinely ambiguous phrases like `you know`. Worse, because the longer
+`so um` alternative matched first and consumed the `um`, the inner `um` was never stripped
+separately either, so the whole phrase survived. Nobody dictating `"So um …"` means to keep
+it. The test is now whether the filler **contains a non-lexical hesitation particle**
+(`um`, `uh`, `er`, `err`, `ah`, `hmm`) rather than how many words it has — which admits
+`so um` and `so uh`, and still refuses `you know` and `i mean`. `okay so` is deliberately
+refused too: it has no hesitation particle, and `"Okay so what do you think?"` is a
+perfectly good message.
+
+**`"Uh... so I think"` was protected as if it were code.** Whisper writes hesitations with
+trailing ellipses, and the code-identifier guard treated any dot in the token as evidence of
+a path — correct for `main.py`, wrong for `Uh...`. Only a dot *inside* the token counts now,
+and a filler removed from position 0 takes its own trailing punctuation with it rather than
+leaving `"... so I think"`. `Actually.` at the end of a sentence is unaffected: it is not a
+hesitation particle, so it never reaches this path.
+
+The bump is **major by intent, not by mechanical diff** — no previously pinned expectation
+changed, but behaviour that other platforms must reproduce did, and an unpinned behaviour
+change is still a behaviour change.
+
 ### Changed — sentence-initial filler stripping is narrowed to unambiguous fillers (contract **2.0.0 → 3.0.0**)
 
 The #117 relaxation allowed any capitalised filler at utterance position 0 to be removed.

@@ -63,12 +63,42 @@ def _is_protected(token: str) -> bool:
     )
 
 
+# Sentence punctuation that Whisper hangs off a hesitation ("Uh...", "Um,").
+# It is not evidence of a code identifier, so it is trimmed before that check.
+_TRAILING_PUNCTUATION = '.,;:!?…'
+
+
 def _is_code_or_path_token(token: str) -> bool:
-    """True when the token looks like a code identifier or path/URL fragment."""
-    return '_' in token or '/' in token or '.' in token
+    """True when the token looks like a code identifier or path/URL fragment.
+
+    Only a dot *inside* the token counts. Whisper writes a hesitation as
+    ``"Uh..."``, and treating that trailing dot like the one in ``main.py`` left
+    a leading filler permanently protected (issue #122). ``Actually.`` at the
+    end of a sentence stays safe regardless: it is not a hesitation particle,
+    so ``_is_unambiguous_filler`` refuses it before this check matters.
+    """
+    core = token.rstrip(_TRAILING_PUNCTUATION)
+    return '_' in core or '/' in core or '.' in core
 
 
-_UNAMBIGUOUS_FILLERS = frozenset({'um', 'uh', 'er', 'err', 'ah', 'hmm'})
+# Non-lexical hesitation sounds. These are never ordinary English words, which
+# is what makes them safe to strip at utterance position 0 despite Whisper's
+# capitalisation.
+_HESITATION_PARTICLES = frozenset({'um', 'uh', 'er', 'err', 'ah', 'hmm'})
+
+
+def _is_unambiguous_filler(filler: str) -> bool:
+    """True when ``filler`` contains a non-lexical hesitation particle.
+
+    Position 0 is the one place Whisper's capitalisation is uninformative, so
+    the uppercase guard is relaxed there — but only for fillers that cannot
+    open a real sentence. A filler qualifies when any of its words is a
+    hesitation particle, which admits ``"so um"`` / ``"so uh"`` (issue #122)
+    while still refusing ``"you know"``, ``"i mean"`` and ``"okay so"``: those
+    are three real words that legitimately start a sentence, and deleting one
+    is worse than leaving a filler in (issue #120).
+    """
+    return any(word in _HESITATION_PARTICLES for word in filler.split())
 
 
 def _is_utterance_initial(text: str, match_start: int) -> bool:
@@ -172,29 +202,42 @@ def _remove_fillers(text: str, filler_words: list[str]) -> str:
             end += 1
         return text[start:end]
 
+    # Set when a filler is removed from position 0, so its own trailing
+    # punctuation can be cleared afterwards ("Uh... so I think" must not be
+    # left as "... so I think"). The regex cannot consume it inside the match
+    # without also eating sentence punctuation after a mid-utterance filler.
+    removed_leading = False
+
     def _replacer(m: re.Match) -> str:
+        nonlocal removed_leading
         matched = m.group(0)
         # Protect uppercase / code tokens. This must test the *enclosing* token,
         # not the matched filler: "basically" inside "basically_fn" is a bare
         # lowercase word on its own and would sail past the guard, turning a code
         # identifier into "_fn" mid-dictation.
         enclosing = _enclosing_token(m.start(1), m.end(1))
+        at_start = _is_utterance_initial(text, m.start())
         if _is_protected(enclosing):
-            # Exception (issue #117 / option 2, narrowed by #120): Whisper
-            # capitalises the first word of an utterance, so sentence-initial
-            # fillers ("Um …") trip the uppercase guard and would otherwise
-            # never be removed. Relax the *uppercase* check only at position 0,
-            # and only for fillers that are never ordinary content words.
-            filler = m.group(1).lower()
+            # Exception (issue #117 / option 2, narrowed by #120 and #122):
+            # Whisper capitalises the first word of an utterance, so
+            # sentence-initial fillers ("Um …") trip the uppercase guard and
+            # would otherwise never be removed. Relax the *uppercase* check only
+            # at position 0, and only for fillers that cannot open a real
+            # sentence.
             if (
                 _is_code_or_path_token(enclosing)
-                or not _is_utterance_initial(text, m.start())
-                or filler not in _UNAMBIGUOUS_FILLERS
+                or not at_start
+                or not _is_unambiguous_filler(m.group(1).lower())
             ):
                 return matched
+        if at_start:
+            removed_leading = True
         return ''
 
-    return pattern.sub(_replacer, text)
+    out = pattern.sub(_replacer, text)
+    if removed_leading:
+        out = out.lstrip(_TRAILING_PUNCTUATION + ' ')
+    return out
 
 
 def _dedup_2grams(text: str) -> str:

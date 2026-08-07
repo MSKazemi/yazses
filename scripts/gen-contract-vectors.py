@@ -220,10 +220,36 @@ CASES: dict[str, list[dict[str, Any]]] = {
          "description": "utterance-initial 'Uh' is unambiguous and still stripped",
          "input": "Uh so I think"},
         {"id": "protects-sentence-initial-capitalised-multiword-filler",
-         "description": "multi-word fillers are not relaxed at position 0: 'You know "
-                        "the meeting is at noon' can be a real sentence addressed to "
-                        "someone, so it stays protected (#120 decision)",
+         "description": "an AMBIGUOUS multi-word filler is not relaxed at position 0: "
+                        "'You know the meeting is at noon' can be a real sentence "
+                        "addressed to someone, so it stays protected (#120 decision, "
+                        "refined by #122 — the test is whether the filler contains a "
+                        "hesitation particle, not whether it has several words)",
          "input": "You know the meeting is at noon"},
+        {"id": "strips-sentence-initial-so-um",
+         "description": "#122 case 1: 'so um' contains the hesitation particle 'um', so "
+                        "it can never open a real sentence and IS relaxed at position 0 "
+                        "— unlike 'you know'. Before #122 the blanket multi-word "
+                        "exclusion left the whole phrase intact",
+         "input": "So um the meeting is at noon"},
+        {"id": "strips-sentence-initial-so-uh",
+         "description": "'so uh' qualifies for the same reason as 'so um'",
+         "input": "So uh the meeting is at noon"},
+        {"id": "protects-sentence-initial-okay-so",
+         "description": "#122 boundary decision: 'okay so' has NO hesitation particle — "
+                        "it is two ordinary words and 'Okay so what do you think?' is a "
+                        "legitimate message, so it stays protected",
+         "input": "Okay so the meeting is at noon"},
+        {"id": "strips-sentence-initial-filler-with-ellipsis",
+         "description": "#122 case 2: Whisper writes a hesitation as 'Uh...'; the "
+                        "trailing dot is sentence punctuation, not the dot in 'main.py', "
+                        "so the code-token guard must not fire on it. The filler and its "
+                        "own trailing punctuation both go",
+         "input": "Uh... so I think"},
+        {"id": "protects-sentence-final-capitalised-filler-with-dot",
+         "description": "the trailing-dot relaxation must not reach 'Actually.' — it is "
+                        "not a hesitation particle, so it stays protected (#122)",
+         "input": "I think so. Actually."},
         {"id": "protects-sentence-initial-right",
          "description": "sentence-initial 'Right' is content (a direction), not a "
                         "filler — #120 narrows the #117 relaxation",
