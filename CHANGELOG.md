@@ -6,6 +6,20 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a 35 MB screen recording had been committed, and nothing would have caught it
+
+An unusable full-screen capture reached the repo through a broad `git add -A docs/`:
+unreferenced, 35 MB, and invisible in review. Git keeps history, so a file like that is
+paid for by every future clone permanently — deleting it later does not undo the cost, and
+undoing it properly needs a history rewrite and a force-push.
+
+The file is out of the tree, and `scripts/check_repo_size.py` now fails the build on any
+tracked file over 8 MB — well above a legitimate demo GIF, well below anything that makes
+cloning noticeably slower. It runs in a new cheap `repo-hygiene` CI job.
+
+That job also runs **ruff**, which CI had never enforced. Lint was a local-only gate, so
+`main` was carrying two lint errors nobody was told about; both are fixed here.
+
 ### Added
 
 - Research section rebuilt as a citable, audience-routed survey. Each page now

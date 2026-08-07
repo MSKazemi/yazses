@@ -18,6 +18,21 @@ env:
   QT_QPA_PLATFORM: offscreen
 
 jobs:
+  repo-hygiene:
+    # Cheap and Linux-only: a large file costs every future clone permanently, and the
+    # only inexpensive moment to catch one is before the commit lands.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: No oversized files in the repo
+        run: python3 scripts/check_repo_size.py
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Lint (ruff)
+        run: uv run ruff check src tests
+
   test:
     runs-on: ${{ matrix.os }}
     strategy:

@@ -23,15 +23,14 @@ import ast
 from pathlib import Path
 
 import yazses
+from yazses.config import Config
 from yazses.system.features import (
-    _SLUG_PACKAGES,
     _UNWIRED,
     _registry,
     default_enabled_slugs,
     feature_packages,
     feature_status,
 )
-from yazses.config import Config
 
 SRC = Path(yazses.__file__).parent
 
