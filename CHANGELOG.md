@@ -6,6 +6,75 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.14.0] - 2026-08-07
+
+The perception release. Backed by a web-refreshed state-of-the-art study
+(competitors, local STT engines, gaze/EMG/BCI input — `design/vision/library/`,
+ADR-v2-129): the eye, voice, and muscle input paths each got the upgrade the
+research says nobody else ships, and the STT engine monopoly is broken. Every
+addition is opt-in and lazy-installs its dependencies — a plain dictation
+install stays exactly as small as before.
+
+### Added — Parakeet: a second STT engine that beats whisper-large-v3 on CPU
+
+`[stt] engine` selects between `faster-whisper` (default, unchanged) and
+`parakeet` — NVIDIA Parakeet TDT 0.6B v2 via ONNX Runtime (no torch, no NeMo,
+CC-BY-4.0): lower word-error rate than whisper-large-v3 at roughly 4x
+whisper-small's CPU speed, and it does not hallucinate text on silence.
+`yazses features enable stt-parakeet` installs the `onnx-asr` extra on demand;
+a missing dependency falls back to faster-whisper with a warning that names
+the fix, never a crash. Under the hood the engine is now a real seam
+(`stt/base.py` Protocol + `stt/factory.py`), and the streaming decoder
+consumes a public `decode_window()` instead of reaching into the engine's
+private model — a second engine now costs ~200 lines, not a refactor.
+
+### Fixed — `yazses features enable` can no longer lie
+
+An audit found 72 registry entries whose feature packages nothing in the
+daemon or CLI ever imports: enabling them wrote a config key that no code
+read, reported "enabled", and changed nothing. These are now marked
+`planned — designed, not yet wired`; `features enable` refuses them with an
+honest explanation, `features disable` still cleans up stale keys older
+versions seeded, and first-run no longer seeds dead recommended-tier keys.
+A permanent test computes package reachability from every entry point and
+fails if the flag set ever drifts from reality — in either direction.
+
+### Added — gaze deixis: "close this" acts on the window you're looking at
+
+In command mode, whole-utterance demonstrative commands — `close this`,
+`focus that window`, `switch to this one`, `minimize that` — now resolve
+against the gaze snapshot taken at hold-start (ADR-v2-129). Destructive
+actions on a gaze-routed target ask first via an actionable toast, wiring
+ADR-v2-010's until-now-dormant `needs_confirm` policy; `[gaze] deixis`
+(default on, inside the opt-in gaze feature) controls it, and with
+`route_dictation` off the gaze is snapshotted without stealing focus.
+
+### Added — sotto-voce command channel: whisper a command, speak to dictate
+
+With `[whispermode] enabled`, a *whispered* burst is parsed as a command and
+never typed, while normally-voiced speech dictates (the DualVoice pattern).
+Detection is pure numpy — whispered speech has no fundamental frequency — with
+a median vote across the burst so one breathy word can't flip it. No new
+dependencies; `[whispermode] command_channel = false` reverts to
+dictation-only behaviour.
+
+### Added — EMG squeeze-to-talk is now actually constructed
+
+`[emg] device_port` had config, docs, and a tested YESP serial backend — and
+no code path that ever built it. The daemon now has a pluggable
+activation-source seam: setting the port starts the EMG listener alongside
+the hotkey, with a squeeze driving command mode (`mode = "command"`, default)
+or plain hold-to-talk (`full_text`). Missing pyserial degrades to a logged
+no-op, never a crash.
+
+### Fixed — the default gaze backend's confidence was hard-coded to 1.0
+
+`[gaze] confidence_min` gated nothing for the MediaPipe backend: every sample
+was reported fully confident. Confidence is now measured per frame from
+left/right eye agreement (the two eyes estimate the same gaze independently,
+so divergence means bad landmarks), and low-quality frames fall back to the
+focused window instead of misrouting dictation.
+
 ## [2.13.0] - 2026-08-07
 
 The reliability release. Every defect fixed here was **silent or actively misreported** —

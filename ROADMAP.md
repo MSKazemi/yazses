@@ -9,8 +9,21 @@ research waves, each a fresh state-of-the-art sweep → ADRs → pure, 100%-cove
 cores. **v2 dev tags never auto-publish** (publish workflows are pinned to `v0.*`/`v1.*`); v1.4.1
 stays the stable release until the v2 line is promoted.
 
-As of `v2.13.0`: **136 capabilities, 1983 tests green**, ADRs `adr-v2-001..128`, research reports
-in `design/vision/v2-research/`.
+As of `v2.14.0`: **141 capabilities (68 wired / 72 honestly marked "planned")**, **2066 tests
+green**, ADRs `adr-v2-001..129`, research reports in `design/vision/v2-research/` and
+`design/vision/library/`.
+
+- **Shipped in `v2.14.0` — the perception release** (ADR-v2-129, all opt-in, lazy deps):
+  **Parakeet TDT** second STT engine (`yazses features enable stt-parakeet` — beats
+  whisper-large-v3 WER at ~4x whisper-small CPU speed, behind a new pluggable `SttEngine`
+  seam); **gaze deixis** ("close this" / "focus that" act on the looked-at window, with
+  real per-frame eye-agreement confidence replacing a hard-coded 1.0); the **sotto-voce
+  command channel** (whisper a phrase → command, speak → dictation; pure DSP); the
+  **activation-source seam** that finally constructs the EMG squeeze-to-talk backend; and
+  **registry honesty** (`features enable` refuses the 72 designed-but-unwired entries
+  instead of silently doing nothing). Next candidates from the 2026-08-07 study: offline
+  Command Mode on selected text (the market's #1 white space), decode-time hotword
+  boosting, Moonshine v2 streaming preview, the hands-free accessibility bundle.
 
 - **Shipped in `v2.12.0-dev.2`** (off by default): **Meeting Mode** (`yazses meeting`,
   ADR-v2-127/128) — hands-free whole-meeting capture with a live rolling transcript and an
