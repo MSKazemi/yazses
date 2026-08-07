@@ -11,7 +11,7 @@ YazSes reads its settings from `~/.config/yazses/config.toml` on Linux (`~/Libra
 
 Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes the right keys and preserves your comments. This table is the full surface for when you do want to edit by hand.
 
-**Match the Type column exactly.** In TOML only `str` values take quotes; `int`, `float` and `bool` must be bare. Writing `vad_threshold = "0.004"` instead of `vad_threshold = 0.004` loads without complaint and then fails at runtime, because the value stays a string where a number is expected. See [Troubleshooting](troubleshooting.html#dictation-stopped-working-right-after-i-edited-configtoml).
+**Match the Type column exactly.** In TOML only `str` values take quotes; `int`, `float` and `bool` must be bare. Writing `vad_threshold = "0.004"` instead of `vad_threshold = 0.004` loads without complaint and then fails at runtime, because the value stays a string where a number is expected. See [Troubleshooting](troubleshooting.md#dictation-stopped-working-right-after-i-edited-configtoml).
 
 ## `[stt]`
 

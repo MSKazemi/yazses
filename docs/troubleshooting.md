@@ -28,7 +28,7 @@ vad_threshold = "0.004"   # wrong — this is a string
 vad_threshold = 0.004     # right — bare number
 ```
 
-In TOML, only string values take quotes. Numbers (`int`, `float`) and booleans must be bare, and the [Configuration Reference](configuration.html) lists the expected type for every key. A quoted number loads without any error and only fails later, deep in the pipeline, so the message never mentions the file you edited.
+In TOML, only string values take quotes. Numbers (`int`, `float`) and booleans must be bare, and the [Configuration Reference](configuration.md) lists the expected type for every key. A quoted number loads without any error and only fails later, deep in the pipeline, so the message never mentions the file you edited.
 
 The safe way to change a setting is to let YazSes write it, since these commands always emit the right type:
 
