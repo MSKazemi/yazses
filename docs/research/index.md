@@ -42,15 +42,15 @@ quadrantChart
     quadrant-2 Promising, needs work
     quadrant-3 Research only
     quadrant-4 Niche but real
-    Voice (local STT): [0.88, 0.92]
-    Whispered-vs-voiced switch: [0.72, 0.55]
-    Webcam gaze (zone-level): [0.62, 0.58]
-    Webcam gaze (caret-level): [0.15, 0.75]
-    EMG squeeze trigger: [0.78, 0.45]
-    EMG typing: [0.55, 0.15]
-    EEG blink/jaw artifacts: [0.35, 0.2]
-    EEG motor imagery: [0.12, 0.3]
-    Lip reading (AVSR): [0.4, 0.35]
+    "Voice (local STT)": [0.88, 0.92]
+    "Whispered-vs-voiced switch": [0.72, 0.55]
+    "Webcam gaze (zone-level)": [0.62, 0.58]
+    "Webcam gaze (caret-level)": [0.15, 0.75]
+    "EMG squeeze trigger": [0.78, 0.45]
+    "EMG typing": [0.55, 0.15]
+    "EEG blink/jaw artifacts": [0.35, 0.2]
+    "EEG motor imagery": [0.12, 0.3]
+    "Lip reading (AVSR)": [0.4, 0.35]
 ```
 
 Placement is our synthesis of the measurements cited on the three pages — each
