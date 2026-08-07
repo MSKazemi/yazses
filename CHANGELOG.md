@@ -6,6 +6,32 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the Linux install page told newcomers to install from a path only the author had
+
+`docs/install-linux.md` was structurally unfollowable for the exact person it was written
+for. Its install step read `uv tool install --force /path/to/yazses` / `pipx install
+/path/to/yazses` — a local checkout path a new user does not have, and which fails outright
+if pasted. Worse, that step was **§2**: §1 opened by telling the reader to run `yazses setup`
+and `yazses doctor`, commands that cannot exist until §2 has run. Anyone following the page
+top to bottom hit `command not found` before reaching the install instructions at all.
+
+The page now leads with the one-line installer that actually works
+(`bash <(curl -fsSL .../install.sh)`), with APT, Snap and pipx folded into a comparison table
+behind a disclosure. Provisioning (`yazses setup`, the `input` group, `ydotoold`) moved to §3
+as *reference* — because the scripted channels already do all of it — leaving a first-run path
+of install → log out/in → `yazses mic-level --set` → `yazses start`. The Snap row now carries
+the `snap connect yazses:audio-record` line, whose absence leaves the snap with no microphone.
+
+Two hard prerequisites of the recommended installer were undocumented and unchecked, both
+confirmed by reproducing the failure. `install.sh` installs with `uv tool install --from
+git+…`, so a machine without `git` aborts with `Git executable not found` — and `evdev`,
+which reads the hotkey, publishes **no wheels at all** (sdist only), so every `pipx`/`uv`
+install compiles it and fails without a C toolchain. The page now states `curl git
+build-essential python3-dev` up front, says plainly that **cloning the repo is not
+required**, and notes that APT and Snap ship `evdev` prebuilt and need none of it. The
+by-hand section also gained the step it was missing entirely — `pipx install yazses` *before*
+`yazses setup`, since `setup` is a subcommand of the very program being installed.
+
 ### Added — the demo reel is on YouTube, and the site now says so in both directions
 
 The 40-second reel was published to YouTube (`nn8WUKsCvZ4`) with chapters and a description
