@@ -35,7 +35,9 @@ def test_request_stop_ends_the_decode_loop():
     engine = StreamingEngine(backend, partial_interval_ms=20)
     engine.start()
     engine.push(np.zeros(16000, dtype=np.float32))  # 1 s — above the decode floor
-    time.sleep(0.1)
+    deadline = time.monotonic() + 5.0               # poll, don't guess CI scheduling
+    while backend.calls == 0 and time.monotonic() < deadline:
+        time.sleep(0.02)
     assert backend.calls > 0                        # loop is genuinely running
 
     engine.request_stop()
