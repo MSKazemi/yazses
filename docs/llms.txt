@@ -72,6 +72,10 @@ yazses start      # start the dictation daemon
 
 **Is it a replacement for Talon?** YazSes focuses on offline dictation plus a practical command grammar. Talon has far more advanced scripting. They can coexist.
 
+**Is there an Android app?** Not yet — no APK exists today. The Android port is in design in the open: ten public architecture decision records and seventeen open issues, at https://mskazemi.com/yazses/mobile/index.html. It will be a keyboard whose mic key you hold to dictate into any app, fully on-device.
+
+**Is there an iPhone/iPad app?** No, and it follows Android deliberately: no iOS app extension — including a custom keyboard — may access the microphone (Apple's rule since iOS 8), so an iOS version must be a different product shape. macOS is already supported by the desktop app.
+
 ## Use cases
 
 - Voice dictation on Linux (X11 and Wayland): https://mskazemi.com/yazses/use-cases/voice-dictation-linux
@@ -99,6 +103,7 @@ yazses start      # start the dictation daemon
 - Comparison & alternatives: https://mskazemi.com/yazses/comparison
 - FAQ: https://mskazemi.com/yazses/faq
 - Privacy statement: https://mskazemi.com/yazses/privacy-statement
+- Android / mobile programme (in design): https://mskazemi.com/yazses/mobile/index.html
 
 ## Citation
 
