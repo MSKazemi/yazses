@@ -2,7 +2,7 @@ name: build-windows
 
 on:
   push:
-    tags: ['v0.*']  # Python v0.x only — v1.x handled by rust-release.yml
+    tags: ['v*']
   pull_request:
     paths:
       - 'src/yazses/platform/windows/**'
