@@ -13,14 +13,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Debian packaging tools
         run: |
           sudo apt-get install -y -q devscripts debhelper dput gpg
 
       - name: Import GPG key
-        uses: crazy-max/ghaction-import-gpg@v6
+        uses: crazy-max/ghaction-import-gpg@v7
         with:
           gpg_private_key: ${{ secrets.PPA_GPG_PRIVATE_KEY }}
           passphrase: ""

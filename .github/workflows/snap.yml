@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set version
         run: |
@@ -51,7 +51,7 @@ jobs:
         # account's Actions artifact-storage quota is full this step errors, which
         # previously sank the whole job (and the publish with it).
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: yazses-snap-${{ github.sha }}
           path: ${{ steps.snap-build.outputs.snap }}

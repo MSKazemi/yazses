@@ -23,12 +23,12 @@ jobs:
     # only inexpensive moment to catch one is before the commit lands.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: No oversized files in the repo
         run: python3 scripts/check_repo_size.py
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
 
       - name: Lint (ruff)
         run: uv run ruff check src tests
@@ -42,7 +42,7 @@ jobs:
         python-version: ["3.11", "3.12"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install system dependencies (Linux)
         if: runner.os == 'Linux'
@@ -55,7 +55,7 @@ jobs:
             libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
           python-version: ${{ matrix.python-version }}
