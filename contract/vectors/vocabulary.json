@@ -1,0 +1,102 @@
+{
+  "unit": "stt.vocabulary",
+  "contract_version": "1.1.0",
+  "source": "src/yazses/stt/vocabulary.py::merge_initial_prompt",
+  "cases": [
+    {
+      "id": "no-parts",
+      "description": "nothing configured still primes the app name",
+      "options": {},
+      "input": [],
+      "expected": "The app is called YazSes."
+    },
+    {
+      "id": "all-none",
+      "description": "explicit Nones behave like nothing configured",
+      "options": {},
+      "input": [
+        null,
+        null
+      ],
+      "expected": "The app is called YazSes."
+    },
+    {
+      "id": "all-empty-strings",
+      "description": "empty strings are not content",
+      "options": {},
+      "input": [
+        "",
+        "   "
+      ],
+      "expected": "The app is called YazSes."
+    },
+    {
+      "id": "single-part",
+      "description": "one configured vocabulary string",
+      "options": {},
+      "input": [
+        "Kubernetes, Prometheus"
+      ],
+      "expected": "The app is called YazSes. Kubernetes, Prometheus"
+    },
+    {
+      "id": "two-parts-merged",
+      "description": "configured prompt plus personal dictionary",
+      "options": {},
+      "input": [
+        "Kubernetes",
+        "Grafana, Loki"
+      ],
+      "expected": "The app is called YazSes. Kubernetes Grafana, Loki"
+    },
+    {
+      "id": "app-name-comes-first",
+      "description": "the coined app name is primed AHEAD of user vocabulary so it is not mis-transcribed (see stt/vocabulary.py)",
+      "options": {},
+      "input": [
+        "Kubernetes"
+      ],
+      "expected": "The app is called YazSes. Kubernetes"
+    },
+    {
+      "id": "app-name-preamble-is-unconditional",
+      "description": "the app-name preamble is prepended even when the user already listed it, so it can appear twice. Harmless for prompt priming (repetition only reinforces the spelling) and cheaper than a substring check that could false-positive",
+      "options": {},
+      "input": [
+        "YazSes, Kubernetes"
+      ],
+      "expected": "The app is called YazSes. YazSes, Kubernetes"
+    },
+    {
+      "id": "none-between-parts",
+      "description": "a None between real parts is skipped",
+      "options": {},
+      "input": [
+        "Kubernetes",
+        null,
+        "Grafana"
+      ],
+      "expected": "The app is called YazSes. Kubernetes Grafana"
+    },
+    {
+      "id": "whitespace-part-skipped",
+      "description": "a whitespace-only part is skipped",
+      "options": {},
+      "input": [
+        "Kubernetes",
+        "   ",
+        "Grafana"
+      ],
+      "expected": "The app is called YazSes. Kubernetes Grafana"
+    },
+    {
+      "id": "rtl-persian-vocabulary",
+      "description": "non-Latin vocabulary is preserved",
+      "options": {},
+      "input": [
+        "تهران، اصفهان"
+      ],
+      "expected": "The app is called YazSes. تهران، اصفهان"
+    }
+  ]
+}

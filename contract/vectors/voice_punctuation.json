@@ -1,0 +1,161 @@
+{
+  "unit": "postprocess.voice_punctuation",
+  "contract_version": "1.1.0",
+  "source": "src/yazses/postprocess/voice_punctuation.py::apply_voice_punctuation",
+  "cases": [
+    {
+      "id": "empty-string",
+      "description": "empty input is unchanged",
+      "options": {},
+      "input": "",
+      "expected": ""
+    },
+    {
+      "id": "no-punctuation-words",
+      "description": "ordinary speech passes through untouched",
+      "options": {},
+      "input": "the quick brown fox",
+      "expected": "the quick brown fox"
+    },
+    {
+      "id": "comma",
+      "description": "'comma' attaches to the preceding word, no space before",
+      "options": {},
+      "input": "hello comma world",
+      "expected": "hello, world"
+    },
+    {
+      "id": "period",
+      "description": "'period' becomes a full stop",
+      "options": {},
+      "input": "hello world period",
+      "expected": "hello world."
+    },
+    {
+      "id": "full-stop-alias",
+      "description": "'full stop' is an alias for 'period'",
+      "options": {},
+      "input": "hello world full stop",
+      "expected": "hello world."
+    },
+    {
+      "id": "question-mark",
+      "description": "'question mark' becomes ?",
+      "options": {},
+      "input": "are you there question mark",
+      "expected": "are you there?"
+    },
+    {
+      "id": "exclamation-variants",
+      "description": "both 'mark' and 'point' spellings",
+      "options": {},
+      "input": "wow exclamation mark and again exclamation point",
+      "expected": "wow! and again!"
+    },
+    {
+      "id": "semicolon-and-colon",
+      "description": "semicolon/colon symbols",
+      "options": {},
+      "input": "first semicolon second colon third",
+      "expected": "first; second: third"
+    },
+    {
+      "id": "semi-colon-two-words",
+      "description": "'semi colon' spelled as two words",
+      "options": {},
+      "input": "first semi colon second",
+      "expected": "first; second"
+    },
+    {
+      "id": "new-line",
+      "description": "'new line' becomes a newline character",
+      "options": {},
+      "input": "first new line second",
+      "expected": "first\nsecond"
+    },
+    {
+      "id": "newline-one-word",
+      "description": "'newline' spelled as one word",
+      "options": {},
+      "input": "first newline second",
+      "expected": "first\nsecond"
+    },
+    {
+      "id": "new-paragraph",
+      "description": "'new paragraph' becomes a blank line",
+      "options": {},
+      "input": "first new paragraph second",
+      "expected": "first\n\nsecond"
+    },
+    {
+      "id": "tab-key",
+      "description": "'tab key' becomes a tab character",
+      "options": {},
+      "input": "name tab key value",
+      "expected": "name\tvalue"
+    },
+    {
+      "id": "longest-phrase-wins",
+      "description": "'new paragraph' must not be parsed as 'new' + 'paragraph'; the longest matching phrase wins",
+      "options": {},
+      "input": "first new paragraph second",
+      "expected": "first\n\nsecond"
+    },
+    {
+      "id": "word-boundary-protects-substring",
+      "description": "'command' contains 'comma' and must survive intact — the single most likely regression in this unit",
+      "options": {},
+      "input": "run the command now",
+      "expected": "run the command now"
+    },
+    {
+      "id": "period-inside-word",
+      "description": "'periodic' begins with 'period' and must not be substituted",
+      "options": {},
+      "input": "a periodic review",
+      "expected": "a periodic review"
+    },
+    {
+      "id": "colon-inside-word",
+      "description": "'colonial' begins with 'colon' and must not be substituted",
+      "options": {},
+      "input": "the colonial era",
+      "expected": "the colonial era"
+    },
+    {
+      "id": "multiple-punctuation-in-one-burst",
+      "description": "several markers in a single utterance",
+      "options": {},
+      "input": "dear Bob comma thanks for the update period",
+      "expected": "dear Bob, thanks for the update."
+    },
+    {
+      "id": "punctuation-word-at-start",
+      "description": "a marker with no preceding word to attach to",
+      "options": {},
+      "input": "comma hello",
+      "expected": ", hello"
+    },
+    {
+      "id": "case-insensitive-marker",
+      "description": "Whisper capitalises sentence-initial words; document the behaviour",
+      "options": {},
+      "input": "Hello Comma world",
+      "expected": "Hello, world"
+    },
+    {
+      "id": "rtl-persian-untouched",
+      "description": "text with no English markers survives unchanged",
+      "options": {},
+      "input": "سلام دنیا",
+      "expected": "سلام دنیا"
+    },
+    {
+      "id": "code-identifier-untouched",
+      "description": "an identifier containing a marker word must survive",
+      "options": {},
+      "input": "call comma_separated_values now",
+      "expected": "call comma_separated_values now"
+    }
+  ]
+}

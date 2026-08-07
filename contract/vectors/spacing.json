@@ -1,0 +1,133 @@
+{
+  "unit": "postprocess.spacing",
+  "contract_version": "1.1.0",
+  "source": "src/yazses/postprocess/spacing.py::continuation_prefix",
+  "cases": [
+    {
+      "id": "no-recent-injection",
+      "description": "a fresh burst gets no separator",
+      "options": {
+        "had_recent_injection": false
+      },
+      "input": "hello",
+      "expected": ""
+    },
+    {
+      "id": "continues-recent-burst",
+      "description": "a burst continuing a recent one is separated by a single space",
+      "options": {
+        "had_recent_injection": true
+      },
+      "input": "hello",
+      "expected": " "
+    },
+    {
+      "id": "suppressed-before-full-stop",
+      "description": "no space before closing punctuation — otherwise you get 'word .'",
+      "options": {
+        "had_recent_injection": true
+      },
+      "input": ".",
+      "expected": ""
+    },
+    {
+      "id": "suppressed-before-comma",
+      "description": "same for a comma",
+      "options": {
+        "had_recent_injection": true
+      },
+      "input": ", and then",
+      "expected": ""
+    },
+    {
+      "id": "suppressed-before-question-mark",
+      "description": "same for a question mark",
+      "options": {
+        "had_recent_injection": true
+      },
+      "input": "?",
+      "expected": ""
+    },
+    {
+      "id": "suppressed-before-closing-bracket",
+      "description": "same for ) ] }",
+      "options": {
+        "had_recent_injection": true
+      },
+      "input": ") done",
+      "expected": ""
+    },
+    {
+      "id": "suppressed-before-ellipsis",
+      "description": "same for the ellipsis character",
+      "options": {
+        "had_recent_injection": true
+      },
+      "input": "… later",
+      "expected": ""
+    },
+    {
+      "id": "suppressed-before-percent",
+      "description": "same for a percent sign",
+      "options": {
+        "had_recent_injection": true
+      },
+      "input": "% of users",
+      "expected": ""
+    },
+    {
+      "id": "not-suppressed-before-opening-quote",
+      "description": "an opening delimiter still wants a leading space — deliberate asymmetry with closing punctuation",
+      "options": {
+        "had_recent_injection": true
+      },
+      "input": "\"quoted",
+      "expected": " "
+    },
+    {
+      "id": "not-suppressed-before-opening-paren",
+      "description": "a new clause starting with ( wants its space",
+      "options": {
+        "had_recent_injection": true
+      },
+      "input": "(aside)",
+      "expected": " "
+    },
+    {
+      "id": "empty-text-continuing",
+      "description": "an empty burst after a recent injection",
+      "options": {
+        "had_recent_injection": true
+      },
+      "input": "",
+      "expected": ""
+    },
+    {
+      "id": "empty-text-fresh",
+      "description": "an empty burst with no recent injection",
+      "options": {
+        "had_recent_injection": false
+      },
+      "input": "",
+      "expected": ""
+    },
+    {
+      "id": "leading-space-already-present",
+      "description": "the separator is added blind, so text that already begins with a space would be double-spaced. Unreachable in the real pipeline (clean_text strips leading whitespace first) — pinned so a port that calls the units in a different order knows the ordering matters",
+      "options": {
+        "had_recent_injection": true
+      },
+      "input": " already spaced",
+      "expected": " "
+    },
+    {
+      "id": "rtl-persian-continuing",
+      "description": "RTL continuation still gets its separator",
+      "options": {
+        "had_recent_injection": true
+      },
+      "input": "سلام",
+      "expected": " "
+    }
+  ]
+}

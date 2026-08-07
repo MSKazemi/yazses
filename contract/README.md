@@ -33,15 +33,28 @@ so the settings your implementation reads are the same ones the desktop reads.
 
 ```
 contract/
-  VERSION              semver for the contract itself
+  VERSION                    semver for the contract itself
   vectors/
-    clean_text.json    postprocess.clean_text     — Whisper artefact stripping
-    disfluency.json    filters.disfluency         — filler / repetition / self-correction
+    clean_text.json          postprocess.clean_text        Whisper artefact stripping
+    disfluency.json          filters.disfluency            filler / repetition / self-correction
+    voice_punctuation.json   postprocess.voice_punctuation spoken punctuation -> symbols
+    spacing.json             postprocess.spacing           separator between bursts
+    vocabulary.json          stt.vocabulary                initial_prompt merge
+    grammar.json             commands.grammar              dictate vs command classification
 ```
 
-More units are coming — voice punctuation, continuation spacing, the vocabulary merge,
-command classification, the hold detector and the VAD gate. Each arrives with the
-implementation that needs it.
+**119 cases across six units.** Together they cover everything the Android
+`:core:postprocess` ([#86](https://github.com/MSKazemi/yazses/issues/86)) and
+`:core:commands` / `:core:vocab` ([#94](https://github.com/MSKazemi/yazses/issues/94))
+modules have to reproduce — so both issues have a complete, executable definition of done.
+
+`grammar.json` is the highest-stakes file here: it decides dictate-versus-command. A
+divergence means the phone *types* "delete the last word" instead of doing it, so the
+cases lean hard on the direction that matters — a command phrase buried in ordinary
+prose must stay dictation.
+
+Still to come, with the implementations that need them: the hold detector and the VAD
+gate.
 
 ## How it is maintained
 

@@ -1,0 +1,243 @@
+{
+  "unit": "commands.grammar",
+  "contract_version": "1.1.0",
+  "source": "src/yazses/commands/grammar.py::classify",
+  "cases": [
+    {
+      "id": "empty-string",
+      "description": "empty input is dictation, never a command",
+      "options": {},
+      "input": "",
+      "expected": {
+        "intent": "dictate",
+        "action": "inject",
+        "args": {},
+        "raw_text": ""
+      }
+    },
+    {
+      "id": "whitespace-only",
+      "description": "whitespace-only input is dictation",
+      "options": {},
+      "input": "   ",
+      "expected": {
+        "intent": "dictate",
+        "action": "inject",
+        "args": {},
+        "raw_text": "   "
+      }
+    },
+    {
+      "id": "plain-sentence-is-dictation",
+      "description": "the default must always be DICTATE — typing a command by mistake is recoverable, executing dictation by mistake is not",
+      "options": {},
+      "input": "the quick brown fox jumps over the lazy dog",
+      "expected": {
+        "intent": "dictate",
+        "action": "inject",
+        "args": {},
+        "raw_text": "the quick brown fox jumps over the lazy dog"
+      }
+    },
+    {
+      "id": "undo-that",
+      "description": "a canonical single command",
+      "options": {},
+      "input": "undo that",
+      "expected": {
+        "intent": "edit",
+        "action": "undo",
+        "args": {},
+        "raw_text": "undo that"
+      }
+    },
+    {
+      "id": "select-all",
+      "description": "another canonical command",
+      "options": {},
+      "input": "select all",
+      "expected": {
+        "intent": "edit",
+        "action": "select_all",
+        "args": {},
+        "raw_text": "select all"
+      }
+    },
+    {
+      "id": "save-file",
+      "description": "save the current file",
+      "options": {},
+      "input": "save file",
+      "expected": {
+        "intent": "edit",
+        "action": "save",
+        "args": {},
+        "raw_text": "save file"
+      }
+    },
+    {
+      "id": "go-to-line-digits",
+      "description": "line number given as digits",
+      "options": {},
+      "input": "go to line 42",
+      "expected": {
+        "intent": "navigate",
+        "action": "go_to_line",
+        "args": {
+          "n": "42"
+        },
+        "raw_text": "go to line 42"
+      }
+    },
+    {
+      "id": "go-to-line-numword",
+      "description": "spoken number words are normalised to digits before matching",
+      "options": {},
+      "input": "go to line seven",
+      "expected": {
+        "intent": "navigate",
+        "action": "go_to_line",
+        "args": {
+          "n": "7"
+        },
+        "raw_text": "go to line seven"
+      }
+    },
+    {
+      "id": "delete-last-word",
+      "description": "singular form yields NO 'n' argument — the dispatcher defaults to 1. A port must treat a missing 'n' as 1, not as 0 or an error",
+      "options": {},
+      "input": "delete the last word",
+      "expected": {
+        "intent": "edit",
+        "action": "delete_words",
+        "args": {},
+        "raw_text": "delete the last word"
+      }
+    },
+    {
+      "id": "delete-last-three-words",
+      "description": "word deletion with a spoken count",
+      "options": {},
+      "input": "delete the last three words",
+      "expected": {
+        "intent": "edit",
+        "action": "delete_words",
+        "args": {
+          "n": "3"
+        },
+        "raw_text": "delete the last three words"
+      }
+    },
+    {
+      "id": "undo-n-times",
+      "description": "repeat count on undo",
+      "options": {},
+      "input": "undo five times",
+      "expected": {
+        "intent": "edit",
+        "action": "undo_n",
+        "args": {
+          "n": "5"
+        },
+        "raw_text": "undo five times"
+      }
+    },
+    {
+      "id": "trailing-punctuation-tolerated",
+      "description": "Whisper adds a full stop; the grammar must still match — otherwise commands work only when the model omits punctuation",
+      "options": {},
+      "input": "undo that.",
+      "expected": {
+        "intent": "edit",
+        "action": "undo",
+        "args": {},
+        "raw_text": "undo that."
+      }
+    },
+    {
+      "id": "leading-and-trailing-punctuation",
+      "description": "outer punctuation is stripped before matching",
+      "options": {},
+      "input": ", select all.",
+      "expected": {
+        "intent": "edit",
+        "action": "select_all",
+        "args": {},
+        "raw_text": ", select all."
+      }
+    },
+    {
+      "id": "case-insensitive-command",
+      "description": "sentence-initial capitalisation must not defeat the grammar",
+      "options": {},
+      "input": "Undo that",
+      "expected": {
+        "intent": "edit",
+        "action": "undo",
+        "args": {},
+        "raw_text": "Undo that"
+      }
+    },
+    {
+      "id": "command-embedded-in-a-sentence",
+      "description": "the grammar is whole-utterance: a command phrase inside real prose must stay dictation, or the user cannot dictate about them",
+      "options": {},
+      "input": "then I told him to undo that and he did",
+      "expected": {
+        "intent": "dictate",
+        "action": "inject",
+        "args": {},
+        "raw_text": "then I told him to undo that and he did"
+      }
+    },
+    {
+      "id": "command-word-as-prose",
+      "description": "'save file' discussed rather than commanded",
+      "options": {},
+      "input": "the save file dialog was confusing",
+      "expected": {
+        "intent": "dictate",
+        "action": "inject",
+        "args": {},
+        "raw_text": "the save file dialog was confusing"
+      }
+    },
+    {
+      "id": "unknown-command-is-dictation",
+      "description": "an unmatched imperative is typed, not guessed at",
+      "options": {},
+      "input": "reticulate the splines",
+      "expected": {
+        "intent": "dictate",
+        "action": "inject",
+        "args": {},
+        "raw_text": "reticulate the splines"
+      }
+    },
+    {
+      "id": "rtl-persian-is-dictation",
+      "description": "non-English speech is dictation — the grammar is English-only today",
+      "options": {},
+      "input": "سلام دنیا",
+      "expected": {
+        "intent": "dictate",
+        "action": "inject",
+        "args": {},
+        "raw_text": "سلام دنیا"
+      }
+    },
+    {
+      "id": "numbers-in-dictation-stay-dictation",
+      "description": "a sentence containing a number is not a go-to-line command",
+      "options": {},
+      "input": "we shipped 42 features this year",
+      "expected": {
+        "intent": "dictate",
+        "action": "inject",
+        "args": {},
+        "raw_text": "we shipped 42 features this year"
+      }
+    }
+  ]
+}

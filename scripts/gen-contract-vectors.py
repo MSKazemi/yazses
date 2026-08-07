@@ -34,9 +34,13 @@ from typing import Any, Callable
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
+from yazses.commands.grammar import classify  # noqa: E402
 from yazses.config import DisfluencyConfig  # noqa: E402
 from yazses.postprocess.cleaner import clean_text  # noqa: E402
+from yazses.postprocess.spacing import continuation_prefix  # noqa: E402
+from yazses.postprocess.voice_punctuation import apply_voice_punctuation  # noqa: E402
 from yazses.stt.filters.disfluency import filter_transcript  # noqa: E402
+from yazses.stt.vocabulary import merge_initial_prompt  # noqa: E402
 
 CONTRACT_DIR = ROOT / "contract"
 VECTOR_DIR = CONTRACT_DIR / "vectors"
@@ -62,6 +66,37 @@ def _run_disfluency(text: str, options: dict[str, Any]) -> str:
     return filter_transcript(text, DisfluencyConfig(**options)).text
 
 
+def _run_voice_punctuation(text: str, options: dict[str, Any]) -> str:
+    assert not options, "apply_voice_punctuation takes no options"
+    return apply_voice_punctuation(text)
+
+
+def _run_spacing(text: str, options: dict[str, Any]) -> str:
+    return continuation_prefix(text, had_recent_injection=options["had_recent_injection"])
+
+
+def _run_vocabulary(parts: list[str | None], options: dict[str, Any]) -> str | None:
+    assert not options, "merge_initial_prompt takes no options"
+    return merge_initial_prompt(*parts)
+
+
+def _run_grammar(text: str, options: dict[str, Any]) -> dict[str, Any]:
+    """Serialise CommandIntent to a portable shape.
+
+    This is the highest-stakes unit in the contract: it decides dictate-vs-command,
+    so a divergence means the phone TYPES "delete the last word" instead of doing it.
+    The optional SLM router and macro table are deliberately not exercised — they are
+    injected, model-dependent and not shared behaviour.
+    """
+    intent = classify(text, profile=options.get("profile", "default"))
+    return {
+        "intent": intent.intent.value,
+        "action": intent.action,
+        "args": intent.args,
+        "raw_text": intent.raw_text,
+    }
+
+
 UNITS: dict[str, tuple[str, Callable[[Any, dict[str, Any]], Any]]] = {
     "postprocess.clean_text": (
         "src/yazses/postprocess/cleaner.py::clean_text",
@@ -70,6 +105,22 @@ UNITS: dict[str, tuple[str, Callable[[Any, dict[str, Any]], Any]]] = {
     "filters.disfluency": (
         "src/yazses/stt/filters/disfluency.py::filter_transcript (.text)",
         _run_disfluency,
+    ),
+    "postprocess.voice_punctuation": (
+        "src/yazses/postprocess/voice_punctuation.py::apply_voice_punctuation",
+        _run_voice_punctuation,
+    ),
+    "postprocess.spacing": (
+        "src/yazses/postprocess/spacing.py::continuation_prefix",
+        _run_spacing,
+    ),
+    "stt.vocabulary": (
+        "src/yazses/stt/vocabulary.py::merge_initial_prompt",
+        _run_vocabulary,
+    ),
+    "commands.grammar": (
+        "src/yazses/commands/grammar.py::classify",
+        _run_grammar,
     ),
 }
 
@@ -247,6 +298,186 @@ CASES: dict[str, list[dict[str, Any]]] = {
          "input": "um see https://example.com/actually for details"},
         {"id": "numbers-preserved", "description": "digits and times survive filtering",
          "input": "um the deploy is at 0900 on 2026-08-07"},
+    ],
+    "postprocess.voice_punctuation": [
+        {"id": "empty-string", "description": "empty input is unchanged", "input": ""},
+        {"id": "no-punctuation-words", "description": "ordinary speech passes through untouched",
+         "input": "the quick brown fox"},
+        {"id": "comma", "description": "'comma' attaches to the preceding word, no space before",
+         "input": "hello comma world"},
+        {"id": "period", "description": "'period' becomes a full stop",
+         "input": "hello world period"},
+        {"id": "full-stop-alias", "description": "'full stop' is an alias for 'period'",
+         "input": "hello world full stop"},
+        {"id": "question-mark", "description": "'question mark' becomes ?",
+         "input": "are you there question mark"},
+        {"id": "exclamation-variants", "description": "both 'mark' and 'point' spellings",
+         "input": "wow exclamation mark and again exclamation point"},
+        {"id": "semicolon-and-colon", "description": "semicolon/colon symbols",
+         "input": "first semicolon second colon third"},
+        {"id": "semi-colon-two-words", "description": "'semi colon' spelled as two words",
+         "input": "first semi colon second"},
+        {"id": "new-line", "description": "'new line' becomes a newline character",
+         "input": "first new line second"},
+        {"id": "newline-one-word", "description": "'newline' spelled as one word",
+         "input": "first newline second"},
+        {"id": "new-paragraph", "description": "'new paragraph' becomes a blank line",
+         "input": "first new paragraph second"},
+        {"id": "tab-key", "description": "'tab key' becomes a tab character",
+         "input": "name tab key value"},
+        {"id": "longest-phrase-wins",
+         "description": "'new paragraph' must not be parsed as 'new' + 'paragraph'; "
+                        "the longest matching phrase wins",
+         "input": "first new paragraph second"},
+        {"id": "word-boundary-protects-substring",
+         "description": "'command' contains 'comma' and must survive intact — the single "
+                        "most likely regression in this unit",
+         "input": "run the command now"},
+        {"id": "period-inside-word",
+         "description": "'periodic' begins with 'period' and must not be substituted",
+         "input": "a periodic review"},
+        {"id": "colon-inside-word",
+         "description": "'colonial' begins with 'colon' and must not be substituted",
+         "input": "the colonial era"},
+        {"id": "multiple-punctuation-in-one-burst",
+         "description": "several markers in a single utterance",
+         "input": "dear Bob comma thanks for the update period"},
+        {"id": "punctuation-word-at-start",
+         "description": "a marker with no preceding word to attach to",
+         "input": "comma hello"},
+        {"id": "case-insensitive-marker",
+         "description": "Whisper capitalises sentence-initial words; document the behaviour",
+         "input": "Hello Comma world"},
+        {"id": "rtl-persian-untouched",
+         "description": "text with no English markers survives unchanged",
+         "input": "سلام دنیا"},
+        {"id": "code-identifier-untouched",
+         "description": "an identifier containing a marker word must survive",
+         "input": "call comma_separated_values now"},
+    ],
+    "postprocess.spacing": [
+        {"id": "no-recent-injection", "description": "a fresh burst gets no separator",
+         "input": "hello", "options": {"had_recent_injection": False}},
+        {"id": "continues-recent-burst",
+         "description": "a burst continuing a recent one is separated by a single space",
+         "input": "hello", "options": {"had_recent_injection": True}},
+        {"id": "suppressed-before-full-stop",
+         "description": "no space before closing punctuation — otherwise you get 'word .'",
+         "input": ".", "options": {"had_recent_injection": True}},
+        {"id": "suppressed-before-comma", "description": "same for a comma",
+         "input": ", and then", "options": {"had_recent_injection": True}},
+        {"id": "suppressed-before-question-mark", "description": "same for a question mark",
+         "input": "?", "options": {"had_recent_injection": True}},
+        {"id": "suppressed-before-closing-bracket", "description": "same for ) ] }",
+         "input": ") done", "options": {"had_recent_injection": True}},
+        {"id": "suppressed-before-ellipsis", "description": "same for the ellipsis character",
+         "input": "… later", "options": {"had_recent_injection": True}},
+        {"id": "suppressed-before-percent", "description": "same for a percent sign",
+         "input": "% of users", "options": {"had_recent_injection": True}},
+        {"id": "not-suppressed-before-opening-quote",
+         "description": "an opening delimiter still wants a leading space — deliberate "
+                        "asymmetry with closing punctuation",
+         "input": "\"quoted", "options": {"had_recent_injection": True}},
+        {"id": "not-suppressed-before-opening-paren",
+         "description": "a new clause starting with ( wants its space",
+         "input": "(aside)", "options": {"had_recent_injection": True}},
+        {"id": "empty-text-continuing",
+         "description": "an empty burst after a recent injection",
+         "input": "", "options": {"had_recent_injection": True}},
+        {"id": "empty-text-fresh", "description": "an empty burst with no recent injection",
+         "input": "", "options": {"had_recent_injection": False}},
+        {"id": "leading-space-already-present",
+         "description": "the separator is added blind, so text that already begins with a "
+                        "space would be double-spaced. Unreachable in the real pipeline "
+                        "(clean_text strips leading whitespace first) — pinned so a port "
+                        "that calls the units in a different order knows the ordering matters",
+         "input": " already spaced", "options": {"had_recent_injection": True}},
+        {"id": "rtl-persian-continuing",
+         "description": "RTL continuation still gets its separator",
+         "input": "سلام", "options": {"had_recent_injection": True}},
+    ],
+    "stt.vocabulary": [
+        {"id": "no-parts", "description": "nothing configured still primes the app name",
+         "input": []},
+        {"id": "all-none", "description": "explicit Nones behave like nothing configured",
+         "input": [None, None]},
+        {"id": "all-empty-strings", "description": "empty strings are not content",
+         "input": ["", "   "]},
+        {"id": "single-part", "description": "one configured vocabulary string",
+         "input": ["Kubernetes, Prometheus"]},
+        {"id": "two-parts-merged", "description": "configured prompt plus personal dictionary",
+         "input": ["Kubernetes", "Grafana, Loki"]},
+        {"id": "app-name-comes-first",
+         "description": "the coined app name is primed AHEAD of user vocabulary so it is "
+                        "not mis-transcribed (see stt/vocabulary.py)",
+         "input": ["Kubernetes"]},
+        {"id": "app-name-preamble-is-unconditional",
+         "description": "the app-name preamble is prepended even when the user already "
+                        "listed it, so it can appear twice. Harmless for prompt priming "
+                        "(repetition only reinforces the spelling) and cheaper than a "
+                        "substring check that could false-positive",
+         "input": ["YazSes, Kubernetes"]},
+        {"id": "none-between-parts", "description": "a None between real parts is skipped",
+         "input": ["Kubernetes", None, "Grafana"]},
+        {"id": "whitespace-part-skipped", "description": "a whitespace-only part is skipped",
+         "input": ["Kubernetes", "   ", "Grafana"]},
+        {"id": "rtl-persian-vocabulary", "description": "non-Latin vocabulary is preserved",
+         "input": ["تهران، اصفهان"]},
+    ],
+    "commands.grammar": [
+        {"id": "empty-string", "description": "empty input is dictation, never a command",
+         "input": ""},
+        {"id": "whitespace-only", "description": "whitespace-only input is dictation",
+         "input": "   "},
+        {"id": "plain-sentence-is-dictation",
+         "description": "the default must always be DICTATE — typing a command by mistake "
+                        "is recoverable, executing dictation by mistake is not",
+         "input": "the quick brown fox jumps over the lazy dog"},
+        {"id": "undo-that", "description": "a canonical single command",
+         "input": "undo that"},
+        {"id": "select-all", "description": "another canonical command",
+         "input": "select all"},
+        {"id": "save-file", "description": "save the current file",
+         "input": "save file"},
+        {"id": "go-to-line-digits", "description": "line number given as digits",
+         "input": "go to line 42"},
+        {"id": "go-to-line-numword",
+         "description": "spoken number words are normalised to digits before matching",
+         "input": "go to line seven"},
+        {"id": "delete-last-word",
+         "description": "singular form yields NO 'n' argument — the dispatcher defaults to 1. "
+                        "A port must treat a missing 'n' as 1, not as 0 or an error",
+         "input": "delete the last word"},
+        {"id": "delete-last-three-words", "description": "word deletion with a spoken count",
+         "input": "delete the last three words"},
+        {"id": "undo-n-times", "description": "repeat count on undo",
+         "input": "undo five times"},
+        {"id": "trailing-punctuation-tolerated",
+         "description": "Whisper adds a full stop; the grammar must still match — "
+                        "otherwise commands work only when the model omits punctuation",
+         "input": "undo that."},
+        {"id": "leading-and-trailing-punctuation",
+         "description": "outer punctuation is stripped before matching",
+         "input": ", select all."},
+        {"id": "case-insensitive-command",
+         "description": "sentence-initial capitalisation must not defeat the grammar",
+         "input": "Undo that"},
+        {"id": "command-embedded-in-a-sentence",
+         "description": "the grammar is whole-utterance: a command phrase inside real "
+                        "prose must stay dictation, or the user cannot dictate about them",
+         "input": "then I told him to undo that and he did"},
+        {"id": "command-word-as-prose",
+         "description": "'save file' discussed rather than commanded",
+         "input": "the save file dialog was confusing"},
+        {"id": "unknown-command-is-dictation",
+         "description": "an unmatched imperative is typed, not guessed at",
+         "input": "reticulate the splines"},
+        {"id": "rtl-persian-is-dictation",
+         "description": "non-English speech is dictation — the grammar is English-only today",
+         "input": "سلام دنیا"},
+        {"id": "numbers-in-dictation-stay-dictation",
+         "description": "a sentence containing a number is not a go-to-line command",
+         "input": "we shipped 42 features this year"},
     ],
 }
 
