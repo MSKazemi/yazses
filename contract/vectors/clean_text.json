@@ -1,0 +1,168 @@
+{
+  "unit": "postprocess.clean_text",
+  "contract_version": "1.0.0",
+  "source": "src/yazses/postprocess/cleaner.py::clean_text",
+  "cases": [
+    {
+      "id": "empty-string",
+      "description": "empty input survives untouched",
+      "options": {},
+      "input": "",
+      "expected": ""
+    },
+    {
+      "id": "whitespace-only",
+      "description": "a burst of pure whitespace yields nothing",
+      "options": {},
+      "input": "   \t \n  ",
+      "expected": ""
+    },
+    {
+      "id": "strips-blank-audio-marker",
+      "description": "Whisper emits [BLANK_AUDIO] on silence; it must never be delivered",
+      "options": {},
+      "input": "[BLANK_AUDIO]",
+      "expected": ""
+    },
+    {
+      "id": "strips-blank-parenthetical",
+      "description": "the (blank) artefact variant",
+      "options": {},
+      "input": "(blank)",
+      "expected": ""
+    },
+    {
+      "id": "strips-inaudible-marker",
+      "description": "the [INAUDIBLE] artefact variant",
+      "options": {},
+      "input": "[INAUDIBLE]",
+      "expected": ""
+    },
+    {
+      "id": "strips-silence-marker",
+      "description": "the [silence] artefact variant",
+      "options": {},
+      "input": "[silence]",
+      "expected": ""
+    },
+    {
+      "id": "blank-marker-with-surrounding-space",
+      "description": "the artefact is matched after stripping, not before",
+      "options": {},
+      "input": "  [BLANK_AUDIO]  ",
+      "expected": ""
+    },
+    {
+      "id": "blank-marker-embedded-is-kept",
+      "description": "an artefact inside real speech is NOT a whole-burst artefact; dropping the sentence would lose the user's words",
+      "options": {},
+      "input": "the meeting [BLANK_AUDIO] starts at noon",
+      "expected": "the meeting [BLANK_AUDIO] starts at noon"
+    },
+    {
+      "id": "strips-leading-comma",
+      "description": "a burst starting with punctuation is a decode artefact",
+      "options": {},
+      "input": ", hello world",
+      "expected": ", hello world"
+    },
+    {
+      "id": "strips-leading-period",
+      "description": "leading full stop is stripped",
+      "options": {},
+      "input": ". hello world",
+      "expected": "hello world"
+    },
+    {
+      "id": "strips-leading-ellipsis",
+      "description": "leading ellipsis character is stripped",
+      "options": {},
+      "input": "… and then we left",
+      "expected": "and then we left"
+    },
+    {
+      "id": "strips-leading-dot-run",
+      "description": "a run of dots and spaces is stripped",
+      "options": {},
+      "input": ". . .  hello",
+      "expected": "hello"
+    },
+    {
+      "id": "keeps-trailing-punctuation",
+      "description": "only LEADING punctuation is an artefact; the user's full stop stays",
+      "options": {},
+      "input": "hello world.",
+      "expected": "hello world."
+    },
+    {
+      "id": "keeps-internal-punctuation",
+      "description": "sentence-internal punctuation survives",
+      "options": {},
+      "input": "hello, world. and again",
+      "expected": "hello, world. and again"
+    },
+    {
+      "id": "punctuation-only",
+      "description": "a burst of nothing but punctuation",
+      "options": {},
+      "input": "...",
+      "expected": ""
+    },
+    {
+      "id": "leading-question-mark-is-kept",
+      "description": "only whitespace, dots and ellipsis are stripped — not every mark",
+      "options": {},
+      "input": "? really",
+      "expected": "? really"
+    },
+    {
+      "id": "idempotent-on-clean-input",
+      "description": "already-clean text passes through unchanged (clean_text must be idempotent)",
+      "options": {},
+      "input": "the quick brown fox",
+      "expected": "the quick brown fox"
+    },
+    {
+      "id": "unicode-accents-preserved",
+      "description": "non-ASCII letters are untouched",
+      "options": {},
+      "input": "café naïve Ångström",
+      "expected": "café naïve Ångström"
+    },
+    {
+      "id": "rtl-persian-preserved",
+      "description": "RTL text must survive byte-for-byte; Persian is a first-class test language for this project",
+      "options": {},
+      "input": "سلام دنیا",
+      "expected": "سلام دنیا"
+    },
+    {
+      "id": "rtl-persian-leading-punctuation",
+      "description": "leading-punctuation stripping must not corrupt RTL text",
+      "options": {},
+      "input": ". سلام دنیا",
+      "expected": "سلام دنیا"
+    },
+    {
+      "id": "emoji-preserved",
+      "description": "astral-plane characters are untouched",
+      "options": {},
+      "input": "ship it 🚀 today",
+      "expected": "ship it 🚀 today"
+    },
+    {
+      "id": "internal-newlines-preserved",
+      "description": "only the ends are trimmed; internal structure is the user's",
+      "options": {},
+      "input": "  first line\nsecond line  ",
+      "expected": "first line\nsecond line"
+    },
+    {
+      "id": "code-identifier-preserved",
+      "description": "code identifiers must survive dictation into an editor",
+      "options": {},
+      "input": "call parse_config() in main.py",
+      "expected": "call parse_config() in main.py"
+    }
+  ]
+}

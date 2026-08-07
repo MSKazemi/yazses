@@ -148,3 +148,34 @@ def test_filter_collapse_respects_protection_end_to_end():
     cfg = DisfluencyConfig(collapse_repetitions=True, collapse_prolongations=True)
     out = filter_transcript("call FooBar and re-read obj.attr", cfg).text
     assert "FooBar" in out and "re-read" in out and "obj.attr" in out
+
+
+# ---- Filler matching must respect word and token boundaries ----------------
+# Regression tests for two bugs found by the cross-platform contract vectors
+# (docs/mobile/adr/adr-mob-008-cross-platform-contract.md). Both corrupted text
+# the user actually dictated, silently.
+
+def test_filler_does_not_match_a_word_that_merely_starts_with_one():
+    # "like" matched the prefix of "likely" and left "ly" behind: the filler
+    # group had \b only at the start.
+    assert filter_transcript("that is likely correct").text == "that is likely correct"
+    assert filter_transcript("we err on the side of erring").text.endswith("erring")
+
+
+def test_filler_inside_a_code_identifier_is_left_alone():
+    # "basically_fn" became "_fn": the protection guard tested the matched
+    # filler ("basically") instead of the token containing it.
+    out = filter_transcript("call basically_fn in um main.py").text
+    assert out == "call basically_fn in main.py"
+
+
+def test_filler_inside_a_url_is_left_alone():
+    out = filter_transcript("um see https://example.com/actually for details").text
+    assert out == "see https://example.com/actually for details"
+
+
+def test_ordinary_fillers_still_removed_after_the_boundary_fix():
+    assert filter_transcript("um the meeting is at noon").text == "the meeting is at noon"
+    assert filter_transcript("the meeting you know is at noon").text == (
+        "the meeting is at noon"
+    )

@@ -1,0 +1,237 @@
+{
+  "unit": "filters.disfluency",
+  "contract_version": "1.0.0",
+  "source": "src/yazses/stt/filters/disfluency.py::filter_transcript (.text)",
+  "cases": [
+    {
+      "id": "empty-string",
+      "description": "empty input is returned unchanged",
+      "options": {},
+      "input": "",
+      "expected": ""
+    },
+    {
+      "id": "whitespace-only",
+      "description": "whitespace-only input short-circuits",
+      "options": {},
+      "input": "   ",
+      "expected": "   "
+    },
+    {
+      "id": "disabled-passes-through",
+      "description": "with enabled=false the filter is a no-op, even on obvious fillers",
+      "options": {
+        "enabled": false
+      },
+      "input": "um so like the thing",
+      "expected": "um so like the thing"
+    },
+    {
+      "id": "removes-single-filler",
+      "description": "Rule A: a leading filler is removed",
+      "options": {},
+      "input": "um the meeting is at noon",
+      "expected": "the meeting is at noon"
+    },
+    {
+      "id": "removes-multiple-fillers",
+      "description": "Rule A: several fillers in one burst",
+      "options": {},
+      "input": "um so like the meeting is uh at noon",
+      "expected": "so the meeting is at noon"
+    },
+    {
+      "id": "removes-multiword-filler",
+      "description": "Rule A: multi-word fillers ('you know')",
+      "options": {},
+      "input": "the meeting you know is at noon",
+      "expected": "the meeting is at noon"
+    },
+    {
+      "id": "capitalised-filler-is-protected",
+      "description": "the guard protects any token with an uppercase letter, so a sentence-initial 'Um' — the commonest filler position, because Whisper capitalises it — is NOT removed. Deliberate (it is also how proper nouns survive), but a real limitation; see issue #117",
+      "options": {},
+      "input": "Um the meeting is at noon",
+      "expected": "Um the meeting is at noon"
+    },
+    {
+      "id": "protects-proper-noun-lookalike",
+      "description": "Rule A must not strip a capitalised token that happens to be a filler word — 'Like' could be a product name",
+      "options": {},
+      "input": "the Like button is broken",
+      "expected": "the Like button is broken"
+    },
+    {
+      "id": "protects-code-identifier",
+      "description": "a filler appearing INSIDE a code identifier must not be stripped — this returned 'call _fn in main.py' until the guard was fixed to test the enclosing token",
+      "options": {},
+      "input": "call basically_fn in um main.py",
+      "expected": "call basically_fn in main.py"
+    },
+    {
+      "id": "filler-substring-not-matched",
+      "description": "word boundaries: 'like' inside 'likely' must survive — this returned 'that is ly correct' until a trailing \\b was added",
+      "options": {},
+      "input": "that is likely correct",
+      "expected": "that is likely correct"
+    },
+    {
+      "id": "sentence-that-is-only-fillers",
+      "description": "a burst containing nothing but fillers",
+      "options": {},
+      "input": "um uh er",
+      "expected": ""
+    },
+    {
+      "id": "repeated-3gram-survives",
+      "description": "Rule B collapses 2-grams only, so a repeated THREE-word phrase passes through. Pinned so both platforms agree on the limit",
+      "options": {},
+      "input": "send it to send it to Alice",
+      "expected": "send it to send it to Alice"
+    },
+    {
+      "id": "dedup-repeats-until-stable",
+      "description": "Rule B runs to a fixed point, not once",
+      "options": {},
+      "input": "go to go to go to line ten",
+      "expected": "go to line ten"
+    },
+    {
+      "id": "legitimate-repetition-kept",
+      "description": "'had had' is grammatical; the filter must not eat real language that merely looks repeated",
+      "options": {},
+      "input": "the report that he had had approved",
+      "expected": "the report that he had had approved"
+    },
+    {
+      "id": "self-correction-scratch-that",
+      "description": "Rule C: 'scratch that' rolls back to the last sentence boundary",
+      "options": {},
+      "input": "send it to Bob. scratch that send it to Alice",
+      "expected": "send it to Bob. send it to Alice"
+    },
+    {
+      "id": "self-correction-no-wait",
+      "description": "Rule C: the 'no wait' trigger",
+      "options": {},
+      "input": "meet at three. no wait meet at four",
+      "expected": "meet at three. meet at four"
+    },
+    {
+      "id": "self-correction-at-start",
+      "description": "Rule C with no preceding sentence to roll back to",
+      "options": {},
+      "input": "scratch that send it to Alice",
+      "expected": "send it to Alice"
+    },
+    {
+      "id": "self-correction-trigger-inside-quote",
+      "description": "the trigger phrase can appear in genuine speech; documents whatever the shipped behaviour is so both platforms agree",
+      "options": {},
+      "input": "he said never mind the cost and left",
+      "expected": "the cost and left"
+    },
+    {
+      "id": "collapse-repetitions-off-by-default",
+      "description": "ADR-015 collapse is opt-in; a stutter survives by default",
+      "options": {},
+      "input": "b-b-because it works",
+      "expected": "b-b-because it works"
+    },
+    {
+      "id": "collapse-repetitions-on",
+      "description": "ADR-015: hyphenated stutter collapsed when enabled",
+      "options": {
+        "collapse_repetitions": true
+      },
+      "input": "b-b-because it works",
+      "expected": "because it works"
+    },
+    {
+      "id": "collapse-repetitions-spaced",
+      "description": "ADR-015: space-separated stutter fragments",
+      "options": {
+        "collapse_repetitions": true
+      },
+      "input": "b b because it works",
+      "expected": "because it works"
+    },
+    {
+      "id": "collapse-word-repetition",
+      "description": "ADR-015: a repeated whole short word",
+      "options": {
+        "collapse_repetitions": true
+      },
+      "input": "the the the meeting",
+      "expected": "the meeting"
+    },
+    {
+      "id": "collapse-prolongations-off-by-default",
+      "description": "prolongation collapse is opt-in",
+      "options": {},
+      "input": "sooo good",
+      "expected": "sooo good"
+    },
+    {
+      "id": "collapse-prolongations-on",
+      "description": "ADR-015: a prolonged vowel run is collapsed when enabled",
+      "options": {
+        "collapse_prolongations": true
+      },
+      "input": "sooo good",
+      "expected": "so good"
+    },
+    {
+      "id": "prolongation-min-run-respected",
+      "description": "a run shorter than prolongation_min_run is left alone",
+      "options": {
+        "collapse_prolongations": true,
+        "prolongation_min_run": 4
+      },
+      "input": "soo good",
+      "expected": "soo good"
+    },
+    {
+      "id": "clean-sentence-untouched",
+      "description": "text with no disfluency must pass through byte-for-byte",
+      "options": {},
+      "input": "the quick brown fox jumps over the lazy dog",
+      "expected": "the quick brown fox jumps over the lazy dog"
+    },
+    {
+      "id": "collapses-double-spaces",
+      "description": "removing a filler must not leave a double space behind",
+      "options": {},
+      "input": "the um meeting",
+      "expected": "the meeting"
+    },
+    {
+      "id": "rtl-persian-untouched",
+      "description": "RTL text with no English fillers must survive unchanged",
+      "options": {},
+      "input": "سلام دنیا این یک آزمایش است",
+      "expected": "سلام دنیا این یک آزمایش است"
+    },
+    {
+      "id": "long-input-many-fillers",
+      "description": "a long burst — the filter must stay correct at meeting length",
+      "options": {},
+      "input": "um so um so um so um so um so um so um so um so um so um so um so um so um so um so um so um so um so um so um so um so um so um so um so um so um so um so um so um so um so um so um so um so um so um so um so um so um so um so um so um so the actual point is here",
+      "expected": "so the actual point is here"
+    },
+    {
+      "id": "url-preserved",
+      "description": "a URL path segment that happens to be a filler word must survive — this ate 'actually' out of the middle of the URL until the guard was fixed",
+      "options": {},
+      "input": "um see https://example.com/actually for details",
+      "expected": "see https://example.com/actually for details"
+    },
+    {
+      "id": "numbers-preserved",
+      "description": "digits and times survive filtering",
+      "options": {},
+      "input": "um the deploy is at 0900 on 2026-08-07",
+      "expected": "the deploy is at 0900 on 2026-08-07"
+    }
+  ]
+}

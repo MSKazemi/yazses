@@ -136,18 +136,32 @@ def _collapse_dysfluencies(text: str, config: DisfluencyConfig) -> str:
 def _remove_fillers(text: str, filler_words: list[str]) -> str:
     if not filler_words:
         return text
-    # Sort longest first so multi-word fillers match before single words
+    # Sort longest first so multi-word fillers match before single words.
+    # The trailing \b is load-bearing: without it "like" matched the prefix of
+    # "likely" and left "ly" behind, and "actually" was eaten out of the middle
+    # of a URL. Every filler is alphabetic, so a word boundary on both sides is
+    # always the right anchor.
     sorted_fillers = sorted(filler_words, key=len, reverse=True)
     pattern = re.compile(
-        r'\b(' + '|'.join(re.escape(w) for w in sorted_fillers) + r')[,]?\s*',
+        r'\b(' + '|'.join(re.escape(w) for w in sorted_fillers) + r')\b[,]?\s*',
         re.IGNORECASE,
     )
 
+    def _enclosing_token(start: int, end: int) -> str:
+        """The whitespace-delimited token(s) the match sits inside."""
+        while start > 0 and not text[start - 1].isspace():
+            start -= 1
+        while end < len(text) and not text[end].isspace():
+            end += 1
+        return text[start:end]
+
     def _replacer(m: re.Match) -> str:
         matched = m.group(0)
-        token = m.group(1)
-        # Protect uppercase / code tokens
-        if _is_protected(token):
+        # Protect uppercase / code tokens. This must test the *enclosing* token,
+        # not the matched filler: "basically" inside "basically_fn" is a bare
+        # lowercase word on its own and would sail past the guard, turning a code
+        # identifier into "_fn" mid-dictation.
+        if _is_protected(_enclosing_token(m.start(1), m.end(1))):
             return matched
         return ''
 

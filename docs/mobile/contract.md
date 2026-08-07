@@ -1,8 +1,19 @@
 # The YazSes core contract — one behaviour, many implementations
 
-**Status:** design, no code yet · normative decision in `docs/mobile/adr/adr-mob-008-cross-platform-contract.md`
-**Implements:** the `contract/` directory (to be created by the M0 issue)
+**Status:** **shipped and enforced in CI** (2026-08-07) · normative decision in
+[ADR-MOB-008](adr/adr-mob-008-cross-platform-contract.md)
+**Implements:** [`contract/`](https://github.com/MSKazemi/yazses/blob/main/contract/README.md)
+— two units live (`clean_text`, `disfluency`; 54 cases), guarded by
+`tests/test_contract_vectors.py`. The remaining units land with the implementations
+that need them.
 **Last updated:** 2026-08-07
+
+> **It earned its keep on day one.** The first 54 cases surfaced **three real bugs** in
+> shipped code: `"that is likely correct"` became `"that is ly correct"`, `basically_fn`
+> became `_fn`, and a URL silently lost a path segment — a filler regex was missing a
+> trailing word boundary and the code-identifier guard was inspecting the matched filler
+> instead of the token containing it. A year of use had not caught them. Writing down
+> what *should* happen, and then reading what *does*, is the entire mechanism.
 
 The Android app shares **no code** with the Python desktop, yet must be the same product.
 This document specifies the mechanism that makes that checkable rather than aspirational:
