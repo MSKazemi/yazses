@@ -1,6 +1,7 @@
 # YazSes
 
 [![Tests](https://github.com/MSKazemi/yazses/actions/workflows/test.yml/badge.svg)](https://github.com/MSKazemi/yazses/actions/workflows/test.yml)
+[![Snap Status](https://snapcraft.io/yazses/badge.svg)](https://snapcraft.io/yazses)
 [![PyPI](https://img.shields.io/pypi/v/yazses)](https://pypi.org/project/yazses/)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/yazses?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/yazses)
 [![PyPI Downloads](https://img.shields.io/pypi/dm/yazses)](https://pypi.org/project/yazses/)
