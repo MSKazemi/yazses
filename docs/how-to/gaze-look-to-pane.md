@@ -113,6 +113,17 @@ With the daemon running and calibration done:
 
 That is the whole workflow. You never click to switch windows; you just glance.
 
+### Bonus: "close this" — gaze deixis (v2.14.0+)
+
+With gaze enabled, **command mode** understands demonstratives: hold the
+command key (or whisper, with the sotto-voce channel on) and say
+**"close this"**, **"focus that window"**, or **"minimize that"** — the action
+applies to the window you are *looking at*, not the one with keyboard focus.
+Closing a gaze-picked window asks first via a notification button, because
+webcam gaze is deliberately coarse. Controlled by `[gaze] deixis` (on by
+default whenever gaze is enabled); this works even with `route_dictation`
+off, in which case your glance never steals focus — it only resolves "this".
+
 ## Test that it actually works
 
 The clean test proves gaze *overrides* the currently-focused window:

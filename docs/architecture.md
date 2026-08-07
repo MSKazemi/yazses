@@ -158,9 +158,14 @@ Stage by stage:
    in the logs, your speech fell below the threshold — run `yazses mic-level --set`.
 4. **Pre-speech padding.** A short silent lead-in is prepended before decoding so
    faster-whisper doesn't clip your first word (`src/yazses/audio/padding.py`).
-5. **faster-whisper decode.** The buffered audio is transcribed on the CPU. An
-   `initial_prompt` is fed in to bias the model toward the right words — the app
-   name, your personal vocabulary, and (optionally) context from your active editor.
+5. **STT decode.** The buffered audio is transcribed on the CPU by a pluggable
+   engine behind the `SttEngine` protocol (`src/yazses/stt/base.py`, selected by
+   `[stt] engine`): **faster-whisper** by default, or **NVIDIA Parakeet TDT**
+   (`yazses features enable stt-parakeet`) — lower word-error rate than
+   whisper-large-v3 at roughly 4× whisper-small's CPU speed, with no hallucinated
+   text on silence. On the Whisper path an `initial_prompt` biases the model
+   toward the right words — the app name, your personal vocabulary, and
+   (optionally) context from your active editor.
 6. **Text cleanup.** `clean_text()` strips Whisper artefacts such as
    `[BLANK_AUDIO]` and stray leading punctuation (`src/yazses/postprocess/cleaner.py`).
 7. **Disfluency filter.** A three-pass filter removes fillers, de-duplicates
@@ -239,8 +244,14 @@ are written once against the interfaces and never branch on the operating system
 
 The **EMG hotkey backend** (`platform/emg/backend.py`) is a
 platform-independent `HotkeyBackend` implementation — it reads squeeze events
-from a USB serial device — and is registered by the factory only when an `[emg]`
-config section is present.
+from a USB serial device (YESP protocol). Since v2.14.0 the daemon constructs
+it through a pluggable **activation-source seam**
+(`core/daemon.py::_build_activation_sources`) whenever `[emg] device_port` is
+set: a squeeze drives the command-key callbacks by default (`mode = "command"`),
+or plain hold-to-talk dictation (`mode = "full_text"`). Each activation source
+runs in its own background thread beside the keyboard hook and is stopped at
+shutdown; the same seam is where future non-keyboard triggers (wake word,
+switch access) plug in.
 
 ### Adding a new operating system
 
