@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>YazSes APT Repository</title></head>
+<body>
+<h1>YazSes APT Repository</h1>
+<pre>
+curl -fsSL https://mskazemi.github.io/yazses/apt/KEY.gpg \
+  | sudo gpg --dearmor --yes -o /usr/share/keyrings/yazses.gpg
+echo "deb [signed-by=/usr/share/keyrings/yazses.gpg] https://mskazemi.github.io/yazses/apt ./" \
+  | sudo tee /etc/apt/sources.list.d/yazses.list
+sudo apt update
+sudo apt install yazses
+</pre>
+</body>
+</html>

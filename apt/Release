@@ -1,0 +1,24 @@
+Architectures: amd64 arm64 all
+Codename: stable
+Components: main
+Date: Fri, 07 Aug 2026 08:40:05 +0000
+Description: YazSes APT Repository
+Label: YazSes
+Origin: YazSes
+Suite: stable
+MD5Sum:
+ b4c1adb4a59603cd7ff7ef959a726c54              835 Packages
+ 362a99599b276d9a0690194b5ff5db83              598 Packages.gz
+ 239ca3ad616aa32c005c9b42f05c4feb              181 Release
+SHA1:
+ 0268254fe203e865adb33489203f33fd638cf4fb              835 Packages
+ 727d8e74a8f5ff85c5d30e153246def4bf7dcc59              598 Packages.gz
+ 8a5901903913ae68d0dfbe568b9d462491906921              181 Release
+SHA256:
+ 90a07ce31a211cf8e281fad3b9c35426d3dab2d40ceb81b991db6497b065d697              835 Packages
+ 44290965b0bfc98bad3c8753e625f3be653e0d0a0b1e83f67d206b7673593780              598 Packages.gz
+ 3ab0602dbf68094237e2bf9cb12070e0d9ae027e14cae8c1e0e4d57a9bf4d0bb              181 Release
+SHA512:
+ 295c682c5278652aa1aa582d490b5a5867b9c7a7ac6f5a42312d60cf837b0324dfdafe9f705100988c25bec71746f7bb92666a79524346da3ee4275076f8b920              835 Packages
+ 815318f1c39245423d451047505979abe6141954ffe1b449c430de26342fd851bbc5390ea815ad2a1bcc643ec873a1c41ece48ddedd9be8357582ea96a5cfab1              598 Packages.gz
+ bda7acb2f061bc4555e5f308e05caa12eadfb3a1f97e47bbc59a9d9d97938205de0a80c1c817eb835360c5e10df8beb5ee58726b2e57c9944aa04aa4bb2eb9cb              181 Release
