@@ -67,7 +67,7 @@ def _all_modules() -> dict[str, Path]:
 def _internal_imports(path: Path, mod: str) -> set[str]:
     """Every ``yazses.*`` dotted name imported by *path* (absolute + relative,
     module-level and inside functions)."""
-    tree = ast.parse(path.read_text(), filename=str(path))
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     pkg_parts = mod.split(".")
     if path.name != "__init__.py":
         pkg_parts = pkg_parts[:-1]
