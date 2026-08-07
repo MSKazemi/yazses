@@ -399,6 +399,8 @@ Quick links:
 | [Install on Windows](docs/windows-install.md) | SmartScreen, antivirus exceptions, privacy settings |
 | [CLI reference](docs/cli-reference.md) | All commands and flags (incl. macros & vocabulary for custom voice commands) |
 | [Privacy statement](docs/privacy-statement.md) | What stays on-device, what is never collected |
+| [Research: the science of post-keyboard input](docs/research/index.md) | Cited surveys of eye, voice and muscle/brain input — every design decision traced to a measurement |
+| [Students, researchers & industry](docs/research/get-involved.md) | Thesis-sized projects with open issues, the research platform, how to cite |
 | [Record your own demo GIF](docs/demo-guide.md) | How to capture a short hold-to-talk demo GIF |
 
 ---

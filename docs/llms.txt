@@ -82,10 +82,11 @@ yazses start      # start the dictation daemon
 - Transcribing recordings offline with speaker labels: https://mskazemi.com/yazses/use-cases/transcribe-audio-offline
 - Multilingual dictation and code-switching: https://mskazemi.com/yazses/use-cases/multilingual-dictation
 - Dictation over SSH into a remote server: https://mskazemi.com/yazses/how-to/remote-dictation
-- Research — the science of post-keyboard input (overview, cited): https://mskazemi.com/yazses/research/
-- Research — eye control with a webcam (gaze accuracy, deixis, citations): https://mskazemi.com/yazses/research/eye-control
-- Research — local speech recognition state of the art (WER, latency, whisper channel): https://mskazemi.com/yazses/research/voice-control
-- Research — muscle (EMG) vs brain (EEG) computer control, measured: https://mskazemi.com/yazses/research/muscle-brain-control
+- Research — the science of post-keyboard input (overview; measured text-entry rates by modality, glossary, full reference list): https://mskazemi.com/yazses/research/
+- Research — eye control with a webcam (measured gaze accuracy 1-4 degrees, why look-to-window works and look-to-caret does not, gaze deixis, citations): https://mskazemi.com/yazses/research/eye-control
+- Research — local speech recognition state of the art (WER and CPU speed per engine, latency budget, whispered speech as a command channel, citations): https://mskazemi.com/yazses/research/voice-control
+- Research — muscle (EMG) vs brain (EEG) computer control, measured (why consumer-EEG switches are really muscle artifacts; sEMG at 20.9 WPM vs speech at ~150; accessibility stakes): https://mskazemi.com/yazses/research/muscle-brain-control
+- Research — work with us: student/thesis projects, research-platform seams, how to cite: https://mskazemi.com/yazses/research/get-involved
 - Offline meeting transcription and minutes: https://mskazemi.com/yazses/meeting-notes-offline
 
 ## Documentation

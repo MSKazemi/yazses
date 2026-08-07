@@ -111,6 +111,11 @@ extra_css:
 # duplicate block would eventually violate).
 hooks:
   - hooks/faq_schema.py
+  # `research_schema` does the same for the research section: it derives
+  # ScholarlyArticle JSON-LD (including the `citation` list) from each page's own
+  # "## References" section, so the structured data and the visible bibliography
+  # cannot disagree.
+  - hooks/research_schema.py
 
 plugins:
   - search

@@ -243,8 +243,18 @@ Two at-a-glance signals show you what YazSes is doing: a top-bar **"Y" tray icon
 - :material-frequently-asked-questions: **[FAQ](faq.md)** — common questions answered
 - :material-sitemap: **[Architecture](architecture.md)** & **[diagrams](diagrams/index.md)**
 - :material-lifebuoy: **[Troubleshooting](troubleshooting.md)** & **[roadmap](roadmap.md)**
+- :material-flask-outline: **[Research](research/index.md)** — the cited science behind eye, voice & muscle input
+- :material-school-outline: **[Student & research projects](research/get-involved.md)** — thesis-sized problems, open issues
 
 </div>
+
+!!! tip "Curious *why* it works this way?"
+
+    The [research section](research/index.md) is a public, fully-cited notebook
+    on post-keyboard input: how accurate webcam eye tracking really is, how
+    offline speech recognition overtook the cloud, and why a $50 muscle sensor
+    beats a $1,000 EEG headset. Every design decision in YazSes traces back to
+    a measurement there — and the open questions are open to anyone.
 
 ## FAQ
 

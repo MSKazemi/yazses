@@ -6,7 +6,40 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Research section rebuilt as a citable, audience-routed survey. Each page now
+  carries a graded reference list (primary sources with DOI/arXiv, marked
+  *measured* / *vendor* / *secondary*), a one-box summary, measured-value
+  charts, and a per-page contribution call. New on the index: measured
+  text-entry rates by modality, an audience router (researcher / student /
+  builder / people who cannot use a keyboard), a glossary, and a BibTeX block.
+- `hooks/research_schema.py` emits schema.org `ScholarlyArticle` JSON-LD for
+  every research page, deriving the `citation` list from the page's own
+  References section so the structured data cannot drift from the visible
+  bibliography.
+
+### Changed
+
+- Research pages carry per-page `title`/`description` front matter. They
+  previously inherited the site-wide meta description, so all five pages
+  presented search engines and answer engines with identical, unrelated snippet
+  text.
+- The research section is now linked from the documentation home page and the
+  README; it was previously reachable only through the nav bar.
+
 ### Fixed
+
+- The research index's `quadrantChart` failed to render at all: Mermaid's
+  lexer rejects parentheses in an unquoted point label, so the whole diagram
+  was replaced by "Syntax error in text". Point labels are now quoted.
+- Corrected two citations that pointed at papers not reporting the cited
+  result. The blink-switch figures (99.5% accuracy, 1.3 s, 0.10 false
+  positives/min) are Li et al., *Neurocomputing* 2018 — previously attributed
+  to a paper that cites them; the consumer-EEG SSVEP throughput is Lin et al.,
+  *J. NeuroEng. Rehabil.* 2014. The Apple Vision Pro accuracy measurement is by
+  Huang et al., not "Hou et al.". Unverifiable figures were replaced with
+  claims their sources support.
 
 - `set_config_key()` no longer quotes numeric or boolean values by default. The
   rendering is now inferred from the value's Python type (`bool` -> `true`/`false`,

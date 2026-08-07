@@ -1,3 +1,8 @@
+---
+title: Work with YazSes — student projects, research collaboration and industry pilots
+description: YazSes is an open research platform for voice-first human-computer interaction. Thesis- and course-sized projects with open issues, swappable interfaces for speech, gaze, diarization and EMG, an offline encrypted corpus that simplifies ethics review, and how to cite the project.
+---
+
 # Work with YazSes: students, researchers, industry
 
 YazSes is a production dictation tool **and** an open research platform for
@@ -10,6 +15,20 @@ This page maps what the project offers to each audience. Questions and
 proposals are welcome in
 [GitHub Discussions](https://github.com/MSKazemi/yazses/discussions) — the
 **Research Corner** threads are the standing venue for scientific discussion.
+
+```mermaid
+flowchart TD
+    Q{What do you want<br/>to walk away with?} --> A[A graded project<br/>or a thesis]
+    Q --> B[A publishable<br/>measurement]
+    Q --> C[A deployment<br/>in my organisation]
+    A --> A1["Pick from the eight scoped projects below<br/>— each has an open issue and an evaluation"]
+    B --> B1["Take an open research question<br/>from the survey pages"]
+    C --> C1["Read the privacy statement and<br/>Meeting Mode, then open a Discussion"]
+    A1 --> D[Open a Discussion to claim it]
+    B1 --> D
+    C1 --> D
+    D --> E["Fast review · co-authorship where earned ·<br/>your name in the release notes"]
+```
 
 ## Why YazSes works as a research platform
 
@@ -55,8 +74,9 @@ conversation we want to have.
 ## For researchers: evaluation, citation, collaboration
 
 - **Cite the project** with the repository's `CITATION.cff` (GitHub's *Cite
-  this repository* button), which also references the companion paper
-  (arXiv:2607.28878).
+  this repository* button), which also references the companion preprint
+  (arXiv:2607.28878) — the
+  [BibTeX entry is on the research index](index.md#how-to-cite).
 - **Reproducibility**: pinned Python dependencies, CPU-int8 inference,
   offline models — a described configuration re-runs bit-for-bit on commodity
   hardware. The benchmark harness ([#72](https://github.com/MSKazemi/yazses/issues/72))
