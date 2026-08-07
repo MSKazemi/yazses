@@ -40,6 +40,35 @@ Concretely, YazSes works in all of these with no extra configuration:
 | A shell inside a Docker container or VM | ✅ |
 | Any other focused window — browser, chat, notes | ✅ |
 
+### Dictating to a CLI tool running on the remote host
+
+The clearest case is a command-line program — an AI coding agent, a REPL, an
+editor like `vim` — that you started **on the remote server** through SSH.
+
+A program running on the remote host **cannot reach your microphone.** Your
+microphone is a device on your laptop; the remote process has no audio device, no
+`/dev/snd`, and SSH does not forward audio. So a remote CLI tool structurally
+cannot offer working voice input, no matter how good its dictation feature is
+locally. This is a property of the connection, not a defect in the tool.
+
+YazSes sidesteps it because nothing about the speech path is remote:
+
+```
+[ your laptop ]                                  [ remote server ]
+ mic → STT → keystrokes ─┐
+                         └─▶ local terminal window ──ssh──▶ the CLI tool reads stdin
+```
+
+The microphone, the model and the transcription all stay on your laptop. YazSes
+types the finished text into your **local terminal window**, and SSH carries
+those characters to the remote program exactly as if you had typed them. The
+remote tool cannot tell the difference, because there isn't one.
+
+So you can hold the hotkey and dictate a long prompt straight into a CLI agent
+running on a build server, a GPU box or a cluster login node — with no
+microphone, no GPU and no speech engine on that machine, and no audio ever
+leaving your laptop.
+
 **When you need the rest of this page instead:** you are sitting at a *different
 physical machine* — a bare SSH console, a headless box, a machine with no
 microphone — and you want the text to appear in an application running **on that

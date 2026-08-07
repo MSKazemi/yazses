@@ -86,6 +86,19 @@ remote boundary. If instead you want text typed on a *remote machine's own
 display*, `yazses remote HOST` forwards it over an SSH tunnel — see
 [dictation over SSH](how-to/remote-dictation.md).
 
+## Can I dictate to a CLI tool running on a remote server over SSH?
+
+Yes, and this is a case nothing running on the remote side can solve. A program
+started on the remote host — an AI coding agent, a REPL, `vim` — **cannot reach
+your microphone**: the microphone is a device on your laptop, the remote process
+has no audio device, and SSH does not forward audio. So a remote CLI tool cannot
+offer working voice input regardless of how good its dictation is locally.
+YazSes keeps the microphone, the model and the transcription on your laptop and
+types the finished text into your **local terminal window**; SSH carries those
+characters to the remote program exactly as if you had typed them. The remote
+machine needs no microphone, no GPU and no speech engine, and no audio ever
+leaves your laptop.
+
 ## Can YazSes run voice commands, not just dictation?
 
 Yes. A fast regex command grammar (with an optional ~0.5B SLM router for
