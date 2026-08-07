@@ -7,7 +7,7 @@ description: Where YazSes is going — the vision of keyboard-optional, fully pr
 
 YazSes is a fully-offline, hold-to-talk voice dictation daemon for Linux,
 macOS, and Windows — no cloud, no account, nothing leaves your machine.
-**The current stable release is v2.14.0**, published on PyPI, GitHub
+**The current stable release is v2.15.0**, published on PyPI, GitHub
 Releases, Snap, and the APT repository.
 
 This page is two things at once: an honest status report, and a statement of
@@ -135,7 +135,8 @@ or — for research-shaped work — at
 | **v1.4.x** | 2026-07-01 | Opt-in voice punctuation, a selectable injection backend, and cross-platform CI green again. |
 | **v2.12.0** | 2026-07-31 | **First stable v2**: Meeting Mode (hands-free capture → speaker-labelled transcript + minutes), offline recording import with diarization (`yazses transcribe`), Glance-Type on X11, mic-change guard, system tray, "no text target" guard. |
 | **v2.13.0** | 2026-08-07 | The reliability release: config self-repair, `yazses autostart enable` for pipx/uv installs, self-retuning VAD gate, supervised tray, `yazses verify` end-to-end proof. |
-| **v2.14.0** | 2026-08-07 | The perception release: **Parakeet TDT** second STT engine, gaze deixis with real confidence, sotto-voce command channel, EMG activation seam, honest feature registry. **Current stable release.** |
+| **v2.15.0** | 2026-08-07 | The honesty release: dictation stops deleting real words (contract 1.1.0 → 4.0.0), `doctor` stops giving snap users advice that cannot work, `install.sh` pins and checksums its bootstrap, property-based fuzz tests over the text pipeline. **Current stable release.** |
+| **v2.14.0** | 2026-08-07 | The perception release: **Parakeet TDT** second STT engine, gaze deixis with real confidence, sotto-voce command channel, EMG activation seam, honest feature registry. |
 
 ## Future work
 

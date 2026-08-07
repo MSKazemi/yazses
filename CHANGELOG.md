@@ -6,6 +6,18 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.15.0] - 2026-08-07
+
+**The honesty release.** Every headline item here is the same shape of defect: the software
+was telling somebody something that was not true. Dictation quietly deleted real words;
+`doctor` handed snap users a fix that could never work; the installer trusted whatever a URL
+served; and a contributor wall that promised to list everyone listed half of them. None of it
+crashed, which is why none of it had been noticed.
+
+Also the release where the contract earned its keep: shared text behaviour went **1.1.0 →
+4.0.0** across three deliberate, separately-argued changes — every one of them raised, fixed
+and reviewed in the open, and inherited automatically by the Android port.
+
 ### Fixed — inside a snap, `doctor` gave keyboard advice that could never work
 
 On a strictly confined snap, `yazses doctor` reported `Keyboard capture: denied` and told
