@@ -6,6 +6,33 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `yazses verify`: proof the pipeline works, instead of inference
+
+`doctor` checks prerequisites — a mic exists, xdotool is installed, the model is cached.
+Every one of those can pass while dictation still produces nothing: the silence gate can sit
+above your voice, the model can return empty text, the injector can be aimed at a window
+that ignores synthetic keys. Prerequisites are evidence about the parts, not evidence that
+the parts work together.
+
+`yazses verify` records you, runs the real chain — capture → silence gate → transcription →
+optional injection — and names the first link that breaks, with the command that fixes it.
+It stops at that link rather than cascading, because a report listing four failures hides
+which one to act on. `--type` also types the result into the focused window.
+
+### Added — the tray icon is supervised for the whole session
+
+The daemon launched the tray once at startup and never looked again, so a tray that crashed
+— a Qt fault, an OOM kill, a desktop-shell restart — left dictation working with no
+indicator at all. That is the insidious version: the only thing that tells you whether
+YazSes is listening, in command mode, or has nowhere to type is gone, and nothing says so.
+
+A supervisor now checks every 20 s and brings it back, reading liveness from the tray's own
+single-instance lock rather than a remembered child PID — the lock is correct when the tray
+was started by hand, survived a daemon restart, or was replaced, and it is the same
+condition a new tray would test, so supervision cannot fight the lock and spawn a process
+that instantly exits. Bounded at five relaunches, after which it says so and points at
+`yazses tray` for the real error, rather than spawning a process forever.
+
 ### Added — the silence gate now retunes itself when it is swallowing your voice
 
 `[accessibility] vad_threshold` is one float deciding whether a burst was speech, and it is

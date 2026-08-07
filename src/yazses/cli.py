@@ -1408,6 +1408,68 @@ _HOTKEYS = [
 @app.command(
     rich_help_panel=_SETUP,
     epilog=_examples(
+        "yazses verify               speak for 3s and prove the whole pipeline works",
+        "yazses verify --seconds 5   record for longer",
+        "yazses verify --type        also type the result into the focused window",
+    ),
+)
+def verify(
+    seconds: float = typer.Option(3.0, "--seconds", "-s", help="How long to record."),
+    do_type: bool = typer.Option(
+        False, "--type", help="Also type the transcript into the focused window."
+    ),
+) -> None:
+    """Record, transcribe, and prove dictation works end to end on this machine.
+
+    `yazses doctor` checks prerequisites — a mic exists, xdotool is installed. All of those
+    can pass while dictation still produces nothing. This runs the real chain and names the
+    link that breaks.
+    """
+    from yazses.config import load_config
+    from yazses.system import miclevel
+    from yazses.system.verify import verify as run_verify
+
+    platform = get_platform()
+    cfg = load_config(platform.paths.config_file)
+    threshold = cfg.accessibility.vad_threshold
+
+    typer.echo(f"Speak normally for {seconds:.0f} seconds — starting now…")
+
+    def _record():
+        return miclevel.record(seconds, cfg.audio.sample_rate, device=cfg.audio.device or None)
+
+    def _level(audio) -> float:
+        return float(miclevel.analyze(audio, cfg.audio.sample_rate).mean_abs)
+
+    def _transcribe(audio) -> str:
+        from yazses.stt.faster_whisper import FasterWhisperEngine
+
+        engine = FasterWhisperEngine(
+            model_name=cfg.stt.model, device=cfg.stt.device, compute_type=cfg.stt.compute_type
+        )
+        return engine.transcribe(audio)
+
+    injector = platform.injector_factory().inject if do_type else None
+    result = run_verify(
+        record=_record, level_of=_level, threshold=threshold,
+        transcribe=_transcribe, inject=injector,
+    )
+
+    for step in result.steps:
+        typer.echo(f"  [{'OK' if step.ok else 'FAIL'}] {step.name}: {step.detail}")
+    typer.echo("")
+    if result.ok:
+        typer.echo("✓ Dictation works end to end on this machine.")
+        return
+    failure = result.failure
+    name = failure.name if failure is not None else "Something"
+    typer.echo(f"✗ {name} is what's broken — fix that first.", err=True)
+    raise typer.Exit(1)
+
+
+@app.command(
+    rich_help_panel=_SETUP,
+    epilog=_examples(
         "yazses report                 write a diagnostic file you can attach to an issue",
         "yazses report --print         show it instead of writing it",
         "yazses report -o /tmp/r.json  choose where it goes",

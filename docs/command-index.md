@@ -512,6 +512,13 @@ Check for a newer YazSes and update it (snap / uv tool / pipx / pip).
 - `--check` — Only report whether an update is available; don't install.
 - `--yes`, `-y` — Install the update without prompting.
 
+## `yazses verify`
+
+Record, transcribe, and prove dictation works end to end on this machine.
+
+- `--seconds`, `-s` — How long to record.
+- `--type` — Also type the transcript into the focused window.
+
 ## `yazses vocab`
 
 Manage your personal dictionary (words STT mis-hears).

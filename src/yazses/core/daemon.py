@@ -190,6 +190,9 @@ class Daemon:
         self._instance_lock: SingleInstanceLock | None = None
         self._overlay_proc: subprocess.Popen | None = None
         self._tray_proc: subprocess.Popen | None = None
+        self._tray_supervisor: threading.Thread | None = None
+        # Set on shutdown so background supervisors stop waiting and exit promptly.
+        self._stop_event = threading.Event()
         # Say-Macro table (None when [macros] disabled — feature dormant).
         self._macro_table = build_macro_table(
             self._config, self._platform.paths.config_file.parent
@@ -321,9 +324,57 @@ class Daemon:
             log.info("Launched system-tray indicator (pid %d).", self._tray_proc.pid)
         except Exception:
             log.exception("Failed to launch tray; continuing without it")
+            return
+        self._start_tray_supervisor()
+
+    def _start_tray_supervisor(self) -> None:
+        """Watch the tray for the rest of the session and bring it back if it dies.
+
+        Without this the icon is launched once and never checked again, so a tray that
+        crashes leaves dictation working with no indicator at all — and the indicator is
+        the only thing that says whether YazSes is listening, in command mode, or has
+        nowhere to type.
+        """
+        if self._tray_supervisor is not None:
+            return
+        self._tray_supervisor = threading.Thread(
+            target=self._supervise_tray, name="tray-supervisor", daemon=True
+        )
+        self._tray_supervisor.start()
+
+    def _supervise_tray(self) -> None:
+        from yazses.system.single_instance import holder_pid
+        from yazses.tray.supervisor import DEFAULT_INTERVAL_S, decide
+
+        lock = self._platform.paths.data_dir / "tray.lock"
+        relaunches = 0
+        while not self._stop_event.wait(DEFAULT_INTERVAL_S):
+            try:
+                decision = decide(
+                    alive=holder_pid(lock) is not None, relaunches_so_far=relaunches
+                )
+                if decision.give_up:
+                    log.warning("Tray supervisor: %s", decision.reason)
+                    return
+                if not decision.relaunch:
+                    continue
+                log.info("Tray supervisor: %s", decision.reason)
+                proc = subprocess.Popen(
+                    [sys.executable, "-m", "yazses.tray.app"],
+                    start_new_session=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                self._tray_proc = proc
+                relaunches += 1
+                log.info("Relaunched system-tray indicator (pid %d).", proc.pid)
+            except Exception:  # noqa: BLE001 — supervision must outlive its own errors
+                log.exception("Tray supervisor iteration failed")
 
     def shutdown(self) -> None:
         log.info("Shutting down.")
+        # Stop the tray supervisor first, so it can't relaunch a tray on the way out.
+        self._stop_event.set()
         if self._command_hotkey is not None:
             try:
                 self._command_hotkey.stop()
