@@ -3,9 +3,9 @@
 **Status:** **shipped and enforced in CI** (2026-08-07) · normative decision in
 [ADR-MOB-008](adr/adr-mob-008-cross-platform-contract.md)
 **Implements:** [`contract/`](https://github.com/MSKazemi/yazses/blob/main/contract/README.md)
-— two units live (`clean_text`, `disfluency`; 54 cases), guarded by
-`tests/test_contract_vectors.py`. The remaining units land with the implementations
-that need them.
+— six units live (`clean_text`, `disfluency`, `voice_punctuation`, `spacing`,
+`vocabulary`, `grammar`; 121 cases), guarded by `tests/test_contract_vectors.py`. The
+hold detector and the VAD gate land with the implementations that need them.
 **Last updated:** 2026-08-07
 
 > **It earned its keep on day one.** The first 54 cases surfaced **three real bugs** in
@@ -54,7 +54,7 @@ under, and a list of cases:
 ```json
 {
   "unit": "postprocess.clean_text",
-  "contract_version": "1.0.0",
+  "contract_version": "2.0.0",
   "source": "src/yazses/postprocess/cleaner.py::clean_text",
   "cases": [
     {

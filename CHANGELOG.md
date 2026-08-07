@@ -6,6 +6,45 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — a filler at the start of a sentence is finally removed (contract **1.1.0 → 2.0.0**)
+
+Filler removal always advertised itself as case-insensitive, and the regex genuinely was.
+But the guard behind it refuses to touch any token containing an uppercase letter — that is
+what stops the filter eating the `Like` in "the Like button" or a proper noun in the middle
+of a sentence. The side effect went unnoticed for a year: **Whisper capitalises the first
+word of an utterance**, so a filler in the single most common position it occurs — leading
+`"Um, I think we should…"` — was capitalised, therefore protected, therefore never removed.
+
+The uppercase check is now relaxed for **utterance position 0 only**:
+
+```
+"Um the meeting is at noon"        →  "the meeting is at noon"     (was unchanged)
+"You know the meeting is at noon"  →  "the meeting is at noon"     (was unchanged)
+"the Like button is broken"        →  unchanged                    (still protected)
+"open the Actually settings panel" →  unchanged                    (still protected)
+"call basically_fn in um main.py"  →  "call basically_fn in main.py"  (code tokens intact)
+```
+
+**The trade-off, stated plainly:** a *sentence-initial* proper noun that collides with the
+filler list is now stripped, so `"Right turn at the corner"` becomes `"turn at the corner"`.
+Disfluency filtering is on by default and `right`, `like`, `actually` and `literally` are
+all default fillers, so this can reach real dictation. It was chosen deliberately —
+sentence-initial `"Right, so…"` as a filler is far more common than as content, and
+mid-utterance text stays fully protected. To opt out of a specific word, remove it from
+`[filters.disfluency] filler_words`.
+
+Because this changes an expectation every platform shares, `contract/VERSION` goes to
+**2.0.0** and the golden vectors were regenerated — the Android port inherits the new
+behaviour rather than drifting from it (community contribution, #119 — thanks
+@AshSgDe29071999; closes #117).
+
+### Changed — shell completion is documented where people install, not only in the CLI reference
+
+`yazses --install-completion` shipped some time ago but was mentioned only in
+`docs/cli-reference.md`, which is not where anyone is standing when they would want it. The
+README install path now points at it (community contribution, #118 — thanks
+@AshSgDe29071999; closes #75).
+
 ### Fixed — the advertised APT repository was returning 404, and five surfaces still pointed at the retired host
 
 Switching GitHub Pages to the Actions-built MkDocs site means the `gh-pages` branch is no
