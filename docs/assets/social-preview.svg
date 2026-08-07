@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4527a0"/>
+      <stop offset="60%" stop-color="#361d84"/>
+      <stop offset="100%" stop-color="#241259"/>
+    </linearGradient>
+    <linearGradient id="wave" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#b39ddb" stop-opacity="0.15"/>
+      <stop offset="50%" stop-color="#d1c4e9" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#b39ddb" stop-opacity="0.15"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1280" height="640" fill="url(#bg)"/>
+
+  <!-- waveform motif: the product is voice -->
+  <g fill="url(#wave)">
+    <rect x="96"  y="286" width="10" height="68"  rx="5"/>
+    <rect x="126" y="256" width="10" height="128" rx="5"/>
+    <rect x="156" y="216" width="10" height="208" rx="5"/>
+    <rect x="186" y="270" width="10" height="100" rx="5"/>
+    <rect x="216" y="180" width="10" height="280" rx="5"/>
+    <rect x="246" y="246" width="10" height="148" rx="5"/>
+    <rect x="276" y="300" width="10" height="40"  rx="5"/>
+  </g>
+  <g fill="url(#wave)">
+    <rect x="1000" y="300" width="10" height="40"  rx="5"/>
+    <rect x="1030" y="252" width="10" height="136" rx="5"/>
+    <rect x="1060" y="196" width="10" height="248" rx="5"/>
+    <rect x="1090" y="266" width="10" height="108" rx="5"/>
+    <rect x="1120" y="230" width="10" height="180" rx="5"/>
+    <rect x="1150" y="286" width="10" height="68"  rx="5"/>
+  </g>
+
+  <g font-family="Inter, DejaVu Sans, sans-serif" text-anchor="middle">
+    <text x="640" y="250" fill="#ffffff" font-size="118" font-weight="700">YazSes</text>
+    <text x="640" y="330" fill="#ede7f6" font-size="44" font-weight="600">Your voice never leaves your machine.</text>
+    <text x="640" y="396" fill="#c5b3ec" font-size="31" font-weight="400">Offline voice dictation, transcription &amp; meeting notes</text>
+    <text x="640" y="442" fill="#c5b3ec" font-size="31" font-weight="400">Linux · macOS · Windows — on your own CPU</text>
+    <text x="640" y="546" fill="#9c85d8" font-size="26" font-weight="400">Apache-2.0  ·  no cloud, no account, no subscription  ·  mskazemi.com/yazses</text>
+  </g>
+</svg>

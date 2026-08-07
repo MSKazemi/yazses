@@ -87,7 +87,10 @@ def _execute(intent: CommandIntent, injector: InjectorBackend,
     if action == "delete_lines":
         n = int(args.get("n", "1"))
         for _ in range(n):
-            injector.inject_key_sequence(["ctrl+shift+k"] if True else ["ctrl+d"])
+            # ctrl+shift+k is the VS Code / JetBrains "delete line" binding. A
+            # per-editor alternative (e.g. ctrl+d in Sublime) belongs in
+            # commands/profiles.py, not in a dead conditional here.
+            injector.inject_key_sequence(["ctrl+shift+k"])
         return
 
     if action == "undo_n":

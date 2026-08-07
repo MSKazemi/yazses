@@ -62,6 +62,14 @@ features ship off by default** so nothing changes your setup until you opt in. P
 *bugs* as [issues](https://github.com/MSKazemi/yazses/issues) — bugs need a reproducer;
 feature *ideas* belong in Discussions where everyone can vote.
 
+## Who decides what
+
+[`GOVERNANCE.md`](GOVERNANCE.md) is the short version: what you can merge yourself,
+what needs an ADR, how **module stewardship** works (two non-trivial PRs to a module
+and it is yours to review), and the handful of things — no telemetry, offline by
+default, off by default, honesty about what exists — that a PR cannot change without
+a superseding ADR. Worth two minutes before you propose anything structural.
+
 ## Before opening a pull request
 
 - Run the test suite and confirm it passes.

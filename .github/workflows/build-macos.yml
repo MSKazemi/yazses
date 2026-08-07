@@ -40,10 +40,10 @@ jobs:
       MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           version: '0.5.x'
 
@@ -145,7 +145,7 @@ jobs:
         run: ls -lh dist/
 
       - name: Upload .dmg (signed if applicable)
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: yazses-macos-${{ steps.sign.outputs.sign == 'true' && 'signed' || 'unsigned' }}-${{ github.sha }}
           path: dist/YazSes-*.dmg
@@ -154,7 +154,7 @@ jobs:
 
       - name: Attach to release (tag builds only)
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
         with:
           files: dist/YazSes-*.dmg
           fail_on_unmatched_files: true

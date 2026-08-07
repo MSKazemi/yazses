@@ -4,7 +4,10 @@ from yazses.system.clipboard import set_clipboard
 
 def test_empty_text_is_noop():
     calls = []
-    assert set_clipboard("", runner=lambda *a, **k: calls.append(a)) is False
+    # Keep the call out of the assert: an assert with a side effect vanishes
+    # under `python -O` (CodeQL py/side-effect-in-assert).
+    result = set_clipboard("", runner=lambda *a, **k: calls.append(a))
+    assert result is False
     assert calls == []
 
 

@@ -107,7 +107,10 @@ class SingleInstanceLock:
         fd = os.open(
             self._path,
             os.O_RDWR | os.O_CREAT | getattr(os, "O_BINARY", 0),
-            0o644,
+            # Owner-only: the lock file lives in the user's own data dir and holds
+            # only a PID, but ADR-011 s7 makes owner-only the default posture for
+            # everything YazSes writes. Flagged by CodeQL py/overly-permissive-file.
+            0o600,
         )
         if fcntl is not None:
             try:

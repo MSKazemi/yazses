@@ -37,10 +37,10 @@ jobs:
       SIGNPATH_SIGNING_POLICY: ${{ secrets.SIGNPATH_SIGNING_POLICY }}
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           version: '0.5.x'
 
@@ -91,7 +91,7 @@ jobs:
       # signed binary as a separate artefact named "$name.signed".
       - name: Upload to SignPath for signing
         if: steps.sign.outputs.sign == 'true'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: unsigned-installer
           path: ${{ steps.locate.outputs.path }}
@@ -99,7 +99,7 @@ jobs:
 
       - name: Sign with SignPath
         if: steps.sign.outputs.sign == 'true'
-        uses: signpath/github-action-submit-signing-request@v2
+        uses: signpath/github-action-submit-signing-request@b9d91eadd323de506c0c81cf0c7fe7438f3360fd # v2
         with:
           api-token: ${{ env.SIGNPATH_API_TOKEN }}
           organization-id: ${{ env.SIGNPATH_ORGANIZATION_ID }}
@@ -126,7 +126,7 @@ jobs:
         run: Get-ChildItem dist | Format-Table Name, Length, LastWriteTime
 
       - name: Upload installer (signed if applicable)
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: yazses-windows-${{ steps.sign.outputs.sign == 'true' && 'signed' || 'unsigned' }}-${{ github.sha }}
           path: dist/YazSes-*-windows-x64.exe
@@ -135,7 +135,7 @@ jobs:
 
       - name: Attach to release (tag builds only)
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
         with:
           files: dist/YazSes-*-windows-x64.exe
           fail_on_unmatched_files: true
