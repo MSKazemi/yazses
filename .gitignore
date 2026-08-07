@@ -100,3 +100,16 @@ id_ed25519
 id_ed25519.*
 secrets/
 credentials/
+
+# Android build artifacts + signing material (see docs/mobile/adr/adr-mob-009)
+android/.gradle/
+android/build/
+android/*/build/
+android/local.properties
+android/.cxx/
+android/captures/
+*.apk
+*.aab
+*.keystore
+*.jks
+keystore.properties

@@ -18,6 +18,13 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   every research page, deriving the `citation` list from the page's own
   References section so the structured data cannot drift from the visible
   bibliography.
+- Shell Tab completion for bash, zsh, and fish: `yazses --install-completion`,
+  plus pre-generated static scripts under `contrib/completion/` (first
+  community contribution, #56 — thanks @Maqbool61).
+- The roadmap is now a visionary, graphical document (era timeline, product
+  mindmap, horizons flow) and every open issue is filed under an outcome-named
+  GitHub milestone. New docs page "Students, researchers & industry" maps
+  thesis-sized projects to open issues.
 
 ### Changed
 
@@ -44,7 +51,19 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `set_config_key()` no longer quotes numeric or boolean values by default. The
   rendering is now inferred from the value's Python type (`bool` -> `true`/`false`,
   `int`/`float` -> bare, everything else -> quoted string with `"`/`\` escaped), and
-  `quote=` remains available as an explicit override for existing callers.
+  `quote=` remains available as an explicit override for existing callers
+  (community contribution, #57 — thanks @waterlemonnn; closes #53).
+- APT repository publishing works again: the workflow had failed on every run
+  since 2026-07-01 because the GPG signing secrets were never migrated from the
+  old repository. A fresh signing key was generated and the repo now serves the
+  current release, signed. Re-running `install-apt.sh` picks up the new key.
+- Windows `.exe` and macOS `.dmg` builds fire again on release tags: both
+  workflows still carried the pre-v2 `v0.*` tag filter, so no desktop binaries
+  had been built since v0.x. From the next tag, releases attach all three
+  platform artifacts.
+- The wiring-honesty test read source files without an explicit encoding,
+  breaking the test suite on Windows (cp1252). CI is green on all three
+  platforms again.
 
 ## [2.14.0] - 2026-08-07
 
