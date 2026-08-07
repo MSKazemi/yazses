@@ -89,7 +89,9 @@ calibration for you right away.
 yazses quickstart           # not sure what's next? a 3-step guide tailored to your machine
 yazses doctor               # check mic, injection backend, permissions (want all [OK])
 yazses enroll               # calibrate your microphone (~30 seconds)
+yazses autostart enable     # run it at login, so it's there after a reboot
 yazses start                # start the dictation daemon
+yazses verify               # speak once and prove the whole pipeline works
 ```
 
 > New to YazSes? Run **`yazses quickstart`** anytime — it looks at what's already set up and tells you exactly what to do next. It changes nothing.

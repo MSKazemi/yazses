@@ -5,6 +5,36 @@ description: Fixes for the most common YazSes problems — hotkey not firing, no
 
 # Troubleshooting
 
+## Start here: prove where it breaks
+
+Before reading further, let YazSes tell you which part is broken:
+
+```sh
+yazses verify     # records you, then runs capture → silence gate → transcription
+```
+
+It reports each link in the chain and stops at the first failure, so you get the one thing
+to fix rather than four symptoms of it. `yazses doctor` complements it by checking
+prerequisites — a mic exists, the injector is installed, the model is cached — but every one
+of those can pass while dictation still produces nothing, which is why `verify` exists.
+
+If you want to report a problem, `yazses report` writes a diagnostic file locally — versions,
+daemon state, settings with paths and identifiers removed, and the metadata-only log tail.
+Your dictated text is never in it, and **nothing is uploaded**; the file is yours to read
+before deciding to attach it to an issue.
+
+## It works, but not after I reboot
+
+YazSes is a daemon, so it should already be running when you sit down:
+
+```sh
+yazses autostart status   # will it come back after the next reboot?
+yazses autostart enable   # make it
+```
+
+Installing with `pipx`, `uv tool` or `pip` does not set this up on its own. `yazses doctor`
+reports it as a **Starts at login** check.
+
 ## Dictation stopped working right after I edited config.toml
 
 If every hold is accepted but no text ever appears, read the log first:

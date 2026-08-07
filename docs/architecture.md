@@ -335,6 +335,45 @@ pulls them in, and the pure logic stays dependency-free and dormant until you
 explicitly enable a feature (manage them with `yazses features enable/disable`).
 See the [v2 features preview](v2-features.md).
 
+## Staying up: the reliability layer
+
+A dictation daemon is only useful if it is running and correct at the moment you reach for
+the key, and the failures that matter most are the ones with no visible symptom. Five
+mechanisms exist for that, all on by default.
+
+**Config can never stop startup.** `configcheck.py` reads the config dataclasses' own
+annotations and repairs what it can (`"0.004"` → `0.004`), falls back to documented
+defaults otherwise, drops unknown keys and sections, and survives unparseable TOML. Nothing
+is swallowed: every decision becomes a `ConfigProblem`, listed at startup and shown by
+`yazses doctor` as a **Config validity** check. Previously a single quoted number loaded
+cleanly and then failed every dictation burst inside numpy, naming neither the file nor the
+key.
+
+**One authority on "is it running".** A PID file survives `kill -9` and is not recreated if
+deleted under a live daemon; the single-instance lock is held by the OS for the process
+lifetime and so is exact in both directions. `pid.is_running()` consults the lock first, so
+`yazses status` and `yazses start` cannot give opposite answers — a state this project
+reached in practice.
+
+**It comes back.** `yazses autostart enable` installs a systemd user service pointing at
+the current install (`platform/linux/autostart.py` is its single source of truth) with
+`Restart=on-failure` and a StartLimit crash-loop bound. A clean exit — what `yazses stop`
+produces — is deliberately not restarted.
+
+**The gate follows your voice.** `audio/adaptive_vad.py` watches outcomes: a run of
+discards with no successful transcription between them means the silence threshold sits
+above the speaker, so it is lowered to pass those bursts, persisted, and announced. Only
+downward, because a gate that is too high fails invisibly while one that is too low only
+adds noise the user can see.
+
+**The icon stays.** The tray was once launched at startup and never checked, so a crash
+left dictation running unobserved. `tray/supervisor.py` re-checks every 20 s using the tray
+lock as the liveness signal, bounded at five relaunches.
+
+Two commands expose the result: `yazses verify` runs the real chain and names the first
+broken link, and `yazses report` writes a redacted diagnostic bundle locally — never
+uploaded, per the privacy posture below.
+
 ## Privacy posture
 
 YazSes is **offline by design**. Push-to-talk means it only records while you

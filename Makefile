@@ -28,7 +28,7 @@ install:
 
 # The gate a PR must pass. `types` is advisory (known pre-existing errors) and is
 # reported separately so it never blocks the green/red signal.
-check: test lint
+check: test lint hygiene
 	@echo ""
 	@echo "✓  Gate passed (tests + lint). Type check is advisory:"
 	@$(MAKE) --no-print-directory types || true
@@ -48,6 +48,10 @@ lint:
 lint-fix:
 	@echo "▶  Linting (auto-fix)…"
 	uv run ruff check src tests --fix
+
+hygiene:
+	@echo "▶  Checking repo hygiene (file sizes)…"
+	uv run python scripts/check_repo_size.py
 
 types:
 	@echo "▶  Type checking (advisory — pre-existing errors are expected)…"
@@ -110,11 +114,12 @@ help:
 	@echo "    make install     install dev dependencies (uv sync)"
 	@echo ""
 	@echo "  Quality gate"
-	@echo "    make check       tests + lint (+ advisory type check)"
+	@echo "    make check       tests + lint + hygiene (+ advisory type check)"
 	@echo "    make test        run the test suite"
 	@echo "    make test-cov    run the test suite with coverage"
 	@echo "    make lint        ruff"
 	@echo "    make lint-fix    ruff with auto-fix"
+	@echo "    make hygiene     fail on tracked files big enough to slow every clone"
 	@echo "    make types       mypy (advisory)"
 	@echo ""
 	@echo "  Documentation"

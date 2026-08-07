@@ -212,6 +212,9 @@ debugging. This is the entry point `yazses start` supervises in the background.
 |---|---|
 | `yazses quickstart` | **New here? Start here.** A 3-step, machine-tailored getting-started guide (read-only). |
 | `yazses doctor` | Health check: what's OK / missing, ending in a one-line verdict. |
+| `yazses verify` | Record, transcribe and **prove** dictation works end to end; names the first broken link. |
+| `yazses report` | Write a redacted diagnostic file you can attach to an issue. Nothing is uploaded. |
+| `yazses autostart` | Start YazSes automatically at login, so it survives a reboot. |
 | `yazses mic-level` | Measure your mic speech level and recommend (or set) the VAD threshold. |
 | `yazses logs` | Show the daemon's diagnostic log (metadata only — no dictated text). |
 | `yazses setup` | Provision all Linux runtime requirements so dictation works out of the box. |
@@ -257,6 +260,70 @@ meets/exceeds `accessibility.vad_threshold`).
 yazses doctor          # run this first if dictation isn't working
 yazses doctor --mic    # also sample the mic and compare it to the VAD gate
 ```
+
+### `yazses verify`
+
+`doctor` proves the **prerequisites** — a mic exists, `xdotool` is installed, the model is
+cached. All of those can pass while dictation still produces nothing, because the silence
+gate can sit above your voice, the model can return empty text, or the injector can be
+aimed at a window that ignores synthetic keys.
+
+`verify` runs the **real chain** — capture → silence gate → transcription → optional
+injection — and reports each link. It stops at the first failure rather than cascading, so
+you are told the one thing to fix instead of four consequences of it, each with the command
+that fixes it.
+
+**Options:** `--seconds/-s` (recording length, default 3), `--type` (also type the
+transcript into the focused window).
+
+```bash
+yazses verify              # speak for 3s; proves the pipeline end to end
+yazses verify --seconds 5  # record for longer
+yazses verify --type       # also inject the result, testing the last link too
+```
+
+```text
+  [OK] Capture: recorded audio from the input device
+  [OK] Signal: level 0.0352 clears the gate (0.0020)
+  [OK] Transcription: produced 2 word(s)
+✓ Dictation works end to end on this machine.
+```
+
+### `yazses report`
+
+Collects a diagnostic bundle **locally** — versions, daemon state, your settings with paths
+and identifiers replaced, and the tail of the metadata-only log. Your dictated text is never
+included, and the learning corpus is reported by size and never opened.
+
+**Nothing is uploaded, ever.** The file is written, its path printed, and it is yours to
+read before deciding whether to attach it to an issue.
+
+**Options:** `--output/-o` (where to write it), `--print` (print instead of writing),
+`--log-lines` (how much log tail to include, default 200).
+
+```bash
+yazses report                 # writes ~/.local/share/yazses/yazses-report.json
+yazses report --print         # inspect it without writing a file
+yazses report -o /tmp/r.json  # choose the path
+```
+
+### `yazses autostart`
+
+Runs YazSes at login so it is already there when you reach for the key. Works for every
+install method — `pipx`, `uv tool`, `pip`, apt — by writing a systemd user service aimed at
+*this* install, and rewriting it if an upgrade moves the binary.
+
+The service restarts YazSes if it crashes (verified: killed outright, back within about
+five seconds) and gives up after five failures in a minute, so a genuinely broken machine
+leaves a diagnosable state instead of a spin loop.
+
+```bash
+yazses autostart enable    # install + enable the login service
+yazses autostart status    # will YazSes be running after the next reboot?
+yazses autostart disable   # stop launching it at login
+```
+
+`yazses doctor` also reports this as a **Starts at login** check.
 
 ### `yazses mic-level`
 
