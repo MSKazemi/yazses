@@ -44,6 +44,14 @@ An ADR follows the house style: **Context, Decision, Consequences, Rejected**. T
 because it tells the next person which arguments have already been had. The public
 [mobile ADRs](docs/mobile/adr/README.md) are the worked example.
 
+**What is protected on `main`.** Rulesets block force-pushes and deletion of
+`main` and of every `v*` release tag, so published history and the commits that
+release artifacts were built from cannot be rewritten. Pull requests and passing
+checks are deliberately *not* required to merge: with one maintainer, requiring
+review would mean self-approval theatre, and requiring status checks would block
+direct pushes rather than only merges. That is a trade made knowingly, and it is
+the first thing to revisit when there is a second maintainer.
+
 ## Things that are not up for negotiation in a PR
 
 These are settled by [ADR-011](docs/privacy-statement.md) and its mobile

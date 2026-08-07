@@ -79,6 +79,39 @@ That job also runs **ruff**, which CI had never enforced. Lint was a local-only 
   breaking the test suite on Windows (cp1252). CI is green on all three
   platforms again.
 
+### Security
+
+- `cryptography` raised to `>=50.0.0`, closing a high-severity Bleichenbacher
+  timing oracle in PKCS#7 decryption. YazSes uses this library for the
+  machine-bound AES-256-GCM cipher protecting the learning corpus, so it is a
+  dependency of the encrypted-at-rest guarantee in ADR-012.
+- **Private vulnerability reporting is now enabled.** It had been off, which
+  meant the reporting channel `SECURITY.md` documented —
+  `/security/advisories/new` — could not be reached by anyone outside the
+  repository. The documented way to report a vulnerability privately did not
+  work; it does now.
+- Dependabot alerts and security updates enabled (both were off), with a
+  grouped monthly schedule for `uv` and GitHub Actions.
+- Supply chain: all 38 GitHub Actions references are pinned to full commit
+  SHAs rather than mutable tags, every workflow now defaults to a read-only
+  `GITHUB_TOKEN` with write scopes declared per job, and CodeQL (Python and
+  Actions), OpenSSF Scorecard, and dependency review run in CI. Three real
+  CodeQL findings were fixed, including a single-instance lock file created
+  `0o644` where ADR-011 §7 requires `0o600`.
+- `main` and release tags are protected by repository rulesets: neither can be
+  force-pushed or deleted. Published history and the tags that release
+  artifacts are built from can no longer be rewritten by accident.
+
+### Changed
+
+- Dependency refresh: `mediapipe` 0.10.35 → 1.0.0, `typer` 0.26.8 → 0.27.1,
+  `platformdirs` 4.10 → 4.11, `onnxruntime` 1.27 → 1.28, `llama-cpp-python`
+  0.3.33 → 0.3.34, `mcp` 1.28.1 → 2.0.0. The MediaPipe major keeps the
+  FaceLandmarker API the gaze backend uses, and ships a `manylinux_2_28_aarch64`
+  wheel — so the optional `gaze` extra becomes installable on ARM Linux for the
+  first time (installable, not yet tested there). Its Linux wheel grows from
+  12 MB to 36 MB; this affects only users who opt into gaze.
+
 ## [2.14.0] - 2026-08-07
 
 The perception release. Backed by a web-refreshed state-of-the-art study
