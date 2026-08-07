@@ -18,11 +18,9 @@ on:
       - ".github/workflows/docs.yml"
   workflow_dispatch:
 
-# Least-privilege token scoped for Pages deployment.
+# Least privilege: read-only by default; only the deploy job gets Pages write.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 # Allow one concurrent deployment; don't cancel an in-progress run.
 concurrency:
@@ -64,6 +62,10 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write      # required by actions/deploy-pages
+      id-token: write   # OIDC token for the Pages deployment
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

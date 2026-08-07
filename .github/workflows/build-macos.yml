@@ -14,11 +14,14 @@ on:
       - 'pyproject.toml'
   workflow_dispatch:
 
+# Least privilege: read-only by default; the build job declares what it needs.
 permissions:
-  contents: write   # needed by softprops/action-gh-release to attach .dmg to the Release
+  contents: read
 
 jobs:
   build:
+    permissions:
+      contents: write   # softprops/action-gh-release attaches the .dmg
     runs-on: macos-latest
     timeout-minutes: 30
 

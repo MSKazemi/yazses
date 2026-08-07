@@ -22,6 +22,10 @@ concurrency:
   group: apt-repo-${{ github.repository }}
   cancel-in-progress: false
 
+# Least privilege default; the job below declares the write it needs.
+permissions:
+  contents: read
+
 jobs:
   update-apt-repo:
     runs-on: ubuntu-latest

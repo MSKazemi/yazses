@@ -14,12 +14,15 @@ on:
       - 'pyproject.toml'
   workflow_dispatch:
 
+# Least privilege: read-only by default; the build job declares what it needs.
 permissions:
-  id-token: write   # needed by SignPath's OIDC-based authentication
-  contents: write   # needed by softprops/action-gh-release to attach .exe
+  contents: read
 
 jobs:
   build:
+    permissions:
+      id-token: write   # SignPath OIDC authentication
+      contents: write   # softprops/action-gh-release attaches the .exe
     runs-on: windows-latest
     timeout-minutes: 30
 
