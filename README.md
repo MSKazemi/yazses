@@ -194,13 +194,13 @@ Measured on a 13th-gen Core i7 laptop, int8 on CPU: **4.07 % WER** on LibriSpeec
 - **Offline / air-gapped environments** — dictation on machines with no reliable internet or where external network calls are disallowed.
 
 **In depth, with setup steps for each:**
-[voice typing on Linux (X11 & Wayland)](https://mskazemi.com/yazses/use-cases/voice-dictation-linux) ·
-[voice dictation on Wayland](https://mskazemi.com/yazses/use-cases/voice-dictation-wayland) ·
-[private & confidential work](https://mskazemi.com/yazses/use-cases/private-offline-dictation) ·
-[coding by voice](https://mskazemi.com/yazses/use-cases/voice-coding) ·
-[accessibility & RSI](https://mskazemi.com/yazses/use-cases/accessibility-rsi-hands-free) ·
-[transcribing recordings](https://mskazemi.com/yazses/use-cases/transcribe-audio-offline) ·
-[multilingual dictation](https://mskazemi.com/yazses/use-cases/multilingual-dictation)
+[voice typing on Linux (X11 & Wayland)](https://mskazemi.com/yazses/use-cases/voice-dictation-linux.html) ·
+[voice dictation on Wayland](https://mskazemi.com/yazses/use-cases/voice-dictation-wayland.html) ·
+[private & confidential work](https://mskazemi.com/yazses/use-cases/private-offline-dictation.html) ·
+[coding by voice](https://mskazemi.com/yazses/use-cases/voice-coding.html) ·
+[accessibility & RSI](https://mskazemi.com/yazses/use-cases/accessibility-rsi-hands-free.html) ·
+[transcribing recordings](https://mskazemi.com/yazses/use-cases/transcribe-audio-offline.html) ·
+[multilingual dictation](https://mskazemi.com/yazses/use-cases/multilingual-dictation.html)
 
 ---
 
