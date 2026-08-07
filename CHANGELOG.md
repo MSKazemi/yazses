@@ -153,6 +153,11 @@ running whatever the URL happens to serve that day. This is the script the READM
 people to run with `curl | bash`, so it is the one place in the project where a supply-chain
 substitution would matter most (part of #116).
 
+Verification is portable: macOS has no `sha256sum`, so it falls back to `shasum -a 256`, and
+if neither exists the install **aborts rather than skipping the check** — an unverifiable
+download is treated as a failure, not as a pass. The unverified temp file is removed on
+every exit path, including rejection.
+
 ### Added
 
 - Research section rebuilt as a citable, audience-routed survey. Each page now
