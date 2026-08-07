@@ -1,0 +1,30 @@
+# Categories for GitHub's auto-generated release notes ("Generate release notes"
+# on a release, and the release.yml publish workflow). Merged PRs are sorted by
+# label, so a release page reads like a changelog instead of a commit dump.
+changelog:
+  exclude:
+    labels:
+      - duplicate
+      - invalid
+      - wontfix
+    authors:
+      - dependabot
+  categories:
+    - title: ✨ Features
+      labels: [enhancement]
+    - title: 🐞 Fixes
+      labels: [bug]
+    - title: 📱 Android
+      labels: [android, mobile]
+    - title: 🗣️ Speech & models
+      labels: [speech-ml]
+    - title: 📦 Packaging & distribution
+      labels: [packaging]
+    - title: ⚙️ Settings GUI
+      labels: [settings-gui]
+    - title: 📚 Documentation
+      labels: [documentation]
+    - title: 🔒 Dependencies
+      labels: [dependencies]
+    - title: Other changes
+      labels: ["*"]

@@ -1,0 +1,46 @@
+# Dependabot version updates.
+#
+# Security updates are enabled separately in repo settings and are NOT limited by
+# this file — they always open a PR. This file is for routine version bumps.
+#
+# Deliberately conservative: monthly, grouped, and capped, because an OSS project
+# with a small maintainer pool is hurt more by PR noise than by being a few weeks
+# behind on a patch release. The project rule "always use latest stable versions"
+# (see AGENTS.md) is served by the grouped monthly sweep.
+version: 2
+updates:
+  # Python — uv is the project's package manager (pyproject.toml + uv.lock).
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    groups:
+      python-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    commit-message:
+      prefix: "chore(deps)"
+    labels: ["dependencies"]
+
+  # GitHub Actions — pinned action versions go stale silently and are a real
+  # supply-chain surface for a project that publishes signed artifacts.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore(ci)"
+    labels: ["dependencies"]
+
+  # Android (Gradle) — uncomment when android/ has a real Gradle build (issue #84).
+  # - package-ecosystem: "gradle"
+  #   directory: "/android"
+  #   schedule:
+  #     interval: "monthly"
+  #   open-pull-requests-limit: 5
+  #   labels: ["dependencies", "android"]

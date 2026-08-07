@@ -1,0 +1,44 @@
+name: CodeQL
+
+# Static security analysis. Free for public repositories, and worth having on a
+# project whose entire value proposition is "trust this with everything you say":
+# findings show up in the Security tab, not in a vendor's dashboard.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly, so a newly-published query pattern is caught even when the code is quiet.
+    - cron: "24 5 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # 'actions' analyses the workflow files themselves — a real supply-chain
+        # surface for a repo that publishes signed artifacts.
+        language: [python, actions]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          language: ${{ matrix.language }}
+          queries: security-and-quality
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"

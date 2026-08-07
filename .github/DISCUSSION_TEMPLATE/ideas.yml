@@ -1,0 +1,59 @@
+title: "[idea]: "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideas are how YazSes decides what to build next: the most-upvoted (👍) ideas rise
+        to the top. Two things make an idea land, and both are about *you*, not about the
+        feature — **start with the frustration, not the solution.**
+
+        Two tiebreakers you should know before writing: **on-device wins** (YazSes never
+        sends audio anywhere — cloud ideas are welcome to discuss, but on-device is the
+        default), and **new features ship off by default**.
+
+        Found a *bug*? That belongs in an [issue](https://github.com/MSKazemi/yazses/issues/new/choose)
+        with a reproducer, not here.
+  - type: textarea
+    id: frustration
+    attributes:
+      label: What is annoying you?
+      description: The situation, not the feature. What were you doing, and what went wrong or felt slow?
+      placeholder: "Every time I dictate into my terminal I have to…"
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would fix it?
+      description: Your proposed solution, if you have one. "I don't know, but here's the problem" is a completely acceptable answer.
+    validations:
+      required: false
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What do you do today instead?
+      description: Including "I gave up and typed it" — that tells us how much it costs you.
+    validations:
+      required: false
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Where does this apply?
+      multiple: true
+      options:
+        - Linux (X11)
+        - Linux (Wayland)
+        - macOS
+        - Windows
+        - Android (in design)
+        - All platforms
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before posting
+      options:
+        - label: I searched existing Discussions and issues for the same idea
+        - label: This works without sending audio or text off my device (or I've explained why it can't)

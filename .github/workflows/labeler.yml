@@ -1,0 +1,25 @@
+name: Label PRs
+
+# Applies path-based labels from .github/labeler.yml so the tracker stays
+# filterable without asking contributors to remember label names.
+#
+# pull_request_target is required so that PRs from forks (i.e. every external
+# contribution) can be labelled — the default GITHUB_TOKEN on a fork `pull_request`
+# event is read-only. This workflow checks out NO code and runs NO contributor
+# input, so the usual pull_request_target risk does not apply here; keep it that
+# way if you edit this file.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@v5
+        with:
+          sync-labels: false

@@ -44,7 +44,9 @@ Please include:
 ## Scope
 
 In scope: the YazSes daemon, CLI, IPC layer, injection backends, remote agent,
-and the encrypted learning corpus.
+and the encrypted learning corpus. The Android app will be in scope once it
+exists; until then, reports against its *design* (the ADRs in `docs/mobile/adr/`)
+are welcome as public issues — there is nothing to exploit yet.
 
 Out of scope: vulnerabilities in third-party dependencies (report those
 upstream), and issues that require an already-compromised local account with

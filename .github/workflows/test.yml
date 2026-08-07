@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: ["main"]
 
+# Least privilege: this workflow only reads the repo and runs the suite. It never
+# publishes, comments, or writes a check. (The release/publish workflows need more
+# and declare their own — do not copy this block into them blindly.)
+permissions:
+  contents: read
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   # Run Qt (PySide6 overlay) headless in CI — no display server needed.

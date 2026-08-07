@@ -1,0 +1,42 @@
+{
+  "$schema": "https://raw.githubusercontent.com/devcontainers/spec/main/schemas/devContainer.schema.json",
+  "name": "YazSes",
+
+  // One-click contributor environment: open this repo in GitHub Codespaces (or
+  // VS Code Dev Containers) and the test suite runs with zero local setup.
+  //
+  // What works here: the whole test suite, ruff, mypy, the docs site, and every
+  // pure module. The suite is fully offline and mocks audio and models, so it
+  // needs no microphone and no Whisper weights — which is exactly why a
+  // container is a viable way to contribute to this project.
+  //
+  // What does NOT work here: actually dictating. There is no microphone, no
+  // keyboard device to hold, and no window to type into. Test hardware-facing
+  // changes on a real machine.
+  "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
+
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+
+  "postCreateCommand": "curl -LsSf https://astral.sh/uv/install.sh | sh && $HOME/.local/bin/uv sync",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "charliermarsh.ruff",
+        "ms-python.python",
+        "ms-python.mypy-type-checker",
+        "tamasfe.even-better-toml"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
+        "python.testing.pytestEnabled": true
+      }
+    }
+  },
+
+  "remoteEnv": {
+    "PATH": "${containerWorkspaceFolder}/.venv/bin:${containerEnv:HOME}/.local/bin:${containerEnv:PATH}"
+  }
+}

@@ -1,0 +1,53 @@
+# Path-based auto-labelling for pull requests (actions/labeler).
+# Keeps the tracker filterable without asking contributors to remember labels.
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**"
+          - "**/*.md"
+          - "mkdocs.yml"
+
+android:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "android/**"
+          - "docs/mobile/**"
+
+mobile:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "android/**"
+          - "docs/mobile/**"
+
+contract:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "contract/**"
+          - "scripts/gen-contract-vectors.py"
+          - "tests/test_contract_vectors.py"
+
+speech-ml:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/yazses/stt/**"
+          - "src/yazses/audio/**"
+          - "src/yazses/voiceprint/**"
+          - "src/yazses/denoise/**"
+          - "src/yazses/recimport/**"
+
+packaging:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "debian/**"
+          - "snap/**"
+          - "packaging/**"
+          - "install*.sh"
+          - ".github/workflows/*release*.yml"
+          - ".github/workflows/snap.yml"
+          - ".github/workflows/apt-repo.yml"
+          - ".github/workflows/ppa.yml"
+
+settings-gui:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/yazses/settingsui/**"

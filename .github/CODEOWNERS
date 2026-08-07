@@ -1,0 +1,30 @@
+# Code owners are auto-requested as reviewers on any PR touching their paths.
+#
+# This is also how **module stewardship** is recorded (see
+# docs/mobile/contributing.md §3): ship two non-trivial PRs to a module, ask, and
+# your handle goes on its line here. Stewardship is real delegation — you review
+# that module's PRs and your call decides its internal design, inside the ADRs.
+
+# Default owner for everything not claimed below.
+*                           @MSKazemi
+
+# ── Things that must not change quietly ───────────────────────────────────────
+# Behaviour shared by every platform. A change here is a change to what the
+# desktop AND the Android app do (docs/mobile/adr/adr-mob-008-cross-platform-contract.md).
+/contract/                  @MSKazemi
+
+# Architecture decisions. Superseding an ADR is a decision, not an edit.
+/docs/mobile/adr/           @MSKazemi
+
+# Privacy posture, permissions, and the CI gates that enforce them
+# (docs/mobile/adr/adr-mob-007-privacy-permissions-lifecycle.md, ADR-011).
+/.github/workflows/         @MSKazemi
+/SECURITY.md                @MSKazemi
+
+# ── Android modules — unclaimed, waiting for stewards ─────────────────────────
+# Add a steward by putting their handle on the relevant line.
+# /android/core/postprocess/  @your-handle
+# /android/core/stt/          @your-handle
+# /android/feature/ime/       @your-handle
+# /android/model/             @your-handle
+/android/                   @MSKazemi
