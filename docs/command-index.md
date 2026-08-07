@@ -58,6 +58,22 @@ Pin the input microphone by name so a monitor/headset can't steal capture.
 - **Arguments:** `name`
 - `--clear` — Unpin; follow the OS default.
 
+## `yazses autostart`
+
+Start YazSes automatically at login, so it survives a reboot.
+
+### `yazses autostart disable`
+
+Stop starting YazSes at login. The daemon keeps running until you stop it.
+
+### `yazses autostart enable`
+
+Install and enable the login service, so YazSes is running when you sit down.
+
+### `yazses autostart status`
+
+Say whether YazSes will be running after the next reboot.
+
 ## `yazses braille`
 
 Translate text to Unicode Braille (UEB subset) — fully offline.

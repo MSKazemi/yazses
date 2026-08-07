@@ -201,6 +201,31 @@ def _model_check(model: str, hf_cache: Path) -> _Check:
     )
 
 
+def _autostart_check(platform) -> _Check | None:
+    """Answer the question nobody thinks to ask until after a reboot: does it come back?
+
+    Every other check here says whether YazSes works *now*. This one says whether it will
+    be running the next time you sit down, which is the difference between a daemon and a
+    program you must remember to launch. It is reported as a FAIL rather than a warning
+    because "I have to run `yazses start` every morning" is the symptom people live with
+    for months without realising it is fixable.
+    """
+    if sys.platform != "linux":
+        return None
+    lifecycle = getattr(platform, "lifecycle", None)
+    if lifecycle is None or not hasattr(lifecycle, "is_autostart_installed"):
+        return None
+    try:
+        if lifecycle.is_autostart_installed():
+            return ("Starts at login", "OK", "yes — systemd user service is enabled")
+    except Exception as exc:  # noqa: BLE001 — never let a probe break doctor
+        return ("Starts at login", "WARN", f"could not be determined ({exc})")
+    return (
+        "Starts at login", "FAIL",
+        "no — YazSes will NOT come back after a reboot. Fix: `yazses autostart enable`",
+    )
+
+
 def _config_validity(config_file: Path) -> list[_Check]:
     """Report values the loader had to repair or fall back on.
 
@@ -539,6 +564,9 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     checks.append(("Platform", "OK", platform.name))
     checks.append(_version_check())
     checks.append(_daemon_check(platform))
+    autostart = _autostart_check(platform)
+    if autostart is not None:
+        checks.append(autostart)
 
     # Install/lifecycle sanity: duplicate installs + a systemd ExecStart that
     # points at a missing/different binary (the silent "restart starts nothing").

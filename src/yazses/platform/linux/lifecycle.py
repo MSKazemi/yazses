@@ -53,16 +53,25 @@ class LinuxLifecycle:
         return Path.home() / ".config" / "systemd" / "user" / "yazses.service"
 
     def install_autostart(self) -> None:
-        # The full installer lives in install.sh. This method is a thin entry
-        # point for "yazses install-service" workflows; it just enables the
-        # unit if it's already been written by install.sh.
-        if not self._service_file.exists():
-            raise FileNotFoundError(
-                f"systemd unit not found at {self._service_file}. "
-                "Run install.sh first."
-            )
+        """Write the unit if needed, then enable it. Works for any install method.
+
+        This used to refuse unless install.sh had already written the unit, which meant
+        every ordinary Python install — pipx, uv tool, pip --user — had no autostart at
+        all and needed `yazses start` after each reboot. The unit text is generated from
+        the running interpreter's own console script, so it points at *this* install and
+        is rewritten when an upgrade moves it.
+        """
+        from yazses.platform.linux import autostart
+
         if not shutil.which("systemctl"):
             raise RuntimeError("systemctl not found; cannot manage autostart.")
+
+        wanted = autostart.unit_text(autostart.resolve_daemon_command())
+        existing = self._service_file.read_text() if self._service_file.exists() else None
+        if autostart.needs_rewrite(existing, wanted):
+            self._service_file.parent.mkdir(parents=True, exist_ok=True)
+            self._service_file.write_text(wanted)
+            subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
         subprocess.run(["systemctl", "--user", "enable", "--now", "yazses.service"], check=True)
 
     def uninstall_autostart(self) -> None:

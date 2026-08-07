@@ -134,42 +134,45 @@ This installs four commands: `yazses`, `yazses-daemon`, `yazses-tray`,
 > If an old `alias yazses=...` exists in your shell rc pointing at a previous
 > build, remove it so the installed binary is used.
 
-## 3. Start at login (systemd user service)
+## 3. Start at login
 
-Create `~/.config/systemd/user/yazses.service`:
-
-```ini
-[Unit]
-Description=YazSes offline voice dictation daemon
-After=graphical-session.target
-PartOf=graphical-session.target
-
-[Service]
-Type=simple
-ExecStart=%h/.local/bin/yazses-daemon
-Restart=on-failure
-RestartSec=2
-# X11 injection (xdotool) needs the display + auth cookie of the active session.
-# Match these to your session — check with: echo $DISPLAY ; echo $XAUTHORITY
-Environment=DISPLAY=:1
-Environment=XAUTHORITY=/run/user/1000/gdm/Xauthority
-Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
-
-[Install]
-WantedBy=default.target
-```
-
-Enable and start it:
+One command, whichever way you installed YazSes:
 
 ```bash
-systemctl --user daemon-reload
-systemctl --user enable --now yazses.service
-systemctl --user status yazses.service     # should be "active (running)"
+yazses autostart enable
 ```
 
-> **Important:** `DISPLAY`/`XAUTHORITY` must match your live session or injected
-> text goes nowhere. On X11 they are usually `:0`/`:1` and a GDM `Xauthority`
-> path. On Wayland, set `WAYLAND_DISPLAY` instead and use `ydotool`/`wtype`.
+That writes a systemd user service pointing at *this* install, enables it, and starts it.
+Check it any time:
+
+```bash
+yazses autostart status    # will YazSes be running after the next reboot?
+yazses doctor              # includes a "Starts at login" check
+```
+
+`yazses autostart disable` turns it off again.
+
+The service restarts YazSes automatically if it ever crashes — verified by killing it
+outright, it is back within about five seconds — and gives up after five failures in a
+minute so a genuinely broken machine leaves a diagnosable state instead of a spin loop.
+
+> **Display access.** X11 injection needs `DISPLAY` and `XAUTHORITY`, which the unit takes
+> from the systemd user manager via `PassEnvironment`. GNOME/GDM export them there
+> automatically; confirm with `systemctl --user show-environment | grep DISPLAY`. If they
+> are missing, add them to the unit explicitly with
+> `systemctl --user edit yazses.service`, or run `systemctl --user import-environment
+> DISPLAY XAUTHORITY` from inside your session. Without them, dictation runs and the text
+> goes nowhere.
+
+<details>
+<summary>Writing the unit by hand instead</summary>
+
+`yazses autostart enable` is the supported path, and it keeps the unit correct across
+upgrades that move the binary. If you would rather manage it yourself, the unit it
+installs lives at `~/.config/systemd/user/yazses.service`; `contrib/yazses.service` in the
+repo is the same file.
+
+</details>
 
 ## 4. Use it
 

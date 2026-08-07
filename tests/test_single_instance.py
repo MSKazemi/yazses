@@ -7,6 +7,8 @@ exclusive file lock makes a second daemon refuse to start. The lock is advisory
 """
 from __future__ import annotations
 
+import os
+
 from yazses.system.single_instance import SingleInstanceLock
 
 
@@ -73,3 +75,72 @@ def test_daemon_refuses_to_start_when_lock_held(tmp_path, monkeypatch):
     # Once released, a daemon can acquire it.
     assert d._acquire_instance_lock() is True
     d._instance_lock.release()
+
+
+# --- the lock as the authority on "is a daemon running?" ----------------------------
+
+
+def test_holder_pid_is_none_when_nobody_holds_the_lock(tmp_path):
+    from yazses.system.single_instance import holder_pid
+
+    path = tmp_path / "daemon.lock"
+    path.write_text("")
+
+    assert holder_pid(path) is None
+
+
+def test_holder_pid_is_none_for_a_lock_that_was_never_created(tmp_path):
+    from yazses.system.single_instance import holder_pid
+
+    assert holder_pid(tmp_path / "absent.lock") is None
+
+
+def test_holder_pid_reports_the_live_holder(tmp_path):
+    from yazses.system.single_instance import SingleInstanceLock, holder_pid
+
+    path = tmp_path / "daemon.lock"
+    lock = SingleInstanceLock(path)
+    assert lock.acquire()
+    try:
+        assert holder_pid(path) == os.getpid()
+    finally:
+        lock.release()
+
+    assert holder_pid(path) is None, "release must make it free again"
+
+
+def test_is_running_trusts_the_lock_when_the_pid_file_is_missing(tmp_path, monkeypatch):
+    """The bug this fixes: status said "not running" while a daemon was running.
+
+    With no PID file under a live daemon, `yazses status` reported nothing running and
+    the next start then refused with "another daemon is already running" — two commands
+    contradicting each other, neither actionable.
+    """
+    from yazses.system import pid as pid_module
+    from yazses.system.single_instance import SingleInstanceLock
+
+    lock_file = tmp_path / "daemon.lock"
+    monkeypatch.setattr(pid_module, "_LOCK_FILE", lock_file)
+    monkeypatch.setattr(pid_module, "_PID_FILE", tmp_path / "daemon.pid")
+
+    lock = SingleInstanceLock(lock_file)
+    assert lock.acquire()
+    try:
+        assert pid_module.is_running() is True
+        assert pid_module.read_pid() == os.getpid()
+    finally:
+        lock.release()
+
+
+def test_is_running_is_false_for_a_pid_file_left_by_a_crash(tmp_path, monkeypatch):
+    """The other direction: a stale PID file must not fake a running daemon."""
+    from yazses.system import pid as pid_module
+
+    lock_file = tmp_path / "daemon.lock"
+    lock_file.write_text("")  # exists, unheld — a crashed daemon's leftovers
+    pid_file = tmp_path / "daemon.pid"
+    pid_file.write_text(str(os.getpid()))  # a live pid, but not holding the lock
+    monkeypatch.setattr(pid_module, "_LOCK_FILE", lock_file)
+    monkeypatch.setattr(pid_module, "_PID_FILE", pid_file)
+
+    assert pid_module.is_running() is False

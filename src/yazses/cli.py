@@ -1405,6 +1405,70 @@ _HOTKEYS = [
     "right_shift", "left_shift", "right_meta", "left_meta", "space",
 ]
 
+autostart_app = typer.Typer(
+    name="autostart",
+    help="Start YazSes automatically at login, so it survives a reboot.",
+    context_settings=CONTEXT_SETTINGS,
+    no_args_is_help=True,
+)
+app.add_typer(autostart_app, rich_help_panel=_SETUP)
+
+
+@autostart_app.command(
+    "enable",
+    epilog=_examples("yazses autostart enable    start YazSes automatically at login"),
+)
+def autostart_enable() -> None:
+    """Install and enable the login service, so YazSes is running when you sit down.
+
+    Works for every install method — pipx, uv tool, pip, apt. The service is written to
+    point at this exact install, and rewritten if an upgrade moves it.
+    """
+    platform = get_platform()
+    try:
+        platform.lifecycle.install_autostart()
+    except Exception as exc:  # noqa: BLE001 — report, don't traceback at the user
+        typer.echo(f"Could not enable autostart: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo("YazSes will now start automatically at login.")
+    typer.echo("Verify any time with:  yazses doctor")
+
+
+@autostart_app.command(
+    "disable",
+    epilog=_examples("yazses autostart disable   stop launching YazSes at login"),
+)
+def autostart_disable() -> None:
+    """Stop starting YazSes at login. The daemon keeps running until you stop it."""
+    platform = get_platform()
+    try:
+        platform.lifecycle.uninstall_autostart()
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(f"Could not disable autostart: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo("YazSes will no longer start at login.")
+
+
+@autostart_app.command(
+    "status",
+    epilog=_examples("yazses autostart status    will YazSes come back after a reboot?"),
+)
+def autostart_status() -> None:
+    """Say whether YazSes will be running after the next reboot."""
+    platform = get_platform()
+    try:
+        installed = platform.lifecycle.is_autostart_installed()
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(f"Could not determine autostart state: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    if installed:
+        typer.echo("Enabled — YazSes starts automatically at login.")
+        return
+    typer.echo("Not enabled — YazSes will NOT come back after a reboot.")
+    typer.echo("Enable it with:  yazses autostart enable")
+    raise typer.Exit(1)
+
+
 audio_app = typer.Typer(
     name="audio",
     help="See and pin the input microphone (fixes a mic that silently switches).",

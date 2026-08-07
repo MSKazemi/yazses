@@ -35,6 +35,62 @@ log = logging.getLogger(__name__)
 _WIN_LOCK_OFFSET = 1 << 30
 
 
+def holder_pid(path: str | os.PathLike[str]) -> int | None:
+    """PID of the process holding this lock, or ``None`` if nobody holds it.
+
+    The authoritative answer to "is a daemon running?". The lock is owned by the OS, so
+    it is released the instant the holder dies — it cannot go stale the way a PID file
+    can, and a PID file *did* go stale in practice: with the file missing, `yazses status`
+    reported "not running" while a daemon was very much running, and the next start
+    attempt then failed with "another daemon is already running". Two commands, two
+    opposite answers, and no way for the user to act on either.
+
+    Probing acquires on a fresh file descriptor and releases immediately. On Linux a
+    second open file description conflicts with the first even within one process, so
+    this reports "held" correctly regardless of who is asking.
+    """
+    p = Path(path)
+    if not p.exists():
+        return None
+    try:
+        fd = os.open(str(p), os.O_RDWR | getattr(os, "O_BINARY", 0))
+    except OSError:
+        return None
+    try:
+        if fcntl is not None:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                return _read_pid_bytes(fd)  # someone holds it
+            fcntl.flock(fd, fcntl.LOCK_UN)  # we took it — so nobody else had it
+            return None
+        if msvcrt is not None:  # pragma: no cover - Windows
+            try:
+                os.lseek(fd, _WIN_LOCK_OFFSET, os.SEEK_SET)
+                msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+            except OSError:
+                return _read_pid_bytes(fd)
+            os.lseek(fd, _WIN_LOCK_OFFSET, os.SEEK_SET)
+            msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+            return None
+        return None  # no lock primitive: caller falls back to the PID file
+    finally:
+        try:
+            os.close(fd)
+        except OSError:  # pragma: no cover
+            pass
+
+
+def _read_pid_bytes(fd: int) -> int | None:
+    """Read the PID the holder wrote at offset 0. ``-1`` means "held, PID unknown"."""
+    try:
+        os.lseek(fd, 0, os.SEEK_SET)
+        raw = os.read(fd, 32).decode(errors="replace").strip()
+        return int(raw) if raw else -1
+    except (OSError, ValueError):
+        return -1
+
+
 class SingleInstanceLock:
     """Exclusive file lock guarding against a second daemon."""
 

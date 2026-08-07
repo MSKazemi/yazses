@@ -6,6 +6,39 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `yazses autostart`, so a daemon behaves like a daemon
+
+`install_autostart()` refused to do anything unless `install.sh` had already written the
+systemd unit. Every ordinary Python install — `pipx`, `uv tool`, `pip --user` — therefore
+had **no autostart at all**, and nothing anywhere said so: YazSes simply was not running
+after a reboot until you remembered `yazses start`. A daemon you have to remember to launch
+is not a daemon.
+
+`yazses autostart enable` now writes the unit itself, pointing at the console script beside
+the running interpreter, and rewrites it when an upgrade moves it. `disable` and `status`
+round out the group, and `yazses doctor` gains a **Starts at login** check that answers the
+question nobody asks until after a reboot. The unit text has one home in the code instead of
+being retyped in each installer.
+
+Restart behaviour is deliberate: `on-failure`, not `always`, because a clean exit is what
+`yazses stop` produces and restarting then would fight the user rather than heal anything.
+The StartLimit pair bounds the crash loop. Killing the daemon outright brings it back in
+about five seconds.
+
+### Fixed — `status` and `start` could give opposite answers about the same daemon
+
+"Is a daemon running?" had two sources of truth. The PID file is removed on a clean exit but
+survives a `kill -9`, and nothing recreates it if it goes missing under a live daemon — at
+which point `yazses status` reported **"not running"** while starting one failed with
+**"another YazSes daemon is already running"**. Two commands, opposite answers, neither
+actionable, and a real state this project reached in practice.
+
+The lock file is now the authority. It is held by the OS for the process lifetime, so it is
+exact in both directions — never stale after a crash, never absent while a daemon runs — and
+it already carried the holder's PID. `is_running()` and `read_pid()` consult it first and
+fall back to the PID file only where no lock primitive exists. A stale PID file no longer
+fakes a running daemon, and a missing one no longer hides a real one.
+
 ### Fixed — a config file can no longer stop YazSes from starting, or break it silently
 
 Python dataclasses enforce nothing at runtime, so `load_config` accepted whatever TOML
