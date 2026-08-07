@@ -14,9 +14,8 @@ release there carries built artifacts and a signed source archive.
 
 ## Current stable
 
-**[YazSes 2.15.0](v2.15.0.md)** — the honesty release: dictation stops deleting real
-words, `doctor` stops giving snap users advice that cannot work, and `install.sh` pins and
-checksums its bootstrap. Install it with:
+**[YazSes 2.15.1](v2.15.1.md)** — dictation stops deleting the verb `err`, and the mypy
+gate goes from 73 errors to zero, surfacing a latent crash on the way. Install it with:
 
 ```sh
 pipx install yazses          # any OS, Python ≥ 3.11
@@ -25,6 +24,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.15.1](v2.15.1.md) — `err` is a verb (contract 4.0.0 → 5.0.0); mypy 73 → 0.
 - [v2.15.0](v2.15.0.md) — the honesty release (contract 1.1.0 → 4.0.0, supply-chain fix).
 - **v2.14.0** — the perception release: Parakeet TDT, gaze deixis, sotto-voce, EMG seam.
 - **v2.13.0** — the reliability release: config self-repair, `yazses verify`, supervised tray.

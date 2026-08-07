@@ -6,6 +6,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.15.1] - 2026-08-07
+
+Two fixes, both found by tightening something that had been loose. Dictation stops deleting
+a real English verb, and the type gate — 73 errors deep and therefore useless — is clean and
+immediately earned its keep by surfacing a latent crash.
+
 ### Changed — the type gate is real now: `mypy src` is clean, and it found a latent crash
 
 `mypy src` had been carrying a **73-error backlog across 21 files**, which meant the gate
