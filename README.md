@@ -21,6 +21,7 @@ YazSes is a free, open-source, offline voice dictation and speech-to-text daemon
 ![YazSes — hold a key, speak, release; the text is typed into the focused app](docs/screenshots/yazses-reel.gif)
 
 *40-second tour: the core loop, the command line, and the system tray. Terminal output is real; the command-line typing is re-enacted for legibility.*
+▶️ **[Watch it on YouTube](https://www.youtube.com/watch?v=nn8WUKsCvZ4)** — same reel with chapters.
 
 ![yazses doctor — all green, fully offline](docs/screenshots/yazses-doctor.png)
 

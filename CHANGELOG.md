@@ -6,7 +6,20 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [2.15.1] - 2026-08-07
+### Added — the demo reel is on YouTube, and the site now says so in both directions
+
+The 40-second reel was published to YouTube (`nn8WUKsCvZ4`) with chapters and a description
+that links back to the repo, docs, PyPI and the preprint — but nothing in this repository
+linked *to* it, so the two halves were invisible to each other. The README and the docs
+homepage now link the video, and the homepage `@graph` gained a `VideoObject` node plus a
+`sameAs` entry, which is what lets a search engine or an answer engine connect the video to
+the software entity rather than treating them as unrelated pages.
+
+Deliberately a **link, not an embed**: a YouTube iframe would load third-party tracking on
+the homepage of a project whose entire claim is that nothing leaves your machine. The
+trade-off is honest — without an on-page player Google may decline a video rich result, and
+the animated GIF above the link already carries the same reel — so the markup is here for
+entity resolution, not on the promise of a SERP thumbnail.
 
 Two fixes, both found by tightening something that had been loose. Dictation stops deleting
 a real English verb, and the type gate — 73 errors deep and therefore useless — is clean and

@@ -23,7 +23,8 @@ hide:
         "https://github.com/MSKazemi/yazses",
         "https://pypi.org/project/yazses/",
         "https://snapcraft.io/yazses",
-        "https://arxiv.org/abs/2607.28878"
+        "https://arxiv.org/abs/2607.28878",
+        "https://www.youtube.com/watch?v=nn8WUKsCvZ4"
       ],
       "citation": "https://arxiv.org/abs/2607.28878",
       "license": "https://www.apache.org/licenses/LICENSE-2.0",
@@ -66,6 +67,18 @@ hide:
       "license": "https://www.apache.org/licenses/LICENSE-2.0"
     },
     {
+      "@type": "VideoObject",
+      "name": "YazSes — offline voice dictation for Linux, macOS & Windows (hold a key, speak, release)",
+      "description": "40-second tour of YazSes: the hold-to-talk core loop, the command line (status, doctor, features), and the system tray. Speech is transcribed on-device with faster-whisper and typed into the focused app.",
+      "thumbnailUrl": "https://i.ytimg.com/vi/nn8WUKsCvZ4/maxresdefault.jpg",
+      "uploadDate": "2026-08-08",
+      "duration": "PT40S",
+      "contentUrl": "https://www.youtube.com/watch?v=nn8WUKsCvZ4",
+      "embedUrl": "https://www.youtube.com/embed/nn8WUKsCvZ4",
+      "publisher": { "@id": "https://orcid.org/0000-0002-1166-6559" },
+      "about": { "@type": "SoftwareApplication", "name": "YazSes" }
+    },
+    {
       "@type": "ScholarlyArticle",
       "name": "YazSes: An Offline, Privacy-First, Cross-Platform Hold-to-Talk Voice-Dictation System",
       "headline": "YazSes: An Offline, Privacy-First, Cross-Platform Hold-to-Talk Voice-Dictation System",
@@ -104,6 +117,7 @@ focused app. **No cloud. No API key. No subscription. Nothing leaves your machin
 ![YazSes — hold a key, speak, release; the text is typed into the focused app](screenshots/yazses-reel.gif)
 
 *40-second tour: the core loop, the command line, and the system tray. Terminal output is real; the command-line typing is re-enacted for legibility.*
+[:material-youtube: Watch it with narration and chapters on YouTube](https://www.youtube.com/watch?v=nn8WUKsCvZ4)
 
 ![yazses doctor — all green, fully offline](screenshots/yazses-doctor.png)
 
