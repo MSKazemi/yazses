@@ -80,6 +80,42 @@ As with #122, the regenerated vector diff is **additions-only** — no previousl
 expectation changed — so the major bump is by intent: the default filler list is shared
 behaviour other platforms must reproduce, and it changed.
 
+### Fixed — the snap asked the build farm for five architectures it can never run on
+
+`snap/snapcraft.yaml` declared no `platforms:`, and to the snapcraft.io build service an
+unset architecture list does not mean "amd64" — it means *every* architecture Launchpad
+offers. Connecting the repo therefore fanned each push out to seven builds, of which five
+were impossible before they started: `ctranslate2` (via faster-whisper), `onnxruntime` (via
+onnx-asr) and `PySide6` publish manylinux wheels for `x86_64` and `aarch64` only, **and none
+of the three publishes an sdist at all**, so on armhf, i386, ppc64el, s390x and riscv64 pip
+has nothing it could even attempt to install. Observed on the first fan-out: amd64 built and
+released, i386/armhf/s390x/ppc64el all reported "Failed to build".
+
+The cost was not wasted builder time so much as a permanently red build history — five
+failures per push that nobody can act on, which is exactly how a real regression gets
+overlooked. `platforms:` now names `amd64` and `arm64`, the two the dependency set can
+actually support. The remaining runtime deps were checked against the same bar: numpy and
+cryptography ship aarch64 wheels, sounddevice / faster-whisper / onnx-asr / typer are pure
+Python, and evdev builds from its sdist against the already-staged `python3-dev`.
+
+arm64 is **requested, not yet proven** — no arm64 revision has reached the store, and this
+entry will not claim one until a build lands.
+
+### Fixed — the snap hardcoded the x86_64 library path, so any other architecture shipped mute
+
+`ALSA_PLUGIN_DIR` in the app definitions and `LD_LIBRARY_PATH` in all four wrappers contained
+the literal string `x86_64-linux-gnu`. The ALSA pulse plugin and the PulseAudio libraries live
+beneath that Debian multiarch triplet, so on any non-amd64 build both paths resolve to nothing
+and microphone capture fails — silently, with no message a user could act on, which is the
+worst possible failure mode for a dictation tool. It was invisible only because amd64 was the
+sole architecture ever built.
+
+The four wrappers now source a single `snap/local/snap-env.sh` that derives the triplet from
+snapd's `SNAP_ARCH` at runtime, and the audio variables moved there from the `apps.*`
+`environment:` blocks — that block cannot expand the triplet, which is why the constant was
+there in the first place. One copy of the path logic instead of four also removes the drift
+that let the daemon and the CLI disagree.
+
 ## [2.15.0] - 2026-08-07
 
 **The honesty release.** Every headline item here is the same shape of defect: the software

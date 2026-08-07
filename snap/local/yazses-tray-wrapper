@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-export PYTHONPATH="$SNAP/lib/python3.12/site-packages:${PYTHONPATH:-}"
-export PATH="$SNAP/bin:$SNAP/usr/bin:$PATH"
+# shellcheck source=snap/local/snap-env.sh
+. "$SNAP/bin/snap-env.sh"
 exec "$SNAP/usr/bin/python3.12" -c 'from yazses.tray.app import run; run()' "$@"

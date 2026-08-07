@@ -91,10 +91,15 @@ jobs:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         with:
           snap: ${{ steps.snap-build.outputs.snap }}
-          # Publish to edge as well as stable. This workflow only ever runs for a
-          # release tag, so there is no separate dev stream feeding edge — and a
-          # channel that is never written to does not stay empty, it stays *stale*:
-          # edge sat on 1.4.1 while stable was 2.15.0, so `snap install --edge`
-          # handed people a build eleven releases old. A channel we do not maintain
-          # should track stable rather than rot.
+          # Publish to edge as well as stable. Originally because nothing else fed
+          # edge, so it did not stay empty, it stayed *stale* — it sat on 1.4.1
+          # while stable was 2.15.0, handing `snap install --edge` a build eleven
+          # releases old.
+          #
+          # Since 2026-08-08 the snapcraft.io build service is connected to this
+          # repo and auto-releases every push to main into edge, so edge now has a
+          # continuous feed and the original argument no longer applies. The tag
+          # publish stays anyway: it is harmless (at tag time main *is* the tag)
+          # and it keeps stable and edge consistent even if the build service is
+          # unavailable. This workflow remains the only publisher to **stable**.
           release: stable,edge
