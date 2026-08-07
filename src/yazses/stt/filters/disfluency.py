@@ -18,7 +18,9 @@ def filter_transcript(text: str, config: DisfluencyConfig | None = None) -> Filt
 
     Rule A: filler word removal (case-insensitive word boundary regex).
             Guard: do NOT remove tokens that contain uppercase, underscore, slash, or dot
-            (those are proper nouns or code identifiers).
+            (those are proper nouns or code identifiers). Exception: a capitalised filler
+            at utterance position 0 is removed — Whisper capitalises sentence starts, so
+            leading "Um"/"Uh" would otherwise never be stripped (see #117).
     Rule B: consecutive 2-gram deduplication (repeat until stable).
     Rule B.5: sub-word repetition & prolongation collapse (opt-in; ADR-015).
     Rule C: self-correction trigger detection — if found, remove from last sentence
@@ -57,6 +59,16 @@ def _is_protected(token: str) -> bool:
         or '/' in token
         or '.' in token
     )
+
+
+def _is_code_or_path_token(token: str) -> bool:
+    """True when the token looks like a code identifier or path/URL fragment."""
+    return '_' in token or '/' in token or '.' in token
+
+
+def _is_utterance_initial(text: str, match_start: int) -> bool:
+    """True when ``match_start`` is the first non-whitespace content in ``text``."""
+    return not text[:match_start].strip()
 
 
 def _collapse_prolongations(text: str, min_run: int) -> str:
@@ -161,8 +173,18 @@ def _remove_fillers(text: str, filler_words: list[str]) -> str:
         # not the matched filler: "basically" inside "basically_fn" is a bare
         # lowercase word on its own and would sail past the guard, turning a code
         # identifier into "_fn" mid-dictation.
-        if _is_protected(_enclosing_token(m.start(1), m.end(1))):
-            return matched
+        enclosing = _enclosing_token(m.start(1), m.end(1))
+        if _is_protected(enclosing):
+            # Exception (issue #117 / option 2): Whisper capitalises the first
+            # word of an utterance, so sentence-initial fillers ("Um …") trip
+            # the uppercase guard and would otherwise never be removed.
+            # Relax the *uppercase* check only for position 0; code/path tokens
+            # and mid-utterance capitalised lookalikes ("the Like button") stay
+            # protected.
+            if _is_code_or_path_token(enclosing) or not _is_utterance_initial(
+                text, m.start()
+            ):
+                return matched
         return ''
 
     return pattern.sub(_replacer, text)
