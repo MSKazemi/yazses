@@ -10,6 +10,7 @@ translations, a mic entry, a showcase, anything. Thank you for making it better.
 - [@HeaTTap](https://github.com/HeaTTap)
 - [@jackie-cqz](https://github.com/jackie-cqz)
 - [@lntutor](https://github.com/lntutor)
+- [@slegarraga](https://github.com/slegarraga)
 
 <!-- New contributors: added on merge, alphabetical. Want to be here? See CONTRIBUTING.md and grab a
      good first issue: https://github.com/MSKazemi/yazses/labels/good%20first%20issue -->
