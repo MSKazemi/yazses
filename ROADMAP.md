@@ -92,7 +92,8 @@ it at once without re-deciding the same questions in PR review.
   dictation (F-Droid; the iOS wave may start here) → M3 file transcription, diarization,
   Meeting Mode → M4 Play and reach.
 - **Where to start:** `docs/mobile/index.md`, then `docs/mobile/contributing.md`. Issues are
-  labelled `android`, coordinated by the pinned Android epic.
+  labelled `android`, coordinated by the Android epic (#81); the Python-only M0 tasks
+  (#82, #83) are open now.
 
 ---
 

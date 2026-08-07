@@ -97,7 +97,10 @@ it at once. That means the ground floor is open.
   [the ten mobile ADRs](docs/mobile/adr/README.md) — each one ends with a *Rejected* section
   that tells you which arguments have already been had.
 - **Find work:** issues labelled [`android`](https://github.com/MSKazemi/yazses/labels/android),
-  coordinated by the pinned Android epic. Comment to claim one.
+  coordinated by [the Android epic, #81](https://github.com/MSKazemi/yazses/issues/81).
+  Comment to claim one. The two M0 tasks
+  ([#82](https://github.com/MSKazemi/yazses/issues/82),
+  [#83](https://github.com/MSKazemi/yazses/issues/83)) are Python and are open right now.
 
 Two things worth knowing before you decide it is not for you:
 

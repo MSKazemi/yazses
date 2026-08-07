@@ -6,7 +6,7 @@
 > many people can build it at once without colliding or re-deciding the same questions.
 >
 > **There is no APK. There is nothing to install.** If you came here looking for a working
-> app, watch the tracking epic on the issue tracker (labels `android` + `epic`).
+> app, watch [the tracking epic, #81](https://github.com/MSKazemi/yazses/issues/81).
 
 Offline, on-device voice dictation for Android: a keyboard whose mic key you hold, speak,
 release — and your words appear in whatever app you were in. No cloud, no account, no

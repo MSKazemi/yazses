@@ -47,7 +47,7 @@ Four properties, all of them deliberate design choices, not accidents:
 |---|---|---|
 | **Contributor** | you took an issue, you shipped it | claim an issue |
 | **Module steward** | you own a module's design within its ADRs: you review PRs to it, keep its docs true, and your call decides its internal design | ship two non-trivial PRs to that module and ask |
-| **Device tester** | you run pre-release builds on hardware nobody else has and file device reports | say which phone you have on the epic |
+| **Device tester** | you run pre-release builds on hardware nobody else has and file device reports | say which phone you have on [the epic](https://github.com/MSKazemi/yazses/issues/81) |
 | **Maintainer** | Mohsen — contract ownership, ADRs, release, signing keys, final call | — |
 
 Stewardship is real delegation, bounded by the ADRs: a steward decides *how* `:feature:ime`
@@ -59,7 +59,7 @@ door stays open. Announcing a break is the polite version and is always welcome.
 
 ## 4. Claiming work
 
-1. Find an issue with the `android` label. Sub-issues of the epic list their milestone,
+1. Find an issue with the `android` label. Sub-issues of [the epic (#81)](https://github.com/MSKazemi/yazses/issues/81) list their milestone,
    their prerequisites, and their acceptance criteria.
 2. **Comment to claim it.** You get it unless someone already has it.
 3. If you go quiet for two weeks with no PR, we will ask; after three, the issue is
@@ -108,7 +108,7 @@ That is the same promise the root CONTRIBUTING makes, and it holds here.
 
 ## 7. Working in the open
 
-- **Design questions** → the epic issue, or a Discussion. Anything that changes an ADR
+- **Design questions** → [the epic (#81)](https://github.com/MSKazemi/yazses/issues/81), or a Discussion. Anything that changes an ADR
   needs an ADR PR (copy the house style of the existing `adr-mob-*` files: Context,
   Decision, Consequences, Rejected — and "Rejected" is not optional; it is where most of
   the value is).
@@ -136,6 +136,7 @@ privacy-first speech stack that people actually use.
 
 ## 10. Where the first ten issues are
 
-The epic is pinned on the tracker with the `android` + `epic` labels, and its checklist is
-the current state of play. M0 tasks are Python-only and can start today; M1 tasks unblock
-as soon as the Gradle skeleton lands.
+[The epic, #81](https://github.com/MSKazemi/yazses/issues/81), carries the full work breakdown and is the current state of play.
+The M0 tasks (#82, #83) are Python-only and can start today; the Gradle skeleton (#84)
+unblocks all of M1. Not sure where to start? [#98](https://github.com/MSKazemi/yazses/issues/98)
+asks you to read the ADRs and tell us what is wrong with them — no code, no device.

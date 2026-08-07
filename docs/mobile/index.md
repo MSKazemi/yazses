@@ -88,15 +88,18 @@ Play listing, localisation, and whatever the M1–M3 device reports say is actua
 
 ## How to help right now
 
-The tracking epic is pinned on the issue tracker with the `android` and `epic` labels, and
-every sub-issue says what it needs from you and what "done" means. Three ways in that need
-**no Android device and no Kotlin**:
+[The tracking epic, #81](https://github.com/MSKazemi/yazses/issues/81), carries the full
+work breakdown, and every sub-issue says what it needs from you and what "done" means.
+Three ways in that need **no Android device and no Kotlin**:
 
 1. **M0 contract vectors** — Python; write the ugly cases for a unit and generate its
-   expectations.
-2. **Device reports** — run the benchmark on your phone (once `:bench` exists) and file the
-   JSON; the performance matrix is community-built by design.
+   expectations. [#82](https://github.com/MSKazemi/yazses/issues/82) builds the mechanism,
+   [#83](https://github.com/MSKazemi/yazses/issues/83) is a good first issue.
+2. **Device reports** — run the benchmark on your phone (once `:bench` exists,
+   [#92](https://github.com/MSKazemi/yazses/issues/92)) and file the JSON; the performance
+   matrix is community-built by design.
 3. **Review these ADRs** — the best time to disagree with an architecture is before it is
-   built. Open a discussion or comment on the epic.
+   built. [#98](https://github.com/MSKazemi/yazses/issues/98) is an open invitation to
+   attack them.
 
 Read [contributing.md](contributing.md) next.
