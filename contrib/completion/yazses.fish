@@ -1,7 +1,8 @@
 # yazses fish completion
 #
-# Generated from: yazses --show-completion fish
-# To regenerate: yazses --show-completion fish > contrib/completion/yazses.fish
+# Generated from: yazses --show-completion   (run from fish)
+# To regenerate:  yazses --show-completion > contrib/completion/yazses.fish
+#                 (from a fish shell; then re-add this header)
 #
 # Install (choose one):
 #
@@ -16,20 +17,4 @@
 #
 # Fish picks up completions in that directory automatically — no further steps needed.
 
-function _yazses_completion;
-    set -l response (env _YAZSES_COMPLETE=fish_complete COMP_WORDS=(commandline -cp) COMP_CWORD=(commandline -t) yazses);
-
-    for completion in $response;
-        set -l metadata (string split "," $completion);
-
-        if test $metadata[1] = "dir";
-            __fish_complete_directories $metadata[2];
-        else if test $metadata[1] = "file";
-            __fish_complete_path $metadata[2];
-        else if test $metadata[1] = "plain";
-            echo $metadata[2];
-        end;
-    end;
-end;
-
-complete --no-files --command yazses --arguments "(_yazses_completion)";
+complete --command yazses --no-files --arguments "(env _YAZSES_COMPLETE=complete_fish _TYPER_COMPLETE_FISH_ACTION=get-args _TYPER_COMPLETE_ARGS=(commandline -cp) yazses)" --condition "env _YAZSES_COMPLETE=complete_fish _TYPER_COMPLETE_FISH_ACTION=is-args _TYPER_COMPLETE_ARGS=(commandline -cp) yazses"

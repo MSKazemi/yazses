@@ -65,10 +65,15 @@ Fish picks these up automatically — no further steps needed.
 
 ## Regenerating
 
-If new subcommands are added, regenerate with:
+`yazses --show-completion` emits the script for the shell it is *run from*
+(it takes no shell argument). If new subcommands are added, regenerate each
+script from its own shell and re-add the header comment:
 
 ```bash
-yazses --show-completion bash > contrib/completion/yazses.bash
-yazses --show-completion zsh  > contrib/completion/yazses.zsh
-yazses --show-completion fish > contrib/completion/yazses.fish
+# from bash:
+yazses --show-completion > contrib/completion/yazses.bash
+# from zsh:
+yazses --show-completion > contrib/completion/yazses.zsh
+# from fish:
+yazses --show-completion > contrib/completion/yazses.fish
 ```
