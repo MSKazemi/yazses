@@ -31,7 +31,8 @@ Disfluency filtering is on by default and `right`, `like`, `actually` and `liter
 all default fillers, so this can reach real dictation. It was chosen deliberately —
 sentence-initial `"Right, so…"` as a filler is far more common than as content, and
 mid-utterance text stays fully protected. To opt out of a specific word, remove it from
-`[filters.disfluency] filler_words`.
+`[filters.disfluency] filler_words`. Narrowing the relaxation to fillers that are never
+content words (`um`, `uh`, `er`, `hmm`) is tracked in #120.
 
 Because this changes an expectation every platform shares, `contract/VERSION` goes to
 **2.0.0** and the golden vectors were regenerated — the Android port inherits the new
