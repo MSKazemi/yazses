@@ -81,6 +81,37 @@ Open an issue at https://github.com/MSKazemi/yazses/issues and include:
 
 If you are adding support for a new platform or injection backend, implement all relevant Protocol interfaces and add a test. See `src/yazses/platform/base.py` for the interface contracts.
 
+## Contributing to the Android app
+
+The Android port is a separate, **community-built** programme with its own architecture,
+its own decision records and its own contribution ladder. As of 2026-08-07 there is **no
+Android code yet** — the design was written first, on purpose, so that many people can build
+it at once. That means the ground floor is open.
+
+- **Start here:** [`docs/mobile/index.md`](docs/mobile/index.md) — what we are building, why
+  Android before iOS, and the M0–M4 milestones.
+- **Before your first PR:** [`docs/mobile/architecture.md`](docs/mobile/architecture.md)
+  (module map, pipeline, testing) and
+  [`docs/mobile/contributing.md`](docs/mobile/contributing.md) (roles, claiming, review bar).
+- **Why things are the way they are:**
+  [the ten mobile ADRs](docs/mobile/adr/README.md) — each one ends with a *Rejected* section
+  that tells you which arguments have already been had.
+- **Find work:** issues labelled [`android`](https://github.com/MSKazemi/yazses/labels/android),
+  coordinated by the pinned Android epic. Comment to claim one.
+
+Two things worth knowing before you decide it is not for you:
+
+**You do not need an Android phone, or Kotlin, to help.** The first milestone (M0) is
+*Python* work in this repository: building the golden test vectors that define shared
+behaviour for every platform (see [`docs/mobile/contract.md`](docs/mobile/contract.md)). And
+the Kotlin `:core:*` modules are plain JVM modules — `./gradlew :core:postprocess:test`
+needs no emulator, no microphone and no model.
+
+**The privacy rules are enforced, not advisory.** No analytics, no crash-reporting SDK, no
+Firebase, no `AccessibilityService`, and `INTERNET` in exactly one module. CI fails the
+build otherwise. If your AI assistant suggests any of those — and it will — that is the
+suggestion to ignore.
+
 ## Using an AI coding assistant
 
 That is fine, and increasingly common — but the PR is yours, so please read and understand

@@ -150,8 +150,11 @@ problems, see `docs/troubleshooting.md`.
 - **English-tuned by default.** The default configuration targets English
   (`small.en` / `base.en`). Other languages work, but per-language models and
   code-switch support are still in progress (see Future work).
-- **Desktop-only.** YazSes targets Linux, macOS, and Windows desktops. There is no
-  mobile or web version.
+- **Desktop-only, today.** YazSes targets Linux, macOS, and Windows desktops. There
+  is no mobile or web version you can install. An **Android app is in design** — see
+  [the mobile programme](mobile/index.md) for the architecture, the decision records
+  and how to help build it. iOS/iPadOS follows Android, for a platform reason
+  explained there; macOS is already covered by the desktop app.
 - **Some capabilities need optional extras or hardware.** Heavier features (speaker
   diarization, gaze, EMG, neural denoise, and others) depend on optional Python
   extras or external hardware that are not bundled with the base install. They stay

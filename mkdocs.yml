@@ -32,6 +32,7 @@ exclude_docs: |
 # (46 files would swamp it); the Releases index links the notable ones.
 not_in_nav: |
   /releases/v*.md
+  /mobile/adr/adr-mob-*.md
 
 theme:
   name: material
@@ -247,6 +248,13 @@ nav:
   - Architecture:
       - Overview: architecture.md
       - Diagrams: diagrams/index.md
+  - Mobile (in design):
+      - Overview: mobile/index.md
+      - Android architecture: mobile/architecture.md
+      - The core contract: mobile/contract.md
+      - Portability matrix: mobile/portability.md
+      - Contributing to mobile: mobile/contributing.md
+      - Decision records: mobile/adr/README.md
   - Troubleshooting: troubleshooting.md
   - Roadmap: roadmap.md
   - Releases: releases/index.md

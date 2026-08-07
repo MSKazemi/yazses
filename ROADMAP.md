@@ -69,6 +69,33 @@ capability catalog.
 
 ---
 
+## Mobile — Android wave 1 (design complete 2026-08-07, **no code yet**)
+
+A second, parallel programme, run in the open and built by contributors: **YazSes for
+Android** — a keyboard whose mic key you hold to dictate into any app, fully on-device, with
+the app's network access revocable. Design first, on purpose, so that many people can build
+it at once without re-deciding the same questions in PR review.
+
+- **Ten binding ADRs** (`docs/mobile/adr/`, public): Android first and in this repo · native
+  Kotlin with pure-JVM cores · IME-first delivery and **no `AccessibilityService`** ·
+  hold-the-mic-key and **no wake word** · a pluggable STT seam with whisper.cpp as default ·
+  models downloaded and SHA-256-verified, never bundled · a permission budget with
+  `INTERNET` in exactly one module and a CI privacy gate · **a language-neutral contract of
+  golden vectors that both the Python desktop and the Kotlin app must pass** · F-Droid-shaped
+  distribution · and the Apple wave, which must be a *different product shape* because iOS
+  forbids microphone access to keyboard extensions.
+- **Why Android before iPhone:** platform capability, not preference — Android's
+  `InputMethodService` can hold the mic and type into any app; no iOS app extension can.
+  **macOS is already supported** by the desktop app.
+- **Milestones:** M0 foundations (contract + Gradle skeleton — *Python-only work, open now*)
+  → M1 "it types what I say" (first signed APK) → M2 good enough to replace your phone's
+  dictation (F-Droid; the iOS wave may start here) → M3 file transcription, diarization,
+  Meeting Mode → M4 Play and reach.
+- **Where to start:** `docs/mobile/index.md`, then `docs/mobile/contributing.md`. Issues are
+  labelled `android`, coordinated by the pinned Android epic.
+
+---
+
 ## v2.1.0 (in progress) — Wave D: new frontier features
 
 A fresh 2026 SoA round on top of the v2 layer (`design/vision/v2-research/06-wave-d.md`,

@@ -1,0 +1,89 @@
+name: 📱 Android device report
+description: Report how YazSes for Android behaves (or fails) on your phone — performance, a bug, or a device quirk.
+title: "[android]: "
+labels: ["android", "mobile"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The Android app is **in design — there is no APK yet**, so most reports here will be
+        premature. This template exists for the M1+ testing phase and for the community
+        device-performance matrix, which is built entirely from reports like yours.
+
+        Please don't paste transcribed text you'd rather keep private. YazSes is offline by
+        design and we never need your words to debug it — timings, model name and state are
+        enough.
+
+        Not about the Android app? Use the [bug report](?template=bug_report.yml) instead.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of report is this?
+      options:
+        - Performance / benchmark result (device matrix)
+        - Bug — something misbehaves
+        - Device quirk — works differently on this phone/ROM
+        - Accessibility issue (TalkBack, switch access, motor/speech)
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device
+      placeholder: "Pixel 7a / Samsung S23 / Fairphone 5 …"
+    validations:
+      required: true
+  - type: input
+    id: soc-ram
+    attributes:
+      label: SoC and RAM
+      placeholder: "Tensor G2, 8 GB"
+    validations:
+      required: true
+  - type: input
+    id: android
+    attributes:
+      label: Android version and ROM
+      placeholder: "Android 15, stock / GrapheneOS / LineageOS 22"
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: App version and build flavour
+      description: From the About screen — include the contract version it shows.
+      placeholder: "android-v0.1.0 (foss), contract 1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: engine-model
+    attributes:
+      label: Engine and model
+      placeholder: "whisper.cpp, base.en q5_0"
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: What happened / what did you measure?
+      description: |
+        For a **benchmark**, paste the JSON from the in-app benchmark if you have it, or give
+        utterance length → time from key-up to text appearing, plus whether the phone got warm.
+        For a **bug**, give the steps, what you expected, and what happened instead — including
+        which app you were dictating into.
+    validations:
+      required: true
+  - type: input
+    id: target-app
+    attributes:
+      label: Which app were you dictating into?
+      placeholder: "Signal / Gmail / Firefox address bar …"
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Quick checks
+      options:
+        - label: The YazSes keyboard was the active input method
+        - label: The model finished downloading and shows as verified
+        - label: I can reproduce this more than once
+        - label: I'm happy for this device/result to appear in the public device matrix
