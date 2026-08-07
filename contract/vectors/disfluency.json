@@ -1,6 +1,6 @@
 {
   "unit": "filters.disfluency",
-  "contract_version": "2.0.0",
+  "contract_version": "3.0.0",
   "source": "src/yazses/stt/filters/disfluency.py::filter_transcript (.text)",
   "cases": [
     {
@@ -55,11 +55,46 @@
       "expected": "the meeting is at noon"
     },
     {
-      "id": "removes-sentence-initial-capitalised-multiword-filler",
-      "description": "utterance-initial multi-word filler with Whisper capitalisation",
+      "id": "strips-sentence-initial-uh",
+      "description": "utterance-initial 'Uh' is unambiguous and still stripped",
+      "options": {},
+      "input": "Uh so I think",
+      "expected": "so I think"
+    },
+    {
+      "id": "protects-sentence-initial-capitalised-multiword-filler",
+      "description": "multi-word fillers are not relaxed at position 0: 'You know the meeting is at noon' can be a real sentence addressed to someone, so it stays protected (#120 decision)",
       "options": {},
       "input": "You know the meeting is at noon",
-      "expected": "the meeting is at noon"
+      "expected": "You know the meeting is at noon"
+    },
+    {
+      "id": "protects-sentence-initial-right",
+      "description": "sentence-initial 'Right' is content (a direction), not a filler — #120 narrows the #117 relaxation",
+      "options": {},
+      "input": "Right turn at the corner",
+      "expected": "Right turn at the corner"
+    },
+    {
+      "id": "protects-sentence-initial-like",
+      "description": "sentence-initial 'Like' can name a UI element and must not be treated as a filler",
+      "options": {},
+      "input": "Like button is broken",
+      "expected": "Like button is broken"
+    },
+    {
+      "id": "protects-sentence-initial-actually",
+      "description": "sentence-initial 'Actually' can be a real content word",
+      "options": {},
+      "input": "Actually is a strong word",
+      "expected": "Actually is a strong word"
+    },
+    {
+      "id": "protects-sentence-initial-literally",
+      "description": "the leading 'Literally' survives while the trailing lowercase 'literally' is still removed as a filler",
+      "options": {},
+      "input": "Literally means literally",
+      "expected": "Literally means"
     },
     {
       "id": "protects-proper-noun-lookalike",

@@ -216,9 +216,29 @@ CASES: dict[str, list[dict[str, Any]]] = {
                         "stripped — Whisper capitalises the first word, so 'Um' at "
                         "position 0 is almost always a filler, not a proper noun",
          "input": "Um the meeting is at noon"},
-        {"id": "removes-sentence-initial-capitalised-multiword-filler",
-         "description": "utterance-initial multi-word filler with Whisper capitalisation",
+        {"id": "strips-sentence-initial-uh",
+         "description": "utterance-initial 'Uh' is unambiguous and still stripped",
+         "input": "Uh so I think"},
+        {"id": "protects-sentence-initial-capitalised-multiword-filler",
+         "description": "multi-word fillers are not relaxed at position 0: 'You know "
+                        "the meeting is at noon' can be a real sentence addressed to "
+                        "someone, so it stays protected (#120 decision)",
          "input": "You know the meeting is at noon"},
+        {"id": "protects-sentence-initial-right",
+         "description": "sentence-initial 'Right' is content (a direction), not a "
+                        "filler — #120 narrows the #117 relaxation",
+         "input": "Right turn at the corner"},
+        {"id": "protects-sentence-initial-like",
+         "description": "sentence-initial 'Like' can name a UI element and must not "
+                        "be treated as a filler",
+         "input": "Like button is broken"},
+        {"id": "protects-sentence-initial-actually",
+         "description": "sentence-initial 'Actually' can be a real content word",
+         "input": "Actually is a strong word"},
+        {"id": "protects-sentence-initial-literally",
+         "description": "the leading 'Literally' survives while the trailing lowercase "
+                        "'literally' is still removed as a filler",
+         "input": "Literally means literally"},
         {"id": "protects-proper-noun-lookalike",
          "description": "Rule A must not strip a capitalised token that happens to be a "
                         "filler word mid-utterance — 'Like' could be a product name",

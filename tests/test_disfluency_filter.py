@@ -179,3 +179,24 @@ def test_ordinary_fillers_still_removed_after_the_boundary_fix():
     assert filter_transcript("the meeting you know is at noon").text == (
         "the meeting is at noon"
     )
+
+
+def test_sentence_initial_content_words_survive():
+    assert filter_transcript("Right turn at the corner").text == "Right turn at the corner"
+    assert filter_transcript("Like button is broken").text == "Like button is broken"
+    assert filter_transcript("Actually is a strong word").text == (
+        "Actually is a strong word"
+    )
+
+
+def test_sentence_initial_unambiguous_fillers_still_stripped():
+    assert filter_transcript("Um the meeting is at noon").text == "the meeting is at noon"
+    assert filter_transcript("Uh so I think").text == "so I think"
+
+
+def test_sentence_initial_multiword_filler_stays_protected():
+    # "You know the meeting is at noon" can be a real sentence addressed to
+    # someone, so the #117 relaxation does not apply to multi-word fillers.
+    assert filter_transcript("You know the meeting is at noon").text == (
+        "You know the meeting is at noon"
+    )

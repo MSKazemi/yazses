@@ -1,6 +1,6 @@
 {
   "unit": "postprocess.spacing",
-  "contract_version": "2.0.0",
+  "contract_version": "3.0.0",
   "source": "src/yazses/postprocess/spacing.py::continuation_prefix",
   "cases": [
     {
