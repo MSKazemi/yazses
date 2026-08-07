@@ -6,6 +6,13 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- `set_config_key()` no longer quotes numeric or boolean values by default. The
+  rendering is now inferred from the value's Python type (`bool` -> `true`/`false`,
+  `int`/`float` -> bare, everything else -> quoted string with `"`/`\` escaped), and
+  `quote=` remains available as an explicit override for existing callers.
+
 ## [2.14.0] - 2026-08-07
 
 The perception release. Backed by a web-refreshed state-of-the-art study

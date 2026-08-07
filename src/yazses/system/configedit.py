@@ -11,14 +11,28 @@ import re
 from pathlib import Path
 
 
-def set_config_key(path, section: str, key: str, value, *, quote: bool = True) -> str:
+def _render_toml_value(value) -> str:
+    """Render *value* as a TOML scalar, inferred from its Python type."""
+    if isinstance(value, bool):  # must precede the int check: bool is a subclass of int
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    escaped = str(value).replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def set_config_key(path, section: str, key: str, value, *, quote: bool | None = None) -> str:
     """Set ``[section] key = value`` in *path*, preserving comments and other keys.
 
-    Creates the file / the section / the key as needed. ``quote`` wraps the value
-    in double quotes (for string settings). Returns a short description of the change.
+    By default the TOML rendering is inferred from ``value``'s type (bool, int/float,
+    or string). Pass ``quote`` to override: ``True`` always double-quotes the value,
+    ``False`` renders it bare via ``str()``. Returns a short description of the change.
     """
     p = Path(path)
-    rendered = f'"{value}"' if quote else str(value)
+    if quote is None:
+        rendered = _render_toml_value(value)
+    else:
+        rendered = f'"{value}"' if quote else str(value)
     line = f"{key} = {rendered}"
 
     if not p.exists():
