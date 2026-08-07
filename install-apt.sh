@@ -17,7 +17,7 @@ error() { echo -e "${RED}[x]${NC} $*"; exit 1; }
 # URL is the canonical apt channel; the Pages URL is only tried as a fallback in
 # case Pages is ever reconfigured. YAZSES_APT_BASE_URL overrides both.
 RAW_BASE="https://raw.githubusercontent.com/MSKazemi/yazses/gh-pages/apt"
-PAGES_BASE="https://mskazemi.github.io/yazses/apt"
+PAGES_BASE="https://mskazemi.com/yazses/apt"
 KEYRING="/usr/share/keyrings/yazses.gpg"
 SOURCE_LIST="/etc/apt/sources.list.d/yazses.list"
 TMP_KEY="$(mktemp)"

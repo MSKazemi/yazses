@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the advertised APT repository was returning 404, and five surfaces still pointed at the retired host
+
+Switching GitHub Pages to the Actions-built MkDocs site means the `gh-pages` branch is no
+longer *served* — only one Pages source can be active. The branch still carries a correctly
+signed apt repo (`Release`, `InRelease`, `Packages`, `KEY.gpg`, `yazses_2.14.0_amd64.deb`),
+but every advertised install path resolved to nothing: `mskazemi.github.io/yazses/apt/`
+301-redirects to `mskazemi.com/yazses/apt/`, which **404s**. `install-apt.sh` had already
+been routed around this via `raw.githubusercontent.com/.../gh-pages/apt` (verified 200), so
+the repo worked for anyone using the installer and was broken for anyone following the
+documented commands. The release-notes template and the generated apt index page now use the
+same raw channel the installer uses.
+
+Separately, `mskazemi.github.io` was retired as the docs host on 2026-08-06 but five
+surfaces still asserted it. `docs/_config.yml` was the worst of them: a leftover **Jekyll**
+config declaring `url: https://mskazemi.github.io` and `baseurl: /yazses`, contradicting
+`mkdocs.yml`'s `site_url`. Jekyll has not built this site since the move to Actions, so the
+file did nothing but ship a wrong-host assertion into the published site. Removed. Also
+repointed at `mskazemi.com/yazses/`: `branding.py`'s `WEBSITE` (surfaced by `yazses about`)
+and `snap/snapcraft.yaml`'s `website` field, which is a live outbound link on the Snap Store
+listing.
+
 ### Fixed — a 35 MB screen recording had been committed, and nothing would have caught it
 
 An unusable full-screen capture reached the repo through a broad `git add -A docs/`:

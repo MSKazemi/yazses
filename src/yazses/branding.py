@@ -30,7 +30,7 @@ BANNER_ART = r"""
 AUTHOR = "Mohsen Seyedkazemi Ardebili"
 EMAIL = "mohsen.seyedkazemi@gmail.com"
 
-WEBSITE = "https://mskazemi.github.io/yazses/"
+WEBSITE = "https://mskazemi.com/yazses/"
 SOURCE = "https://github.com/MSKazemi/yazses"
 ISSUES = "https://github.com/MSKazemi/yazses/issues"
 # Where to propose a new feature — GitHub Discussions if enabled, otherwise a
