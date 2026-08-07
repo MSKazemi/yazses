@@ -222,3 +222,6 @@ map (a small matrix), not any image. See the
 - [Configuration reference](../configuration.md) — the full `[gaze]` config section.
 - [Change the hold-to-talk key](change-hotkey.md) — pick the key you hold to dictate.
 - [CLI reference](../cli-reference.md) — `yazses gaze` and `yazses features` commands.
+- [Research: eye control](../research/eye-control.md) — the measured accuracy
+  budget behind this feature (why it targets panes, not the caret), and the open
+  questions we would like community measurements on.

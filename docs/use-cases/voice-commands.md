@@ -125,3 +125,5 @@ works in your editor and in your browser without you re-learning phrasing.
 - [Accessibility & hands-free use](accessibility-rsi-hands-free.md)
 - [Change the hotkey](../how-to/change-hotkey.md)
 - [CLI reference](../cli-reference.md)
+- [Research: voice control](../research/voice-control.md) — the measured accuracy
+  and latency behind the engines, and why whispering can be a command channel

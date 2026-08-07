@@ -129,3 +129,8 @@ another window).
 - [Change the hotkey](../how-to/change-hotkey.md)
 - [Troubleshooting](../troubleshooting.md)
 - [Private offline dictation](private-offline-dictation.md)
+- [Research: muscle & brain control](../research/muscle-brain-control.md) — why a
+  ~$50 muscle sensor beats a $1,000 EEG headset as a hands-free trigger, and what
+  the $10,000–20,000 assistive-tech market leaves unserved on Linux
+- [Research: eye control](../research/eye-control.md) — what a webcam can honestly
+  know about where you look, and where gaze dwell can replace a keypress
