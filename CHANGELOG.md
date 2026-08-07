@@ -57,12 +57,15 @@ actually support. The remaining runtime deps were checked against the same bar: 
 cryptography ship aarch64 wheels, sounddevice / faster-whisper / onnx-asr / typer are pure
 Python, and evdev builds from its sdist against the already-staged `python3-dev`.
 
-arm64 then proved itself: build #3238849 succeeded in 14m13s, the first arm64 build this
-project has ever completed. It is deliberately slower than amd64's 7m20s rather than failing
-fast the way the impossible five did — those died at pip in 2–10 minutes with nothing to
-install. The release into `edge` was still propagating when this was written, so **`snap
-install --edge` on arm64 is not claimed as working until a revision appears in the channel
-map**; the build succeeding is what is verified here.
+arm64 then proved itself twice over. Build #3238849 succeeded in 14m13s — the first arm64
+build this project has ever completed, slower than amd64's 7m20s rather than failing fast
+the way the impossible five did, which died at pip in 2–10 minutes with nothing to install.
+It then **released: `arm64 rev27` is live in `latest/edge`**, the first arm64 revision YazSes
+has ever published, so `snap install --edge yazses` now works on 64-bit ARM.
+
+`stable` remains amd64-only and is unaffected: it is published solely by the tag workflow,
+which builds on an amd64 runner. arm64 reaches stable when the build service's arm64 output
+is promoted, which is a separate decision.
 
 ### Fixed — the snap hardcoded the x86_64 library path, so any other architecture shipped mute
 
