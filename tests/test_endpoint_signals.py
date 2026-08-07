@@ -18,14 +18,14 @@ from yazses.stt.streaming import StreamingEngine
 
 # ---- prefix_stable_for_ms() accessor ---------------------------------------
 
-class _NoopModel:
-    def transcribe(self, audio, **kwargs):  # pragma: no cover - never called here
-        return [], None
+class _NoopEngine:
+    def decode_window(self, audio) -> str:  # pragma: no cover - never called here
+        return ""
 
 
 def test_prefix_stable_for_ms_uses_injected_clock():
     clock = {"t": 100.0}
-    eng = StreamingEngine(_NoopModel(), time_fn=lambda: clock["t"])
+    eng = StreamingEngine(_NoopEngine(), time_fn=lambda: clock["t"])
     eng.start()
     # No confirmed prefix change since start; 0.5 s elapse -> 500 ms stable.
     clock["t"] = 100.5
@@ -35,7 +35,7 @@ def test_prefix_stable_for_ms_uses_injected_clock():
 
 def test_prefix_stable_resets_when_prefix_grows():
     clock = {"t": 0.0}
-    eng = StreamingEngine(_NoopModel(), time_fn=lambda: clock["t"])
+    eng = StreamingEngine(_NoopEngine(), time_fn=lambda: clock["t"])
     eng.start()
     clock["t"] = 1.0
     eng._note_prefix_change()  # simulate the decode loop confirming new text

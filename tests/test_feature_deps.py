@@ -60,7 +60,7 @@ def test_heavy_features_all_declare_deps():
     expected = {
         "overlay", "prosody", "voicehealth", "read-back", "readback_clone",
         "llm-cleanup", "agent", "cocktail", "multiprofile", "voiceguard",
-        "diarize", "gaze", "recimport", "meeting",
+        "diarize", "gaze", "recimport", "meeting", "stt-parakeet",
     }
     for slug in expected:
         feat = by_slug[slug]

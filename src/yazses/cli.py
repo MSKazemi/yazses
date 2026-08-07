@@ -789,7 +789,13 @@ def _echo_feature_card(feat, *, full: bool) -> None:
         label = "Example:" if full else "e.g.    "
         typer.echo(f"       {label}  {feat.example}")
     if full:
-        if feat.toggleable:
+        if not feat.wired:
+            typer.echo(
+                "\n  Designed but not yet wired into this build — it cannot be "
+                "enabled yet.\n  It stays listed so contributors can pick it up; "
+                "see the matching design/adr/ entry."
+            )
+        elif feat.toggleable:
             typer.echo(f"\n  Enable:   yazses features enable {feat.slug}")
             typer.echo(f"  Disable:  yazses features disable {feat.slug}")
             typer.echo("  Apply:    yazses restart")
@@ -888,6 +894,19 @@ def features_enable(
             err=True,
         )
         raise typer.Exit(1)
+    if not feat.wired:
+        typer.echo(
+            f"{feat.name} is designed but not yet wired into this build — "
+            "enabling it would change nothing (no runtime code reads its "
+            "config yet).",
+            err=True,
+        )
+        typer.echo(
+            "It stays listed so contributors can pick it up; see the matching "
+            "design/adr/ entry.",
+            err=True,
+        )
+        raise typer.Exit(1)
     if feat.tier == EXPERIMENTAL and not force:
         typer.echo(f"{feat.name} is experimental — {feat.why}", err=True)
         typer.echo("Enable anyway with: yazses features enable "
@@ -942,6 +961,11 @@ def features_disable(
         raise typer.Exit(1)
     _apply_feature_writes(platform.paths.config_file, feat.off_writes)
     typer.echo(f"Disabled {feat.name}.")
+    if not feat.wired:
+        typer.echo(
+            f"Note: {feat.name} was never wired into this build — this only "
+            "cleans up the config key an older version may have written."
+        )
     typer.echo("Apply it:  yazses restart")
 
 

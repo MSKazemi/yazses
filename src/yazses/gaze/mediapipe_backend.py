@@ -57,6 +57,19 @@ class MediapipeGazeBackend:
         return (lm[iris].x - cx) / width, (lm[iris].y - cy) / width
 
     def estimate(self) -> tuple[float, float] | None:
+        sample = self.estimate_sample()
+        return None if sample is None else sample.point
+
+    def estimate_sample(self):
+        """One gaze estimate with a real per-frame confidence, or None.
+
+        Confidence comes from left/right eye agreement: the two eyes measure the
+        same gaze independently, so their disagreement is a per-frame landmark
+        quality signal (blur, extreme pose, occlusion). This is what makes
+        ``[gaze] confidence_min`` effective for the default backend.
+        """
+        from yazses.gaze.confidence import GazeSample, eye_agreement_confidence
+
         cap = self._ensure_camera()
         ok, frame = cap.read()
         if not ok or frame is None:
@@ -75,7 +88,8 @@ class MediapipeGazeBackend:
             rx, ry = self._offset(lm, *_RIGHT)
         except (IndexError, AttributeError):
             return None
-        return ((lx + rx) / 2.0, (ly + ry) / 2.0)
+        confidence = eye_agreement_confidence((lx, ly), (rx, ry))
+        return GazeSample((lx + rx) / 2.0, (ly + ry) / 2.0, confidence)
 
     def close(self) -> None:
         if self._cap is not None:

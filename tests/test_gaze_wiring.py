@@ -258,7 +258,7 @@ def test_daemon_hold_start_calls_targeter_when_present():
         def __init__(self):
             self.calls = 0
 
-        def retarget(self):
+        def retarget(self, activate=True):
             self.calls += 1
 
     d = Daemon(config=Config(), platform=get_platform())

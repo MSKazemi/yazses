@@ -46,6 +46,39 @@ def is_whispered(feats, voicing_max: float = 0.3, tilt_min: float = -1.0) -> boo
     return feats.get("voicing", 1.0) <= voicing_max and feats.get("tilt", -5.0) >= tilt_min
 
 
+def burst_is_whispered(
+    audio,
+    fs: int,
+    voicing_max: float = 0.3,
+    tilt_min: float = -1.0,
+    frame_ms: int = 64,
+    max_frames: int = 24,
+    level_floor: float = 1e-4,
+) -> bool:
+    """Whole-burst whisper decision for the sotto-voce command channel. Pure.
+
+    Frames the burst, keeps only frames with audible energy (silence between
+    words has no phonation either way), and takes the *median* per-frame
+    verdict inputs — a majority of frames must look whispered, so one breathy
+    word inside voiced speech doesn't flip the burst. At most ``max_frames``
+    frames are analysed, spread evenly across the burst, so the decision cost
+    stays flat no matter how long the hold was.
+    """
+    x = np.asarray(audio, dtype=float).ravel()
+    step = max(1, int(fs * frame_ms / 1000))
+    frames = [x[i:i + step] for i in range(0, x.size - step + 1, step)]
+    frames = [f for f in frames if float(np.abs(f).mean()) >= level_floor]
+    if not frames:
+        return False
+    if len(frames) > max_frames:
+        idx = np.linspace(0, len(frames) - 1, max_frames).astype(int)
+        frames = [frames[i] for i in idx]
+    voicings = [voicing_ratio(f) for f in frames]
+    tilts = [spectral_tilt(f, fs) for f in frames]
+    feats = {"voicing": float(np.median(voicings)), "tilt": float(np.median(tilts))}
+    return is_whispered(feats, voicing_max=voicing_max, tilt_min=tilt_min)
+
+
 def whisper_adaptation(gain_db: float = 6.0, vad_scale: float = 0.5) -> dict:
     """Return the gain/VAD/prompt adjustments to apply while whisper is detected. Pure."""
     return {"gain_db": gain_db, "vad_scale": vad_scale, "prompt_hint": "whispered speech"}

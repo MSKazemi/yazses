@@ -59,8 +59,9 @@ from yazses.postprocess.spacing import continuation_prefix
 from yazses.postprocess.voice_punctuation import apply_voice_punctuation
 from yazses.remote.forwarder import RemoteForwarder
 from yazses.remote.local_proxy import RemoteInjectorProxy
+from yazses.stt.base import SttEngine
 from yazses.stt.endpoint import EndpointAnticipator
-from yazses.stt.faster_whisper import FasterWhisperEngine
+from yazses.stt.factory import build_engine
 from yazses.stt.filters.disfluency import filter_transcript
 from yazses.stt.streaming import StreamingEngine
 from yazses.tts.factory import build_tts
@@ -133,6 +134,9 @@ class Daemon:
         self._command_hotkey: HotkeyBackend | None = None
         self._command_thread: threading.Thread | None = None
         self._command_mode: bool = False
+        # Non-keyboard activation sources (EMG squeeze — [emg] device_port).
+        # Each is a HotkeyBackend duck-type driving the same hold callbacks.
+        self._extra_activations: list[HotkeyBackend] = []
         # Verbatim/autoformat mode (ADR-v2-078): a persistent gate toggled by the
         # spoken commands "dictate verbatim" / "resume formatting". Lazily created on
         # first use when [verbatim] enabled; holds mode across bursts. None = feature off.
@@ -141,7 +145,7 @@ class Daemon:
         # user never sits through a whole session wondering why nothing changed.
         self._warned_inert: set[str] = set()
         self._injector: InjectorBackend | None = None
-        self._engine: FasterWhisperEngine | None = None
+        self._engine: SttEngine | None = None
         self._recorder: AudioRecorder | None = None
         self._ipc_server: IpcServer | None = None
         self._padding_buffer: PreSpeechRingBuffer | None = None
@@ -273,6 +277,14 @@ class Daemon:
                     name="command-hotkey",
                 )
                 self._command_thread.start()
+            # Non-keyboard activation sources (EMG squeeze, …): each runs its
+            # own blocking loop like the command key does.
+            for i, source in enumerate(self._extra_activations):
+                threading.Thread(
+                    target=source.run,
+                    daemon=True,
+                    name=f"activation-{i}",
+                ).start()
             # Watch for the OS default input device changing under us.
             if self._device_monitor is not None:
                 self._device_monitor.start()
@@ -380,6 +392,11 @@ class Daemon:
                 self._command_hotkey.stop()
             except Exception:
                 log.exception("Command-hotkey stop raised")
+        for source in self._extra_activations:
+            try:
+                source.stop()
+            except Exception:
+                log.exception("Activation-source stop raised")
         if self._hotkey is not None:
             try:
                 self._hotkey.stop()
@@ -391,12 +408,8 @@ class Daemon:
 
     def _build_pipeline(self) -> None:
         cfg = self._config
-        log.info("Loading STT model %r...", cfg.stt.model)
-        self._engine = FasterWhisperEngine(
-            model_name=cfg.stt.model,
-            device=cfg.stt.device,
-            compute_type=cfg.stt.compute_type,
-        )
+        log.info("Loading STT engine %r (model %r)...", cfg.stt.engine, cfg.stt.model)
+        self._engine = build_engine(cfg.stt)
 
         # [injection] backend selects the Linux injector (type | ydotool |
         # clipboard | wtype | auto). Bridged through the env var that
@@ -410,7 +423,7 @@ class Daemon:
 
         if cfg.streaming.enabled:
             self._stream_engine = StreamingEngine(
-                self._engine._model,
+                self._engine,
                 cfg.streaming.partial_interval_ms,
             )
             log.info("Streaming STT enabled (partial every %d ms)", cfg.streaming.partial_interval_ms)
@@ -476,6 +489,9 @@ class Daemon:
         # Optional dedicated command key: a second listener that forces command
         # mode while held. Ignored if unset or the same as the dictation key.
         self._command_hotkey = self._make_command_hotkey(cfg, key_id)
+
+        # Optional non-keyboard activation sources (EMG squeeze via [emg]).
+        self._extra_activations = self._build_activation_sources(cfg)
 
         # Glance-Type look-to-pane (design/v2-cognitive-layer §3.3). Dormant unless
         # [gaze] enabled + route_dictation, with a calibration + X11 desktop + deps.
@@ -623,14 +639,41 @@ class Daemon:
             self._on_command_hold_end,
         )
 
+    def _build_activation_sources(self, cfg) -> list:
+        """Build the non-keyboard activation sources ([emg] squeeze-to-talk).
+
+        Constructed only when ``[emg] device_port`` is set. ``mode = "command"``
+        (the default) drives the command-key callbacks — a squeeze speaks a
+        command; ``full_text`` drives plain hold-to-talk dictation. A missing
+        pyserial makes the backend's run() a logged no-op, and any init failure
+        is caught, so this can never break startup.
+        """
+        sources: list = []
+        port = (cfg.emg.device_port or "").strip()
+        if not port:
+            return sources
+        try:
+            from yazses.platform.emg.backend import EMGBackend
+
+            if cfg.emg.mode == "command":
+                start, end = self._on_command_hold_start, self._on_command_hold_end
+            else:
+                start, end = self._on_hold_start, self._on_hold_end
+            sources.append(EMGBackend(port, cfg.emg.baud_rate, start, end))
+            log.info("EMG activation source enabled on %s (%s mode).", port, cfg.emg.mode)
+        except Exception:
+            log.warning("EMG activation source init failed; continuing without.",
+                        exc_info=True)
+        return sources
+
     def _build_gaze_targeter(self, cfg):
         """Build the look-to-pane targeter, or None when any piece is missing.
 
-        Requires ``[gaze] enabled`` + ``route_dictation``, a saved calibration,
-        an X11 desktop backend (xdotool), and the gaze deps. Any absent → None,
-        so dictation simply stays on the focused window.
+        Requires ``[gaze] enabled`` + (``route_dictation`` or ``deixis``), a
+        saved calibration, an X11 desktop backend (xdotool), and the gaze deps.
+        Any absent → None, so dictation simply stays on the focused window.
         """
-        if not (cfg.gaze.enabled and cfg.gaze.route_dictation):
+        if not (cfg.gaze.enabled and (cfg.gaze.route_dictation or cfg.gaze.deixis)):
             return None
         try:
             from yazses.gaze.desktop import build_desktop
@@ -684,9 +727,13 @@ class Daemon:
 
         # Glance-Type: focus the looked-at window now (while the user is looking
         # at their target) so this burst's injection lands there. Best-effort.
+        # With only deixis on (route_dictation off), snapshot the decision
+        # without focusing so "close this" still knows the looked-at window.
         if self._gaze_targeter is not None:
             try:
-                self._gaze_targeter.retarget()
+                self._gaze_targeter.retarget(
+                    activate=self._config.gaze.route_dictation
+                )
             except Exception as exc:
                 log.warning("Gaze retarget failed: %s", exc)
         if leaked > 0 and self._injector is not None:
@@ -895,6 +942,27 @@ class Daemon:
                     stream_injector.cancel()
                 return
 
+            # Sotto-voce command channel (ADR-v2-100, DualVoice pattern): a
+            # *whispered* burst is a command, voiced speech dictates. Purely
+            # acoustic (no F0 in whisper), so it can never fire on normal
+            # speech louder than the VAD gate. Guarded: detection failure
+            # means dictation, never a crash.
+            wm = self._config.whispermode
+            if not command_mode and wm.enabled and wm.command_channel:
+                try:
+                    from yazses.whispermode.detect import burst_is_whispered
+
+                    if burst_is_whispered(
+                        padded, sample_rate,
+                        voicing_max=wm.voicing_max, tilt_min=wm.tilt_min,
+                    ):
+                        command_mode = True
+                        event["whispered"] = True
+                        log.info("Sotto-voce: whispered burst → command mode.")
+                except Exception:
+                    log.debug("Whisper detection failed; treating as voiced.",
+                              exc_info=True)
+
             use_streaming = (
                 self._config.streaming.enabled
                 and self._stream_engine is not None
@@ -1054,6 +1122,15 @@ class Daemon:
                 event["intent_type"] = intent.intent.value
                 event["intent_action"] = intent.action
                 if intent.intent == IntentType.DICTATE:
+                    # Gaze deixis: "close this" / "focus that" acts on the window
+                    # the gaze snapshot says you are looking at. Tried first —
+                    # its grammar is strict whole-utterance, so it can't shadow
+                    # the scratch/spoken-edit parsers below.
+                    if self._config.gaze.deixis:
+                        if self._try_deixis(text, event):
+                            if stream_injector is not None:
+                                stream_injector.cancel()
+                            return
                     # Ambient Scratch (ADR-v2-005): capture a note-to-self ("note to
                     # self ...") to the scratch pad instead of typing it. Command-key
                     # gated + off by default.
@@ -1914,6 +1991,83 @@ class Daemon:
         log.info("Punch-In: corrected %d chars.", len(last))
         return {"ok": True, "applied": True, "old": last, "new": corrected, "candidates": cand_view}
 
+    def _try_deixis(self, phrase: str, event: dict) -> bool:
+        """Act on a gaze-deixis command ("close this", "focus that").
+
+        Returns True when the phrase was a deixis command (consumed either way,
+        so it is never typed literally). Destructive actions on a gaze-routed
+        target are confirm-gated via an actionable toast per
+        ``[gaze] confirm_destructive`` (ADR-v2-010 ``needs_confirm``).
+        """
+        targeter = self._gaze_targeter
+        if targeter is None:
+            return False
+        try:
+            from yazses.gaze.deixis import parse_deixis, requires_confirm
+        except Exception:
+            return False
+        intent = parse_deixis(phrase)
+        if intent is None:
+            return False
+        event["intent_type"] = "deixis"
+        event["intent_action"] = intent.action
+        decision = getattr(targeter, "last_decision", None)
+        if decision is None or decision.target is None:
+            event["discard_reason"] = "deixis_no_target"
+            log.info("Deixis %r: no window target from gaze; ignoring.", intent.action)
+            return True
+        if requires_confirm(intent, decision, self._config.gaze.confirm_destructive):
+            self._confirm_deixis(intent, decision)
+            return True
+        try:
+            done = targeter.window_action(intent.action, decision.target)
+        except Exception as exc:
+            log.warning("Deixis %r on window %s failed: %s",
+                        intent.action, decision.target, exc)
+            return True
+        if done:
+            log.info("Deixis: %s window %s (%s).", intent.action, decision.target,
+                     "gaze-routed" if decision.used_gaze else "focused fallback")
+        else:
+            log.info("Deixis %r unsupported by the desktop backend; ignored.",
+                     intent.action)
+        return True
+
+    def _confirm_deixis(self, intent, decision) -> None:
+        """Confirm a destructive gaze-routed action via an actionable toast.
+
+        Coarse webcam gaze can pick the wrong window, so "close this" on a
+        gaze-routed target asks first. Without actionable-notification support
+        the window is left untouched (the honest degradation), and the plain
+        toast says so.
+        """
+        from yazses.system.notify import NotifyAction, notify
+
+        targeter = self._gaze_targeter
+        target = decision.target
+        actions = [
+            NotifyAction("do", f"{intent.action.capitalize()} it"),
+            NotifyAction("cancel", "Keep it"),
+        ]
+
+        def on_action(key: str) -> None:
+            if key != "do" or targeter is None:
+                return
+            try:
+                targeter.window_action(intent.action, target)
+                log.info("Deixis confirmed: %s window %s.", intent.action, target)
+            except Exception as exc:
+                log.warning("Confirmed deixis %r failed: %s", intent.action, exc)
+
+        notify(
+            f"{intent.action.capitalize()} the window you looked at?",
+            "Gaze picked the target — confirm with the button. Without buttons "
+            "the window stays untouched (set [gaze] confirm_destructive=false "
+            "to skip confirmation).",
+            actions=actions,
+            on_action=on_action,
+        )
+
     def _try_spoken_edit(self, phrase: str, event: dict) -> bool:
         """Apply an open-ended voice edit to the last dictation (ADR-v2-003).
 
@@ -2409,7 +2563,7 @@ class Daemon:
         self._config.streaming.enabled = True
         if self._stream_engine is None and self._engine is not None:
             self._stream_engine = StreamingEngine(
-                self._engine._model,
+                self._engine,
                 self._config.streaming.partial_interval_ms,
             )
         return {"ok": True, "streaming_enabled": True}

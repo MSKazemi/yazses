@@ -118,6 +118,13 @@ class XdotoolDesktop:
     def activate(self, window_id) -> None:
         self._run(["xdotool", "windowactivate", str(window_id)])
 
+    def close(self, window_id) -> None:
+        """Ask the window to close (WM_DELETE, like clicking its close button)."""
+        self._run(["xdotool", "windowclose", str(window_id)])
+
+    def minimize(self, window_id) -> None:
+        self._run(["xdotool", "windowminimize", str(window_id)])
+
 
 def build_desktop() -> DesktopBackend | None:
     """Return an X11 desktop backend, or ``None`` when unavailable/unsupported.

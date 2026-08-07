@@ -26,34 +26,78 @@ class GazeTargeter:
         self._calibration = calibration
         self._desktop = desktop
         self._confidence_min = confidence_min
+        #: The decision from the most recent retarget() — the burst's gaze
+        #: snapshot that deixis commands ("close this") resolve against.
+        self.last_decision: RouteDecision | None = None
 
-    def retarget(self) -> RouteDecision:
-        """Sample gaze and focus the looked-at window; return the decision.
+    def _sample(self) -> tuple[tuple[float, float] | None, float]:
+        """One gaze sample as ``(point, confidence)``.
+
+        Backends exposing ``estimate_sample`` (mediapipe) report a real per-frame
+        confidence, so ``[gaze] confidence_min`` gates routing on frame quality.
+        Backends with only ``estimate`` (l2cs) gate confidence internally and
+        return None below threshold, so a returned sample counts as confident.
+        """
+        sampler = getattr(self._backend, "estimate_sample", None)
+        if sampler is not None:
+            sample = sampler()
+            if sample is None:
+                return None, 0.0
+            return sample.point, sample.confidence
+        gaze = self._backend.estimate()
+        return (None, 0.0) if gaze is None else (gaze, 1.0)
+
+    def retarget(self, activate: bool = True) -> RouteDecision:
+        """Sample gaze, remember the decision, and (optionally) focus the target.
 
         No confident gaze (no face / low confidence) or a point outside every
         window falls back to the focused window and changes nothing.
+        ``activate=False`` snapshots the decision without focusing — used when
+        only deixis is enabled (``[gaze] route_dictation`` off), so "close this"
+        still knows the looked-at window but dictation stays put.
         """
         focused = self._desktop.focused_window()
-        gaze = self._backend.estimate()
+        gaze, confidence = self._sample()
         if gaze is None:
-            return route_target(None, 0.0, focused, confidence_min=self._confidence_min)
+            decision = route_target(None, 0.0, focused, confidence_min=self._confidence_min)
+            self.last_decision = decision
+            return decision
 
         yaw, pitch = gaze
         windows = self._desktop.list_windows()
         resolved = resolve_window(self._calibration, yaw, pitch, windows)
-        # l2cs gates confidence internally (None below threshold), so a returned
-        # sample counts as confident; the pure policy still needs a window match.
         decision = route_target(
-            resolved, 1.0, focused, confidence_min=self._confidence_min
+            resolved, confidence, focused, confidence_min=self._confidence_min
         )
-        if decision.used_gaze and decision.target is not None and decision.target != focused:
+        if (
+            activate
+            and decision.used_gaze
+            and decision.target is not None
+            and decision.target != focused
+        ):
             try:
                 self._desktop.activate(decision.target)
                 log.info("Gaze routed dictation to window %s", decision.target)
             except Exception as exc:  # focus is best-effort; never break dictation
                 log.warning("Gaze re-focus failed (%s); using focused window.", exc)
-                return route_target(None, 0.0, focused, confidence_min=self._confidence_min)
+                decision = route_target(None, 0.0, focused, confidence_min=self._confidence_min)
+        self.last_decision = decision
         return decision
+
+    def window_action(self, action: str, window_id) -> bool:
+        """Perform a deixis window action ("focus"/"close"/"minimize") on the desktop.
+
+        Returns False when the desktop backend lacks the operation, so callers
+        can report honestly instead of silently doing nothing.
+        """
+        method = {"focus": "activate", "close": "close", "minimize": "minimize"}.get(action)
+        if method is None:
+            return False
+        op = getattr(self._desktop, method, None)
+        if op is None:
+            return False
+        op(window_id)
+        return True
 
     def close(self) -> None:
         """Release the camera held by the backend."""

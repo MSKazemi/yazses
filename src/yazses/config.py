@@ -12,6 +12,13 @@ log = logging.getLogger(__name__)
 
 @dataclass
 class SttConfig:
+    # Which speech-to-text backend decodes audio: "faster-whisper" (default,
+    # Whisper via CTranslate2) | "parakeet" (NVIDIA Parakeet TDT via onnx-asr —
+    # better English WER than whisper-large-v3 at ~30x realtime CPU, no silence
+    # hallucinations; opt-in via `yazses features enable stt-parakeet`). An
+    # unknown value or a missing optional dep falls back to faster-whisper with
+    # a logged warning — never a crash (stt/factory.py).
+    engine: str = "faster-whisper"
     # base.en balances accuracy and CPU latency far better than tiny.en, which
     # produces frequent word errors. Larger models (small.en/medium.en) trade
     # decode latency for marginal gains on clean speech.
@@ -293,6 +300,11 @@ class GazeConfig:
     # gaze-routed actions since coarse gaze can misroute. Off by default.
     route_dictation: bool = False
     confirm_destructive: bool = True
+    # Gaze deixis (2026-08): in command mode, "close this" / "focus that" /
+    # "minimize this" act on the window the gaze snapshot says you are looking
+    # at. Sub-flag of the (opt-in) gaze feature; destructive actions honour
+    # confirm_destructive above via an actionable confirm toast.
+    deixis: bool = True
 
 
 @dataclass
@@ -1248,12 +1260,19 @@ class BreathConfig:
 
 @dataclass
 class WhispermodeConfig:
-    """v2.8 Wave L — Whisper-Aware Mode (ADR-v2-100). OFF by default."""
+    """v2.8 Wave L — Whisper-Aware Mode (ADR-v2-100). OFF by default.
+
+    With ``command_channel`` (the sotto-voce channel, DualVoice pattern): a
+    *whispered* burst is parsed as a command and never typed literally, while
+    normally-voiced speech dictates — a hands-free, socially-silent mode switch
+    on a plain microphone.
+    """
     enabled: bool = False
     voicing_max: float = 0.3
     tilt_min: float = -1.0
     gain_db: float = 6.0
     vad_scale: float = 0.5
+    command_channel: bool = True
 
 
 @dataclass

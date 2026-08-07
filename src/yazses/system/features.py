@@ -78,9 +78,14 @@ class Feature:
     # probe, and packages to install when any are missing. Empty = nothing to do.
     check_modules: tuple = ()
     pip_packages: tuple = ()
+    # False = designed but not yet wired into any runtime path: enabling it
+    # would write a config key nothing reads. `features enable` refuses these.
+    wired: bool = True
 
     @property
     def tier_label(self) -> str:
+        if not self.wired:
+            return "planned — designed, not yet wired"
         return _TIER_LABEL.get(self.tier, self.tier)
 
     @property
@@ -128,6 +133,10 @@ def _registry() -> list[_Def]:
     # Text-target guard is a string setting (clipboard|warn|off), not a bool.
     tgt_on = (("injection", "target_guard", "clipboard", True),)
     tgt_off = (("injection", "target_guard", "off", True),)
+    # STT engine is a string setting: enable selects Parakeet, disable restores
+    # the faster-whisper default (stt/factory.py falls back safely either way).
+    pk_on = (("stt", "engine", "parakeet", True),)
+    pk_off = (("stt", "engine", "faster-whisper", True),)
     # Mic-change guard: one toggle drives both the device-change monitor and the
     # silent-streak notifier (both live under [audio]). Distinct var names — `mg_*`
     # is already taken by mousegrid below (a toggle-collision the tests guard against).
@@ -332,6 +341,13 @@ def _registry() -> list[_Def]:
              "Injects words live as you speak (overtype). Off by default because "
              "it can fight some editors; enable if you want live text.",
              lambda c: c.streaming.enabled, s_on, s_off),
+        _Def("stt-parakeet", "Parakeet STT engine (high accuracy)", "[stt] engine", OPTIONAL,
+             "Swaps Whisper for NVIDIA Parakeet TDT: better English accuracy than "
+             "whisper-large-v3 at roughly 4x whisper-small CPU speed, and no "
+             "hallucinated text on silence. English only (v2). Downloads the "
+             "model (~600 MB) on first use; disable restores faster-whisper.",
+             lambda c: (c.stt.engine or "").strip().lower() == "parakeet",
+             pk_on, pk_off),
         _Def("learning", "Learning loop", "[learning] — yazses tune", OPTIONAL,
              "Records an encrypted local corpus so `yazses tune` can improve "
              "accuracy. Opt-in; nothing leaves your machine.",
@@ -871,6 +887,9 @@ _FEATURE_DEPS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     "multiprofile": (("speechbrain",), ("speechbrain>=1.1",)),
     "voiceguard": (("speechbrain",), ("speechbrain>=1.1",)),
     "diarize": (("sherpa_onnx",), ("sherpa-onnx>=1.10",)),
+    # [cpu] pins onnxruntime; [hub] adds huggingface-hub so load_model can
+    # actually download the Parakeet checkpoint on first use.
+    "stt-parakeet": (("onnx_asr",), ("onnx-asr[cpu,hub]>=0.12",)),
     "recimport": (("sherpa_onnx",), ("sherpa-onnx>=1.13.4",)),
     "meeting": (("sherpa_onnx",), ("sherpa-onnx>=1.13.4",)),
 }
@@ -884,6 +903,88 @@ def _attach_deps(d: "_Def") -> "_Def":
     import dataclasses
 
     return dataclasses.replace(d, check_modules=dep[0], pip_packages=dep[1])
+
+
+# Which top-level ``yazses.*`` package(s) implement each capability, keyed by
+# slug, for slugs whose implementation does NOT live in a package of the same
+# name (features folded into a shared package, renamed packages, or planned
+# packages that don't exist yet). Every other slug maps to the package named
+# exactly like itself. Consumed by tests/test_feature_wiring_honesty.py, which
+# computes the transitive import closure from the real entry points
+# (daemon/CLI/tray/overlay/agent) and asserts :data:`_UNWIRED` matches it.
+_SLUG_PACKAGES: dict[str, tuple[str, ...]] = {
+    "dictation": ("core",),
+    "voice-punctuation": ("postprocess",),
+    "undo": ("commands",),           # commands/revise.py, wired in daemon._on_hold_end
+    "target-guard": ("inject",),     # inject/target.py
+    "mic-guard": ("audio",),         # audio/device_monitor.py
+    "dysfluency": ("stt",),          # stt/filters/disfluency.py
+    "punch-in": ("postprocess",),    # postprocess/punch_in.py
+    "prosody": ("postprocess",),     # postprocess/prosody.py
+    "ghost-ahead": ("stt",),         # stt/endpoint.py (EndpointAnticipator)
+    "macros": ("commands",),         # commands/macros.py
+    "read-back": ("tts",),
+    "streaming": ("stt",),           # stt/streaming.py
+    "stt-parakeet": ("stt",),        # stt/parakeet.py
+    "llm-cleanup": ("postprocess",),  # postprocess/llm_cleanup.py
+    "confidence": ("postprocess",),  # postprocess/confidence.py
+    "spoken-edit": ("commands",),    # commands/edit_ops.py
+    "context": ("system",),          # system/context_read.py
+    "self_repair": ("selfrepair",),
+    "phonetic": ("postprocess",),    # postprocess/phonetic.py
+    "hallucination": ("postprocess",),  # postprocess/hallucination.py
+    "corpus_scrub": ("voiceprivacy",),  # voiceprivacy/anonymize.py via learning/capture.py
+    "cocktail": ("audio", "voiceprint"),  # audio/personal_vad.py
+    # --- designed-but-unwired: the package that WOULD implement it ---
+    "readback_clone": ("readback",),  # readback/clone.py — never reached at runtime
+    "multiprofile": ("multiprofile",),  # no implementation package exists yet
+    "sentiment": ("mood",),          # mood/ledger.py — never reached at runtime
+    "acoustic_profiles": ("acoustic",),  # acoustic/profiles.py — never reached
+    "hotwords": ("biasing",),        # biasing/trie.py — never reached at runtime
+    "autostop": ("endpoint",),       # endpoint/ (autostop module) — never reached
+}
+
+
+def feature_packages(slug: str) -> tuple[str, ...]:
+    """The top-level ``yazses.*`` package(s) implementing a capability slug."""
+    return _SLUG_PACKAGES.get(slug, (slug,))
+
+
+# Capabilities that are DESIGNED but not yet WIRED into any runtime path — the
+# daemon pipeline, a CLI command, or the tray/overlay/agent entry points. Their
+# implementation package (if it exists at all) is transitively unreachable from
+# every entry point, so `yazses features enable <slug>` would write a config key
+# that nothing ever reads: the toggle would lie. `features enable` therefore
+# refuses them (no --force — nothing can make them work), `features disable`
+# still works to clean up config written by older versions, and listings show
+# them as "planned". They stay in the registry on purpose: the catalog documents
+# the intended surface and contributors can pick one up (see design/adr/).
+#
+# tests/test_feature_wiring_honesty.py recomputes reachability from the entry
+# points on every run and asserts this set EXACTLY matches the code: wiring a
+# feature later forces removing it here, and adding a stub registry entry
+# without wiring it fails CI.
+_UNWIRED: frozenset[str] = frozenset({
+    "acoustic_profiles", "affect", "agent", "audioguard", "autostop",
+    "bookmarks", "breath", "bridge", "checkdigit", "cmdsafety", "cmdspotter",
+    "code", "codec", "compose", "condense", "contour", "corrdict",
+    "crowdproof", "diagramvox", "earcon", "echo", "fieldaware", "fileopen",
+    "focusprofile", "gesture", "gitvoice", "hatselect", "headpointer",
+    "hesitation", "hotwords", "interpret", "involuntary", "jump", "langroute",
+    "latency", "lipread", "loadguard", "math", "modality", "morsevox",
+    "mousegrid", "mouthswitch", "multiprofile", "pilot", "predict",
+    "pronunciation", "proofback", "prosodypunct", "rag", "readback_clone",
+    "reask", "screengrounded", "scribe", "scrub", "sentiment", "sign",
+    "smartpaste", "snippets", "spatialvad", "spelling", "spokenregex",
+    "spreadsheet", "srpace", "styleguard", "suggestmode", "timeline",
+    "vocaljoystick", "voiceguard", "voicehealth", "voicetimer", "wakeword",
+    "windowctl",
+})
+
+
+def unwired_slugs() -> frozenset[str]:
+    """Slugs of capabilities that are designed but not yet wired into this build."""
+    return _UNWIRED
 
 
 # A concrete "how to use it" example per capability, keyed by slug. Kept beside the
@@ -904,6 +1005,7 @@ _EXAMPLES: dict[str, str] = {
     "personalize": "yazses features enable personalize — biases STT to your frequent terms.",
     "polyglot": "Set [polyglot] pair='fa-en'; dictate mixing the two languages.",
     "streaming": "yazses features enable streaming — text appears as you speak.",
+    "stt-parakeet": "yazses features enable stt-parakeet — same hotkey, sharper transcripts.",
     "learning": "yazses features enable learning; then 'yazses tune' to review proposals.",
     "llm-cleanup": "yazses features enable llm-cleanup — offline LLM tidies dictation.",
     "confidence": "See the low-confidence word count in 'yazses status'.",
@@ -1051,6 +1153,7 @@ _USE_CASES: dict[str, str] = {
     "personalize": "When your jargon or names get mis-heard and you want STT biased to your own frequent terms.",
     "polyglot": "When you naturally mix two languages in one sentence and need both transcribed correctly.",
     "streaming": "When you want to see text land live as you talk rather than only on release.",
+    "stt-parakeet": "When you want noticeably fewer English word errors without a bigger, slower Whisper model.",
     "learning": "When you want dictation accuracy to improve over time from your own corrected usage.",
     "llm-cleanup": "When rambly dictation needs polishing into clean prose and you have an offline LLM available.",
     "confidence": "When you want to spot and fix words the recognizer was unsure of instead of re-reading everything.",
@@ -1186,6 +1289,7 @@ _CATEGORIES: dict[str, str] = {
     # Core dictation — the hold-to-talk flow and how audio becomes text.
     "dictation": CAT_CORE, "commands": CAT_CORE, "voice-punctuation": CAT_CORE,
     "undo": CAT_CORE, "overlay": CAT_CORE, "streaming": CAT_CORE, "mic-guard": CAT_CORE,
+    "stt-parakeet": CAT_CORE,
     "tray": CAT_CORE, "target-guard": CAT_CORE,
     "ghost-ahead": CAT_CORE, "autostop": CAT_CORE, "hesitation": CAT_CORE,
     "breath": CAT_CORE, "continuum": CAT_CORE, "whispermode": CAT_CORE,
@@ -1255,6 +1359,7 @@ def feature_status(cfg) -> list[Feature]:
             use_case=_USE_CASES.get(d.slug, ""),
             category=_CATEGORIES.get(d.slug, ""),
             check_modules=d.check_modules, pip_packages=d.pip_packages,
+            wired=d.slug not in _UNWIRED,
         )
         for d in _registry()
     ]
@@ -1296,8 +1401,16 @@ _DEFAULT_ENABLED_TIERS = (DEFAULT_ON, RECOMMENDED)
 
 
 def default_enabled_slugs() -> list[str]:
-    """Slugs of the recommended-by-default feature set (DEFAULT_ON + RECOMMENDED)."""
-    return [d.slug for d in _registry() if d.tier in _DEFAULT_ENABLED_TIERS]
+    """Slugs of the recommended-by-default feature set (DEFAULT_ON + RECOMMENDED).
+
+    Excludes designed-but-unwired capabilities: seeding a config key nothing
+    reads would only mislead (`yazses features` would show them ON while the
+    daemon ignores them).
+    """
+    return [
+        d.slug for d in _registry()
+        if d.tier in _DEFAULT_ENABLED_TIERS and d.slug not in _UNWIRED
+    ]
 
 
 def default_enabled_writes() -> list[tuple]:
@@ -1310,6 +1423,6 @@ def default_enabled_writes() -> list[tuple]:
     """
     writes: list[tuple] = []
     for d in _registry():
-        if d.tier in _DEFAULT_ENABLED_TIERS:
+        if d.tier in _DEFAULT_ENABLED_TIERS and d.slug not in _UNWIRED:
             writes.extend(d.on_writes)
     return writes

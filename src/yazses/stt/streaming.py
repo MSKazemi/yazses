@@ -1,8 +1,8 @@
 """Streaming STT engine using LocalAgreement 2-iteration policy (ADR-002).
 
-Wraps WhisperModel to decode rolling audio windows and emit only stable
-prefix deltas — text that has been confirmed by at least 2 consecutive
-decode passes.
+Wraps an :class:`yazses.stt.base.SttEngine` to decode rolling audio windows
+(via its ``decode_window`` seam) and emit only stable prefix deltas — text that
+has been confirmed by at least 2 consecutive decode passes.
 """
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ class StreamingEngine:
     """Streams partial transcription hypotheses from an audio queue.
 
     Usage:
-        engine = StreamingEngine(model, config)
+        engine = StreamingEngine(stt_engine, config)
         engine.start()
         # push np.ndarray chunks via engine.push(chunk)
         # read partials via engine.get_partial() (non-blocking, returns None if none ready)
@@ -40,11 +40,11 @@ class StreamingEngine:
 
     def __init__(
         self,
-        model,                    # faster_whisper.WhisperModel
+        engine,                   # yazses.stt.base.SttEngine (needs decode_window)
         partial_interval_ms: int = 300,
         time_fn: Callable[[], float] | None = None,
     ) -> None:
-        self._model = model
+        self._engine = engine
         self._interval_s = partial_interval_ms / 1000.0
         self._time = time_fn or time.monotonic
         self._lock = threading.Lock()
@@ -174,9 +174,10 @@ class StreamingEngine:
                 self._prev_hypothesis = hypothesis
 
     def _decode_once(self, audio: np.ndarray) -> str:
+        # Exceptions stay handled HERE (not in the engines) so any backend's
+        # decode failure degrades to "no partial this cycle", never a dead loop.
         try:
-            segments, _ = self._model.transcribe(audio, language="en")
-            return " ".join(s.text.strip() for s in segments).strip()
+            return self._engine.decode_window(audio)
         except Exception as exc:
             log.debug("StreamingEngine decode error: %s", exc)
             return ""

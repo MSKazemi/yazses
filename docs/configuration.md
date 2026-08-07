@@ -17,6 +17,7 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 
 | Key | Type | Default |
 |---|---|---|
+| `engine` | str | `"faster-whisper"` |
 | `model` | str | `"base.en"` |
 | `device` | str | `"cpu"` |
 | `compute_type` | str | `"int8"` |
@@ -261,6 +262,7 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 | `confidence_min` | float | `0.5` |
 | `route_dictation` | bool | `false` |
 | `confirm_destructive` | bool | `true` |
+| `deixis` | bool | `true` |
 
 ## `[cocktail]`
 
@@ -970,6 +972,7 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 | `tilt_min` | float | `-1.0` |
 | `gain_db` | float | `6.0` |
 | `vad_scale` | float | `0.5` |
+| `command_channel` | bool | `true` |
 
 ## `[mouthswitch]`
 

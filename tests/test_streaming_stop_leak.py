@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import time
 from dataclasses import replace
-from unittest.mock import MagicMock
 
 import numpy as np
 
@@ -20,45 +19,43 @@ from yazses.platform import get_platform
 from yazses.stt.streaming import StreamingEngine
 
 
-class _CountingModel:
-    """Records how many decodes the loop performed."""
+class _CountingEngine:
+    """Fake SttEngine recording how many window decodes the loop performed."""
 
     def __init__(self) -> None:
         self.calls = 0
 
-    def transcribe(self, audio, language="en"):
+    def decode_window(self, audio) -> str:
         self.calls += 1
-        seg = MagicMock()
-        seg.text = " hello"
-        return [seg], MagicMock()
+        return "hello"
 
 
 def test_request_stop_ends_the_decode_loop():
-    model = _CountingModel()
-    engine = StreamingEngine(model, partial_interval_ms=20)
+    backend = _CountingEngine()
+    engine = StreamingEngine(backend, partial_interval_ms=20)
     engine.start()
     engine.push(np.zeros(16000, dtype=np.float32))  # 1 s — above the decode floor
     time.sleep(0.1)
-    assert model.calls > 0                          # loop is genuinely running
+    assert backend.calls > 0                        # loop is genuinely running
 
     engine.request_stop()
     engine._thread.join(timeout=2.0)
     assert not engine._thread.is_alive()            # exits within one cycle
 
-    after = model.calls
+    after = backend.calls
     time.sleep(0.1)
-    assert model.calls == after                     # and decodes no more
+    assert backend.calls == after                   # and decodes no more
 
 
 def test_request_stop_does_not_block_on_an_in_flight_decode():
     """Hold-release must stay on the hot path even mid-decode."""
 
-    class _SlowModel:
-        def transcribe(self, audio, language="en"):
+    class _SlowEngine:
+        def decode_window(self, audio) -> str:
             time.sleep(0.5)
-            return [], MagicMock()
+            return ""
 
-    engine = StreamingEngine(_SlowModel(), partial_interval_ms=10)
+    engine = StreamingEngine(_SlowEngine(), partial_interval_ms=10)
     engine.start()
     engine.push(np.zeros(16000, dtype=np.float32))
     time.sleep(0.05)                                # let a slow decode start
@@ -70,7 +67,7 @@ def test_request_stop_does_not_block_on_an_in_flight_decode():
 
 
 def test_stop_is_safe_before_start():
-    engine = StreamingEngine(_CountingModel(), partial_interval_ms=10)
+    engine = StreamingEngine(_CountingEngine(), partial_interval_ms=10)
     engine.request_stop()                           # never started — must not raise
     engine.stop()
 

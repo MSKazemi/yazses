@@ -31,7 +31,8 @@ DOCS = ROOT / "docs"
 _TIER_ORDER_NOTE = (
     "**Tiers:** `core` (always on) · `recommended (on by default)` · `recommended` "
     "(safe, worth enabling) · `optional` · `experimental` (rough edges — needs "
-    "`--force` to enable)."
+    "`--force` to enable) · `planned` (designed but not yet wired into this build — "
+    "cannot be enabled yet; contributions welcome)."
 )
 
 
@@ -89,7 +90,13 @@ def gen_features() -> str:
                 out.write(f"- **Use when:** {f.use_case}\n")
             if f.example:
                 out.write(f"- **Example:** {f.example}\n")
-            if f.toggleable:
+            if not f.wired:
+                out.write(
+                    "- **Activate:** not possible yet — designed but not wired "
+                    "into this build (`yazses features enable` refuses it; "
+                    "contributions welcome)\n"
+                )
+            elif f.toggleable:
                 out.write(
                     f"- **Activate:** `yazses features enable {f.slug}` "
                     "then `yazses restart`\n"

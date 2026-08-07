@@ -70,3 +70,14 @@ class FasterWhisperEngine:
                     probability=float(getattr(w, "probability", 0.0) or 0.0),
                 ))
         return " ".join(texts).strip(), words
+
+    def decode_window(self, audio: np.ndarray) -> str:
+        """Plain fast decode of a rolling streaming window (LocalAgreement, ADR-002).
+
+        The single seam ``stt.streaming.StreamingEngine`` drives, so streaming
+        never reaches into the private ``_model`` (which other engines don't
+        have). English fast path, no prompt, no word timestamps — exactly the
+        decode the streaming loop has always done.
+        """
+        segments, _ = self._model.transcribe(audio, language="en")
+        return " ".join(s.text.strip() for s in segments).strip()

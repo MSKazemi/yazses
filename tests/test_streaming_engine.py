@@ -2,29 +2,30 @@
 from __future__ import annotations
 
 import time
-from unittest.mock import MagicMock
 
 import numpy as np
 
 from yazses.stt.streaming import StreamingEngine, _common_prefix
 
 
-class MockWhisperModel:
-    """Mock WhisperModel that returns predictable transcriptions."""
+class MockSttEngine:
+    """Fake SttEngine whose decode_window returns predictable transcriptions.
+
+    StreamingEngine drives backends only through the ``decode_window`` seam
+    (yazses.stt.base.SttEngine) — never a raw WhisperModel.
+    """
 
     def __init__(self, responses: list[str]) -> None:
         self._responses = list(responses)
         self._call_count = 0
 
-    def transcribe(self, audio, language="en"):
+    def decode_window(self, audio) -> str:
         if self._call_count < len(self._responses):
             text = self._responses[self._call_count]
         else:
             text = self._responses[-1] if self._responses else ""
         self._call_count += 1
-        seg = MagicMock()
-        seg.text = " " + text
-        return [seg], MagicMock()
+        return text
 
 
 def test_common_prefix():
@@ -36,8 +37,8 @@ def test_common_prefix():
 
 def test_streaming_engine_emits_partial(sine_audio_3s):
     """Engine should emit a partial hypothesis after receiving enough audio."""
-    model = MockWhisperModel(["hello wor", "hello world"])
-    engine = StreamingEngine(model, partial_interval_ms=100)
+    engine_backend = MockSttEngine(["hello wor", "hello world"])
+    engine = StreamingEngine(engine_backend, partial_interval_ms=100)
     engine.start()
 
     # Push audio in chunks
@@ -62,8 +63,8 @@ def test_streaming_engine_emits_partial(sine_audio_3s):
 
 def test_streaming_engine_commit_returns_text(sine_audio_3s):
     """commit() should return the final transcript."""
-    model = MockWhisperModel(["hello world"])
-    engine = StreamingEngine(model, partial_interval_ms=50)
+    engine_backend = MockSttEngine(["hello world"])
+    engine = StreamingEngine(engine_backend, partial_interval_ms=50)
     engine.start()
     engine.push(sine_audio_3s)
     time.sleep(0.2)
@@ -73,8 +74,8 @@ def test_streaming_engine_commit_returns_text(sine_audio_3s):
 
 def test_streaming_engine_commit_empty_audio():
     """commit() with no audio should return empty string."""
-    model = MockWhisperModel([])
-    engine = StreamingEngine(model, partial_interval_ms=50)
+    engine_backend = MockSttEngine([])
+    engine = StreamingEngine(engine_backend, partial_interval_ms=50)
     engine.start()
     result = engine.commit()
     assert result == ""
@@ -82,8 +83,8 @@ def test_streaming_engine_commit_empty_audio():
 
 def test_streaming_engine_reset():
     """reset() should clear all state."""
-    model = MockWhisperModel(["hello"])
-    engine = StreamingEngine(model, partial_interval_ms=50)
+    engine_backend = MockSttEngine(["hello"])
+    engine = StreamingEngine(engine_backend, partial_interval_ms=50)
     engine.start()
     engine.push(np.zeros(16000, dtype=np.float32))
     engine.reset()

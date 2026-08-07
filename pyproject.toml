@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "yazses"
-version = "2.13.0"
+version = "2.14.0"
 description = "Local, offline voice dictation for Linux, macOS, and Windows — hold a key, speak, release"
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -119,6 +119,13 @@ tts = [
 voiceprint = [
     "speechbrain>=1.1",
 ]
+# Pluggable STT — NVIDIA Parakeet TDT via onnx-asr (`[stt] engine = "parakeet"`,
+# `yazses features enable stt-parakeet`). onnxruntime only, no torch, no NeMo;
+# imported lazily by stt/parakeet.py — absent → stt/factory.py falls back to
+# faster-whisper with a warning. [hub] adds huggingface-hub for the model download.
+parakeet = [
+    "onnx-asr[cpu,hub]>=0.12",
+]
 # Wave O — Diarized Recording Import (ADR-v2-125). sherpa-onnx bundles ONNX Runtime
 # (no torch, no GPU, no HF token); imported lazily only when `[recimport] diarize`.
 # Audio decoding needs no extra (PyAV rides in with faster-whisper).
@@ -170,6 +177,7 @@ all = [
     "onnxruntime>=1.27.0",
     "soundfile>=0.14.0",
     "speechbrain>=1.1",
+    "onnx-asr[cpu,hub]>=0.12",
     "sherpa-onnx>=1.13.4",
     "mediapipe>=0.10.35",
     "opencv-python>=5.0",
