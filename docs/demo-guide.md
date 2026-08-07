@@ -45,9 +45,36 @@ Keep it to one idea. The demo answers *"what happens when I hold the key?"* — 
 | 8–11 s | You release. The text appears in the editor. |
 | 11–13 s | One beat of stillness on the finished text, so the loop doesn't cut mid-word. |
 
-Say something that demonstrates the product rather than the technology. A sentence with
-ordinary punctuation reads better than "testing one two three", because the transcript
-shows capitalisation and a full stop — details a viewer notices without being told.
+## What to say
+
+The sentence is the demo. A viewer reads the text as it appears, so make the words earn
+that attention — the strongest script is one that *describes what is happening while it
+happens*, because then the proof and the pitch are the same thing.
+
+Pick one:
+
+| Script | ~Time | Shows |
+|---|---:|---|
+| "This text is being typed by my voice, on my own laptop, with no internet connection." | 6 s | The claim and the proof are the same sentence. Best default for the README. |
+| "I'm dictating this straight into my editor, and nothing is being sent to the cloud." | 6 s | Same idea, warmer; good for a subreddit or X post. |
+| "This works in any window on Linux, including Wayland, where most dictation tools give up." | 6 s | The differentiator, for a Linux audience. |
+| "Ten seconds of speech transcribes in under a second on this laptop, entirely on the CPU." | 6 s | Speed. Check `yazses logs` first — it is a claim and someone will test it. On the reference machine `base.en` did 11.3 s of audio in 472 ms and 56 s in 1.6 s, so the wording is deliberately conservative. |
+
+What not to say: "testing, one, two, three". It proves the microphone works and nothing
+else, and it wastes the one sentence a viewer will read.
+
+### Delivery
+
+- **Speak normally.** Over-enunciating makes the transcript *worse*, not better, and the
+  demo's job is to show real-world accuracy — a viewer who suspects you spoke unnaturally
+  discounts the whole thing.
+- **Don't say punctuation names** unless `[commands] voice_punctuation = true`. With the
+  default (`false`), saying "comma" types the word *comma*. Whisper punctuates from your
+  intonation on its own, which is why the scripts above are written with natural pauses.
+- **Pause a beat after pressing the key** before the first word. `[accessibility]
+  pre_speech_padding_ms` exists precisely because a clip starting mid-syllable clips the
+  first word, but a short beat costs nothing and removes the risk.
+- **Record two or three takes.** They cost forty seconds each and you keep the best.
 
 ## Before you hit record
 
