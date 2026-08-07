@@ -18,6 +18,11 @@ collapsing, and a 5 MB budget with advice when it is missed. It runs via `uv run
 script metadata, so its two dependencies land in uv's cache — nothing installed system-wide,
 no `sudo`, and nothing added to the project's dependencies. `--shot` takes a still instead.
 
+Motionless frames at the start and end are trimmed automatically, so you don't have to race
+a countdown: start a long recording, perform when you're ready, and the clip comes out as
+long as the action. A pause in the middle survives, because that one is content — it is the
+wait while speech is transcribed.
+
 `docs/demo-guide.md` is now a recipe rather than a list of tools: the exact command, a
 timed shot list, what to check before recording, and which knob to turn when the file is
 too big.

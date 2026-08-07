@@ -120,6 +120,28 @@ def dedupe(frames, durations_ms: int):
     return kept, durations
 
 
+def trim_still(frames, keep_head: int, keep_tail: int):
+    """Drop the motionless run at each end, keeping a short beat of it.
+
+    Lets you start a long recording and perform whenever you are ready, instead of racing a
+    countdown — which matters most when the person recording and the person operating the
+    keyboard are not the same. The dead air before you begin and after the text lands is
+    removed, so the clip is as long as the action rather than as long as the session.
+
+    Only *leading* and *trailing* stillness goes. A pause in the middle is content: it is
+    the wait while speech is transcribed, which is exactly what a viewer needs to see.
+    """
+    if not frames:
+        return frames
+    sig = [f.tobytes() for f in frames]
+    first, last = 0, len(frames) - 1
+    while first < last and sig[first] == sig[first + 1]:
+        first += 1
+    while last > first and sig[last] == sig[last - 1]:
+        last -= 1
+    return frames[max(0, first - keep_head): min(len(frames), last + keep_tail + 1)]
+
+
 def build_palette(frames, colors: int):
     """Derive one shared palette from the WHOLE recording, not from the first frame.
 
@@ -148,13 +170,22 @@ def main() -> int:
     src = ap.add_mutually_exclusive_group(required=True)
     src.add_argument("--window", action="store_true", help="Click a window to record it.")
     src.add_argument("--region", type=parse_region, help="X,Y,WIDTH,HEIGHT.")
-    src.add_argument("--full", action="store_true", help="The whole primary screen.")
+    src.add_argument(
+        "--full", action="store_true",
+        help="The whole primary screen. Frames are held in RAM until the end, so a "
+             "full-screen capture costs roughly width×height×3 bytes per frame — prefer "
+             "--window or --region for anything longer than a few seconds.",
+    )
     ap.add_argument("--seconds", type=float, default=15.0, help="Recording length (15).")
     ap.add_argument("--fps", type=int, default=12, help="Frames per second (12).")
     ap.add_argument("--countdown", type=int, default=3, help="Seconds before capture (3).")
     ap.add_argument("--max-width", type=int, default=DEFAULT_MAX_WIDTH)
     ap.add_argument("--colors", type=int, default=128, help="Palette size (128).")
     ap.add_argument("--shot", action="store_true", help="One PNG instead of a GIF.")
+    ap.add_argument(
+        "--no-trim", action="store_true",
+        help="Keep the motionless run at each end (trimming is on by default).",
+    )
     ap.add_argument("--out", type=Path, default=Path("demo.gif"))
     args = ap.parse_args()
 
@@ -184,6 +215,18 @@ def main() -> int:
     if not frames:
         print("No frames captured.", file=sys.stderr)
         return 1
+
+    if not args.no_trim:
+        before = len(frames)
+        frames = trim_still(frames, keep_head=args.fps // 2, keep_tail=args.fps)
+        if len(frames) != before:
+            print(
+                f"Trimmed dead air: {before} → {len(frames)} frames "
+                f"({len(frames) / args.fps:.1f}s of action)"
+            )
+        if not frames:
+            print("Nothing moved during the recording.", file=sys.stderr)
+            return 1
 
     if frames[0].width > args.max_width:
         scale = args.max_width / frames[0].width

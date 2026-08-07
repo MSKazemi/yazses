@@ -92,3 +92,34 @@ def test_parse_region_rejects_bad_input(spec):
 
 def test_parse_region_accepts_a_well_formed_region():
     assert rec.parse_region(" 100, 100 ,960,540 ") == (100, 100, 960, 540)
+
+
+def test_trim_still_removes_dead_air_at_both_ends_only():
+    """You start a long recording and perform whenever you're ready; the ends get cut.
+
+    A pause in the *middle* is content — it's the wait while speech is transcribed — so it
+    must survive. Only the leading and trailing motionless runs go.
+    """
+    blank = Image.new("RGB", (40, 20), (0, 0, 0))
+    lit = Image.new("RGB", (40, 20), (255, 255, 255))
+    # 20 still · 1 move · 8 still (mid-clip pause) · 1 move · 20 still
+    frames = [blank] * 20 + [lit] + [blank] * 8 + [lit] + [blank] * 20
+
+    out = rec.trim_still(frames, keep_head=2, keep_tail=4)
+
+    assert len(out) < len(frames), "nothing was trimmed"
+    # Both transitions must survive: two runs of `lit` remain.
+    assert sum(1 for f in out if f.tobytes() == lit.tobytes()) == 2
+    assert len(out) >= 12, "the mid-clip pause was destroyed"
+
+
+def test_trim_still_on_a_completely_static_clip_is_safe():
+    frames = [Image.new("RGB", (8, 8), (7, 7, 7)) for _ in range(10)]
+
+    out = rec.trim_still(frames, keep_head=2, keep_tail=2)
+
+    assert len(out) >= 1, "a static clip must not trim to nothing"
+
+
+def test_trim_still_handles_no_frames():
+    assert rec.trim_still([], keep_head=2, keep_tail=2) == []

@@ -20,6 +20,17 @@ size-optimised GIF. `uv` fetches its two dependencies (`mss`, `pillow`) into its
 on first run — nothing is installed system-wide, no `sudo`, and they are not added to the
 project's dependencies.
 
+**Don't race the countdown.** Motionless frames at the start and end are trimmed
+automatically, so give yourself room and perform when you're ready:
+
+```sh
+uv run scripts/record-demo.py --window --seconds 40 --out docs/screenshots/demo.gif
+```
+
+Forty seconds of recording in which you dictate one sentence yields a clip as long as the
+sentence. A pause in the *middle* is kept — that one is content, it's the wait while your
+speech is transcribed. Pass `--no-trim` to keep everything.
+
 X11 only. On Wayland the screen cannot be read this way; see [Wayland](#wayland) below.
 
 ## What to show
