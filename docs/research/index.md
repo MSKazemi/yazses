@@ -91,6 +91,22 @@ Every input modality is ultimately a bandwidth question. These are measured
 text-entry rates, not projections:
 
 ```mermaid
+---
+config:
+  themeVariables:
+    xyChart:
+      backgroundColor: "transparent"
+      titleColor: "var(--md-default-fg-color)"
+      xAxisLabelColor: "var(--md-default-fg-color)"
+      yAxisLabelColor: "var(--md-default-fg-color)"
+      xAxisTitleColor: "var(--md-default-fg-color)"
+      yAxisTitleColor: "var(--md-default-fg-color)"
+      xAxisTickColor: "var(--md-default-fg-color--lighter)"
+      yAxisTickColor: "var(--md-default-fg-color--lighter)"
+      xAxisLineColor: "var(--md-default-fg-color--lighter)"
+      yAxisLineColor: "var(--md-default-fg-color--lighter)"
+      plotColorPalette: "#8f6fd6"
+---
 xychart-beta
     title "Measured text-entry rate by modality (words per minute)"
     x-axis ["Speech", "Touch keyboard", "sEMG handwriting", "Gaze typing"]

@@ -27,6 +27,22 @@ Word-error rates (WER) on multi-domain evaluations, with the constraint that
 matters here — **runs on a laptop CPU**:
 
 ```mermaid
+---
+config:
+  themeVariables:
+    xyChart:
+      backgroundColor: "transparent"
+      titleColor: "var(--md-default-fg-color)"
+      xAxisLabelColor: "var(--md-default-fg-color)"
+      yAxisLabelColor: "var(--md-default-fg-color)"
+      xAxisTitleColor: "var(--md-default-fg-color)"
+      yAxisTitleColor: "var(--md-default-fg-color)"
+      xAxisTickColor: "var(--md-default-fg-color--lighter)"
+      yAxisTickColor: "var(--md-default-fg-color--lighter)"
+      xAxisLineColor: "var(--md-default-fg-color--lighter)"
+      yAxisLineColor: "var(--md-default-fg-color--lighter)"
+      plotColorPalette: "#8f6fd6"
+---
 xychart-beta
     title "Word error rate, multi-domain (percent; lower is better)"
     x-axis ["whisper small.en", "whisper-large-v3", "Moonshine v2", "Parakeet TDT 0.6B", "Canary-Qwen 2.5B"]

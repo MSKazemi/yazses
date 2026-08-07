@@ -28,6 +28,22 @@ At a normal 50–70 cm viewing distance, **1° of gaze error is roughly 1 cm on
 screen**. That single conversion factor decides what interactions are possible:
 
 ```mermaid
+---
+config:
+  themeVariables:
+    xyChart:
+      backgroundColor: "transparent"
+      titleColor: "var(--md-default-fg-color)"
+      xAxisLabelColor: "var(--md-default-fg-color)"
+      yAxisLabelColor: "var(--md-default-fg-color)"
+      xAxisTitleColor: "var(--md-default-fg-color)"
+      yAxisTitleColor: "var(--md-default-fg-color)"
+      xAxisTickColor: "var(--md-default-fg-color--lighter)"
+      yAxisTickColor: "var(--md-default-fg-color--lighter)"
+      xAxisLineColor: "var(--md-default-fg-color--lighter)"
+      yAxisLineColor: "var(--md-default-fg-color--lighter)"
+      plotColorPalette: "#8f6fd6"
+---
 xychart-beta
     title "Gaze error by hardware (degrees; lower is better)"
     x-axis ["Dedicated IR", "Webcam + calibration", "Research model, in-dataset", "Webcam, no calibration"]
