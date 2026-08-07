@@ -21,6 +21,48 @@ trade-off is honest — without an on-page player Google may decline a video ric
 the animated GIF above the link already carries the same reel — so the markup is here for
 entity resolution, not on the promise of a SERP thumbnail.
 
+### Fixed — the snap asked the build farm for five architectures it can never run on
+
+`snap/snapcraft.yaml` declared no `platforms:`, and to the snapcraft.io build service an
+unset architecture list does not mean "amd64" — it means *every* architecture Launchpad
+offers. Connecting the repo therefore fanned each push out to seven builds, of which five
+were impossible before they started: `ctranslate2` (via faster-whisper), `onnxruntime` (via
+onnx-asr) and `PySide6` publish manylinux wheels for `x86_64` and `aarch64` only, **and none
+of the three publishes an sdist at all**, so on armhf, i386, ppc64el, s390x and riscv64 pip
+has nothing it could even attempt to install. Observed on the first fan-out: amd64 built and
+released, i386/armhf/s390x/ppc64el all reported "Failed to build".
+
+The cost was not wasted builder time so much as a permanently red build history — five
+failures per push that nobody can act on, which is exactly how a real regression gets
+overlooked. `platforms:` now names `amd64` and `arm64`, the two the dependency set can
+actually support. The remaining runtime deps were checked against the same bar: numpy and
+cryptography ship aarch64 wheels, sounddevice / faster-whisper / onnx-asr / typer are pure
+Python, and evdev builds from its sdist against the already-staged `python3-dev`.
+
+arm64 then proved itself: build #3238849 succeeded in 14m13s, the first arm64 build this
+project has ever completed. It is deliberately slower than amd64's 7m20s rather than failing
+fast the way the impossible five did — those died at pip in 2–10 minutes with nothing to
+install. The release into `edge` was still propagating when this was written, so **`snap
+install --edge` on arm64 is not claimed as working until a revision appears in the channel
+map**; the build succeeding is what is verified here.
+
+### Fixed — the snap hardcoded the x86_64 library path, so any other architecture shipped mute
+
+`ALSA_PLUGIN_DIR` in the app definitions and `LD_LIBRARY_PATH` in all four wrappers contained
+the literal string `x86_64-linux-gnu`. The ALSA pulse plugin and the PulseAudio libraries live
+beneath that Debian multiarch triplet, so on any non-amd64 build both paths resolve to nothing
+and microphone capture fails — silently, with no message a user could act on, which is the
+worst possible failure mode for a dictation tool. It was invisible only because amd64 was the
+sole architecture ever built.
+
+The four wrappers now source a single `snap/local/snap-env.sh` that derives the triplet from
+snapd's `SNAP_ARCH` at runtime, and the audio variables moved there from the `apps.*`
+`environment:` blocks — that block cannot expand the triplet, which is why the constant was
+there in the first place. One copy of the path logic instead of four also removes the drift
+that let the daemon and the CLI disagree.
+
+## [2.15.1] - 2026-08-07
+
 Two fixes, both found by tightening something that had been loose. Dictation stops deleting
 a real English verb, and the type gate — 73 errors deep and therefore useless — is clean and
 immediately earned its keep by surfacing a latent crash.
@@ -80,45 +122,21 @@ As with #122, the regenerated vector diff is **additions-only** — no previousl
 expectation changed — so the major bump is by intent: the default filler list is shared
 behaviour other platforms must reproduce, and it changed.
 
-### Fixed — the snap asked the build farm for five architectures it can never run on
+### Fixed — `snap install --edge` served a build from before v2 existed
 
-`snap/snapcraft.yaml` declared no `platforms:`, and to the snapcraft.io build service an
-unset architecture list does not mean "amd64" — it means *every* architecture Launchpad
-offers. Connecting the repo therefore fanned each push out to seven builds, of which five
-were impossible before they started: `ctranslate2` (via faster-whisper), `onnxruntime` (via
-onnx-asr) and `PySide6` publish manylinux wheels for `x86_64` and `aarch64` only, **and none
-of the three publishes an sdist at all**, so on armhf, i386, ppc64el, s390x and riscv64 pip
-has nothing it could even attempt to install. Observed on the first fan-out: amd64 built and
-released, i386/armhf/s390x/ppc64el all reported "Failed to build".
+The release workflow only ever published to `stable`, and nothing else fed `edge`. A channel
+that is never written to does not stay empty, it stays **stale**: `edge` sat on 1.4.1 while
+`stable` was 2.15.0, so anyone following the usual "try edge for the newest build" instinct
+got a snap eleven releases old. Releases now publish to `stable,edge`; verified in production
+on this tag — `edge` moved 1.4.1 → 2.15.1.
 
-The cost was not wasted builder time so much as a permanently red build history — five
-failures per push that nobody can act on, which is exactly how a real regression gets
-overlooked. `platforms:` now names `amd64` and `arm64`, the two the dependency set can
-actually support. The remaining runtime deps were checked against the same bar: numpy and
-cryptography ship aarch64 wheels, sounddevice / faster-whisper / onnx-asr / typer are pure
-Python, and evdev builds from its sdist against the already-staged `python3-dev`.
+### Security — GitPython 3.1.57 → 3.1.58 (6 advisories)
 
-arm64 then proved itself: build #3238849 succeeded in 14m13s, the first arm64 build this
-project has ever completed. It is deliberately slower than amd64's 7m20s rather than failing
-fast the way the impossible five did — those died at pip in 2–10 minutes with nothing to
-install. The release into `edge` was still propagating when this was written, so **`snap
-install --edge` on arm64 is not claimed as working until a revision appears in the channel
-map**; the build succeeding is what is verified here.
-
-### Fixed — the snap hardcoded the x86_64 library path, so any other architecture shipped mute
-
-`ALSA_PLUGIN_DIR` in the app definitions and `LD_LIBRARY_PATH` in all four wrappers contained
-the literal string `x86_64-linux-gnu`. The ALSA pulse plugin and the PulseAudio libraries live
-beneath that Debian multiarch triplet, so on any non-amd64 build both paths resolve to nothing
-and microphone capture fails — silently, with no message a user could act on, which is the
-worst possible failure mode for a dictation tool. It was invisible only because amd64 was the
-sole architecture ever built.
-
-The four wrappers now source a single `snap/local/snap-env.sh` that derives the triplet from
-snapd's `SNAP_ARCH` at runtime, and the audio variables moved there from the `apps.*`
-`environment:` blocks — that block cannot expand the triplet, which is why the constant was
-there in the first place. One copy of the path logic instead of four also removes the drift
-that let the daemon and the CLI disagree.
+All six land on GitPython, which reaches this project only through
+`mkdocs-git-revision-date-localized-plugin` in the `docs` dependency group — it is **not** in
+the released wheel's dependency set, so no shipped artifact was exposed to the git
+option-injection or `--pathspec-from-file` arbitrary-read issues. Bumped anyway: the fix was a
+lockfile line and the alerts are real.
 
 ## [2.15.0] - 2026-08-07
 
