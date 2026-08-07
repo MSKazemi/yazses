@@ -6,6 +6,13 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.13.0] - 2026-08-07
+
+The reliability release. Every defect fixed here was **silent or actively misreported** —
+the app kept insisting it was fine while dictation produced nothing — so the theme is not
+new capability but making YazSes tell the truth about itself, and repair itself where it
+honestly can.
+
 ### Added — `yazses verify`: proof the pipeline works, instead of inference
 
 `doctor` checks prerequisites — a mic exists, xdotool is installed, the model is cached.

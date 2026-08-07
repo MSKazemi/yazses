@@ -9,7 +9,7 @@ research waves, each a fresh state-of-the-art sweep → ADRs → pure, 100%-cove
 cores. **v2 dev tags never auto-publish** (publish workflows are pinned to `v0.*`/`v1.*`); v1.4.1
 stays the stable release until the v2 line is promoted.
 
-As of `v2.12.0-dev.2`: **136 capabilities, 1677 tests green**, ADRs `adr-v2-001..128`, research reports
+As of `v2.13.0`: **136 capabilities, 1983 tests green**, ADRs `adr-v2-001..128`, research reports
 in `design/vision/v2-research/`.
 
 - **Shipped in `v2.12.0-dev.2`** (off by default): **Meeting Mode** (`yazses meeting`,
