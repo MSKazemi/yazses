@@ -3,48 +3,89 @@
   "projectOwner": "MSKazemi",
   "repoType": "github",
   "repoHost": "https://github.com",
-  "files": ["README.md"],
+  "files": [
+    "README.md"
+  ],
   "imageSize": 100,
   "commit": true,
   "commitConvention": "angular",
   "contributorsPerLine": 7,
   "contributorsSortAlphabetically": false,
-  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-5-orange.svg?style=flat-square)](#contributors)",
+  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-8-orange.svg?style=flat-square)](#contributors)",
   "contributors": [
     {
       "login": "MSKazemi",
       "name": "Mohsen Seyedkazemi Ardebili",
       "avatar_url": "https://avatars.githubusercontent.com/u/13011878?v=4",
       "profile": "https://github.com/MSKazemi",
-      "contributions": ["maintenance", "code", "doc"]
+      "contributions": [
+        "maintenance",
+        "code",
+        "doc"
+      ]
     },
     {
       "login": "lntutor",
       "name": "lntutor",
       "avatar_url": "https://avatars.githubusercontent.com/u/1948922?v=4",
       "profile": "https://github.com/lntutor",
-      "contributions": ["doc"]
+      "contributions": [
+        "doc"
+      ]
     },
     {
       "login": "HeaTTap",
       "name": "HeaTTap",
       "avatar_url": "https://avatars.githubusercontent.com/u/83951176?v=4",
       "profile": "https://github.com/HeaTTap",
-      "contributions": ["code"]
+      "contributions": [
+        "code"
+      ]
     },
     {
       "login": "jackie-cqz",
       "name": "jackie-cqz",
       "avatar_url": "https://avatars.githubusercontent.com/u/88996311?v=4",
       "profile": "https://github.com/jackie-cqz",
-      "contributions": ["code"]
+      "contributions": [
+        "code"
+      ]
     },
     {
       "login": "Parinitha-26",
       "name": "Parinitha-26",
       "avatar_url": "https://avatars.githubusercontent.com/u/199358281?v=4",
       "profile": "https://github.com/Parinitha-26",
-      "contributions": ["doc"]
+      "contributions": [
+        "doc"
+      ]
+    },
+    {
+      "login": "AshSgDe29071999",
+      "name": "AshSgDe29071999",
+      "avatar_url": "https://avatars.githubusercontent.com/u/192003854?v=4",
+      "profile": "https://github.com/AshSgDe29071999",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "Maqbool61",
+      "name": "Maqbool Ahmed",
+      "avatar_url": "https://avatars.githubusercontent.com/u/68494045?v=4",
+      "profile": "https://github.com/Maqbool61",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "waterlemonnn",
+      "name": "Renji",
+      "avatar_url": "https://avatars.githubusercontent.com/u/145488564?v=4",
+      "profile": "https://github.com/waterlemonnn",
+      "contributions": [
+        "code"
+      ]
     }
   ]
 }
