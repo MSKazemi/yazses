@@ -188,6 +188,7 @@ dev = [
     "pytest>=9.1.1",
     "pytest-mock>=3.15.1",
     "pytest-cov>=7.1.0",
+    "hypothesis>=6.165.2",
     "useful-moonshine-onnx>=20251121",
     # Lint + type gates. CONTRIBUTING.md and the README tell contributors to run
     # `uv run ruff check src tests` and `uv run mypy src`; they belong here so a

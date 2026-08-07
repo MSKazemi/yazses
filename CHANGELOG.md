@@ -54,6 +54,17 @@ The bump is **major by intent, not by mechanical diff** — no previously pinned
 changed, but behaviour that other platforms must reproduce did, and an unpinned behaviour
 change is still a behaviour change.
 
+### Added — property-based fuzz tests for the text post-processing pipeline (#115)
+
+`tests/test_property_pipeline.py` uses Hypothesis to throw untrusted-ish input — control
+characters, mixed scripts, RTL (Persian), zero-width characters, emoji, and very long
+transcripts — at `clean_text`, `filter_transcript`, `apply_voice_punctuation`,
+`continuation_prefix`, and `classify`. It asserts none of them raise, `clean_text` is
+idempotent, `filter_transcript` never grows the text, and `classify` never returns a
+non-DICTATE intent that isn't backed by an actual Tier-1 rule match. No property
+violations turned up in this pass; the tests stay as a bounded-budget regression net
+(`OpenSSF Scorecard` fuzzing check).
+
 ### Changed — sentence-initial filler stripping is narrowed to unambiguous fillers (contract **2.0.0 → 3.0.0**)
 
 The #117 relaxation allowed any capitalised filler at utterance position 0 to be removed.
