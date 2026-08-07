@@ -21,6 +21,24 @@ trade-off is honest — without an on-page player Google may decline a video ric
 the animated GIF above the link already carries the same reel — so the markup is here for
 entity resolution, not on the promise of a SERP thumbnail.
 
+### Fixed — the two files most likely to be quoted about this project were citing non-canonical URLs
+
+`docs/llms.txt` exists to be ingested whole by AI answer engines, so every URL inside it is a
+citation candidate — and 23 of them used the extensionless form (`…/use-cases/voice-coding`).
+Those resolve with a 200, which is why nothing looked broken, but the site runs
+`use_directory_urls: false`: the page's own `rel=canonical` and its `sitemap.xml` entry are
+both the `.html` form. An engine quoting llms.txt was therefore being handed the duplicate
+rather than the URL the site declares for itself. The README's seven use-case links had the
+same defect, and matter for the same reason — it is the highest-authority link source the
+project controls, and the arXiv preprint points at it four times.
+
+Every URL in llms.txt is now verified twice: it returns 200 **and** it appears verbatim in
+`sitemap.xml`. That double check earned its keep immediately — a naive rewrite appended a
+second extension to paths that already ended in `.html`, producing `mobile/index.html.html`
+(404), and mangled the two directory URLs. llms.txt also now mentions the 40-second demo
+recording, which it did not reference at all, carrying the same re-enactment disclosure the
+video and the site use.
+
 ### Fixed — the snap asked the build farm for five architectures it can never run on
 
 `snap/snapcraft.yaml` declared no `platforms:`, and to the snapcraft.io build service an
