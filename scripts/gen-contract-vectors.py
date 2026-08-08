@@ -196,6 +196,108 @@ CASES: dict[str, list[dict[str, Any]]] = {
         {"id": "code-identifier-preserved",
          "description": "code identifiers must survive dictation into an editor",
          "input": "call parse_config() in main.py"},
+        {"id": "blank-audio-doubled-not-recognized",
+         "description": "two artefact markers back to back are not a match for any single "
+                        "known artefact string, so the exact-match check leaves both alone",
+         "input": "[BLANK_AUDIO] [BLANK_AUDIO]"},
+        {"id": "blank-marker-lowercase-not-recognized",
+         "description": "artefact matching is case-sensitive; a lowercase variant of the "
+                        "marker slips through untouched",
+         "input": "[blank_audio]"},
+        {"id": "blank-marker-mixed-case-not-recognized",
+         "description": "same case-sensitivity gap with a mixed-case variant",
+         "input": "[Blank_Audio]"},
+        {"id": "blank-parenthetical-inner-spaces-not-recognized",
+         "description": "extra spaces inside the parenthetical artefact break the exact match",
+         "input": "( blank )"},
+        {"id": "blank-marker-preceded-by-word-kept",
+         "description": "a word before the marker means the burst is no longer whole-artefact, "
+                        "so it is kept — the mirror of the already-covered trailing-word case",
+         "input": "extra [BLANK_AUDIO]"},
+        {"id": "leading-ellipsis-and-period-combo",
+         "description": "a unicode ellipsis immediately followed by an ascii period is still "
+                        "one leading punctuation run",
+         "input": "…."},
+        {"id": "spaced-dot-run", "description": "dots separated by spaces are still a "
+                        "punctuation-only burst",
+         "input": ". . ."},
+        {"id": "doubled-ellipsis-then-content",
+         "description": "two consecutive ellipsis characters are stripped as one leading run",
+         "input": "…… hello"},
+        {"id": "blank-marker-surrounded-by-tabs-and-newlines",
+         "description": "whitespace variety around the marker doesn't stop artefact stripping",
+         "input": "\t\n[BLANK_AUDIO]\t\n"},
+        {"id": "leading-dot-before-rtl-no-space",
+         "description": "leading whitespace and a dot immediately butting against RTL text "
+                        "with no space between them",
+         "input": "   .سلام"},
+        {"id": "trailing-period-after-rtl-kept",
+         "description": "trailing punctuation after RTL text is untouched, mirroring the "
+                        "ASCII trailing-punctuation rule",
+         "input": "سلام ."},
+        {"id": "emoji-alone-untouched", "description": "a lone emoji survives untouched",
+         "input": "👍"},
+        {"id": "leading-dot-then-emoji", "description": "leading period stripped, "
+                        "astral-plane emoji stays",
+         "input": ". 👍"},
+        {"id": "leading-ellipsis-glued-to-emoji",
+         "description": "no space between the stripped ellipsis and the emoji that follows",
+         "input": "...🚀ship it"},
+        {"id": "dot-and-trailing-whitespace-only",
+         "description": "a lone dot plus trailing whitespace reduces to nothing",
+         "input": ".  "},
+        {"id": "single-dot-single-trailing-space",
+         "description": "a lone dot plus exactly one trailing space also reduces to nothing",
+         "input": ". "},
+        {"id": "zero-width-space-survives",
+         "description": "surprising: U+200B is invisible but Python does not consider it "
+                        "whitespace, so it survives strip() and every check untouched",
+         "input": "​"},
+        {"id": "bom-prefixed-marker-not-recognized",
+         "description": "surprising: a leading byte-order-mark is also invisible and also "
+                        "not whitespace, so it breaks the exact-string artefact match — a "
+                        "BOM-prefixed [BLANK_AUDIO] burst is delivered to the user as "
+                        "literal text instead of being stripped",
+         "input": "﻿[BLANK_AUDIO]"},
+        {"id": "blank-marker-embedded-in-rtl-kept",
+         "description": "RTL variant of the embedded-marker-is-kept rule",
+         "input": "سلام [BLANK_AUDIO] دنیا"},
+        {"id": "very-long-paragraph-leading-punctuation-stripped",
+         "description": "correctness must hold at meeting-length input, not just short "
+                        "bursts — leading punctuation is still stripped and the rest of a "
+                        "long paragraph survives byte-for-byte",
+         "input": ". " + ("the quick brown fox jumps over the lazy dog and then it runs "
+                          "away before anyone can react ") * 34},
+        {"id": "adjacent-artefact-markers-not-recognized",
+         "description": "two different markers glued together with no separator are not a "
+                        "single recognized artefact string and both survive",
+         "input": "[INAUDIBLE][silence]"},
+        {"id": "blank-marker-with-comma-prefix-kept",
+         "description": "an embedded marker preceded by real words and a comma is kept, "
+                        "another embedded variant",
+         "input": "well, [BLANK_AUDIO] anyway"},
+        {"id": "ideographic-space-is-real-whitespace",
+         "description": "contrast with zero-width-space-survives: the full-width "
+                        "ideographic space (U+3000) IS Unicode whitespace and is correctly "
+                        "stripped from both ends",
+         "input": "　hello　"},
+        {"id": "nbsp-wrapped-marker-recognized",
+         "description": "contrast with bom-prefixed-marker-not-recognized: a non-breaking "
+                        "space (U+00A0) IS Unicode whitespace, so it's stripped before the "
+                        "exact-match check and the artefact underneath is still recognized",
+         "input": "\xa0[BLANK_AUDIO]\xa0"},
+        {"id": "leading-dot-before-code-identifier",
+         "description": "leading decode-artefact dot is stripped even when it's glued "
+                        "directly to a code identifier with no space",
+         "input": ".parse_config()"},
+        {"id": "mixed-script-passthrough",
+         "description": "a burst mixing Latin, Arabic and CJK script in one string has "
+                        "nothing to strip and survives whole",
+         "input": "hello مرحبا 你好"},
+        {"id": "vertical-tab-and-form-feed-whitespace-only",
+         "description": "less common ASCII whitespace controls (vertical tab, form feed) "
+                        "are still whitespace-only",
+         "input": "\v\f  "},
     ],
     "filters.disfluency": [
         {"id": "empty-string", "description": "empty input is returned unchanged",
@@ -364,6 +466,148 @@ CASES: dict[str, list[dict[str, Any]]] = {
          "input": "um see https://example.com/actually for details"},
         {"id": "numbers-preserved", "description": "digits and times survive filtering",
          "input": "um the deploy is at 0900 on 2026-08-07"},
+        {"id": "pathological-repetition-four-words-only-half-collapses",
+         "description": "surprising: Rule B's 2-gram dedup removes one repeated pair per "
+                        "pass over the window it matches; four verbatim repeats of 'the' "
+                        "collapse to two, not one",
+         "input": "the the the the"},
+        {"id": "pathological-repetition-five-words-partial-collapse",
+         "description": "an odd repeat count leaves an even stranger remainder — the same "
+                        "windowed dedup only removes the first matching pair, leaving three",
+         "input": "the the the the the"},
+        {"id": "pathological-repetition-fully-collapses-with-repetition-collapse-enabled",
+         "description": "shows the full pipeline order: Rule B first shrinks five 'the's to "
+                        "three survivors, then Rule B.5's unigram rule (which needs a run "
+                        ">= 3) finally collapses them to one",
+         "input": "the the the the the", "options": {"collapse_repetitions": True}},
+        {"id": "hyphenated-repeat-of-filler-word-leaves-fragment",
+         "description": "surprising, bug-shaped: 'actually' is a default filler, so Rule A "
+                        "strips it out of the middle of the hyphenated token 'a-a-actually', "
+                        "leaving a dangling 'a-a-' fragment glued onto the next word — "
+                        "worth its own issue",
+         "input": "a-a-actually the meeting"},
+        {"id": "hyphenated-double-filler-leaves-orphan-hyphen",
+         "description": "same class of bug: each 'um' inside 'um-um' is matched and "
+                        "stripped independently by Rule A, leaving an orphaned leading "
+                        "hyphen behind",
+         "input": "um-um the meeting"},
+        {"id": "self-correction-trigger-followed-by-own-period-leaves-dangling-punctuation",
+         "description": "surprising, bug-shaped: when a trigger phrase is itself followed "
+                        "by its own sentence-ending period, Rule C's trailing "
+                        "whitespace/comma skip does not consume the period, so it survives "
+                        "as a dangling '. ' — worth its own issue",
+         "input": "send it to Bob. delete that. send it to Alice"},
+        {"id": "self-correction-declared-order-not-text-order",
+         "description": "surprising: triggers are matched in the fixed order they're "
+                        "declared in config, not the order they occur in the text — "
+                        "'no wait' (declared first) is resolved before 'scratch that' even "
+                        "though it appears later in this sentence, hitting the same "
+                        "dangling-period bug from a different direction",
+         "input": "scratch that. no wait meet at four"},
+        {"id": "self-correction-three-trigger-chain-compounds-dangling-period",
+         "description": "a three-clause chain compounds the same declared-order bug",
+         "input": "meet at three. scratch that. no wait meet at four"},
+        {"id": "self-correction-forget-that-trigger",
+         "description": "exercises the 'forget that' trigger, not covered by any existing "
+                        "vector — also hits the dangling-period bug",
+         "input": "the budget is fine. forget that. the budget is tight"},
+        {"id": "self-correction-strike-that-trigger",
+         "description": "exercises the 'strike that' trigger, not covered by any existing "
+                        "vector — also hits the dangling-period bug",
+         "input": "draft one is done. strike that. draft two is done"},
+        {"id": "self-correction-delete-that-no-period-clean",
+         "description": "contrast case: 'delete that' with no period glued to it rolls back "
+                        "cleanly, with none of the dangling punctuation from the case above",
+         "input": "send it to Bob delete that send it to Alice"},
+        {"id": "filler-attached-to-trailing-period-protected",
+         "description": "surprising: a lowercase trailing filler glued directly to a period "
+                        "is treated as a protected code/path-like token because of the "
+                        "embedded dot, so it survives — even though the same filler with no "
+                        "period is removed",
+         "input": "meeting at noon um."},
+        {"id": "filler-attached-to-comma-and-period-protected",
+         "description": "same trailing-dot protection, with an extra clause before it",
+         "input": "the meeting is at noon, um."},
+        {"id": "filler-newline-separated-still-removed",
+         "description": "contrast with the trailing-dot cases above: a filler on its own "
+                        "line has a bare enclosing token (no glued punctuation) and is "
+                        "removed normally",
+         "input": "the meeting is at noon\num"},
+        {"id": "filler-bare-trailing-removed",
+         "description": "contrast pair: the same filler word is removed both at position 0 "
+                        "and, since it's bare with no glued dot, at the very end too",
+         "input": "um the meeting is at noon um"},
+        {"id": "capitalized-multiword-filler-survives-at-start-not-mid-sentence",
+         "description": "the capitalized multi-word filler 'Sort of' has no hesitation "
+                        "particle, so it's protected at position 0 like 'You know' — but "
+                        "the later lowercase 'kind of' is an ordinary mid-sentence filler "
+                        "and is removed",
+         "input": "Sort of, kind of, the meeting is at noon"},
+        {"id": "uppercase-filler-mid-sentence-protected",
+         "description": "contrast with the position-0 relaxation: an all-caps filler "
+                        "mid-sentence stays protected because the capitalization guard "
+                        "only relaxes at position 0",
+         "input": "the meeting is UM today"},
+        {"id": "lowercase-filler-word-opens-real-phrase",
+         "description": "text that only looks like content but isn't protected: a real "
+                        "phrase beginning with the lowercase word 'like' is still stripped "
+                        "as a filler, because the position-0 exception only protects "
+                        "capitalized tokens",
+         "input": "like a diamond in the sky"},
+        {"id": "looks-like-filler-plural-survives",
+         "description": "the exact case from issue #83: 'Um' at position 0 is stripped as "
+                        "an unambiguous filler, but 'ums' (plural) is a different word and "
+                        "the word-boundary regex correctly leaves it alone",
+         "input": "Um is a word in this sentence about ums"},
+        {"id": "filler-only-protected-at-position-zero-not-elsewhere",
+         "description": "'right' is only ever protected when capitalized at position 0; "
+                        "here it's lowercase, so it's stripped, and 'okay so' (itself in the "
+                        "filler list) is stripped too since it isn't at position 0 either",
+         "input": "right okay so the meeting"},
+        {"id": "self-correction-inside-rtl-text",
+         "description": "an English trigger phrase embedded between two Persian clauses is "
+                        "still recognized and the rollback still works",
+         "input": "سلام. no wait سلام دوباره"},
+        {"id": "mixed-script-filler-removal",
+         "description": "filler removal is purely lexical/ASCII, so it works identically "
+                        "inside a non-Latin sentence",
+         "input": "日本語 um テスト"},
+        {"id": "filler-inside-apostrophe-contraction",
+         "description": "filler removal next to an apostrophe-bearing foreign phrase",
+         "input": "c'est um la vie"},
+        {"id": "every-default-hesitation-particle-in-one-burst",
+         "description": "every default hesitation particle back to back in one utterance",
+         "input": "um, uh, er, ah, hmm, the meeting"},
+        {"id": "all-caps-filler-at-start-still-relaxed",
+         "description": "a full-caps position-0 filler is still recognized as unambiguous "
+                        "and stripped; the rest of the (also all-caps) sentence is untouched",
+         "input": "UM THE MEETING IS AT NOON"},
+        {"id": "nested-self-correction-and-code-identifier-guard",
+         "description": "nested/overlapping disfluencies in one utterance: a filler inside "
+                        "a code identifier must stay protected while a later self-correction "
+                        "trigger still rolls back correctly",
+         "input": "call basically_fn in um main.py, no wait, call other_fn"},
+        {"id": "filler-word-as-url-path-segment",
+         "description": "a filler word occupying its own path segment, with no leading "
+                        "'um' this time, must still survive as part of the URL",
+         "input": "the URL is https://example.com/basically/ok"},
+        {"id": "disabled-bypasses-repetition-and-self-correction-too",
+         "description": "enabled=false is a total no-op, not just a Rule A bypass — "
+                        "repetition, dedup and self-correction triggers all pass through too",
+         "input": "um um the the the, no wait, scratch that",
+         "options": {"enabled": False}},
+        {"id": "sentence-that-is-only-a-lowercase-multiword-filler",
+         "description": "a lowercase multi-word filler with no protection-triggering "
+                        "capitalization is removed even though it's the entire utterance",
+         "input": "you know"},
+        {"id": "long-input-kitchen-sink-fillers-dedup-and-self-correction",
+         "description": "a ~500-word paragraph combining repeated fillers, a multi-word "
+                        "filler, pathological word repetition, and a self-correction, to "
+                        "prove the three-pass filter stays correct at meeting length, not "
+                        "just on short bursts",
+         "input": ("um so the quarterly report is you know basically finished. " * 48)
+                  + "the the the the final number is forty two. no wait scratch that "
+                  + "the final number is forty three."},
     ],
     "postprocess.voice_punctuation": [
         {"id": "empty-string", "description": "empty input is unchanged", "input": ""},

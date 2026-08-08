@@ -4,9 +4,9 @@
 [ADR-MOB-008](adr/adr-mob-008-cross-platform-contract.md)
 **Implements:** [`contract/`](https://github.com/MSKazemi/yazses/blob/main/contract/README.md)
 — six units live (`clean_text`, `disfluency`, `voice_punctuation`, `spacing`,
-`vocabulary`, `grammar`; 131 cases), guarded by `tests/test_contract_vectors.py`. The
+`vocabulary`, `grammar`; 191 cases), guarded by `tests/test_contract_vectors.py`. The
 hold detector and the VAD gate land with the implementations that need them.
-**Last updated:** 2026-08-07
+**Last updated:** 2026-08-09
 
 > **It earned its keep on day one.** The first 54 cases surfaced **three real bugs** in
 > shipped code: `"that is likely correct"` became `"that is ly correct"`, `basically_fn`

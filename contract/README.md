@@ -43,7 +43,7 @@ contract/
     grammar.json             commands.grammar              dictate vs command classification
 ```
 
-**131 cases across six units.** Together they cover everything the Android
+**191 cases across six units.** Together they cover everything the Android
 `:core:postprocess` ([#86](https://github.com/MSKazemi/yazses/issues/86)) and
 `:core:commands` / `:core:vocab` ([#94](https://github.com/MSKazemi/yazses/issues/94))
 modules have to reproduce — so both issues have a complete, executable definition of done.

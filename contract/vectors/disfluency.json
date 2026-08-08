@@ -1,6 +1,6 @@
 {
   "unit": "filters.disfluency",
-  "contract_version": "5.0.0",
+  "contract_version": "5.0.1",
   "source": "src/yazses/stt/filters/disfluency.py::filter_transcript (.text)",
   "cases": [
     {
@@ -337,6 +337,220 @@
       "options": {},
       "input": "um the deploy is at 0900 on 2026-08-07",
       "expected": "the deploy is at 0900 on 2026-08-07"
+    },
+    {
+      "id": "pathological-repetition-four-words-only-half-collapses",
+      "description": "surprising: Rule B's 2-gram dedup removes one repeated pair per pass over the window it matches; four verbatim repeats of 'the' collapse to two, not one",
+      "options": {},
+      "input": "the the the the",
+      "expected": "the the"
+    },
+    {
+      "id": "pathological-repetition-five-words-partial-collapse",
+      "description": "an odd repeat count leaves an even stranger remainder — the same windowed dedup only removes the first matching pair, leaving three",
+      "options": {},
+      "input": "the the the the the",
+      "expected": "the the the"
+    },
+    {
+      "id": "pathological-repetition-fully-collapses-with-repetition-collapse-enabled",
+      "description": "shows the full pipeline order: Rule B first shrinks five 'the's to three survivors, then Rule B.5's unigram rule (which needs a run >= 3) finally collapses them to one",
+      "options": {
+        "collapse_repetitions": true
+      },
+      "input": "the the the the the",
+      "expected": "the"
+    },
+    {
+      "id": "hyphenated-repeat-of-filler-word-leaves-fragment",
+      "description": "surprising, bug-shaped: 'actually' is a default filler, so Rule A strips it out of the middle of the hyphenated token 'a-a-actually', leaving a dangling 'a-a-' fragment glued onto the next word — worth its own issue",
+      "options": {},
+      "input": "a-a-actually the meeting",
+      "expected": "a-a-the meeting"
+    },
+    {
+      "id": "hyphenated-double-filler-leaves-orphan-hyphen",
+      "description": "same class of bug: each 'um' inside 'um-um' is matched and stripped independently by Rule A, leaving an orphaned leading hyphen behind",
+      "options": {},
+      "input": "um-um the meeting",
+      "expected": "-the meeting"
+    },
+    {
+      "id": "self-correction-trigger-followed-by-own-period-leaves-dangling-punctuation",
+      "description": "surprising, bug-shaped: when a trigger phrase is itself followed by its own sentence-ending period, Rule C's trailing whitespace/comma skip does not consume the period, so it survives as a dangling '. ' — worth its own issue",
+      "options": {},
+      "input": "send it to Bob. delete that. send it to Alice",
+      "expected": "send it to Bob. . send it to Alice"
+    },
+    {
+      "id": "self-correction-declared-order-not-text-order",
+      "description": "surprising: triggers are matched in the fixed order they're declared in config, not the order they occur in the text — 'no wait' (declared first) is resolved before 'scratch that' even though it appears later in this sentence, hitting the same dangling-period bug from a different direction",
+      "options": {},
+      "input": "scratch that. no wait meet at four",
+      "expected": ". meet at four"
+    },
+    {
+      "id": "self-correction-three-trigger-chain-compounds-dangling-period",
+      "description": "a three-clause chain compounds the same declared-order bug",
+      "options": {},
+      "input": "meet at three. scratch that. no wait meet at four",
+      "expected": "meet at three. . meet at four"
+    },
+    {
+      "id": "self-correction-forget-that-trigger",
+      "description": "exercises the 'forget that' trigger, not covered by any existing vector — also hits the dangling-period bug",
+      "options": {},
+      "input": "the budget is fine. forget that. the budget is tight",
+      "expected": "the budget is fine. . the budget is tight"
+    },
+    {
+      "id": "self-correction-strike-that-trigger",
+      "description": "exercises the 'strike that' trigger, not covered by any existing vector — also hits the dangling-period bug",
+      "options": {},
+      "input": "draft one is done. strike that. draft two is done",
+      "expected": "draft one is done. . draft two is done"
+    },
+    {
+      "id": "self-correction-delete-that-no-period-clean",
+      "description": "contrast case: 'delete that' with no period glued to it rolls back cleanly, with none of the dangling punctuation from the case above",
+      "options": {},
+      "input": "send it to Bob delete that send it to Alice",
+      "expected": "send it to Alice"
+    },
+    {
+      "id": "filler-attached-to-trailing-period-protected",
+      "description": "surprising: a lowercase trailing filler glued directly to a period is treated as a protected code/path-like token because of the embedded dot, so it survives — even though the same filler with no period is removed",
+      "options": {},
+      "input": "meeting at noon um.",
+      "expected": "meeting at noon um."
+    },
+    {
+      "id": "filler-attached-to-comma-and-period-protected",
+      "description": "same trailing-dot protection, with an extra clause before it",
+      "options": {},
+      "input": "the meeting is at noon, um.",
+      "expected": "the meeting is at noon, um."
+    },
+    {
+      "id": "filler-newline-separated-still-removed",
+      "description": "contrast with the trailing-dot cases above: a filler on its own line has a bare enclosing token (no glued punctuation) and is removed normally",
+      "options": {},
+      "input": "the meeting is at noon\num",
+      "expected": "the meeting is at noon"
+    },
+    {
+      "id": "filler-bare-trailing-removed",
+      "description": "contrast pair: the same filler word is removed both at position 0 and, since it's bare with no glued dot, at the very end too",
+      "options": {},
+      "input": "um the meeting is at noon um",
+      "expected": "the meeting is at noon"
+    },
+    {
+      "id": "capitalized-multiword-filler-survives-at-start-not-mid-sentence",
+      "description": "the capitalized multi-word filler 'Sort of' has no hesitation particle, so it's protected at position 0 like 'You know' — but the later lowercase 'kind of' is an ordinary mid-sentence filler and is removed",
+      "options": {},
+      "input": "Sort of, kind of, the meeting is at noon",
+      "expected": "Sort of, the meeting is at noon"
+    },
+    {
+      "id": "uppercase-filler-mid-sentence-protected",
+      "description": "contrast with the position-0 relaxation: an all-caps filler mid-sentence stays protected because the capitalization guard only relaxes at position 0",
+      "options": {},
+      "input": "the meeting is UM today",
+      "expected": "the meeting is UM today"
+    },
+    {
+      "id": "lowercase-filler-word-opens-real-phrase",
+      "description": "text that only looks like content but isn't protected: a real phrase beginning with the lowercase word 'like' is still stripped as a filler, because the position-0 exception only protects capitalized tokens",
+      "options": {},
+      "input": "like a diamond in the sky",
+      "expected": "a diamond in the sky"
+    },
+    {
+      "id": "looks-like-filler-plural-survives",
+      "description": "the exact case from issue #83: 'Um' at position 0 is stripped as an unambiguous filler, but 'ums' (plural) is a different word and the word-boundary regex correctly leaves it alone",
+      "options": {},
+      "input": "Um is a word in this sentence about ums",
+      "expected": "is a word in this sentence about ums"
+    },
+    {
+      "id": "filler-only-protected-at-position-zero-not-elsewhere",
+      "description": "'right' is only ever protected when capitalized at position 0; here it's lowercase, so it's stripped, and 'okay so' (itself in the filler list) is stripped too since it isn't at position 0 either",
+      "options": {},
+      "input": "right okay so the meeting",
+      "expected": "the meeting"
+    },
+    {
+      "id": "self-correction-inside-rtl-text",
+      "description": "an English trigger phrase embedded between two Persian clauses is still recognized and the rollback still works",
+      "options": {},
+      "input": "سلام. no wait سلام دوباره",
+      "expected": "سلام. سلام دوباره"
+    },
+    {
+      "id": "mixed-script-filler-removal",
+      "description": "filler removal is purely lexical/ASCII, so it works identically inside a non-Latin sentence",
+      "options": {},
+      "input": "日本語 um テスト",
+      "expected": "日本語 テスト"
+    },
+    {
+      "id": "filler-inside-apostrophe-contraction",
+      "description": "filler removal next to an apostrophe-bearing foreign phrase",
+      "options": {},
+      "input": "c'est um la vie",
+      "expected": "c'est la vie"
+    },
+    {
+      "id": "every-default-hesitation-particle-in-one-burst",
+      "description": "every default hesitation particle back to back in one utterance",
+      "options": {},
+      "input": "um, uh, er, ah, hmm, the meeting",
+      "expected": "the meeting"
+    },
+    {
+      "id": "all-caps-filler-at-start-still-relaxed",
+      "description": "a full-caps position-0 filler is still recognized as unambiguous and stripped; the rest of the (also all-caps) sentence is untouched",
+      "options": {},
+      "input": "UM THE MEETING IS AT NOON",
+      "expected": "THE MEETING IS AT NOON"
+    },
+    {
+      "id": "nested-self-correction-and-code-identifier-guard",
+      "description": "nested/overlapping disfluencies in one utterance: a filler inside a code identifier must stay protected while a later self-correction trigger still rolls back correctly",
+      "options": {},
+      "input": "call basically_fn in um main.py, no wait, call other_fn",
+      "expected": "call other_fn"
+    },
+    {
+      "id": "filler-word-as-url-path-segment",
+      "description": "a filler word occupying its own path segment, with no leading 'um' this time, must still survive as part of the URL",
+      "options": {},
+      "input": "the URL is https://example.com/basically/ok",
+      "expected": "the URL is https://example.com/basically/ok"
+    },
+    {
+      "id": "disabled-bypasses-repetition-and-self-correction-too",
+      "description": "enabled=false is a total no-op, not just a Rule A bypass — repetition, dedup and self-correction triggers all pass through too",
+      "options": {
+        "enabled": false
+      },
+      "input": "um um the the the, no wait, scratch that",
+      "expected": "um um the the the, no wait, scratch that"
+    },
+    {
+      "id": "sentence-that-is-only-a-lowercase-multiword-filler",
+      "description": "a lowercase multi-word filler with no protection-triggering capitalization is removed even though it's the entire utterance",
+      "options": {},
+      "input": "you know",
+      "expected": ""
+    },
+    {
+      "id": "long-input-kitchen-sink-fillers-dedup-and-self-correction",
+      "description": "a ~500-word paragraph combining repeated fillers, a multi-word filler, pathological word repetition, and a self-correction, to prove the three-pass filter stays correct at meeting length, not just on short bursts",
+      "options": {},
+      "input": "um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. the the the the final number is forty two. no wait scratch that the final number is forty three.",
+      "expected": "so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. the the final number is forty two. the final number is forty three."
     }
   ]
 }
