@@ -87,6 +87,7 @@ Repository = "https://github.com/MSKazemi/yazses"
 yazses = "yazses.cli:app"
 yazses-daemon = "yazses.main:run"
 yazses-tray = "yazses.tray.app:run"
+yazses-settings = "yazses.settingsui.app:run"
 yazses-agent = "yazses.remote.agent:main"
 yazses-overlay = "yazses.overlay.app:run"
 
