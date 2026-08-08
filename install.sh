@@ -30,6 +30,61 @@ case "$(uname -s)" in
   *) warn "This script targets Linux. On macOS/Windows see the README install steps." ;;
 esac
 
+# 0. Preflight: two prerequisites this script needs but cannot obtain on its own.
+#
+#      git  — step 2 installs with `uv tool install --from git+…`, and uv shells out
+#             to a real git binary for git sources. Without it uv aborts with
+#             "Git executable not found", ~40 lines into unrelated build output.
+#      cc + Python.h — `evdev` (which reads the hold-to-talk key) publishes an sdist
+#             and no wheels at all, so it is compiled from C source on every install.
+#             uv resolves to the *system* interpreter here, so its headers are what
+#             the build needs.
+#
+#    Both used to fail late, deep inside someone else's output, on a machine the user
+#    thought was ready. Detect them first and either fix them or say exactly what to run.
+missing_pkgs=""
+command -v git >/dev/null 2>&1 || missing_pkgs="$missing_pkgs git"
+command -v cc >/dev/null 2>&1 || command -v gcc >/dev/null 2>&1 || missing_pkgs="$missing_pkgs build-essential"
+# Probe the header rather than the package name: `python3-dev` is Debian-specific, but a
+# missing Python.h breaks the evdev build identically everywhere.
+if command -v python3 >/dev/null 2>&1 && ! python3 - <<'PY' >/dev/null 2>&1
+import os, sys, sysconfig
+sys.exit(0 if os.path.exists(os.path.join(sysconfig.get_paths()["include"], "Python.h")) else 1)
+PY
+then
+  missing_pkgs="$missing_pkgs python3-dev"
+fi
+
+if [ -n "$missing_pkgs" ]; then
+  # shellcheck disable=SC2086  # deliberate word-splitting: one package per argument.
+  if command -v apt-get >/dev/null 2>&1; then
+    # Already root (container, CI image) means no sudo — and requiring it there would
+    # fail on boxes that do not ship it at all.
+    if [ "${EUID:-1}" -eq 0 ]; then
+      as_root() { "$@"; }
+    elif command -v sudo >/dev/null 2>&1; then
+      as_root() { sudo "$@"; }
+    else
+      error "Missing prerequisites:${missing_pkgs}
+    Neither root nor sudo is available to install them. As root, run:
+      apt-get install -y${missing_pkgs}
+    then re-run this script."
+    fi
+    info "Installing build prerequisites:${missing_pkgs}"
+    as_root apt-get update -qq \
+      || warn "apt-get update failed — continuing; the install below may still work."
+    as_root apt-get install -y $missing_pkgs \
+      || error "Could not install:${missing_pkgs}. Install them and re-run this script."
+  else
+    error "Missing prerequisites:${missing_pkgs}
+    This script needs them before it can build YazSes. On a non-Debian distro the
+    equivalents are git, a C compiler (gcc), and the Python development headers —
+    e.g.  Fedora: sudo dnf install git gcc python3-devel
+          Arch:   sudo pacman -S git base-devel
+    Install them and re-run this script."
+  fi
+fi
+
 # 1. Ensure uv (fast, isolated Python-tool installer). Installed to ~/.local/bin.
 #    Pinned to a specific uv release and checksummed before it runs, rather than piping
 #    whatever astral.sh/uv/install.sh currently serves straight into sh.

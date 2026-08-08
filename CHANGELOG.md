@@ -80,15 +80,37 @@ as *reference* — because the scripted channels already do all of it — leavin
 of install → log out/in → `yazses mic-level --set` → `yazses start`. The Snap row now carries
 the `snap connect yazses:audio-record` line, whose absence leaves the snap with no microphone.
 
-Two hard prerequisites of the recommended installer were undocumented and unchecked, both
-confirmed by reproducing the failure. `install.sh` installs with `uv tool install --from
-git+…`, so a machine without `git` aborts with `Git executable not found` — and `evdev`,
-which reads the hotkey, publishes **no wheels at all** (sdist only), so every `pipx`/`uv`
-install compiles it and fails without a C toolchain. The page now states `curl git
-build-essential python3-dev` up front, says plainly that **cloning the repo is not
-required**, and notes that APT and Snap ship `evdev` prebuilt and need none of it. The
-by-hand section also gained the step it was missing entirely — `pipx install yazses` *before*
-`yazses setup`, since `setup` is a subcommand of the very program being installed.
+The by-hand section also gained the step it was missing entirely — `pipx install yazses`
+*before* `yazses setup`, since `setup` is a subcommand of the very program being installed.
+The page now also says plainly that **cloning the repo is not required**, which the old
+`/path/to/yazses` wording had implied.
+
+### Fixed — `install.sh` had two hard prerequisites it neither checked for nor installed
+
+Both were found by reproducing the failure, not by reading the script. `install.sh` installs
+with `uv tool install --from git+…`, and uv shells out to a real `git` binary for git
+sources — so on a machine without `git` it aborted with `Git executable not found`, roughly
+forty lines into unrelated build output. Separately, `evdev` (which reads the hold-to-talk
+key) publishes an sdist and **no wheels at all**, so it is compiled from C source on every
+`uv`/`pipx` install; uv resolves to the *system* interpreter here, so the build needs a C
+compiler and that interpreter's headers. Neither was mentioned anywhere, and the script
+provisions everything else — so the failure read as a YazSes bug rather than a missing
+package.
+
+`install.sh` now runs a preflight before it does any work: it probes for `git`, for `cc`/`gcc`,
+and for `Python.h` (probing the header rather than the package name, since `python3-dev` is
+Debian-specific but a missing header breaks the build identically everywhere), then installs
+whatever is missing via `apt` — or, on a distro without `apt`, stops and names the equivalents
+for Fedora and Arch. `tests/test_install_preflight.py` covers both directions: that a PATH
+without `git` or a compiler aborts with exit 1 naming both, *before* reaching the network or
+`sudo`, and that a healthy machine is flagged for nothing.
+
+Only the **Snap** is exempt from the toolchain, because it bundles a prebuilt `evdev`. The APT
+package is not — its post-install step `pipx`-installs the Python package, so it compiles
+`evdev` like every other channel. (The `.deb` does not declare a build toolchain in `Depends`,
+so that post-install step can still fail on a machine without one — filed as a follow-up
+rather than fixed here, since the real repair is shipping a wheel, not making every user
+install a compiler.)
 
 ### Added — the demo reel is on YouTube, and the site now says so in both directions
 

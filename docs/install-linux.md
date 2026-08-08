@@ -11,17 +11,8 @@ configuration. Tested on X11 + PipeWire.
 
 ## 1. Install — one command
 
-**You do not need to clone the repository.** The script fetches everything itself.
-It does need two tools present to do that — `curl` to download it, and `git`
-because it installs the latest code straight from the repo — plus a C compiler,
-because the `evdev` package that reads the hotkey publishes no wheels and is
-always built from source:
-
-```bash
-sudo apt install -y curl git build-essential python3-dev
-```
-
-Then paste this. It installs YazSes and **every** system prerequisite (audio,
+**You do not need to clone the repository** — the script fetches everything
+itself. Paste this. It installs YazSes and **every** system prerequisite (audio,
 keystroke injection, clipboard, the `input` group, and `ydotoold` on Wayland),
 then runs `yazses doctor` so anything missing surfaces during install rather than
 as silent failure later:
@@ -32,9 +23,15 @@ bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install
 
 That is the whole install. Skip to [§2](#2-finish-setup).
 
-> Without `git` the install stops with `Git executable not found`; without the
-> compiler it stops while building `evdev`. The **APT** and **Snap** channels
-> below ship `evdev` prebuilt and need none of these four packages.
+> **Build prerequisites are handled for you.** The script needs `git` (it installs
+> the latest code straight from the repo) and a C compiler with the Python headers
+> (`evdev`, which reads the hotkey, publishes no wheels and is always compiled from
+> source). It checks for all three up front and installs them via `apt` if they are
+> missing, instead of failing later inside the build. On a distro without `apt` it
+> stops and names the packages — Fedora `git gcc python3-devel`, Arch
+> `git base-devel`. The **Snap** is the one channel that needs none of this: it
+> bundles a prebuilt `evdev`. The APT package does *not* — it `pipx`-installs the
+> Python package in its post-install step, so it compiles `evdev` too.
 
 <details>
 <summary>Other install channels (APT, Snap, pipx)</summary>
@@ -42,7 +39,7 @@ That is the whole install. Skip to [§2](#2-finish-setup).
 | Channel | Command | Notes |
 |---|---|---|
 | **Universal script** (recommended) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)` | Latest code from git. Installs `uv` if absent. Provisions everything. |
-| **APT** (Debian/Ubuntu) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)` | Last tagged release. Adds the YazSes apt repo; the `.deb` pulls in the runtime deps, joins the `input` group, sets up `ydotoold`, and enables the user service. |
+| **APT** (Debian/Ubuntu) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)` | Last tagged release. The script adds the YazSes apt repo, installs the runtime deps, joins you to the `input` group and sets up `ydotoold`; the `.deb`'s post-install step then `pipx`-installs the Python package and enables the user service. |
 | **Snap** | `sudo snap install yazses`<br>`sudo snap connect yazses:audio-record` | The `connect` line is required — without it the snap has no microphone. Snap confinement blocks the global hotkey on some desktops; if hold-to-talk does nothing, use one of the other channels. |
 | **pipx** (any distro, Python ≥ 3.11) | `pipx install yazses` | Installs **only** the Python package — needs `build-essential python3-dev` to compile `evdev`, and you must then run `yazses setup` yourself ([§3](#3-installing-by-hand-what-the-installer-did-for-you)). |
 
@@ -194,9 +191,11 @@ ls -l /run/user/$(id -u)/.ydotool_socket   # socket should now exist
 
 ### 3d. What gets installed
 
-Every channel installs five commands into `~/.local/bin` (make sure that's on
-your `PATH`): `yazses`, `yazses-daemon`, `yazses-tray`, `yazses-agent`,
-`yazses-overlay`.
+The script, APT and `pipx` all install five commands into `~/.local/bin` (make
+sure that's on your `PATH`): `yazses`, `yazses-daemon`, `yazses-tray`,
+`yazses-agent`, `yazses-overlay`. The Snap instead exposes `yazses`,
+`yazses-daemon`, `yazses-tray` and `yazses-overlay` on `/snap/bin`, which is
+already on your `PATH`.
 
 > If an old `alias yazses=...` exists in your shell rc pointing at a previous
 > build, remove it so the installed binary is used.
