@@ -53,6 +53,74 @@ wins.
   (`yazses transcribe`), and whole-meeting capture with speaker labels
   (`yazses meeting`). Every other tool on this page does one of the three.
 
+## The difference that is not a feature
+
+Everything in the list above is copyable. Offline Whisper, a command grammar,
+Wayland support, a tray icon — any of the open-source projects on this page could
+ship all of it within a couple of releases, and some of them will. If you are
+choosing a tool for this month, compare the features. If you are choosing a
+project to *depend on*, or to contribute to, the more useful question is what it
+is structurally able to become.
+
+Every dictation tool listed here answers "how does the user start talking?" the
+same way: **a hotkey, hardcoded**. That single assumption is load-bearing — it
+decides who the tool can serve. If you cannot reliably press and hold a key, a
+push-to-talk dictation tool is not accessible to you, no matter how good its
+transcription is.
+
+YazSes treats the activation channel as a **replaceable part**. A hotkey is one
+implementation of a protocol, not a built-in assumption, and other implementations
+already exist in the tree: a USB-serial EMG muscle sensor, a BLE variant, and
+gaze-based window targeting on X11.
+
+What that buys is a straight answer to a question the other tools cannot answer at
+all — *"I can't press a key. Can I still use this?"*
+
+It is also why the research on the [muscle and brain control
+page](research/muscle-brain-control.md) is not decoration. The 2025–26
+silent-speech literature is converging on a result that maps directly onto this
+architecture: closed vocabularies of 10–30 words are decoded at
+[96–97% accuracy](research/muscle-brain-control.md#the-measured-hierarchy-end-to-end),
+while open-vocabulary silent speech still costs ~68% word error rate. So the
+defensible split is **silent commands plus spoken prose** — which needs a system
+where a command channel and a dictation channel can be owned by different
+hardware. That is a shape, not a feature, and it is not something a hotkey-shaped
+tool can add later without becoming a different program.
+
+!!! warning "What is real today, and what is not"
+
+    This page's honesty rule applies here too, so to be precise about the state of
+    it: the **EMG serial and BLE backends exist and work** as a hold-to-talk
+    trigger, and **gaze window-targeting works on X11**. The modality role router
+    that assigns *commands* to one channel and *dictation* to another is written
+    and unit-tested but **not yet wired into the daemon**, and the seam still only
+    carries "start" and "stop" — a decoder that recognises a *word* cannot express
+    it yet. Both are tracked in the open
+    [Silent input milestone](https://github.com/MSKazemi/yazses/milestone/11).
+
+    If you need silent commands working today, none of the tools on this page —
+    including this one — will give you that. What differs is which of them is
+    built so that it can.
+
+## Will it still be here next year?
+
+A fair question for any small open-source project, and the honest signals rather
+than a promise:
+
+- **Apache-2.0**, no CLA, no open-core tier withheld from the repo. If this project
+  stalls, the whole thing is forkable by anyone, with no permission required.
+- **2,300+ tests** across Linux, macOS and Windows on every push, so a fork or a new
+  maintainer inherits something they can actually change safely.
+- Published on **four independent channels** (PyPI, Snap, an APT repo, and
+  `.dmg`/`.exe` release artifacts), so it does not disappear if one of them does.
+- Ten people have contributed. That is a small number, said plainly — but the
+  architecture, the ADRs and the design decisions are all in the open precisely so
+  it does not depend on one person's continued attention.
+
+The thing most likely to kill a project like this is not competition; it is a
+single maintainer losing interest with everything undocumented. That is the failure
+being designed against.
+
 ## When another tool is the better choice
 
 ### YazSes vs Dragon NaturallySpeaking
