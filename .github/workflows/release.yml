@@ -86,6 +86,18 @@ jobs:
       - name: Install build tools
         run: sudo apt-get install -y dpkg-dev
 
+      # build-deb.sh regenerates man/yazses.1 so the .TH version stamp matches
+      # the tag being released. That needs `yazses` importable; without this
+      # step the script falls back to the committed copy and ships a stale
+      # version string.
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: "latest"
+          python-version: "3.12"
+
+      - name: Sync environment (for man page generation)
+        run: uv sync
+
       - name: Build .deb
         run: |
           chmod +x scripts/build-deb.sh

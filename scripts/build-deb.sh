@@ -34,6 +34,30 @@ cp contrib/yazses-session.desktop "$STAGING/etc/xdg/autostart/yazses-session.des
 mkdir -p "$STAGING/usr/share/yazses"
 cp examples/config.example.toml "$STAGING/usr/share/yazses/"
 
+# Man page. Regenerated here rather than trusting the committed copy so the
+# .TH version stamp always matches the package being built (the sync test
+# deliberately ignores that line — see scripts/gen-man.py::body). Debian policy
+# wants man pages gzipped; -n keeps the output reproducible.
+# debian/yazses.manpages covers the dh/PPA path; this covers the .deb we
+# actually publish to the APT repo.
+# `yazses` must be importable to regenerate; prefer the uv venv (CI syncs one)
+# and fall back to a bare interpreter for a local build inside an active venv.
+if command -v uv >/dev/null 2>&1 && uv run python scripts/gen-man.py >/dev/null 2>&1; then
+    echo "Regenerated man/yazses.1 (uv)."
+elif python3 scripts/gen-man.py >/dev/null 2>&1; then
+    echo "Regenerated man/yazses.1 (python3)."
+elif [ -f man/yazses.1 ]; then
+    echo "WARNING: could not regenerate man/yazses.1 (yazses not importable);" >&2
+    echo "         shipping the committed copy — its version stamp may be stale." >&2
+else
+    echo "WARNING: no man page available; this .deb will ship without one." >&2
+fi
+
+if [ -f man/yazses.1 ]; then
+    mkdir -p "$STAGING/usr/share/man/man1"
+    gzip -9nc man/yazses.1 > "$STAGING/usr/share/man/man1/yazses.1.gz"
+fi
+
 # DEBIAN metadata
 mkdir -p "$STAGING/DEBIAN"
 
