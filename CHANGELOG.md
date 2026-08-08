@@ -6,6 +6,52 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the snap could not install any optional feature library, and said so in Debian's words
+
+A snap can never pip-install anything into itself. Its payload is a read-only squashfs,
+and the Python we stage is Debian's, which ships a PEP 668 `EXTERNALLY-MANAGED` marker.
+`yazses features enable <name>` did not know that: it ran pip anyway, and the user got
+Debian's error verbatim —
+
+```
+error: externally-managed-environment
+... try apt install python3-xyz ...
+... create a virtual environment using python3 -m venv ...
+```
+
+— three suggestions, none of which a confined user can act on, and one of which (`pipx`)
+is the very thing they chose not to do. Worse, the config key had **already been written**
+by the time pip failed, so the capability read as enabled while nothing could ever honour
+it: exactly the lie `features enable` already refuses for unwired features.
+
+Verified against the published `yazses_25.snap`: of the 15 capabilities that carry
+optional Python packages, only `overlay` (PySide6) and `stt-parakeet` (onnx-asr) had their
+libraries on board. Eight wired capabilities were unreachable for the life of the
+revision, including **Meeting Mode** — the headline differentiator.
+
+Fixed on both sides.
+
+**The snap now bundles what fits.** `sherpa-onnx` (~40 MB) turns on `meeting`, `recimport`
+and `diarize`; `kokoro-onnx` + `soundfile` turn on `read-back`. Every bundled package must
+publish manylinux wheels for x86_64 *and* aarch64, since `platforms:` builds both and a
+one-arch dep fails the arm64 build outright — the same trap that killed the other five
+architectures. Total cost ~101 MB uncompressed on a snap that was already 422 MB
+compressed.
+
+**What cannot fit is refused honestly**, before the config is written, in the spirit of
+`system/snap.py`'s existing raw-input advice (issue #44) and `system/backends.py`'s rule
+that an impossible instruction is worse than none. `speechbrain` (`cocktail`) pulls torch
+and would dwarf the snap; `llama-cpp-python` (`llm-cleanup`) publishes no PyPI wheels;
+`mediapipe` + `opencv` (`gaze`) cost 110 MB for an experimental webcam feature;
+`praat-parselmouth` (`prosody`) has no aarch64 wheel. Enabling one of those inside a snap
+now explains why, names the packages, and gives the one instruction that works — while
+noting that config and models do not carry across to an unconfined install.
+
+The gate is precise, not a blanket refusal: a capability whose libraries *are* bundled
+still enables normally inside the snap. `system.deps.install_blocked_reason` also catches
+the general case of an unwritable site directory (a root-owned install run as a normal
+user), so pip is never launched into a wall.
+
 ### Added — `yazses settings`, a settings window generated from the feature registry
 
 YazSes had no graphical way to turn a capability on. Everything went through

@@ -164,6 +164,31 @@ parts:
       - libdbus-1-3
     python-packages:
       - pip
+      # Optional-feature libraries, bundled because a snap can NEVER install
+      # them later: the payload is a read-only squashfs and the staged Debian
+      # python ships a PEP 668 EXTERNALLY-MANAGED marker, so `yazses features
+      # enable <name>` cannot pip-install anything at runtime. Whatever is not
+      # here is unreachable for a snap user for the life of the revision.
+      #
+      # Every entry must publish manylinux wheels for BOTH x86_64 and aarch64 —
+      # `platforms:` above builds both, and a dep with no wheel for one of them
+      # fails that build outright (same trap that killed the other five arches).
+      #
+      # sherpa-onnx: speaker diarization — unlocks `meeting`, `recimport` and
+      # `diarize`, i.e. Meeting Mode, the headline capability. ~40 MB.
+      - sherpa-onnx>=1.13.4
+      # kokoro-onnx + soundfile: the Read-Back voice (`read-back`). onnxruntime
+      # is already staged for onnx-asr, so this only adds the TTS front end.
+      - kokoro-onnx>=0.5.0
+      - soundfile>=0.14.0
+      #
+      # Deliberately NOT bundled — each is refused honestly at runtime by
+      # yazses.system.snap.dependency_install_advice rather than silently
+      # failing:
+      #   speechbrain  (`cocktail`)     pulls torch, ~1 GB — dwarfs the snap
+      #   llama-cpp-python (`llm-cleanup`) ships no PyPI wheels, needs a compiler
+      #   mediapipe + opencv (`gaze`)   ~110 MB for an experimental X11/webcam feature
+      #   praat-parselmouth (`prosody`) has no aarch64 wheel — would break arm64
     # snapcraft's python plugin runs a fix-python-shebang helper that searches
     # for /usr/bin/python3.12 in the staged payload. Stage-packages installs
     # python3.12 to /usr/bin, but on some core24 versions the binary lands in

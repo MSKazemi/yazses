@@ -8,15 +8,54 @@ pip environment — so ``yazses features enable <name>`` is turnkey.
 from __future__ import annotations
 
 import importlib.util
+import os
 import shutil
 import subprocess
 import sys
-from collections.abc import Iterable, Sequence
+import sysconfig
+from collections.abc import Iterable, Mapping, Sequence
+from pathlib import Path
+
+from yazses.system.snap import dependency_install_advice, in_snap
 
 
 def missing_modules(modules: Iterable[str]) -> list[str]:
     """Return the import names in *modules* that are not importable."""
     return [m for m in modules if importlib.util.find_spec(m) is None]
+
+
+def _nearest_existing(path: Path) -> Path:
+    """The closest ancestor of *path* that exists (``purelib`` may not yet)."""
+    p = path
+    while not p.exists() and p != p.parent:
+        p = p.parent
+    return p
+
+
+def install_blocked_reason(
+    packages: Sequence[str], *, env: Mapping[str, str] | None = None
+) -> str | None:
+    """Why installing *packages* here cannot work, or ``None`` if it can.
+
+    Checked *before* pip runs, because a doomed install is worse than no
+    install: the user waits, then reads an error written for a different
+    packaging world. Two environments can never accept a package:
+
+    * a snap — read-only squashfs plus Debian's PEP 668 marker (see
+      :mod:`yazses.system.snap`);
+    * any install whose site directory we cannot write (a root-owned
+      system install run as a normal user, a read-only image).
+    """
+    if in_snap(env):
+        return dependency_install_advice(packages, env)
+    target = sysconfig.get_paths().get("purelib")
+    if target and not os.access(_nearest_existing(Path(target)), os.W_OK):
+        return (
+            f"this Python environment is not writable ({target}), so the "
+            "libraries it needs cannot be installed. Install them yourself "
+            "with sufficient permissions:\n    " + " ".join(install_command(packages))
+        )
+    return None
 
 
 def install_command(packages: Sequence[str]) -> list[str]:
@@ -34,6 +73,10 @@ def install_packages(packages: Sequence[str], *, echo=print) -> bool:
     """Install *packages* into the current environment. Returns True on success."""
     if not packages:
         return True
+    blocked = install_blocked_reason(packages)
+    if blocked is not None:
+        echo(blocked)
+        return False
     cmd = install_command(packages)
     echo("Installing dependencies: " + " ".join(packages))
     try:

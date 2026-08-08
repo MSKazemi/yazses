@@ -931,20 +931,51 @@ def features_enable(
         typer.echo("Enable anyway with: yazses features enable "
                    f"{feat.slug} --force", err=True)
         raise typer.Exit(1)
+    blocked = _feature_deps_blocked(feat)
+    if blocked is not None:
+        # Refuse *before* writing config. Enabling a capability whose libraries
+        # can never arrive would leave a config key that nothing can honour —
+        # the same lie `features enable` already refuses for unwired features.
+        typer.echo(f"Can't enable {feat.name}: {blocked}", err=True)
+        raise typer.Exit(1)
     _apply_feature_writes(platform.paths.config_file, feat.on_writes)
     typer.echo(f"Enabled {feat.name}.  {feat.why}")
     _install_feature_deps(feat, skip=no_install)
     typer.echo("Apply it:  yazses restart")
 
 
+def _missing_feature_deps(feat) -> list[str]:
+    """The feature's optional pip deps that are not importable right now."""
+    if not feat.pip_packages:
+        return []
+    from yazses.system.deps import missing_modules
+
+    if not feat.check_modules:
+        return list(feat.pip_packages)
+    return missing_modules(feat.check_modules)
+
+
+def _feature_deps_blocked(feat) -> str | None:
+    """Why this environment can never supply *feat*'s libraries, or ``None``.
+
+    Only a genuinely impossible install counts. A snap whose payload already
+    bundles the libraries reports nothing here, so every capability that fits
+    inside the snap still enables normally.
+    """
+    if not _missing_feature_deps(feat):
+        return None
+    from yazses.system.deps import install_blocked_reason
+
+    return install_blocked_reason(feat.pip_packages)
+
+
 def _install_feature_deps(feat, *, skip: bool) -> None:
     """Install a feature's optional pip deps when any are missing."""
     if not feat.pip_packages:
         return
-    from yazses.system.deps import install_packages, missing_modules
+    from yazses.system.deps import install_packages
 
-    missing = missing_modules(feat.check_modules) if feat.check_modules else list(feat.pip_packages)
-    if not missing:
+    if not _missing_feature_deps(feat):
         return
     if skip:
         typer.echo(

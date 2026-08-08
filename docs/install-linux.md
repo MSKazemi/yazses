@@ -40,7 +40,7 @@ That is the whole install. Skip to [§2](#2-finish-setup).
 |---|---|---|
 | **Universal script** (recommended) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)` | Latest code from git. Installs `uv` if absent. Provisions everything. |
 | **APT** (Debian/Ubuntu) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)` | Last tagged release. The script adds the YazSes apt repo, installs the runtime deps, joins you to the `input` group and sets up `ydotoold`; the `.deb`'s post-install step then `pipx`-installs the Python package and enables the user service. |
-| **Snap** | `sudo snap install yazses`<br>`sudo snap connect yazses:audio-record` | The `connect` line is required — without it the snap has no microphone. Snap confinement blocks the global hotkey on some desktops; if hold-to-talk does nothing, use one of the other channels. |
+| **Snap** | `sudo snap install yazses`<br>`sudo snap connect yazses:audio-record` | The `connect` line is required — without it the snap has no microphone. Snap confinement blocks the global hotkey on some desktops; if hold-to-talk does nothing, use one of the other channels. A snap also ships a **fixed** set of libraries — see [what the snap can and cannot do](#3e-what-the-snap-can-and-cannot-do). |
 | **pipx** (any distro, Python ≥ 3.11) | `pipx install yazses` | Installs **only** the Python package — needs `build-essential python3-dev` to compile `evdev`, and you must then run `yazses setup` yourself ([§3](#3-installing-by-hand-what-the-installer-did-for-you)). |
 
 Already installed and want the newest release?
@@ -202,6 +202,41 @@ already on your `PATH`.
 
 Working on YazSes itself? Clone the repo and run `bash scripts/dev-install.sh` —
 an editable install plus provisioning plus start, in one command.
+
+### 3e. What the snap can and cannot do
+
+A snap ships a **fixed** set of Python libraries. Its files are read-only, so
+`yazses features enable <name>` cannot download anything into it the way the
+other channels can — whatever is bundled in a revision is all that revision will
+ever have.
+
+Everything needed for dictation is bundled, plus the capabilities whose libraries
+fit inside a snap:
+
+| Capability | In the snap? | Why |
+|---|---|---|
+| Dictation, commands, tray, overlay, mic guard, target guard | ✅ | Part of the base install |
+| `stt-parakeet` — higher-accuracy English engine | ✅ | `onnx-asr` is a base dependency |
+| `meeting`, `recimport`, `diarize` — Meeting Mode and diarized import | ✅ | `sherpa-onnx` is bundled |
+| `read-back` — spoken read-back of what you dictated | ✅ | `kokoro-onnx` + `soundfile` are bundled |
+| `cocktail` — Cocktail Filter | ❌ | `speechbrain` pulls PyTorch (~1 GB) |
+| `llm-cleanup` — offline LLM reformatting | ❌ | `llama-cpp-python` has no PyPI wheels; needs a compiler |
+| `gaze` — Glance-Type | ❌ | `mediapipe` + `opencv` cost ~110 MB, and it needs a webcam and X11 |
+| `prosody` — prosody-aware punctuation | ❌ | `praat-parselmouth` publishes no `aarch64` wheel |
+
+Enabling one of the ❌ rows inside the snap refuses with an explanation rather
+than failing halfway through — the config is left untouched, so nothing reads as
+"on" while being unable to work.
+
+To use those four, install through any other channel:
+
+```bash
+sudo snap remove yazses
+pipx install yazses
+```
+
+Note that settings do not carry over: the snap keeps config and models under
+`~/snap/yazses/`, an unconfined install under `~/.config/yazses`.
 
 ## 4. Start at login
 
