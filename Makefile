@@ -13,7 +13,7 @@
 
 LOG_FILE := $(HOME)/.local/state/yazses/log/daemon.log
 
-.PHONY: all install check test lint lint-fix types docs docs-serve \
+.PHONY: all install check test lint lint-fix types docs docs-serve man \
         start stop restart status logs doctor overlay build clean help
 
 all: check
@@ -68,6 +68,12 @@ docs:
 docs-serve:
 	@echo "▶  Serving the docs site at http://127.0.0.1:8000 …"
 	uv run --group docs mkdocs serve
+
+# Regenerate man/yazses.1 from the CLI. Same drill as `docs` — a test enforces
+# it stays in sync, so run this after any CLI change and commit the result.
+man:
+	@echo "▶  Regenerating man/yazses.1…"
+	uv run python scripts/gen-man.py
 
 # ── Daemon lifecycle ──────────────────────────────────────────────────────────
 
@@ -125,6 +131,7 @@ help:
 	@echo "  Documentation"
 	@echo "    make docs        regenerate the generated reference docs"
 	@echo "    make docs-serve  serve the docs site locally"
+	@echo "    make man         regenerate man/yazses.1 from the CLI"
 	@echo ""
 	@echo "  Daemon"
 	@echo "    make start       start the daemon"

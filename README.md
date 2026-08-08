@@ -410,6 +410,8 @@ Quick links:
 | [Students, researchers & industry](docs/research/get-involved.md) | Thesis-sized projects with open issues, the research platform, how to cite |
 | [Record your own demo GIF](docs/demo-guide.md) | How to capture a short hold-to-talk demo GIF |
 
+A man page ships too — `man yazses` works after any package install (pipx, apt, snap).
+
 ---
 
 ## Development

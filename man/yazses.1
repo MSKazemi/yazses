@@ -1,0 +1,552 @@
+.TH YAZSES 1 "2026-08-07" "yazses 2.14.0" "User Commands"
+.SH NAME
+yazses \- Local, offline voice dictation — hold a key, speak, release.
+.SH SYNOPSIS
+.B yazses
+[\fICOMMAND\fR] [\fIARGS\fR]... [\fIOPTIONS\fR]
+.SH DESCRIPTION
+Local, offline voice dictation — hold a key, speak, release.
+Hold a key anywhere on the desktop, speak, release it, and the transcribed text is injected into whatever application is focused. Runs fully offline after the initial model download.
+.SH COMMANDS
+The complete command tree. For grouped, example-rich help run \fByazses \-\-help\fR or \fByazses \fICOMMAND\fR \-\-help\fR.
+.SS "yazses about"
+Show author, version, links, and where to report issues or request features.
+.SS "yazses acronyms"
+Manage a persistent acronym glossary and expand acronyms in text — offline.
+.TP
+\fByazses acronyms add\fR \fIACRONYM\fR \fIFULL\fR
+Register an acronym → full-form expansion in your glossary.
+.TP
+\fByazses acronyms expand\fR \fITEXT\fR
+Expand known acronyms on first use ('Full Name (ACR)'), contract after — offline.
+.TP
+\fByazses acronyms list\fR
+Show your stored acronym glossary.
+.TP
+\fByazses acronyms remove\fR \fIACRONYM\fR
+Remove an acronym from your glossary.
+.SS "yazses audio"
+See and pin the input microphone (fixes a mic that silently switches).
+.TP
+\fByazses audio devices\fR
+List capture-capable audio input devices.
+.TP
+\fByazses audio status\fR
+Show the pinned mic, the OS default, and (if running) live capture health.
+.TP
+\fByazses audio use\fR \fINAME\fR
+Pin the input microphone by name so a monitor/headset can't steal capture.
+.RS
+.TP
+\fB\-\-clear\fR
+Unpin; follow the OS default.
+.RE
+.SS "yazses autostart"
+Start YazSes automatically at login, so it survives a reboot.
+.TP
+\fByazses autostart disable\fR
+Stop starting YazSes at login. The daemon keeps running until you stop it.
+.TP
+\fByazses autostart enable\fR
+Install and enable the login service, so YazSes is running when you sit down.
+.TP
+\fByazses autostart status\fR
+Say whether YazSes will be running after the next reboot.
+.SS "yazses braille"
+Translate text to Unicode Braille (UEB subset) — fully offline.
+.br
+Arguments: \fItext\fR
+.RS
+.TP
+\fB\-\-grade\fR
+UEB grade: 1 (uncontracted) or 2 (contracted).
+.RE
+.SS "yazses case"
+Recase text to a naming convention — fully offline.
+.br
+Arguments: \fItext\fR
+.RS
+.TP
+\fB\-\-style\fR
+Target case: snake|kebab|camel|pascal|title|sentence|upper|lower|constant. Omit to detect a spoken 'make this … case' command in the text.
+.RE
+.SS "yazses chords"
+Turn a spoken key chord into injectable key combos — fully offline.
+.br
+Arguments: \fItext\fR
+.SS "yazses cite"
+Resolve a spoken 'author year' reference against a .bib file — fully offline.
+.br
+Arguments: \fIquery\fR
+.RS
+.TP
+\fB\-\-bib\fR
+Path to a BibTeX (.bib) file.
+.TP
+\fB\-\-style\fR
+latex | plain | apa.
+.RE
+.SS "yazses cliphistory"
+A persistent clipboard history you can recall by voice-style reference — offline.
+.TP
+\fByazses cliphistory add\fR \fITEXT\fR
+Add an entry to your clipboard history (newest first, de-duplicated, capped).
+.TP
+\fByazses cliphistory list\fR
+Show your clipboard history, newest first.
+.TP
+\fByazses cliphistory recall\fR \fIQUERY\fR
+Print the history entry a spoken reference points to — offline.
+.SS "yazses coach"
+Show private speaking-style analytics (filler rate, words-per-minute, vocabulary).
+.RS
+.TP
+\fB\-\-limit, \-n\fR
+How many recent dictations to analyse.
+.RE
+.SS "yazses corpus"
+Inspect or clear the local learning corpus.
+.TP
+\fByazses corpus destroy\fR
+Irreversibly delete the entire learning corpus (database + audio clips).
+.RS
+.TP
+\fB\-\-i\-mean\-it\fR
+Required: confirm irreversible wipe.
+.RE
+.TP
+\fByazses corpus forget\fR
+Delete recently captured events (e.g. after dictating something private).
+.RS
+.TP
+\fB\-\-minutes, \-m\fR
+Delete events from the last N minutes.
+.RE
+.TP
+\fByazses corpus status\fR
+Show the learning corpus size, event counts, and date range.
+.SS "yazses doctor"
+Check system prerequisites and report what's OK / missing.
+.RS
+.TP
+\fB\-\-mic\fR
+Also record a short ambient clip and compare its level to the VAD threshold.
+.RE
+.SS "yazses enroll"
+Run the accessibility enrollment wizard to calibrate VAD thresholds.
+.SS "yazses enroll-voice"
+Record a short voiceprint so YazSes can recognise your voice.
+.SS "yazses features"
+See capabilities and turn them on/off (no config-editing needed).
+.RS
+.TP
+\fB\-\-on\fR
+Show only capabilities that are currently ON.
+.TP
+\fB\-\-tier\fR
+Filter by advice tier: core, on, rec, opt, exp.
+.TP
+\fB\-\-category, \-c\fR
+Filter by category name (partial, case-insensitive), e.g. 'access'.
+.RE
+.TP
+\fByazses features disable\fR \fINAME\fR
+Turn a capability OFF (writes your config), then `yazses restart` to apply.
+.TP
+\fByazses features enable\fR \fINAME\fR
+Turn a capability ON (writes your config), then `yazses restart` to apply.
+.RS
+.TP
+\fB\-\-force\fR
+Allow enabling experimental features.
+.TP
+\fB\-\-no\-install\fR
+Don't auto-install the feature's optional deps.
+.RE
+.TP
+\fByazses features info\fR \fINAME\fR
+Describe a capability — what it does, a usage example, and how to toggle it.
+.SS "yazses findreplace"
+Apply a spoken find-and-replace to text — fully offline.
+.br
+Arguments: \fIcommand\fR
+.RS
+.TP
+\fB\-\-in\fR
+Text to apply it to (omit to read stdin).
+.RE
+.SS "yazses gaze"
+Aim dictation with your gaze — type into whichever pane you look at.
+.TP
+\fByazses gaze calibrate\fR
+Calibrate the webcam so your gaze maps to screen zones.
+.RS
+.TP
+\fB\-\-no\-install\fR
+Don't auto-install the gaze deps (mediapipe, opencv).
+.RE
+.TP
+\fByazses gaze status\fR
+Show whether look-to-pane is ready: deps, desktop backend, calibration.
+.SS "yazses hotkey"
+Change the key you hold to talk.
+.TP
+\fByazses hotkey command\fR \fIKEY\fR
+Set a dedicated *command* key, then `yazses restart` to apply.
+.TP
+\fByazses hotkey set\fR \fIKEY\fR
+Set the key you hold to dictate, then `yazses restart` to apply.
+.TP
+\fByazses hotkey show\fR
+Show the current hold-to-talk key (and command key, if set).
+.SS "yazses inject"
+Type text into the focused window without recording (tests the injector).
+.br
+Arguments: \fItext\fR
+.SS "yazses logs"
+Show the daemon's diagnostic log (metadata only -- no dictated text).
+.RS
+.TP
+\fB\-\-lines, \-n\fR
+Number of recent lines to show.
+.TP
+\fB\-\-path\fR
+Print the log file path and exit.
+.RE
+.SS "yazses mark-wrong"
+Flag the last dictation as a misrecognition (a learning signal).
+.RS
+.TP
+\fB\-\-correction, \-c\fR
+What you actually said (optional).
+.RE
+.SS "yazses meeting"
+Hands-free meeting recording with who-said-what speaker labels + notes.
+.TP
+\fByazses meeting enroll\fR \fIMEETING_ID\fR
+Enroll a meeting speaker as a named voiceprint so they're auto-named next time.
+.RS
+.TP
+\fB\-\-speaker\fR
+Cluster id to enroll, e.g. speaker_1.
+.TP
+\fB\-\-name\fR
+The person's name, e.g. Alice.
+.RE
+.TP
+\fByazses meeting list\fR
+List stored meetings on this machine (no daemon required).
+.RS
+.TP
+\fB\-\-json\fR
+Print meetings as a JSON array (machine-readable; empty list is []).
+.RE
+.TP
+\fByazses meeting notes\fR \fIMEETING_ID\fR
+Generate meeting minutes (summary, decisions, action items) from the transcript.
+.TP
+\fByazses meeting relabel\fR \fIMEETING_ID\fR
+Fix speaker labels — merge two clusters and/or rename them — and re-render.
+.RS
+.TP
+\fB\-\-merge\fR
+Fold one speaker into another: SPEAKER_2=speaker_1 (repeatable).
+.TP
+\fB\-\-rename\fR
+Name a speaker: speaker_1=Alice (repeatable).
+.TP
+\fB\-\-format, \-f\fR
+Transcript format to re-render.
+.RE
+.TP
+\fByazses meeting start\fR
+Start recording a meeting (hands-free — no key to hold).
+.TP
+\fByazses meeting status\fR
+Show the running meeting (elapsed + live transcript) or recent meetings.
+.TP
+\fByazses meeting stop\fR
+Stop the recording and generate the speaker-labelled transcript (and notes).
+.SS "yazses mic-level"
+Measure mic speech level and recommend (or set) the VAD threshold.
+.RS
+.TP
+\fB\-\-seconds, \-s\fR
+Seconds to record while you speak.
+.TP
+\fB\-\-set\fR
+Write the recommended vad_threshold to config.
+.RE
+.SS "yazses model"
+Manage SLM intent-routing models (download / list).
+.TP
+\fByazses model download\fR \fIMODEL_ID\fR
+Download a GGUF model for Tier 2 SLM intent routing.
+.TP
+\fByazses model list\fR
+List available SLM models and their download status.
+.SS "yazses outline"
+Build a nested outline incrementally and render it to Markdown/OPML — offline.
+.TP
+\fByazses outline add\fR \fITEXT\fR
+Add an item after the cursor (same level) and show the outline.
+.TP
+\fByazses outline clear\fR
+Discard the current outline and start fresh.
+.TP
+\fByazses outline indent\fR
+Indent the current item one level deeper (max one deeper than the item above).
+.TP
+\fByazses outline promote\fR
+Promote the current item one level shallower (floor 0).
+.TP
+\fByazses outline render\fR
+Render the current outline to Markdown or OPML.
+.RS
+.TP
+\fB\-\-format, \-f\fR
+markdown | opml.
+.RE
+.SS "yazses overlay"
+Run the sonar voice-activity overlay (needs the `overlay` extra: PySide6).
+.SS "yazses punch-in"
+Correct the last dictation by re-speaking just the wrong phrase.
+.RS
+.TP
+\fB\-\-dry\-run\fR
+List candidate spans without editing (confirm first).
+.TP
+\fB\-\-choose, \-n\fR
+Apply the candidate at this rank (0 = best).
+.RE
+.SS "yazses quickstart"
+Get dictating in 3 steps — a friendly guide tailored to your machine.
+.SS "yazses recall"
+Search your past dictations.
+.br
+Arguments: \fIquery\fR
+.SS "yazses reflow"
+Reflow a monologue into a bulleted outline — fully offline.
+.br
+Arguments: \fItext\fR
+.SS "yazses remote"
+Forward voice typing to a remote host over SSH.
+.br
+Arguments: \fIhost\fR
+.RS
+.TP
+\fB\-\-port, \-p\fR
+SSH port.
+.TP
+\fB\-\-key\-file, \-i\fR
+Path to SSH private key.
+.TP
+\fB\-\-stop\fR
+Disconnect active remote session.
+.RE
+.SS "yazses report"
+Collect a diagnostic report locally — nothing is uploaded.
+.RS
+.TP
+\fB\-\-output, \-o\fR
+Where to write it.
+.TP
+\fB\-\-print\fR
+Print it instead of writing a file.
+.TP
+\fB\-\-log\-lines\fR
+How much log tail to include.
+.RE
+.SS "yazses restart"
+Restart the daemon — kills any stray/duplicate daemons and starts exactly one.
+.SS "yazses say"
+Speak text aloud with the built-in offline voice.
+.br
+Arguments: \fItext\fR
+.SS "yazses scratch"
+Show or clear your ambient scratch notes (spoken "note to self …").
+.br
+Arguments: \fIaction\fR
+.SS "yazses screenplay"
+Format dictated lines as Fountain screenplay markup — fully offline.
+.br
+Arguments: \fItext\fR
+.SS "yazses setup"
+Provision all Linux runtime requirements so dictation works out of the box.
+.RS
+.TP
+\fB\-\-dry\-run\fR
+Show what would be installed/changed without doing it.
+.RE
+.SS "yazses shellpipe"
+Render a spoken pipeline into a shell command — fully offline.
+.br
+Arguments: \fItext\fR
+.SS "yazses slotfill"
+Extract structured fields from one utterance by a schema — fully offline.
+.br
+Arguments: \fItext\fR
+.RS
+.TP
+\fB\-\-slot\fR
+A field spec (repeatable): NAME:after=kw1,kw2  or  NAME:choices=a,b,c.
+.RE
+.SS "yazses srs"
+Capture facts as spaced-repetition flashcards and schedule reviews (SM-2) — offline.
+.TP
+\fByazses srs capture\fR \fITEXT\fR
+Capture a 'remember that X is Y' fact as a cloze flashcard — offline.
+.TP
+\fByazses srs list\fR
+Show your flashcard deck and each card's next-review interval (days).
+.TP
+\fByazses srs review\fR \fICARD\fR
+Grade a card's recall (SM-2) and update its schedule.
+.RS
+.TP
+\fB\-\-grade, \-g\fR
+Recall quality 0–5 (<3 lapses).
+.RE
+.SS "yazses start"
+Start the YazSes daemon (restarts cleanly if one is already running).
+.SS "yazses status"
+Show daemon status. Queries the daemon over IPC when reachable.
+.RS
+.TP
+\fB\-\-json\fR
+Output status as JSON for scripts and status bars.
+.RE
+.SS "yazses stop"
+Stop the running daemon.
+.SS "yazses table"
+Turn spoken rows into delimited (CSV) lines — fully offline.
+.br
+Arguments: \fItext\fR
+.RS
+.TP
+\fB\-\-sep\fR
+Field separator for the output (default: comma).
+.RE
+.SS "yazses test"
+End-to-end self-test: confirm the injector works without speaking.
+.SS "yazses transcribe"
+Transcribe an audio file to text — fully offline, on your machine.
+.br
+Arguments: \fIaudio_file\fR
+.RS
+.TP
+\fB\-\-format, \-f\fR
+Output format: txt (default) | md | srt | vtt | json (srt/vtt add timestamps).
+.TP
+\fB\-\-diarize, \-\-no\-diarize\fR
+Tag who said what with local speaker models (needs the diarization extra).
+.TP
+\fB\-\-speakers\fR
+Force an exact speaker count (0 = auto-detect).
+.TP
+\fB\-\-min\-speakers\fR
+Lower bound on the auto-detected speaker count.
+.TP
+\fB\-\-max\-speakers\fR
+Upper bound on the auto-detected speaker count.
+.TP
+\fB\-\-names\fR
+Comma list mapped to speakers in order of first appearance: 'Alice,Bob,Carol'.
+.TP
+\fB\-\-rename\fR
+Explicit speaker→name map, repeatable: --rename speaker_0=Alice --rename speaker_1=Bob.
+.TP
+\fB\-\-language\fR
+\&'en' (default) or 'translate' to render any-language audio into English text.
+.TP
+\fB\-\-model\fR
+STT model override, e.g. base.en (fast) or small.en (more accurate). Default: your config model.
+.TP
+\fB\-\-out, \-o\fR
+Output file path (default: sidecar <audio_file>.<format>).
+.TP
+\fB\-\-download\-models\fR
+Download the ~15 MB sherpa diarization models, then exit (no transcription).
+.RE
+.SS "yazses tray"
+Show the system-tray / top-bar icon with a click-menu (mic + daemon controls).
+.RS
+.TP
+\fB\-\-background, \-b\fR
+Launch detached instead of blocking.
+.RE
+.SS "yazses tune"
+Analyze the learning corpus and propose accuracy improvements.
+.RS
+.TP
+\fB\-\-apply\fR
+Review and apply proposals interactively.
+.TP
+\fB\-\-retranscribe, \-\-no\-retranscribe\fR
+Re-transcribe captured audio with a larger model to find errors.
+.RE
+.SS "yazses update"
+Check for a newer YazSes and update it (snap / uv tool / pipx / pip).
+.RS
+.TP
+\fB\-\-check\fR
+Only report whether an update is available; don't install.
+.TP
+\fB\-\-yes, \-y\fR
+Install the update without prompting.
+.RE
+.SS "yazses verify"
+Record, transcribe, and prove dictation works end to end on this machine.
+.RS
+.TP
+\fB\-\-seconds, \-s\fR
+How long to record.
+.TP
+\fB\-\-type\fR
+Also type the transcript into the focused window.
+.RE
+.SS "yazses vocab"
+Manage your personal dictionary (words STT mis-hears).
+.TP
+\fByazses vocab add\fR \fIWORDS\fR
+Add words to the dictionary so YazSes spells them right (then `yazses restart`).
+.TP
+\fByazses vocab list\fR
+Show the words in your personal dictionary.
+.TP
+\fByazses vocab remove\fR \fIWORD\fR
+Remove a word from your personal dictionary (then `yazses restart`).
+.SS "yazses wordfind"
+Reverse dictionary: describe a word and get candidates — fully offline.
+.br
+Arguments: \fIdescription\fR
+.RS
+.TP
+\fB\-\-limit, \-n\fR
+Max candidates to show.
+.TP
+\fB\-\-lexicon\fR
+Path to a JSON {word: definition} lexicon to merge in.
+.RE
+.SS "yazses wordgoal"
+Track words written against a writing goal, across invocations — offline.
+.TP
+\fByazses wordgoal add\fR \fITEXT\fR
+Add a chunk of text to your running word count and show progress.
+.TP
+\fByazses wordgoal goal\fR \fIWORDS\fR
+Set (or clear, with 0) your writing goal.
+.TP
+\fByazses wordgoal reset\fR
+Reset the word count to zero (keeps the goal).
+.TP
+\fByazses wordgoal status\fR
+Show your current word count and goal progress.
+.SH FILES
+\fI~/.config/yazses/config.toml\fR on Linux (\fI~/Library/Application Support/yazses/\fR on macOS, \fI%APPDATA%\\yazses\\\fR on Windows).
+.SH SEE ALSO
+Full documentation: \fIhttps://mskazemi.com/yazses/\fR
+.SH AUTHOR
+Mohsen Seyedkazemi Ardebili <mohsen.seyedkazemi@gmail.com>
+.SH BUGS
+Report issues at \fIhttps://github.com/MSKazemi/yazses/issues\fR
