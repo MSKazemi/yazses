@@ -1,24 +1,24 @@
-.TH YAZSES 1 "2026-08-07" "yazses 2.14.0" "User Commands"
+.TH YAZSES 1 "2026-08-07" "yazses 2.15.1" "User Commands"
 .SH NAME
-yazses \- Local, offline voice dictation — hold a key, speak, release.
+yazses \- Local, offline voice dictation \(em hold a key, speak, release.
 .SH SYNOPSIS
 .B yazses
 [\fICOMMAND\fR] [\fIARGS\fR]... [\fIOPTIONS\fR]
 .SH DESCRIPTION
-Local, offline voice dictation — hold a key, speak, release.
+Local, offline voice dictation \(em hold a key, speak, release.
 Hold a key anywhere on the desktop, speak, release it, and the transcribed text is injected into whatever application is focused. Runs fully offline after the initial model download.
 .SH COMMANDS
 The complete command tree. For grouped, example-rich help run \fByazses \-\-help\fR or \fByazses \fICOMMAND\fR \-\-help\fR.
 .SS "yazses about"
 Show author, version, links, and where to report issues or request features.
 .SS "yazses acronyms"
-Manage a persistent acronym glossary and expand acronyms in text — offline.
+Manage a persistent acronym glossary and expand acronyms in text \(em offline.
 .TP
 \fByazses acronyms add\fR \fIACRONYM\fR \fIFULL\fR
-Register an acronym → full-form expansion in your glossary.
+Register an acronym \(-> full-form expansion in your glossary.
 .TP
 \fByazses acronyms expand\fR \fITEXT\fR
-Expand known acronyms on first use ('Full Name (ACR)'), contract after — offline.
+Expand known acronyms on first use ('Full Name (ACR)'), contract after \(em offline.
 .TP
 \fByazses acronyms list\fR
 Show your stored acronym glossary.
@@ -53,7 +53,7 @@ Install and enable the login service, so YazSes is running when you sit down.
 \fByazses autostart status\fR
 Say whether YazSes will be running after the next reboot.
 .SS "yazses braille"
-Translate text to Unicode Braille (UEB subset) — fully offline.
+Translate text to Unicode Braille (UEB subset) \(em fully offline.
 .br
 Arguments: \fItext\fR
 .RS
@@ -62,20 +62,20 @@ Arguments: \fItext\fR
 UEB grade: 1 (uncontracted) or 2 (contracted).
 .RE
 .SS "yazses case"
-Recase text to a naming convention — fully offline.
+Recase text to a naming convention \(em fully offline.
 .br
 Arguments: \fItext\fR
 .RS
 .TP
 \fB\-\-style\fR
-Target case: snake|kebab|camel|pascal|title|sentence|upper|lower|constant. Omit to detect a spoken 'make this … case' command in the text.
+Target case: snake|kebab|camel|pascal|title|sentence|upper|lower|constant. Omit to detect a spoken 'make this \&... case' command in the text.
 .RE
 .SS "yazses chords"
-Turn a spoken key chord into injectable key combos — fully offline.
+Turn a spoken key chord into injectable key combos \(em fully offline.
 .br
 Arguments: \fItext\fR
 .SS "yazses cite"
-Resolve a spoken 'author year' reference against a .bib file — fully offline.
+Resolve a spoken 'author year' reference against a .bib file \(em fully offline.
 .br
 Arguments: \fIquery\fR
 .RS
@@ -87,7 +87,7 @@ Path to a BibTeX (.bib) file.
 latex | plain | apa.
 .RE
 .SS "yazses cliphistory"
-A persistent clipboard history you can recall by voice-style reference — offline.
+A persistent clipboard history you can recall by voice-style reference \(em offline.
 .TP
 \fByazses cliphistory add\fR \fITEXT\fR
 Add an entry to your clipboard history (newest first, de-duplicated, capped).
@@ -96,7 +96,7 @@ Add an entry to your clipboard history (newest first, de-duplicated, capped).
 Show your clipboard history, newest first.
 .TP
 \fByazses cliphistory recall\fR \fIQUERY\fR
-Print the history entry a spoken reference points to — offline.
+Print the history entry a spoken reference points to \(em offline.
 .SS "yazses coach"
 Show private speaking-style analytics (filler rate, words-per-minute, vocabulary).
 .RS
@@ -165,9 +165,9 @@ Don't auto-install the feature's optional deps.
 .RE
 .TP
 \fByazses features info\fR \fINAME\fR
-Describe a capability — what it does, a usage example, and how to toggle it.
+Describe a capability \(em what it does, a usage example, and how to toggle it.
 .SS "yazses findreplace"
-Apply a spoken find-and-replace to text — fully offline.
+Apply a spoken find-and-replace to text \(em fully offline.
 .br
 Arguments: \fIcommand\fR
 .RS
@@ -176,7 +176,7 @@ Arguments: \fIcommand\fR
 Text to apply it to (omit to read stdin).
 .RE
 .SS "yazses gaze"
-Aim dictation with your gaze — type into whichever pane you look at.
+Aim dictation with your gaze \(em type into whichever pane you look at.
 .TP
 \fByazses gaze calibrate\fR
 Calibrate the webcam so your gaze maps to screen zones.
@@ -246,7 +246,7 @@ Print meetings as a JSON array (machine-readable; empty list is []).
 Generate meeting minutes (summary, decisions, action items) from the transcript.
 .TP
 \fByazses meeting relabel\fR \fIMEETING_ID\fR
-Fix speaker labels — merge two clusters and/or rename them — and re-render.
+Fix speaker labels \(em merge two clusters and/or rename them \(em and re-render.
 .RS
 .TP
 \fB\-\-merge\fR
@@ -260,7 +260,7 @@ Transcript format to re-render.
 .RE
 .TP
 \fByazses meeting start\fR
-Start recording a meeting (hands-free — no key to hold).
+Start recording a meeting (hands-free \(em no key to hold).
 .TP
 \fByazses meeting status\fR
 Show the running meeting (elapsed + live transcript) or recent meetings.
@@ -286,7 +286,7 @@ Download a GGUF model for Tier 2 SLM intent routing.
 \fByazses model list\fR
 List available SLM models and their download status.
 .SS "yazses outline"
-Build a nested outline incrementally and render it to Markdown/OPML — offline.
+Build a nested outline incrementally and render it to Markdown/OPML \(em offline.
 .TP
 \fByazses outline add\fR \fITEXT\fR
 Add an item after the cursor (same level) and show the outline.
@@ -320,13 +320,13 @@ List candidate spans without editing (confirm first).
 Apply the candidate at this rank (0 = best).
 .RE
 .SS "yazses quickstart"
-Get dictating in 3 steps — a friendly guide tailored to your machine.
+Get dictating in 3 steps \(em a friendly guide tailored to your machine.
 .SS "yazses recall"
 Search your past dictations.
 .br
 Arguments: \fIquery\fR
 .SS "yazses reflow"
-Reflow a monologue into a bulleted outline — fully offline.
+Reflow a monologue into a bulleted outline \(em fully offline.
 .br
 Arguments: \fItext\fR
 .SS "yazses remote"
@@ -345,7 +345,7 @@ Path to SSH private key.
 Disconnect active remote session.
 .RE
 .SS "yazses report"
-Collect a diagnostic report locally — nothing is uploaded.
+Collect a diagnostic report locally \(em nothing is uploaded.
 .RS
 .TP
 \fB\-\-output, \-o\fR
@@ -358,17 +358,17 @@ Print it instead of writing a file.
 How much log tail to include.
 .RE
 .SS "yazses restart"
-Restart the daemon — kills any stray/duplicate daemons and starts exactly one.
+Restart the daemon \(em kills any stray/duplicate daemons and starts exactly one.
 .SS "yazses say"
 Speak text aloud with the built-in offline voice.
 .br
 Arguments: \fItext\fR
 .SS "yazses scratch"
-Show or clear your ambient scratch notes (spoken "note to self …").
+Show or clear your ambient scratch notes (spoken "note to self \&...").
 .br
 Arguments: \fIaction\fR
 .SS "yazses screenplay"
-Format dictated lines as Fountain screenplay markup — fully offline.
+Format dictated lines as Fountain screenplay markup \(em fully offline.
 .br
 Arguments: \fItext\fR
 .SS "yazses setup"
@@ -379,11 +379,11 @@ Provision all Linux runtime requirements so dictation works out of the box.
 Show what would be installed/changed without doing it.
 .RE
 .SS "yazses shellpipe"
-Render a spoken pipeline into a shell command — fully offline.
+Render a spoken pipeline into a shell command \(em fully offline.
 .br
 Arguments: \fItext\fR
 .SS "yazses slotfill"
-Extract structured fields from one utterance by a schema — fully offline.
+Extract structured fields from one utterance by a schema \(em fully offline.
 .br
 Arguments: \fItext\fR
 .RS
@@ -392,10 +392,10 @@ Arguments: \fItext\fR
 A field spec (repeatable): NAME:after=kw1,kw2  or  NAME:choices=a,b,c.
 .RE
 .SS "yazses srs"
-Capture facts as spaced-repetition flashcards and schedule reviews (SM-2) — offline.
+Capture facts as spaced-repetition flashcards and schedule reviews (SM-2) \(em offline.
 .TP
 \fByazses srs capture\fR \fITEXT\fR
-Capture a 'remember that X is Y' fact as a cloze flashcard — offline.
+Capture a 'remember that X is Y' fact as a cloze flashcard \(em offline.
 .TP
 \fByazses srs list\fR
 Show your flashcard deck and each card's next-review interval (days).
@@ -405,7 +405,7 @@ Grade a card's recall (SM-2) and update its schedule.
 .RS
 .TP
 \fB\-\-grade, \-g\fR
-Recall quality 0–5 (<3 lapses).
+Recall quality 0\(en5 (<3 lapses).
 .RE
 .SS "yazses start"
 Start the YazSes daemon (restarts cleanly if one is already running).
@@ -419,7 +419,7 @@ Output status as JSON for scripts and status bars.
 .SS "yazses stop"
 Stop the running daemon.
 .SS "yazses table"
-Turn spoken rows into delimited (CSV) lines — fully offline.
+Turn spoken rows into delimited (CSV) lines \(em fully offline.
 .br
 Arguments: \fItext\fR
 .RS
@@ -430,7 +430,7 @@ Field separator for the output (default: comma).
 .SS "yazses test"
 End-to-end self-test: confirm the injector works without speaking.
 .SS "yazses transcribe"
-Transcribe an audio file to text — fully offline, on your machine.
+Transcribe an audio file to text \(em fully offline, on your machine.
 .br
 Arguments: \fIaudio_file\fR
 .RS
@@ -454,7 +454,7 @@ Upper bound on the auto-detected speaker count.
 Comma list mapped to speakers in order of first appearance: 'Alice,Bob,Carol'.
 .TP
 \fB\-\-rename\fR
-Explicit speaker→name map, repeatable: --rename speaker_0=Alice --rename speaker_1=Bob.
+Explicit speaker\(->name map, repeatable: --rename speaker_0=Alice --rename speaker_1=Bob.
 .TP
 \fB\-\-language\fR
 \&'en' (default) or 'translate' to render any-language audio into English text.
@@ -517,7 +517,7 @@ Show the words in your personal dictionary.
 \fByazses vocab remove\fR \fIWORD\fR
 Remove a word from your personal dictionary (then `yazses restart`).
 .SS "yazses wordfind"
-Reverse dictionary: describe a word and get candidates — fully offline.
+Reverse dictionary: describe a word and get candidates \(em fully offline.
 .br
 Arguments: \fIdescription\fR
 .RS
@@ -529,7 +529,7 @@ Max candidates to show.
 Path to a JSON {word: definition} lexicon to merge in.
 .RE
 .SS "yazses wordgoal"
-Track words written against a writing goal, across invocations — offline.
+Track words written against a writing goal, across invocations \(em offline.
 .TP
 \fByazses wordgoal add\fR \fITEXT\fR
 Add a chunk of text to your running word count and show progress.

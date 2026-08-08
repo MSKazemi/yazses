@@ -6,6 +6,39 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `man yazses`, generated from the CLI so it cannot drift
+
+YazSes shipped no man page at all: `man yazses` returned "No manual entry", the one
+place a Unix user looks first. `scripts/gen-man.py` now renders `man/yazses.1` from the
+live Typer/Click app — the same trick `scripts/gen-docs.py` uses for
+`docs/command-index.md` — so the page is never hand-written and never lags `--help`.
+`make man` regenerates it and `tests/test_gen_man.py` fails with a "run `make man`"
+message if it drifts, plus asserts every top-level command is documented.
+
+Three details make it hold up in production rather than merely exist:
+
+- **A version bump must not redden CI.** The `.TH` header carries the version and
+  release date, so byte-comparing the whole file would have turned every release into a
+  failing test run until someone remembered to regenerate. The sync test compares the
+  *body* (`gen-man.py::body`) — real CLI drift still fails it, the stamp does not — and
+  `scripts/build-deb.sh` regenerates the page at package build time so the shipped
+  version string is always correct. `release.yml` gained the `uv sync` that makes that
+  regeneration possible on the release runner.
+- **It actually reaches users.** `debian/yazses.manpages` only feeds the `dh`/PPA path,
+  which triggers on `v0.*` tags and is dead. The `.deb` we really publish is built by
+  `scripts/build-deb.sh`, which now installs `/usr/share/man/man1/yazses.1.gz`.
+- **It renders on strict toolchains.** The CLI help text is full of em dashes, arrows
+  and ellipses; raw UTF-8 in a man page only survives `preconv`, and `groff -mandoc`
+  alone emitted an "invalid input character code" warning for all 35 of them. They are
+  now mapped to groff entities (`\(em`, `\(->`, …), and a test keeps the output ASCII.
+
+The README states honestly where `man yazses` works — after an `apt`/`.deb` install, or
+`man -l man/yazses.1` from a checkout — and notes that `pipx`/`pip` and Snap do not put
+man pages on the system man path.
+
+Thanks to [@waterlemonnn](https://github.com/waterlemonnn) for the generator, the
+Makefile target, the drift test and the Debian wiring (#131, closes #3).
+
 ### Fixed — the Linux install page told newcomers to install from a path only the author had
 
 `docs/install-linux.md` was structurally unfollowable for the exact person it was written

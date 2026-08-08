@@ -31,12 +31,36 @@ def _release_date(ver: str) -> str:
     return m.group(1) if m else "unreleased"
 
 
+# Typographic characters the CLI help text uses freely. Raw UTF-8 in a man page
+# only renders when the reader pipes it through preconv (modern `man` does;
+# `groff -mandoc` on its own does not, and emits "invalid input character code"
+# for every one). Mapping them to groff escapes keeps the page portable to
+# strict/older toolchains and keeps `groff -ww -z` silent.
+_GROFF_CHARS = {
+    "—": "\\(em",   # — em dash
+    "–": "\\(en",   # – en dash
+    "→": "\\(->",   # → rightwards arrow
+    "…": "\\&...",  # … ellipsis
+    "‘": "\\(oq",   # ' left single quote
+    "’": "\\(cq",   # ' right single quote
+    "“": "\\(lq",   # " left double quote
+    "”": "\\(rq",   # " right double quote
+    " ": "\\ ",     #   non-breaking space
+}
+
+
 def _esc(text: str) -> str:
-    """Escape a line of prose for groff: backslashes, and a leading `.` or `'`
-    (either would otherwise be read as a request/macro)."""
+    """Escape a line of prose for groff.
+
+    Backslashes first (so the escapes we then insert survive), then the leading
+    `.` or `'` that would otherwise be read as a request/macro, then the
+    non-ASCII typography in :data:`_GROFF_CHARS`.
+    """
     text = text.strip().replace("\\", "\\\\")
     if text.startswith(('.', "'")):
         text = "\\&" + text
+    for char, escape in _GROFF_CHARS.items():
+        text = text.replace(char, escape)
     return text
 
 
@@ -85,6 +109,23 @@ def _walk_click(cmd: click.Command, name: str, depth: int, out: io.StringIO) -> 
             _walk_click(child, full, depth + 1, out)
 
 
+def body(text: str) -> str:
+    """The man page minus its ``.TH`` header line.
+
+    ``.TH`` carries the version and release date, which change at every release
+    even when the CLI is untouched. Enforcing byte-equality on the whole file
+    would therefore turn every version bump into a red CI run until someone
+    remembered ``make man`` — a landmine, not a safety net. The sync test
+    compares *this* instead, so it still catches real CLI drift (a command,
+    flag, or help string that changed) and ignores the stamp. The shipped page
+    always carries the right version regardless: ``scripts/build-deb.sh``
+    regenerates it at package build time.
+    """
+    return "\n".join(
+        line for line in text.splitlines() if not line.startswith(".TH ")
+    )
+
+
 def gen_man() -> str:
     from yazses.cli import app
 
@@ -131,7 +172,7 @@ def gen_man() -> str:
 
 
 def main() -> None:
-    MAN.parent.mkdir(exist_ok=True)
+    MAN.parent.mkdir(parents=True, exist_ok=True)
     content = gen_man()
     MAN.write_text(content, encoding="utf-8")
     print(f"wrote {MAN.relative_to(ROOT)}  ({content.count(chr(10))} lines)")
