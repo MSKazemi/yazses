@@ -20,6 +20,7 @@ writing config — for the ones that provably cannot.
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -80,12 +81,23 @@ def test_install_is_allowed_in_an_ordinary_writable_environment():
 
 
 def test_install_is_blocked_when_the_site_directory_is_read_only(monkeypatch, tmp_path):
-    ro = tmp_path / "site"
-    ro.mkdir()
-    ro.chmod(0o500)
-    monkeypatch.setattr(deps.sysconfig, "get_paths", lambda: {"purelib": str(ro)})
+    """An unwritable ``purelib`` must block the install before pip runs.
+
+    The unwritability is injected rather than made with ``chmod(0o500)``: Windows
+    ignores POSIX mode bits on a *directory*, so ``os.access(dir, W_OK)`` stays
+    True there and the real check — correctly — found nothing wrong. Patching
+    ``os.access`` asserts the branch we care about on every platform instead of
+    asserting the host filesystem's permission semantics.
+    """
+    site = tmp_path / "site"
+    site.mkdir()
+    monkeypatch.setattr(deps.sysconfig, "get_paths", lambda: {"purelib": str(site)})
+    monkeypatch.setattr(
+        deps.os, "access", lambda path, mode: not (mode & os.W_OK and Path(path) == site)
+    )
     reason = deps.install_blocked_reason(["pkg"], env={})
     assert reason is not None and "not writable" in reason
+    assert str(site) in reason
 
 
 def test_a_not_yet_created_site_directory_is_judged_by_its_parent(monkeypatch, tmp_path):
