@@ -1,6 +1,6 @@
 {
   "unit": "postprocess.voice_punctuation",
-  "contract_version": "3.0.0",
+  "contract_version": "5.0.0",
   "source": "src/yazses/postprocess/voice_punctuation.py::apply_voice_punctuation",
   "cases": [
     {

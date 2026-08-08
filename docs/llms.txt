@@ -42,6 +42,12 @@ transcription, and whole-meeting capture with speaker labels from one install.
 nerd-dictation is more minimal; Vocalinux has GPU acceleration; Talon is more powerful
 for voice control; Dragon is more accurate on specialist medical/legal vocabulary.
 
+## Demo
+
+A 40-second recorded demonstration of the system in use — the hold-to-talk core loop, the command line (`status`, `doctor`, `features`), and the system tray: https://www.youtube.com/watch?v=nn8WUKsCvZ4
+
+The terminal output in that recording is real, captured from the running tool; the command-line typing is re-enacted for legibility.
+
 ## Quick start
 
 ```sh
@@ -78,32 +84,32 @@ yazses start      # start the dictation daemon
 
 ## Use cases
 
-- Voice dictation on Linux (X11 and Wayland): https://mskazemi.com/yazses/use-cases/voice-dictation-linux
-- Voice dictation on Wayland (GNOME, KDE Plasma, sway, Hyprland): https://mskazemi.com/yazses/use-cases/voice-dictation-wayland
-- Private/confidential dictation with no cloud (clinical, legal, air-gapped): https://mskazemi.com/yazses/use-cases/private-offline-dictation
-- Coding by voice (spoken symbols, cased identifiers, LaTeX, git): https://mskazemi.com/yazses/use-cases/voice-coding
-- Controlling the computer by voice (commands, macros, shortcuts): https://mskazemi.com/yazses/use-cases/voice-commands
-- Accessibility, RSI and hands-free use (incl. dysfluency-friendly mode): https://mskazemi.com/yazses/use-cases/accessibility-rsi-hands-free
-- Transcribing recordings offline with speaker labels: https://mskazemi.com/yazses/use-cases/transcribe-audio-offline
-- Multilingual dictation and code-switching: https://mskazemi.com/yazses/use-cases/multilingual-dictation
-- Dictation over SSH into a remote server: https://mskazemi.com/yazses/how-to/remote-dictation
-- Research — the science of post-keyboard input (overview; measured text-entry rates by modality, glossary, full reference list): https://mskazemi.com/yazses/research/
-- Research — eye control with a webcam (measured gaze accuracy 1-4 degrees, why look-to-window works and look-to-caret does not, gaze deixis, citations): https://mskazemi.com/yazses/research/eye-control
-- Research — local speech recognition state of the art (WER and CPU speed per engine, latency budget, whispered speech as a command channel, citations): https://mskazemi.com/yazses/research/voice-control
-- Research — muscle (EMG) vs brain (EEG) computer control, measured (why consumer-EEG switches are really muscle artifacts; sEMG at 20.9 WPM vs speech at ~150; accessibility stakes): https://mskazemi.com/yazses/research/muscle-brain-control
-- Research — work with us: student/thesis projects, research-platform seams, how to cite: https://mskazemi.com/yazses/research/get-involved
-- Offline meeting transcription and minutes: https://mskazemi.com/yazses/meeting-notes-offline
+- Voice dictation on Linux (X11 and Wayland): https://mskazemi.com/yazses/use-cases/voice-dictation-linux.html
+- Voice dictation on Wayland (GNOME, KDE Plasma, sway, Hyprland): https://mskazemi.com/yazses/use-cases/voice-dictation-wayland.html
+- Private/confidential dictation with no cloud (clinical, legal, air-gapped): https://mskazemi.com/yazses/use-cases/private-offline-dictation.html
+- Coding by voice (spoken symbols, cased identifiers, LaTeX, git): https://mskazemi.com/yazses/use-cases/voice-coding.html
+- Controlling the computer by voice (commands, macros, shortcuts): https://mskazemi.com/yazses/use-cases/voice-commands.html
+- Accessibility, RSI and hands-free use (incl. dysfluency-friendly mode): https://mskazemi.com/yazses/use-cases/accessibility-rsi-hands-free.html
+- Transcribing recordings offline with speaker labels: https://mskazemi.com/yazses/use-cases/transcribe-audio-offline.html
+- Multilingual dictation and code-switching: https://mskazemi.com/yazses/use-cases/multilingual-dictation.html
+- Dictation over SSH into a remote server: https://mskazemi.com/yazses/how-to/remote-dictation.html
+- Research — the science of post-keyboard input (overview; measured text-entry rates by modality, glossary, full reference list): https://mskazemi.com/yazses/research/index.html
+- Research — eye control with a webcam (measured gaze accuracy 1-4 degrees, why look-to-window works and look-to-caret does not, gaze deixis, citations): https://mskazemi.com/yazses/research/eye-control.html
+- Research — local speech recognition state of the art (WER and CPU speed per engine, latency budget, whispered speech as a command channel, citations): https://mskazemi.com/yazses/research/voice-control.html
+- Research — muscle (EMG) vs brain (EEG) computer control, measured (why consumer-EEG switches are really muscle artifacts; sEMG at 20.9 WPM vs speech at ~150; accessibility stakes): https://mskazemi.com/yazses/research/muscle-brain-control.html
+- Research — work with us: student/thesis projects, research-platform seams, how to cite: https://mskazemi.com/yazses/research/get-involved.html
+- Offline meeting transcription and minutes: https://mskazemi.com/yazses/meeting-notes-offline.html
 
 ## Documentation
 
-- Use cases overview: https://mskazemi.com/yazses/use-cases/
-- Install on Linux: https://mskazemi.com/yazses/install-linux
-- Install on macOS: https://mskazemi.com/yazses/macos-install
-- Install on Windows: https://mskazemi.com/yazses/windows-install
-- CLI reference: https://mskazemi.com/yazses/cli-reference
-- Comparison & alternatives: https://mskazemi.com/yazses/comparison
-- FAQ: https://mskazemi.com/yazses/faq
-- Privacy statement: https://mskazemi.com/yazses/privacy-statement
+- Use cases overview: https://mskazemi.com/yazses/use-cases/index.html
+- Install on Linux: https://mskazemi.com/yazses/install-linux.html
+- Install on macOS: https://mskazemi.com/yazses/macos-install.html
+- Install on Windows: https://mskazemi.com/yazses/windows-install.html
+- CLI reference: https://mskazemi.com/yazses/cli-reference.html
+- Comparison & alternatives: https://mskazemi.com/yazses/comparison.html
+- FAQ: https://mskazemi.com/yazses/faq.html
+- Privacy statement: https://mskazemi.com/yazses/privacy-statement.html
 - Android / mobile programme (in design): https://mskazemi.com/yazses/mobile/index.html
 
 ## Citation

@@ -200,3 +200,39 @@ def test_sentence_initial_multiword_filler_stays_protected():
     assert filter_transcript("You know the meeting is at noon").text == (
         "You know the meeting is at noon"
     )
+
+
+def test_err_is_a_verb_not_a_filler():
+    # "err" was in the default filler list and is an ordinary English verb, so
+    # this deleted a real word mid-sentence (issue #125). Lowercase and
+    # mid-utterance, so none of the #117-#122 position-0 guards ever applied.
+    assert filter_transcript("To err is human").text == "To err is human"
+    assert filter_transcript("Err on the side of caution").text == (
+        "Err on the side of caution"
+    )
+    assert filter_transcript("err on the side of caution").text == (
+        "err on the side of caution"
+    )
+
+
+def test_ah_remains_a_filler():
+    # The line is lexical: "ah" is an interjection in every dictionary sense, so
+    # removing it costs tone and never meaning. "err" has a verb sense and does
+    # not qualify. Decided alongside #125 rather than left to be rediscovered.
+    assert filter_transcript("Ah yes the meeting").text == "yes the meeting"
+    assert filter_transcript("ah well").text == "well"
+
+
+def test_err_fix_does_not_regress_the_hesitation_chain():
+    # Everything the #117 -> #119 -> #121 -> #122 chain settled must still hold.
+    assert filter_transcript("Um the meeting is at noon").text == "the meeting is at noon"
+    assert filter_transcript("So um the meeting is at noon").text == (
+        "the meeting is at noon"
+    )
+    assert filter_transcript("Uh... so I think").text == "so I think"
+    assert filter_transcript("Right turn at the corner").text == "Right turn at the corner"
+    assert filter_transcript("Okay so the meeting is at noon").text == (
+        "Okay so the meeting is at noon"
+    )
+    # "er" is still a particle -- only "err" was removed.
+    assert filter_transcript("Er I forgot").text == "I forgot"

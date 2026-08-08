@@ -9,30 +9,108 @@ This guide installs the Python daemon as a global command and starts it
 automatically at login. It targets the reliable batch (transcribe-on-release)
 configuration. Tested on X11 + PipeWire.
 
-## 1. Prerequisites
+## 1. Install — one command
 
-**The easy way — one command does all of this:**
+**You do not need to clone the repository.** The script fetches everything itself.
+It does need two tools present to do that — `curl` to download it, and `git`
+because it installs the latest code straight from the repo — plus a C compiler,
+because the `evdev` package that reads the hotkey publishes no wheels and is
+always built from source:
 
 ```bash
-yazses setup    # installs deps, joins the input group, sets up ydotoold (Wayland)
+sudo apt install -y curl git build-essential python3-dev
+```
+
+Then paste this. It installs YazSes and **every** system prerequisite (audio,
+keystroke injection, clipboard, the `input` group, and `ydotoold` on Wayland),
+then runs `yazses doctor` so anything missing surfaces during install rather than
+as silent failure later:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)
+```
+
+That is the whole install. Skip to [§2](#2-finish-setup).
+
+> Without `git` the install stops with `Git executable not found`; without the
+> compiler it stops while building `evdev`. The **APT** and **Snap** channels
+> below ship `evdev` prebuilt and need none of these four packages.
+
+<details>
+<summary>Other install channels (APT, Snap, pipx)</summary>
+
+| Channel | Command | Notes |
+|---|---|---|
+| **Universal script** (recommended) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)` | Latest code from git. Installs `uv` if absent. Provisions everything. |
+| **APT** (Debian/Ubuntu) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)` | Last tagged release. Adds the YazSes apt repo; the `.deb` pulls in the runtime deps, joins the `input` group, sets up `ydotoold`, and enables the user service. |
+| **Snap** | `sudo snap install yazses`<br>`sudo snap connect yazses:audio-record` | The `connect` line is required — without it the snap has no microphone. Snap confinement blocks the global hotkey on some desktops; if hold-to-talk does nothing, use one of the other channels. |
+| **pipx** (any distro, Python ≥ 3.11) | `pipx install yazses` | Installs **only** the Python package — needs `build-essential python3-dev` to compile `evdev`, and you must then run `yazses setup` yourself ([§3](#3-installing-by-hand-what-the-installer-did-for-you)). |
+
+Already installed and want the newest release?
+
+```bash
+pipx upgrade yazses          # or: yazses update
+```
+
+</details>
+
+## 2. Finish setup
+
+Three steps only you can do — the installer prints this same list when it
+finishes:
+
+```bash
+# 1. Log out and back in  (once — so the `input` group takes effect)
+yazses mic-level --set   # 2. tune the silence gate to your voice (~4 s)
+yazses start             # 3. start dictating
+```
+
+The **log-out/in is mandatory and one-time.** Group membership only refreshes in
+a *new login session* — opening another terminal tab is **not** enough, because
+it inherits the old session's groups and the hotkey stays dead. To dictate
+immediately without logging out, bridge the group for one session:
+
+```bash
+sg input -c "yazses restart"    # runs the daemon with input-group access now
+```
+
+Verify anytime — you want `[OK] Keyboard capture`, `[OK] Microphone`,
+`[OK] Injection`:
+
+```bash
+yazses doctor
+```
+
+Then hold the hotkey (default `right_alt`), speak, release — the text types into
+whatever field has focus. That's it; the rest of this page is reference.
+
+## 3. Installing by hand (what the installer did for you)
+
+Skip this if [§1](#1-install--one-command) worked — it is for people installing
+with `pipx`, or who want to understand the pieces.
+
+**Order matters: the package first, provisioning second.** `yazses setup` is a
+subcommand *of YazSes*, so it cannot run until YazSes is installed:
+
+```bash
+sudo apt install -y pipx build-essential python3-dev   # pipx + the evdev build toolchain
+pipx install yazses                                    # 1. install the CLI
+yazses setup                                           # 2. now provision the system
 # then log out and back in (the input-group change needs a fresh login)
 ```
 
-`yazses setup` is idempotent (safe to re-run) and provisions everything below
-automatically. It finishes by printing a numbered **"finish installing" checklist**
-of the steps only you can do — join the `input` group, log out and back in,
-calibrate your voice (`yazses mic-level --set`), and `yazses start` — and offers
-to run the mic calibration for you there and then. The rest of this section
-explains what it does, for when you want to do it by hand or understand the
-pieces. Verify anytime with `yazses doctor` (want `[OK] Keyboard capture`,
-`[OK] Microphone`, `[OK] Injection`).
+`yazses setup` installs the audio + injection packages, joins you to the `input`
+group and sets up `ydotoold` on Wayland. It is idempotent (safe to re-run — it
+only fixes what's missing) and finishes by printing the [§2](#2-finish-setup)
+checklist, offering to run the mic calibration for you there and then.
 
-```bash
-yazses doctor   # after install: checks injection backend, mic, input group, ydotoold
-```
+The remaining sub-sections spell out what `yazses setup` does, for when you want
+to do each piece yourself.
 
-**Manual route — install every runtime dependency in one command** (the APT
-`.deb` pulls these in automatically, so skip this if you used `install-apt.sh`):
+### 3a. Runtime dependencies
+
+**Install every runtime dependency in one command** (the APT `.deb` pulls these
+in automatically, so skip this if you used `install-apt.sh`):
 
 ```bash
 sudo apt install libportaudio2 xdotool ydotool wtype xclip wl-clipboard pipx
@@ -51,10 +129,10 @@ What each is for:
 
 Installing all of them makes YazSes work whether you log into X11 or Wayland —
 at runtime YazSes auto-selects the right backend (`inject/auto.py`). You also
-need membership in the **`input`** group (step 1a) and a working microphone
+need membership in the **`input`** group (§3b) and a working microphone
 (PipeWire/PulseAudio/ALSA).
 
-### 1a. Add yourself to the `input` group (required)
+### 3b. Add yourself to the `input` group (required)
 
 The hold-to-talk hotkey is read directly from the kernel input devices
 (`/dev/input/event*`), which are owned by the `input` group. If your user is not
@@ -76,7 +154,7 @@ id -nG | tr ' ' '\n' | grep -x input   # should print: input
 yazses doctor                          # should show [OK] Keyboard capture
 ```
 
-Do this **before** starting the daemon (step 3). `yazses start`/`restart` will
+Do this **before** starting the daemon (§2). `yazses start`/`restart` will
 warn you if this re-login is still pending. To dictate **immediately** without
 logging out, bridge the group for one session:
 
@@ -86,7 +164,7 @@ sg input -c "yazses restart"           # runs the daemon with input-group access
 
 After a real re-login, a plain `yazses start` just works — no bridge needed.
 
-### 1b. Wayland keystroke injection — `ydotoold` (GNOME/KDE Wayland)
+### 3c. Wayland keystroke injection — `ydotoold` (GNOME/KDE Wayland)
 
 How text gets typed depends on your session:
 
@@ -111,32 +189,25 @@ ls -l /run/user/$(id -u)/.ydotool_socket   # socket should now exist
 ```
 
 `ydotoold` runs as your user (no root) because `/dev/uinput` is owned by the
-`input` group (step 1a). After this, `yazses doctor` shows `[OK] Injection` and
+`input` group (§3b). After this, `yazses doctor` shows `[OK] Injection` and
 `[OK] ydotoold`.
 
-## 2. Install the CLI globally
+### 3d. What gets installed
 
-The project ships as a Python package. Install it isolated so `yazses` works
-from anywhere. Either tool works — `uv tool` if you already use `uv`, otherwise
-`pipx`:
-
-```bash
-# Option A — uv (recommended if uv is installed)
-uv tool install --force /path/to/yazses
-
-# Option B — pipx
-pipx install /path/to/yazses
-```
-
-This installs four commands: `yazses`, `yazses-daemon`, `yazses-tray`,
-`yazses-agent` into `~/.local/bin` (make sure that's on your `PATH`).
+Every channel installs five commands into `~/.local/bin` (make sure that's on
+your `PATH`): `yazses`, `yazses-daemon`, `yazses-tray`, `yazses-agent`,
+`yazses-overlay`.
 
 > If an old `alias yazses=...` exists in your shell rc pointing at a previous
 > build, remove it so the installed binary is used.
 
-## 3. Start at login
+Working on YazSes itself? Clone the repo and run `bash scripts/dev-install.sh` —
+an editable install plus provisioning plus start, in one command.
 
-One command, whichever way you installed YazSes:
+## 4. Start at login
+
+The APT install enables this for you. Otherwise it is one command, whichever way
+you installed YazSes:
 
 ```bash
 yazses autostart enable
@@ -174,7 +245,7 @@ repo is the same file.
 
 </details>
 
-## 4. Use it
+## 5. Use it
 
 1. Focus any text field.
 2. Hold the hotkey (default `right_alt`), speak, release.
@@ -185,7 +256,7 @@ yazses status      # state, hotkey, model, backend
 yazses logs        # recent diagnostic log (metadata only)
 ```
 
-## 5. Tune the silence threshold
+## 6. Tune the silence threshold
 
 If dictation does nothing and `yazses logs` shows `Silent audio -- discarding`,
 your speech is below the VAD gate. Measure and set it:
@@ -197,7 +268,7 @@ systemctl --user restart yazses.service
 
 Re-run whenever your speaking volume changes (e.g. quiet late-night dictation).
 
-## 6. Manage the service
+## 7. Manage the service
 
 ```bash
 systemctl --user restart yazses.service    # after a config change
@@ -209,7 +280,7 @@ journalctl --user -u yazses.service -f     # live logs via journald
 Config lives at `~/.config/yazses/config.toml`. See the
 [CLI reference](cli-reference.md) for all commands.
 
-## 7. Troubleshooting: the hotkey does nothing
+## 8. Troubleshooting: the hotkey does nothing
 
 If holding the key records nothing (no transcript, no overlay reaction), run the
 health check first — it now pinpoints every common cause in one shot:
@@ -223,7 +294,7 @@ Look for these lines and act on any that are not `[OK]`:
 - **`Hotkey device: bound to virtual device …`** — the daemon is listening on an
   injector's virtual device (e.g. `ydotoold virtual device`) instead of your real
   keyboard, so your keypresses are never seen. Make sure you are in the `input`
-  group (`groups | grep input`; if missing, [§1a](#1a-add-yourself-to-the-input-group-required),
+  group (`groups | grep input`; if missing, [§3b](#3b-add-yourself-to-the-input-group-required),
   then log out and back in) so the real keyboard is readable. Fixed in v1.3.3+,
   which skips virtual devices automatically; older builds need an upgrade.
 - **`systemd unit: ExecStart=… does not exist`** — the service points at a binary
@@ -236,16 +307,16 @@ Look for these lines and act on any that are not `[OK]`:
   leave you running stale code: `pipx uninstall yazses`, `sudo apt remove yazses`,
   or `uv tool uninstall yazses` as appropriate.
 - **`Keyboard capture: FAIL`** — you are not in the `input` group; see
-  [§1a](#1a-add-yourself-to-the-input-group-required).
+  [§3b](#3b-add-yourself-to-the-input-group-required).
 
 If `yazses logs` shows `Silent audio -- discarding`, the key *is* working but your
-speech is below the VAD gate — see [§5](#5-tune-the-silence-threshold).
+speech is below the VAD gate — see [§6](#6-tune-the-silence-threshold).
 
 > **Tip:** manage the daemon with `systemctl --user restart yazses` when a systemd
 > unit exists; mixing `yazses start` (detached) with a systemd unit can leave two
 > daemons fighting over the hotkey, or none running at all.
 
-## 8. Voice-activity overlay
+## 9. Voice-activity overlay
 
 The overlay draws neon "sonar" rings near the cursor that pulse with your voice
 while you dictate. It is **on by default** and works out of the box: PySide6 is

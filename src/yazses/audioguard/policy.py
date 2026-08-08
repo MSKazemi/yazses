@@ -34,7 +34,7 @@ class EventDebouncer:
 
     def __init__(self, cooldown_frames: int = 30) -> None:
         self._cooldown = cooldown_frames
-        self._last_label = None
+        self._last_label: str | None = None
         self._remaining = 0
 
     def tick(self) -> None:

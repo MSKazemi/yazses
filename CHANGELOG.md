@@ -6,6 +6,256 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the Linux install page told newcomers to install from a path only the author had
+
+`docs/install-linux.md` was structurally unfollowable for the exact person it was written
+for. Its install step read `uv tool install --force /path/to/yazses` / `pipx install
+/path/to/yazses` — a local checkout path a new user does not have, and which fails outright
+if pasted. Worse, that step was **§2**: §1 opened by telling the reader to run `yazses setup`
+and `yazses doctor`, commands that cannot exist until §2 has run. Anyone following the page
+top to bottom hit `command not found` before reaching the install instructions at all.
+
+The page now leads with the one-line installer that actually works
+(`bash <(curl -fsSL .../install.sh)`), with APT, Snap and pipx folded into a comparison table
+behind a disclosure. Provisioning (`yazses setup`, the `input` group, `ydotoold`) moved to §3
+as *reference* — because the scripted channels already do all of it — leaving a first-run path
+of install → log out/in → `yazses mic-level --set` → `yazses start`. The Snap row now carries
+the `snap connect yazses:audio-record` line, whose absence leaves the snap with no microphone.
+
+Two hard prerequisites of the recommended installer were undocumented and unchecked, both
+confirmed by reproducing the failure. `install.sh` installs with `uv tool install --from
+git+…`, so a machine without `git` aborts with `Git executable not found` — and `evdev`,
+which reads the hotkey, publishes **no wheels at all** (sdist only), so every `pipx`/`uv`
+install compiles it and fails without a C toolchain. The page now states `curl git
+build-essential python3-dev` up front, says plainly that **cloning the repo is not
+required**, and notes that APT and Snap ship `evdev` prebuilt and need none of it. The
+by-hand section also gained the step it was missing entirely — `pipx install yazses` *before*
+`yazses setup`, since `setup` is a subcommand of the very program being installed.
+
+### Added — the demo reel is on YouTube, and the site now says so in both directions
+
+The 40-second reel was published to YouTube (`nn8WUKsCvZ4`) with chapters and a description
+that links back to the repo, docs, PyPI and the preprint — but nothing in this repository
+linked *to* it, so the two halves were invisible to each other. The README and the docs
+homepage now link the video, and the homepage `@graph` gained a `VideoObject` node plus a
+`sameAs` entry, which is what lets a search engine or an answer engine connect the video to
+the software entity rather than treating them as unrelated pages.
+
+Deliberately a **link, not an embed**: a YouTube iframe would load third-party tracking on
+the homepage of a project whose entire claim is that nothing leaves your machine. The
+trade-off is honest — without an on-page player Google may decline a video rich result, and
+the animated GIF above the link already carries the same reel — so the markup is here for
+entity resolution, not on the promise of a SERP thumbnail.
+
+### Fixed — the two files most likely to be quoted about this project were citing non-canonical URLs
+
+`docs/llms.txt` exists to be ingested whole by AI answer engines, so every URL inside it is a
+citation candidate — and 23 of them used the extensionless form (`…/use-cases/voice-coding`).
+Those resolve with a 200, which is why nothing looked broken, but the site runs
+`use_directory_urls: false`: the page's own `rel=canonical` and its `sitemap.xml` entry are
+both the `.html` form. An engine quoting llms.txt was therefore being handed the duplicate
+rather than the URL the site declares for itself. The README's seven use-case links had the
+same defect, and matter for the same reason — it is the highest-authority link source the
+project controls, and the arXiv preprint points at it four times.
+
+Every URL in llms.txt is now verified twice: it returns 200 **and** it appears verbatim in
+`sitemap.xml`. That double check earned its keep immediately — a naive rewrite appended a
+second extension to paths that already ended in `.html`, producing `mobile/index.html.html`
+(404), and mangled the two directory URLs. llms.txt also now mentions the 40-second demo
+recording, which it did not reference at all, carrying the same re-enactment disclosure the
+video and the site use.
+
+### Fixed — the snap asked the build farm for five architectures it can never run on
+
+`snap/snapcraft.yaml` declared no `platforms:`, and to the snapcraft.io build service an
+unset architecture list does not mean "amd64" — it means *every* architecture Launchpad
+offers. Connecting the repo therefore fanned each push out to seven builds, of which five
+were impossible before they started: `ctranslate2` (via faster-whisper), `onnxruntime` (via
+onnx-asr) and `PySide6` publish manylinux wheels for `x86_64` and `aarch64` only, **and none
+of the three publishes an sdist at all**, so on armhf, i386, ppc64el, s390x and riscv64 pip
+has nothing it could even attempt to install. Observed on the first fan-out: amd64 built and
+released, i386/armhf/s390x/ppc64el all reported "Failed to build".
+
+The cost was not wasted builder time so much as a permanently red build history — five
+failures per push that nobody can act on, which is exactly how a real regression gets
+overlooked. `platforms:` now names `amd64` and `arm64`, the two the dependency set can
+actually support. The remaining runtime deps were checked against the same bar: numpy and
+cryptography ship aarch64 wheels, sounddevice / faster-whisper / onnx-asr / typer are pure
+Python, and evdev builds from its sdist against the already-staged `python3-dev`.
+
+arm64 then proved itself twice over. Build #3238849 succeeded in 14m13s — the first arm64
+build this project has ever completed, slower than amd64's 7m20s rather than failing fast
+the way the impossible five did, which died at pip in 2–10 minutes with nothing to install.
+It then **released: `arm64 rev27` is live in `latest/edge`**, the first arm64 revision YazSes
+has ever published, so `snap install --edge yazses` now works on 64-bit ARM.
+
+`stable` remains amd64-only and is unaffected: it is published solely by the tag workflow,
+which builds on an amd64 runner. arm64 reaches stable when the build service's arm64 output
+is promoted, which is a separate decision.
+
+### Fixed — the snap hardcoded the x86_64 library path, so any other architecture shipped mute
+
+`ALSA_PLUGIN_DIR` in the app definitions and `LD_LIBRARY_PATH` in all four wrappers contained
+the literal string `x86_64-linux-gnu`. The ALSA pulse plugin and the PulseAudio libraries live
+beneath that Debian multiarch triplet, so on any non-amd64 build both paths resolve to nothing
+and microphone capture fails — silently, with no message a user could act on, which is the
+worst possible failure mode for a dictation tool. It was invisible only because amd64 was the
+sole architecture ever built.
+
+The four wrappers now source a single `snap/local/snap-env.sh` that derives the triplet from
+snapd's `SNAP_ARCH` at runtime, and the audio variables moved there from the `apps.*`
+`environment:` blocks — that block cannot expand the triplet, which is why the constant was
+there in the first place. One copy of the path logic instead of four also removes the drift
+that let the daemon and the CLI disagree.
+
+## [2.15.1] - 2026-08-07
+
+Two fixes, both found by tightening something that had been loose. Dictation stops deleting
+a real English verb, and the type gate — 73 errors deep and therefore useless — is clean and
+immediately earned its keep by surfacing a latent crash.
+
+### Changed — the type gate is real now: `mypy src` is clean, and it found a latent crash
+
+`mypy src` had been carrying a **73-error backlog across 21 files**, which meant the gate
+could not distinguish a new mistake from the pile — a red gate that is always red is not a
+gate. It is now **0 errors**, and `ruff` covers `scripts/` too (it had silently drifted out
+of scope, and had 2 errors nobody could see).
+
+Almost all of it was annotation debt rather than defects — `None`-initialised attributes that
+were never annotated `T | None`, two lambdas mypy could not infer, a `Match | None` rebound to
+`str`, and `os.environ` typed as `dict` when it is a `Mapping`. Three Windows modules use
+`ctypes.windll`/`winreg`, which typeshed declares only for `sys.platform == "win32"`; those
+are scoped to an `attr-defined` override in `pyproject.toml` with the reasoning next to it,
+narrow enough that real mistakes in those files still fail.
+
+**One real defect fell out of it.** `yazses update` did `" ".join(status.command)` while
+`command` is `list[str] | None` — `None` for any install method `upgrade_command()` has no
+recipe for. `detect_install_method()` only ever returns snap/uv/pipx/pip today, so it was not
+reachable in production, but APT is a shipped install channel and the day an `apt` branch is
+added it would have been a `TypeError` instead of a helpful message. It now says which method
+has no automatic upgrade and exits non-zero, with a test that fails without the guard.
+
+Also fixed while checking: `linux/tray.py` used the unscoped Qt enum spellings
+(`Qt.transparent`, `QPainter.Antialiasing`, `Qt.AlignCenter`). They work today, but the
+scoped forms are what the stubs and Qt6 document; verified both resolve to the same values
+before switching.
+
+### Fixed — "To err is human" no longer becomes "To is human" (contract **4.0.0 → 5.0.0**)
+
+`err` shipped in the default `[filters.disfluency] filler_words`, and it is also an ordinary
+English verb. Disfluency filtering is on by default, so ordinary dictation lost a real word:
+
+```
+"To err is human"             ->  "To is human"
+"Err on the side of caution"  ->  "on the side of caution"
+```
+
+This is **not** part of the #117 → #120 → #122 sentence-initial chain, and none of those fixes
+touched it: the first case is lowercase and mid-utterance, so plain filler removal did it with
+no guard involved. It had been there far longer and was invisible because `err` reads as a
+hesitation spelling (#125).
+
+`err` is now absent from the default filler list and from the hesitation particles, so a
+sentence-initial `Err` is safe too. The accepted cost is the one #120 already settled in this
+direction: someone who genuinely hesitates with "err" keeps it, because leaving a filler in
+beats deleting a word. Adding it back is one line of config.
+
+**`ah` was decided at the same time and deliberately kept.** The line is lexical rather than
+phonetic: `ah` is an interjection in every dictionary sense, so removing it costs tone and
+never meaning, while `err` has a verb sense and cannot qualify. That test is now written down
+next to the particle set instead of being rediscovered a fourth time.
+
+As with #122, the regenerated vector diff is **additions-only** — no previously pinned
+expectation changed — so the major bump is by intent: the default filler list is shared
+behaviour other platforms must reproduce, and it changed.
+
+### Fixed — `snap install --edge` served a build from before v2 existed
+
+The release workflow only ever published to `stable`, and nothing else fed `edge`. A channel
+that is never written to does not stay empty, it stays **stale**: `edge` sat on 1.4.1 while
+`stable` was 2.15.0, so anyone following the usual "try edge for the newest build" instinct
+got a snap eleven releases old. Releases now publish to `stable,edge`; verified in production
+on this tag — `edge` moved 1.4.1 → 2.15.1.
+
+### Security — GitPython 3.1.57 → 3.1.58 (6 advisories)
+
+All six land on GitPython, which reaches this project only through
+`mkdocs-git-revision-date-localized-plugin` in the `docs` dependency group — it is **not** in
+the released wheel's dependency set, so no shipped artifact was exposed to the git
+option-injection or `--pathspec-from-file` arbitrary-read issues. Bumped anyway: the fix was a
+lockfile line and the alerts are real.
+
+## [2.15.0] - 2026-08-07
+
+**The honesty release.** Every headline item here is the same shape of defect: the software
+was telling somebody something that was not true. Dictation quietly deleted real words;
+`doctor` handed snap users a fix that could never work; the installer trusted whatever a URL
+served; and a contributor wall that promised to list everyone listed half of them. None of it
+crashed, which is why none of it had been noticed.
+
+Also the release where the contract earned its keep: shared text behaviour went **1.1.0 →
+4.0.0** across three deliberate, separately-argued changes — every one of them raised, fixed
+and reviewed in the open, and inherited automatically by the Android port.
+
+### Fixed — inside a snap, `doctor` gave keyboard advice that could never work
+
+On a strictly confined snap, `yazses doctor` reported `Keyboard capture: denied` and told
+the user to run `sudo usermod -aG input $USER` and log back in. That advice is not merely
+incomplete — it is impossible: snapd blocks raw reads of `/dev/input/event*` regardless of
+group membership, so users followed it in circles and concluded the app was broken (#44).
+
+`doctor` now detects that it is running inside a confined snap and names the only two things
+that can actually fix it — connecting the `raw-input` interface, or installing unconfined:
+
+```
+sudo snap connect yazses:raw-input
+yazses restart
+```
+
+The snap also declares `raw-input` for the first time, which is the missing precondition
+(`snap/snapcraft.yaml` previously had no interface that could ever grant keyboard access).
+snapd does not auto-connect it, so the manual `snap connect` above is still required, and
+Wayland keystroke *injection* remains unavailable under confinement either way — the docs
+continue to steer anyone who needs it to the APT or `pipx` install.
+
+### Fixed — `"So um …"` survived, and `"Uh…"` was mistaken for a file path (contract **3.0.0 → 4.0.0**)
+
+Two position-0 cases left over from the previous two entries, both reachable in ordinary
+dictation (#122).
+
+**`"So um the meeting is at noon"` came through untouched.** Narrowing the relaxation to
+unambiguous fillers used "is it a single word?" as the test, which excluded `so um` and
+`so uh` along with genuinely ambiguous phrases like `you know`. Worse, because the longer
+`so um` alternative matched first and consumed the `um`, the inner `um` was never stripped
+separately either, so the whole phrase survived. Nobody dictating `"So um …"` means to keep
+it. The test is now whether the filler **contains a non-lexical hesitation particle**
+(`um`, `uh`, `er`, `err`, `ah`, `hmm`) rather than how many words it has — which admits
+`so um` and `so uh`, and still refuses `you know` and `i mean`. `okay so` is deliberately
+refused too: it has no hesitation particle, and `"Okay so what do you think?"` is a
+perfectly good message.
+
+**`"Uh... so I think"` was protected as if it were code.** Whisper writes hesitations with
+trailing ellipses, and the code-identifier guard treated any dot in the token as evidence of
+a path — correct for `main.py`, wrong for `Uh...`. Only a dot *inside* the token counts now,
+and a filler removed from position 0 takes its own trailing punctuation with it rather than
+leaving `"... so I think"`. `Actually.` at the end of a sentence is unaffected: it is not a
+hesitation particle, so it never reaches this path.
+
+The bump is **major by intent, not by mechanical diff** — no previously pinned expectation
+changed, but behaviour that other platforms must reproduce did, and an unpinned behaviour
+change is still a behaviour change.
+
+### Added — property-based fuzz tests for the text post-processing pipeline (#115)
+
+`tests/test_property_pipeline.py` uses Hypothesis to throw untrusted-ish input — control
+characters, mixed scripts, RTL (Persian), zero-width characters, emoji, and very long
+transcripts — at `clean_text`, `filter_transcript`, `apply_voice_punctuation`,
+`continuation_prefix`, and `classify`. It asserts none of them raise, `clean_text` is
+idempotent, `filter_transcript` never grows the text, and `classify` never returns a
+non-DICTATE intent that isn't backed by an actual Tier-1 rule match. No property
+violations turned up in this pass; the tests stay as a bounded-budget regression net
+(`OpenSSF Scorecard` fuzzing check).
+
 ### Changed — sentence-initial filler stripping is narrowed to unambiguous fillers (contract **2.0.0 → 3.0.0**)
 
 The #117 relaxation allowed any capitalised filler at utterance position 0 to be removed.
@@ -95,6 +345,20 @@ cloning noticeably slower. It runs in a new cheap `repo-hygiene` CI job.
 
 That job also runs **ruff**, which CI had never enforced. Lint was a local-only gate, so
 `main` was carrying two lint errors nobody was told about; both are fixed here.
+
+### Security — `install.sh` no longer pipes an unpinned, unverified script into `sh`
+
+The `uv` bootstrap step downloaded `astral.sh/uv/install.sh` and ran it straight off the
+network. It now pins a specific `uv` release, downloads that version's installer to a temp
+file, and checks its sha256 before executing — a mismatch aborts the install instead of
+running whatever the URL happens to serve that day. This is the script the README tells
+people to run with `curl | bash`, so it is the one place in the project where a supply-chain
+substitution would matter most (part of #116).
+
+Verification is portable: macOS has no `sha256sum`, so it falls back to `shasum -a 256`, and
+if neither exists the install **aborts rather than skipping the check** — an unverifiable
+download is treated as a failure, not as a pass. The unverified temp file is removed on
+every exit path, including rejection.
 
 ### Added
 

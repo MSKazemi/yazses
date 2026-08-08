@@ -1,6 +1,6 @@
 name: yazses
 base: core24
-version: "2.12.0"
+version: "2.15.1"
 summary: Local, offline voice dictation for Linux
 description: |
   YazSes is offline, on-device voice dictation. Hold a key (Space by default),
@@ -35,15 +35,22 @@ issues: https://github.com/MSKazemi/yazses/issues
 grade: stable
 confinement: strict
 
+# Declared explicitly, because "unset" does not mean "amd64" to the build
+# service -- it means EVERY architecture Launchpad supports, and five of those
+# can never succeed. The runtime stack is wheel-only: ctranslate2 (via
+# faster-whisper), onnxruntime (via onnx-asr) and PySide6 publish manylinux
+# wheels for x86_64 and aarch64 and nothing else, so armhf / i386 / ppc64el /
+# s390x / riscv64 builds fail at pip-install every single time. Requesting them
+# just fills the build history with red that nobody can act on.
+platforms:
+  amd64:
+  arm64:
+
 apps:
   yazses:
     command: bin/yazses-wrapper
-    environment:
-      # Give libasound a config (the confined snap can't see the host's
-      # /usr/share/alsa) so PortAudio's Pa_Initialize routes through PulseAudio
-      # instead of aborting. See snap/local/asound.conf.
-      ALSA_CONFIG_PATH: $SNAP/etc/asound.conf
-      ALSA_PLUGIN_DIR: $SNAP/usr/lib/x86_64-linux-gnu/alsa-lib
+    # ALSA/PulseAudio paths are arch-dependent and this block cannot expand the
+    # multiarch triplet, so the wrapper sets them -- see snap/local/snap-env.sh.
     plugs:
       - audio-record
       - audio-playback
@@ -54,16 +61,19 @@ apps:
       - home
       - network
       - opengl
-  # Audio (2026-07-08): the ALSA env below stops PortAudio aborting; mic *capture*
-  # additionally needs libpulse0 staged (see parts) and PULSE_SERVER pointed at the
-  # host pulse socket (set in the wrappers, since the snap's private XDG_RUNTIME_DIR
-  # has no socket). If a real snapcraft build still can't capture on PipeWire, adopt
+      # Hold-to-talk reads /dev/input/event* via evdev, which strict confinement
+      # blocks outright — the `input` group cannot grant it (issue #44). Not
+      # auto-connected: users run `sudo snap connect yazses:raw-input`, and
+      # `yazses doctor` says so when capture is denied inside a snap.
+      - raw-input
+  # Audio (2026-07-08): the ALSA env set by yazses_audio_env stops PortAudio
+  # aborting; mic *capture* additionally needs libpulse0 staged (see parts) and
+  # PULSE_SERVER pointed at the host pulse socket (the snap's private
+  # XDG_RUNTIME_DIR has no socket). All of it lives in snap/local/snap-env.sh.
+  # If a real snapcraft build still can't capture on PipeWire, adopt
   # `extensions: [gnome]` for the full desktop/pulse session env.
   yazses-daemon:
     command: bin/yazses-daemon-wrapper
-    environment:
-      ALSA_CONFIG_PATH: $SNAP/etc/asound.conf
-      ALSA_PLUGIN_DIR: $SNAP/usr/lib/x86_64-linux-gnu/alsa-lib
     plugs:
       - audio-record
       - audio-playback
@@ -74,6 +84,8 @@ apps:
       - home
       - network
       - opengl
+      # The daemon is the process that actually holds the evdev device.
+      - raw-input
   yazses-overlay:
     command: bin/yazses-overlay-wrapper
     plugs:
@@ -163,6 +175,7 @@ parts:
       if [ ! -e "$CRAFT_PART_INSTALL/usr/bin/python3.12" ]; then
         ln -sf /usr/bin/python3.12 "$CRAFT_PART_INSTALL/usr/bin/python3.12"
       fi
+      install -Dm644 snap/local/snap-env.sh "$CRAFT_PART_INSTALL/bin/snap-env.sh"
       install -Dm755 snap/local/yazses-wrapper "$CRAFT_PART_INSTALL/bin/yazses-wrapper"
       install -Dm755 snap/local/yazses-daemon-wrapper "$CRAFT_PART_INSTALL/bin/yazses-daemon-wrapper"
       install -Dm755 snap/local/yazses-overlay-wrapper "$CRAFT_PART_INSTALL/bin/yazses-overlay-wrapper"

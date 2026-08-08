@@ -31,9 +31,43 @@ case "$(uname -s)" in
 esac
 
 # 1. Ensure uv (fast, isolated Python-tool installer). Installed to ~/.local/bin.
+#    Pinned to a specific uv release and checksummed before it runs, rather than piping
+#    whatever astral.sh/uv/install.sh currently serves straight into sh.
+#
+#    To bump: set both variables together, then verify the new digest with
+#      curl -LsSf https://astral.sh/uv/<version>/install.sh | sha256sum
+#    A version bumped without its digest fails closed (mismatch → abort), which is the
+#    intended direction to be wrong in.
+UV_INSTALLER_VERSION="0.12.3"
+UV_INSTALLER_SHA256="a7e3924ea1cd06bf1518c577d635c624ae2e2db030e0fc8ff8cf426224384e17"
+
+# sha256sum is GNU coreutils; macOS ships `shasum` instead and has no sha256sum unless
+# the user installed coreutils. Without this the verification step itself fails there
+# and reports a *checksum mismatch* for a file that is fine — the worst kind of security
+# error, because it looks like an attack and is really a missing tool.
+verify_sha256() {  # verify_sha256 <file> <expected-hex>
+  if command -v sha256sum >/dev/null 2>&1; then
+    echo "$2  $1" | sha256sum -c - >/dev/null 2>&1
+  elif command -v shasum >/dev/null 2>&1; then
+    echo "$2  $1" | shasum -a 256 -c - >/dev/null 2>&1
+  else
+    error "no sha256 tool found (need sha256sum or shasum) — cannot verify the uv installer."
+  fi
+}
+
 if ! command -v uv >/dev/null 2>&1; then
-  info "Installing uv (Python tool manager)..."
-  curl -LsSf https://astral.sh/uv/install.sh | sh
+  info "Installing uv ${UV_INSTALLER_VERSION} (Python tool manager)..."
+  uv_installer="$(mktemp)"
+  # Delete the unverified download on *any* exit path, including the checksum
+  # failure below — otherwise a rejected installer is left sitting in /tmp.
+  trap 'rm -f "$uv_installer"' EXIT
+  curl -LsSf "https://astral.sh/uv/${UV_INSTALLER_VERSION}/install.sh" -o "$uv_installer" \
+    || error "could not download the uv ${UV_INSTALLER_VERSION} installer."
+  verify_sha256 "$uv_installer" "$UV_INSTALLER_SHA256" \
+    || error "uv installer checksum mismatch — refusing to run it. Expected ${UV_INSTALLER_SHA256}."
+  sh "$uv_installer"
+  rm -f "$uv_installer"
+  trap - EXIT
   export PATH="$HOME/.local/bin:$PATH"
 fi
 command -v uv >/dev/null 2>&1 || error "uv is not on PATH. Add ~/.local/bin to PATH and re-run."

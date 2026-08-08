@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable
+from typing import Any
 
 from yazses.platform.base import TrayModel, TrayState
 
@@ -42,7 +43,8 @@ class WindowsTray:
     """TrayBackend implementation for Windows, backed by pystray."""
 
     def __init__(self) -> None:
-        self._icon = None
+        # pystray is imported lazily, so the concrete Icon type is not nameable here.
+        self._icon: Any = None
         self._on_quit: Callable[[], None] | None = None
         self._lock = threading.Lock()
 

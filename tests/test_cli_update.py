@@ -62,3 +62,21 @@ def test_update_in_help_panel(monkeypatch):
     out = runner.invoke(cli.app, ["update", "-h"], env={"COLUMNS": "220"}).output
     assert "Usage" in out
     assert "yazses update" in out  # example present
+
+
+def test_update_without_a_known_upgrade_command_explains_instead_of_crashing(monkeypatch):
+    # upgrade_command() returns None for any install method it has no recipe for.
+    # detect_install_method() only yields snap/uv/pipx/pip today, so this is not
+    # reachable in production -- but it is one `apt` branch away from being, and
+    # `" ".join(None)` would raise TypeError instead of telling the user anything.
+    monkeypatch.setattr(
+        cli, "check_update", lambda current: _status(True, method="apt", command=None)
+    )
+    ran = []
+    monkeypatch.setattr(cli, "run_upgrade", lambda st: ran.append(st) or 0)
+    result = runner.invoke(cli.app, ["update"])
+    assert result.exit_code == 1
+    assert not isinstance(result.exception, TypeError)
+    assert "apt" in result.output
+    assert "no automatic upgrade" in result.output.lower()
+    assert ran == []  # must not attempt an upgrade it has no command for

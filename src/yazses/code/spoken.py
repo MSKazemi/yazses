@@ -7,6 +7,18 @@ collide with ordinary dictation.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
+
+
+def _literal(value: str) -> Callable[[re.Match[str]], str]:
+    """A ``re.sub`` replacement that emits ``value`` verbatim.
+
+    Binding the value in a factory rather than a lambda default argument keeps the
+    per-iteration capture correct *and* stays inferable — ``lambda _m, s=sym: s``
+    was neither typed nor obvious about why the default was there.
+    """
+    return lambda _m: value
+
 
 # Spoken phrase → symbol. Longest phrases first so "open paren" beats "paren".
 _SYMBOLS = [
@@ -36,7 +48,7 @@ def spoken_symbols(text: str) -> str:
     out = text or ""
     for phrase, sym in _SYMBOLS:
         # function replacement so literal backslashes/symbols aren't re-interpreted
-        out = re.sub(rf"\b{re.escape(phrase)}\b", lambda _m, s=sym: s, out, flags=re.IGNORECASE)
+        out = re.sub(rf"\b{re.escape(phrase)}\b", _literal(sym), out, flags=re.IGNORECASE)
     return out
 
 

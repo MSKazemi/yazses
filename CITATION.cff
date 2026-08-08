@@ -12,6 +12,7 @@ authors:
   - family-names: Seyedkazemi Ardebili
     given-names: Mohsen
     email: mohsen.seyedkazemi@gmail.com
+    orcid: "https://orcid.org/0000-0002-1166-6559"
 repository-code: https://github.com/MSKazemi/yazses
 url: https://mskazemi.com/yazses/
 version: 2.14.0

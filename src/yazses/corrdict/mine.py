@@ -7,6 +7,18 @@ from __future__ import annotations
 
 import re
 from collections import Counter, defaultdict
+from collections.abc import Callable
+
+
+def _literal(value: str) -> Callable[[re.Match[str]], str]:
+    """A ``re.sub`` replacement that emits ``value`` verbatim.
+
+    Binding the value in a factory rather than a lambda default argument keeps the
+    per-iteration capture correct *and* stays inferable, and it preserves the reason
+    a function replacement is used at all: literal backslashes in a correction must
+    not be re-interpreted as group references.
+    """
+    return lambda _m: value
 
 
 def mine_substitutions(events, min_support: int = 3) -> dict:
@@ -44,5 +56,5 @@ def apply_corrections(text: str, table: dict) -> str:
         # \b only helps when the key edges are word chars; fall back to a plain replace otherwise.
         left = r"\b" if key[:1].isalnum() else ""
         right = r"\b" if key[-1:].isalnum() else ""
-        out = re.sub(f"{left}{re.escape(key)}{right}", lambda _m, r=repl: r, out)
+        out = re.sub(f"{left}{re.escape(key)}{right}", _literal(repl), out)
     return out

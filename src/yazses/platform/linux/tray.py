@@ -18,8 +18,12 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 from yazses.platform.base import TrayModel, TrayState
+
+if TYPE_CHECKING:
+    from yazses.tray.controller import TrayController
 
 log = logging.getLogger(__name__)
 
@@ -30,12 +34,15 @@ class LinuxTray:
     """TrayBackend for Linux, backed by a PySide6 QSystemTrayIcon."""
 
     def __init__(self) -> None:
-        self._app = None
-        self._tray = None
-        self._bridge = None  # QObject carrying a thread-safe state Signal
+        # The Qt objects are typed ``Any`` on purpose: PySide6 is imported lazily
+        # inside run(), so naming QApplication/QSystemTrayIcon here would drag the
+        # import back to module scope and break importing this module without it.
+        self._app: Any = None
+        self._tray: Any = None
+        self._bridge: Any = None  # QObject carrying a thread-safe state Signal
         self._latest: dict = {}
         self._lock = threading.Lock()
-        self._controller = None
+        self._controller: TrayController | None = None
 
     # ---- TrayBackend protocol ---------------------------------------------
 
@@ -133,14 +140,14 @@ class LinuxTray:
         from PySide6.QtGui import QBrush, QColor, QFont, QIcon, QPainter, QPixmap
 
         pm = QPixmap(_ICON_PX, _ICON_PX)
-        pm.fill(Qt.transparent)
+        pm.fill(Qt.GlobalColor.transparent)
         p = QPainter(pm)
         try:
-            p.setRenderHint(QPainter.Antialiasing)
-            p.setRenderHint(QPainter.TextAntialiasing)
+            p.setRenderHint(QPainter.RenderHint.Antialiasing)
+            p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
             # Rounded-square badge in the state colour (blue = working, red = idle/problem).
             p.setBrush(QBrush(QColor(color_hex)))
-            p.setPen(Qt.NoPen)
+            p.setPen(Qt.PenStyle.NoPen)
             p.drawRoundedRect(QRectF(5, 5, _ICON_PX - 10, _ICON_PX - 10), 15.0, 15.0)
             # Bold white "Y" — the YazSes mark.
             font = QFont()
@@ -148,7 +155,7 @@ class LinuxTray:
             font.setPixelSize(int(_ICON_PX * 0.62))
             p.setFont(font)
             p.setPen(QColor("#ffffff"))
-            p.drawText(QRectF(0, 0, _ICON_PX, _ICON_PX), Qt.AlignCenter, "Y")
+            p.drawText(QRectF(0, 0, _ICON_PX, _ICON_PX), Qt.AlignmentFlag.AlignCenter, "Y")
         finally:
             p.end()
         return QIcon(pm)

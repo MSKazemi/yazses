@@ -66,7 +66,8 @@
       "avatar_url": "https://avatars.githubusercontent.com/u/192003854?v=4",
       "profile": "https://github.com/AshSgDe29071999",
       "contributions": [
-        "code"
+        "code",
+        "doc"
       ]
     },
     {
@@ -83,6 +84,17 @@
       "name": "Renji",
       "avatar_url": "https://avatars.githubusercontent.com/u/145488564?v=4",
       "profile": "https://github.com/waterlemonnn",
+      "contributions": [
+        "code",
+        "test",
+        "security"
+      ]
+    },
+    {
+      "login": "slegarraga",
+      "name": "Sebastian Legarraga",
+      "avatar_url": "https://avatars.githubusercontent.com/u/64795732?v=4",
+      "profile": "https://github.com/slegarraga",
       "contributions": [
         "code"
       ]

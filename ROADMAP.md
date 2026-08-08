@@ -11,12 +11,12 @@
 
 ## Current frontier — Waves F–O (all OFF by default)
 
-**Stable release: v2.14.0**, published on PyPI, GitHub Releases, Snap, and the APT repo, with
+**Stable release: v2.15.1**, published on PyPI, GitHub Releases, Snap, and the APT repo, with
 Windows `.exe`, macOS `.dmg`, and Debian `.deb` installers attached to the GitHub release (all
 release workflows fire on `v*` tags). The v2 line is delivered as a long series of research
 waves, each a fresh state-of-the-art sweep → ADRs → pure, 100%-covered, off-by-default cores.
 
-As of `v2.14.0`: **141 capabilities (68 wired / 72 honestly marked "planned")**, **2066 tests
+As of `v2.15.1`: **141 capabilities (68 wired / 72 honestly marked "planned")**, **2267 tests
 green**, ADRs `adr-v2-001..129`, research reports in `design/vision/v2-research/` and
 `design/vision/library/`.
 

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "yazses"
-version = "2.14.0"
+version = "2.15.1"
 description = "Local, offline voice dictation for Linux, macOS, and Windows — hold a key, speak, release"
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -188,6 +188,7 @@ dev = [
     "pytest>=9.1.1",
     "pytest-mock>=3.15.1",
     "pytest-cov>=7.1.0",
+    "hypothesis>=6.165.2",
     "useful-moonshine-onnx>=20251121",
     # Lint + type gates. CONTRIBUTING.md and the README tell contributors to run
     # `uv run ruff check src tests` and `uv run mypy src`; they belong here so a
@@ -263,6 +264,24 @@ module = [
     "yazses.voiceprint.resemblyzer_backend",
 ]
 ignore_missing_imports = true
+
+# Win32-only APIs. `ctypes.windll`, `ctypes.get_last_error` and every `winreg`
+# attribute are declared in typeshed behind `sys.platform == "win32"`, so they do
+# not resolve when mypy runs on Linux — which is where CI runs it. The code is
+# correct and only ever imported on Windows (see platform/factory.py), so the
+# errors are an artefact of the checking platform, not a defect.
+#
+# Scoped to `attr-defined` and to these three modules on purpose: every other
+# error code still applies here, and the two Windows modules that contain no
+# Win32 attribute access (tray.py, ipc.py) are deliberately left out so real
+# mistakes in them still fail the gate.
+[[tool.mypy.overrides]]
+module = [
+    "yazses.platform.windows.hotkey",
+    "yazses.platform.windows.injector",
+    "yazses.platform.windows.lifecycle",
+]
+disable_error_code = ["attr-defined"]
 
 [tool.hatch.build.targets.wheel]
 # Include the whole package. `artifacts` un-ignores src/yazses/overlay/ in case a

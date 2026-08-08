@@ -29,7 +29,7 @@ def phonetic_key(word: str) -> str:
     first, rest = w[0], w[1:]
     rest = "".join(ch for ch in rest if ch not in _VOWELS)
     key = first + rest
-    out = []
+    out: list[str] = []
     for ch in key:
         if not out or out[-1] != ch:
             out.append(ch)

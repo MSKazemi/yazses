@@ -220,10 +220,36 @@ CASES: dict[str, list[dict[str, Any]]] = {
          "description": "utterance-initial 'Uh' is unambiguous and still stripped",
          "input": "Uh so I think"},
         {"id": "protects-sentence-initial-capitalised-multiword-filler",
-         "description": "multi-word fillers are not relaxed at position 0: 'You know "
-                        "the meeting is at noon' can be a real sentence addressed to "
-                        "someone, so it stays protected (#120 decision)",
+         "description": "an AMBIGUOUS multi-word filler is not relaxed at position 0: "
+                        "'You know the meeting is at noon' can be a real sentence "
+                        "addressed to someone, so it stays protected (#120 decision, "
+                        "refined by #122 — the test is whether the filler contains a "
+                        "hesitation particle, not whether it has several words)",
          "input": "You know the meeting is at noon"},
+        {"id": "strips-sentence-initial-so-um",
+         "description": "#122 case 1: 'so um' contains the hesitation particle 'um', so "
+                        "it can never open a real sentence and IS relaxed at position 0 "
+                        "— unlike 'you know'. Before #122 the blanket multi-word "
+                        "exclusion left the whole phrase intact",
+         "input": "So um the meeting is at noon"},
+        {"id": "strips-sentence-initial-so-uh",
+         "description": "'so uh' qualifies for the same reason as 'so um'",
+         "input": "So uh the meeting is at noon"},
+        {"id": "protects-sentence-initial-okay-so",
+         "description": "#122 boundary decision: 'okay so' has NO hesitation particle — "
+                        "it is two ordinary words and 'Okay so what do you think?' is a "
+                        "legitimate message, so it stays protected",
+         "input": "Okay so the meeting is at noon"},
+        {"id": "strips-sentence-initial-filler-with-ellipsis",
+         "description": "#122 case 2: Whisper writes a hesitation as 'Uh...'; the "
+                        "trailing dot is sentence punctuation, not the dot in 'main.py', "
+                        "so the code-token guard must not fire on it. The filler and its "
+                        "own trailing punctuation both go",
+         "input": "Uh... so I think"},
+        {"id": "protects-sentence-final-capitalised-filler-with-dot",
+         "description": "the trailing-dot relaxation must not reach 'Actually.' — it is "
+                        "not a hesitation particle, so it stays protected (#122)",
+         "input": "I think so. Actually."},
         {"id": "protects-sentence-initial-right",
          "description": "sentence-initial 'Right' is content (a direction), not a "
                         "filler — #120 narrows the #117 relaxation",
@@ -239,6 +265,20 @@ CASES: dict[str, list[dict[str, Any]]] = {
          "description": "the leading 'Literally' survives while the trailing lowercase "
                         "'literally' is still removed as a filler",
          "input": "Literally means literally"},
+        {"id": "protects-err-as-a-verb",
+         "description": "'err' is an ordinary English verb, so it is not a default filler "
+                        "— this returned 'To is human' until #125. Mid-utterance and "
+                        "lowercase, so no position-0 or capitalisation guard applies",
+         "input": "To err is human"},
+        {"id": "protects-sentence-initial-err",
+         "description": "'Err on the side of caution' is an instruction, not a hesitation "
+                        "— 'err' is excluded from the hesitation particles too (#125)",
+         "input": "Err on the side of caution"},
+        {"id": "strips-sentence-initial-ah",
+         "description": "'ah' stays a filler where 'err' does not: it is an interjection in "
+                        "every dictionary sense, so removing it costs tone, never meaning "
+                        "(#125 decision)",
+         "input": "Ah yes the meeting"},
         {"id": "protects-proper-noun-lookalike",
          "description": "Rule A must not strip a capitalised token that happens to be a "
                         "filler word mid-utterance — 'Like' could be a product name",

@@ -1,6 +1,6 @@
 ---
 title: YazSes vs Dragon, Talon, Wispr Flow & nerd-dictation — offline dictation compared
-description: "An honest comparison of offline voice dictation tools for Linux, macOS and Windows: YazSes vs Dragon NaturallySpeaking, Talon Voice, nerd-dictation, Vocalinux, Wispr Flow, Google and Apple dictation — which runs offline, which does voice commands, which supports Wayland, and which is free."
+description: "An honest comparison of offline voice dictation tools for Linux, macOS and Windows: YazSes vs Dragon NaturallySpeaking, Talon Voice, nerd-dictation, Vocalinux, TalkType, VOXD, Speech Note, Wispr Flow, Google and Apple dictation — which runs offline, which does voice commands, which supports Wayland, and which is free."
 ---
 
 # YazSes vs. other dictation tools
@@ -113,6 +113,20 @@ on-device learning loop.
 YazSes deliberately targets **CPU int8** rather than GPU, so it runs on modest
 hardware; if you have the GPU, a whisper.cpp-based tool will transcribe faster.
 
+### YazSes vs TalkType
+
+[TalkType](https://github.com/ronb1964/TalkType) is the closest thing to YazSes on
+Linux: it is offline, Whisper-based, Wayland-first, and uses the **same
+hold-to-talk gesture** — press a key to talk, release to type. It ships as a
+zero-config AppImage with optional GPU acceleration.
+
+**Choose TalkType** if you want a single-file AppImage with nothing to configure,
+and Linux is the only machine you dictate on.
+
+**Choose YazSes** if you also work on macOS or Windows, if you want the same
+install to transcribe existing recordings and capture meetings with speaker
+labels, or if you need the accessibility and voice-command layers.
+
 ### YazSes vs Wispr Flow
 
 **Choose Wispr Flow** if you want polished, cloud-based AI formatting and
@@ -143,12 +157,51 @@ padding, command grammar, text injection that works on X11 *and* Wayland *and* i
 terminals, a no-text-target guard, mic-change auto-healing, and packaging for
 APT/Snap/PyPI.
 
+### YazSes vs the dictation built into your editor or AI coding tool
+
+VS Code, Cursor and several AI coding assistants ship their own voice input, and
+for typing a prompt into that tool's own box they are the path of least
+resistance. The limitation is structural rather than a matter of quality:
+**in-application dictation only reaches what the application owns.**
+
+YazSes types at the **operating-system level** — `ydotool` on Wayland, `xdotool`
+on X11 — into whichever window currently has focus. Nothing about the target
+window is special to it, so it does not care whether the shell behind that window
+is local, SSH'd, containerised or on the other side of the planet.
+
+The practical consequence, and the reason developers working on remote machines
+tend to notice it first:
+
+| Typing target | In-app dictation | YazSes |
+|---|---|---|
+| That tool's own prompt box | ✅ | ✅ |
+| **VS Code / Cursor Remote-SSH editor pane** | often not | ✅ |
+| **Integrated terminal running a remote shell** | often not | ✅ |
+| A separate terminal with `ssh` / `tmux` / `mosh` | ❌ | ✅ |
+| A shell inside a Docker container or VM | ❌ | ✅ |
+| Any other window you alt-tab to | ❌ | ✅ |
+
+If most of your work happens over Remote-SSH — editing on a server, driving a
+build box, working in a container — this is the single biggest day-to-day
+difference, and it needs no configuration: install YazSes and dictate.
+
+Details and the forwarding case (text typed on a *remote host's own display*):
+[dictation over SSH](how-to/remote-dictation.md).
+
 ### Others in this space
 
 [Whispering](https://github.com/epicenter-so/epicenter), OpenWhispr, Handy and
-VOXD are also active open-source offline dictation projects, mostly built on
-whisper.cpp. They are worth a look if the tools above do not fit — this page is a
-comparison, not a claim that YazSes wins every case.
+[VOXD](https://github.com/jakovius/voxd) are also active open-source offline
+dictation projects, mostly built on whisper.cpp.
+
+[Speech Note](https://github.com/mkiol/dsnote) is worth calling out separately
+because it is a **different shape of tool**: a notepad application you dictate
+*into*, which also does text-to-speech and offline translation. If you want a
+document to write in rather than dictation injected into whatever window has
+focus, it is the better fit — and it does more than YazSes on translation.
+
+These are worth a look if the tools above do not fit; this page is a comparison,
+not a claim that YazSes wins every case.
 
 ## Common questions
 
@@ -162,6 +215,14 @@ hold-to-talk key both types text and triggers editor/terminal actions.
 
 **Does YazSes send my audio anywhere?** No. Transcription runs locally with
 faster-whisper; by default nothing leaves your machine.
+
+**Does voice dictation work over SSH, or in a VS Code Remote-SSH session?** Yes,
+with no extra setup. YazSes injects keystrokes at the operating-system level into
+the focused window, not inside a particular application, so Remote-SSH editor
+panes, integrated terminals running a remote shell, `tmux` sessions and container
+shells all receive dictated text normally. This is where it differs most from the
+voice input built into editors and AI coding tools, which is bound to that
+application's own input handling.
 
 **Is there an offline, open-source alternative to Otter.ai for meeting notes?**
 Yes. `yazses meeting start` / `yazses meeting stop` records a meeting hands-free

@@ -4,7 +4,7 @@
 [ADR-MOB-008](adr/adr-mob-008-cross-platform-contract.md)
 **Implements:** [`contract/`](https://github.com/MSKazemi/yazses/blob/main/contract/README.md)
 — six units live (`clean_text`, `disfluency`, `voice_punctuation`, `spacing`,
-`vocabulary`, `grammar`; 121 cases), guarded by `tests/test_contract_vectors.py`. The
+`vocabulary`, `grammar`; 131 cases), guarded by `tests/test_contract_vectors.py`. The
 hold detector and the VAD gate land with the implementations that need them.
 **Last updated:** 2026-08-07
 
@@ -29,7 +29,7 @@ correct when `contract/vectors/<your-file>.json` is green.** You do not need to 
 ```
 contract/
   README.md                 how to run and extend the contract
-  VERSION                   semver, e.g. 1.0.0
+  VERSION                   semver, e.g. 4.0.0
   schema/
     config.schema.json      every config section, key, type, default
     features.schema.json    capability-registry shape
@@ -54,7 +54,7 @@ under, and a list of cases:
 ```json
 {
   "unit": "postprocess.clean_text",
-  "contract_version": "2.0.0",
+  "contract_version": "4.0.0",
   "source": "src/yazses/postprocess/cleaner.py::clean_text",
   "cases": [
     {

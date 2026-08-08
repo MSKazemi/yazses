@@ -23,7 +23,9 @@ hide:
         "https://github.com/MSKazemi/yazses",
         "https://pypi.org/project/yazses/",
         "https://snapcraft.io/yazses",
-        "https://arxiv.org/abs/2607.28878"
+        "https://arxiv.org/abs/2607.28878",
+        "https://www.youtube.com/watch?v=nn8WUKsCvZ4",
+        "https://www.wikidata.org/wiki/Q140935593"
       ],
       "citation": "https://arxiv.org/abs/2607.28878",
       "license": "https://www.apache.org/licenses/LICENSE-2.0",
@@ -36,12 +38,26 @@ hide:
         "Dysfluency-friendly mode for stuttered or dysarthric speech",
         "EMG/USB muscle-sensor trigger for hands-free accessibility use"
       ],
-      "author": {
-        "@type": "Person",
-        "name": "Mohsen Seyedkazemi Ardebili",
-        "url": "https://github.com/MSKazemi",
-        "sameAs": [ "https://github.com/MSKazemi" ]
-      }
+      "softwareVersion": "2.15.1",
+      "author": { "@id": "https://orcid.org/0000-0002-1166-6559" },
+      "publisher": { "@id": "https://orcid.org/0000-0002-1166-6559" }
+    },
+    {
+      "@type": "Person",
+      "@id": "https://orcid.org/0000-0002-1166-6559",
+      "name": "Mohsen Seyedkazemi Ardebili",
+      "url": "https://mskazemi.com/",
+      "identifier": {
+        "@type": "PropertyValue",
+        "propertyID": "ORCID",
+        "value": "0000-0002-1166-6559"
+      },
+      "sameAs": [
+        "https://orcid.org/0000-0002-1166-6559",
+        "https://scholar.google.com/citations?user=xP64pZsAAAAJ",
+        "https://www.linkedin.com/in/mskazemi/",
+        "https://github.com/MSKazemi"
+      ]
     },
     {
       "@type": "SoftwareSourceCode",
@@ -52,6 +68,18 @@ hide:
       "license": "https://www.apache.org/licenses/LICENSE-2.0"
     },
     {
+      "@type": "VideoObject",
+      "name": "YazSes — offline voice dictation for Linux, macOS & Windows (hold a key, speak, release)",
+      "description": "40-second tour of YazSes: the hold-to-talk core loop, the command line (status, doctor, features), and the system tray. Speech is transcribed on-device with faster-whisper and typed into the focused app.",
+      "thumbnailUrl": "https://i.ytimg.com/vi/nn8WUKsCvZ4/maxresdefault.jpg",
+      "uploadDate": "2026-08-08",
+      "duration": "PT40S",
+      "contentUrl": "https://www.youtube.com/watch?v=nn8WUKsCvZ4",
+      "embedUrl": "https://www.youtube.com/embed/nn8WUKsCvZ4",
+      "publisher": { "@id": "https://orcid.org/0000-0002-1166-6559" },
+      "about": { "@type": "SoftwareApplication", "name": "YazSes" }
+    },
+    {
       "@type": "ScholarlyArticle",
       "name": "YazSes: An Offline, Privacy-First, Cross-Platform Hold-to-Talk Voice-Dictation System",
       "headline": "YazSes: An Offline, Privacy-First, Cross-Platform Hold-to-Talk Voice-Dictation System",
@@ -60,11 +88,7 @@ hide:
       "identifier": "arXiv:2607.28878",
       "datePublished": "2026-07-30",
       "publisher": { "@type": "Organization", "name": "arXiv" },
-      "author": {
-        "@type": "Person",
-        "name": "Mohsen Seyedkazemi Ardebili",
-        "url": "https://github.com/MSKazemi"
-      },
+      "author": { "@id": "https://orcid.org/0000-0002-1166-6559" },
       "about": { "@type": "SoftwareApplication", "name": "YazSes" }
     }
   ]
@@ -91,6 +115,11 @@ focused app. **No cloud. No API key. No subscription. Nothing leaves your machin
 
 </div>
 
+![YazSes — hold a key, speak, release; the text is typed into the focused app](screenshots/yazses-reel.gif)
+
+*40-second tour: the core loop, the command line, and the system tray. Terminal output is real; the command-line typing is re-enacted for legibility.*
+[:material-youtube: Watch it with narration and chapters on YouTube](https://www.youtube.com/watch?v=nn8WUKsCvZ4)
+
 ![yazses doctor — all green, fully offline](screenshots/yazses-doctor.png)
 
 ## Why YazSes
@@ -115,6 +144,16 @@ focused app. **No cloud. No API key. No subscription. Nothing leaves your machin
     focus: editor, browser, terminal, chat. Works on X11 and Wayland.
 
     [:octicons-arrow-right-24: Install on Linux](install-linux.md)
+
+-   :material-server-network:{ .lg .middle } **Works over SSH and Remote-SSH**
+
+    ---
+
+    Because text is injected at the OS level, not inside an app, it lands in
+    VS Code / Cursor Remote-SSH panes, integrated terminals, `tmux` and
+    container shells — where in-app dictation usually can't reach.
+
+    [:octicons-arrow-right-24: Dictation over SSH](how-to/remote-dictation.md)
 
 -   :material-console:{ .lg .middle } **Voice commands & macros**
 
@@ -169,8 +208,21 @@ focused app. **No cloud. No API key. No subscription. Nothing leaves your machin
     ```
 
 !!! warning "Not the snap"
-    The strict-confinement snap can't read the keyboard, so hold-to-talk never
-    fires — use the APT script or `pipx` above.
+    Strict confinement blocks raw keyboard reads, so hold-to-talk never fires on
+    a snap install out of the box — use the APT script or `pipx` above.
+
+    The snap now declares the `raw-input` interface, which is what grants that
+    access, but snapd does **not** connect it automatically. From the next
+    published snap build you can try:
+
+    ```sh
+    sudo snap connect yazses:raw-input
+    yazses restart && yazses doctor        # expect: Keyboard capture: ok
+    ```
+
+    Wayland keystroke *injection* stays unavailable under confinement either
+    way. If you need Wayland, or want it to work without extra steps, install
+    via APT or `pipx`.
 
 **Linux only — provision the system in one command** (the `install-apt.sh` / APT path does it automatically):
 

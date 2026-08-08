@@ -81,8 +81,18 @@
   },
   {
     "input": "err I forgot the name",
+    "expected": "err I forgot the name",
+    "notes": "err KEPT: accepted cost of #125 -- a real hesitation survives so that the verb in 'to err is human' does too"
+  },
+  {
+    "input": "To err is human",
+    "expected": "To err is human",
+    "notes": "err is a verb, not a filler (#125)"
+  },
+  {
+    "input": "er I forgot the name",
     "expected": "I forgot the name",
-    "notes": "err filler removed from start"
+    "notes": "er is still a filler -- only err was removed (#125)"
   },
   {
     "input": "I actually think this is good",
