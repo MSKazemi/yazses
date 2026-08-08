@@ -80,6 +80,7 @@ After a successful update, restart the daemon to load it:
 | `yazses status` | Show state, hotkey, model, injection backend, and uptime over IPC. |
 | `yazses tray` | Show the top-bar tray icon + click-menu (pick/pin mic, re-calibrate, start/stop). |
 | `yazses features` | See capabilities and turn them on/off — no config-file editing. |
+| `yazses settings` | The same switchboard as a window — every capability as a checkbox. |
 | `yazses-daemon` | Run the daemon in the **foreground** (logs to console) — useful for debugging. |
 
 ### `yazses start`
@@ -198,6 +199,30 @@ Experimental features are guarded: `yazses features enable cocktail` prints why
 it's not advised and exits; add `--force` to override.
 
 > The complete catalogue lives in the [Feature Reference](features.md).
+
+### `yazses settings`
+
+The same switchboard as a **window**: every capability as a checkbox, grouped by
+the same categories `yazses features` prints, with its advice tier underneath.
+
+```bash
+yazses settings           # open the window (blocks until you close it)
+```
+
+Checking a box **stages** the change; **Apply** writes them all, then restart the
+daemon (`yazses restart`) to pick them up. The window is generated from the same
+feature registry as the CLI, so the two can never disagree — and it honours the
+same rules: core and *planned — designed, not yet wired* features are shown but
+not clickable, and an experimental one asks for confirmation before it is staged.
+
+A few things it deliberately does **not** do (yet — see the
+[settings-gui epic](https://github.com/MSKazemi/yazses/issues/65)):
+
+- It does not install a feature's optional Python packages. `yazses features
+  enable <name>` does; the window tells you which packages are missing and names
+  that command.
+- It needs a **graphical session**. On a headless box or a bare SSH session it
+  says so and points you at `yazses features` instead of failing at Qt.
 
 ### `yazses-daemon`
 

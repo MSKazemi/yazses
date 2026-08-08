@@ -6,6 +6,37 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `yazses settings`, a settings window generated from the feature registry
+
+YazSes had no graphical way to turn a capability on. Everything went through
+`yazses features enable/disable <name>`, which is fine for the terminal and a wall for
+everyone else — and "edit `config.toml`" is exactly the instruction a dictation tool for
+people who find typing hard should never have to give.
+
+`yazses settings` (and the `yazses-settings` entry point) opens a PySide6 window listing
+**every** capability as a checkbox, grouped by the same categories `yazses features`
+prints, with each row's advice tier underneath. There is no hand-maintained UI list: the
+window is built from `system/features.py`, the same registry the CLI reads, so the two
+cannot drift. It honours the same honesty rules — core features and *planned — designed,
+not yet wired* ones are shown but not clickable, and an experimental feature asks for
+confirmation before it is even staged, mirroring the CLI's `--force` guard. Checking a
+box stages the change; Apply writes it through the same comment-preserving
+`configedit.set_config_key` the CLI uses.
+
+Split like the tray: `settingsui/model.py` and `settingsui/controller.py` are pure and
+unit-tested without Qt, `settingsui/app.py` is the thin shell.
+
+Two things the window does **not** do, and says so rather than leaving you guessing:
+
+- It does not install a feature's optional Python packages the way
+  `yazses features enable` does — a pip install would freeze the UI thread for minutes.
+  It names the missing packages and the command that installs them.
+- It needs a graphical session. Over SSH it prints what to run instead of aborting
+  inside Qt.
+
+Thanks to [@waterlemonnn](https://github.com/waterlemonnn) for the implementation
+(PR #134, issue #58).
+
 ### Fixed — `[stt] language` was documented but did not exist; non-English dictation never worked
 
 `docs/use-cases/multilingual-dictation.md` told users to set `[stt] language = "de"` and

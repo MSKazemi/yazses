@@ -620,8 +620,9 @@ def settings() -> None:
     """Open the Settings window — every capability as a toggle, grouped by category.
 
     Reads and writes the same config keys as `yazses features enable/disable`, so
-    the two never disagree. Needs a system tray? No — just a display. Restart the
-    daemon after applying changes: `yazses restart`.
+    the two never disagree. Needs a graphical session (no system tray required);
+    on a headless or SSH machine use `yazses features` instead. Restart the daemon
+    after applying changes: `yazses restart`.
     """
     from yazses.settingsui.app import run as run_settings
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from yazses.config import Config
 from yazses.system.features import EXPERIMENTAL, Feature, grouped_features
 
 
@@ -43,7 +44,7 @@ class SettingsModel:
     groups: tuple[SettingsGroup, ...]
 
 
-def build_settings_model(cfg) -> SettingsModel:
+def build_settings_model(cfg: Config) -> SettingsModel:
     """Build the settings window model from the feature registry + *cfg*.
 
     Mirrors ``yazses features``: same categories, same order, same on/off state.

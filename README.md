@@ -279,6 +279,7 @@ More in the **[full FAQ](https://mskazemi.com/yazses/faq.html)** and a side-by-s
 | `yazses enroll` | Calibrate your microphone — tunes `vad_threshold` for your voice and room |
 | `yazses mic-level` | Measure mic speech level and recommend (or `--set`) the VAD threshold |
 | `yazses features` | List capabilities and toggle them (`enable`/`disable <name>`) |
+| `yazses settings` | The same switchboard as a window — every capability as a checkbox (needs a display) |
 | `yazses vocab` | Personal dictionary of mis-heard words (`add`/`list`/`remove`) |
 | `yazses hotkey` | Show or change the hold-to-talk key (`set`) and the dedicated command key (`command`) |
 | `yazses overlay` | Launch the sonar voice-activity overlay (requires the `overlay` extra) |
