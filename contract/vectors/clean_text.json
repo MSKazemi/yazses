@@ -1,6 +1,6 @@
 {
   "unit": "postprocess.clean_text",
-  "contract_version": "5.0.0",
+  "contract_version": "5.0.1",
   "source": "src/yazses/postprocess/cleaner.py::clean_text",
   "cases": [
     {
@@ -163,6 +163,195 @@
       "options": {},
       "input": "call parse_config() in main.py",
       "expected": "call parse_config() in main.py"
+    },
+    {
+      "id": "blank-audio-doubled-not-recognized",
+      "description": "two artefact markers back to back are not a match for any single known artefact string, so the exact-match check leaves both alone",
+      "options": {},
+      "input": "[BLANK_AUDIO] [BLANK_AUDIO]",
+      "expected": "[BLANK_AUDIO] [BLANK_AUDIO]"
+    },
+    {
+      "id": "blank-marker-lowercase-not-recognized",
+      "description": "artefact matching is case-sensitive; a lowercase variant of the marker slips through untouched",
+      "options": {},
+      "input": "[blank_audio]",
+      "expected": "[blank_audio]"
+    },
+    {
+      "id": "blank-marker-mixed-case-not-recognized",
+      "description": "same case-sensitivity gap with a mixed-case variant",
+      "options": {},
+      "input": "[Blank_Audio]",
+      "expected": "[Blank_Audio]"
+    },
+    {
+      "id": "blank-parenthetical-inner-spaces-not-recognized",
+      "description": "extra spaces inside the parenthetical artefact break the exact match",
+      "options": {},
+      "input": "( blank )",
+      "expected": "( blank )"
+    },
+    {
+      "id": "blank-marker-preceded-by-word-kept",
+      "description": "a word before the marker means the burst is no longer whole-artefact, so it is kept — the mirror of the already-covered trailing-word case",
+      "options": {},
+      "input": "extra [BLANK_AUDIO]",
+      "expected": "extra [BLANK_AUDIO]"
+    },
+    {
+      "id": "leading-ellipsis-and-period-combo",
+      "description": "a unicode ellipsis immediately followed by an ascii period is still one leading punctuation run",
+      "options": {},
+      "input": "….",
+      "expected": ""
+    },
+    {
+      "id": "spaced-dot-run",
+      "description": "dots separated by spaces are still a punctuation-only burst",
+      "options": {},
+      "input": ". . .",
+      "expected": ""
+    },
+    {
+      "id": "doubled-ellipsis-then-content",
+      "description": "two consecutive ellipsis characters are stripped as one leading run",
+      "options": {},
+      "input": "…… hello",
+      "expected": "hello"
+    },
+    {
+      "id": "blank-marker-surrounded-by-tabs-and-newlines",
+      "description": "whitespace variety around the marker doesn't stop artefact stripping",
+      "options": {},
+      "input": "\t\n[BLANK_AUDIO]\t\n",
+      "expected": ""
+    },
+    {
+      "id": "leading-dot-before-rtl-no-space",
+      "description": "leading whitespace and a dot immediately butting against RTL text with no space between them",
+      "options": {},
+      "input": "   .سلام",
+      "expected": "سلام"
+    },
+    {
+      "id": "trailing-period-after-rtl-kept",
+      "description": "trailing punctuation after RTL text is untouched, mirroring the ASCII trailing-punctuation rule",
+      "options": {},
+      "input": "سلام .",
+      "expected": "سلام ."
+    },
+    {
+      "id": "emoji-alone-untouched",
+      "description": "a lone emoji survives untouched",
+      "options": {},
+      "input": "👍",
+      "expected": "👍"
+    },
+    {
+      "id": "leading-dot-then-emoji",
+      "description": "leading period stripped, astral-plane emoji stays",
+      "options": {},
+      "input": ". 👍",
+      "expected": "👍"
+    },
+    {
+      "id": "leading-ellipsis-glued-to-emoji",
+      "description": "no space between the stripped ellipsis and the emoji that follows",
+      "options": {},
+      "input": "...🚀ship it",
+      "expected": "🚀ship it"
+    },
+    {
+      "id": "dot-and-trailing-whitespace-only",
+      "description": "a lone dot plus trailing whitespace reduces to nothing",
+      "options": {},
+      "input": ".  ",
+      "expected": ""
+    },
+    {
+      "id": "single-dot-single-trailing-space",
+      "description": "a lone dot plus exactly one trailing space also reduces to nothing",
+      "options": {},
+      "input": ". ",
+      "expected": ""
+    },
+    {
+      "id": "zero-width-space-survives",
+      "description": "surprising: U+200B is invisible but Python does not consider it whitespace, so it survives strip() and every check untouched",
+      "options": {},
+      "input": "​",
+      "expected": "​"
+    },
+    {
+      "id": "bom-prefixed-marker-not-recognized",
+      "description": "surprising: a leading byte-order-mark is also invisible and also not whitespace, so it breaks the exact-string artefact match — a BOM-prefixed [BLANK_AUDIO] burst is delivered to the user as literal text instead of being stripped",
+      "options": {},
+      "input": "﻿[BLANK_AUDIO]",
+      "expected": "﻿[BLANK_AUDIO]"
+    },
+    {
+      "id": "blank-marker-embedded-in-rtl-kept",
+      "description": "RTL variant of the embedded-marker-is-kept rule",
+      "options": {},
+      "input": "سلام [BLANK_AUDIO] دنیا",
+      "expected": "سلام [BLANK_AUDIO] دنیا"
+    },
+    {
+      "id": "very-long-paragraph-leading-punctuation-stripped",
+      "description": "correctness must hold at meeting-length input, not just short bursts — leading punctuation is still stripped and the rest of a long paragraph survives byte-for-byte",
+      "options": {},
+      "input": ". the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react ",
+      "expected": "the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react the quick brown fox jumps over the lazy dog and then it runs away before anyone can react"
+    },
+    {
+      "id": "adjacent-artefact-markers-not-recognized",
+      "description": "two different markers glued together with no separator are not a single recognized artefact string and both survive",
+      "options": {},
+      "input": "[INAUDIBLE][silence]",
+      "expected": "[INAUDIBLE][silence]"
+    },
+    {
+      "id": "blank-marker-with-comma-prefix-kept",
+      "description": "an embedded marker preceded by real words and a comma is kept, another embedded variant",
+      "options": {},
+      "input": "well, [BLANK_AUDIO] anyway",
+      "expected": "well, [BLANK_AUDIO] anyway"
+    },
+    {
+      "id": "ideographic-space-is-real-whitespace",
+      "description": "contrast with zero-width-space-survives: the full-width ideographic space (U+3000) IS Unicode whitespace and is correctly stripped from both ends",
+      "options": {},
+      "input": "　hello　",
+      "expected": "hello"
+    },
+    {
+      "id": "nbsp-wrapped-marker-recognized",
+      "description": "contrast with bom-prefixed-marker-not-recognized: a non-breaking space (U+00A0) IS Unicode whitespace, so it's stripped before the exact-match check and the artefact underneath is still recognized",
+      "options": {},
+      "input": " [BLANK_AUDIO] ",
+      "expected": ""
+    },
+    {
+      "id": "leading-dot-before-code-identifier",
+      "description": "leading decode-artefact dot is stripped even when it's glued directly to a code identifier with no space",
+      "options": {},
+      "input": ".parse_config()",
+      "expected": "parse_config()"
+    },
+    {
+      "id": "mixed-script-passthrough",
+      "description": "a burst mixing Latin, Arabic and CJK script in one string has nothing to strip and survives whole",
+      "options": {},
+      "input": "hello مرحبا 你好",
+      "expected": "hello مرحبا 你好"
+    },
+    {
+      "id": "vertical-tab-and-form-feed-whitespace-only",
+      "description": "less common ASCII whitespace controls (vertical tab, form feed) are still whitespace-only",
+      "options": {},
+      "input": "\u000b\f  ",
+      "expected": ""
     }
   ]
 }
