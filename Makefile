@@ -13,7 +13,7 @@
 
 LOG_FILE := $(HOME)/.local/state/yazses/log/daemon.log
 
-.PHONY: all install check test lint lint-fix types docs docs-serve man \
+.PHONY: all install check test lint lint-fix types docs docs-serve man inbox \
         start stop restart status logs doctor overlay build clean help
 
 all: check
@@ -75,6 +75,15 @@ man:
 	@echo "▶  Regenerating man/yazses.1…"
 	uv run python scripts/gen-man.py
 
+# ── Maintainer ────────────────────────────────────────────────────────────────
+
+# Every open thread whose last word is somebody else's — issues, PRs, inline review
+# threads and discussions. GitHub's notification inbox answers "what have I not read?";
+# this answers "what have I not replied to?", which is the question that actually loses
+# contributors. Add ARGS=--all to include bot threads.
+inbox:
+	@uv run python scripts/inbox.py $(ARGS)
+
 # ── Daemon lifecycle ──────────────────────────────────────────────────────────
 
 start:
@@ -132,6 +141,9 @@ help:
 	@echo "    make docs        regenerate the generated reference docs"
 	@echo "    make docs-serve  serve the docs site locally"
 	@echo "    make man         regenerate man/yazses.1 from the CLI"
+	@echo ""
+	@echo "  Maintainer"
+	@echo "    make inbox       open threads waiting on YOUR reply (ARGS=--all for bots)"
 	@echo ""
 	@echo "  Daemon"
 	@echo "    make start       start the daemon"
