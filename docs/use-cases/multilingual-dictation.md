@@ -29,6 +29,77 @@ language = "de"        # or fr, es, it, fa, ar, hi, zh, …
 Then `yazses restart`. Accuracy varies substantially by language and model size;
 larger models help disproportionately for lower-resource languages.
 
+### German, French, Spanish
+
+These three are the most common request, so here they are as complete configs.
+Drop the block that matches your language into `config.toml` and restart:
+
+```toml
+# German
+[stt]
+model = "small"
+language = "de"
+```
+
+```toml
+# French
+[stt]
+model = "small"
+language = "fr"
+```
+
+```toml
+# Spanish
+[stt]
+model = "small"
+language = "es"
+```
+
+### Downloading the model
+
+There is no separate "download" step to run by hand — faster-whisper fetches
+`small` (or whichever multilingual model you configured) the first time the
+daemon starts with it set, the same way it fetches `.en` models, and caches it
+in the Hugging Face cache. Multilingual weights are somewhat larger than their
+`.en` counterparts at the same size tier, so expect a longer first-run download
+and a few hundred MB more disk use. Confirm it landed with:
+
+```bash
+yazses doctor
+```
+
+which reports the configured model as cached, local, or not yet downloaded.
+If the download stalls or fails partway (a slow or interrupted connection is
+the usual cause), delete the partial cache entry and restart the daemon to
+retry from a clean state — `yazses doctor` output tells you which model is
+misbehaving. The cache lives under `~/.cache/huggingface/hub` (or `$HF_HOME/hub`
+if you set that), one `models--…` directory per model, so removing just the
+offending one leaves your other models intact.
+
+### Letting YazSes detect the language
+
+If you switch languages often and don't want to edit config each time, leave the
+language empty and Whisper will detect it per utterance:
+
+```toml
+[stt]
+model = "small"
+language = ""          # auto-detect
+```
+
+This costs an extra detection pass on every burst and can occasionally guess
+wrong on very short utterances, so prefer an explicit code when you know what
+you'll be speaking.
+
+!!! note "Mismatched model and language"
+
+    `language` needs a multilingual model to act on. If you set a non-English
+    language while `model` is still an `.en` checkpoint, YazSes logs a warning at
+    startup naming both values and telling you to drop the `.en` suffix — those
+    models have no language tokens at all, so they would silently transliterate
+    your speech into English-looking nonsense rather than fail outright. Check
+    it with `yazses logs` after a restart.
+
 ## Sentences that mix two languages
 
 This is the case ordinary dictation handles worst. Bilingual speakers routinely

@@ -71,8 +71,21 @@ def _build_faster_whisper(stt: "SttConfig", fallback_from: str = "") -> "SttEngi
             "fallback uses 'base.en' instead", model, fallback_from,
         )
         model = "base.en"
+    language = (getattr(stt, "language", "en") or "").strip()
+    # An `.en` checkpoint has no language tokens at all — it physically cannot
+    # decode German. Silently forcing English would hand the user fluent-looking
+    # nonsense (Whisper transliterates rather than erroring), which is the worst
+    # possible failure mode, so say exactly what is wrong and what to change.
+    if language and language.lower() != "en" and model.lower().endswith(".en"):
+        log.warning(
+            "[stt] language = %r needs a multilingual model, but [stt] model = %r "
+            "is English-only — speech will be mis-transcribed as English. Fix: set "
+            "model = %r (drop the .en suffix).",
+            language, model, model[: -len(".en")] or "small",
+        )
     return FasterWhisperEngine(
         model_name=model,
         device=getattr(stt, "device", "cpu"),
         compute_type=getattr(stt, "compute_type", "int8"),
+        language=language,
     )

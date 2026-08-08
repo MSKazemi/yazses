@@ -97,6 +97,22 @@ def test_translate_task_is_ignored_with_a_single_log(monkeypatch, caplog):
     assert len(warnings) == 1  # warned once, not per burst
 
 
+def test_non_english_language_warns_that_parakeet_cannot_honour_it(monkeypatch, caplog):
+    """Parakeet TDT v2 is English-only; `[stt] language = "de"` must not look applied."""
+    cfg = SttConfig(model="nemo-parakeet-tdt-0.6b-v2", language="de")
+    with caplog.at_level(logging.WARNING, logger="yazses.stt.parakeet"):
+        _engine(monkeypatch, config=cfg)
+    assert "English-only" in caplog.text
+    assert "faster-whisper" in caplog.text
+
+
+def test_english_language_does_not_warn(monkeypatch, caplog):
+    cfg = SttConfig(model="nemo-parakeet-tdt-0.6b-v2", language="en")
+    with caplog.at_level(logging.WARNING, logger="yazses.stt.parakeet"):
+        _engine(monkeypatch, config=cfg)
+    assert "English-only" not in caplog.text
+
+
 def test_initial_prompt_is_accepted_and_ignored(monkeypatch):
     eng, adapter, _loads = _engine(monkeypatch)
     audio = np.zeros(16000, dtype=np.float32)

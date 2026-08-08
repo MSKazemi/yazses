@@ -23,6 +23,15 @@ class SttConfig:
     # produces frequent word errors. Larger models (small.en/medium.en) trade
     # decode latency for marginal gains on clean speech.
     model: str = "base.en"
+    # Spoken language, as a Whisper code ("en", "de", "fr", "es", "fa", …).
+    # Empty string = let Whisper auto-detect per utterance, which costs an extra
+    # decode pass and can flip mid-session, so an explicit code is preferred when
+    # you know the language. Requires a MULTILINGUAL model: the `.en` checkpoints
+    # (base.en, small.en, …) are English-only and cannot decode anything else, so
+    # set `model = "small"` (no suffix) alongside it — stt/factory.py warns when
+    # the pair is contradictory. Ignored on the translate path (ADR-v2-014), which
+    # auto-detects the source by design, and by the Parakeet engine (English-only).
+    language: str = "en"
     device: str = "cpu"
     compute_type: str = "int8"
     # Optional vocabulary/context primed into Whisper as initial_prompt. Helps it

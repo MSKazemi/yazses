@@ -55,6 +55,17 @@ class ParakeetEngine:
         compute_type = (getattr(config, "compute_type", "") or "").lower()
         self._quantization = "int8" if "int8" in compute_type else None
         self._warned_translate = False
+        # Parakeet TDT 0.6B v2 is English-only, so `[stt] language` has nothing to
+        # act on here. Say so rather than letting a user who set language = "de"
+        # assume it took effect (system/backends.py honesty rule).
+        language = (getattr(config, "language", "en") or "").strip()
+        if language and language.lower() != "en":
+            log.warning(
+                "[stt] language = %r is ignored by the Parakeet engine, which is "
+                "English-only. Fix: set [stt] engine = \"faster-whisper\" with a "
+                "multilingual model (e.g. model = \"small\").",
+                language,
+            )
         log.info("Loading STT model '%s' via onnx-asr (Parakeet)...", model_name)
         self._model = self._load()
         log.info("Model loaded.")

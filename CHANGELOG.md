@@ -6,6 +6,31 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `[stt] language` was documented but did not exist; non-English dictation never worked
+
+`docs/use-cases/multilingual-dictation.md` told users to set `[stt] language = "de"` and
+restart. That key was never implemented. `SttConfig` had no `language` field, so
+`configcheck.py` — which drops unknown keys by design — discarded it silently, and every
+faster-whisper decode path hardcoded `language="en"`: `transcribe`, `transcribe_words`,
+and `decode_window`. A German user following the page got their speech forced through
+English, which Whisper answers by transliterating into English-looking nonsense rather
+than erroring. The generated `docs/configuration.md`, built from the dataclasses, listed
+`language` only under `[recimport]` and `[meeting]` and so had been quietly contradicting
+the hand-written page for as long as it existed.
+
+`[stt] language` is now real. It defaults to `"en"` (the previous behaviour, unchanged for
+everyone who set nothing), accepts any Whisper language code, and takes `""` to auto-detect
+per utterance. The translate path (ADR-v2-014) still auto-detects its source by design, and
+`initial_prompt` is unaffected.
+
+Both ways of configuring something impossible now produce an honest warning instead of
+quiet nonsense, per the `system/backends.py` rule:
+
+- A non-English language on an `.en` checkpoint — which has no language tokens and
+  physically cannot decode German — names both values and says to drop the `.en` suffix.
+- A non-English language on the Parakeet engine, which is English-only, says so and points
+  at faster-whisper.
+
 ### Added — `man yazses`, generated from the CLI so it cannot drift
 
 YazSes shipped no man page at all: `man yazses` returned "No manual entry", the one

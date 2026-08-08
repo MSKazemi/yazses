@@ -7,15 +7,36 @@ log = logging.getLogger(__name__)
 
 
 class FasterWhisperEngine:
+    # Class-level default so a partially constructed engine (tests build one via
+    # __new__ to exercise the streaming seam without loading a model) still has a
+    # well-defined language instead of raising AttributeError mid-decode.
+    _language: str = "en"
+
     def __init__(
         self,
         model_name: str = "tiny.en",
         device: str = "cpu",
         compute_type: str = "int8",
+        language: str = "en",
     ) -> None:
         log.info("Loading STT model '%s' on %s (%s)...", model_name, device, compute_type)
         self._model = WhisperModel(model_name, device=device, compute_type=compute_type)
+        # `[stt] language`; "" means auto-detect, expressed to faster-whisper by
+        # omitting the kwarg entirely (passing language=None means the same thing
+        # but relies on an undocumented default — omission is the explicit form).
+        self._language = (language or "").strip()
         log.info("Model loaded.")
+
+    def _decode_kwargs(self, task: str | None) -> dict:
+        """Language/task kwargs shared by every decode path.
+
+        ``task="translate"`` (ADR-v2-014, X→English) must auto-detect the source,
+        so it never carries a language. Otherwise pin `[stt] language`, or omit it
+        when the user asked for auto-detection.
+        """
+        if task == "translate":
+            return {"task": "translate"}
+        return {"language": self._language} if self._language else {}
 
     def transcribe(
         self,
@@ -26,9 +47,7 @@ class FasterWhisperEngine:
     ) -> str:
         if audio.size == 0:
             return ""
-        # task="translate" (ADR-v2-014, X→English): let Whisper auto-detect the
-        # source language; otherwise keep the English fast path.
-        kwargs: dict = {"task": "translate"} if task == "translate" else {"language": "en"}
+        kwargs: dict = self._decode_kwargs(task)
         if initial_prompt:
             kwargs["initial_prompt"] = initial_prompt
         segments, _ = self._model.transcribe(audio, **kwargs)
@@ -54,7 +73,7 @@ class FasterWhisperEngine:
         if audio.size == 0:
             return "", []
         kwargs: dict = {"word_timestamps": True}
-        kwargs.update({"task": "translate"} if task == "translate" else {"language": "en"})
+        kwargs.update(self._decode_kwargs(task))
         if initial_prompt:
             kwargs["initial_prompt"] = initial_prompt
         segments, _ = self._model.transcribe(audio, **kwargs)
@@ -76,8 +95,9 @@ class FasterWhisperEngine:
 
         The single seam ``stt.streaming.StreamingEngine`` drives, so streaming
         never reaches into the private ``_model`` (which other engines don't
-        have). English fast path, no prompt, no word timestamps — exactly the
-        decode the streaming loop has always done.
+        have). No prompt, no word timestamps — exactly the decode the streaming
+        loop has always done — but honouring `[stt] language` so a non-English
+        user's rolling window isn't forced through English.
         """
-        segments, _ = self._model.transcribe(audio, language="en")
+        segments, _ = self._model.transcribe(audio, **self._decode_kwargs(None))
         return " ".join(s.text.strip() for s in segments).strip()

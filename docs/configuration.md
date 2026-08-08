@@ -19,6 +19,7 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 |---|---|---|
 | `engine` | str | `"faster-whisper"` |
 | `model` | str | `"base.en"` |
+| `language` | str | `"en"` |
 | `device` | str | `"cpu"` |
 | `compute_type` | str | `"int8"` |
 | `initial_prompt` | str | `""` |
