@@ -1,0 +1,255 @@
+{
+  "layer": "semantic",
+  "generated": false,
+  "contract_version": "5.1.0",
+  "pipeline": "dictation",
+  "pipeline_description": "The delivered-text chain of the DICTATE path, exactly as core/daemon.py::_on_hold_end runs it, minus injection: clean_text -> disfluency filter -> voice punctuation (only when options.voice_punctuation is true). `expected` is what a HUMAN says the user must receive; it is never read back from the implementation.",
+  "semantics": {
+    "expected": "exact delivered text, hand-authored",
+    "must_preserve": "dimension -> required reading of the OUTPUT. Scalar dimensions must be equal; set dimensions must contain every listed value (you may not lose a distinction).",
+    "must_not_acquire": "dimension -> readings the output must NOT have. Catches inversion and invention, which loss-only checks miss.",
+    "must_classify_as": "commands.grammar intent for the raw utterance. A sentence about a patient must be TYPED, never executed.",
+    "minimal_pair": "partner case id + the one dimension the two differ in. Both members must differ in delivered text AND in that dimension's extracted reading. This is the check a per-case assertion cannot make: two outputs that are each plausible alone but identical to each other.",
+    "status": "`holds` = true of shipped desktop behaviour. `known-gap` = the invariant is what SHOULD happen and the implementation does not do it yet; the runner asserts the gap still reproduces, so fixing the code turns the suite red until the case is promoted to `holds`."
+  },
+  "cases": [
+    {
+      "id": "polarity-medication-not-taken",
+      "description": "Negation is the highest-consequence distinction the pipeline can erase. No cleanup rule may drop 'not'.",
+      "options": {},
+      "input": "I did not take the medication",
+      "expected": "I did not take the medication",
+      "must_preserve": {"polarity": "negative", "actor": ["speaker"]},
+      "must_classify_as": "dictate",
+      "minimal_pair": {"partner": "polarity-medication-taken", "differs_in": "polarity"},
+      "status": "holds"
+    },
+    {
+      "id": "polarity-medication-taken",
+      "description": "The affirmative half of the negation pair.",
+      "options": {},
+      "input": "I took the medication",
+      "expected": "I took the medication",
+      "must_preserve": {"polarity": "affirmative", "actor": ["speaker"]},
+      "must_classify_as": "dictate",
+      "minimal_pair": {"partner": "polarity-medication-not-taken", "differs_in": "polarity"},
+      "status": "holds"
+    },
+    {
+      "id": "quantity-five-milligrams",
+      "description": "A dose an order of magnitude apart from its pair. Number AND unit must both survive.",
+      "options": {},
+      "input": "give her five milligrams",
+      "expected": "give her five milligrams",
+      "must_preserve": {"quantity": ["5"], "unit": ["mg"], "actor": ["third-person-female"]},
+      "must_not_acquire": {"quantity": ["50"]},
+      "must_classify_as": "dictate",
+      "minimal_pair": {"partner": "quantity-fifty-milligrams", "differs_in": "quantity"},
+      "status": "holds"
+    },
+    {
+      "id": "quantity-fifty-milligrams",
+      "description": "The 10x half of the dose pair.",
+      "options": {},
+      "input": "give her fifty milligrams",
+      "expected": "give her fifty milligrams",
+      "must_preserve": {"quantity": ["50"], "unit": ["mg"], "actor": ["third-person-female"]},
+      "must_not_acquire": {"quantity": ["5"]},
+      "must_classify_as": "dictate",
+      "minimal_pair": {"partner": "quantity-five-milligrams", "differs_in": "quantity"},
+      "status": "holds"
+    },
+    {
+      "id": "time-pain-now",
+      "description": "Present-tense symptom report.",
+      "options": {},
+      "input": "the patient is in pain now",
+      "expected": "the patient is in pain now",
+      "must_preserve": {"time": "present", "actor": ["patient"]},
+      "must_classify_as": "dictate",
+      "minimal_pair": {"partner": "time-pain-yesterday", "differs_in": "time"},
+      "status": "holds"
+    },
+    {
+      "id": "time-pain-yesterday",
+      "description": "The same symptom, a different day — an entirely different clinical fact.",
+      "options": {},
+      "input": "the patient was in pain yesterday",
+      "expected": "the patient was in pain yesterday",
+      "must_preserve": {"time": "past", "actor": ["patient"]},
+      "must_classify_as": "dictate",
+      "minimal_pair": {"partner": "time-pain-now", "differs_in": "time"},
+      "status": "holds"
+    },
+    {
+      "id": "certainty-sure-it-happened",
+      "description": "A committed claim.",
+      "options": {},
+      "input": "I am sure this happened",
+      "expected": "I am sure this happened",
+      "must_preserve": {"certainty": "definite", "actor": ["speaker"]},
+      "must_classify_as": "dictate",
+      "minimal_pair": {"partner": "certainty-not-sure-it-happened", "differs_in": "certainty"},
+      "status": "holds"
+    },
+    {
+      "id": "certainty-not-sure-it-happened",
+      "description": "The hedged half. In a source interview this is the difference between a quote and a libel.",
+      "options": {},
+      "input": "I am not sure this happened",
+      "expected": "I am not sure this happened",
+      "must_preserve": {"certainty": "hedged", "actor": ["speaker"]},
+      "must_classify_as": "dictate",
+      "minimal_pair": {"partner": "certainty-sure-it-happened", "differs_in": "certainty"},
+      "status": "holds"
+    },
+    {
+      "id": "self-correction-keeps-corrected-dose",
+      "description": "The flagship case from the design review (issue #98): a spoken correction must not merely match desktop rollback behaviour, it must leave the CORRECTED quantity, its unit, and the marker that says which value supersedes the other.",
+      "options": {},
+      "input": "give him fifty, sorry, fifteen milligrams",
+      "expected": "give him fifty, sorry, fifteen milligrams",
+      "must_preserve": {
+        "quantity": ["15"],
+        "unit": ["mg"],
+        "correction_marker": "present",
+        "actor": ["third-person-male"]
+      },
+      "must_classify_as": "dictate",
+      "status": "holds"
+    },
+    {
+      "id": "refusal-do-not-stop-infusion",
+      "description": "An instruction NOT to act, built from the same words as its opposite.",
+      "options": {},
+      "input": "do not stop the infusion",
+      "expected": "do not stop the infusion",
+      "must_preserve": {"request_or_refusal": "refusal", "polarity": "negative"},
+      "must_classify_as": "dictate",
+      "minimal_pair": {"partner": "request-stop-infusion", "differs_in": "request_or_refusal"},
+      "status": "holds"
+    },
+    {
+      "id": "request-stop-infusion",
+      "description": "The instruction TO act. Also guards the dictate-versus-command boundary: an imperative about a patient is prose, not a YazSes command.",
+      "options": {},
+      "input": "stop the infusion",
+      "expected": "stop the infusion",
+      "must_preserve": {"request_or_refusal": "request", "polarity": "affirmative"},
+      "must_classify_as": "dictate",
+      "minimal_pair": {"partner": "refusal-do-not-stop-infusion", "differs_in": "request_or_refusal"},
+      "status": "holds"
+    },
+    {
+      "id": "actor-patient-refused",
+      "description": "Who refused decides whose consent is on the record.",
+      "options": {},
+      "input": "the patient refused the transfusion",
+      "expected": "the patient refused the transfusion",
+      "must_preserve": {"actor": ["patient"], "polarity": "negative"},
+      "must_not_acquire": {"actor": ["caregiver"]},
+      "must_classify_as": "dictate",
+      "minimal_pair": {"partner": "actor-caregiver-refused", "differs_in": "actor"},
+      "status": "holds"
+    },
+    {
+      "id": "actor-caregiver-refused",
+      "description": "The same refusal, a different person.",
+      "options": {},
+      "input": "the caregiver refused the transfusion",
+      "expected": "the caregiver refused the transfusion",
+      "must_preserve": {"actor": ["caregiver"], "polarity": "negative"},
+      "must_not_acquire": {"actor": ["patient"]},
+      "must_classify_as": "dictate",
+      "minimal_pair": {"partner": "actor-patient-refused", "differs_in": "actor"},
+      "status": "holds"
+    },
+    {
+      "id": "certainty-definite-stable",
+      "description": "The unhedged baseline its pair must not collapse into.",
+      "options": {},
+      "input": "she is stable",
+      "expected": "she is stable",
+      "must_preserve": {"certainty": "definite", "actor": ["third-person-female"]},
+      "must_classify_as": "dictate",
+      "minimal_pair": {"partner": "hedge-sort-of-stable", "differs_in": "certainty"},
+      "status": "holds"
+    },
+    {
+      "id": "hedge-sort-of-stable",
+      "description": "KNOWN GAP. 'sort of' is a default filler word, so the hedge is stripped and a qualified observation is delivered as a definite one — and the output becomes byte-identical to its unhedged pair. Exactly the failure the design review predicted: each output looks plausible alone, the pair proves the distinction is gone.",
+      "options": {},
+      "input": "she is sort of stable",
+      "expected": "she is sort of stable",
+      "must_preserve": {"certainty": "hedged", "actor": ["third-person-female"]},
+      "must_classify_as": "dictate",
+      "minimal_pair": {"partner": "certainty-definite-stable", "differs_in": "certainty"},
+      "status": "known-gap",
+      "gap": {
+        "actual": "she is stable",
+        "issue": "https://github.com/MSKazemi/yazses/issues/146",
+        "cause": "'sort of' is in DisfluencyConfig.filler_words by default"
+      }
+    },
+    {
+      "id": "assessment-dose-is-not-right",
+      "description": "KNOWN GAP. 'right' is a default filler word, so a negated assessment loses its predicate and is delivered as a truncated fragment. The reader cannot recover what was said, and cannot tell that anything was lost.",
+      "options": {},
+      "input": "that dose is not right",
+      "expected": "that dose is not right",
+      "must_preserve": {"assessment": "correct", "polarity": "negative"},
+      "must_classify_as": "dictate",
+      "status": "known-gap",
+      "gap": {
+        "actual": "that dose is not",
+        "issue": "https://github.com/MSKazemi/yazses/issues/146",
+        "cause": "'right' is in DisfluencyConfig.filler_words by default"
+      }
+    },
+    {
+      "id": "hedge-like-approximate-measurement",
+      "description": "KNOWN GAP. 'like' before a measurement is an approximation marker; stripping it promotes an estimate to a measurement.",
+      "options": {},
+      "input": "the wound is like two centimetres across",
+      "expected": "the wound is like two centimetres across",
+      "must_preserve": {"certainty": "hedged", "quantity": ["2"], "unit": ["cm"]},
+      "must_classify_as": "dictate",
+      "status": "known-gap",
+      "gap": {
+        "actual": "the wound is two centimetres across",
+        "issue": "https://github.com/MSKazemi/yazses/issues/146",
+        "cause": "'like' is in DisfluencyConfig.filler_words by default"
+      }
+    },
+    {
+      "id": "correction-marker-actually-erased",
+      "description": "KNOWN GAP. 'actually' is a default filler word, so the marker that says the second clause supersedes the first is removed and a correction is delivered as a self-contradiction.",
+      "options": {},
+      "input": "she said no, actually she said yes",
+      "expected": "she said no, actually she said yes",
+      "must_preserve": {"correction_marker": "present", "actor": ["third-person-female"]},
+      "must_classify_as": "dictate",
+      "status": "known-gap",
+      "gap": {
+        "actual": "she said no, she said yes",
+        "issue": "https://github.com/MSKazemi/yazses/issues/146",
+        "cause": "'actually' is in DisfluencyConfig.filler_words by default"
+      }
+    },
+    {
+      "id": "hedge-like-an-hour-ago",
+      "description": "KNOWN GAP. The same approximation marker on a time rather than a measurement — the timing becomes exact.",
+      "options": {},
+      "input": "he took it like an hour ago",
+      "expected": "he took it like an hour ago",
+      "must_preserve": {"certainty": "hedged", "time": "past", "unit": ["hour"]},
+      "must_classify_as": "dictate",
+      "status": "known-gap",
+      "gap": {
+        "actual": "he took it an hour ago",
+        "issue": "https://github.com/MSKazemi/yazses/issues/146",
+        "cause": "'like' is in DisfluencyConfig.filler_words by default"
+      }
+    }
+  ]
+}

@@ -1,7 +1,10 @@
 # ADR-MOB-008 — One behaviour, many implementations: a language-neutral contract with golden vectors
 
-**Status:** Accepted (2026-08-07) · design only, no code yet
+**Status:** Accepted (2026-08-07) · **amended 2026-08-08** — §8 adds a hand-authored
+semantic-invariant layer that the desktop cannot generate ([#98](https://github.com/MSKazemi/yazses/issues/98))
 **Deciders:** Mohsen Seyedkazemi Ardebili
+**Review credit:** §8 exists because **@YossiMH** read this ADR before any code was
+written and found the flaw described there.
 **Context links:** [[adr-mob-001]] (monorepo), [[adr-mob-002]] (pure-Kotlin cores),
 [[adr-mob-010]] (Apple wave), desktop analogues: `src/yazses/postprocess/`,
 `src/yazses/commands/grammar.py`, `src/yazses/config.py`, `src/yazses/system/features.py`,
@@ -93,6 +96,52 @@ code. Generate-and-guard, applied to behaviour instead of documentation, is the 
    rule that keeps mobile from falling permanently behind: the desktop pays a few minutes,
    and the mobile port gets an executable specification for free.
 
+8. **The desktop is not the sole oracle. A second, hand-authored layer pins *meaning*.**
+   (Amendment, 2026-08-08.) Decisions 2 and 6 make the shipped Python the source of every
+   expectation. That is correct for parity and structurally unsafe for correctness: one
+   commit can change the implementation, the generator and the golden data together, so a
+   cleanup rule that erases a high-consequence distinction becomes cross-platform
+   consensus with every vector green. Parity vectors cannot detect this, because they were
+   asked what the code does, not what the user must receive.
+
+   `contract/semantic/` is therefore normative alongside `contract/vectors/`, and is
+   **never mechanically regenerated**:
+
+   ```
+   contract/semantic/
+     dimensions.json   conserved dimensions + their extraction patterns
+     invariants.json   hand-authored cases
+   ```
+
+   Each case carries the exact delivered text a *human* says the user must receive, plus
+   the dimensions that must survive it — `polarity`, `actor`, `time`, `quantity`, `unit`,
+   `certainty`, `request_or_refusal`, `correction_marker`, `assessment`. The governing
+   rule is one sentence:
+
+   > Post-processing may simplify form, but it must not silently erase or invert a
+   > distinction that changes what a downstream reader should understand or do.
+
+   Two enforcement mechanisms, both in `tests/test_semantic_invariants.py`:
+
+   - **Invariants.** `must_preserve` catches a lost distinction; `must_not_acquire`
+     catches an inverted or invented one. Every case also pins its `commands.grammar`
+     classification, because a clinical sentence misread as a command is not typed at all.
+   - **Minimal pairs.** Two utterances differing in exactly one consequential dimension
+     must not collapse to the same delivered text. This is the check no per-case
+     assertion can make: `she is stable` and `she is sort of stable` are each perfectly
+     plausible outputs, and only the pair reveals that the hedge was destroyed.
+
+   **When the two layers disagree, this one wins.** A parity vector records what the code
+   does; a semantic invariant records what it must do. An invariant is never edited to
+   match the output — a case that fails is either a bug to fix or a `known-gap` carrying
+   an issue link, decided in the PR and reviewed as a behaviour change. Known gaps are
+   strict-xfail, so a gap can be recorded but not forgotten: fixing the code turns CI red
+   until the case is promoted.
+
+   This also changes what the contract promises a future implementer. "Match Python" is a
+   weaker guarantee than "preserve these meanings" — and the second one survives the
+   desktop being wrong.
+
 ## Consequences
 
 - **The contributor experience changes qualitatively.** "Port the disfluency filter" stops
@@ -106,6 +155,17 @@ code. Generate-and-guard, applied to behaviour instead of documentation, is the 
   rubber-stamped regeneration. Mitigation: the generator writes a stable, diff-friendly
   format (sorted keys, one case per block), and the PR template asks explicitly whether a
   vector diff is intentional.
+- **The semantic layer earned its place on the first run.** Nineteen hand-authored cases
+  found five shipped behaviours that destroy meaning ([#146](https://github.com/MSKazemi/yazses/issues/146)):
+  `that dose is not right` is delivered as `that dose is not`, and `she is sort of stable`
+  is delivered byte-identically to `she is stable`. Every parity vector was green
+  throughout, and would have stayed green on Android and iOS too. The cost of the layer is
+  that some cases are red on purpose; the alternative was shipping the same silent
+  corruption to three platforms.
+- Cost: two layers to keep in mind, and a judgement call about which one a new case
+  belongs in. The bar for the semantic layer is deliberately high — a case belongs there
+  only if getting it wrong would mislead a reader about something consequential, and only
+  if the author can name which dimension carries that consequence.
 - The contract cannot capture everything — model output itself is not deterministic across
   engines, so vectors deliberately start *after* STT, from recognised text. Audio-level
   parity is handled by `:bench` and device reports, not by vectors.
@@ -125,3 +185,11 @@ code. Generate-and-guard, applied to behaviour instead of documentation, is the 
   failure this ADR exists to prevent. Prose is not enforceable; JSON in CI is.
 - **Making Android call the desktop over the network to stay in sync.** Contradicts
   [[adr-011]] and the phone-only user.
+- **Generating the semantic invariants from the desktop too** (the original §2 approach,
+  applied to §8). It would have been consistent, cheap, and worthless: an oracle derived
+  from the implementation under test cannot contradict it. The layer's entire value is
+  that a human wrote down what the user must receive without asking the code.
+- **Leaving §8 to a linter or an LLM judge.** A model that scores "did meaning survive?"
+  is unreproducible across runs and platforms, and cannot be re-run by an Android
+  contributor with no network. Patterns and minimal pairs are cruder and portable — and a
+  test that flags a real regression on a phone in 40 ms beats a better test nobody runs.

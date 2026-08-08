@@ -34,7 +34,7 @@ contract/
     config.schema.json      every config section, key, type, default
     features.schema.json    capability-registry shape
     transcript.schema.json  Transcript / segment / token-confidence shape
-  vectors/
+  vectors/                  PARITY — generated from the shipped implementation
     clean_text.json
     disfluency.json
     voice_punctuation.json
@@ -43,6 +43,9 @@ contract/
     grammar_classify.json
     hold_detector.json
     vad_gate.json
+  semantic/                 MEANING — hand-authored, never regenerated (§8)
+    dimensions.json         conserved dimensions + extraction patterns
+    invariants.json         invariants + minimal pairs
   audio/                    short licence-clean clips for end-to-end fixtures
 ```
 
@@ -140,7 +143,54 @@ answer a user can read off the screen.
 - **APIs.** The contract constrains behaviour, never class names or module structure. Each
   platform stays idiomatic.
 
-## 7. Why this is worth the extra step in desktop PRs
+## 7. The semantic layer — the half the desktop cannot generate
+
+Everything above pins **parity**: every implementation delivers the same string. That is
+necessary and not sufficient, and the gap is structural rather than accidental.
+
+Because §3 generates every expectation by running the shipped Python, one commit can
+change the implementation, the generator and the golden data together. CI stays green,
+the vectors stay green, and a cleanup rule that erased a real distinction is now the
+cross-platform consensus — inherited by Android and iOS as *the specification*.
+
+`contract/semantic/` closes that hole with expectations **no generator can write**
+(ADR-MOB-008 §8, proposed by @YossiMH in
+[#98](https://github.com/MSKazemi/yazses/issues/98)). Each case records the delivered
+text a human says the user must receive, plus the dimensions that must survive:
+
+> Post-processing may simplify form, but it must not silently erase or invert a
+> distinction that changes what a downstream reader should understand or do.
+
+```json
+{
+  "id": "polarity-medication-not-taken",
+  "input": "I did not take the medication",
+  "expected": "I did not take the medication",
+  "must_preserve": {"polarity": "negative", "actor": ["speaker"]},
+  "minimal_pair": {"partner": "polarity-medication-taken", "differs_in": "polarity"}
+}
+```
+
+**Minimal pairs are the sharp edge.** Two utterances differing in exactly one
+consequential dimension must not collapse into the same delivered text — a check no
+per-case assertion can make, because each output looks entirely plausible alone:
+
+```
+she is stable          ->  "she is stable"
+she is sort of stable  ->  "she is stable"     <- identical: the hedge is gone
+```
+
+On its first run the layer found **five shipped behaviours that destroy meaning**
+([#146](https://github.com/MSKazemi/yazses/issues/146)) — including `that dose is not
+right` delivered as `that dose is not` — while all 191 parity vectors were green. Those
+cases are recorded as `known-gap` and are strict-xfail: green while the gap is documented,
+**red the moment the code is fixed**, so the case must be promoted rather than forgotten.
+
+For a phone or a watch implementation this changes the promise. "Match Python" is a
+weaker guarantee than "preserve these meanings" — and only the second one survives the
+desktop being wrong.
+
+## 8. Why this is worth the extra step in desktop PRs
 
 1. It converts "port this module" into a weekend-sized task with an unambiguous
    definition of done — the single biggest lever on contributor throughput.
