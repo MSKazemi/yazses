@@ -410,6 +410,10 @@ Format dictated lines as Fountain screenplay markup — fully offline.
 
 - **Arguments:** `text`
 
+## `yazses settings`
+
+Open the Settings window — every capability as a toggle, grouped by category.
+
 ## `yazses setup`
 
 Provision all Linux runtime requirements so dictation works out of the box.

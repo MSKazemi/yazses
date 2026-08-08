@@ -610,6 +610,25 @@ def tray(
     run_tray()
 
 
+@app.command(
+    rich_help_panel=_DAEMON,
+    epilog=_examples(
+        "yazses settings    open the settings window (needs a graphical session)",
+    ),
+)
+def settings() -> None:
+    """Open the Settings window — every capability as a toggle, grouped by category.
+
+    Reads and writes the same config keys as `yazses features enable/disable`, so
+    the two never disagree. Needs a graphical session (no system tray required);
+    on a headless or SSH machine use `yazses features` instead. Restart the daemon
+    after applying changes: `yazses restart`.
+    """
+    from yazses.settingsui.app import run as run_settings
+
+    run_settings()
+
+
 def _warn_unmet_prereqs() -> None:
     """Print actionable warnings if system prerequisites are missing or a pending
     `input`-group re-login would leave the hotkey dead. Best-effort and silent
