@@ -156,6 +156,48 @@ def test_no_dep_warning_when_disabling():
     assert result.missing_packages == ()
 
 
+# --- environments that can never install the deps (a snap) -----------------
+
+
+def test_enabling_is_refused_without_writing_when_deps_can_never_install():
+    """Inside a snap the files are read-only, so naming the packages and writing
+    the config anyway would leave the setting reading "on" with nothing able to
+    honour it — and point at a `features enable` that refuses for the same
+    reason. Refuse before the write instead."""
+    rec = _Recorder(missing=["speechbrain"])
+    ctrl = SettingsController(
+        rec.load, rec.write, rec.probe, blocked_probe=lambda pkgs: "this is a snap"
+    )
+    result = ctrl.set_enabled("cocktail", True, confirmed=True)
+    assert result.ok is False
+    assert "this is a snap" in (result.error or "")
+    assert rec.writes == [], "config was written for a setting that can never work"
+
+
+def test_a_bundled_dependency_still_enables_in_a_locked_environment():
+    """The gate must be precise: the snap bundles the libraries for several
+    capabilities, and those must still toggle normally."""
+    rec = _Recorder(missing=[])  # deps import fine — they are bundled
+    ctrl = SettingsController(
+        rec.load, rec.write, rec.probe, blocked_probe=lambda pkgs: "would be blocked"
+    )
+    result = ctrl.set_enabled("cocktail", True, confirmed=True)
+    assert result.ok is True
+    assert rec.writes
+
+
+def test_disabling_is_never_blocked():
+    """Turning something OFF installs nothing, so a locked environment must not
+    trap a user with a setting they cannot switch back."""
+    rec = _Recorder(missing=["speechbrain"])
+    ctrl = SettingsController(
+        rec.load, rec.write, rec.probe, blocked_probe=lambda pkgs: "this is a snap"
+    )
+    result = ctrl.set_enabled("cocktail", False)
+    assert result.ok is True
+    assert rec.writes
+
+
 # --- PendingChanges (pure staging) -----------------------------------------
 
 

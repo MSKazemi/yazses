@@ -19,11 +19,11 @@ Two rules this layer exists to enforce:
 """
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 
 from yazses.config import Config
-from yazses.system.deps import missing_modules
+from yazses.system.deps import install_blocked_reason, missing_modules
 from yazses.system.features import EXPERIMENTAL, find_feature
 
 # Same shape as configedit.set_config_key(path, section, key, value, quote=...),
@@ -31,6 +31,8 @@ from yazses.system.features import EXPERIMENTAL, find_feature
 ConfigWriter = Callable[[str, str, object, bool | None], None]
 ConfigLoader = Callable[[], Config]
 DepsProbe = Callable[[Iterable[str]], list[str]]
+# Why this environment can never supply a feature's libraries, or None.
+BlockedProbe = Callable[[Sequence[str]], str | None]
 
 
 @dataclass(frozen=True)
@@ -118,10 +120,12 @@ class SettingsController:
         load_config: ConfigLoader,
         writer: ConfigWriter,
         deps_probe: DepsProbe | None = None,
+        blocked_probe: BlockedProbe | None = None,
     ) -> None:
         self._load_config = load_config
         self._writer = writer
         self._deps_probe = deps_probe or missing_modules
+        self._blocked_probe = blocked_probe or install_blocked_reason
 
     def set_enabled(self, slug: str, desired: bool, *, confirmed: bool = False) -> ToggleResult:
         """Put one feature into the *desired* state, mirroring `yazses features`.
@@ -145,6 +149,16 @@ class SettingsController:
 
         if desired and feat.tier == EXPERIMENTAL and not confirmed:
             return ToggleResult(ok=False, needs_confirmation=True)
+
+        if desired:
+            # Refuse *before* writing when this environment can never supply the
+            # feature's libraries — a snap, whose files are read-only. Naming the
+            # packages afterwards (what this used to do) left the config saying
+            # "on" while nothing could honour it, and pointed at a `features
+            # enable` that refuses for exactly the same reason.
+            blocked = self._blocked_reason(feat)
+            if blocked is not None:
+                return ToggleResult(ok=False, error=f"{feat.name}: {blocked}")
 
         writes = feat.on_writes if desired else feat.off_writes
         for index, (section, key, value, quote) in enumerate(writes):
@@ -184,6 +198,16 @@ class SettingsController:
             else:
                 report.errors.append(result.error or f"{slug}: unknown error")
         return report
+
+    def _blocked_reason(self, feat) -> str | None:
+        """Why this environment can never install *feat*'s libraries, or ``None``.
+
+        Only a genuinely impossible install counts, so a capability whose
+        libraries the snap already bundles still toggles normally.
+        """
+        if not self._missing_packages(feat):
+            return None
+        return self._blocked_probe(feat.pip_packages)
 
     def _missing_packages(self, feat) -> tuple[str, ...]:
         """Optional deps this feature needs that are not importable here."""

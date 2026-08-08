@@ -52,6 +52,14 @@ still enables normally inside the snap. `system.deps.install_blocked_reason` als
 the general case of an unwritable site directory (a root-owned install run as a normal
 user), so pip is never launched into a wall.
 
+`yazses settings` had the same defect and is fixed the same way. The window wrote the
+config keys and *then* reported the missing packages, telling the user to run
+`yazses features enable <slug>` — which now refuses for exactly the reason the window
+had just ignored. It refuses before writing too, so a checkbox can never be left ticked
+for something that cannot work. Turning a capability **off** is never blocked: that
+installs nothing, and a locked environment must not trap a user with a setting they
+cannot switch back.
+
 ### Added — `yazses settings`, a settings window generated from the feature registry
 
 YazSes had no graphical way to turn a capability on. Everything went through
