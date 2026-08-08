@@ -1,0 +1,44 @@
+; Editor defaults for this repo — https://editorconfig.org
+; Every rule below describes what the tree already does; none of it reformats
+; anything. Deliberately absent: a rule for *.json (the contract vectors in
+; contract/vectors/ are generated and byte-compared by a test, so an editor
+; reindenting them would fail CI) and for *.sh (the scripts genuinely disagree —
+; install.sh is 2-space, scripts/build-deb.sh is 4).
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+charset = utf-8
+
+[*.py]
+indent_style = space
+indent_size = 4
+; Matches [tool.ruff] line-length in pyproject.toml — keep the two in step.
+max_line_length = 100
+
+[*.{md,markdown}]
+; Two trailing spaces is a hard line break in Markdown, not stray whitespace.
+trim_trailing_whitespace = false
+
+[*.toml]
+indent_style = space
+indent_size = 4
+
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+[Makefile]
+indent_style = tab
+
+; Binary assets: an editor must not "helpfully" append a newline to them.
+[*.{png,jpg,jpeg,gif,ico,pdf,woff,woff2}]
+insert_final_newline = false
+trim_trailing_whitespace = false
+
+; Search-engine verification tokens are byte-exact — the file must contain the
+; key and nothing else (docs/<indexnow-key>.txt).
+[docs/*.txt]
+insert_final_newline = false
