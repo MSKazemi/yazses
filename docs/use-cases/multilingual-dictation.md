@@ -29,6 +29,51 @@ language = "de"        # or fr, es, it, fa, ar, hi, zh, …
 Then `yazses restart`. Accuracy varies substantially by language and model size;
 larger models help disproportionately for lower-resource languages.
 
+### German, French, Spanish
+
+These three are the most common request, so here they are as complete configs.
+Drop the block that matches your language into `config.toml` and restart:
+
+```toml
+# German
+[stt]
+model = "small"
+language = "de"
+```
+
+```toml
+# French
+[stt]
+model = "small"
+language = "fr"
+```
+
+```toml
+# Spanish
+[stt]
+model = "small"
+language = "es"
+```
+
+### Downloading the model
+
+There is no separate "download" step to run by hand — faster-whisper fetches
+`small` (or whichever multilingual model you configured) the first time the
+daemon starts with it set, the same way it fetches `.en` models, and caches it
+in the Hugging Face cache. Multilingual weights are somewhat larger than their
+`.en` counterparts at the same size tier, so expect a longer first-run download
+and a few hundred MB more disk use. Confirm it landed with:
+
+```bash
+yazses doctor
+```
+
+which reports the configured model as cached, local, or not yet downloaded.
+If the download stalls or fails partway (a slow or interrupted connection is
+the usual cause), delete the partial cache entry and restart the daemon to
+retry from a clean state — `yazses doctor` output tells you which model is
+misbehaving.
+
 ## Sentences that mix two languages
 
 This is the case ordinary dictation handles worst. Bilingual speakers routinely
