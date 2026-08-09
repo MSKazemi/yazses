@@ -27,6 +27,44 @@ major bumps under `contract/README.md`. Four vector cases that existed to prove 
 using one of these five words would have become vacuous, so each keeps its input as a
 record of the new behaviour and gains a sibling case proving the same rule with a word
 that is still a default filler (76 → 80 disfluency cases).
+### Fixed — streaming dictation deleted text it had never typed (#153)
+
+Reported from the snap: a long dictation ended in a flood of repeated characters, then the
+correction pass removed text the user wanted to keep. Three defects, all on the streaming
++ X11 path, each able to cause it on its own.
+
+`XdotoolInjector` used a **fixed** `timeout=10` on every method. At `--delay 12` that
+expires around 833 characters — and it expires *after* xdotool has already typed part of
+the text, so the caller sees a failure for work that partly happened, `LinuxInjector` reads
+that as a broken backend and falls back to the clipboard, and the text lands **twice**.
+`YdotoolInjector` has scaled its timeout since the Wayland flood fix and says why in a
+comment; the X11 path simply never got it. Timeouts now scale with the keystrokes actually
+requested, on `type`, `inject_backspaces` and `inject_key_sequence` alike.
+
+The streaming commit sends one `shift+Left` per typed character, so a long burst hit that
+same wall **twice** — once selecting, once retyping. A run of one repeated key now goes out
+as a single `--repeat` spec, the way `inject_backspaces` always has, which also keeps a
+thousand-character correction off the argv length limit.
+
+`StreamingInjector` had no synchronisation at all. `inject_partial` runs on the daemon's
+poll thread while `commit` runs on hold-release, and the daemon's `join(timeout=1.0)`
+cannot outwait an injection allowed ten times that — so a partial could land *after*
+`commit` had read the character count, leaving `shift+Left × N` selecting a span that no
+longer matched the screen. Every mutation now happens under one lock held across the
+injection itself, and a committed injector is **sealed**: a late partial is dropped rather
+than typed behind the final text.
+
+### Fixed — a fresh snap install said nothing about the two interfaces it needs (#154)
+
+`snap install yazses` leaves both `audio-record` and `raw-input` unconnected — snapd does
+not auto-connect either, and a snap cannot connect its own. The result is the two most
+visible failures possible: it cannot hear you, and it cannot see the hotkey. The daemon
+starts and reports healthy in both cases.
+
+`yazses setup` / `start` already surfaced the microphone one. It now surfaces `raw-input`
+too, so the tool says what is wrong instead of leaving it to documentation, and the Snap
+row in the Linux install guide lists every step rather than only the first two.
+
 ### Fixed — `yazses start` now survives a reboot, which is what it always claimed
 
 `install_autostart()` was written so that a `pipx` / `uv tool` / `pip install` gets a

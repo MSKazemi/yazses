@@ -182,9 +182,78 @@ def test_snap_mic_pending_false_when_snapctl_missing():
 def test_preflight_hint_when_snap_mic_unconnected(monkeypatch):
     # In the snap with audio-record not connected, surface the connect step.
     monkeypatch.setattr(setup, "snap_mic_pending", lambda env=None: True)
+    monkeypatch.setattr(setup, "snap_rawinput_pending", lambda env=None: False)
     plan = _fully_provisioned_plan()
     hints = setup.preflight_hints(plan=plan, pending_relogin=False)
     assert any("snap connect yazses:audio-record" in h for h in hints)
+
+
+# --- raw-input: the other interface a fresh snap install has to be told about --
+
+
+def test_snap_rawinput_pending_false_outside_snap():
+    assert setup.snap_rawinput_pending({}, runner=_runner(1)) is False
+    assert setup.snap_rawinput_pending({"SNAP_NAME": "other"}, runner=_runner(1)) is False
+
+
+def test_snap_rawinput_pending_true_when_interface_unconnected():
+    assert setup.snap_rawinput_pending({"SNAP_NAME": "yazses"}, runner=_runner(1)) is True
+
+
+def test_snap_rawinput_pending_false_when_interface_connected():
+    assert setup.snap_rawinput_pending({"SNAP_NAME": "yazses"}, runner=_runner(0)) is False
+
+
+def test_snap_rawinput_pending_false_when_snapctl_missing():
+    def _raise(*a, **k):
+        raise FileNotFoundError("snapctl")
+
+    assert setup.snap_rawinput_pending({"SNAP_NAME": "yazses"}, runner=_raise) is False
+
+
+def test_each_interface_check_asks_about_its_own_interface():
+    """Regression guard for the shared helper: both checks must not collapse
+    onto one interface, or a connected mic would silence the hotkey warning."""
+    asked: list[str] = []
+
+    def spy(argv, **_k):
+        asked.append(argv[-1])
+        return _Rc(1)
+
+    env = {"SNAP_NAME": "yazses"}
+    setup.snap_mic_pending(env, runner=spy)
+    setup.snap_rawinput_pending(env, runner=spy)
+    assert asked == ["audio-record", "raw-input"]
+
+
+@posix_only
+def test_preflight_hint_when_snap_rawinput_unconnected(monkeypatch):
+    """Without raw-input the daemon starts, looks healthy, and never sees the
+    hotkey — the most confusing way a fresh snap install can fail."""
+    monkeypatch.setattr(setup, "snap_mic_pending", lambda env=None: False)
+    monkeypatch.setattr(setup, "snap_rawinput_pending", lambda env=None: True)
+    plan = _fully_provisioned_plan()
+    hints = setup.preflight_hints(plan=plan, pending_relogin=False)
+    assert any("snap connect yazses:raw-input" in h for h in hints)
+
+
+@posix_only
+def test_a_fresh_snap_install_is_told_about_both(monkeypatch):
+    monkeypatch.setattr(setup, "snap_mic_pending", lambda env=None: True)
+    monkeypatch.setattr(setup, "snap_rawinput_pending", lambda env=None: True)
+    plan = _fully_provisioned_plan()
+    hints = setup.preflight_hints(plan=plan, pending_relogin=False)
+    assert any("yazses:audio-record" in h for h in hints)
+    assert any("yazses:raw-input" in h for h in hints)
+
+
+@posix_only
+def test_a_fully_connected_snap_is_told_nothing(monkeypatch):
+    monkeypatch.setattr(setup, "snap_mic_pending", lambda env=None: False)
+    monkeypatch.setattr(setup, "snap_rawinput_pending", lambda env=None: False)
+    plan = _fully_provisioned_plan()
+    hints = setup.preflight_hints(plan=plan, pending_relogin=False)
+    assert not any("snap connect" in h for h in hints)
 
 
 @posix_only
