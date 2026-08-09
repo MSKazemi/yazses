@@ -2387,6 +2387,62 @@ def shellpipe(
 @app.command(
     rich_help_panel=_DICTATION,
     epilog=_examples(
+        "yazses gitvoice \"commit with message fix the parser\"   -> git commit -m 'fix the parser'",
+        'yazses gitvoice "force push" --run                     refuses: destructive, needs --yes',
+        'yazses gitvoice "force push" --run --yes                -> actually runs it',
+    ),
+)
+def gitvoice(
+    text: Optional[str] = typer.Argument(None, help="Spoken git command (omit to read stdin)."),
+    run: bool = typer.Option(False, "--run", help="Run the command instead of only printing it."),
+    yes: bool = typer.Option(False, "--yes", help="Confirm a destructive command so --run will run it."),
+) -> None:
+    """Turn a spoken git command into a git command — fully offline.
+
+    Use it when: you want to drive git hands-free — 'commit with message …', 'create
+    branch …', 'push', 'status', 'discard changes in …' — and either review the exact
+    command first or run it on the spot.
+
+    Always prints the resolved command and how to undo it. Destructive commands
+    (force-push, hard reset, branch -D, discarding uncommitted changes, ...) are never
+    run — even with --run — without --yes. Reads the TEXT argument, or standard input
+    when omitted; exits non-zero if unparsed.
+    """
+    import shlex as _shlex
+    import subprocess as _subprocess
+    import sys as _sys
+
+    from yazses.gitvoice.plan import build_git_argv, reversibility, undo_hint
+
+    src = text if text is not None else _sys.stdin.read()
+    argv = build_git_argv(src)
+    if not argv:
+        typer.echo(
+            "Could not parse a git command. Try: 'commit with message …', 'create branch …', "
+            "'push', 'status', 'discard changes in …'.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    typer.echo(_shlex.join(argv))
+    hint = undo_hint(argv)
+    if hint:
+        typer.echo(f"undo: {hint}")
+
+    if not run:
+        return
+    if reversibility(argv) == "confirm" and not yes:
+        typer.echo("Destructive — re-run with --yes to actually run it.", err=True)
+        raise typer.Exit(1)
+
+    result = _subprocess.run(argv)
+    if result.returncode != 0:
+        raise typer.Exit(result.returncode)
+
+
+@app.command(
+    rich_help_panel=_DICTATION,
+    epilog=_examples(
         'yazses braille "hello world"       -> ⠓⠑⠇⠇⠕ ⠺⠕⠗⠇⠙',
         'yazses braille --grade 1 "abc"     Grade 1 (uncontracted)',
     ),

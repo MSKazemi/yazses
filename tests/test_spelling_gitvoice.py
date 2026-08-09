@@ -41,6 +41,11 @@ def test_build_branch_ops():
     assert build_git_argv("delete branch old") == ["git", "branch", "-D", "old"]
 
 
+def test_build_discard():
+    assert build_git_argv("discard changes in server.py") == ["git", "checkout", "--", "server.py"]
+    assert build_git_argv("discard edits to src/app.py") == ["git", "checkout", "--", "src/app.py"]
+
+
 def test_build_plumbing_and_none():
     assert build_git_argv("push") == ["git", "push"]
     assert build_git_argv("force push") == ["git", "push", "--force"]
@@ -58,6 +63,7 @@ def test_reversibility():
     assert reversibility(["git", "push", "--force"]) == "confirm"
     assert reversibility(["git", "reset", "--hard"]) == "confirm"
     assert reversibility(["git", "branch", "-D", "old"]) == "confirm"
+    assert reversibility(["git", "checkout", "--", "server.py"]) == "confirm"
 
 
 def test_undo_hint():
@@ -69,6 +75,7 @@ def test_undo_hint():
     assert undo_hint(["git", "stash"]) == "git stash pop"
     assert "reflog" in undo_hint(["git", "branch", "-D", "old"])
     assert "prior sha" in undo_hint(["git", "push", "--force"])
+    assert "reflog" in undo_hint(["git", "checkout", "--", "server.py"])
     assert undo_hint([]) == ""
     assert undo_hint(["git", "status"]) == ""
 

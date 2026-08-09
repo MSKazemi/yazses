@@ -51,6 +51,9 @@ def build_git_argv(text: str):
     m = re.search(r"\bdelete\s+branch\s+([\w./-]+)", t)
     if m:
         return ["git", "branch", "-D", m.group(1)]
+    m = re.search(r"\bdiscard\s+(?:changes|edits)\s+(?:in|to|on)\s+([\w./-]+)", t)
+    if m:
+        return ["git", "checkout", "--", m.group(1)]
     m = re.search(r"\b(?:checkout|switch\s+to|switch)\s+(?:branch\s+)?([\w./-]+)", t)
     if m:
         return ["git", "checkout", m.group(1)]
@@ -79,6 +82,8 @@ def undo_hint(argv) -> str:
         return "git reset --soft HEAD~1"
     if sub == "checkout" and "-b" in tail:
         return f"git branch -d {tail[-1]}"
+    if sub == "checkout" and "--" in tail:
+        return "recover via: git reflog / your editor's local history (uncommitted changes are gone unless stashed first)"
     if sub == "merge":
         return "git merge --abort"
     if sub == "add":

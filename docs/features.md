@@ -741,11 +741,11 @@ YazSes ships **140 capabilities**. All but the core are **off by default** — t
 
 ### Voice Git Choreographer
 
-- **Toggle:** `gitvoice`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[gitvoice] — safe git by voice`
+- **Toggle:** `gitvoice`  ·  **Tier:** optional  ·  **Config:** `[gitvoice] — safe git by voice`
 - **What it does:** Drive git by voice via a structured grammar; destructive ops (force-push, reset --hard) wait for a spoken confirm and the undo is always spoken. Off by default.
 - **Use when:** When driving git hands-free and you want destructive commands gated behind a spoken confirm.
 - **Example:** Say 'force push' and it waits for confirm, and tells you the undo.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable gitvoice` then `yazses restart`
 
 ### Terminal Command Safety Gate
 
