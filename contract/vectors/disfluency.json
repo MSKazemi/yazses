@@ -1,6 +1,6 @@
 {
   "unit": "filters.disfluency",
-  "contract_version": "5.1.0",
+  "contract_version": "5.2.0",
   "source": "src/yazses/stt/filters/disfluency.py::filter_transcript (.text)",
   "cases": [
     {
@@ -38,7 +38,7 @@
       "description": "Rule A: several fillers in one burst",
       "options": {},
       "input": "um so like the meeting is uh at noon",
-      "expected": "so the meeting is at noon"
+      "expected": "so like the meeting is at noon"
     },
     {
       "id": "removes-multiword-filler",
@@ -366,7 +366,7 @@
       "description": "surprising, bug-shaped: 'actually' is a default filler, so Rule A strips it out of the middle of the hyphenated token 'a-a-actually', leaving a dangling 'a-a-' fragment glued onto the next word — worth its own issue",
       "options": {},
       "input": "a-a-actually the meeting",
-      "expected": "a-a-the meeting"
+      "expected": "a-a-actually the meeting"
     },
     {
       "id": "hyphenated-double-filler-leaves-orphan-hyphen",
@@ -450,7 +450,7 @@
       "description": "the capitalized multi-word filler 'Sort of' has no hesitation particle, so it's protected at position 0 like 'You know' — but the later lowercase 'kind of' is an ordinary mid-sentence filler and is removed",
       "options": {},
       "input": "Sort of, kind of, the meeting is at noon",
-      "expected": "Sort of, the meeting is at noon"
+      "expected": "Sort of, kind of, the meeting is at noon"
     },
     {
       "id": "uppercase-filler-mid-sentence-protected",
@@ -464,7 +464,7 @@
       "description": "text that only looks like content but isn't protected: a real phrase beginning with the lowercase word 'like' is still stripped as a filler, because the position-0 exception only protects capitalized tokens",
       "options": {},
       "input": "like a diamond in the sky",
-      "expected": "a diamond in the sky"
+      "expected": "like a diamond in the sky"
     },
     {
       "id": "looks-like-filler-plural-survives",
@@ -478,7 +478,7 @@
       "description": "'right' is only ever protected when capitalized at position 0; here it's lowercase, so it's stripped, and 'okay so' (itself in the filler list) is stripped too since it isn't at position 0 either",
       "options": {},
       "input": "right okay so the meeting",
-      "expected": "the meeting"
+      "expected": "right the meeting"
     },
     {
       "id": "self-correction-inside-rtl-text",

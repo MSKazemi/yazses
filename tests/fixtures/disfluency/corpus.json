@@ -96,8 +96,8 @@
   },
   {
     "input": "I actually think this is good",
-    "expected": "I think this is good",
-    "notes": "actually filler removed mid-sentence"
+    "expected": "I actually think this is good",
+    "notes": "actually kept by default (content word; issue #146)"
   },
   {
     "input": "I literally just said that",
@@ -106,13 +106,13 @@
   },
   {
     "input": "it is sort of complicated",
-    "expected": "it is complicated",
-    "notes": "multi-word filler sort of removed"
+    "expected": "it is sort of complicated",
+    "notes": "sort of kept by default (hedge; issue #146)"
   },
   {
     "input": "it is kind of hard",
-    "expected": "it is hard",
-    "notes": "multi-word filler kind of removed"
+    "expected": "it is kind of hard",
+    "notes": "kind of kept by default (hedge; issue #146)"
   },
   {
     "input": "so um we need to fix this",
@@ -126,13 +126,13 @@
   },
   {
     "input": "it is like really hard",
-    "expected": "it is really hard",
-    "notes": "like filler removed mid-sentence"
+    "expected": "it is like really hard",
+    "notes": "like kept by default (content/hedge; issue #146)"
   },
   {
     "input": "right we should do this",
-    "expected": "we should do this",
-    "notes": "right filler removed from start"
+    "expected": "right we should do this",
+    "notes": "right kept by default (content word; issue #146)"
   },
   {
     "input": "um uh so we need this",

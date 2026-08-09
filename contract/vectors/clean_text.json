@@ -1,6 +1,6 @@
 {
   "unit": "postprocess.clean_text",
-  "contract_version": "5.1.0",
+  "contract_version": "5.2.0",
   "source": "src/yazses/postprocess/cleaner.py::clean_text",
   "cases": [
     {
