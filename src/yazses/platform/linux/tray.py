@@ -251,8 +251,12 @@ class LinuxTray:
 
     def _on_restart(self) -> None:
         if self._controller is not None:
-            self._controller.restart()
-            self._notify("YazSes", "Restarting the daemon…")
+            ok = self._controller.restart()
+            self._notify(
+                "YazSes",
+                "Restarting the daemon…" if ok
+                else "Could not run `yazses restart` — is yazses on PATH?",
+            )
 
     def _on_stop_daemon(self) -> None:
         if self._controller is not None:
@@ -260,8 +264,12 @@ class LinuxTray:
             self._notify("YazSes", "Stopping the daemon…")
 
     def _on_settings(self) -> None:
-        if self._controller is not None:
-            self._controller.launch_settings()
+        # Opening a window is the one menu action with no visible effect of its own if
+        # the launch fails, so say so rather than leaving the click looking ignored.
+        if self._controller is not None and not self._controller.launch_settings():
+            self._notify(
+                "YazSes", "Could not open Settings — is `yazses` on PATH?"
+            )
 
     def _on_quit_tray(self) -> None:
         # Close the tray only; leave the daemon running.

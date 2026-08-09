@@ -53,7 +53,9 @@ class TrayMenuModel:
     mic_line: str               # e.g. "Mic: default"
     warning: str | None         # e.g. "⚠ 2 silent clips in a row" or None
     devices: list[DeviceItem]   # "Follow OS default" first, then each input device
-    settings_label: str         # e.g. "Settings…" — opens the graphical settings window
+    # "Settings…" — opens the graphical settings window. Defaulted so a caller that
+    # builds the model directly (a platform tray, a test) keeps working.
+    settings_label: str = SETTINGS_LABEL
 
 
 def build_menu_model(
