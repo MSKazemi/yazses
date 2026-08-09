@@ -113,6 +113,25 @@ Same script, `--shot`, for screenshots such as the tray in a particular state:
 uv run scripts/record-demo.py --window --shot --out docs/screenshots/tray-green.png
 ```
 
+### Terminal output — render it, don't photograph it
+
+A screen capture of a terminal carries whatever else is on that machine: its home directory
+in every path, its window theme, and whichever version happened to be installed that day.
+For command output, render the *text* instead:
+
+```sh
+{ echo '$ yazses doctor'; yazses doctor; } | uv run scripts/render-term.py \
+    "yazses doctor — all systems go" docs/screenshots/yazses-doctor.png
+```
+
+`render-term.py` draws the output in the project's own colours — the same `#0d1117` /
+`#3fb950` as the social card — and rewrites `$HOME` to `~`, so the result is reproducible
+and can't leak a local directory layout. That is how `docs/screenshots/yazses-doctor.png`
+is made.
+
+**Re-run it after a release.** That screenshot exists to prove the install works; a stale
+version number on it undercuts the one thing it is there to say.
+
 ## Wayland
 
 `mss` cannot capture the screen under Wayland. Record with

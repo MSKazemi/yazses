@@ -36,6 +36,33 @@ The badge sits in your top bar (GNOME shown here) and changes colour as YazSes m
 
 ---
 
+## The click-menu — mic picker and daemon controls
+
+The badge isn't only an indicator. Clicking it opens a menu, rebuilt fresh each time, that
+carries the daemon's current state at the top and everything you need to fix the two things
+that most often go wrong — the wrong microphone, and a daemon that needs a restart.
+
+![The YazSes tray menu open with the Microphone submenu expanded, listing each input device](screenshots/tray-mic-picker.png)
+
+- **`YazSes — idle`** and **`Mic: default`** — the same state the badge colour encodes, in words.
+- **Microphone** — every input device the system reports, with the active one marked. Picking
+  one **pins** it, so a USB-C monitor or a headset that appears later can't quietly steal
+  capture. `Follow OS default` hands control back. This takes effect live, over IPC — no restart.
+- **Re-calibrate** — re-measures the room and writes a fitting silence threshold, for when
+  dictation starts getting discarded as silence.
+- **Restart daemon** / **Stop daemon** — and **Quit tray**, which closes only the icon and
+  leaves dictation running.
+
+Here it is being driven — the menu opening, the Microphone submenu expanding, and the daemon
+controls underneath:
+
+![The tray menu being used: opened, Microphone submenu expanded and collapsed, then the daemon controls](screenshots/tray-menu.gif)
+
+The same actions are available from the command line if you prefer it — `yazses audio devices`,
+`yazses audio use <name>`, `yazses mic-level --set`, `yazses restart`.
+
+---
+
 ## The voice-activity overlay — “YazSes is listening”
 
 When the overlay is enabled, holding the hotkey draws **expanding sonar rings near your cursor** that react to your voice level, so you get instant feedback that YazSes is actually recording — no guessing whether it heard you.
