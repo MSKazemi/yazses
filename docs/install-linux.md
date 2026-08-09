@@ -240,8 +240,12 @@ Note that settings do not carry over: the snap keeps config and models under
 
 ## 4. Start at login
 
-The APT install enables this for you. Otherwise it is one command, whichever way
-you installed YazSes:
+**Usually already done.** `yazses start` sets this up once the daemon is up, whichever way
+you installed — so if you have started YazSes at least once, it will be running again after
+the next reboot. It says so the one time it does it, and does nothing on later starts.
+
+To skip it, `yazses start --no-autostart`. To do it explicitly — or to redo it after
+disabling — it is one command:
 
 ```bash
 yazses autostart enable

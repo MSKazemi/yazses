@@ -466,6 +466,8 @@ Grade a card's recall (SM-2) and update its schedule.
 
 Start the YazSes daemon (restarts cleanly if one is already running).
 
+- `--no-autostart` — Don't also set YazSes to start at login.
+
 ## `yazses status`
 
 Show daemon status. Queries the daemon over IPC when reachable.

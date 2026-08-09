@@ -71,8 +71,23 @@ class LinuxLifecycle:
         if autostart.needs_rewrite(existing, wanted):
             self._service_file.parent.mkdir(parents=True, exist_ok=True)
             self._service_file.write_text(wanted)
-            subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
-        subprocess.run(["systemctl", "--user", "enable", "--now", "yazses.service"], check=True)
+            subprocess.run(
+                ["systemctl", "--user", "daemon-reload"],
+                check=False, capture_output=True, text=True,
+            )
+        # Captured, not inherited: systemctl narrates ("Created symlink …") on success,
+        # and that chatter in the middle of `yazses start`'s output reads like something
+        # went wrong. On failure the message is the only useful thing there is, so it is
+        # raised rather than swallowed — CalledProcessError alone would say only "exit 1".
+        result = subprocess.run(
+            ["systemctl", "--user", "enable", "--now", "yazses.service"],
+            check=False, capture_output=True, text=True,
+        )
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout or "").strip().splitlines()
+            raise RuntimeError(
+                f"systemctl --user enable failed: {detail[-1] if detail else 'unknown error'}"
+            )
 
     def uninstall_autostart(self) -> None:
         if not shutil.which("systemctl"):

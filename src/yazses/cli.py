@@ -509,6 +509,40 @@ def _wait_until_ready(platform, timeout: float = 20.0):
     return "loading", last_info
 
 
+def _ensure_autostart(platform) -> None:
+    """Make a successful `yazses start` survive the next reboot.
+
+    ``install_autostart()`` was written so that a pipx / uv-tool / pip install gets a
+    login service like the packaged installs do — but nothing ever called it except
+    ``yazses autostart enable``, a command you only find if you already know it exists.
+    So the ordinary path was: install, `yazses start`, dictate happily, reboot, and the
+    daemon is gone with nothing anywhere saying why. A daemon you must remember to
+    launch is not a daemon.
+
+    Best-effort by design: this runs only after the daemon actually came up, and any
+    failure is reported in one line and otherwise ignored — not being set up for next
+    login must never turn a working start into a failed command. Already-installed is
+    silent; only the transition says anything, and it names the way back out.
+    """
+    lifecycle = getattr(platform, "lifecycle", None)
+    if lifecycle is None or not hasattr(lifecycle, "install_autostart"):
+        return
+    try:
+        if lifecycle.is_autostart_installed():
+            return
+    except Exception:  # noqa: BLE001 — an unanswerable question is not a reason to act
+        return
+    try:
+        lifecycle.install_autostart()
+    except Exception as exc:  # noqa: BLE001 — report, never fail the start
+        typer.echo(
+            f"  (note: could not set YazSes to start at login: {exc}\n"
+            "   dictation is running now; `yazses autostart enable` retries it.)"
+        )
+        return
+    typer.echo("  Also set to start automatically at login (`yazses autostart disable` to undo).")
+
+
 def _report_start_outcome(platform, outcome: str, info) -> None:
     """Print an honest, actionable message for a start/restart outcome and set a
     non-zero exit code when the daemon failed to come up."""
@@ -539,12 +573,22 @@ def _report_start_outcome(platform, outcome: str, info) -> None:
     rich_help_panel=_DAEMON,
     epilog=_examples("yazses start    start dictating — hold the hotkey, speak, release"),
 )
-def start() -> None:
+def start(
+    no_autostart: bool = typer.Option(
+        False,
+        "--no-autostart",
+        help="Don't also set YazSes to start at login.",
+    ),
+) -> None:
     """Start the YazSes daemon (restarts cleanly if one is already running).
 
     Loads the speech model once and listens for the hotkey. If a daemon is already
     running this **restarts** it (killing any stray duplicates) rather than spawning
     a second one — so you never end up double-typing.
+
+    Once the daemon is up, YazSes also sets itself to start at login, so it is running
+    when you next sit down instead of silently absent after a reboot. Pass
+    `--no-autostart` to skip that, or undo it later with `yazses autostart disable`.
     """
     platform = get_platform()
     _warn_unmet_prereqs()
@@ -555,7 +599,13 @@ def start() -> None:
         platform.lifecycle.clear_pid()
         _spawn_daemon(platform)
     outcome, info = _wait_until_ready(platform)
+    # "loading" counts: the process is alive and merely still fetching the model, which
+    # is exactly the first run this is meant to catch. "died" does not — a daemon that
+    # cannot start is not one to wire into every login. _report_start_outcome raises
+    # Exit(1) in that case, so this runs after it only for the outcomes that survive.
     _report_start_outcome(platform, outcome, info)
+    if not no_autostart and outcome in ("ready", "loading"):
+        _ensure_autostart(platform)
 
 
 @app.command(

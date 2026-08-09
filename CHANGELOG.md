@@ -27,6 +27,21 @@ major bumps under `contract/README.md`. Four vector cases that existed to prove 
 using one of these five words would have become vacuous, so each keeps its input as a
 record of the new behaviour and gains a sibling case proving the same rule with a word
 that is still a default filler (76 → 80 disfluency cases).
+### Fixed — `yazses start` now survives a reboot, which is what it always claimed
+
+`install_autostart()` was written so that a `pipx` / `uv tool` / `pip install` gets a
+login service like the packaged installs do — its own docstring says *"a daemon you must
+remember to launch is not a daemon."* It had exactly one caller: `yazses autostart
+enable`, a command you only find if you already know it exists. So the ordinary path was
+install → `yazses start` → dictate happily → reboot → the daemon is gone, with nothing
+anywhere saying why. The promise was implemented and never wired up.
+
+`yazses start` now installs the login service once the daemon is actually up, and says so
+the single time it does it. It is best-effort: a daemon that *died* during startup is
+never scheduled to run at every login, a failure to install is one line of explanation
+rather than a failed start, and if we cannot tell whether autostart is already configured
+we change nothing. `yazses start --no-autostart` opts out; `yazses autostart disable`
+undoes it.
 
 ### Added — Style-Consistency Enforcer: config-driven rules source (#36)
 
