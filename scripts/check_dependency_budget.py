@@ -164,7 +164,7 @@ def check_growth(current: list[str], baseline: dict, *, is_pull_request: bool) -
     return False
 
 
-def run_import_probe(entrypoint: str) -> tuple[list[str], int]:
+def _import_probe_once(entrypoint: str) -> tuple[list[str], int]:
     """Import *entrypoint* in a subprocess; return (loaded modules, its own us)."""
     proc = subprocess.run(
         [sys.executable, "-X", "importtime", "-c", f"import {entrypoint}"],
@@ -194,6 +194,25 @@ def run_import_probe(entrypoint: str) -> tuple[list[str], int]:
         if name == entrypoint:
             cumulative_us = int(cum_us)
     return modules, cumulative_us
+
+
+# A shared CI runner is a noisy neighbour: two `import yazses.core.daemon` runs
+# 5 minutes apart measured 0.559s and 0.874s here, a swing no fixed tolerance on a
+# single sample survives. A process can only be slowed by contention, never sped up,
+# so the fastest of a few samples is the closest thing to a clean measurement without
+# needing a dedicated runner.
+IMPORT_PROBE_SAMPLES = 3
+
+
+def run_import_probe(entrypoint: str) -> tuple[list[str], int]:
+    """Import *entrypoint* :data:`IMPORT_PROBE_SAMPLES` times; return (modules, best us)."""
+    modules: list[str] = []
+    samples: list[int] = []
+    for _ in range(IMPORT_PROBE_SAMPLES):
+        modules, cumulative_us = _import_probe_once(entrypoint)
+        samples.append(cumulative_us)
+    print(f"  {IMPORT_PROBE_SAMPLES} samples (us): {samples}")
+    return modules, min(samples)
 
 
 def check_eager_imports(modules: list[str]) -> bool:
