@@ -6,6 +6,15 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Style-Consistency Enforcer: config-driven rules source (#36)
+
+The pure `styleguard` core (`load_stylerules`/`apply_style`) has existed with no rules
+source wired into config, so the feature could not be turned on usefully. `[styleguard]`
+now points at a `style-rules.toml` (sibling of `config.toml` by default, `[[rule]]`
+entries of `preferred` → `variants`), loaded once at daemon startup and applied on the
+dictation path alongside the other opt-in text transforms. `styleguard` moves from
+"planned" to "optional" in `yazses features` now that a real entry point reads it.
+
 ### Added — the cross-platform contract now pins meaning, not only parity (contract 5.1.0)
 
 `contract/vectors/` guarantees every YazSes implementation delivers the same string. It
