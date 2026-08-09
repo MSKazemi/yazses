@@ -175,24 +175,40 @@ def input_group_pending_relogin(user: str | None = None) -> bool:
     return gid not in os.getgroups()
 
 
-def snap_mic_pending(env: Mapping[str, str] | None = None, *, runner=subprocess.run) -> bool:
-    """True when running inside the yazses snap with the microphone (`audio-record`)
-    interface not yet connected.
+def snap_interface_pending(
+    interface: str, env: Mapping[str, str] | None = None, *, runner=subprocess.run
+) -> bool:
+    """True when running inside the yazses snap with *interface* not connected.
 
-    Strictly-confined snaps can't self-connect interfaces, and `audio-record` is
-    not auto-connected by snapd, so a fresh `snap install yazses` has no mic until
-    the user runs `snap connect yazses:audio-record`. We surface that as an install
-    step instead of letting dictation silently capture nothing. Detected via
-    `snapctl is-connected`, which is always available to a snap's own apps.
+    Strictly-confined snaps cannot self-connect interfaces, and the two YazSes
+    depends on are not auto-connected by snapd, so a fresh `snap install yazses`
+    has neither a microphone nor a hotkey until the user connects them. Detected
+    via `snapctl is-connected`, which is always available to a snap's own apps.
     """
     env = os.environ if env is None else env
     if env.get("SNAP_NAME") != "yazses":
-        return False  # not the snap build — apt/pipx grant mic access directly
+        return False  # not the snap build — apt/pipx grant these directly
     try:
-        r = runner(["snapctl", "is-connected", "audio-record"], capture_output=True)
+        r = runner(["snapctl", "is-connected", interface], capture_output=True)
     except (FileNotFoundError, OSError):
         return False
     return getattr(r, "returncode", 0) != 0
+
+
+def snap_mic_pending(env: Mapping[str, str] | None = None, *, runner=subprocess.run) -> bool:
+    """True in the snap when `audio-record` is not connected — no microphone."""
+    return snap_interface_pending("audio-record", env, runner=runner)
+
+
+def snap_rawinput_pending(env: Mapping[str, str] | None = None, *, runner=subprocess.run) -> bool:
+    """True in the snap when `raw-input` is not connected — no hold-to-talk key.
+
+    The counterpart to the microphone check, and the more confusing failure of
+    the two: with a mic but no `raw-input` the daemon starts, reports healthy,
+    and simply never notices the hotkey. Joining the `input` group cannot fix it
+    inside confinement — only this interface can (issue #44).
+    """
+    return snap_interface_pending("raw-input", env, runner=runner)
 
 
 def preflight_hints(
@@ -214,11 +230,18 @@ def preflight_hints(
     pending = input_group_pending_relogin() if pending_relogin is None else pending_relogin
     hints: list[str] = []
 
-    # Snap-only: the microphone interface must be connected once after install.
+    # Snap-only: both interfaces must be connected once after install. Neither is
+    # auto-connected, and between them they cover the two ways a fresh snap
+    # install appears broken — it cannot hear you, and it cannot see the hotkey.
     if snap_mic_pending(env):
         hints.append(
             "Microphone access isn't granted to the snap yet — dictation can't hear you.\n"
             "  Grant it once:  sudo snap connect yazses:audio-record"
+        )
+    if snap_rawinput_pending(env):
+        hints.append(
+            "Hold-to-talk isn't granted to the snap yet — the hotkey will do nothing.\n"
+            "  Grant it once:  sudo snap connect yazses:raw-input"
         )
 
     if plan.apt_packages or plan.add_to_input_group or plan.setup_ydotoold:
