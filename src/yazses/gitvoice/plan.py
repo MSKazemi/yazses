@@ -16,10 +16,18 @@ _DESTRUCTIVE = (
 
 
 def build_git_argv(text: str):
-    """Parse a spoken git command into a full argv list, or ``None`` if unrecognized. Pure."""
-    t = (text or "").strip().lower()
+    """Parse a spoken git command into a full argv list, or ``None`` if unrecognized. Pure.
 
-    m = re.search(r"commit\s+(?:all\s+)?(?:with\s+)?(?:message|saying)\s+(.+)$", (text or "").strip(),
+    Keywords are matched case-insensitively, but anything *captured* — a branch name, a
+    merge target, a pathspec — is taken from the utterance as spoken. Git refs and paths
+    are case-sensitive, so folding them would aim the command at the wrong thing: on a
+    case-sensitive filesystem ``discard changes in Server.py`` must not become
+    ``git checkout -- server.py``.
+    """
+    raw = (text or "").strip()
+    t = raw.lower()
+
+    m = re.search(r"commit\s+(?:all\s+)?(?:with\s+)?(?:message|saying)\s+(.+)$", raw,
                   re.IGNORECASE)
     if m:
         msg = m.group(1).strip().strip("\"'")
@@ -45,16 +53,22 @@ def build_git_argv(text: str):
     if re.search(r"\bstash\b", t):
         return ["git", "stash"]
 
-    m = re.search(r"\b(?:create|new)\s+branch\s+([\w./-]+)", t)
+    # Below, the utterance is matched as spoken (IGNORECASE) so the captured ref/path
+    # keeps its case — see the docstring.
+    m = re.search(r"\b(?:create|new)\s+branch\s+([\w./-]+)", raw, re.IGNORECASE)
     if m:
         return ["git", "checkout", "-b", m.group(1)]
-    m = re.search(r"\bdelete\s+branch\s+([\w./-]+)", t)
+    m = re.search(r"\bdelete\s+branch\s+([\w./-]+)", raw, re.IGNORECASE)
     if m:
         return ["git", "branch", "-D", m.group(1)]
-    m = re.search(r"\b(?:checkout|switch\s+to|switch)\s+(?:branch\s+)?([\w./-]+)", t)
+    m = re.search(r"\bdiscard\s+(?:changes|edits)\s+(?:in|to|on)\s+([\w./-]+)", raw, re.IGNORECASE)
+    if m:
+        return ["git", "checkout", "--", m.group(1)]
+    m = re.search(r"\b(?:checkout|switch\s+to|switch)\s+(?:branch\s+)?([\w./-]+)", raw,
+                  re.IGNORECASE)
     if m:
         return ["git", "checkout", m.group(1)]
-    m = re.search(r"\bmerge\s+([\w./-]+)", t)
+    m = re.search(r"\bmerge\s+([\w./-]+)", raw, re.IGNORECASE)
     if m:
         return ["git", "merge", m.group(1)]
     return None
@@ -79,6 +93,8 @@ def undo_hint(argv) -> str:
         return "git reset --soft HEAD~1"
     if sub == "checkout" and "-b" in tail:
         return f"git branch -d {tail[-1]}"
+    if sub == "checkout" and "--" in tail:
+        return "recover via: git reflog / your editor's local history (uncommitted changes are gone unless stashed first)"
     if sub == "merge":
         return "git merge --abort"
     if sub == "add":

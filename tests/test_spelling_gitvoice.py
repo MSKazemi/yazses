@@ -41,6 +41,28 @@ def test_build_branch_ops():
     assert build_git_argv("delete branch old") == ["git", "branch", "-D", "old"]
 
 
+def test_build_discard():
+    assert build_git_argv("discard changes in server.py") == ["git", "checkout", "--", "server.py"]
+    assert build_git_argv("discard edits to src/app.py") == ["git", "checkout", "--", "src/app.py"]
+
+
+def test_captured_refs_and_paths_keep_their_case():
+    # Git refs and paths are case-sensitive. Folding them aims the command at something
+    # else — and for the destructive ones that means discarding the wrong file, or
+    # failing to discard the one the user named.
+    assert build_git_argv("discard changes in Server.py") == [
+        "git", "checkout", "--", "Server.py",
+    ]
+    assert build_git_argv("create branch FixLogin") == ["git", "checkout", "-b", "FixLogin"]
+    assert build_git_argv("delete branch Old-Feature") == ["git", "branch", "-D", "Old-Feature"]
+    assert build_git_argv("switch to Release-2.0") == ["git", "checkout", "Release-2.0"]
+    assert build_git_argv("merge Develop") == ["git", "merge", "Develop"]
+    # …while the keywords themselves stay case-insensitive.
+    assert build_git_argv("Create Branch feature/JIRA-123") == [
+        "git", "checkout", "-b", "feature/JIRA-123",
+    ]
+
+
 def test_build_plumbing_and_none():
     assert build_git_argv("push") == ["git", "push"]
     assert build_git_argv("force push") == ["git", "push", "--force"]
@@ -58,6 +80,7 @@ def test_reversibility():
     assert reversibility(["git", "push", "--force"]) == "confirm"
     assert reversibility(["git", "reset", "--hard"]) == "confirm"
     assert reversibility(["git", "branch", "-D", "old"]) == "confirm"
+    assert reversibility(["git", "checkout", "--", "server.py"]) == "confirm"
 
 
 def test_undo_hint():
@@ -69,6 +92,7 @@ def test_undo_hint():
     assert undo_hint(["git", "stash"]) == "git stash pop"
     assert "reflog" in undo_hint(["git", "branch", "-D", "old"])
     assert "prior sha" in undo_hint(["git", "push", "--force"])
+    assert "reflog" in undo_hint(["git", "checkout", "--", "server.py"])
     assert undo_hint([]) == ""
     assert undo_hint(["git", "status"]) == ""
 

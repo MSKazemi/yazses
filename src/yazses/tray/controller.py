@@ -7,7 +7,8 @@ asserted without a running daemon or a real subprocess.
 Mic actions (pin / unpin / re-calibrate) go over IPC so they take effect *live* on the
 running daemon (no restart). Restart shells out to the ``yazses`` CLI, which already
 knows how to cleanly restart via systemd / detached process. Stop uses the existing
-``shutdown`` IPC method.
+``shutdown`` IPC method. Launching the settings window shells out the same way, as a
+detached ``yazses settings`` process — the tray never blocks waiting on it.
 """
 from __future__ import annotations
 
@@ -62,12 +63,31 @@ class TrayController:
         return self._call("recalibrate_mic")
 
     # ---- daemon control ----
-    def restart(self) -> None:
-        """Restart the daemon via the CLI (handles systemd / detached cleanly)."""
+    def restart(self) -> bool:
+        """Restart the daemon via the CLI (handles systemd / detached cleanly).
+
+        Returns whether the launch was handed off, so the caller can tell the user
+        rather than reporting a restart that never began.
+        """
         try:
             self._launch(["yazses", "restart"])
+            return True
         except Exception:
             log.exception("tray restart failed")
+            return False
+
+    def launch_settings(self) -> bool:
+        """Open the graphical settings window, detached (never blocks the tray).
+
+        Returns whether the launch was handed off. A menu click that silently does
+        nothing is indistinguishable from a frozen tray, so the caller reports it.
+        """
+        try:
+            self._launch(["yazses", "settings"])
+            return True
+        except Exception:
+            log.exception("tray settings launch failed")
+            return False
 
     def stop_daemon(self) -> dict:
         """Ask the daemon to shut down."""

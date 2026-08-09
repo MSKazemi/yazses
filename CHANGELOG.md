@@ -15,6 +15,41 @@ entries of `preferred` → `variants`), loaded once at daemon startup and applie
 dictation path alongside the other opt-in text transforms. `styleguard` moves from
 "planned" to "optional" in `yazses features` now that a real entry point reads it.
 
+### Added — `yazses gitvoice`: the Voice Git Choreographer is wired up (#37)
+
+The pure grammar (`build_git_argv`, `reversibility`, `undo_hint`) has existed for a
+while with no way to reach it short of importing the module directly. `yazses gitvoice`
+closes that gap: it parses a spoken git command, prints the resolved `git ...` argv and
+its undo, and — only with `--run` — executes it. A destructive command (force-push,
+`reset --hard`, `branch -D`, discarding uncommitted changes) refuses to run even under
+`--run` unless you also pass `--yes`; without either flag it only ever prints.
+
+The grammar also gained "discard changes in `<path>`" → `git checkout -- <path>`, filling
+a gap from the spoken-phrase list in the issue. `gitvoice` moves from "planned" to
+"optional" in `yazses features` now that a real entry point reads it.
+### Added — Diagrams-as-Code by voice now parses a whole graph, not just one edge
+
+`parse_graph_utterance` used to accept exactly one `A goes to B` per clause; dictating
+anything past a single edge meant one utterance per edge, split on `;`. "And" now fans a
+clause out to multiple sources and/or destinations, so `A goes to B and C, B goes to D`
+comes back as three edges in one breath, and `A and B goes to C` fans in the other
+direction. An `and`-separated destination that is itself a full clause (`... and C goes
+to D`) is its own statement, while a lone one is a chain — `start goes to login goes to
+dashboard` links through as `start→login→dashboard` instead of inventing a node called
+"login goes to dashboard". A comma separates clauses only when what follows starts one,
+so a label keeps its own punctuation (`... labeled sign in, please`). Nodes come back in
+the order they were spoken. `diagramvox` is still `planned — designed, not yet wired`
+(issue [#34](https://github.com/MSKazemi/yazses/issues/34)).
+
+## [2.16.0] - 2026-08-09
+
+The release that makes the **snap** a first-class channel. A snap can never
+pip-install anything into itself, so every capability whose libraries were not
+baked into the image was unreachable for the life of that revision — silently,
+and with the config key already written. The snap now bundles what fits (Meeting
+Mode, diarized import, speaker labels, Read-Back all work there for the first
+time) and refuses honestly for what cannot.
+
 ### Added — the cross-platform contract now pins meaning, not only parity (contract 5.1.0)
 
 `contract/vectors/` guarantees every YazSes implementation delivers the same string. It

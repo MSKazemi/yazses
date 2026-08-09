@@ -390,9 +390,9 @@ YazSes ships **140 capabilities**. All but the core are **off by default** — t
 ### Diagrams-as-Code by Voice
 
 - **Toggle:** `diagramvox`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[diagramvox] — dictate a flowchart`
-- **What it does:** Dictate a flowchart ('start goes to login; login goes to dashboard if success') and get Mermaid/Graphviz source — draw diagrams without a mouse or canvas. Off by default.
+- **What it does:** Dictate a flowchart ('start goes to login; login goes to dashboard if success') and get Mermaid/Graphviz source — draw diagrams without a mouse or canvas. "And" fans a clause out to multiple sources or destinations, so one utterance can describe a whole graph, not just one edge. Off by default.
 - **Use when:** When you want to build a flowchart as code by voice without touching a mouse or canvas.
-- **Example:** Say 'A goes to B; B goes to C' and get a Mermaid flowchart.
+- **Example:** Say 'A goes to B and C, B goes to D' and get a three-edge Mermaid flowchart.
 - **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
 
 ### Screenplay Auto-Format
@@ -741,11 +741,11 @@ YazSes ships **140 capabilities**. All but the core are **off by default** — t
 
 ### Voice Git Choreographer
 
-- **Toggle:** `gitvoice`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[gitvoice] — safe git by voice`
+- **Toggle:** `gitvoice`  ·  **Tier:** optional  ·  **Config:** `[gitvoice] — safe git by voice`
 - **What it does:** Drive git by voice via a structured grammar; destructive ops (force-push, reset --hard) wait for a spoken confirm and the undo is always spoken. Off by default.
 - **Use when:** When driving git hands-free and you want destructive commands gated behind a spoken confirm.
 - **Example:** Say 'force push' and it waits for confirm, and tells you the undo.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable gitvoice` then `yazses restart`
 
 ### Terminal Command Safety Gate
 
