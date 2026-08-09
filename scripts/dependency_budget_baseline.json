@@ -20,5 +20,5 @@
     "sounddevice",
     "typer"
   ],
-  "import_time_budget_us": null
+  "import_time_budget_us": 559000
 }
