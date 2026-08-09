@@ -31,6 +31,42 @@ def test_parse_graph_chained_and_clause_without_comma():
     g = parse_graph_utterance("A goes to B and C goes to D")
     assert Edge("A", "B", "") in g.edges
     assert Edge("C", "D", "") in g.edges
+    # The chained clause must not jump the queue: nodes come back in spoken order.
+    assert g.nodes == ["A", "B", "C", "D"]
+
+
+def test_parse_graph_lone_chain_links_through_and_keeps_the_source():
+    # "A goes to B goes to C" has no "and", so it is one chain, not two statements.
+    # The source must never be dropped — an entry point silently vanishing from a
+    # dictated flowchart is worse than a clumsy parse.
+    g = parse_graph_utterance("start goes to login goes to dashboard")
+    assert g.nodes == ["start", "login", "dashboard"]
+    assert g.edges == [Edge("start", "login", ""), Edge("login", "dashboard", "")]
+
+
+def test_parse_graph_comma_then_and_is_a_separator_not_a_node_name():
+    g = parse_graph_utterance("A goes to B, and C goes to D")
+    assert g.nodes == ["A", "B", "C", "D"]
+    assert g.edges == [Edge("A", "B", ""), Edge("C", "D", "")]
+
+
+def test_parse_graph_comma_inside_a_label_is_kept():
+    # A comma only splits when what follows starts a new clause, so a label keeps its
+    # punctuation instead of being truncated into a spurious isolated node.
+    g = parse_graph_utterance("start goes to login labeled sign in, please")
+    assert g.nodes == ["start", "login"]
+    assert g.edges == [Edge("start", "login", "sign in, please")]
+
+
+def test_parse_graph_fan_in_keeps_spoken_node_order():
+    g = parse_graph_utterance("A and B goes to C")
+    assert g.nodes == ["A", "B", "C"]
+
+
+def test_parse_graph_deep_chain_is_bounded():
+    # A pathological utterance must not blow the stack.
+    g = parse_graph_utterance(" goes to ".join(f"N{i}" for i in range(200)))
+    assert g.nodes[:3] == ["N0", "N1", "N2"]
 
 
 def test_parse_graph_and_separated_isolated_nodes():
