@@ -6,6 +6,14 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.17.0] - 2026-08-09
+
+Follows v2.16.0 by a day, because the snap release exposed the next layer of
+problems the moment people actually used it. Streaming dictation could delete text
+it had never typed; a fresh snap install said nothing about the second interface it
+needs; `yazses start` never survived a reboot. Plus four capabilities wired up and
+five default filler words removed after they were shown to eat real meaning.
+
 ### Fixed — five default "filler" words were load-bearing content (#146, contract 6.0.0)
 
 `like`, `right`, `sort of`, `kind of` and `actually` shipped in
