@@ -1,0 +1,24 @@
+{
+  "_comment": "Recorded by `scripts/check_dependency_budget.py --record-baseline`. Update deliberately — this file changing is the point, not a bug in the diff.",
+  "base_dependencies": [
+    "cryptography",
+    "evdev",
+    "faster-whisper",
+    "numpy",
+    "onnx-asr",
+    "Pillow",
+    "platformdirs",
+    "pyobjc-framework-ApplicationServices",
+    "pyobjc-framework-AVFoundation",
+    "pyobjc-framework-Cocoa",
+    "pyobjc-framework-Quartz",
+    "PySide6",
+    "pystray",
+    "python-xlib",
+    "pywin32",
+    "rumps",
+    "sounddevice",
+    "typer"
+  ],
+  "import_time_budget_us": null
+}

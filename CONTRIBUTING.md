@@ -77,6 +77,24 @@ a superseding ADR. Worth two minutes before you propose anything structural.
 - Keep PRs focused — one concern per PR.
 - Describe the *why* in the PR body, not just the *what*.
 
+## The dependency budget
+
+18 base dependencies, 140+ features — heavy capabilities live behind an extra in
+`[project.optional-dependencies]` and are imported lazily, inside the function that
+needs them, so a plain-dictation install never downloads mediapipe or llama-cpp. CI
+enforces this with `scripts/check_dependency_budget.py` (part of the `repo-hygiene`
+job):
+
+- Adding a name to `[project.dependencies]` fails the PR unless it carries the
+  `dependency-budget-override` label — ask a maintainer for it if the addition is
+  deliberate, then run `uv run python scripts/check_dependency_budget.py
+  --record-baseline` and commit the updated `scripts/dependency_budget_baseline.json`.
+- A top-level `import` of anything from an extra, anywhere in
+  `yazses.core.daemon`'s import graph, fails the PR outright — that one doesn't need
+  an override, it needs the import moved inside the function that uses it.
+- Cold-start import time is measured and printed on every run; a large regression
+  against the recorded baseline fails too.
+
 ## Reporting bugs
 
 Open an issue at https://github.com/MSKazemi/yazses/issues and include:

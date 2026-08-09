@@ -27,11 +27,26 @@ jobs:
       - name: No oversized files in the repo
         run: python3 scripts/check_repo_size.py
 
+      - name: Install system dependencies (Linux)
+        # Just enough for `import yazses.core.daemon` (sounddevice dlopen's this at
+        # import time) — the dependency budget check below imports it on a base
+        # install. No Qt libs needed: PySide6 is not imported at daemon module scope.
+        run: sudo apt-get update && sudo apt-get install -y libportaudio2
+
       - name: Install uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
 
+      - name: Install dependencies
+        run: uv sync
+
       - name: Lint (ruff)
         run: uv run ruff check src tests scripts
+
+      - name: Dependency budget
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          PR_LABELS: ${{ github.event_name == 'pull_request' && join(github.event.pull_request.labels.*.name, ',') || '' }}
+        run: uv run python scripts/check_dependency_budget.py
 
   test:
     runs-on: ${{ matrix.os }}
