@@ -22,6 +22,8 @@ _BLUE = "#1a73e8"       # normal / ready / idle
 _RED = "#e53935"        # problem — error or silent-streak
 # Mirrors AudioConfig.silent_streak_threshold; used when status doesn't carry it.
 _DEFAULT_SILENT_STREAK_LIMIT = 3
+# Label for the menu entry that opens the graphical settings window (`yazses settings`).
+SETTINGS_LABEL = "Settings…"
 # Actively capturing/handling your dictation → green. Everything else that is not a
 # problem → blue (normal). Meeting Mode also captures audio, so it is green too.
 _RECORDING_STATES = frozenset(
@@ -51,6 +53,7 @@ class TrayMenuModel:
     mic_line: str               # e.g. "Mic: default"
     warning: str | None         # e.g. "⚠ 2 silent clips in a row" or None
     devices: list[DeviceItem]   # "Follow OS default" first, then each input device
+    settings_label: str         # e.g. "Settings…" — opens the graphical settings window
 
 
 def build_menu_model(
@@ -86,7 +89,13 @@ def build_menu_model(
                 checked=(resolved_index is not None and dev.index == resolved_index),
             )
         )
-    return TrayMenuModel(header=header, mic_line=mic_line, warning=warning, devices=items)
+    return TrayMenuModel(
+        header=header,
+        mic_line=mic_line,
+        warning=warning,
+        devices=items,
+        settings_label=SETTINGS_LABEL,
+    )
 
 
 def _silent_streak_limit(status: dict) -> int:

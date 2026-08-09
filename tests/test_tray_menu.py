@@ -48,6 +48,11 @@ def test_menu_marks_os_default_label():
     assert any("(OS default)" in lbl for lbl in labels)
 
 
+def test_menu_carries_the_settings_entry():
+    m = build_menu_model({"state": "idle"}, _devs(), "")
+    assert m.settings_label == "Settings…"
+
+
 def test_icon_spec_command_mode_is_purple():
     _PURPLE, _GREEN = "#9c27b0", "#34a853"
     # Holding the command key (command mode) → purple, distinct from green dictation.

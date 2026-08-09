@@ -45,6 +45,21 @@ def test_restart_shells_out_to_cli():
     assert spawned == [["yazses", "restart"]]
 
 
+def test_launch_settings_shells_out_to_cli():
+    spawned = []
+    ctrl = TrayController(_FakeClient(), launcher=lambda argv: spawned.append(argv))
+    ctrl.launch_settings()
+    assert spawned == [["yazses", "settings"]]
+
+
+def test_launch_settings_does_not_raise_when_launch_fails():
+    def _boom(argv):
+        raise OSError("no such file")
+
+    ctrl = TrayController(_FakeClient(), launcher=_boom)
+    ctrl.launch_settings()  # must not raise — the tray stays responsive
+
+
 def test_status_returns_dict_and_swallows_errors():
     class _Boom:
         def call(self, *a, **k):
