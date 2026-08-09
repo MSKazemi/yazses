@@ -6,6 +6,16 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Diagrams-as-Code by voice now parses a whole graph, not just one edge
+
+`parse_graph_utterance` used to accept exactly one `A goes to B` per clause; dictating
+anything past a single edge meant one utterance per edge, split on `;`. "And" now fans a
+clause out to multiple sources and/or destinations, so `A goes to B and C, B goes to D`
+comes back as three edges in one breath, and `A and B goes to C` fans in the other
+direction. A destination that is itself a full clause (`... and C goes to D`) is parsed
+as its own chained edge rather than swallowed as literal text. `diagramvox` is still
+`planned — designed, not yet wired` (issue [#34](https://github.com/MSKazemi/yazses/issues/34)).
+
 ### Added — the cross-platform contract now pins meaning, not only parity (contract 5.1.0)
 
 `contract/vectors/` guarantees every YazSes implementation delivers the same string. It

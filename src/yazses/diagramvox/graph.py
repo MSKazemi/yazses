@@ -12,6 +12,8 @@ _EDGE = re.compile(
     r"^(.*?)\s+(?:goes to|points to|connects to|leads to|->)\s+(.+?)"
     r"(?:\s+(?:if|when|on|labeled|labelled)\s+(.+))?$", re.IGNORECASE)
 
+_AND = re.compile(r"\s+and\s+", re.IGNORECASE)
+
 
 def _norm(s: str) -> str:
     return re.sub(r"\s+", " ", (s or "").strip())
@@ -59,7 +61,13 @@ class Graph:
 
 
 def parse_graph_utterance(text: str) -> Graph:
-    """Parse a dictated flowchart into a :class:`Graph`. Pure."""
+    """Parse a dictated flowchart into a :class:`Graph`. Pure.
+
+    A clause is one edge ("A goes to B") or one bare node name, separated by ";", ",", or a
+    newline. Within a clause, "and" fans out to multiple sources and/or destinations
+    ("A and B goes to C" / "A goes to B and C"), and a destination that is itself a full edge
+    ("... and C goes to D") is parsed as its own chained clause.
+    """
     s = re.sub(r"^\s*(?:flowchart|graph|diagram)\s*[:\-]?\s*", "", (text or "").strip(),
                flags=re.IGNORECASE)
     nodes = []
@@ -69,16 +77,33 @@ def parse_graph_utterance(text: str) -> Graph:
         if n and n not in nodes:
             nodes.append(n)
 
-    for clause in re.split(r"[;\n]", s):
+    def add_edge(src, dst, label):
+        add_node(src)
+        add_node(dst)
+        edges.append(Edge(src, dst, label))
+
+    def handle_clause(clause):
         c = clause.strip()
         if not c:
-            continue
+            return
         m = _EDGE.match(c)
-        if m:
-            src, dst, label = _norm(m.group(1)), _norm(m.group(2)), _norm(m.group(3) or "")
-            add_node(src)
-            add_node(dst)
-            edges.append(Edge(src, dst, label))
-        else:
-            add_node(_norm(c))
+        if not m:
+            for n in _AND.split(c):
+                add_node(_norm(n))
+            return
+        srcs = [_norm(p) for p in _AND.split(m.group(1)) if _norm(p)]
+        label = _norm(m.group(3) or "")
+        dsts = []
+        for part in _AND.split(m.group(2)):
+            part = part.strip()
+            if _EDGE.match(part):
+                handle_clause(part)  # "... and C goes to D" — a chained clause, not a plain dst
+            else:
+                dsts.append(_norm(part))
+        for src in srcs:
+            for dst in dsts:
+                add_edge(src, dst, label)
+
+    for clause in re.split(r"[;,\n]", s):
+        handle_clause(clause)
     return Graph(nodes=nodes, edges=edges)

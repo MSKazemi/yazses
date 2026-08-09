@@ -13,6 +13,31 @@ def test_parse_graph_utterance():
     assert Edge("login", "dashboard", "success") in g.edges
 
 
+def test_parse_graph_multi_edge_fanout_and_clauses():
+    g = parse_graph_utterance("A goes to B and C, B goes to D")
+    assert g.nodes == ["A", "B", "C", "D"]
+    assert Edge("A", "B", "") in g.edges
+    assert Edge("A", "C", "") in g.edges
+    assert Edge("B", "D", "") in g.edges
+    assert len(g.edges) == 3
+
+
+def test_parse_graph_multi_source_fanin():
+    g = parse_graph_utterance("A and B goes to C")
+    assert Edge("A", "C", "") in g.edges and Edge("B", "C", "") in g.edges
+
+
+def test_parse_graph_chained_and_clause_without_comma():
+    g = parse_graph_utterance("A goes to B and C goes to D")
+    assert Edge("A", "B", "") in g.edges
+    assert Edge("C", "D", "") in g.edges
+
+
+def test_parse_graph_and_separated_isolated_nodes():
+    g = parse_graph_utterance("A and B")
+    assert g.nodes == ["A", "B"] and g.edges == []
+
+
 def test_parse_graph_isolated_node():
     g = parse_graph_utterance("orphan")
     assert g.nodes == ["orphan"] and g.edges == []
