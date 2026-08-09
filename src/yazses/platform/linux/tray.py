@@ -7,8 +7,9 @@ calls ``set_state``; ``run`` owns the Qt event loop. PySide6 is already a base d
 
 The icon shows daemon state (and flags a live silent-streak in orange); the click-menu —
 rebuilt fresh each time it opens — lets you pick/pin the input microphone, re-calibrate,
-and restart/stop the daemon. On GNOME/AppIndicator the menu is the *primary* interaction
-(shown on click via ``setContextMenu``); left-click activation isn't delivered there.
+restart/stop the daemon, and open the graphical settings window. On GNOME/AppIndicator the
+menu is the *primary* interaction (shown on click via ``setContextMenu``); left-click
+activation isn't delivered there.
 
 Unlike the macOS/Windows trays where quitting the tray stops the daemon, "Quit tray" here
 only closes the icon — dictation keeps running; a separate "Stop daemon" item stops it.
@@ -217,6 +218,8 @@ class LinuxTray:
         menu.addAction("Restart daemon").triggered.connect(self._on_restart)
         menu.addAction("Stop daemon").triggered.connect(self._on_stop_daemon)
         menu.addSeparator()
+        menu.addAction(model.settings_label).triggered.connect(self._on_settings)
+        menu.addSeparator()
         menu.addAction("Quit tray").triggered.connect(self._on_quit_tray)
 
     # ---- menu action handlers ---------------------------------------------
@@ -248,13 +251,25 @@ class LinuxTray:
 
     def _on_restart(self) -> None:
         if self._controller is not None:
-            self._controller.restart()
-            self._notify("YazSes", "Restarting the daemon…")
+            ok = self._controller.restart()
+            self._notify(
+                "YazSes",
+                "Restarting the daemon…" if ok
+                else "Could not run `yazses restart` — is yazses on PATH?",
+            )
 
     def _on_stop_daemon(self) -> None:
         if self._controller is not None:
             self._controller.stop_daemon()
             self._notify("YazSes", "Stopping the daemon…")
+
+    def _on_settings(self) -> None:
+        # Opening a window is the one menu action with no visible effect of its own if
+        # the launch fails, so say so rather than leaving the click looking ignored.
+        if self._controller is not None and not self._controller.launch_settings():
+            self._notify(
+                "YazSes", "Could not open Settings — is `yazses` on PATH?"
+            )
 
     def _on_quit_tray(self) -> None:
         # Close the tray only; leave the daemon running.

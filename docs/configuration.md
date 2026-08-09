@@ -1021,6 +1021,7 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 | Key | Type | Default |
 |---|---|---|
 | `enabled` | bool | `false` |
+| `path` | str | `"style-rules.toml"` |
 
 ## `[suggestmode]`
 

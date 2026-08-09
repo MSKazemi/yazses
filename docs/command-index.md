@@ -211,6 +211,14 @@ Calibrate the webcam so your gaze maps to screen zones.
 
 Show whether look-to-pane is ready: deps, desktop backend, calibration.
 
+## `yazses gitvoice`
+
+Turn a spoken git command into a git command — fully offline.
+
+- **Arguments:** `text`
+- `--run` — Run the command instead of only printing it.
+- `--yes` — Confirm a destructive command so --run will run it.
+
 ## `yazses hotkey`
 
 Change the key you hold to talk.
