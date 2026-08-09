@@ -1,6 +1,6 @@
 {
   "unit": "filters.disfluency",
-  "contract_version": "5.2.0",
+  "contract_version": "6.0.0",
   "source": "src/yazses/stt/filters/disfluency.py::filter_transcript (.text)",
   "cases": [
     {
@@ -363,10 +363,17 @@
     },
     {
       "id": "hyphenated-repeat-of-filler-word-leaves-fragment",
-      "description": "surprising, bug-shaped: 'actually' is a default filler, so Rule A strips it out of the middle of the hyphenated token 'a-a-actually', leaving a dangling 'a-a-' fragment glued onto the next word — worth its own issue",
+      "description": "a stutter on a content word survives intact: 'actually' left the default filler list in #146, so Rule A no longer reaches inside the hyphenated token 'a-a-actually' and the disfluent-but-meaningful token is delivered as spoken",
       "options": {},
       "input": "a-a-actually the meeting",
       "expected": "a-a-actually the meeting"
+    },
+    {
+      "id": "hyphenated-repeat-of-default-filler-leaves-fragment",
+      "description": "surprising, bug-shaped: 'basically' is a default filler, so Rule A strips it out of the middle of the hyphenated token 'b-b-basically', leaving a dangling 'b-b-' fragment glued onto the next word — worth its own issue",
+      "options": {},
+      "input": "b-b-basically the meeting",
+      "expected": "b-b-the meeting"
     },
     {
       "id": "hyphenated-double-filler-leaves-orphan-hyphen",
@@ -447,10 +454,17 @@
     },
     {
       "id": "capitalized-multiword-filler-survives-at-start-not-mid-sentence",
-      "description": "the capitalized multi-word filler 'Sort of' has no hesitation particle, so it's protected at position 0 like 'You know' — but the later lowercase 'kind of' is an ordinary mid-sentence filler and is removed",
+      "description": "'sort of' and 'kind of' both left the default filler list in #146 (they are hedges of certainty, not hesitation), so neither position is touched any more and the qualified sentence is delivered whole",
       "options": {},
       "input": "Sort of, kind of, the meeting is at noon",
       "expected": "Sort of, kind of, the meeting is at noon"
+    },
+    {
+      "id": "capitalized-multiword-default-filler-survives-at-start-not-mid-sentence",
+      "description": "the position-0 rule on a multi-word filler that is still a default: 'You know' has no hesitation particle, so it's protected at the start — but the later lowercase 'i mean' is an ordinary mid-sentence filler and is removed",
+      "options": {},
+      "input": "You know, i mean, the meeting is at noon",
+      "expected": "You know, the meeting is at noon"
     },
     {
       "id": "uppercase-filler-mid-sentence-protected",
@@ -461,10 +475,17 @@
     },
     {
       "id": "lowercase-filler-word-opens-real-phrase",
-      "description": "text that only looks like content but isn't protected: a real phrase beginning with the lowercase word 'like' is still stripped as a filler, because the position-0 exception only protects capitalized tokens",
+      "description": "the #146 fix seen from the other side: 'like' opening a real phrase used to be stripped by the position-0 rule regardless of meaning. It is no longer a default filler, so the simile survives",
       "options": {},
       "input": "like a diamond in the sky",
       "expected": "like a diamond in the sky"
+    },
+    {
+      "id": "lowercase-default-filler-opens-real-phrase",
+      "description": "text that only looks like content but isn't protected: a real phrase beginning with the lowercase word 'literally' is still stripped as a filler, because the position-0 exception only protects capitalized tokens",
+      "options": {},
+      "input": "literally a diamond in the sky",
+      "expected": "a diamond in the sky"
     },
     {
       "id": "looks-like-filler-plural-survives",
@@ -475,10 +496,17 @@
     },
     {
       "id": "filler-only-protected-at-position-zero-not-elsewhere",
-      "description": "'right' is only ever protected when capitalized at position 0; here it's lowercase, so it's stripped, and 'okay so' (itself in the filler list) is stripped too since it isn't at position 0 either",
+      "description": "'right' left the default list in #146 (it is the predicate in 'not right'), so it survives at position 0 — while 'okay so', still a default filler, is stripped because it isn't at position 0",
       "options": {},
       "input": "right okay so the meeting",
       "expected": "right the meeting"
+    },
+    {
+      "id": "default-filler-only-protected-at-position-zero-not-elsewhere",
+      "description": "'hmm' is only ever protected when capitalized at position 0; here it's lowercase, so it's stripped, and 'okay so' (itself in the filler list) is stripped too since it isn't at position 0 either",
+      "options": {},
+      "input": "hmm okay so the meeting",
+      "expected": "the meeting"
     },
     {
       "id": "self-correction-inside-rtl-text",

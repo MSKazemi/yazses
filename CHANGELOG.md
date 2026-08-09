@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — five default "filler" words were load-bearing content (#146, contract 6.0.0)
+
+`like`, `right`, `sort of`, `kind of` and `actually` shipped in
+`[filters.disfluency] filler_words` by default. Each is a genuine hesitation in some
+positions and meaning in others, and the filter cannot tell them apart — so a hedge
+became a fact (`she is sort of stable` → `she is stable`, byte-identical to the
+unhedged observation), a negated assessment lost its predicate (`that dose is not
+right` → `that dose is not`), and a correction marker was erased (`she said no,
+actually she said yes` → a self-contradiction). Dictation is used for clinical and
+legal notes; a confident falsehood is worse than a visible disfluency.
+
+All five are removed from the defaults, following the `err` precedent from #125, and
+remain available to anyone who wants aggressive filler removal by listing them under
+`[filters.disfluency]`. The five semantic invariants that recorded this as a known gap
+now hold.
+
+Contract **5.1.0 → 6.0.0**: changed expectations and a known-gap promotion are both
+major bumps under `contract/README.md`. Four vector cases that existed to prove a rule
+using one of these five words would have become vacuous, so each keeps its input as a
+record of the new behaviour and gains a sibling case proving the same rule with a word
+that is still a default filler (76 → 80 disfluency cases).
+
 ### Added — Style-Consistency Enforcer: config-driven rules source (#36)
 
 The pure `styleguard` core (`load_stylerules`/`apply_style`) has existed with no rules

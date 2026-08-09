@@ -77,7 +77,7 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 |---|---|---|
 | **`[filters.disfluency]`** | | |
 | `disfluency.enabled` | bool | `true` |
-| `disfluency.filler_words` | list | `['um', 'uh', 'er', 'ah', 'hmm', 'like', 'you know', 'i mean', 'basically', 'right', 'okay so', 'sort of', 'kind of', 'literally', 'actually', 'so um', 'so uh']` |
+| `disfluency.filler_words` | list | `['um', 'uh', 'er', 'ah', 'hmm', 'you know', 'i mean', 'basically', 'okay so', 'literally', 'so um', 'so uh']` |
 | `disfluency.self_correction_triggers` | list | `['no wait', 'delete that', 'scratch that', 'never mind', 'forget that', 'strike that']` |
 | `disfluency.collapse_repetitions` | bool | `false` |
 | `disfluency.collapse_prolongations` | bool | `false` |
