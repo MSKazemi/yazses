@@ -109,6 +109,55 @@ def test_load_rules_file_unparseable_file_returns_empty(tmp_path):
     assert load_rules_file(p) == []
 
 
+# A rule that only fails when `apply_style` runs would throw away the dictation burst the
+# user just spoke, once per burst. Each of these must be rejected at load time instead,
+# and must not take the rest of the file down with it.
+
+def test_load_rules_file_drops_an_uncompilable_regex(tmp_path):
+    p = tmp_path / "style-rules.toml"
+    p.write_text(
+        '[[rule]]\npreferred = "X"\nvariants = ["(unclosed"]\nregex = true\n\n'
+        '[[rule]]\npreferred = "e-mail"\nvariants = ["email"]\n'
+    )
+    rules = load_rules_file(p)
+    out, _ = apply_style("send an email", rules)   # must not raise
+    assert out == "send an e-mail"                 # the valid rule still applies
+
+
+def test_load_rules_file_drops_non_string_terms(tmp_path):
+    p = tmp_path / "style-rules.toml"
+    p.write_text(
+        '[[rule]]\npreferred = "e-mail"\nvariants = [1999]\n\n'
+        '[[rule]]\npreferred = 42\nvariants = ["x"]\n'
+    )
+    assert load_rules_file(p) == []
+    assert apply_style("x 1999", load_rules_file(p))[0] == "x 1999"
+
+
+def test_load_rules_file_rejects_a_scalar_rule_table(tmp_path):
+    # `rule = "…"` instead of `[[rule]]` used to raise out of the daemon's constructor.
+    p = tmp_path / "style-rules.toml"
+    p.write_text('rule = "oops"\n')
+    assert load_rules_file(p) == []
+
+
+def test_load_rules_file_keeps_a_valid_regex(tmp_path):
+    p = tmp_path / "style-rules.toml"
+    p.write_text('[[rule]]\npreferred = "<year>"\nvariants = ["[0-9]{4}"]\nregex = true\n')
+    assert apply_style("in 1999", load_rules_file(p))[0] == "in <year>"
+
+
+def test_build_style_rules_never_raises_into_the_daemon(tmp_path):
+    # The daemon builds these in its constructor; a broken value must degrade to
+    # "no rules", never to a daemon that will not start (cf. issue #52).
+    class _Broken:
+        class styleguard:
+            enabled = True
+            path = None
+
+    assert build_style_rules(_Broken, tmp_path) == []
+
+
 # ---- build_style_rules (config wiring) --------------------------------------
 
 def test_build_style_rules_dormant_when_disabled(tmp_path):

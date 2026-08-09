@@ -40,10 +40,21 @@ ignore_case = false        # only the uppercase "US" is rewritten, not "us"
 
 - Matching is whole-word and case-insensitive by default (`ignore_case = true`);
   set `ignore_case = false` for terms where case carries meaning.
-- Set `regex = true` on a rule to match `preferred` as a pattern instead of a
-  literal word (e.g. year-like tokens, ticket-number formats).
-- A rule missing `preferred` or with an empty `variants` list is skipped and
-  logged — a broken style sheet never breaks the daemon.
+- Set `regex = true` on a rule to read each entry in `variants` as a regular
+  expression instead of a literal word — `preferred` is still the literal text
+  that replaces it:
+
+    ```toml
+    [[rule]]
+    preferred = "<year>"
+    variants = ["[0-9]{4}"]     # matched as a pattern
+    regex = true
+    ```
+
+- A rule is skipped, and the reason logged, if it is missing `preferred`, has an
+  empty `variants` list, uses a non-string term, or sets `regex = true` with a
+  pattern that does not compile. The rest of the file still applies — a mistyped
+  rule costs you that rule, never the daemon and never the other rules.
 
 ## 3. Point the config at the file (optional) and restart
 
