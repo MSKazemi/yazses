@@ -52,7 +52,6 @@ classifiers = [
     "Topic :: Multimedia :: Sound/Audio :: Speech",
 ]
 dependencies = [
-    "six>=1.16.0",  # THROWAWAY — demonstrates #141's dependency-growth gate
     "faster-whisper>=1.2.1",
     "sounddevice>=0.5.5",
     "numpy>=2.4.6",

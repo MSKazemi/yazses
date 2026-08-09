@@ -20,7 +20,6 @@ from dataclasses import dataclass
 from types import FrameType
 from typing import TYPE_CHECKING
 
-import mediapipe  # noqa: F401  THROWAWAY — demonstrates #141's eager-import gate
 import numpy as np
 
 if TYPE_CHECKING:
