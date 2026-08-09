@@ -45,8 +45,21 @@ jobs:
       - name: Dependency budget
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_BASE_REF: ${{ github.base_ref }}
           PR_LABELS: ${{ github.event_name == 'pull_request' && join(github.event.pull_request.labels.*.name, ',') || '' }}
-        run: uv run python scripts/check_dependency_budget.py
+        # Values are passed as env vars and read as shell variables, never interpolated
+        # into the script body — a label is attacker-adjacent text and `${{ }}` inside
+        # `run:` is how that becomes a shell injection.
+        run: |
+          # The growth check compares against the baseline as it exists on the base
+          # branch, so a PR cannot wave through a new dependency by rewriting the
+          # baseline in the same commit. A shallow checkout has no base branch ref, so
+          # fetch that one commit; the check says so out loud if this fails.
+          if [ -n "$GITHUB_BASE_REF" ]; then
+            git fetch --no-tags --depth=1 origin \
+              "+refs/heads/$GITHUB_BASE_REF:refs/remotes/origin/$GITHUB_BASE_REF"
+          fi
+          uv run python scripts/check_dependency_budget.py
 
   test:
     runs-on: ${{ matrix.os }}

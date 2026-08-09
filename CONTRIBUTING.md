@@ -89,11 +89,21 @@ job):
   `dependency-budget-override` label — ask a maintainer for it if the addition is
   deliberate, then run `uv run python scripts/check_dependency_budget.py
   --record-baseline` and commit the updated `scripts/dependency_budget_baseline.json`.
+  Growth is measured against the baseline **on the base branch**, so re-recording it
+  in your own PR does not get you past the label; that is the point of the label.
 - A top-level `import` of anything from an extra, anywhere in
   `yazses.core.daemon`'s import graph, fails the PR outright — that one doesn't need
   an override, it needs the import moved inside the function that uses it.
-- Cold-start import time is measured and printed on every run; a large regression
-  against the recorded baseline fails too.
+- Adding an extra to `[project.optional-dependencies]` means adding it to
+  `EXTRA_MODULES` in that script too (extra → the top-level modules its packages
+  import as), or to `EXEMPT_EXTRAS` with the reason a base install is expected to have
+  them importable. CI fails on an extra the check has never heard of, because an
+  unmapped extra is enforced by nothing.
+- Cold-start import time is measured and printed on every run. It only *fails* in CI,
+  where the recorded budget and the runner are the same kind of machine — locally it
+  prints a note instead, so don't re-record the shared budget from your laptop.
+
+Run it yourself before pushing: `uv run python scripts/check_dependency_budget.py`.
 
 ## Reporting bugs
 

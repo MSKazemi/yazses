@@ -6,6 +6,25 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — CI enforces the dependency budget (#141)
+
+"18 base dependencies against 140+ features" was true only for as long as reviewers
+kept catching drift by hand, and the failure it guards against is invisible to the
+test suite: a lazy `import mediapipe` moved to the top of a daemon-imported file
+during an unrelated refactor breaks nothing, it just makes every base install heavier
+forever. `scripts/check_dependency_budget.py` runs in the `repo-hygiene` job and adds
+three checks against a base install — growth of `[project.dependencies]` (needs the
+`dependency-budget-override` label), any module belonging to an extra turning up in
+`sys.modules` after `import yazses.core.daemon`, and cold-start import time against a
+recorded budget.
+
+Growth is compared against the baseline **on the base branch**, so a PR cannot excuse
+a new dependency by re-recording the baseline in the same commit. Adding an extra to
+`[project.optional-dependencies]` without mapping it in the script fails too — an
+unmapped extra is enforced by nothing, which is the way a check like this usually
+dies. The import-time budget is only enforced in CI, where the recorded number and
+the runner are the same kind of machine.
+
 ### Added — Style-Consistency Enforcer: config-driven rules source (#36)
 
 The pure `styleguard` core (`load_stylerules`/`apply_style`) has existed with no rules

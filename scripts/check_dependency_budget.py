@@ -56,40 +56,91 @@ DAEMON_ENTRYPOINT = "yazses.core.daemon"
 # absorb CI-runner noise, narrow enough to still catch a heavy top-level import.
 IMPORT_TIME_TOLERANCE = 1.5
 
-# Extras whose package name already matches its import name, mapped to the top-level
-# module a base-only install must never see in sys.modules. `overlay` (PySide6) and
-# `parakeet` (onnx-asr) are deliberately absent: both packages already ship in the
-# base install for other reasons (see the comments in pyproject.toml), so their
-# modules are *expected* to be loaded even without the extra.
-OPTIONAL_IMPORT_MODULES = {
-    "llama_cpp": "slm / notes",
-    "pygls": "lsp",
-    "pynvim": "lsp",
-    "serial": "emg",
-    "bleak": "ble",
-    "parselmouth": "prosody",
-    "kokoro_onnx": "tts",
-    "onnxruntime": "tts / silero",
-    "soundfile": "tts",
-    "speechbrain": "voiceprint",
-    "sherpa_onnx": "diarization",
-    "silero_vad": "silero",
-    "mcp": "agent",
-    "mediapipe": "gaze",
-    "cv2": "gaze",
+# Every extra in `[project.optional-dependencies]`, mapped to the top-level modules its
+# packages import as — a base-only install must never see any of these in sys.modules.
+#
+# This map is the reason the check has teeth, and it is also the one thing that can
+# quietly rot: an extra added to pyproject.toml with no entry here would be enforced by
+# nothing. `check_extras_covered` closes that loop by failing when pyproject grows an
+# extra this map has never heard of, so the gate cannot be outgrown in silence.
+EXTRA_MODULES: dict[str, tuple[str, ...]] = {
+    "agent": ("mcp",),
+    "ble": ("bleak",),
+    "diarization": ("sherpa_onnx",),
+    "emg": ("serial",),
+    "gaze": ("mediapipe", "cv2"),
+    "lsp": ("pygls", "pynvim"),
+    "notes": ("llama_cpp",),
+    "prosody": ("parselmouth",),
+    "silero": ("silero_vad", "onnxruntime"),
+    "slm": ("llama_cpp",),
+    "tts": ("kokoro_onnx", "onnxruntime", "soundfile"),
+    "voiceprint": ("speechbrain",),
 }
+
+# Extras that exist but cannot be enforced this way, each for a stated reason. An extra
+# belongs here only when a base install is *expected* to have its modules importable.
+EXEMPT_EXTRAS: dict[str, str] = {
+    "all": "aggregate of every other extra; its members are checked individually",
+    "overlay": "PySide6 already ships in the base install (see pyproject.toml)",
+    "parakeet": "onnx-asr already ships in the base install (see pyproject.toml)",
+}
+
+# module -> the extra(s) that own it, for the failure message.
+OPTIONAL_IMPORT_MODULES: dict[str, str] = {
+    module: " / ".join(sorted(e for e, mods in EXTRA_MODULES.items() if module in mods))
+    for modules in EXTRA_MODULES.values()
+    for module in modules
+}
+
+
+def _pyproject() -> dict:
+    return tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+
+
+def canonical(name: str) -> str:
+    """PEP 503 normalised form, so `Pillow` and `pillow` are not two dependencies."""
+    return re.sub(r"[-_.]+", "-", name).lower()
 
 
 def base_dependency_names() -> list[str]:
     """The PyPI distribution names in ``[project.dependencies]``, order preserved."""
-    data = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
     names = []
-    for spec in data["project"]["dependencies"]:
+    for spec in _pyproject()["project"]["dependencies"]:
         # A dependency spec is `name[extras]<version markers>; env marker`. The name
         # is everything before the first character that can start any of those.
         name = re.split(r"[\[<>=!~; ]", spec, maxsplit=1)[0]
         names.append(name)
     return names
+
+
+def declared_extras() -> list[str]:
+    return sorted(_pyproject()["project"].get("optional-dependencies", {}))
+
+
+def check_extras_covered(extras: list[str]) -> bool:
+    """Fail when pyproject grows an extra `EXTRA_MODULES` has never heard of.
+
+    Without this, the eager-import check silently stops covering new features: the
+    extra exists, nothing maps it to a module, and a top-level import of it passes.
+    """
+    unknown = [e for e in extras if e not in EXTRA_MODULES and e not in EXEMPT_EXTRAS]
+    if not unknown:
+        print(f"Extras covered: {len(EXTRA_MODULES)} mapped, {len(EXEMPT_EXTRAS)} exempt.")
+        return True
+
+    print(
+        f"FAIL: {len(unknown)} extra(s) in [project.optional-dependencies] that the "
+        f"eager-import check does not know about: {', '.join(unknown)}",
+        file=sys.stderr,
+    )
+    print(
+        "  Add each one to EXTRA_MODULES in this file (extra -> the top-level modules "
+        "its packages import as), or to EXEMPT_EXTRAS with the reason a base install "
+        "is expected to have them importable. An unmapped extra is enforced by nothing.",
+        file=sys.stderr,
+    )
+    return False
 
 
 def load_baseline() -> dict:
@@ -114,9 +165,36 @@ def pr_labels() -> set[str]:
     return {label.strip() for label in raw.split(",") if label.strip()}
 
 
+def baseline_at_base_ref() -> dict | None:
+    """The baseline file as it exists on the PR's *base* branch, or None.
+
+    Measuring growth against the baseline committed in the same PR makes the label
+    gate decorative: adding a dependency and running `--record-baseline` in one commit
+    leaves `new` empty and the check passes. Growth has to be measured against what the
+    base branch says, so the only way past the gate is the label.
+    """
+    base_ref = os.environ.get("GITHUB_BASE_REF")
+    if not base_ref:
+        return None
+    rel = BASELINE_FILE.relative_to(ROOT).as_posix()
+    for rev in (f"origin/{base_ref}", base_ref, "FETCH_HEAD"):
+        proc = subprocess.run(
+            ["git", "show", f"{rev}:{rel}"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode == 0:
+            try:
+                return json.loads(proc.stdout)
+            except json.JSONDecodeError:
+                return None
+    return None
+
+
 def check_growth(current: list[str], baseline: dict, *, is_pull_request: bool) -> bool:
-    baseline_names = set(baseline["base_dependencies"])
-    current_names = set(current)
+    baseline_names = {canonical(n) for n in baseline["base_dependencies"]}
+    current_names = {canonical(n) for n in current}
     new = sorted(current_names - baseline_names, key=str.lower)
     removed = sorted(baseline_names - current_names, key=str.lower)
 
@@ -180,7 +258,7 @@ def _import_probe_once(entrypoint: str) -> tuple[list[str], int]:
         )
         raise SystemExit(1)
     modules: list[str] = []
-    cumulative_us = 0
+    cumulative_us: int | None = None
     for line in proc.stderr.splitlines():
         if not line.startswith("import time:"):
             continue
@@ -193,6 +271,21 @@ def _import_probe_once(entrypoint: str) -> tuple[list[str], int]:
         modules.append(name)
         if name == entrypoint:
             cumulative_us = int(cum_us)
+
+    # `-X importtime`'s output is a CPython implementation detail, not a stable API. If
+    # its format ever moves, every line above is skipped, `modules` comes back empty and
+    # the timing reads as 0us — which the budget check would happily call "within
+    # budget" forever, leaving both check 2 and check 3 green and dead. Refuse to
+    # report a measurement we did not actually take.
+    if cumulative_us is None or not modules:
+        print(
+            f"FAIL: could not parse `python -X importtime` output for {entrypoint} "
+            f"({len(modules)} module lines, no cumulative time for the entrypoint).\n"
+            "  The probe cannot measure anything, so this gate is not enforcing "
+            "anything either — fix the parser rather than ignoring the check.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
     return modules, cumulative_us
 
 
@@ -241,7 +334,7 @@ def check_eager_imports(modules: list[str]) -> bool:
     return False
 
 
-def check_import_time(cumulative_us: int, baseline: dict) -> bool:
+def check_import_time(cumulative_us: int, baseline: dict, *, enforced: bool = True) -> bool:
     seconds = cumulative_us / 1_000_000
     print(f"Cold-start import time ({DAEMON_ENTRYPOINT}): {seconds:.3f}s")
 
@@ -256,11 +349,23 @@ def check_import_time(cumulative_us: int, baseline: dict) -> bool:
         print(f"  Within budget ({budget_seconds:.3f}s x {IMPORT_TIME_TOLERANCE}).")
         return True
 
-    print(
-        f"FAIL: {seconds:.3f}s exceeds the recorded budget of {budget_seconds:.3f}s "
-        f"x {IMPORT_TIME_TOLERANCE} tolerance ({threshold_us / 1_000_000:.3f}s).",
-        file=sys.stderr,
+    over = (
+        f"{seconds:.3f}s exceeds the recorded budget of {budget_seconds:.3f}s "
+        f"x {IMPORT_TIME_TOLERANCE} tolerance ({threshold_us / 1_000_000:.3f}s)."
     )
+    if not enforced:
+        # The budget is a single number recorded on a GitHub `ubuntu-latest` runner. A
+        # contributor's laptop is not that machine, and telling them to
+        # `--record-baseline` would overwrite a shared budget with a local one. Report
+        # it, don't fail on it — CI is where this gate has a fixed reference.
+        print(
+            f"  NOTE: {over}\n"
+            "  Not failing: the budget is CI-referenced and this is not CI. Compare "
+            "against your own machine before reading anything into it.",
+        )
+        return True
+
+    print(f"FAIL: {over}", file=sys.stderr)
     print(
         "  If this regression is deliberate (a base dependency got heavier on "
         "purpose), run --record-baseline and explain why in the PR.",
@@ -281,6 +386,7 @@ def main(argv: list[str] | None = None) -> int:
     baseline = load_baseline()
     current = base_dependency_names()
     is_pull_request = os.environ.get("GITHUB_EVENT_NAME") == "pull_request"
+    in_ci = os.environ.get("GITHUB_ACTIONS") == "true"
 
     modules, cumulative_us = run_import_probe(DAEMON_ENTRYPOINT)
 
@@ -289,9 +395,23 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Baseline recorded to {BASELINE_FILE.relative_to(ROOT)}.")
         return 0
 
-    ok = check_growth(current, baseline, is_pull_request=is_pull_request)
+    # Growth is judged against the base branch's baseline when we can reach it, so a PR
+    # cannot excuse a new dependency by rewriting the baseline in the same commit.
+    growth_baseline = baseline
+    if is_pull_request:
+        from_base = baseline_at_base_ref()
+        if from_base is not None:
+            growth_baseline = from_base
+        else:
+            print(
+                "  NOTE: could not read the baseline from the base branch — comparing "
+                "against the one in this checkout, which this PR is able to edit.",
+            )
+
+    ok = check_growth(current, growth_baseline, is_pull_request=is_pull_request)
+    ok &= check_extras_covered(declared_extras())
     ok &= check_eager_imports(modules)
-    ok &= check_import_time(cumulative_us, baseline)
+    ok &= check_import_time(cumulative_us, baseline, enforced=in_ci)
     return 0 if ok else 1
 
 
