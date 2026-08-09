@@ -25,6 +25,11 @@ YazSes is a free, open-source, offline voice dictation and speech-to-text daemon
 
 ![yazses doctor — all green, fully offline](docs/screenshots/yazses-doctor.png)
 
+Prefer text over video? [`docs/demo/yazses-cli.cast`](docs/demo/yazses-cli.cast) is an
+asciinema recording of the CLI happy path (`-h` → `about` → `quickstart` → `features` →
+`status`) — every byte is real command output, nothing hand-typed. Play it with
+[asciinema](https://asciinema.org): `asciinema play docs/demo/yazses-cli.cast`.
+
 ---
 
 ## Three things it does
