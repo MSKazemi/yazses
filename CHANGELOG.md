@@ -6,6 +6,18 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `yazses gitvoice`: the Voice Git Choreographer is wired up (#37)
+
+The pure grammar (`build_git_argv`, `reversibility`, `undo_hint`) has existed for a
+while with no way to reach it short of importing the module directly. `yazses gitvoice`
+closes that gap: it parses a spoken git command, prints the resolved `git ...` argv and
+its undo, and — only with `--run` — executes it. A destructive command (force-push,
+`reset --hard`, `branch -D`, discarding uncommitted changes) refuses to run even under
+`--run` unless you also pass `--yes`; without either flag it only ever prints.
+
+The grammar also gained "discard changes in `<path>`" → `git checkout -- <path>`, filling
+a gap from the spoken-phrase list in the issue. `gitvoice` moves from "planned" to
+"optional" in `yazses features` now that a real entry point reads it.
 ### Added — Diagrams-as-Code by voice now parses a whole graph, not just one edge
 
 `parse_graph_utterance` used to accept exactly one `A goes to B` per clause; dictating
