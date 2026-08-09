@@ -418,7 +418,9 @@ def _registry() -> list[_Def]:
              lambda c: c.srpace.enabled, srp_on, srp_off),
         _Def("diagramvox", "Diagrams-as-Code by Voice", "[diagramvox] — dictate a flowchart", OPTIONAL,
              "Dictate a flowchart ('start goes to login; login goes to dashboard if success') and get "
-             "Mermaid/Graphviz source — draw diagrams without a mouse or canvas. Off by default.",
+             "Mermaid/Graphviz source — draw diagrams without a mouse or canvas. \"And\" fans a clause "
+             "out to multiple sources or destinations, so one utterance can describe a whole graph, not "
+             "just one edge. Off by default.",
              lambda c: c.diagramvox.enabled, dv_on, dv_off),
         _Def("proofback", "Interruptible Proofreading", "[proofback] — barge-in read-back editing",
              OPTIONAL,
@@ -1024,7 +1026,7 @@ _EXAMPLES: dict[str, str] = {
     "loadguard": "Sounding overloaded? Destructive commands wait for a wider confirm.",
     "echo": "Say 'play that back' and hear your own recording of the last words.",
     "srpace": "Dictate a paragraph and your screen reader keeps up, clause by clause.",
-    "diagramvox": "Say 'A goes to B; B goes to C' and get a Mermaid flowchart.",
+    "diagramvox": "Say 'A goes to B and C, B goes to D' and get a three-edge Mermaid flowchart.",
     "proofback": "Interrupt the read-back and the cursor lands on the word being read.",
     "screenplay": "Dictate a scene and it lands as proper INT./EXT. Fountain markup.",
     "srscap": "Say 'remember that the capital of France is Paris' → a flashcard.",
