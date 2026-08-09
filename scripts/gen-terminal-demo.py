@@ -101,7 +101,10 @@ def _truncate_features(text: str) -> str:
         if line.startswith("┌"):  # '┌' — start of a category panel
             category_boundaries += 1
             if category_boundaries > FEATURES_KEEP_CATEGORIES:
-                kept.append(FEATURES_TRUNCATION_NOTE)
+                # Trailing "" so the join ends the note with a CRLF, the way real
+                # command output does — otherwise the next shell prompt is drawn on
+                # the same line as the note.
+                kept.extend((FEATURES_TRUNCATION_NOTE, ""))
                 break
         kept.append(line)
     return "\r\n".join(kept)
