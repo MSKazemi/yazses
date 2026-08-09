@@ -1,7 +1,7 @@
 {
   "layer": "semantic",
   "generated": false,
-  "contract_version": "5.1.0",
+  "contract_version": "6.0.0",
   "pipeline": "dictation",
   "pipeline_description": "The delivered-text chain of the DICTATE path, exactly as core/daemon.py::_on_hold_end runs it, minus injection: clean_text -> disfluency filter -> voice punctuation (only when options.voice_punctuation is true). `expected` is what a HUMAN says the user must receive; it is never read back from the implementation.",
   "semantics": {
@@ -177,79 +177,54 @@
     },
     {
       "id": "hedge-sort-of-stable",
-      "description": "KNOWN GAP. 'sort of' is a default filler word, so the hedge is stripped and a qualified observation is delivered as a definite one — and the output becomes byte-identical to its unhedged pair. Exactly the failure the design review predicted: each output looks plausible alone, the pair proves the distinction is gone.",
+      "description": "'sort of' is a hedge of certainty; it must survive default disfluency filtering so a qualified observation is not delivered as a definite one (and not become byte-identical to its unhedged pair).",
       "options": {},
       "input": "she is sort of stable",
       "expected": "she is sort of stable",
       "must_preserve": {"certainty": "hedged", "actor": ["third-person-female"]},
       "must_classify_as": "dictate",
       "minimal_pair": {"partner": "certainty-definite-stable", "differs_in": "certainty"},
-      "status": "known-gap",
-      "gap": {
-        "actual": "she is stable",
-        "issue": "https://github.com/MSKazemi/yazses/issues/146",
-        "cause": "'sort of' is in DisfluencyConfig.filler_words by default"
-      }
+      "status": "holds"
     },
     {
       "id": "assessment-dose-is-not-right",
-      "description": "KNOWN GAP. 'right' is a default filler word, so a negated assessment loses its predicate and is delivered as a truncated fragment. The reader cannot recover what was said, and cannot tell that anything was lost.",
+      "description": "'right' in 'not right' is the predicate of a negated assessment; default filtering must not strip it into a truncated fragment.",
       "options": {},
       "input": "that dose is not right",
       "expected": "that dose is not right",
       "must_preserve": {"assessment": "correct", "polarity": "negative"},
       "must_classify_as": "dictate",
-      "status": "known-gap",
-      "gap": {
-        "actual": "that dose is not",
-        "issue": "https://github.com/MSKazemi/yazses/issues/146",
-        "cause": "'right' is in DisfluencyConfig.filler_words by default"
-      }
+      "status": "holds"
     },
     {
       "id": "hedge-like-approximate-measurement",
-      "description": "KNOWN GAP. 'like' before a measurement is an approximation marker; stripping it promotes an estimate to a measurement.",
+      "description": "'like' before a measurement is an approximation marker; default filtering must keep it so an estimate is not promoted to a measurement.",
       "options": {},
       "input": "the wound is like two centimetres across",
       "expected": "the wound is like two centimetres across",
       "must_preserve": {"certainty": "hedged", "quantity": ["2"], "unit": ["cm"]},
       "must_classify_as": "dictate",
-      "status": "known-gap",
-      "gap": {
-        "actual": "the wound is two centimetres across",
-        "issue": "https://github.com/MSKazemi/yazses/issues/146",
-        "cause": "'like' is in DisfluencyConfig.filler_words by default"
-      }
+      "status": "holds"
     },
     {
       "id": "correction-marker-actually-erased",
-      "description": "KNOWN GAP. 'actually' is a default filler word, so the marker that says the second clause supersedes the first is removed and a correction is delivered as a self-contradiction.",
+      "description": "'actually' marks that the second clause supersedes the first; default filtering must keep it so a correction is not delivered as a self-contradiction.",
       "options": {},
       "input": "she said no, actually she said yes",
       "expected": "she said no, actually she said yes",
       "must_preserve": {"correction_marker": "present", "actor": ["third-person-female"]},
       "must_classify_as": "dictate",
-      "status": "known-gap",
-      "gap": {
-        "actual": "she said no, she said yes",
-        "issue": "https://github.com/MSKazemi/yazses/issues/146",
-        "cause": "'actually' is in DisfluencyConfig.filler_words by default"
-      }
+      "status": "holds"
     },
     {
       "id": "hedge-like-an-hour-ago",
-      "description": "KNOWN GAP. The same approximation marker on a time rather than a measurement — the timing becomes exact.",
+      "description": "The same approximation marker on a time rather than a measurement — default filtering must keep 'like' so the timing does not become exact.",
       "options": {},
       "input": "he took it like an hour ago",
       "expected": "he took it like an hour ago",
       "must_preserve": {"certainty": "hedged", "time": "past", "unit": ["hour"]},
       "must_classify_as": "dictate",
-      "status": "known-gap",
-      "gap": {
-        "actual": "he took it an hour ago",
-        "issue": "https://github.com/MSKazemi/yazses/issues/146",
-        "cause": "'like' is in DisfluencyConfig.filler_words by default"
-      }
+      "status": "holds"
     }
   ]
 }

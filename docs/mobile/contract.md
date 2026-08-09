@@ -182,9 +182,17 @@ she is sort of stable  ->  "she is stable"     <- identical: the hedge is gone
 
 On its first run the layer found **five shipped behaviours that destroy meaning**
 ([#146](https://github.com/MSKazemi/yazses/issues/146)) — including `that dose is not
-right` delivered as `that dose is not` — while all 191 parity vectors were green. Those
-cases are recorded as `known-gap` and are strict-xfail: green while the gap is documented,
-**red the moment the code is fixed**, so the case must be promoted rather than forgotten.
+right` delivered as `that dose is not` — while all 191 parity vectors were green. Each
+was recorded as `known-gap` and strict-xfail: green while the gap is documented, **red
+the moment the code is fixed**, so the case must be promoted rather than forgotten.
+
+All five have since been fixed (contract 6.0.0) by removing `like`, `right`, `sort of`,
+`kind of` and `actually` from the default filler list, and the strict-xfail did its job
+— the invariants went red on the fix and are now `holds`. The example above is what the
+code used to do; a current implementation must deliver `she is sort of stable`
+unchanged. Note what the fix is *not*: nothing got cleverer about telling a hesitation
+from a hedge. The filter cannot, so the ambiguous words leave the default list and stay
+available to anyone who opts back in.
 
 For a phone or a watch implementation this changes the promise. "Match Python" is a
 weaker guarantee than "preserve these meanings" — and only the second one survives the
