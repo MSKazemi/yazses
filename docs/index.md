@@ -285,6 +285,10 @@ Hold hotkey → record audio → VAD gate → faster-whisper (CPU)
 
 Two at-a-glance signals show you what YazSes is doing: a top-bar **"Y" tray icon** whose colour is a live state indicator (🔵 idle · 🟢 dictating · 🟡 no text target → clipboard · 🟣 command mode · 🔴 problem) and an optional **sonar overlay** that pulses near your cursor while it's listening. See [Tray icon & overlay](tray-and-overlay.md) for what each colour means.
 
+Want the CLI itself, not a description of it? [`docs/demo/yazses-cli.cast`](demo/yazses-cli.cast) is
+a real [asciinema](https://asciinema.org) recording of `-h` → `about` → `quickstart` →
+`features` → `status` — play it with `asciinema play docs/demo/yazses-cli.cast`.
+
 ## Documentation
 
 <div class="grid cards" markdown>
