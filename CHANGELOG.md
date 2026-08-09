@@ -20,6 +20,15 @@ so a label keeps its own punctuation (`... labeled sign in, please`). Nodes come
 the order they were spoken. `diagramvox` is still `planned — designed, not yet wired`
 (issue [#34](https://github.com/MSKazemi/yazses/issues/34)).
 
+## [2.16.0] - 2026-08-09
+
+The release that makes the **snap** a first-class channel. A snap can never
+pip-install anything into itself, so every capability whose libraries were not
+baked into the image was unreachable for the life of that revision — silently,
+and with the config key already written. The snap now bundles what fits (Meeting
+Mode, diarized import, speaker labels, Read-Back all work there for the first
+time) and refuses honestly for what cannot.
+
 ### Added — the cross-platform contract now pins meaning, not only parity (contract 5.1.0)
 
 `contract/vectors/` guarantees every YazSes implementation delivers the same string. It

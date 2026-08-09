@@ -11,6 +11,7 @@ hide:
   "@graph": [
     {
       "@type": "SoftwareApplication",
+      "@id": "https://mskazemi.com/yazses/#software",
       "name": "YazSes",
       "applicationCategory": "UtilitiesApplication",
       "applicationSubCategory": "Voice dictation / speech-to-text",
@@ -38,7 +39,7 @@ hide:
         "Dysfluency-friendly mode for stuttered or dysarthric speech",
         "EMG/USB muscle-sensor trigger for hands-free accessibility use"
       ],
-      "softwareVersion": "2.15.1",
+      "softwareVersion": "2.16.0",
       "author": { "@id": "https://orcid.org/0000-0002-1166-6559" },
       "publisher": { "@id": "https://orcid.org/0000-0002-1166-6559" }
     },
@@ -72,12 +73,12 @@ hide:
       "name": "YazSes — offline voice dictation for Linux, macOS & Windows (hold a key, speak, release)",
       "description": "40-second tour of YazSes: the hold-to-talk core loop, the command line (status, doctor, features), and the system tray. Speech is transcribed on-device with faster-whisper and typed into the focused app.",
       "thumbnailUrl": "https://i.ytimg.com/vi/nn8WUKsCvZ4/maxresdefault.jpg",
-      "uploadDate": "2026-08-08",
+      "uploadDate": "2026-08-07T15:37:12-07:00",
       "duration": "PT40S",
       "contentUrl": "https://www.youtube.com/watch?v=nn8WUKsCvZ4",
       "embedUrl": "https://www.youtube.com/embed/nn8WUKsCvZ4",
       "publisher": { "@id": "https://orcid.org/0000-0002-1166-6559" },
-      "about": { "@type": "SoftwareApplication", "name": "YazSes" }
+      "about": { "@id": "https://mskazemi.com/yazses/#software" }
     },
     {
       "@type": "ScholarlyArticle",
@@ -89,7 +90,7 @@ hide:
       "datePublished": "2026-07-30",
       "publisher": { "@type": "Organization", "name": "arXiv" },
       "author": { "@id": "https://orcid.org/0000-0002-1166-6559" },
-      "about": { "@type": "SoftwareApplication", "name": "YazSes" }
+      "about": { "@id": "https://mskazemi.com/yazses/#software" }
     }
   ]
 }
@@ -283,6 +284,10 @@ Hold hotkey → record audio → VAD gate → faster-whisper (CPU)
 ```
 
 Two at-a-glance signals show you what YazSes is doing: a top-bar **"Y" tray icon** whose colour is a live state indicator (🔵 idle · 🟢 dictating · 🟡 no text target → clipboard · 🟣 command mode · 🔴 problem) and an optional **sonar overlay** that pulses near your cursor while it's listening. See [Tray icon & overlay](tray-and-overlay.md) for what each colour means.
+
+Want the CLI itself, not a description of it? [`docs/demo/yazses-cli.cast`](demo/yazses-cli.cast) is
+a real [asciinema](https://asciinema.org) recording of `-h` → `about` → `quickstart` →
+`features` → `status` — play it with `asciinema play docs/demo/yazses-cli.cast`.
 
 ## Documentation
 

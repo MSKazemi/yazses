@@ -7,7 +7,7 @@ description: Where YazSes is going — the vision of keyboard-optional, fully pr
 
 YazSes is a fully-offline, hold-to-talk voice dictation daemon for Linux,
 macOS, and Windows — no cloud, no account, nothing leaves your machine.
-**The current stable release is v2.15.1**, published on PyPI, GitHub
+**The current stable release is v2.16.0**, published on PyPI, GitHub
 Releases, Snap, and the APT repository.
 
 This page is two things at once: an honest status report, and a statement of
@@ -136,7 +136,8 @@ or — for research-shaped work — at
 | **v2.12.0** | 2026-07-31 | **First stable v2**: Meeting Mode (hands-free capture → speaker-labelled transcript + minutes), offline recording import with diarization (`yazses transcribe`), Glance-Type on X11, mic-change guard, system tray, "no text target" guard. |
 | **v2.13.0** | 2026-08-07 | The reliability release: config self-repair, `yazses autostart enable` for pipx/uv installs, self-retuning VAD gate, supervised tray, `yazses verify` end-to-end proof. |
 | **v2.14.0** | 2026-08-07 | The perception release: **Parakeet TDT** second STT engine, gaze deixis with real confidence, sotto-voce command channel, EMG activation seam, honest feature registry. |
-| **v2.15.1** | 2026-08-07 | Patch: dictation stops deleting the verb `err` (contract 4.0.0 → 5.0.0), and the mypy gate goes 73 errors → 0, surfacing a latent `yazses update` crash. **Current stable release.** |
+| **v2.16.0** | 2026-08-09 | The snap becomes whole: it now **bundles** the libraries a snap can never install at runtime, so Meeting Mode, diarized import and Read-Back work there for the first time — and the four that cannot fit refuse honestly instead of writing a config key nothing can honour. Also `yazses settings` (a GUI built from the feature registry), `man yazses`, a real `[stt] language`, and a contract that pins **meaning**, not only parity (5.1.0). **Current stable release.** |
+| **v2.15.1** | 2026-08-07 | Patch: dictation stops deleting the verb `err` (contract 4.0.0 → 5.0.0), and the mypy gate goes 73 errors → 0, surfacing a latent `yazses update` crash. |
 | **v2.15.0** | 2026-08-07 | The honesty release: dictation stops deleting real words (contract 1.1.0 → 4.0.0), `doctor` stops giving snap users advice that cannot work, `install.sh` pins and checksums its bootstrap, property-based fuzz tests over the text pipeline. First release to ship all three desktop installers (`.deb`, `.dmg`, `.exe`). |
 
 ## Future work
