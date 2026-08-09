@@ -481,11 +481,17 @@ CASES: dict[str, list[dict[str, Any]]] = {
                         ">= 3) finally collapses them to one",
          "input": "the the the the the", "options": {"collapse_repetitions": True}},
         {"id": "hyphenated-repeat-of-filler-word-leaves-fragment",
-         "description": "surprising, bug-shaped: 'actually' is a default filler, so Rule A "
-                        "strips it out of the middle of the hyphenated token 'a-a-actually', "
-                        "leaving a dangling 'a-a-' fragment glued onto the next word — "
-                        "worth its own issue",
+         "description": "a stutter on a content word survives intact: 'actually' left the "
+                        "default filler list in #146, so Rule A no longer reaches inside "
+                        "the hyphenated token 'a-a-actually' and the disfluent-but-meaningful "
+                        "token is delivered as spoken",
          "input": "a-a-actually the meeting"},
+        {"id": "hyphenated-repeat-of-default-filler-leaves-fragment",
+         "description": "surprising, bug-shaped: 'basically' is a default filler, so Rule A "
+                        "strips it out of the middle of the hyphenated token 'b-b-basically', "
+                        "leaving a dangling 'b-b-' fragment glued onto the next word — "
+                        "worth its own issue",
+         "input": "b-b-basically the meeting"},
         {"id": "hyphenated-double-filler-leaves-orphan-hyphen",
          "description": "same class of bug: each 'um' inside 'um-um' is matched and "
                         "stripped independently by Rule A, leaving an orphaned leading "
@@ -538,32 +544,47 @@ CASES: dict[str, list[dict[str, Any]]] = {
                         "and, since it's bare with no glued dot, at the very end too",
          "input": "um the meeting is at noon um"},
         {"id": "capitalized-multiword-filler-survives-at-start-not-mid-sentence",
-         "description": "the capitalized multi-word filler 'Sort of' has no hesitation "
-                        "particle, so it's protected at position 0 like 'You know' — but "
-                        "the later lowercase 'kind of' is an ordinary mid-sentence filler "
-                        "and is removed",
+         "description": "'sort of' and 'kind of' both left the default filler list in #146 "
+                        "(they are hedges of certainty, not hesitation), so neither position "
+                        "is touched any more and the qualified sentence is delivered whole",
          "input": "Sort of, kind of, the meeting is at noon"},
+        {"id": "capitalized-multiword-default-filler-survives-at-start-not-mid-sentence",
+         "description": "the position-0 rule on a multi-word filler that is still a default: "
+                        "'You know' has no hesitation particle, so it's protected at the "
+                        "start — but the later lowercase 'i mean' is an ordinary mid-sentence "
+                        "filler and is removed",
+         "input": "You know, i mean, the meeting is at noon"},
         {"id": "uppercase-filler-mid-sentence-protected",
          "description": "contrast with the position-0 relaxation: an all-caps filler "
                         "mid-sentence stays protected because the capitalization guard "
                         "only relaxes at position 0",
          "input": "the meeting is UM today"},
         {"id": "lowercase-filler-word-opens-real-phrase",
-         "description": "text that only looks like content but isn't protected: a real "
-                        "phrase beginning with the lowercase word 'like' is still stripped "
-                        "as a filler, because the position-0 exception only protects "
-                        "capitalized tokens",
+         "description": "the #146 fix seen from the other side: 'like' opening a real phrase "
+                        "used to be stripped by the position-0 rule regardless of meaning. It "
+                        "is no longer a default filler, so the simile survives",
          "input": "like a diamond in the sky"},
+        {"id": "lowercase-default-filler-opens-real-phrase",
+         "description": "text that only looks like content but isn't protected: a real "
+                        "phrase beginning with the lowercase word 'literally' is still "
+                        "stripped as a filler, because the position-0 exception only "
+                        "protects capitalized tokens",
+         "input": "literally a diamond in the sky"},
         {"id": "looks-like-filler-plural-survives",
          "description": "the exact case from issue #83: 'Um' at position 0 is stripped as "
                         "an unambiguous filler, but 'ums' (plural) is a different word and "
                         "the word-boundary regex correctly leaves it alone",
          "input": "Um is a word in this sentence about ums"},
         {"id": "filler-only-protected-at-position-zero-not-elsewhere",
-         "description": "'right' is only ever protected when capitalized at position 0; "
-                        "here it's lowercase, so it's stripped, and 'okay so' (itself in the "
-                        "filler list) is stripped too since it isn't at position 0 either",
+         "description": "'right' left the default list in #146 (it is the predicate in "
+                        "'not right'), so it survives at position 0 — while 'okay so', still "
+                        "a default filler, is stripped because it isn't at position 0",
          "input": "right okay so the meeting"},
+        {"id": "default-filler-only-protected-at-position-zero-not-elsewhere",
+         "description": "'hmm' is only ever protected when capitalized at position 0; here "
+                        "it's lowercase, so it's stripped, and 'okay so' (itself in the "
+                        "filler list) is stripped too since it isn't at position 0 either",
+         "input": "hmm okay so the meeting"},
         {"id": "self-correction-inside-rtl-text",
          "description": "an English trigger phrase embedded between two Persian clauses is "
                         "still recognized and the rollback still works",

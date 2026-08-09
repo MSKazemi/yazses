@@ -127,9 +127,16 @@ class DisfluencyConfig:
         # ("to err is human", "err on the side of caution"), so stripping it by
         # default deleted real words mid-sentence (issue #125). Users who really
         # do hesitate with "err" can add it back to [filters.disfluency].
-        "um", "uh", "er", "ah", "hmm", "like", "you know",
-        "i mean", "basically", "right", "okay so",
-        "sort of", "kind of", "literally", "actually",
+        #
+        # like / right / sort of / kind of / actually are deliberately absent
+        # too (issue #146): each is a genuine filler in some positions and
+        # load-bearing content in others. Stripping them by default turns hedges
+        # into facts, drops predicates ("not right" → "not"), and erases
+        # correction markers. Users who want aggressive filler removal can add
+        # them back under [filters.disfluency].
+        "um", "uh", "er", "ah", "hmm", "you know",
+        "i mean", "basically", "okay so",
+        "literally",
         "so um", "so uh",
     ])
     self_correction_triggers: list[str] = field(default_factory=lambda: [
