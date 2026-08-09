@@ -11,6 +11,7 @@ hide:
   "@graph": [
     {
       "@type": "SoftwareApplication",
+      "@id": "https://mskazemi.com/yazses/#software",
       "name": "YazSes",
       "applicationCategory": "UtilitiesApplication",
       "applicationSubCategory": "Voice dictation / speech-to-text",
@@ -72,12 +73,12 @@ hide:
       "name": "YazSes — offline voice dictation for Linux, macOS & Windows (hold a key, speak, release)",
       "description": "40-second tour of YazSes: the hold-to-talk core loop, the command line (status, doctor, features), and the system tray. Speech is transcribed on-device with faster-whisper and typed into the focused app.",
       "thumbnailUrl": "https://i.ytimg.com/vi/nn8WUKsCvZ4/maxresdefault.jpg",
-      "uploadDate": "2026-08-08",
+      "uploadDate": "2026-08-07T15:37:12-07:00",
       "duration": "PT40S",
       "contentUrl": "https://www.youtube.com/watch?v=nn8WUKsCvZ4",
       "embedUrl": "https://www.youtube.com/embed/nn8WUKsCvZ4",
       "publisher": { "@id": "https://orcid.org/0000-0002-1166-6559" },
-      "about": { "@type": "SoftwareApplication", "name": "YazSes" }
+      "about": { "@id": "https://mskazemi.com/yazses/#software" }
     },
     {
       "@type": "ScholarlyArticle",
@@ -89,7 +90,7 @@ hide:
       "datePublished": "2026-07-30",
       "publisher": { "@type": "Organization", "name": "arXiv" },
       "author": { "@id": "https://orcid.org/0000-0002-1166-6559" },
-      "about": { "@type": "SoftwareApplication", "name": "YazSes" }
+      "about": { "@id": "https://mskazemi.com/yazses/#software" }
     }
   ]
 }
