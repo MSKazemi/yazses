@@ -6,6 +6,20 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Diagrams-as-Code by voice now parses a whole graph, not just one edge
+
+`parse_graph_utterance` used to accept exactly one `A goes to B` per clause; dictating
+anything past a single edge meant one utterance per edge, split on `;`. "And" now fans a
+clause out to multiple sources and/or destinations, so `A goes to B and C, B goes to D`
+comes back as three edges in one breath, and `A and B goes to C` fans in the other
+direction. An `and`-separated destination that is itself a full clause (`... and C goes
+to D`) is its own statement, while a lone one is a chain — `start goes to login goes to
+dashboard` links through as `start→login→dashboard` instead of inventing a node called
+"login goes to dashboard". A comma separates clauses only when what follows starts one,
+so a label keeps its own punctuation (`... labeled sign in, please`). Nodes come back in
+the order they were spoken. `diagramvox` is still `planned — designed, not yet wired`
+(issue [#34](https://github.com/MSKazemi/yazses/issues/34)).
+
 ## [2.16.0] - 2026-08-09
 
 The release that makes the **snap** a first-class channel. A snap can never
