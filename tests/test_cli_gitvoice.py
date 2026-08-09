@@ -68,6 +68,24 @@ def test_gitvoice_destructive_runs_with_yes(monkeypatch):
     assert calls == [(["git", "push", "--force"],)]
 
 
+def test_gitvoice_reports_a_missing_git_instead_of_traceback(monkeypatch):
+    import subprocess
+
+    def _missing(*a, **k):
+        raise FileNotFoundError(2, "No such file or directory: 'git'")
+
+    monkeypatch.setattr(subprocess, "run", _missing)
+    r = runner.invoke(cli.app, ["gitvoice", "status", "--run"])
+    assert r.exit_code == 127
+    assert "git is not installed" in r.output.lower()
+
+
+def test_gitvoice_preserves_the_case_of_a_pathspec(monkeypatch):
+    r = runner.invoke(cli.app, ["gitvoice", "discard changes in Server.py"])
+    assert r.exit_code == 0, r.output
+    assert r.output.splitlines()[0] == "git checkout -- Server.py"
+
+
 def test_gitvoice_safe_command_runs_without_yes(monkeypatch):
     import subprocess
 

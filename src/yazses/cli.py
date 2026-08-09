@@ -2435,7 +2435,11 @@ def gitvoice(
         typer.echo("Destructive — re-run with --yes to actually run it.", err=True)
         raise typer.Exit(1)
 
-    result = _subprocess.run(argv)
+    try:
+        result = _subprocess.run(argv)
+    except FileNotFoundError:
+        typer.echo("git is not installed or not on PATH — nothing was run.", err=True)
+        raise typer.Exit(127) from None
     if result.returncode != 0:
         raise typer.Exit(result.returncode)
 
