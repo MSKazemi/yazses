@@ -64,6 +64,8 @@ from yazses.stt.endpoint import EndpointAnticipator
 from yazses.stt.factory import build_engine
 from yazses.stt.filters.disfluency import filter_transcript
 from yazses.stt.streaming import StreamingEngine
+from yazses.styleguard.loader import build_style_rules
+from yazses.styleguard.rules import apply_style
 from yazses.tts.factory import build_tts
 
 log = logging.getLogger(__name__)
@@ -199,6 +201,10 @@ class Daemon:
         self._stop_event = threading.Event()
         # Say-Macro table (None when [macros] disabled — feature dormant).
         self._macro_table = build_macro_table(
+            self._config, self._platform.paths.config_file.parent
+        )
+        # Style-Consistency Enforcer rules (None when [styleguard] disabled).
+        self._style_rules = build_style_rules(
             self._config, self._platform.paths.config_file.parent
         )
         # Mid-Thought Undo: ledger of injected dictation bursts for "scratch that".
@@ -1303,6 +1309,12 @@ class Daemon:
                     if _struct is not None:
                         text = render_markup(_struct, self._config.markup.flavor)
                         event["final_text"] = text
+                # Style-Consistency Enforcer: rewrite terms/spellings to your house
+                # style ('email' -> 'e-mail'), a local Vale-lite pass driven by
+                # ~/.config/yazses/style-rules.toml. Opt-in (ADR-v2-109).
+                if self._config.styleguard.enabled and self._style_rules:
+                    text, _ = apply_style(text, self._style_rules)
+                    event["final_text"] = text
                 # SafeGlyph: flag confusable homoglyphs (e.g. Cyrillic look-alikes) in the
                 # outgoing text before injection. Non-destructive — logs a warning only.
                 # Opt-in (ADR-v2-123).

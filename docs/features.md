@@ -405,11 +405,11 @@ YazSes ships **140 capabilities**. All but the core are **off by default** — t
 
 ### Style-Consistency Enforcer
 
-- **Toggle:** `styleguard`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[styleguard] — apply your house style`
+- **Toggle:** `styleguard`  ·  **Tier:** optional  ·  **Config:** `[styleguard] — apply your house style`
 - **What it does:** Applies your style sheet to each dictation ('e-mail' not 'email', US spelling, 'cannot' not 'can not') so terminology stays consistent — a Vale-lite pass. Off by default.
 - **Use when:** When you write to a house style and need terms and spellings kept consistent automatically.
 - **Example:** Say 'email' and your style sheet rewrites it to 'e-mail' automatically.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable styleguard` then `yazses restart`
 
 ### Suggestion-Mode Dictation
 

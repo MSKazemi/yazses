@@ -1333,6 +1333,7 @@ class AcronymsConfig:
 class StyleguardConfig:
     """v2.9 Wave M — Local Style-Consistency Enforcer (ADR-v2-109). OFF by default."""
     enabled: bool = False
+    path: str = "style-rules.toml"    # relative to config dir, or absolute
 
 
 @dataclass
