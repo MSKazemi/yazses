@@ -6,6 +6,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — per-app tone & formatting profiles (#100)
+
+Dictation now takes its tone from the application you are speaking into: casual in
+Slack, formal in an email client, `verbatim` in a terminal where a formatting pass is
+the last thing you want. `[profiles.app]` maps a glob over the focused window to a
+tone; a value that is not a house tone is used as a complete custom LLM prompt.
+
+The focused application is resolved by the same `TargetDetector` that already answers
+"is there a text target", on the same background thread at hold-start — AT-SPI first,
+xdotool on X11 as a fallback, "" when neither can say. No new dependency, no new
+probe, and nothing on the hot path when `[profiles.app]` is empty.
+
+Note that the two backends report different names for the same window: AT-SPI gives
+the application name (`Firefox`), X11 gives the window class (`Navigator`). Patterns
+are matched case-insensitively, and a glob such as `"*fire*"` is the portable shape.
+
 ### Added — Voice Fuzzy File Open is reachable at last (#38)
 
 `src/yazses/fileopen/match.py` has ranked filenames against a spoken query since

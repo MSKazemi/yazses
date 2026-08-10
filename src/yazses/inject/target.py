@@ -56,6 +56,7 @@ class AtspiFocusTracker:
 
     def __init__(self) -> None:
         self._editable: bool | None = None
+        self._app_class: str = ""
         self._thread: threading.Thread | None = None
         self._started = False
 
@@ -85,6 +86,12 @@ class AtspiFocusTracker:
                 role = src.getRoleName()
                 editable = src.getState().contains(pyatspi.STATE_EDITABLE)
                 self._editable = is_editable_role(role, editable)
+                try:
+                    app = src.getApplication()
+                    if app:
+                        self._app_class = app.getName() or ""
+                except Exception:
+                    pass
             except Exception:
                 pass  # transient AT-SPI errors must never break the listener
 
@@ -106,6 +113,9 @@ class AtspiFocusTracker:
 
     def has_text_target(self) -> bool | None:
         return self._editable
+
+    def get_app_class(self) -> str:
+        return self._app_class
 
     def stop(self) -> None:
         try:
@@ -148,6 +158,30 @@ def xdotool_target_ok(
     return None  # a window is focused; can't tell if a text field is
 
 
+def xdotool_app_class(
+    runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+    env: dict[str, str] | None = None,
+) -> str:
+    """Best-effort (X11) get window class."""
+    env = env if env is not None else dict(os.environ)
+    if not env.get("DISPLAY") or env.get("WAYLAND_DISPLAY"):
+        return ""
+    if not shutil.which("xdotool"):
+        return ""
+    try:
+        proc = runner(
+            ["xdotool", "getwindowfocus", "getwindowclassname"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+    except Exception:
+        return ""
+    if getattr(proc, "returncode", 0) != 0:
+        return ""
+    return (getattr(proc, "stdout", "") or "").strip()
+
+
 class TargetDetector:
     """Resolve whether there's a text target: AT-SPI first, then xdotool, then unknown."""
 
@@ -155,9 +189,11 @@ class TargetDetector:
         self,
         atspi: AtspiFocusTracker | None = None,
         xdotool_fn: Callable[[], bool | None] = xdotool_target_ok,
+        xdotool_class_fn: Callable[[], str] = xdotool_app_class,
     ) -> None:
         self._atspi = atspi
         self._xdotool = xdotool_fn
+        self._xdotool_class = xdotool_class_fn
 
     def resolve(self) -> bool | None:
         if self._atspi is not None:
@@ -168,3 +204,13 @@ class TargetDetector:
             return self._xdotool()
         except Exception:
             return None
+
+    def get_app_class(self) -> str:
+        if self._atspi is not None:
+            c = self._atspi.get_app_class()
+            if c:
+                return c
+        try:
+            return self._xdotool_class()
+        except Exception:
+            return ""

@@ -1120,3 +1120,9 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 | `enabled` | bool | `false` |
 | `wpm` | float | `180.0` |
 
+## `[profiles]`
+
+| Key | Type | Default |
+|---|---|---|
+| `app` | dict | `{}` |
+

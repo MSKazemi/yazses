@@ -1441,6 +1441,12 @@ class SrpaceConfig:
 
 
 @dataclass
+class ProfilesConfig:
+    """v2.10 Wave N — Per-app tone & formatting profiles (ADR-v2-100). OFF by default."""
+    app: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
 class GestureConfig:
     """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
     enabled: bool = False
@@ -1593,6 +1599,7 @@ class Config:
     loadguard: LoadguardConfig = field(default_factory=LoadguardConfig)
     echo: EchoConfig = field(default_factory=EchoConfig)
     srpace: SrpaceConfig = field(default_factory=SrpaceConfig)
+    profiles: ProfilesConfig = field(default_factory=ProfilesConfig)
 
 
 def _load_filters(data: dict) -> FiltersConfig:
