@@ -67,29 +67,59 @@ class InjectionTimeline:
         self._events.append(fragment)
         return UndoOp(backspaces=0, insert=fragment)
 
+_NUMBER_WORDS = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+}
+
+# Spoken scope -> the `scope` argument :meth:`InjectionTimeline.undo` already takes.
+_SCOPE_WORDS = {
+    "word": "word", "words": "word",
+    "sentence": "sentence", "sentences": "sentence",
+    "burst": "burst", "bursts": "burst",
+    "everything": "all", "all": "all",
+}
+
+# Whole-utterance undo/redo commands, normalized (lower, stripped, trailing sentence
+# punctuation removed). Anchored at both ends for the same reason `_SCRATCH_RE` in
+# commands/revise.py is: "undo" is an ordinary English word, and "click undo", "I need
+# to undo that" or "press control z to undo" are things a person dictates and expects
+# to see typed. A pattern that merely has to *end* the utterance obeys all of them.
+_TIMELINE_RE = re.compile(
+    r"^(?P<action>undo|redo)"
+    r"(?:\s+(?:that|this))?"
+    r"(?:\s+(?:the\s+)?last)?"
+    r"(?:\s+(?P<count>\d+|one|two|three|four|five|six|seven|eight|nine|ten))?"
+    r"(?:\s+(?P<scope>words?|sentences?|bursts?|everything|all))?"
+    r"$"
+)
+
+MAX_REPEAT = 10
+
+
 def parse_timeline_command(text: str):
-    """Parse a spoken timeline command -> ("undo", count), ("redo", count), or None."""
-    t = (text or "").lower().strip()
-    
-    words_to_num = {
-        "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
-        "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10
-    }
-    
-    m = re.search(r"\bundo(?:\s+(one|two|three|four|five|six|seven|eight|nine|ten|\d+))?$", t)
-    if m:
-        count_str = m.group(1)
+    """Parse a whole-utterance timeline command.
+
+    Returns ``(action, count, scope)`` — e.g. ``("undo", 2, "word")`` for "undo two
+    words" — or ``None`` when the utterance is ordinary dictation. ``scope`` is one of
+    the values :meth:`InjectionTimeline.undo` accepts. Pure.
+    """
+    if not text:
+        return None
+    norm = text.strip().lower().rstrip(".?!,").strip()
+    m = _TIMELINE_RE.match(norm)
+    if not m:
+        return None
+
+    raw_count = m.group("count")
+    if raw_count is None:
         count = 1
-        if count_str:
-            count = int(count_str) if count_str.isdigit() else words_to_num.get(count_str, 1)
-        return ("undo", count)
-        
-    m = re.search(r"\bredo(?:\s+(one|two|three|four|five|six|seven|eight|nine|ten|\d+))?$", t)
-    if m:
-        count_str = m.group(1)
-        count = 1
-        if count_str:
-            count = int(count_str) if count_str.isdigit() else words_to_num.get(count_str, 1)
-        return ("redo", count)
-        
-    return None
+    elif raw_count.isdigit():
+        count = int(raw_count)
+    else:
+        count = _NUMBER_WORDS[raw_count]
+    # A misheard number must not turn into a thousand backspaces at the injector.
+    count = max(1, min(count, MAX_REPEAT))
+
+    scope = _SCOPE_WORDS.get(m.group("scope") or "", "last")
+    return (m.group("action"), count, scope)

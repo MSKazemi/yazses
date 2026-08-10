@@ -649,11 +649,11 @@ YazSes ships **140 capabilities**. All but the core are **off by default** — t
 
 ### Voice Undo/Redo Timeline
 
-- **Toggle:** `timeline`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[timeline] — undo YazSes output by voice`
+- **Toggle:** `timeline`  ·  **Tier:** recommended  ·  **Config:** `[timeline] — undo YazSes output by voice`
 - **What it does:** Undo/redo YazSes's own output across bursts by voice — 'undo the last sentence', 'redo' — even where the app's Ctrl+Z is unreliable. Off by default.
 - **Use when:** When you need to take back what YazSes typed across bursts in an app whose own undo is unreliable.
 - **Example:** Say 'undo the last sentence' to take back what YazSes just typed.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable timeline` then `yazses restart`
 
 ### Session Bookmarks
 
