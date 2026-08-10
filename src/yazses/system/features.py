@@ -570,8 +570,9 @@ def _registry() -> list[_Def]:
              "survives an open-plan office or café. Needs the crowdproof extra. Off by default.",
              lambda c: c.crowdproof.enabled, cwp_on, cwp_off),
         _Def("jump", "Voice Jump-to-Symbol", "[jump] — navigate code by voice", OPTIONAL,
-             "'Jump to function tokenize', 'go to line 240' → the editor moves there (fuzzy symbol "
-             "match, or a search fallback). Off by default.",
+             "Run `yazses jump \"<spoken target>\"` — 'jump to function tokenize', 'go to line "
+             "240' → the editor moves there (fuzzy symbol match, or a search fallback). Needs "
+             "Neovim started with `nvim --listen`, or the VS Code extension. Off by default.",
              lambda c: c.jump.enabled, jmp_on, jmp_off),
         _Def("shellpipe", "Spoken Shell Pipeline Builder", "[shellpipe] — build pipelines, preview first", OPTIONAL,
              "Speak stages ('list files, pipe to grep error, pipe to word count') → renders 'ls | "
@@ -582,8 +583,10 @@ def _registry() -> list[_Def]:
              "automatically to future output. High-precision, from your own edits. Off by default.",
              lambda c: c.corrdict.enabled, cdx_on, cdx_off),
         _Def("fileopen", "Voice Fuzzy File Open", "[fileopen] — open files by voice", OPTIONAL,
-             "'Open the notes about the mortgage' → fuzzy-matches your local files and opens the "
-             "best one. Mouse-free. Off by default.",
+             "Run `yazses fileopen \"<spoken query>\"` to fuzzy-match your local files and open "
+             "the best one — 'open the notes about the mortgage'. Shows the match and asks "
+             "before launching unless you pass --yes. `[fileopen] threshold` sets how close a "
+             "match has to be. Mouse-free. Off by default.",
              lambda c: c.fileopen.enabled, fo_on, fo_off),
         _Def("reask", "Confidence-Gated Re-Ask", "[reask] — resolve uncertain words", RECOMMENDED,
              "Instead of injecting a low-confidence guess, holds just the uncertain word and asks "
@@ -970,9 +973,9 @@ _UNWIRED: frozenset[str] = frozenset({
     "acoustic_profiles", "affect", "agent", "audioguard", "autostop",
     "bookmarks", "breath", "bridge", "checkdigit", "cmdsafety", "cmdspotter",
     "code", "codec", "compose", "condense", "contour", "corrdict",
-    "crowdproof", "diagramvox", "earcon", "echo", "fieldaware", "fileopen",
+    "crowdproof", "diagramvox", "earcon", "echo", "fieldaware",
     "focusprofile", "gesture", "hatselect", "headpointer",
-    "hesitation", "hotwords", "interpret", "involuntary", "jump", "langroute",
+    "hesitation", "hotwords", "interpret", "involuntary", "langroute",
     "latency", "lipread", "loadguard", "math", "modality", "morsevox",
     "mousegrid", "mouthswitch", "multiprofile", "pilot", "predict",
     "pronunciation", "proofback", "prosodypunct", "rag", "readback_clone",
