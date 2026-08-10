@@ -23,11 +23,15 @@
 
 ```sh
 uv run python -m pytest tests/ -v
-uv run ruff check src tests
-uv run mypy
+uv run ruff check src tests scripts
+uv run mypy src
 ```
 
 ## Checklist
+
+<!-- Docs-only PR (a translation, an example config, a typo, adding yourself to a list)?
+     Tick the last two, ignore the rest and delete this comment — that is a complete PR and
+     we will not ask you for tests. -->
 
 - [ ] Tests added or updated, and `uv run python -m pytest tests/ -v` passes locally
 - [ ] Docs updated if behaviour, CLI, or config changed
