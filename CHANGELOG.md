@@ -6,6 +6,45 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — per-app tone & formatting profiles (#100)
+
+Dictation now takes its tone from the application you are speaking into: casual in
+Slack, formal in an email client, `verbatim` in a terminal where a formatting pass is
+the last thing you want. `[profiles.app]` maps a glob over the focused window to a
+tone; a value that is not a house tone is used as a complete custom LLM prompt.
+
+The focused application is resolved by the same `TargetDetector` that already answers
+"is there a text target", on the same background thread at hold-start — AT-SPI first,
+xdotool on X11 as a fallback, "" when neither can say. No new dependency, no new
+probe, and nothing on the hot path when `[profiles.app]` is empty.
+
+Note that the two backends report different names for the same window: AT-SPI gives
+the application name (`Firefox`), X11 gives the window class (`Navigator`). Patterns
+are matched case-insensitively, and a glob such as `"*fire*"` is the portable shape.
+
+### Added — Voice Fuzzy File Open is reachable at last (#38)
+
+`src/yazses/fileopen/match.py` has ranked filenames against a spoken query since
+v2.6, and nothing could call it. The registry advertised the capability, `features
+enable fileopen` refused it as designed-but-unwired, and the feature page said
+"not possible yet". The ranker was the easy half; the missing half was somewhere for
+its answer to go.
+
+`yazses fileopen "<spoken query>"` closes it: rank the files in a directory, show the
+best match, confirm, and hand it to the OS opener (`xdg-open` / `open` /
+`os.startfile`). `--yes` skips the prompt for a hands-free flow.
+
+The command **always names the file it opened**, `--yes` included. It chooses by
+fuzzy score, so the one path where the user never sees the choice being made is
+exactly the path where they most need to be told what it landed on. It also reads
+`[fileopen] threshold` rather than hardcoding the default, and a miss reports the bar
+it applied instead of only that it missed — a documented key that silently does
+nothing is the failure this project has been bitten by before.
+
+`fileopen` leaves `features._UNWIRED`, so the feature page now says
+`yazses features enable fileopen` instead of "designed but not wired", and the
+registry blurb names the command rather than describing a capability with no door.
+
 ## [2.17.0] - 2026-08-09
 
 Follows v2.16.0 by a day, because the snap release exposed the next layer of
@@ -35,6 +74,25 @@ major bumps under `contract/README.md`. Four vector cases that existed to prove 
 using one of these five words would have become vacuous, so each keeps its input as a
 record of the new behaviour and gains a sibling case proving the same rule with a word
 that is still a default filler (76 → 80 disfluency cases).
+### Added — CI enforces the dependency budget (#141)
+
+"18 base dependencies against 140+ features" was true only for as long as reviewers
+kept catching drift by hand, and the failure it guards against is invisible to the
+test suite: a lazy `import mediapipe` moved to the top of a daemon-imported file
+during an unrelated refactor breaks nothing, it just makes every base install heavier
+forever. `scripts/check_dependency_budget.py` runs in the `repo-hygiene` job and adds
+three checks against a base install — growth of `[project.dependencies]` (needs the
+`dependency-budget-override` label), any module belonging to an extra turning up in
+`sys.modules` after `import yazses.core.daemon`, and cold-start import time against a
+recorded budget.
+
+Growth is compared against the baseline **on the base branch**, so a PR cannot excuse
+a new dependency by re-recording the baseline in the same commit. Adding an extra to
+`[project.optional-dependencies]` without mapping it in the script fails too — an
+unmapped extra is enforced by nothing, which is the way a check like this usually
+dies. The import-time budget is only enforced in CI, where the recorded number and
+the runner are the same kind of machine.
+
 ### Fixed — streaming dictation deleted text it had never typed (#153)
 
 Reported from the snap: a long dictation ended in a flood of repeated characters, then the

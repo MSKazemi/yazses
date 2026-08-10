@@ -143,6 +143,55 @@ def _parse_pairs(items):
     return out
 
 
+@app.command("fileopen")
+def fileopen(
+    query: str = typer.Argument(..., help="The spoken query to match a file against."),
+    dir: Path = typer.Option(Path("."), "--dir", "-d", help="Directory to search in."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Launch immediately without confirmation."),
+) -> None:
+    """Open a file by voice: fuzzy matches your spoken query against files in a directory."""
+    import os
+
+    from yazses.config import load_config
+    from yazses.fileopen.launcher import launch_file
+    from yazses.fileopen.match import resolve_open
+
+    # `[fileopen] threshold` is a documented, user-facing key; reading it here is what
+    # makes it real. `yazses transcribe` reads its own `[recimport]` section the same
+    # way — a CLI one-shot takes its settings from config even though, unlike a voice
+    # feature, it is not gated on `enabled` (typing the command *is* the opt-in).
+    cfg = load_config(get_platform().paths.config_file)
+
+    try:
+        files = [f for f in os.listdir(dir) if os.path.isfile(os.path.join(dir, f))]
+    except OSError as e:
+        typer.echo(f"Could not read directory {dir}: {e}", err=True)
+        raise typer.Exit(1)
+
+    match = resolve_open(query, files, threshold=cfg.fileopen.threshold)
+    if not match:
+        typer.echo(
+            f"No file matched '{query}' in {dir} "
+            f"(threshold {cfg.fileopen.threshold:g} — lower `[fileopen] threshold` to match loosely).",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    if not yes:
+        typer.echo(f"Best match: {match}")
+        typer.confirm("Open this file?", abort=True)
+
+    try:
+        launch_file(dir / match)
+    except Exception as e:
+        typer.echo(f"Failed to open {match}: {e}", err=True)
+        raise typer.Exit(1)
+    # Always name what was opened, `--yes` included. This picks a file by fuzzy score,
+    # so the one case where the user cannot see the choice being made is exactly the
+    # case where they most need to be told which file it landed on.
+    typer.echo(f"Opened {match}")
+
+
 @meeting_app.command("start")
 def meeting_start() -> None:
     """Start recording a meeting (hands-free — no key to hold).

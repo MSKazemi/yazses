@@ -116,7 +116,17 @@ class _DaemonState:
     # "No text target" guard: whether the focused element accepts text for the current
     # burst — True (editable field), False (no target → warn/clipboard), None (unknown).
     target_ok: bool | None = None
+    # Per-app profiles (ADR-v2-100): the focused application, resolved alongside
+    # `target_ok` by the same detector, so a profile can key off it. "" when unknown.
     app_class: str = ""
+
+
+# Tone names with house phrasing. Anything else in `[profiles.app]` is appended
+# verbatim as "Use a <tone> tone." — see `Daemon._clean_dictation`.
+_TONE_INSTRUCTIONS: dict[str, str] = {
+    "casual": "Use a casual, conversational tone.",
+    "formal": "Use a formal, professional tone.",
+}
 
 
 class Daemon:
@@ -1944,17 +1954,19 @@ class Daemon:
         """
         if self._cleaner is None:
             return text
-            
+
         custom_prompt = None
-        if tone and tone != "verbatim" and tone != "default":
+        if tone and tone not in ("verbatim", "default"):
             base_prompt = self._config.filters.disfluency.llm_system_prompt
-            if tone == "casual":
-                custom_prompt = base_prompt + " Use a casual, conversational tone."
-            elif tone == "formal":
-                custom_prompt = base_prompt + " Use a formal, professional tone."
-            else:
-                custom_prompt = tone
-                
+            # Three documented shapes (docs/how-to/app-profiles.md): a house tone name
+            # extends the base prompt, and anything else is taken as a complete custom
+            # prompt and replaces it. Replacing is safe because `LlmCleaner`'s guards
+            # are output-side — `_length_ratio_ok` and `_tokens_preserved` compare input
+            # to output and never read the prompt — so a custom prompt cannot widen what
+            # the cleanup pass is allowed to do to the user's words.
+            instruction = _TONE_INSTRUCTIONS.get(tone)
+            custom_prompt = f"{base_prompt} {instruction}" if instruction else tone
+
         cleaned = self._cleaner.cleanup(text, custom_prompt)
         if cleaned != text:
             event["llm_cleaned_text"] = cleaned

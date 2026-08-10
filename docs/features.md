@@ -673,11 +673,11 @@ YazSes ships **140 capabilities**. All but the core are **off by default** — t
 
 ### Voice Fuzzy File Open
 
-- **Toggle:** `fileopen`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[fileopen] — open files by voice`
-- **What it does:** 'Open the notes about the mortgage' → fuzzy-matches your local files and opens the best one. Mouse-free. Off by default.
+- **Toggle:** `fileopen`  ·  **Tier:** optional  ·  **Config:** `[fileopen] — open files by voice`
+- **What it does:** Run `yazses fileopen "<spoken query>"` to fuzzy-match your local files and open the best one — 'open the notes about the mortgage'. Shows the match and asks before launching unless you pass --yes. `[fileopen] threshold` sets how close a match has to be. Mouse-free. Off by default.
 - **Use when:** When you know a file by topic but not its path and want to open it without the mouse.
 - **Example:** Say 'open the mortgage notes' to launch the right file.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable fileopen` then `yazses restart`
 
 ### Citation-by-Voice
 
