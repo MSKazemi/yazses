@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Voice Fuzzy File Open is reachable at last (#38)
+
+`src/yazses/fileopen/match.py` has ranked filenames against a spoken query since
+v2.6, and nothing could call it. The registry advertised the capability, `features
+enable fileopen` refused it as designed-but-unwired, and the feature page said
+"not possible yet". The ranker was the easy half; the missing half was somewhere for
+its answer to go.
+
+`yazses fileopen "<spoken query>"` closes it: rank the files in a directory, show the
+best match, confirm, and hand it to the OS opener (`xdg-open` / `open` /
+`os.startfile`). `--yes` skips the prompt for a hands-free flow.
+
+The command **always names the file it opened**, `--yes` included. It chooses by
+fuzzy score, so the one path where the user never sees the choice being made is
+exactly the path where they most need to be told what it landed on. It also reads
+`[fileopen] threshold` rather than hardcoding the default, and a miss reports the bar
+it applied instead of only that it missed — a documented key that silently does
+nothing is the failure this project has been bitten by before.
+
+`fileopen` leaves `features._UNWIRED`, so the feature page now says
+`yazses features enable fileopen` instead of "designed but not wired", and the
+registry blurb names the command rather than describing a capability with no door.
+
 ## [2.17.0] - 2026-08-09
 
 Follows v2.16.0 by a day, because the snap release exposed the next layer of

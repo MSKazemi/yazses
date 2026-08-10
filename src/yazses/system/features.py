@@ -582,8 +582,10 @@ def _registry() -> list[_Def]:
              "automatically to future output. High-precision, from your own edits. Off by default.",
              lambda c: c.corrdict.enabled, cdx_on, cdx_off),
         _Def("fileopen", "Voice Fuzzy File Open", "[fileopen] — open files by voice", OPTIONAL,
-             "'Open the notes about the mortgage' → fuzzy-matches your local files and opens the "
-             "best one. Mouse-free. Off by default.",
+             "Run `yazses fileopen \"<spoken query>\"` to fuzzy-match your local files and open "
+             "the best one — 'open the notes about the mortgage'. Shows the match and asks "
+             "before launching unless you pass --yes. `[fileopen] threshold` sets how close a "
+             "match has to be. Mouse-free. Off by default.",
              lambda c: c.fileopen.enabled, fo_on, fo_off),
         _Def("reask", "Confidence-Gated Re-Ask", "[reask] — resolve uncertain words", RECOMMENDED,
              "Instead of injecting a low-confidence guess, holds just the uncertain word and asks "
@@ -970,7 +972,7 @@ _UNWIRED: frozenset[str] = frozenset({
     "acoustic_profiles", "affect", "agent", "audioguard", "autostop",
     "bookmarks", "breath", "bridge", "checkdigit", "cmdsafety", "cmdspotter",
     "code", "codec", "compose", "condense", "contour", "corrdict",
-    "crowdproof", "diagramvox", "earcon", "echo", "fieldaware", "fileopen",
+    "crowdproof", "diagramvox", "earcon", "echo", "fieldaware",
     "focusprofile", "gesture", "hatselect", "headpointer",
     "hesitation", "hotwords", "interpret", "involuntary", "jump", "langroute",
     "latency", "lipread", "loadguard", "math", "modality", "morsevox",
