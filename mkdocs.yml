@@ -271,5 +271,6 @@ nav:
       - Contributing to mobile: mobile/contributing.md
       - Decision records: mobile/adr/README.md
   - Troubleshooting: troubleshooting.md
+  - Contributing: contributing.md
   - Roadmap: roadmap.md
   - Releases: releases/index.md

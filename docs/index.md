@@ -329,3 +329,7 @@ More answers in the **[full FAQ](faq.md)**, and a side-by-side in **[Comparison 
 ---
 
 Apache-2.0 licensed. If YazSes is useful to you, a ⭐ on [GitHub](https://github.com/MSKazemi/yazses) helps others find it.
+
+**Want to help?** See [Contributing](contributing.md) — several tasks need no code at all, like
+translating the README, sharing a config you already use, or adding the microphone that worked
+for you.
