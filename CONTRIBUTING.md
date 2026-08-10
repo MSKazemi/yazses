@@ -12,6 +12,24 @@ a small imperfect PR and polish it afterwards than leave you waiting.
 
 ## Getting started
 
+**On Linux, install a C compiler first.** This is the one step that bites people, and it
+fails at `uv sync` with a wall of compiler errors rather than a helpful message:
+[`evdev`](https://pypi.org/project/evdev/) (the keyboard hook) publishes **no wheels at
+all** — only a source archive — so pip has to build it against your Python and kernel
+headers.
+
+```sh
+sudo apt install -y build-essential python3-dev git   # Debian / Ubuntu / Mint / Pop!_OS
+sudo dnf install -y gcc python3-devel git             # Fedora / RHEL
+sudo pacman -S --needed base-devel git                # Arch / Manjaro
+```
+
+**On macOS and Windows you need none of this** — every dependency there ships a prebuilt
+wheel, so `uv sync` just works. (`evdev` is Linux-only and is not installed on your
+machine.)
+
+Then:
+
 ```sh
 git clone https://github.com/MSKazemi/yazses
 cd yazses
@@ -25,18 +43,14 @@ uv run mypy src                     # type checking       (advisory — see belo
 need a working microphone, a Whisper model, or the optional extras to contribute: the test
 suite is fully offline and mocks the audio and model layers, and runs in about 15 seconds.
 
-**mypy is advisory.** There are ~75 pre-existing type errors across 22 files, so a clean
-run is not expected of you. Just don't add new ones to the files you touch. (Chipping away
-at that number, one module per PR, is a genuinely useful contribution — say so in the PR
-and we'll take it; see [issue #47](https://github.com/MSKazemi/yazses/issues/47).)
+**mypy is clean and advisory.** `uv run mypy src` currently reports **no issues across 433
+source files**, so if you see an error, you almost certainly just introduced it. It is not
+a CI gate — only `ruff` and `pytest` are — so nobody will block your PR on it, but please
+run it once before pushing and don't leave the count above zero.
 
-Every remaining error is a *real* one you can actually fix. The `[tool.mypy]` section in
-`pyproject.toml` silences the imports of optional backends that a base install deliberately
-omits — those are absent by design, not bugs, and no PR should try to "fix" them.
-
-The remaining errors are all in **leaf modules** — one module per PR is genuinely a
-self-contained change. `core/daemon.py` and the `meeting/` package are already clean; please
-keep them that way, since a regression there is much harder to spot in review.
+The `[tool.mypy]` section in `pyproject.toml` silences the imports of optional backends
+that a base install deliberately omits — those are absent by design, not bugs, and no PR
+should try to "fix" them.
 
 Changed a CLI command, flag, or config key? Regenerate the reference docs, or the doc-sync
 test will fail:
