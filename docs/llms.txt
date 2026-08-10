@@ -111,6 +111,8 @@ yazses start      # start the dictation daemon
 - FAQ: https://mskazemi.com/yazses/faq.html
 - Privacy statement: https://mskazemi.com/yazses/privacy-statement.html
 - Android / mobile programme (in design): https://mskazemi.com/yazses/mobile/index.html
+- Contributing (including tasks that need no code): https://mskazemi.com/yazses/contributing.html
+- Known-good microphones (community-reported): https://mskazemi.com/yazses/known-good-microphones.html
 
 ## Citation
 
