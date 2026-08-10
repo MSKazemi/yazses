@@ -86,6 +86,45 @@ meeting_app = typer.Typer(
 app.add_typer(meeting_app, rich_help_panel=_DICTATION)
 
 
+@app.command(
+    rich_help_panel=_DICTATION,
+)
+def jump(
+    target: str = typer.Argument(..., help="Spoken target to jump to (e.g. 'line 10' or 'main').")
+) -> None:
+    """Jump to a symbol or line in the active editor.
+
+    Uses the configured LSP editor bridge (Neovim/VS Code) to resolve the
+    target and move the cursor.
+    """
+    from yazses.commands.lsp_context import LspContextProvider
+    from yazses.jump.target import plan_motion, resolve_target
+
+    bridge = LspContextProvider(editor="auto").bridge
+    if not bridge.connect():
+        typer.echo(
+            "Editor bridge not reachable. Start Neovim with `nvim --listen` (yazses reads "
+            "$NVIM), or install the YazSes VS Code extension.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    t = resolve_target(target)
+    if t is None:
+        typer.echo(f"Could not parse jump target from {target!r}.", err=True)
+        raise typer.Exit(1)
+
+    symbols = bridge.get_symbols()
+    motion = plan_motion(t, symbols)
+    if motion is None:
+        typer.echo("Could not plan motion.", err=True)
+        raise typer.Exit(1)
+
+    if not bridge.apply_motion(motion.kind, motion.payload):
+        typer.echo(f"Failed to apply motion {motion.kind} to {motion.payload}", err=True)
+        raise typer.Exit(1)
+
+
 def _meeting_dir(meeting_id: str):
     """Resolve a stored meeting's folder from its id (works without the daemon)."""
     from yazses.config import load_config

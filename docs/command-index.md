@@ -253,6 +253,12 @@ Type text into the focused window without recording (tests the injector).
 
 - **Arguments:** `text`
 
+## `yazses jump`
+
+Jump to a symbol or line in the active editor.
+
+- **Arguments:** `target`
+
 ## `yazses logs`
 
 Show the daemon's diagnostic log (metadata only -- no dictated text).

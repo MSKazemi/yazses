@@ -67,7 +67,12 @@ def plan_motion(target: Target, symbols=None):
     if target.kind == "search":
         return Motion("search", target.value)
     # symbol: fuzzy-pick from the list, else fall back to a text search
-    picked = fuzzy_pick(str(target.value), symbols or [])
-    if picked:
-        return Motion("goto_symbol", picked)
+    if isinstance(symbols, dict):
+        picked = fuzzy_pick(str(target.value), list(symbols.keys()))
+        if picked:
+            return Motion("goto_line", symbols[picked])
+    else:
+        picked = fuzzy_pick(str(target.value), symbols or [])
+        if picked:
+            return Motion("goto_symbol", picked)
     return Motion("search", target.value)

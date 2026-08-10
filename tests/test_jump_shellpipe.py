@@ -29,6 +29,8 @@ def test_plan_motion():
     assert plan_motion(Target("line", 10)) == Motion("goto_line", 10)
     assert plan_motion(Target("search", "foo")) == Motion("search", "foo")
     assert plan_motion(Target("symbol", "tokenise"), ["tokenize"]) == Motion("goto_symbol", "tokenize")
+    # dict symbols (e.g. from LSP) returns goto_line
+    assert plan_motion(Target("symbol", "tokenise"), {"tokenize": 42}) == Motion("goto_line", 42)
     # no symbol list → search fallback
     assert plan_motion(Target("symbol", "whatever"), []) == Motion("search", "whatever")
     assert plan_motion(None) is None

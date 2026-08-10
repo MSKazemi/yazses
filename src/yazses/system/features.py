@@ -570,8 +570,9 @@ def _registry() -> list[_Def]:
              "survives an open-plan office or café. Needs the crowdproof extra. Off by default.",
              lambda c: c.crowdproof.enabled, cwp_on, cwp_off),
         _Def("jump", "Voice Jump-to-Symbol", "[jump] — navigate code by voice", OPTIONAL,
-             "'Jump to function tokenize', 'go to line 240' → the editor moves there (fuzzy symbol "
-             "match, or a search fallback). Off by default.",
+             "Run `yazses jump \"<spoken target>\"` — 'jump to function tokenize', 'go to line "
+             "240' → the editor moves there (fuzzy symbol match, or a search fallback). Needs "
+             "Neovim started with `nvim --listen`, or the VS Code extension. Off by default.",
              lambda c: c.jump.enabled, jmp_on, jmp_off),
         _Def("shellpipe", "Spoken Shell Pipeline Builder", "[shellpipe] — build pipelines, preview first", OPTIONAL,
              "Speak stages ('list files, pipe to grep error, pipe to word count') → renders 'ls | "
@@ -974,7 +975,7 @@ _UNWIRED: frozenset[str] = frozenset({
     "code", "codec", "compose", "condense", "contour", "corrdict",
     "crowdproof", "diagramvox", "earcon", "echo", "fieldaware",
     "focusprofile", "gesture", "hatselect", "headpointer",
-    "hesitation", "hotwords", "interpret", "involuntary", "jump", "langroute",
+    "hesitation", "hotwords", "interpret", "involuntary", "langroute",
     "latency", "lipread", "loadguard", "math", "modality", "morsevox",
     "mousegrid", "mouthswitch", "multiprofile", "pilot", "predict",
     "pronunciation", "proofback", "prosodypunct", "rag", "readback_clone",
