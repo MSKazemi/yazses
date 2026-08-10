@@ -190,6 +190,14 @@ Describe a capability — what it does, a usage example, and how to toggle it.
 
 - **Arguments:** `name`
 
+## `yazses fileopen`
+
+Open a file by voice: fuzzy matches your spoken query against files in a directory.
+
+- **Arguments:** `query`
+- `--dir`, `-d` — Directory to search in.
+- `--yes`, `-y` — Launch immediately without confirmation.
+
 ## `yazses findreplace`
 
 Apply a spoken find-and-replace to text — fully offline.
@@ -244,6 +252,12 @@ Show the current hold-to-talk key (and command key, if set).
 Type text into the focused window without recording (tests the injector).
 
 - **Arguments:** `text`
+
+## `yazses jump`
+
+Jump to a symbol or line in the active editor.
+
+- **Arguments:** `target`
 
 ## `yazses logs`
 

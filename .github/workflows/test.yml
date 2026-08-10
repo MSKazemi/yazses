@@ -27,11 +27,39 @@ jobs:
       - name: No oversized files in the repo
         run: python3 scripts/check_repo_size.py
 
+      - name: Install system dependencies (Linux)
+        # Just enough for `import yazses.core.daemon` (sounddevice dlopen's this at
+        # import time) — the dependency budget check below imports it on a base
+        # install. No Qt libs needed: PySide6 is not imported at daemon module scope.
+        run: sudo apt-get update && sudo apt-get install -y libportaudio2
+
       - name: Install uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
 
+      - name: Install dependencies
+        run: uv sync
+
       - name: Lint (ruff)
         run: uv run ruff check src tests scripts
+
+      - name: Dependency budget
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          PR_LABELS: ${{ github.event_name == 'pull_request' && join(github.event.pull_request.labels.*.name, ',') || '' }}
+        # Values are passed as env vars and read as shell variables, never interpolated
+        # into the script body — a label is attacker-adjacent text and `${{ }}` inside
+        # `run:` is how that becomes a shell injection.
+        run: |
+          # The growth check compares against the baseline as it exists on the base
+          # branch, so a PR cannot wave through a new dependency by rewriting the
+          # baseline in the same commit. A shallow checkout has no base branch ref, so
+          # fetch that one commit; the check says so out loud if this fails.
+          if [ -n "$GITHUB_BASE_REF" ]; then
+            git fetch --no-tags --depth=1 origin \
+              "+refs/heads/$GITHUB_BASE_REF:refs/remotes/origin/$GITHUB_BASE_REF"
+          fi
+          uv run python scripts/check_dependency_budget.py
 
   test:
     runs-on: ${{ matrix.os }}

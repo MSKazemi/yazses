@@ -116,6 +116,17 @@ class _DaemonState:
     # "No text target" guard: whether the focused element accepts text for the current
     # burst — True (editable field), False (no target → warn/clipboard), None (unknown).
     target_ok: bool | None = None
+    # Per-app profiles (ADR-v2-100): the focused application, resolved alongside
+    # `target_ok` by the same detector, so a profile can key off it. "" when unknown.
+    app_class: str = ""
+
+
+# Tone names with house phrasing. Anything else in `[profiles.app]` is appended
+# verbatim as "Use a <tone> tone." — see `Daemon._clean_dictation`.
+_TONE_INSTRUCTIONS: dict[str, str] = {
+    "casual": "Use a casual, conversational tone.",
+    "formal": "Use a formal, professional tone.",
+}
 
 
 class Daemon:
@@ -1251,10 +1262,16 @@ class Daemon:
                 log.info("Mid-thought undo: scratched %d chars.", n)
                 return
 
+            with self._lock:
+                app_class = self._state.app_class
+
+            from yazses.postprocess.profiles import resolve_profile
+            profile = resolve_profile(app_class, self._config.profiles)
+
             # Verbatim/Autoformat mode (ADR-v2-078): the spoken commands "dictate
             # verbatim" / "resume formatting" toggle a persistent gate and type nothing;
             # while verbatim, all formatting transforms are bypassed (literal capture).
-            verbatim_active = False
+            verbatim_active = profile.tone == "verbatim"
             if is_dictation and self._config.verbatim.enabled:
                 if self._verbatim_gate is None:
                     from yazses.verbatim.gate import VerbatimGate
@@ -1267,10 +1284,11 @@ class Daemon:
                         stream_injector.cancel()
                     log.info("Formatting mode set to %s.", self._verbatim_gate.mode)
                     return
-                verbatim_active = self._verbatim_gate.is_verbatim()
+                if self._verbatim_gate.is_verbatim():
+                    verbatim_active = True
 
             if is_dictation:
-                text = self._clean_dictation(text, event)
+                text = self._clean_dictation(text, event, profile.tone)
                 verbatim_literal = text  # cleaned literal, before any formatting transform
                 # Mid-Utterance Self-Repair: apply "no I mean X" corrections before anything
                 # else consumes the text. Opt-in (ADR-v2-058).
@@ -1771,10 +1789,13 @@ class Daemon:
         def _run() -> None:
             try:
                 ok = detector.resolve()
+                app_class = detector.get_app_class()
             except Exception:
                 ok = None
+                app_class = ""
             with self._lock:
                 self._state.target_ok = ok
+                self._state.app_class = app_class
 
         threading.Thread(target=_run, name="target-detect", daemon=True).start()
 
@@ -1991,7 +2012,7 @@ class Daemon:
             log.debug("Cocktail gate error: %s", exc)
             return audio
 
-    def _clean_dictation(self, text: str, event: dict) -> str:
+    def _clean_dictation(self, text: str, event: dict, tone: str = "") -> str:
         """Apply optional LLM cleanup to dictation text; record it in *event*.
 
         Returns *text* unchanged when cleanup is dormant or its guards reject the
@@ -2000,7 +2021,20 @@ class Daemon:
         """
         if self._cleaner is None:
             return text
-        cleaned = self._cleaner.cleanup(text)
+
+        custom_prompt = None
+        if tone and tone not in ("verbatim", "default"):
+            base_prompt = self._config.filters.disfluency.llm_system_prompt
+            # Three documented shapes (docs/how-to/app-profiles.md): a house tone name
+            # extends the base prompt, and anything else is taken as a complete custom
+            # prompt and replaces it. Replacing is safe because `LlmCleaner`'s guards
+            # are output-side — `_length_ratio_ok` and `_tokens_preserved` compare input
+            # to output and never read the prompt — so a custom prompt cannot widen what
+            # the cleanup pass is allowed to do to the user's words.
+            instruction = _TONE_INSTRUCTIONS.get(tone)
+            custom_prompt = f"{base_prompt} {instruction}" if instruction else tone
+
+        cleaned = self._cleaner.cleanup(text, custom_prompt)
         if cleaned != text:
             event["llm_cleaned_text"] = cleaned
             event["final_text"] = cleaned

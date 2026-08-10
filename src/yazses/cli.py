@@ -86,6 +86,45 @@ meeting_app = typer.Typer(
 app.add_typer(meeting_app, rich_help_panel=_DICTATION)
 
 
+@app.command(
+    rich_help_panel=_DICTATION,
+)
+def jump(
+    target: str = typer.Argument(..., help="Spoken target to jump to (e.g. 'line 10' or 'main').")
+) -> None:
+    """Jump to a symbol or line in the active editor.
+
+    Uses the configured LSP editor bridge (Neovim/VS Code) to resolve the
+    target and move the cursor.
+    """
+    from yazses.commands.lsp_context import LspContextProvider
+    from yazses.jump.target import plan_motion, resolve_target
+
+    bridge = LspContextProvider(editor="auto").bridge
+    if not bridge.connect():
+        typer.echo(
+            "Editor bridge not reachable. Start Neovim with `nvim --listen` (yazses reads "
+            "$NVIM), or install the YazSes VS Code extension.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    t = resolve_target(target)
+    if t is None:
+        typer.echo(f"Could not parse jump target from {target!r}.", err=True)
+        raise typer.Exit(1)
+
+    symbols = bridge.get_symbols()
+    motion = plan_motion(t, symbols)
+    if motion is None:
+        typer.echo("Could not plan motion.", err=True)
+        raise typer.Exit(1)
+
+    if not bridge.apply_motion(motion.kind, motion.payload):
+        typer.echo(f"Failed to apply motion {motion.kind} to {motion.payload}", err=True)
+        raise typer.Exit(1)
+
+
 def _meeting_dir(meeting_id: str):
     """Resolve a stored meeting's folder from its id (works without the daemon)."""
     from yazses.config import load_config
@@ -104,6 +143,55 @@ def _parse_pairs(items):
         key, val = item.split("=", 1)
         out[key.strip()] = val.strip()
     return out
+
+
+@app.command("fileopen")
+def fileopen(
+    query: str = typer.Argument(..., help="The spoken query to match a file against."),
+    dir: Path = typer.Option(Path("."), "--dir", "-d", help="Directory to search in."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Launch immediately without confirmation."),
+) -> None:
+    """Open a file by voice: fuzzy matches your spoken query against files in a directory."""
+    import os
+
+    from yazses.config import load_config
+    from yazses.fileopen.launcher import launch_file
+    from yazses.fileopen.match import resolve_open
+
+    # `[fileopen] threshold` is a documented, user-facing key; reading it here is what
+    # makes it real. `yazses transcribe` reads its own `[recimport]` section the same
+    # way — a CLI one-shot takes its settings from config even though, unlike a voice
+    # feature, it is not gated on `enabled` (typing the command *is* the opt-in).
+    cfg = load_config(get_platform().paths.config_file)
+
+    try:
+        files = [f for f in os.listdir(dir) if os.path.isfile(os.path.join(dir, f))]
+    except OSError as e:
+        typer.echo(f"Could not read directory {dir}: {e}", err=True)
+        raise typer.Exit(1)
+
+    match = resolve_open(query, files, threshold=cfg.fileopen.threshold)
+    if not match:
+        typer.echo(
+            f"No file matched '{query}' in {dir} "
+            f"(threshold {cfg.fileopen.threshold:g} — lower `[fileopen] threshold` to match loosely).",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    if not yes:
+        typer.echo(f"Best match: {match}")
+        typer.confirm("Open this file?", abort=True)
+
+    try:
+        launch_file(dir / match)
+    except Exception as e:
+        typer.echo(f"Failed to open {match}: {e}", err=True)
+        raise typer.Exit(1)
+    # Always name what was opened, `--yes` included. This picks a file by fuzzy score,
+    # so the one case where the user cannot see the choice being made is exactly the
+    # case where they most need to be told which file it landed on.
+    typer.echo(f"Opened {match}")
 
 
 @meeting_app.command("start")

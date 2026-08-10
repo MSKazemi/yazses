@@ -38,6 +38,8 @@ class CodeContext:
 class EditorBridge(Protocol):
     def connect(self) -> bool: ...
     def get_context(self) -> CodeContext | None: ...
+    def get_symbols(self) -> dict[str, int]: ...
+    def apply_motion(self, kind: str, payload: object) -> bool: ...
 
 
 class NullBridge:
@@ -48,6 +50,12 @@ class NullBridge:
 
     def get_context(self) -> CodeContext | None:
         return None
+
+    def get_symbols(self) -> dict[str, int]:
+        return {}
+
+    def apply_motion(self, kind: str, payload: object) -> bool:
+        return False
 
 
 class NeovimBridge:
@@ -159,6 +167,78 @@ class NeovimBridge:
             # Invalidate connection — will reconnect on next call
             self._nvim = None
             return None
+
+    def get_symbols(self) -> dict[str, int]:
+        if self._nvim is None and not self.connect():
+            return {}
+        try:
+            nvim = self._nvim  # type: ignore[assignment]
+            lua_code = r"""
+local params = { textDocument = vim.lsp.util.make_text_document_params() }
+local results_by_client = vim.lsp.buf_request_sync(0, 'textDocument/documentSymbol', params, 1000)
+local symbols = {}
+if results_by_client then
+    for _, res in pairs(results_by_client) do
+        if res.result then
+            local function traverse(items)
+                for _, item in ipairs(items) do
+                    local line = 1
+                    if item.selectionRange then
+                        line = item.selectionRange.start.line + 1
+                    elseif item.location and item.location.range then
+                        line = item.location.range.start.line + 1
+                    elseif item.range then
+                        line = item.range.start.line + 1
+                    end
+                    symbols[item.name] = line
+                    if item.children then traverse(item.children) end
+                end
+            end
+            traverse(res.result)
+        end
+    end
+end
+return symbols
+"""
+            result = nvim.exec_lua(lua_code)
+            if isinstance(result, dict):
+                return {str(k): int(v) for k, v in result.items()}
+            return {}
+        except Exception:
+            log.debug("NeovimBridge: get_symbols failed", exc_info=True)
+            self._nvim = None
+            return {}
+
+    def apply_motion(self, kind: str, payload: object) -> bool:
+        if self._nvim is None and not self.connect():
+            return False
+        try:
+            nvim = self._nvim  # type: ignore[assignment]
+            if kind == "goto_line":
+                # `payload` is `object` on the Protocol, and a line number that is not a
+                # number is a planning bug rather than something to raise into the caller
+                # as a bridge failure — refuse it explicitly instead of letting `int()`
+                # decide at runtime.
+                if not isinstance(payload, (int, str)):
+                    return False
+                nvim.current.window.cursor = (int(payload), 0)
+                return True
+            if kind == "search":
+                # `search()` takes the pattern as an RPC argument. Building `/\V<payload>`
+                # and handing it to `nvim.command` instead would put transcribed speech on
+                # Neovim's Ex command line, where a `/` in the text is read as a search
+                # offset and a bar or newline starts a new command — "jump to and/or" is
+                # a plausible thing to say, not an attack. It also reports honestly:
+                # `search()` returns the line it landed on, or 0 for no match, so a target
+                # that is not in the buffer is a failure the caller can see rather than a
+                # silent no-op that claims success.
+                line = nvim.funcs.search(r"\V" + str(payload), "w")
+                return bool(line)
+            return False
+        except Exception:
+            log.debug("NeovimBridge: apply_motion failed", exc_info=True)
+            self._nvim = None
+            return False
 
     def _get_scope_chain(self, nvim: object, cursor_line: int) -> list[str]:
         """Extract scope chain using Neovim's treesitter or LSP hover, degraded to empty list."""
@@ -278,6 +358,12 @@ class VSCodeBridge:
             log.debug("VSCodeBridge: failed to parse context file", exc_info=True)
             return None
 
+    def get_symbols(self) -> dict[str, int]:
+        return {}
+
+    def apply_motion(self, kind: str, payload: object) -> bool:
+        return False
+
 
 class LspContextProvider:
     """Provides code context for transcription by querying the active editor.
@@ -293,6 +379,17 @@ class LspContextProvider:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
+
+    @property
+    def bridge(self) -> EditorBridge:
+        """The resolved editor bridge — a :class:`NullBridge` when none connected.
+
+        `yazses jump` drives the editor directly rather than reading context from it,
+        so it needs the bridge itself. Exposing it keeps that a supported use of this
+        class instead of a reach into `_bridge` that any refactor here would break
+        silently from another module.
+        """
+        return self._bridge
 
     def get_context(self, timeout_ms: int = 50) -> CodeContext | None:
         """Return the current editor context, or None if unavailable / too slow.

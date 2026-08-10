@@ -6,6 +6,82 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — STT benchmark harness and a community results table (#72)
+
+`scripts/bench-stt.py` measures WER, real-time factor and peak RSS for any engine and
+model over a directory of paired `.wav`/`.txt` files, and prints the markdown row to
+paste into `docs/benchmarks.md`. "Which model should I run on my machine" has been
+answerable only by anecdote; this makes it answerable by measurement, on the machine
+in question. `jiwer` is a dev-group dependency — the base install is untouched.
+
+It decodes with `recimport/audio_io.load_audio` (PyAV, ffmpeg fallback) rather than
+`soundfile`, so it runs on a plain `uv sync` with no extra install step, and it
+*resamples* rather than skipping: reading with `soundfile` meant every dataset that
+was not already 16 kHz — LibriSpeech included — was silently passed over, and a
+benchmark that skips its input reports nothing rather than reporting less.
+
+Peak RSS now divides by the right unit on macOS, where `ru_maxrss` is bytes rather
+than the kilobytes Linux reports. These numbers are meant to be compared across
+machines in a shared table, so a 1024x error would have read as a Mac using almost no
+memory rather than as a bug.
+
+
+### Added — Voice Jump-to-Symbol is reachable (#40)
+
+`jump/target.py` has parsed "go to line 240" and "jump to function tokenize" into a
+motion since v2.6, and nothing could carry the motion to an editor. `yazses jump
+"<spoken target>"` closes it: `NeovimBridge` gained `get_symbols()` (an LSP
+`textDocument/documentSymbol` request, flattened to name → line) and `apply_motion()`,
+so a fuzzy symbol match becomes a cursor move and anything unmatched falls back to a
+buffer search. `jump` leaves `features._UNWIRED`.
+
+The search motion passes its pattern to `search()` as an RPC argument rather than
+building `/\V<pattern>` for `nvim.command`. On the Ex command line a `/` in the text
+is read as a search offset and a bar or newline begins another command — and this text
+is transcribed speech, where "jump to and/or" is an ordinary thing to say. It also
+returns the line it landed on, so a target that is not in the buffer is reported as a
+failure instead of a silent no-op that claimed success.
+
+
+### Added — per-app tone & formatting profiles (#100)
+
+Dictation now takes its tone from the application you are speaking into: casual in
+Slack, formal in an email client, `verbatim` in a terminal where a formatting pass is
+the last thing you want. `[profiles.app]` maps a glob over the focused window to a
+tone; a value that is not a house tone is used as a complete custom LLM prompt.
+
+The focused application is resolved by the same `TargetDetector` that already answers
+"is there a text target", on the same background thread at hold-start — AT-SPI first,
+xdotool on X11 as a fallback, "" when neither can say. No new dependency, no new
+probe, and nothing on the hot path when `[profiles.app]` is empty.
+
+Note that the two backends report different names for the same window: AT-SPI gives
+the application name (`Firefox`), X11 gives the window class (`Navigator`). Patterns
+are matched case-insensitively, and a glob such as `"*fire*"` is the portable shape.
+
+### Added — Voice Fuzzy File Open is reachable at last (#38)
+
+`src/yazses/fileopen/match.py` has ranked filenames against a spoken query since
+v2.6, and nothing could call it. The registry advertised the capability, `features
+enable fileopen` refused it as designed-but-unwired, and the feature page said
+"not possible yet". The ranker was the easy half; the missing half was somewhere for
+its answer to go.
+
+`yazses fileopen "<spoken query>"` closes it: rank the files in a directory, show the
+best match, confirm, and hand it to the OS opener (`xdg-open` / `open` /
+`os.startfile`). `--yes` skips the prompt for a hands-free flow.
+
+The command **always names the file it opened**, `--yes` included. It chooses by
+fuzzy score, so the one path where the user never sees the choice being made is
+exactly the path where they most need to be told what it landed on. It also reads
+`[fileopen] threshold` rather than hardcoding the default, and a miss reports the bar
+it applied instead of only that it missed — a documented key that silently does
+nothing is the failure this project has been bitten by before.
+
+`fileopen` leaves `features._UNWIRED`, so the feature page now says
+`yazses features enable fileopen` instead of "designed but not wired", and the
+registry blurb names the command rather than describing a capability with no door.
+
 ## [2.17.0] - 2026-08-09
 
 Follows v2.16.0 by a day, because the snap release exposed the next layer of
@@ -35,6 +111,25 @@ major bumps under `contract/README.md`. Four vector cases that existed to prove 
 using one of these five words would have become vacuous, so each keeps its input as a
 record of the new behaviour and gains a sibling case proving the same rule with a word
 that is still a default filler (76 → 80 disfluency cases).
+### Added — CI enforces the dependency budget (#141)
+
+"18 base dependencies against 140+ features" was true only for as long as reviewers
+kept catching drift by hand, and the failure it guards against is invisible to the
+test suite: a lazy `import mediapipe` moved to the top of a daemon-imported file
+during an unrelated refactor breaks nothing, it just makes every base install heavier
+forever. `scripts/check_dependency_budget.py` runs in the `repo-hygiene` job and adds
+three checks against a base install — growth of `[project.dependencies]` (needs the
+`dependency-budget-override` label), any module belonging to an extra turning up in
+`sys.modules` after `import yazses.core.daemon`, and cold-start import time against a
+recorded budget.
+
+Growth is compared against the baseline **on the base branch**, so a PR cannot excuse
+a new dependency by re-recording the baseline in the same commit. Adding an extra to
+`[project.optional-dependencies]` without mapping it in the script fails too — an
+unmapped extra is enforced by nothing, which is the way a check like this usually
+dies. The import-time budget is only enforced in CI, where the recorded number and
+the runner are the same kind of machine.
+
 ### Fixed — streaming dictation deleted text it had never typed (#153)
 
 Reported from the snap: a long dictation ended in a flood of repeated characters, then the
