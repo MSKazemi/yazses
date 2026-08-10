@@ -1,6 +1,11 @@
-# App Profiles
+---
+title: Set a tone per application
+description: Dictate casually in Slack, formally in email, and verbatim in a terminal — YazSes picks the tone from the app you are speaking into, fully offline.
+---
 
-App profiles allow you to configure the tone of your dictated text depending on which application you are speaking into. This feature works entirely offline.
+# Set a tone per application
+
+App profiles let you configure the tone of your dictated text depending on which application you are speaking into — casual in a chat window, formal in an email client, verbatim in a terminal. Like everything else in YazSes, it runs entirely offline.
 
 ## Examples
 

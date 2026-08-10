@@ -1,6 +1,8 @@
 ---
 title: Eye control with a webcam — how accurate gaze tracking really is (2026)
-description: Measured webcam gaze accuracy and what it can honestly target. Why 2–4° of angular error means look-to-window works and look-to-caret does not, how gaze resolves "close this" in a spoken command, and the licensing trap in pretrained gaze models. Cited, with open research questions.
+# No double quotes in this value: they are emitted unescaped into the meta
+# description's content attribute and truncate it at the first one.
+description: Measured webcam gaze accuracy and what it can honestly target. Why 2–4° of angular error means look-to-window works and look-to-caret does not, how gaze resolves a demonstrative like 'close this' in a spoken command, and the licensing trap in pretrained gaze models. Cited, with open research questions.
 ---
 
 # Eye control: what a webcam can honestly know
