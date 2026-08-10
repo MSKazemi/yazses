@@ -174,6 +174,16 @@ rules it is most likely to break (**no network calls or telemetry**, and **new f
 off by default**). Mention in the PR body if a change was largely AI-generated; it only
 changes how carefully we review, never whether we accept it.
 
-## License
+## License and the CLA
 
 By contributing, you agree that your contributions will be licensed under the Apache 2.0 License.
+
+YazSes also uses a lightweight **Contributor License Agreement** ([`CLA.md`](CLA.md)). **You keep the
+copyright in your work** — the CLA grants a license, it does not transfer ownership, and you stay free
+to use your own contribution anywhere else. It exists so that copyright stays consolidated with one
+party and future licensing decisions remain possible without tracking down every past contributor.
+YazSes is Apache-2.0 and stays that way.
+
+There is nothing to email. On your first pull request a bot comments with a link; signing is one
+comment and covers everything you contribute afterwards. If you cannot agree to part of it, open a
+Discussion — we would rather adapt the agreement than lose your work.
