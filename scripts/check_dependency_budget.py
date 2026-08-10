@@ -251,9 +251,17 @@ def _import_probe_once(entrypoint: str) -> tuple[list[str], int]:
         text=True,
     )
     if proc.returncode != 0:
+        # `-X importtime` writes its table to stderr as well, so the traceback that
+        # actually names the offending import arrives underneath a few hundred lines
+        # of timings — in a CI log, the one line the contributor needs is the one
+        # line they cannot find. Keep the diagnosis, drop the instrumentation.
+        diagnosis = "\n".join(
+            line for line in proc.stderr.splitlines()
+            if not line.startswith("import time:")
+        ).strip()
         print(
             f"FAIL: `import {entrypoint}` raised on a base install:\n"
-            f"{proc.stderr.strip()}",
+            f"{diagnosis or proc.stderr.strip()}",
             file=sys.stderr,
         )
         raise SystemExit(1)

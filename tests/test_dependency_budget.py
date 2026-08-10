@@ -200,6 +200,46 @@ def test_a_failed_import_fails_loudly(cdb, monkeypatch):
     assert excinfo.value.code == 1
 
 
+def test_a_failed_import_reports_the_traceback_not_the_timing_table(cdb, monkeypatch, capsys):
+    """`-X importtime` shares stderr with the traceback that explains the failure.
+
+    Printing stderr verbatim buries the one line the contributor needs — the import
+    they must move — under every module Python loaded on the way there. This is the
+    path someone lands on precisely when they have broken the rule, so it is the
+    path that can least afford to be unreadable.
+    """
+    class _Proc:
+        returncode = 1
+        stdout = ""
+        stderr = (
+            "import time:       335 |        335 |   _io\n"
+            "import time:      1437 |       2287 | _frozen_importlib_external\n"
+            "Traceback (most recent call last):\n"
+            "ModuleNotFoundError: No module named 'mediapipe'\n"
+        )
+
+    monkeypatch.setattr(cdb.subprocess, "run", lambda *a, **k: _Proc())
+    with pytest.raises(SystemExit):
+        cdb._import_probe_once("yazses.core.daemon")
+
+    err = capsys.readouterr().err
+    assert "No module named 'mediapipe'" in err
+    assert "_frozen_importlib_external" not in err, "timing table leaked into the failure"
+
+
+def test_a_failure_with_nothing_but_timings_still_says_something(cdb, monkeypatch, capsys):
+    """Stripping the table must not leave an empty failure message."""
+    class _Proc:
+        returncode = 1
+        stdout = ""
+        stderr = "import time:       335 |        335 |   _io\n"
+
+    monkeypatch.setattr(cdb.subprocess, "run", lambda *a, **k: _Proc())
+    with pytest.raises(SystemExit):
+        cdb._import_probe_once("yazses.core.daemon")
+    assert "_io" in capsys.readouterr().err
+
+
 # --- parsing ----------------------------------------------------------------------
 
 
