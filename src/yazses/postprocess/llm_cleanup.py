@@ -93,13 +93,13 @@ class LlmCleaner:
         """Whether cleanup will attempt a reformat (master switch only)."""
         return self._enabled
 
-    def cleanup(self, text: str) -> str:
+    def cleanup(self, text: str, custom_prompt: str | None = None) -> str:
         """Reformat *text*; return it unchanged on any failure or guard rejection."""
         if not self._enabled or not text.strip():
             return text
 
         try:
-            cleaned = self._complete(text)
+            cleaned = self._complete(text, custom_prompt)
         except Exception:  # never let cleanup break the dictation pipeline
             logger.exception("LLM cleanup raised unexpectedly — returning input")
             return text
@@ -123,23 +123,24 @@ class LlmCleaner:
     # Backends
     # ------------------------------------------------------------------
 
-    def _complete(self, text: str) -> str | None:
+    def _complete(self, text: str, custom_prompt: str | None) -> str | None:
         """Run the configured backend; ``None`` means 'no usable backend'."""
         if self._config.llm_model:
-            return self._complete_local(text)
+            return self._complete_local(text, custom_prompt)
         if self._config.llm_endpoint:
-            return self._complete_ollama(text)
+            return self._complete_ollama(text, custom_prompt)
         return None
 
-    def _prompt(self, text: str) -> str:
-        return f"{self._config.llm_system_prompt}\n\nText:\n{text}\n\nReformatted:"
+    def _prompt(self, text: str, custom_prompt: str | None) -> str:
+        prompt = custom_prompt if custom_prompt is not None else self._config.llm_system_prompt
+        return f"{prompt}\n\nText:\n{text}\n\nReformatted:"
 
-    def _complete_local(self, text: str) -> str | None:
+    def _complete_local(self, text: str, custom_prompt: str | None) -> str | None:
         model = self._load_local_model()
         if model is None:
             return None
         result: Any = model.create_completion(
-            self._prompt(text),
+            self._prompt(text, custom_prompt),
             max_tokens=self._config.llm_max_tokens,
             temperature=0.0,
         )
@@ -172,11 +173,11 @@ class LlmCleaner:
             return None
         return self._model
 
-    def _complete_ollama(self, text: str) -> str | None:
+    def _complete_ollama(self, text: str, custom_prompt: str | None) -> str | None:
         payload = json.dumps(
             {
                 "model": "qwen2.5:1.5b",
-                "prompt": self._prompt(text),
+                "prompt": self._prompt(text, custom_prompt),
                 "stream": False,
                 "options": {"temperature": 0.0, "num_predict": self._config.llm_max_tokens},
             }
