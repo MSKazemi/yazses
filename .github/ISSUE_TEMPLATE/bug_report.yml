@@ -9,6 +9,10 @@ body:
         Thanks for taking the time to report a bug. The fastest way to a fix is the output of
         `yazses doctor` plus the exact steps you took. Please don't paste transcribed audio you'd
         rather keep private — YazSes is offline by design and we don't need it.
+
+        **Couldn't get it installed or running at all?** File it anyway — only the first, the
+        OS, and how you tried to install are required, and "it failed here" is one of the most
+        useful reports we get. Don't let a blank field stop you.
   - type: textarea
     id: what-happened
     attributes:
@@ -26,15 +30,18 @@ body:
         2. Focus a text field
         3. Hold right_ctrl, say "hello world", release
     validations:
-      required: true
+      required: false
   - type: textarea
     id: doctor
     attributes:
       label: Output of `yazses doctor`
-      description: Paste the full output. This resolves most reports on its own.
+      description: >
+        Paste the full output — it resolves most reports on its own. **If YazSes will not
+        install or will not start, leave this empty** and paste the error you got instead;
+        that report is still very much wanted.
       render: text
     validations:
-      required: true
+      required: false
   - type: dropdown
     id: os
     attributes:
@@ -50,9 +57,9 @@ body:
     id: version
     attributes:
       label: YazSes version
-      description: Output of `yazses --version`.
+      description: Output of `yazses --version`. Leave blank if it never got far enough to run.
     validations:
-      required: true
+      required: false
   - type: input
     id: install-method
     attributes:
