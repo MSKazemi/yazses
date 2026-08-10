@@ -66,7 +66,7 @@ Package: yazses
 Version: ${VERSION}
 Architecture: all
 Maintainer: Mohsen Seyedkazemi Moghadam <mohsen.seyedkazemi@gmail.com>
-Depends: python3 (>= 3.11), python3-pip, libportaudio2, pipx, xdotool | ydotool | wtype, xclip | wl-clipboard
+Depends: python3 (>= 3.11), python3-pip, python3-dev, build-essential, libportaudio2, pipx, xdotool | ydotool | wtype, xclip | wl-clipboard
 Recommends: xdotool, xclip
 Description: Local, offline voice dictation daemon for Linux
  Hold Space anywhere on your desktop, speak, then release Space.
@@ -87,7 +87,11 @@ if [ "$1" = "configure" ]; then
     if command -v pipx &>/dev/null; then
         CALLER="${SUDO_USER:-$USER}"
         if [ "$CALLER" != "root" ]; then
-            su - "$CALLER" -c "pipx install yazses 2>/dev/null || pipx upgrade yazses"
+            # stderr is deliberately NOT discarded. This step compiles `evdev` from
+            # source (it publishes no wheels), so it is the step most likely to fail on
+            # a given machine — and silencing it produced a dpkg configure failure with
+            # no diagnostic whatsoever, which is the least actionable failure possible.
+            su - "$CALLER" -c "pipx install yazses || pipx upgrade yazses"
             su - "$CALLER" -c "pipx ensurepath"
         fi
     else

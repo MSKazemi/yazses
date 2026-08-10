@@ -19,9 +19,14 @@ echo ""
 # 1. Bootstrap dependency: pipx (the rest are provisioned by `yazses setup` below,
 #    which installs the full audio + injection stack for BOTH X11 and Wayland and
 #    joins the `input` group — the single source of truth so this never drifts).
-info "Installing pipx..."
+#    `build-essential` + `python3-dev` are not optional extras here: step 2 installs
+#    `evdev` (the hold-to-talk key reader), which publishes an sdist and no wheels at
+#    all, so it is compiled from C source against the system interpreter's headers on
+#    every install. Without them step 2 dies in a wall of compiler output that reads
+#    like YazSes is broken. install.sh probes for these; this path did not.
+info "Installing pipx and build prerequisites..."
 sudo apt-get update -qq
-sudo apt-get install -y pipx
+sudo apt-get install -y pipx build-essential python3-dev
 
 # 2. Install YazSes via pipx
 info "Installing YazSes..."
