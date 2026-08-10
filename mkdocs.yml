@@ -124,6 +124,14 @@ hooks:
 
 plugins:
   - search
+  # Self-hosts every external asset at build time. Without it, Material links the
+  # webfonts from fonts.googleapis.com with a preconnect to fonts.gstatic.com, so
+  # every visitor's IP reached Google before the page rendered — on all 22 pages of
+  # a site whose first line is that your voice never leaves your machine, and which
+  # ships a privacy statement. The demo video is deliberately *linked* rather than
+  # embedded for the same reason; this closes the hole that was left.
+  # Needs network at build time (CI has it); it downloads the fonts into the site.
+  - material/privacy
   - glightbox:
       touchNavigation: true
       loop: false
