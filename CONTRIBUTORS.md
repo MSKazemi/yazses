@@ -30,6 +30,8 @@ argument, and the record of it is the decision it altered.
 - [@lntutor](https://github.com/lntutor)
 - [@Maqbool61](https://github.com/Maqbool61)
 - [@Parinitha-26](https://github.com/Parinitha-26)
+- [@Prithvi4904](https://github.com/Prithvi4904) — first README translation (Hindi), and the
+  language switcher that makes every later translation reachable
 - [@slegarraga](https://github.com/slegarraga)
 - [@waterlemonnn](https://github.com/waterlemonnn)
 

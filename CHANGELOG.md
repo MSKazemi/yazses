@@ -6,6 +6,34 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Hindi README and the language switcher (#165, part of #18)
+
+`README.hi.md` is the project's first translation, covering the lede through Quick
+Start; the remainder is the English text verbatim and the banner at the top says so.
+Commands, config keys, paths, code blocks and the project name are preserved
+untranslated, so a reader can follow the install steps without reading Hindi.
+
+README.md gained the **Read this in other languages** line it never had. Without it
+the translated file existed and no reader could reach it — the work was done and
+delivered nothing. `tests/test_contributors_wall.py` now fails if a `README.<code>.md`
+is not linked from that line.
+
+Translated prose is allowed to lag the English (issue #18 promises contributors that
+much). The contributor wall is not prose: it is generated markup, identical in every
+language, and a copy of it going stale drops a real person from the surface people
+look at. Two new checks hold every translation's wall and badge count identical to
+README.md.
+
+### Fixed — the first-time-contributor greeting had never posted
+
+`actions/first-interaction` v3 renamed its inputs to snake_case; the workflow still
+passed the v2 hyphenated names, so every run aborted with `Input required and not
+supplied: issue_message` before posting. The greeting meant to reach someone on their
+first issue or PR has never been sent, and the failure showed up as a red check on the
+newcomer's own PR. The DCO sign-off is also now in the PR-template checklist, where it
+was missing — it is documented in CONTRIBUTING.md and it is the one omission that
+hard-fails CI.
+
 ### Added — Voice Undo/Redo Timeline is reachable (part of #41)
 
 `InjectionTimeline` has been able to undo YazSes's own output by word, sentence or

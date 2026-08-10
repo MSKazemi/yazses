@@ -77,3 +77,59 @@ def test_no_duplicate_entries():
     logins = _rc_logins()
     dupes = sorted({x for x in logins if logins.count(x) > 1})
     assert not dupes, f"listed twice in .all-contributorsrc: {dupes}"
+
+
+def _translated_readmes() -> list[Path]:
+    """`README.<code>.md` — the translations, which carry their own copy of the wall."""
+    return sorted(p for p in ROOT.glob("README.*.md") if p.name != "README.md")
+
+
+def test_translations_carry_the_same_wall():
+    """A translated README copies the wall verbatim, and copies go stale silently.
+
+    Prose in a translation is allowed to lag the English (issue #18 says so
+    explicitly, and nobody is signing up to maintain it forever). The wall is not
+    prose: it is generated markup, identical in every language, and letting it
+    drift drops a real person from the surface people actually look at — in the
+    one file where the omission is hardest to notice. The generator only knows
+    about `.all-contributorsrc`'s `files` list, so this is the check that fails
+    when someone is added and a translation is left behind.
+    """
+    start, end = "<!-- ALL-CONTRIBUTORS-LIST:START", "<!-- ALL-CONTRIBUTORS-LIST:END"
+    english = README.read_text(encoding="utf-8")
+    canonical = english[english.find(start) : english.find(end)]
+
+    for path in _translated_readmes():
+        text = path.read_text(encoding="utf-8")
+        s, e = text.find(start), text.find(end)
+        assert s != -1 and e != -1, f"{path.name} has no ALL-CONTRIBUTORS-LIST markers"
+        assert text[s:e] == canonical, (
+            f"{path.name}'s contributor wall differs from README.md — copy the block "
+            "between the ALL-CONTRIBUTORS-LIST markers across after regenerating. "
+            "The wall is generated markup, not prose: it does not get to go stale."
+        )
+
+
+def test_translations_show_the_same_badge_count():
+    expected = len(_rc_logins())
+    for path in _translated_readmes():
+        badge = re.search(r"all_contributors-(\d+)-", path.read_text(encoding="utf-8"))
+        assert badge, f"the all-contributors badge is gone from {path.name}"
+        assert int(badge.group(1)) == expected, (
+            f"{path.name} badge says {badge.group(1)}, .all-contributorsrc has {expected}"
+        )
+
+
+def test_every_translation_is_reachable_from_the_english_readme():
+    """A translation nobody can find delivers nothing.
+
+    `README.hi.md` shipped before README.md had a switcher line at all, so the
+    file existed and no reader could reach it. Every translation must be linked
+    from the front door.
+    """
+    english = README.read_text(encoding="utf-8")
+    unlinked = [p.name for p in _translated_readmes() if f"({p.name})" not in english]
+    assert not unlinked, (
+        f"translated READMEs not linked from README.md: {unlinked} — add them to the "
+        '"Read this in other languages" line at the top, alphabetically by code'
+    )
