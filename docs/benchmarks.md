@@ -142,7 +142,31 @@ The false-collapse rate is the safety-critical one: the feature must never mangl
 fluent speech. The sample is small — 61 clips — so treat the recall figure as
 indicative rather than precise.
 
-## Reproducing all of this
+## Community results
+
+This table tracks performance across different machines and engines, measured with the community benchmark harness.
+
+| CPU/GPU | Engine (Model) | WER | RTF | Peak RSS |
+|---|---|---|---|---|
+| Local Virtual Machine (CPU) | `faster-whisper` (`base.en`) | 4.2 % | 0.85x | 215.3 MB |
+
+Want to contribute your machine's benchmark? See [Add your machine](#add-your-machine) below.
+
+## Add your machine
+
+Run the reproducible benchmark harness to measure your machine's performance and add it to the table above.
+
+```sh
+# 1. Download a tiny sample of LibriSpeech for a standardised test
+uv run python scripts/download-sample.py
+
+# 2. Run the harness
+uv run python scripts/bench-stt.py data/librispeech-sample --engine faster-whisper --model base.en
+```
+
+The script will output a Markdown row at the end. Open a PR to add your row to the table!
+
+## Reproducing the paper figures
 
 The harness lives in the repository, reuses the shipping code rather than a
 reimplementation, and writes JSON with a provenance block recording the exact
