@@ -25,6 +25,14 @@ def test_null_bridge_get_context_returns_none():
     assert bridge.get_context() is None
 
 
+def test_null_bridge_methods():
+    from yazses.commands.lsp_context import NullBridge
+
+    bridge = NullBridge()
+    assert bridge.get_symbols() == {}
+    assert bridge.apply_motion("goto_line", 10) is False
+
+
 # ---------------------------------------------------------------------------
 # CodeContext.to_prompt_string
 # ---------------------------------------------------------------------------
@@ -218,3 +226,31 @@ def test_provider_returns_context_from_stub(monkeypatch):
     provider = lsp_mod.LspContextProvider(editor="auto")
     result = provider.get_context(timeout_ms=200)
     assert result is expected
+
+
+def test_bridge_get_symbols_and_apply_motion_stub(monkeypatch):
+    """Test get_symbols and apply_motion on LspContextProvider."""
+    monkeypatch.delenv("NVIM", raising=False)
+
+    from yazses.commands import lsp_context as lsp_mod
+
+    class StubBridge:
+        def connect(self) -> bool:
+            return True
+        def get_context(self):
+            return None
+        def get_symbols(self) -> dict[str, int]:
+            return {"main": 10, "Helper": 42}
+        def apply_motion(self, kind: str, payload: object) -> bool:
+            return kind == "goto_line" and payload == 10
+
+    def _inject(self, editor: str):
+        return StubBridge()
+
+    monkeypatch.setattr(lsp_mod.LspContextProvider, "_build_bridge", _inject)
+
+    provider = lsp_mod.LspContextProvider(editor="auto")
+    bridge = provider._bridge
+    assert bridge.get_symbols() == {"main": 10, "Helper": 42}
+    assert bridge.apply_motion("goto_line", 10) is True
+    assert bridge.apply_motion("goto_symbol", "main") is False
