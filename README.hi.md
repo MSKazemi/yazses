@@ -1,6 +1,9 @@
+**अन्य भाषाओं में पढ़ें:** [English](README.md) · हिंदी
+
 > [README.md](README.md) का हिंदी अनुवाद। यदि यहाँ दी गई किसी जानकारी और अंग्रेज़ी संस्करण में अंतर हो, तो अंग्रेज़ी संस्करण को सही माना जाएगा।
 >
-> **अनुवाद की स्थिति:** यह हिंदी अनुवाद अभी प्रगति पर है। वर्तमान में परिचय और Quick Start अनुभाग का अनुवाद किया गया है।
+> **अनुवाद की स्थिति:** परिचय और *त्वरित शुरुआत* (Quick Start) अनुभाग का अनुवाद हो चुका है; उसके बाद के अनुभाग अभी अंग्रेज़ी में हैं।
+
 # YazSes
 
 [![Tests](https://github.com/MSKazemi/yazses/actions/workflows/test.yml/badge.svg)](https://github.com/MSKazemi/yazses/actions/workflows/test.yml)
@@ -17,7 +20,7 @@
 
 **आपकी आवाज़ कभी आपकी मशीन से बाहर नहीं जाती।** ऑफलाइन वॉइस डिक्टेशन जो किसी भी ऐप में टाइप कर सकता है, रिकॉर्डिंग को ट्रांसक्राइब कर सकता है, या स्पीकर के नाम और मीटिंग मिनट्स के साथ पूरी मीटिंग को कैप्चर कर सकता है — यह सब आपके अपने CPU पर। कोई क्लाउड नहीं। कोई API key नहीं। कोई subscription नहीं।
 
-YazSes एक मुफ़्त, ओपन-सोर्स, ऑफलाइन वॉइस डिक्टेशन और speech-to-text daemon है, जो **Linux (X11 & Wayland), macOS, और Windows** के लिए [faster-whisper](https://github.com/SYSTRAN/faster-whisper) पर बनाया गया है। इसका उपयोग तब करें जब ऑडियो को Google, Apple, Microsoft, या Otter को भेजना संभव न हो — चाहे मीटिंग गोपनीय हो, मशीन air-gapped हो, या आप subscription नहीं चाहते हों। Wispr Flow जैसी cloud dictation सेवाओं के विपरीत, YazSes पूरी तरह आपके डिवाइस पर चलता है; और Talon Voice के विपरीत, इसका लक्ष्य advanced scripting की जगह plug-and-play उपयोग है। यदि आपको conversational AI agent, बिना अतिरिक्त सेटअप के non-English models, या mobile/web app चाहिए, तो YazSes की अनुशंसा नहीं की जाती।
+YazSes एक मुफ़्त, ओपन-सोर्स, ऑफलाइन वॉइस डिक्टेशन और speech-to-text daemon है, जो **Linux (X11 & Wayland), macOS, और Windows** के लिए [faster-whisper](https://github.com/SYSTRAN/faster-whisper) पर बनाया गया है। इसका उपयोग तब करें जब ऑडियो Google, Apple, Microsoft या Otter को नहीं भेजा जाना चाहिए — चाहे मीटिंग गोपनीय हो, मशीन air-gapped हो, या आप बस कोई subscription नहीं चाहते। Wispr Flow जैसी cloud dictation सेवाओं के विपरीत, YazSes पूरी तरह आपके डिवाइस पर चलता है; और Talon Voice के विपरीत, इसका लक्ष्य advanced scripting की जगह plug-and-play उपयोग है। यदि आपको conversational AI agent, बिना अतिरिक्त सेटअप के non-English models, या mobile/web app चाहिए, तो YazSes की अनुशंसा नहीं की जाती।
 
 📖 **पूरा दस्तावेज़: [mskazemi.com/yazses](https://mskazemi.com/yazses/)** — इंस्टॉल गाइड, CLI reference, configuration, features और troubleshooting।
 
@@ -33,7 +36,7 @@ YazSes एक मुफ़्त, ओपन-सोर्स, ऑफलाइन 
 `status`) की asciinema recording है — हर byte वास्तविक command output है, कुछ भी हाथ से टाइप नहीं किया गया। इसे
 [asciinema](https://asciinema.org) के साथ चलाएँ: `asciinema play docs/demo/yazses-cli.cast`।
 
-> 🙌 **मदद करना चाहते हैं?** [**#22**](https://github.com/MSKazemi/yazses/issues/22) में सभी खुले कार्य सूचीबद्ध हैं। कई कार्यों के लिए **Python की बिल्कुल आवश्यकता नहीं है** — [README का अनुवाद करें](https://github.com/MSKazemi/yazses/issues/18), [अपना microphone जोड़ें](https://github.com/MSKazemi/yazses/issues/21) known-good सूची में, या बस इसे चलाकर बताएं कि क्या हुआ। Test suite पूरी तरह offline है और लगभग 30 सेकंड लेती है, इसलिए योगदान करने के लिए microphone, model या GPU की आवश्यकता नहीं है।
+> 🙌 **मदद करना चाहते हैं?** [**#22**](https://github.com/MSKazemi/yazses/issues/22) में सभी खुले कार्य सूचीबद्ध हैं। कई कार्यों के लिए **Python की बिल्कुल आवश्यकता नहीं है** — [README का अपनी भाषा में अनुवाद करें](https://github.com/MSKazemi/yazses/issues/18), known-good सूची में [अपना microphone जोड़ें](https://github.com/MSKazemi/yazses/issues/21), या बस इसे चलाकर हमें बताएँ कि क्या हुआ। Test suite पूरी तरह offline है और लगभग 30 सेकंड लेती है, इसलिए योगदान करने के लिए microphone, model या GPU की आवश्यकता नहीं है।
 
 ---
 
@@ -41,7 +44,7 @@ YazSes एक मुफ़्त, ओपन-सोर्स, ऑफलाइन 
 
 | | आप क्या चलाते हैं | आपको क्या मिलता है |
 |---|---|---|
-| 🎙️ **डिक्टेशन** | एक key दबाकर रखें, बोलें, फिर छोड़ें | टेक्स्ट उस window में टाइप होता है जिस पर focus है — editor, browser, terminal या chat। साथ में voice commands (*"undo that"*, *"go to line 42"*) और macros भी। |
+| 🎙️ **डिक्टेट करें** | एक key दबाकर रखें, बोलें, फिर छोड़ें | टेक्स्ट उस window में टाइप होता है जिस पर focus है — editor, browser, terminal या chat। साथ में voice commands (*"undo that"*, *"go to line 42"*) और macros भी। |
 | 📄 **फ़ाइल ट्रांसक्राइब करें** | `yazses transcribe interview.m4a` | किसी भी audio/video file का transcript, वैकल्पिक रूप से **किसने क्या कहा** tags के साथ। Output txt, md, srt, vtt या json में। |
 | 👥 **मीटिंग कैप्चर करें** | `yazses meeting start` … `yazses meeting stop` | पूरी meeting की hands-free recording → **speaker-labelled transcript** और, वैकल्पिक रूप से, local LLM द्वारा लिखे गए **minutes** (summary, decisions, action items)। |
 

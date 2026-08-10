@@ -1,3 +1,5 @@
+**Read this in other languages:** English · [हिंदी](README.hi.md)
+
 # YazSes
 
 [![Tests](https://github.com/MSKazemi/yazses/actions/workflows/test.yml/badge.svg)](https://github.com/MSKazemi/yazses/actions/workflows/test.yml)
