@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from typer.testing import CliRunner
 import pytest
+from typer.testing import CliRunner
 
 from yazses.cli import app
 

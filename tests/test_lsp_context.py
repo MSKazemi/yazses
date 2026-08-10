@@ -254,3 +254,52 @@ def test_bridge_get_symbols_and_apply_motion_stub(monkeypatch):
     assert bridge.get_symbols() == {"main": 10, "Helper": 42}
     assert bridge.apply_motion("goto_line", 10) is True
     assert bridge.apply_motion("goto_symbol", "main") is False
+
+
+# --- `apply_motion` search: pattern as data, and an honest result -------------------
+
+
+class _FakeFuncs:
+    def __init__(self, found_line: int = 7) -> None:
+        self.calls: list[tuple] = []
+        self._found_line = found_line
+
+    def search(self, *args):
+        self.calls.append(args)
+        return self._found_line
+
+
+class _FakeNvim:
+    def __init__(self, found_line: int = 7) -> None:
+        self.funcs = _FakeFuncs(found_line)
+        self.commands: list[str] = []
+
+    def command(self, cmd: str):
+        self.commands.append(cmd)
+
+
+def _bridge_with(nvim):
+    from yazses.commands.lsp_context import NeovimBridge
+
+    bridge = NeovimBridge("/tmp/does-not-matter")
+    bridge._nvim = nvim
+    return bridge
+
+
+def test_search_motion_passes_the_pattern_as_an_argument_not_an_ex_command():
+    """Transcribed speech must never reach Neovim's Ex command line.
+
+    `/\\V<payload>` via `nvim.command` reads a `/` in the payload as a search offset and
+    a bar or newline as the start of another command — and "jump to and/or" is a
+    plausible thing to say. `search()` takes the pattern as an RPC argument instead.
+    """
+    nvim = _FakeNvim()
+    assert _bridge_with(nvim).apply_motion("search", "and/or") is True
+    assert nvim.commands == [], f"payload reached the Ex command line: {nvim.commands}"
+    assert nvim.funcs.calls == [(r"\Vand/or", "w")]
+
+
+def test_search_motion_reports_a_miss_instead_of_claiming_success():
+    """`search()` returns 0 when the target is not in the buffer."""
+    nvim = _FakeNvim(found_line=0)
+    assert _bridge_with(nvim).apply_motion("search", "nowhere") is False

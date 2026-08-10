@@ -6,6 +6,23 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Voice Jump-to-Symbol is reachable (#40)
+
+`jump/target.py` has parsed "go to line 240" and "jump to function tokenize" into a
+motion since v2.6, and nothing could carry the motion to an editor. `yazses jump
+"<spoken target>"` closes it: `NeovimBridge` gained `get_symbols()` (an LSP
+`textDocument/documentSymbol` request, flattened to name → line) and `apply_motion()`,
+so a fuzzy symbol match becomes a cursor move and anything unmatched falls back to a
+buffer search. `jump` leaves `features._UNWIRED`.
+
+The search motion passes its pattern to `search()` as an RPC argument rather than
+building `/\V<pattern>` for `nvim.command`. On the Ex command line a `/` in the text
+is read as a search offset and a bar or newline begins another command — and this text
+is transcribed speech, where "jump to and/or" is an ordinary thing to say. It also
+returns the line it landed on, so a target that is not in the buffer is reported as a
+failure instead of a silent no-op that claimed success.
+
+
 ### Added — per-app tone & formatting profiles (#100)
 
 Dictation now takes its tone from the application you are speaking into: casual in

@@ -665,11 +665,11 @@ YazSes ships **140 capabilities**. All but the core are **off by default** — t
 
 ### Voice Jump-to-Symbol
 
-- **Toggle:** `jump`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[jump] — navigate code by voice`
-- **What it does:** 'Jump to function tokenize', 'go to line 240' → the editor moves there (fuzzy symbol match, or a search fallback). Off by default.
+- **Toggle:** `jump`  ·  **Tier:** optional  ·  **Config:** `[jump] — navigate code by voice`
+- **What it does:** Run `yazses jump "<spoken target>"` — 'jump to function tokenize', 'go to line 240' → the editor moves there (fuzzy symbol match, or a search fallback). Needs Neovim started with `nvim --listen`, or the VS Code extension. Off by default.
 - **Use when:** When you're navigating a code file hands-free and want to jump to a function or line by voice.
 - **Example:** Say 'go to line 240' or 'jump to function tokenize' to navigate.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable jump` then `yazses restart`
 
 ### Voice Fuzzy File Open
 

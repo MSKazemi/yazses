@@ -98,12 +98,15 @@ def jump(
     target and move the cursor.
     """
     from yazses.commands.lsp_context import LspContextProvider
-    from yazses.jump.target import resolve_target, plan_motion
+    from yazses.jump.target import plan_motion, resolve_target
 
-    provider = LspContextProvider(editor="auto")
-    bridge = provider._bridge
+    bridge = LspContextProvider(editor="auto").bridge
     if not bridge.connect():
-        typer.echo("Editor bridge not reachable.", err=True)
+        typer.echo(
+            "Editor bridge not reachable. Start Neovim with `nvim --listen` (yazses reads "
+            "$NVIM), or install the YazSes VS Code extension.",
+            err=True,
+        )
         raise typer.Exit(1)
 
     t = resolve_target(target)
@@ -117,8 +120,7 @@ def jump(
         typer.echo("Could not plan motion.", err=True)
         raise typer.Exit(1)
 
-    ok = bridge.apply_motion(motion.kind, motion.payload)
-    if not ok:
+    if not bridge.apply_motion(motion.kind, motion.payload):
         typer.echo(f"Failed to apply motion {motion.kind} to {motion.payload}", err=True)
         raise typer.Exit(1)
 

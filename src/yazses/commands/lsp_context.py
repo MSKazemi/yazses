@@ -215,11 +215,25 @@ return symbols
         try:
             nvim = self._nvim  # type: ignore[assignment]
             if kind == "goto_line":
+                # `payload` is `object` on the Protocol, and a line number that is not a
+                # number is a planning bug rather than something to raise into the caller
+                # as a bridge failure — refuse it explicitly instead of letting `int()`
+                # decide at runtime.
+                if not isinstance(payload, (int, str)):
+                    return False
                 nvim.current.window.cursor = (int(payload), 0)
                 return True
-            elif kind == "search":
-                nvim.command(f"/\\V{payload}")
-                return True
+            if kind == "search":
+                # `search()` takes the pattern as an RPC argument. Building `/\V<payload>`
+                # and handing it to `nvim.command` instead would put transcribed speech on
+                # Neovim's Ex command line, where a `/` in the text is read as a search
+                # offset and a bar or newline starts a new command — "jump to and/or" is
+                # a plausible thing to say, not an attack. It also reports honestly:
+                # `search()` returns the line it landed on, or 0 for no match, so a target
+                # that is not in the buffer is a failure the caller can see rather than a
+                # silent no-op that claims success.
+                line = nvim.funcs.search(r"\V" + str(payload), "w")
+                return bool(line)
             return False
         except Exception:
             log.debug("NeovimBridge: apply_motion failed", exc_info=True)
@@ -365,6 +379,17 @@ class LspContextProvider:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
+
+    @property
+    def bridge(self) -> EditorBridge:
+        """The resolved editor bridge — a :class:`NullBridge` when none connected.
+
+        `yazses jump` drives the editor directly rather than reading context from it,
+        so it needs the bridge itself. Exposing it keeps that a supported use of this
+        class instead of a reach into `_bridge` that any refactor here would break
+        silently from another module.
+        """
+        return self._bridge
 
     def get_context(self, timeout_ms: int = 50) -> CodeContext | None:
         """Return the current editor context, or None if unavailable / too slow.
