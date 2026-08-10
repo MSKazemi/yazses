@@ -9,7 +9,9 @@ and was missing from the wall entirely — the surface people actually look at.
 
 Being forgotten is the one failure mode a contributor never reports. These checks are
 offline and deterministic; "is someone with merged work missing from all three?" needs
-the GitHub API and is a maintainer task, not a unit test.
+to know who actually has merged work, so it lives in `scripts/check_contributor_wall.py`
+(GitHub API, with a git-history fallback) rather than here. Run that after a merge wave —
+these tests pass happily while all three surfaces agree and omit the same person.
 """
 from __future__ import annotations
 
