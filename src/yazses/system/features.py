@@ -981,7 +981,7 @@ _UNWIRED: frozenset[str] = frozenset({
     "pronunciation", "proofback", "prosodypunct", "rag", "readback_clone",
     "reask", "screengrounded", "scribe", "scrub", "sentiment", "sign",
     "smartpaste", "snippets", "spatialvad", "spelling", "spokenregex",
-    "spreadsheet", "srpace", "suggestmode", "timeline",
+    "spreadsheet", "srpace", "suggestmode",
     "vocaljoystick", "voiceguard", "voicehealth", "voicetimer", "wakeword",
     "windowctl",
 })

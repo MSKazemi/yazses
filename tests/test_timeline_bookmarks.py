@@ -83,3 +83,63 @@ def test_features_registered_off_by_default():
     slugs = [f.slug for f in feature_status(Config())]
     assert "timeline" in slugs and "bookmarks" in slugs
     assert Config().timeline.enabled is False and Config().bookmarks.enabled is False
+
+def test_parse_timeline_command():
+    from yazses.timeline.history import parse_timeline_command
+    assert parse_timeline_command("undo") == ("undo", 1, "last")
+    assert parse_timeline_command("undo that") == ("undo", 1, "last")
+    assert parse_timeline_command("undo three") == ("undo", 3, "last")
+    assert parse_timeline_command("undo 5") == ("undo", 5, "last")
+    assert parse_timeline_command("redo") == ("redo", 1, "last")
+    assert parse_timeline_command("redo two") == ("redo", 2, "last")
+    assert parse_timeline_command("redo ten") == ("redo", 10, "last")
+    assert parse_timeline_command("undo something") is None
+
+
+def test_scope_reaches_the_timeline_core():
+    """`InjectionTimeline.undo` has taken a scope since ADR-v2-089.
+
+    Wiring only a repeat count leaves "undo the last word" and "undo that sentence" —
+    the phrasings the feature is advertised with — unreachable.
+    """
+    from yazses.timeline.history import parse_timeline_command
+    assert parse_timeline_command("undo the last word") == ("undo", 1, "word")
+    assert parse_timeline_command("undo two words") == ("undo", 2, "word")
+    assert parse_timeline_command("undo the last sentence") == ("undo", 1, "sentence")
+    assert parse_timeline_command("undo the last burst") == ("undo", 1, "burst")
+    assert parse_timeline_command("undo everything") == ("undo", 1, "all")
+
+
+import pytest
+
+
+@pytest.mark.parametrize("spoken", [
+    "click undo",
+    "I need to undo that",
+    "press control z to undo",
+    "the undo button is greyed out",
+    "there is no redo",
+    "hit redo",
+])
+def test_ordinary_speech_ending_in_undo_is_dictated_not_obeyed(spoken):
+    """The command has to *be* the utterance, not merely end it.
+
+    `commands/revise.py` anchors `_SCRATCH_RE` at both ends precisely so "scratch the
+    surface" is typed rather than obeyed, and "undo" is a far more ordinary word than
+    "scratch that". A pattern that only has to end the utterance silently eats every
+    sentence above — and the user cannot tell a swallowed sentence from a mic failure.
+    """
+    from yazses.timeline.history import parse_timeline_command
+    assert parse_timeline_command(spoken) is None
+
+
+def test_a_misheard_number_cannot_become_a_key_flood():
+    from yazses.timeline.history import MAX_REPEAT, parse_timeline_command
+    action, count, scope = parse_timeline_command("undo 9999")
+    assert (action, scope) == ("undo", "last")
+    assert count == MAX_REPEAT
+
+
+def test_trailing_punctuation_does_not_defeat_the_match():
+    from yazses.timeline.history import parse_timeline_command
+    assert parse_timeline_command("Undo that.") == ("undo", 1, "last")

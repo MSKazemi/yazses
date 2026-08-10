@@ -6,6 +6,32 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Voice Undo/Redo Timeline is reachable (part of #41)
+
+`InjectionTimeline` has been able to undo YazSes's own output by word, sentence or
+burst since ADR-v2-089, with nothing calling it. A whole-utterance "undo the last
+word" / "undo two sentences" / "redo" now replays it, in the same shape as "scratch
+that": it backspaces and retypes only what this daemon put on screen, so it can never
+eat the user's own typing. `timeline` leaves `features._UNWIRED`.
+
+The grammar is anchored at both ends, exactly as `_SCRATCH_RE` is in
+`commands/revise.py` and for the same reason. "undo" is an ordinary English word: a
+pattern that only has to *end* the utterance swallows "click undo", "press control z
+to undo" and "there is no redo" — they are never typed, and a speaker cannot tell a
+swallowed sentence from a microphone that failed. Six such phrases are now test cases.
+A spoken repeat count is clamped, so a misheard "undo 9999" cannot become a keystroke
+flood, and the loop stops as soon as history runs out instead of pressing keys into
+an empty stack.
+
+Session bookmarks, the other half of #41, are **not** included and stay unwired. The
+implementation tracked a virtual cursor offset from session start and jumped by
+injecting that many arrow keys — a model that any mouse click or arrow key silently
+desynchronises, and an unbounded key injection of the exact shape that caused #153.
+Jumping the caret needs a real cursor position (AT-SPI or the editor bridge) rather
+than a count of characters YazSes believes it typed; that is a design decision, not a
+patch, and #41 stays open for it.
+
+
 ### Added — STT benchmark harness and a community results table (#72)
 
 `scripts/bench-stt.py` measures WER, real-time factor and peak RSS for any engine and
