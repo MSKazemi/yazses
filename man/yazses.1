@@ -1,4 +1,4 @@
-.TH YAZSES 1 "2026-08-07" "yazses 2.15.1" "User Commands"
+.TH YAZSES 1 "2026-08-09" "yazses 2.16.0" "User Commands"
 .SH NAME
 yazses \- Local, offline voice dictation \(em hold a key, speak, release.
 .SH SYNOPSIS
@@ -423,6 +423,11 @@ Recall quality 0\(en5 (<3 lapses).
 .RE
 .SS "yazses start"
 Start the YazSes daemon (restarts cleanly if one is already running).
+.RS
+.TP
+\fB\-\-no\-autostart\fR
+Don't also set YazSes to start at login.
+.RE
 .SS "yazses status"
 Show daemon status. Queries the daemon over IPC when reachable.
 .RS

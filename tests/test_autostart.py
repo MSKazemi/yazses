@@ -6,6 +6,9 @@ Pure text and path logic, so these run on any platform. The behaviour they prote
 from __future__ import annotations
 
 import sys
+from pathlib import Path
+
+import pytest
 
 from yazses.platform.linux import autostart
 
@@ -98,3 +101,58 @@ def test_needs_rewrite_ignores_trailing_whitespace():
 def test_service_path_is_the_systemd_user_directory():
     assert autostart.service_path().parts[-3:] == ("systemd", "user", "yazses.service")
     assert autostart.service_path().is_absolute()
+
+
+# ---- installing it: what the user sees, and what happens when it fails -------
+# `yazses start` calls this, so systemctl's own narration would land in the middle of
+# the start output and a bare CalledProcessError would tell the user only "exit 1".
+
+def _lifecycle(tmp_path, monkeypatch):
+    import shutil as _shutil
+
+    from yazses.platform.base import Paths
+    from yazses.platform.linux.lifecycle import LinuxLifecycle
+
+    monkeypatch.setattr(_shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    return LinuxLifecycle(
+        Paths(
+            config_dir=tmp_path / "config",
+            state_dir=tmp_path / "state",
+            cache_dir=tmp_path / "cache",
+            log_dir=tmp_path / "log",
+            data_dir=tmp_path / "data",
+        )
+    )
+
+
+def test_install_autostart_never_lets_systemctl_narrate_to_the_user(tmp_path, monkeypatch):
+    import subprocess
+
+    calls = []
+
+    def _run(argv, **kw):
+        calls.append((argv, kw))
+        return subprocess.CompletedProcess(argv, 0, stdout="Created symlink …\n", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", _run)
+    _lifecycle(tmp_path, monkeypatch).install_autostart()
+
+    assert calls, "systemctl was never invoked"
+    for argv, kw in calls:
+        assert kw.get("capture_output") is True, f"{argv} would print straight at the user"
+
+
+def test_install_autostart_raises_with_the_reason_systemctl_gave(tmp_path, monkeypatch):
+    import subprocess
+
+    def _run(argv, **kw):
+        if "enable" in argv:
+            return subprocess.CompletedProcess(
+                argv, 1, stdout="", stderr="Failed to enable unit: Access denied\n"
+            )
+        return subprocess.CompletedProcess(argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", _run)
+    with pytest.raises(RuntimeError, match="Access denied"):
+        _lifecycle(tmp_path, monkeypatch).install_autostart()

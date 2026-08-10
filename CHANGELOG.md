@@ -6,6 +6,14 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.17.0] - 2026-08-09
+
+Follows v2.16.0 by a day, because the snap release exposed the next layer of
+problems the moment people actually used it. Streaming dictation could delete text
+it had never typed; a fresh snap install said nothing about the second interface it
+needs; `yazses start` never survived a reboot. Plus four capabilities wired up and
+five default filler words removed after they were shown to eat real meaning.
+
 ### Fixed — five default "filler" words were load-bearing content (#146, contract 6.0.0)
 
 `like`, `right`, `sort of`, `kind of` and `actually` shipped in
@@ -45,6 +53,60 @@ a new dependency by re-recording the baseline in the same commit. Adding an extr
 unmapped extra is enforced by nothing, which is the way a check like this usually
 dies. The import-time budget is only enforced in CI, where the recorded number and
 the runner are the same kind of machine.
+
+### Fixed — streaming dictation deleted text it had never typed (#153)
+
+Reported from the snap: a long dictation ended in a flood of repeated characters, then the
+correction pass removed text the user wanted to keep. Three defects, all on the streaming
++ X11 path, each able to cause it on its own.
+
+`XdotoolInjector` used a **fixed** `timeout=10` on every method. At `--delay 12` that
+expires around 833 characters — and it expires *after* xdotool has already typed part of
+the text, so the caller sees a failure for work that partly happened, `LinuxInjector` reads
+that as a broken backend and falls back to the clipboard, and the text lands **twice**.
+`YdotoolInjector` has scaled its timeout since the Wayland flood fix and says why in a
+comment; the X11 path simply never got it. Timeouts now scale with the keystrokes actually
+requested, on `type`, `inject_backspaces` and `inject_key_sequence` alike.
+
+The streaming commit sends one `shift+Left` per typed character, so a long burst hit that
+same wall **twice** — once selecting, once retyping. A run of one repeated key now goes out
+as a single `--repeat` spec, the way `inject_backspaces` always has, which also keeps a
+thousand-character correction off the argv length limit.
+
+`StreamingInjector` had no synchronisation at all. `inject_partial` runs on the daemon's
+poll thread while `commit` runs on hold-release, and the daemon's `join(timeout=1.0)`
+cannot outwait an injection allowed ten times that — so a partial could land *after*
+`commit` had read the character count, leaving `shift+Left × N` selecting a span that no
+longer matched the screen. Every mutation now happens under one lock held across the
+injection itself, and a committed injector is **sealed**: a late partial is dropped rather
+than typed behind the final text.
+
+### Fixed — a fresh snap install said nothing about the two interfaces it needs (#154)
+
+`snap install yazses` leaves both `audio-record` and `raw-input` unconnected — snapd does
+not auto-connect either, and a snap cannot connect its own. The result is the two most
+visible failures possible: it cannot hear you, and it cannot see the hotkey. The daemon
+starts and reports healthy in both cases.
+
+`yazses setup` / `start` already surfaced the microphone one. It now surfaces `raw-input`
+too, so the tool says what is wrong instead of leaving it to documentation, and the Snap
+row in the Linux install guide lists every step rather than only the first two.
+
+### Fixed — `yazses start` now survives a reboot, which is what it always claimed
+
+`install_autostart()` was written so that a `pipx` / `uv tool` / `pip install` gets a
+login service like the packaged installs do — its own docstring says *"a daemon you must
+remember to launch is not a daemon."* It had exactly one caller: `yazses autostart
+enable`, a command you only find if you already know it exists. So the ordinary path was
+install → `yazses start` → dictate happily → reboot → the daemon is gone, with nothing
+anywhere saying why. The promise was implemented and never wired up.
+
+`yazses start` now installs the login service once the daemon is actually up, and says so
+the single time it does it. It is best-effort: a daemon that *died* during startup is
+never scheduled to run at every login, a failure to install is one line of explanation
+rather than a failed start, and if we cannot tell whether autostart is already configured
+we change nothing. `yazses start --no-autostart` opts out; `yazses autostart disable`
+undoes it.
 
 ### Added — Style-Consistency Enforcer: config-driven rules source (#36)
 

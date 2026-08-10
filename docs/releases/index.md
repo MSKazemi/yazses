@@ -14,9 +14,9 @@ release there carries built artifacts and a signed source archive.
 
 ## Current stable
 
-**[YazSes 2.16.0](v2.16.0.md)** — the snap becomes whole: it now bundles the libraries a
-snap can never install at runtime, so Meeting Mode, diarized import and Read-Back work
-there for the first time. Install it with:
+**[YazSes 2.17.0](v2.17.0.md)** — what real use found in a day: streaming dictation could
+delete text it had never typed, a fresh snap install never mentioned the interface its
+hotkey needs, and `yazses start` never survived a reboot. Install it with:
 
 ```sh
 pipx install yazses          # any OS, Python ≥ 3.11
@@ -25,6 +25,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.17.0](v2.17.0.md) — streaming no longer deletes text it never typed; snap names both interfaces; autostart on start.
 - [v2.16.0](v2.16.0.md) — the snap becomes whole: bundled feature libraries; honest refusal for what cannot fit.
 - [v2.15.1](v2.15.1.md) — `err` is a verb (contract 4.0.0 → 5.0.0); mypy 73 → 0.
 - [v2.15.0](v2.15.0.md) — the honesty release (contract 1.1.0 → 4.0.0, supply-chain fix).

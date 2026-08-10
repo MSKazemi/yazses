@@ -869,6 +869,12 @@ class Daemon:
         if self._poll_stop is not None:
             self._poll_stop.set()
         if self._poll_thread is not None:
+            # Deliberately short, and deliberately not relied upon. The thread can
+            # be inside an injection subprocess whose own timeout is far longer
+            # than any join we would want on the hold-release hot path, so this
+            # join *will* sometimes return with the thread still alive. Ordering
+            # is guaranteed by StreamingInjector's lock and seal instead: a late
+            # partial is dropped rather than typed after the final text.
             self._poll_thread.join(timeout=1.0)
             self._poll_thread = None
         # Stop the engine's decode loop too. Only commit() used to end it, so any
@@ -1736,10 +1742,18 @@ class Daemon:
         return False
 
     def _partial_poll_loop(self, stop: threading.Event) -> None:
-        """Background thread: drain partial hypotheses and inject them."""
+        """Background thread: drain partial hypotheses and inject them.
+
+        Re-reads ``stop`` immediately before injecting. Hold-release sets it, so
+        without this check a partial that arrived while the previous injection
+        was still running would be typed *after* the burst had ended. The
+        injector's own seal is the real guarantee (this thread cannot win a race
+        against ``commit``); this just avoids starting work already known to be
+        pointless.
+        """
         while not stop.is_set():
             partial = self._stream_engine.get_partial() if self._stream_engine else None
-            if partial and partial.text and self._stream_injector is not None:
+            if partial and partial.text and self._stream_injector is not None and not stop.is_set():
                 log.debug("Streaming partial: %r", partial.text)
                 try:
                     self._stream_injector.inject_partial(partial.text)
