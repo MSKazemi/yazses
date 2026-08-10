@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — STT benchmark harness and a community results table (#72)
+
+`scripts/bench-stt.py` measures WER, real-time factor and peak RSS for any engine and
+model over a directory of paired `.wav`/`.txt` files, and prints the markdown row to
+paste into `docs/benchmarks.md`. "Which model should I run on my machine" has been
+answerable only by anecdote; this makes it answerable by measurement, on the machine
+in question. `jiwer` is a dev-group dependency — the base install is untouched.
+
+It decodes with `recimport/audio_io.load_audio` (PyAV, ffmpeg fallback) rather than
+`soundfile`, so it runs on a plain `uv sync` with no extra install step, and it
+*resamples* rather than skipping: reading with `soundfile` meant every dataset that
+was not already 16 kHz — LibriSpeech included — was silently passed over, and a
+benchmark that skips its input reports nothing rather than reporting less.
+
+Peak RSS now divides by the right unit on macOS, where `ru_maxrss` is bytes rather
+than the kilobytes Linux reports. These numbers are meant to be compared across
+machines in a shared table, so a 1024x error would have read as a Mac using almost no
+memory rather than as a bug.
+
+
 ### Added — Voice Jump-to-Symbol is reachable (#40)
 
 `jump/target.py` has parsed "go to line 240" and "jump to function tokenize" into a

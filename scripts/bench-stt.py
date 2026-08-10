@@ -5,11 +5,12 @@ Usage:
     uv run python scripts/bench-stt.py data/librispeech-sample --engine faster-whisper --model base.en
 """
 import argparse
-import time
 import os
 import sys
-from pathlib import Path
+import time
 from dataclasses import dataclass
+from pathlib import Path
+
 import numpy as np
 
 # Ensure yazses is in pythonpath
@@ -19,12 +20,6 @@ try:
     import jiwer
 except ImportError:
     print("Error: jiwer is not installed. Run: uv pip install jiwer")
-    sys.exit(1)
-
-try:
-    import soundfile as sf
-except ImportError:
-    print("Error: soundfile is not installed. Run: uv pip install soundfile")
     sys.exit(1)
 
 def get_peak_rss_mb() -> float:
@@ -37,7 +32,11 @@ def get_peak_rss_mb() -> float:
     except ImportError:
         try:
             import resource
-            return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+            # ru_maxrss is kilobytes on Linux and *bytes* on macOS/BSD. This number
+            # goes into a published comparison table, so getting the unit wrong would
+            # not look like a bug — it would look like a Mac using 1/1024th the memory.
+            divisor = 1024 * 1024 if sys.platform == "darwin" else 1024
+            return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / divisor
         except ImportError:
             return 0.0
 
@@ -63,6 +62,7 @@ def main():
         sys.exit(1)
 
     print(f"Loading engine: {args.engine} (model: {args.model})...")
+    from yazses.recimport.audio_io import load_audio
     from yazses.stt.factory import build_engine
     
     stt_config = MockConfig(
@@ -101,16 +101,23 @@ def main():
         with open(txt_path, "r", encoding="utf-8") as f:
             reference = f.read().strip()
             
-        audio, sr = sf.read(str(wav_path))
-        if len(audio.shape) > 1:
-            audio = audio.mean(axis=1) # Mono
-        if sr != 16000:
-            print(f"Warning: Sample rate is {sr} for {wav_path.name}, expecting 16000.")
+        # The project already has a decoder that returns mono float32 at a requested
+        # rate, via PyAV with an ffmpeg fallback and no dependency beyond the base
+        # install (`recimport/audio_io.py`). Reading with `soundfile` instead would add
+        # an install step for a dev script and, because it does not resample, made the
+        # harness silently *skip* every dataset that is not already 16 kHz — which is
+        # most of them, LibriSpeech included.
+        try:
+            audio, sr = load_audio(wav_path, 16000)
+        except (RuntimeError, FileNotFoundError) as exc:
+            print(f"Warning: could not decode {wav_path.name}: {exc}")
             continue
-            
-        audio = audio.astype(np.float32)
+
         duration = len(audio) / sr
-        
+        if duration <= 0:
+            print(f"Warning: {wav_path.name} decoded to no audio, skipping.")
+            continue
+
         start_time = time.perf_counter()
         hypothesis = engine.transcribe(audio, 16000)
         decode_time = time.perf_counter() - start_time

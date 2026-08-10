@@ -1,6 +1,6 @@
 import urllib.request
-import os
 from pathlib import Path
+
 
 def main():
     target_dir = Path("data/librispeech-sample")
