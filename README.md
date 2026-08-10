@@ -383,8 +383,14 @@ pipx install yazses
 bash scripts/dev-install.sh
 
 # Snap Store — https://snapcraft.io/yazses
+# All four lines are required. A snap cannot connect its own interfaces, and the
+# daemon starts and looks healthy without them — it just never hears you, or never
+# sees the key.
 sudo snap install yazses
-sudo snap connect yazses:audio-record   # grant microphone access (one time)
+sudo snap connect yazses:audio-record   # microphone; without it, no audio
+sudo snap connect yazses:raw-input      # hold-to-talk key; without it, nothing fires
+yazses setup                            # provisions the rest
+yazses doctor                           # says if anything is still missing
 ```
 
 ### macOS

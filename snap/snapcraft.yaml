@@ -18,11 +18,16 @@ description: |
   sessions. For Wayland or full input access, install via pipx instead:
   https://pypi.org/project/yazses/
 
-  Install:  sudo snap install yazses
-  Grant the mic (one time):  sudo snap connect yazses:audio-record
+  Install — all four steps are required. A snap cannot connect its own
+  interfaces, and the daemon starts and looks healthy without them; it simply
+  never hears you, or never sees the key:
 
-  `yazses setup`, `yazses start`, and `yazses doctor` will remind you if the
-  microphone interface still needs connecting.
+    sudo snap install yazses
+    sudo snap connect yazses:audio-record   # microphone; without it, no audio
+    sudo snap connect yazses:raw-input      # hold-to-talk key; without it, nothing fires
+    yazses setup                            # provisions the rest
+
+  Then run `yazses doctor`, which reports anything still missing.
 
 title: YazSes
 icon: snap/gui/yazses.png
