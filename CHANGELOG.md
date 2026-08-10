@@ -35,6 +35,25 @@ major bumps under `contract/README.md`. Four vector cases that existed to prove 
 using one of these five words would have become vacuous, so each keeps its input as a
 record of the new behaviour and gains a sibling case proving the same rule with a word
 that is still a default filler (76 → 80 disfluency cases).
+### Added — CI enforces the dependency budget (#141)
+
+"18 base dependencies against 140+ features" was true only for as long as reviewers
+kept catching drift by hand, and the failure it guards against is invisible to the
+test suite: a lazy `import mediapipe` moved to the top of a daemon-imported file
+during an unrelated refactor breaks nothing, it just makes every base install heavier
+forever. `scripts/check_dependency_budget.py` runs in the `repo-hygiene` job and adds
+three checks against a base install — growth of `[project.dependencies]` (needs the
+`dependency-budget-override` label), any module belonging to an extra turning up in
+`sys.modules` after `import yazses.core.daemon`, and cold-start import time against a
+recorded budget.
+
+Growth is compared against the baseline **on the base branch**, so a PR cannot excuse
+a new dependency by re-recording the baseline in the same commit. Adding an extra to
+`[project.optional-dependencies]` without mapping it in the script fails too — an
+unmapped extra is enforced by nothing, which is the way a check like this usually
+dies. The import-time budget is only enforced in CI, where the recorded number and
+the runner are the same kind of machine.
+
 ### Fixed — streaming dictation deleted text it had never typed (#153)
 
 Reported from the snap: a long dictation ended in a flood of repeated characters, then the
