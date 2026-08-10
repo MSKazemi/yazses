@@ -27,8 +27,11 @@ jobs:
     steps:
       - uses: actions/first-interaction@1c4688942c71f71d4f5502a26ea67c331730fa4d # v3.1.0
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          issue-message: >
+          # v3 renamed these inputs to snake_case. With the hyphenated v2 names the
+          # action aborts on `Input required and not supplied: issue_message`, so the
+          # greeting silently never posted — the failure mode this file exists to prevent.
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          issue_message: >
             👋 Thanks for opening your first issue here — genuinely, it helps.
 
 
@@ -40,7 +43,7 @@ jobs:
             If you ever fancy sending a change, [#22](https://github.com/MSKazemi/yazses/issues/22)
             lists what is open — several need no Python at all, and the test suite is
             fully offline and runs in about 30 seconds.
-          pr-message: >
+          pr_message: >
             🎉 Thanks for your first pull request to YazSes — that is a real contribution
             and it is appreciated.
 

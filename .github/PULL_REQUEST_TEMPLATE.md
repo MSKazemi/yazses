@@ -30,14 +30,16 @@ uv run mypy src
 ## Checklist
 
 <!-- Docs-only PR (a translation, an example config, a typo, adding yourself to a list)?
-     Tick the last two, ignore the rest and delete this comment — that is a complete PR and
-     we will not ask you for tests. -->
+     Tick the last three, ignore the rest and delete this comment — that is a complete PR
+     and we will not ask you for tests. -->
 
 - [ ] Tests added or updated, and `uv run python -m pytest tests/ -v` passes locally
 - [ ] Docs updated if behaviour, CLI, or config changed
 - [ ] Change is cross-platform aware (Linux / macOS / Windows) where relevant
 - [ ] The change is offline-first — no new network calls or telemetry
 - [ ] No secrets, credentials, or personal data added
+- [ ] Every commit is signed off (`git commit -s`) — the [DCO](../DCO.md) check fails
+      without it. Forgot? `git commit --amend --signoff && git push --force-with-lease`
 
 ## Notes for reviewers
 
