@@ -31,12 +31,20 @@ jobs:
           set -euo pipefail
           git fetch --no-tags origin "$BASE" >/dev/null 2>&1 || true
 
+          # Commits written before the DCO was adopted are exempt. Nobody
+          # should get a red check for a rule that did not exist when they
+          # wrote the patch, least of all on a first contribution.
+          POLICY_EPOCH=$(date -u -d '2026-08-10T00:00:00Z' +%s)
+
           failed=0
           # --no-merges: a merge commit carries no authored change to certify.
           for sha in $(git rev-list --no-merges "$BASE..$HEAD"); do
             author="$(git show -s --format='%an <%ae>' "$sha")"
             subject="$(git show -s --format='%s' "$sha")"
-            if git show -s --format='%B' "$sha" | grep -qiE "^Signed-off-by: .+ <.+@.+>$"; then
+            authored="$(git show -s --format='%at' "$sha")"
+            if [ "$authored" -lt "$POLICY_EPOCH" ]; then
+              echo "  skip ${sha:0:8}  $subject   (predates the DCO policy)"
+            elif git show -s --format='%B' "$sha" | grep -qiE "^Signed-off-by: .+ <.+@.+>$"; then
               echo "  ok   ${sha:0:8}  $subject"
             else
               echo "  MISS ${sha:0:8}  $subject   (author: $author)"
