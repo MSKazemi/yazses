@@ -258,6 +258,7 @@ nav:
       - Command index: command-index.md
       - Configuration: configuration.md
       - Tray icon & overlay: tray-and-overlay.md
+      - Known-good microphones: known-good-microphones.md
       - Privacy statement: privacy-statement.md
   - Architecture:
       - Overview: architecture.md
