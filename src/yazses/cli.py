@@ -106,6 +106,41 @@ def _parse_pairs(items):
     return out
 
 
+@app.command("fileopen")
+def fileopen(
+    query: str = typer.Argument(..., help="The spoken query to match a file against."),
+    dir: Path = typer.Option(Path("."), "--dir", "-d", help="Directory to search in."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Launch immediately without confirmation."),
+) -> None:
+    """Open a file by voice: fuzzy matches your spoken query against files in a directory."""
+    from yazses.fileopen.match import resolve_open
+    from yazses.fileopen.launcher import launch_file
+    import os
+
+    try:
+        files = [f for f in os.listdir(dir) if os.path.isfile(os.path.join(dir, f))]
+    except OSError as e:
+        typer.echo(f"Could not read directory {dir}: {e}", err=True)
+        raise typer.Exit(1)
+        
+    match = resolve_open(query, files)
+    if not match:
+        typer.echo(f"No file matched '{query}'.", err=True)
+        raise typer.Exit(1)
+    
+    if not yes:
+        typer.echo(f"Best match: {match}")
+        typer.confirm("Open this file?", abort=True)
+        
+    try:
+        launch_file(dir / match)
+        if not yes:
+            typer.echo(f"Opened {match}")
+    except Exception as e:
+        typer.echo(f"Failed to open {match}: {e}", err=True)
+        raise typer.Exit(1)
+
+
 @meeting_app.command("start")
 def meeting_start() -> None:
     """Start recording a meeting (hands-free — no key to hold).
