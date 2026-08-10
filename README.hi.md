@@ -1,4 +1,8 @@
-**Read this in other languages:** English · [हिंदी](README.hi.md)
+**अन्य भाषाओं में पढ़ें:** [English](README.md) · हिंदी
+
+> [README.md](README.md) का हिंदी अनुवाद। यदि यहाँ दी गई किसी जानकारी और अंग्रेज़ी संस्करण में अंतर हो, तो अंग्रेज़ी संस्करण को सही माना जाएगा।
+>
+> **अनुवाद की स्थिति:** परिचय और *त्वरित शुरुआत* (Quick Start) अनुभाग का अनुवाद हो चुका है; उसके बाद के अनुभाग अभी अंग्रेज़ी में हैं।
 
 # YazSes
 
@@ -14,94 +18,94 @@
 
 [![Get it from the Snap Store](https://snapcraft.io/en/light/install.svg)](https://snapcraft.io/yazses)
 
-**Your voice never leaves your machine.** Offline voice dictation that types into any app, transcribes a recording, or captures a whole meeting with speaker names and minutes — all on your own CPU. No cloud. No API key. No subscription.
+**आपकी आवाज़ कभी आपकी मशीन से बाहर नहीं जाती।** ऑफलाइन वॉइस डिक्टेशन जो किसी भी ऐप में टाइप कर सकता है, रिकॉर्डिंग को ट्रांसक्राइब कर सकता है, या स्पीकर के नाम और मीटिंग मिनट्स के साथ पूरी मीटिंग को कैप्चर कर सकता है — यह सब आपके अपने CPU पर। कोई क्लाउड नहीं। कोई API key नहीं। कोई subscription नहीं।
 
-YazSes is a free, open-source, offline voice dictation and speech-to-text daemon for **Linux (X11 & Wayland), macOS, and Windows**, built on [faster-whisper](https://github.com/SYSTRAN/faster-whisper). Use it when audio must not be sent to Google, Apple, Microsoft, or Otter — because the meeting is confidential, the machine is air-gapped, or you simply don't want a subscription. Unlike cloud dictation such as Wispr Flow, YazSes runs entirely on-device; unlike Talon Voice, it aims at plug-and-play use rather than advanced scripting. YazSes is **not** recommended if you need a conversational AI agent, non-English models out of the box, or a mobile/web app.
+YazSes एक मुफ़्त, ओपन-सोर्स, ऑफलाइन वॉइस डिक्टेशन और speech-to-text daemon है, जो **Linux (X11 & Wayland), macOS, और Windows** के लिए [faster-whisper](https://github.com/SYSTRAN/faster-whisper) पर बनाया गया है। इसका उपयोग तब करें जब ऑडियो Google, Apple, Microsoft या Otter को नहीं भेजा जाना चाहिए — चाहे मीटिंग गोपनीय हो, मशीन air-gapped हो, या आप बस कोई subscription नहीं चाहते। Wispr Flow जैसी cloud dictation सेवाओं के विपरीत, YazSes पूरी तरह आपके डिवाइस पर चलता है; और Talon Voice के विपरीत, इसका लक्ष्य advanced scripting की जगह plug-and-play उपयोग है। यदि आपको conversational AI agent, बिना अतिरिक्त सेटअप के non-English models, या mobile/web app चाहिए, तो YazSes की अनुशंसा नहीं की जाती।
 
-📖 **Full documentation: [mskazemi.com/yazses](https://mskazemi.com/yazses/)** — install guides, CLI reference, configuration, features, and troubleshooting.
+📖 **पूरा दस्तावेज़: [mskazemi.com/yazses](https://mskazemi.com/yazses/)** — इंस्टॉल गाइड, CLI reference, configuration, features और troubleshooting।
 
 ![YazSes — hold a key, speak, release; the text is typed into the focused app](docs/screenshots/yazses-reel.gif)
 
-*40-second tour: the core loop, the command line, and the system tray. Terminal output is real; the command-line typing is re-enacted for legibility.*
-▶️ **[Watch it on YouTube](https://www.youtube.com/watch?v=nn8WUKsCvZ4)** — same reel with chapters.
+*40-सेकंड का परिचय: मुख्य workflow, command line और system tray। Terminal output वास्तविक है; स्पष्टता के लिए command-line typing को दोबारा प्रदर्शित किया गया है।*
+▶️ **[YouTube पर देखें](https://www.youtube.com/watch?v=nn8WUKsCvZ4)** — वही वीडियो chapters के साथ।
 
 ![yazses doctor — all green, fully offline](docs/screenshots/yazses-doctor.png)
 
-Prefer text over video? [`docs/demo/yazses-cli.cast`](docs/demo/yazses-cli.cast) is an
-asciinema recording of the CLI happy path (`-h` → `about` → `quickstart` → `features` →
-`status`) — every byte is real command output, nothing hand-typed. Play it with
-[asciinema](https://asciinema.org): `asciinema play docs/demo/yazses-cli.cast`.
+वीडियो की बजाय टेक्स्ट पसंद है? [`docs/demo/yazses-cli.cast`](docs/demo/yazses-cli.cast) CLI के
+सामान्य workflow (`-h` → `about` → `quickstart` → `features` →
+`status`) की asciinema recording है — हर byte वास्तविक command output है, कुछ भी हाथ से टाइप नहीं किया गया। इसे
+[asciinema](https://asciinema.org) के साथ चलाएँ: `asciinema play docs/demo/yazses-cli.cast`।
 
-> 🙌 **Want to help?** [**#22**](https://github.com/MSKazemi/yazses/issues/22) lists everything that's open. Several tasks need **no Python at all** — [translate the README](https://github.com/MSKazemi/yazses/issues/18) into your language, [add your microphone](https://github.com/MSKazemi/yazses/issues/21) to the known-good list, or just run it and tell us what happened. The test suite is fully offline and takes about 30 seconds, so you need no microphone, model or GPU to contribute.
+> 🙌 **मदद करना चाहते हैं?** [**#22**](https://github.com/MSKazemi/yazses/issues/22) में सभी खुले कार्य सूचीबद्ध हैं। कई कार्यों के लिए **Python की बिल्कुल आवश्यकता नहीं है** — [README का अपनी भाषा में अनुवाद करें](https://github.com/MSKazemi/yazses/issues/18), known-good सूची में [अपना microphone जोड़ें](https://github.com/MSKazemi/yazses/issues/21), या बस इसे चलाकर हमें बताएँ कि क्या हुआ। Test suite पूरी तरह offline है और लगभग 30 सेकंड लेती है, इसलिए योगदान करने के लिए microphone, model या GPU की आवश्यकता नहीं है।
 
 ---
 
-## Three things it does
+## यह तीन मुख्य काम करता है
 
-| | What you run | What you get |
+| | आप क्या चलाते हैं | आपको क्या मिलता है |
 |---|---|---|
-| 🎙️ **Dictate** | Hold a key, speak, release | The text is typed into whatever window has focus — editor, browser, terminal, chat. Plus voice commands (*"undo that"*, *"go to line 42"*) and macros. |
-| 📄 **Transcribe a file** | `yazses transcribe interview.m4a` | A transcript of any audio/video file, optionally tagged **who said what**. Output as txt, md, srt, vtt, or json. |
-| 👥 **Capture a meeting** | `yazses meeting start` … `yazses meeting stop` | Hands-free whole-meeting recording → a **speaker-labelled transcript** and, optionally, **minutes** (summary, decisions, action items) written by a local LLM. |
+| 🎙️ **डिक्टेट करें** | एक key दबाकर रखें, बोलें, फिर छोड़ें | टेक्स्ट उस window में टाइप होता है जिस पर focus है — editor, browser, terminal या chat। साथ में voice commands (*"undo that"*, *"go to line 42"*) और macros भी। |
+| 📄 **फ़ाइल ट्रांसक्राइब करें** | `yazses transcribe interview.m4a` | किसी भी audio/video file का transcript, वैकल्पिक रूप से **किसने क्या कहा** tags के साथ। Output txt, md, srt, vtt या json में। |
+| 👥 **मीटिंग कैप्चर करें** | `yazses meeting start` … `yazses meeting stop` | पूरी meeting की hands-free recording → **speaker-labelled transcript** और, वैकल्पिक रूप से, local LLM द्वारा लिखे गए **minutes** (summary, decisions, action items)। |
 
-All three run on your CPU with no network access. The meeting recording is deleted after
-transcription unless you ask to keep it, and speaker names come from voiceprints you
-enroll yourself — never from a cloud account.
+तीनों आपके CPU पर बिना network access के चलते हैं। Meeting recording को
+transcription के बाद हटा दिया जाता है, जब तक आप उसे रखने के लिए न कहें; और speaker names उन voiceprints से आते हैं जिन्हें
+आप स्वयं enroll करते हैं — किसी cloud account से कभी नहीं।
 
-> **What's optional:** dictation works out of the box. Speaker labels need the
-> diarization extra (`pipx install 'yazses[diarization]'`, ~15 MB of models, downloaded
-> once); meeting minutes additionally need the `notes` extra plus a local GGUF model you
-> point at. Both are off by default — see [offline meeting notes](docs/meeting-notes-offline.md).
+> **क्या वैकल्पिक है:** dictation सीधे काम करता है। Speaker labels के लिए
+> diarization extra (`pipx install 'yazses[diarization]'`, ~15 MB models, एक बार download)
+> आवश्यक है; meeting minutes के लिए इसके अतिरिक्त `notes` extra और एक local GGUF model चाहिए, जिसकी ओर आप
+> संकेत करते हैं। दोनों default रूप से बंद हैं — [offline meeting notes](docs/meeting-notes-offline.md) देखें।
 
 ---
 
-## Quick Start
+## त्वरित शुरुआत
 
-**Step 1 — Install** (see [all install options](#all-install-options) for every platform)
+**चरण 1 — इंस्टॉल करें** (हर platform के लिए [सभी install options](#all-install-options) देखें)
 
-| Platform | Command |
+| प्लेटफ़ॉर्म | कमांड |
 |---|---|
-| **Linux** (recommended) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)` |
+| **Linux** (अनुशंसित) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)` |
 | **Linux** (Debian/Ubuntu, APT) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)` |
-| **Any OS** (Python ≥ 3.11) | `pipx install yazses` |
+| **कोई भी OS** (Python ≥ 3.11) | `pipx install yazses` |
 
-The **recommended** one-liner installs `uv` if needed, installs the latest YazSes, provisions
-every system prerequisite (audio, keystroke injection, clipboard, `input` group, Wayland
-`ydotoold`), and finishes by running **`yazses doctor`** so any missing tool surfaces *during*
-install. The APT and `pipx` paths install the last tagged release. YazSes is also on the
-[Snap Store](https://snapcraft.io/yazses) (`sudo snap install yazses`).
+**अनुशंसित** one-liner आवश्यकता होने पर `uv` इंस्टॉल करता है, नवीनतम YazSes इंस्टॉल करता है,
+हर system prerequisite (audio, keystroke injection, clipboard, `input` group, Wayland
+`ydotoold`) तैयार करता है, और अंत में **`yazses doctor`** चलाता है ताकि कोई missing tool install के
+दौरान ही सामने आ जाए। APT और `pipx` तरीके अंतिम tagged release इंस्टॉल करते हैं। YazSes
+[Snap Store](https://snapcraft.io/yazses) पर भी उपलब्ध है (`sudo snap install yazses`)।
 
 
-**Shell completion:** `yazses --install-completion` (or `yazses --show-completion` to print the script). See the [CLI reference](docs/cli-reference.md).
+**Shell completion:** `yazses --install-completion` (या script print करने के लिए `yazses --show-completion`)। [CLI reference](docs/cli-reference.md) देखें।
 
-**Step 2 — Provision the system** *(Linux — one command; the APT install does it automatically)*
+**चरण 2 — सिस्टम तैयार करें** *(Linux — एक command; APT install इसे अपने-आप करता है)*
 
 ```sh
 yazses setup        # installs audio + injection deps, joins the input group, sets up ydotoold
 # then log out and back in (the input-group change needs a fresh login)
 ```
 
-`yazses setup` ends by printing a numbered **finish-installing checklist** of the
-steps only you can do — the `input`-group re-login, calibrate your voice
-(`yazses mic-level --set`), and `yazses start` — and offers to run the mic
-calibration for you right away.
+`yazses setup` अंत में numbered **finish-installing checklist** दिखाता है, जिसमें
+वे steps होते हैं जो केवल आप कर सकते हैं — `input`-group के लिए दोबारा login करना, अपनी आवाज़ calibrate करना
+(`yazses mic-level --set`), और `yazses start` — और यह तुरंत mic
+calibration चलाने का विकल्प भी देता है।
 
-> **The log-out/in is mandatory and one-time.** Joining the `input` group only
-> takes effect in a *new login session* — opening another terminal tab is **not**
-> enough, because it inherits the old session's groups and the hotkey stays dead.
-> `yazses start` will warn you if this re-login is still pending. To dictate
-> immediately without logging out, bridge the group for one session:
-> `sg input -c "yazses restart"`. After a real re-login, plain `yazses start` just works.
+> **Log-out/in अनिवार्य है और केवल एक बार करना होता है।** `input` group में शामिल होना
+> केवल *नई login session* में प्रभावी होता है — केवल नया terminal tab खोलना **पर्याप्त नहीं** है,
+> क्योंकि वह पुरानी session के groups inherit करता है और hotkey काम नहीं करेगा।
+> यदि यह re-login अभी बाकी है तो `yazses start` आपको चेतावनी देगा। तुरंत dictate करने के लिए
+> बिना log out किए, एक session के लिए group bridge करें:
+> `sg input -c "yazses restart"`। वास्तविक re-login के बाद सामान्य `yazses start` काम करेगा।
 
-`yazses setup` fixes everything dictation needs and is safe to re-run — it only does what's missing:
-- **`libportaudio2`** — audio capture (without it the daemon crashes on start with `OSError: PortAudio library not found`).
-- **injection backends** — `xdotool`/`xclip` (X11) and `wtype`/`ydotool`/`wl-clipboard` (Wayland).
-- **`input` group** — required to read the hold-to-talk hotkey from the kernel.
-- **`ydotoold`** — the virtual-input daemon. On **GNOME/KDE Wayland** this is the *only* way to inject keystrokes (`wtype` is blocked there), so `setup` installs and enables it.
+`yazses setup` dictation के लिए आवश्यक चीज़ों को ठीक करता है और इसे दोबारा चलाना सुरक्षित है — यह केवल वही करता है जो missing हो:
+- **`libportaudio2`** — audio capture (इसके बिना daemon start पर `OSError: PortAudio library not found` के साथ crash होता है)।
+- **injection backends** — `xdotool`/`xclip` (X11) और `wtype`/`ydotool`/`wl-clipboard` (Wayland)।
+- **`input` group** — kernel से hold-to-talk hotkey पढ़ने के लिए आवश्यक।
+- **`ydotoold`** — virtual-input daemon। **GNOME/KDE Wayland** पर keystrokes inject करने का यही *एकमात्र* तरीका है (`wtype` वहाँ blocked है), इसलिए `setup` इसे install और enable करता है।
 
-> Prefer to do it by hand? `sudo apt install libportaudio2 xdotool ydotool wtype xclip wl-clipboard pipx && sudo usermod -aG input "$USER"`, then enable `ydotoold` (see [install-linux](docs/install-linux.md)). Verify anytime with `yazses doctor` — you want `[OK] Keyboard capture`, `[OK] Microphone`, and `[OK] Injection`. macOS/Windows skip this step (grant Accessibility/permissions when prompted — see below).
+> इसे manually करना चाहते हैं? `sudo apt install libportaudio2 xdotool ydotool wtype xclip wl-clipboard pipx && sudo usermod -aG input "$USER"`, फिर `ydotoold` enable करें ([install-linux](docs/install-linux.md) देखें)। कभी भी `yazses doctor` से verify करें — आपको `[OK] Keyboard capture`, `[OK] Microphone`, और `[OK] Injection` चाहिए। macOS/Windows इस step को छोड़ते हैं (prompt आने पर Accessibility/permissions दें — नीचे देखें)।
 
-**Step 3 — Set up**
+**चरण 3 — सेटअप करें**
 
 ```sh
 yazses quickstart           # not sure what's next? a 3-step guide tailored to your machine
@@ -112,21 +116,21 @@ yazses start                # start the dictation daemon
 yazses verify               # speak once and prove the whole pipeline works
 ```
 
-> New to YazSes? Run **`yazses quickstart`** anytime — it looks at what's already set up and tells you exactly what to do next. It changes nothing.
+> YazSes में नए हैं? कभी भी **`yazses quickstart`** चलाएँ — यह देखता है कि क्या पहले से setup है और आपको ठीक अगला step बताता है। यह कुछ भी बदलता नहीं है।
 
-**Step 4 — Use it** — hold the hotkey, speak, release. The text is typed into the focused app.
+**चरण 4 — इसका उपयोग करें** — hotkey दबाकर रखें, बोलें, फिर छोड़ें। टेक्स्ट focused app में टाइप हो जाएगा।
 
-| OS | Hold this key | Say… |
+| OS | यह key दबाकर रखें | बोलें… |
 |---|---|---|
-| Linux | `Space` | *"the quick brown fox"* (types it) · *"go to line 42"* · *"run the tests"* |
+| Linux | `Space` | *"the quick brown fox"* (इसे टाइप करता है) · *"go to line 42"* · *"run the tests"* |
 | macOS | `Right Option` | *"delete the last word"* · *"save file"* · *"new function parse config"* |
 | Windows | `Right Ctrl` | *"undo that"* · *"select all"* · *"comment this line"* |
 
-Release the key — YazSes transcribes and acts. On a modern laptop CPU that is a median of **1.6 s** with the default `base.en` model, or **0.9 s** with `tiny.en` ([measured](docs/benchmarks.md)).
+Key छोड़ें — YazSes transcribe करके action करता है। आधुनिक laptop CPU पर default `base.en` model के साथ median **1.6 s**, या `tiny.en` के साथ **0.9 s** है ([मापा गया](docs/benchmarks.md))।
 
-> **First time on macOS?** v0 builds are unsigned: right-click the app → Open (Gatekeeper), then grant Accessibility + Microphone when prompted.
+> **macOS पर पहली बार?** v0 builds unsigned हैं: app पर right-click → Open (Gatekeeper), फिर prompt आने पर Accessibility + Microphone अनुमति दें।
 >
-> **First time on Windows?** If SmartScreen warns you, click **More info → Run anyway**.
+> **Windows पर पहली बार?** यदि SmartScreen चेतावनी देता है, तो **More info → Run anyway** पर क्लिक करें।
 
 ---
 
