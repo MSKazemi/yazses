@@ -66,3 +66,30 @@ class InjectionTimeline:
         fragment = self._redo.pop()
         self._events.append(fragment)
         return UndoOp(backspaces=0, insert=fragment)
+
+def parse_timeline_command(text: str):
+    """Parse a spoken timeline command -> ("undo", count), ("redo", count), or None."""
+    t = (text or "").lower().strip()
+    
+    words_to_num = {
+        "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+        "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10
+    }
+    
+    m = re.search(r"\bundo(?:\s+(one|two|three|four|five|six|seven|eight|nine|ten|\d+))?$", t)
+    if m:
+        count_str = m.group(1)
+        count = 1
+        if count_str:
+            count = int(count_str) if count_str.isdigit() else words_to_num.get(count_str, 1)
+        return ("undo", count)
+        
+    m = re.search(r"\bredo(?:\s+(one|two|three|four|five|six|seven|eight|nine|ten|\d+))?$", t)
+    if m:
+        count_str = m.group(1)
+        count = 1
+        if count_str:
+            count = int(count_str) if count_str.isdigit() else words_to_num.get(count_str, 1)
+        return ("redo", count)
+        
+    return None

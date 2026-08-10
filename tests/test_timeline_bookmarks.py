@@ -83,3 +83,13 @@ def test_features_registered_off_by_default():
     slugs = [f.slug for f in feature_status(Config())]
     assert "timeline" in slugs and "bookmarks" in slugs
     assert Config().timeline.enabled is False and Config().bookmarks.enabled is False
+
+def test_parse_timeline_command():
+    from yazses.timeline.history import parse_timeline_command
+    assert parse_timeline_command("undo") == ("undo", 1)
+    assert parse_timeline_command("undo three") == ("undo", 3)
+    assert parse_timeline_command("undo 5") == ("undo", 5)
+    assert parse_timeline_command("redo") == ("redo", 1)
+    assert parse_timeline_command("redo two") == ("redo", 2)
+    assert parse_timeline_command("undo something") is None
+    assert parse_timeline_command("redo ten") == ("redo", 10)

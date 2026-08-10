@@ -209,6 +209,19 @@ class Daemon:
         )
         # Mid-Thought Undo: ledger of injected dictation bursts for "scratch that".
         self._ledger = DictationLedger()
+        
+        self._timeline = None
+        if self._config.timeline.enabled:
+            from yazses.timeline.history import InjectionTimeline
+            self._timeline = InjectionTimeline()
+            
+        self._bookmarks = None
+        if self._config.bookmarks.enabled:
+            from yazses.bookmarks.store import BookmarkStore
+            self._bookmarks = BookmarkStore()
+            
+        # Virtual character offset since session start
+        self._cursor_offset = 0
         # Meeting Mode (ADR-v2-127): active controller + its dedicated mic recorder,
         # None when no meeting is running. `_meeting_finalizing` guards the post-pass.
         self._meeting_controller: MeetingController | None = None
@@ -1174,6 +1187,56 @@ class Daemon:
                     event["intent_action"] = intent.action
                 is_dictation = intent is None or intent.intent == IntentType.DICTATE
 
+            # Voice Undo/Redo Timeline
+            if is_dictation and self._config.timeline.enabled:
+                from yazses.timeline.history import parse_timeline_command
+                t_cmd = parse_timeline_command(text)
+                if t_cmd:
+                    action, count = t_cmd
+                    if use_streaming and stream_injector is not None:
+                        stream_injector.cancel()
+                    for _ in range(count):
+                        op = self._timeline.undo() if action == "undo" else self._timeline.redo()
+                        if op:
+                            if op.backspaces:
+                                injector.inject_key_sequence(["BackSpace"] * op.backspaces)
+                                self._cursor_offset -= op.backspaces
+                            if op.insert:
+                                injector.inject(op.insert)
+                                self._cursor_offset += len(op.insert)
+                    event["intent_type"] = action
+                    log.info("Timeline: %s %d times", action, count)
+                    return
+
+            # Session Bookmarks
+            if is_dictation and self._config.bookmarks.enabled:
+                from yazses.bookmarks.store import parse_bookmark_command
+                b_cmd = parse_bookmark_command(text)
+                if b_cmd:
+                    action, name = b_cmd
+                    if use_streaming and stream_injector is not None:
+                        stream_injector.cancel()
+                    if action == "add":
+                        name_key = name or "default"
+                        self._bookmarks.add(name_key, self._cursor_offset)
+                        log.info("Bookmarks: added '%s' at offset %d", name_key, self._cursor_offset)
+                    elif action == "goto":
+                        name_key = name or "default"
+                        if name is None and self._bookmarks.last() is not None:
+                            pos = self._bookmarks.last()
+                        else:
+                            pos = self._bookmarks.goto(name_key)
+                        if pos is not None:
+                            delta = pos - self._cursor_offset
+                            if delta < 0:
+                                injector.inject_key_sequence(["Left"] * abs(delta))
+                            elif delta > 0:
+                                injector.inject_key_sequence(["Right"] * delta)
+                            self._cursor_offset = pos
+                            log.info("Bookmarks: jumped to '%s' (delta %d)", name_key, delta)
+                    event["intent_type"] = f"bookmark_{action}"
+                    return
+
             # Mid-Thought Undo: a whole-utterance "scratch that" deletes the last
             # burst YazSes injected (backspaces), instead of typing it literally.
             if is_dictation and self._config.revise.enabled and parse_revise(text):
@@ -1182,6 +1245,7 @@ class Daemon:
                 n = self._ledger.scratch_last()
                 if n > 0:
                     injector.inject_key_sequence(["BackSpace"] * n)
+                    self._cursor_offset -= n
                 event["intent_type"] = "revise"
                 event["revise_chars"] = n
                 log.info("Mid-thought undo: scratched %d chars.", n)
@@ -1405,6 +1469,9 @@ class Daemon:
                 self._last_dictation_monotonic = time.monotonic()
                 if self._config.revise.enabled:
                     self._ledger.record(text)
+                if self._timeline is not None:
+                    self._timeline.record(text)
+                self._cursor_offset += len(text)
                 # Read-Back Loop: speak the final transcript back (dictation only).
                 self._maybe_read_back(text)
 
