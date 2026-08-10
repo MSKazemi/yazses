@@ -1,0 +1,58 @@
+name: Greet first-time contributors
+
+# A first issue or first PR from someone new is the moment they are most likely to
+# quietly walk away — usually because they cannot tell whether anyone is there. This
+# posts once, only on a person's very first issue and very first PR in this repo, and
+# never again afterwards.
+
+# SECURITY: `pull_request_target` is required, not incidental — a PR from a fork runs with a
+# read-only token under `pull_request`, so it could not post the comment, and forks are exactly
+# the case this exists for. It is safe here only because this workflow **never checks out or
+# executes PR code**: it has no `actions/checkout` step and runs one action that posts a
+# comment. Do not add a checkout step to this file.
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  greet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/first-interaction@1c4688942c71f71d4f5502a26ea67c331730fa4d # v3.1.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: >
+            👋 Thanks for opening your first issue here — genuinely, it helps.
+
+
+            A maintainer will reply within a few days. If this is a bug, `yazses doctor`
+            output and the OS/desktop you are on (X11 or Wayland matters) will speed it
+            up a lot.
+
+
+            If you ever fancy sending a change, [#22](https://github.com/MSKazemi/yazses/issues/22)
+            lists what is open — several need no Python at all, and the test suite is
+            fully offline and runs in about 30 seconds.
+          pr-message: >
+            🎉 Thanks for your first pull request to YazSes — that is a real contribution
+            and it is appreciated.
+
+
+            A maintainer will review it within a few days. We would rather merge a small
+            imperfect PR and polish it afterwards than leave you waiting, so please do not
+            worry if CI is red on the first push — say so and we will help you read it.
+
+
+            Two things that catch people out: `ruff` and `pytest` are the gates that must
+            be green (mypy is advisory), and if you changed a CLI command, flag or config
+            key, run `uv run python scripts/gen-docs.py` or the doc-sync test will fail.
+
+
+            Once this lands you will be added to the contributors wall in the README.
