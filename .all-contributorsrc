@@ -11,7 +11,7 @@
   "commitConvention": "angular",
   "contributorsPerLine": 7,
   "contributorsSortAlphabetically": false,
-  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-8-orange.svg?style=flat-square)](#contributors)",
+  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-10-orange.svg?style=flat-square)](#contributors)",
   "contributors": [
     {
       "login": "MSKazemi",
@@ -87,7 +87,9 @@
       "contributions": [
         "code",
         "test",
-        "security"
+        "doc",
+        "security",
+        "infra"
       ]
     },
     {
@@ -97,6 +99,17 @@
       "profile": "https://github.com/slegarraga",
       "contributions": [
         "code"
+      ]
+    },
+    {
+      "login": "YossiMH",
+      "name": "YossiMH",
+      "avatar_url": "https://avatars.githubusercontent.com/u/21257793?v=4",
+      "profile": "https://github.com/YossiMH",
+      "contributions": [
+        "ideas",
+        "bug",
+        "research"
       ]
     }
   ]
