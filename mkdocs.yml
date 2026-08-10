@@ -238,6 +238,8 @@ nav:
       - House style: how-to/house-style.md
       - Remote dictation: how-to/remote-dictation.md
       - Performance tuning: how-to/performance-tuning.md
+      - Per-app tone profiles: how-to/app-profiles.md
+      - Jump to a symbol by voice: how-to/editor-jump.md
       - Glance-Type (look to pane): how-to/gaze-look-to-pane.md
       - Transcribe recordings: tutorials/transcribe-recordings.md
   - Research:

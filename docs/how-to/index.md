@@ -13,6 +13,8 @@ self-contained — pick the one that matches what you want to do.
 | [Add words to your personal dictionary](personal-vocabulary.md) | Teach STT names, jargon, and acronyms it keeps mis-hearing. |
 | [Create spoken macros and snippets](macros-and-snippets.md) | Say a trigger phrase to expand canned boilerplate or templates. |
 | [Apply a house style to your dictation](house-style.md) | Keep terminology and spellings consistent from a rules file. |
+| [Set a tone per application](app-profiles.md) | Casual in Slack, formal in email, verbatim in a terminal — chosen by the window you speak into. |
+| [Jump to a symbol by voice](editor-jump.md) | Say "go to line 240" or "jump to function tokenize" and the editor moves there. |
 | [Change the hold-to-talk key](change-hotkey.md) | Pick a hotkey (and a dedicated command key) that never clashes with typing. |
 | [Dictate into a remote SSH host](remote-dictation.md) | Type with your voice into a shell or editor on another machine. |
 | [Aim dictation with your gaze](gaze-look-to-pane.md) | Glance at a window and hold-to-talk — the text lands in the pane you looked at (X11). |
