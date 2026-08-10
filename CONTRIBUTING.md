@@ -174,16 +174,26 @@ rules it is most likely to break (**no network calls or telemetry**, and **new f
 off by default**). Mention in the PR body if a change was largely AI-generated; it only
 changes how carefully we review, never whether we accept it.
 
-## License and the CLA
+## License and sign-off
 
 By contributing, you agree that your contributions will be licensed under the Apache 2.0 License.
 
-YazSes also uses a lightweight **Contributor License Agreement** ([`CLA.md`](CLA.md)). **You keep the
-copyright in your work** — the CLA grants a license, it does not transfer ownership, and you stay free
-to use your own contribution anywhere else. It exists so that copyright stays consolidated with one
-party and future licensing decisions remain possible without tracking down every past contributor.
-YazSes is Apache-2.0 and stays that way.
+**There is no CLA.** YazSes uses a [Developer Certificate of Origin](DCO.md) — the same one the Linux
+kernel uses. There is nothing to sign, no account to create, and nothing for your employer's legal team
+to review. You simply certify that you wrote the change and are allowed to submit it, by adding one
+line to your commit:
 
-There is nothing to email. On your first pull request a bot comments with a link; signing is one
-comment and covers everything you contribute afterwards. If you cannot agree to part of it, open a
-Discussion — we would rather adapt the agreement than lose your work.
+```
+Signed-off-by: Your Name <your.email@example.com>
+```
+
+Git writes it for you with `-s`:
+
+```bash
+git commit -s -m "your message"
+```
+
+Forgot it? `git commit --amend --signoff && git push --force-with-lease`. Want it always on?
+`git config --global format.signOff true`.
+
+**You keep the copyright in your work.** YazSes is Apache-2.0 and stays that way.
