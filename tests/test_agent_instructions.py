@@ -140,6 +140,50 @@ def test_translated_readmes_do_not_keep_a_stale_gate_claim():
     )
 
 
+#: The workflow that decides whether a PR is green. It is the authority on the gates;
+#: every human-facing surface is a copy of it, and copies drift.
+CI_WORKFLOW = ".github/workflows/test.yml"
+#: Surfaces that quote the lint command to a contributor.
+LINT_SURFACES = ("AGENTS.md", "CONTRIBUTING.md", "README.md", "Makefile")
+
+
+def _ruff_targets(text: str) -> list[list[str]]:
+    """Every `ruff check <targets>` invocation in a file, as target lists."""
+    out = []
+    for m in re.finditer(r"ruff check ([A-Za-z0-9_ ./-]+)", text):
+        targets = [t for t in m.group(1).split() if not t.startswith("-")]
+        if targets:
+            out.append(targets)
+    return out
+
+
+def test_every_surface_quotes_the_lint_command_ci_actually_runs():
+    """A documented gate weaker than the real one is worse than no gate at all.
+
+    CI and the Makefile lint `src tests scripts`. `AGENTS.md` and both READMEs told
+    contributors to lint `src tests` — 12 Python files in `scripts/` were outside the
+    command every agent was instructed to run. Following the instructions produced a
+    green local check and a red CI, and `AGENTS.md` tells agents in the same breath to
+    "run them before claiming anything works", so the false confidence was engineered in.
+
+    The workflow is the authority here; the prose is a copy of it. This asserts the
+    copies still match, whatever the targets become.
+    """
+    ci = _ruff_targets(_read(CI_WORKFLOW))
+    assert ci, f"no `ruff check` invocation found in {CI_WORKFLOW} — has the gate moved?"
+    expected = set(ci[0])
+
+    surfaces = [*LINT_SURFACES, *(p.name for p in _translated_readmes())]
+    for name in surfaces:
+        for targets in _ruff_targets(_read(name)):
+            missing = sorted(expected - set(targets))
+            assert not missing, (
+                f"{name} tells contributors to run `ruff check {' '.join(targets)}`, but "
+                f"{CI_WORKFLOW} runs it over {sorted(expected)} — {missing} would go "
+                "unchecked locally and fail in CI. Quote the command CI actually runs."
+            )
+
+
 def test_the_browser_only_contribution_path_is_advertised():
     """The repo ships a Dev Container; for a long time nothing told a newcomer.
 

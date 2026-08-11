@@ -6,6 +6,34 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the documented lint gate was weaker than the one CI runs
+
+CI and the `Makefile` lint `src tests scripts`. `AGENTS.md`, `README.md` and `README.hi.md`
+told contributors to run `ruff check src tests` — leaving the 12 Python files in `scripts/`
+outside the command every agent was instructed to run. Following the instructions produced
+a green local check and a red CI, and `AGENTS.md` says in the same breath to "run them
+before claiming anything works", so the false confidence was built in. Nothing in `scripts/`
+is currently failing, so this was latent rather than active.
+
+`tests/test_agent_instructions.py` now treats `.github/workflows/test.yml` as the authority
+on the gates and fails when any surface — including a translated README — quotes a lint
+command narrower than the one CI runs, whatever the targets later become. Verified red
+against all three pre-change files.
+
+### Added — the PR template now asks about AI assistance
+
+`CONTRIBUTING.md` has asked contributors to "mention in the PR body if a change was largely
+AI-generated" for a while, and the pull-request template had nowhere to put it — a policy
+with no field to fill in. The template gained a short **AI assistance** section (tool used,
+what the author verified themselves) and an "I have read every changed line and can explain
+why it is there" checkbox, matching the responsibility `AGENTS.md` already places on the
+human who opens the PR. It changes how carefully a PR is read, never whether it is accepted.
+
+`CONTRIBUTING.md` also now shows `git commit -s` in **Before opening a pull request**, with
+the amend and rebase recovery commands. It was previously documented only under *License and
+sign-off* near the end of the file — after the point where a contributor has already
+committed, which is exactly when knowing about it stops being useful.
+
 ### Fixed — the agent instruction files told contributors the wrong gate
 
 `AGENTS.md` told every coding agent that the codebase carried "~135 known type errors

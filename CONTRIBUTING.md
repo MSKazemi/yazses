@@ -98,6 +98,10 @@ a superseding ADR. Worth two minutes before you propose anything structural.
 - For new features, add tests.
 - Keep PRs focused — one concern per PR.
 - Describe the *why* in the PR body, not just the *what*.
+- **Commit with `git commit -s`.** Every commit needs a `Signed-off-by` line or the
+  [DCO](DCO.md) check fails — see [License and sign-off](#license-and-sign-off) below.
+  Already committed without it? `git commit --amend --signoff` (or
+  `git rebase --signoff main` for several) then `git push --force-with-lease`.
 
 ## The dependency budget
 
