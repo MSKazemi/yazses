@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -48,17 +49,37 @@ BOTS = {"dependabot[bot]", "github-actions[bot]", "allcontributors[bot]", "snyk-
 NOREPLY = re.compile(r"^(?:\d+\+)?(?P<login>[A-Za-z0-9-]+)@users\.noreply\.github\.com$")
 
 
+def api_headers() -> dict[str, str]:
+    """Auth the API call when a token is available.
+
+    Unauthenticated GitHub allows 60 requests/hour *per IP*, and Actions runners share
+    address space — so in CI the unauthenticated call is reliably rate-limited. That is not
+    theoretical: the first CI run of the profile check reported
+    `source: git history (API unavailable)` and silently skipped it. A workflow that always
+    degrades is a check that never runs.
+    """
+    headers = {"Accept": "application/vnd.github+json"}
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+
 def wall_logins() -> set[str]:
     data = json.loads(RC.read_text(encoding="utf-8"))
     return {c["login"] for c in data["contributors"]}
 
 
 def logins_from_api() -> set[str]:
-    """Every account GitHub credits with commits. Public endpoint; no token needed."""
+    """Every account GitHub credits with commits.
+
+    The endpoint is public, so no token is *required* — but see `api_headers`: without one
+    the call is rate-limited from CI and quietly degrades to git history.
+    """
     logins: set[str] = set()
     url = f"https://api.github.com/repos/{REPO}/contributors?per_page=100&anon=0"
     while url:
-        req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json"})
+        req = urllib.request.Request(url, headers=api_headers())
         with urllib.request.urlopen(req, timeout=30) as resp:
             logins |= {c["login"] for c in json.load(resp)}
             link = resp.headers.get("Link", "")
@@ -91,9 +112,7 @@ def logins_from_git() -> tuple[set[str], set[str]]:
 
 def probe_profile(login: str) -> int | None:
     """HTTP status for a GitHub account, or None when the request itself failed."""
-    req = urllib.request.Request(
-        f"https://api.github.com/users/{login}", headers={"Accept": "application/vnd.github+json"}
-    )
+    req = urllib.request.Request(f"https://api.github.com/users/{login}", headers=api_headers())
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
             return resp.status

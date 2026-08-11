@@ -118,6 +118,31 @@ def _wall_script():
     return mod
 
 
+def test_the_api_call_uses_a_token_when_one_is_available(monkeypatch):
+    """`attribution.yml` set GITHUB_TOKEN from day one and the script never read it.
+
+    Unauthenticated GitHub allows 60 requests/hour per IP and Actions runners share address
+    space, so the call was rate-limited every run and fell back to git history — which
+    recovers only logins with a noreply address (5 here, against 9 from the API). The
+    workflow therefore ran in its weakest mode permanently, and said "✓ every contributor
+    is credited" while doing so. The env var was provided; the wiring was missing.
+    """
+    mod = _wall_script()
+
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+    assert "Authorization" not in mod.api_headers(), "must not invent an Authorization header"
+
+    monkeypatch.setenv("GITHUB_TOKEN", "ghs_exampletoken")
+    assert mod.api_headers()["Authorization"] == "Bearer ghs_exampletoken"
+
+    workflow = (ROOT / ".github" / "workflows" / "attribution.yml").read_text(encoding="utf-8")
+    assert "GITHUB_TOKEN" in workflow, (
+        "the attribution workflow must pass GITHUB_TOKEN, or the API call is rate-limited "
+        "and the check silently degrades to the weaker git-history mode"
+    )
+
+
 def test_a_deleted_account_on_the_wall_is_reported():
     """The wall check ran one direction only, and was blind to the opposite failure.
 
