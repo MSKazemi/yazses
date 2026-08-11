@@ -6,6 +6,90 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `install-apt.sh` failed on every container and fresh VM
+
+The script runs under `set -euo pipefail` and read `$USER`. That variable is set by
+login shells and by PAM, and is simply **absent** in a container, under `sh -c`, in a
+cron job and in some minimal VM images — so `-u` aborted the run. It aborted *after*
+apt had installed the package, which is the worst place: a half-configured machine, no
+`yazses` on `PATH`, a non-zero exit, and nothing said about why. Anyone evaluating
+YazSes in a container or a throwaway VM hit it every time, which is exactly what a
+careful person does with an install script piped in from the internet.
+
+The same line was also wrong under `sudo`, which sets `USER=root`: it would have added
+**root** to the `input` group and left the actual human without keyboard access. The
+user is now resolved as `${SUDO_USER:-${USER:-$(id -un)}}`, which is right in all three
+cases.
+
+Re-testing the fix surfaced a second abort of the same shape — `usermod` against a
+system with no `input` group — so joining that group is now a warning that prints the
+command to run by hand, not a fatal error. A step that is not required for the install
+to be usable must not take the install down with it.
+
+### Fixed — the "try it without installing" demo overwrote its own answer key
+
+`docs/try-without-installing.md` mounted `data/librispeech-sample` writable and ran
+`yazses jfk.wav`. YazSes writes its transcript as a sidecar beside the input, so that
+produced `jfk.txt` — the name of the reference transcript the very next sentence tells
+you to compare against.
+
+So the page's instructions destroyed the thing they were about to check, and the
+failure mode is the bad one: the comparison then **always** looked perfect, because you
+were diffing the model's output against a copy of the model's output. A wrong
+transcription would have looked exactly as convincing as a right one, on the page
+written to earn a stranger's trust before they install anything. It also silently
+dirtied a fresh clone, and `scripts/bench-stt.py` scores WER against that same file.
+
+Fixed everywhere the pattern appeared — the Docker demo, the Codespaces snippet, and
+the `--network none` proof in the privacy statement — by mounting the sample read-only
+and writing output elsewhere with `-o`. The page now also states that the two files
+will *not* match byte for byte: the reference is the unpunctuated LibriSpeech
+transcript and YazSes punctuates what it hears, so `Americans, ask not` against
+`Americans ask not` is a pass. CI had the safe pattern all along and the docs did not,
+which is how this survived; `docker.yml` now runs the documented command verbatim and
+fails if the checkout is modified afterwards.
+
+### Fixed — Indic heading anchors dropped every vowel
+
+`pymdownx.slugs.slugify` keeps `[\w\- ]`, and Python's `\w` excludes Unicode combining
+marks — `'ा'.isalnum()` is `False`. Devanagari, Tamil, Bengali and Telugu write most of
+their vowels as exactly those marks, so the Hindi heading `ईमानदार सीमाएँ` became the
+anchor `ईमनदर-समए`, and every deep link into a translated page was dead.
+
+It hid because it was self-consistent: the heading id and its own table-of-contents
+entry were mangled identically, so in-page navigation worked. `hooks/indic_slugify.py`
+keeps combining marks while preserving the GitHub-compatible spacing the `toc:` config
+was chosen for, and `validation.links.anchors: warn` makes a broken anchor fatal under
+`--strict`, which it previously was not.
+
+### Fixed — the docs site could be blocked from deploying by Google's CDN
+
+The `Docs` workflow builds with `--strict`, which promotes every warning to an error —
+including the five `fonts.gstatic.com` 404s hit while the privacy plugin was mirroring
+webfonts on 2026-08-11. The mirror is now cached in CI, so an ordinary run does not
+contact Google at all. The fonts remain genuinely self-hosted.
+
+### Fixed — the APT repository lost its fallback URL
+
+Moving the documentation to a workflow-built Pages deployment took the `gh-pages`
+branch out of service, so `https://mskazemi.com/yazses/apt/` has been a 404 while
+`apt-repo.yml` went on publishing there. No install broke — `install-apt.sh` tries the
+`raw.githubusercontent.com` copy first — but of the two sources it knows, only one
+worked, leaving the channel on a single point of failure. `docs.yml` now grafts the
+repository into the site artifact, and `apt-repo.yml` triggers that deploy after
+publishing so the two copies cannot drift (a stale apt index is worse than an absent
+one: apt validates `Packages` against the hashes in `InRelease`).
+
+### Fixed — the Debian package named the wrong maintainer
+
+`debian/control`, `debian/copyright`, `debian/changelog`, `scripts/build-deb.sh`,
+`scripts/upload-ppa.sh`, `.github/workflows/ppa.yml` and one winget manifest all
+carried *Mohsen Seyedkazemi Moghadam*. The correct name is **Mohsen Seyedkazemi
+Ardebili**, as used by `CITATION.cff` and `pyproject.toml` — and it is what
+`apt show yazses` puts in front of a user, and what `debian/copyright` asserts as the
+copyright holder. PPA signing selects the key by ID rather than by `DEBFULLNAME`, so
+this does not affect uploads.
+
 ### Added — `[stt] chinese_script`, because Chinese users were being handed the wrong alphabet
 
 Dictating 简体中文 got you 繁體字 back, and it looked like a much worse recognizer than it

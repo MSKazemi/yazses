@@ -33,7 +33,8 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: write
-      actions: read
+      # `write` (not `read`) so the last step can dispatch docs.yml — see there.
+      actions: write
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -104,3 +105,18 @@ jobs:
           debs=(/tmp/debs/*.deb)
           [[ ${#debs[@]} -eq 1 ]] || { echo "Expected 1 .deb, got ${#debs[@]}"; exit 1; }
           bash scripts/update-apt-repo.sh "${debs[0]}" "$GPG_KEY_ID"
+
+      # This workflow publishes to the `gh-pages` branch, which GitHub Pages
+      # stopped serving when the docs moved to a workflow-built deployment.
+      # docs.yml now grafts the tree back into the site artifact, but that only
+      # happens when docs.yml runs — so without this, a freshly published .deb
+      # would sit behind whatever the last docs deploy captured.
+      #
+      # A stale APT index is worse than an absent one: `InRelease` records the
+      # size and hash of `Packages`, and apt fails the update outright when they
+      # disagree with what it fetches. Dispatching the deploy here keeps the two
+      # copies from diverging in the first place.
+      - name: Refresh the Pages copy of the APT repository
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run docs.yml --ref main

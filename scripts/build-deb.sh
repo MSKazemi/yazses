@@ -65,7 +65,7 @@ cat > "$STAGING/DEBIAN/control" <<EOF
 Package: yazses
 Version: ${VERSION}
 Architecture: all
-Maintainer: Mohsen Seyedkazemi Moghadam <mohsen.seyedkazemi@gmail.com>
+Maintainer: Mohsen Seyedkazemi Ardebili <mohsen.seyedkazemi@gmail.com>
 Depends: python3 (>= 3.11), python3-pip, python3-dev, build-essential, libportaudio2, pipx, xdotool | ydotool | wtype, xclip | wl-clipboard
 Recommends: xdotool, xclip
 Description: Local, offline voice dictation daemon for Linux

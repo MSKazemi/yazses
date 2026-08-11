@@ -44,7 +44,7 @@ jobs:
       - name: Upload to PPA
         env:
           DEBEMAIL: mohsen.seyedkazemi@gmail.com
-          DEBFULLNAME: Mohsen Seyedkazemi Moghadam
+          DEBFULLNAME: Mohsen Seyedkazemi Ardebili
           GPG_KEY_ID: ${{ secrets.PPA_GPG_KEY_ID }}
         run: |
           VERSION=${GITHUB_REF_NAME#v}

@@ -1,10 +1,10 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: yazses
-Upstream-Contact: Mohsen Seyedkazemi Moghadam <mohsen.seyedkazemi@gmail.com>
+Upstream-Contact: Mohsen Seyedkazemi Ardebili <mohsen.seyedkazemi@gmail.com>
 Source: https://github.com/MSKazemi/yazses
 
 Files: *
-Copyright: 2024-2026 Mohsen Seyedkazemi Moghadam <mohsen.seyedkazemi@gmail.com>
+Copyright: 2024-2026 Mohsen Seyedkazemi Ardebili <mohsen.seyedkazemi@gmail.com>
 License: Apache-2.0
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.

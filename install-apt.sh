@@ -76,10 +76,47 @@ for pkg in libportaudio2 xdotool ydotool wtype xclip wl-clipboard; do
     || warn "  $pkg unavailable on this release (skipped)"
 done
 
-if ! groups "$USER" | grep -qw input; then
-  info "Adding $USER to the input group for keyboard access..."
-  sudo usermod -aG input "$USER"
-  NEEDS_RELOGIN=1
+# Who should end up in the `input` group.
+#
+# This used to read `$USER`, which is not the reliable answer to that question.
+# `$USER` is set by login shells and by PAM, and is simply absent in a container,
+# under `sh -c`, in a cron job, and in some minimal VM images — and with
+# `set -u` an absent variable is fatal. The script therefore aborted *here*,
+# after apt had already installed the package, leaving a half-configured machine
+# with no `yazses` on PATH and no indication of why. Anyone evaluating YazSes in
+# a container or a fresh VM — which is exactly what a careful person does with an
+# install script piped from the internet — hit it every time.
+#
+# `$SUDO_USER` comes first because it is the only one that is right when the
+# script is run under sudo: sudo sets `USER=root`, so the original code would
+# have added *root* to the input group and left the actual human without
+# keyboard access. `id -un` is the floor, and it cannot be unset.
+TARGET_USER="${SUDO_USER:-${USER:-$(id -un)}}"
+
+# Joining the `input` group is important but not critical, and this script runs
+# under `set -e`. It used to call `usermod` bare, so any failure here killed the
+# script outright — after apt had already installed the package, and before the
+# ydotoold setup and the closing "what to do next" instructions. The user was
+# left with a working package, no guidance, and a non-zero exit suggesting the
+# whole install had failed. A missing `input` group is enough to trigger it
+# (minimal images and containers have none), and so is a sudo policy that
+# permits apt but not usermod.
+#
+# Downgraded to a warning that says exactly what to run by hand. The install is
+# genuinely usable without it — everything except keyboard capture works.
+if ! getent group input >/dev/null 2>&1; then
+  warn "No 'input' group on this system — skipping the group change."
+  warn "Keyboard capture needs it; see https://mskazemi.com/yazses/install-linux.html"
+  NEEDS_RELOGIN=0
+elif ! groups "$TARGET_USER" | grep -qw input; then
+  info "Adding $TARGET_USER to the input group for keyboard access..."
+  if sudo usermod -aG input "$TARGET_USER"; then
+    NEEDS_RELOGIN=1
+  else
+    warn "Could not add $TARGET_USER to the 'input' group. Run this yourself:"
+    warn "  sudo usermod -aG input $TARGET_USER"
+    NEEDS_RELOGIN=0
+  fi
 else
   NEEDS_RELOGIN=0
 fi

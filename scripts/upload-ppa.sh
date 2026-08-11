@@ -10,7 +10,7 @@ KEY_ID="$2"
 PPA="$3"
 
 export DEBEMAIL="${DEBEMAIL:-mohsen.seyedkazemi@gmail.com}"
-export DEBFULLNAME="${DEBFULLNAME:-Mohsen Seyedkazemi Moghadam}"
+export DEBFULLNAME="${DEBFULLNAME:-Mohsen Seyedkazemi Ardebili}"
 
 # Upload for each Ubuntu LTS series
 for SERIES in jammy noble; do

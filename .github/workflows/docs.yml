@@ -67,6 +67,38 @@ jobs:
       - name: Build site (strict)
         run: uv run --group docs mkdocs build --strict
 
+      # The APT repository is built by apt-repo.yml and pushed to the `gh-pages`
+      # branch. That used to be what GitHub Pages served, so it appeared at
+      # https://mskazemi.com/yazses/apt/. Moving the documentation to a
+      # workflow-built Pages deployment silently took the whole branch out of
+      # service, and that URL has been a 404 ever since — apt-repo.yml has gone on
+      # publishing to a branch nobody serves.
+      #
+      # Nothing visibly broke, because install-apt.sh tries
+      # raw.githubusercontent.com/.../gh-pages/apt *first* and only then the Pages
+      # URL. But that means the redundancy is gone: of the two sources it knows,
+      # exactly one works, so the channel now rests on a single point of failure.
+      # Grafting the tree into the artifact restores the second one. It is ~40 KB,
+      # and mkdocs has already finished, so nothing here can affect the site build.
+      - name: Graft the APT repository into the Pages artifact
+        run: |
+          set -euo pipefail
+          # Not --depth=1: a shallow fetch marks the whole clone shallow, and this
+          # job checks out with fetch-depth: 0 precisely so the "last updated"
+          # dates are accurate. gh-pages is a handful of commits, so a full fetch
+          # of just that branch costs nothing and leaves the clone intact.
+          if ! git fetch --no-tags origin gh-pages 2>/dev/null; then
+            echo "::warning::no gh-pages branch — APT repo not served this deploy"
+            exit 0
+          fi
+          if ! git cat-file -e FETCH_HEAD:apt 2>/dev/null; then
+            echo "::warning::gh-pages has no apt/ directory — nothing to graft"
+            exit 0
+          fi
+          git archive FETCH_HEAD apt | tar -x -C site
+          test -s site/apt/KEY.gpg && test -s site/apt/Packages
+          echo "Grafted APT repo:" && ls -1 site/apt
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
