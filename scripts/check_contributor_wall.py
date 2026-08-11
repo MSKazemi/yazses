@@ -19,6 +19,11 @@ addresses (`145488564+octocat@users.noreply.github.com` -> `octocat`), which is 
 web UI and `gh` produce by default, and reports any other author it could not map rather
 than silently passing them.
 
+It also checks the reverse direction — wall entries whose GitHub account no longer
+resolves, which happens when someone deletes or renames their account and leaves a 404
+behind on the README. That one is reported but **never fatal**: the work still shipped, so
+the entry must stay and the link gets repaired. Skip it with `--no-check-profiles`.
+
 Exit status is 0 when every contributor with commits is on the wall, 1 otherwise.
 """
 from __future__ import annotations
@@ -28,6 +33,7 @@ import json
 import re
 import subprocess
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -83,6 +89,43 @@ def logins_from_git() -> tuple[set[str], set[str]]:
     return logins, unmapped
 
 
+def probe_profile(login: str) -> int | None:
+    """HTTP status for a GitHub account, or None when the request itself failed."""
+    req = urllib.request.Request(
+        f"https://api.github.com/users/{login}", headers={"Accept": "application/vnd.github+json"}
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return resp.status
+    except urllib.error.HTTPError as exc:
+        return exc.code
+    except Exception:
+        return None
+
+
+def dead_wall_profiles(logins: set[str], probe=probe_profile) -> set[str]:
+    """Wall entries whose GitHub account no longer resolves.
+
+    The check above runs one direction only — *everyone with commits is on the wall* — and
+    that is blind to the opposite failure: a wall entry pointing at an account that has since
+    been deleted or renamed. Worse, it is blind *quietly*. When an account goes, GitHub stops
+    listing it in `/contributors`, so `have` simply shrinks and the run still exits 0. The
+    guard gets weaker at the same moment the problem appears.
+
+    Anything other than a definite 404 is treated as "no opinion" and aborts the whole
+    sub-check: a rate limit (403) or a transient error must never be reported as "this person
+    does not exist". A false accusation here is far worse than silence.
+    """
+    dead: set[str] = set()
+    for login in sorted(logins):
+        status = probe(login)
+        if status == 404:
+            dead.add(login)
+        elif status != 200:
+            return set()  # rate-limited or offline — say nothing rather than something wrong
+    return dead
+
+
 def redact_email(entry: str) -> str:
     """`Ada Lovelace <ada@example.com>` -> `Ada Lovelace <a…@example.com>`.
 
@@ -102,6 +145,11 @@ def redact_email(entry: str) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--offline", action="store_true", help="use git history instead of the GitHub API")
+    ap.add_argument(
+        "--no-check-profiles",
+        action="store_true",
+        help="skip the reverse check (wall entries whose GitHub account no longer resolves)",
+    )
     ap.add_argument(
         "--redact-emails",
         action="store_true",
@@ -135,6 +183,22 @@ def main() -> int:
         print("\ncould not map to a GitHub login (check these by hand):")
         for who in sorted(unmapped):
             print(f"  ? {redact_email(who) if args.redact_emails else who}")
+
+    # Reverse check. Deliberately NON-FATAL: a contributor whose account has gone must stay
+    # on the wall — the work shipped — so failing CI here would only pressure someone into
+    # "fixing" it by deleting the person, which is the outcome this whole script exists to
+    # prevent. Report it, repair the link, keep the credit.
+    if source == "GitHub API" and not args.no_check_profiles:
+        dead = dead_wall_profiles(wall)
+        if dead:
+            print("\non the wall but the GitHub account no longer resolves:")
+            for login in sorted(dead):
+                print(f"  ! {login}  (https://github.com/{login} -> 404)")
+            print(
+                "\nDo NOT remove them — their commits are still in the history and in every\n"
+                "release. Repoint the profile link (the `?author=` commits URL still works)\n"
+                "and leave the credit in place."
+            )
 
     if missing:
         print("\nhas merged commits but is NOT on the contributors wall:")

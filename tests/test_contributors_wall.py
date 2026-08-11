@@ -107,6 +107,57 @@ def test_ci_output_masks_contributor_email_addresses():
     )
 
 
+def _wall_script():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "check_wall", ROOT / "scripts" / "check_contributor_wall.py"
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_a_deleted_account_on_the_wall_is_reported():
+    """The wall check ran one direction only, and was blind to the opposite failure.
+
+    On 2026-08-11 the largest external contributor deleted their GitHub account. GitHub
+    then stopped listing them in `/contributors`, so the "everyone with commits is on the
+    wall" count simply dropped from 10 to 9 and the run still exited 0 — the guard got
+    weaker at the exact moment the problem appeared, and the README was left linking to a
+    404. Nothing detected it; it was found by hand while verifying @-mentions.
+    """
+    mod = _wall_script()
+    dead = mod.dead_wall_profiles({"alive", "gone"}, probe=lambda login: 404 if login == "gone" else 200)
+    assert dead == {"gone"}
+
+
+def test_a_rate_limit_is_never_reported_as_a_deleted_account():
+    """Unauthenticated GitHub allows 60 requests/hour, so 403 is an ordinary outcome here.
+
+    Accusing a real contributor of not existing is far worse than saying nothing, so any
+    status that is not a definite 404 abandons the whole sub-check rather than guessing.
+    """
+    mod = _wall_script()
+    assert mod.dead_wall_profiles({"a", "b"}, probe=lambda _login: 403) == set()
+    assert mod.dead_wall_profiles({"a", "b"}, probe=lambda _login: None) == set()
+
+
+def test_a_departed_contributor_is_not_reported_as_missing_from_the_wall():
+    """The two checks must not fight each other.
+
+    A deleted account disappears from the API, so it can never show up in `missing` — but
+    if it ever did, the advice printed ("add them to the wall") would contradict the advice
+    the reverse check prints ("do not remove them"). Pin the intent: the script must tell
+    the reader to keep the credit and repair the link, never to delete the person.
+    """
+    source = (ROOT / "scripts" / "check_contributor_wall.py").read_text(encoding="utf-8")
+    assert "Do NOT remove them" in source, (
+        "the reverse check must say explicitly that a departed contributor stays on the "
+        "wall — otherwise the obvious way to make the warning go away is to delete them"
+    )
+
+
 def _translated_readmes() -> list[Path]:
     """`README.<code>.md` — the translations, which carry their own copy of the wall."""
     return sorted(p for p in ROOT.glob("README.*.md") if p.name != "README.md")
