@@ -4,6 +4,49 @@ Per-channel packaging artefacts. **Read this when you want to publish to a
 new distribution channel** — the build scripts in `../scripts/` use the
 files here as inputs.
 
+## ⚠ Channel status — read this first (audited 2026-08-11)
+
+**A manifest living in this directory installs nobody.** It has to be published to the
+registry. Every channel below was checked live on 2026-08-11:
+
+| Channel | Published? | In-repo artefact | State |
+|---|---|---|---|
+| PyPI | ✅ live | — | `pipx install yazses` |
+| Snap Store | ✅ live | `../snap/` | incl. arm64 |
+| APT repo | ✅ live | `../scripts/update-apt-repo.sh` | signed |
+| GitHub Releases | ✅ live | — | `.dmg`, `.exe`, `.deb` |
+| **Homebrew** | ❌ **404** | `homebrew/yazses.rb` | cask is **current (2.17.0, real sha)** — needs a tap repo ([#6](https://github.com/MSKazemi/yazses/issues/6)) |
+| **winget** | ❌ **404** | `winget/…/2.17.0/` | manifests are **current (real sha)** — needs a PR to `microsoft/winget-pkgs` ([#78](https://github.com/MSKazemi/yazses/issues/78)) |
+| **AUR** | ❌ **404** | `arch/PKGBUILD` | ⚠ stale at `pkgver=0.4.0`, `sha256sums=SKIP` ([#67](https://github.com/MSKazemi/yazses/issues/67)) |
+| **Flathub** | ❌ not found | — | nothing built yet ([#45](https://github.com/MSKazemi/yazses/issues/45)) |
+| **Nix** | ❌ 0 hits | — | ([#68](https://github.com/MSKazemi/yazses/issues/68)) |
+| **Docker/GHCR** | ❌ 404 | `docker/Dockerfile` | image **builds and runs** — needs publishing ([#76](https://github.com/MSKazemi/yazses/issues/76)) |
+| **Scoop** | ❌ 404 | — | ([#79](https://github.com/MSKazemi/yazses/issues/79)) |
+
+> **Verification gotcha:** `curl -o /dev/null -w '%{http_code}'` **lies** about Flathub,
+> `search.nixos.org` and AlternativeTo — they are single-page apps that return **HTTP 200
+> for pages that do not exist**. Use an API instead:
+> `https://flathub.org/api/v2/appstream/<app-id>` correctly answers `App not found`.
+
+### Two dead files kept only as history
+
+`homebrew/yazses-formula.rb` and `homebrew/yazses-v1.rb` describe the abandoned **v1.0
+Rust binary** distribution. The releases they point at (`v1.0.0`, `v1.0.0-dev.1`) were
+**never published** — `gh release view v1.0.0` returns *release not found* — and their
+checksums are still `PLACEHOLDER_…`. They are marked at the top of each file. **The
+canonical cask is `homebrew/yazses.rb`.**
+
+### Keeping checksums honest
+
+`../scripts/refresh-package-manifests.py` recomputes every checksum from the actual
+released assets and rewrites the manifests. Run it after each release rather than
+hand-editing a hash:
+
+```sh
+uv run python scripts/refresh-package-manifests.py --version 2.17.0 --check   # verify only
+uv run python scripts/refresh-package-manifests.py --version 2.18.0           # write
+```
+
 ```
 packaging/
 ├── homebrew/        Homebrew Cask formula (macOS)

@@ -1,0 +1,113 @@
+# Publish the offline-transcription container image to GHCR.
+#
+# WHY THIS IS MANUAL-ONLY
+# -----------------------
+# The trigger is `workflow_dispatch` and nothing else. Pushing an image is an
+# outward-facing publish, and wiring it to `push: tags` would silently turn every
+# future release tag into a container publish — a change to what a release *means*
+# that belongs to the maintainer, not to a workflow file. Run it from the Actions
+# tab when you want an image; add a `release:` trigger later if that becomes the
+# deliberate policy.
+#
+# SCOPE OF THE IMAGE
+# ------------------
+# It runs `yazses transcribe` (file -> text) only. Hold-to-talk dictation needs a
+# real microphone, the kernel input device for the hotkey, and a window to type
+# into, none of which exist in a container. See packaging/docker/Dockerfile.
+name: Docker image
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "YazSes version to install from PyPI (blank = latest)"
+        required: false
+        default: ""
+      tag:
+        description: "Image tag to publish"
+        required: false
+        default: "latest"
+      push:
+        description: "Push to GHCR (unchecked = build and smoke-test only)"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    name: Build, verify, and optionally publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Build the image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: packaging/docker/Dockerfile
+          build-args: |
+            YAZSES_VERSION=${{ inputs.version }}
+          load: true
+          tags: yazses:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Prove the image transcribes before publishing it. The repo ships a real clip
+      # next to its known-correct text, so this is a genuine end-to-end check rather
+      # than a `--help` smoke test: a broken model path or a missing codec fails here
+      # instead of in front of the first person who runs the published image.
+      - name: Verify it actually transcribes
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/out && cp data/librispeech-sample/jfk.wav /tmp/out/
+          docker run --rm -v /tmp/models:/models -v /tmp/out:/data yazses:ci jfk.wav
+          echo "--- transcript ---" && cat /tmp/out/jfk.txt
+          # Compare on lowercased letters only: the model legitimately adds punctuation
+          # ("Americans," for "Americans"), so a byte comparison would fail on a correct
+          # transcript. Word content must still match exactly.
+          norm() { tr '[:upper:]' '[:lower:]' < "$1" | tr -cd '[:alnum:] ' | tr -s ' '; }
+          if [ "$(norm /tmp/out/jfk.txt)" != "$(norm data/librispeech-sample/jfk.txt)" ]; then
+            echo "::error::transcript does not match the expected text"
+            diff <(norm /tmp/out/jfk.txt) <(norm data/librispeech-sample/jfk.txt) || true
+            exit 1
+          fi
+          echo "OK — transcript matches the expected text."
+
+      # Re-run with no network at all. This is the project's central claim, so the
+      # image must not be publishable without demonstrating it.
+      - name: Prove it works fully offline
+        run: |
+          set -euo pipefail
+          rm -f /tmp/out/jfk.txt
+          docker run --rm --network none -v /tmp/models:/models -v /tmp/out:/data yazses:ci jfk.wav
+          test -s /tmp/out/jfk.txt
+          echo "OK — transcribed with networking disabled."
+
+      - name: Log in to GHCR
+        if: ${{ inputs.push }}
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push
+        if: ${{ inputs.push }}
+        run: |
+          set -euo pipefail
+          target="${REGISTRY}/${IMAGE_NAME}:${{ inputs.tag }}"
+          target="$(echo "$target" | tr '[:upper:]' '[:lower:]')"   # GHCR requires lowercase
+          docker tag yazses:ci "$target"
+          docker push "$target"
+          echo "Published $target" >> "$GITHUB_STEP_SUMMARY"

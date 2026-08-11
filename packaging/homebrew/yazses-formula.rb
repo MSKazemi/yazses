@@ -1,3 +1,14 @@
+# ⚠ DEAD — DO NOT PUBLISH THIS FILE.
+#
+# This describes the abandoned v1.0 "Rust core" binary distribution. Verified
+# 2026-08-11: the GitHub releases it points at (v1.0.0 / v1.0.0-dev.1) were
+# NEVER PUBLISHED — `gh release view v1.0.0` returns "release not found" — and
+# every sha256 below is still a PLACEHOLDER. YazSes today is a Python project
+# at v2.17.0 whose macOS artefact is a .dmg, not a tarball of Rust binaries.
+#
+# The canonical, current, publishable Homebrew artefact is the cask in
+# `yazses.rb` beside this file. Kept only as history.
+#
 # Homebrew formula for the YazSes v1.0 Rust CLI + daemon.
 # Lives at https://github.com/MSKazemi/homebrew-tap as Formula/yazses.rb
 # The v0.4 macOS .dmg cask is in Casks/yazses.rb (existing).
