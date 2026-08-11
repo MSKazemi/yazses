@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the attribution check now actually runs, with addresses masked
+
+`scripts/check_contributor_wall.py` has been able to detect a contributor missing from the
+wall for a while, and **no workflow ever ran it** — so a dropped contributor stayed dropped
+until somebody happened to think of checking. `.github/workflows/attribution.yml` now runs
+it weekly, after every merge to `main` that touches a credit surface, and on demand. It also
+runs `campaign_stats.py --attribution-gaps`, which catches the different failure where the
+person *is* on the wall but their commit email is not connected to their account, so
+GitHub's contributor graph shows nothing.
+
+**It deliberately does not auto-commit.** Automating the wall *update* means a workflow with
+write access pushing to the default branch, which can loop on its own commit — a permission
+surface not worth opening for a task a human finishes in thirty seconds. Detection is the
+half that has to be automatic, because it is the half nobody remembers.
+
+Automating it surfaced a privacy bug that would have been introduced by the automation
+itself: the script prints the **email address** of any author it cannot map to a login, and
+workflow logs on a public repository are public. Running it in CI unmasked would have
+published contributors' addresses — the exact thing `campaign_stats.py` is careful never to
+do. Added `--redact-emails` (`ada.lovelace@example.com` → `a…@example.com`: enough to
+recognise someone and follow up privately, not enough to harvest), which the workflow passes
+and a test requires.
+
 ### Added — an incident-response playbook and an honest public dashboard
 
 `campaign/incident-response.md` covers what a contributor drive brings that ordinary

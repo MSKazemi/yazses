@@ -79,6 +79,34 @@ def test_no_duplicate_entries():
     assert not dupes, f"listed twice in .all-contributorsrc: {dupes}"
 
 
+def test_ci_output_masks_contributor_email_addresses():
+    """`.github/workflows/attribution.yml` runs the wall check on every merge to main.
+
+    Workflow logs on a public repository are public, and the script prints the address of
+    any author it could not map to a login. Unmasked, automating the check would publish
+    contributors' email addresses — turning a helpful check into a privacy leak, and
+    contradicting the rule the campaign scripts already follow.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "check_wall", ROOT / "scripts" / "check_contributor_wall.py"
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    masked = mod.redact_email("Ada Lovelace <ada.lovelace@example.com>")
+    assert "ada.lovelace@" not in masked, "the local part leaked"
+    assert "example.com" in masked, "the domain is what makes the person recognisable"
+    assert "Ada Lovelace" in masked, "the name must survive or nobody can act on it"
+
+    workflow = (ROOT / ".github" / "workflows" / "attribution.yml").read_text(encoding="utf-8")
+    assert "--redact-emails" in workflow, (
+        "the attribution workflow must pass --redact-emails; without it every unmapped "
+        "contributor's address is printed into a public workflow log"
+    )
+
+
 def _translated_readmes() -> list[Path]:
     """`README.<code>.md` — the translations, which carry their own copy of the wall."""
     return sorted(p for p in ROOT.glob("README.*.md") if p.name != "README.md")

@@ -1,0 +1,79 @@
+name: Attribution check
+
+# Being forgotten is the one failure a contributor never reports — they simply do not come
+# back. `scripts/check_contributor_wall.py` has been able to detect it for a while and
+# nothing ever ran it, so a dropped contributor stayed dropped until somebody happened to
+# think of it. This runs it on a schedule and after every merge to main.
+#
+# DELIBERATELY NOT AN AUTO-COMMIT. The playbook suggests automating the wall update itself;
+# that means a workflow with write access pushing to the default branch, which can loop on
+# its own commit and is a permission surface worth avoiding for a task a human finishes in
+# thirty seconds (`npx all-contributors-cli add <login> <types>`). Detection is the half
+# that has to be automatic, because it is the half nobody remembers to do.
+
+on:
+  schedule:
+    # Mondays, early UTC — a merge wave over a weekend is the usual way someone slips off.
+    - cron: '17 6 * * 1'
+  push:
+    branches: [main]
+    paths:
+      - '.all-contributorsrc'
+      - 'README.md'
+      - 'CONTRIBUTORS.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  attribution:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Everyone with merged work is on the wall
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # --redact-emails is not optional here: workflow logs on a public repository are
+          # public, and this script prints the address of any author it could not map to a
+          # login. Locally a maintainer wants the full address; in CI it must be masked.
+          if python3 scripts/check_contributor_wall.py --redact-emails; then
+            echo "✓ every contributor with merged commits is credited" >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "## Someone with merged work is missing from the contributor wall"
+              echo
+              echo "Fix with \`npx all-contributors-cli add <login> <types>\`, then copy the"
+              echo "generated block into every \`README.<code>.md\` — the wall is generated"
+              echo "markup and a stale copy in a translation drops a real person from the"
+              echo "surface people actually look at."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - name: Nobody merged work GitHub is failing to attribute
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # A different failure from the one above: the person IS on the wall, but their
+          # commit email is not connected to their GitHub account, so the contributor graph
+          # shows nothing. Only they can fix it, and only if someone tells them.
+          if python3 scripts/campaign_stats.py --attribution-gaps; then
+            echo "✓ no attribution gaps" >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "## Merged work that GitHub is not attributing"
+              echo
+              echo "These accounts merged a pull request and do not appear in the"
+              echo "contributors API. The usual cause is a commit email not connected to"
+              echo "their GitHub account. Contact them **privately** — never paste an"
+              echo "address into a public comment — and only they can add it."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi

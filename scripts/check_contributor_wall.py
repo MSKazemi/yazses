@@ -83,9 +83,31 @@ def logins_from_git() -> tuple[set[str], set[str]]:
     return logins, unmapped
 
 
+def redact_email(entry: str) -> str:
+    """`Ada Lovelace <ada@example.com>` -> `Ada Lovelace <a…@example.com>`.
+
+    Enough for a maintainer to recognise the person and follow up privately; not enough to
+    harvest. A contributor's address must never be printed into a public log, and workflow
+    logs on a public repository are public — the same rule `campaign_stats.py` follows.
+    """
+    if "<" not in entry or "@" not in entry:
+        return entry
+    name, _, addr = entry.partition("<")
+    addr = addr.rstrip(">")
+    local, _, domain = addr.partition("@")
+    masked = (local[0] + "\u2026") if local else "\u2026"
+    return f"{name}<{masked}@{domain}>"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--offline", action="store_true", help="use git history instead of the GitHub API")
+    ap.add_argument(
+        "--redact-emails",
+        action="store_true",
+        help="mask author addresses in the output — required when running in CI, because "
+             "workflow logs on a public repository are public",
+    )
     args = ap.parse_args()
 
     wall = wall_logins()
@@ -112,7 +134,7 @@ def main() -> int:
     if unmapped:
         print("\ncould not map to a GitHub login (check these by hand):")
         for who in sorted(unmapped):
-            print(f"  ? {who}")
+            print(f"  ? {redact_email(who) if args.redact_emails else who}")
 
     if missing:
         print("\nhas merged commits but is NOT on the contributors wall:")
