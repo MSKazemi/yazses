@@ -1,0 +1,72 @@
+name: Campaign preflight
+
+# Answers the cheap questions on a campaign PR before a human spends review minutes on
+# it: does it name a task that exists, did it stay inside that task's allowed paths, and
+# did it accidentally commit a home path, hostname or email.
+#
+# A PR that references no campaign task passes untouched — this must never become a
+# tollgate on ordinary contributions.
+#
+# SECURITY:
+# * `pull_request`, deliberately NOT `pull_request_target`. This job reads
+#   contributor-controlled text, so it runs with a read-only token that cannot see
+#   repository secrets even if something here were exploitable.
+# * It needs no write permission because it reports through the job summary rather than
+#   by posting a comment.
+# * PR title and body reach the script through the environment and a file, never through
+#   shell interpolation — `${{ github.event.pull_request.title }}` inline in a `run:`
+#   block is a script-injection hole, and this is exactly the untrusted input that would
+#   exploit it.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: campaign-preflight-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Collect the PR text without interpolating it
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+          { printf '%s\n\n' "$PR_TITLE"; printf '%s\n' "$PR_BODY"; } > /tmp/pr-text.txt
+
+      - name: Collect the changed files and added lines
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --quiet origin "$BASE_SHA" "$HEAD_SHA" 2>/dev/null || true
+          MERGE_BASE="$(git merge-base "$BASE_SHA" "$HEAD_SHA")"
+          git diff --name-only "$MERGE_BASE" "$HEAD_SHA" > /tmp/changed.txt
+          # Only added lines: a personal path being *removed* is a fix, not a finding.
+          git diff "$MERGE_BASE" "$HEAD_SHA" | grep '^+' > /tmp/added.txt || true
+          echo "Changed files:"; cat /tmp/changed.txt
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Preflight
+        run: |
+          set -euo pipefail
+          python scripts/campaign_preflight.py \
+            --pr-body-file /tmp/pr-text.txt \
+            --changed-files-from /tmp/changed.txt \
+            --diff-file /tmp/added.txt

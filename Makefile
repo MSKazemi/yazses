@@ -13,8 +13,11 @@
 
 LOG_FILE := $(HOME)/.local/state/yazses/log/daemon.log
 
+# `campaign` and `hygiene` must be listed: `campaign/` is also a directory, so without
+# this make sees an up-to-date file target and silently does nothing.
 .PHONY: all install check test lint lint-fix types docs docs-serve man inbox \
-        start stop restart status logs doctor overlay build clean help
+        start stop restart status logs doctor overlay build clean help \
+        hygiene campaign campaign-generate
 
 all: check
 
@@ -52,6 +55,15 @@ lint-fix:
 hygiene:
 	@echo "▶  Checking repo hygiene (file sizes)…"
 	uv run python scripts/check_repo_size.py
+
+# Contributor task inventory. `tests/test_campaign.py` runs the same check, so this is
+# for working on the inventory itself rather than an extra gate.
+campaign:
+	@echo "▶  Validating the contributor task inventory…"
+	uv run python scripts/campaign.py --check
+
+campaign-generate:
+	uv run python scripts/campaign.py --generate
 
 types:
 	@echo "▶  Type checking (advisory — currently clean; don't add errors)…"
@@ -136,6 +148,7 @@ help:
 	@echo "    make lint-fix    ruff with auto-fix"
 	@echo "    make hygiene     fail on tracked files big enough to slow every clone"
 	@echo "    make types       mypy (advisory)"
+	@echo "    make campaign    validate the contributor task inventory"
 	@echo ""
 	@echo "  Documentation"
 	@echo "    make docs        regenerate the generated reference docs"

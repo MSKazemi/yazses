@@ -1,0 +1,4600 @@
+[
+  {
+    "id": "WIRE-ACOUSTIC-PROFILES-001",
+    "family": "feature-wiring",
+    "title": "Wire the `acoustic_profiles` capability so it is reachable from the daemon or CLI",
+    "value": "`acoustic_profiles` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "open",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-AFFECT-001",
+    "family": "feature-wiring",
+    "title": "Wire the `affect` capability so it is reachable from the daemon or CLI",
+    "value": "`affect` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "open",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-AGENT-001",
+    "family": "feature-wiring",
+    "title": "Wire the `agent` capability so it is reachable from the daemon or CLI",
+    "value": "`agent` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "open",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-AUDIOGUARD-001",
+    "family": "feature-wiring",
+    "title": "Wire the `audioguard` capability so it is reachable from the daemon or CLI",
+    "value": "`audioguard` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "open",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-AUTOSTOP-001",
+    "family": "feature-wiring",
+    "title": "Wire the `autostop` capability so it is reachable from the daemon or CLI",
+    "value": "`autostop` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "open",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-BOOKMARKS-001",
+    "family": "feature-wiring",
+    "title": "Wire the `bookmarks` capability so it is reachable from the daemon or CLI",
+    "value": "`bookmarks` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "open",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-BREATH-001",
+    "family": "feature-wiring",
+    "title": "Wire the `breath` capability so it is reachable from the daemon or CLI",
+    "value": "`breath` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "open",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-BRIDGE-001",
+    "family": "feature-wiring",
+    "title": "Wire the `bridge` capability so it is reachable from the daemon or CLI",
+    "value": "`bridge` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "open",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-CHECKDIGIT-001",
+    "family": "feature-wiring",
+    "title": "Wire the `checkdigit` capability so it is reachable from the daemon or CLI",
+    "value": "`checkdigit` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "open",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-CMDSAFETY-001",
+    "family": "feature-wiring",
+    "title": "Wire the `cmdsafety` capability so it is reachable from the daemon or CLI",
+    "value": "`cmdsafety` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "open",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-CMDSPOTTER-001",
+    "family": "feature-wiring",
+    "title": "Wire the `cmdspotter` capability so it is reachable from the daemon or CLI",
+    "value": "`cmdspotter` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-CODE-001",
+    "family": "feature-wiring",
+    "title": "Wire the `code` capability so it is reachable from the daemon or CLI",
+    "value": "`code` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-CODEC-001",
+    "family": "feature-wiring",
+    "title": "Wire the `codec` capability so it is reachable from the daemon or CLI",
+    "value": "`codec` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-COMPOSE-001",
+    "family": "feature-wiring",
+    "title": "Wire the `compose` capability so it is reachable from the daemon or CLI",
+    "value": "`compose` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-CONDENSE-001",
+    "family": "feature-wiring",
+    "title": "Wire the `condense` capability so it is reachable from the daemon or CLI",
+    "value": "`condense` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-CONTOUR-001",
+    "family": "feature-wiring",
+    "title": "Wire the `contour` capability so it is reachable from the daemon or CLI",
+    "value": "`contour` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-CORRDICT-001",
+    "family": "feature-wiring",
+    "title": "Wire the `corrdict` capability so it is reachable from the daemon or CLI",
+    "value": "`corrdict` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-CROWDPROOF-001",
+    "family": "feature-wiring",
+    "title": "Wire the `crowdproof` capability so it is reachable from the daemon or CLI",
+    "value": "`crowdproof` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-DIAGRAMVOX-001",
+    "family": "feature-wiring",
+    "title": "Wire the `diagramvox` capability so it is reachable from the daemon or CLI",
+    "value": "`diagramvox` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-EARCON-001",
+    "family": "feature-wiring",
+    "title": "Wire the `earcon` capability so it is reachable from the daemon or CLI",
+    "value": "`earcon` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-ECHO-001",
+    "family": "feature-wiring",
+    "title": "Wire the `echo` capability so it is reachable from the daemon or CLI",
+    "value": "`echo` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-FIELDAWARE-001",
+    "family": "feature-wiring",
+    "title": "Wire the `fieldaware` capability so it is reachable from the daemon or CLI",
+    "value": "`fieldaware` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-FOCUSPROFILE-001",
+    "family": "feature-wiring",
+    "title": "Wire the `focusprofile` capability so it is reachable from the daemon or CLI",
+    "value": "`focusprofile` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-GESTURE-001",
+    "family": "feature-wiring",
+    "title": "Wire the `gesture` capability so it is reachable from the daemon or CLI",
+    "value": "`gesture` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-HATSELECT-001",
+    "family": "feature-wiring",
+    "title": "Wire the `hatselect` capability so it is reachable from the daemon or CLI",
+    "value": "`hatselect` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-HEADPOINTER-001",
+    "family": "feature-wiring",
+    "title": "Wire the `headpointer` capability so it is reachable from the daemon or CLI",
+    "value": "`headpointer` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-HESITATION-001",
+    "family": "feature-wiring",
+    "title": "Wire the `hesitation` capability so it is reachable from the daemon or CLI",
+    "value": "`hesitation` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-HOTWORDS-001",
+    "family": "feature-wiring",
+    "title": "Wire the `hotwords` capability so it is reachable from the daemon or CLI",
+    "value": "`hotwords` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-INTERPRET-001",
+    "family": "feature-wiring",
+    "title": "Wire the `interpret` capability so it is reachable from the daemon or CLI",
+    "value": "`interpret` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-INVOLUNTARY-001",
+    "family": "feature-wiring",
+    "title": "Wire the `involuntary` capability so it is reachable from the daemon or CLI",
+    "value": "`involuntary` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-LANGROUTE-001",
+    "family": "feature-wiring",
+    "title": "Wire the `langroute` capability so it is reachable from the daemon or CLI",
+    "value": "`langroute` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-LATENCY-001",
+    "family": "feature-wiring",
+    "title": "Wire the `latency` capability so it is reachable from the daemon or CLI",
+    "value": "`latency` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-LIPREAD-001",
+    "family": "feature-wiring",
+    "title": "Wire the `lipread` capability so it is reachable from the daemon or CLI",
+    "value": "`lipread` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-LOADGUARD-001",
+    "family": "feature-wiring",
+    "title": "Wire the `loadguard` capability so it is reachable from the daemon or CLI",
+    "value": "`loadguard` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-MATH-001",
+    "family": "feature-wiring",
+    "title": "Wire the `math` capability so it is reachable from the daemon or CLI",
+    "value": "`math` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-MODALITY-001",
+    "family": "feature-wiring",
+    "title": "Wire the `modality` capability so it is reachable from the daemon or CLI",
+    "value": "`modality` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-MORSEVOX-001",
+    "family": "feature-wiring",
+    "title": "Wire the `morsevox` capability so it is reachable from the daemon or CLI",
+    "value": "`morsevox` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-MOUSEGRID-001",
+    "family": "feature-wiring",
+    "title": "Wire the `mousegrid` capability so it is reachable from the daemon or CLI",
+    "value": "`mousegrid` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-MOUTHSWITCH-001",
+    "family": "feature-wiring",
+    "title": "Wire the `mouthswitch` capability so it is reachable from the daemon or CLI",
+    "value": "`mouthswitch` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-MULTIPROFILE-001",
+    "family": "feature-wiring",
+    "title": "Wire the `multiprofile` capability so it is reachable from the daemon or CLI",
+    "value": "`multiprofile` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-PILOT-001",
+    "family": "feature-wiring",
+    "title": "Wire the `pilot` capability so it is reachable from the daemon or CLI",
+    "value": "`pilot` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-PREDICT-001",
+    "family": "feature-wiring",
+    "title": "Wire the `predict` capability so it is reachable from the daemon or CLI",
+    "value": "`predict` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-PRONUNCIATION-001",
+    "family": "feature-wiring",
+    "title": "Wire the `pronunciation` capability so it is reachable from the daemon or CLI",
+    "value": "`pronunciation` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-PROOFBACK-001",
+    "family": "feature-wiring",
+    "title": "Wire the `proofback` capability so it is reachable from the daemon or CLI",
+    "value": "`proofback` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-PROSODYPUNCT-001",
+    "family": "feature-wiring",
+    "title": "Wire the `prosodypunct` capability so it is reachable from the daemon or CLI",
+    "value": "`prosodypunct` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-RAG-001",
+    "family": "feature-wiring",
+    "title": "Wire the `rag` capability so it is reachable from the daemon or CLI",
+    "value": "`rag` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-READBACK-CLONE-001",
+    "family": "feature-wiring",
+    "title": "Wire the `readback_clone` capability so it is reachable from the daemon or CLI",
+    "value": "`readback_clone` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-REASK-001",
+    "family": "feature-wiring",
+    "title": "Wire the `reask` capability so it is reachable from the daemon or CLI",
+    "value": "`reask` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-SCREENGROUNDED-001",
+    "family": "feature-wiring",
+    "title": "Wire the `screengrounded` capability so it is reachable from the daemon or CLI",
+    "value": "`screengrounded` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-SCRIBE-001",
+    "family": "feature-wiring",
+    "title": "Wire the `scribe` capability so it is reachable from the daemon or CLI",
+    "value": "`scribe` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-SCRUB-001",
+    "family": "feature-wiring",
+    "title": "Wire the `scrub` capability so it is reachable from the daemon or CLI",
+    "value": "`scrub` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-SENTIMENT-001",
+    "family": "feature-wiring",
+    "title": "Wire the `sentiment` capability so it is reachable from the daemon or CLI",
+    "value": "`sentiment` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-SIGN-001",
+    "family": "feature-wiring",
+    "title": "Wire the `sign` capability so it is reachable from the daemon or CLI",
+    "value": "`sign` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-SMARTPASTE-001",
+    "family": "feature-wiring",
+    "title": "Wire the `smartpaste` capability so it is reachable from the daemon or CLI",
+    "value": "`smartpaste` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-SNIPPETS-001",
+    "family": "feature-wiring",
+    "title": "Wire the `snippets` capability so it is reachable from the daemon or CLI",
+    "value": "`snippets` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-SPATIALVAD-001",
+    "family": "feature-wiring",
+    "title": "Wire the `spatialvad` capability so it is reachable from the daemon or CLI",
+    "value": "`spatialvad` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-SPELLING-001",
+    "family": "feature-wiring",
+    "title": "Wire the `spelling` capability so it is reachable from the daemon or CLI",
+    "value": "`spelling` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-SPOKENREGEX-001",
+    "family": "feature-wiring",
+    "title": "Wire the `spokenregex` capability so it is reachable from the daemon or CLI",
+    "value": "`spokenregex` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-SPREADSHEET-001",
+    "family": "feature-wiring",
+    "title": "Wire the `spreadsheet` capability so it is reachable from the daemon or CLI",
+    "value": "`spreadsheet` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-SRPACE-001",
+    "family": "feature-wiring",
+    "title": "Wire the `srpace` capability so it is reachable from the daemon or CLI",
+    "value": "`srpace` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-SUGGESTMODE-001",
+    "family": "feature-wiring",
+    "title": "Wire the `suggestmode` capability so it is reachable from the daemon or CLI",
+    "value": "`suggestmode` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-VOCALJOYSTICK-001",
+    "family": "feature-wiring",
+    "title": "Wire the `vocaljoystick` capability so it is reachable from the daemon or CLI",
+    "value": "`vocaljoystick` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-VOICEGUARD-001",
+    "family": "feature-wiring",
+    "title": "Wire the `voiceguard` capability so it is reachable from the daemon or CLI",
+    "value": "`voiceguard` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-VOICEHEALTH-001",
+    "family": "feature-wiring",
+    "title": "Wire the `voicehealth` capability so it is reachable from the daemon or CLI",
+    "value": "`voicehealth` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-VOICETIMER-001",
+    "family": "feature-wiring",
+    "title": "Wire the `voicetimer` capability so it is reachable from the daemon or CLI",
+    "value": "`voicetimer` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-WAKEWORD-001",
+    "family": "feature-wiring",
+    "title": "Wire the `wakeword` capability so it is reachable from the daemon or CLI",
+    "value": "`wakeword` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "WIRE-WINDOWCTL-001",
+    "family": "feature-wiring",
+    "title": "Wire the `windowctl` capability so it is reachable from the daemon or CLI",
+    "value": "`windowctl` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "verified",
+    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+  },
+  {
+    "id": "COMPAT-001",
+    "family": "compatibility",
+    "title": "Report YazSes on Ubuntu 24.04 + GNOME Wayland, installed via snap",
+    "value": "Nobody can test this combination centrally. A dated report \u2014 working or broken \u2014 is what turns the support matrix from a guess into evidence.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": false,
+    "requires": {
+      "os": "Ubuntu 24.04",
+      "desktop": "GNOME Wayland",
+      "channel": "snap"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses doctor` output with home paths, hostname and usernames removed",
+      "whether dictation actually typed into a real window, and where it did not",
+      "exact OS, desktop session and YazSes versions"
+    ],
+    "state": "open",
+    "source": "issue #42 (add your setup to SHOWCASE.md)",
+    "skills": []
+  },
+  {
+    "id": "COMPAT-002",
+    "family": "compatibility",
+    "title": "Report YazSes on Ubuntu 24.04 + GNOME X11, installed via pipx",
+    "value": "Nobody can test this combination centrally. A dated report \u2014 working or broken \u2014 is what turns the support matrix from a guess into evidence.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": false,
+    "requires": {
+      "os": "Ubuntu 24.04",
+      "desktop": "GNOME X11",
+      "channel": "pipx"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses doctor` output with home paths, hostname and usernames removed",
+      "whether dictation actually typed into a real window, and where it did not",
+      "exact OS, desktop session and YazSes versions"
+    ],
+    "state": "open",
+    "source": "issue #42 (add your setup to SHOWCASE.md)",
+    "skills": []
+  },
+  {
+    "id": "COMPAT-003",
+    "family": "compatibility",
+    "title": "Report YazSes on Fedora 41 + KDE Wayland, installed via pipx",
+    "value": "Nobody can test this combination centrally. A dated report \u2014 working or broken \u2014 is what turns the support matrix from a guess into evidence.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": false,
+    "requires": {
+      "os": "Fedora 41",
+      "desktop": "KDE Wayland",
+      "channel": "pipx"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses doctor` output with home paths, hostname and usernames removed",
+      "whether dictation actually typed into a real window, and where it did not",
+      "exact OS, desktop session and YazSes versions"
+    ],
+    "state": "open",
+    "source": "issue #42 (add your setup to SHOWCASE.md)",
+    "skills": []
+  },
+  {
+    "id": "COMPAT-004",
+    "family": "compatibility",
+    "title": "Report YazSes on Fedora 41 + GNOME Wayland, installed via pipx",
+    "value": "Nobody can test this combination centrally. A dated report \u2014 working or broken \u2014 is what turns the support matrix from a guess into evidence.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": false,
+    "requires": {
+      "os": "Fedora 41",
+      "desktop": "GNOME Wayland",
+      "channel": "pipx"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses doctor` output with home paths, hostname and usernames removed",
+      "whether dictation actually typed into a real window, and where it did not",
+      "exact OS, desktop session and YazSes versions"
+    ],
+    "state": "open",
+    "source": "issue #42 (add your setup to SHOWCASE.md)",
+    "skills": []
+  },
+  {
+    "id": "COMPAT-005",
+    "family": "compatibility",
+    "title": "Report YazSes on Debian 13 + Xfce X11, installed via apt",
+    "value": "Nobody can test this combination centrally. A dated report \u2014 working or broken \u2014 is what turns the support matrix from a guess into evidence.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": false,
+    "requires": {
+      "os": "Debian 13",
+      "desktop": "Xfce X11",
+      "channel": "apt"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses doctor` output with home paths, hostname and usernames removed",
+      "whether dictation actually typed into a real window, and where it did not",
+      "exact OS, desktop session and YazSes versions"
+    ],
+    "state": "open",
+    "source": "issue #42 (add your setup to SHOWCASE.md)",
+    "skills": []
+  },
+  {
+    "id": "COMPAT-006",
+    "family": "compatibility",
+    "title": "Report YazSes on Arch Linux + sway, installed via pipx",
+    "value": "Nobody can test this combination centrally. A dated report \u2014 working or broken \u2014 is what turns the support matrix from a guess into evidence.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": false,
+    "requires": {
+      "os": "Arch Linux",
+      "desktop": "sway",
+      "channel": "pipx"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses doctor` output with home paths, hostname and usernames removed",
+      "whether dictation actually typed into a real window, and where it did not",
+      "exact OS, desktop session and YazSes versions"
+    ],
+    "state": "open",
+    "source": "issue #42 (add your setup to SHOWCASE.md)",
+    "skills": []
+  },
+  {
+    "id": "COMPAT-007",
+    "family": "compatibility",
+    "title": "Report YazSes on Arch Linux + Hyprland, installed via pipx",
+    "value": "Nobody can test this combination centrally. A dated report \u2014 working or broken \u2014 is what turns the support matrix from a guess into evidence.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": false,
+    "requires": {
+      "os": "Arch Linux",
+      "desktop": "Hyprland",
+      "channel": "pipx"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses doctor` output with home paths, hostname and usernames removed",
+      "whether dictation actually typed into a real window, and where it did not",
+      "exact OS, desktop session and YazSes versions"
+    ],
+    "state": "open",
+    "source": "issue #42 (add your setup to SHOWCASE.md)",
+    "skills": []
+  },
+  {
+    "id": "COMPAT-008",
+    "family": "compatibility",
+    "title": "Report YazSes on Linux Mint 22 + Cinnamon X11, installed via apt",
+    "value": "Nobody can test this combination centrally. A dated report \u2014 working or broken \u2014 is what turns the support matrix from a guess into evidence.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": false,
+    "requires": {
+      "os": "Linux Mint 22",
+      "desktop": "Cinnamon X11",
+      "channel": "apt"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses doctor` output with home paths, hostname and usernames removed",
+      "whether dictation actually typed into a real window, and where it did not",
+      "exact OS, desktop session and YazSes versions"
+    ],
+    "state": "open",
+    "source": "issue #42 (add your setup to SHOWCASE.md)",
+    "skills": []
+  },
+  {
+    "id": "COMPAT-009",
+    "family": "compatibility",
+    "title": "Report YazSes on Pop!_OS 22.04 + COSMIC, installed via pipx",
+    "value": "Nobody can test this combination centrally. A dated report \u2014 working or broken \u2014 is what turns the support matrix from a guess into evidence.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": false,
+    "requires": {
+      "os": "Pop!_OS 22.04",
+      "desktop": "COSMIC",
+      "channel": "pipx"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses doctor` output with home paths, hostname and usernames removed",
+      "whether dictation actually typed into a real window, and where it did not",
+      "exact OS, desktop session and YazSes versions"
+    ],
+    "state": "open",
+    "source": "issue #42 (add your setup to SHOWCASE.md)",
+    "skills": []
+  },
+  {
+    "id": "COMPAT-010",
+    "family": "compatibility",
+    "title": "Report YazSes on openSUSE Tumbleweed + KDE Wayland, installed via pipx",
+    "value": "Nobody can test this combination centrally. A dated report \u2014 working or broken \u2014 is what turns the support matrix from a guess into evidence.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": false,
+    "requires": {
+      "os": "openSUSE Tumbleweed",
+      "desktop": "KDE Wayland",
+      "channel": "pipx"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses doctor` output with home paths, hostname and usernames removed",
+      "whether dictation actually typed into a real window, and where it did not",
+      "exact OS, desktop session and YazSes versions"
+    ],
+    "state": "open",
+    "source": "issue #42 (add your setup to SHOWCASE.md)",
+    "skills": []
+  },
+  {
+    "id": "COMPAT-011",
+    "family": "compatibility",
+    "title": "Report YazSes on Manjaro + GNOME Wayland, installed via pipx",
+    "value": "Nobody can test this combination centrally. A dated report \u2014 working or broken \u2014 is what turns the support matrix from a guess into evidence.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": false,
+    "requires": {
+      "os": "Manjaro",
+      "desktop": "GNOME Wayland",
+      "channel": "pipx"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses doctor` output with home paths, hostname and usernames removed",
+      "whether dictation actually typed into a real window, and where it did not",
+      "exact OS, desktop session and YazSes versions"
+    ],
+    "state": "open",
+    "source": "issue #42 (add your setup to SHOWCASE.md)",
+    "skills": []
+  },
+  {
+    "id": "COMPAT-012",
+    "family": "compatibility",
+    "title": "Report YazSes on elementary OS 8 + Pantheon X11, installed via pipx",
+    "value": "Nobody can test this combination centrally. A dated report \u2014 working or broken \u2014 is what turns the support matrix from a guess into evidence.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": false,
+    "requires": {
+      "os": "elementary OS 8",
+      "desktop": "Pantheon X11",
+      "channel": "pipx"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses doctor` output with home paths, hostname and usernames removed",
+      "whether dictation actually typed into a real window, and where it did not",
+      "exact OS, desktop session and YazSes versions"
+    ],
+    "state": "open",
+    "source": "issue #42 (add your setup to SHOWCASE.md)",
+    "skills": []
+  },
+  {
+    "id": "COMPAT-013",
+    "family": "compatibility",
+    "title": "Report YazSes on Ubuntu 24.04 + KDE Wayland, installed via snap",
+    "value": "Nobody can test this combination centrally. A dated report \u2014 working or broken \u2014 is what turns the support matrix from a guess into evidence.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": false,
+    "requires": {
+      "os": "Ubuntu 24.04",
+      "desktop": "KDE Wayland",
+      "channel": "snap"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses doctor` output with home paths, hostname and usernames removed",
+      "whether dictation actually typed into a real window, and where it did not",
+      "exact OS, desktop session and YazSes versions"
+    ],
+    "state": "open",
+    "source": "issue #42 (add your setup to SHOWCASE.md)",
+    "skills": []
+  },
+  {
+    "id": "COMPAT-014",
+    "family": "compatibility",
+    "title": "Report YazSes on Zorin OS 17 + GNOME X11, installed via apt",
+    "value": "Nobody can test this combination centrally. A dated report \u2014 working or broken \u2014 is what turns the support matrix from a guess into evidence.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": false,
+    "requires": {
+      "os": "Zorin OS 17",
+      "desktop": "GNOME X11",
+      "channel": "apt"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses doctor` output with home paths, hostname and usernames removed",
+      "whether dictation actually typed into a real window, and where it did not",
+      "exact OS, desktop session and YazSes versions"
+    ],
+    "state": "open",
+    "source": "issue #42 (add your setup to SHOWCASE.md)",
+    "skills": []
+  },
+  {
+    "id": "COMPAT-015",
+    "family": "compatibility",
+    "title": "Report YazSes on macOS 15 Sequoia + Aqua, installed via pipx",
+    "value": "Nobody can test this combination centrally. A dated report \u2014 working or broken \u2014 is what turns the support matrix from a guess into evidence.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": false,
+    "requires": {
+      "os": "macOS 15 Sequoia",
+      "desktop": "Aqua",
+      "channel": "pipx"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses doctor` output with home paths, hostname and usernames removed",
+      "whether dictation actually typed into a real window, and where it did not",
+      "exact OS, desktop session and YazSes versions"
+    ],
+    "state": "open",
+    "source": "issue #42 (add your setup to SHOWCASE.md)",
+    "skills": []
+  },
+  {
+    "id": "COMPAT-016",
+    "family": "compatibility",
+    "title": "Report YazSes on macOS 14 Sonoma + Aqua, installed via Homebrew Python",
+    "value": "Nobody can test this combination centrally. A dated report \u2014 working or broken \u2014 is what turns the support matrix from a guess into evidence.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": false,
+    "requires": {
+      "os": "macOS 14 Sonoma",
+      "desktop": "Aqua",
+      "channel": "Homebrew Python"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses doctor` output with home paths, hostname and usernames removed",
+      "whether dictation actually typed into a real window, and where it did not",
+      "exact OS, desktop session and YazSes versions"
+    ],
+    "state": "open",
+    "source": "issue #42 (add your setup to SHOWCASE.md)",
+    "skills": []
+  },
+  {
+    "id": "COMPAT-017",
+    "family": "compatibility",
+    "title": "Report YazSes on Windows 11 + Explorer, installed via winget",
+    "value": "Nobody can test this combination centrally. A dated report \u2014 working or broken \u2014 is what turns the support matrix from a guess into evidence.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": false,
+    "requires": {
+      "os": "Windows 11",
+      "desktop": "Explorer",
+      "channel": "winget"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses doctor` output with home paths, hostname and usernames removed",
+      "whether dictation actually typed into a real window, and where it did not",
+      "exact OS, desktop session and YazSes versions"
+    ],
+    "state": "open",
+    "source": "issue #42 (add your setup to SHOWCASE.md)",
+    "skills": []
+  },
+  {
+    "id": "COMPAT-018",
+    "family": "compatibility",
+    "title": "Report YazSes on Windows 11 + Explorer, installed via pip",
+    "value": "Nobody can test this combination centrally. A dated report \u2014 working or broken \u2014 is what turns the support matrix from a guess into evidence.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": false,
+    "requires": {
+      "os": "Windows 11",
+      "desktop": "Explorer",
+      "channel": "pip"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses doctor` output with home paths, hostname and usernames removed",
+      "whether dictation actually typed into a real window, and where it did not",
+      "exact OS, desktop session and YazSes versions"
+    ],
+    "state": "open",
+    "source": "issue #42 (add your setup to SHOWCASE.md)",
+    "skills": []
+  },
+  {
+    "id": "COMPAT-019",
+    "family": "compatibility",
+    "title": "Report YazSes on Windows 10 + Explorer, installed via pip",
+    "value": "Nobody can test this combination centrally. A dated report \u2014 working or broken \u2014 is what turns the support matrix from a guess into evidence.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": false,
+    "requires": {
+      "os": "Windows 10",
+      "desktop": "Explorer",
+      "channel": "pip"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses doctor` output with home paths, hostname and usernames removed",
+      "whether dictation actually typed into a real window, and where it did not",
+      "exact OS, desktop session and YazSes versions"
+    ],
+    "state": "open",
+    "source": "issue #42 (add your setup to SHOWCASE.md)",
+    "skills": []
+  },
+  {
+    "id": "COMPAT-020",
+    "family": "compatibility",
+    "title": "Report YazSes on Raspberry Pi OS + LXDE X11, installed via pipx",
+    "value": "Nobody can test this combination centrally. A dated report \u2014 working or broken \u2014 is what turns the support matrix from a guess into evidence.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": false,
+    "requires": {
+      "os": "Raspberry Pi OS",
+      "desktop": "LXDE X11",
+      "channel": "pipx"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses doctor` output with home paths, hostname and usernames removed",
+      "whether dictation actually typed into a real window, and where it did not",
+      "exact OS, desktop session and YazSes versions"
+    ],
+    "state": "open",
+    "source": "issue #42 (add your setup to SHOWCASE.md)",
+    "skills": []
+  },
+  {
+    "id": "APP-001",
+    "family": "app-profile",
+    "title": "Add a tested example config for VS Code",
+    "value": "Injection and hotkey behaviour differ per application. A config for VS Code that someone actually ran saves the next user the debugging.",
+    "risk": "L1",
+    "minutes": 30,
+    "skills": [
+      "toml"
+    ],
+    "cloud_agent_ready": false,
+    "requires": {
+      "app": "VS Code"
+    },
+    "allowed_paths": [
+      "examples/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "dictation observed working in VS Code with this config",
+      "any conflict with the app's own shortcuts"
+    ],
+    "state": "open",
+    "source": "issue #43 (share an example config for your app/editor)"
+  },
+  {
+    "id": "APP-002",
+    "family": "app-profile",
+    "title": "Add a tested example config for Neovim",
+    "value": "Injection and hotkey behaviour differ per application. A config for Neovim that someone actually ran saves the next user the debugging.",
+    "risk": "L1",
+    "minutes": 30,
+    "skills": [
+      "toml"
+    ],
+    "cloud_agent_ready": false,
+    "requires": {
+      "app": "Neovim"
+    },
+    "allowed_paths": [
+      "examples/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "dictation observed working in Neovim with this config",
+      "any conflict with the app's own shortcuts"
+    ],
+    "state": "open",
+    "source": "issue #43 (share an example config for your app/editor)"
+  },
+  {
+    "id": "APP-003",
+    "family": "app-profile",
+    "title": "Add a tested example config for JetBrains IDEs",
+    "value": "Injection and hotkey behaviour differ per application. A config for JetBrains IDEs that someone actually ran saves the next user the debugging.",
+    "risk": "L1",
+    "minutes": 30,
+    "skills": [
+      "toml"
+    ],
+    "cloud_agent_ready": false,
+    "requires": {
+      "app": "JetBrains IDEs"
+    },
+    "allowed_paths": [
+      "examples/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "dictation observed working in JetBrains IDEs with this config",
+      "any conflict with the app's own shortcuts"
+    ],
+    "state": "open",
+    "source": "issue #43 (share an example config for your app/editor)"
+  },
+  {
+    "id": "APP-004",
+    "family": "app-profile",
+    "title": "Add a tested example config for Emacs",
+    "value": "Injection and hotkey behaviour differ per application. A config for Emacs that someone actually ran saves the next user the debugging.",
+    "risk": "L1",
+    "minutes": 30,
+    "skills": [
+      "toml"
+    ],
+    "cloud_agent_ready": false,
+    "requires": {
+      "app": "Emacs"
+    },
+    "allowed_paths": [
+      "examples/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "dictation observed working in Emacs with this config",
+      "any conflict with the app's own shortcuts"
+    ],
+    "state": "open",
+    "source": "issue #43 (share an example config for your app/editor)"
+  },
+  {
+    "id": "APP-005",
+    "family": "app-profile",
+    "title": "Add a tested example config for Zed",
+    "value": "Injection and hotkey behaviour differ per application. A config for Zed that someone actually ran saves the next user the debugging.",
+    "risk": "L1",
+    "minutes": 30,
+    "skills": [
+      "toml"
+    ],
+    "cloud_agent_ready": false,
+    "requires": {
+      "app": "Zed"
+    },
+    "allowed_paths": [
+      "examples/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "dictation observed working in Zed with this config",
+      "any conflict with the app's own shortcuts"
+    ],
+    "state": "open",
+    "source": "issue #43 (share an example config for your app/editor)"
+  },
+  {
+    "id": "APP-006",
+    "family": "app-profile",
+    "title": "Add a tested example config for Sublime Text",
+    "value": "Injection and hotkey behaviour differ per application. A config for Sublime Text that someone actually ran saves the next user the debugging.",
+    "risk": "L1",
+    "minutes": 30,
+    "skills": [
+      "toml"
+    ],
+    "cloud_agent_ready": false,
+    "requires": {
+      "app": "Sublime Text"
+    },
+    "allowed_paths": [
+      "examples/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "dictation observed working in Sublime Text with this config",
+      "any conflict with the app's own shortcuts"
+    ],
+    "state": "open",
+    "source": "issue #43 (share an example config for your app/editor)"
+  },
+  {
+    "id": "APP-007",
+    "family": "app-profile",
+    "title": "Add a tested example config for LibreOffice Writer",
+    "value": "Injection and hotkey behaviour differ per application. A config for LibreOffice Writer that someone actually ran saves the next user the debugging.",
+    "risk": "L1",
+    "minutes": 30,
+    "skills": [
+      "toml"
+    ],
+    "cloud_agent_ready": false,
+    "requires": {
+      "app": "LibreOffice Writer"
+    },
+    "allowed_paths": [
+      "examples/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "dictation observed working in LibreOffice Writer with this config",
+      "any conflict with the app's own shortcuts"
+    ],
+    "state": "open",
+    "source": "issue #43 (share an example config for your app/editor)"
+  },
+  {
+    "id": "APP-008",
+    "family": "app-profile",
+    "title": "Add a tested example config for Obsidian",
+    "value": "Injection and hotkey behaviour differ per application. A config for Obsidian that someone actually ran saves the next user the debugging.",
+    "risk": "L1",
+    "minutes": 30,
+    "skills": [
+      "toml"
+    ],
+    "cloud_agent_ready": false,
+    "requires": {
+      "app": "Obsidian"
+    },
+    "allowed_paths": [
+      "examples/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "dictation observed working in Obsidian with this config",
+      "any conflict with the app's own shortcuts"
+    ],
+    "state": "open",
+    "source": "issue #43 (share an example config for your app/editor)"
+  },
+  {
+    "id": "APP-009",
+    "family": "app-profile",
+    "title": "Add a tested example config for Firefox",
+    "value": "Injection and hotkey behaviour differ per application. A config for Firefox that someone actually ran saves the next user the debugging.",
+    "risk": "L1",
+    "minutes": 30,
+    "skills": [
+      "toml"
+    ],
+    "cloud_agent_ready": false,
+    "requires": {
+      "app": "Firefox"
+    },
+    "allowed_paths": [
+      "examples/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "dictation observed working in Firefox with this config",
+      "any conflict with the app's own shortcuts"
+    ],
+    "state": "open",
+    "source": "issue #43 (share an example config for your app/editor)"
+  },
+  {
+    "id": "APP-010",
+    "family": "app-profile",
+    "title": "Add a tested example config for Chromium",
+    "value": "Injection and hotkey behaviour differ per application. A config for Chromium that someone actually ran saves the next user the debugging.",
+    "risk": "L1",
+    "minutes": 30,
+    "skills": [
+      "toml"
+    ],
+    "cloud_agent_ready": false,
+    "requires": {
+      "app": "Chromium"
+    },
+    "allowed_paths": [
+      "examples/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "dictation observed working in Chromium with this config",
+      "any conflict with the app's own shortcuts"
+    ],
+    "state": "open",
+    "source": "issue #43 (share an example config for your app/editor)"
+  },
+  {
+    "id": "APP-011",
+    "family": "app-profile",
+    "title": "Add a tested example config for Thunderbird",
+    "value": "Injection and hotkey behaviour differ per application. A config for Thunderbird that someone actually ran saves the next user the debugging.",
+    "risk": "L1",
+    "minutes": 30,
+    "skills": [
+      "toml"
+    ],
+    "cloud_agent_ready": false,
+    "requires": {
+      "app": "Thunderbird"
+    },
+    "allowed_paths": [
+      "examples/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "dictation observed working in Thunderbird with this config",
+      "any conflict with the app's own shortcuts"
+    ],
+    "state": "open",
+    "source": "issue #43 (share an example config for your app/editor)"
+  },
+  {
+    "id": "APP-012",
+    "family": "app-profile",
+    "title": "Add a tested example config for Slack",
+    "value": "Injection and hotkey behaviour differ per application. A config for Slack that someone actually ran saves the next user the debugging.",
+    "risk": "L1",
+    "minutes": 30,
+    "skills": [
+      "toml"
+    ],
+    "cloud_agent_ready": false,
+    "requires": {
+      "app": "Slack"
+    },
+    "allowed_paths": [
+      "examples/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "dictation observed working in Slack with this config",
+      "any conflict with the app's own shortcuts"
+    ],
+    "state": "open",
+    "source": "issue #43 (share an example config for your app/editor)"
+  },
+  {
+    "id": "APP-013",
+    "family": "app-profile",
+    "title": "Add a tested example config for Element",
+    "value": "Injection and hotkey behaviour differ per application. A config for Element that someone actually ran saves the next user the debugging.",
+    "risk": "L1",
+    "minutes": 30,
+    "skills": [
+      "toml"
+    ],
+    "cloud_agent_ready": false,
+    "requires": {
+      "app": "Element"
+    },
+    "allowed_paths": [
+      "examples/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "dictation observed working in Element with this config",
+      "any conflict with the app's own shortcuts"
+    ],
+    "state": "open",
+    "source": "issue #43 (share an example config for your app/editor)"
+  },
+  {
+    "id": "APP-014",
+    "family": "app-profile",
+    "title": "Add a tested example config for kitty",
+    "value": "Injection and hotkey behaviour differ per application. A config for kitty that someone actually ran saves the next user the debugging.",
+    "risk": "L1",
+    "minutes": 30,
+    "skills": [
+      "toml"
+    ],
+    "cloud_agent_ready": false,
+    "requires": {
+      "app": "kitty"
+    },
+    "allowed_paths": [
+      "examples/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "dictation observed working in kitty with this config",
+      "any conflict with the app's own shortcuts"
+    ],
+    "state": "open",
+    "source": "issue #43 (share an example config for your app/editor)"
+  },
+  {
+    "id": "APP-015",
+    "family": "app-profile",
+    "title": "Add a tested example config for Alacritty",
+    "value": "Injection and hotkey behaviour differ per application. A config for Alacritty that someone actually ran saves the next user the debugging.",
+    "risk": "L1",
+    "minutes": 30,
+    "skills": [
+      "toml"
+    ],
+    "cloud_agent_ready": false,
+    "requires": {
+      "app": "Alacritty"
+    },
+    "allowed_paths": [
+      "examples/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "dictation observed working in Alacritty with this config",
+      "any conflict with the app's own shortcuts"
+    ],
+    "state": "open",
+    "source": "issue #43 (share an example config for your app/editor)"
+  },
+  {
+    "id": "APP-016",
+    "family": "app-profile",
+    "title": "Add a tested example config for GNOME Terminal",
+    "value": "Injection and hotkey behaviour differ per application. A config for GNOME Terminal that someone actually ran saves the next user the debugging.",
+    "risk": "L1",
+    "minutes": 30,
+    "skills": [
+      "toml"
+    ],
+    "cloud_agent_ready": false,
+    "requires": {
+      "app": "GNOME Terminal"
+    },
+    "allowed_paths": [
+      "examples/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "dictation observed working in GNOME Terminal with this config",
+      "any conflict with the app's own shortcuts"
+    ],
+    "state": "open",
+    "source": "issue #43 (share an example config for your app/editor)"
+  },
+  {
+    "id": "APP-017",
+    "family": "app-profile",
+    "title": "Add a tested example config for tmux",
+    "value": "Injection and hotkey behaviour differ per application. A config for tmux that someone actually ran saves the next user the debugging.",
+    "risk": "L1",
+    "minutes": 30,
+    "skills": [
+      "toml"
+    ],
+    "cloud_agent_ready": false,
+    "requires": {
+      "app": "tmux"
+    },
+    "allowed_paths": [
+      "examples/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "dictation observed working in tmux with this config",
+      "any conflict with the app's own shortcuts"
+    ],
+    "state": "open",
+    "source": "issue #43 (share an example config for your app/editor)"
+  },
+  {
+    "id": "APP-018",
+    "family": "app-profile",
+    "title": "Add a tested example config for Konsole",
+    "value": "Injection and hotkey behaviour differ per application. A config for Konsole that someone actually ran saves the next user the debugging.",
+    "risk": "L1",
+    "minutes": 30,
+    "skills": [
+      "toml"
+    ],
+    "cloud_agent_ready": false,
+    "requires": {
+      "app": "Konsole"
+    },
+    "allowed_paths": [
+      "examples/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "dictation observed working in Konsole with this config",
+      "any conflict with the app's own shortcuts"
+    ],
+    "state": "open",
+    "source": "issue #43 (share an example config for your app/editor)"
+  },
+  {
+    "id": "I18N-AR-001",
+    "family": "localization",
+    "title": "Translate the README lede and Quick Start into Arabic (ar)",
+    "value": "Arabic speakers currently meet an English-only front door. The lede through Quick Start is the part that decides whether someone installs at all.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "README.ar.md",
+      "README.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contributors_wall.py -q"
+    ],
+    "evidence": [
+      "that you speak the language \u2014 machine output alone is not the contribution"
+    ],
+    "state": "open",
+    "source": "issue #18 (translate the README)",
+    "skills": []
+  },
+  {
+    "id": "I18N-BN-001",
+    "family": "localization",
+    "title": "Translate the README lede and Quick Start into Bengali (bn)",
+    "value": "Bengali speakers currently meet an English-only front door. The lede through Quick Start is the part that decides whether someone installs at all.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "README.bn.md",
+      "README.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contributors_wall.py -q"
+    ],
+    "evidence": [
+      "that you speak the language \u2014 machine output alone is not the contribution"
+    ],
+    "state": "open",
+    "source": "issue #18 (translate the README)",
+    "skills": []
+  },
+  {
+    "id": "I18N-ZHCN-001",
+    "family": "localization",
+    "title": "Translate the README lede and Quick Start into Chinese, Simplified (zh-CN)",
+    "value": "Chinese, Simplified speakers currently meet an English-only front door. The lede through Quick Start is the part that decides whether someone installs at all.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "README.zh-CN.md",
+      "README.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contributors_wall.py -q"
+    ],
+    "evidence": [
+      "that you speak the language \u2014 machine output alone is not the contribution"
+    ],
+    "state": "open",
+    "source": "issue #18 (translate the README)",
+    "skills": []
+  },
+  {
+    "id": "I18N-ZHTW-001",
+    "family": "localization",
+    "title": "Translate the README lede and Quick Start into Chinese, Traditional (zh-TW)",
+    "value": "Chinese, Traditional speakers currently meet an English-only front door. The lede through Quick Start is the part that decides whether someone installs at all.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "README.zh-TW.md",
+      "README.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contributors_wall.py -q"
+    ],
+    "evidence": [
+      "that you speak the language \u2014 machine output alone is not the contribution"
+    ],
+    "state": "open",
+    "source": "issue #18 (translate the README)",
+    "skills": []
+  },
+  {
+    "id": "I18N-CS-001",
+    "family": "localization",
+    "title": "Translate the README lede and Quick Start into Czech (cs)",
+    "value": "Czech speakers currently meet an English-only front door. The lede through Quick Start is the part that decides whether someone installs at all.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "README.cs.md",
+      "README.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contributors_wall.py -q"
+    ],
+    "evidence": [
+      "that you speak the language \u2014 machine output alone is not the contribution"
+    ],
+    "state": "open",
+    "source": "issue #18 (translate the README)",
+    "skills": []
+  },
+  {
+    "id": "I18N-NL-001",
+    "family": "localization",
+    "title": "Translate the README lede and Quick Start into Dutch (nl)",
+    "value": "Dutch speakers currently meet an English-only front door. The lede through Quick Start is the part that decides whether someone installs at all.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "README.nl.md",
+      "README.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contributors_wall.py -q"
+    ],
+    "evidence": [
+      "that you speak the language \u2014 machine output alone is not the contribution"
+    ],
+    "state": "open",
+    "source": "issue #18 (translate the README)",
+    "skills": []
+  },
+  {
+    "id": "I18N-FR-001",
+    "family": "localization",
+    "title": "Translate the README lede and Quick Start into French (fr)",
+    "value": "French speakers currently meet an English-only front door. The lede through Quick Start is the part that decides whether someone installs at all.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "README.fr.md",
+      "README.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contributors_wall.py -q"
+    ],
+    "evidence": [
+      "that you speak the language \u2014 machine output alone is not the contribution"
+    ],
+    "state": "open",
+    "source": "issue #18 (translate the README)",
+    "skills": []
+  },
+  {
+    "id": "I18N-DE-001",
+    "family": "localization",
+    "title": "Translate the README lede and Quick Start into German (de)",
+    "value": "German speakers currently meet an English-only front door. The lede through Quick Start is the part that decides whether someone installs at all.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "README.de.md",
+      "README.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contributors_wall.py -q"
+    ],
+    "evidence": [
+      "that you speak the language \u2014 machine output alone is not the contribution"
+    ],
+    "state": "open",
+    "source": "issue #18 (translate the README)",
+    "skills": []
+  },
+  {
+    "id": "I18N-EL-001",
+    "family": "localization",
+    "title": "Translate the README lede and Quick Start into Greek (el)",
+    "value": "Greek speakers currently meet an English-only front door. The lede through Quick Start is the part that decides whether someone installs at all.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "README.el.md",
+      "README.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contributors_wall.py -q"
+    ],
+    "evidence": [
+      "that you speak the language \u2014 machine output alone is not the contribution"
+    ],
+    "state": "open",
+    "source": "issue #18 (translate the README)",
+    "skills": []
+  },
+  {
+    "id": "I18N-HE-001",
+    "family": "localization",
+    "title": "Translate the README lede and Quick Start into Hebrew (he)",
+    "value": "Hebrew speakers currently meet an English-only front door. The lede through Quick Start is the part that decides whether someone installs at all.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "README.he.md",
+      "README.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contributors_wall.py -q"
+    ],
+    "evidence": [
+      "that you speak the language \u2014 machine output alone is not the contribution"
+    ],
+    "state": "open",
+    "source": "issue #18 (translate the README)",
+    "skills": []
+  },
+  {
+    "id": "I18N-ID-001",
+    "family": "localization",
+    "title": "Translate the README lede and Quick Start into Indonesian (id)",
+    "value": "Indonesian speakers currently meet an English-only front door. The lede through Quick Start is the part that decides whether someone installs at all.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "README.id.md",
+      "README.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contributors_wall.py -q"
+    ],
+    "evidence": [
+      "that you speak the language \u2014 machine output alone is not the contribution"
+    ],
+    "state": "open",
+    "source": "issue #18 (translate the README)",
+    "skills": []
+  },
+  {
+    "id": "I18N-IT-001",
+    "family": "localization",
+    "title": "Translate the README lede and Quick Start into Italian (it)",
+    "value": "Italian speakers currently meet an English-only front door. The lede through Quick Start is the part that decides whether someone installs at all.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "README.it.md",
+      "README.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contributors_wall.py -q"
+    ],
+    "evidence": [
+      "that you speak the language \u2014 machine output alone is not the contribution"
+    ],
+    "state": "open",
+    "source": "issue #18 (translate the README)",
+    "skills": []
+  },
+  {
+    "id": "I18N-JA-001",
+    "family": "localization",
+    "title": "Translate the README lede and Quick Start into Japanese (ja)",
+    "value": "Japanese speakers currently meet an English-only front door. The lede through Quick Start is the part that decides whether someone installs at all.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "README.ja.md",
+      "README.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contributors_wall.py -q"
+    ],
+    "evidence": [
+      "that you speak the language \u2014 machine output alone is not the contribution"
+    ],
+    "state": "open",
+    "source": "issue #18 (translate the README)",
+    "skills": []
+  },
+  {
+    "id": "I18N-KO-001",
+    "family": "localization",
+    "title": "Translate the README lede and Quick Start into Korean (ko)",
+    "value": "Korean speakers currently meet an English-only front door. The lede through Quick Start is the part that decides whether someone installs at all.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "README.ko.md",
+      "README.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contributors_wall.py -q"
+    ],
+    "evidence": [
+      "that you speak the language \u2014 machine output alone is not the contribution"
+    ],
+    "state": "open",
+    "source": "issue #18 (translate the README)",
+    "skills": []
+  },
+  {
+    "id": "I18N-FA-001",
+    "family": "localization",
+    "title": "Translate the README lede and Quick Start into Persian (fa)",
+    "value": "Persian speakers currently meet an English-only front door. The lede through Quick Start is the part that decides whether someone installs at all.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "README.fa.md",
+      "README.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contributors_wall.py -q"
+    ],
+    "evidence": [
+      "that you speak the language \u2014 machine output alone is not the contribution"
+    ],
+    "state": "open",
+    "source": "issue #18 (translate the README)",
+    "skills": []
+  },
+  {
+    "id": "I18N-PL-001",
+    "family": "localization",
+    "title": "Translate the README lede and Quick Start into Polish (pl)",
+    "value": "Polish speakers currently meet an English-only front door. The lede through Quick Start is the part that decides whether someone installs at all.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "README.pl.md",
+      "README.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contributors_wall.py -q"
+    ],
+    "evidence": [
+      "that you speak the language \u2014 machine output alone is not the contribution"
+    ],
+    "state": "open",
+    "source": "issue #18 (translate the README)",
+    "skills": []
+  },
+  {
+    "id": "I18N-PTBR-001",
+    "family": "localization",
+    "title": "Translate the README lede and Quick Start into Portuguese, Brazilian (pt-BR)",
+    "value": "Portuguese, Brazilian speakers currently meet an English-only front door. The lede through Quick Start is the part that decides whether someone installs at all.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "README.pt-BR.md",
+      "README.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contributors_wall.py -q"
+    ],
+    "evidence": [
+      "that you speak the language \u2014 machine output alone is not the contribution"
+    ],
+    "state": "open",
+    "source": "issue #18 (translate the README)",
+    "skills": []
+  },
+  {
+    "id": "I18N-RU-001",
+    "family": "localization",
+    "title": "Translate the README lede and Quick Start into Russian (ru)",
+    "value": "Russian speakers currently meet an English-only front door. The lede through Quick Start is the part that decides whether someone installs at all.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "README.ru.md",
+      "README.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contributors_wall.py -q"
+    ],
+    "evidence": [
+      "that you speak the language \u2014 machine output alone is not the contribution"
+    ],
+    "state": "open",
+    "source": "issue #18 (translate the README)",
+    "skills": []
+  },
+  {
+    "id": "I18N-ES-001",
+    "family": "localization",
+    "title": "Translate the README lede and Quick Start into Spanish (es)",
+    "value": "Spanish speakers currently meet an English-only front door. The lede through Quick Start is the part that decides whether someone installs at all.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "README.es.md",
+      "README.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contributors_wall.py -q"
+    ],
+    "evidence": [
+      "that you speak the language \u2014 machine output alone is not the contribution"
+    ],
+    "state": "open",
+    "source": "issue #18 (translate the README)",
+    "skills": []
+  },
+  {
+    "id": "I18N-SV-001",
+    "family": "localization",
+    "title": "Translate the README lede and Quick Start into Swedish (sv)",
+    "value": "Swedish speakers currently meet an English-only front door. The lede through Quick Start is the part that decides whether someone installs at all.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "README.sv.md",
+      "README.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contributors_wall.py -q"
+    ],
+    "evidence": [
+      "that you speak the language \u2014 machine output alone is not the contribution"
+    ],
+    "state": "open",
+    "source": "issue #18 (translate the README)",
+    "skills": []
+  },
+  {
+    "id": "I18N-TR-001",
+    "family": "localization",
+    "title": "Translate the README lede and Quick Start into Turkish (tr)",
+    "value": "Turkish speakers currently meet an English-only front door. The lede through Quick Start is the part that decides whether someone installs at all.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "README.tr.md",
+      "README.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contributors_wall.py -q"
+    ],
+    "evidence": [
+      "that you speak the language \u2014 machine output alone is not the contribution"
+    ],
+    "state": "open",
+    "source": "issue #18 (translate the README)",
+    "skills": []
+  },
+  {
+    "id": "I18N-UK-001",
+    "family": "localization",
+    "title": "Translate the README lede and Quick Start into Ukrainian (uk)",
+    "value": "Ukrainian speakers currently meet an English-only front door. The lede through Quick Start is the part that decides whether someone installs at all.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "README.uk.md",
+      "README.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contributors_wall.py -q"
+    ],
+    "evidence": [
+      "that you speak the language \u2014 machine output alone is not the contribution"
+    ],
+    "state": "open",
+    "source": "issue #18 (translate the README)",
+    "skills": []
+  },
+  {
+    "id": "I18N-VI-001",
+    "family": "localization",
+    "title": "Translate the README lede and Quick Start into Vietnamese (vi)",
+    "value": "Vietnamese speakers currently meet an English-only front door. The lede through Quick Start is the part that decides whether someone installs at all.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "README.vi.md",
+      "README.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contributors_wall.py -q"
+    ],
+    "evidence": [
+      "that you speak the language \u2014 machine output alone is not the contribution"
+    ],
+    "state": "open",
+    "source": "issue #18 (translate the README)",
+    "skills": []
+  },
+  {
+    "id": "VEC-SAFETY-001",
+    "family": "contract-vector",
+    "title": "Add a semantic contract vector: negation is never dropped",
+    "value": "The parity vectors can all pass while meaning is quietly lost. Human-authored edge cases are the only thing that catches that.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "contract/**",
+      "tests/test_contract_vectors.py"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contract_vectors.py -q"
+    ],
+    "evidence": [
+      "a one-line rationale for why this distinction must be preserved"
+    ],
+    "state": "open",
+    "source": "contract/semantic (design review #98)",
+    "skills": []
+  },
+  {
+    "id": "VEC-SAFETY-002",
+    "family": "contract-vector",
+    "title": "Add a semantic contract vector: hedging and uncertainty survive",
+    "value": "The parity vectors can all pass while meaning is quietly lost. Human-authored edge cases are the only thing that catches that.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "contract/**",
+      "tests/test_contract_vectors.py"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contract_vectors.py -q"
+    ],
+    "evidence": [
+      "a one-line rationale for why this distinction must be preserved"
+    ],
+    "state": "open",
+    "source": "contract/semantic (design review #98)",
+    "skills": []
+  },
+  {
+    "id": "VEC-DYSFLUENCY-003",
+    "family": "contract-vector",
+    "title": "Add a semantic contract vector: self-correction rolls back the right span",
+    "value": "The parity vectors can all pass while meaning is quietly lost. Human-authored edge cases are the only thing that catches that.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "contract/**",
+      "tests/test_contract_vectors.py"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contract_vectors.py -q"
+    ],
+    "evidence": [
+      "a one-line rationale for why this distinction must be preserved"
+    ],
+    "state": "open",
+    "source": "contract/semantic (design review #98)",
+    "skills": []
+  },
+  {
+    "id": "VEC-DYSFLUENCY-004",
+    "family": "contract-vector",
+    "title": "Add a semantic contract vector: a stutter is not treated as a repeat word",
+    "value": "The parity vectors can all pass while meaning is quietly lost. Human-authored edge cases are the only thing that catches that.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "contract/**",
+      "tests/test_contract_vectors.py"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contract_vectors.py -q"
+    ],
+    "evidence": [
+      "a one-line rationale for why this distinction must be preserved"
+    ],
+    "state": "open",
+    "source": "contract/semantic (design review #98)",
+    "skills": []
+  },
+  {
+    "id": "VEC-DYSFLUENCY-005",
+    "family": "contract-vector",
+    "title": "Add a semantic contract vector: filler removal keeps a meaningful 'like'",
+    "value": "The parity vectors can all pass while meaning is quietly lost. Human-authored edge cases are the only thing that catches that.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "contract/**",
+      "tests/test_contract_vectors.py"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contract_vectors.py -q"
+    ],
+    "evidence": [
+      "a one-line rationale for why this distinction must be preserved"
+    ],
+    "state": "open",
+    "source": "contract/semantic (design review #98)",
+    "skills": []
+  },
+  {
+    "id": "VEC-BOUNDARY-006",
+    "family": "contract-vector",
+    "title": "Add a semantic contract vector: 'undo' as dictated text, not a command",
+    "value": "The parity vectors can all pass while meaning is quietly lost. Human-authored edge cases are the only thing that catches that.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "contract/**",
+      "tests/test_contract_vectors.py"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contract_vectors.py -q"
+    ],
+    "evidence": [
+      "a one-line rationale for why this distinction must be preserved"
+    ],
+    "state": "open",
+    "source": "contract/semantic (design review #98)",
+    "skills": []
+  },
+  {
+    "id": "VEC-BOUNDARY-007",
+    "family": "contract-vector",
+    "title": "Add a semantic contract vector: 'new line' inside a quoted string",
+    "value": "The parity vectors can all pass while meaning is quietly lost. Human-authored edge cases are the only thing that catches that.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "contract/**",
+      "tests/test_contract_vectors.py"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contract_vectors.py -q"
+    ],
+    "evidence": [
+      "a one-line rationale for why this distinction must be preserved"
+    ],
+    "state": "open",
+    "source": "contract/semantic (design review #98)",
+    "skills": []
+  },
+  {
+    "id": "VEC-BOUNDARY-008",
+    "family": "contract-vector",
+    "title": "Add a semantic contract vector: a command phrase spoken mid-sentence",
+    "value": "The parity vectors can all pass while meaning is quietly lost. Human-authored edge cases are the only thing that catches that.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "contract/**",
+      "tests/test_contract_vectors.py"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contract_vectors.py -q"
+    ],
+    "evidence": [
+      "a one-line rationale for why this distinction must be preserved"
+    ],
+    "state": "open",
+    "source": "contract/semantic (design review #98)",
+    "skills": []
+  },
+  {
+    "id": "VEC-UNICODE-009",
+    "family": "contract-vector",
+    "title": "Add a semantic contract vector: Unicode identifiers survive round-trip",
+    "value": "The parity vectors can all pass while meaning is quietly lost. Human-authored edge cases are the only thing that catches that.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "contract/**",
+      "tests/test_contract_vectors.py"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contract_vectors.py -q"
+    ],
+    "evidence": [
+      "a one-line rationale for why this distinction must be preserved"
+    ],
+    "state": "open",
+    "source": "contract/semantic (design review #98)",
+    "skills": []
+  },
+  {
+    "id": "VEC-UNICODE-010",
+    "family": "contract-vector",
+    "title": "Add a semantic contract vector: mixed-script text is not normalised away",
+    "value": "The parity vectors can all pass while meaning is quietly lost. Human-authored edge cases are the only thing that catches that.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "contract/**",
+      "tests/test_contract_vectors.py"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contract_vectors.py -q"
+    ],
+    "evidence": [
+      "a one-line rationale for why this distinction must be preserved"
+    ],
+    "state": "open",
+    "source": "contract/semantic (design review #98)",
+    "skills": []
+  },
+  {
+    "id": "VEC-NUMBERS-011",
+    "family": "contract-vector",
+    "title": "Add a semantic contract vector: dates keep their spoken order",
+    "value": "The parity vectors can all pass while meaning is quietly lost. Human-authored edge cases are the only thing that catches that.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "contract/**",
+      "tests/test_contract_vectors.py"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contract_vectors.py -q"
+    ],
+    "evidence": [
+      "a one-line rationale for why this distinction must be preserved"
+    ],
+    "state": "open",
+    "source": "contract/semantic (design review #98)",
+    "skills": []
+  },
+  {
+    "id": "VEC-NUMBERS-012",
+    "family": "contract-vector",
+    "title": "Add a semantic contract vector: units are not silently converted",
+    "value": "The parity vectors can all pass while meaning is quietly lost. Human-authored edge cases are the only thing that catches that.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "contract/**",
+      "tests/test_contract_vectors.py"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contract_vectors.py -q"
+    ],
+    "evidence": [
+      "a one-line rationale for why this distinction must be preserved"
+    ],
+    "state": "open",
+    "source": "contract/semantic (design review #98)",
+    "skills": []
+  },
+  {
+    "id": "VEC-NUMBERS-013",
+    "family": "contract-vector",
+    "title": "Add a semantic contract vector: a code identifier keeps its underscores",
+    "value": "The parity vectors can all pass while meaning is quietly lost. Human-authored edge cases are the only thing that catches that.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "contract/**",
+      "tests/test_contract_vectors.py"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contract_vectors.py -q"
+    ],
+    "evidence": [
+      "a one-line rationale for why this distinction must be preserved"
+    ],
+    "state": "open",
+    "source": "contract/semantic (design review #98)",
+    "skills": []
+  },
+  {
+    "id": "VEC-PUNCTUATION-014",
+    "family": "contract-vector",
+    "title": "Add a semantic contract vector: capitalisation of a proper noun",
+    "value": "The parity vectors can all pass while meaning is quietly lost. Human-authored edge cases are the only thing that catches that.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "contract/**",
+      "tests/test_contract_vectors.py"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contract_vectors.py -q"
+    ],
+    "evidence": [
+      "a one-line rationale for why this distinction must be preserved"
+    ],
+    "state": "open",
+    "source": "contract/semantic (design review #98)",
+    "skills": []
+  },
+  {
+    "id": "VEC-PUNCTUATION-015",
+    "family": "contract-vector",
+    "title": "Add a semantic contract vector: a sentence ending in an abbreviation",
+    "value": "The parity vectors can all pass while meaning is quietly lost. Human-authored edge cases are the only thing that catches that.",
+    "risk": "L0",
+    "minutes": 25,
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "contract/**",
+      "tests/test_contract_vectors.py"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_contract_vectors.py -q"
+    ],
+    "evidence": [
+      "a one-line rationale for why this distinction must be preserved"
+    ],
+    "state": "open",
+    "source": "contract/semantic (design review #98)",
+    "skills": []
+  },
+  {
+    "id": "MIC-001",
+    "family": "measurement",
+    "title": "Measure and report a USB headset with `yazses mic-level`",
+    "value": "The silence gate is the single most common reason dictation appears to do nothing. Real threshold values per microphone type turn that into a lookup.",
+    "risk": "L0",
+    "minutes": 15,
+    "cloud_agent_ready": false,
+    "requires": {
+      "hardware": "a USB headset"
+    },
+    "allowed_paths": [
+      "docs/known-good-microphones.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses mic-level` output, and the threshold you settled on",
+      "the room conditions you measured in"
+    ],
+    "state": "open",
+    "source": "issue #21 (add your microphone to the known-good list)",
+    "skills": []
+  },
+  {
+    "id": "MIC-002",
+    "family": "measurement",
+    "title": "Measure and report a laptop's built-in array with `yazses mic-level`",
+    "value": "The silence gate is the single most common reason dictation appears to do nothing. Real threshold values per microphone type turn that into a lookup.",
+    "risk": "L0",
+    "minutes": 15,
+    "cloud_agent_ready": false,
+    "requires": {
+      "hardware": "a laptop's built-in array"
+    },
+    "allowed_paths": [
+      "docs/known-good-microphones.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses mic-level` output, and the threshold you settled on",
+      "the room conditions you measured in"
+    ],
+    "state": "open",
+    "source": "issue #21 (add your microphone to the known-good list)",
+    "skills": []
+  },
+  {
+    "id": "MIC-003",
+    "family": "measurement",
+    "title": "Measure and report a USB condenser (Blue Yeti class) with `yazses mic-level`",
+    "value": "The silence gate is the single most common reason dictation appears to do nothing. Real threshold values per microphone type turn that into a lookup.",
+    "risk": "L0",
+    "minutes": 15,
+    "cloud_agent_ready": false,
+    "requires": {
+      "hardware": "a USB condenser (Blue Yeti class)"
+    },
+    "allowed_paths": [
+      "docs/known-good-microphones.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses mic-level` output, and the threshold you settled on",
+      "the room conditions you measured in"
+    ],
+    "state": "open",
+    "source": "issue #21 (add your microphone to the known-good list)",
+    "skills": []
+  },
+  {
+    "id": "MIC-004",
+    "family": "measurement",
+    "title": "Measure and report a Bluetooth headset with `yazses mic-level`",
+    "value": "The silence gate is the single most common reason dictation appears to do nothing. Real threshold values per microphone type turn that into a lookup.",
+    "risk": "L0",
+    "minutes": 15,
+    "cloud_agent_ready": false,
+    "requires": {
+      "hardware": "a Bluetooth headset"
+    },
+    "allowed_paths": [
+      "docs/known-good-microphones.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses mic-level` output, and the threshold you settled on",
+      "the room conditions you measured in"
+    ],
+    "state": "open",
+    "source": "issue #21 (add your microphone to the known-good list)",
+    "skills": []
+  },
+  {
+    "id": "MIC-005",
+    "family": "measurement",
+    "title": "Measure and report an XLR mic via an audio interface with `yazses mic-level`",
+    "value": "The silence gate is the single most common reason dictation appears to do nothing. Real threshold values per microphone type turn that into a lookup.",
+    "risk": "L0",
+    "minutes": 15,
+    "cloud_agent_ready": false,
+    "requires": {
+      "hardware": "an XLR mic via an audio interface"
+    },
+    "allowed_paths": [
+      "docs/known-good-microphones.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses mic-level` output, and the threshold you settled on",
+      "the room conditions you measured in"
+    ],
+    "state": "open",
+    "source": "issue #21 (add your microphone to the known-good list)",
+    "skills": []
+  },
+  {
+    "id": "MIC-006",
+    "family": "measurement",
+    "title": "Measure and report AirPods or similar earbuds with `yazses mic-level`",
+    "value": "The silence gate is the single most common reason dictation appears to do nothing. Real threshold values per microphone type turn that into a lookup.",
+    "risk": "L0",
+    "minutes": 15,
+    "cloud_agent_ready": false,
+    "requires": {
+      "hardware": "AirPods or similar earbuds"
+    },
+    "allowed_paths": [
+      "docs/known-good-microphones.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses mic-level` output, and the threshold you settled on",
+      "the room conditions you measured in"
+    ],
+    "state": "open",
+    "source": "issue #21 (add your microphone to the known-good list)",
+    "skills": []
+  },
+  {
+    "id": "MIC-007",
+    "family": "measurement",
+    "title": "Measure and report a webcam's built-in mic with `yazses mic-level`",
+    "value": "The silence gate is the single most common reason dictation appears to do nothing. Real threshold values per microphone type turn that into a lookup.",
+    "risk": "L0",
+    "minutes": 15,
+    "cloud_agent_ready": false,
+    "requires": {
+      "hardware": "a webcam's built-in mic"
+    },
+    "allowed_paths": [
+      "docs/known-good-microphones.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses mic-level` output, and the threshold you settled on",
+      "the room conditions you measured in"
+    ],
+    "state": "open",
+    "source": "issue #21 (add your microphone to the known-good list)",
+    "skills": []
+  },
+  {
+    "id": "MIC-008",
+    "family": "measurement",
+    "title": "Measure and report a conference speakerphone with `yazses mic-level`",
+    "value": "The silence gate is the single most common reason dictation appears to do nothing. Real threshold values per microphone type turn that into a lookup.",
+    "risk": "L0",
+    "minutes": 15,
+    "cloud_agent_ready": false,
+    "requires": {
+      "hardware": "a conference speakerphone"
+    },
+    "allowed_paths": [
+      "docs/known-good-microphones.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses mic-level` output, and the threshold you settled on",
+      "the room conditions you measured in"
+    ],
+    "state": "open",
+    "source": "issue #21 (add your microphone to the known-good list)",
+    "skills": []
+  },
+  {
+    "id": "MIC-009",
+    "family": "measurement",
+    "title": "Measure and report a gaming headset with `yazses mic-level`",
+    "value": "The silence gate is the single most common reason dictation appears to do nothing. Real threshold values per microphone type turn that into a lookup.",
+    "risk": "L0",
+    "minutes": 15,
+    "cloud_agent_ready": false,
+    "requires": {
+      "hardware": "a gaming headset"
+    },
+    "allowed_paths": [
+      "docs/known-good-microphones.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses mic-level` output, and the threshold you settled on",
+      "the room conditions you measured in"
+    ],
+    "state": "open",
+    "source": "issue #21 (add your microphone to the known-good list)",
+    "skills": []
+  },
+  {
+    "id": "MIC-010",
+    "family": "measurement",
+    "title": "Measure and report a lavalier/clip-on mic with `yazses mic-level`",
+    "value": "The silence gate is the single most common reason dictation appears to do nothing. Real threshold values per microphone type turn that into a lookup.",
+    "risk": "L0",
+    "minutes": 15,
+    "cloud_agent_ready": false,
+    "requires": {
+      "hardware": "a lavalier/clip-on mic"
+    },
+    "allowed_paths": [
+      "docs/known-good-microphones.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses mic-level` output, and the threshold you settled on",
+      "the room conditions you measured in"
+    ],
+    "state": "open",
+    "source": "issue #21 (add your microphone to the known-good list)",
+    "skills": []
+  },
+  {
+    "id": "MIC-011",
+    "family": "measurement",
+    "title": "Measure and report a USB-C monitor's built-in mic with `yazses mic-level`",
+    "value": "The silence gate is the single most common reason dictation appears to do nothing. Real threshold values per microphone type turn that into a lookup.",
+    "risk": "L0",
+    "minutes": 15,
+    "cloud_agent_ready": false,
+    "requires": {
+      "hardware": "a USB-C monitor's built-in mic"
+    },
+    "allowed_paths": [
+      "docs/known-good-microphones.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses mic-level` output, and the threshold you settled on",
+      "the room conditions you measured in"
+    ],
+    "state": "open",
+    "source": "issue #21 (add your microphone to the known-good list)",
+    "skills": []
+  },
+  {
+    "id": "MIC-012",
+    "family": "measurement",
+    "title": "Measure and report a dock or hub mic passthrough with `yazses mic-level`",
+    "value": "The silence gate is the single most common reason dictation appears to do nothing. Real threshold values per microphone type turn that into a lookup.",
+    "risk": "L0",
+    "minutes": 15,
+    "cloud_agent_ready": false,
+    "requires": {
+      "hardware": "a dock or hub mic passthrough"
+    },
+    "allowed_paths": [
+      "docs/known-good-microphones.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "`yazses mic-level` output, and the threshold you settled on",
+      "the room conditions you measured in"
+    ],
+    "state": "open",
+    "source": "issue #21 (add your microphone to the known-good list)",
+    "skills": []
+  },
+  {
+    "id": "PKG-001",
+    "family": "packaging",
+    "title": "Verify the Snap install path on x86-64",
+    "value": "A broken install channel loses every user who tries it, silently. Verifying one channel end to end is cheap and nobody is doing it per release.",
+    "risk": "L0",
+    "minutes": 20,
+    "cloud_agent_ready": false,
+    "requires": {
+      "arch": "x86-64",
+      "channel": "Snap"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md",
+      "docs/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the exact install command and the version it produced",
+      "whether `yazses doctor` passed straight afterwards"
+    ],
+    "state": "open",
+    "source": "packaging channels in README",
+    "skills": []
+  },
+  {
+    "id": "PKG-002",
+    "family": "packaging",
+    "title": "Verify the Snap install path on arm64",
+    "value": "A broken install channel loses every user who tries it, silently. Verifying one channel end to end is cheap and nobody is doing it per release.",
+    "risk": "L0",
+    "minutes": 20,
+    "cloud_agent_ready": false,
+    "requires": {
+      "arch": "arm64",
+      "channel": "Snap"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md",
+      "docs/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the exact install command and the version it produced",
+      "whether `yazses doctor` passed straight afterwards"
+    ],
+    "state": "open",
+    "source": "packaging channels in README",
+    "skills": []
+  },
+  {
+    "id": "PKG-003",
+    "family": "packaging",
+    "title": "Verify the PyPI via pipx install path on x86-64",
+    "value": "A broken install channel loses every user who tries it, silently. Verifying one channel end to end is cheap and nobody is doing it per release.",
+    "risk": "L0",
+    "minutes": 20,
+    "cloud_agent_ready": false,
+    "requires": {
+      "arch": "x86-64",
+      "channel": "PyPI via pipx"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md",
+      "docs/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the exact install command and the version it produced",
+      "whether `yazses doctor` passed straight afterwards"
+    ],
+    "state": "open",
+    "source": "packaging channels in README",
+    "skills": []
+  },
+  {
+    "id": "PKG-004",
+    "family": "packaging",
+    "title": "Verify the PyPI via pipx install path on arm64",
+    "value": "A broken install channel loses every user who tries it, silently. Verifying one channel end to end is cheap and nobody is doing it per release.",
+    "risk": "L0",
+    "minutes": 20,
+    "cloud_agent_ready": false,
+    "requires": {
+      "arch": "arm64",
+      "channel": "PyPI via pipx"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md",
+      "docs/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the exact install command and the version it produced",
+      "whether `yazses doctor` passed straight afterwards"
+    ],
+    "state": "open",
+    "source": "packaging channels in README",
+    "skills": []
+  },
+  {
+    "id": "PKG-005",
+    "family": "packaging",
+    "title": "Verify the APT repo install path on x86-64",
+    "value": "A broken install channel loses every user who tries it, silently. Verifying one channel end to end is cheap and nobody is doing it per release.",
+    "risk": "L0",
+    "minutes": 20,
+    "cloud_agent_ready": false,
+    "requires": {
+      "arch": "x86-64",
+      "channel": "APT repo"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md",
+      "docs/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the exact install command and the version it produced",
+      "whether `yazses doctor` passed straight afterwards"
+    ],
+    "state": "open",
+    "source": "packaging channels in README",
+    "skills": []
+  },
+  {
+    "id": "PKG-006",
+    "family": "packaging",
+    "title": "Verify the winget install path on x86-64",
+    "value": "A broken install channel loses every user who tries it, silently. Verifying one channel end to end is cheap and nobody is doing it per release.",
+    "risk": "L0",
+    "minutes": 20,
+    "cloud_agent_ready": false,
+    "requires": {
+      "arch": "x86-64",
+      "channel": "winget"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md",
+      "docs/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the exact install command and the version it produced",
+      "whether `yazses doctor` passed straight afterwards"
+    ],
+    "state": "open",
+    "source": "packaging channels in README",
+    "skills": []
+  },
+  {
+    "id": "PKG-007",
+    "family": "packaging",
+    "title": "Verify the macOS .dmg install path on Apple silicon",
+    "value": "A broken install channel loses every user who tries it, silently. Verifying one channel end to end is cheap and nobody is doing it per release.",
+    "risk": "L0",
+    "minutes": 20,
+    "cloud_agent_ready": false,
+    "requires": {
+      "arch": "Apple silicon",
+      "channel": "macOS .dmg"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md",
+      "docs/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the exact install command and the version it produced",
+      "whether `yazses doctor` passed straight afterwards"
+    ],
+    "state": "open",
+    "source": "packaging channels in README",
+    "skills": []
+  },
+  {
+    "id": "PKG-008",
+    "family": "packaging",
+    "title": "Verify the macOS .dmg install path on Intel",
+    "value": "A broken install channel loses every user who tries it, silently. Verifying one channel end to end is cheap and nobody is doing it per release.",
+    "risk": "L0",
+    "minutes": 20,
+    "cloud_agent_ready": false,
+    "requires": {
+      "arch": "Intel",
+      "channel": "macOS .dmg"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md",
+      "docs/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the exact install command and the version it produced",
+      "whether `yazses doctor` passed straight afterwards"
+    ],
+    "state": "open",
+    "source": "packaging channels in README",
+    "skills": []
+  },
+  {
+    "id": "PKG-009",
+    "family": "packaging",
+    "title": "Verify the Windows .exe install path on x86-64",
+    "value": "A broken install channel loses every user who tries it, silently. Verifying one channel end to end is cheap and nobody is doing it per release.",
+    "risk": "L0",
+    "minutes": 20,
+    "cloud_agent_ready": false,
+    "requires": {
+      "arch": "x86-64",
+      "channel": "Windows .exe"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md",
+      "docs/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the exact install command and the version it produced",
+      "whether `yazses doctor` passed straight afterwards"
+    ],
+    "state": "open",
+    "source": "packaging channels in README",
+    "skills": []
+  },
+  {
+    "id": "PKG-010",
+    "family": "packaging",
+    "title": "Verify the uv tool install install path on x86-64",
+    "value": "A broken install channel loses every user who tries it, silently. Verifying one channel end to end is cheap and nobody is doing it per release.",
+    "risk": "L0",
+    "minutes": 20,
+    "cloud_agent_ready": false,
+    "requires": {
+      "arch": "x86-64",
+      "channel": "uv tool install"
+    },
+    "allowed_paths": [
+      "SHOWCASE.md",
+      "docs/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the exact install command and the version it produced",
+      "whether `yazses doctor` passed straight afterwards"
+    ],
+    "state": "open",
+    "source": "packaging channels in README",
+    "skills": []
+  },
+  {
+    "id": "DOC-001",
+    "family": "docs",
+    "title": "Write a reproducible troubleshooting page: recovering microphone permissions on macOS",
+    "value": "Support questions repeat. A page with exact commands ends the repetition.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "docs/**",
+      "mkdocs.yml"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_docs_frontmatter.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the commands run on your own machine, with their real output"
+    ],
+    "state": "open",
+    "source": "docs gaps and repeated support questions",
+    "skills": []
+  },
+  {
+    "id": "DOC-002",
+    "family": "docs",
+    "title": "Write a reproducible troubleshooting page: recovering input permissions on Wayland after a distro upgrade",
+    "value": "Support questions repeat. A page with exact commands ends the repetition.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "docs/**",
+      "mkdocs.yml"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_docs_frontmatter.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the commands run on your own machine, with their real output"
+    ],
+    "state": "open",
+    "source": "docs gaps and repeated support questions",
+    "skills": []
+  },
+  {
+    "id": "DOC-003",
+    "family": "docs",
+    "title": "Write a reproducible troubleshooting page: choosing a Whisper model for a low-RAM machine",
+    "value": "Support questions repeat. A page with exact commands ends the repetition.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "docs/**",
+      "mkdocs.yml"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_docs_frontmatter.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the commands run on your own machine, with their real output"
+    ],
+    "state": "open",
+    "source": "docs gaps and repeated support questions",
+    "skills": []
+  },
+  {
+    "id": "DOC-004",
+    "family": "docs",
+    "title": "Write a reproducible troubleshooting page: running YazSes fully air-gapped, including model download",
+    "value": "Support questions repeat. A page with exact commands ends the repetition.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "docs/**",
+      "mkdocs.yml"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_docs_frontmatter.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the commands run on your own machine, with their real output"
+    ],
+    "state": "open",
+    "source": "docs gaps and repeated support questions",
+    "skills": []
+  },
+  {
+    "id": "DOC-005",
+    "family": "docs",
+    "title": "Write a reproducible troubleshooting page: using YazSes over Remote-SSH in VS Code",
+    "value": "Support questions repeat. A page with exact commands ends the repetition.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "docs/**",
+      "mkdocs.yml"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_docs_frontmatter.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the commands run on your own machine, with their real output"
+    ],
+    "state": "open",
+    "source": "docs gaps and repeated support questions",
+    "skills": []
+  },
+  {
+    "id": "DOC-006",
+    "family": "docs",
+    "title": "Write a reproducible troubleshooting page: what to do when dictation types into the wrong window",
+    "value": "Support questions repeat. A page with exact commands ends the repetition.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "docs/**",
+      "mkdocs.yml"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_docs_frontmatter.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the commands run on your own machine, with their real output"
+    ],
+    "state": "open",
+    "source": "docs gaps and repeated support questions",
+    "skills": []
+  },
+  {
+    "id": "DOC-007",
+    "family": "docs",
+    "title": "Write a reproducible troubleshooting page: diagnosing 'Silent audio -- discarding' end to end",
+    "value": "Support questions repeat. A page with exact commands ends the repetition.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "docs/**",
+      "mkdocs.yml"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_docs_frontmatter.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the commands run on your own machine, with their real output"
+    ],
+    "state": "open",
+    "source": "docs gaps and repeated support questions",
+    "skills": []
+  },
+  {
+    "id": "DOC-008",
+    "family": "docs",
+    "title": "Write a reproducible troubleshooting page: running two audio devices without the daemon switching",
+    "value": "Support questions repeat. A page with exact commands ends the repetition.",
+    "risk": "L1",
+    "minutes": 45,
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "docs/**",
+      "mkdocs.yml"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_docs_frontmatter.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the commands run on your own machine, with their real output"
+    ],
+    "state": "open",
+    "source": "docs gaps and repeated support questions",
+    "skills": []
+  },
+  {
+    "id": "QA-001",
+    "family": "qa-fixture",
+    "title": "Turn into a minimal failing test: streaming character duplication (#153)",
+    "value": "A reproducer is worth more than a report. The product bug may stay unfixed so long as the test names it.",
+    "risk": "L2",
+    "minutes": 60,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "tests/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "state": "open",
+    "source": "open bug reports",
+    "evidence": []
+  },
+  {
+    "id": "QA-002",
+    "family": "qa-fixture",
+    "title": "Turn into a minimal failing test: a config file that crashes the loader",
+    "value": "A reproducer is worth more than a report. The product bug may stay unfixed so long as the test names it.",
+    "risk": "L2",
+    "minutes": 60,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "tests/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "state": "open",
+    "source": "open bug reports",
+    "evidence": []
+  },
+  {
+    "id": "QA-003",
+    "family": "qa-fixture",
+    "title": "Turn into a minimal failing test: a voice command grammar that matches a suffix it should not",
+    "value": "A reproducer is worth more than a report. The product bug may stay unfixed so long as the test names it.",
+    "risk": "L2",
+    "minutes": 60,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "tests/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "state": "open",
+    "source": "open bug reports",
+    "evidence": []
+  },
+  {
+    "id": "QA-004",
+    "family": "qa-fixture",
+    "title": "Turn into a minimal failing test: an injection backend timing out on long text",
+    "value": "A reproducer is worth more than a report. The product bug may stay unfixed so long as the test names it.",
+    "risk": "L2",
+    "minutes": 60,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "tests/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "state": "open",
+    "source": "open bug reports",
+    "evidence": []
+  },
+  {
+    "id": "QA-005",
+    "family": "qa-fixture",
+    "title": "Turn into a minimal failing test: a device change mid-recording",
+    "value": "A reproducer is worth more than a report. The product bug may stay unfixed so long as the test names it.",
+    "risk": "L2",
+    "minutes": 60,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "tests/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "state": "open",
+    "source": "open bug reports",
+    "evidence": []
+  },
+  {
+    "id": "SEC-001",
+    "family": "security-privacy",
+    "title": "Add a redaction test for home paths in `yazses report` output",
+    "value": "Offline-first is the product. A test is the only thing that keeps it true after the next refactor.",
+    "risk": "L1",
+    "minutes": 40,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "tests/**",
+      "src/yazses/system/**",
+      "docs/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "state": "open",
+    "source": "ADR-011 privacy boundary",
+    "evidence": []
+  },
+  {
+    "id": "SEC-002",
+    "family": "security-privacy",
+    "title": "Add a test that no log line can contain transcribed text",
+    "value": "Offline-first is the product. A test is the only thing that keeps it true after the next refactor.",
+    "risk": "L1",
+    "minutes": 40,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "tests/**",
+      "src/yazses/system/**",
+      "docs/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "state": "open",
+    "source": "ADR-011 privacy boundary",
+    "evidence": []
+  },
+  {
+    "id": "SEC-003",
+    "family": "security-privacy",
+    "title": "Add a privacy regression test that the learning corpus stays encrypted at rest",
+    "value": "Offline-first is the product. A test is the only thing that keeps it true after the next refactor.",
+    "risk": "L2",
+    "minutes": 60,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "tests/**",
+      "src/yazses/system/**",
+      "docs/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "state": "open",
+    "source": "ADR-011 privacy boundary",
+    "evidence": []
+  },
+  {
+    "id": "SEC-004",
+    "family": "security-privacy",
+    "title": "Document exactly which files leave the machine on `yazses report` (none)",
+    "value": "Offline-first is the product. A test is the only thing that keeps it true after the next refactor.",
+    "risk": "L1",
+    "minutes": 30,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "tests/**",
+      "src/yazses/system/**",
+      "docs/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "state": "open",
+    "source": "ADR-011 privacy boundary",
+    "evidence": []
+  },
+  {
+    "id": "SEC-005",
+    "family": "security-privacy",
+    "title": "Add fuzz seeds for the voice-command grammar parser",
+    "value": "Offline-first is the product. A test is the only thing that keeps it true after the next refactor.",
+    "risk": "L2",
+    "minutes": 60,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "tests/**",
+      "src/yazses/system/**",
+      "docs/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "state": "open",
+    "source": "ADR-011 privacy boundary",
+    "evidence": []
+  }
+]

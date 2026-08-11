@@ -1,0 +1,29 @@
+{
+  "total": 183,
+  "open": 126,
+  "by_family": {
+    "app-profile": 18,
+    "compatibility": 20,
+    "contract-vector": 15,
+    "docs": 8,
+    "feature-wiring": 67,
+    "localization": 23,
+    "measurement": 12,
+    "packaging": 10,
+    "qa-fixture": 5,
+    "security-privacy": 5
+  },
+  "by_risk": {
+    "L0": 57,
+    "L1": 52,
+    "L2": 74
+  },
+  "by_state": {
+    "open": 126,
+    "verified": 57
+  },
+  "no_setup_needed": 88,
+  "cloud_agent_ready": 35,
+  "hardware_required": 60,
+  "review_minutes_if_all_merged": 847
+}

@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/MSKazemi/yazses/campaign/schemas/task.schema.json",
+  "title": "YazSes campaign task",
+  "description": "Generated from FIELD_SPEC in scripts/campaign.py \u2014 edit that, not this file. A test fails if this copy is stale.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "family",
+    "title",
+    "value",
+    "risk",
+    "minutes",
+    "skills",
+    "cloud_agent_ready",
+    "allowed_paths",
+    "validation",
+    "state"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Stable unique identifier, SCREAMING-KEBAB (COMPAT-GNOME-WAYLAND-001).",
+      "pattern": "^[A-Z][A-Z0-9]*(-[A-Z0-9]+)+$"
+    },
+    "family": {
+      "type": "string",
+      "description": "One of: compatibility, app-profile, localization, contract-vector, feature-wiring, measurement, docs, packaging, qa-fixture, security-privacy.",
+      "enum": [
+        "compatibility",
+        "app-profile",
+        "localization",
+        "contract-vector",
+        "feature-wiring",
+        "measurement",
+        "docs",
+        "packaging",
+        "qa-fixture",
+        "security-privacy"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "description": "What the contributor will do, in one line."
+    },
+    "value": {
+      "type": "string",
+      "description": "Why the project wants it. A task with no stated value is not open."
+    },
+    "risk": {
+      "type": "string",
+      "description": "Review lane, one of: L0, L1, L2, L3.",
+      "enum": [
+        "L0",
+        "L1",
+        "L2",
+        "L3"
+      ]
+    },
+    "minutes": {
+      "type": "integer",
+      "description": "Honest estimate for someone who has not seen the repo.",
+      "minimum": 5,
+      "maximum": 480
+    },
+    "skills": {
+      "type": "array",
+      "description": "Skills needed, e.g. ['python'], ['toml'], [] for none.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "requires": {
+      "type": "object",
+      "description": "Environment the contributor must actually have (os, desktop, app)."
+    },
+    "cloud_agent_ready": {
+      "type": "boolean",
+      "description": "True only if a container can produce the whole evidence."
+    },
+    "allowed_paths": {
+      "type": "array",
+      "description": "Globs the PR may touch. Preflight rejects anything else.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "validation": {
+      "type": "array",
+      "description": "Exact commands that decide whether the work is done.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "description": "What the human must observe and report; empty for pure-code tasks.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "state": {
+      "type": "string",
+      "description": "Lifecycle, one of: draft, verified, open, claimed, pr-open, merged, expired, needs-work.",
+      "enum": [
+        "draft",
+        "verified",
+        "open",
+        "claimed",
+        "pr-open",
+        "merged",
+        "expired",
+        "needs-work"
+      ]
+    },
+    "source": {
+      "type": "string",
+      "description": "Where this task came from \u2014 an issue, a registry, a doc gap."
+    }
+  }
+}

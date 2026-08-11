@@ -6,6 +6,46 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — a contributor task inventory with a preflight that reviews the cheap parts
+
+`campaign/tasks.json` holds 183 bounded tasks (126 currently open) across ten families,
+every one anchored to a surface that already exists — `SHOWCASE.md`, `examples/`,
+`docs/known-good-microphones.md`, `contract/vectors/`, `README.<code>.md`, `src/` — and to a
+validation command that already runs. The 67 feature-wiring tasks are derived from the live
+`_UNWIRED` registry, and a test fails when a task exists for a capability that has since
+been wired, which is the way an inventory like this normally rots.
+
+There is deliberately **no GitHub issue per task**: a hundred bot-filed issues would bury the
+human ones and read as spam. `campaign/generated/open-tasks.md` is the browsable list.
+
+`scripts/campaign.py` is the only thing that decides whether a row is valid. It refuses a
+task with no stated value, no bounded paths, no validation command, a duplicate id, or an
+estimate longer than one sitting, and it refuses to mark a compatibility, measurement or
+localization task `cloud_agent_ready` — a container cannot observe hardware or judge whether
+a translation reads naturally. `risk: L3` may never be advertised as an open first task.
+
+The JSON Schema is **generated** from `FIELD_SPEC` rather than written beside it. A schema
+nobody validates against is the dead-registry shape this repository has been bitten by
+before; a test fails if the committed copy goes stale. No new dependency was added —
+validation is hand-rolled rather than pulling in `jsonschema`, because the 18-package base
+budget is not something campaign tooling gets to widen.
+
+`scripts/campaign_preflight.py` + `.github/workflows/campaign-preflight.yml` answer the
+questions that do not need a human: does the PR name a task that exists, did it stay inside
+that task's `allowed_paths`, and did a home path, email or token reach the diff. It emits one
+actionable summary rather than raw logs, and a PR that names no task passes untouched — this
+must never become a tollgate on ordinary contributions. It runs on `pull_request`, **not**
+`pull_request_target`, so it holds a read-only token and never sees secrets; PR title and body
+reach it through a file rather than shell interpolation, which is the injection hole that
+untrusted input would otherwise open. It reports through the job summary, so it needs no write
+permission at all.
+
+Eleven labels were added — the four `risk:` lanes, `browser-only` / `cloud-agent-ready` /
+`hardware-required`, and the `status:` claim lifecycle. The playbook's fuller vocabulary was
+written without sight of the repository's existing 22 labels; `task:packaging`,
+`task:contract` and `task:docs` would have duplicated `packaging`, `contract` and
+`documentation`, and six `review:` labels are premature for one reviewer, so those were left out.
+
 ### Added — the no-setup contribution paths are now visible from the front door
 
 The README's Contributing section listed one generic "good first issue" link. The tasks that
