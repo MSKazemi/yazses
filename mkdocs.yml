@@ -121,6 +121,10 @@ hooks:
   # them — ~80% fewer tokens, no chrome) while largely ignoring llms.txt, so
   # this is the delivery mechanism that actually reaches the machine audience.
   - hooks/markdown_mirrors.py
+  # Declares reciprocal <link rel="alternate" hreflang> between a page and its
+  # translations, derived from one `alternates:` entry so the two directions
+  # cannot drift apart (a one-sided declaration is ignored by search engines).
+  - hooks/hreflang.py
 
 plugins:
   - search
@@ -239,6 +243,7 @@ nav:
       - Meeting notes & minutes: meeting-notes-offline.md
       - Multilingual dictation: use-cases/multilingual-dictation.md
       - Hindi & Indian languages: use-cases/hindi-voice-typing.md
+      - "हिंदी वॉयस टाइपिंग (Hindi)": hi/hindi-voice-typing.md
   - Guides:
       - Overview: how-to/index.md
       - Change the hotkey: how-to/change-hotkey.md
@@ -258,7 +263,6 @@ nav:
       - Voice control: research/voice-control.md
       - Muscle & brain control: research/muscle-brain-control.md
       - The HCI canon behind YazSes: research/hci-canon.md
-      - Ten open questions: research/agenda.md
   - Reference:
       - Features: features.md
       - Comparison & alternatives: comparison.md
