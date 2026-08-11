@@ -352,3 +352,60 @@ def test_filler_removal_never_synthesises_a_new_hyphen_token():
             t for t in out_tokens if "-" in t and t not in original_tokens
         ]
         assert not invented, f"{text!r} synthesised {invented!r}"
+
+
+def test_hyphen_token_is_kept_whole_or_dropped_whole():
+    """@YossiMH's sharpened whole-token invariant from #144.
+
+    The test above catches the *symptom* the original bug showed — a synthesised
+    hyphen-bearing token. It cannot catch a partial destructuring whose result
+    happens to contain no hyphen: "um-actually" -> "actually" passes it, because
+    "actually" is not hyphen-bearing, yet Rule A has still deleted a component
+    from inside a token.
+
+    The property being asserted is the stronger one:
+
+        Rule A may preserve a hyphen-linked token intact, or delete it intact
+        when every lexical component is independently removable. It must never
+        build the output by deleting only selected internal components.
+    """
+    cfg = DisfluencyConfig(
+        enabled=True,
+        collapse_repetitions=False,
+        filler_words=["um", "uh", "er", "ah", "hmm", "so", "right", "well"],
+    )
+    # (input, whether every component is a filler -> whole-token deletion allowed)
+    corpus = [
+        ("um-um the meeting", True),
+        ("um-hmm okay", True),
+        ("um-um-um yes", True),
+        ("um-actually the meeting", False),
+        ("actually-um the meeting", False),
+        ("the well-um-known case", False),
+        ("a-a-actually the meeting", False),
+        ("right-click the icon", False),
+        ("a well-known issue", False),
+        ("state-of-the-art um results", False),
+    ]
+    for text, all_filler in corpus:
+        out = filter_transcript(text, cfg).text
+        out_tokens = out.split()
+        for token in text.split():
+            if "-" not in token:
+                continue
+            if token in out_tokens:
+                continue  # preserved intact — always allowed
+            # Not intact: the only legal alternative is that it vanished whole,
+            # leaving no component of it behind anywhere in the output.
+            assert all_filler, (
+                f"{text!r} -> {out!r}: dropped {token!r}, but not every "
+                "component of it is a filler"
+            )
+            survivors = [
+                part for part in token.split("-")
+                if part and part in out_tokens
+            ]
+            assert not survivors, (
+                f"{text!r} -> {out!r}: partially destructured {token!r}, "
+                f"leaving {survivors!r}"
+            )
