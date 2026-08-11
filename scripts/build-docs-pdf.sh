@@ -81,9 +81,25 @@ done
 # label in the PDF source only (the Markdown docs keep the emoji, which renders on
 # GitHub). Extend this list if new emoji enter the docs.
 python3 - "$COMBINED" <<'PY'
-import sys, pathlib
+import re, sys, pathlib
 p = pathlib.Path(sys.argv[1])
 text = p.read_text(encoding="utf-8")
+
+# The architecture page inlines generated SVG figures through pymdownx.snippets
+# (`--8<-- "assets/arch/*.svg"`). pandoc runs on the raw Markdown, so it never
+# expands the snippet and would typeset the directive as body text. Replace each
+# figure with its own caption in italics: every figure on that page is followed
+# by a table carrying the same numbers, so the PDF loses nothing but the picture.
+def figure_to_caption(m: "re.Match[str]") -> str:
+    cap = re.search(r"<figcaption>(.*?)</figcaption>", m.group(0), re.S)
+    return f"*{' '.join(cap.group(1).split())}*\n" if cap else ""
+
+text = re.sub(
+    r'<figure class="yz-figbox">.*?</figure>', figure_to_caption, text, flags=re.S
+)
+if "--8<--" in text:
+    sys.exit("build-docs-pdf: an unexpanded snippet directive survived into the PDF source")
+
 subs = {"🤷": "[shrug]"}
 for emoji, label in subs.items():
     text = text.replace(emoji, label)

@@ -5,7 +5,7 @@ ASCII so it renders in any terminal, code review, or the master reference PDF.
 
                         ┌───────────────────────────────────────┐
    USER-FACING CONTROL  │   yazses CLI            yazses-tray     │
-                        │   (44 cmds, 6 panels)   (macOS/Windows) │
+                        │   (57 commands)         (all platforms) │
                         └───────────────────┬───────────────────┘
                                             │  JSON-RPC 2.0 (newline-delimited)
                                             │  Unix socket / Windows named pipe
@@ -54,7 +54,7 @@ ASCII so it renders in any terminal, code review, or the master reference PDF.
 
  ── Cross-cutting ────────────────────────────────────────────────────────────────
  CONFIG        config.toml / config.py  ── every section has defaults ──► daemon
- FEATURES      system/features.py — 135 capabilities (9 categories) ──► CLI
+ FEATURES      system/features.py — 140 capabilities, 73 wired (9 cats) ──► CLI
  PLATFORM      platform/base.py Protocols  →  linux · macos · windows · emg
                (HotkeyBackend · InjectorBackend · LifecycleBackend ·
                 IpcServer/Client · PermissionsBackend · TrayBackend)

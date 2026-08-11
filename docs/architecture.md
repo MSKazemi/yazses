@@ -1,6 +1,6 @@
 ---
 title: Architecture
-description: How YazSes works under the hood — the offline dictation pipeline, the daemon and its states, the cross-platform abstraction, text injection, the remote path, and the opt-in learning loop. All on-device; nothing leaves your machine.
+description: How YazSes works under the hood — the subsystem map, the offline dictation pipeline and what each stage actually costs, the daemon and its states, the cross-platform abstraction, text injection, the remote path, the opt-in learning loop, and an honest account of what is built versus what is only designed. All on-device; nothing leaves your machine.
 ---
 
 # Architecture
@@ -15,6 +15,24 @@ For what each capability *does* and how to turn it on, see the
 [configuration reference](configuration.md). For the commands mentioned below,
 see the [CLI reference](cli-reference.md).
 
+## How to read this page
+
+Two things are marked throughout, and they are never blurred together:
+
+<span class="yz-tag yz-tag--ship">BUILT</span> — wired into the shipping build,
+with tests. You can run it today.
+
+<span class="yz-tag yz-tag--plan">DESIGNED</span> — decided and documented, and
+deliberately **not** in the running system. Some of these are waiting on
+hardware, some on a model, and one is deferred on purpose so a promise stays
+kept.
+
+The figures below are generated from the code and the measurements, not drawn by
+hand — see [how these figures are made](#how-these-figures-are-made) for the
+provenance and how to regenerate them yourself. Every figure is followed by the
+same numbers as a table, so nothing here is only reachable by looking at a
+picture.
+
 ## High-level overview
 
 YazSes is a small background program — a *daemon* — that runs on your desktop
@@ -22,14 +40,16 @@ and listens for a single hold-to-talk key. The model is deliberately simple:
 
 - **Hold** the hotkey and start speaking.
 - **Release** it when you finish.
-- Your words appear in whatever window has focus, usually within about a second.
+- Your words appear in whatever window has focus, usually within about a second
+  and a half on the default model.
 
 Everything happens **offline, on-device**. Speech is transcribed locally by
 [faster-whisper](https://github.com/SYSTRAN/faster-whisper) running on your CPU
 (int8, no GPU required). There is no cloud service, no API key, and no account.
 **Nothing leaves your machine** unless you explicitly point YazSes at a remote
-host over SSH (see [The remote path](#the-remote-path)). Because it is push-to-talk,
-YazSes is not always-listening: no audio is captured while the key is up.
+host over SSH (see [the remote path](#the-remote-path)). Because it is
+push-to-talk, YazSes is not always-listening: no audio is captured while the key
+is up.
 
 A thin command-line tool (`yazses`) talks to the running daemon to start it,
 stop it, query its status, and tune it. The daemon does the actual work; the CLI
@@ -37,112 +57,41 @@ is a remote control.
 
 ## Subsystem map
 
-The diagram below shows how the pieces fit together — the CLI/tray control plane,
-the daemon's staged pipeline, text injection (local or remote), and the
-cross-cutting config, feature registry, platform abstraction, and opt-in
-subsystems. The same diagram ships in three formats under
+<figure class="yz-figbox">
+--8<-- "assets/arch/system-map.svg"
+<figcaption>The whole system in six bands. Everything above the last band runs today; the last band is designed and deliberately absent.</figcaption>
+</figure>
+
+The control plane never touches the pipeline — the CLI, the settings window and
+the tray all speak to the daemon over the same JSON-RPC channel, which is why
+`yazses status` reports the truth rather than a guess, and why the tray can be
+killed and relaunched without disturbing dictation.
+
+The four blocks in the bottom band are the ones people most often assume are
+already there. Each is a recorded decision rather than an omission:
+
+| Designed, not built | Why it isn't in the build | Where the decision lives |
+|---|---|---|
+| **Android dictation keyboard** | Architecture and portability matrix are done; the app is not written. iOS follows Android because an iOS keyboard extension cannot use the microphone. | [The mobile programme](mobile/index.md) |
+| **Cloud escalation** | Fully designed with guardrails, and deliberately **not implemented**, so "nothing leaves your machine" is never quietly weakened. | [Roadmap — designed, but explicitly deferred](roadmap.md#future-work) |
+| **Personal speech adapters (LoRA)** | On-device fine-tuning for your voice, including atypical speech. Gated on a measured accuracy win on held-out data — prompt-level personalization from your own corpus already ships. | `[personalize] lora` in the [configuration reference](configuration.md) |
+| **Code-switch models** | The language-routing layer ships (`src/yazses/polyglot/`); the code-switch-adapted acoustic model does not, and the feature stays dormant until `adapter_path` is set. | [v2 features preview](v2-features.md) |
+
+The same subsystem map ships in three other formats under
 [`docs/diagrams/`](diagrams/index.md): [Mermaid](diagrams/yazses-architecture.mmd)
-(renders on GitHub), [ASCII](diagrams/yazses-architecture.txt), and a
-self-contained [HTML page](diagrams/yazses-architecture.html).
-
-```text
-                        ┌───────────────────────────────────────┐
-   USER-FACING CONTROL  │   yazses CLI            yazses-tray     │
-                        │   (44 cmds, 6 panels)   (macOS/Windows) │
-                        └───────────────────┬───────────────────┘
-                                            │  JSON-RPC 2.0 (Unix socket /
-                                            │  Windows named pipe)
-                                            ▼
-                                   ┌──────────────────┐
-                                   │  IPC server      │  (ipc/)
-                                   └────────┬─────────┘
-                                            ▼
- ┌──────────────────────────────────────────────────────────────────────────────┐
- │  yazses-daemon — orchestrator (core/daemon.py)                                 │
- │   [1] HOTKEY  keyboard hook OR EMG (USB/BLE)                                    │
- │   [2] AUDIO   recorder ─► VAD gate ─► pre-speech padding                        │
- │   [3] STT     faster-whisper (int8) · streaming · disfluency  ◄─ initial_prompt │
- │   [4] POST    cleaner · voice-punctuation · spacing · optional LLM cleanup      │
- │   [5] CMDS    Tier-1 regex grammar ─► Tier-2 SLM router · LSP context           │
- │   [6] dispatch() ──────────────┬───────────────────────────┐                   │
- └────────┬────────────────────────┼──────────────────────────────────────────────┘
-          ▼ dictate                ▼ command
- ┌──────────────────────┐   ┌────────────────────┐
- │ INJECTOR (inject/)   │   │ KEY SEQUENCE       │
- │ auto → ydotool /     │   │ ctrl+z, ctrl+s, …  │
- │ xdotool/wtype/clip   │   └─────────┬──────────┘
- └───────┬──────────┬───┘             ▼
-         │          └────────►┌────────────────────────────┐
-         │  SSH tunnel        │  Focused application (local)│
-         ▼  (remote/)         └────────────────────────────┘
- ┌────────────────────────┐
- │ yazses-agent (remote)  │   text only; audio stays local
- └────────────────────────┘
-
- CROSS-CUTTING   config.toml/config.py ·  features.py (135 caps) ·
-                 platform/base.py Protocols → linux · macos · windows · emg
- OPT-IN (off)    learning loop (encrypted corpus · `yazses tune`) ·
-                 v2 cognitive (voiceprint · gaze · personalize · polyglot · cocktail) ·
-                 recimport (`yazses transcribe`) · meeting (`yazses meeting`)
-```
-
-The next section walks the numbered pipeline stages [1]–[6] in detail.
+(renders on GitHub), [ASCII](diagrams/yazses-architecture.txt) for terminals and
+code review, and a self-contained [HTML page](diagrams/yazses-architecture.html).
 
 ## The dictation pipeline
 
 Each time you hold the key, speak, and release, your audio flows through a fixed
-sequence of stages. Most stages are pure, fast transforms; the heavy step is the
-faster-whisper decode in the middle.
+sequence of stages. The figure below colours each stage by what it actually
+costs, measured rather than assumed.
 
-```text
-   ┌─────────────────────────────────────────────────────────────────┐
-   │  HOLD KEY                                                         │
-   │  Hotkey backend  (keyboard hook  OR  EMG muscle-sensor over USB)  │
-   └───────────────────────────────┬─────────────────────────────────┘
-                                    │ on_hold_start
-                                    ▼
-                      Audio capture (microphone → buffer)
-                                    │
-                                    ▼
-                      VAD gate (drop near-silent audio)
-                                    │
-                                    ▼
-                      Pre-speech padding (prepend a short lead-in
-                      so the first word isn't clipped)
-                                    │
-                                    ▼
-        initial_prompt ──►  faster-whisper decode  (CPU, int8)
-        (app name, your                │
-         vocabulary, editor            ▼
-         context)              Text cleanup (strip Whisper artefacts,
-                               leading punctuation)
-                                    │
-                                    ▼
-                      Disfluency filter (remove fillers, repeats,
-                      self-corrections)
-                                    │
-                                    ▼
-              Command classification
-              ├─ Tier 1: fast regex grammar → intent
-              └─ Tier 2 (optional): small language model router
-                                    │
-                                    ▼
-                               dispatch()
-                 ┌──────────────────┴───────────────────┐
-                 ▼                                       ▼
-         DICTATE (plain text)                    COMMAND (e.g. "undo",
-                 │                                "save file", "go to line 42")
-                 ▼                                       │
-   optional LLM cleanup (reformatting)                   ▼
-                 │                              inject key sequence
-                 ▼                              (ctrl+z, ctrl+s, …)
-   continuation spacing (space between
-   successive bursts so they don't glue)
-                 │
-                 ▼
-        Inject text into the focused app
-        (locally, OR forward over SSH to a remote host)
-```
+<figure class="yz-figbox">
+--8<-- "assets/arch/pipeline-heat.svg"
+<figcaption>Nine stages. One of them is the entire latency budget; the other eight together are 0.02% of a burst.</figcaption>
+</figure>
 
 Stage by stage:
 
@@ -175,18 +124,54 @@ Stage by stage:
    utterance is plain dictation or a command like *"undo that"* or *"go to line 42"*
    (`src/yazses/commands/grammar.py`). When Tier 1 is unsure, an optional
    **Tier 2 small-language-model router** (`slm_router.py`) resolves the intent.
-9. **Dispatch.** Plain dictation is routed to text injection; commands are routed
-   to a key sequence (`src/yazses/commands/dispatch.py`).
-10. **Dictate path extras.** For plain dictation only, two optional finishing
-    steps run: an offline **LLM cleanup** pass that lightly reformats the text
-    (`src/yazses/postprocess/llm_cleanup.py`, off by default), and **continuation
-    spacing** that inserts a separating space so back-to-back bursts don't glue
-    together (`src/yazses/postprocess/spacing.py`).
-11. **Inject.** The final text (or key sequence) is typed into the focused
-    application — locally, or forwarded over SSH to a remote host.
+9. **Dispatch and inject.** Plain dictation goes to text injection; commands go to
+   a key sequence (`src/yazses/commands/dispatch.py`). For dictation only, two
+   optional finishing steps run first: an offline **LLM cleanup** pass that lightly
+   reformats the text (`src/yazses/postprocess/llm_cleanup.py`, off by default), and
+   **continuation spacing** so back-to-back bursts don't glue together
+   (`src/yazses/postprocess/spacing.py`).
+
+The measured cost of each stage that is separately timed:
+
+| Stage | Median | Share of a burst |
+|---|---|---|
+| VAD gate | 0.063 ms | 0.004 % |
+| Text cleaner | 0.005 ms | 0.000 % |
+| Disfluency filter | 0.147 ms | 0.009 % |
+| Command grammar (dictation) | 0.075 ms | 0.005 % |
+| **STT decode** (`base.en`) | **1 561 ms** | **99.98 %** |
+
+The design consequence is worth stating plainly: **all latency is the speech
+model.** Micro-optimising the filters, the grammar, or the injector would not be
+measurable. What *is* measurable is which model you choose — so that is the knob
+the docs push you toward, and the only one worth turning.
 
 Most of these stages are configurable or can be turned off; see the
 [configuration reference](configuration.md).
+
+## What a burst costs
+
+<figure class="yz-figbox">
+--8<-- "assets/arch/latency.svg"
+<figcaption>Decode time for one utterance, measured 30 times per model on a 13th Gen Intel Core i7-1370P, int8 on CPU, no GPU.</figcaption>
+</figure>
+
+| Model | WER on LibriSpeech `test-clean` | Cold start | Decode, median | Decode, p95 | On disk |
+|---|---|---|---|---|---|
+| `tiny.en` | 4.82 % | 0.60 s | 0.89 s | 1.61 s | 78 MB |
+| `base.en` **(default)** | 4.07 % | 0.85 s | **1.56 s** | 3.53 s | 148 MB |
+| `small.en` | **2.59 %** | 1.63 s | 5.05 s | 8.97 s | 486 MB |
+
+`base.en` is the default because it is the compromise that survives contact with
+real use: noticeably more accurate than `tiny.en`, and still back inside a second
+and a half. `small.en` is the most accurate and the right choice for
+`yazses transcribe` and Meeting Mode — but a 5-second median breaks the flow of
+live dictation, which is a different job.
+
+These are read audiobook clips in clean conditions, so **your dictation WER will
+be worse**; treat them as a comparison between models, not a promise about your
+desk. Full method, hardware and the commands to reproduce every number are on the
+[benchmarks page](benchmarks.md).
 
 ## The daemon and its states
 
@@ -194,25 +179,31 @@ The orchestrator is a single long-lived process, `yazses-daemon`
 (`src/yazses/core/daemon.py`). It wires the whole pipeline together, owns the
 hotkey listener, and runs an IPC server for the CLI and tray.
 
-Internally it is a small state machine:
+Internally it is a state machine. The ordinary dictation loop is the spine down
+the middle; everything else is a mode you enter deliberately and return from.
 
-```text
-LOADING ──► IDLE ◄──► RECORDING ──► TRANSCRIBING ──► INJECTING ──► IDLE
-```
+<figure class="yz-figbox">
+--8<-- "assets/arch/states.svg"
+<figcaption>The dictation loop is the spine; everything below it is a mode you enter deliberately over IPC. The two states at the bottom are in the type but are not states the daemon enters.</figcaption>
+</figure>
 
 - **LOADING** — the daemon is up but the speech model is still loading.
 - **IDLE** — ready and waiting for the hotkey.
 - **RECORDING** — the key is held; audio is being captured.
-- **TRANSCRIBING** — the key was released; faster-whisper is decoding.
+- **TRANSCRIBING** — the key was released; the engine is decoding.
 - **INJECTING** — the result is being typed into the focused app.
-
-Then it returns to **IDLE** for the next burst. A few additional states cover
-special modes:
-
+- **MEETING** — hands-free whole-meeting capture, driven over IPC rather than by
+  the hotkey; stopping it runs the batch diarization pass through **TRANSCRIBING**.
 - **REMOTE_SETUP / REMOTE_ACTIVE** — establishing or using the SSH forwarding path.
-- **ENROLLING** — the accessibility/mic calibration wizard is running.
-- **READBACK / PAUSED** — speaking a transcript back via offline TTS, or paused.
-- **ERROR** — something went wrong; the last error is surfaced to the CLI and tray.
+- **ENROLLING** — the accessibility / mic calibration wizard is running.
+- **READBACK** — speaking a transcript back via offline TTS.
+
+Two more states exist in the type and are worth being precise about, because a
+tidier diagram would misrepresent them. **ERROR** is not a daemon state at all —
+the *tray* synthesises it when the daemon stops answering IPC, which is why the
+icon can go red while the daemon itself has simply died. **PAUSED** is defined,
+and Meeting Mode and enrollment both accept it as a legal starting point, but
+nothing in the daemon currently sets it.
 
 ### CLI ↔ daemon IPC
 
@@ -237,10 +228,10 @@ are written once against the interfaces and never branch on the operating system
 |---|---|---|---|---|
 | `HotkeyBackend` | Detect the hold-to-talk key, emit start/end callbacks | evdev | Quartz event tap | keyboard hook |
 | `InjectorBackend` | Type text / send key sequences into the focused app | ydotool / xdotool / wtype | Quartz | SendInput |
-| `LifecycleBackend` | Start/stop the daemon, manage the PID file, register autostart | systemd | launchd | Service Control Manager |
+| `LifecycleBackend` | Start/stop the daemon, manage the PID file, register autostart | systemd user unit | launchd | Service Control Manager |
 | `IpcServer` / `IpcClient` | JSON-RPC transport for CLI ↔ daemon | Unix socket | Unix socket | named pipe |
 | `PermissionsBackend` | Probe keyboard/microphone permissions, explain how to grant them | input group | TCC prompts | (n/a) |
-| `TrayBackend` | Optional tray / menu-bar UI | none | rumps | pystray |
+| `TrayBackend` | Tray / menu-bar UI | PySide6 `QSystemTrayIcon` | rumps | pystray |
 
 The **EMG hotkey backend** (`platform/emg/backend.py`) is a
 platform-independent `HotkeyBackend` implementation — it reads squeeze events
@@ -302,6 +293,49 @@ for a proxy (`remote/local_proxy.py`) that forwards typed text over the tunnel t
 that agent. From your point of view it feels identical to local dictation; the
 last mile just happens over the network.
 
+## What is built, and what is designed
+
+YazSes carries a large catalogue of capabilities, and it is deliberately honest
+about which of them are real. Every capability is a row in one registry
+(`src/yazses/system/features.py`), and each row knows whether it is actually
+wired into the build. `yazses features` prints that distinction, and
+`features enable` **refuses** a capability that isn't wired rather than writing a
+config key nothing will read.
+
+<figure class="yz-figbox">
+--8<-- "assets/arch/capabilities.svg"
+<figcaption>Every capability in the registry, by category. The left segment is wired and working; the right segment is designed and not yet wired.</figcaption>
+</figure>
+
+| Category | Wired | Designed, not wired | Total |
+|---|---:|---:|---:|
+| Formatting & structure | 20 | 11 | 31 |
+| Core dictation | 13 | 7 | 20 |
+| Accuracy & correction | 11 | 9 | 20 |
+| Accessibility & input modalities | 2 | 18 | 20 |
+| Editing & navigation | 10 | 3 | 13 |
+| Commands & automation | 5 | 7 | 12 |
+| Learning, memory & analytics | 5 | 4 | 9 |
+| Conversation & recording capture | 4 | 4 | 8 |
+| Multilingual | 3 | 4 | 7 |
+| **Total** | **73** | **67** | **140** |
+
+Two readings of that chart matter.
+
+**The core is dense and the frontier is thin.** The categories a daily user
+touches — core dictation, formatting, editing — are majority-wired. The one
+category that is almost entirely designed is **accessibility and input
+modalities** (2 of 20), and that is not an accident: those are the capabilities
+gated on hardware nobody has yet (sEMG wristbands, switch access rigs) or on a
+platform capability that isn't universal (gaze on Wayland). They are specified so
+that when the hardware arrives the work is integration, not invention.
+
+**A designed row is a contribution-shaped hole.** Several of these have a tested,
+dependency-free pure core and no caller — the design is done and the wiring is
+not. Five such capabilities were wired by outside contributors in a single week,
+which is why this number moves. If you want to help, this chart is the map: see
+[find a task that fits you](contribute/find.md).
+
 ## The optional learning loop
 
 YazSes can improve its accuracy for *your* voice and vocabulary over time — but
@@ -318,10 +352,10 @@ and nothing is ever uploaded.
 Later, `yazses tune` analyses that corpus offline and **proposes** concrete
 improvements — new vocabulary entries, a better VAD threshold, a different model,
 disfluency tweaks — which you review and approve before anything is written to
-your config. You can inspect or delete the corpus at any time with
-`yazses corpus status`, and flag a bad transcription with `yazses mark-wrong` to
-feed the loop a correction signal. See the [features reference](features.md) and
-[configuration reference](configuration.md) for the full set of `[learning]` keys.
+your config. Each proposal is checked against held-out data it wasn't derived
+from, so a change has to survive evidence it hasn't already seen. You can inspect
+or delete the corpus at any time with `yazses corpus status`, and flag a bad
+transcription with `yazses mark-wrong` to feed the loop a correction signal.
 
 ## The v2 cognitive layer
 
@@ -374,6 +408,29 @@ Two commands expose the result: `yazses verify` runs the real chain and names th
 broken link, and `yazses report` writes a redacted diagnostic bundle locally — never
 uploaded, per the privacy posture below.
 
+## Where this is going
+
+The architecture is built so the next era is an extension rather than a rewrite.
+Three seams carry most of the future work, and each already exists in the
+shipping code:
+
+- **The activation seam.** `_build_activation_sources` treats "what starts a
+  burst" as a plug-in. A keyboard key and an EMG squeeze are already two
+  implementations of the same contract; a wake word, a switch, or a
+  brain-computer interface would be a third without touching the pipeline.
+- **The engine seam.** `SttEngine` made a second engine (Parakeet) a config
+  change rather than a fork. Anything that turns audio into words plugs in here.
+- **The platform seam.** Every OS-specific concern is a Protocol, which is what
+  makes the Android programme a port rather than a rewrite.
+
+What is deliberately *not* being built is as much a part of the design as what
+is. Cloud escalation is fully specified and stays unimplemented so the offline
+promise cannot erode by increments; personal speech adapters wait on a measured
+win against held-out data rather than shipping on the strength of the idea. See
+the [roadmap](roadmap.md) for the full account, including the speculative
+directions — spoken recall over your own corpus is the one the project exists
+for.
+
 ## Privacy posture
 
 YazSes is **offline by design**. Push-to-talk means it only records while you
@@ -384,3 +441,27 @@ forwarded, not your audio. The learning corpus is opt-in, encrypted, and local.
 
 For the full commitment and details, see the
 [privacy statement](privacy-statement.md).
+
+## How these figures are made
+
+The four figures on this page are generated, not drawn:
+
+```bash
+uv run python scripts/gen-arch-figures.py
+```
+
+The generator reads the live capability registry (`yazses.system.features` — the
+same one `yazses features` prints), the generated
+[command index](command-index.md), and the measured timings parsed out of the
+[benchmarks page](benchmarks.md). It fails rather than guessing: if a benchmark
+table is reworded it stops, and if a label would overflow the shape holding it
+the figure is refused. So a figure claiming a capability is wired is making the
+same claim the CLI makes, and a figure quoting a latency is quoting a number you
+can reproduce with the commands on the benchmarks page.
+
+The figures are plain SVG with no script and no external reference — nothing is
+fetched from a third party when you load this page, which is the same commitment
+the [privacy statement](privacy-statement.md) makes about the software itself.
+They animate from the site's stylesheet and stop animating entirely if your
+system asks for reduced motion; every value they show is also in a table on this
+page.

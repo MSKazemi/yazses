@@ -11,7 +11,7 @@ flowchart TB
 
   subgraph UI["User-facing control"]
     direction LR
-    CLI["yazses CLI<br/>(44 cmds · 6 panels)"]:::ui
+    CLI["yazses CLI<br/>(57 commands · 91 with subcommands)"]:::ui
     TRAY["yazses-tray<br/>(macOS/Windows)"]:::ui
   end
 
@@ -30,7 +30,7 @@ flowchart TB
   end
 
   CFG[("config.toml<br/>config.py — every section")]:::store
-  FEAT[("Feature registry<br/>system/features.py — 135 capabilities")]:::store
+  FEAT[("Feature registry<br/>system/features.py — 140 capabilities (73 wired)")]:::store
   CFG -. reads .-> DAEMON
   FEAT -. drives .-> CLI
 
