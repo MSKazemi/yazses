@@ -279,3 +279,37 @@ def test_filler_removal_still_works_next_to_a_hyphenated_token():
     assert filter_transcript("um-um right-click um the icon", cfg).text == (
         "right-click the icon"
     )
+
+
+def test_self_correction_consumes_the_triggers_own_period():
+    # #145: "delete that." as a complete sentence — the ordinary phrasing — used
+    # to leave a bare ". " in the middle of the typed output.
+    assert filter_transcript("send it to Bob. delete that. send it to Alice").text == (
+        "send it to Bob. send it to Alice"
+    )
+    assert filter_transcript("the budget is fine. forget that. the budget is tight").text == (
+        "the budget is fine. the budget is tight"
+    )
+
+
+def test_self_correction_resolves_in_text_order_not_config_order():
+    # #145: "no wait" is declared before "scratch that" in the default trigger
+    # list, and used to win regardless of which the user actually said first.
+    assert filter_transcript("scratch that. no wait meet at four").text == "meet at four"
+    assert filter_transcript(
+        "meet at three. scratch that. no wait meet at four"
+    ).text == "meet at three. meet at four"
+
+
+def test_self_correction_without_punctuation_still_rolls_back():
+    # Regression guard: the punctuation fix must not disturb the plain path.
+    assert filter_transcript("send it to Bob delete that send it to Alice").text == (
+        "send it to Alice"
+    )
+    assert filter_transcript("meet at three, scratch that, meet at four").text == (
+        "meet at four"
+    )
+
+
+def test_text_without_any_trigger_is_untouched():
+    assert filter_transcript("no trigger here at all").text == "no trigger here at all"

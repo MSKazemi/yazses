@@ -323,30 +323,42 @@ def _dedup_2grams(text: str) -> str:
 def _apply_self_corrections(text: str, triggers: list[str]) -> str:
     if not triggers:
         return text
-    lower = text.lower()
-    for trigger in triggers:
-        idx = lower.find(trigger.lower())
-        if idx == -1:
-            continue
+    while True:
+        lower = text.lower()
+        # Resolve the trigger that was *spoken* first, not the one that happens
+        # to be declared first in config (#145). Iterating the config list meant
+        # "scratch that. no wait …" resolved "no wait" first purely because it
+        # sits earlier in the default list, discarding the correction the user
+        # actually made first.
+        found = min(
+            (
+                (idx, trigger)
+                for trigger in triggers
+                if (idx := lower.find(trigger.lower())) != -1
+            ),
+            default=None,
+        )
+        if found is None:
+            return text
+        idx, trigger = found
+
         # Find last sentence boundary before the trigger
         boundary = max(
             text.rfind('. ', 0, idx),
             text.rfind('! ', 0, idx),
             text.rfind('? ', 0, idx),
         )
+        end = idx + len(trigger)
+        # Consume the punctuation that belongs to the trigger clause. Periods
+        # were previously left behind, so "delete that." — the ordinary way
+        # people phrase it, as a complete sentence — deposited a bare " . " in
+        # the middle of the output (#145).
+        while end < len(text) and text[end] in ' ,.!?…':
+            end += 1
         if boundary == -1:
             # No sentence boundary — remove everything up to end of trigger
-            end = idx + len(trigger)
-            # Skip trailing whitespace/comma
-            while end < len(text) and text[end] in ' ,':
-                end += 1
             text = text[end:].strip()
         else:
             # Remove from after the boundary separator through end of trigger
             keep_end = boundary + 2  # keep '. '
-            end = idx + len(trigger)
-            while end < len(text) and text[end] in ' ,':
-                end += 1
-            text = text[:keep_end] + text[end:]
-        lower = text.lower()
-    return text
+            text = (text[:keep_end] + text[end:]).strip()

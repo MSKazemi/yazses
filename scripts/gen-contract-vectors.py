@@ -504,29 +504,27 @@ CASES: dict[str, list[dict[str, Any]]] = {
                         "is a filler",
          "input": "right-click the icon",
          "options": {"filler_words": ["um", "uh", "right"]}},
-        {"id": "self-correction-trigger-followed-by-own-period-leaves-dangling-punctuation",
-         "description": "surprising, bug-shaped: when a trigger phrase is itself followed "
-                        "by its own sentence-ending period, Rule C's trailing "
-                        "whitespace/comma skip does not consume the period, so it survives "
-                        "as a dangling '. ' — worth its own issue",
+        {"id": "self-correction-trigger-with-own-period-leaves-no-punctuation",
+         "description": "a trigger spoken as a complete sentence takes its own period with "
+                        "it: Rule C consumes the punctuation belonging to the trigger clause, "
+                        "so no bare '. ' is deposited mid-output (#145)",
          "input": "send it to Bob. delete that. send it to Alice"},
-        {"id": "self-correction-declared-order-not-text-order",
-         "description": "surprising: triggers are matched in the fixed order they're "
-                        "declared in config, not the order they occur in the text — "
-                        "'no wait' (declared first) is resolved before 'scratch that' even "
-                        "though it appears later in this sentence, hitting the same "
-                        "dangling-period bug from a different direction",
+        {"id": "self-correction-resolved-in-text-order",
+         "description": "triggers resolve in the order they were spoken, not the order they "
+                        "happen to sit in the config list — 'scratch that' is applied first "
+                        "here even though 'no wait' is declared earlier (#145)",
          "input": "scratch that. no wait meet at four"},
-        {"id": "self-correction-three-trigger-chain-compounds-dangling-period",
-         "description": "a three-clause chain compounds the same declared-order bug",
+        {"id": "self-correction-three-trigger-chain-resolves-cleanly",
+         "description": "a three-clause chain resolves in text order and leaves no orphaned "
+                        "punctuation behind (#145)",
          "input": "meet at three. scratch that. no wait meet at four"},
         {"id": "self-correction-forget-that-trigger",
-         "description": "exercises the 'forget that' trigger, not covered by any existing "
-                        "vector — also hits the dangling-period bug",
+         "description": "exercises the 'forget that' trigger, and pins that its own period "
+                        "is consumed with it (#145)",
          "input": "the budget is fine. forget that. the budget is tight"},
         {"id": "self-correction-strike-that-trigger",
-         "description": "exercises the 'strike that' trigger, not covered by any existing "
-                        "vector — also hits the dangling-period bug",
+         "description": "exercises the 'strike that' trigger, and pins that its own period "
+                        "is consumed with it (#145)",
          "input": "draft one is done. strike that. draft two is done"},
         {"id": "self-correction-delete-that-no-period-clean",
          "description": "contrast case: 'delete that' with no period glued to it rolls back "
