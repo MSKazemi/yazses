@@ -503,6 +503,13 @@ cargo build && cargo test --workspace   # optional backends: whisper, moonshine,
 Contributions are very welcome — bug reports, docs, packaging, and code.
 
 - 🌱 **New here?** Start with a [good first issue](https://github.com/MSKazemi/yazses/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) — each is small and self-contained, and we're happy to help you through your first PR.
+- ⏱️ **Got 15 minutes and no Python?** These need only a text editor, take one PR each, and
+  several hold many contributors at once — no permission needed, just comment and go:
+  [translate the README](https://github.com/MSKazemi/yazses/issues/18) (the lede and Quick
+  Start alone is a complete PR),
+  [add your microphone](https://github.com/MSKazemi/yazses/issues/21),
+  [share a config for your app or editor](https://github.com/MSKazemi/yazses/issues/43), or
+  [add your setup to SHOWCASE.md](https://github.com/MSKazemi/yazses/issues/42).
 - 🐞 **Found a bug or have an idea?** Open an [issue](https://github.com/MSKazemi/yazses/issues/new/choose) (the `yazses doctor` output resolves most reports on its own) or ask in [Discussions](https://github.com/MSKazemi/yazses/discussions).
 - 🔧 **Sending a PR?** See [CONTRIBUTING.md](CONTRIBUTING.md). The gates are quick:
 

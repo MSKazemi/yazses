@@ -6,6 +6,21 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the no-setup contribution paths are now visible from the front door
+
+The README's Contributing section listed one generic "good first issue" link. The tasks that
+actually convert drive-by traffic — translate the README, add your microphone, share an app
+config, add your setup — need only a text editor and hold many contributors at once, and
+nothing said so where a first-time visitor would see it. Both READMEs now name them.
+
+`CONTRIBUTING.md` gained a **Translating the README** section recording the convention the
+Hindi translation established but nobody had written down: translating the lede through Quick
+Start (~120 of 581 lines) is a *complete* contribution, the rest may stay English behind a
+status banner, and command names, config keys, paths and the project name are never
+translated. Issue #18 said "translate the prose" in step 2 and buried "a partial translation
+is welcome" at line 55 of 60 — a translator read the 581-line ask and never reached the
+reassurance. That guidance now leads.
+
 ### Fixed — the documented lint gate was weaker than the one CI runs
 
 CI and the `Makefile` lint `src tests scripts`. `AGENTS.md`, `README.md` and `README.hi.md`

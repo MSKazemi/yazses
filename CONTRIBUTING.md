@@ -177,6 +177,23 @@ Firebase, no `AccessibilityService`, and `INTERNET` in exactly one module. CI fa
 build otherwise. If your AI assistant suggests any of those — and it will — that is the
 suggestion to ignore.
 
+## Translating the README
+
+Translations are tracked in [#18](https://github.com/MSKazemi/yazses/issues/18) — one
+language each, one PR each, no permission needed. Two things worth knowing before you start:
+
+- **Translating the lede through Quick Start is a complete contribution.** It is roughly the
+  first 120 lines of a 581-line file. That is what the Hindi translation did, and it was
+  merged. Leaving the rest in English is expected, not unfinished — say where you stopped in
+  the status banner at the top of your file so the next reader and the next translator know.
+- **Some things are never translated:** command names (`yazses start`), config keys
+  (`[stt] model`), file paths, code blocks, and the project name *YazSes*.
+
+Translated prose is allowed to lag the English and you are not signing up to maintain it
+forever. The one part that may **not** drift is the contributor wall — it is generated markup,
+identical in every language, and a stale copy quietly drops a real person from the surface
+people actually look at. A test enforces that, so copy that block across verbatim.
+
 ## Using an AI coding assistant
 
 That is fine, and increasingly common — but the PR is yours, so please read and understand
