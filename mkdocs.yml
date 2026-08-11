@@ -228,9 +228,12 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Get started:
+      - Try it without installing: try-without-installing.md
       - Install on Linux: install-linux.md
       - Install on macOS: macos-install.md
       - Install on Windows: windows-install.md
+      - What installing costs: install-cost.md
+      - Uninstalling: uninstall.md
   - Use cases:
       - Overview: use-cases/index.md
       - Voice dictation on Linux: use-cases/voice-dictation-linux.md

@@ -10,6 +10,11 @@
 # This is the recommended install on Linux. It uses `uv` (installed if absent) and pulls
 # the current code from git, so you get the latest fixes without waiting on a PyPI release.
 # Env overrides: YAZSES_REPO, YAZSES_REF (branch/tag).
+#
+# Piping a script from the internet into a shell asks for a lot of trust, so this one can
+# show its work first and change nothing:
+#
+#   bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh) --dry-run
 set -euo pipefail
 
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
@@ -19,6 +24,45 @@ error() { echo -e "${RED}[x]${NC} $*"; exit 1; }
 
 REPO="${YAZSES_REPO:-https://github.com/MSKazemi/yazses.git}"
 REF="${YAZSES_REF:-main}"
+DRY_RUN=0
+
+usage() {
+  cat <<'USAGE'
+YazSes installer — offline voice dictation for Linux.
+
+Usage: install.sh [--dry-run] [--help]
+
+  -n, --dry-run   Inspect this machine and print every change that would be made,
+                  then exit without making any of them. Installs nothing, downloads
+                  nothing, and needs no privileges.
+  -h, --help      Show this message and exit.
+
+Environment:
+  YAZSES_REPO     Git repository to install from.
+  YAZSES_REF      Branch or tag to install (default: main).
+
+Docs: https://mskazemi.com/yazses/
+USAGE
+}
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -n|--dry-run) DRY_RUN=1 ;;
+    -h|--help)    usage; exit 0 ;;
+    *)            error "unknown option: $1  (try --help)" ;;
+  esac
+  shift
+done
+
+# Execute a command, or in --dry-run describe it and change nothing. Every mutating
+# step in this script goes through here, so --dry-run cannot drift from the real run.
+run() {
+  if [ "$DRY_RUN" -eq 1 ]; then
+    echo -e "${YELLOW}[dry-run]${NC} would run: $*"
+    return 0
+  fi
+  "$@"
+}
 
 echo ""
 echo "  YazSes — offline voice dictation"
@@ -61,9 +105,9 @@ if [ -n "$missing_pkgs" ]; then
     # Already root (container, CI image) means no sudo — and requiring it there would
     # fail on boxes that do not ship it at all.
     if [ "${EUID:-1}" -eq 0 ]; then
-      as_root() { "$@"; }
+      as_root() { run "$@"; }
     elif command -v sudo >/dev/null 2>&1; then
-      as_root() { sudo "$@"; }
+      as_root() { run sudo "$@"; }
     else
       error "Missing prerequisites:${missing_pkgs}
     Neither root nor sudo is available to install them. As root, run:
@@ -110,7 +154,11 @@ verify_sha256() {  # verify_sha256 <file> <expected-hex>
   fi
 }
 
-if ! command -v uv >/dev/null 2>&1; then
+if ! command -v uv >/dev/null 2>&1 && [ "$DRY_RUN" -eq 1 ]; then
+  echo -e "${YELLOW}[dry-run]${NC} would download uv ${UV_INSTALLER_VERSION}, verify it against"
+  echo -e "${YELLOW}[dry-run]${NC}   sha256 ${UV_INSTALLER_SHA256}"
+  echo -e "${YELLOW}[dry-run]${NC}   and run it (installs to ~/.local/bin; refuses to run on a checksum mismatch)"
+elif ! command -v uv >/dev/null 2>&1; then
   info "Installing uv ${UV_INSTALLER_VERSION} (Python tool manager)..."
   uv_installer="$(mktemp)"
   # Delete the unverified download on *any* exit path, including the checksum
@@ -125,12 +173,31 @@ if ! command -v uv >/dev/null 2>&1; then
   trap - EXIT
   export PATH="$HOME/.local/bin:$PATH"
 fi
-command -v uv >/dev/null 2>&1 || error "uv is not on PATH. Add ~/.local/bin to PATH and re-run."
+if [ "$DRY_RUN" -eq 0 ]; then
+  command -v uv >/dev/null 2>&1 || error "uv is not on PATH. Add ~/.local/bin to PATH and re-run."
+fi
 
 # 2. Install YazSes (latest from git). --force upgrades an existing install in place.
-info "Installing YazSes from ${REPO}@${REF} ..."
-uv tool install --force --from "git+${REPO}@${REF}" yazses \
+if [ "$DRY_RUN" -eq 1 ]; then
+  info "Source: ${REPO}@${REF}"
+else
+  info "Installing YazSes from ${REPO}@${REF} ..."
+fi
+run uv tool install --force --from "git+${REPO}@${REF}" yazses \
   || error "Install failed. See the output above (need a compiler/Python? uv usually handles it)."
+
+# A dry run stops here: everything past this point drives the freshly installed binary,
+# which by definition does not exist yet.
+if [ "$DRY_RUN" -eq 1 ]; then
+  echo -e "${YELLOW}[dry-run]${NC} would run: yazses setup   (PortAudio, xdotool/ydotool/wtype,"
+  echo -e "${YELLOW}[dry-run]${NC}            clipboard tools, add \$USER to the 'input' group, enable ydotoold)"
+  echo -e "${YELLOW}[dry-run]${NC} would run: yazses doctor   (read-only verification)"
+  echo ""
+  info "Dry run complete — nothing was installed, downloaded or changed."
+  echo "  Re-run without --dry-run to install for real."
+  echo ""
+  exit 0
+fi
 
 YZ="$(command -v yazses || echo "$HOME/.local/bin/yazses")"
 [ -x "$YZ" ] || error "yazses not found after install — add ~/.local/bin to your PATH."
