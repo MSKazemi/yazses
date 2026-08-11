@@ -32,6 +32,28 @@ def _examples(*lines: str) -> str:
     return "[bold]Examples[/bold]\n\n" + "\n\n".join(lines)
 
 
+def _maybe_point_at_project(data_dir, *, succeeded: bool) -> None:
+    """Show the one-time project pointer, if this is the moment for it.
+
+    Wrapped here so no command has to know the policy. It never raises: a cosmetic
+    message must not be able to fail a command that has already succeeded.
+    """
+    try:
+        import sys
+
+        from yazses.system import nudge
+
+        if not nudge.should_show(
+            data_dir, succeeded=succeeded, interactive=sys.stdout.isatty()
+        ):
+            return
+        typer.echo("")
+        typer.echo(nudge.message())
+        nudge.mark_shown(data_dir)
+    except Exception:  # noqa: BLE001 — never let a nicety break a working command
+        pass
+
+
 _APP_EPILOG = (
     _examples(
         "yazses quickstart            new here? the 3 steps to get dictating",
@@ -1672,6 +1694,7 @@ def verify(
     typer.echo("")
     if result.ok:
         typer.echo("✓ Dictation works end to end on this machine.")
+        _maybe_point_at_project(platform.paths.data_dir, succeeded=True)
         return
     failure = result.failure
     name = failure.name if failure is not None else "Something"
@@ -3673,6 +3696,10 @@ def transcribe(
     n_spk = len({u.speaker for u in result.utterances if u.speaker})
     summary = f" ({n_spk} speaker{'s' if n_spk != 1 else ''})" if result.diarized else ""
     typer.echo(f"Wrote {out_path}{summary}")
+    # `transcribe` is where most people meet this project working for the first time --
+    # it is the one path that needs no microphone, no hotkey and no re-login, so it is
+    # also what the container and Codespace trials run.
+    _maybe_point_at_project(get_platform().paths.data_dir, succeeded=True)
 
 
 def _load_voiceprints(cfg, platform):
