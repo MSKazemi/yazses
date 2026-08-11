@@ -313,3 +313,42 @@ def test_self_correction_without_punctuation_still_rolls_back():
 
 def test_text_without_any_trigger_is_untouched():
     assert filter_transcript("no trigger here at all").text == "no trigger here at all"
+
+
+def test_filler_removal_never_synthesises_a_new_hyphen_token():
+    """@YossiMH's metamorphic invariant from #144.
+
+    With repetition collapse disabled, filler removal must never produce a
+    hyphen-bearing token that was not already a complete token in the input.
+    That is the property the old code violated: it manufactured "-", "--" and
+    "-cat" out of tokens the speaker never uttered.
+    """
+    cfg = DisfluencyConfig(
+        enabled=True,
+        collapse_repetitions=False,
+        filler_words=["um", "uh", "er", "ah", "hmm", "so", "right", "well"],
+    )
+    corpus = [
+        "um-um the meeting",
+        "uh-uh no",
+        "um-um-um yes",
+        "er-er-er hello",
+        "so um-um well",
+        "um-hmm okay",
+        "the um-um cat",
+        "a-a-actually the meeting",
+        "b-b-basically the meeting",
+        "I w-w-want that",
+        "right-click the icon",
+        "the so-called fix",
+        "a well-known issue",
+        "um the meeting",
+        "state-of-the-art um results",
+    ]
+    for text in corpus:
+        original_tokens = set(text.split())
+        out_tokens = filter_transcript(text, cfg).text.split()
+        invented = [
+            t for t in out_tokens if "-" in t and t not in original_tokens
+        ]
+        assert not invented, f"{text!r} synthesised {invented!r}"
