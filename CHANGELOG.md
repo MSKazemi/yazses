@@ -6,6 +6,39 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the rest of the campaign tooling, and the inventory at full size
+
+`campaign/tasks.json` grows from 183 to **929 tasks** (130 open, the rest held back for
+review capacity). Expanded only where the cross-product is genuinely distinct work someone
+would want done: 297 compatibility environments, 184 localization tasks (23 languages × the
+8 real modules now defined in `i18n/modules.yml`), 154 app configs, 90 microphone
+measurements. **`qa-fixture` and `security-privacy` were deliberately not padded** — their
+size depends on real bugs and real privacy boundaries existing, and inventing tasks to hit a
+number sends someone to solve a problem nobody has.
+
+`scripts/check-compatibility.py` validates `SHOWCASE.md` setup reports: required fields
+present, and the OS line actually says X11 or Wayland, because a report omitting the session
+cannot be acted on. `scripts/check-app-profile.py` validates `examples/*.toml` against the
+real dataclasses in `src/yazses/config.py` — 138 sections, derived not hand-listed. That
+catches a silent failure: the config loader is deliberately total and drops unknown keys
+(#52), which is right for a user's config and wrong for a shipped example, where a typo'd
+key does nothing and the person who copied it concludes the feature is broken.
+
+`scripts/campaign_queue.py` answers who is waiting on a human, ordering by how long someone
+has waited and weighting a first pull request up, since that is the one most likely to be
+abandoned in silence. It also reports claims that have lapsed — 48 hours for L0/L1, seven
+days for L2 — so a task nobody finished returns to the pool instead of staying locked
+forever. **The wording is deliberately not a reprimand**: the task is free again, thank them,
+leave their branch alone, and a test asserts that phrasing.
+
+`i18n/` splits translation into 8 modules **without copying any English prose**. A parallel
+copy of `README.md` would be a second source of truth that drifts silently, which is the
+exact failure this release keeps fixing elsewhere — so `i18n/modules.yml` maps modules to
+`README.md` headings as data, and a test fails when a heading is renamed out from under it.
+`i18n/glossary.yml` carries the terminology decisions, which are genuinely new content:
+what never gets translated, and the traps (translating the DCO sign-off line changes a legal
+statement; "offline" is always rendered *by default*, never as an absolute).
+
 ### Added — funnel measurement, a local task checker, and a scoped packaging brief
 
 `scripts/campaign_stats.py` measures whether any of the contributor work is actually

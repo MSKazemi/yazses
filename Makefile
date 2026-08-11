@@ -17,7 +17,7 @@ LOG_FILE := $(HOME)/.local/state/yazses/log/daemon.log
 # this make sees an up-to-date file target and silently does nothing.
 .PHONY: all install check test lint lint-fix types docs docs-serve man inbox \
         start stop restart status logs doctor overlay build clean help \
-        hygiene campaign campaign-generate campaign-stats
+        hygiene campaign campaign-generate campaign-stats campaign-queue campaign-validate
 
 all: check
 
@@ -69,6 +69,16 @@ campaign-generate:
 # per-cohort conversion. Degrades to local git history with no network.
 campaign-stats:
 	uv run python scripts/campaign_stats.py
+
+# Who is waiting on a human, and which task claims have lapsed back to the pool.
+campaign-queue:
+	uv run python scripts/campaign_queue.py
+	uv run python scripts/campaign_queue.py --claims
+
+# The per-family validators a contributor's task points at.
+campaign-validate:
+	uv run python scripts/check-compatibility.py
+	uv run python scripts/check-app-profile.py
 
 types:
 	@echo "▶  Type checking (advisory — currently clean; don't add errors)…"
@@ -153,7 +163,10 @@ help:
 	@echo "    make lint-fix    ruff with auto-fix"
 	@echo "    make hygiene     fail on tracked files big enough to slow every clone"
 	@echo "    make types       mypy (advisory)"
-	@echo "    make campaign    validate the contributor task inventory"
+	@echo "    make campaign          validate the contributor task inventory"
+	@echo "    make campaign-validate run the per-family record validators"
+	@echo "    make campaign-stats    measure the contributor funnel (read-only)"
+	@echo "    make campaign-queue    who is waiting on a human; lapsed claims"
 	@echo ""
 	@echo "  Documentation"
 	@echo "    make docs        regenerate the generated reference docs"

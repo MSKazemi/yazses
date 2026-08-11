@@ -418,6 +418,134 @@ def test_report_says_so_when_it_had_to_fall_back_to_git(stats):
     assert "lower bound" not in stats.render(summary, degraded=False)
 
 
+@pytest.fixture(scope="module")
+def queue():
+    return _load("campaign_queue")
+
+
+NOW = __import__("datetime").datetime(2026, 8, 11, 12, 0, tzinfo=__import__("datetime").timezone.utc)
+
+
+def test_claims_are_recognised_in_the_words_people_actually_use(queue):
+    comments = [
+        {"user": {"login": "a"}, "body": "claiming APP-014", "created_at": "2026-08-11T10:00:00Z"},
+        {"user": {"login": "b"}, "body": "I'll take MIC-003 please", "created_at": "2026-08-11T10:00:00Z"},
+        {"user": {"login": "c"}, "body": "claim: VEC-SAFETY-001", "created_at": "2026-08-11T10:00:00Z"},
+    ]
+    got = {c["task_id"] for c in queue.parse_claims(comments, {"APP-014", "MIC-003", "VEC-SAFETY-001"})}
+    assert got == {"APP-014", "MIC-003", "VEC-SAFETY-001"}
+
+
+def test_a_token_that_merely_looks_like_a_task_id_is_not_a_claim(queue):
+    comments = [{"user": {"login": "a"}, "body": "claiming UTF-8 support", "created_at": "2026-08-11T10:00:00Z"}]
+    assert queue.parse_claims(comments, {"APP-014"}) == []
+
+
+def test_bot_comments_never_create_claims(queue):
+    comments = [{"user": {"login": "github-actions[bot]"}, "body": "claiming APP-014",
+                 "created_at": "2026-08-11T10:00:00Z"}]
+    assert queue.parse_claims(comments, {"APP-014"}) == []
+
+
+def test_a_schema_task_lapses_in_48h_and_a_code_task_does_not(queue):
+    """Different work deserves different rope: one sitting vs a working week."""
+    tasks = {"L0T": {"risk": "L0"}, "L2T": {"risk": "L2"}}
+    three_days_ago = "2026-08-08T12:00:00Z"
+    claims = [
+        {"task_id": "L0T", "who": "a", "at": three_days_ago},
+        {"task_id": "L2T", "who": "b", "at": three_days_ago},
+    ]
+    lapsed = {c["task_id"] for c in queue.lapsed_claims(claims, tasks, NOW)}
+    assert lapsed == {"L0T"}, "a 3-day-old L2 claim is still inside its 7-day window"
+
+
+def test_a_fresh_claim_never_lapses(queue):
+    claims = [{"task_id": "T", "who": "a", "at": "2026-08-11T11:00:00Z"}]
+    assert queue.lapsed_claims(claims, {"T": {"risk": "L0"}}, NOW) == []
+
+
+def test_lapsed_claim_wording_does_not_blame_anyone(queue):
+    """Expiry exists to free a task, not to mark someone as having failed."""
+    text = queue.render_claims([{"task_id": "T", "who": "a", "lapsed_hours": 5.0}], total=1)
+    assert "not a failure" in text
+    assert "untouched" in text
+
+
+def test_a_first_pull_request_outranks_routine_work_of_equal_age(queue):
+    """The first PR is the one most likely to be abandoned in silence."""
+    old = "2026-08-10T12:00:00Z"
+    first = {"number": 1, "updated_at": old, "risk": "L1", "first_pr": True}
+    routine = {"number": 2, "updated_at": old, "risk": "L1", "first_pr": False}
+    assert queue.review_priority(first, now=NOW) > queue.review_priority(routine, now=NOW)
+
+
+def test_a_longer_wait_outranks_a_shorter_one(queue):
+    older = {"number": 1, "updated_at": "2026-08-09T12:00:00Z", "risk": "L1"}
+    newer = {"number": 2, "updated_at": "2026-08-11T11:00:00Z", "risk": "L1"}
+    assert queue.review_priority(older, now=NOW) > queue.review_priority(newer, now=NOW)
+
+
+def test_an_empty_queue_says_nobody_is_waiting(queue):
+    assert "nobody is waiting" in queue.render_queue([], now=NOW)
+
+
+I18N = ROOT / "i18n"
+
+
+def test_the_translation_module_map_points_at_sections_that_exist():
+    """The module map names `README.md` sections. If one is renamed the map rots and
+    sends a translator to a heading that is not there — the same unreachable-instruction
+    failure as a link to a file git does not ship.
+    """
+    readme_headings = {
+        line.removeprefix("## ").strip().lower()
+        for line in (ROOT / "README.md").read_text(encoding="utf-8").splitlines()
+        if line.startswith("## ")
+    }
+    # The map is data (`modules.yml`), not prose, precisely so this is checkable.
+    # Parsed with a small reader rather than a YAML dependency — the repo runs an 18
+    # package base budget and a translation map is not a reason to widen it.
+    raw = (I18N / "modules.yml").read_text(encoding="utf-8")
+    cited = [s.strip().strip('"') for line in raw.splitlines()
+             if line.strip().startswith("sections:")
+             for s in line.split("[", 1)[1].rstrip("]").split('", "')]
+    cited = [c.strip('"[] ') for c in cited if c.strip('"[] ')]
+    assert cited, "no sections found in i18n/modules.yml — did the format change?"
+
+    missing = [c for c in cited if c.lower() not in readme_headings]
+    assert not missing, (
+        f"i18n/modules.yml names README sections that do not exist: {missing} — "
+        "a renamed heading rots the translation map silently, sending a translator "
+        f"to a heading that is not there. Real headings: {sorted(readme_headings)}"
+    )
+
+
+def test_no_english_prose_is_duplicated_into_i18n():
+    """The whole design decision: `README.md` stays the single source of the prose.
+
+    A parallel English copy here would drift within weeks, silently, because nobody
+    re-reads the copy.
+    """
+    stray = [p.name for p in I18N.glob("en/*.md")]
+    assert not stray, (
+        f"English prose copied into i18n/en/: {stray} — the module map references "
+        "README.md sections instead, precisely so there is nothing to drift"
+    )
+
+
+def test_the_glossary_protects_the_tokens_that_break_when_translated():
+    """A 'translated' command does not run. These must be listed as protected."""
+    text = (I18N / "glossary.yml").read_text(encoding="utf-8")
+    for token in ("yazses start", "[stt] model", "vad_threshold", "YazSes"):
+        assert token in text, f"{token!r} is not listed as protected in the glossary"
+
+
+def test_the_glossary_keeps_the_qualified_offline_claim():
+    """Claims policy: 'offline' is always offline *by default*, never absolute."""
+    text = (I18N / "glossary.yml").read_text(encoding="utf-8")
+    assert "by default" in text, "the glossary must not license an absolute offline claim"
+
+
 def test_report_is_actionable_when_scope_is_wrong(preflight, tasks):
     task = next(t for t in tasks if t["state"] == "open")
     ok, report = preflight.render_report(

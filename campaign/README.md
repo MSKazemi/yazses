@@ -25,7 +25,21 @@ uv run python scripts/check-task.py            # list the open tasks
 uv run python scripts/campaign.py --check      # validate (a test runs this too)
 uv run python scripts/campaign.py --generate   # rewrite the generated files
 uv run python scripts/campaign_stats.py        # measure the funnel (read-only)
+uv run python scripts/campaign_queue.py        # who is waiting on a human
+uv run python scripts/campaign_queue.py --claims   # claims that have lapsed
+uv run python scripts/check-compatibility.py   # validate SHOWCASE.md reports
+uv run python scripts/check-app-profile.py     # validate examples/*.toml
 ```
+
+`check-app-profile.py` compares every key against the real dataclasses in
+`src/yazses/config.py`. That matters because the config loader is deliberately total — it
+drops unknown keys and carries on (issue #52), which is right for a user's own config and
+wrong for a shipped example: a typo'd key does nothing, reports nothing, and the person
+who copied it concludes the feature is broken.
+
+Claims lapse — 48 hours for L0/L1, seven days for L2 — so a task nobody finished returns to
+the pool instead of staying locked forever. **That is not a judgement on anyone.** The
+wording says the task is free again, thanks them, and leaves their branch and any PR alone.
 
 `check-task.py` runs the same three checks CI will — scope, personal data, and the task's
 own validation command — against your working tree, so you find out while the work is

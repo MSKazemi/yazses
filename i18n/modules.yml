@@ -1,0 +1,65 @@
+# Which slice of README.md a translator takes.
+#
+# There is no copy of the English prose here on purpose: README.md stays canonical, and a
+# parallel copy would drift within weeks — silently, because nobody re-reads a copy. This
+# file is the map, not the text.
+#
+# `sections` are `## ` headings in README.md, written exactly as they appear there.
+# tests/test_campaign.py fails if one stops existing, so a renamed heading cannot rot the
+# map without someone noticing.
+
+modules:
+  - id: 1
+    name: Landing
+    sections: ["Three things it does"]
+    from_top: true          # also covers the intro above the first heading
+    approx_lines: 60
+    why: Decides whether someone keeps reading.
+
+  - id: 2
+    name: Quick Start
+    sections: ["Quick Start"]
+    approx_lines: 75
+    why: Decides whether they install.
+
+  - id: 3
+    name: Speaking
+    sections: ["What you can say", "How it works"]
+    approx_lines: 40
+    why: First-use success.
+
+  - id: 4
+    name: Requirements
+    sections: ["Requirements", "All install options"]
+    approx_lines: 80
+    why: Where installs actually fail.
+
+  - id: 5
+    name: Honesty
+    sections: ["Limitations / when *not* to use YazSes", "Comparison & alternatives"]
+    approx_lines: 35
+    why: >-
+      Trust. Translate faithfully and do not soften it — an over-promising translation is
+      worse than no translation.
+
+  - id: 6
+    name: Help
+    sections: ["FAQ"]
+    approx_lines: 20
+    why: Self-service support.
+
+  - id: 7
+    name: Reference
+    sections: ["CLI commands", "Configuration"]
+    approx_lines: 65
+    why: Mostly protected tokens; very little prose to translate.
+
+  - id: 8
+    name: Contributing
+    sections: ["Contributing"]
+    approx_lines: 30
+    why: Grows the next translator.
+
+# Modules 1 and 2 together are a complete, mergeable pull request — that is exactly what
+# the Hindi translation (#165) did. Anything beyond is welcome and never expected.
+complete_pr: [1, 2]
