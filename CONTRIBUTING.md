@@ -5,6 +5,12 @@ branch — that is where every contribution goes. (An early-stage Rust prototype
 `archive/rust-hci-v1`; it is not built, installed, or maintained, and you can safely ignore
 it.)
 
+**Want a concrete task rather than an issue to interpret?**
+[`campaign/generated/open-tasks.md`](campaign/generated/open-tasks.md) lists 130 open tasks
+— each with the exact files it may touch, the command that decides it is done, and an
+honest time estimate. Run `uv run python scripts/check-task.py <ID>` before you push and it
+tells you what CI will say.
+
 **New here?** Pick a [good first issue](https://github.com/MSKazemi/yazses/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
 and say hi on it — several need no Python at all (docs, an example config, testing on your
 hardware). We aim to respond to issues and PRs within a few days, and we would rather merge

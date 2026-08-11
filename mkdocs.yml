@@ -256,6 +256,7 @@ nav:
       - Eye control: research/eye-control.md
       - Voice control: research/voice-control.md
       - Muscle & brain control: research/muscle-brain-control.md
+      - The HCI canon behind YazSes: research/hci-canon.md
   - Reference:
       - Features: features.md
       - Comparison & alternatives: comparison.md
@@ -279,6 +280,9 @@ nav:
       - Contributing to mobile: mobile/contributing.md
       - Decision records: mobile/adr/README.md
   - Troubleshooting: troubleshooting.md
-  - Contributing: contributing.md
+  - Contributing:
+      - How to contribute: contributing.md
+      - Pick a task: contribute/tasks.md
+      - What contributors built: contribute/built.md
   - Roadmap: roadmap.md
   - Releases: releases/index.md

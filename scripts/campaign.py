@@ -40,6 +40,10 @@ SCHEMA_JSON = CAMPAIGN / "schemas" / "task.schema.json"
 OPEN_TASKS_MD = CAMPAIGN / "generated" / "open-tasks.md"
 DASHBOARD_MD = CAMPAIGN / "generated" / "dashboard.md"
 STATS_JSON = CAMPAIGN / "generated" / "stats.json"
+#: The same two pages, published on the docs site — that is where readers actually arrive.
+#: Generated rather than copied, so a test catches them drifting from the inventory.
+DOCS_TASKS_MD = ROOT / "docs" / "contribute" / "tasks.md"
+DOCS_BUILT_MD = ROOT / "docs" / "contribute" / "built.md"
 
 # ── The contract ──────────────────────────────────────────────────────────────
 
@@ -394,6 +398,8 @@ def generate(tasks: list[dict[str, Any]]) -> dict[Path, str]:
         OPEN_TASKS_MD: render_open_tasks(tasks),
         DASHBOARD_MD: render_dashboard(tasks),
         STATS_JSON: json.dumps(stats(tasks), indent=2) + "\n",
+        DOCS_TASKS_MD: render_open_tasks(tasks),
+        DOCS_BUILT_MD: render_dashboard(tasks),
     }
 
 

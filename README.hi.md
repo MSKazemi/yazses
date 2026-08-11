@@ -503,6 +503,10 @@ cargo build && cargo test --workspace   # optional backends: whisper, moonshine,
 Contributions are very welcome — bug reports, docs, packaging, and code.
 
 - 🌱 **New here?** Start with a [good first issue](https://github.com/MSKazemi/yazses/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) — each is small and self-contained, and we're happy to help you through your first PR.
+- 🎯 **Want a task picked for you?** [**Browse 130 open tasks**](https://mskazemi.com/yazses/contribute/tasks.html)
+  — each one names the exact files you may touch, the command that says you're done, and an
+  honest time estimate. Filter by what you actually have: a browser, a terminal, a specific
+  app, or unusual hardware nobody else can test.
 - ⏱️ **Got 15 minutes and no Python?** These need only a text editor, take one PR each, and
   several hold many contributors at once — no permission needed, just comment and go:
   [translate the README](https://github.com/MSKazemi/yazses/issues/18) (the lede and Quick
