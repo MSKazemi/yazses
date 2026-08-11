@@ -1,12 +1,12 @@
 ---
 title: Try YazSes without installing it — offline speech-to-text in Docker or your browser
-description: Hear how accurate on-device transcription is before you install anything. Run YazSes in Docker with one command, or in a browser via GitHub Codespaces. No account, no API key, no cloud.
+description: Hear how accurate on-device transcription is before you install anything. Run YazSes in Docker with one command, in a hosted browser demo, or in a GitHub Codespace. No account, no API key, no install.
 ---
 
 # Try it without installing it
 
 The honest objection to any offline speech-to-text tool is **"but is it actually
-accurate?"** — and no amount of prose answers that. So here are three ways to find out
+accurate?"** — and no amount of prose answers that. So here are four ways to find out
 that cost you nothing and leave nothing behind.
 
 !!! info "What you can and cannot try this way"
@@ -68,7 +68,24 @@ which transcription never uses.
 
 ---
 
-## 2. In your browser — GitHub Codespaces
+## 2. In your browser — one click, nothing to install
+
+**[Open the hosted demo →](https://huggingface.co/spaces/mskazemi/yazses-offline-transcription-demo)**
+
+Upload a file or record straight from the page. It runs the same engine and the same
+default model (`base.en`, int8) that YazSes uses on your machine, so the accuracy you see
+is the accuracy you get.
+
+!!! warning "This one page is *not* private — and that is the point of saying so"
+    The hosted demo runs on Hugging Face's servers, so audio you send to **it** does leave
+    your computer. That is true of that page only, and it exists purely to let you judge
+    **accuracy** before installing.
+
+    Everything else on this site is the opposite: YazSes runs entirely on your own CPU.
+    If privacy is your reason for being here, use the Docker method above — it proves the
+    claim with `--network none` — rather than trusting either page.
+
+## 3. In your browser — GitHub Codespaces
 
 No Docker, no local install, nothing on your machine at all:
 
@@ -91,7 +108,7 @@ needed.
 
 ---
 
-## 3. Just read the numbers
+## 4. Just read the numbers
 
 If you would rather not run anything:
 
