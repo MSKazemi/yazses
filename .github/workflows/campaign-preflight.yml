@@ -33,7 +33,9 @@ jobs:
   preflight:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      # SHA-pinned to match every other workflow here; the repo runs OpenSSF Scorecard,
+      # which scores exactly this.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
@@ -58,15 +60,12 @@ jobs:
           git diff "$MERGE_BASE" "$HEAD_SHA" | grep '^+' > /tmp/added.txt || true
           echo "Changed files:"; cat /tmp/changed.txt
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-
+      # No setup-python step on purpose: both scripts are standard-library only, so the
+      # runner's system python3 is enough. One less action to pin and to trust.
       - name: Preflight
         run: |
           set -euo pipefail
-          python scripts/campaign_preflight.py \
+          python3 scripts/campaign_preflight.py \
             --pr-body-file /tmp/pr-text.txt \
             --changed-files-from /tmp/changed.txt \
             --diff-file /tmp/added.txt
