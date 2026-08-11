@@ -102,3 +102,21 @@ def test_importing_the_daemon_does_not_import_qt() -> None:
     )
     assert out.returncode == 0, out.stderr
     assert out.stdout.strip() == "False", "importing the daemon pulled in Qt"
+
+
+def test_flake_keeps_qt_out_of_the_base_package_too() -> None:
+    """The Nix packaging must mirror the same split, or it silently re-adds 648 MB.
+
+    Does not evaluate the flake -- there is no Nix on the authoring machine, which is
+    stated in the flake's own header. This only pins the property that would be easiest
+    to lose in a careless edit.
+    """
+    flake = REPO_ROOT / "flake.nix"
+    if not flake.exists():
+        return  # the flake is optional packaging; absence is not a failure here
+    text = flake.read_text(encoding="utf-8")
+    base, _, desktop = text.partition("yazses-desktop")
+    assert "pyside6" not in base.lower().split("dependencies = with python.pkgs;")[-1].split("]")[0], (
+        "pyside6 crept into the base Nix package's dependencies"
+    )
+    assert "pyside6" in desktop.lower(), "the yazses-desktop Nix package no longer adds Qt"

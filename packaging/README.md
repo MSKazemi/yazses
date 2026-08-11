@@ -19,7 +19,7 @@ registry. Every channel below was checked live on 2026-08-11:
 | **winget** | ❌ **404** | `winget/…/2.17.0/` | manifests are **current (real sha)** — needs a PR to `microsoft/winget-pkgs` ([#78](https://github.com/MSKazemi/yazses/issues/78)) |
 | **AUR** | ❌ **404** | `arch/PKGBUILD` | ⚠ stale at `pkgver=0.4.0`, `sha256sums=SKIP` ([#67](https://github.com/MSKazemi/yazses/issues/67)) |
 | **Flathub** | ❌ not found | — | nothing built yet ([#45](https://github.com/MSKazemi/yazses/issues/45)) |
-| **Nix** | ❌ 0 hits | — | ([#68](https://github.com/MSKazemi/yazses/issues/68)) |
+| **Nix** | ❌ 0 hits | `../flake.nix` | authored; **every nixpkgs attribute verified to exist**, but ⚠ **never evaluated** (no Nix here) ([#68](https://github.com/MSKazemi/yazses/issues/68)) |
 | **Docker/GHCR** | ❌ 404 | `docker/Dockerfile` | image **builds and runs** — needs publishing ([#76](https://github.com/MSKazemi/yazses/issues/76)) |
 | **Scoop** | ❌ 404 | `scoop/yazses.json` | manifest **validates against Scoop's official `schema.json`**; needs a bucket repo ([#79](https://github.com/MSKazemi/yazses/issues/79)) |
 | **Chocolatey** | ❌ 404 | `chocolatey/` | nuspec + checksum verified; ⚠ **`.ps1` scripts not syntax-checked** (no `pwsh` on the authoring machine) |
@@ -60,6 +60,33 @@ looked finished and installed nobody.
 ⚠️ `scoop/yazses.json` deliberately has **no `autoupdate.hash`**. Releases publish no
 `SHA256SUMS` asset, so pointing at one would 404 and silently break every future update;
 with the key absent, Scoop downloads the new installer and computes the digest itself.
+
+### Nix
+
+`../flake.nix` provides `nix run github:MSKazemi/yazses` plus a `yazses-desktop` variant
+that adds Qt, and a dev shell.
+
+**Every nixpkgs attribute it references was verified to exist** on `nixos-unstable`
+(2026-08-11) by fetching the definitions directly — including the two that block a
+conda-forge recipe outright: `faster-whisper` (**1.2.1**, matching this project's floor)
+and `ctranslate2`. Braces balance. That is the whole of what is proven.
+
+⚠️ **It has never been evaluated.** There is no Nix on the authoring machine, and
+fetching a Nix binary purely to get one was not an acceptable trade. Before advertising
+it anywhere:
+
+```sh
+nix flake check
+nix build .#yazses && ./result/bin/yazses --help
+nix run . -- transcribe data/librispeech-sample/jfk.wav   # compare with jfk.txt
+```
+
+⚠️ **Verification gotcha, again.** `search.nixos.org`'s backend query returned *zero
+hits for every package*, including ones that certainly exist, and GitHub code search
+reported `numpy` as absent from nixpkgs. Both are wrong. The only check that held up was
+fetching `pkgs/development/python-modules/<name>/default.nix` directly and reading
+`pkgs/top-level/python-packages.nix`. **Do not conclude a package is missing from a
+search API.**
 
 ### Keeping checksums honest
 
