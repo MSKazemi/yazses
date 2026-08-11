@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — an incident-response playbook and an honest public dashboard
+
+`campaign/incident-response.md` covers what a contributor drive brings that ordinary
+maintenance does not, and that neither `SECURITY.md` (vulnerabilities) nor
+`CODE_OF_CONDUCT.md` (behaviour) addresses: fabricated evidence, plagiarised contributions,
+pull-request floods, coordinated inauthentic activity, a contributor leaking their own
+credentials, and harassment during a campaign.
+
+Its governing bias is stated first, because it decides every other call: **act on the
+contribution, not the person.** Almost every bad first pull request is a misunderstanding, a
+language barrier, or a task we wrote badly. Using the language of bad faith on someone who
+was merely confused ends their involvement in open source, not just here. So the fabricated
+evidence procedure opens with one neutral question rather than an accusation, and the
+credential-leak procedure starts with "tell them to revoke it" rather than with git.
+
+`campaign/generated/dashboard.md` publishes what contributors have actually built, by
+category. It currently reads **"Nothing yet"** and will until real work merges. That is
+deliberate: it counts *merged* contributions, never tasks published or people reached,
+because a dashboard of activity rather than output is exactly how a campaign convinces
+itself it is working while producing nothing. Reviewer load and incident details are
+deliberately excluded — those concern individuals, and aggregate output is what a reader
+needs.
+
 ### Added — duplicate-environment detection, an agent architecture map, and CLI smoke tests
 
 Preflight now warns when a compatibility report describes an environment `SHOWCASE.md`

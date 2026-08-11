@@ -17,6 +17,8 @@ you remain the author, and you are expected to have read every line you send.
 | `schemas/task.schema.json` | **Generated.** Derived from `FIELD_SPEC` in `scripts/campaign.py`. |
 | `generated/open-tasks.md` | **Generated.** The browsable list. |
 | `generated/stats.json` | **Generated.** Counts, and the review cost if everything merged. |
+| `generated/dashboard.md` | **Generated.** What contributors have actually built, by category. |
+| `incident-response.md` | Spam, fabricated evidence, plagiarism, leaked data, harassment. |
 
 ```sh
 uv run python scripts/check-task.py APP-014    # ← contributors: check your work before pushing
@@ -90,6 +92,10 @@ sets it true.
   session, written for an organizer who has never spoken to the maintainer.
 - [`../REVIEWING.md`](../REVIEWING.md) — the review lanes, the responses, and how to
   become a reviewer without needing repository permissions first.
+- [`incident-response.md`](incident-response.md) — what to do about fabricated evidence,
+  plagiarism, PR floods, coordinated activity and leaked personal data. Its governing bias:
+  act on the contribution, not the person, because almost every bad first PR is a
+  misunderstanding or a badly written task rather than bad faith.
 
 ## Adding a task
 
