@@ -171,6 +171,18 @@ YazSes builds on open-source libraries — faster-whisper, sounddevice, and (opt
 llama-cpp-python, among others — all of which run on your device. You can audit them
 through the project's dependency manifest (`pyproject.toml`).
 
+**A machine-readable inventory ships with the project**, for anyone whose organisation
+requires one before software may be installed:
+
+- [`sbom.cdx.json`](https://github.com/MSKazemi/yazses/blob/main/sbom.cdx.json) — a
+  **CycloneDX 1.5** SBOM listing every resolved dependency with its version, package URL
+  and, where the lock file records one, the SHA-256 of its source distribution.
+
+It is generated from `uv.lock` rather than from whatever happens to be installed on a
+build machine, so it describes what *you* will actually resolve to, and a test fails if
+it drifts out of step with the lock file. Regenerate it yourself with
+`python scripts/gen-sbom.py`.
+
 ## Your rights and controls
 
 | Action | How |
