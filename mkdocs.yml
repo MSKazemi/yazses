@@ -249,6 +249,8 @@ nav:
       - Multilingual dictation: use-cases/multilingual-dictation.md
       - Hindi & Indian languages: use-cases/hindi-voice-typing.md
       - "हिंदी वॉयस टाइपिंग (Hindi)": hi/hindi-voice-typing.md
+      - Chinese & Mandarin: use-cases/chinese-voice-typing.md
+      - "中文语音输入 (Chinese)": zh/chinese-voice-typing.md
   - Guides:
       - Overview: how-to/index.md
       - Change the hotkey: how-to/change-hotkey.md

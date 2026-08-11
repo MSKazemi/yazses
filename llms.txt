@@ -97,6 +97,8 @@ yazses start      # start the dictation daemon
 
 **Is there an iPhone/iPad app?** No, and it follows Android deliberately: no iOS app extension — including a custom keyboard — may access the microphone (Apple's rule since iOS 8), so an iOS version must be a different product shape. macOS is already supported by the desktop app.
 
+**Can it dictate in Chinese, or other non-English languages?** Yes, but not with the default settings, and not yet as well as it does English. The default model is `base.en`, which is English-only and physically cannot decode other languages — it returns fluent-looking English nonsense rather than an error. Non-English needs a multilingual model: `[stt] model = "small"` (no `.en` suffix) plus `[stt] language = "zh"`. For Chinese specifically, Whisper also chooses Simplified or Traditional characters inconsistently per utterance — measured at 13 of 20 clean Mandarin utterances answering in Traditional, including word-perfect ones — so `[stt] chinese_script = "simplified"` pins the script, which cut character error rate from 35.9% to 16.9% on the `small` model. Chinese dictation is best described as usable but still rough; test it on your own audio first.
+
 ## Documentation
 
 - [Install on Linux](docs/install-linux.md)
@@ -105,6 +107,8 @@ yazses start      # start the dictation daemon
 - [CLI reference](docs/cli-reference.md)
 - [Privacy statement](docs/privacy-statement.md)
 - [Android / mobile programme (in design)](docs/mobile/index.md)
+- [Chinese voice typing (中文语音输入)](docs/zh/chinese-voice-typing.md)
+- [Hindi voice typing (हिंदी)](docs/hi/hindi-voice-typing.md)
 
 ## Project info
 

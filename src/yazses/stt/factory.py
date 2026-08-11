@@ -11,6 +11,7 @@ runtimes (CTranslate2, onnx-asr) stay lazy: importing this module costs nothing.
 """
 from __future__ import annotations
 
+import dataclasses
 import logging
 from typing import TYPE_CHECKING
 
@@ -29,6 +30,10 @@ def build_engine(stt: "SttConfig") -> "SttEngine":
     ``getattr`` guards keep this callable with any duck-typed config (tests,
     older configs without the ``engine`` key).
     """
+    return _with_han_script(_build_raw_engine(stt), stt)
+
+
+def _build_raw_engine(stt: "SttConfig") -> "SttEngine":
     name = (getattr(stt, "engine", "") or DEFAULT_ENGINE).strip().lower()
     if name == "parakeet":
         try:
@@ -89,3 +94,71 @@ def _build_faster_whisper(stt: "SttConfig", fallback_from: str = "") -> "SttEngi
         compute_type=getattr(stt, "compute_type", "int8"),
         language=language,
     )
+
+
+def _with_han_script(engine: "SttEngine", stt: "SttConfig") -> "SttEngine":
+    """Wrap *engine* so Chinese output lands in the configured Han script.
+
+    Applied here rather than at each call site so dictation, `yazses transcribe`,
+    meeting capture and the streaming decoder all get it from one wiring point —
+    the same single-chokepoint rule `_effective_initial_prompt` follows. Returns
+    *engine* untouched when the feature is off or ``opencc`` is absent, so the
+    default install carries no wrapper at all.
+    """
+    from yazses.postprocess.han_script import build_han_normaliser
+
+    normalise = build_han_normaliser(stt)
+    if normalise is None:
+        return engine
+
+    # An `.en` checkpoint cannot emit Han characters at all, so the conversion
+    # would run on every utterance and change nothing. `features enable
+    # chinese-script` writes the key without touching `[stt] model`, so this
+    # pairing is what a user lands on by default — say it plainly rather than
+    # leaving a toggle that reports "on" and silently does nothing.
+    model = (getattr(stt, "model", "") or "").strip()
+    if model.lower().endswith(".en"):
+        log.warning(
+            "[stt] chinese_script is set but [stt] model = %r is English-only, so "
+            "there will never be Chinese output to convert. Fix: set model = %r "
+            "(drop the .en suffix) and language = \"zh\".",
+            model, model[: -len(".en")] or "small",
+        )
+    return _HanScriptEngine(engine, normalise)
+
+
+class _HanScriptEngine:
+    """Decorator over an :class:`SttEngine` that rewrites its Chinese output.
+
+    Delegates anything it does not convert, so an engine-specific attribute a
+    caller reaches for still resolves through the wrapper.
+    """
+
+    def __init__(self, inner: "SttEngine", normalise) -> None:
+        self._inner = inner
+        self._normalise = normalise
+
+    def transcribe(self, audio, sample_rate: int = 16000, initial_prompt=None,
+                   task=None) -> str:
+        return self._normalise(
+            self._inner.transcribe(audio, sample_rate, initial_prompt, task)
+        )
+
+    def transcribe_words(self, audio, sample_rate: int = 16000,
+                         initial_prompt=None, task=None):
+        text, words = self._inner.transcribe_words(
+            audio, sample_rate, initial_prompt, task
+        )
+        # Convert each word too: the caller re-renders per-word output (speaker
+        # labels, subtitles, Confidence Ink), so converting only the joined text
+        # would leave those surfaces in the script the user asked to leave.
+        converted = [
+            dataclasses.replace(w, text=self._normalise(w.text)) for w in words
+        ] if words else words
+        return self._normalise(text), converted
+
+    def decode_window(self, audio) -> str:
+        return self._normalise(self._inner.decode_window(audio))
+
+    def __getattr__(self, name: str):
+        return getattr(self._inner, name)

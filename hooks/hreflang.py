@@ -38,7 +38,7 @@ from typing import Any
 
 # Top-level docs directories that denote a translation rather than a section.
 # Keep in step with any language directory added under docs/.
-LANGUAGE_DIRS = {"hi"}
+LANGUAGE_DIRS = {"hi", "zh"}
 
 DEFAULT_LANGUAGE = "en"
 

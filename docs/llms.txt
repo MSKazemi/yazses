@@ -100,6 +100,8 @@ yazses start      # start the dictation daemon
 - Research — work with us: student/thesis projects, research-platform seams, how to cite: https://mskazemi.com/yazses/research/get-involved.html
 - Offline meeting transcription and minutes: https://mskazemi.com/yazses/meeting-notes-offline.html
 
+**Can it dictate in Chinese, or other non-English languages?** Yes, but not with the default settings, and not yet as well as it does English. The default model is `base.en`, which is English-only and physically cannot decode other languages — it returns fluent-looking English nonsense rather than an error. Non-English needs a multilingual model: `[stt] model = "small"` (no `.en` suffix) plus `[stt] language = "zh"`. For Chinese specifically, Whisper also chooses Simplified or Traditional characters inconsistently per utterance — measured at 13 of 20 clean Mandarin utterances answering in Traditional, including word-perfect ones — so `[stt] chinese_script = "simplified"` pins the script, which cut character error rate from 35.9% to 16.9% on the `small` model. Chinese dictation is best described as usable but still rough; test it on your own audio first.
+
 ## Documentation
 
 - Use cases overview: https://mskazemi.com/yazses/use-cases/index.html
@@ -113,6 +115,8 @@ yazses start      # start the dictation daemon
 - Android / mobile programme (in design): https://mskazemi.com/yazses/mobile/index.html
 - Contributing (including tasks that need no code): https://mskazemi.com/yazses/contributing.html
 - Known-good microphones (community-reported): https://mskazemi.com/yazses/known-good-microphones.html
+- Chinese voice typing (中文语音输入): https://mskazemi.com/yazses/zh/chinese-voice-typing.html
+- Hindi voice typing (हिंदी वॉयस टाइपिंग): https://mskazemi.com/yazses/hi/hindi-voice-typing.html
 
 ## Citation
 

@@ -1400,6 +1400,19 @@
     },
     {
       "type": "library",
+      "name": "opencc-python-reimplemented",
+      "version": "0.1.7",
+      "purl": "pkg:pypi/opencc-python-reimplemented@0.1.7",
+      "bom-ref": "pkg:pypi/opencc-python-reimplemented@0.1.7",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "4f777ea3461a25257a7b876112cfa90bb6acabc6dfb843bf4d11266e43579dee"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "opencv-contrib-python",
       "version": "5.0.0.93",
       "purl": "pkg:pypi/opencv-contrib-python@5.0.0.93",

@@ -38,6 +38,14 @@ class SttConfig:
     # spell domain terms and proper nouns it otherwise mis-transcribes. `yazses
     # tune` proposes additions here from the learning corpus.
     initial_prompt: str = ""
+    # Which Han script Chinese output is written in: "simplified" (简体, mainland)
+    # | "traditional" (繁體, Taiwan/Hong Kong) | "" to leave the model's own choice
+    # alone. Whisper picks a script per utterance and is not consistent about it,
+    # so a mainland user gets Traditional characters back for a large share of
+    # correct transcriptions (postprocess/han_script.py has the measurements).
+    # Empty by default because the right answer is regional, not universal.
+    # Needs the `chinese` extra; without it the setting warns once and no-ops.
+    chinese_script: str = ""
 
 
 @dataclass

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Enforce the dependency budget: a lean base install stays lean.
 
-YazSes ships 17 base dependencies against 140+ features on purpose — a user who
+YazSes ships 16 base dependencies against 140+ features on purpose — a user who
 wants plain dictation should not download mediapipe, speechbrain, sherpa-onnx, or
 llama-cpp. Everything heavy lives behind an extra in `[project.optional-dependencies]`
 and is imported lazily, inside the function that needs it, so the base install stays
@@ -66,6 +66,7 @@ IMPORT_TIME_TOLERANCE = 1.5
 EXTRA_MODULES: dict[str, tuple[str, ...]] = {
     "agent": ("mcp",),
     "ble": ("bleak",),
+    "chinese": ("opencc",),
     # PySide6 left the base install (648 MB of Qt a headless box cannot use), so the
     # two extras that own it are now genuinely enforceable: nothing may import Qt at
     # daemon-import time. `desktop` and `overlay` are the same dependency under two

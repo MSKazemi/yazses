@@ -131,6 +131,13 @@ desktop = [
 prosody = [
     "praat-parselmouth>=0.4.7",
 ]
+# Simplified/Traditional Han conversion for `[stt] chinese_script`. Whisper picks
+# a Han script per utterance and is not consistent, so Chinese output needs
+# normalising to the one the user actually writes in. Pure Python, no compiled
+# extension — imported lazily by postprocess/han_script.py.
+chinese = [
+    "opencc-python-reimplemented>=0.1.7",
+]
 tts = [
     "kokoro-onnx>=0.5.0",
     "onnxruntime>=1.27.0",

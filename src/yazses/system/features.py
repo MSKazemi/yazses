@@ -133,6 +133,12 @@ def _registry() -> list[_Def]:
     # Text-target guard is a string setting (clipboard|warn|off), not a bool.
     tgt_on = (("injection", "target_guard", "clipboard", True),)
     tgt_off = (("injection", "target_guard", "off", True),)
+    # Enabling picks Simplified: it is what the large majority of Chinese users
+    # write, and Taiwan/Hong Kong users can set "traditional" by hand. Disabling
+    # restores Whisper's own per-utterance choice rather than forcing the other
+    # script, which would be a different opinion, not an off switch.
+    han_on = (("stt", "chinese_script", "simplified", True),)
+    han_off = (("stt", "chinese_script", "", True),)
     # STT engine is a string setting: enable selects Parakeet, disable restores
     # the faster-whisper default (stt/factory.py falls back safely either way).
     pk_on = (("stt", "engine", "parakeet", True),)
@@ -305,6 +311,15 @@ def _registry() -> list[_Def]:
              "Precise with AT-SPI (apt install python3-pyatspi gir1.2-atspi-2.0), else "
              "best-effort on X11.",
              lambda c: c.injection.target_guard != "off", tgt_on, tgt_off),
+        _Def("chinese-script", "Chinese script (简体/繁體)", "[stt] chinese_script", OPTIONAL,
+             "Write Chinese output in one Han script instead of whichever one Whisper "
+             "picked for that utterance. Measured on clean Mandarin speech, 13 of 20 "
+             "correct transcriptions came back in Traditional characters. Enable for "
+             "Simplified (mainland); set [stt] chinese_script = \"traditional\" for "
+             "Taiwan/Hong Kong. Only affects Chinese text, so it also needs a "
+             "multilingual model ([stt] model without the .en suffix) and "
+             "language = \"zh\" — on an English-only model it can do nothing.",
+             lambda c: bool(getattr(c.stt, "chinese_script", "")), han_on, han_off),
         _Def("mic-guard", "Mic-change guard", "[audio] device_change_notify", DEFAULT_ON,
              "Notifies + auto-heals when your microphone silently switches (e.g. a "
              "USB-C monitor stealing capture) so dictation never dies in silence. Keep on.",
@@ -884,6 +899,7 @@ _FEATURE_DEPS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     # no longer a base dependency (it is the `desktop` extra), so enabling the tray
     # on a headless-installed copy has to be able to fetch it too.
     "tray": (("PySide6",), ("PySide6>=6.8",)),
+    "chinese-script": (("opencc",), ("opencc-python-reimplemented>=0.1.7",)),
     "prosody": (("parselmouth",), ("praat-parselmouth>=0.4.6",)),
     "voicehealth": (("parselmouth",), ("praat-parselmouth>=0.4.6",)),
     "read-back": (("kokoro_onnx", "onnxruntime", "soundfile"),
@@ -924,6 +940,7 @@ def _attach_deps(d: "_Def") -> "_Def":
 _SLUG_PACKAGES: dict[str, tuple[str, ...]] = {
     "dictation": ("core",),
     "voice-punctuation": ("postprocess",),
+    "chinese-script": ("postprocess",),  # postprocess/han_script.py
     "undo": ("commands",),           # commands/revise.py, wired in daemon._on_hold_end
     "target-guard": ("inject",),     # inject/target.py
     "mic-guard": ("audio",),         # audio/device_monitor.py
@@ -1007,6 +1024,7 @@ _EXAMPLES: dict[str, str] = {
     "overlay": "Watch the sonar rings near the cursor while you talk.",
     "dysfluency": "Say 'b-b-because' → 'because' (stutters collapsed).",
     "punch-in": "Re-speak a phrase right after to correct the last one.",
+    "chinese-script": "Dictating 简体中文 and getting 繁體字 back — this pins the script.",
     "prosody": "Pause between thoughts → a new paragraph; stress a word → bold.",
     "ghost-ahead": "Nothing to do — the decoder pre-warms for faster first words.",
     "macros": "Say your trigger word to expand canned text (configure [macros]).",
@@ -1155,6 +1173,7 @@ _USE_CASES: dict[str, str] = {
     "overlay": "When you want a glanceable visual cue that the mic is live and hearing you.",
     "dysfluency": "When you stutter, have dysarthria, or repeat words and want them cleaned to fluent text.",
     "punch-in": "When one phrase came out wrong and you'd rather re-say it than manually edit.",
+    "chinese-script": "When you dictate Chinese and want it always written in your own script — Simplified on the mainland, Traditional in Taiwan or Hong Kong.",
     "prosody": "When you want your natural pauses and emphasis to become paragraphs and bold automatically.",
     "ghost-ahead": "When first-word latency bugs you and you want the decoder warm before you speak.",
     "macros": "When you repeatedly type the same boilerplate and want a spoken shortcut for it.",
@@ -1313,6 +1332,9 @@ _CATEGORIES: dict[str, str] = {
     "acoustic_profiles": CAT_ACCURACY, "scrub": CAT_ACCURACY, "spelling": CAT_ACCURACY,
     "context": CAT_ACCURACY, "screengrounded": CAT_ACCURACY,
     # Formatting & structure — shape the output.
+    # Chinese script selection shapes how correct text is written, not what was
+    # heard, so it belongs with formatting rather than accuracy.
+    "chinese-script": CAT_FORMAT,
     "prosody": CAT_FORMAT, "prosodypunct": CAT_FORMAT, "itn": CAT_FORMAT,
     "markup": CAT_FORMAT, "sembr": CAT_FORMAT, "outline": CAT_FORMAT,
     "screenplay": CAT_FORMAT, "tablecsv": CAT_FORMAT, "spreadsheet": CAT_FORMAT,

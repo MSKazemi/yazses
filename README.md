@@ -1,4 +1,4 @@
-**Read this in other languages:** English · [हिंदी](README.hi.md)
+**Read this in other languages:** English · [हिंदी](README.hi.md) · [简体中文](README.zh-CN.md)
 
 # YazSes
 

@@ -23,6 +23,7 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 | `device` | str | `"cpu"` |
 | `compute_type` | str | `"int8"` |
 | `initial_prompt` | str | `""` |
+| `chinese_script` | str | `""` |
 
 ## `[hotkey]`
 
