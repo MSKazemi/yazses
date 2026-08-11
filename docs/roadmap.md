@@ -66,7 +66,7 @@ timeline
     section Perception — shipping now
         v2.x : Meeting Mode with speaker diarization : Second STT engine (Parakeet TDT) : Gaze deixis and EMG activation : Sotto-voce command channel
     section Understanding — next
-        v2.15+ : Settings GUI (no terminal needed) : Offline command mode over selected text : Vocabulary biasing in every engine : Android dictation keyboard
+        v2.18+ : Settings GUI finished (it can't install feature deps yet) : Offline command mode over selected text : Vocabulary biasing in every engine : Android dictation keyboard
     section Recall — the horizon
         v3 : Spoken recall over everything you ever dictated : Ambient scribe you control : A computer you talk with, that stays yours
 ```
@@ -134,12 +134,13 @@ or — for research-shaped work — at
 | **v1.3.x** | 2026-07-01 | Wayland injection reliability: type-everywhere via ydotool, a flood guard for Ubuntu 26+ compositors, and longer maximum recordings. |
 | **v1.4.x** | 2026-07-01 | Opt-in voice punctuation, a selectable injection backend, and cross-platform CI green again. |
 | **v2.12.0** | 2026-07-31 | **First stable v2**: Meeting Mode (hands-free capture → speaker-labelled transcript + minutes), offline recording import with diarization (`yazses transcribe`), Glance-Type on X11, mic-change guard, system tray, "no text target" guard. |
+| **v2.12.1** | 2026-08-06 | Bug-fix release: four defects in the "enabled but doing nothing" class — a leaked transcription thread burning CPU indefinitely, and three features that reported themselves as working while silently doing nothing (or pointing users at an install that could not help). |
 | **v2.13.0** | 2026-08-07 | The reliability release: config self-repair, `yazses autostart enable` for pipx/uv installs, self-retuning VAD gate, supervised tray, `yazses verify` end-to-end proof. |
 | **v2.14.0** | 2026-08-07 | The perception release: **Parakeet TDT** second STT engine, gaze deixis with real confidence, sotto-voce command channel, EMG activation seam, honest feature registry. |
-| **v2.17.0** | 2026-08-09 | What the snap release surfaced within a day of real use: streaming dictation could **delete text it had never typed** (a fixed injector timeout that fired mid-type, and a commit racing the partial-poll thread), a fresh snap install never mentioned the `raw-input` interface its hotkey needs, and `yazses start` never actually survived a reboot. Plus Style-Consistency Enforcer, `yazses gitvoice`, whole-graph Diagrams-as-Code, a tray Settings entry, and five default filler words removed after they were shown to eat real meaning (contract 6.0.0). **Current stable release.** |
-| **v2.16.0** | 2026-08-09 | The snap becomes whole: it now **bundles** the libraries a snap can never install at runtime, so Meeting Mode, diarized import and Read-Back work there for the first time — and the four that cannot fit refuse honestly instead of writing a config key nothing can honour. Also `yazses settings` (a GUI built from the feature registry), `man yazses`, a real `[stt] language`, and a contract that pins **meaning**, not only parity (5.1.0). |
-| **v2.15.1** | 2026-08-07 | Patch: dictation stops deleting the verb `err` (contract 4.0.0 → 5.0.0), and the mypy gate goes 73 errors → 0, surfacing a latent `yazses update` crash. |
 | **v2.15.0** | 2026-08-07 | The honesty release: dictation stops deleting real words (contract 1.1.0 → 4.0.0), `doctor` stops giving snap users advice that cannot work, `install.sh` pins and checksums its bootstrap, property-based fuzz tests over the text pipeline. First release to ship all three desktop installers (`.deb`, `.dmg`, `.exe`). |
+| **v2.15.1** | 2026-08-07 | Patch: dictation stops deleting the verb `err` (contract 4.0.0 → 5.0.0), and the mypy gate goes 73 errors → 0, surfacing a latent `yazses update` crash. |
+| **v2.16.0** | 2026-08-09 | The snap becomes whole: it now **bundles** the libraries a snap can never install at runtime, so Meeting Mode, diarized import and Read-Back work there for the first time — and the four that cannot fit refuse honestly instead of writing a config key nothing can honour. Also `yazses settings` (a GUI built from the feature registry), `man yazses`, a real `[stt] language`, and a contract that pins **meaning**, not only parity (5.1.0). |
+| **v2.17.0** | 2026-08-09 | What the snap release surfaced within a day of real use: streaming dictation could **delete text it had never typed** (a fixed injector timeout that fired mid-type, and a commit racing the partial-poll thread), a fresh snap install never mentioned the `raw-input` interface its hotkey needs, and `yazses start` never actually survived a reboot. Plus Style-Consistency Enforcer, `yazses gitvoice`, whole-graph Diagrams-as-Code, a tray Settings entry, and five default filler words removed after they were shown to eat real meaning (contract 6.0.0). **Current stable release.** |
 
 ## Future work
 
