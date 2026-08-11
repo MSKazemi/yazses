@@ -128,6 +128,31 @@ def cohort_funnel(prs: list[dict]) -> dict[str, dict[str, int]]:
     return dict(sorted(out.items()))
 
 
+#: Conditions under which the project should stop promoting and let the queue drain.
+#: An overloaded queue harms contributors more than a quiet week does, and nobody should
+#: have to remember these thresholds while a campaign is busy — so they are computed and
+#: printed rather than written down somewhere and forgotten.
+MAX_PRS_AWAITING_REVIEW = 25
+MAX_ATTRIBUTION_GAPS = 2
+
+
+def stop_rules(summary: dict) -> list[str]:
+    """Reasons to pause promotion right now. Empty means proceed."""
+    reasons: list[str] = []
+    if summary["open_prs"] > MAX_PRS_AWAITING_REVIEW:
+        reasons.append(
+            f"{summary['open_prs']} PRs awaiting review (limit {MAX_PRS_AWAITING_REVIEW}) — "
+            "people are waiting; more traffic makes that worse, not better"
+        )
+    gaps = len(summary["attribution_gaps"])
+    if gaps > MAX_ATTRIBUTION_GAPS:
+        reasons.append(
+            f"{gaps} contributors merged work and are not credited (limit "
+            f"{MAX_ATTRIBUTION_GAPS}) — fix attribution before recruiting more people"
+        )
+    return reasons
+
+
 def summarize(
     *,
     contributors: list[str],
@@ -137,7 +162,7 @@ def summarize(
 ) -> dict:
     gaps = attribution_gaps(merged_authors, contributors)
     merged_humans = {a for a in merged_authors if a and not is_bot(a)}
-    return {
+    summary = {
         "repo": REPO,
         "commit_contributors": len(contributors),
         "change_from_baseline": len(contributors) - baseline,
@@ -146,6 +171,9 @@ def summarize(
         "open_prs": sum(1 for p in prs if p.get("state") == "open"),
         "cohorts": cohort_funnel(prs),
     }
+    summary["promotion"] = "PAUSED" if stop_rules(summary) else "OK"
+    summary["stop_reasons"] = stop_rules(summary)
+    return summary
 
 
 def render(summary: dict, *, degraded: bool = False) -> str:
@@ -178,6 +206,10 @@ def render(summary: dict, *, degraded: bool = False) -> str:
         ]
     else:
         lines += ["", "✓ no attribution gaps — everyone who merged is credited"]
+
+    lines += ["", f"PROMOTION: {summary['promotion']}"]
+    for reason in summary["stop_reasons"]:
+        lines.append(f"  reason: {reason}")
 
     cohorts = {k: v for k, v in summary["cohorts"].items() if k != "(none)"}
     if cohorts:

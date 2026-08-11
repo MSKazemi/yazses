@@ -386,6 +386,31 @@ def test_no_email_address_ever_reaches_the_output(stats):
     assert "bob" in rendered
 
 
+def test_promotion_pauses_when_the_review_queue_is_too_long(stats):
+    """Nobody should have to remember thresholds while a campaign is busy."""
+    prs = [{"state": "open", "user": {"login": f"u{i}"}, "body": ""} for i in range(30)]
+    summary = stats.summarize(contributors=["a"], merged_authors=[], prs=prs)
+    assert summary["promotion"] == "PAUSED"
+    assert "awaiting review" in " ".join(summary["stop_reasons"])
+    assert "PROMOTION: PAUSED" in stats.render(summary)
+
+
+def test_promotion_pauses_when_contributors_are_going_uncredited(stats):
+    """Recruiting more people while existing ones show no credit is the wrong order."""
+    summary = stats.summarize(
+        contributors=["a"], merged_authors=["x", "y", "z"], prs=[]
+    )
+    assert summary["promotion"] == "PAUSED"
+    assert "not credited" in " ".join(summary["stop_reasons"])
+
+
+def test_promotion_is_ok_on_a_healthy_queue(stats):
+    summary = stats.summarize(contributors=["a", "b"], merged_authors=["a"], prs=[])
+    assert summary["promotion"] == "OK"
+    assert summary["stop_reasons"] == []
+    assert "PROMOTION: OK" in stats.render(summary)
+
+
 def test_report_says_so_when_it_had_to_fall_back_to_git(stats):
     """Numbers the script cannot stand behind must be labelled, not printed plain."""
     summary = stats.summarize(contributors=["a"], merged_authors=[], prs=[])

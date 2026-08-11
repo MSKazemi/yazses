@@ -18,6 +18,12 @@ looking for it. No email address ever reaches the output — a test enforces tha
 network it falls back to git history and **says so**, rather than printing numbers it cannot
 stand behind.
 
+The report also prints a `PROMOTION: OK` / `PAUSED` line with its reasons, so the decision
+to stop recruiting does not depend on anyone remembering thresholds during a busy week. It
+pauses when more than 25 PRs await review, or when more than two contributors have merged
+work the project is not crediting — recruiting more people while existing ones go
+uncredited is the wrong order.
+
 `scripts/check-task.py TASK-ID` runs the same three checks CI will — scope, personal data,
 and the task's own validation command — against the working tree, so a contributor finds
 out while the work is still in front of them rather than from a red check on a first pull
