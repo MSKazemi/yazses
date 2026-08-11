@@ -69,6 +69,31 @@ Every contributor is credited on the wall in the
 behind it — design review, research and bug reports count, and a script checks nobody with
 merged work is missing.
 
+## The design record is public
+
+You never have to guess why YazSes works the way it does. The whole engineering and
+scientific record lives in
+[`design/`](https://github.com/MSKazemi/yazses/tree/main/design) and is Apache-2.0 like
+the code:
+
+- **[~150 Architecture Decision Records](https://github.com/MSKazemi/yazses/tree/main/design/adr)**
+  — one per real decision, with the context, the options and the consequence. If you are
+  about to change behaviour, there is probably an ADR explaining why it is that way.
+- **[Feature specs](https://github.com/MSKazemi/yazses/tree/main/design/specs)** and the
+  **[as-built architecture](https://github.com/MSKazemi/yazses/blob/main/design/architecture.md)**.
+- **[The research corpus](https://github.com/MSKazemi/yazses/tree/main/design/research)** —
+  105 verified references, and the [ten open questions](research/agenda.md) we think are
+  worth measuring next.
+
+Writing an ADR is itself a welcome contribution — a well-argued decision record is worth
+more than a rushed implementation. Start with
+[`design/README.md`](https://github.com/MSKazemi/yazses/blob/main/design/README.md).
+
+One rule worth knowing before you add a citation: **we never commit PDFs of other
+people's papers.** They are downloaded for personal research use, and republishing them
+would violate the authors' copyright — so we publish the citation and our own summary.
+The pre-commit hook blocks `*.pdf` outright.
+
 ## The rules that will not bend
 
 Two commitments a contribution cannot change without a superseding decision record: **nothing

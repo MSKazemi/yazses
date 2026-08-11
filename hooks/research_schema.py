@@ -46,8 +46,13 @@ def _to_plain_text(markdown: str) -> str:
     text = _ANCHOR.sub("", markdown)
     text = _LINK.sub(r"\1", text)
     text = _CODE.sub(r"\1", text)
+    # Collapse whitespace BEFORE stripping emphasis. A wrapped reference routinely
+    # splits an italic venue across lines -- `*Journal of Experimental\n
+    # Psychology*` -- and `.` does not match a newline, so stripping emphasis first
+    # leaves the literal asterisks in the JSON-LD citation.
+    text = _WHITESPACE.sub(" ", text)
     text = _EMPHASIS.sub(r"\2", text)
-    return _WHITESPACE.sub(" ", text).strip()
+    return text.strip()
 
 
 def _extract_references(markdown: str) -> list[tuple[str, str | None]]:

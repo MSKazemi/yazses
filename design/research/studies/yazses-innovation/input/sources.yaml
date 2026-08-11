@@ -1,0 +1,246 @@
+---
+# SoA2Prod Stage 1 — SourcePack
+# Case study: yazses-innovation
+# Created: 2026-05-14
+
+sources:
+  - id: src-001
+    title: "faster-whisper: Faster Whisper transcription with CTranslate2"
+    authors: ["SYSTRAN"]
+    year: 2023
+    url: "https://github.com/SYSTRAN/faster-whisper"
+    type: repo
+    access_type: open
+    license: MIT
+    access_date: "2026-05-14"
+    notes: >
+      Production-grade reimplementation of OpenAI Whisper using CTranslate2.
+      Up to 4× faster than openai/whisper, supports int8 quantization for CPU,
+      word-level timestamps, streaming via chunk callbacks. The backend
+      YazSes currently uses. Supports beam_size, vad_filter (Silero),
+      language detection, and translation.
+
+  - id: src-002
+    title: "whisper_streaming: Whisper realtime streaming for long speech-to-text transcription"
+    authors: ["Dominik Macháček", "Radek Kuchaříček", "Ondřej Bojar"]
+    year: 2023
+    url: "https://github.com/ufal/whisper_streaming"
+    type: repo
+    access_type: open
+    license: MIT
+    access_date: "2026-05-14"
+    notes: >
+      Implements LocalAgreement policy: emit prefix confirmed by ≥2 decode
+      iterations. Self-adaptive latency based on source complexity. Uses
+      faster-whisper as backend. Companion paper: arXiv 2307.14743.
+
+  - id: src-003
+    title: "Turning Whisper into Real-Time Transcription System"
+    authors: ["Dominik Macháček", "Radek Kuchaříček", "Ondřej Bojar"]
+    year: 2023
+    url: "https://arxiv.org/abs/2307.14743"
+    type: paper
+    access_type: open
+    license: arXiv open access
+    access_date: "2026-05-14"
+    notes: >
+      Formal paper describing the LocalAgreement streaming policy for Whisper.
+      Latency control via chunk size and confidence threshold. Demonstrates
+      streaming with <1 s latency on CPU hardware.
+
+  - id: src-004
+    title: "WhisperPipe: A Resource Efficient Streaming Architecture for Real Time ASR"
+    authors: ["Anonymous (preprint)"]
+    year: 2026
+    url: "https://arxiv.org/abs/2604.25611"
+    type: paper
+    access_type: open
+    license: arXiv open access
+    access_date: "2026-05-14"
+    notes: >
+      Novel streaming ASR architecture combining Silero VAD + energy-based
+      filtering (34% fewer false activations), consensus engine for stable
+      prefix commitment. Median E2E latency 89 ms, 48% less peak GPU memory,
+      80.9% lower avg GPU utilization vs baseline Whisper. Word-level timestamps
+      at fixed intervals. Relevant to YazSes streaming redesign.
+
+  - id: src-005
+    title: "WhisperX: Automatic Speech Recognition with Word-level Timestamps & Diarization"
+    authors: ["Max Bain", "Arsha Nagrani", "Andrew Zisserman", "Andrew Senior"]
+    year: 2023
+    url: "https://github.com/m-bain/whisperX"
+    type: repo
+    access_type: open
+    license: BSD-2-Clause
+    access_date: "2026-05-14"
+    notes: >
+      Adds forced alignment via wav2vec2 for precise word-level timestamps.
+      Speaker diarization via pyannote. Useful reference for YazSes
+      correction/rollback: word timestamps enable cursor positioning.
+
+  - id: src-006
+    title: "Serenade: Code with Voice — Open Source Speech-to-Code Engine"
+    authors: ["Serenade AI"]
+    year: 2022
+    url: "https://serenade.ai/"
+    type: product
+    access_type: open
+    license: Apache-2.0 (core engine)
+    access_date: "2026-05-14"
+    notes: >
+      Voice-controlled IDE plugin. Trained on programming vocabulary. Commands
+      like "add function", "delete line", "go to class". Supports VS Code,
+      JetBrains, Vim, terminal. Custom command scripting. Runs locally.
+      Relevant as architecture reference for code-aware voice commands in
+      YazSes.
+
+  - id: src-007
+    title: "Talon Voice — Hands-Free Computer Control"
+    authors: ["Ryan Hileman"]
+    year: 2021
+    url: "https://talonvoice.com/"
+    type: product
+    access_type: open
+    license: "Proprietary (free for personal use)"
+    access_date: "2026-05-14"
+    notes: >
+      Gold standard for hands-free coding. Voice + eye tracking + noise input.
+      Python scripting API (.talon files). Linux/X11, macOS, Windows. Community
+      knowledgebase (knausj_talon) covers full IDE workflows. Used by developers
+      with RSI and physical disabilities. YazSes can learn from its
+      command grammar architecture.
+
+  - id: src-008
+    title: "Voiceitt — Inclusive Voice AI for Non-Standard Speech"
+    authors: ["Voiceitt"]
+    year: 2024
+    url: "https://www.voiceitt.com/"
+    type: product
+    access_type: restricted
+    license: commercial
+    access_date: "2026-05-14"
+    notes: >
+      AAC tool for people with atypical speech (ALS, cerebral palsy, Parkinson's,
+      stroke). Personalised speech models. iOS/Android. Collaboration with
+      Apple accessibility research. Key reference for YazSes's accessibility
+      persona and atypical-speech tolerance design.
+
+  - id: src-009
+    title: "ASR in 2025-2026: A Deep Dive into Speech Recognition Technology Selection"
+    authors: ["Ruoqi Jin"]
+    year: 2025
+    url: "https://ruoqijin.com/blog/asr-deep-dive-2025-2026"
+    type: blog
+    access_type: open
+    license: "©2025 Ruoqi Jin (blog)"
+    access_date: "2026-05-14"
+    notes: >
+      Comprehensive comparison of ASR stacks in 2025-2026 (Whisper, Deepgram,
+      AssemblyAI, Azure, Vosk). Covers streaming latency, WER benchmarks, cost,
+      offline feasibility. Relevant to YazSes's trade-off decisions on
+      accuracy vs latency.
+
+  - id: src-010
+    title: "When to Call the LLM: Adaptive Speech Interfaces for Natural Language Input in XR"
+    authors: ["Multiple (ACM VRST 2025)"]
+    year: 2025
+    url: "https://dl.acm.org/doi/10.1145/3756884.3766015"
+    type: paper
+    access_type: restricted
+    license: ACM DL
+    access_date: "2026-05-14"
+    notes: >
+      Evaluates 4 pipelines for voice-to-3D-object-selection in VR: classic NLP,
+      LLM-assisted parsing, end-to-end LLM, and adaptive hybrid. Accuracy-latency
+      trade-offs. Key finding: adaptive routing (LLM only when needed) achieves
+      best balance. Directly applicable to YazSes's AR/VR voice module design.
+
+  - id: src-011
+    title: "An Approach to Enable Human–3D Object Interaction Through Voice Commands in Immersive VR"
+    authors: ["Thidapat Chanwimalueang et al."]
+    year: 2025
+    url: "https://www.mdpi.com/2504-2289/9/7/188"
+    type: paper
+    access_type: open
+    license: CC BY 4.0
+    access_date: "2026-05-14"
+    notes: >
+      VR voice command system for 3D object interaction. Identifies key
+      challenges: ASR accuracy degraded by headset microphones, latency spikes
+      in VR render loops, command ambiguity in spatial scenes. Proposes
+      intent classification + fallback dialog. Relevant to YazSes XR profile.
+
+  - id: src-012
+    title: "Back to Basics: Revisiting ASR in the Age of Voice Agents"
+    authors: ["Multiple"]
+    year: 2026
+    url: "https://arxiv.org/abs/2603.25727"
+    type: paper
+    access_type: open
+    license: arXiv open access
+    access_date: "2026-05-14"
+    notes: >
+      Reviews OOD robustness of modern ASR systems for voice agents: telephony
+      compression, disfluencies, code-switching, overlapping speech. Whisper
+      omits disfluent segments in 11.86% of cases. Recommends post-processing
+      correction pipeline. Critical for YazSes's correction/streaming design.
+
+  - id: src-013
+    title: "Superwhisper — AI Voice to Text for macOS, Windows & iOS"
+    authors: ["Superwhisper"]
+    year: 2025
+    url: "https://superwhisper.com/"
+    type: product
+    access_type: restricted
+    license: commercial
+    access_date: "2026-05-14"
+    notes: >
+      Closest commercial competitor to YazSes. Local Whisper-based dictation
+      with LLM post-processing, custom prompt templates, clipboard injection.
+      Supports Cursor, Claude Code, Aider, VS Code. macOS + Windows + iOS.
+      Relevant for competitive gap analysis.
+
+  - id: src-014
+    title: "Towards spatial computing: recent advances in multimodal natural interaction for XR headsets"
+    authors: ["Multiple"]
+    year: 2025
+    url: "https://journal.hep.com.cn/fcs/EN/10.1007/s11704-025-41123-8"
+    type: paper
+    access_type: restricted
+    license: Springer
+    access_date: "2026-05-14"
+    notes: >
+      Survey of multimodal interaction for XR headsets (Apple Vision Pro,
+      Meta Quest). Voice is one of three primary modalities alongside eye
+      tracking and hand gestures. Covers latency requirements (<200 ms for
+      real-time feel), error recovery patterns, and fusion strategies.
+
+  - id: src-015
+    title: "A2-LLM: An End-to-end Conversational Audio Avatar Large Language Model"
+    authors: ["Multiple"]
+    year: 2026
+    url: "https://arxiv.org/abs/2602.04913"
+    type: paper
+    access_type: open
+    license: arXiv open access
+    access_date: "2026-05-14"
+    notes: >
+      End-to-end audio-avatar LLM that jointly reasons over language, audio
+      prosody, and 3D facial motion. Demonstrates voice → intent → avatar
+      animation pipeline at low latency. Relevant to YazSes's potential
+      metaverse/avatar command integration.
+
+  - id: src-016
+    title: "Automatic Speech Recognition for Non-Native English: Accuracy and Disfluency Handling"
+    authors: ["Multiple"]
+    year: 2025
+    url: "https://arxiv.org/abs/2503.06924"
+    type: paper
+    access_type: open
+    license: arXiv open access
+    access_date: "2026-05-14"
+    notes: >
+      Examines ASR on non-native English speech including disfluencies. Whisper
+      baseline omits disfluent segments. Post-processing with correction models
+      reduces WER by 12%. Directly relevant to YazSes's correction pipeline
+      for non-native speakers and accessible-speech profiles.

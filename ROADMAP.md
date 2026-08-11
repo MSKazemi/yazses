@@ -17,8 +17,7 @@ release workflows fire on `v*` tags). The v2 line is delivered as a long series 
 waves, each a fresh state-of-the-art sweep → ADRs → pure, 100%-covered, off-by-default cores.
 
 As of `v2.17.0`: **141 capabilities (68 wired / 72 honestly marked "planned")**, **2568 tests
-green**, ADRs `adr-v2-001..129`, research reports in `design/vision/v2-research/` and
-`design/vision/library/`.
+green**, ADRs `adr-v2-001..129`, and the per-wave state-of-the-art research notes.
 
 - **Shipped in `v2.14.0` — the perception release** (ADR-v2-129, all opt-in, lazy deps):
   **Parakeet TDT** second STT engine (`yazses features enable stt-parakeet` — beats
@@ -106,7 +105,7 @@ it at once without re-deciding the same questions in PR review.
 
 ## v2.1.0 (in progress) — Wave D: new frontier features
 
-A fresh 2026 SoA round on top of the v2 layer (`design/vision/v2-research/06-wave-d.md`,
+A fresh 2026 SoA round on top of the v2 layer (Wave D,
 `design/adr/adr-v2-014..024`). Still 100% on-device, every feature **off by default**.
 Dev tags `v2.1.0-dev.1/2/3` cut (do **not** auto-publish; v1.4.1 stays stable).
 
@@ -132,8 +131,8 @@ Dev tags `v2.1.0-dev.1/2/3` cut (do **not** auto-publish; v1.4.1 stays stable).
 
 YazSes grows from offline dictation into a broader **voice-first HCI layer** — still 100%
 on-device, privacy-first, every feature **off by default**. Grounded in a 2026-07 SoA
-research sweep (`design/vision/v2-research/`) and specified in `design/adr/adr-v2-*` +
-`design/vision/v2-2026/00-synthesis-10-features.md`. Delivered in three waves; the
+research sweep and specified in `design/adr/adr-v2-*` plus the per-wave research
+notes. Delivered in three waves; the
 `v2.0.0-dev` tag is cut only when Wave A code + tests land.
 
 - **Wave A (ship-now on current stack):**
@@ -330,7 +329,7 @@ Opt-in, local, encrypted self-improvement loop (ADR-012): `yazses tune` /
 voice-activity sonar. Off by default (honours ADR-011: nothing leaves the machine).
 
 ### v0.4.0 — 2026-05-17
-Three capabilities from the second SoA2Prod pipeline (`research/yazses-future-voice-hci/`):
+Three capabilities from the second SoA2Prod pipeline (`design/research/studies/yazses-future-voice-hci/`):
 
 | Capability | ADR | Status |
 |---|---|---|
@@ -394,9 +393,8 @@ pipeline is preserved in parallel.
 
 ## Shipped on `main` after v1.0.0-dev.5 (2026-05-29, not yet tagged)
 
-A research-driven feature/quality push (Apple/Microsoft/Azure + papers scan;
-see `.claude/plans/2026-05-29-competitive-features-plan.md` and memory
-`project_competitive_features` / `project_voice_activity_overlay`).
+A research-driven feature/quality push, from a 2026-05-29 scan of the Apple,
+Microsoft and Azure dictation stacks plus the relevant literature.
 
 | Item | Where | Status |
 |---|---|---|
@@ -435,7 +433,7 @@ All new dictation behavior is `YAZSES_*` env-gated and **off by default**
 ## Research output
 
 Full SoA2Prod pipeline (11 stages, 8 gaps, 5 ADRs, PRD, eval plan):
-`research/yazses-innovation/`
+`design/research/studies/yazses-innovation/`
 
 Build prompts for future capabilities:
-`research/yazses-innovation/output/10_build_prompt.md`
+`design/research/studies/yazses-innovation/output/10_build_prompt.md`

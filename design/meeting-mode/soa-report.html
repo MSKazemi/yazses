@@ -1,0 +1,844 @@
+<title>Live Meeting Mode — On-Device Diarization SoA</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --ground:#0f1417;
+    --panel:#161c20;
+    --panel-2:#1c2429;
+    --line:#2a343a;
+    --line-soft:#222b30;
+    --text:#c7d0d5;
+    --text-dim:#94a1a8;
+    --label:#6f7d84;
+    --accent:#3fd0c9;
+    --accent-deep:#2aa39d;
+    --ship:#63c491;
+    --caveat:#e0a955;
+    --block:#e0685f;
+    --mono:"SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--ground);color:var(--text);
+    font-family:var(--sans);font-size:16px;line-height:1.62;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+  .prose{max-width:70ch}
+
+  /* ---- header ---- */
+  header.masthead{
+    border-bottom:1px solid var(--line);
+    background:
+      radial-gradient(120% 140% at 88% -20%, rgba(63,208,201,.10), transparent 55%),
+      var(--ground);
+  }
+  .masthead .wrap{padding-top:54px;padding-bottom:44px}
+  .kicker{
+    font-family:var(--mono);font-size:12px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--accent);margin:0 0 22px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;
+  }
+  .kicker .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent)}
+  .kicker .sep{color:var(--label);letter-spacing:0}
+  h1{
+    font-size:clamp(30px,5vw,50px);line-height:1.05;letter-spacing:-.02em;
+    margin:0 0 20px;color:#eef3f4;font-weight:650;text-wrap:balance;max-width:20ch;
+  }
+  h1 em{font-style:normal;color:var(--accent)}
+  .standfirst{font-size:19px;line-height:1.55;color:var(--text-dim);max-width:64ch;margin:0}
+  .meta-row{
+    margin-top:30px;display:flex;gap:28px;flex-wrap:wrap;
+    font-family:var(--mono);font-size:12.5px;color:var(--label);letter-spacing:.02em;
+  }
+  .meta-row b{color:var(--text-dim);font-weight:500}
+
+  /* ---- section index ---- */
+  nav.toc{border-bottom:1px solid var(--line);background:var(--panel)}
+  nav.toc .wrap{display:flex;flex-wrap:wrap;gap:2px 26px;padding:16px 24px}
+  nav.toc a{
+    font-family:var(--mono);font-size:12.5px;letter-spacing:.02em;color:var(--text-dim);
+    text-decoration:none;padding:3px 0;border-bottom:1px solid transparent;
+  }
+  nav.toc a:hover,nav.toc a:focus-visible{color:var(--accent);border-bottom-color:var(--accent);outline:none}
+  nav.toc a span{color:var(--label);margin-right:6px}
+
+  /* ---- sections ---- */
+  section{padding:46px 0;border-bottom:1px solid var(--line-soft)}
+  .sec-head{display:flex;align-items:baseline;gap:16px;margin-bottom:8px}
+  .sec-num{font-family:var(--mono);font-size:13px;color:var(--accent);letter-spacing:.08em;flex:none}
+  h2{
+    font-size:clamp(22px,3vw,30px);line-height:1.15;letter-spacing:-.015em;
+    margin:0;color:#eaf0f1;font-weight:620;text-wrap:balance;
+  }
+  h3{font-size:18px;margin:34px 0 10px;color:#dfe7e9;font-weight:600;letter-spacing:-.01em}
+  h4{font-size:14.5px;margin:24px 0 6px;color:var(--accent);font-weight:600;
+     font-family:var(--mono);letter-spacing:.02em}
+  p{margin:0 0 16px}
+  a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(63,208,201,.32)}
+  a:hover,a:focus-visible{border-bottom-color:var(--accent);outline:none}
+  strong{color:#e6edee;font-weight:620}
+  ul,ol{margin:0 0 18px;padding-left:22px}
+  li{margin:0 0 9px}
+  li::marker{color:var(--accent-deep)}
+  .lede{font-size:17.5px;color:var(--text-dim);max-width:66ch}
+
+  /* ---- callout / recommendation ---- */
+  .rec{
+    background:linear-gradient(180deg,rgba(63,208,201,.07),rgba(63,208,201,.02));
+    border:1px solid var(--accent-deep);border-radius:10px;padding:26px 28px;margin:26px 0;
+  }
+  .rec .rec-tag{font-family:var(--mono);font-size:11.5px;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--accent);margin:0 0 12px}
+  .rec p:last-child{margin-bottom:0}
+  .rec h3{margin-top:0}
+
+  .note{border-left:3px solid var(--line);padding:2px 0 2px 18px;color:var(--text-dim);margin:20px 0}
+  .note.warn{border-left-color:var(--caveat)}
+  .note.block{border-left-color:var(--block)}
+  .note.good{border-left-color:var(--ship)}
+
+  /* ---- tables ---- */
+  .scroll{overflow-x:auto;margin:22px 0;border:1px solid var(--line);border-radius:10px;
+    background:var(--panel)}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:640px}
+  thead th{
+    font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--label);text-align:left;padding:13px 14px;border-bottom:1px solid var(--line);
+    background:var(--panel-2);position:sticky;top:0;white-space:nowrap;font-weight:400;
+  }
+  tbody td{padding:12px 14px;border-bottom:1px solid var(--line-soft);vertical-align:top;line-height:1.45}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:rgba(63,208,201,.035)}
+  td.name{color:#e6edee;font-weight:600;white-space:nowrap}
+  .num{font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:12.5px}
+
+  /* ---- status chips ---- */
+  .chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;
+    letter-spacing:.04em;padding:2px 9px 2px 7px;border-radius:20px;white-space:nowrap;
+    border:1px solid;font-weight:500}
+  .chip::before{content:"";width:6px;height:6px;border-radius:50%;flex:none}
+  .chip.ship{color:var(--ship);border-color:rgba(99,196,145,.4);background:rgba(99,196,145,.08)}
+  .chip.ship::before{background:var(--ship)}
+  .chip.caveat{color:var(--caveat);border-color:rgba(224,169,85,.4);background:rgba(224,169,85,.08)}
+  .chip.caveat::before{background:var(--caveat)}
+  .chip.block{color:var(--block);border-color:rgba(224,104,95,.4);background:rgba(224,104,95,.08)}
+  .chip.block::before{background:var(--block)}
+  .chip.plain{color:var(--text-dim);border-color:var(--line);background:transparent}
+  .chip.plain::before{display:none}
+
+  /* ---- architecture flow ---- */
+  .flow{display:flex;flex-direction:column;gap:2px;margin:24px 0;font-size:14px}
+  .flow-stage{
+    display:grid;grid-template-columns:44px 1fr;gap:0;border:1px solid var(--line);
+    border-radius:8px;overflow:hidden;background:var(--panel)}
+  .flow-stage .idx{background:var(--panel-2);color:var(--accent);font-family:var(--mono);
+    font-size:13px;display:flex;align-items:center;justify-content:center;border-right:1px solid var(--line)}
+  .flow-stage .body{padding:13px 16px}
+  .flow-stage .body b{color:#e6edee;font-size:14.5px}
+  .flow-stage .body .k{font-family:var(--mono);font-size:11.5px;color:var(--accent);
+    letter-spacing:.03em;margin-left:8px}
+  .flow-stage .body p{margin:5px 0 0;color:var(--text-dim);font-size:13.5px;line-height:1.5}
+  .flow-arrow{text-align:center;color:var(--line);font-size:14px;line-height:.6;padding:1px 0}
+  .flow-arrow span{color:var(--accent-deep)}
+
+  /* two-col tier grid */
+  .tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:22px 0}
+  .tier{border:1px solid var(--line);border-radius:9px;padding:16px 18px;background:var(--panel)}
+  .tier .cap{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+    margin:0 0 8px}
+  .tier.g .cap{color:var(--ship)} .tier.a .cap{color:var(--caveat)} .tier.r .cap{color:var(--block)}
+  .tier p{font-size:13.5px;color:var(--text-dim);margin:0}
+  .tier b{color:#e6edee}
+
+  /* risk blocks */
+  .risk{border:1px solid var(--line);border-left-width:3px;border-radius:8px;padding:16px 18px;
+    margin:14px 0;background:var(--panel)}
+  .risk.hi{border-left-color:var(--block)} .risk.md{border-left-color:var(--caveat)}
+  .risk.lo{border-left-color:var(--ship)}
+  .risk .rh{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:5px}
+  .risk .rt{font-weight:620;color:#e6edee;font-size:15px}
+  .risk .sev{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase}
+  .risk.hi .sev{color:var(--block)} .risk.md .sev{color:var(--caveat)} .risk.lo .sev{color:var(--ship)}
+  .risk p{margin:0;font-size:13.5px;color:var(--text-dim)}
+
+  /* sources */
+  .sources{font-size:13px}
+  .sources h3{margin-top:26px;font-family:var(--mono);font-size:13px;color:var(--accent);
+    letter-spacing:.04em;text-transform:uppercase;border-bottom:1px solid var(--line-soft);padding-bottom:7px}
+  .sources ol{padding-left:20px;columns:1}
+  .sources li{margin-bottom:7px;line-height:1.4;color:var(--text-dim);word-break:break-word}
+  .sources a{border-bottom:none}
+
+  footer{padding:38px 0 60px;color:var(--label);font-family:var(--mono);font-size:12px;line-height:1.7}
+
+  @media(max-width:560px){
+    body{font-size:15px}
+    .masthead .wrap{padding-top:38px;padding-bottom:32px}
+    section{padding:34px 0}
+    .sec-head{flex-direction:column;gap:4px}
+  }
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<header class="masthead">
+  <div class="wrap">
+    <p class="kicker"><span class="dot"></span> Engineering Research Brief
+      <span class="sep">/</span> On-Device Speech <span class="sep">/</span> through early 2026</p>
+    <h1>Building a <em>live meeting mode</em> that runs entirely on the CPU</h1>
+    <p class="standfirst">State of the art in online/streaming speaker diarization and offline meeting
+      transcription, evaluated against one hard constraint: fully offline, CPU-first, privacy-preserving,
+      shippable to end users on Linux, macOS and Windows.</p>
+    <div class="meta-row">
+      <span><b>Context:</b> faster-whisper STT · sherpa-onnx present</span>
+      <span><b>Existing:</b> offline file diarizer</span>
+      <span><b>Need:</b> continuous 1–2 h, unknown speaker count</span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc" aria-label="Section index">
+  <div class="wrap">
+    <a href="#summary"><span>00</span>Executive summary</a>
+    <a href="#embeddings"><span>A</span>Embeddings vs pitch</a>
+    <a href="#online"><span>B</span>Online vs offline</a>
+    <a href="#count"><span>C</span>Speaker count</a>
+    <a href="#overlap"><span>D</span>Overlap</a>
+    <a href="#toolkits"><span>E</span>Toolkits</a>
+    <a href="#align"><span>F</span>Alignment &amp; VAD</a>
+    <a href="#notes"><span>G</span>Meeting notes</a>
+    <a href="#priorart"><span>H</span>Prior art</a>
+    <a href="#arch"><span>▹</span>Architecture</a>
+    <a href="#risks"><span>!</span>Risks</a>
+    <a href="#sources"><span>§</span>Sources</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+<!-- ===================== SUMMARY ===================== -->
+<section id="summary">
+  <div class="sec-head"><span class="sec-num">00</span><h2>Executive summary &amp; recommendation</h2></div>
+  <p class="lede">On-device transcription and on-device meeting notes are both solved problems in 2026.
+    On-device <em>diarization</em> is not — and live/streaming diarization with an unknown speaker
+    count is still a research frontier no open-source tool ships cleanly. The winning move is therefore
+    not to chase real-time diarization but to <strong>reuse the offline diarizer you already have,
+    and run it as a post-pass.</strong></p>
+
+  <div class="rec">
+    <p class="rec-tag">Recommendation</p>
+    <h3>Ship a hybrid: stream the transcript live, diarize as a post-pass with sherpa-onnx.</h3>
+    <p>Transcribe continuously with faster-whisper gated by Silero VAD, showing text as the meeting
+      runs. Optionally show <em>provisional</em> speaker chips from cheap live embeddings. When the user
+      presses stop, run your <strong>existing sherpa-onnx offline diarizer over the whole recording</strong>
+      (segmentation + embedding + clustering with <code>num_speakers = -1</code>) to get accurate global
+      labels and the true speaker count, reconcile against the live labels, then generate Markdown minutes
+      with a small local LLM via llama.cpp.</p>
+    <p style="margin-top:14px">This is exactly the production pattern of the local tool
+      <a href="https://openwhispr.com/blog/local-speaker-diarization">OpenWhispr</a>: Silero VAD (2&nbsp;MB)
+      + pyannote-segmentation-3.0 (6.6&nbsp;MB) + CAM++ (28&nbsp;MB) through a native sherpa-onnx binary,
+      CPU-only via ONNX Runtime — batch diarization of a 45-minute meeting in <strong>~30&nbsp;s on an
+      M1</strong>, embeddings ~2&nbsp;KB/speaker. It fits your stack with essentially no new heavy
+      dependency and no gated model.</p>
+  </div>
+
+  <h3>Why not the alternatives</h3>
+  <div class="tiers">
+    <div class="tier r">
+      <p class="cap">Rejected · streaming EEND</p>
+      <p><b>NVIDIA Streaming Sortformer</b> is real (arXiv 2507.18446) and permissively CC-BY-4.0, but
+        it is <b>GPU-first</b> (all RTF numbers on an RTX 6000 Ada) and hard-capped at <b>4 speakers</b>.
+        Fails "CPU-first" and "unknown count".</p>
+    </div>
+    <div class="tier a">
+      <p class="cap">Rejected · streaming clustering</p>
+      <p><b>diart</b> is the one mature open streaming diarizer (MIT, runs on CPU, unknown count), but it
+        depends on <b>gated pyannote HF models</b> — a real offline-installer friction, and it re-clusters,
+        causing label churn.</p>
+    </div>
+    <div class="tier r">
+      <p class="cap">Rejected · licensing</p>
+      <p><b>DiariZen</b> is the SoTA open pipeline (DER ~13%) but its weights are <b>CC-BY-NC</b>
+        (non-commercial) and WavLM-Large-based (heavy). <b>NeMo Sortformer v1</b> is likewise CC-BY-NC.
+        Both are un-shippable in a product.</p>
+    </div>
+  </div>
+
+  <h3>The three things to accept</h3>
+  <ul>
+    <li><strong>Speakers are told apart by neural embeddings, not pitch.</strong> Pitch/F0 is neither
+      stable within a speaker nor separable between speakers; the field switched to x-vectors / ECAPA-TDNN
+      years ago. (§A)</li>
+    <li><strong>Live diarization is a downgrade, not an upgrade.</strong> Committing a speaker label in
+      real time is irrevocable while the model keeps re-learning, so any live overlay shows churn.
+      Offline global clustering avoids the entire problem. (§B, §F)</li>
+    <li><strong>Unknown speaker count is doable but imperfect.</strong> Clustering auto-picks <em>k</em>
+      (eigengap / threshold), but count estimation is wrong in a meaningful minority of sessions and
+      tends to <em>under</em>-count. Let users correct it. (§C)</li>
+  </ul>
+</section>
+
+<!-- ===================== A ===================== -->
+<section id="embeddings">
+  <div class="sec-head"><span class="sec-num">A</span><h2>How you actually tell speakers apart</h2></div>
+  <p class="lede">Neural speaker <strong>embeddings</strong> plus clustering — not "voice frequency" or
+    pitch.</p>
+
+  <h3>Why pitch / frequency alone fails</h3>
+  <p>A single acoustic scalar like fundamental frequency (F0) cannot separate speakers, for two
+    independent reasons that are well established in forensic phonetics:</p>
+  <ul>
+    <li><strong>Large intra-speaker variation.</strong> The <em>same</em> person's mean F0 swings widely
+      with emotion and stress — a documented forensic case measured mean F0 of
+      <span class="num">228&nbsp;Hz</span> during an incident versus <span class="num">140&nbsp;Hz</span>
+      under normal conditions. F0 is "not so effective in the field."
+      (<a href="https://www.researchgate.net/publication/276914683_The_problem_of_F0_and_real-life_speaker_identification_a_case_study">F0 in real-life speaker ID</a>)</li>
+    <li><strong>Large inter-speaker overlap.</strong> Different speakers occupy overlapping F0 ranges; when
+      target and masker pitch coincide, F0 gives "almost no benefit."
+      (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2885573/">F0 &amp; intelligibility in noise, PMC</a>)</li>
+  </ul>
+  <p>A learned DNN embedding is trained end-to-end to be speaker-discriminative, capturing voice quality,
+    spectral envelope and articulation jointly — placing each speaker at a point on an identity manifold
+    where cosine distance separates them robustly across content and channel. This is the
+    <a href="https://oxfordwaveresearch.com/wp-content/uploads/2020/02/IAFPA19_xvectors_Kelly_et_al_presentation.pdf">i-vector → x-vector generational shift</a>.
+    The canonical models: the
+    <a href="https://dl.acm.org/doi/10.1109/ICASSP.2018.8461375">x-vector</a> (Snyder 2018),
+    <a href="https://arxiv.org/abs/2005.07143">ECAPA-TDNN</a> (Desplanques 2020, 0.87% EER on VoxCeleb1),
+    and the <a href="https://arxiv.org/abs/1710.10467">GE2E d-vector</a> (Wan 2018) behind Resemblyzer.</p>
+
+  <h3>On-device embedding models — and what sherpa-onnx already ships</h3>
+  <p>The pragmatic choice is a small Apache-2.0 model that sherpa-onnx already pre-converts to ONNX, so
+    there is no custom export and no gated download. <strong>3D-Speaker CAM++</strong> (7.2M params,
+    0.65% EER) and <strong>ERes2Net-base</strong> (6.6M) are the best size/accuracy trade-off; sherpa-onnx
+    also ships WeSpeaker and NeMo TitaNet variants.</p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Model</th><th>Params</th><th>VoxCeleb1 EER</th><th>ONNX / sherpa-onnx</th><th>License</th></tr></thead>
+      <tbody>
+        <tr><td class="name">3D-Speaker CAM++</td><td class="num">7.2M</td><td class="num">0.65%</td><td><span class="chip ship">shipped</span></td><td>Apache-2.0</td></tr>
+        <tr><td class="name">3D-Speaker ERes2Net-base</td><td class="num">6.6M</td><td class="num">0.84%</td><td><span class="chip ship">shipped</span></td><td>Apache-2.0</td></tr>
+        <tr><td class="name">WeSpeaker ResNet34</td><td class="num">~6.6M</td><td class="num">0.72% (Vox1-H)</td><td><span class="chip ship">shipped</span></td><td>Apache-2.0 (code)</td></tr>
+        <tr><td class="name">NeMo TitaNet-large</td><td class="num">25.3M</td><td class="num">0.66%</td><td><span class="chip ship">shipped</span></td><td>CC-BY-4.0</td></tr>
+        <tr><td class="name">ECAPA-TDNN (SpeechBrain)</td><td class="num">~22M</td><td class="num">0.80%</td><td><span class="chip caveat">via WeSpeaker only</span></td><td>Apache-2.0</td></tr>
+        <tr><td class="name">Resemblyzer (GE2E)</td><td class="num">~1.4M</td><td>not benchmarked</td><td><span class="chip block">no ONNX</span></td><td>Apache-2.0</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note good"><strong>Takeaway.</strong> Your codebase already notes ECAPA is unreliable on
+    sub-second windows. CAM++/ERes2Net are the right on-device choice: Apache-2.0, tiny, high accuracy,
+    already ONNX-converted by sherpa-onnx, no HuggingFace token. Reuse the one you have for the file path.</p>
+</section>
+
+<!-- ===================== B ===================== -->
+<section id="online">
+  <div class="sec-head"><span class="sec-num">B</span><h2>Online vs offline diarization</h2></div>
+  <p class="lede">Offline clustering is accurate and finds the speaker count globally, but produces no live
+    labels. Online systems produce live labels but are either count-capped, GPU-bound, or gated.</p>
+
+  <h3>Offline (the accurate baseline)</h3>
+  <p>Segment → extract embeddings → cluster the <em>whole</em> recording, so the speaker count is
+    discovered globally. The open standard is
+    <a href="https://www.isca-archive.org/interspeech_2023/bredin23_interspeech.pdf">pyannote.audio 3.1</a>
+    (powerset local segmentation + AHC over ECAPA embeddings);
+    <a href="https://arxiv.org/pdf/2510.19572">VBx</a> (BUT) is the classic VB-HMM baseline. Your
+    <strong>sherpa-onnx path is exactly this</strong>, offline-only, and it is the accuracy ceiling for
+    a CPU app.</p>
+
+  <h3>Online / streaming — the landscape</h3>
+  <p>Two families discover new speakers on the fly. <em>Clustering-based</em> online methods (diart,
+    UIS-RNN, online GMM/i-vector) spawn a new cluster when nothing matches → truly unbounded count.
+    <em>End-to-end streaming</em> methods (Sortformer, FS-EEND) are faster and overlap-aware but
+    <strong>capped at the training speaker count (≤4)</strong> — the open research gap.</p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>System</th><th>Type</th><th>Unknown count?</th><th>On-device / CPU</th><th>Latency</th><th>Ship license</th></tr></thead>
+      <tbody>
+        <tr><td class="name">sherpa-onnx</td><td>Offline</td><td><span class="chip ship">yes · threshold</span></td><td><span class="chip ship">CPU / embedded</span></td><td>batch</td><td>Apache-2.0</td></tr>
+        <tr><td class="name">pyannote 3.1 / 4.x</td><td>Offline</td><td><span class="chip ship">yes · auto</span></td><td><span class="chip ship">CPU ok</span></td><td>batch</td><td><span class="chip caveat">MIT code · gated wts</span></td></tr>
+        <tr><td class="name">DiariZen</td><td>Offline</td><td><span class="chip ship">yes</span></td><td><span class="chip caveat">WavLM-L, heavy</span></td><td>batch</td><td><span class="chip block">CC-BY-NC weights</span></td></tr>
+        <tr><td class="name">diart (Coria 2021)</td><td><b>Online</b></td><td><span class="chip ship">yes · incremental</span></td><td><span class="chip ship">CPU, ~12ms/stage</span></td><td>0.5–5 s</td><td><span class="chip caveat">MIT · gated deps</span></td></tr>
+        <tr><td class="name">UIS-RNN</td><td>Online</td><td><span class="chip ship">yes · ddCRP</span></td><td><span class="chip caveat">feasible</span></td><td>low</td><td><span class="chip caveat">unclear</span></td></tr>
+        <tr><td class="name">Streaming Sortformer</td><td>Online</td><td><span class="chip block">no · max 4</span></td><td><span class="chip block">GPU-first</span></td><td>0.32–30 s</td><td>CC-BY-4.0</td></tr>
+        <tr><td class="name">FS-EEND / BW-EDA-EEND</td><td>Online</td><td><span class="chip block">no · ≤ train count</span></td><td><span class="chip plain">research</span></td><td>~1 s+</td><td>research</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>The practical hybrid (recommended)</h3>
+  <p>Stream transcription live; run the heavy diarization as a post-pass at meeting end (or in rolling
+    chunks). The <a href="https://openwhispr.com/blog/local-speaker-diarization">OpenWhispr</a> production
+    pattern makes this concrete: live path emits a provisional CAM++ label every ~1 s once ≥1.6 s of speech
+    has accumulated; the end-of-meeting pass runs full offline diarization on the complete WAV for clean
+    global labels, then reconciles. Their churn-control rules are worth copying verbatim:</p>
+  <ul>
+    <li><strong>User-set names are locked</strong> and never overwritten by the batch pass — "the worst
+      UX is silently overwriting a user's correction."</li>
+    <li><strong>Running-mean embedding averaging</strong> handles voice drift rather than centroid overwrite.</li>
+    <li><strong>Retroactive relabel</strong> of past unnamed speakers when a name is first assigned; locked
+      mappings untouched.</li>
+  </ul>
+  <p><strong>Memory/compute for 1–2 h is a non-issue:</strong> 512-d embeddings ≈ 2&nbsp;KB/speaker
+    (~20&nbsp;KB for a 2-h, 10-speaker meeting); the whole ONNX stack is ~45&nbsp;MB and CPU-only.
+    The trade-off is simply that final labels arrive at stop, not live — acceptable for a notes tool.</p>
+</section>
+
+<!-- ===================== C ===================== -->
+<section id="count">
+  <div class="sec-head"><span class="sec-num">C</span><h2>Estimating the number of speakers</h2></div>
+  <p class="lede">Clustering picks <em>k</em> automatically — but expect it to be wrong in a meaningful
+    minority of meetings, and to lean toward <em>under</em>-counting.</p>
+
+  <h4>How k is chosen</h4>
+  <ul>
+    <li><strong>Maximum eigengap</strong> on the spectral affinity matrix — the workhorse since
+      <a href="https://wangquan.me/files/research/diarization_ICASSP_2018.pdf">Wang 2018 (LSTM d-vectors)</a>.
+      <strong>NME-SC</strong> (<a href="https://arxiv.org/abs/2003.02405">Park 2019</a>) jointly auto-tunes
+      <em>k</em> and the affinity binarization threshold with no dev-set tuning (17% rel. speaker-error
+      improvement on CALLHOME); now in NeMo.</li>
+    <li><strong>Cluster-distance threshold</strong> — what sherpa-onnx exposes: set
+      <code>num_speakers = -1</code> and a <code>cluster_threshold</code> and its FastClustering picks
+      the count.
+      (<a href="https://github.com/k2-fsa/sherpa-onnx/blob/master/python-api-examples/offline-speaker-diarization.py">API example</a>)</li>
+    <li><strong>HDBSCAN</strong> — density-based, no <em>k</em> needed, robust to outliers.
+      (<a href="https://www.emergentmind.com/topics/hierarchical-density-based-spatial-clustering-of-applications-with-noise-hdbscan">overview</a>)
+      Silhouette/BIC are the classic criteria, largely displaced by eigengap for embeddings.</li>
+  </ul>
+
+  <h4>Real-world accuracy</h4>
+  <ul>
+    <li>Speaker-<em>counting</em> accuracy was <span class="num">72%</span> with ResNet101+VBx vs only
+      <span class="num">56.4%</span> with x-vector+AHC — even a strong 2021 system miscounts ~1 session
+      in 4, "mostly due to underestimation."
+      (<a href="https://arxiv.org/pdf/2104.01466">ECAPA embeddings for diarization</a>)</li>
+    <li>Count error scales with difficulty: ~<span class="num">2.43</span> avg speaker-count error on
+      DIHARD-III "webvideo", ~<span class="num">1.00</span> on "meeting."
+      (<a href="https://arxiv.org/html/2403.14286v1">robustness of spectral clustering</a>)</li>
+    <li>Oracle (known) count consistently beats estimated count on DER; the estimate degrades all systems.
+      (<a href="https://arxiv.org/pdf/2104.01466">ibid.</a>)</li>
+  </ul>
+  <p class="note warn"><strong>Design implication.</strong> Auto-estimate the count, but treat it as a
+    first guess: surface it, let the user merge/split speakers, and lock corrections. Do not present the
+    machine count as ground truth.</p>
+</section>
+
+<!-- ===================== D ===================== -->
+<section id="overlap">
+  <div class="sec-head"><span class="sec-num">D</span><h2>Overlapping speech</h2></div>
+  <p class="lede">Clustering structurally cannot represent two people talking at once — and real meetings
+    overlap 12–20% of the time.</p>
+  <ul>
+    <li><strong>Why it breaks clustering.</strong> One embedding per segment → one speaker; overlap frames
+      get mis-assigned to a single cluster. Even perfect VAD + perfect clustering still <em>misses</em>
+      the second speaker in overlap regions, a hard DER floor equal to overlap duration.
+      (<a href="https://ar5iv.labs.arxiv.org/html/2002.12761">DIHARD-II is still hard</a>)</li>
+    <li><strong>Overlap is substantial in meetings:</strong> AMI ~<span class="num">15.9%</span>,
+      AliMeeting ~<span class="num">19%</span>, CALLHOME ~<span class="num">12.6%</span>, vs VoxConverse
+      ~<span class="num">3.5%</span>. <strong>Missed speech is the dominant DER component in meetings</strong>,
+      driven by unhandled overlap.
+      (<a href="https://arxiv.org/html/2509.26177v1">Benchmarking Diarization Models 2025</a>)</li>
+    <li><strong>EEND / powerset natively handle it.</strong>
+      <a href="https://arxiv.org/html/2310.13025">pyannote's powerset</a> encoding (Interspeech 2023) cut
+      overlap misses <span class="num">13.1% → 9.9%</span> and improved DER ~8–11% relative. The pyannote
+      segmentation model sherpa-onnx re-exports <em>is</em> this powerset model, so you already benefit
+      locally.</li>
+    <li><strong>But overlap handling is not a silver bullet:</strong> even <em>oracle</em> overlap detection
+      moved DER only <span class="num">23.8% → 22.2%</span> in one study.
+      (<a href="https://ar5iv.labs.arxiv.org/html/2002.12761">ibid.</a>)</li>
+  </ul>
+  <p class="note"><strong>Pragmatic stance for notes:</strong> perfect overlap attribution is not required
+    for readable minutes. The powerset segmentation you already ship is enough; accept a small missed-speech
+    floor rather than chasing overlap-aware resegmentation.</p>
+</section>
+
+<!-- ===================== E ===================== -->
+<section id="toolkits">
+  <div class="sec-head"><span class="sec-num">E</span><h2>The toolkits, ranked for offline shipping</h2></div>
+  <p class="lede">Only three options are clean to ship: <strong>sherpa-onnx</strong>,
+    <strong>3D-Speaker / WeSpeaker</strong>, and <strong>SpeechBrain</strong> — all Apache-2.0, ungated,
+    self-contained, CPU-capable. Everything with a streaming or SoTA-accuracy story drags in a gated or
+    non-commercial or GPU-only constraint.</p>
+  <div class="scroll">
+    <table>
+      <thead><tr>
+        <th>Toolkit</th><th>License to ship</th><th>Gated / HF token</th><th>Self-contained offline</th>
+        <th>CPU</th><th>Unknown count</th><th>Streaming</th><th>Verdict</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td class="name">sherpa-onnx</td>
+          <td>Apache-2.0</td><td><span class="chip ship">no</span></td><td><span class="chip ship">yes · ONNX int8</span></td>
+          <td><span class="chip ship">CPU-first</span></td><td><span class="chip ship">yes</span></td><td>batch</td>
+          <td><span class="chip ship">best fit</span></td>
+        </tr>
+        <tr>
+          <td class="name">3D-Speaker / WeSpeaker</td>
+          <td>Apache-2.0</td><td><span class="chip ship">no</span></td><td><span class="chip ship">yes · ONNX</span></td>
+          <td><span class="chip ship">yes</span></td><td><span class="chip ship">yes</span></td><td>batch</td>
+          <td><span class="chip ship">clean</span></td>
+        </tr>
+        <tr>
+          <td class="name">SpeechBrain</td>
+          <td>Apache-2.0</td><td><span class="chip ship">no</span></td><td><span class="chip ship">yes</span></td>
+          <td><span class="chip caveat">PyTorch, heavier</span></td><td><span class="chip ship">yes</span></td><td>batch</td>
+          <td><span class="chip caveat">recipe, not turnkey</span></td>
+        </tr>
+        <tr>
+          <td class="name">diart</td>
+          <td>MIT</td><td><span class="chip block">yes · pyannote deps</span></td><td><span class="chip caveat">only if bundled</span></td>
+          <td><span class="chip ship">yes, real-time</span></td><td><span class="chip ship">yes</span></td>
+          <td><span class="chip ship">yes</span></td>
+          <td><span class="chip caveat">only true streamer, but gated</span></td>
+        </tr>
+        <tr>
+          <td class="name">pyannote.audio 3.x/4.x</td>
+          <td>MIT code · CC-BY-4.0 wts</td><td><span class="chip block">yes · token + terms</span></td><td><span class="chip caveat">only if bundled</span></td>
+          <td><span class="chip ship">yes</span></td><td><span class="chip ship">yes</span></td><td>batch</td>
+          <td><span class="chip caveat">gated blocker</span></td>
+        </tr>
+        <tr>
+          <td class="name">WhisperX</td>
+          <td>BSD-2</td><td><span class="chip block">yes · pyannote</span></td><td><span class="chip caveat">only if bundled</span></td>
+          <td><span class="chip caveat">int8, slow</span></td><td><span class="chip ship">yes</span></td><td>batch</td>
+          <td><span class="chip caveat">gated blocker</span></td>
+        </tr>
+        <tr>
+          <td class="name">NeMo Streaming Sortformer</td>
+          <td>CC-BY-4.0</td><td><span class="chip ship">no</span></td><td><span class="chip ship">yes</span></td>
+          <td><span class="chip block">GPU required</span></td><td><span class="chip block">no · max 4</span></td>
+          <td><span class="chip ship">yes</span></td>
+          <td><span class="chip block">GPU + 4-spk cap</span></td>
+        </tr>
+        <tr>
+          <td class="name">NeMo Sortformer v1</td>
+          <td><span class="chip block">CC-BY-NC</span></td><td><span class="chip ship">no</span></td><td><span class="chip ship">yes</span></td>
+          <td><span class="chip block">GPU-only</span></td><td><span class="chip block">no · max 4</span></td><td>batch</td>
+          <td><span class="chip block">non-commercial</span></td>
+        </tr>
+        <tr>
+          <td class="name">whisper.cpp tinydiarize</td>
+          <td>MIT</td><td><span class="chip ship">no</span></td><td><span class="chip ship">yes · GGML</span></td>
+          <td><span class="chip ship">CPU, fast</span></td><td><span class="chip block">n/a</span></td><td>per-file</td>
+          <td><span class="chip block">not real diarization</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="tiers">
+    <div class="tier r"><p class="cap">Hard blocker · license</p>
+      <p><b>NeMo Sortformer v1</b> and <b>DiariZen weights</b> are <b>CC-BY-NC</b> — cannot ship in a product.</p></div>
+    <div class="tier a"><p class="cap">Soft blocker · gated models</p>
+      <p><b>pyannote, diart, WhisperX</b> need an HF token + accepting terms. Workaround: bundle
+        pre-downloaded weights — but verify redistribution rights for gated repos first.</p></div>
+    <div class="tier r"><p class="cap">Not a diarizer</p>
+      <p><b>whisper.cpp tinydiarize</b> marks <em>speaker turns</em> (small.en only), not <em>who</em> —
+        no clustering, no identity. The <code>-di</code> flag is just L/R stereo channels.</p></div>
+  </div>
+  <p class="note good"><strong>Verdict.</strong> Stay on <strong>sherpa-onnx</strong> — you already use it,
+    it's the most turnkey Apache-2.0 CPU diarizer, ungated, and handles unknown count. If you ever truly
+    need live diarization, <strong>diart</strong> is the only mature open streamer, but budget for the
+    gated-model bundling problem.</p>
+</section>
+
+<!-- ===================== F ===================== -->
+<section id="align">
+  <div class="sec-head"><span class="sec-num">F</span><h2>Aligning labels to words · endpointing</h2></div>
+
+  <h3>Word timestamps → speaker turns</h3>
+  <ul>
+    <li><strong>Don't trust faster-whisper's native word timestamps for tight sync.</strong> Whisper was
+      never trained to emit them; they're recovered post-hoc via DTW on cross-attention and are
+      <a href="https://github.com/guillaumekln/faster-whisper/issues/294">documented as inaccurate</a>
+      (word start sometimes later than its end). The field-standard fix is
+      <a href="https://github.com/m-bain/whisperx">WhisperX</a>'s external wav2vec2 forced alignment;
+      <a href="https://arxiv.org/pdf/2408.16589">CrisperWhisper</a> / whisper-timestamped are alternatives.</li>
+    <li><strong>Assignment = max temporal overlap.</strong> Each word (with accurate timing) is assigned to
+      the diarization segment it overlaps most — WhisperX's <code>assign_word_speakers()</code> is the
+      reference. Words straddling a boundary go to the larger-overlap speaker.
+      (<a href="https://scalastic.io/en/whisper-pyannote-ultimate-speech-transcription/">pyannote+Whisper</a>)</li>
+    <li><strong>Real-time alignment is unsolved off-the-shelf</strong> — provisional streaming diarization
+      re-clusters, so speaker indices swap between chunks ("A"→"B"), causing label churn. Batch/offline
+      overlay avoids it entirely. This is another argument for the post-pass.
+      (<a href="https://arxiv.org/pdf/2507.18446">streaming permutation problem</a>)</li>
+  </ul>
+
+  <h3>Endpointing for continuous 1–2 h audio</h3>
+  <ul>
+    <li><strong>Silero VAD</strong> — MIT, ONNX, CPU, a 30 ms chunk in &lt;1 ms/thread; it's already the
+      engine inside faster-whisper's <code>vad_filter</code>, which merges speech into ≤30 s Whisper
+      windows (bounding memory) and reduces hallucination/WER on long form.
+      (<a href="https://github.com/snakers4/silero-vad">Silero</a>,
+      <a href="https://github.com/SYSTRAN/faster-whisper">faster-whisper</a>)</li>
+    <li><strong>Semantic endpointing</strong> (only if you ever add conversational turn-taking, not needed
+      for a notes tool): open options are
+      <a href="https://www.daily.co/blog/announcing-smart-turn-v3-with-cpu-inference-in-just-12ms/">Pipecat smart-turn v3</a>
+      (open weights, 8&nbsp;MB, 12&nbsp;ms CPU, 23 langs) and
+      <a href="https://livekit.com/blog/solving-end-of-turn-detection">LiveKit Turn Detector</a> — both
+      layer on top of Silero VAD, not instead of it.</li>
+  </ul>
+  <p class="note good"><strong>For meeting mode:</strong> Silero VAD to chunk the stream + faster-whisper
+    with <code>word_timestamps=True</code> for provisional live text, then re-align words to the offline
+    diarization by max-overlap in the post-pass. If you need karaoke-tight timing in the final export, add
+    wav2vec2 forced alignment (per-language model) — otherwise skip it.</p>
+</section>
+
+<!-- ===================== G ===================== -->
+<section id="notes">
+  <div class="sec-head"><span class="sec-num">G</span><h2>Meeting notes from a local LLM</h2></div>
+  <p class="lede">Fully offline minutes are realistic on CPU — provided you <strong>chunk by speaker turn
+    and map-reduce</strong>, use <strong>separate schema-constrained passes</strong>, and budget minutes,
+    not seconds.</p>
+
+  <h3>The pipeline that works</h3>
+  <ul>
+    <li><strong>Chunk on speaker-turn boundaries</strong> (never mid-utterance) with 10–20% overlap;
+      <strong>map-reduce</strong> is mandatory because a 1–2 h meeting is tens of thousands of tokens —
+      <a href="https://aclanthology.org/2023.acl-long.906.pdf">MeetingBank council meetings average ~28k
+      tokens</a>. The advertised 128K context of small models is nominal; effective context is far lower.</li>
+    <li><strong>Separate passes</strong> for summary / decisions / action-items, each emitting JSON keyed
+      to diarized speaker IDs (<code>owner_speaker_id</code>). Force valid JSON with llama.cpp's
+      <strong>GBNF grammar-constrained decoding</strong> rather than hoping.
+      (<a href="https://www.gladia.io/blog/transcript-to-actionable-notes-llm">pipeline</a>)</li>
+    <li><strong>Guard the two known failure modes:</strong> high factual-error rate
+      (<a href="https://arxiv.org/abs/2104.05938">QMSum: 74% of strong-model summaries had factual errors</a>)
+      and hallucinated attribution. Use grounding constraints ("do not infer"), <code>[unclear]</code>
+      marking, a strict decision definition (chosen + agreed), and speaker-ID consistency checks.</li>
+  </ul>
+
+  <h3>What CPU can realistically run</h3>
+  <p>From the one rigorous CPU-only benchmark
+    (<a href="https://ceur-ws.org/Vol-4164/paper11.pdf">CEUR-WS 2025, llama.cpp Q4_K</a>), generation
+    throughput:</p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Model (Q4)</th><th>Modern Xeon</th><th>Old Xeon (no AVX2)</th><th>i7 laptop</th><th>Good for</th></tr></thead>
+      <tbody>
+        <tr><td class="name">Llama-3.2-1B</td><td class="num">~120 tok/s</td><td class="num">~25 tok/s</td><td class="num">high</td><td>light summary</td></tr>
+        <tr><td class="name">Phi-4-mini (3.8B)</td><td class="num">—</td><td class="num">~15 tok/s</td><td class="num">~40 tok/s</td><td>summary / QA</td></tr>
+        <tr><td class="name">Qwen2.5-7B</td><td class="num">~45 tok/s</td><td class="num">~8 tok/s</td><td class="num">—</td><td>higher quality</td></tr>
+        <tr><td class="name">Mistral-Small 24B</td><td class="num">~15 tok/s</td><td class="num">~2 tok/s</td><td class="num">—</td><td>too slow on CPU</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The realistic band is <strong>Phi-4-mini, Qwen2.5-3B/7B, Llama-3.2-3B, Gemma-2-2B at Q4_K_M</strong>
+    (&lt;1% quality loss, ~75% smaller). CPU <em>prefill</em> of tens of thousands of tokens — not just
+    generation — is the real cost, so end-to-end minutes for a 2 h meeting take <strong>minutes, not
+    seconds</strong>. Grounding: AMI/ICSI/QMSum/MeetingBank are the corpora; AutoMin/ELITR is the minuting
+    task; ROUGE is standard but a weak proxy, so evaluate qualitatively.</p>
+  <p class="note"><strong>Prior OSS to learn from:</strong>
+    <a href="https://github.com/paberr/ownscribe">ownscribe</a> is closest to your design — local-first
+    CLI, bundled Phi-4-mini GGUF, Markdown + JSON minutes (Summary / Key Points / Action Items / Decisions).
+    <a href="https://github.com/Zackriya-Solutions/meetily">Meetily</a> uses Ollama. None ship GBNF-grammar
+    JSON — a differentiator you can claim.</p>
+</section>
+
+<!-- ===================== H ===================== -->
+<section id="priorart">
+  <div class="sec-head"><span class="sec-num">H</span><h2>Prior art &amp; the on-device bar</h2></div>
+  <p class="lede">A fully-offline tool can already match cloud on transcription and on local-LLM notes. Cloud
+    still leads on exactly two things — high-quality live diarization, and persistent voiceprint naming —
+    and the second is an <strong>unoccupied on-device niche</strong>.</p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Capability</th><th>Fully on-device today?</th><th>Who leads</th></tr></thead>
+      <tbody>
+        <tr><td class="name">Live long-form transcription</td><td><span class="chip ship">yes</span></td><td>Apple SpeechAnalyzer · Whisper/Parakeet OSS</td></tr>
+        <tr><td class="name">On-device notes / summaries</td><td><span class="chip ship">yes · quality &lt; cloud</span></td><td>Meetily (Ollama) · Hyprnote (Qwen3-1.7B)</td></tr>
+        <tr><td class="name">Post-hoc diarization</td><td><span class="chip caveat">yes · beta-quality</span></td><td>pyannote (MacWhisper / WhisperX / Vibe)</td></tr>
+        <tr><td class="name">Live / streaming diarization</td><td><span class="chip block">emerging, not commodity</span></td><td>pyannoteAI Live-1 (cloud)</td></tr>
+        <tr><td class="name">Persistent voiceprint naming</td><td><span class="chip block">no on-device option</span></td><td>Otter (cloud, stored biometric)</td></tr>
+        <tr><td class="name">Bot-free system-audio capture</td><td><span class="chip ship">yes</span></td><td>Granola · Hyprnote · Meetily · MacWhisper</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <ul>
+    <li><strong>Otter</strong> — cloud; its distinctive feature is <em>learn-a-voice-once, auto-name-forever</em>,
+      but that's a stored biometric in the cloud.
+      (<a href="https://help.otter.ai/hc/en-us/articles/21665587209367-Speaker-Identification-Overview">docs</a>)</li>
+    <li><strong>Granola</strong> — bot-free capture but <em>cloud</em> transcription/LLM; on desktop it only
+      splits "Me" vs "Them", <em>no real diarization</em>.
+      (<a href="https://docs.granola.ai/article/transcription">docs</a>)</li>
+    <li><strong>MacWhisper</strong> — on-device, but diarization is <em>beta</em> (pyannote v4), over-splits,
+      post-hoc only. (<a href="https://www.getvoibe.com/resources/macwhisper-review/">review</a>)</li>
+    <li><strong>OSS (Meetily, Hyprnote, Vibe)</strong> — transcription + local-LLM notes are solid, but
+      <em>live diarization is POC/beta/planned across the board</em>.
+      (<a href="https://github.com/Zackriya-Solutions/meetily">Meetily</a>,
+      <a href="https://news.ycombinator.com/item?id=44725306">Hyprnote</a>)</li>
+    <li><strong>Apple</strong> — best-in-class on-device transcription (WWDC25 SpeechAnalyzer), but ships
+      <em>no speaker labeling at all</em>.
+      (<a href="https://developer.apple.com/videos/play/wwdc2025/277/">WWDC25 · 277</a>)</li>
+  </ul>
+  <p class="note good"><strong>Positioning.</strong> Your encrypted-corpus voiceprint (ADR-012) plus an
+    offline diarization post-pass hits the two gaps at once: on-device diarization <em>and</em> persistent,
+    private, cross-meeting speaker naming — which no on-device competitor offers.</p>
+</section>
+
+<!-- ===================== ARCH ===================== -->
+<section id="arch">
+  <div class="sec-head"><span class="sec-num">▹</span><h2>Recommended architecture · live meeting mode</h2></div>
+  <p class="lede">Capture → stream STT → live provisional labels → stop → offline diarization post-pass →
+    reconcile → notes. Every stage CPU-only and offline; no gated model.</p>
+  <div class="flow">
+    <div class="flow-stage"><div class="idx">1</div><div class="body">
+      <b>Capture</b><span class="k">mic + system audio → WAV ring buffer</span>
+      <p>Continuous record to disk (16&nbsp;kHz mono). Keep the full WAV for the post-pass; ~1&nbsp;GB/hr
+        uncompressed is fine, or FLAC.</p></div></div>
+    <div class="flow-arrow"><span>↓</span></div>
+    <div class="flow-stage"><div class="idx">2</div><div class="body">
+      <b>Stream STT</b><span class="k">Silero VAD → faster-whisper (word_timestamps)</span>
+      <p>VAD merges speech into ≤30 s windows; decode and show text live. This is your existing STT path,
+        unchanged.</p></div></div>
+    <div class="flow-arrow"><span>↓</span></div>
+    <div class="flow-stage"><div class="idx">3</div><div class="body">
+      <b>Live provisional speaker chips</b><span class="k">optional · CAM++ every ~1 s</span>
+      <p>Cheap embedding vs active + stored voiceprints → provisional "Speaker N". Cosmetic only; expect
+        churn. Skip in v1 if you want.</p></div></div>
+    <div class="flow-arrow"><span>↓ &nbsp;on stop&nbsp; ↓</span></div>
+    <div class="flow-stage"><div class="idx">4</div><div class="body">
+      <b>Offline diarization post-pass</b><span class="k">sherpa-onnx · num_speakers = -1</span>
+      <p>pyannote-segmentation-3.0 (powerset, overlap-aware) + CAM++ embeddings + FastClustering over the
+        whole WAV → accurate global labels + true count. ~30 s per 45 min on a laptop.</p></div></div>
+    <div class="flow-arrow"><span>↓</span></div>
+    <div class="flow-stage"><div class="idx">5</div><div class="body">
+      <b>Align + reconcile + name</b><span class="k">max-overlap · locked names · voiceprint match</span>
+      <p>Assign each Whisper word to its max-overlap speaker turn. Reconcile with live labels; never
+        overwrite user-set names. Match clusters to enrolled voiceprints (ADR-012) for persistent naming.</p></div></div>
+    <div class="flow-arrow"><span>↓</span></div>
+    <div class="flow-stage"><div class="idx">6</div><div class="body">
+      <b>Notes</b><span class="k">llama.cpp · Q4 · map-reduce · GBNF JSON</span>
+      <p>Chunk by turn, map-reduce, separate schema-constrained passes for summary / decisions /
+        action-items → Markdown minutes + JSON. Budget minutes.</p></div></div>
+  </div>
+  <p><strong>New dependencies:</strong> essentially none heavy — you already have sherpa-onnx (diarization),
+    faster-whisper (STT + Silero VAD), and an optional llama.cpp for notes. The work is orchestration and
+    the reconcile/naming UX, not new ML infrastructure.</p>
+</section>
+
+<!-- ===================== RISKS ===================== -->
+<section id="risks">
+  <div class="sec-head"><span class="sec-num">!</span><h2>Key risks</h2></div>
+
+  <div class="risk hi"><div class="rh"><span class="rt">Gated &amp; non-commercial models</span><span class="sev">High · licensing</span></div>
+    <p>The best-accuracy and only-streaming options are all encumbered: pyannote/diart/WhisperX need an HF
+      token + terms acceptance (offline-installer friction); DiariZen and NeMo Sortformer-v1 weights are
+      CC-BY-NC (un-shippable). Staying on Apache-2.0 sherpa-onnx sidesteps all of it.</p></div>
+
+  <div class="risk md"><div class="rh"><span class="rt">Unknown-count accuracy</span><span class="sev">Medium · quality</span></div>
+    <p>Auto count estimation is wrong in ~1 session in 4 and under-counts. Mitigate with a user-facing
+      merge/split UI and locked corrections — never present the machine count as final.</p></div>
+
+  <div class="risk md"><div class="rh"><span class="rt">Overlapping speech</span><span class="sev">Medium · quality</span></div>
+    <p>Meetings overlap 12–20%; clustering can't attribute overlaps, so some missed speech is unavoidable.
+      The powerset segmentation you ship helps; don't chase perfect overlap attribution for notes.</p></div>
+
+  <div class="risk md"><div class="rh"><span class="rt">CPU latency for notes</span><span class="sev">Medium · perf</span></div>
+    <p>A 2 h transcript is tens of thousands of tokens; CPU prefill + map-reduce means minutes of wall-clock
+      on a laptop with a 3–7B Q4 model. Run notes as a background job with progress, not a blocking call.</p></div>
+
+  <div class="risk lo"><div class="rh"><span class="rt">Live-label churn</span><span class="sev">Low · UX</span></div>
+    <p>Provisional streaming labels re-cluster and swap. Treat them as cosmetic; the post-pass is the source
+      of truth. Or omit live chips in v1.</p></div>
+
+  <div class="risk lo"><div class="rh"><span class="rt">Privacy / biometric</span><span class="sev">Low · governance</span></div>
+    <p>Voiceprints are biometric. Your existing encrypted-corpus, opt-in, machine-bound design (ADR-011/012)
+      already handles this correctly — keep naming opt-in and consent-gated, never auto-enroll.</p></div>
+</section>
+
+<!-- ===================== SOURCES ===================== -->
+<section id="sources" class="sources">
+  <div class="sec-head"><span class="sec-num">§</span><h2>Sources</h2></div>
+  <p class="lede">Primary sources — arXiv papers, official repos, model cards and vendor docs. Verified
+    directly where load-bearing (licenses, gating, speaker-count API).</p>
+
+  <h3>A · Embeddings &amp; models</h3>
+  <ol>
+    <li>x-vector (Snyder 2018) — <a href="https://dl.acm.org/doi/10.1109/ICASSP.2018.8461375">dl.acm.org/doi/10.1109/ICASSP.2018.8461375</a></li>
+    <li>ECAPA-TDNN (Desplanques 2020) — <a href="https://arxiv.org/abs/2005.07143">arxiv.org/abs/2005.07143</a></li>
+    <li>GE2E d-vector (Wan 2018) — <a href="https://arxiv.org/abs/1710.10467">arxiv.org/abs/1710.10467</a></li>
+    <li>F0 in real-life speaker ID — <a href="https://www.researchgate.net/publication/276914683_The_problem_of_F0_and_real-life_speaker_identification_a_case_study">researchgate.net/publication/276914683</a></li>
+    <li>F0 &amp; intelligibility (PMC) — <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2885573/">pmc.ncbi.nlm.nih.gov/articles/PMC2885573</a></li>
+    <li>i-vector→x-vector (Oxford Wave / IAFPA19) — <a href="https://oxfordwaveresearch.com/wp-content/uploads/2020/02/IAFPA19_xvectors_Kelly_et_al_presentation.pdf">oxfordwaveresearch.com …IAFPA19_xvectors.pdf</a></li>
+    <li>3D-Speaker / CAM++ — <a href="https://github.com/modelscope/3D-Speaker">github.com/modelscope/3D-Speaker</a> · <a href="https://arxiv.org/pdf/2303.00332">arxiv.org/pdf/2303.00332</a></li>
+    <li>WeSpeaker — <a href="https://github.com/wenet-e2e/wespeaker/blob/master/docs/pretrained.md">github.com/wenet-e2e/wespeaker …pretrained.md</a></li>
+    <li>NeMo TitaNet — <a href="https://huggingface.co/nvidia/speakerverification_en_titanet_large">huggingface.co/nvidia/speakerverification_en_titanet_large</a></li>
+    <li>SpeechBrain ECAPA — <a href="https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb">huggingface.co/speechbrain/spkrec-ecapa-voxceleb</a></li>
+    <li>sherpa-onnx model releases — <a href="https://github.com/k2-fsa/sherpa-onnx/releases/tag/speaker-recongition-models">github.com/k2-fsa/sherpa-onnx/releases …speaker-recognition-models</a></li>
+  </ol>
+
+  <h3>B · Online vs offline</h3>
+  <ol start="12">
+    <li>pyannote 3.1 (Bredin, Interspeech 2023) — <a href="https://www.isca-archive.org/interspeech_2023/bredin23_interspeech.pdf">isca-archive.org …bredin23_interspeech.pdf</a></li>
+    <li>Review of online diarization (2024) — <a href="https://arxiv.org/html/2406.14464v1">arxiv.org/html/2406.14464v1</a></li>
+    <li>UIS-RNN — <a href="https://arxiv.org/abs/1810.04719">arxiv.org/abs/1810.04719</a></li>
+    <li>EEND-EDA — <a href="https://arxiv.org/abs/2005.09921">arxiv.org/abs/2005.09921</a></li>
+    <li>BW-EDA-EEND — <a href="https://arxiv.org/abs/2011.02678">arxiv.org/abs/2011.02678</a></li>
+    <li>Sortformer — <a href="https://arxiv.org/abs/2409.06656">arxiv.org/abs/2409.06656</a></li>
+    <li>Streaming Sortformer — <a href="https://arxiv.org/pdf/2507.18446">arxiv.org/pdf/2507.18446</a> · <a href="https://huggingface.co/nvidia/diar_streaming_sortformer_4spk-v2">HF model card</a></li>
+    <li>DiariZen — <a href="https://github.com/BUTSpeechFIT/DiariZen">github.com/BUTSpeechFIT/DiariZen</a></li>
+    <li>diart (Coria 2021) — <a href="https://arxiv.org/pdf/2109.06483">arxiv.org/pdf/2109.06483</a> · <a href="https://github.com/juanmc2005/diart">github.com/juanmc2005/diart</a></li>
+    <li>sherpa-onnx diarization — <a href="https://k2-fsa.github.io/sherpa/onnx/speaker-diarization/index.html">k2-fsa.github.io/sherpa/onnx/speaker-diarization</a> · <a href="https://github.com/k2-fsa/sherpa-onnx/blob/master/python-api-examples/offline-speaker-diarization.py">API example</a></li>
+    <li>OpenWhispr hybrid local diarization — <a href="https://openwhispr.com/blog/local-speaker-diarization">openwhispr.com/blog/local-speaker-diarization</a></li>
+    <li>SCDiar (2025) — <a href="https://arxiv.org/pdf/2501.16641">arxiv.org/pdf/2501.16641</a></li>
+  </ol>
+
+  <h3>C / D · Count &amp; overlap</h3>
+  <ol start="24">
+    <li>Wang 2018 (LSTM + eigengap) — <a href="https://wangquan.me/files/research/diarization_ICASSP_2018.pdf">wangquan.me …diarization_ICASSP_2018.pdf</a></li>
+    <li>NME-SC (Park 2019) — <a href="https://arxiv.org/abs/2003.02405">arxiv.org/abs/2003.02405</a></li>
+    <li>ECAPA embeddings for diarization (counting acc.) — <a href="https://arxiv.org/pdf/2104.01466">arxiv.org/pdf/2104.01466</a></li>
+    <li>Robustness of spectral clustering — <a href="https://arxiv.org/html/2403.14286v1">arxiv.org/html/2403.14286v1</a></li>
+    <li>Benchmarking diarization models (2025, overlap %) — <a href="https://arxiv.org/html/2509.26177v1">arxiv.org/html/2509.26177v1</a></li>
+    <li>Powerset multi-class CE — <a href="https://arxiv.org/html/2310.13025">arxiv.org/html/2310.13025</a></li>
+    <li>Bullock overlap-aware resegmentation — <a href="https://arxiv.org/pdf/1910.11646">arxiv.org/pdf/1910.11646</a></li>
+    <li>DIHARD-II is still hard — <a href="https://ar5iv.labs.arxiv.org/html/2002.12761">ar5iv.labs.arxiv.org/html/2002.12761</a></li>
+  </ol>
+
+  <h3>E / F · Toolkits, alignment &amp; VAD</h3>
+  <ol start="32">
+    <li>pyannote 3.1 (gated) — <a href="https://huggingface.co/pyannote/speaker-diarization-3.1">huggingface.co/pyannote/speaker-diarization-3.1</a></li>
+    <li>pyannote community-1 (CC-BY-4.0, gated) — <a href="https://huggingface.co/pyannote/speaker-diarization-community-1">huggingface.co/pyannote/speaker-diarization-community-1</a></li>
+    <li>WhisperX — <a href="https://github.com/m-bain/whisperx">github.com/m-bain/whisperx</a></li>
+    <li>NeMo Sortformer v1 (CC-BY-NC) — <a href="https://huggingface.co/nvidia/diar_sortformer_4spk-v1">huggingface.co/nvidia/diar_sortformer_4spk-v1</a></li>
+    <li>whisper.cpp tinydiarize — <a href="https://github.com/akashmjn/tinydiarize">github.com/akashmjn/tinydiarize</a></li>
+    <li>faster-whisper (VAD, word ts) — <a href="https://github.com/SYSTRAN/faster-whisper">github.com/SYSTRAN/faster-whisper</a> · <a href="https://github.com/guillaumekln/faster-whisper/issues/294">issue #294</a></li>
+    <li>CrisperWhisper — <a href="https://arxiv.org/pdf/2408.16589">arxiv.org/pdf/2408.16589</a></li>
+    <li>Word→speaker (pyannote+Whisper) — <a href="https://scalastic.io/en/whisper-pyannote-ultimate-speech-transcription/">scalastic.io …whisper-pyannote</a></li>
+    <li>Silero VAD — <a href="https://github.com/snakers4/silero-vad">github.com/snakers4/silero-vad</a></li>
+    <li>Pipecat smart-turn v3 — <a href="https://www.daily.co/blog/announcing-smart-turn-v3-with-cpu-inference-in-just-12ms/">daily.co/blog …smart-turn-v3</a></li>
+    <li>LiveKit turn detector — <a href="https://livekit.com/blog/solving-end-of-turn-detection">livekit.com/blog/solving-end-of-turn-detection</a></li>
+  </ol>
+
+  <h3>G · Meeting notes</h3>
+  <ol start="43">
+    <li>CPU llama.cpp benchmark (CEUR-WS 2025) — <a href="https://ceur-ws.org/Vol-4164/paper11.pdf">ceur-ws.org/Vol-4164/paper11.pdf</a></li>
+    <li>MeetingBank (ACL 2023) — <a href="https://aclanthology.org/2023.acl-long.906.pdf">aclanthology.org/2023.acl-long.906.pdf</a></li>
+    <li>QMSum — <a href="https://arxiv.org/abs/2104.05938">arxiv.org/abs/2104.05938</a></li>
+    <li>AutoMin 2023 (INLG) — <a href="https://aclanthology.org/2023.inlg-genchal.19/">aclanthology.org/2023.inlg-genchal.19</a></li>
+    <li>LLM×MapReduce (ACL 2025) — <a href="https://aclanthology.org/2025.acl-long.1341.pdf">aclanthology.org/2025.acl-long.1341.pdf</a></li>
+    <li>Gladia transcript→notes pipeline — <a href="https://www.gladia.io/blog/transcript-to-actionable-notes-llm">gladia.io/blog/transcript-to-actionable-notes-llm</a></li>
+    <li>ownscribe (local minutes) — <a href="https://github.com/paberr/ownscribe">github.com/paberr/ownscribe</a></li>
+  </ol>
+
+  <h3>H · Prior art</h3>
+  <ol start="50">
+    <li>Otter speaker ID — <a href="https://help.otter.ai/hc/en-us/articles/21665587209367-Speaker-Identification-Overview">help.otter.ai …Speaker-Identification-Overview</a></li>
+    <li>Fireflies trust FAQ — <a href="https://trust.fireflies.ai/faq">trust.fireflies.ai/faq</a></li>
+    <li>Granola transcription — <a href="https://docs.granola.ai/article/transcription">docs.granola.ai/article/transcription</a></li>
+    <li>MacWhisper review — <a href="https://www.getvoibe.com/resources/macwhisper-review/">getvoibe.com/resources/macwhisper-review</a></li>
+    <li>Meetily — <a href="https://github.com/Zackriya-Solutions/meetily">github.com/Zackriya-Solutions/meetily</a></li>
+    <li>Hyprnote (HN launch) — <a href="https://news.ycombinator.com/item?id=44725306">news.ycombinator.com/item?id=44725306</a></li>
+    <li>Apple WWDC25 SpeechAnalyzer — <a href="https://developer.apple.com/videos/play/wwdc2025/277/">developer.apple.com/videos/play/wwdc2025/277</a></li>
+    <li>pyannoteAI streaming beta — <a href="https://www.pyannote.ai/changelog/streaming-diarization-beta">pyannote.ai/changelog/streaming-diarization-beta</a></li>
+  </ol>
+</section>
+
+</main>
+
+<footer class="wrap">
+  Research brief compiled from 7 parallel source sweeps + direct primary-source verification of
+  load-bearing license/gating/API claims.<br>
+  Signal chips encode ship-readiness: <span style="color:var(--ship)">green = clean to ship</span> ·
+  <span style="color:var(--caveat)">amber = caveat</span> ·
+  <span style="color:var(--block)">red = blocker</span>. Established results and single-study /
+  practitioner claims are distinguished inline.
+</footer>

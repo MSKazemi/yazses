@@ -67,9 +67,23 @@ If you read nothing else, these five results are the whole argument:
 
 </div>
 
-## The three surveys
+## The three surveys — and the canon under them
+
+The surveys below ask what each *sensor* can do. The fourth page asks the older
+question: what does fifty years of human-computer interaction research already say
+about how voice input should behave? Start there if you want the argument rather than
+the hardware.
 
 <div class="grid cards" markdown>
+
+- :material-book-open-variant: **[The HCI canon behind YazSes](hci-canon.md)**
+  48 papers that decide the design — why hold-to-talk beats a toggle, why
+  correction cost outranks word error rate, and the three things we have not
+  measured.
+
+- :material-help-circle-outline: **[Ten open questions](agenda.md)**
+  The research agenda: what we think is worth measuring next, with the method
+  and the literature for each. Three need no new code. All are open.
 
 - :material-eye-outline: **[Eye control](eye-control.md)**
   What a $20 webcam can and cannot know about where you look — and why

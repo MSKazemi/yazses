@@ -190,7 +190,7 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Local Voice Timer** | `voicetimer` | "set a timer for 25 minutes" — offline, spoken by read-back. |
 | **Focus-Class Auto-Profile** | `focusprofile` | Grammar profile follows the focused window's class (terminal→shell, editor→code). |
 
-Wave K is complete — all ten features (see `design/vision/v2-research/13-wave-k.md`) are shipped,
+Wave K is complete — all ten features (see Wave K) are shipped,
 pure, 100%-covered, and off by default.
 
 ## Non-speech & prosodic interaction (Wave L)
@@ -211,7 +211,7 @@ phonate but not articulate discrete words, and for word-free eyes-free control.
 | **Mouth-Sound Switch Access** | `mouthswitch` | Non-verbal mouth sounds drive a scan-and-select selector (AAC switch access). Experimental. |
 | **Involuntary-Vocalization Excision** | `involuntary` | Drops cough/throat-clear/sneeze before they corrupt the transcript. |
 
-Wave L is complete — all ten features (see `design/vision/v2-research/14-wave-l.md`) are shipped,
+Wave L is complete — all ten features (see Wave L) are shipped,
 pure, 100%-covered, and off by default.
 
 ## Minimal-bandwidth AAC & text-intelligence (Wave M)
@@ -231,7 +231,7 @@ The lowest-bandwidth input methods and new text-intelligence layers.
 | **Diagrams-as-Code by Voice** | `diagramvox` | Dictate a flowchart → Mermaid/Graphviz source, no canvas. |
 | **Interruptible Proofreading** | `proofback` | Interrupt the read-back and land the cursor on the exact word. |
 
-Wave M is complete — all ten features (see `design/vision/v2-research/15-wave-m.md`) are shipped,
+Wave M is complete — all ten features (see Wave M) are shipped,
 pure, 100%-covered, and off by default.
 
 ## Structural editing, i18n & accessibility-output (Wave N)
@@ -251,7 +251,7 @@ Structural code editing, internationalization, and accessibility-output correctn
 | **Echo** | `echo` | "Play that back" replays your own captured audio for a text span (not TTS). |
 | **Screen-Reader Pacing** | `srpace` | Pace injection to a screen reader's reading rate, clause-chunked. |
 
-Wave N is complete — all ten features (see `design/vision/v2-research/16-wave-n.md`) are shipped,
+Wave N is complete — all ten features (see Wave N) are shipped,
 pure, 100%-covered, and off by default.
 
 ## Privacy

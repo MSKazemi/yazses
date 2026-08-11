@@ -4,7 +4,7 @@
 **Deciders:** Mohsen Seyedkazemi Ardebili
 **Context links:** [[adr-mob-005]] (engines), [[adr-mob-006]] (models),
 [[adr-mob-007]] (privacy gate), [[adr-011]], desktop analogue: `adr-008` (packaging),
-`design/distribution-status.md`
+the internal distribution-status note
 
 ---
 

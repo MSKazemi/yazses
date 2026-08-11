@@ -1,0 +1,149 @@
+# SOTAForge Source Collection
+# yazses-future-voice-hci case study
+# Generated: 2026-05-17
+# Legal note: only URLs and metadata are stored here. No copyrighted content.
+
+sources:
+  - id: src-001
+    title: "Towards Spatial Computing: Recent Advances in Multimodal Natural Interaction for XR Headsets"
+    authors: ["Xuening Peng", "Xin Wang", "Wei Liang", "others"]
+    year: 2025
+    url: "https://arxiv.org/abs/2502.07598"
+    arxiv_id: "2502.07598"
+    doi: "10.1007/s11704-025-41123-8"
+    type: paper
+    license: "CC-BY-4.0"
+    access_type: open
+    access_date: 2026-05-17
+    notes: "Comprehensive survey of multimodal interaction (voice, gaze, gesture) in XR/spatial computing 2022-2024. Central source for metaverse and ambient voice research dimensions."
+
+  - id: src-002
+    title: "VoiceBench: Benchmarking LLM-Based Voice Assistants"
+    authors: ["Yiming Chen", "Xianghu Yue", "Chen Zhang", "Xiaoxue Gao", "Robby T. Tan", "Haizhou Li"]
+    year: 2024
+    url: "https://arxiv.org/abs/2410.17196"
+    arxiv_id: "2410.17196"
+    doi: "10.1162/TACL.a.628"
+    type: paper
+    license: "arXiv non-exclusive"
+    access_type: open
+    access_date: 2026-05-17
+    notes: "First benchmark for LLM-based voice assistants covering general knowledge, instruction-following, and safety across 6,783 spoken instructions. Establishes evaluation baselines for voice-first HCI quality."
+
+  - id: src-003
+    title: "Adaptive Edge-Cloud Inference for Speech-to-Action Systems Using ASR and Large Language Models"
+    authors: ["unknown — preprint"]
+    year: 2024
+    url: "https://arxiv.org/abs/2512.12769"
+    arxiv_id: "2512.12769"
+    type: paper
+    license: "arXiv non-exclusive"
+    access_type: open
+    access_date: 2026-05-17
+    notes: "Hybrid edge-cloud architecture for offline/online speech-to-action inference. Directly relevant to YazSes offline-first architecture and LLM intent routing without cloud dependency."
+
+  - id: src-004
+    title: "Natural Multimodal Fusion-Based Human–Robot Interaction: Application with Voice and Deictic Posture via Large Language Model"
+    authors: ["multiple — preprint"]
+    year: 2025
+    url: "https://arxiv.org/abs/2501.00785"
+    arxiv_id: "2501.00785"
+    type: paper
+    license: "arXiv non-exclusive"
+    access_type: open
+    access_date: 2026-05-17
+    notes: "Voice + pointing-gesture fusion via LLM for HRI. Demonstrates superior efficiency with no syntax memorisation needed. Relevant to multimodal YazSes command pipeline."
+
+  - id: src-005
+    title: "Wireless Silent Speech Interface Using Multi-Channel Textile EMG Sensors Integrated into Headphones"
+    authors: ["multiple — preprint"]
+    year: 2025
+    url: "https://arxiv.org/abs/2504.13921"
+    arxiv_id: "2504.13921"
+    type: paper
+    license: "arXiv non-exclusive"
+    access_type: open
+    access_date: 2026-05-17
+    notes: "96% accuracy on 10 control words using textile EMG in headphone form factor. Directly relevant to AAC, disability access, and future silent-speech input mode for YazSes."
+
+  - id: src-006
+    title: "Typing Reinvented: Towards Hands-Free Input via sEMG"
+    authors: ["multiple — preprint"]
+    year: 2025
+    url: "https://arxiv.org/abs/2511.18213"
+    arxiv_id: "2511.18213"
+    type: paper
+    license: "arXiv non-exclusive"
+    access_type: open
+    access_date: 2026-05-17
+    notes: "Transformer-based sEMG decoding for keyboard-free text input. Combined with LLM decoding, targets spatial/wearable/screenless computing. Critical for YazSes futuristic input roadmap."
+
+  - id: src-007
+    title: "Sentence-Level Silent Speech Recognition Using a Wearable EMG/EEG Sensor System with AI-Driven Sensor Fusion and Language Model"
+    authors: ["multiple"]
+    year: 2025
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC12526642/"
+    type: paper
+    license: "CC-BY"
+    access_type: open
+    access_date: 2026-05-17
+    notes: "Sentence-level SSR using single-channel EMG+EEG with real-time wireless transmission. Shows feasibility of wearable, always-on silent input. AAC and disability use case."
+
+  - id: src-008
+    title: "Affective Mirroring in Video Game NPCs: A Pilot Study Evaluating Player Engagement"
+    authors: ["multiple"]
+    year: 2025
+    url: "https://dl.acm.org/doi/10.1145/3723498.3723835"
+    doi: "10.1145/3723498.3723835"
+    type: paper
+    license: "ACM open access"
+    access_type: open
+    access_date: 2026-05-17
+    notes: "NPC emotional mirroring driven by player voice/affect. FDG 2025. Directly relevant to voice-driven emotional gaming and adaptive NPC dimension of YazSes gaming feature set."
+
+  - id: src-009
+    title: "LLM-Driven NPCs: Cross-Platform Dialogue System for Games and Social Platforms"
+    authors: ["multiple — preprint"]
+    year: 2025
+    url: "https://arxiv.org/abs/2504.13928"
+    arxiv_id: "2504.13928"
+    type: paper
+    license: "arXiv non-exclusive"
+    access_type: open
+    access_date: 2026-05-17
+    notes: "Cross-platform LLM NPC dialogue with emotional modeling and persistent memory. Maps to voice-driven game command and NPC interaction feature for YazSes."
+
+  - id: src-010
+    title: "A Systematic Review of Fusion Methods for the User-Centered Design of Multimodal Interfaces"
+    authors: ["multiple"]
+    year: 2025
+    url: "https://dl.acm.org/doi/10.1145/3716553.3750790"
+    doi: "10.1145/3716553.3750790"
+    type: paper
+    license: "ACM open access"
+    access_type: open
+    access_date: 2026-05-17
+    notes: "Systematic review of 50 speech+gesture/touch/pen/gaze fusion systems. ICMI 2025. Authoritative reference for multimodal fusion architecture design in YazSes."
+
+  - id: src-011
+    title: "Biosignal-Enabled Spoken Communication — Interspeech 2025 Special Session"
+    authors: ["Tanja Schultz", "others — Universität Bremen"]
+    year: 2025
+    url: "https://www.uni-bremen.de/en/csl/interspeech-2025-special-session-biosignal-enabled-spoken-communication"
+    type: paper
+    license: "open"
+    access_type: open
+    access_date: 2026-05-17
+    notes: "Interspeech 2025 special session on EMG, EEG, UTI biosignals for speech restoration, AAC, and neuro-steered hearing aids. Defines the research frontier for biosignal-augmented voice."
+
+  - id: src-012
+    title: "Consideration of AI Applications for Interpreting Communicative Movements by Individuals with Visual and/or Motor Disabilities"
+    authors: ["multiple"]
+    year: 2025
+    url: "https://www.tandfonline.com/doi/full/10.1080/07434618.2025.2495905"
+    doi: "10.1080/07434618.2025.2495905"
+    type: paper
+    license: "open access"
+    access_type: open
+    access_date: 2026-05-17
+    notes: "AI interpretation of communicative movements for users with visual and motor disabilities. Published May 2025. Maps to YazSes accessibility mode and AAC integration."
