@@ -32,7 +32,7 @@ asciinema recording of the CLI happy path (`-h` → `about` → `quickstart` →
 `status`) — every byte is real command output, nothing hand-typed. Play it with
 [asciinema](https://asciinema.org): `asciinema play docs/demo/yazses-cli.cast`.
 
-> 🙌 **Want to help?** [**#22**](https://github.com/MSKazemi/yazses/issues/22) lists everything that's open. Several tasks need **no Python at all** — [translate the README](https://github.com/MSKazemi/yazses/issues/18) into your language, [add your microphone](https://github.com/MSKazemi/yazses/issues/21) to the known-good list, or just run it and tell us what happened. The test suite is fully offline and takes about 30 seconds, so you need no microphone, model or GPU to contribute.
+> 🙌 **Want to help?** **[Start here](https://mskazemi.com/yazses/contribute/start.html)** — one page, pick the row matching what you have, finish in 15–45 minutes. No permission needed and nothing is assigned; coding agents are welcome and there's a copy-paste prompt. Several tasks need **no Python at all** — [translate the README](https://github.com/MSKazemi/yazses/issues/18) into your language, [add your microphone](https://github.com/MSKazemi/yazses/issues/21) to the known-good list, or just run it and tell us what happened. [#22](https://github.com/MSKazemi/yazses/issues/22) lists everything open. The test suite is fully offline and takes about 30 seconds, so you need no microphone, model or GPU to contribute.
 
 ---
 
@@ -473,7 +473,7 @@ installed, or depended on by anything here.
 | | **Python** · `main` | **Rust HCI exploration** · `archive/rust-hci-v1` |
 |---|---|---|
 | What it is | The shipping app — dictation, file transcription, Meeting Mode, voice commands, macros | An early-stage rewrite exploring deeper **human–computer interaction**: an on-device *agent* (LLM tool-use, personal memory, editor awareness) |
-| Status | ✅ **Active — current product** (v2.15.0, installed & maintained) | ⏸️ **Paused / archived** — not shipped, not installable |
+| Status | ✅ **Active — current product** (v2.17.0, installed & maintained) | ⏸️ **Paused / archived** — not shipped, not installable |
 | Offline STT | ✅ faster-whisper (CPU int8) | ✅ Whisper + Moonshine v2 (~9 ms) |
 | Voice commands | ✅ regex grammar (+ optional SLM router) → key sequences | ✅ via LLM tool-calls |
 | Voice macros · Mid-Thought Undo · Punch-In · Prosody Ink · Ghost Ahead | ✅ | ❌ |
@@ -499,7 +499,8 @@ cargo build && cargo test --workspace   # optional backends: whisper, moonshine,
 Contributions are very welcome — bug reports, docs, packaging, and code.
 
 - 🌱 **New here?** Start with a [good first issue](https://github.com/MSKazemi/yazses/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) — each is small and self-contained, and we're happy to help you through your first PR.
-- 🎯 **Want a task picked for you?** [**Browse 130 open tasks**](https://mskazemi.com/yazses/contribute/tasks.html)
+- 🚀 **First time? [Start here](https://mskazemi.com/yazses/contribute/start.html)** — one page, pick the row matching what you have in front of you, finish in 15–45 minutes. No permission needed, nothing is assigned, and coding agents are welcome (there's a copy-paste prompt).
+- 🎯 **Want the full list?** [**Browse 130 open tasks**](https://mskazemi.com/yazses/contribute/tasks.html)
   — each one names the exact files you may touch, the command that says you're done, and an
   honest time estimate. Filter by what you actually have: a browser, a terminal, a specific
   app, or unusual hardware nobody else can test.

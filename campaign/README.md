@@ -88,11 +88,9 @@ sets it true.
 
 ## Running a session, or reviewing
 
-- [`online-sprint.md`](online-sprint.md) — a 90-minute sprint run as a video call. **Start
-  here**: no venue needed, and the diversity of machines and languages a call reaches is
-  exactly what the compatibility and localization tasks require.
-- [`sprint-kit.md`](sprint-kit.md) — the in-person version, for an organizer who has never
-  spoken to the maintainer.
+- [`sprint-kit.md`](sprint-kit.md) — a 90-minute group session. **Parked until there are
+  ~30 contributors**: a sprint needs a reviewer present at a fixed hour, which does not
+  scale and blocks on one person's calendar. Self-serve does neither.
 - [`../REVIEWING.md`](../REVIEWING.md) — the review lanes, the responses, and how to
   become a reviewer without needing repository permissions first.
 - [`incident-response.md`](incident-response.md) — what to do about fabricated evidence,

@@ -4,10 +4,6 @@ Everything needed to run a session where a room of people each land one real, me
 contribution to YazSes. Written so someone who has never spoken to the maintainer can run
 it.
 
-**No venue? Use [`online-sprint.md`](online-sprint.md) instead.** For this project the
-online format is not a fallback: the two largest task families need environmental and
-language diversity that a single room cannot supply, and a call can.
-
 **Do not run this without a reviewer.** A sprint that produces 20 pull requests nobody
 reviews for a week is worse than no sprint: it teaches 20 people that contributing here
 means waiting. If you cannot get a reviewer, run it for 6 people instead of 20.

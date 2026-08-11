@@ -258,6 +258,7 @@ nav:
       - Voice control: research/voice-control.md
       - Muscle & brain control: research/muscle-brain-control.md
       - The HCI canon behind YazSes: research/hci-canon.md
+      - Ten open questions: research/agenda.md
   - Reference:
       - Features: features.md
       - Comparison & alternatives: comparison.md
@@ -282,6 +283,7 @@ nav:
       - Decision records: mobile/adr/README.md
   - Troubleshooting: troubleshooting.md
   - Contributing:
+      - Start here — your first contribution: contribute/start.md
       - How to contribute: contributing.md
       - Pick a task: contribute/tasks.md
       - What contributors built: contribute/built.md

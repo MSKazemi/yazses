@@ -6,6 +6,31 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — a self-serve first-contribution page; group sprints parked
+
+`docs/contribute/start.md` is one page for someone arriving alone, at any hour, with nobody
+to reply to them. Five rows keyed to what they physically have — a browser, any laptop, a
+microphone, an editor they use daily, Python — and the instruction to take the second row if
+undecided, because nobody can test YazSes on their machine but them and 297 environments sit
+uncovered. Three rules, one self-check command, and what happens after they push.
+
+It includes a **copy-paste prompt for coding agents**, because that population will arrive
+whether or not the project plans for it, and routing it well beats pretending otherwise. The
+prompt points the agent at `check-task.py` output as its specification, forbids the three
+things this project will not bend on (network calls, telemetry, features on by default), and
+requires it to stop rather than invent evidence only a human can produce — an unverified
+compatibility report or translation is a fabricated contribution regardless of who wrote it.
+Everything else on that list an agent does well, and the machine checks catch what a
+first-timer cannot.
+
+The top-of-README call to action — the most visible one, far above the Contributing
+section — now leads with this page in both languages, as does issue #22.
+
+`campaign/online-sprint.md` is gitignored and `sprint-kit.md` marked parked until roughly 30
+contributors exist. A sprint needs a reviewer present at a fixed hour: it does not scale, and
+it blocks on one person's calendar. Self-serve does neither. Their links were removed rather
+than left pointing at a file git no longer ships.
+
 ### Added — an online sprint format, which suits this project better than the in-person one
 
 `campaign/online-sprint.md` runs the same 90-minute contribution session as a video call: no

@@ -67,16 +67,21 @@ mcp.json
 .cursor/
 .run/
 
-# Internal developer docs & working notes (see "Three Documentation Tiers")
-design/
-# Anchored to the repo root: the private research notes live at /research;
-# docs/research/ is the PUBLIC research section of the docs site.
-/research/
+# ── Strategy tier — PRIVATE ──────────────────────────────────────────────────
+# One directory, one visibility. `design/` is PUBLIC (engineering + science);
+# everything commercially or strategically sensitive lives here instead and is
+# never published: marketing copy, SEO analysis, vision/idea notes for features
+# that may never ship, and distribution status.
+# See design/README.md for the full contract.
+strategy/
 notes/
 drafts/
-vision/
-paper/
 .craft/
+
+# The manuscript stays private until the preprint is posted. It also contains
+# paper/data/ (688 MB LibriSpeech) and third-party paper PDFs used for reference
+# checking, neither of which may ever be published.
+paper/
 
 # Private-only docs — deliberately not published (were p2p [exclude]).
 # Delete a line here to publish that doc.
@@ -91,6 +96,13 @@ docs/yazses-complete-reference.pdf
 .p2p-history.jsonl
 .p2p-baseline.json
 .p2p-undo/
+
+# ── Copyright guard: third-party paper PDFs ──────────────────────────────────
+# PDFs of other people's papers are downloaded for personal research use only.
+# Redistributing them would be a copyright violation, so no PDF is committed:
+# we publish the citation, never the paper. The pre-commit hook blocks *.pdf
+# outright as the enforcing check — this is the belt to that pair of braces.
+*.pdf
 
 # Extra secret belt-and-suspenders
 *.local
@@ -116,3 +128,7 @@ keystore.properties
 
 # Local maintainer strategy staging area (not published)
 YazSes-1000-Contributors-Playbook/
+YazSes-Rapid-Growth-Execution-Pack/
+
+# Deferred until there are ~30 contributors — sprints need the maintainer present
+campaign/online-sprint.md
