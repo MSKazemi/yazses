@@ -238,6 +238,7 @@ nav:
       - Transcribe recordings offline: use-cases/transcribe-audio-offline.md
       - Meeting notes & minutes: meeting-notes-offline.md
       - Multilingual dictation: use-cases/multilingual-dictation.md
+      - Hindi & Indian languages: use-cases/hindi-voice-typing.md
   - Guides:
       - Overview: how-to/index.md
       - Change the hotkey: how-to/change-hotkey.md

@@ -163,6 +163,24 @@ There is also **SafeGlyph** (`yazses features enable safeglyph`), which guards
 against visually confusable characters — relevant when mixing scripts in
 identifiers or URLs.
 
+### Getting a non-Latin script to actually type
+
+Transcribing a script and *injecting* it are separate problems, and they can fail
+independently. Text can be recognised perfectly and still not reach your
+application, because the injection backend has to synthesise characters that are
+not on your physical keyboard layout:
+
+- **X11 (`xdotool`)** maps each character to an X keysym, so it handles non-Latin
+  scripts. Verified end-to-end with Devanagari.
+- **Clipboard (`[injection] backend = "clipboard"`)** passes UTF-8 straight
+  through — script-independent by construction, and the reliable fallback.
+- **Wayland (`ydotool`)** injects below the keyboard layout, which is where
+  non-Latin characters are most likely to be dropped. Test one sentence before
+  relying on it.
+
+If the transcript is right but nothing appears in the target application, change
+the backend before changing the model.
+
 ## Pronunciation feedback
 
 If you are dictating in a language you are still learning, there is an optional
