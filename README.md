@@ -543,7 +543,7 @@ uv run ruff check src tests scripts   # lint — must be green
 uv run mypy src                  # types — advisory (currently clean; don't add errors)
 ```
 
-Or just `make check`. Tests run fully offline in about 15 seconds — no microphone, model
+Or just `make check`. Tests run fully offline in about 30 seconds — no microphone, model
 download, or optional extras needed.
 
 **No local setup?** The repo ships a [Dev Container](.devcontainer/devcontainer.json), so

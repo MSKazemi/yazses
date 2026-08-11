@@ -55,7 +55,7 @@ uv run mypy src                     # type checking       (advisory — see belo
 
 **pytest and ruff must pass** — if they are green locally, CI will be green. You do **not**
 need a working microphone, a Whisper model, or the optional extras to contribute: the test
-suite is fully offline and mocks the audio and model layers, and runs in about 15 seconds.
+suite is fully offline and mocks the audio and model layers, and runs in about 30 seconds.
 
 **mypy is clean and advisory.** `uv run mypy src` currently reports **no issues across 433
 source files**, so if you see an error, you almost certainly just introduced it. It is not
