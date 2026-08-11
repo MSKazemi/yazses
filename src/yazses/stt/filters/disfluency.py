@@ -186,9 +186,52 @@ def _collapse_dysfluencies(text: str, config: DisfluencyConfig) -> str:
     return text
 
 
+def _hyphen_parts(token: str) -> list[str]:
+    """The hyphen-separated parts of a token, ignoring surrounding punctuation."""
+    core = token.strip(_TRAILING_PUNCTUATION + '"\'()[]')
+    return [p for p in core.split('-') if p]
+
+
+def _is_all_filler_hyphenated(token: str, fillers: frozenset[str]) -> bool:
+    """True when every part of a hyphenated token is a filler word.
+
+    ``um-um`` and ``uh-uh`` qualify; ``a-a-actually`` does not, because
+    ``actually`` is a real word the user said.
+    """
+    parts = _hyphen_parts(token)
+    return len(parts) > 1 and all(p.lower() in fillers for p in parts)
+
+
+def _drop_all_filler_hyphen_tokens(text: str, fillers: frozenset[str]) -> str:
+    """Remove hyphenated tokens that are nothing but fillers, whole.
+
+    Removing them part-by-part is what left an orphan ``-`` glued to the next
+    word (``um-um the meeting`` -> ``-the meeting``).
+    """
+    kept = [t for t in text.split(' ') if not _is_all_filler_hyphenated(t, fillers)]
+    return ' '.join(kept)
+
+
 def _remove_fillers(text: str, filler_words: list[str]) -> str:
     if not filler_words:
         return text
+
+    # A hyphen is a word boundary, so Rule A would otherwise reach *inside* a
+    # hyphenated token and delete one part of it — turning "right-click" into
+    # "-click" and, worse, "a-a-actually" (what a stutter looks like once
+    # transcribed) into a fragment glued to the next word. Since this filter is
+    # the implementation of dysfluency-friendly mode, destroying a stuttered
+    # word is the worst possible failure for the user it exists to serve.
+    #
+    # So hyphenated tokens are handled here, at token level, and never opened
+    # up by the regex below: a token that is *entirely* filler is dropped whole,
+    # and any other hyphenated token is left exactly as spoken. Collapsing
+    # "a-a-actually" to "actually" would be the more ambitious repair, but it
+    # cannot be done safely by a filler-removal pass — "w-w-want" proves the
+    # repeated fragment is not always a filler — so that belongs to the
+    # repetition rules (issue #144).
+    fillers = frozenset(w.lower() for w in filler_words)
+    text = _drop_all_filler_hyphen_tokens(text, fillers)
     # Sort longest first so multi-word fillers match before single words.
     # The trailing \b is load-bearing: without it "like" matched the prefix of
     # "likely" and left "ly" behind, and "actually" was eaten out of the middle
@@ -222,6 +265,11 @@ def _remove_fillers(text: str, filler_words: list[str]) -> str:
         # lowercase word on its own and would sail past the guard, turning a code
         # identifier into "_fn" mid-dictation.
         enclosing = _enclosing_token(m.start(1), m.end(1))
+        # Never reach inside a hyphenated token. Anything still containing a
+        # hyphen at this point has at least one non-filler part, i.e. a real
+        # word the user said; removing the filler part alone would corrupt it.
+        if '-' in enclosing.strip(_TRAILING_PUNCTUATION):
+            return matched
         at_start = _is_utterance_initial(text, m.start())
         if _is_protected(enclosing):
             # Exception (issue #117 / option 2, narrowed by #120 and #122):

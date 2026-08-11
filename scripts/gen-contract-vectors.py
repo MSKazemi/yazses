@@ -480,23 +480,30 @@ CASES: dict[str, list[dict[str, Any]]] = {
                         "three survivors, then Rule B.5's unigram rule (which needs a run "
                         ">= 3) finally collapses them to one",
          "input": "the the the the the", "options": {"collapse_repetitions": True}},
-        {"id": "hyphenated-repeat-of-filler-word-leaves-fragment",
+        {"id": "hyphenated-repeat-of-content-word-survives-intact",
          "description": "a stutter on a content word survives intact: 'actually' left the "
                         "default filler list in #146, so Rule A no longer reaches inside "
                         "the hyphenated token 'a-a-actually' and the disfluent-but-meaningful "
                         "token is delivered as spoken",
          "input": "a-a-actually the meeting"},
-        {"id": "hyphenated-repeat-of-default-filler-leaves-fragment",
-         "description": "surprising, bug-shaped: 'basically' is a default filler, so Rule A "
-                        "strips it out of the middle of the hyphenated token 'b-b-basically', "
-                        "leaving a dangling 'b-b-' fragment glued onto the next word — "
-                        "worth its own issue",
+        {"id": "hyphenated-repeat-of-default-filler-survives-intact",
+         "description": "a stutter on a word that happens to be a default filler is left "
+                        "exactly as spoken: 'b-b-basically' has a non-filler part, so Rule A "
+                        "refuses to open the token rather than eating 'basically' out of its "
+                        "middle and gluing 'b-b-' onto the next word (#144)",
          "input": "b-b-basically the meeting"},
-        {"id": "hyphenated-double-filler-leaves-orphan-hyphen",
-         "description": "same class of bug: each 'um' inside 'um-um' is matched and "
-                        "stripped independently by Rule A, leaving an orphaned leading "
-                        "hyphen behind",
+        {"id": "hyphenated-token-of-only-fillers-is-dropped-whole",
+         "description": "'um-um' is entirely filler, so the whole token goes — removing each "
+                        "'um' independently is what used to leave an orphaned hyphen glued "
+                        "to the next word (#144)",
          "input": "um-um the meeting"},
+        {"id": "hyphenated-real-word-survives-a-filler-part",
+         "description": "regression guard for #144 beyond stutters: with 'right' configured "
+                        "as a filler, 'right-click' must survive whole rather than becoming "
+                        "'-click' — a hyphenated token is only removed when every part of it "
+                        "is a filler",
+         "input": "right-click the icon",
+         "options": {"filler_words": ["um", "uh", "right"]}},
         {"id": "self-correction-trigger-followed-by-own-period-leaves-dangling-punctuation",
          "description": "surprising, bug-shaped: when a trigger phrase is itself followed "
                         "by its own sentence-ending period, Rule C's trailing "

@@ -236,3 +236,46 @@ def test_err_fix_does_not_regress_the_hesitation_chain():
     )
     # "er" is still a particle -- only "err" was removed.
     assert filter_transcript("Er I forgot").text == "I forgot"
+
+
+def test_hyphenated_all_filler_token_is_dropped_whole():
+    # #144: each "um" inside "um-um" used to be stripped independently, leaving
+    # an orphaned hyphen glued to the next word ("-the meeting").
+    assert filter_transcript("um-um the meeting").text == "the meeting"
+    assert filter_transcript("uh-uh no").text == "no"
+
+
+def test_stuttered_content_word_is_never_opened_up():
+    # #144 is an accessibility bug: a hyphenated repeat is what a stutter looks
+    # like once Whisper has transcribed it, and this filter is dysfluency-friendly
+    # mode. Destroying the real word is worse than not filtering at all.
+    assert filter_transcript("a-a-actually the meeting").text == (
+        "a-a-actually the meeting"
+    )
+    assert filter_transcript("b-b-basically the meeting").text == (
+        "b-b-basically the meeting"
+    )
+    assert filter_transcript("I w-w-want that").text == "I w-w-want that"
+
+
+def test_hyphenated_real_words_survive_a_filler_part():
+    # The same bug hit ordinary vocabulary whenever a user configured a filler
+    # that appears in a compound: "right-click" must not become "-click".
+    cfg = DisfluencyConfig(
+        enabled=True, filler_words=["um", "uh", "so", "like", "well", "right"]
+    )
+    for text in (
+        "right-click the icon",
+        "the so-called fix",
+        "a well-known issue",
+        "like-minded people",
+    ):
+        assert filter_transcript(text, cfg).text == text
+
+
+def test_filler_removal_still_works_next_to_a_hyphenated_token():
+    # The guard must not switch Rule A off for the rest of the line.
+    cfg = DisfluencyConfig(enabled=True, filler_words=["um", "uh", "right"])
+    assert filter_transcript("um-um right-click um the icon", cfg).text == (
+        "right-click the icon"
+    )
