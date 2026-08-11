@@ -26,7 +26,17 @@ no new code at all.
 
 ---
 
+
+!!! note "Every question below has an issue"
+
+    The question is stated here; the issue is where you say you are working on it.
+    Comment before you start — two groups running the same study without knowing is the
+    most expensive duplicate this project could produce. A pilot, or just the measurement
+    harness, is a real contribution and unblocks whoever runs the full version.
+
 ## 1. The first user study — throughput *and* correction cost
+
+**Claim this question:** [#251](https://github.com/MSKazemi/yazses/issues/251)
 
 **Claim:** for composed prose on a desktop, hold-to-talk dictation beats typing on net
 words-per-minute *after correction cost is subtracted* — and by a smaller margin than the
@@ -50,6 +60,8 @@ number published for an offline dictation daemon.
 
 ## 2. False-activation rate across a real working day
 
+**Claim this question:** [#140](https://github.com/MSKazemi/yazses/issues/140) · [#106](https://github.com/MSKazemi/yazses/issues/106)
+
 **Claim:** a hold-to-talk trigger produces under *N* unintended activations per eight-hour
 day, and every competing modality (wake word, EMG squeeze, gaze dwell) produces more.
 
@@ -61,6 +73,8 @@ already instrumented and already running on a real machine doing real work.
 
 ## 3. An activation seam that carries intent, not just onset
 
+**Claim this question:** [#252](https://github.com/MSKazemi/yazses/issues/252)
+
 **Claim:** a source protocol that emits an *intent* — a word, a gesture class, a
 confidence — rather than "started"/"stopped" makes every published silent-speech and
 neuromotor decoder pluggable without a bespoke adapter.
@@ -71,6 +85,8 @@ The mismatch is architectural: EMG and neural decoders in the literature all pro
 vocabulary for what a source is allowed to say.
 
 ## 4. A confirmation model proportional to the error rate
+
+**Claim this question:** [#253](https://github.com/MSKazemi/yazses/issues/253)
 
 **Claim:** a gate that triggers on *low decoder confidence only* costs less total time
 than either always-confirming or never-confirming, at the 3–4% error rate real command
@@ -85,6 +101,8 @@ an imperfect system more than accuracy does** ([Kocielnik et al.](#ref-kocielnik
 
 ## 5. Make uncertainty visible
 
+**Claim this question:** [#254](https://github.com/MSKazemi/yazses/issues/254)
+
 **Claim:** rendering per-word recognition confidence at injection time reduces correction
 time versus uniform text, without increasing perceived effort.
 
@@ -97,6 +115,8 @@ accountability requires exposing what the system is unsure of
 may find the signal is not good enough to show — which is itself a result worth publishing.
 
 ## 6. Evaluate with dysfluent and dysarthric speakers
+
+**Claim this question:** [#255](https://github.com/MSKazemi/yazses/issues/255)
 
 **Claim:** the shipped dysfluency-tolerant mode measurably improves usable transcription
 for people who stutter — or it does not, and we say so.
@@ -114,6 +134,8 @@ benchmark number is a start, not the finish.
 
 ## 7. Put-That-There on a $0 sensor
 
+**Claim this question:** [#104](https://github.com/MSKazemi/yazses/issues/104)
+
 **Claim:** at webcam-grade accuracy (2–4°), demonstrative commands — "close this", "focus
 that window" — succeed on a real multi-window desktop often enough to justify the
 confirmation gate they require.
@@ -127,6 +149,8 @@ commodity webcams.
 
 ## 8. Adaptation the user can see and steer
 
+**Claim this question:** [#256](https://github.com/MSKazemi/yazses/issues/256)
+
 **Claim:** propose-and-approve tuning produces higher user trust than silent adaptation
 **at equal or slightly worse recognition accuracy** — i.e. the two outcomes disagree, and
 predictability wins.
@@ -138,6 +162,8 @@ been run.
 
 ## 9. The wrong-target slip as an error-prevention study
 
+**Claim this question:** [#257](https://github.com/MSKazemi/yazses/issues/257)
+
 **Claim:** dictating into a window that accepts no text happens at a measurable rate in
 ordinary desktop use, and diverting to the clipboard recovers it at lower cost than
 warning.
@@ -148,6 +174,8 @@ supply the framing, and [Sellen et al.](#ref-sellen) explain why a tray colour i
 signal than a held key.
 
 ## 10. Code-switching as an equity question
+
+**Claim this question:** [#258](https://github.com/MSKazemi/yazses/issues/258)
 
 **Claim:** for bilingual users, within-utterance code-switching — not accent — is the
 dominant source of dictation failure, and *which language pairs matter* has never been
