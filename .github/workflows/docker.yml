@@ -70,28 +70,47 @@ jobs:
       - name: Verify it actually transcribes
         run: |
           set -euo pipefail
-          mkdir -p /tmp/out && cp data/librispeech-sample/jfk.wav /tmp/out/
-          docker run --rm -v /tmp/models:/models -v /tmp/out:/data yazses:ci jfk.wav
-          echo "--- transcript ---" && cat /tmp/out/jfk.txt
+          # Deliberately byte-for-byte the invocation docs/try-without-installing.md
+          # hands the reader, so the page and this test cannot drift apart. It used to
+          # differ, and the difference was the bug: the page mounted the sample
+          # directory *writable*, and YazSes writes its transcript as a sidecar beside
+          # the input — so `jfk.wav` produced `jfk.txt`, silently overwriting the
+          # known-correct text the reader was being told to compare against. The
+          # comparison then always looked perfect regardless of what the model said.
+          mkdir -p /tmp/out
+          docker run --rm -v /tmp/models:/models \
+            -v "$PWD/data/librispeech-sample:/data:ro" -v /tmp/out:/out \
+            yazses:ci jfk.wav -o /out/jfk-heard.txt
+          echo "--- transcript ---" && cat /tmp/out/jfk-heard.txt
           # Compare on lowercased letters only: the model legitimately adds punctuation
           # ("Americans," for "Americans"), so a byte comparison would fail on a correct
           # transcript. Word content must still match exactly.
           norm() { tr '[:upper:]' '[:lower:]' < "$1" | tr -cd '[:alnum:] ' | tr -s ' '; }
-          if [ "$(norm /tmp/out/jfk.txt)" != "$(norm data/librispeech-sample/jfk.txt)" ]; then
+          if [ "$(norm /tmp/out/jfk-heard.txt)" != "$(norm data/librispeech-sample/jfk.txt)" ]; then
             echo "::error::transcript does not match the expected text"
-            diff <(norm /tmp/out/jfk.txt) <(norm data/librispeech-sample/jfk.txt) || true
+            diff <(norm /tmp/out/jfk-heard.txt) <(norm data/librispeech-sample/jfk.txt) || true
             exit 1
           fi
           echo "OK — transcript matches the expected text."
+          # The documented command must leave the checkout untouched. If someone
+          # reintroduces a writable mount, this is what catches it.
+          if ! git diff --quiet data/librispeech-sample/; then
+            echo "::error::the documented command modified the reference sample"
+            git diff --stat data/librispeech-sample/
+            exit 1
+          fi
 
       # Re-run with no network at all. This is the project's central claim, so the
       # image must not be publishable without demonstrating it.
       - name: Prove it works fully offline
         run: |
           set -euo pipefail
-          rm -f /tmp/out/jfk.txt
-          docker run --rm --network none -v /tmp/models:/models -v /tmp/out:/data yazses:ci jfk.wav
-          test -s /tmp/out/jfk.txt
+          rm -f /tmp/out/jfk-offline.txt
+          # Same read-only shape as the step above, and as docs/privacy-statement.md.
+          docker run --rm --network none -v /tmp/models:/models \
+            -v "$PWD/data/librispeech-sample:/data:ro" -v /tmp/out:/out \
+            yazses:ci jfk.wav -o /out/jfk-offline.txt
+          test -s /tmp/out/jfk-offline.txt
           echo "OK — transcribed with networking disabled."
 
       - name: Log in to GHCR

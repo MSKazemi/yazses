@@ -26,12 +26,31 @@ that cost you nothing and leave nothing behind.
 ```sh
 git clone https://github.com/MSKazemi/yazses.git && cd yazses
 docker build -f packaging/docker/Dockerfile -t yazses .
-docker run --rm -v yazses-models:/models -v "$PWD/data/librispeech-sample:/data" \
-    yazses jfk.wav
+docker run --rm -v yazses-models:/models \
+    -v "$PWD/data/librispeech-sample:/data:ro" -v /tmp:/out \
+    yazses jfk.wav -o /out/jfk-heard.txt
 ```
 
-That transcribes a clip that ships with the repo. Compare what comes out with
-`data/librispeech-sample/jfk.txt`, which is the known-correct text.
+That transcribes a clip that ships with the repo. Now compare the two:
+
+```sh
+cat /tmp/jfk-heard.txt                  # what YazSes heard
+cat data/librispeech-sample/jfk.txt     # the reference transcript
+```
+
+They should match word for word. **They will not match byte for byte, and that is
+correct:** the reference is the LibriSpeech transcript, which carries no
+punctuation, while YazSes punctuates what it hears — so you get
+`Americans, ask not` against `Americans ask not`. Compare the words, not the commas.
+
+!!! note "Why the sample is mounted read-only"
+
+    YazSes writes its transcript as a sidecar next to the input, so `jfk.wav`
+    would produce `jfk.txt` — which is the name of the reference file. Mounting
+    the clip directory writable would overwrite the known-correct text with the
+    model's own output, and the comparison above would then always look perfect
+    no matter what the model actually said. The `:ro` and the separate `-o` path
+    make that impossible rather than merely unlikely.
 
 **What actually happened when this page was written** (4-core CPU, `base.en`):
 
@@ -94,9 +113,13 @@ No Docker, no local install, nothing on your machine at all:
 3. Wait for it to finish setting up — it prints these instructions itself — then run:
 
 ```sh
-uv run yazses transcribe data/librispeech-sample/jfk.wav
+uv run yazses transcribe data/librispeech-sample/jfk.wav -o /tmp/jfk-heard.txt
+cat /tmp/jfk-heard.txt                   # what YazSes heard
 cat data/librispeech-sample/jfk.txt      # what it should say
 ```
+
+The `-o` matters: without it the transcript is written beside the input as
+`jfk.txt`, which would overwrite the reference file you are comparing against.
 
 The container definition is in [`.devcontainer/`](https://github.com/MSKazemi/yazses/tree/main/.devcontainer).
 GitHub's free tier covers this comfortably.

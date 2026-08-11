@@ -134,8 +134,9 @@ entirely and confirm it still works.
 ```sh
 # Once the model is cached, this container has no network at all.
 docker run --rm --network none \
-    -v yazses-models:/models -v "$PWD/data/librispeech-sample:/data" \
-    yazses jfk.wav
+    -v yazses-models:/models \
+    -v "$PWD/data/librispeech-sample:/data:ro" -v /tmp:/out \
+    yazses jfk.wav -o /out/jfk-heard.txt
 ```
 
 That transcribes correctly with no route to the internet, which is only possible if the
