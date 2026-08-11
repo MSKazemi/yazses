@@ -95,6 +95,32 @@ uv run python -m pytest -k "pattern"
 [`docs/architecture.md`](docs/architecture.md) holds the fuller architecture reference —
 read it before making a structural change.
 
+### The four things an agent gets wrong here
+
+**Generated files — never hand-edit.** Edit the source and re-run the generator, or a test
+fails and your change is reverted anyway.
+
+| File | Regenerate with |
+|---|---|
+| `docs/features.md`, `docs/configuration.md`, `docs/command-index.md`, `docs/cli-reference.md` | `uv run python scripts/gen-docs.py` |
+| `man/yazses.1` | `uv run python scripts/gen-man.py` |
+| `campaign/generated/**`, `campaign/schemas/**` | `uv run python scripts/campaign.py --generate` |
+| The contributor wall in `README.md` + every `README.<code>.md` | `npx all-contributors-cli generate` |
+
+**Pure modules — test these directly, no mocks needed.** The house pattern is dependency-free
+logic beside an injected heavy backend: `meeting/segmenter.py` (pure) vs `meeting/silero_vad.py`
+(backend); `gaze/zones.py` vs `gaze/mediapipe_backend.py`; `recimport/align.py` vs
+`recimport/diarizer.py`. Put new logic on the pure side and the test is trivial.
+
+**Platform seams.** Every OS difference goes behind a Protocol in
+`src/yazses/platform/base.py`, implemented under `platform/<os>/` and registered in
+`platform/factory.py`. Injection backends sit behind `inject/base.py`. Do not branch on
+`sys.platform` anywhere else.
+
+**Public interfaces — changing these is L3 work.** The IPC methods in `src/yazses/ipc/`,
+the config keys in `src/yazses/config.py`, the CLI surface in `src/yazses/cli.py`, and the
+semantic contract in `contract/`. A change here needs a maintainer and possibly an ADR.
+
 (A maintainer's checkout may also carry root-level assistant config files. Those are
 deliberately **not** in the repository, so never assume one is present and never tell a
 contributor to read one — this file is the brief every agent is guaranteed to have.)

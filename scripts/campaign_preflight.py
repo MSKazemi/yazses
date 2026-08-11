@@ -32,7 +32,8 @@ import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
 from campaign import load_tasks  # noqa: E402
 
 #: `Task ID: APP-001`, `task-id: APP-001`, or a bare mention of a known id.
@@ -164,6 +165,42 @@ def scan_diff(diff_text: str) -> list[tuple[str, str, str, str]]:
     return out
 
 
+def environment_key(requires: dict | None) -> str:
+    """The identity of a compatibility record: OS + session + install channel.
+
+    Two reports of the same environment are a duplicate; two reports of the same OS on
+    different desktop sessions are not, because X11 and Wayland behave differently enough
+    to be separate evidence.
+    """
+    if not requires:
+        return ""
+    parts = [str(requires.get(k, "")).strip().lower() for k in ("os", "desktop", "channel")]
+    return " | ".join(p for p in parts if p)
+
+
+def duplicate_environment(task: dict, existing_text: str) -> str | None:
+    """Has this exact environment already been reported?
+
+    Finding out *after* spending an evening on it is the single most demoralising way to
+    lose a first-time contributor, so this runs before a human reads the PR. It is
+    advisory by design — an independent verification of a surprising result is genuinely
+    useful, and the message says so rather than rejecting the work.
+    """
+    if task.get("family") != "compatibility":
+        return None
+    key = environment_key(task.get("requires"))
+    if not key:
+        return None
+    haystack = existing_text.lower()
+    if all(part.strip() in haystack for part in key.split("|")):
+        return (
+            f"an entry for this environment ({key}) already appears in SHOWCASE.md. "
+            "That is not necessarily a problem — an independent confirmation, or a "
+            "contradicting result, is worth having. Say in the PR which it is."
+        )
+    return None
+
+
 def render_report(
     *,
     task_id: str | None,
@@ -171,6 +208,7 @@ def render_report(
     changed: list[str],
     outside: list[str],
     findings: list[tuple[str, str, str, str]],
+    duplicate: str | None = None,
 ) -> tuple[bool, str]:
     """Build the single summary a contributor reads. Returns (ok, markdown)."""
     lines = ["## Campaign preflight", ""]
@@ -236,6 +274,11 @@ def render_report(
     else:
         lines.append("- ✅ No obvious home path, email or token in the diff")
 
+    if duplicate:
+        # Advisory, never a failure: duplicate evidence still has value and the
+        # scheduling mistake is ours.
+        lines += ["- ⚠️ " + duplicate]
+
     lines += ["", "**Validate your work with:**", "", "```sh"]
     lines += list(task["validation"])
     lines.append("```")
@@ -281,8 +324,15 @@ def main(argv: list[str] | None = None) -> int:
     if args.diff_file and args.diff_file.exists():
         findings = scan_diff(args.diff_file.read_text(encoding="utf-8", errors="replace"))
 
+    duplicate = None
+    if task:
+        showcase = ROOT / "SHOWCASE.md"
+        if showcase.exists():
+            duplicate = duplicate_environment(task, showcase.read_text(encoding="utf-8"))
+
     ok, report = render_report(
-        task_id=task_id, task=task, changed=changed, outside=outside, findings=findings
+        task_id=task_id, task=task, changed=changed, outside=outside,
+        findings=findings, duplicate=duplicate,
     )
     print(report)
     summary = os.environ.get("GITHUB_STEP_SUMMARY")

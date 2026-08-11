@@ -546,6 +546,70 @@ def test_the_glossary_keeps_the_qualified_offline_claim():
     assert "by default" in text, "the glossary must not license an absolute offline claim"
 
 
+# ── Uniqueness: the Day 3 check that stops two people doing one evening twice ──
+
+def test_the_same_environment_is_flagged_as_already_reported(preflight):
+    task = {"family": "compatibility",
+            "requires": {"os": "Fedora 41", "desktop": "KDE Wayland", "channel": "pipx"}}
+    showcase = "### @someone\n- **OS / desktop:** Fedora 41 (KDE Wayland)\n- installed via pipx\n"
+    note = preflight.duplicate_environment(task, showcase)
+    assert note and "already appears" in note
+
+
+def test_the_same_os_on_a_different_session_is_not_a_duplicate(preflight):
+    """X11 and Wayland behave differently enough to be separate evidence."""
+    task = {"family": "compatibility",
+            "requires": {"os": "Fedora 41", "desktop": "GNOME X11", "channel": "pipx"}}
+    showcase = "- **OS / desktop:** Fedora 41 (KDE Wayland), installed via pipx\n"
+    assert preflight.duplicate_environment(task, showcase) is None
+
+
+def test_duplicate_detection_only_applies_to_compatibility_tasks(preflight):
+    task = {"family": "app-profile", "requires": {"app": "kitty"}}
+    assert preflight.duplicate_environment(task, "kitty everywhere") is None
+
+
+def test_a_duplicate_is_advisory_and_never_fails_the_check(preflight, tasks):
+    """Duplicate evidence still has value, and the scheduling mistake is ours."""
+    task = next(t for t in tasks if t["state"] == "open")
+    ok, report = preflight.render_report(
+        task_id=task["id"], task=task, changed=["SHOWCASE.md"], outside=[],
+        findings=[], duplicate="an entry for this environment already appears in SHOWCASE.md.",
+    )
+    assert ok is True, "a duplicate must not fail preflight"
+    assert "already appears" in report
+
+
+# ── The scripts must actually run, not just expose testable functions ─────────
+
+@pytest.mark.parametrize(
+    "script,argv",
+    [
+        ("campaign", ["--check"]),
+        ("campaign_preflight", ["--task-id", "COMPAT-001", "--changed-files", "SHOWCASE.md"]),
+        ("check-task", ["COMPAT-001", "--no-run"]),
+        ("check-compatibility", []),
+        ("check-app-profile", []),
+    ],
+)
+def test_each_script_runs_end_to_end(script, argv, capsys):
+    """Every one of these is reachable only through `main()`.
+
+    A `NameError` in `main()` slipped through once because the tests exercised the pure
+    functions directly and never invoked the entry point — the CLI would have crashed for
+    the first contributor who ran it. Unit tests over pure logic do not prove a script
+    runs; running it does.
+    """
+    spec = importlib.util.spec_from_file_location(
+        script.replace("-", "_"), ROOT / "scripts" / f"{script}.py"
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    rc = mod.main(argv)
+    assert rc in (0, 1), f"{script} returned {rc}; expected a clean 0 or 1"
+    assert capsys.readouterr().out or capsys.readouterr().err
+
+
 def test_report_is_actionable_when_scope_is_wrong(preflight, tasks):
     task = next(t for t in tasks if t["state"] == "open")
     ok, report = preflight.render_report(

@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — duplicate-environment detection, an agent architecture map, and CLI smoke tests
+
+Preflight now warns when a compatibility report describes an environment `SHOWCASE.md`
+already covers. Discovering that *after* spending an evening on it is the most demoralising
+way to lose a first-time contributor. It is **advisory and never fails the check** — an
+independent confirmation, or a contradicting result, is worth having, and a duplicate is a
+scheduling mistake on the project's side, not the contributor's. The same OS on a different
+session is deliberately *not* a duplicate: X11 and Wayland behave differently enough to be
+separate evidence.
+
+`AGENTS.md` gained the compact map the playbook asks for, covering the four things an agent
+reliably gets wrong here: which files are **generated** and must never be hand-edited (with
+the command to regenerate each), which modules are **pure** and can be tested directly,
+where the **platform seams** are, and which **public interfaces** make a change L3 work.
+Every path in it was checked against `git ls-files`.
+
+**A `NameError` in `campaign_preflight.py`'s `main()` shipped and was caught by lint, not by
+tests** — the suite exercised the pure functions and never invoked an entry point, so the
+CLI would have crashed for the first contributor who ran it. There are now smoke tests that
+run `main()` for all five scripts, verified red against the reintroduced bug. Unit tests
+over pure logic do not prove a script runs; running it does.
+
 ### Added — the rest of the campaign tooling, and the inventory at full size
 
 `campaign/tasks.json` grows from 183 to **929 tasks** (130 open, the rest held back for
