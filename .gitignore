@@ -83,19 +83,11 @@ drafts/
 # checking, neither of which may ever be published.
 paper/
 
-# Private-only docs — deliberately not published (were p2p [exclude]).
-# Delete a line here to publish that doc.
-# architecture.md, roadmap.md, how-to/, diagrams/ are now PUBLISHED on the
-# MkDocs documentation site (see mkdocs.yml) — unblocked here and in the
-# pre-commit hook. The master-reference PDF stays private (heavy binary).
+# Private-only docs — deliberately not published.
+# Delete a line here to publish that doc. Only the master-reference PDF stays
+# private now, because it is a heavy generated binary; architecture, roadmap,
+# how-to/ and diagrams/ are all published on the MkDocs site (see mkdocs.yml).
 docs/yazses-complete-reference.pdf
-
-# Retired p2p sync metadata (kept local; project no longer uses p2p)
-.p2p.toml
-.p2p-manifest.json
-.p2p-history.jsonl
-.p2p-baseline.json
-.p2p-undo/
 
 # ── Copyright guard: third-party paper PDFs ──────────────────────────────────
 # PDFs of other people's papers are downloaded for personal research use only.

@@ -33,12 +33,14 @@ def gen():
 ])
 def test_generated_doc_is_in_sync(gen, fname, fn_name):
     on_disk_path = ROOT / "docs" / fname
-    # These generated reference docs are private-only (p2p `[exclude]`), so they are
-    # absent on the public mirror's checkout. The sync-check only makes sense where the
-    # file exists — skip (don't fail) when it isn't present, so CI is green on both the
-    # private repo (validates sync) and the public mirror (nothing to validate).
-    if not on_disk_path.exists():
-        pytest.skip(f"docs/{fname} not present on this checkout (private-only doc)")
+    # This used to skip when the file was absent, because the public mirror's checkout
+    # did not carry these generated docs. There is no mirror any more — the repo is a
+    # single public tree and all three files are tracked — so an absent file is a real
+    # failure (someone deleted a generated doc) rather than an expected checkout.
+    assert on_disk_path.exists(), (
+        f"docs/{fname} is missing — regenerate it with "
+        "`uv run python scripts/gen-docs.py` and commit."
+    )
     generated = getattr(gen, fn_name)()
     on_disk = on_disk_path.read_text(encoding="utf-8")
     assert generated == on_disk, (

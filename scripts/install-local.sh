@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # install-local.sh — dev install of YazSes from the local repo using uv tool.
-# Run from the repo root (1private/) or any subdirectory.
+# Run from the repo root or any subdirectory.
 # Usage: bash scripts/install-local.sh [--with-overlay]
 set -euo pipefail
 
