@@ -6,6 +6,25 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — REVIEWING.md and a sprint kit, so scaling does not require being the maintainer
+
+`REVIEWING.md` is written to be handed to someone on their first review rather than to
+describe a team that already exists: the four risk lanes and what each may approve, the
+three things a machine may never decide (whether a translation reads naturally, whether
+hardware behaved as claimed, whether an architectural change is right), response templates,
+what not to do on a first-time contributor's PR, and a path into reviewing that starts with
+drafting reviews rather than with repository permissions. It also names the conditions under
+which the project should publicly stop taking contributions — an overloaded queue harms
+contributors more than a quiet week does.
+
+`campaign/sprint-kit.md` is a 90-minute session runbook for an organizer who has never
+spoken to the maintainer, including the three stalls that actually happen (a missing C
+compiler on Linux, because `evdev` publishes no wheels; a missing DCO sign-off; two people
+claiming one task) and an explicit rule against running a session with no reviewer present.
+
+Both are linked from `CONTRIBUTING.md` and `campaign/README.md`. An unlinked document is
+the same failure as a translation nobody can reach.
+
 ### Added — a contributor task inventory with a preflight that reviews the cheap parts
 
 `campaign/tasks.json` holds 183 bounded tasks (126 currently open) across ten families,

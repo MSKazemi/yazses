@@ -86,6 +86,10 @@ feature *ideas* belong in Discussions where everyone can vote.
 
 ## Who decides what
 
+Reviewing someone else's PR — including as your own next step after a first merge — is
+[`REVIEWING.md`](REVIEWING.md). It describes the lanes, what a machine may never decide,
+and a path into reviewing that does not start with repository permissions.
+
 [`GOVERNANCE.md`](GOVERNANCE.md) is the short version: what you can merge yourself,
 what needs an ADR, how **module stewardship** works (two non-trivial PRs to a module
 and it is yours to review), and the handful of things — no telemetry, offline by

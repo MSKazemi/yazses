@@ -57,6 +57,13 @@ human, permanently. `cloud_agent_ready` is false for every compatibility, measur
 localization task for exactly this reason, and the validator rejects the row if someone
 sets it true.
 
+## Running a session, or reviewing
+
+- [`sprint-kit.md`](sprint-kit.md) — everything needed to run a 90-minute contribution
+  session, written for an organizer who has never spoken to the maintainer.
+- [`../REVIEWING.md`](../REVIEWING.md) — the review lanes, the responses, and how to
+  become a reviewer without needing repository permissions first.
+
 ## Adding a task
 
 Append to `tasks.json`, run `--generate`, commit both. The validator will refuse a task
