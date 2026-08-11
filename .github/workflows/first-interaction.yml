@@ -40,17 +40,26 @@ jobs:
             up a lot.
 
 
-            If you ever fancy sending a change, [#22](https://github.com/MSKazemi/yazses/issues/22)
-            lists what is open — several need no Python at all, and the test suite is
-            fully offline and runs in about 30 seconds.
+            If you ever fancy sending a change, there is **nothing to sign** — no CLA, no
+            sign-off line. Opening the pull request is the whole contract. The
+            [`browser-only`](https://github.com/MSKazemi/yazses/issues?q=is%3Aopen+label%3Abrowser-only)
+            tasks need no clone and no Python at all, and the test suite is fully offline
+            and runs in about 30 seconds.
           pr_message: >
             🎉 Thanks for your first pull request to YazSes — that is a real contribution
             and it is appreciated.
 
 
+            **There is nothing to sign.** No CLA, no sign-off line, no bot to authorise —
+            opening this PR is the whole contract, so there is no paperwork step you can
+            have missed.
+
+
             A maintainer will review it within a few days. We would rather merge a small
             imperfect PR and polish it afterwards than leave you waiting, so please do not
-            worry if CI is red on the first push — say so and we will help you read it.
+            worry if CI is red on the first push — say so and we will help you read it. If
+            a check sits on "waiting for approval", that is GitHub holding runs on a first
+            fork PR; it is not something you did, and a maintainer will clear it.
 
 
             Two things that catch people out: `ruff` and `pytest` are the gates that must

@@ -6,6 +6,50 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `[stt] chinese_script`, because Chinese users were being handed the wrong alphabet
+
+Dictating 简体中文 got you 繁體字 back, and it looked like a much worse recognizer than it
+was. Whisper decides **per utterance** whether to answer in Simplified or Traditional
+characters and is not consistent about it; on 20 clean 16 kHz Mandarin utterances (ASCEND
+test split, `small` model) **13 came back Traditional**, including ones where the
+recognition was word-perfect. `[stt] chinese_script = "simplified" | "traditional"` pins it.
+
+The cost of the inconsistency was mostly invisible, because it was scored as if the model
+had misheard. Character error rate against Simplified references, same audio, same model,
+one config key changed:
+
+| Model | `chinese_script = ""` | `chinese_script = "simplified"` |
+|---|---|---|
+| `small` | 35.9% | **16.9%** |
+| `large-v3` | 12.3% | **11.3%** |
+
+Note which row moves. The setting is worth 19 points on `small` and one point on
+`large-v3` — the big model already leans Simplified — so this rescues precisely the
+small, fast models a CPU user actually runs.
+
+Off by default, because the right answer is regional rather than universal: Taiwan and
+Hong Kong users want the Traditional output this would convert away. Enable with
+`yazses features enable chinese-script`, which installs the new `chinese` extra
+(`opencc`, pure Python, imported lazily — the base install stays at 16 dependencies).
+Wired once at the `stt/factory.py` chokepoint, so dictation, `yazses transcribe`, meeting
+capture and the streaming decoder all get it; per-word output is converted too, so
+subtitles and speaker labels do not disagree with the transcript.
+
+Rejected along the way: forcing the script through `initial_prompt`. It does work
+(0/12 Traditional) but degrades recognition — `base` went 43.1% → 59.0% raw CER — so
+conversion happens after the decode, where it cannot disturb it. A reversible character
+mapping cannot repair a mishearing, and the docs say so rather than implying it can.
+
+Chinese dictation is documented as **usable but still rough**, with the corpus caveats
+stated and a recommendation to test on your own audio first:
+[中文语音输入](docs/zh/chinese-voice-typing.md) · [English](docs/use-cases/chinese-voice-typing.md).
+
+### Added — Simplified Chinese README and documentation
+
+`README.zh-CN.md` (lede, three-things, Quick Start, plus a Chinese-usage section the other
+translations have no equivalent of) and a Chinese/English pair of use-case pages carrying
+reciprocal `hreflang`. `zh` joins `hi` in the hreflang hook's language directories.
+
 ### Removed — the DCO sign-off gate, which was quietly unfixable for browser contributors
 
 There is now **nothing to sign** to contribute to YazSes: no CLA, no DCO, no `Signed-off-by`
@@ -30,6 +74,16 @@ at the cost of a red check on a newcomer's first pull request.
 
 Removed `DCO.md` and `.github/workflows/dco.yml`, and the sign-off step from `CONTRIBUTING.md`,
 `REVIEWING.md`, `docs/contribute/start.md`, the pull-request template, and the sprint kit.
+"There is nothing to sign" now also leads the README's Contributing section and the
+first-time-contributor greeting, because the moment a newcomer worries about paperwork is
+before they open the PR, not after.
+
+The greeting itself was a near-miss worth recording: it was added on 2026-08-10 with the
+action's **v2 hyphenated** input names, crashed on `Input required and not supplied:
+issue_message`, and was repaired **24 minutes after** the first real first-timer's PR had
+already gone ungreeted. It is correct now — the action validates `issue_message` even on a
+pull-request event, which is exactly how it failed, so the 93 successful issue runs since
+prove both input names resolve for both paths.
 
 ### Changed — the contributor taxonomy is now actually applied
 

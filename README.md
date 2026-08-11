@@ -515,13 +515,19 @@ cargo build && cargo test --workspace   # optional backends: whisper, moonshine,
 
 Contributions are very welcome — bug reports, docs, packaging, and code.
 
+**There is nothing to sign.** No CLA, no DCO, no sign-off line, no bot to authorise, no
+account beyond GitHub. Opening the pull request is the whole contract — Apache-2.0 section 5
+already covers the licence grant.
+
 - 🌱 **New here?** Start with a [good first issue](https://github.com/MSKazemi/yazses/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) — each is small and self-contained, and we're happy to help you through your first PR.
 - 🚀 **First time? [Start here](https://mskazemi.com/yazses/contribute/start.html)** — one page, pick the row matching what you have in front of you, finish in 15–45 minutes. No permission needed, nothing is assigned, and coding agents are welcome (there's a copy-paste prompt).
 - 🎯 **Want the full list?** [**Filter 130 open tasks**](https://mskazemi.com/yazses/contribute/find.html) by what you have, your time, and whether you want to write code
   — each one names the exact files you may touch, the command that says you're done, and an
   honest time estimate. Filter by what you actually have: a browser, a terminal, a specific
   app, or unusual hardware nobody else can test.
-- ⏱️ **Got 15 minutes and no Python?** These need only a text editor, take one PR each, and
+- ⏱️ **Got 15 minutes and no Python?** [**27 tasks are `browser-only`**](https://github.com/MSKazemi/yazses/issues?q=is%3Aopen+label%3Abrowser-only)
+  — doable entirely in the GitHub web editor, no clone and no install. These need only a text
+  editor, take one PR each, and
   several hold many contributors at once — no permission needed, just comment and go:
   [translate the README](https://github.com/MSKazemi/yazses/issues/18) (the lede and Quick
   Start alone is a complete PR),
