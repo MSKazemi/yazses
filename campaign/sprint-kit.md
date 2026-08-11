@@ -17,8 +17,8 @@ means waiting. If you cannot get a reviewer, run it for 6 people instead of 20.
 | Reviewer | 1 per ~8 people | Reviewing during the session, not after |
 
 Participants need a GitHub account and **that is genuinely all** for most tasks. Do not
-require a clone, a Discord, a mailing list, or a CLA — YazSes uses a DCO, which is one
-`-s` flag and no account.
+require a clone, a Discord, a mailing list, a CLA, or a sign-off line — YazSes asks for
+none of them. Opening the pull request is the whole contract.
 
 ## Send this 48 hours before
 
@@ -59,7 +59,7 @@ compatibility record it did not observe is a fabricated contribution and will be
 | 0:10–0:20 | Everyone picks a task and comments on the umbrella issue to claim it |
 | 0:20–0:30 | Environment: browser editor for most, Codespaces for code tasks |
 | 0:30–1:00 | Work. Facilitators circulate. Reviewer starts reviewing the first finishers |
-| 1:00–1:12 | Open PRs. `git commit -s` — the DCO check fails without it |
+| 1:00–1:12 | Open PRs. Nothing to sign — the PR itself is the whole contract |
 | 1:12–1:25 | Reviews land; contributors fix in the room while help is beside them |
 | 1:25–1:30 | Close: what got merged, where credit appears, what to do next if they want |
 
@@ -70,8 +70,10 @@ The 0:30–1:00 block is the session. Everything else exists to protect it.
 1. **`uv sync` fails on Linux** — missing C compiler. `evdev` publishes no wheels.
    `sudo apt install build-essential python3-dev`. Have this on a slide; it is the single
    most common stall and it looks like the project is broken.
-2. **The DCO check goes red** — missing `Signed-off-by`. The check prints the exact fix:
-   `git commit --amend --signoff && git push --force-with-lease`. Not a scary failure.
+2. **A first-timer's checks sit in "waiting for approval"** — GitHub holds workflow runs on
+   a fork's first pull request until a maintainer approves them. It is not their mistake and
+   nothing they can fix. Have someone with write access watching the Actions tab and clearing
+   these within the session, or the room stalls on a check that never started.
 3. **Two people take the same task** — that is a scheduling failure, not theirs. Reserve
    one as independent verification, or hand them a held-back task. Never make someone redo
    an evening's work.

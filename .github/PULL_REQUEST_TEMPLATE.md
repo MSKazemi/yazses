@@ -55,8 +55,10 @@ What I verified personally:
 - [ ] Change is cross-platform aware (Linux / macOS / Windows) where relevant
 - [ ] The change is offline-first — no new network calls or telemetry
 - [ ] No secrets, credentials, or personal data added
-- [ ] Every commit is signed off (`git commit -s`) — the [DCO](../DCO.md) check fails
-      without it. Forgot? `git commit --amend --signoff && git push --force-with-lease`
+
+<!-- Nothing to sign. No CLA, no DCO, no sign-off line — Apache-2.0 section 5 covers the
+     licence grant the moment you open this PR. -->
+
 
 ## Notes for reviewers
 

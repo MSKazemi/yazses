@@ -27,7 +27,7 @@ reviews, not how hard the work is.
 | **L2** | Wiring a capability, a regression test | Tests present and meaningful, no new dependency, nothing enabled by default | ~15 min |
 | **L3** | Privacy, IPC, dependencies, public interfaces, release path | Maintainer only, plus an ADR where the decision is new | 30 min+ |
 
-Automation has already checked scope, personal data, sign-off, lint and tests before you
+Automation has already checked scope, personal data, lint and tests before you
 open the page. You are not re-running CI. You are judging the things a machine cannot:
 **is this true, and is it useful.**
 

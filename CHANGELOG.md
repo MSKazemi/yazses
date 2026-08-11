@@ -6,6 +6,45 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Removed — the DCO sign-off gate, which was quietly unfixable for browser contributors
+
+There is now **nothing to sign** to contribute to YazSes: no CLA, no DCO, no `Signed-off-by`
+trailer, no check to trip over. Opening the pull request is the whole contract.
+
+The DCO lasted seventeen hours and failed every time it ran. It went in on 2026-08-10 at
+20:59 UTC; seventy-one minutes later a first-time contributor opened the Hindi README
+translation (#165) and the check went red, twice. Their commits carried `committer: GitHub`
+— they had worked in the web editor and never had a clone — while the failure message told
+them to run `git commit --amend --signoff`, `git push --force-with-lease`, and
+`git rebase --signoff origin/main`. None of those exist without a clone, and the workflow
+offered no browser path at all. The same issue bodies said, eight lines apart, *"`git commit
+-s` — the sign-off is required"* and *"You need nothing installed. This is doable entirely in
+the GitHub web editor."* Both sentences were shipped in eighty-one open tasks, forty-six of
+them translations and test reports that are meant to be done in a browser.
+
+Nothing legal is lost. Apache-2.0 section 5 already grants the inbound licence — *"any
+Contribution intentionally submitted for inclusion in the Work by You to the Licensor shall
+be under the terms and conditions of this License"* — which is why most Apache-2.0 projects
+run without a CLA or a DCO. The sign-off was re-certifying a grant the licence already made,
+at the cost of a red check on a newcomer's first pull request.
+
+Removed `DCO.md` and `.github/workflows/dco.yml`, and the sign-off step from `CONTRIBUTING.md`,
+`REVIEWING.md`, `docs/contribute/start.md`, the pull-request template, and the sprint kit.
+
+### Changed — the contributor taxonomy is now actually applied
+
+`browser-only`, `hardware-required` and `cloud-agent-ready` were defined with good
+descriptions and applied to **zero** of the 162 open issues, so `good first issue` sat on 98
+of them and told a newcomer nothing. The labels are now set from evidence in each issue body
+rather than a guess: 27 `browser-only`, 43 `hardware-required`, and a new `under 1 hour` on
+the 54 tasks that state their own estimate. Umbrella issues are skipped — they quote the
+evidence of the tasks they list, which is how #22 nearly acquired `hardware-required` for
+mentioning other people's webcams.
+
+`good first issue` is deliberately left in place on all 98. It is a discovery surface, not
+just a hint: goodfirstissues.com is a confirmed referrer and GitHub's own `/contribute` page
+reads that label. Narrowing it would have removed the project from both.
+
 ### Added — a filterable task finder
 
 `docs/contribute/find.md` lets someone narrow 130 open tasks by what they physically have,

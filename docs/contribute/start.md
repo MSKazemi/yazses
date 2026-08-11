@@ -24,15 +24,15 @@ Still undecided? Take the second row. **Nobody can test YazSes on your machine b
 that is the single most useful thing the project is missing — 297 environments are listed and
 almost none are covered.
 
-## The three rules
+## The two rules
 
-1. **Sign off your commit**: `git commit -s`. A check fails without it and prints the exact fix.
-2. **Stay inside the task's files.** Each task lists what it may touch. If your change needs
+1. **Stay inside the task's files.** Each task lists what it may touch. If your change needs
    something else, say so in the pull request — that usually means we scoped the task wrong.
-3. **Remove anything personal** before you push: your home path, hostname, email. `yazses
+2. **Remove anything personal** before you push: your home path, hostname, email. `yazses
    doctor` output contains your username.
 
-That is the whole contract. There is no CLA, no Discord to join, no account beyond GitHub.
+That is the whole contract. Nothing to sign — no CLA, no sign-off line, no Discord to join,
+no account beyond GitHub. Many tasks never need you to leave the browser.
 
 ## Check your own work before you push
 
@@ -72,7 +72,6 @@ read every line before it goes anywhere.
    actually observed something on my machine, or that a translation reads
    naturally. Do not invent either.
 9. Do not commit or push until I say the diff is correct.
-10. Then: git commit -s  (the sign-off is required)
 ```
 
 Point 8 matters. A compatibility report or a translation that an agent produced without a

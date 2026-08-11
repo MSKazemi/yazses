@@ -108,14 +108,14 @@ a superseding ADR. Worth two minutes before you propose anything structural.
 - For new features, add tests.
 - Keep PRs focused — one concern per PR.
 - Describe the *why* in the PR body, not just the *what*.
-- **Commit with `git commit -s`.** Every commit needs a `Signed-off-by` line or the
-  [DCO](DCO.md) check fails — see [License and sign-off](#license-and-sign-off) below.
-  Already committed without it? `git commit --amend --signoff` (or
-  `git rebase --signoff main` for several) then `git push --force-with-lease`.
+
+**There is nothing to sign.** No CLA, no sign-off line, no bot to authorise, no
+account beyond GitHub. Open the pull request and you are done — many tasks here
+never need you to leave the browser.
 
 ## The dependency budget
 
-18 base dependencies, 140+ features — heavy capabilities live behind an extra in
+16 base dependencies, 140+ features — heavy capabilities live behind an extra in
 `[project.optional-dependencies]` and are imported lazily, inside the function that
 needs them, so a plain-dictation install never downloads mediapipe or llama-cpp. CI
 enforces this with `scripts/check_dependency_budget.py` (part of the `repo-hygiene`
@@ -213,26 +213,17 @@ rules it is most likely to break (**no network calls or telemetry**, and **new f
 off by default**). Mention in the PR body if a change was largely AI-generated; it only
 changes how carefully we review, never whether we accept it.
 
-## License and sign-off
+## License
 
-By contributing, you agree that your contributions will be licensed under the Apache 2.0 License.
+**There is nothing to sign — no CLA, and no DCO sign-off line.**
 
-**There is no CLA.** YazSes uses a [Developer Certificate of Origin](DCO.md) — the same one the Linux
-kernel uses. There is nothing to sign, no account to create, and nothing for your employer's legal team
-to review. You simply certify that you wrote the change and are allowed to submit it, by adding one
-line to your commit:
+YazSes is Apache-2.0, and section 5 of that licence already covers contributions:
 
-```
-Signed-off-by: Your Name <your.email@example.com>
-```
+> Unless You explicitly state otherwise, any Contribution intentionally submitted for
+> inclusion in the Work by You to the Licensor shall be under the terms and conditions
+> of this License, without any additional terms or conditions.
 
-Git writes it for you with `-s`:
-
-```bash
-git commit -s -m "your message"
-```
-
-Forgot it? `git commit --amend --signoff && git push --force-with-lease`. Want it always on?
-`git config --global format.signOff true`.
+So opening the pull request *is* the licence grant. Nothing to sign, no account to create,
+nothing for an employer's legal team to review, and no extra commit trailer to remember.
 
 **You keep the copyright in your work.** YazSes is Apache-2.0 and stays that way.
