@@ -158,7 +158,7 @@ yazses verify               # 说一句话，验证整条流水线确实可用
 
 ## 贡献者
 
-感谢这些为 YazSes 出过力的朋友 ✨ —— 每一份 bug 报告、文档修正和补丁都算数。贡献类型遵循 [all-contributors 表情说明](https://allcontributors.org/docs/en/emoji-key)（💻 代码 · 📖 文档 · 🌍 翻译 · ⚠️ 测试 · 🛡️ 安全 · 🚧 维护）：
+感谢这些为 YazSes 出过力的朋友 ✨ —— 每一份 bug 报告、文档修正和补丁都算数。贡献类型遵循 [all-contributors 表情说明](https://allcontributors.org/reference/emoji-key/)（💻 代码 · 📖 文档 · 🌍 翻译 · ⚠️ 测试 · 🛡️ 安全 · 🚧 维护）：
 
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
 <!-- prettier-ignore-start -->
