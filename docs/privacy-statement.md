@@ -125,6 +125,40 @@ trust and control the remote host before using this feature.
 
 In the default configuration, **nothing leaves your device**.
 
+### Do not take our word for it — check
+
+A privacy policy is a promise. This one is testable, and you should test it rather than
+trust it. The strongest check takes one flag: transcribe with networking switched off
+entirely and confirm it still works.
+
+```sh
+# Once the model is cached, this container has no network at all.
+docker run --rm --network none \
+    -v yazses-models:/models -v "$PWD/data/librispeech-sample:/data" \
+    yazses jfk.wav
+```
+
+That transcribes correctly with no route to the internet, which is only possible if the
+speech recognition is genuinely running on your own machine.
+[Full instructions](try-without-installing.md).
+
+On a normal install you can watch the same thing directly:
+
+```sh
+# Show every connection the daemon has open. After the model download, expect none.
+ss -tunp 2>/dev/null | grep -i yazses || echo "no network connections"
+```
+
+Or cut it off at the source and keep dictating:
+
+```sh
+sudo ip link set <your-interface> down    # or just pull the Wi-Fi
+```
+
+The one time YazSes *does* need the network is the **first** run, to download the speech
+model from Hugging Face. After that it never needs it again. `yazses update` is the only
+other outbound action, and only when you run it yourself.
+
 ## Telemetry, analytics, and updates
 
 YazSes collects **no telemetry, no usage analytics, and no crash reports**, and makes

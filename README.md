@@ -8,6 +8,7 @@
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/yazses?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/yazses)
 [![PyPI Downloads](https://img.shields.io/pypi/dm/yazses)](https://pypi.org/project/yazses/)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21856271.svg)](https://doi.org/10.5281/zenodo.21856271)
 [![Documentation](https://img.shields.io/badge/docs-mskazemi.com%2Fyazses-5e35b1)](https://mskazemi.com/yazses/)
 [![Open Source Helpers](https://www.codetriage.com/mskazemi/yazses/badges/users.svg)](https://www.codetriage.com/mskazemi/yazses)
 [![All Contributors](https://img.shields.io/badge/all_contributors-11-orange.svg?style=flat-square)](#contributors)
@@ -57,6 +58,12 @@ enroll yourself — never from a cloud account.
 
 ## Quick Start
 
+> **Want to hear how accurate it is before installing anything?**
+> Run it in Docker or in your browser — no install, nothing left behind:
+> **[Try it without installing](https://mskazemi.com/yazses/try-without-installing.html)**.
+> A clip ships with the repo, and `--network none` proves the transcription is really
+> happening on your own machine.
+
 **Step 1 — Install** (see [all install options](#all-install-options) for every platform)
 
 | Platform | Command |
@@ -70,6 +77,16 @@ every system prerequisite (audio, keystroke injection, clipboard, `input` group,
 `ydotoold`), and finishes by running **`yazses doctor`** so any missing tool surfaces *during*
 install. The APT and `pipx` paths install the last tagged release. YazSes is also on the
 [Snap Store](https://snapcraft.io/yazses) (`sudo snap install yazses`).
+
+> **Piping a script from the internet into your shell?** Fair. Add `--dry-run` and it
+> inspects your machine, prints every change it would make, and exits without making any
+> of them:
+> `bash <(curl -fsSL .../install.sh) --dry-run`
+>
+> Before you commit: **[what installing actually costs](https://mskazemi.com/yazses/install-cost.html)**
+> (1.1 GB plus a 141 MB model, and what it changes on your system) and
+> **[how to uninstall](https://mskazemi.com/yazses/uninstall.html)** — both published up
+> front on purpose.
 
 
 **Shell completion:** `yazses --install-completion` (or `yazses --show-completion` to print the script). See the [CLI reference](docs/cli-reference.md).

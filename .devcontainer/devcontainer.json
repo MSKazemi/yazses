@@ -19,7 +19,10 @@
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
 
-  "postCreateCommand": "curl -LsSf https://astral.sh/uv/install.sh | sh && $HOME/.local/bin/uv sync",
+  // The banner installs nothing; it prints what to run, for both audiences that
+  // open this container — contributors (the offline test suite) and people
+  // evaluating YazSes (transcribe the sample clip and judge the accuracy).
+  "postCreateCommand": "curl -LsSf https://astral.sh/uv/install.sh | sh && $HOME/.local/bin/uv sync && bash .devcontainer/setup.sh",
 
   "customizations": {
     "vscode": {

@@ -102,6 +102,64 @@ tool can add later without becoming a different program.
     including this one — will give you that. What differs is which of them is
     built so that it can.
 
+## What the subscription actually costs over time
+
+Dictation is a tool you use every working day for years, which makes a monthly fee an
+unusual shape of cost: you keep paying for speech recognition that already worked the
+first month. The comparison is worth making concretely.
+
+Published list prices, **checked 2026-08-11** (verify before quoting — these change):
+
+| Tool | Cheapest paid tier | Per year | Over 5 years |
+|---|---|---|---|
+| **YazSes** | — | **$0** | **$0** |
+| Wispr Flow Pro | $12/mo billed annually ($15 monthly) | $144 | **$720** |
+| Otter.ai Pro | $8.33/mo billed annually ($16.99 monthly) | $100 | **$500** |
+| Otter.ai Business | $19.99/mo billed annually ($30 monthly) | $240 | **$1,200** |
+
+For a team of five on Otter Business, the five-year figure is **$6,000**.
+
+Three caveats, because a cost table that only argues one way is not an honest one:
+
+- **Free is not the same as costless.** YazSes costs you setup time, about 1.25 GB of
+  disk, and some CPU while it transcribes. If your time is worth more than the
+  subscription, buy the subscription — that is a legitimate answer.
+- **The paid tools do things YazSes does not**, and the sections below say where. Cloud
+  models are larger than anything that fits comfortably on a laptop CPU.
+- **The prices above are list prices** and both vendors run discounts.
+
+!!! info "The part that is not about money"
+    A subscription can be raised, re-tiered, or discontinued, and your access to your own
+    workflow goes with it. A local, Apache-2.0 tool cannot be taken away from you — the
+    version you have today keeps working on the machine you have today, forever, with no
+    account to expire and no server to shut down. For some people that is worth more than
+    the fee; for others it is irrelevant. It is a real difference either way.
+
+## Speaking is faster than typing — with an honest asterisk
+
+Ordinary speech runs at roughly **120–150 words per minute**, while most people type at
+**35–60 wpm**. That is the reason dictation is attractive at all.
+
+But raw throughput is the wrong number to plan around, and any tool that quotes it
+without qualification is overselling. What matters is throughput **after corrections** —
+and correcting a recognition error costs far more than the words it replaces, because you
+have to notice it, move the caret, and fix it.
+
+So the useful framing is not "dictate everything, three times faster". It is:
+
+- Dictation wins clearly for **prose you would otherwise compose slowly** — long-form
+  writing, email, notes, documentation, chat.
+- It wins overwhelmingly when typing is **painful or impossible** — RSI, injury,
+  limited hand mobility. Here it is not a speed comparison at all.
+- It wins least for **dense code and identifiers**, where accuracy per token matters
+  most and correction cost is highest.
+
+The measured accuracy behind those judgements is on the [benchmarks page](benchmarks.md)
+rather than asserted here. YazSes has not run a controlled throughput study against
+typing; that experiment is
+[an open research question](research/agenda.md), deliberately listed as unanswered
+rather than guessed at.
+
 ## Will it still be here next year?
 
 A fair question for any small open-source project, and the honest signals rather
