@@ -88,8 +88,11 @@ sets it true.
 
 ## Running a session, or reviewing
 
-- [`sprint-kit.md`](sprint-kit.md) — everything needed to run a 90-minute contribution
-  session, written for an organizer who has never spoken to the maintainer.
+- [`online-sprint.md`](online-sprint.md) — a 90-minute sprint run as a video call. **Start
+  here**: no venue needed, and the diversity of machines and languages a call reaches is
+  exactly what the compatibility and localization tasks require.
+- [`sprint-kit.md`](sprint-kit.md) — the in-person version, for an organizer who has never
+  spoken to the maintainer.
 - [`../REVIEWING.md`](../REVIEWING.md) — the review lanes, the responses, and how to
   become a reviewer without needing repository permissions first.
 - [`incident-response.md`](incident-response.md) — what to do about fabricated evidence,

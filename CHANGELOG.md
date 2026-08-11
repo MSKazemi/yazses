@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — an online sprint format, which suits this project better than the in-person one
+
+`campaign/online-sprint.md` runs the same 90-minute contribution session as a video call: no
+venue, no travel, no date that only suits one city.
+
+It is not a fallback. The two largest task families need exactly what a single room cannot
+supply — 297 compatibility tasks want Fedora, Arch, macOS on Apple silicon, Windows on ARM
+and a Raspberry Pi; 184 localization tasks want native speakers of 23 languages. One city
+gives you one distro spread and one or two languages. For a project whose missing evidence
+*is* environmental diversity, remote attendance is the feature.
+
+It recommends **Jitsi Meet** (no account, no install, open source) — asking people to create
+an account in order to help you is real drop-off, and recommending a telemetry-heavy platform
+for a privacy-first tool is something people notice. It covers the three failures specific to
+a call: silent stalling (a frustrated face is visible in a room, a muted tile is not), the
+environment step eating the session, and PRs orphaned once the call ends. It gives four
+timezone slots rather than pretending one hour serves India and Brazil, and an async
+"sprint week" variant when no single hour works.
+
+Realistic expectation stated plainly: with one reviewer, 8–12 attendees and 6–9 merges —
+which roughly doubles the contributor count in ninety minutes, and is a better first target
+than an 80-event campaign needing reviewers that do not exist yet.
+
 ### Added — the attribution check now actually runs, with addresses masked
 
 `scripts/check_contributor_wall.py` has been able to detect a contributor missing from the
@@ -1229,7 +1252,7 @@ every exit path, including rejection.
 ## [2.14.0] - 2026-08-07
 
 The perception release. Backed by a web-refreshed state-of-the-art study
-(competitors, local STT engines, gaze/EMG/BCI input — `design/vision/library/`,
+(competitors, local STT engines, gaze/EMG/BCI input — an internal research note,
 ADR-v2-129): the eye, voice, and muscle input paths each got the upgrade the
 research says nobody else ships, and the STT engine monopoly is broken. Every
 addition is opt-in and lazy-installs its dependencies — a plain dictation
@@ -2310,7 +2333,7 @@ wiring test. All remain **OFF by default** (existing behaviour unchanged; full s
 
 ### v2.11.0 — Wave O opens: offline media ingestion & speaker attribution (developer preview, `v2.11.0-dev.1`, all OFF by default)
 
-New SoA round (`design/vision/v2-research/17-diarized-recording-import.md`, ~70 cited sources) opens
+New SoA round (an internal research note, ~70 cited sources) opens
 Wave O — offline transcription of pre-recorded audio files with speaker diarization:
 
 - **feat(recimport): Diarized Recording Import** (ADR-v2-125) — `yazses transcribe <file>` decodes any
@@ -2334,7 +2357,7 @@ Wave O — offline transcription of pre-recorded audio files with speaker diariz
 
 ### v2.10.0 — Wave N complete: structural editing, i18n & accessibility-output (developer preview, `v2.10.0-dev.5`, all OFF by default)
 
-New SoA round (`design/vision/v2-research/16-wave-n.md`): structural code editing, internationalization,
+New SoA round (Wave N): structural code editing, internationalization,
 accessibility-output correctness; **all ten features shipped** + ADRs 115-124, pure and 100%-covered.
 
 Eyes-free & blind-output tier (`dev.5`, Wave N complete):
@@ -2377,7 +2400,7 @@ CLI:
 
 ### v2.9.0 — Wave M complete: minimal-bandwidth AAC & text-intelligence (developer preview, `v2.9.0-dev.5`, all OFF by default)
 
-New SoA round (`design/vision/v2-research/15-wave-m.md`): lowest-bandwidth AAC input + text-intelligence
+New SoA round (Wave M): lowest-bandwidth AAC input + text-intelligence
 layers; **all ten features shipped** + ADRs 105-114, pure and 100%-covered.
 
 Authoring/proofing tier (`dev.5`):
@@ -2413,7 +2436,7 @@ Opener (`dev.1`):
 
 ### v2.8.0 — Wave L complete: non-speech & prosodic voice interaction (developer preview, `v2.8.0-dev.5`, all OFF by default)
 
-New SoA round (`design/vision/v2-research/14-wave-l.md`): non-speech vocal signals + acoustic prosody
+New SoA round (Wave L): non-speech vocal signals + acoustic prosody
 as interaction channels; **all ten features shipped** + ADRs 095-104, pure and 100%-covered.
 
 Accessibility tier (`dev.5`):
@@ -2452,7 +2475,7 @@ Opener (`dev.1`):
 
 ### v2.7.0 — Wave K complete (developer preview, `v2.7.0-dev.5`, all OFF by default)
 
-Fresh SoA round (`design/vision/v2-research/13-wave-k.md`) + ADRs 085-094. **All ten Wave K features
+Fresh SoA round (Wave K) + ADRs 085-094. **All ten Wave K features
 shipped**, pure and 100%-covered.
 
 Utilities tier (`dev.5`):
@@ -2494,7 +2517,7 @@ Opening cores (`dev.1`):
 
 ### v2.6.0 — Wave J complete (developer preview, `v2.6.0-dev.5`, all OFF by default)
 
-Full 10-feature SoA round (`design/vision/v2-research/12-wave-j.md`) + ADRs 075-084.
+Full 10-feature SoA round (Wave J) + ADRs 075-084.
 
 Final tier (`dev.5`), pure core + deferred backend:
 - **feat(recimport): Recording Import** (ADR-v2-083) — batch-transcribe archives to .srt/.vtt with
@@ -2533,7 +2556,7 @@ Opening tier (`dev.1`), two fully-pure cores:
 
 ### v2.5.0 — Wave I complete (developer preview, `v2.5.0-dev.5`, all OFF by default)
 
-Full 10-feature SoA round (`design/vision/v2-research/11-wave-i.md`) + ADRs 065-074.
+Full 10-feature SoA round (Wave I) + ADRs 065-074.
 
 Final tier (`dev.5`), pure core + deferred backend:
 - **feat(latency): Adaptive Latency Governor** (ADR-v2-073) — load-aware decode policy +
@@ -2568,7 +2591,7 @@ Ship-now tier (`dev.2`), four dependency-free cores:
 
 ### v2.4.0 — Wave H complete (developer preview, `v2.4.0-dev.2`, all OFF by default)
 
-Full 10-feature SoA round (`design/vision/v2-research/10-wave-h.md`) + ADRs 055-064.
+Full 10-feature SoA round (Wave H) + ADRs 055-064.
 
 Medium tier (`dev.2`), pure core + deferred backend:
 - **feat(audioguard): Ambient Audio-Event Guard** (ADR-v2-061) — pause/alert on interrupting sounds.
@@ -2589,7 +2612,7 @@ Ship-now tier (`dev.1`) + ADRs 055-060, six dependency-free features:
 
 ### v2.3.0 — Wave G complete (developer preview, `v2.3.0-dev.2`, all OFF by default)
 
-Full 10-feature SoA round (`design/vision/v2-research/09-wave-g.md`) + ADRs 045-054.
+Full 10-feature SoA round (Wave G) + ADRs 045-054.
 
 Medium + hardware tier (`dev.2`), pure core + deferred backend:
 - **feat(compose): Compose-in-Target-Language** (ADR-v2-049) — speak L1, type L2.
@@ -2614,7 +2637,7 @@ Ship-now tier (`dev.1`) + ADRs 045-048, privacy-forward, dependency-light:
 
 ### v2.2.0 — Wave F complete (developer preview, `v2.2.0-dev.2`, all OFF by default)
 
-Full 10-feature SoA round (`design/vision/v2-research/08-wave-f.md`) + ADRs 035-044.
+Full 10-feature SoA round (Wave F) + ADRs 035-044.
 
 Ship-now pure tier (`dev.1`), no new dependency:
 - **feat(coach): Speaking Coach** (ADR-v2-035) — private filler/WPM/vocabulary analytics.
@@ -2648,7 +2671,7 @@ ADRs 029-034 complete Wave E (10/10 features). Zero-touch bundle + language mode
 
 ### v2.1.0 — Wave E ship-now tier (developer preview, `v2.1.0-dev.4`, all OFF by default)
 
-Fresh SoA round (`design/vision/v2-research/07-wave-e.md`) + ADRs 025-028. First four features:
+Fresh SoA round (Wave E) + ADRs 025-028. First four features:
 
 - **feat(hallucination): Hallucination Guard** (ADR-v2-025) — drops Whisper's fabricated ghost
   text (silence outros, loops) before injection; pure detector, wired into the decode path.
@@ -2683,7 +2706,7 @@ ADRs 018-020. Three more on-device features:
 
 ### v2.1.0 — Wave D (developer preview, `v2.1.0-dev.1`, all OFF by default)
 
-Fresh SoA research (11 candidates, `design/vision/v2-research/06-wave-d.md`) + ADRs 014-017.
+Fresh SoA research (11 candidates, Wave D) + ADRs 014-017.
 First four features, all on-device:
 
 - **feat(translate): Speech Translation** (ADR-v2-014) — dictate L1, type English via Whisper's
@@ -2699,7 +2722,7 @@ First four features, all on-device:
 ### v2.0.0 — Voice-First Interaction Layer · Wave A (developer preview, all OFF by default)
 
 Tagged `v2.0.0-dev.1` (developer preview — **not published**; v1.4.1 remains the
-stable release). Design in `design/adr/adr-v2-*` + `design/vision/v2-2026/`.
+stable release). Design in `design/adr/adr-v2-*` + an internal research note.
 
 - **feat(confidence): Confidence Ink** (`[confidence]`) — flags low-confidence words
   from Whisper's per-word token probabilities and re-picks from n-best by voice;
@@ -3740,7 +3763,7 @@ Wireless EMG, model downloads, VS Code context bridge, and dependency refresh.
 ## [0.4.0] — 2026-05-17
 
 Three new capabilities from the second SoA2Prod innovation pipeline
-(`research/yazses-future-voice-hci/`), plus full ADR documentation for all
+(`design/research/studies/yazses-future-voice-hci/`), plus full ADR documentation for all
 v0.4.0 architectural decisions.
 
 ### Added
