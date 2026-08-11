@@ -51,6 +51,19 @@ jobs:
       - name: Install docs toolchain
         run: uv sync --group docs --no-install-project
 
+      # The privacy plugin mirrors the Google webfonts into the site at build
+      # time. Uncached, every run re-fetches ~26 woff2 files, and on 2026-08-11
+      # five of them 404'd on Google's side — under --strict that is 5 warnings,
+      # which aborted the build and blocked the deploy. Caching the mirror means
+      # a normal run touches Google's CDN not at all, so a bad day there can no
+      # longer veto the documentation site.
+      - name: Cache mirrored external assets
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .cache
+          key: mkdocs-privacy-${{ hashFiles('mkdocs.yml') }}
+          restore-keys: mkdocs-privacy-
+
       - name: Build site (strict)
         run: uv run --group docs mkdocs build --strict
 

@@ -34,6 +34,20 @@ not_in_nav: |
   /releases/v*.md
   /mobile/adr/adr-mob-*.md
 
+# A link to a heading that does not exist was only `info` by default, so it never
+# failed anything, not even under `--strict`. That is how every Devanagari heading
+# anchor stayed broken and unnoticed until a cross-link happened to spell one
+# correctly (see hooks/indic_slugify.py). At `warn` it becomes fatal under
+# `--strict`, which is the point.
+#
+# mkdocs only accepts warn/info/ignore here — `error` is rejected at config load —
+# so `--strict` is what supplies the teeth. Everything else is left at its default
+# deliberately: widening this to `unrecognized_links` should be a separate,
+# measured change, not a side effect of fixing anchors.
+validation:
+  links:
+    anchors: warn
+
 theme:
   name: material
   language: en
@@ -125,6 +139,12 @@ hooks:
   # translations, derived from one `alternates:` entry so the two directions
   # cannot drift apart (a one-sided declaration is ignored by search engines).
   - hooks/hreflang.py
+  # Replaces the `toc:` slugifier below with one that keeps Unicode combining
+  # marks. The stock one deletes them, which erases every vowel sign in
+  # Devanagari/Tamil/Bengali/Telugu headings; see the module docstring. Applied
+  # from a hook because `!!python/name:` cannot reach the repo root at the point
+  # mkdocs.yml is parsed.
+  - hooks/indic_slugify.py
 
 plugins:
   - search
