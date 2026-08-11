@@ -194,7 +194,9 @@ def test_an_unknown_task_id_fails_without_blaming_the_contributor(preflight):
 @pytest.mark.parametrize(
     "text",
     [
-        "+ model path: /home/mohsen/.cache/yazses",
+        # A fabricated username on purpose: a fixture must never carry a real person's
+        # home path, least of all in the file that teaches the scanner to find them.
+        "+ model path: /home/alice/.cache/yazses",
         "+ /Users/janedoe/Library/Application Support/yazses",
         r"+ C:\Users\Jane\AppData\yazses",
         "+ contact me at real.person@gmail.com",
@@ -220,6 +222,49 @@ def test_personal_data_is_detected(preflight, text):
 def test_ordinary_content_is_not_flagged(preflight, text):
     """A false positive on someone's first PR costs more than it saves."""
     assert preflight.scan_personal_data(text) == [], f"false positive on {text!r}"
+
+
+SAMPLE_DIFF = """\
+diff --git a/docs/faq.md b/docs/faq.md
+--- a/docs/faq.md
++++ b/docs/faq.md
+@@ -1,2 +1,3 @@
+ unchanged line
++model lives in /home/alice/.cache/yazses
+diff --git a/tests/test_x.py b/tests/test_x.py
+--- a/tests/test_x.py
++++ b/tests/test_x.py
+@@ -1 +1,2 @@
++token = "ghp_abcdefghijklmnopqrstuvwxyz0123"
+-removed = "/home/bob/secret"
+"""
+
+
+def test_findings_say_which_file_they_are_in(preflight):
+    """Without attribution a deliberate test fixture is indistinguishable from a leak."""
+    found = preflight.scan_diff(SAMPLE_DIFF)
+    located = {(path, label) for path, label, _s, _h in found}
+    assert ("docs/faq.md", "a Linux home path") in located
+    assert ("tests/test_x.py", "what looks like a token or key") in located
+
+
+def test_a_removed_personal_path_is_not_a_finding(preflight):
+    """Deleting a leaked path is the fix; flagging it would punish the repair."""
+    paths = {p for p, _l, s, _h in preflight.scan_diff(SAMPLE_DIFF) if "bob" in s}
+    assert not paths, "a line removed by the diff was reported as a finding"
+
+
+def test_scan_diff_falls_back_when_given_only_added_lines(preflight):
+    """A caller may pass a pre-filtered blob; it must still scan, just without a path."""
+    found = preflight.scan_diff("+ /home/carol/.config/yazses\n")
+    assert found and found[0][0] == "the diff"
+
+
+def test_diff_headers_are_not_themselves_scanned_as_content(preflight):
+    """`+++ b/path` starts with '+' — it must be a header, not an added line."""
+    by_file = preflight.split_added_lines_by_file(SAMPLE_DIFF)
+    assert set(by_file) == {"docs/faq.md", "tests/test_x.py"}
+    assert "+++" not in by_file["docs/faq.md"]
 
 
 def test_report_is_actionable_when_scope_is_wrong(preflight, tasks):

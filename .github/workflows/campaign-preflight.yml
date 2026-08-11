@@ -56,8 +56,10 @@ jobs:
           git fetch --no-tags --quiet origin "$BASE_SHA" "$HEAD_SHA" 2>/dev/null || true
           MERGE_BASE="$(git merge-base "$BASE_SHA" "$HEAD_SHA")"
           git diff --name-only "$MERGE_BASE" "$HEAD_SHA" > /tmp/changed.txt
-          # Only added lines: a personal path being *removed* is a fix, not a finding.
-          git diff "$MERGE_BASE" "$HEAD_SHA" | grep '^+' > /tmp/added.txt || true
+          # The full unified diff, so the scanner can say which file a finding is in.
+          # It only ever reads added lines: a personal path being *removed* is a fix,
+          # not a finding.
+          git diff "$MERGE_BASE" "$HEAD_SHA" > /tmp/diff.txt
           echo "Changed files:"; cat /tmp/changed.txt
 
       # No setup-python step on purpose: both scripts are standard-library only, so the
@@ -68,4 +70,4 @@ jobs:
           python3 scripts/campaign_preflight.py \
             --pr-body-file /tmp/pr-text.txt \
             --changed-files-from /tmp/changed.txt \
-            --diff-file /tmp/added.txt
+            --diff-file /tmp/diff.txt

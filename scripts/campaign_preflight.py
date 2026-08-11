@@ -123,13 +123,54 @@ def scan_personal_data(text: str) -> list[tuple[str, str, str]]:
     return out
 
 
+DIFF_FILE_RE = re.compile(r"^\+\+\+ b/(.+)$")
+
+
+def split_added_lines_by_file(diff_text: str) -> dict[str, str]:
+    """Group a unified diff's *added* lines by the file they were added to.
+
+    Without this the scanner reports "an email address" with no idea where, which is not
+    something a contributor can act on — and it makes a deliberate test fixture
+    indistinguishable from a real leak.
+    """
+    by_file: dict[str, list[str]] = {}
+    current: str | None = None
+    for line in diff_text.splitlines():
+        header = DIFF_FILE_RE.match(line)
+        if header:
+            current = header.group(1)
+            by_file.setdefault(current, [])
+            continue
+        if line.startswith("+++") or line.startswith("+++ /dev/null"):
+            continue
+        if line.startswith("+") and current is not None:
+            by_file[current].append(line)
+    return {path: "\n".join(lines) for path, lines in by_file.items() if lines}
+
+
+def scan_diff(diff_text: str) -> list[tuple[str, str, str, str]]:
+    """Scan a unified diff, returning (path, label, snippet, hint).
+
+    Falls back to scanning the whole blob under the path ``"the diff"`` when the input
+    has no ``+++ b/`` headers — a caller may legitimately pass only added lines.
+    """
+    by_file = split_added_lines_by_file(diff_text)
+    if not by_file:
+        return [(("the diff"), *f) for f in scan_personal_data(diff_text)]
+    out: list[tuple[str, str, str, str]] = []
+    for path, added in sorted(by_file.items()):
+        for label, snippet, hint in scan_personal_data(added):
+            out.append((path, label, snippet, hint))
+    return out
+
+
 def render_report(
     *,
     task_id: str | None,
     task: dict | None,
     changed: list[str],
     outside: list[str],
-    findings: list[tuple[str, str, str]],
+    findings: list[tuple[str, str, str, str]],
 ) -> tuple[bool, str]:
     """Build the single summary a contributor reads. Returns (ok, markdown)."""
     lines = ["## Campaign preflight", ""]
@@ -181,12 +222,12 @@ def render_report(
     if findings:
         ok = False
         lines += ["- ❌ **Possible personal data in the diff:**", ""]
-        seen: set[tuple[str, str]] = set()
-        for label, snippet, hint in findings:
-            if (label, snippet) in seen:
+        seen: set[tuple[str, str, str]] = set()
+        for path, label, snippet, hint in findings:
+            if (path, label, snippet) in seen:
                 continue
-            seen.add((label, snippet))
-            lines.append(f"  - {label}: `{snippet}` — {hint}")
+            seen.add((path, label, snippet))
+            lines.append(f"  - `{path}` — {label}: `{snippet}` — {hint}")
         lines += [
             "",
             "  These are guesses from a regex, so a false positive is possible — if it is one,",
@@ -210,7 +251,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--pr-body-file", type=Path, help="file containing the PR title+body")
     ap.add_argument("--changed-files", nargs="*", default=[])
     ap.add_argument("--changed-files-from", type=Path, help="file with one path per line")
-    ap.add_argument("--diff-file", type=Path, help="file containing the added lines of the diff")
+    ap.add_argument(
+        "--diff-file",
+        type=Path,
+        help="unified diff (preferred, gives per-file attribution) or just its added lines",
+    )
     args = ap.parse_args(argv)
 
     tasks = load_tasks()
@@ -234,7 +279,7 @@ def main(argv: list[str] | None = None) -> int:
     outside = check_paths(changed, task["allowed_paths"]) if task else []
     findings = []
     if args.diff_file and args.diff_file.exists():
-        findings = scan_personal_data(args.diff_file.read_text(encoding="utf-8", errors="replace"))
+        findings = scan_diff(args.diff_file.read_text(encoding="utf-8", errors="replace"))
 
     ok, report = render_report(
         task_id=task_id, task=task, changed=changed, outside=outside, findings=findings

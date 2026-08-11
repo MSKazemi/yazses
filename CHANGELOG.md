@@ -6,6 +6,18 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — preflight findings now say which file they are in
+
+Simulating the preflight against a real commit range showed it reporting five personal-data
+hits with no indication of where any of them were — and all five were the scanner's own test
+fixtures. A finding a contributor cannot locate is not actionable, and worse, an intentional
+fixture becomes indistinguishable from a genuine leaked credential. The scanner now parses
+the unified diff per file and reports ``path — label: snippet — hint``.
+
+The same run caught a real slip: a test fixture used the maintainer's actual home path,
+inside the very file that teaches the scanner to find home paths. Replaced with a fabricated
+username.
+
 ### Added — REVIEWING.md and a sprint kit, so scaling does not require being the maintainer
 
 `REVIEWING.md` is written to be handed to someone on their first review rather than to
