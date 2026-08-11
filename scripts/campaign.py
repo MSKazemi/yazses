@@ -86,6 +86,39 @@ FIELD_SPEC: dict[str, tuple[str, bool, str]] = {
 
 MIN_MINUTES, MAX_MINUTES = 5, 480
 
+#: `scripts/check-task.py` executes a task's `validation` commands on a contributor's own
+#: machine. That makes `tasks.json` a code-execution surface: a pull request editing it
+#: could otherwise run anything on anyone who validated their work before pushing. Commands
+#: must therefore start with one of these prefixes, are never passed to a shell, and a
+#: reviewer approving a change here is approving code that runs on other people's laptops.
+ALLOWED_VALIDATION_PREFIXES = (
+    "uv run python -m pytest ",
+    "uv run python scripts/",
+    "uv run ruff check ",
+    "make ",
+)
+
+#: Shell metacharacters that would chain a second command past the prefix check.
+_SHELL_METACHARS = (";", "&", "|", "$(", "`", ">", "<", "\n")
+
+
+def validation_command_problem(cmd: str) -> str | None:
+    """Why this validation command is not safe to run, or None if it is."""
+    if not cmd.startswith(ALLOWED_VALIDATION_PREFIXES):
+        return (
+            f"validation command {cmd!r} does not start with an allowed prefix "
+            f"{list(ALLOWED_VALIDATION_PREFIXES)} — check-task.py runs these on a "
+            "contributor's machine, so the inventory is a code-execution surface"
+        )
+    found = [c for c in _SHELL_METACHARS if c in cmd]
+    if found:
+        return (
+            f"validation command {cmd!r} contains shell metacharacter(s) {found} — "
+            "commands are run without a shell, and chaining is how a prefix allowlist "
+            "gets bypassed"
+        )
+    return None
+
 
 def json_schema() -> dict[str, Any]:
     """Derive the JSON Schema from FIELD_SPEC so the two cannot disagree."""
@@ -182,6 +215,11 @@ def validate_task(task: Any, *, index: int | None = None) -> list[str]:
             errors.append(f"{where}: {list_field} must contain non-empty strings")
     if not task["value"].strip():
         errors.append(f"{where}: value is blank — state why the project wants this or drop it")
+
+    for cmd in task["validation"]:
+        problem = validation_command_problem(cmd)
+        if problem:
+            errors.append(f"{where}: {problem}")
 
     # The rule the playbook is most emphatic about, and the one an inventory generator
     # is most likely to get wrong: a machine cannot certify hardware or native language.

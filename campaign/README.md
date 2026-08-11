@@ -19,10 +19,23 @@ you remain the author, and you are expected to have read every line you send.
 | `generated/stats.json` | **Generated.** Counts, and the review cost if everything merged. |
 
 ```sh
+uv run python scripts/check-task.py APP-014    # ← contributors: check your work before pushing
+uv run python scripts/check-task.py            # list the open tasks
+
 uv run python scripts/campaign.py --check      # validate (a test runs this too)
 uv run python scripts/campaign.py --generate   # rewrite the generated files
-uv run python scripts/campaign.py --stats
+uv run python scripts/campaign_stats.py        # measure the funnel (read-only)
 ```
+
+`check-task.py` runs the same three checks CI will — scope, personal data, and the task's
+own validation command — against your working tree, so you find out while the work is
+still in front of you rather than from a red check on your first PR. It exits non-zero, so
+it works as a pre-push hook.
+
+`campaign_stats.py --attribution-gaps` is the one to run after a merge wave: it lists
+people whose work is in `main` but who the contributors API does not credit, almost always
+because their commit email is not connected to their GitHub account. That is a bug in the
+project, not in them.
 
 Do not hand-edit anything under `generated/` or `schemas/` — a test fails if they stop
 matching `tasks.json`. Edit `tasks.json`, regenerate, commit both.

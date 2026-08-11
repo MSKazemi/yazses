@@ -4,6 +4,11 @@ A short, machine-readable brief for AI coding assistants working in this reposit
 Humans should read [CONTRIBUTING.md](CONTRIBUTING.md) instead; this file exists so an
 agent-assisted contribution arrives correct on the first try.
 
+**This file is canonical for every tool** — Codex, Claude Code, Gemini CLI, Cursor,
+Copilot, Aider and anything else. There is deliberately no per-tool instruction file in
+this repository: three copies of the setup commands become three different sets of setup
+commands. If your tool looks for its own filename and finds nothing, read this one.
+
 The human who opens the PR is responsible for it. Do not open a PR the author has not read.
 
 ## What this project is

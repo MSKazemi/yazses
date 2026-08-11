@@ -17,7 +17,7 @@ LOG_FILE := $(HOME)/.local/state/yazses/log/daemon.log
 # this make sees an up-to-date file target and silently does nothing.
 .PHONY: all install check test lint lint-fix types docs docs-serve man inbox \
         start stop restart status logs doctor overlay build clean help \
-        hygiene campaign campaign-generate
+        hygiene campaign campaign-generate campaign-stats
 
 all: check
 
@@ -64,6 +64,11 @@ campaign:
 
 campaign-generate:
 	uv run python scripts/campaign.py --generate
+
+# Read-only funnel measurement: attributed contributors, uncredited merged authors,
+# per-cohort conversion. Degrades to local git history with no network.
+campaign-stats:
+	uv run python scripts/campaign_stats.py
 
 types:
 	@echo "▶  Type checking (advisory — currently clean; don't add errors)…"

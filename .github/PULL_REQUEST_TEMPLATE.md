@@ -8,6 +8,13 @@
 
 <!-- e.g. Closes #123 -->
 
+<!-- Working on a task from campaign/generated/open-tasks.md? Add its ID below and the
+     preflight check will confirm your scope for you. Delete these two lines otherwise —
+     a PR with no task ID passes preflight untouched.
+
+     Task ID:
+     Cohort:      (only if you came from an event or article; entirely optional) -->
+
 ## Type of change
 
 - [ ] Bug fix

@@ -6,6 +6,41 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — funnel measurement, a local task checker, and a scoped packaging brief
+
+`scripts/campaign_stats.py` measures whether any of the contributor work is actually
+working, using only the public GitHub API and local git — no pixels, no per-user analytics,
+no third-party service. Its most important query is `--attribution-gaps`: GitHub attributes
+a commit by author *email*, so a contributor whose email is not connected to their account
+gets a grey avatar, no profile link and no entry in the contributor graph. They did the work
+and the project shows nothing. That is a bug in the project, not in them, and nothing was
+looking for it. No email address ever reaches the output — a test enforces that. With no
+network it falls back to git history and **says so**, rather than printing numbers it cannot
+stand behind.
+
+`scripts/check-task.py TASK-ID` runs the same three checks CI will — scope, personal data,
+and the task's own validation command — against the working tree, so a contributor finds
+out while the work is still in front of them rather than from a red check on a first pull
+request. It exits non-zero, so it works as a pre-push hook.
+
+**`campaign/tasks.json` is now treated as a code-execution surface.** `check-task.py` runs
+a task's validation commands on a contributor's own machine, so a pull request editing that
+file would otherwise be a way to run arbitrary code on anyone who validated their work
+before pushing. Commands must now start with an allowlisted prefix, must contain no shell
+metacharacter (a prefix allowlist alone is bypassed by chaining), and are executed without
+a shell. The validator rejects the rest, and the check is repeated at run time rather than
+trusting that the file was validated.
+
+`packaging/AGENTS.md` records the two rules that genuinely differ there: packaging changes
+**cannot** be verified by the offline test suite, so an agent must say what it did not
+verify instead of implying success; and release credentials are deliberately not in this
+repository, so anything needing one stops and goes to the maintainer. The root `AGENTS.md`
+now also states that it is canonical for every tool — Codex, Claude Code, Gemini CLI,
+Cursor, Copilot — because there is deliberately no per-tool instruction file here.
+
+The pull-request template can now carry a `Task ID` and an optional cohort code, which is
+what lets preflight confirm a contributor's scope for them.
+
 ### Fixed — preflight findings now say which file they are in
 
 Simulating the preflight against a real commit range showed it reporting five personal-data

