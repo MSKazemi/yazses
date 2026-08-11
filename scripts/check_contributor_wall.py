@@ -70,6 +70,12 @@ def wall_logins() -> set[str]:
     return {c["login"] for c in data["contributors"]}
 
 
+def wall_profiles() -> dict[str, str]:
+    """login -> the profile URL the wall renders for them."""
+    data = json.loads(RC.read_text(encoding="utf-8"))
+    return {c["login"]: c.get("profile", "") for c in data["contributors"]}
+
+
 def logins_from_api() -> set[str]:
     """Every account GitHub credits with commits.
 
@@ -122,7 +128,7 @@ def probe_profile(login: str) -> int | None:
         return None
 
 
-def dead_wall_profiles(logins: set[str], probe=probe_profile) -> set[str]:
+def dead_wall_profiles(logins: set[str], probe=probe_profile, profiles=None) -> set[str]:
     """Wall entries whose GitHub account no longer resolves.
 
     The check above runs one direction only — *everyone with commits is on the wall* — and
@@ -134,12 +140,18 @@ def dead_wall_profiles(logins: set[str], probe=probe_profile) -> set[str]:
     Anything other than a definite 404 is treated as "no opinion" and aborts the whole
     sub-check: a rate limit (403) or a transient error must never be reported as "this person
     does not exist". A false accusation here is far worse than silence.
+
+    `profiles` makes the warning **self-clearing**: what needs fixing is the dead *link*, not
+    the departure, so once the entry has been repointed at something that resolves there is
+    nothing left to report. A warning that survives its own fix trains people to ignore it.
     """
     dead: set[str] = set()
     for login in sorted(logins):
         status = probe(login)
         if status == 404:
-            dead.add(login)
+            declared = (profiles or {}).get(login)
+            if declared is None or declared.rstrip("/") == f"https://github.com/{login}":
+                dead.add(login)
         elif status != 200:
             return set()  # rate-limited or offline — say nothing rather than something wrong
     return dead
@@ -208,7 +220,7 @@ def main() -> int:
     # "fixing" it by deleting the person, which is the outcome this whole script exists to
     # prevent. Report it, repair the link, keep the credit.
     if source == "GitHub API" and not args.no_check_profiles:
-        dead = dead_wall_profiles(wall)
+        dead = dead_wall_profiles(wall, profiles=wall_profiles())
         if dead:
             print("\non the wall but the GitHub account no longer resolves:")
             for login in sorted(dead):

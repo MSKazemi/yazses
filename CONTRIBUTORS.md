@@ -33,7 +33,7 @@ argument, and the record of it is the decision it altered.
 - [@Prithvi4904](https://github.com/Prithvi4904) — first README translation (Hindi), and the
   language switcher that makes every later translation reachable
 - [@slegarraga](https://github.com/slegarraga)
-- [@waterlemonnn](https://github.com/waterlemonnn)
+- [@waterlemonnn](https://github.com/MSKazemi/yazses/commits?author=waterlemonnn)
 
 <!-- New contributors: added on merge, alphabetical. Want to be here? See CONTRIBUTING.md and grab a
      good first issue: https://github.com/MSKazemi/yazses/labels/good%20first%20issue -->

@@ -29,6 +29,14 @@ def _rc_logins() -> list[str]:
     return [c["login"] for c in json.loads(RC.read_text(encoding="utf-8"))["contributors"]]
 
 
+def _rc_profiles() -> dict[str, str]:
+    """login -> the profile URL the wall is supposed to render for them."""
+    return {
+        c["login"]: c["profile"]
+        for c in json.loads(RC.read_text(encoding="utf-8"))["contributors"]
+    }
+
+
 def _contributors_md_logins() -> set[str]:
     """Every `[@login](...)` mentioned in CONTRIBUTORS.md, any section."""
     return set(re.findall(r"\[@([A-Za-z0-9-]+)\]", CONTRIBUTORS.read_text(encoding="utf-8")))
@@ -66,10 +74,16 @@ def test_the_wall_renders_every_contributor():
     start, end = wall.find("ALL-CONTRIBUTORS-LIST:START"), wall.find("ALL-CONTRIBUTORS-LIST:END")
     assert start != -1 and end != -1, "the ALL-CONTRIBUTORS-LIST markers are gone from README.md"
     section = wall[start:end]
-    missing = [login for login in _rc_logins() if f'href="https://github.com/{login}"' not in section]
+    # Check each entry's *declared* profile URL, not a hardcoded github.com/<login> shape.
+    # The wall is generated from .all-contributorsrc, so the rc is the invariant; assuming
+    # the URL shape instead made the two disagree the moment a link legitimately differed —
+    # which happened when a contributor deleted their account and their profile link had to
+    # be repointed at their commits so the README stopped serving a 404.
+    profiles = _rc_profiles()
+    missing = [login for login, url in profiles.items() if f'href="{url}"' not in section]
     assert not missing, (
-        f"in .all-contributorsrc but not rendered in the README wall: {missing} — "
-        "run `npx all-contributors-cli generate`"
+        f"in .all-contributorsrc but not rendered in the README wall with its declared "
+        f"profile URL: {missing} — run `npx all-contributors-cli generate`"
     )
 
 
@@ -155,6 +169,45 @@ def test_a_deleted_account_on_the_wall_is_reported():
     mod = _wall_script()
     dead = mod.dead_wall_profiles({"alive", "gone"}, probe=lambda login: 404 if login == "gone" else 200)
     assert dead == {"gone"}
+
+
+def test_the_warning_clears_once_the_link_is_repointed():
+    """What needs fixing is the dead link, not the departure.
+
+    The account stays gone forever, so a warning keyed on the account alone would never go
+    away — and a warning that survives its own fix is one people learn to scroll past. Once
+    the entry points at something that resolves (their commits URL), there is nothing left
+    to act on and the check goes quiet.
+    """
+    mod = _wall_script()
+    gone = {"gone"}
+    probe = lambda _login: 404  # noqa: E731 - the account is deleted either way
+
+    still_dead = mod.dead_wall_profiles(gone, probe=probe, profiles={"gone": "https://github.com/gone"})
+    assert still_dead == {"gone"}, "a bare profile link to a deleted account must be reported"
+
+    repointed = mod.dead_wall_profiles(
+        gone, probe=probe, profiles={"gone": "https://github.com/MSKazemi/yazses/commits?author=gone"}
+    )
+    assert repointed == set(), "once repointed at a URL that resolves, stop nagging"
+
+
+def test_the_real_wall_has_no_dead_profile_links():
+    """No entry on the wall may point at `github.com/<login>` for an account that has gone.
+
+    Offline and network-free: it compares the rc against a known-departed login rather than
+    hitting the API, so it cannot flake in CI. The live account check lives in the script.
+    """
+    departed = {"waterlemonnn"}  # deleted 2026-08-11; the work stays credited
+    bad = [
+        login
+        for login, url in _rc_profiles().items()
+        if login in departed and url.rstrip("/") == f"https://github.com/{login}"
+    ]
+    assert not bad, (
+        f"the wall links to a deleted account and will serve a 404: {bad} — repoint the "
+        "profile at their commits URL. Do NOT remove them; the work is in every release."
+    )
 
 
 def test_a_rate_limit_is_never_reported_as_a_deleted_account():
