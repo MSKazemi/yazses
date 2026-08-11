@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>yazses</id>
+    <version>2.17.0</version>
+    <packageSourceUrl>https://github.com/MSKazemi/yazses/tree/main/packaging/chocolatey</packageSourceUrl>
+    <owners>MSKazemi</owners>
+    <title>YazSes (Install)</title>
+    <authors>Mohsen Seyedkazemi Ardebili</authors>
+    <projectUrl>https://mskazemi.com/yazses/</projectUrl>
+    <iconUrl>https://raw.githubusercontent.com/MSKazemi/yazses/main/snap/gui/yazses.png</iconUrl>
+    <copyright>2026 Mohsen Seyedkazemi Ardebili</copyright>
+    <licenseUrl>https://github.com/MSKazemi/yazses/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <projectSourceUrl>https://github.com/MSKazemi/yazses</projectSourceUrl>
+    <docsUrl>https://mskazemi.com/yazses/</docsUrl>
+    <bugTrackerUrl>https://github.com/MSKazemi/yazses/issues</bugTrackerUrl>
+    <tags>yazses voice dictation speech-to-text transcription offline privacy accessibility open-source</tags>
+    <summary>Offline voice dictation — hold a key, speak, release. No cloud, no API key, no subscription.</summary>
+    <description><![CDATA[
+YazSes is a free, open-source voice dictation and speech-to-text tool that runs
+entirely on your own machine. Hold a key, speak, release, and the text is typed
+into whatever window has focus.
+
+Everything runs on your CPU with faster-whisper. There is no cloud service, no
+API key, no account, no subscription, and no telemetry. After the speech model is
+downloaded once (~141 MB), it needs no network at all — which is the point for
+confidential work and air-gapped machines.
+
+It also transcribes recordings (optionally tagging who said what) and can capture
+a whole meeting into a speaker-labelled transcript with locally generated minutes.
+
+### Notes
+
+* The Windows build is **not code-signed yet**, so SmartScreen may warn on first launch.
+* Installs per-user (no administrator rights required).
+]]></description>
+    <releaseNotes>https://github.com/MSKazemi/yazses/releases/tag/v2.17.0</releaseNotes>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

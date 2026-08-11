@@ -1,0 +1,34 @@
+{
+    "version": "2.17.0",
+    "description": "Offline voice dictation and speech-to-text - hold a key, speak, release. Runs on your own CPU with no cloud, no API key and no subscription.",
+    "homepage": "https://mskazemi.com/yazses/",
+    "license": "Apache-2.0",
+    "notes": [
+        "YazSes runs entirely on your machine. On first use it downloads a speech model (~141 MB) from Hugging Face; after that it needs no network at all.",
+        "Launch the tray app from the Start Menu, or run 'yazses --help' in a new terminal.",
+        "Windows builds are not code-signed yet, so SmartScreen may warn on first launch."
+    ],
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/MSKazemi/yazses/releases/download/v2.17.0/YazSes-2.17.0-windows-x64.exe#/setup.exe",
+            "hash": "ece08306544af68f85fcefdf03b8b997b8c0a6db897f05e64fe8edd12f6d1bdf"
+        }
+    },
+    "innosetup": true,
+    "shortcuts": [
+        [
+            "yazses.exe",
+            "YazSes"
+        ]
+    ],
+    "checkver": {
+        "github": "https://github.com/MSKazemi/yazses"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/MSKazemi/yazses/releases/download/v$version/YazSes-$version-windows-x64.exe#/setup.exe"
+            }
+        }
+    }
+}

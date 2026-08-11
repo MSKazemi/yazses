@@ -21,7 +21,8 @@ registry. Every channel below was checked live on 2026-08-11:
 | **Flathub** | ❌ not found | — | nothing built yet ([#45](https://github.com/MSKazemi/yazses/issues/45)) |
 | **Nix** | ❌ 0 hits | — | ([#68](https://github.com/MSKazemi/yazses/issues/68)) |
 | **Docker/GHCR** | ❌ 404 | `docker/Dockerfile` | image **builds and runs** — needs publishing ([#76](https://github.com/MSKazemi/yazses/issues/76)) |
-| **Scoop** | ❌ 404 | — | ([#79](https://github.com/MSKazemi/yazses/issues/79)) |
+| **Scoop** | ❌ 404 | `scoop/yazses.json` | manifest **validates against Scoop's official `schema.json`**; needs a bucket repo ([#79](https://github.com/MSKazemi/yazses/issues/79)) |
+| **Chocolatey** | ❌ 404 | `chocolatey/` | nuspec + checksum verified; ⚠ **`.ps1` scripts not syntax-checked** (no `pwsh` on the authoring machine) |
 
 > **Verification gotcha:** `curl -o /dev/null -w '%{http_code}'` **lies** about Flathub,
 > `search.nixos.org` and AlternativeTo — they are single-page apps that return **HTTP 200
@@ -35,6 +36,30 @@ Rust binary** distribution. The releases they point at (`v1.0.0`, `v1.0.0-dev.1`
 **never published** — `gh release view v1.0.0` returns *release not found* — and their
 checksums are still `PLACEHOLDER_…`. They are marked at the top of each file. **The
 canonical cask is `homebrew/yazses.rb`.**
+
+### Windows: Scoop and Chocolatey
+
+Both were authored from the **verified** SHA256 of the released
+`YazSes-2.17.0-windows-x64.exe` (`ece0830…1bdf`), computed from the asset itself and
+size-checked against the release metadata.
+
+What is and is not proven, stated exactly:
+
+| Artefact | Verified how | Not verified |
+|---|---|---|
+| `scoop/yazses.json` | validates against Scoop's **official `schema.json`** | never installed on Windows |
+| `chocolatey/yazses.nuspec` | well-formed XML, required nuspec fields present | not packed with `choco pack` |
+| `chocolatey/tools/*.ps1` | — | **PowerShell syntax unchecked** — no `pwsh` here |
+
+**Before submitting either**, run them once on a real Windows machine:
+`scoop install ./yazses.json`, and `choco pack` + `choco install yazses -s .`.
+They are deliberately committed as *unshipped* rather than published blind — the whole
+reason this file has a status table is that this repo already had three manifests that
+looked finished and installed nobody.
+
+⚠️ `scoop/yazses.json` deliberately has **no `autoupdate.hash`**. Releases publish no
+`SHA256SUMS` asset, so pointing at one would 404 and silently break every future update;
+with the key absent, Scoop downloads the new installer and computes the digest itself.
 
 ### Keeping checksums honest
 
