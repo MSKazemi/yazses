@@ -12,8 +12,9 @@ numbers, not estimates, so you can decide before you start.
 
 | What | Size | Notes |
 |---|---|---|
-| YazSes + all Python dependencies | **1.1 GB** | measured on a `uv tool install` |
-| ↳ of which **PySide6 (Qt)** | **648 MB** | the voice-activity overlay — see the note below |
+| YazSes, headless (no desktop extra) | **~450 MB** | `pip install yazses` — enough for `transcribe` |
+| YazSes + the `desktop` extra | **1.1 GB** | what `install.sh`, the `.deb` and the Snap install |
+| ↳ of which **PySide6 (Qt)** | **648 MB** | the overlay and the tray — now optional, see below |
 | Speech model — `tiny.en` | 75 MB | fastest, least accurate |
 | Speech model — `base.en` | **141 MB** | **the default** |
 | Speech model — `small.en` | 464 MB | most accurate of the three |
@@ -21,24 +22,30 @@ numbers, not estimates, so you can decide before you start.
 | Docker image (transcription only) | 833 MB | no Qt |
 
 **A normal desktop install is therefore about 1.25 GB**: 1.1 GB of program plus the
-141 MB default model. Only one model is downloaded — the one you configure.
+141 MB default model. A **headless** install is roughly **590 MB** all-in. Only one
+model is downloaded — the one you configure.
 
-!!! warning "Qt is 59% of the install, and on a headless machine you cannot use any of it"
-    `PySide6` is a **base dependency**, not an optional extra, because two desktop
-    features ship enabled by default: the voice-activity overlay and the system-tray
-    icon. Every install therefore pays 648 MB for Qt — including installs that only ever
-    run `yazses transcribe` on a server, in a container, in CI, or on any headless
-    machine, where neither feature can appear.
+!!! success "Qt is now optional — headless installs are ~650 MB lighter"
+    `PySide6` is **no longer a base dependency**. It is 648 MB of Qt and it exists for
+    exactly two desktop features: the voice-activity overlay and the system-tray icon.
+    Installs that can never show either — servers, containers, CI, anything headless,
+    and anyone who only runs `yazses transcribe` — were paying for all of it.
 
-    **Do not try to delete it from an existing install.** Both the overlay and the tray
-    import it, so removing it breaks two features that are on by default, and a
-    `uv tool` environment has no `pip` in it to remove it with anyway.
+    It now lives in the **`desktop` extra**:
 
-    If you want the small install today, use
-    **[the Docker image](try-without-installing.md)**, which drops Qt and is 833 MB.
-    Making it a proper optional extra is
-    [tracked as an issue](https://github.com/MSKazemi/yazses/issues) — it is a breaking
-    change for desktop users, so it needs a release boundary rather than a quiet edit.
+    ```sh
+    pip install yazses              # headless: transcribe, meetings, the CLI
+    pip install 'yazses[desktop]'   # adds the overlay and the tray
+    ```
+
+    **Nothing changes for a normal desktop install.** `install.sh`, the `.deb` and the
+    Snap all pull the desktop extra, so the tray and overlay work out of the box exactly
+    as before. If you installed headless and later want them,
+    `yazses features enable tray` (or `overlay`) fetches Qt on demand.
+
+    Every import of it is lazy, so a headless copy simply reports the feature as
+    unavailable rather than failing. Tracked as
+    [#259](https://github.com/MSKazemi/yazses/issues/259).
 
 ## Downloads
 

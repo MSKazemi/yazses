@@ -880,6 +880,10 @@ def _registry() -> list[_Def]:
 _FEATURE_DEPS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     "gaze": (("cv2", "mediapipe"), ("mediapipe>=0.10", "opencv-python>=4.10")),
     "overlay": (("PySide6",), ("PySide6>=6.8",)),
+    # Same Qt dependency as the overlay. Registered separately because PySide6 is
+    # no longer a base dependency (it is the `desktop` extra), so enabling the tray
+    # on a headless-installed copy has to be able to fetch it too.
+    "tray": (("PySide6",), ("PySide6>=6.8",)),
     "prosody": (("parselmouth",), ("praat-parselmouth>=0.4.6",)),
     "voicehealth": (("parselmouth",), ("praat-parselmouth>=0.4.6",)),
     "read-back": (("kokoro_onnx", "onnxruntime", "soundfile"),

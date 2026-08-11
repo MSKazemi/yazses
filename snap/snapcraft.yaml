@@ -169,6 +169,12 @@ parts:
       - libdbus-1-3
     python-packages:
       - pip
+      # PySide6: the tray icon and the voice-activity overlay. It used to arrive
+      # as a base dependency; it is now the `desktop` extra, so it MUST be listed
+      # here explicitly. A snap cannot pip-install at runtime (read-only squashfs
+      # + PEP 668), so leaving it out would silently remove both features for the
+      # life of the revision. Publishes manylinux wheels for x86_64 and aarch64.
+      - PySide6>=6.11.1
       # Optional-feature libraries, bundled because a snap can NEVER install
       # them later: the payload is a read-only squashfs and the staged Debian
       # python ships a PEP 668 EXTERNALLY-MANAGED marker, so `yazses features

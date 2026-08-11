@@ -5,7 +5,7 @@ case "$1" in
         CALLER="${SUDO_USER:-}"
         if [ -n "$CALLER" ] && [ "$CALLER" != "root" ]; then
             su - "$CALLER" -c \
-                "pipx install yazses 2>/dev/null || pipx upgrade yazses"
+                "pipx install 'yazses[desktop]' 2>/dev/null || pipx upgrade yazses"
             su - "$CALLER" -c "pipx ensurepath"
         fi
         echo ""

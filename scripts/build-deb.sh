@@ -91,7 +91,7 @@ if [ "$1" = "configure" ]; then
             # source (it publishes no wheels), so it is the step most likely to fail on
             # a given machine — and silencing it produced a dpkg configure failure with
             # no diagnostic whatsoever, which is the least actionable failure possible.
-            su - "$CALLER" -c "pipx install yazses || pipx upgrade yazses"
+            su - "$CALLER" -c "pipx install 'yazses[desktop]' || pipx upgrade yazses"
             su - "$CALLER" -c "pipx ensurepath"
         fi
     else

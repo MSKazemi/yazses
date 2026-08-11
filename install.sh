@@ -183,7 +183,12 @@ if [ "$DRY_RUN" -eq 1 ]; then
 else
   info "Installing YazSes from ${REPO}@${REF} ..."
 fi
-run uv tool install --force --from "git+${REPO}@${REF}" yazses \
+# `--with PySide6` pulls the `desktop` extra's contents. PySide6 is no longer a base
+# dependency (it is 648 MB of Qt that a headless install cannot use), but this script
+# provisions a *desktop*, so the tray and the voice-activity overlay must still work
+# out of the box. uv resolves extras from `--from` git sources awkwardly, so the
+# requirement is named directly; keep it in step with the `desktop` extra in pyproject.
+run uv tool install --force --with "PySide6>=6.11.1" --from "git+${REPO}@${REF}" yazses \
   || error "Install failed. See the output above (need a compiler/Python? uv usually handles it)."
 
 # A dry run stops here: everything past this point drives the freshly installed binary,

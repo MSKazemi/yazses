@@ -70,11 +70,24 @@ dependencies = [
     'pywin32>=312; sys_platform == "win32"',
     'pystray>=0.19.5; sys_platform == "win32"',
     'Pillow>=12.3.0; sys_platform == "win32"',
-    "onnx-asr>=0.11.0",
+    # NOTE: onnx-asr is deliberately NOT here. It is the `parakeet` extra
+    # (`onnx-asr[cpu,hub]`), imported lazily by stt/parakeet.py; stt/factory.py falls
+    # back to faster-whisper with a warning when it is absent, and
+    # `yazses features enable stt-parakeet` installs it on demand. Listing it in the
+    # base install forced an ONNX runtime on every user of the default engine, and
+    # made the package unbuildable for distros that have no onnx-asr (see the AUR work).
     "cryptography>=50.0.0",
-    # Voice-activity overlay (yazses-overlay). Shipped in the base install so the
-    # overlay works everywhere out of the box (pip + snap), with no extra step.
-    "PySide6>=6.11.1",
+    # NOTE: PySide6 is deliberately NOT here. It is 648 MB of Qt -- 59% of a 1.1 GB
+    # install -- and it exists only for two desktop features (the voice-activity
+    # overlay and the system tray). Every headless install was paying for it and
+    # could not use any of it: servers, containers, CI, and anyone who only runs
+    # `yazses transcribe`, which never imports it.
+    #
+    # It lives in the `desktop` extra instead. Every documented install path
+    # (install.sh, the .deb, the Snap) asks for that extra, so a normal desktop
+    # install is unchanged; `yazses features enable overlay|tray` installs it
+    # on demand; and every import site is already lazy and degrades with a hint.
+    # See docs/install-cost.md and issue #259.
 ]
 
 [project.urls]
@@ -106,6 +119,13 @@ ble = [
     "bleak>=3.0.2",
 ]
 overlay = [
+    "PySide6>=6.11.1",
+]
+# Everything the desktop experience needs beyond the headless core. Kept as a
+# named alias of `overlay` so install paths can ask for intent ("I have a
+# desktop") rather than for a widget, and so adding a second desktop-only
+# dependency later does not mean editing every installer again.
+desktop = [
     "PySide6>=6.11.1",
 ]
 prosody = [
