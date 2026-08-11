@@ -144,7 +144,15 @@ def test_translated_readmes_do_not_keep_a_stale_gate_claim():
 #: every human-facing surface is a copy of it, and copies drift.
 CI_WORKFLOW = ".github/workflows/test.yml"
 #: Surfaces that quote the lint command to a contributor.
-LINT_SURFACES = ("AGENTS.md", "CONTRIBUTING.md", "README.md", "Makefile")
+#: `.devcontainer/setup.sh` is here because it is the *first* thing a Codespaces
+#: contributor reads, and it was telling them to run `ruff check .` — which exited 1 on a
+#: clean checkout over an import-order error in `design/research/verify_refs.py`, outside
+#: the `src tests scripts` CI lints. This list is what the check below iterates, so a
+#: surface that is not named here is a surface nobody is checking; the banner was drifting
+#: for exactly that reason.
+LINT_SURFACES = (
+    "AGENTS.md", "CONTRIBUTING.md", "README.md", "Makefile", ".devcontainer/setup.sh",
+)
 
 
 def _ruff_targets(text: str) -> list[list[str]]:

@@ -20,8 +20,14 @@ cat <<'BANNER'
   ▸ Just looking? Hear the transcription quality for yourself.
     A real clip ships with the repo, with the known-correct text beside it:
 
-        uv run yazses transcribe data/librispeech-sample/jfk.wav
+        uv run yazses transcribe data/librispeech-sample/jfk.wav -o /tmp/heard.txt
+        cat /tmp/heard.txt                       # what YazSes heard
         cat data/librispeech-sample/jfk.txt      # what it should say
+
+    The -o matters: without it the transcript is written beside the input as
+    jfk.txt, overwriting the reference you are comparing against. Expect
+    punctuation to differ — the reference has none, YazSes adds it — so
+    "Americans, ask not" against "Americans ask not" is a pass.
 
     First run downloads the base.en model (~141 MB); after that it is a
     couple of seconds. It runs right here — nothing is sent anywhere.
@@ -30,10 +36,11 @@ cat <<'BANNER'
         uv run yazses about                                              # what it is
 
   ▸ Here to contribute? The suite is fully offline and takes ~30 seconds.
-    No microphone, no model and no GPU required:
+    No microphone, no model and no GPU required. These are exactly the
+    commands CI runs, so green here means green there:
 
         uv run python -m pytest tests/ -q
-        uv run ruff check . && uv run mypy src
+        uv run ruff check src tests scripts && uv run mypy src
 
     Pick a task: https://mskazemi.com/yazses/contribute/start.html
 

@@ -10,8 +10,8 @@ import json
 import re
 import sys
 import time
-import urllib.parse
 import urllib.error
+import urllib.parse
 import urllib.request
 from difflib import SequenceMatcher
 

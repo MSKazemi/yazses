@@ -26,6 +26,27 @@ system with no `input` group — so joining that group is now a warning that pri
 command to run by hand, not a fatal error. A step that is not required for the install
 to be usable must not take the install down with it.
 
+### Fixed — the Codespaces welcome banner told contributors to run failing commands
+
+`.devcontainer/setup.sh` prints what to do the moment the container finishes building.
+It is the first thing anyone sees in a Codespace, and **two of the three commands it
+advertised failed on a clean checkout**:
+
+- `uv run ruff check .` exited 1. CI runs `ruff check src tests scripts`, and one
+  pre-existing import-order error sat in `design/research/verify_refs.py`, outside that
+  scope and therefore never caught. The import order is now fixed, so `.` is clean too,
+  and the banner names the same command CI runs — a contributor's green now means CI's
+  green rather than something narrower.
+- `uv run mypy src` exited 1: `opencc` ships no type stubs, and it arrived with the
+  unreleased `chinese_script` work. `opencc.*` joins the existing override list of
+  third-party packages without stubs, restoring `mypy src` to **no issues found in 435
+  source files**.
+
+A first-time contributor followed a welcome message and got two red gates for problems
+that were not theirs. The banner also repeated the sidecar-overwrite from the fix below
+— a fourth copy of the same snippet, and the one an evaluator meets first — so it now
+passes `-o` and explains why.
+
 ### Fixed — the "try it without installing" demo overwrote its own answer key
 
 `docs/try-without-installing.md` mounted `data/librispeech-sample` writable and ran

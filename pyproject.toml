@@ -276,9 +276,9 @@ files = ["src"]
 [[tool.mypy.overrides]]
 module = [
     "bleak.*", "cv2.*", "df.*", "faster_whisper.*", "kokoro_onnx.*", "l2cs.*",
-    "llama_cpp.*", "mediapipe.*", "pyannote.*", "pyatspi.*", "pynvim.*", "pywintypes.*",
-    "resemblyzer.*", "sherpa_onnx.*", "silero_vad.*", "sounddevice.*", "speechbrain.*",
-    "tomli_w.*", "torch.*", "win32file.*", "win32pipe.*", "Xlib.*",
+    "llama_cpp.*", "mediapipe.*", "opencc.*", "pyannote.*", "pyatspi.*", "pynvim.*",
+    "pywintypes.*", "resemblyzer.*", "sherpa_onnx.*", "silero_vad.*", "sounddevice.*",
+    "speechbrain.*", "tomli_w.*", "torch.*", "win32file.*", "win32pipe.*", "Xlib.*",
 ]
 ignore_missing_imports = true
 
