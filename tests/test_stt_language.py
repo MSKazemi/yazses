@@ -30,7 +30,10 @@ def calls(monkeypatch):
         words: list = []
 
     class _FakeModel:
-        def __init__(self, model_name, device="cpu", compute_type="int8") -> None:
+        # **kwargs so the fake accepts `local_files_only`, which the real loader
+        # passes on its first (cache-only) attempt; without it these fakes would
+        # silently exercise the download fallback instead of the real path.
+        def __init__(self, model_name, device="cpu", compute_type="int8", **kwargs) -> None:
             pass
 
         def transcribe(self, audio, **kwargs):

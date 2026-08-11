@@ -26,6 +26,28 @@ system with no `input` group — so joining that group is now a warning that pri
 command to run by hand, not a fatal error. A step that is not required for the install
 to be usable must not take the install down with it.
 
+### Fixed — loading an already-downloaded model still contacted Hugging Face
+
+`WhisperModel(name)` defaults to `local_files_only=False`, so faster-whisper asked
+huggingface_hub to revalidate the snapshot **on every load, even when every file was
+already cached**. That put a network round-trip on the startup path of a program whose
+first line is that your voice never leaves your machine — the daemon made it on every
+single start, and so did `yazses transcribe` and meeting capture.
+
+On a good connection it is a round-trip nobody notices. The problem is that it has no
+timeout, so when the call neither succeeds nor fails — a captive portal, a blackholed
+firewall rule, hub rate-limiting — the process simply stops. Measured on a machine with
+`base.en` fully cached: **over fifteen minutes at "Loading STT model", ~0% CPU, no
+output and no error**, against **2.3 s** for the identical command with
+`HF_HUB_OFFLINE=1`. A hard failure would have been kinder; an air-gapped machine gets
+the hard failure and is fine, which is why this went unnoticed.
+
+The cache is now tried first and the network used only on a miss, so a cached model
+loads with no network at all (2.4 s, measured, no environment variables) and a missing
+one is downloaded exactly as before. The fallback is the point — trading a hang for a
+broken first run would be no improvement — and a genuine download failure still
+propagates rather than leaving the engine holding no model.
+
 ### Fixed — the Codespaces welcome banner told contributors to run failing commands
 
 `.devcontainer/setup.sh` prints what to do the moment the container finishes building.

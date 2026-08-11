@@ -6,6 +6,41 @@ from faster_whisper import WhisperModel
 log = logging.getLogger(__name__)
 
 
+def _load_model(model_name: str, device: str, compute_type: str) -> WhisperModel:
+    """Load the model from the local cache first, and only then from the network.
+
+    `WhisperModel(name)` defaults to `local_files_only=False`, so faster-whisper asks
+    huggingface_hub for the snapshot — and the hub is contacted **even when every file
+    is already cached**, to revalidate the revision. On a good connection that is a
+    fast round-trip nobody notices. It is the other cases that matter here:
+
+    * It is a network call on the startup path of a program whose headline claim is
+      that it does not need the network. The daemon made it on every single start.
+    * When that call neither succeeds nor fails — a captive portal, a blackholed
+      firewall rule, hub rate-limiting — there is no timeout and no error, so the
+      process simply stops at "Loading STT model" forever. Measured on a machine with
+      `base.en` fully cached: **>15 minutes and still hanging, ~0% CPU**, against
+      **2.3 s** for the identical command with `HF_HUB_OFFLINE=1`.
+
+    A hard failure would have been better than that, and an air-gapped machine — which
+    the README names as a target — gets the hard failure and is fine. The pathological
+    case is a network that answers slowly or not at all.
+
+    So: try the cache, fall back to downloading. A cached model now loads with no
+    network at all, and a missing one is fetched exactly as before. The fallback keeps
+    the previous behaviour intact rather than trading one failure mode for another.
+    """
+    try:
+        return WhisperModel(
+            model_name, device=device, compute_type=compute_type, local_files_only=True
+        )
+    except Exception:
+        # Not in the cache (or the cache is unusable) — this is the first run, or a
+        # newly configured model. Fetch it, which is what the user is waiting for.
+        log.info("Model '%s' is not in the local cache; downloading it once.", model_name)
+        return WhisperModel(model_name, device=device, compute_type=compute_type)
+
+
 class FasterWhisperEngine:
     # Class-level default so a partially constructed engine (tests build one via
     # __new__ to exercise the streaming seam without loading a model) still has a
@@ -20,7 +55,7 @@ class FasterWhisperEngine:
         language: str = "en",
     ) -> None:
         log.info("Loading STT model '%s' on %s (%s)...", model_name, device, compute_type)
-        self._model = WhisperModel(model_name, device=device, compute_type=compute_type)
+        self._model = _load_model(model_name, device, compute_type)
         # `[stt] language`; "" means auto-detect, expressed to faster-whisper by
         # omitting the kwarg entirely (passing language=None means the same thing
         # but relies on an undocumented default — omission is the explicit form).

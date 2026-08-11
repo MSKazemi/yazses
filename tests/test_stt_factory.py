@@ -23,7 +23,10 @@ def fake_whisper(monkeypatch):
     loaded: list[tuple] = []
 
     class _FakeModel:
-        def __init__(self, model_name, device="cpu", compute_type="int8") -> None:
+        # **kwargs so the fake accepts `local_files_only`, which the real loader
+        # passes on its first (cache-only) attempt; without it these fakes would
+        # silently exercise the download fallback instead of the real path.
+        def __init__(self, model_name, device="cpu", compute_type="int8", **kwargs) -> None:
             loaded.append((model_name, device, compute_type))
 
         def transcribe(self, audio, **kwargs):  # pragma: no cover - not exercised
