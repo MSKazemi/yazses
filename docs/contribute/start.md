@@ -17,6 +17,9 @@ Pick the row that matches what you have in front of you right now.
 | **An editor or terminal you use daily** | [Share a config for it](https://github.com/MSKazemi/yazses/issues/43) | 30 min |
 | **Python, and you want real code** | [Browse the task list](tasks.md) and take any `WIRE-*` or `QA-*` | 60–90 min |
 
+Want to narrow it yourself instead? **[Filter the full list](find.md)** by what you have,
+how long you've got, and whether you want to write code.
+
 Still undecided? Take the second row. **Nobody can test YazSes on your machine but you**, and
 that is the single most useful thing the project is missing — 297 environments are listed and
 almost none are covered.

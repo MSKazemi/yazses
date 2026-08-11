@@ -44,6 +44,7 @@ STATS_JSON = CAMPAIGN / "generated" / "stats.json"
 #: Generated rather than copied, so a test catches them drifting from the inventory.
 DOCS_TASKS_MD = ROOT / "docs" / "contribute" / "tasks.md"
 DOCS_BUILT_MD = ROOT / "docs" / "contribute" / "built.md"
+DOCS_FINDER_MD = ROOT / "docs" / "contribute" / "find.md"
 
 # ── The contract ──────────────────────────────────────────────────────────────
 
@@ -391,6 +392,134 @@ def render_dashboard(tasks: list[dict[str, Any]]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _env_of(task: dict[str, Any]) -> tuple[str, str]:
+    """(filter key, human label) for what a contributor physically needs."""
+    if task.get("requires"):
+        return "hardware", "your own machine"
+    if task["cloud_agent_ready"]:
+        return "cloud", "a browser or container"
+    return "local", "a local clone"
+
+
+def _escape(text: str) -> str:
+    return (
+        text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+    )
+
+
+def render_task_finder(tasks: list[dict[str, Any]]) -> str:
+    """A filterable task page — self-contained, no network, no tracking.
+
+    The static table answers "what is open"; it does not answer "which of these 297
+    compatibility tasks is *mine*", which is the only question a newcomer on Fedora with
+    KDE actually has. Scanning a 130-row table for it is the friction that loses people
+    between arriving and starting.
+
+    Every row is rendered into the HTML, and the script only hides and shows. With
+    JavaScript disabled the page is a complete, readable list rather than an empty box —
+    and there is no request to anywhere, which is the only acceptable behaviour on the
+    documentation site of a tool whose entire claim is that nothing leaves your machine.
+    """
+    openable = sorted(
+        (t for t in tasks if t["state"] == "open"),
+        key=lambda t: (t["minutes"], t["family"], t["id"]),
+    )
+    families = sorted({t["family"] for t in openable})
+
+    rows: list[str] = []
+    for t in openable:
+        env_key, env_label = _env_of(t)
+        skills = ", ".join(t["skills"]) or "no coding"
+        needs = ", ".join(sorted((t.get("requires") or {}).values())) or env_label
+        rows.append(
+            f'<tr class="yz-row" data-env="{env_key}" data-family="{t["family"]}" '
+            f'data-minutes="{t["minutes"]}" data-skills="{_escape(skills.lower())}" '
+            f'data-text="{_escape((t["title"] + " " + needs).lower())}">'
+            f'<td><strong>{_escape(t["title"])}</strong><br>'
+            f'<code>{t["id"]}</code> · {t["risk"]} · {t["minutes"]} min</td>'
+            f'<td>{_escape(needs)}</td><td>{_escape(skills)}</td></tr>'
+        )
+
+    options = "".join(f'<option value="{f}">{f}</option>' for f in families)
+    return f"""---
+title: Find a task that fits you
+description: Filter {len(openable)} open YazSes contributor tasks by what you have — a browser, a laptop, specific hardware — how much time, and whether you want to write code.
+---
+
+# Find a task that fits you
+
+Filter by what you actually have. Nothing is assigned and you need no permission — pick one,
+say so on the issue it links to, and open the pull request.
+[How to make your first contribution](start.md) if you want the short version.
+
+<div class="yz-filters" markdown="0">
+  <label>What you have
+    <select id="yz-env">
+      <option value="">anything</option>
+      <option value="cloud">just a browser</option>
+      <option value="local">a laptop I can clone onto</option>
+      <option value="hardware">specific hardware or an OS</option>
+    </select>
+  </label>
+  <label>Time
+    <select id="yz-time">
+      <option value="">any</option>
+      <option value="20">under 20 min</option>
+      <option value="30">under 30 min</option>
+      <option value="60">under 60 min</option>
+    </select>
+  </label>
+  <label>Kind
+    <select id="yz-family"><option value="">all</option>{options}</select>
+  </label>
+  <label>Search
+    <input id="yz-q" type="search" placeholder="fedora, kitty, hindi…" autocomplete="off">
+  </label>
+</div>
+
+<p id="yz-count"><strong>{len(openable)}</strong> tasks shown.</p>
+
+<table class="yz-table">
+<thead><tr><th>Task</th><th>You need</th><th>Skills</th></tr></thead>
+<tbody>
+{chr(10).join(rows)}
+</tbody>
+</table>
+
+<style>
+.yz-filters {{ display: flex; flex-wrap: wrap; gap: 1rem; margin: 1rem 0; }}
+.yz-filters label {{ display: flex; flex-direction: column; font-size: .75rem; font-weight: 700; }}
+.yz-filters select, .yz-filters input {{ margin-top: .25rem; padding: .35rem; font-size: .8rem; }}
+.yz-table td {{ vertical-align: top; }}
+</style>
+
+<script>
+(function () {{
+  var env = document.getElementById('yz-env'), time = document.getElementById('yz-time'),
+      fam = document.getElementById('yz-family'), q = document.getElementById('yz-q'),
+      count = document.getElementById('yz-count'),
+      rows = Array.prototype.slice.call(document.querySelectorAll('.yz-row'));
+  function apply() {{
+    var e = env.value, t = parseInt(time.value || '0', 10), f = fam.value,
+        s = (q.value || '').trim().toLowerCase(), shown = 0;
+    rows.forEach(function (r) {{
+      var ok = (!e || r.dataset.env === e)
+        && (!t || parseInt(r.dataset.minutes, 10) <= t)
+        && (!f || r.dataset.family === f)
+        && (!s || r.dataset.text.indexOf(s) !== -1 || r.dataset.skills.indexOf(s) !== -1);
+      r.style.display = ok ? '' : 'none';
+      if (ok) shown++;
+    }});
+    count.innerHTML = '<strong>' + shown + '</strong> task' + (shown === 1 ? '' : 's')
+      + ' shown.' + (shown ? '' : ' Try widening a filter — every task here is real work.');
+  }}
+  [env, time, fam].forEach(function (el) {{ el.addEventListener('change', apply); }});
+  q.addEventListener('input', apply);
+}})();
+</script>
+"""
+
+
 def generate(tasks: list[dict[str, Any]]) -> dict[Path, str]:
     """Every generated artifact, as path -> content. Written only by --generate."""
     return {
@@ -400,6 +529,7 @@ def generate(tasks: list[dict[str, Any]]) -> dict[Path, str]:
         STATS_JSON: json.dumps(stats(tasks), indent=2) + "\n",
         DOCS_TASKS_MD: render_open_tasks(tasks),
         DOCS_BUILT_MD: render_dashboard(tasks),
+        DOCS_FINDER_MD: render_task_finder(tasks),
     }
 
 

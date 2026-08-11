@@ -610,6 +610,42 @@ def test_each_script_runs_end_to_end(script, argv, capsys):
     assert capsys.readouterr().out or capsys.readouterr().err
 
 
+def test_the_task_finder_lists_every_open_task_in_the_html_itself(campaign, tasks):
+    """The filter script must only hide rows, never create them.
+
+    A finder that builds its list in JavaScript is an empty box to anyone with JS off, to
+    a text browser, and to every crawler — including the answer engines this project wants
+    citing it. Rendering server-side costs nothing and degrades to a plain readable table.
+    """
+    html = campaign.render_task_finder(tasks)
+    open_count = sum(1 for t in tasks if t["state"] == "open")
+    assert html.count('class="yz-row"') == open_count, (
+        "the finder must contain one rendered row per open task"
+    )
+    for control in ('id="yz-env"', 'id="yz-time"', 'id="yz-family"', 'id="yz-q"'):
+        assert control in html, f"filter control {control} is missing"
+
+
+def test_the_task_finder_makes_no_third_party_request(campaign, tasks):
+    """A tracking-free docs page is not optional for a tool whose claim is no egress."""
+    html = campaign.render_task_finder(tasks)
+    for bad in ("cdn.", "googleapis", "unpkg", "jsdelivr", "<img src=\"http"):
+        assert bad not in html, f"the finder page reaches out to {bad!r}"
+
+
+def test_the_finder_escapes_task_text(campaign):
+    """Task titles become HTML attributes; an unescaped quote would break the markup."""
+    evil = {
+        "id": "X-001", "family": "docs", "title": 'a "quoted" <b>title</b>',
+        "value": "v", "risk": "L1", "minutes": 30, "skills": [],
+        "cloud_agent_ready": True, "allowed_paths": ["docs/**"],
+        "validation": ["uv run python -m pytest tests/ -q"], "state": "open", "evidence": [],
+    }
+    html = campaign.render_task_finder([evil])
+    assert "<b>title</b>" not in html, "raw HTML from a task title reached the page"
+    assert "&quot;quoted&quot;" in html or "&lt;b&gt;" in html
+
+
 def test_report_is_actionable_when_scope_is_wrong(preflight, tasks):
     task = next(t for t in tasks if t["state"] == "open")
     ok, report = preflight.render_report(

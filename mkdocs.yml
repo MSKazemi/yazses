@@ -289,7 +289,8 @@ nav:
   - Contributing:
       - Start here — your first contribution: contribute/start.md
       - How to contribute: contributing.md
-      - Pick a task: contribute/tasks.md
+      - Find a task that fits you: contribute/find.md
+      - All open tasks: contribute/tasks.md
       - What contributors built: contribute/built.md
   - Roadmap: roadmap.md
   - Releases: releases/index.md
