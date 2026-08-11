@@ -505,11 +505,16 @@ Contributions are very welcome — bug reports, docs, packaging, and code.
 ```bash
 uv run python -m pytest tests/   # tests — must be green
 uv run ruff check src tests      # lint  — must be green
-uv run mypy src                  # types — advisory (known pre-existing errors)
+uv run mypy src                  # types — advisory (currently clean; don't add errors)
 ```
 
 Or just `make check`. Tests run fully offline in about 15 seconds — no microphone, model
 download, or optional extras needed.
+
+**No local setup?** The repo ships a [Dev Container](.devcontainer/devcontainer.json), so
+[opening it in GitHub Codespaces](https://codespaces.new/MSKazemi/yazses) gives you a ready
+environment in the browser. Docs, config, tests, and pure-logic changes work fully there;
+anything needing a real microphone, hotkey device, or window focus needs a local machine.
 
 Everything is offline-first — please don't add network calls or telemetry.
 

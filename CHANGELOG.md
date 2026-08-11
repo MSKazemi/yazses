@@ -6,6 +6,41 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the agent instruction files told contributors the wrong gate
+
+`AGENTS.md` told every coding agent that the codebase carried "~135 known type errors
+across 50 files" and that "a clean run is not the bar". `README.md`, `README.hi.md` and
+the `Makefile` said the same in shorter words. `CONTRIBUTING.md` said the opposite, and
+`CONTRIBUTING.md` was right: `uv run mypy src` reports `Success: no issues found in 433
+source files`. An agent reading the stale file would have shipped type errors and
+reported them as pre-existing — while following the instructions it was given. All four
+surfaces now state the actual bar.
+
+`AGENTS.md` also sent contributors to a root `CLAUDE.md` for the architecture reference.
+That file is gitignored on purpose — it holds local assistant configuration — so it exists
+in the maintainer's checkout and in no clone anyone else has ever made. The pointer read
+fine to the only person who could not observe it failing. It now points at
+`docs/architecture.md`, which is tracked, and says explicitly that root-level assistant
+config files are not shipped and must never be cited to a contributor.
+
+`tests/test_agent_instructions.py` is the guard that makes this stay true. It fails when a
+shipped instruction file points at a file **git does not ship** — resolving paths through
+`git ls-files` rather than the filesystem, because a working-tree check would have passed
+on the maintainer's machine while the link was broken for everyone else, reproducing the
+bug instead of catching it. It matches both markdown links and backticked references,
+since the dangling pointer was the backticked form. It also fails when any surface —
+including a translated README — goes back to describing type errors as known or
+pre-existing. Both guards were verified red against the pre-change text.
+
+### Added — the Codespaces path is finally advertised
+
+The repo has shipped a working `.devcontainer/devcontainer.json` for a while and nothing
+in `README.md` or `CONTRIBUTING.md` said so. A contributor with no local Python — the
+largest group any first-contribution drive reaches — had no way to know that docs, config,
+test and pure-logic changes need no setup at all. Both READMEs now link the one-click
+Codespaces path and state plainly what it cannot do: anything needing a real microphone,
+hotkey device, or window focus still needs a local machine.
+
 ### Added — Hindi README and the language switcher (#165, part of #18)
 
 `README.hi.md` is the project's first translation, covering the lede through Quick

@@ -1,0 +1,156 @@
+"""The agent instruction files must agree with each other and with reality.
+
+Five surfaces tell a contributor — human or coding agent — what the gates are:
+`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `CONTRIBUTING.md`, `README.md` (plus its
+translations) and the `Makefile`. They are hand-maintained and they had drifted in the
+worst possible direction: `AGENTS.md` told agents the codebase carried "~135 known type
+errors across 50 files" and that "a clean run is not the bar", while `CONTRIBUTING.md`
+said mypy reports no issues at all. `mypy src` actually reports `Success: no issues found
+in 433 source files`. An agent reading the stale file would have shipped type errors and
+called them pre-existing — and been following the instructions when it did.
+
+`AGENTS.md` also sent contributors to a root `CLAUDE.md` for the architecture reference.
+That file is deliberately **gitignored** — it carries local configuration — so it exists in
+the maintainer's checkout and in no clone anyone else has ever made. The instruction read
+fine to the only person who could not observe it failing.
+
+That last point is why these checks resolve paths through `git ls-files` rather than the
+filesystem: the question is never "is this file on this disk", it is "does a contributor
+receive this file". A test that reads the working tree would have passed on the maintainer's
+machine while the reference was broken for everybody else — reproducing the exact bug.
+
+These checks are offline, deterministic, and cheap. They do not run mypy — that is the
+`types` target's job. They check the far more fragile thing: that the files do not
+contradict each other, and that none of them points at something a contributor cannot see.
+"""
+from __future__ import annotations
+
+import re
+import subprocess
+from functools import lru_cache
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+
+CANONICAL = "AGENTS.md"
+#: Every surface that states whether the type checker is clean.
+MYPY_SURFACES = ("AGENTS.md", "CONTRIBUTING.md", "README.md", "Makefile")
+
+
+@lru_cache(maxsize=1)
+def _tracked() -> frozenset[str]:
+    """Repo-relative paths git actually ships. Empty set if git is unavailable."""
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(ROOT), "ls-files"],
+            capture_output=True, text=True, check=True, timeout=30,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return frozenset()
+    return frozenset(line for line in out.splitlines() if line)
+
+
+def _read(name: str) -> str:
+    return (ROOT / name).read_text(encoding="utf-8")
+
+
+def _translated_readmes() -> list[Path]:
+    return sorted(p for p in ROOT.glob("README.*.md") if p.name != "README.md")
+
+
+def test_the_canonical_agent_file_is_shipped():
+    """`AGENTS.md` is the one instruction file a contributor is guaranteed to get.
+
+    The tool-specific files (`CLAUDE.md`, `GEMINI.md`) are deliberately gitignored as
+    local configuration, so this is the only agent brief that travels with a clone.
+    """
+    assert CANONICAL in _tracked() or not _tracked(), (
+        f"{CANONICAL} is not tracked by git — it is the public agents.md contributor "
+        "standard and the only agent instruction file that reaches a clone"
+    )
+
+
+def _instruction_links(text: str) -> set[str]:
+    """Every repo file this text sends a reader to, in either form it is written.
+
+    Both forms count and both have broken in this repo:
+
+        [docs/architecture.md](docs/architecture.md)   markdown link
+        `CLAUDE.md` in the repo root holds ...          backticked reference
+
+    The original dangling pointer was the *second* form, so matching only markdown
+    links would reproduce the miss this test exists to prevent.
+    """
+    linked = re.findall(r"\]\(([A-Za-z0-9_./-]+\.md)\)", text)
+    backticked = re.findall(r"`([A-Za-z0-9_./-]+\.md)`", text)
+    return set(linked) | set(backticked)
+
+
+def test_no_shipped_instruction_file_points_at_something_unshipped():
+    """The failure this suite exists to catch, in its general form.
+
+    `AGENTS.md` told contributors to read a root `CLAUDE.md` that no clone contains.
+    A gitignored target is worse than a missing one: it resolves on the author's
+    machine, so the broken link is invisible to the only person who could fix it.
+    """
+    tracked = _tracked()
+    if not tracked:  # no git available (sdist, vendored tree) — nothing to verify against
+        return
+    for name in (CANONICAL, "CONTRIBUTING.md", "README.md"):
+        for target in _instruction_links(_read(name)):
+            assert target in tracked, (
+                f"{name} links to {target}, which git does not ship — a contributor "
+                "who clones this repo cannot open it. Point at a tracked file, or "
+                "drop the reference. (If it exists on your disk, it is gitignored.)"
+            )
+
+
+def _claims_known_type_errors(text: str) -> bool:
+    """Does this surface tell the reader that type errors are expected and acceptable?"""
+    return bool(
+        re.search(r"pre-existing (type )?errors?", text, re.I)
+        or re.search(r"known (type )?errors?", text, re.I)
+        or re.search(r"\d+ known type errors", text, re.I)
+    )
+
+
+def test_no_surface_claims_type_errors_are_expected():
+    """`mypy src` reports no issues. Every surface must say the same thing.
+
+    This is prose-level, not a mypy run: the `types` target proves the codebase, this
+    proves the *instructions* match it. If mypy ever legitimately carries a backlog
+    again, update `CONTRIBUTING.md` and this test together — deliberately, in one PR,
+    rather than letting four files drift apart over months.
+    """
+    lying = [name for name in MYPY_SURFACES if _claims_known_type_errors(_read(name))]
+    assert not lying, (
+        f"these surfaces still tell contributors that type errors are pre-existing or "
+        f"known: {lying}. `uv run mypy src` reports no issues across the source tree — "
+        "an agent that believes otherwise will ship type errors and report them as "
+        "someone else's. CONTRIBUTING.md holds the correct wording."
+    )
+
+
+def test_translated_readmes_do_not_keep_a_stale_gate_claim():
+    """A translation carrying the old claim is the same bug, harder to notice."""
+    stale = [p.name for p in _translated_readmes() if _claims_known_type_errors(p.read_text(encoding="utf-8"))]
+    assert not stale, (
+        f"translated READMEs still claim known/pre-existing type errors: {stale} — "
+        "the gate block is copied verbatim from README.md, so copy the corrected one across"
+    )
+
+
+def test_the_browser_only_contribution_path_is_advertised():
+    """The repo ships a Dev Container; for a long time nothing told a newcomer.
+
+    A contributor with no local Python — the single largest group a first-contribution
+    campaign reaches — could not tell that docs, config and test changes need no setup
+    at all. The environment existed and was invisible.
+    """
+    assert (ROOT / ".devcontainer" / "devcontainer.json").is_file(), (
+        "the Dev Container is gone but README.md still advertises Codespaces"
+    )
+    assert "codespaces.new" in _read("README.md"), (
+        "README.md no longer links the Codespaces one-click path — the Dev Container "
+        "only helps people who know it is there"
+    )

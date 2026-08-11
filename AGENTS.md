@@ -19,17 +19,20 @@ managed with `uv`.
 uv sync
 uv run python -m pytest tests/ -v   # tests  (note: python -m pytest, not `uv run pytest`)
 uv run ruff check src tests         # lint
-uv run mypy src                     # types — advisory, see below
+uv run mypy src                     # types — clean today, advisory, see below
 ```
 
 **pytest and ruff must be green.** Run them before claiming anything works — do not infer
 success from a change looking correct. The suite is offline and mocks audio and model
 layers, so no microphone, network, or Whisper model download is required.
 
-**mypy is advisory for now.** The codebase currently has ~135 known type errors across 50
-files, so a clean run is not the bar. The bar is: *do not add new ones in the files you
-touch*. Check with `uv run mypy src 2>&1 | grep <your_file>`. Reducing the existing count,
-one module at a time, is a welcome contribution.
+**mypy is clean and advisory.** `uv run mypy src` currently reports **no issues across 433
+source files**, so if it reports an error, you almost certainly just introduced it — fix it
+rather than reporting it as pre-existing. It is not a CI gate (only `ruff` and `pytest`
+are), but do not leave the count above zero.
+
+The `[tool.mypy]` section in `pyproject.toml` silences the imports of optional backends a
+base install deliberately omits. Those are absent by design, not bugs — do not "fix" them.
 
 If you change any CLI command, flag, or config key, regenerate the reference docs or the
 sync test will fail:
@@ -84,8 +87,12 @@ uv run python -m pytest -k "pattern"
 | File transcription + diarization | `src/yazses/recimport/` |
 | Tests | `tests/` |
 
-`CLAUDE.md` in the repo root holds a fuller architecture reference — read it before making
-a structural change.
+[`docs/architecture.md`](docs/architecture.md) holds the fuller architecture reference —
+read it before making a structural change.
+
+(A maintainer's checkout may also carry root-level assistant config files. Those are
+deliberately **not** in the repository, so never assume one is present and never tell a
+contributor to read one — this file is the brief every agent is guaranteed to have.)
 
 ## Documentation expectations
 

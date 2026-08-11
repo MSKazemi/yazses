@@ -26,8 +26,8 @@ install:
 
 # ── Quality gate ──────────────────────────────────────────────────────────────
 
-# The gate a PR must pass. `types` is advisory (known pre-existing errors) and is
-# reported separately so it never blocks the green/red signal.
+# The gate a PR must pass. `types` is advisory (currently clean) and is reported
+# separately so it never blocks the green/red signal.
 check: test lint hygiene
 	@echo ""
 	@echo "✓  Gate passed (tests + lint). Type check is advisory:"
@@ -54,7 +54,7 @@ hygiene:
 	uv run python scripts/check_repo_size.py
 
 types:
-	@echo "▶  Type checking (advisory — pre-existing errors are expected)…"
+	@echo "▶  Type checking (advisory — currently clean; don't add errors)…"
 	uv run mypy src
 
 # ── Documentation ─────────────────────────────────────────────────────────────

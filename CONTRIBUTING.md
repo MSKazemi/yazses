@@ -12,6 +12,14 @@ a small imperfect PR and polish it afterwards than leave you waiting.
 
 ## Getting started
 
+**Want to skip setup entirely?** The repo ships a
+[Dev Container](.devcontainer/devcontainer.json), so
+[opening it in GitHub Codespaces](https://codespaces.new/MSKazemi/yazses) gives you a
+working environment in the browser with `uv sync` already done — no compiler, no Python,
+no clone. Docs, config examples, tests, and pure-logic changes are fully doable there.
+What it cannot give you is a real microphone, a hotkey device, or window focus, so
+anything that needs *observed* dictation behaviour needs a local machine.
+
 **On Linux, install a C compiler first.** This is the one step that bites people, and it
 fails at `uv sync` with a wall of compiler errors rather than a helpful message:
 [`evdev`](https://pypi.org/project/evdev/) (the keyboard hook) publishes **no wheels at
