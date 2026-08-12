@@ -2200,6 +2200,15 @@ def quickstart() -> None:
     if not shutil.which("yazses"):  # pragma: no cover - defensive
         typer.echo("\n  (If `yazses` isn't found, restart your shell to refresh PATH.)")
 
+    # Asked once, here, and nowhere else. A tool nobody has heard of is found by
+    # word of mouth or not at all, and this is the only moment the user is looking
+    # at the project rather than at their own work. It never repeats and never
+    # blocks — `quickstart` is read-only and explicitly invoked.
+    typer.secho("\nIf YazSes turns out to be useful", bold=True)
+    typer.echo("  A star is how other people find it — there is no company or ad budget behind this:")
+    typer.echo("    https://github.com/MSKazemi/yazses")
+    typer.echo("  Not working, or missing something you need? Open an issue — a human reads them.")
+
 
 @app.command(
     rich_help_panel=_SETUP,

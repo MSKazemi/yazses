@@ -6,6 +6,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the project now asks, once, in the two places someone is actually looking
+
+YazSes had ~583 PyPI downloads a week and four stars. The gap was not that people disliked
+it; it was that nothing ever asked. The single existing ask sat on **line 616 of a 616-line
+README** — the last line of the file — and the CLI and docs never asked at all.
+
+`yazses quickstart` now closes with one line pointing at the repo, and the README asks
+immediately after the demo, where a reader has just watched it work rather than after
+scrolling past the licence. Both say the same true thing: there is no company and no ad
+budget here, so word of mouth is the whole distribution strategy.
+
+It is deliberately not a nag — `quickstart` is read-only and explicitly invoked, the line
+never prompts, never blocks, and appears once per invocation. A test pins both the URL and
+the no-repeat property, because an onboarding path that starts begging is worse than one
+that never asks.
+
 ### Fixed — `install-apt.sh` failed on every container and fresh VM
 
 The script runs under `set -euo pipefail` and read `$USER`. That variable is set by

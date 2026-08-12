@@ -33,6 +33,9 @@ asciinema recording of the CLI happy path (`-h` → `about` → `quickstart` →
 `status`) — every byte is real command output, nothing hand-typed. Play it with
 [asciinema](https://asciinema.org): `asciinema play docs/demo/yazses-cli.cast`.
 
+> ⭐ **If that looks useful, a star is how other people find it.** There's no company and no
+> ad budget behind this — word of mouth is the entire distribution strategy.
+
 > 🙌 **Want to help?** **[Start here](https://mskazemi.com/yazses/contribute/start.html)** — one page, pick the row matching what you have, finish in 15–45 minutes. No permission needed and nothing is assigned; coding agents are welcome and there's a copy-paste prompt. Several tasks need **no Python at all** — [translate the README](https://github.com/MSKazemi/yazses/issues/18) into your language, [add your microphone](https://github.com/MSKazemi/yazses/issues/21) to the known-good list, or just run it and tell us what happened. [#22](https://github.com/MSKazemi/yazses/issues/22) lists everything open. The test suite is fully offline and takes about 30 seconds, so you need no microphone, model or GPU to contribute.
 
 ---

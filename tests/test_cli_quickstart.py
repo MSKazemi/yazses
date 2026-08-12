@@ -97,6 +97,28 @@ def test_quickstart_changes_nothing(monkeypatch):
     assert started == []
 
 
+def test_quickstart_asks_for_a_star_with_a_usable_link(monkeypatch):
+    # A project nobody has heard of is found by word of mouth or not at all, and
+    # nothing else in the CLI or README ever asks. The repo URL must be present
+    # and correct, or the ask is worse than useless.
+    plat = _Platform(running=False)
+    _patch(monkeypatch, plat)
+    result = runner.invoke(cli.app, ["quickstart"])
+    assert result.exit_code == 0
+    assert "https://github.com/MSKazemi/yazses" in result.output
+    assert "star" in result.output.lower()
+
+
+def test_quickstart_star_ask_does_not_nag_or_block(monkeypatch):
+    # Guard against this turning into a nag: it appears once per invocation of an
+    # explicitly-requested, read-only command, and never prompts for input.
+    plat = _Platform(running=False)
+    _patch(monkeypatch, plat)
+    result = runner.invoke(cli.app, ["quickstart"], input="")
+    assert result.exit_code == 0
+    assert result.output.lower().count("a star is how") == 1
+
+
 # ---- actionable status / stop ---------------------------------------------
 
 
