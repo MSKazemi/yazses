@@ -23045,7 +23045,7 @@
     "id": "PKG-009",
     "family": "packaging",
     "title": "Verify the winget install path on x86-64",
-    "value": "A broken install channel loses every user who tries it, silently. Verifying one channel end to end is cheap and nobody does it per release.",
+    "value": "BLOCKED - there is no winget manifest for YazSes in microsoft/winget-pkgs, so there is no install path to verify. Kept out of `open` until one exists; the task that unblocks it is creating and submitting the manifest. Verifying a channel end to end is still worth doing once the channel is real.",
     "risk": "L0",
     "minutes": 20,
     "cloud_agent_ready": false,
@@ -23064,7 +23064,7 @@
       "the exact install command and the version it produced",
       "whether `yazses doctor` passed straight afterwards"
     ],
-    "state": "open",
+    "state": "draft",
     "source": "packaging channels in README",
     "skills": []
   },
@@ -23072,7 +23072,7 @@
     "id": "PKG-010",
     "family": "packaging",
     "title": "Verify the winget install path on arm64",
-    "value": "A broken install channel loses every user who tries it, silently. Verifying one channel end to end is cheap and nobody does it per release.",
+    "value": "BLOCKED - there is no winget manifest for YazSes in microsoft/winget-pkgs, so there is no install path to verify. Kept out of `open` until one exists; the task that unblocks it is creating and submitting the manifest. Verifying a channel end to end is still worth doing once the channel is real.",
     "risk": "L0",
     "minutes": 20,
     "cloud_agent_ready": false,
@@ -23091,7 +23091,7 @@
       "the exact install command and the version it produced",
       "whether `yazses doctor` passed straight afterwards"
     ],
-    "state": "open",
+    "state": "draft",
     "source": "packaging channels in README",
     "skills": []
   },

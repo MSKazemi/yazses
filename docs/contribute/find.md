@@ -1,6 +1,6 @@
 ---
 title: Find a task that fits you
-description: Filter 130 open YazSes contributor tasks by what you have — a browser, a laptop, specific hardware — how much time, and whether you want to write code.
+description: Filter 128 open YazSes contributor tasks by what you have — a browser, a laptop, specific hardware — how much time, and whether you want to write code.
 ---
 
 # Find a task that fits you
@@ -34,7 +34,7 @@ say so on the issue it links to, and open the pull request.
   </label>
 </div>
 
-<p id="yz-count"><strong>130</strong> tasks shown.</p>
+<p id="yz-count"><strong>128</strong> tasks shown.</p>
 
 <table class="yz-table">
 <thead><tr><th>Task</th><th>You need</th><th>Skills</th></tr></thead>
@@ -59,8 +59,6 @@ say so on the issue it links to, and open the pull request.
 <tr class="yz-row" data-env="hardware" data-family="packaging" data-minutes="20" data-skills="no coding" data-text="verify the pypi via uv tool install path on arm64 pypi via uv tool, arm64"><td><strong>Verify the PyPI via uv tool install path on arm64</strong><br><code>PKG-006</code> · L0 · 20 min</td><td>PyPI via uv tool, arm64</td><td>no coding</td></tr>
 <tr class="yz-row" data-env="hardware" data-family="packaging" data-minutes="20" data-skills="no coding" data-text="verify the apt repo install path on x86-64 apt repo, x86-64"><td><strong>Verify the APT repo install path on x86-64</strong><br><code>PKG-007</code> · L0 · 20 min</td><td>APT repo, x86-64</td><td>no coding</td></tr>
 <tr class="yz-row" data-env="hardware" data-family="packaging" data-minutes="20" data-skills="no coding" data-text="verify the apt repo install path on arm64 apt repo, arm64"><td><strong>Verify the APT repo install path on arm64</strong><br><code>PKG-008</code> · L0 · 20 min</td><td>APT repo, arm64</td><td>no coding</td></tr>
-<tr class="yz-row" data-env="hardware" data-family="packaging" data-minutes="20" data-skills="no coding" data-text="verify the winget install path on x86-64 winget, x86-64"><td><strong>Verify the winget install path on x86-64</strong><br><code>PKG-009</code> · L0 · 20 min</td><td>winget, x86-64</td><td>no coding</td></tr>
-<tr class="yz-row" data-env="hardware" data-family="packaging" data-minutes="20" data-skills="no coding" data-text="verify the winget install path on arm64 arm64, winget"><td><strong>Verify the winget install path on arm64</strong><br><code>PKG-010</code> · L0 · 20 min</td><td>arm64, winget</td><td>no coding</td></tr>
 <tr class="yz-row" data-env="hardware" data-family="compatibility" data-minutes="25" data-skills="no coding" data-text="report yazses on ubuntu 24.04 + gnome wayland, installed via snap gnome wayland, ubuntu 24.04, snap"><td><strong>Report YazSes on Ubuntu 24.04 + GNOME Wayland, installed via snap</strong><br><code>COMPAT-001</code> · L0 · 25 min</td><td>GNOME Wayland, Ubuntu 24.04, snap</td><td>no coding</td></tr>
 <tr class="yz-row" data-env="hardware" data-family="compatibility" data-minutes="25" data-skills="no coding" data-text="report yazses on ubuntu 24.04 + gnome wayland, installed via pipx gnome wayland, ubuntu 24.04, pipx"><td><strong>Report YazSes on Ubuntu 24.04 + GNOME Wayland, installed via pipx</strong><br><code>COMPAT-002</code> · L0 · 25 min</td><td>GNOME Wayland, Ubuntu 24.04, pipx</td><td>no coding</td></tr>
 <tr class="yz-row" data-env="hardware" data-family="compatibility" data-minutes="25" data-skills="no coding" data-text="report yazses on ubuntu 24.04 + gnome wayland, installed via apt gnome wayland, ubuntu 24.04, apt"><td><strong>Report YazSes on Ubuntu 24.04 + GNOME Wayland, installed via apt</strong><br><code>COMPAT-003</code> · L0 · 25 min</td><td>GNOME Wayland, Ubuntu 24.04, apt</td><td>no coding</td></tr>
