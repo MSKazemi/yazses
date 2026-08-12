@@ -67,10 +67,15 @@ def test_unknown_tool_is_a_key_error_listing_the_known_ones(adapters) -> None:
 
 
 def test_whisper_cpp_argv_suppresses_timestamps_and_progress(adapters, tmp_path) -> None:
-    argv = adapters.ADAPTERS["whisper-cpp"].argv(Path("/audio/a.wav"), "ggml-base.en.bin", tmp_path)
+    wav = Path("/audio/a.wav")
+    argv = adapters.ADAPTERS["whisper-cpp"].argv(wav, "ggml-base.en.bin", tmp_path)
     assert argv[0] == "whisper-cli"
     assert "-nt" in argv and "-np" in argv, "stray timestamps would wreck the WER score"
-    assert "/audio/a.wav" in argv
+    # `str(wav)`, never the literal "/audio/a.wav". The adapter hands whisper-cli a
+    # *native* path, which is what it needs, so on Windows this argument is
+    # `\audio\a.wav`. Asserting the POSIX spelling tested the platform rather than the
+    # adapter, and turned the Windows job red on main while Linux and macOS stayed green.
+    assert str(wav) in argv
 
 
 def test_openai_whisper_argv_writes_into_the_scratch_dir(adapters, tmp_path) -> None:
