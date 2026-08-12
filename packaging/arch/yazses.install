@@ -1,0 +1,47 @@
+# Post-install guidance for the AUR package.
+#
+# This lives in a .install file rather than in PKGBUILD. The previous revision defined
+# post_install()/post_upgrade()/post_remove() inside PKGBUILD itself, where pacman never
+# sees them — they were dead code, and the two steps below (which the package genuinely
+# does not work without) were never shown to anyone.
+#
+# Both steps are unavoidable: reading the hold-to-talk key means reading /dev/input, and
+# a packaged daemon cannot add its own user to a group or enable its own unit.
+
+post_install() {
+    cat <<'EOF'
+
+YazSes is installed. Two manual steps remain — it will not hear you without them:
+
+  1. Grant keyboard access (hold-to-talk reads /dev/input):
+        sudo usermod -aG input "$USER"
+     Then log out and back in for the group change to apply.
+
+  2. Start the daemon:
+        systemctl --user enable --now yazses.service
+
+On Wayland, text injection also needs ydotoold running:
+        systemctl --user enable --now ydotoold.service
+
+Then hold the hotkey, speak, release. Config: ~/.config/yazses/config.toml
+Verify everything with:  yazses doctor
+
+EOF
+}
+
+post_upgrade() {
+    post_install
+}
+
+post_remove() {
+    cat <<'EOF'
+
+YazSes removed. Per-user state is left in place on purpose; to clear it:
+
+    systemctl --user disable --now yazses.service 2>/dev/null || true
+    rm -rf ~/.config/yazses ~/.cache/yazses ~/.local/share/yazses
+
+The last path holds the learning corpus, if you ever enabled it.
+
+EOF
+}

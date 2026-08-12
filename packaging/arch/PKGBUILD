@@ -1,114 +1,80 @@
-# Maintainer: Mohsen Seyedkazemi Moghadam <mohsen.seyedkazemi@gmail.com>
+# Maintainer: Mohsen Seyedkazemi Ardebili <mohsen.seyedkazemi@gmail.com>
 #
 # AUR package for YazSes — local, offline voice dictation.
 # Source: https://github.com/MSKazemi/yazses
+#
+# Built from the PyPI sdist rather than a GitHub tag tarball: it is the artifact the
+# release actually publishes, its checksum is stable and quotable, and it contains
+# everything installed below (man page, systemd unit, example config, LICENSE).
+#
+# Two dependencies live in the AUR rather than [extra] — python-faster-whisper and
+# python-sounddevice. An AUR package may depend on AUR packages, so this is fine; the
+# earlier revision of this file pip-installed them inside package() instead, which
+# downloads from PyPI at build time, is unreproducible, and is exactly what the AUR
+# guidelines tell you not to do.
 
 pkgname=yazses
-pkgver=0.4.0
+pkgver=2.17.0
 pkgrel=1
-pkgdesc='Local, offline voice dictation — hold a key, speak, release'
+pkgdesc='Offline hold-to-talk voice dictation that types into the focused app - local faster-whisper, no cloud'
 arch=('any')
 url='https://github.com/MSKazemi/yazses'
 license=('Apache-2.0')
+install="${pkgname}.install"
 
 depends=(
     'python>=3.11'
     'python-numpy'
     'python-typer'
     'python-platformdirs'
-    'portaudio'                # libportaudio.so for sounddevice
-    'systemd'                  # user services
+    'python-cryptography'
+    'python-evdev'
+    'python-xlib'
+    'pyside6'                  # voice-activity overlay, shipped in the base install
+    'portaudio'                # libportaudio.so, for sounddevice
+    'python-faster-whisper'    # AUR
+    'python-sounddevice'       # AUR
 )
 
-# Faster-whisper, evdev, sounddevice live on PyPI but not in [extra]/[community]
-# at this writing; install them via the pyproject. We ship a wheel/sdist for
-# everything else.
 optdepends=(
-    'xdotool: text injection on X11'
+    'xdotool: text injection and window targeting on X11'
     'ydotool: text injection on Wayland (preferred)'
     'wtype: text injection on Wayland (alternative)'
     'xclip: clipboard fallback on X11'
     'wl-clipboard: clipboard fallback on Wayland'
+    'python-sherpa-onnx: speaker labels for `yazses transcribe --diarize` (AUR)'
+    # The Parakeet STT engine needs onnx-asr, which is in neither [extra] nor the AUR.
+    # It is an opt-in engine and the factory falls back to faster-whisper without it, so
+    # its absence costs nothing here — install it with pip if you want Parakeet.
 )
 
 makedepends=(
     'python-build'
     'python-installer'
+    'python-wheel'
     'python-hatchling'
-    'python-pip'
 )
 
-source=("${pkgname}-${pkgver}.tar.gz::${url}/archive/refs/tags/v${pkgver}.tar.gz")
-sha256sums=('SKIP')   # set to the real sha256 of the GitHub source tarball.
+source=("https://files.pythonhosted.org/packages/source/y/${pkgname}/${pkgname}-${pkgver}.tar.gz")
+sha256sums=('28f244cfd9f10941702765dde2b1f58a5ec828ebb8c2626e2f1ce000b1bf20d6')
 
 build() {
-    cd "${srcdir}/${pkgname}-${pkgver}"
+    cd "${pkgname}-${pkgver}"
     python -m build --wheel --no-isolation
 }
 
 package() {
-    cd "${srcdir}/${pkgname}-${pkgver}"
+    cd "${pkgname}-${pkgver}"
 
-    # Install the wheel into the system python sitelib.
     python -m installer --destdir="${pkgdir}" dist/*.whl
 
-    # Pip-install runtime PyPI-only deps into the same prefix. AUR convention
-    # discourages pip-on-package-install, but several deps (faster-whisper,
-    # ctranslate2, evdev, sounddevice) aren't packaged in the official Arch
-    # repos, so we pull them with --no-deps to avoid pulling in already-installed
-    # ones a second time.
-    PYTHONPATH="${pkgdir}/usr/lib/python3.13/site-packages" \
-        pip install --root="${pkgdir}" --prefix=/usr --no-deps --no-warn-script-location \
-            'faster-whisper>=1.2.1' \
-            'evdev>=1.9.3' \
-            'sounddevice>=0.5.5'
-
-    # Install the systemd user unit so users can:
-    #   systemctl --user enable --now yazses.service
+    # systemd user unit: `systemctl --user enable --now yazses.service`
     install -Dm644 contrib/yazses.service \
         "${pkgdir}/usr/lib/systemd/user/yazses.service"
 
-    # License + docs.
+    install -Dm644 man/yazses.1 "${pkgdir}/usr/share/man/man1/yazses.1"
     install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
     install -Dm644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
-
-    # Example config.
-    if [[ -f examples/config.example.toml ]]; then
-        install -Dm644 examples/config.example.toml \
-            "${pkgdir}/usr/share/doc/${pkgname}/config.example.toml"
-    fi
-}
-
-post_install() {
-    cat <<'EOF'
-
-YazSes installed. Two manual steps remain:
-
-  1. Add yourself to the input group (for /dev/input keyboard access):
-        sudo usermod -aG input "$USER"
-     Log out and back in (or reboot) for the change to take effect.
-
-  2. Enable the user service:
-        systemctl --user enable --now yazses.service
-
-Hold Space anywhere, speak, release. Default config:
-    ~/.config/yazses/config.toml
-
-Run `yazses doctor` to verify everything.
-
-EOF
-}
-
-post_upgrade() {
-    post_install
-}
-
-post_remove() {
-    cat <<'EOF'
-
-YazSes removed. To clean user-level state:
-    rm -rf ~/.config/yazses ~/.cache/yazses
-    systemctl --user disable --now yazses.service 2>/dev/null || true
-
-EOF
+    install -Dm644 examples/config.example.toml \
+        "${pkgdir}/usr/share/doc/${pkgname}/config.example.toml"
 }
