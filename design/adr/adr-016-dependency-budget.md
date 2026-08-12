@@ -9,7 +9,7 @@
 
 ## Context
 
-YazSes ships **140 capabilities on 18 base dependencies**. That ratio is not an accident
+YazSes ships **140 capabilities on 16 base dependencies**. That ratio is not an accident
 and it is not a detail — it is the reason a user who wants plain dictation can install the
 project without pulling mediapipe, speechbrain, sherpa-onnx, llama-cpp, PySide6-beyond-base,
 or a single model weight.
