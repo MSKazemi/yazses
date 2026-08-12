@@ -15,9 +15,16 @@ authors:
     orcid: "https://orcid.org/0000-0002-1166-6559"
 repository-code: https://github.com/MSKazemi/yazses
 url: https://mskazemi.com/yazses/
-version: 2.14.0
-date-released: "2026-08-07"
+# Zenodo concept DOI — always resolves to the latest release. Do NOT replace this with
+# a per-version DOI (10.5281/zenodo.21859949 is v2.17.0 only); that pins every future
+# citation to one old release.
+doi: 10.5281/zenodo.21856271
+version: 2.17.0
+date-released: "2026-08-09"
 identifiers:
+  - type: doi
+    value: 10.5281/zenodo.21856271
+    description: Concept DOI — always resolves to the latest archived release
   - type: url
     value: https://pypi.org/project/yazses/
     description: PyPI package
