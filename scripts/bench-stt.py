@@ -40,6 +40,25 @@ def get_peak_rss_mb() -> float:
         except ImportError:
             return 0.0
 
+def _load_adapters():
+    """Import the sibling adapters module by path.
+
+    This file is `bench-stt.py` — a hyphen, so it is a script and not importable, and it
+    cannot use a normal relative import to reach `bench_adapters`.
+    """
+    import importlib.util
+
+    path = Path(__file__).with_name("bench_adapters.py")
+    spec = importlib.util.spec_from_file_location("bench_adapters", path)
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    # @dataclass looks its own module up in sys.modules; a by-path import that skips this
+    # blows up inside the class body rather than at the call site.
+    sys.modules["bench_adapters"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
 @dataclass
 class MockConfig:
     engine: str
@@ -52,6 +71,14 @@ def main():
     parser = argparse.ArgumentParser(description="Run STT Benchmark on a directory of WAV and TXT files.")
     parser.add_argument("dataset", type=Path, help="Directory containing .wav and .txt reference files")
     parser.add_argument("--engine", type=str, default="faster-whisper", help="Engine to use (faster-whisper, parakeet)")
+    parser.add_argument(
+        "--tool",
+        type=str,
+        default="",
+        help="Benchmark an EXTERNAL tool instead of a YazSes engine "
+             "(whisper-cpp, openai-whisper, vosk). Same corpus, same machine — this is "
+             "what makes the results a comparison rather than a self-report.",
+    )
     parser.add_argument("--model", type=str, default="base.en", help="Model name (e.g., base.en, tiny.en)")
     parser.add_argument("--device", type=str, default="cpu", help="Device (cpu, cuda, auto)")
     parser.add_argument("--compute-type", type=str, default="int8", help="Compute type (int8, float16)")
@@ -61,25 +88,43 @@ def main():
         print(f"Error: Dataset directory {args.dataset} not found.")
         sys.exit(1)
 
-    print(f"Loading engine: {args.engine} (model: {args.model})...")
     from yazses.recimport.audio_io import load_audio
-    from yazses.stt.factory import build_engine
-    
-    stt_config = MockConfig(
-        engine=args.engine,
-        model=args.model,
-        language="en",
-        device=args.device,
-        compute_type=args.compute_type
-    )
-    
-    engine = build_engine(stt_config)
-    
-    # Warmup
-    print("Warming up engine...")
-    dummy_audio = np.zeros(16000, dtype=np.float32)
-    engine.transcribe(dummy_audio, 16000)
-    
+
+    # `--tool` measures somebody else's software; `--engine` measures ours. The external
+    # path deliberately skips build_engine and the warm-up: a subprocess starts cold every
+    # file, and pretending otherwise would flatter us against tools that cannot be warmed.
+    external = None
+    if args.tool:
+        external = _load_adapters()
+        if args.tool not in external.ADAPTERS:
+            print(f"Error: unknown --tool {args.tool!r}; known: "
+                  f"{', '.join(sorted(external.ADAPTERS))}")
+            sys.exit(1)
+        if not external.ADAPTERS[args.tool].available():
+            print(f"Error: {external.ADAPTERS[args.tool].binary!r} is not on PATH. "
+                  f"Install it, or drop --tool from this run.")
+            sys.exit(1)
+        print(f"Benchmarking external tool: {external.describe(args.tool)}")
+        engine = None
+    else:
+        print(f"Loading engine: {args.engine} (model: {args.model})...")
+        from yazses.stt.factory import build_engine
+
+        stt_config = MockConfig(
+            engine=args.engine,
+            model=args.model,
+            language="en",
+            device=args.device,
+            compute_type=args.compute_type
+        )
+
+        engine = build_engine(stt_config)
+
+        # Warmup
+        print("Warming up engine...")
+        dummy_audio = np.zeros(16000, dtype=np.float32)
+        engine.transcribe(dummy_audio, 16000)
+
     wav_files = list(args.dataset.glob("*.wav"))
     if not wav_files:
         print(f"No .wav files found in {args.dataset}")
@@ -119,9 +164,17 @@ def main():
             continue
 
         start_time = time.perf_counter()
-        hypothesis = engine.transcribe(audio, 16000)
+        if external is not None:
+            try:
+                hypothesis = external.transcribe(args.tool, wav_path, args.model)
+            except RuntimeError as exc:
+                # One bad file must not silently shrink the corpus a rival is scored on.
+                print(f"Warning: {exc}")
+                continue
+        else:
+            hypothesis = engine.transcribe(audio, 16000)
         decode_time = time.perf_counter() - start_time
-        
+
         total_audio_duration += duration
         total_decode_time += decode_time
         
@@ -138,10 +191,11 @@ def main():
     rtf = total_decode_time / total_audio_duration
     peak_rss = get_peak_rss_mb()
     
+    subject = external.describe(args.tool) if external is not None else args.engine
     print("\n--- Benchmark Results ---")
     print(f"Dataset Size : {len(references)} files ({total_audio_duration:.2f}s total audio)")
-    print(f"Engine       : {args.engine}")
-    print(f"Model        : {args.model}")
+    print(f"Subject      : {subject}")
+    print(f"Model        : {args.model or '(tool default)'}")
     print(f"WER          : {wer * 100:.2f}%")
     print(f"Overall RTF  : {rtf:.3f}x")
     if peak_rss > 0:
@@ -151,7 +205,12 @@ def main():
         
     print("\nMarkdown Table Row:")
     rss_str = f"{peak_rss:.1f} MB" if peak_rss > 0 else "N/A"
-    print(f"| CPU/GPU | `{args.engine}` (`{args.model}`) | {wer * 100:.1f}% | {rtf:.2f}x | {rss_str} |")
+    label = args.tool if external is not None else args.engine
+    # Peak RSS of *this* process is meaningless for a subprocess-based tool; reporting our
+    # own footprint as theirs would be a fabricated number, so it is omitted explicitly.
+    if external is not None:
+        rss_str = "n/a (subprocess)"
+    print(f"| CPU/GPU | `{label}` (`{args.model or 'default'}`) | {wer * 100:.1f}% | {rtf:.2f}x | {rss_str} |")
 
 if __name__ == "__main__":
     main()
