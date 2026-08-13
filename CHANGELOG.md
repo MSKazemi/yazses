@@ -6,6 +6,31 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `yazses status` reports decode latency on your machine
+
+The number was always measured and logged (`Transcribed 3.2s audio in 740 ms`) and
+never summarised, so the one figure that predicts whether dictation *feels* usable
+was only available by reading a log by eye.
+
+```
+  latency:  small.en p50 740 ms / p95 1210 ms (n=143)
+```
+
+- **p50 and p95, not a mean.** Decode time is right-skewed: most utterances are
+  fast and the slow minority is the whole experience, because that is the moment
+  you are waiting with the key already released. A mean averages the tail away and
+  looks healthy the entire time.
+- **Per model**, which is what makes it actionable — it turns "`tiny.en` or
+  `base.en` on this machine?" into a measurement rather than a guess.
+- **The count is always printed, and the p95 is withheld below 20 samples.** A p95
+  over six utterances is not a p95, and printing one invites reading it as one.
+- **The window is bounded** (last 200 per model) so the numbers still move after a
+  model change, which is exactly when someone looks at them.
+- **Nothing has to be turned on.** The samples live in memory in the running
+  daemon, are never written to disk, and involve no audio or transcript text — a
+  diagnostic that needed the opt-in learning corpus would not be available when it
+  is wanted. Also in `--json` for status bars. (#296)
+
 ### Added — the tray menu means the same thing on every OS
 
 "Settings…" existed only in the Linux tray, so the same menu offered a different

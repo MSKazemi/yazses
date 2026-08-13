@@ -77,7 +77,7 @@ After a successful update, restart the daemon to load it:
 | `yazses start` | Start the daemon; restarts cleanly if one is already running (never a duplicate). |
 | `yazses restart` | Stop **all** daemons (including stray/detached ones) and start exactly one. |
 | `yazses stop` | Stop the running daemon. |
-| `yazses status` | Show state, hotkey, model, injection backend, and uptime over IPC. |
+| `yazses status` | Show state, hotkey, model, injection backend, uptime and decode latency (p50/p95) over IPC. |
 | `yazses tray` | Show the top-bar tray icon + click-menu (pick/pin mic, re-calibrate, start/stop). |
 | `yazses features` | See capabilities and turn them on/off — no config-file editing. |
 | `yazses settings` | The same switchboard as a window — every capability as a checkbox. |
@@ -129,6 +129,32 @@ for machine-readable JSON output for status bars or scripts.
 yazses status         # is it running? show state, model, and hotkey
 yazses status --json  # output state, pid, model, and ready as JSON
 ```
+
+It also reports **decode latency on your machine**, per model:
+
+```
+  latency:  small.en p50 740 ms / p95 1210 ms (n=143)
+```
+
+**p50 and p95, not an average.** Decode time is right-skewed — most utterances are
+fast and a minority are slow — and the slow ones are the whole experience, because
+that is the moment you are sitting there with the key already released. A mean
+averages that tail away and looks healthy the entire time; p95 is the number that
+predicts "this feels laggy".
+
+Reported **per model**, which is what makes it actionable: it turns "should I run
+`tiny.en` or `base.en` on this machine" from a guess into a measurement of your
+hardware and your voice. [The benchmarks page](benchmarks.md) gives figures for one
+machine; this gives you yours.
+
+The sample count is always printed, and **below 20 samples the p95 is withheld**
+rather than shown — a p95 over six utterances is not a p95, and printing one invites
+reading it as one. The window is bounded (the last 200 utterances per model) so the
+numbers still move after you change model, which is exactly when you look at them.
+
+This needs nothing turned on: the samples live in memory in the running daemon,
+are never written to disk, and do not involve any audio or transcript text. They
+reset when the daemon restarts.
 
 ### `yazses tray`
 

@@ -2093,6 +2093,8 @@ def status(
     """Show daemon status. Queries the daemon over IPC when reachable."""
     import json as _json
 
+    from yazses.stt.latency import render_status_lines
+
     platform = get_platform()
     if not platform.lifecycle.is_running():
         if json_output:
@@ -2134,6 +2136,11 @@ def status(
     if info.get("input_device"):
         typer.echo(f"  mic:      {info.get('input_device')}")
     typer.echo(f"  uptime:   {info.get('uptime_s')}s")
+    # Decode latency, per model, over a bounded recent window (#296). Absent on a
+    # daemon that has not decoded anything yet, and on an older daemon — a status
+    # command that errors against a running daemon is worse than a missing line.
+    for line in render_status_lines(info.get("decode_latency")):
+        typer.echo(line)
     if info.get("silent_streak"):
         typer.echo(
             f"  ⚠ mic:    {info['silent_streak']} silent clips in a row — "

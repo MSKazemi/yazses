@@ -71,6 +71,16 @@ zero, because a daemon that dies while loading a model would otherwise be report
 as restarted. Declining keeps a persistent "restart pending" hint. Decisions live
 in `settingsui/restart.py` (Qt-free, IPC injected); the dialog is dumb.
 
+**Decode latency is summarised, not just logged.** The daemon has always timed
+every decode; `stt/latency.py` now keeps a bounded per-model window of those times
+and `yazses status` reports p50/p95 from it. Percentiles rather than a mean because
+decode time is right-skewed and the slow tail is what you actually wait through,
+per model because that is what makes "which model should I run" answerable, and
+with the sample count attached because a p95 over six utterances is not a p95. The
+window is in memory and bounded — a diagnostic that required the opt-in learning
+corpus would be missing exactly when it is wanted, and nothing about it touches
+disk, audio or transcript text.
+
 **One way in, on every OS.** The window is reachable from the tray's *Settings…*
 entry on Linux, macOS and Windows, from `yazses settings`, and on Windows from a
 Start-menu shortcut. The three trays draw the label from one `tray/menu.py`

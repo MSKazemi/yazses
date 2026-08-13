@@ -19,6 +19,12 @@ These are the same measurements reported in the
     A slower or older CPU will be proportionally slower. Report yours — see
     [contributing](https://github.com/MSKazemi/yazses/blob/main/CONTRIBUTING.md).
 
+!!! tip "Measure your own machine, without running anything"
+    `yazses status` reports **p50 and p95 decode latency per model** from your own
+    dictation — no benchmark run, no dataset, nothing to enable. This page is one
+    machine; that is yours. See
+    [`yazses status`](cli-reference.md#yazses-status).
+
 ## Accuracy — word error rate
 
 **Dataset:** LibriSpeech `test-clean` ([Panayotov et al., ICASSP 2015](https://www.openslr.org/12/)),

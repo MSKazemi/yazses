@@ -64,6 +64,7 @@ from yazses.stt.base import SttEngine
 from yazses.stt.endpoint import EndpointAnticipator
 from yazses.stt.factory import build_engine
 from yazses.stt.filters.disfluency import filter_transcript
+from yazses.stt.latency import LatencyWindow
 from yazses.stt.streaming import StreamingEngine
 from yazses.styleguard.loader import build_style_rules
 from yazses.styleguard.rules import apply_style
@@ -193,6 +194,10 @@ class Daemon:
         # Confidence Ink (ADR-v2-001): low-confidence word count from the last
         # burst, surfaced in `yazses status` (metadata only, never the words).
         self._last_low_confidence_words: int = 0
+        # Recent decode times per model, for the p50/p95 in `yazses status`
+        # (#296). Bounded and in-memory: a diagnostic must not depend on the
+        # opt-in learning corpus, and it must not write anything to disk.
+        self._latency = LatencyWindow()
         self._edit_watcher: EditWatcher | None = None
         self._cleaner: LlmCleaner | None = None
         # Read-Back Loop TTS backend (None when [tts] disabled — dormant).
@@ -1119,6 +1124,9 @@ class Daemon:
             decode_ms = (time.monotonic() - t_decode) * 1000.0
             event["raw_text"] = text
             event["decode_ms"] = decode_ms
+            # Aggregated into p50/p95 for `yazses status` (#296). In-memory and
+            # bounded, so this works whether or not the learning corpus is on.
+            self._latency.record(self._config.stt.model, decode_ms)
             # Metadata only (no transcript text) so the file log is safe to share.
             log.info(
                 "Transcribed %.1fs audio in %.0f ms (model %s, level %.4f)",
@@ -2752,6 +2760,11 @@ class Daemon:
                 # Confidence Ink (ADR-v2-001): feature state + last-burst count.
                 "confidence_enabled": self._config.confidence.enabled,
                 "low_confidence_last": self._last_low_confidence_words,
+                # Decode latency over a bounded recent window, per model (#296).
+                # Percentiles, not a mean: decode time is right-skewed and it is
+                # the slow tail you wait through. The count travels with it so a
+                # p95 over six utterances cannot be read as a p95.
+                "decode_latency": self._latency.as_dict(),
             }
 
     def _handle_shutdown(self, _request: Request) -> dict[str, bool]:
