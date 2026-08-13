@@ -187,6 +187,22 @@ plugins:
       htmlmin_opts:
         remove_comments: true
       cache_safe: true
+  # Release notes as a subscribable feed. YazSes ships roughly weekly and writes a
+  # real page for every version, but until now that stream was only readable by
+  # someone who thought to revisit /releases/ — invisible to feed readers,
+  # aggregators, and the crawlers that ingest feeds. `match_path` scopes it to the
+  # 51 version pages so the feed is releases-only, not "every doc edit".
+  # Dates come from git (`use_git`), which works here because the pages carry no
+  # date front-matter and git-revision-date-localized already proves the history
+  # is available at build time. Shallow CI clones would break that — docs.yml must
+  # keep fetch-depth: 0.
+  - rss:
+      match_path: "releases/v.*"
+      abstract_chars_count: 500
+      length: 30
+      use_git: true
+      feed_ttl: 1440
+      pretty_print: false
 
 markdown_extensions:
   # Python-Markdown core

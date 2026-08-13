@@ -32,4 +32,15 @@
   {% if config.extra.bing_site_verification %}
   <meta name="msvalidate.01" content="{{ config.extra.bing_site_verification }}">
   {% endif %}
+  {#- Feed autodiscovery for the release notes (mkdocs-rss-plugin).
+      Without these two tags the feeds exist as files but nothing finds them:
+      browsers, feed readers and the crawlers that ingest feeds all look for
+      <link rel="alternate"> in the head, not for a guessable filename.
+      Absolute URLs via site_url because the site is served from the /yazses/
+      subdirectory of mskazemi.com — a root-relative "/feed_rss_created.xml"
+      would resolve to the wrong host path. -#}
+  <link rel="alternate" type="application/rss+xml" title="YazSes releases (RSS)"
+        href="{{ config.site_url }}feed_rss_created.xml">
+  <link rel="alternate" type="application/feed+json" title="YazSes releases (JSON Feed)"
+        href="{{ config.site_url }}feed_json_created.json">
 {% endblock %}

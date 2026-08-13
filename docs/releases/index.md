@@ -12,6 +12,15 @@ release there carries built artifacts and a signed source archive.
 [:material-history: Full changelog](https://github.com/MSKazemi/yazses/blob/main/CHANGELOG.md){ .md-button }
 [:simple-pypi: PyPI release history](https://pypi.org/project/yazses/#history){ .md-button }
 
+## Follow the releases
+
+Every release below is published to a feed, so you can follow YazSes without a GitHub
+account, an email address, or a login of any kind — which is the same principle the
+software itself runs on.
+
+[:material-rss: RSS feed](https://mskazemi.com/yazses/feed_rss_created.xml){ .md-button }
+[:material-code-json: JSON feed](https://mskazemi.com/yazses/feed_json_created.json){ .md-button }
+
 ## Current stable
 
 **[YazSes 2.17.0](v2.17.0.md)** — what real use found in a day: streaming dictation could
