@@ -6,6 +6,33 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — a native Windows arm64 installer, and translated READMEs that lead with installation
+
+Windows on ARM is a real desktop target and the only `.exe` was x64, so an ARM user could
+run it under emulation but never got a native build. This was left alone while the Windows
+port itself was broken end to end; now that it is fixed, the architecture gap is worth
+closing.
+
+The target architecture was hardcoded in three places that had to agree and were never
+checked together — Inno Setup's `OutputBaseFilename`, the `$Out` path the build script
+verifies, and the workflow globs that locate, upload and attach the result. All three now
+derive from one value, taken from the build host (PyInstaller does not cross-compile, so
+the runner label *is* the target). The arm64 installer refuses to install on x64, while the
+x64 one keeps `x64compatible` so it still runs on ARM under emulation as the fallback.
+
+The arm64 job is advisory: neither `windows-11-arm` nor PyInstaller-on-ARM has run in this
+repository, and a new cross-architecture build must not be able to fail a release the x64
+build completed fine. `docs/platform-support.md` marks it built-but-unproven rather than
+supported.
+
+The Hindi, Chinese and Russian READMEs still had installation at lines 58, 48 and 61, behind
+the badges and the feature table — a reader who picked their language got the old
+experience. Each now carries an install block under the title, using that file's **own**
+existing table lifted verbatim, with a heading reusing a word already present in the
+translation. The new English framing lines are deliberately **not** carried over:
+machine-translating a project's positioning statement is exactly what reads wrong to a
+native speaker, so those are left for a follow-up from someone who speaks each language.
+
 ### Fixed — the arm64 artifacts we advertise are now actually built
 
 The arm64 gap was documented but nothing built the artifacts, so the docs described a hole
