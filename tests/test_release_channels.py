@@ -281,11 +281,108 @@ def test_core_only_does_not_touch_the_other_channels(crc, responses):
 
 
 def test_full_run_covers_every_declared_channel(crc, responses):
-    responses({})  # everything absent
+    responses({}, default=(404, b""))  # everything genuinely absent
     results = crc.run("9.9.9", core_only=False)
     keys = {r.key for r in results}
     assert keys == {"deb", "dmg", "exe"} | {k for k, _, _ in crc.CHECKS}
     assert not any(r.ok for r in results)
+
+
+# --------------------------------------------------------------------------
+# Unreachable is not the same as absent
+# --------------------------------------------------------------------------
+
+
+def test_unreachable_host_is_unknown_not_absent(crc, responses):
+    """Status 0 means the request never completed.
+
+    Observed for real on 2026-08-13: one dropped connection to aur.archlinux.org
+    made the report say the AUR did not have the release, and three retries a
+    moment later all returned 200. Reporting that as absent invites the wrong
+    repair -- publishing a package that is already there.
+    """
+    responses({}, default=(0, b"Connection reset"))
+    for fn in (crc.check_aur, crc.check_pypi, crc.check_flathub, crc.check_snap):
+        ok, _ = fn("2.18.2")
+        assert ok is crc.UNKNOWN, f"{fn.__name__} reported {ok!r} for an unreachable host"
+
+
+def test_a_real_404_is_still_absent(crc, responses):
+    """The tri-state must not turn genuine absence into 'cannot tell'."""
+    responses({}, default=(404, b""))
+    assert crc.check_flathub("2.18.2")[0] is False
+    assert crc.check_pypi("2.18.2")[0] is False
+
+
+def test_release_assets_unreachable_is_unknown(crc, responses):
+    responses({}, default=(0, b"timeout"))
+    got = crc.check_release_assets("2.18.2")
+    assert all(ok is crc.UNKNOWN for ok, _ in got.values())
+    assert all("unreachable" in detail for _, detail in got.values())
+
+
+def test_transient_failure_is_retried_then_succeeds(crc, monkeypatch):
+    """Most status-0 failures are transient, so one blip must not decide the answer."""
+    calls = {"n": 0}
+
+    class Boom(Exception):
+        pass
+
+    def flaky(req, timeout=None):
+        calls["n"] += 1
+        if calls["n"] < 2:
+            raise Boom("reset")
+
+        class R:
+            status = 200
+
+            def read(self):
+                return b"{}"
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        return R()
+
+    monkeypatch.setattr(crc.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(crc.urllib.request, "urlopen", flaky)
+    status, _ = crc._get("https://example.invalid/x")
+    assert status == 200
+    assert calls["n"] == 2, "the first failure was not retried"
+
+
+def test_retries_give_up_and_report_zero(crc, monkeypatch):
+    def always_fail(req, timeout=None):
+        raise OSError("no route to host")
+
+    monkeypatch.setattr(crc.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(crc.urllib.request, "urlopen", always_fail)
+    status, body = crc._get("https://example.invalid/x")
+    assert status == 0
+    assert b"no route" in body
+
+
+def test_unknown_is_reported_separately_from_missing(crc, responses, capsys, monkeypatch):
+    """The summary must not lump 'unreachable' in with 'not published'."""
+    responses(
+        {
+            "api.github.com": (
+                200,
+                _body({"assets": [{"name": "a.deb"}, {"name": "b.dmg"}, {"name": "c.exe"}]}),
+            )
+        },
+        default=(0, b"unreachable"),
+    )
+    monkeypatch.setattr(sys, "argv", ["prog", "--version", "2.18.2"])
+    code = crc.main()
+    out = capsys.readouterr().out
+    assert code == 1, "an unverifiable release must not be reported as complete"
+    assert "Could not check" in out
+    assert "not known to be absent" in out
+    assert "⚠️" in out
 
 
 def test_a_check_that_raises_does_not_hide_the_others(crc, responses, monkeypatch):
@@ -298,7 +395,8 @@ def test_a_check_that_raises_does_not_hide_the_others(crc, responses, monkeypatc
     monkeypatch.setattr(crc, "CHECKS", [("pypi", "PyPI", boom)])
     results = crc.run("2.18.2", core_only=False)
     pypi = next(r for r in results if r.key == "pypi")
-    assert pypi.ok is False
+    # UNKNOWN, not False: a crashed check has told us nothing about the package.
+    assert pypi.ok is crc.UNKNOWN
     assert "RuntimeError" in pypi.detail
     # The asset checks still reported.
     assert next(r for r in results if r.key == "deb").ok is True
