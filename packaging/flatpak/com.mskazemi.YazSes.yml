@@ -99,7 +99,16 @@ modules:
   - name: python3-setuptools
     buildsystem: simple
     build-commands:
-      - pip3 install --no-index --find-links="file://${PWD}" --prefix=${FLATPAK_DEST} setuptools
+      # --ignore-installed matters: without it pip tries to uninstall the SDK's
+      # setuptools first, and that lives in read-only /usr, so the whole module
+      # dies with Errno 30 before installing anything — even though --prefix
+      # points at /app.
+      - pip3 install --no-index --find-links="file://${PWD}"
+          --prefix=${FLATPAK_DEST} --ignore-installed setuptools
+      # Proves PYTHONPATH actually put the new one first. Without this a failure
+      # surfaces later, inside evdev, where it is far harder to read.
+      - python3 -c "import setuptools; print('setuptools', setuptools.__version__,
+          setuptools.__file__); assert int(setuptools.__version__.split('.')[0]) >= 77" 
     sources:
       - type: file
         url: https://files.pythonhosted.org/packages/95/9c/c510029fc6ef33a6275cd2c5d3cecd6613dfd6aa401d57c54f1c18852ccf/setuptools-84.0.0-py3-none-any.whl
