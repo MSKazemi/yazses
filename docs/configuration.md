@@ -119,6 +119,8 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 | `lsp_enabled` | bool | `false` |
 | `lsp_editor` | str | `"auto"` |
 | `voice_punctuation` | bool | `false` |
+| `rewrite` | bool | `false` |
+| `rewrite_timeout_s` | float | `20.0` |
 | `symbols` | bool | `false` |
 | `self_repair` | bool | `false` |
 | `spoken_edit` | bool | `false` |

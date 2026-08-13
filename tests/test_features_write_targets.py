@@ -27,6 +27,7 @@ _ALIASES = {
     "target-guard": "injection",   # text-target guard writes [injection] target_guard
     "stt-parakeet": "stt",         # engine selector writes [stt] engine
     "stt-moonshine": "stt",        # same selector, different engine
+    "rewrite": "commands",         # Command Mode writes [commands] rewrite
     "chinese-script": "stt",       # Han-script selector writes [stt] chinese_script
 }
 

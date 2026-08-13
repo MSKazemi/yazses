@@ -62,6 +62,25 @@ is a remote control.
 <figcaption>The whole system in six bands. Everything above the last band runs today; the last band is designed and deliberately absent.</figcaption>
 </figure>
 
+**Offline Command Mode rewrites the selection locally.** Select text, hold the
+command key, say "make this shorter" — `commands/rewrite.py` parses the request
+(whole-utterance grammar, so the same words dictated as prose are unaffected),
+`rewrite/engine.py` reads the selection through the clipboard's new PRIMARY-first
+read path, and the existing local GGUF from `[filters.disfluency]` produces the
+replacement. Voice-editing of selected text is the most-praised capability in the
+paid dictation tools and is cloud-only in every product that has it; this one
+never leaves the machine.
+
+**The guards are the feature, because a rewrite replaces writing the user already
+has.** Getting it wrong is not a worse suggestion, it is lost text. So each
+instruction carries its own plausibility band — "make this shorter" returning
+something longer has not followed the instruction, and "fix the grammar" that
+halves the text has deleted content — and a model that answers with a preamble
+("Sure, here is…") is refused as having treated the prompt as chat. **Every
+rejection leaves the selection untouched**, and the original is put on the
+clipboard *before* the model runs, so the undo path exists before the risky step
+rather than after it. Off by default under `[commands] rewrite`.
+
 **A squeeze can now carry which mode, not just when.** `platform/emg/pressure.py`
 turns raw EMG into a level — relaxed / light / hard — using the Teager–Kaiser
 energy operator rather than a bare amplitude threshold, because TKEO responds to

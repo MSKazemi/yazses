@@ -231,6 +231,7 @@ def _registry() -> list[_Def]:
     fr_on, fr_off = _bool("findreplace")
     hw_on, hw_off = _bool("hotwords")
     wc_on, wc_off = _bool("windowctl")
+    rw_on, rw_off = _bool("commands", "rewrite")
     ci_on, ci_off = _bool("cite")
     lrt_on, lrt_off = _bool("langroute")
     lat_on, lat_off = _bool("latency")
@@ -653,6 +654,14 @@ def _registry() -> list[_Def]:
              "Biases recognition toward your vocabulary with a hotword trie (not just a soft "
              "prompt), so rare names and jargon are transcribed right. Off by default.",
              lambda c: c.hotwords.enabled, hw_on, hw_off),
+        _Def("rewrite", "Offline Command Mode (rewrite selection)", "[commands] rewrite",
+             OPTIONAL,
+             "Select text, hold the command key and say 'make this shorter' or 'fix "
+             "the grammar' — the selection is rewritten in place by the LOCAL model. "
+             "Needs a GGUF configured under [filters.disfluency]. Nothing leaves your "
+             "machine, and a rewrite that fails its safety checks leaves your text "
+             "untouched. Off by default.",
+             lambda c: c.commands.rewrite, rw_on, rw_off),
         _Def("windowctl", "Voice Window Management", "[windowctl] — layout by voice", OPTIONAL,
              "Hands-free desktop layout: 'move window left half', 'maximize', 'workspace 3'. "
              "Needs the windowctl extra for your compositor. Off by default.",
@@ -1113,6 +1122,7 @@ _EXAMPLES: dict[str, str] = {
     "langroute": "Switch languages mid-session and the right model loads automatically.",
     "hotwords": "Add 'Kubernetes' to vocab and it stops being mis-heard.",
     "windowctl": "Say 'move window left half' or 'workspace 3' to arrange your desktop.",
+    "rewrite": "Select a paragraph, hold the command key, say 'make this shorter'.",
     "markup": "Say 'bullet list: apples; oranges; pears' to type a Markdown list.",
     "findreplace": "Say 'replace every utilise with use' to edit the whole document.",
     "cmdsafety": "Dictate 'rm -rf' in a terminal and it waits for you to say 'confirm'.",
@@ -1263,6 +1273,7 @@ _USE_CASES: dict[str, str] = {
     "langroute": "When you switch spoken languages during a session and don't want to toggle models by hand.",
     "hotwords": "When rare names or jargon keep getting mis-transcribed despite a vocabulary prompt.",
     "windowctl": "When you want to arrange windows and switch workspaces without touching the mouse.",
+    "rewrite": "When you edit prose all day and want an offline alternative to the cloud voice-editing tools.",
     "markup": "When dictating notes that need real lists or tables, not a flat paragraph.",
     "findreplace": "When you need to change a word across the whole document, not just the last utterance.",
     "cmdsafety": "When dictating into a terminal where a misheard rm or force-push could be catastrophic.",
@@ -1367,6 +1378,7 @@ _CATEGORIES: dict[str, str] = {
     "spoken-edit": CAT_EDIT, "timeline": CAT_EDIT, "findreplace": CAT_EDIT,
     "bookmarks": CAT_EDIT, "cliphistory": CAT_EDIT, "jump": CAT_EDIT,
     "fileopen": CAT_EDIT, "windowctl": CAT_EDIT, "hatselect": CAT_EDIT,
+    "rewrite": CAT_EDIT,
     "wordfind": CAT_EDIT, "wordgoal": CAT_EDIT, "srscap": CAT_EDIT, "cite": CAT_EDIT,
     # Commands & automation — shortcuts, tools, actions.
     "chords": CAT_COMMANDS, "gitvoice": CAT_COMMANDS, "shellpipe": CAT_COMMANDS,

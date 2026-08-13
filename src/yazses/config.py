@@ -248,6 +248,14 @@ class CommandsConfig:
     # v1.4.0 — spoken punctuation/formatting in dictation ("comma", "new line").
     # Off by default: these words also occur in ordinary speech.
     voice_punctuation: bool = False
+    # Offline Command Mode (#99): with a selection and the command key held,
+    # "make this shorter" rewrites it in place using the LOCAL model configured
+    # under [filters.disfluency]. OFF by default — it replaces text the user
+    # already wrote, which is not something to switch on for them.
+    rewrite: bool = False
+    # Seconds a local rewrite may take before it is abandoned and the selection
+    # left alone. A stalled model must not hold the dictation pipeline.
+    rewrite_timeout_s: float = 20.0
     # v2.4 Wave H — Emoji & Symbol by Voice (ADR-v2-055): "shrug emoji"→🤷, "right arrow"→→.
     # Off by default: the names also occur in ordinary speech.
     symbols: bool = False

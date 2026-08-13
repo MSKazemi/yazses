@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Offline Command Mode: rewrite the selection by voice, locally
+
+Select text anywhere, hold the command key, and say **"make this shorter"**, **"fix
+the grammar"**, **"turn this into bullet points"**. The selection is rewritten in
+place by the local model you already configure for cleanup. Voice-editing of
+selected text is the most-praised capability in the paid dictation tools and it is
+cloud-only in every product that has it — including the ones whose privacy
+failures were around this exact feature. Nothing here leaves your machine.
+
+**A failed or unsafe rewrite never destroys your text.** Each instruction carries
+its own plausibility band, so "shorter" that came back longer, or "fix the
+grammar" that halved the text, is refused; so is a model that replies "Sure, here
+is a shorter version:" instead of doing the work. Every refusal leaves the
+selection exactly as you wrote it, and your original is placed on the clipboard
+*before* the model is called — the undo path exists before the risky step, not
+after it. With nothing selected it falls back to your last dictated burst.
+
+The clipboard gained a read path to make this possible (PRIMARY first, because
+highlighting is the gesture people actually make, then CLIPBOARD). Off by default:
+`yazses features enable rewrite`, plus a local GGUF under
+`[filters.disfluency]`. (#99)
+
 ### Fixed — `[stt] vocab_correction` was declared on the wrong dataclass
 
 It landed on `TtsConfig` instead of `SttConfig`, so `[stt] vocab_correction = true`

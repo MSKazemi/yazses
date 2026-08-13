@@ -60,3 +60,62 @@ def set_clipboard(
     if not cmds:
         log.info("No clipboard tool found (install wl-clipboard or xclip).")
     return False
+
+
+def _read_candidates(primary: bool) -> list[list[str]]:
+    """Clipboard-READ commands to try, in order, for the current session.
+
+    `primary` selects X11's PRIMARY selection — the "highlight to select" buffer —
+    rather than CLIPBOARD. Command Mode wants PRIMARY first: a user who has just
+    highlighted a sentence has not pressed ctrl+c, and asking them to would make a
+    voice feature depend on a keystroke.
+    """
+    if os.environ.get("WAYLAND_DISPLAY") and shutil.which("wl-paste"):
+        return [["wl-paste", "--no-newline"] + (["--primary"] if primary else [])]
+    cmds: list[list[str]] = []
+    selection = "primary" if primary else "clipboard"
+    if shutil.which("xclip"):
+        cmds.append(["xclip", "-selection", selection, "-o"])
+    if shutil.which("xsel"):
+        cmds.append(["xsel", f"--{selection}", "--output"])
+    return cmds
+
+
+def get_clipboard(
+    *,
+    primary: bool = False,
+    runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+    candidates: list[list[str]] | None = None,
+) -> str:
+    """Read the clipboard (or PRIMARY selection). Empty string on any failure.
+
+    Never raises, for the same reason `set_clipboard` does not: this runs on the
+    dictation path, and a missing clipboard tool must degrade to "no selection"
+    rather than take the daemon down.
+    """
+    cmds = candidates if candidates is not None else _read_candidates(primary)
+    for cmd in cmds:
+        try:
+            result = runner(cmd, capture_output=True, timeout=5, check=True)
+        except Exception as exc:
+            log.debug("clipboard read via %s failed: %s", cmd[0] if cmd else "?", exc)
+            continue
+        out = getattr(result, "stdout", b"") or b""
+        if isinstance(out, bytes):
+            out = out.decode("utf-8", errors="replace")
+        if out:
+            return out
+    return ""
+
+
+def read_selection(
+    *,
+    runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+) -> str:
+    """The text the user currently has selected, or "".
+
+    PRIMARY first, then CLIPBOARD. Highlighting is the gesture people actually
+    make before saying "make this shorter"; falling back to CLIPBOARD covers
+    applications (and Wayland compositors) that do not serve PRIMARY.
+    """
+    return get_clipboard(primary=True, runner=runner) or get_clipboard(runner=runner)

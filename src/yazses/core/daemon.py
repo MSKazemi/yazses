@@ -1219,6 +1219,13 @@ class Daemon:
                         if stream_injector is not None:
                             stream_injector.cancel()
                         return
+                    # Offline Command Mode (#99): rewrite the selection locally.
+                    # Whole-utterance grammar, so dictation containing "make this
+                    # shorter" as prose is unaffected.
+                    if self._try_rewrite(text, event):
+                        if stream_injector is not None:
+                            stream_injector.cancel()
+                        return
                     # Ambient Scratch (ADR-v2-005): capture a note-to-self ("note to
                     # self ...") to the scratch pad instead of typing it. Command-key
                     # gated + off by default.
@@ -2202,6 +2209,63 @@ class Daemon:
         except Exception:
             log.debug("window focus backend init failed", exc_info=True)
             return None
+
+    def _try_rewrite(self, phrase: str, event: dict) -> bool:
+        """Rewrite the current selection with the local model (#99).
+
+        Returns True when the phrase was a rewrite command, so it is consumed
+        rather than typed — including when the rewrite is refused. Typing "make
+        this shorter" into the document because the model misbehaved would be the
+        worst of both outcomes.
+
+        Dormant unless `[commands] rewrite` and a local model are configured. The
+        selection is never destroyed: every failure path leaves it untouched and
+        the original is on the clipboard before the model is called.
+        """
+        if not getattr(self._config.commands, "rewrite", False):
+            return False
+        try:
+            from yazses.commands.rewrite import parse_rewrite
+        except Exception:
+            return False
+        intent = parse_rewrite(phrase)
+        if intent is None:
+            return False
+
+        event["intent_type"] = "rewrite"
+        event["intent_action"] = intent.action
+        cleaner = self._cleaner
+        if cleaner is None:
+            log.warning("Rewrite needs a local model — set [filters.disfluency] "
+                        "llm_model and enable llm-cleanup.")
+            self._notify_rewrite("Rewrite unavailable",
+                                 "No local model is configured, so the selection was left alone.")
+            return True
+
+        from yazses.rewrite.engine import rewrite_selection
+        from yazses.system.clipboard import read_selection, set_clipboard
+
+        outcome = rewrite_selection(
+            intent,
+            read_selection=read_selection,
+            rewrite=lambda instruction, text: cleaner.cleanup(text, custom_prompt=instruction),
+            inject=self._injector.inject,
+            save_original=set_clipboard,
+            fallback_text=self._ledger.last_text() or "",
+        )
+        event["rewrite_ok"] = outcome.ok
+        event["rewrite_ms"] = round(outcome.elapsed_ms, 1)
+        if not outcome.ok:
+            self._notify_rewrite("Selection left unchanged", outcome.message)
+        return True
+
+    def _notify_rewrite(self, title: str, body: str) -> None:
+        try:
+            from yazses.system.notify import notify
+
+            notify(title, body)
+        except Exception:
+            log.debug("rewrite notification failed", exc_info=True)
 
     def _try_window_focus(self, phrase: str, event: dict) -> bool:
         """Focus a window the user named out loud ("focus the browser", #39).
