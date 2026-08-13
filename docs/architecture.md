@@ -62,6 +62,17 @@ is a remote control.
 <figcaption>The whole system in six bands. Everything above the last band runs today; the last band is designed and deliberately absent.</figcaption>
 </figure>
 
+**Gaze calibration refines itself.** `gaze/implicit.py` treats a mouse click as
+ground truth for where the user was looking and folds it into the existing affine
+map with recursive least squares — the same estimator `fit_calibration` uses,
+updated one sample at a time, so cost per click is constant and no sample history
+is kept. It is gated on eye-agreement confidence and a residual bound, carries a
+forgetting factor so it tracks a moved laptop lid rather than averaging both
+positions, and `refined_if_better` only replaces the wizard's map when the
+candidate wins on **held-out** samples (ADR-014's rule). Capture stays opt-in and
+on-device per ADR-011/012; the module itself opens no camera and listens for no
+clicks, which is why it is testable without a desktop.
+
 **Three STT engines now sit behind one seam.** `faster-whisper` (default),
 `parakeet` (accuracy), and `moonshine` (#74 — built for short segments on CPU,
 which is the shape of hold-to-talk, and needs only `onnxruntime` + `tokenizers`,
