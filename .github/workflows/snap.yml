@@ -22,8 +22,32 @@ permissions:
 
 jobs:
   snap:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # One job per architecture declared in snap/snapcraft.yaml `platforms:`.
+    #
+    # This used to be a single amd64 job, and it is the ONLY publisher to
+    # stable — so `latest/stable` had an amd64 revision and nothing else, while
+    # arm64 existed only on edge (fed by the snapcraft.io build service) and
+    # drifted two releases behind. `snap install yazses` resolves stable, so on
+    # a Raspberry Pi or an arm64 VM it could not find a revision at all, and the
+    # packaging table still advertised "incl. arm64" (issue #267).
+    #
+    # snapcraft builds for the host architecture, so the fix is a native runner
+    # per arch rather than cross-building. GitHub's arm64 hosted runners are
+    # free for public repositories, which this is.
+    #
+    # fail-fast is off on purpose: one arch failing must not cancel the other
+    # and leave stable half-updated — the exact asymmetry this fixes.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    name: snap (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -50,6 +74,17 @@ jobs:
       - name: Show built artefact
         run: ls -lh "${{ steps.snap-build.outputs.snap }}"
 
+      # The filename carries the architecture snapcraft actually produced. A
+      # runner-label typo or a future cross-build change would otherwise publish
+      # two amd64 revisions and silently re-open #267 with a green tick.
+      - name: Verify the build really is ${{ matrix.arch }}
+        run: |
+          SNAP="${{ steps.snap-build.outputs.snap }}"
+          case "$(basename "$SNAP")" in
+            *_${{ matrix.arch }}.snap) echo "OK: $(basename "$SNAP") is ${{ matrix.arch }}" ;;
+            *) echo "::error::expected a ${{ matrix.arch }} snap, built $(basename "$SNAP")"; exit 1 ;;
+          esac
+
       - name: Upload .snap as workflow artefact
         # Convenience copy only. Must not block the store publish below — when the
         # account's Actions artifact-storage quota is full this step errors, which
@@ -57,7 +92,9 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: yazses-snap-${{ github.sha }}
+          # Arch-qualified: two matrix jobs uploading the same artifact name
+          # collide and the second fails.
+          name: yazses-snap-${{ matrix.arch }}-${{ github.sha }}
           path: ${{ steps.snap-build.outputs.snap }}
           if-no-files-found: error
           retention-days: 14
@@ -81,7 +118,7 @@ jobs:
       - name: Require credentials on a tagged release (canonical repo)
         if: github.repository == 'MSKazemi/yazses' && startsWith(github.ref, 'refs/tags/') && steps.check-snap-creds.outputs.have_creds != 'true'
         run: |
-          echo "::error::SNAPCRAFT_STORE_CREDENTIALS is not set on ${GITHUB_REPOSITORY} — the snap for ${GITHUB_REF_NAME} was BUILT but NOT published. Add the secret (snapcraft export-login) and re-run."
+          echo "::error::SNAPCRAFT_STORE_CREDENTIALS is not set on ${GITHUB_REPOSITORY} — the ${{ matrix.arch }} snap for ${GITHUB_REF_NAME} was BUILT but NOT published. Add the secret (snapcraft export-login) and re-run."
           exit 1
 
       - name: Publish to Snap Store
@@ -101,5 +138,8 @@ jobs:
           # continuous feed and the original argument no longer applies. The tag
           # publish stays anyway: it is harmless (at tag time main *is* the tag)
           # and it keeps stable and edge consistent even if the build service is
-          # unavailable. This workflow remains the only publisher to **stable**.
+          # unavailable. This workflow remains the only publisher to **stable**,
+          # which is why it has to cover every architecture: the build service
+          # only ever feeds edge, so any arch missing from the matrix above is an
+          # arch that never reaches `snap install yazses`.
           release: stable,edge

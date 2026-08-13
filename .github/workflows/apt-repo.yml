@@ -68,10 +68,16 @@ jobs:
             echo "Auto-detected run ID from ${WF_FILE}: $RUN_ID"
           fi
 
-      - name: Download .deb artifact from release workflow
+      # Every architecture, not just amd64. The release workflow uploads one
+      # artifact per arch (deb-package-amd64, deb-package-arm64, ...);
+      # `update-apt-repo.sh` already declares `Architectures "amd64 arm64 all"`
+      # and indexes whatever lands in the pool, so the repo serves both as soon
+      # as both are downloaded here.
+      - name: Download .deb artifacts from release workflow (all architectures)
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          name: deb-package
+          pattern: deb-package-*
+          merge-multiple: true
           path: /tmp/debs
           run-id: ${{ steps.run_id.outputs.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
