@@ -19,13 +19,33 @@ name: Publish to package channels
 # reads. Add a secret and that channel starts publishing on the next tag with no
 # edit here.
 #
-#   WINGET_TOKEN   GitHub PAT (public_repo) used to fork microsoft/winget-pkgs
-#                  and open the manifest PR. NOT the release signing cert --
-#                  but note winget-pkgs expects a signed installer, so this will
-#                  draw review until SignPath is in place (docs/code-signing.md).
+#   TAP_TOKEN      A FINE-GRAINED PAT, resource owner MSKazemi, scoped to the
+#                  single repository MSKazemi/homebrew-yazses, with
+#                  Contents: Read and write. Nothing else.
+#                  https://github.com/settings/personal-access-tokens/new
+#
+#                  Not a classic `repo` PAT. That scope grants read/write to
+#                  EVERY repository on the account -- 100 of them, 49 private --
+#                  so that a workflow can overwrite one cask file in one public
+#                  repo. A leaked classic token loses the whole account; a leaked
+#                  fine-grained one loses a file that is generated from a public
+#                  release anyway.
+#
+#   AUR_SSH_KEY    Private half of an SSH key registered on the AUR account.
+#                  Generate a DEDICATED key rather than reusing a personal one:
+#                  ssh-keygen -t ed25519 -f ~/.ssh/aur_yazses -N ""
+#
 #   CHOCO_API_KEY  From https://community.chocolatey.org/account
-#   TAP_TOKEN      GitHub PAT (repo) with write access to MSKazemi/homebrew-yazses
-#   AUR_SSH_KEY    Private half of the SSH key registered on the AUR account
+#
+#   WINGET_TOKEN   Classic PAT with `public_repo`. Fine-grained will not do here:
+#                  wingetcreate has to FORK microsoft/winget-pkgs, and forking a
+#                  repository the account does not own is outside what a
+#                  fine-grained token can be scoped to. `public_repo` still means
+#                  write access to every public repo on the account, so treat it
+#                  as the most dangerous secret in this list -- give it a short
+#                  expiry and re-issue per release rather than leaving it live.
+#                  (winget-pkgs also expects a signed installer, so this draws
+#                  review until SignPath is in place -- docs/code-signing.md.)
 #
 # NOT AUTOMATED HERE, AND WHY
 # ---------------------------
