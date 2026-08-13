@@ -143,6 +143,18 @@ jobs:
             if ($errors) { Write-Error "$($_.Name): $($errors -join '; ')" }
             Write-Host "$($_.Name): parses OK"
           }
+          # Point the package at THIS release before packing. Nothing else
+          # regenerates it -- refresh-package-manifests.py covers only the
+          # Homebrew cask and the winget manifests -- so the nuspec version, the
+          # download URL and the checksum were all frozen at whatever was last
+          # committed. The next tag would have packed yazses.<old>.nupkg, and the
+          # push below would then fail on a filename that does not exist, while
+          # the install script still pointed at the previous release's .exe.
+          # The checksum comes from the SHA256SUMS.txt published on the release
+          # itself, so the package and the artifact cannot disagree.
+          python scripts/render-chocolatey.py $env:VERSION `
+            packaging/chocolatey/yazses.nuspec `
+            packaging/chocolatey/tools/chocolateyinstall.ps1
           choco pack packaging/chocolatey/yazses.nuspec --outputdirectory dist
           choco push "dist/yazses.$env:VERSION.nupkg" `
             --source https://push.chocolatey.org/ --api-key $env:CHOCO_API_KEY
