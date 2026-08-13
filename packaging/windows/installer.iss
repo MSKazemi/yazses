@@ -19,6 +19,13 @@
 #if MyAppVersion == ""
   #define MyAppVersion "0.0.0"
 #endif
+; Target architecture, supplied by scripts/build-windows.ps1 from the build host
+; (PyInstaller produces a native binary, so the host arch IS the target arch).
+; Defaults to x64 so a hand-run ISCC still behaves as it always did.
+#define MyAppArch GetEnv('YAZSES_ARCH')
+#if MyAppArch == ""
+  #define MyAppArch "x64"
+#endif
 #define MyAppPublisher "MSKazemi"
 #define MyAppURL "https://github.com/MSKazemi/yazses"
 #define MyAppExeName "YazSes.exe"
@@ -38,10 +45,20 @@ DisableProgramGroupPage=yes
 DisableDirPage=auto
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
+; An arm64 build must refuse to install on x64: the PyInstaller payload is native
+; ARM64 and would not run there. x64compatible deliberately DOES include arm64
+; (Windows runs x64 under emulation), so the x64 installer stays usable on an ARM
+; machine as the slower fallback — but a native arm64 installer, when one exists,
+; is the better answer and this is what lets both be published side by side.
+#if MyAppArch == "arm64"
+ArchitecturesAllowed=arm64
+ArchitecturesInstallIn64BitMode=arm64
+#else
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+#endif
 OutputDir=..\..\dist
-OutputBaseFilename=YazSes-{#MyAppVersion}-windows-x64
+OutputBaseFilename=YazSes-{#MyAppVersion}-windows-{#MyAppArch}
 SolidCompression=yes
 WizardStyle=modern
 Compression=lzma

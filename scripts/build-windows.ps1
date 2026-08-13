@@ -5,10 +5,10 @@
 #   1. uv sync (env-markered deps pull pywin32, pystray, Pillow)
 #   2. Install PyInstaller (build-only)
 #   3. Run PyInstaller against packaging/windows/yazses.spec → dist/YazSes/
-#   4. Run Inno Setup against packaging/windows/installer.iss → dist/YazSes-<v>-windows-x64.exe
+#   4. Run Inno Setup against packaging/windows/installer.iss → dist/YazSes-<v>-windows-<arch>.exe
 #
 # Outputs:
-#   dist/YazSes-<version>-windows-x64.exe
+#   dist/YazSes-<version>-windows-<arch>.exe   (arch = x64 | arm64)
 #
 # Requires: Windows, uv, Inno Setup 6 (preinstalled on GitHub windows-latest).
 
@@ -32,7 +32,18 @@ if ($pyproject -match '(?m)^version\s*=\s*"([^"]+)"') {
     Write-Error "Could not locate version in pyproject.toml"
 }
 $env:YAZSES_VERSION = $Version
-Write-Host "==> Building YazSes $Version"
+
+# --- target architecture -------------------------------------------------
+# PyInstaller freezes for the machine it runs on -- it does not cross-compile --
+# so the build host's architecture IS the target, and the runner label is what
+# selects it. Derived rather than hardcoded so an arm64 runner produces an arm64
+# installer with no second script. PROCESSOR_ARCHITECTURE is "ARM64" on native
+# ARM; under x86 emulation Windows sets PROCESSOR_ARCHITEW6432 instead, so check
+# both rather than silently mislabelling an emulated build.
+$RawArch = if ($env:PROCESSOR_ARCHITEW6432) { $env:PROCESSOR_ARCHITEW6432 } else { $env:PROCESSOR_ARCHITECTURE }
+$Arch = if ($RawArch -eq "ARM64") { "arm64" } else { "x64" }
+$env:YAZSES_ARCH = $Arch
+Write-Host "==> Building YazSes $Version for windows-$Arch (host reports $RawArch)"
 
 # --- preflight ----------------------------------------------------------
 function Require-Cmd($name) {
@@ -81,7 +92,7 @@ if (-not (Test-Path "dist\YazSes\yazses-cli.exe")) {
 Write-Host "==> Running Inno Setup"
 & $Iscc "/Qp" "packaging\windows\installer.iss"
 
-$Out = "dist\YazSes-$Version-windows-x64.exe"
+$Out = "dist\YazSes-$Version-windows-$Arch.exe"
 if (-not (Test-Path $Out)) {
     Write-Error "Inno Setup did not produce $Out"
 }

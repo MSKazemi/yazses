@@ -79,12 +79,21 @@ Windows 10 (21H2) or newer.
 | CPU | `pipx` (PyPI) | `.exe` installer |
 |---|---|---|
 | **x64** | ✅ | ✅ (unsigned) |
-| **arm64** | ⚠️ untested | ❌ no arm64 installer is built |
+| **arm64** | ⚠️ untested | ⏳ native build added, unproven |
 
-The `.exe` is built on an x64 runner only. On Windows arm64 the pure-Python wheel
-installs, and x64 emulation covers the dependency wheels, but **nobody has run it
-there** — it is listed as untested rather than supported, because claiming a
-platform we have not exercised is how the arm64 snap gap happened.
+**On Windows arm64 today, use `pipx install yazses`,** or the x64 `.exe` — Inno Setup
+marks it `x64compatible`, which includes ARM, so it installs and runs under Windows'
+x86 emulation.
+
+A **native** arm64 installer is now built by CI on a `windows-11-arm` runner and will
+be attached to releases alongside the x64 one. It is marked ⏳ rather than ✅ for a
+specific reason: neither that runner nor PyInstaller-on-ARM has ever run in this
+repository, so the job is deliberately advisory — a brand-new cross-architecture
+build must not be able to fail a release the x64 build completed fine. It becomes ✅
+once it has produced a working installer, not before. Nobody has run YazSes on a
+Windows ARM machine either, which is why the `pipx` column stays ⚠️ untested;
+claiming a platform we have not exercised is exactly how the arm64 snap gap
+happened.
 
 The installer is unsigned, so SmartScreen will warn: **More info → Run anyway**.
 Code signing is tracked on the

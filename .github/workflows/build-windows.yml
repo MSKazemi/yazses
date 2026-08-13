@@ -23,8 +23,32 @@ jobs:
     permissions:
       id-token: write   # SignPath OIDC authentication
       contents: write   # softprops/action-gh-release attaches the .exe
-    runs-on: windows-latest
-    timeout-minutes: 30
+    # One installer per architecture. Windows on ARM is a real desktop target
+    # now, and until this matrix existed the only .exe was x64 -- an ARM user
+    # could run it under emulation but never got a native build.
+    #
+    # PyInstaller does not cross-compile, so the runner label IS the target
+    # architecture; build-windows.ps1 derives the name from the host rather than
+    # taking a flag, which keeps the two from disagreeing.
+    #
+    # arm64 is `continue-on-error` on purpose: GitHub's windows-11-arm runners
+    # and PyInstaller-on-ARM have never run in this repo, and a brand-new
+    # cross-arch job must not be able to fail a release that x64 completed fine.
+    # Promote it once it has been green a few times.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-latest
+            experimental: false
+          - arch: arm64
+            runner: windows-11-arm
+            experimental: true
+    name: build (windows-${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    continue-on-error: ${{ matrix.experimental }}
+    timeout-minutes: 45
 
     env:
       # SignPath.io signing (free for OSS). All four must be set for the
@@ -85,8 +109,8 @@ jobs:
         id: locate
         shell: pwsh
         run: |
-          $exe = Get-ChildItem "dist\YazSes-*-windows-x64.exe" | Select-Object -First 1
-          if (-not $exe) { throw "No installer produced" }
+          $exe = Get-ChildItem "dist\YazSes-*-windows-${{ matrix.arch }}.exe" | Select-Object -First 1
+          if (-not $exe) { throw "No ${{ matrix.arch }} installer produced" }
           echo "path=$($exe.FullName)" >> $env:GITHUB_OUTPUT
           echo "name=$($exe.Name)" >> $env:GITHUB_OUTPUT
 
@@ -96,7 +120,7 @@ jobs:
         if: steps.sign.outputs.sign == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: unsigned-installer
+          name: unsigned-installer-${{ matrix.arch }}
           path: ${{ steps.locate.outputs.path }}
           if-no-files-found: error
 
@@ -223,8 +247,8 @@ jobs:
       - name: Upload installer (signed if applicable)
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: yazses-windows-${{ steps.sign.outputs.sign == 'true' && 'signed' || 'unsigned' }}-${{ github.sha }}
-          path: dist/YazSes-*-windows-x64.exe
+          name: yazses-windows-${{ matrix.arch }}-${{ steps.sign.outputs.sign == 'true' && 'signed' || 'unsigned' }}-${{ github.sha }}
+          path: dist/YazSes-*-windows-${{ matrix.arch }}.exe
           if-no-files-found: error
           retention-days: 14
 
@@ -232,5 +256,5 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
         with:
-          files: dist/YazSes-*-windows-x64.exe
+          files: dist/YazSes-*-windows-${{ matrix.arch }}.exe
           fail_on_unmatched_files: true
