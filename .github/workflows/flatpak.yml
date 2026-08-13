@@ -69,7 +69,14 @@ jobs:
 
           VERSION="$(curl -fsSL https://pypi.org/pypi/yazses/json \
             | python3 -c 'import sys,json;print(json.load(sys.stdin)["info"]["version"])')"
-          echo "yazses==${VERSION}" > /tmp/req.in
+          # setuptools and wheel are listed as requirements so req2flatpak
+          # vendors their wheels into the module's sources. pip builds evdev's
+          # sdist in an isolated env and resolves that env's build deps from
+          # --find-links when --no-index is set — so a modern setuptools has to
+          # be *in that directory*, not merely installed beside it. Installing
+          # it into /app and putting /app on PYTHONPATH both failed precisely
+          # because the isolated build env ignores them.
+          printf 'yazses==%s\nsetuptools\nwheel\n' "${VERSION}" > /tmp/req.in
 
           # Pin against the *runtime's* interpreter and arch, not the runner's.
           uv pip compile --quiet \
