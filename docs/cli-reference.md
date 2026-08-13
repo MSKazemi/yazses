@@ -502,6 +502,8 @@ Words STT keeps mis-hearing (names, jargon, acronyms) are primed into Whisper's
 | `yazses vocab add <word> ...` | Add one or more words/names to your dictionary. |
 | `yazses vocab list` | Show every word in your dictionary. |
 | `yazses vocab remove <word>` | Remove a word. |
+| `yazses vocab export` | Print the dictionary (stdout by default, so it pipes). |
+| `yazses vocab import <file>` | Merge entries from a file, or `-` for stdin. |
 
 ```bash
 yazses vocab add YazSes               # add one word/name
@@ -529,6 +531,28 @@ yazses acronyms add API "Application Programming Interface"
 yazses acronyms expand "The API and the API"
 #   -> The Application Programming Interface (API) and the API
 ```
+
+**Moving it between machines.** The dictionary is the main lever you have over
+recognition of *your* proper nouns, package names and acronyms — and without this,
+every new machine starts that work from zero.
+
+```bash
+yazses vocab export                     # print it; redirect or pipe as you like
+yazses vocab export -o vocab.txt        # or save it
+yazses vocab import team-jargon.txt     # merge someone else's list into yours
+yazses vocab import -                   # read from stdin
+cat vocab.txt | ssh workstation 'yazses vocab import -'
+```
+
+**Merging is the default and de-duplicates** (case-insensitively): repeated
+imports would otherwise grow the file and dilute the prompt, and every entry is
+primed into the decoder — prompt length is not free. `--replace` discards your
+existing dictionary and asks before doing so (`--yes` skips the question).
+
+The format is one entry per line; `#` comments and blank lines are ignored, so a
+shared domain vocabulary can explain itself. Export → import → export is
+byte-identical, which makes it safe to keep in a dotfiles repo and diff.
+
 
 ### `yazses wordgoal` — writing-goal tracker
 

@@ -560,6 +560,25 @@ Manage your personal dictionary (words STT mis-hears).
 \fByazses vocab add\fR \fIWORDS\fR
 Add words to the dictionary so YazSes spells them right (then `yazses restart`).
 .TP
+\fByazses vocab export\fR
+Print your personal dictionary, one entry per line.
+.RS
+.TP
+\fB\-\-output, \-o\fR
+Write here instead of stdout.
+.RE
+.TP
+\fByazses vocab import\fR \fISOURCE\fR
+Add entries from a file (or stdin) to your personal dictionary.
+.RS
+.TP
+\fB\-\-merge, \-\-replace\fR
+Merge into the existing dictionary (default), or replace it entirely.
+.TP
+\fB\-\-yes, \-y\fR
+Skip the confirmation for --replace.
+.RE
+.TP
 \fByazses vocab list\fR
 Show the words in your personal dictionary.
 .TP

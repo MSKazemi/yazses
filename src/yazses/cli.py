@@ -2,6 +2,7 @@
 PID-file fallback for status.
 """
 
+import sys
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _pkg_version
 from pathlib import Path
@@ -1261,6 +1262,95 @@ def vocab_remove(word: str = typer.Argument(..., help="The word to remove.")) ->
     platform = get_platform()
     remaining = remove_vocab(vocab_path(platform.paths.config_file.parent), word)
     typer.echo(f"Removed {word!r}. Dictionary now has {len(remaining)} word(s).")
+
+
+@vocab_app.command(
+    "export",
+    epilog=_examples(
+        "yazses vocab export                       print the dictionary to stdout",
+        "yazses vocab export -o vocab.txt          save it to a file",
+        "yazses vocab export | ssh box 'yazses vocab import -'   copy it to another machine",
+    ),
+)
+def vocab_export(
+    output: Optional[Path] = typer.Option(
+        None, "--output", "-o", help="Write here instead of stdout."),
+) -> None:
+    """Print your personal dictionary, one entry per line.
+
+    Defaults to stdout so it pipes and redirects like any other tool.
+    """
+    from yazses.system.vocabulary import export_vocab, vocab_path
+
+    platform = get_platform()
+    text = export_vocab(vocab_path(platform.paths.config_file.parent))
+    if output is None:
+        # No trailing blank line: typer.echo would add a second newline to text
+        # that already ends in one, and the round-trip has to be byte-exact.
+        sys.stdout.write(text)
+        return
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(text, encoding="utf-8")
+    typer.echo(f"Wrote {len(text.splitlines())} word(s) to {output}.")
+
+
+@vocab_app.command(
+    "import",
+    epilog=_examples(
+        "yazses vocab import team-jargon.txt       merge into your dictionary",
+        "yazses vocab import -                     read from stdin",
+        "yazses vocab import backup.txt --replace  discard yours and use theirs",
+    ),
+)
+def vocab_import(
+    source: str = typer.Argument(..., help="File to import, or '-' for stdin."),
+    merge: bool = typer.Option(
+        True, "--merge/--replace",
+        help="Merge into the existing dictionary (default), or replace it entirely."),
+    yes: bool = typer.Option(
+        False, "--yes", "-y", help="Skip the confirmation for --replace."),
+) -> None:
+    """Add entries from a file (or stdin) to your personal dictionary.
+
+    Merging is the default and de-duplicates, because repeated imports would
+    otherwise grow the file and dilute the STT prompt — every entry is primed into
+    the decoder, and prompt length is not free.
+    """
+    from yazses.system.vocabulary import import_vocab, vocab_path
+
+    if source == "-":
+        text = sys.stdin.read()
+    else:
+        path = Path(source)
+        if not path.is_file():
+            typer.echo(f"No such file: {source}", err=True)
+            raise typer.Exit(1)
+        text = path.read_text(encoding="utf-8")
+
+    platform = get_platform()
+    target = vocab_path(platform.paths.config_file.parent)
+
+    if not merge:
+        # Destructive, and one keystroke away from --merge. Confirm unless the
+        # user has said they mean it.
+        from yazses.system.vocabulary import load_vocab
+
+        current = len(load_vocab(target))
+        if current and not yes:
+            typer.confirm(
+                f"--replace discards your {current} existing word(s). Continue?",
+                abort=True,
+            )
+
+    full, added = import_vocab(target, text, replace=not merge)
+    if merge:
+        typer.echo(
+            f"Imported {added} new word(s); dictionary now has {len(full)}."
+            + (" (the rest were already there)" if added < len(full) else "")
+        )
+    else:
+        typer.echo(f"Replaced the dictionary with {len(full)} word(s).")
+    typer.echo("Run `yazses restart` to apply.")
 
 
 acronyms_app = typer.Typer(

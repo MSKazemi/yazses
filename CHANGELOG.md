@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `yazses vocab export` / `import`: the dictionary can move between machines
+
+The personal dictionary is the main lever anyone has over recognition of *their
+own* proper nouns, package names, flags and acronyms — the words a general model
+gets wrong and that matter most in technical dictation. Until now it was a file
+you were expected to know the path of, so every new machine started that work from
+zero and a team with shared jargon could not share the fix at all.
+
+```bash
+yazses vocab export | ssh workstation 'yazses vocab import -'
+yazses vocab import team-jargon.txt
+```
+
+- **Export goes to stdout** by default, so it pipes and redirects; `-o` writes a
+  file. **Import reads a file or `-` for stdin.**
+- **Merging is the default and de-duplicates case-insensitively.** Repeated
+  imports would otherwise grow the file and dilute the STT prompt — every entry is
+  primed into the decoder and prompt length is not free.
+- **`--replace` asks before discarding your dictionary** (`--yes` skips it). It is
+  one keystroke from `--merge` and throws away work nobody can recover.
+- The format is one entry per line with `#` comments, so a shared vocabulary can
+  explain itself and lives happily in a dotfiles repo. Export → import → export is
+  byte-identical, which is the first test in the file. (#295)
+
 ### Fixed — packaging metadata that was wrong or could not work
 
 - **The Scoop manifest could not update itself.** `autoupdate` rewrote the

@@ -577,6 +577,20 @@ Add words to the dictionary so YazSes spells them right (then `yazses restart`).
 
 - **Arguments:** `words`
 
+### `yazses vocab export`
+
+Print your personal dictionary, one entry per line.
+
+- `--output`, `-o` — Write here instead of stdout.
+
+### `yazses vocab import`
+
+Add entries from a file (or stdin) to your personal dictionary.
+
+- **Arguments:** `source`
+- `--merge`, `--replace` — Merge into the existing dictionary (default), or replace it entirely.
+- `--yes`, `-y` — Skip the confirmation for --replace.
+
 ### `yazses vocab list`
 
 Show the words in your personal dictionary.
