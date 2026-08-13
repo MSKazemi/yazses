@@ -64,8 +64,14 @@ jobs:
           cd packaging/flatpak
           # Resolve against the SDK's interpreter, not the runner's — this is the
           # whole reason generation happens in CI.
+          # ctranslate2 (the whisper inference engine) and onnxruntime (the VAD)
+          # publish *no* sdist — binary wheels only. Without --prefer-wheels the
+          # generator refuses both and produces nothing at all. Accepting the
+          # wheels makes the Flatpak architecture-specific, which Flathub builds
+          # per-arch anyway.
           python3 /tmp/flatpak-pip-generator \
             --runtime="org.kde.Sdk//${RUNTIME_VERSION}" \
+            --prefer-wheels=ctranslate2,onnxruntime \
             --output python3-yazses \
             "yazses==$(curl -fsSL https://pypi.org/pypi/yazses/json | python3 -c 'import sys,json;print(json.load(sys.stdin)["info"]["version"])')"
           echo "--- modules generated ---"
