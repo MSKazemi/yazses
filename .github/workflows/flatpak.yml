@@ -39,57 +39,50 @@ env:
   # wheels for this SDK's Python, so a mismatch here produces a dependency list
   # that installs on nothing.
   RUNTIME_VERSION: '6.7'
+  # The KDE 6.7 SDK ships Python 3.11 (confirmed: 3.11.13). Wheels must match it,
+  # not whatever the runner happens to have.
+  PYTHON_VERSION: '3.11'
+  PYTHON_TAG: '311'
 
 jobs:
   generate:
     name: Regenerate the Python dependency modules
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.regenerate }}
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.7
-      options: --privileged
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      # The flathub-infra image ships flatpak-builder but no runtimes, and
-      # --runtime makes the generator exec python3 *inside* org.kde.Sdk to read
-      # its platform tags. Without the SDK present that fails with "Failed to
-      # obtain platform tags from runtime", which is the generator saying it
-      # cannot see the interpreter it is resolving wheels for.
-      - name: Install the KDE SDK the wheels are resolved against
-        run: |
-          set -eux
-          flatpak remote-add --if-not-exists flathub \
-            https://dl.flathub.org/repo/flathub.flatpakrepo
-          flatpak install -y --noninteractive flathub \
-            "org.kde.Sdk//${RUNTIME_VERSION}" "org.kde.Platform//${RUNTIME_VERSION}"
-          flatpak list --runtime --columns=application,branch
-
-      - name: Fetch flatpak-pip-generator
+      # req2flatpak, not flatpak-pip-generator. The latter shells into
+      # org.kde.Sdk to read its platform tags via `from packaging import tags`,
+      # and the SDK's Python 3.11 has no `packaging` module — so it always
+      # failed with the misleading "Failed to obtain platform tags from
+      # runtime". The module cannot be injected either: /tmp is private inside
+      # a flatpak sandbox and `flatpak override` does not apply to runtime refs.
+      #
+      # req2flatpak takes the interpreter and architecture as plain arguments,
+      # so it never probes a runtime and needs no flatpak at all. That is also
+      # why this job no longer runs in the flatpak image.
+      - name: Resolve and generate the dependency modules
         run: |
           set -euo pipefail
-          curl -fsSL -o /tmp/flatpak-pip-generator \
-            https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/master/pip/flatpak-pip-generator.py
-          python3 -m pip install --quiet requirements-parser
+          python3 -m pip install --quiet --upgrade uv req2flatpak
 
-      - name: Generate python3-yazses.json
-        run: |
-          set -euo pipefail
-          cd packaging/flatpak
-          # Resolve against the SDK's interpreter, not the runner's — this is the
-          # whole reason generation happens in CI.
-          # ctranslate2 (the whisper inference engine) and onnxruntime (the VAD)
-          # publish *no* sdist — binary wheels only. Without --prefer-wheels the
-          # generator refuses both and produces nothing at all. Accepting the
-          # wheels makes the Flatpak architecture-specific, which Flathub builds
-          # per-arch anyway.
-          python3 /tmp/flatpak-pip-generator \
-            --runtime="org.kde.Sdk//${RUNTIME_VERSION}" \
-            --prefer-wheels=ctranslate2,onnxruntime \
-            --output python3-yazses \
-            "yazses==$(curl -fsSL https://pypi.org/pypi/yazses/json | python3 -c 'import sys,json;print(json.load(sys.stdin)["info"]["version"])')"
-          echo "--- modules generated ---"
-          python3 -c 'import json;d=json.load(open("python3-yazses.json"));print(len(d["modules"]),"modules")'
+          VERSION="$(curl -fsSL https://pypi.org/pypi/yazses/json \
+            | python3 -c 'import sys,json;print(json.load(sys.stdin)["info"]["version"])')"
+          echo "yazses==${VERSION}" > /tmp/req.in
+
+          # Pin against the *runtime's* interpreter and arch, not the runner's.
+          uv pip compile --quiet \
+            --python-version "${PYTHON_VERSION}" \
+            --python-platform x86_64-manylinux2014 \
+            /tmp/req.in -o /tmp/req.txt
+          echo "--- resolved ---" && grep -cvE '^\s*#|^\s*$' /tmp/req.txt
+
+          req2flatpak --requirements-file /tmp/req.txt \
+            --target-platforms "${PYTHON_TAG}-x86_64" \
+            --outfile packaging/flatpak/python3-yazses.json
+
+          python3 -c 'import json;d=json.load(open("packaging/flatpak/python3-yazses.json"));print(len(d["sources"]),"sources")'
 
       - name: Upload for review and commit
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
