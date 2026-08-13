@@ -23,6 +23,7 @@ import numpy as np
 import pytest
 
 from yazses.recimport.diarizer import DiarTurn
+from yazses.system.deps import missing_modules
 from yazses.voiceprint.embedding import cosine_similarity
 
 # --------------------------------------------------------------------------
@@ -201,9 +202,9 @@ def _fake_pyannote(monkeypatch, tracks, *, pipeline_is_none=False):
 
     class _PipelineFactory:
         @staticmethod
-        def from_pretrained(name, use_auth_token=None):
+        def from_pretrained(name, token=None):
             calls["model"] = name
-            calls["token"] = use_auth_token
+            calls["token"] = token
             return None if pipeline_is_none else _Pipeline()
 
     torch_mod = types.ModuleType("torch")
@@ -321,7 +322,7 @@ def test_pyannote_telemetry_is_disabled_before_the_package_is_imported(monkeypat
 
     class _WatchfulPipelineFactory:
         @staticmethod
-        def from_pretrained(name, use_auth_token=None):
+        def from_pretrained(name, token=None):
             seen_at_import.append(os.environ.get("PYANNOTE_METRICS_ENABLED"))
             return _StubPipeline()
 
@@ -374,6 +375,49 @@ def test_missing_pyannote_names_its_own_extra():
 # --------------------------------------------------------------------------
 
 @pytest.mark.skipif(
+    # NOT `find_spec("pyannote.audio")` — that raises ModuleNotFoundError at
+    # collection time when `pyannote` is absent, which is the very bug this PR
+    # fixes in `missing_modules`. Use the fixed helper, which also dogfoods it.
+    bool(missing_modules(["pyannote.audio"])),
+    reason="the diarization-pyannote extra is not installed",
+)
+def test_pyannote_adapter_call_binds_against_the_real_signature(monkeypatch):
+    """A faked pipeline validates our *belief* about the API, not the API.
+
+    This caught a real bug. pyannote 3.x took ``use_auth_token``; 4.x renamed it
+    to ``token`` with **no alias and no ``**kwargs``**, so the old spelling is a
+    ``TypeError`` at construction rather than a silently ignored argument. Every
+    faked test passed anyway, because the fake accepted whatever it was handed.
+
+    Checking that the *signature* contains ``token`` would not be enough — that
+    passes even if the adapter goes back to the wrong spelling. So this replaces
+    ``from_pretrained`` with a spy that **binds the adapter's actual call against
+    the real signature**, failing on a wrong kwarg from either side. The spy
+    returns ``None`` (upstream's own "gated repo" answer), so the adapter's
+    RuntimeError is the success path. No token, no model, no network.
+    """
+    import inspect
+
+    from pyannote.audio import Pipeline
+
+    real_sig = inspect.signature(Pipeline.from_pretrained)
+    seen: dict = {}
+
+    def _spy(*args, **kwargs):
+        real_sig.bind(*args, **kwargs)   # TypeError here = the adapter is wrong
+        seen["kwargs"] = kwargs
+        return None
+
+    monkeypatch.setattr(Pipeline, "from_pretrained", _spy)
+
+    from yazses.recimport.pyannote_backend import PyannoteDiarizer
+
+    with pytest.raises(RuntimeError):    # gated-repo path, which is what None means
+        PyannoteDiarizer(_DiarCfg())
+    assert "token" in seen["kwargs"]
+
+
+@pytest.mark.skipif(
     importlib.util.find_spec("resemblyzer") is None,
     reason="the voiceprint-resemblyzer extra is not installed",
 )
@@ -395,3 +439,69 @@ def test_real_resemblyzer_returns_a_unit_vector_at_both_lengths():
         assert vector.shape == (256,)
         assert np.isfinite(vector).all()
         assert abs(float(np.linalg.norm(vector)) - 1.0) < 1e-3
+
+
+# --------------------------------------------------------------------------
+# diarization_status must follow the configured backend (#71 integration)
+# --------------------------------------------------------------------------
+
+def test_status_probes_pyannote_not_sherpa_when_pyannote_is_configured(monkeypatch, tmp_path):
+    """The readiness probe used to hard-code sherpa whatever was configured.
+
+    Left as it was, a correctly-installed pyannote user would be told on every
+    `meeting start` that their transcript would not be attributed — the exact
+    false alarm this function exists to prevent. `ready` was unreachable for
+    pyannote because the check literally read `backend == "sherpa"`.
+    """
+    from yazses.recimport import factory
+
+    monkeypatch.setattr(factory, "_pyannote_model_cached", lambda: True)
+    monkeypatch.setattr(
+        "yazses.system.deps.missing_modules",
+        lambda mods: [] if list(mods) == ["pyannote.audio"] else list(mods),
+    )
+    cfg = _DiarCfg()
+    status = factory.diarization_status(cfg)
+    assert status["backend"] == "pyannote"
+    assert status["extra_installed"] is True
+    assert status["ready"] is True, "pyannote can never be ready if sherpa is probed"
+
+
+def test_status_reports_not_ready_when_the_gated_model_is_uncached(monkeypatch):
+    """No cache means the first run must still fetch a gated repo — say so."""
+    from yazses.recimport import factory
+
+    monkeypatch.setattr(factory, "_pyannote_model_cached", lambda: False)
+    monkeypatch.setattr(
+        "yazses.system.deps.missing_modules",
+        lambda mods: [] if list(mods) == ["pyannote.audio"] else list(mods),
+    )
+    status = factory.diarization_status(_DiarCfg())
+    assert status["extra_installed"] is True
+    assert status["models_present"] is False
+    assert status["ready"] is False
+
+
+def test_status_is_never_ready_for_backend_none():
+    """`none` is a deliberate opt-out, not a half-configured state."""
+    from yazses.recimport.factory import diarization_status
+
+    cfg = _DiarCfg()
+    cfg.backend = "none"
+    status = diarization_status(cfg)
+    assert status["ready"] is False
+    assert status["extra_installed"] is False
+
+
+def test_status_does_not_import_the_heavy_backend():
+    """It runs on the `meeting status` path; it must not pull torch in."""
+    import subprocess
+
+    out = subprocess.run(
+        [sys.executable, "-c",
+         "import sys; from yazses.recimport.factory import diarization_status;"
+         "print([m for m in sys.modules if m.split('.')[0] in "
+         "('pyannote','torch','sherpa_onnx')])"],
+        capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    assert out == "[]", f"heavy modules imported by the status path: {out}"

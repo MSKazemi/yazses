@@ -66,7 +66,7 @@ log = logging.getLogger(__name__)
 # The gated pretrained pipeline. Pinned rather than tracking "latest": a
 # diarization model change alters every speaker boundary, and a stored meeting
 # transcript should not shift because an upstream default moved.
-_PIPELINE = "pyannote/speaker-diarization-3.1"
+PIPELINE_ID = "pyannote/speaker-diarization-3.1"
 
 # Checked in order; the first non-empty wins. These are the names the
 # huggingface_hub tooling itself honours, so a user who has already run
@@ -115,14 +115,18 @@ class PyannoteDiarizer:
         from pyannote.audio import Pipeline
 
         self._torch = torch
-        pipeline = Pipeline.from_pretrained(_PIPELINE, use_auth_token=_auth_token())
+        # `token=`, not `use_auth_token=`. pyannote 3.x used the latter and 4.x
+        # renamed it with no alias and no **kwargs, so the old spelling is a
+        # TypeError rather than a silently ignored argument. A faked pipeline
+        # cannot catch that — see test_pyannote_from_pretrained_signature.
+        pipeline = Pipeline.from_pretrained(PIPELINE_ID, token=_auth_token())
         if pipeline is None:
             # from_pretrained returns None (rather than raising) when the repo is
             # gated and the token is missing or has not accepted the conditions.
             # Say which of those it is, because the fixes are different.
             raise RuntimeError(
-                f"Could not load {_PIPELINE}. Accept the model conditions at "
-                f"https://hf.co/{_PIPELINE} with your Hugging Face account, then "
+                f"Could not load {PIPELINE_ID}. Accept the model conditions at "
+                f"https://hf.co/{PIPELINE_ID} with your Hugging Face account, then "
                 "either run `huggingface-cli login` or set HF_TOKEN. The download "
                 "happens once; diarization itself runs offline."
             )
