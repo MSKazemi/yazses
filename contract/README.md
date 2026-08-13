@@ -44,6 +44,7 @@ contract/
     spacing.json             postprocess.spacing           separator between bursts
     vocabulary.json          stt.vocabulary                initial_prompt merge
     grammar.json             commands.grammar              dictate vs command classification
+    activation.json          sources.activation            onset/offset/intent -> act|confirm|reject
 ```
 
 **191 parity cases across six units, plus 19 semantic invariants.** Together they cover
@@ -133,6 +134,37 @@ Wanted: empty and whitespace-only input, punctuation-only, unicode, **RTL (Persi
 first-class test language here)**, emoji and other astral-plane characters, very long
 input, pathological repetition, and — most valuable — text that only *looks* like a
 disfluency and must survive untouched.
+
+## If you are plugging in an activation source (a decoder, an EMG band, a BCI)
+
+`vectors/activation.json` exists so you can prove conformance **without reading our
+source**. Every other vector file asks "does your text pipeline agree with ours?";
+this one asks "does your device drive ours correctly?".
+
+A case's `input` is a list of events your source may emit, and `expected` is what the
+daemon must do with each:
+
+| Event | Fields | Meaning |
+|---|---|---|
+| `onset` | — | the user began an activation (a squeeze, a key, a detected gesture) |
+| `offset` | — | the activation ended |
+| `intent` | `label`, `confidence` | a decoded command, drawn from your declared vocabulary |
+| `disappear` | — | the source stopped existing (unplugged, crashed, lost link) |
+
+Results are `hold_start` / `hold_end` / `ignored` for triggers, and `act` / `confirm` /
+`reject` / `refused` for intents. Three of these are easy to get wrong and are pinned
+precisely because they are:
+
+- **A repeated `onset` is `ignored`, not a second hold.** A stuck source must not open
+  holds forever.
+- **`disappear` mid-hold closes the hold.** Otherwise an unplugged band leaves the
+  daemon recording with nothing to stop it.
+- **An `intent` is refused before it reaches the grammar** when the label is not in
+  the vocabulary you declared, when the label is empty, or when `confidence` is not a
+  real number in [0, 1]. `confidence: 1.4` is a calibration bug, not certainty.
+
+An irreversible action **always** confirms, at any confidence — see
+`src/yazses/activation/confirm.py` for why a threshold cannot substitute for that.
 
 ## Versioning
 

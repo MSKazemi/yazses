@@ -191,6 +191,65 @@ transcribing something you did not intend:
 yazses features enable pronunciation
 ```
 
+## Smoke-testing your language, offline
+
+Nothing above is a measurement. The presets are derived from model size and
+Whisper's published behaviour, **not** from anyone testing your language — and
+per-language quality varies far more than size alone predicts. There is no
+substitute for hearing your own voice come back.
+
+Two ways, and the second needs no microphone once you have a clip:
+
+```bash
+# Live: hold your hotkey, say a sentence you can check.
+yazses restart && yazses status
+
+# From a file — reproducible, and shareable without re-recording.
+yazses transcribe path/to/clip.wav
+```
+
+### Making your own fixture
+
+YazSes deliberately ships **no recorded speech fixtures for non-English
+languages**. A voice recording is personal data; licensing on public speech
+corpora varies clip by clip; and a fixture nobody may legally redistribute is
+worse than none, because it invites someone to add one that cannot stay. Record
+your own — it is a minute of work and it stays yours:
+
+```bash
+# 10 s of 16 kHz mono, the format the engine wants
+arecord -f S16_LE -r 16000 -c 1 -d 10 my-clip.wav     # Linux
+# macOS: QuickTime → export WAV.  Windows: Voice Recorder, then convert.
+
+yazses transcribe my-clip.wav
+```
+
+Keep the clip out of the repository. To contribute a *result* rather than audio,
+use the table below.
+
+### Report what you found
+
+Post one row per language on
+[#167](https://github.com/MSKazemi/yazses/issues/167). This is the only way the
+project learns which languages are genuinely usable, because no one here speaks
+them all.
+
+| Field | Example |
+|---|---|
+| Language | `fa` |
+| Model | `small` |
+| YazSes version | `2.18.2` |
+| OS / CPU | Ubuntu 26.04, i7-1165G7 |
+| Expected text | what you said — only if you are happy to publish it |
+| Actual output | what appeared |
+| Time to transcribe | 2.1 s for a 6 s clip |
+| Verdict | usable / usable with corrections / unusable |
+| Limitations noticed | proper nouns wrong, numbers correct |
+
+**Do not paste anything you would rather keep private.** A verdict plus a
+description of the errors is worth nearly as much as a transcript, and YazSes
+never needs your words to diagnose anything.
+
 ## Honest limits
 
 - **Accuracy is not uniform across languages.** Whisper is strong in

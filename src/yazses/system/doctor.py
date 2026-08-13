@@ -430,6 +430,55 @@ def _keyboard_capture_check(perms, platform_name: str) -> _Check:
     return ("Keyboard capture", "OK" if state is PermissionState.OK else "FAIL", detail)
 
 
+def _window_focus_check(is_wayland: bool, is_x11: bool) -> _Check | None:
+    """Report whether "focus the browser" can work on this session (#39).
+
+    Wayland deliberately forbids one client focusing another's window and no
+    portal exposes it, so this is a permanent property of the session rather
+    than something to install. Saying so here is the difference between a user
+    concluding YazSes is broken and knowing the platform said no.
+    """
+    if not (is_wayland or is_x11):
+        return None
+    from yazses.windowctl.focus import wayland_limitation
+
+    if is_wayland:
+        return ("Voice window focus", "SKIP", wayland_limitation())
+    if not shutil.which("xdotool"):
+        return ("Voice window focus", "WARN",
+                "needs xdotool to enumerate and raise windows — run `yazses setup`")
+    return ("Voice window focus", "OK", "xdotool (X11) — \"focus the browser\" works")
+
+
+def _modality_roles_check(cfg) -> _Check | None:
+    """Report which modality owns each role (ADR-v2-011), or nothing when off.
+
+    A role map is exactly the kind of state that is invisible until it
+    misbehaves: with `[modality]` on, whether EMG runs in command or dictation
+    mode stops being what `[emg] mode` says and starts being what the router
+    decided. Printing the resolved map means a user can see that without
+    reading config or the log.
+    """
+    if not getattr(cfg, "modality", None) or not cfg.modality.enabled:
+        return None
+    from yazses.modality.router import ModalityPolicy, resolve_roles
+
+    available = ["voice", "keyboard"]
+    if (cfg.emg.device_port or "").strip():
+        available.append("emg")
+    if cfg.gaze.enabled:
+        available.append("gaze")
+    roles = resolve_roles(
+        available, ModalityPolicy.from_preset(cfg.modality.preset, cfg.modality.priority)
+    )
+    if not roles:
+        return ("Modality roles", "WARN",
+                f"preset {cfg.modality.preset!r} assigned nothing to the available "
+                f"modalities ({', '.join(available)})")
+    summary = ", ".join(f"{role}→{mod}" for role, mod in sorted(roles.items()))
+    return ("Modality roles", "OK", f"preset {cfg.modality.preset}: {summary}")
+
+
 def _elevation_check(platform_name: str) -> _Check | None:
     """Windows: report elevation and what it means for elevated windows.
 
@@ -644,6 +693,11 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     if elevation is not None:
         checks.append(elevation)
 
+    # ADR-v2-011 role map, when [modality] is on. Absent otherwise.
+    modality = _modality_roles_check(cfg)
+    if modality is not None:
+        checks.append(modality)
+
     # Which input device the hotkey actually binds to (real keyboard vs a virtual
     # injector device). Surfaces the dead-hotkey failure mode directly.
     hotkey_dev = _hotkey_device_check(cfg)
@@ -686,6 +740,11 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
         checks.append(_tool("wl-copy", required=False))
 
         checks.extend(_injection_readiness(is_wayland, is_x11))
+
+        # Whether "focus the browser" can work here. Wayland cannot, by design.
+        window_focus = _window_focus_check(is_wayland, is_x11)
+        if window_focus is not None:
+            checks.append(window_focus)
 
     # Model cache (Hugging Face)
     hf_cache = Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface")) / "hub"

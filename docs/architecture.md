@@ -67,6 +67,24 @@ the tray all speak to the daemon over the same JSON-RPC channel, which is why
 `yazses status` reports the truth rather than a guess, and why the tray can be
 killed and relaunched without disturbing dictation.
 
+Both front ends also share one definition of *enabling* a capability. Fifteen of
+the ~140 rows need an optional Python package (`gaze` needs mediapipe, `cocktail`
+needs speechbrain, and so on), and `yazses features enable` has always installed
+those before telling you to restart. The settings window now does the same, on a
+worker thread, through the identical `system/deps.py` call — so the two cannot
+drift on what "enabled" means. The decisions (what to install, what to say when
+it fails) are pure and Qt-free in `settingsui/deps.py`; only the thread and the
+widgets live in `settingsui/app.py`.
+
+**When an install fails, the config key stands.** A failed install is usually
+transient — a network blip, a slow mirror, a wheel building — and silently
+un-toggling the switch a user just moved discards their intent and leaves no
+trace of why. Instead the capability is recorded as on and reported as *dormant
+until its packages arrive*, which is a state `yazses doctor` and `yazses
+features` already model and a user can fix by retrying. Enabling records intent;
+satisfying it is a separate, retryable step, and the gap between the two is
+always visible.
+
 The four blocks in the bottom band are the ones people most often assume are
 already there. Each is a recorded decision rather than an omission:
 

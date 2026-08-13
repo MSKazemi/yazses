@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
+from typing import Any
 
 from yazses.settingsui.controller import ApplyReport, PendingChanges, SettingsController
 from yazses.settingsui.launch import has_display, pyside_available
@@ -133,6 +134,16 @@ class SettingsWindow:
         outer.addWidget(self._hint)
 
         apply_btn = QPushButton("Apply")
+        self._apply_button = apply_btn
+        # Dependency-install state (#135). `_auto_install` mirrors the CLI's
+        # --no-install; the thread/worker refs keep Qt from collecting a
+        # running QThread out from under the install.
+        self._auto_install = True
+        # Typed as Any: PySide6 has no stubs in this tree (mypy already ignores
+        # its imports repo-wide), so a precise QThread annotation would be an
+        # error rather than documentation.
+        self._install_thread: Any = None
+        self._install_worker: Any = None
         apply_btn.clicked.connect(self._on_apply)
         outer.addWidget(apply_btn)
 
@@ -207,6 +218,78 @@ class SettingsWindow:
         self._hint.setText(self._summarise(report))
         if report.errors:
             self._warn("Some settings were not saved", "\n".join(report.errors))
+
+        # Install the optional packages the newly-enabled capabilities need (#135).
+        # Off the UI thread: a `mediapipe` or `speechbrain` install takes minutes,
+        # and on the main thread that is indistinguishable from a hang.
+        self._install_missing(report.missing_packages)
+
+    def _install_missing(self, missing_by_slug) -> None:
+        """Start the dependency install for whatever Apply just enabled.
+
+        Decisions live in `settingsui/deps.py`; this method owns only the thread
+        and the widgets, which is the split the rest of `settingsui/` uses.
+        """
+        from yazses.settingsui.deps import describe_skipped, plan_installs
+
+        if not missing_by_slug:
+            return
+        if not self._auto_install:
+            self._hint.setText(describe_skipped(missing_by_slug))
+            return
+        plans = plan_installs(missing_by_slug, auto_install=True)
+        if not plans:
+            return
+        if self._install_thread is not None:
+            # An install is already running; the button is disabled, but a queued
+            # signal could still land here.
+            return
+        self._start_install_worker(plans)
+
+    def _start_install_worker(self, plans) -> None:
+        from PySide6.QtCore import QThread
+
+        from yazses.settingsui.worker import InstallWorker
+
+        self._apply_button.setEnabled(False)
+        self._hint.setText(
+            f"Installing packages for {', '.join(p.slug for p in plans)}… "
+            "this can take a few minutes."
+        )
+
+        thread = QThread(self._win)
+        worker = InstallWorker(plans)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.progress.connect(self._on_install_progress)
+        worker.finished.connect(self._on_install_finished)
+        worker.finished.connect(thread.quit)
+        thread.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        # Keep strong references: a QThread garbage-collected mid-run takes the
+        # install with it and Qt warns about a destroyed running thread.
+        self._install_thread, self._install_worker = thread, worker
+        thread.start()
+
+    def _on_install_progress(self, line: str) -> None:
+        self._hint.setText(line)
+
+    def _on_install_finished(self, summary) -> None:
+        from yazses.settingsui.deps import describe_summary
+
+        self._install_thread = self._install_worker = None
+        self._apply_button.setEnabled(True)
+        message = describe_summary(summary)
+        if message:
+            self._hint.setText(message)
+        if summary.failed:
+            # The config key stands on a failed install (see settingsui/deps.py);
+            # saying so is the whole point, otherwise the toggle looks inert.
+            self._warn(
+                "Some packages could not be installed",
+                "\n".join(f.slug + ": " + (f.error or "install failed")
+                           for f in summary.failed),
+            )
 
     def _summarise(self, report: ApplyReport) -> str:
         parts: list[str] = []

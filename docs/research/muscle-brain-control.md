@@ -238,6 +238,43 @@ and a single model can now span **heterogeneous electrode configurations**
 device-neutral contract this project uses to keep implementations honest. For a
 full survey of the sensing modalities, see [Tang et al.'s review](#ref-review).
 
+## The seam, if you want to plug a decoder in
+
+Until recently YazSes could only accept an **onset and an offset** from a device —
+the vocabulary of a key. A decoder that recognised "undo" at 96% had to throw the
+label away, emit a bare onset, and wait for the user to say the word out loud,
+which is the opposite of what a silent interface is for.
+
+An activation source can now declare a **vocabulary** and emit an **intent**: a
+label plus a confidence. Three properties are worth knowing before you build
+against it:
+
+- **The label goes through the ordinary command grammar.** A silent "undo" and a
+  spoken "undo" take the same code path, so they cannot diverge.
+- **A label outside your declared vocabulary is refused** before it reaches that
+  grammar. Declaring up front is what makes a mis-decode a refusal rather than an
+  action.
+- **Free text is out of scope, deliberately.** At ~68% WER for non-invasive
+  decoding ([Gaddy & Klein](#ref-gaddy20)), injecting decoded prose would be typing
+  noise. Labels from a small closed set are the part that is reliable — which is
+  exactly what the 96–97% / 10–30 word results measure.
+
+**Confidence alone does not decide whether an intent runs.** The gate is
+confidence × *consequence*, and an irreversible action confirms at any confidence:
+at roughly one command in thirty wrong, no threshold makes silently executing
+something unrecoverable defensible. Reversible actions act above 0.90 and confirm
+below it; below 0.50 the intent is dropped rather than prompted, because
+confirming coin flips teaches people to dismiss prompts.
+
+`contract/vectors/activation.json` is an executable specification of all of the
+above — 20 cases covering onset/offset, intents, out-of-vocabulary and empty
+labels, out-of-range confidence, a repeated onset, and a source that disappears
+mid-hold. **You can prove your decoder conforms without reading our source**, and
+without owning our pipeline. See [`contract/README.md`](https://github.com/MSKazemi/yazses/blob/main/contract/README.md).
+
+Configuration lives under `[activation]`; it is off by default and changes nothing
+until an intent-carrying source exists.
+
 ## Open questions
 
 **[Discuss →](https://github.com/MSKazemi/yazses/discussions)**

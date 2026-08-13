@@ -41,13 +41,17 @@ def parse_bookmark_command(text: str):
     """
     t = (text or "").lower().strip()
 
-    m = re.search(r"\b(?:jump|go|goto)\s+(?:to\s+)?(?:my\s+)?(?:(last)\s+)?bookmark(?:\s+(.+))?$", t)
+    # Anchored at BOTH ends. "bookmark" is an ordinary English word, and a
+    # suffix-only match swallows the sentence containing it: "click bookmark"
+    # and "the bookmark" both used to create a bookmark instead of being typed.
+    # Same failure as commands/revise.py::_SCRATCH_RE, fixed the same way.
+    m = re.fullmatch(r"(?:jump|go|goto)\s+(?:to\s+)?(?:my\s+)?(?:(last)\s+)?bookmark(?:\s+(.+))?", t)
     if m:
         if m.group(2) and not m.group(1):
             return ("goto", m.group(2).strip())
         return ("goto", None)   # "last bookmark" or bare "bookmark"
 
-    m = re.search(r"\bbookmark\s*(?:here|this)?\s*(?:as\s+(.+)|called\s+(.+))?$", t)
+    m = re.fullmatch(r"bookmark\s*(?:here|this)?\s*(?:as\s+(.+)|called\s+(.+))?", t)
     if m:
         name = (m.group(1) or m.group(2))
         return ("add", name.strip() if name else None)

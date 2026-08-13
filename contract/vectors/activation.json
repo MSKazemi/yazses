@@ -1,0 +1,592 @@
+{
+  "unit": "sources.activation",
+  "contract_version": "6.1.0",
+  "source": "src/yazses/activation/intent.py::validate + src/yazses/activation/confirm.py::decide",
+  "cases": [
+    {
+      "id": "empty-stream",
+      "description": "a source that emits nothing does nothing",
+      "options": {
+        "vocabulary": [
+          "undo",
+          "save",
+          "copy",
+          "paste",
+          "delete the last word",
+          "go to line 40"
+        ]
+      },
+      "input": [],
+      "expected": []
+    },
+    {
+      "id": "onset-offset-pair",
+      "description": "the ordinary trigger: one hold, opened and closed",
+      "options": {
+        "vocabulary": [
+          "undo",
+          "save",
+          "copy",
+          "paste",
+          "delete the last word",
+          "go to line 40"
+        ]
+      },
+      "input": [
+        {
+          "kind": "onset"
+        },
+        {
+          "kind": "offset"
+        }
+      ],
+      "expected": [
+        {
+          "event": "onset",
+          "result": "hold_start"
+        },
+        {
+          "event": "offset",
+          "result": "hold_end"
+        }
+      ]
+    },
+    {
+      "id": "offset-without-onset",
+      "description": "a stray release (source started mid-hold) must not end a hold",
+      "options": {
+        "vocabulary": [
+          "undo",
+          "save",
+          "copy",
+          "paste",
+          "delete the last word",
+          "go to line 40"
+        ]
+      },
+      "input": [
+        {
+          "kind": "offset"
+        }
+      ],
+      "expected": [
+        {
+          "event": "offset",
+          "result": "ignored"
+        }
+      ]
+    },
+    {
+      "id": "double-onset",
+      "description": "a repeated onset is a stuck source, not a second hold",
+      "options": {
+        "vocabulary": [
+          "undo",
+          "save",
+          "copy",
+          "paste",
+          "delete the last word",
+          "go to line 40"
+        ]
+      },
+      "input": [
+        {
+          "kind": "onset"
+        },
+        {
+          "kind": "onset"
+        },
+        {
+          "kind": "offset"
+        }
+      ],
+      "expected": [
+        {
+          "event": "onset",
+          "result": "hold_start"
+        },
+        {
+          "event": "onset",
+          "result": "ignored"
+        },
+        {
+          "event": "offset",
+          "result": "hold_end"
+        }
+      ]
+    },
+    {
+      "id": "source-disappears-mid-hold",
+      "description": "unplugged while held: the hold must close, not record forever",
+      "options": {
+        "vocabulary": [
+          "undo",
+          "save",
+          "copy",
+          "paste",
+          "delete the last word",
+          "go to line 40"
+        ]
+      },
+      "input": [
+        {
+          "kind": "onset"
+        },
+        {
+          "kind": "disappear"
+        }
+      ],
+      "expected": [
+        {
+          "event": "onset",
+          "result": "hold_start"
+        },
+        {
+          "event": "disappear",
+          "result": "hold_end"
+        }
+      ]
+    },
+    {
+      "id": "disappear-while-idle",
+      "description": "a source vanishing with no hold open changes nothing",
+      "options": {
+        "vocabulary": [
+          "undo",
+          "save",
+          "copy",
+          "paste",
+          "delete the last word",
+          "go to line 40"
+        ]
+      },
+      "input": [
+        {
+          "kind": "disappear"
+        }
+      ],
+      "expected": [
+        {
+          "event": "disappear",
+          "result": "ignored"
+        }
+      ]
+    },
+    {
+      "id": "confident-reversible-intent-acts",
+      "description": "high confidence + undoable action: act without asking",
+      "options": {
+        "vocabulary": [
+          "undo",
+          "save",
+          "copy",
+          "paste",
+          "delete the last word",
+          "go to line 40"
+        ]
+      },
+      "input": [
+        {
+          "kind": "intent",
+          "label": "undo",
+          "confidence": 0.97
+        }
+      ],
+      "expected": [
+        {
+          "event": "intent",
+          "result": "act",
+          "action": "undo"
+        }
+      ]
+    },
+    {
+      "id": "confident-irreversible-intent-confirms",
+      "description": "consequence outranks confidence: save always asks first",
+      "options": {
+        "vocabulary": [
+          "undo",
+          "save",
+          "copy",
+          "paste",
+          "delete the last word",
+          "go to line 40"
+        ]
+      },
+      "input": [
+        {
+          "kind": "intent",
+          "label": "save",
+          "confidence": 1.0
+        }
+      ],
+      "expected": [
+        {
+          "event": "intent",
+          "result": "confirm",
+          "action": "save"
+        }
+      ]
+    },
+    {
+      "id": "unsure-reversible-intent-confirms",
+      "description": "below the threshold, even a reversible action asks",
+      "options": {
+        "vocabulary": [
+          "undo",
+          "save",
+          "copy",
+          "paste",
+          "delete the last word",
+          "go to line 40"
+        ]
+      },
+      "input": [
+        {
+          "kind": "intent",
+          "label": "undo",
+          "confidence": 0.6
+        }
+      ],
+      "expected": [
+        {
+          "event": "intent",
+          "result": "confirm",
+          "action": "undo"
+        }
+      ]
+    },
+    {
+      "id": "sub-chance-intent-rejected",
+      "description": "below the floor the label is dropped, not prompted",
+      "options": {
+        "vocabulary": [
+          "undo",
+          "save",
+          "copy",
+          "paste",
+          "delete the last word",
+          "go to line 40"
+        ]
+      },
+      "input": [
+        {
+          "kind": "intent",
+          "label": "undo",
+          "confidence": 0.2
+        }
+      ],
+      "expected": [
+        {
+          "event": "intent",
+          "result": "reject",
+          "action": "undo"
+        }
+      ]
+    },
+    {
+      "id": "out-of-vocabulary-label-refused",
+      "description": "a source may not ask for what it never declared",
+      "options": {
+        "vocabulary": [
+          "undo",
+          "save",
+          "copy",
+          "paste",
+          "delete the last word",
+          "go to line 40"
+        ]
+      },
+      "input": [
+        {
+          "kind": "intent",
+          "label": "format disk",
+          "confidence": 0.99
+        }
+      ],
+      "expected": [
+        {
+          "event": "intent",
+          "result": "refused",
+          "reason": "out_of_vocabulary"
+        }
+      ]
+    },
+    {
+      "id": "no-declared-vocabulary-refuses-every-intent",
+      "description": "a trigger-only source (EMG squeeze) cannot emit intents",
+      "options": {
+        "vocabulary": []
+      },
+      "input": [
+        {
+          "kind": "intent",
+          "label": "undo",
+          "confidence": 0.99
+        }
+      ],
+      "expected": [
+        {
+          "event": "intent",
+          "result": "refused",
+          "reason": "no_vocabulary"
+        }
+      ]
+    },
+    {
+      "id": "empty-label-refused",
+      "description": "the boring one: a decoder emitting an empty string",
+      "options": {
+        "vocabulary": [
+          "undo",
+          "save",
+          "copy",
+          "paste",
+          "delete the last word",
+          "go to line 40"
+        ]
+      },
+      "input": [
+        {
+          "kind": "intent",
+          "label": "",
+          "confidence": 0.99
+        }
+      ],
+      "expected": [
+        {
+          "event": "intent",
+          "result": "refused",
+          "reason": "empty_label"
+        }
+      ]
+    },
+    {
+      "id": "confidence-above-one-refused",
+      "description": "an uncalibrated decoder reporting 1.4 is a bug, not certainty",
+      "options": {
+        "vocabulary": [
+          "undo",
+          "save",
+          "copy",
+          "paste",
+          "delete the last word",
+          "go to line 40"
+        ]
+      },
+      "input": [
+        {
+          "kind": "intent",
+          "label": "undo",
+          "confidence": 1.4
+        }
+      ],
+      "expected": [
+        {
+          "event": "intent",
+          "result": "refused",
+          "reason": "bad_confidence"
+        }
+      ]
+    },
+    {
+      "id": "negative-confidence-refused",
+      "description": "a negative probability is not a probability",
+      "options": {
+        "vocabulary": [
+          "undo",
+          "save",
+          "copy",
+          "paste",
+          "delete the last word",
+          "go to line 40"
+        ]
+      },
+      "input": [
+        {
+          "kind": "intent",
+          "label": "undo",
+          "confidence": -0.5
+        }
+      ],
+      "expected": [
+        {
+          "event": "intent",
+          "result": "refused",
+          "reason": "bad_confidence"
+        }
+      ]
+    },
+    {
+      "id": "confidence-boundaries-are-inclusive",
+      "description": "exactly at the floor confirms; exactly at the threshold acts",
+      "options": {
+        "vocabulary": [
+          "undo",
+          "save",
+          "copy",
+          "paste",
+          "delete the last word",
+          "go to line 40"
+        ]
+      },
+      "input": [
+        {
+          "kind": "intent",
+          "label": "undo",
+          "confidence": 0.5
+        },
+        {
+          "kind": "intent",
+          "label": "undo",
+          "confidence": 0.9
+        }
+      ],
+      "expected": [
+        {
+          "event": "intent",
+          "result": "confirm",
+          "action": "undo"
+        },
+        {
+          "event": "intent",
+          "result": "act",
+          "action": "undo"
+        }
+      ]
+    },
+    {
+      "id": "in-vocabulary-but-not-a-command",
+      "description": "a declared label the grammar reads as prose is not typed",
+      "options": {
+        "vocabulary": [
+          "hello there"
+        ]
+      },
+      "input": [
+        {
+          "kind": "intent",
+          "label": "hello there",
+          "confidence": 0.99
+        }
+      ],
+      "expected": [
+        {
+          "event": "intent",
+          "result": "refused",
+          "reason": "not_a_command"
+        }
+      ]
+    },
+    {
+      "id": "intent-with-an-argument",
+      "description": "a parameterised command keeps its argument through the seam",
+      "options": {
+        "vocabulary": [
+          "undo",
+          "save",
+          "copy",
+          "paste",
+          "delete the last word",
+          "go to line 40"
+        ]
+      },
+      "input": [
+        {
+          "kind": "intent",
+          "label": "go to line 40",
+          "confidence": 0.95
+        }
+      ],
+      "expected": [
+        {
+          "event": "intent",
+          "result": "act",
+          "action": "go_to_line"
+        }
+      ]
+    },
+    {
+      "id": "intent-during-a-hold",
+      "description": "an intent mid-hold is decided on its own merits",
+      "options": {
+        "vocabulary": [
+          "undo",
+          "save",
+          "copy",
+          "paste",
+          "delete the last word",
+          "go to line 40"
+        ]
+      },
+      "input": [
+        {
+          "kind": "onset"
+        },
+        {
+          "kind": "intent",
+          "label": "undo",
+          "confidence": 0.99
+        },
+        {
+          "kind": "offset"
+        }
+      ],
+      "expected": [
+        {
+          "event": "onset",
+          "result": "hold_start"
+        },
+        {
+          "event": "intent",
+          "result": "act",
+          "action": "undo"
+        },
+        {
+          "event": "offset",
+          "result": "hold_end"
+        }
+      ]
+    },
+    {
+      "id": "custom-thresholds-are-honoured",
+      "description": "a source with published calibration may set its own gates",
+      "options": {
+        "vocabulary": [
+          "undo",
+          "save",
+          "copy",
+          "paste",
+          "delete the last word",
+          "go to line 40"
+        ],
+        "threshold": 0.7,
+        "floor": 0.3
+      },
+      "input": [
+        {
+          "kind": "intent",
+          "label": "undo",
+          "confidence": 0.75
+        },
+        {
+          "kind": "intent",
+          "label": "undo",
+          "confidence": 0.35
+        }
+      ],
+      "expected": [
+        {
+          "event": "intent",
+          "result": "act",
+          "action": "undo"
+        },
+        {
+          "event": "intent",
+          "result": "confirm",
+          "action": "undo"
+        }
+      ]
+    }
+  ]
+}

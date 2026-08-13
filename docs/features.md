@@ -697,11 +697,11 @@ YazSes ships **141 capabilities**. All but the core are **off by default** — t
 
 ### Voice Window Management
 
-- **Toggle:** `windowctl`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[windowctl] — layout by voice`
+- **Toggle:** `windowctl`  ·  **Tier:** optional  ·  **Config:** `[windowctl] — layout by voice`
 - **What it does:** Hands-free desktop layout: 'move window left half', 'maximize', 'workspace 3'. Needs the windowctl extra for your compositor. Off by default.
 - **Use when:** When you want to arrange windows and switch workspaces without touching the mouse.
 - **Example:** Say 'move window left half' or 'workspace 3' to arrange your desktop.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable windowctl` then `yazses restart`
 
 ### Document Find-and-Replace
 
@@ -1029,11 +1029,11 @@ YazSes ships **141 capabilities**. All but the core are **off by default** — t
 
 ### Modality Role Router
 
-- **Toggle:** `modality`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[modality] — multi-input, experimental`
+- **Toggle:** `modality`  ·  **Tier:** experimental — not advised yet  ·  **Config:** `[modality] — multi-input, experimental`
 - **What it does:** Routes each input to its fastest role (gaze→point, EMG→command, voice→dictation). Needs EMG/gaze hardware; experimental. Off by default.
 - **Use when:** When you have EMG or gaze hardware and want each input assigned to its fastest role.
 - **Example:** Route dictation vs commands to different targets by role.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable modality` then `yazses restart`
 
 ### Glance-Type (camera)
 

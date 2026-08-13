@@ -1,4 +1,5 @@
 **Читать на других языках:** [English](README.md) · [हिंदी](README.hi.md) · [简体中文](README.zh-CN.md) · Русский
+<!-- yazses-l10n: locale=ru; source=README.md; source_sha=96711bc; scope=full; status=active; reviewer=@4nmus -->
 
 > Перевод [README.md](README.md). Если информация здесь расходится с английской версией, правильной считается английская версия.
 >

@@ -351,6 +351,14 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 | `preset` | str | `"balanced"` |
 | `priority` | list | `['voice', 'emg', 'gaze', 'keyboard']` |
 
+## `[activation]`
+
+| Key | Type | Default |
+|---|---|---|
+| `enabled` | bool | `false` |
+| `confirm_threshold` | float | `0.9` |
+| `reject_floor` | float | `0.5` |
+
 ## `[continuum]`
 
 | Key | Type | Default |

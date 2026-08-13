@@ -168,6 +168,13 @@ A privacy policy is a promise. This one is testable, and you should test it rath
 trust it. The strongest check takes one flag: transcribe with networking switched off
 entirely and confirm it still works.
 
+No Docker, or you would rather test the app you actually installed? The
+[offline-inference challenge](launch/offline-challenge.md) walks through the same
+demonstration on a normal desktop in about ten minutes, and there is a report template
+if you want to publish what you saw. It is careful about one distinction that is easy to
+blur and would make the result meaningless: **installing and downloading a model needs
+the network; transcribing does not.**
+
 ```sh
 # Once the model is cached, this container has no network at all.
 docker run --rm --network none \

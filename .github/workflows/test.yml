@@ -27,6 +27,12 @@ jobs:
       - name: No oversized files in the repo
         run: python3 scripts/check_repo_size.py
 
+      # Read-only: reports translation drift, never edits a translation. English is
+      # the source of truth and the translations are native human work, so the fix
+      # always belongs to someone who reads the language.
+      - name: README translations have not drifted
+        run: python3 scripts/check-translations.py
+
       - name: Install system dependencies (Linux)
         # Just enough for `import yazses.core.daemon` (sounddevice dlopen's this at
         # import time) — the dependency budget check below imports it on a base

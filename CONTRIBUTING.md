@@ -199,6 +199,27 @@ language each, one PR each, no permission needed. Two things worth knowing befor
 - **Some things are never translated:** command names (`yazses start`), config keys
   (`[stt] model`), file paths, code blocks, and the project name *YazSes*.
 
+Every translation carries one line of sync metadata — an HTML comment under the language
+switcher that records which English commit it was translated from, what it covers, and
+whether a native speaker has reviewed it:
+
+```html
+<!-- yazses-l10n: locale=ru; source=README.md; source_sha=96711bc; scope=full; status=active -->
+```
+
+[`docs/localization/STATUS.md`](docs/localization/STATUS.md) explains each field, lists every
+translation, and shows how to find what changed in English since your `source_sha`. Before
+opening a PR, run:
+
+```bash
+uv run python scripts/check-translations.py
+```
+
+It is **read-only** — it never rewrites your text. It checks that the switcher links resolve,
+that you link back to the English README, and that commands and URLs were copied verbatim
+rather than translated. That last one is the check that matters: `yazses диагностика` is not
+a command, and a reader who types it gets an error instead of a working tool.
+
 Translated prose is allowed to lag the English and you are not signing up to maintain it
 forever. The one part that may **not** drift is the contributor wall — it is generated markup,
 identical in every language, and a stale copy quietly drops a real person from the surface

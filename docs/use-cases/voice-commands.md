@@ -97,6 +97,30 @@ Related capabilities worth knowing about:
 Browse everything with `yazses features`, and see what any single capability does
 — with a worked example — using `yazses features info <name>`.
 
+### Focusing a window by name
+
+With Voice Window Management enabled, you can also say which window you want:
+
+```
+"focus the browser"      "switch to gedit"      "bring up my notes"
+```
+
+YazSes matches what you said against the visible window titles and raises the
+best match. Two behaviours are deliberate:
+
+- **An ambiguous query focuses nothing.** If two windows score alike — say
+  `notes.txt — gedit` and `notes.md — gedit` — picking one would send your next
+  sentence into a document you were not looking at, so YazSes tells you instead.
+- **A command that matches nothing is still not typed.** "focus the browser"
+  appearing in your document is a worse outcome than nothing happening.
+
+!!! warning "X11 only, and not by choice"
+
+    Wayland does not let one application focus another's window, and no portal
+    exposes it. On Wayland this command is inactive and the words are dictated
+    normally; layout commands your compositor binds itself still work.
+    `yazses doctor` reports which case you are in.
+
 ## Per-application behaviour
 
 Different apps want different commands. Editor profiles let the grammar map the
