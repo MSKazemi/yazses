@@ -13882,8 +13882,8 @@
   {
     "id": "COMPAT-DESKTOP-002",
     "family": "compatibility",
-    "title": "Report YazSes on macOS 15 Sequoia, installed via Homebrew",
-    "value": "Non-Linux reports are rarer and the permission model differs entirely.",
+    "title": "Report YazSes on macOS 15 Sequoia (Apple silicon), installed via Homebrew",
+    "value": "Non-Linux reports are rarer and the permission model differs entirely. Apple silicon only: the cask declares `depends_on arch: :arm64` because the .dmg it installs has no x86-64 slice, so on an Intel Mac Homebrew will refuse — use a pipx task instead. Nobody has ever run `brew install --cask yazses` to completion, on any machine; this is the first time it would happen.",
     "risk": "L0",
     "minutes": 25,
     "cloud_agent_ready": false,
@@ -23315,8 +23315,8 @@
   {
     "id": "PKG-019",
     "family": "packaging",
-    "title": "Verify the macOS .dmg install path on x86-64",
-    "value": "A broken install channel loses every user who tries it, silently. Verifying one channel end to end is cheap and nobody does it per release.",
+    "title": "Verify the macOS .dmg install path on x86-64 — NOT DOABLE TODAY, do not advertise",
+    "value": "DO NOT MOVE THIS TO 'open'. Measured 2026-08-13: the .dmg is built host-arch on GitHub's arm64 macos-latest runner and contains 122 Mach-O slices, all arm64, zero x86-64 — so there is no x86-64 .dmg install path to verify, and anyone taking this task would spend an evening proving a known impossibility. It becomes doable only if an Intel .dmg is ever produced, which needs a second CI job on a billed Intel runner (see the packaging README). Until then the Intel install path is pipx, covered by the COMPAT-DESKTOP pipx tasks.",
     "risk": "L0",
     "minutes": 20,
     "cloud_agent_ready": false,
@@ -23342,8 +23342,8 @@
   {
     "id": "PKG-020",
     "family": "packaging",
-    "title": "Verify the macOS .dmg install path on arm64",
-    "value": "A broken install channel loses every user who tries it, silently. Verifying one channel end to end is cheap and nobody does it per release.",
+    "title": "Does the macOS app launch at all? Apple silicon, 20 minutes, either answer is useful",
+    "value": "This is the single most valuable unknown in the project. NOBODY HAS EVER RUN YazSes ON A MAC — not the maintainer, who develops on Linux, not a contributor, not CI. macOS CI is green, but it only proves the code imports and the dependencies resolve: the hotkey capture, the Accessibility permission and the text injector have no automated coverage, because none of them can be tested without hardware. The same repository already shipped a Windows .exe across several releases that never started its daemon, and CI proved it 'built' the whole time. Twenty minutes on any Apple silicon Mac closes that gap for macOS. A broken result is worth exactly as much as a working one.",
     "risk": "L0",
     "minutes": 20,
     "cloud_agent_ready": false,
@@ -23360,9 +23360,12 @@
     ],
     "evidence": [
       "the exact install command and the version it produced",
-      "whether `yazses doctor` passed straight afterwards"
+      "whether the app launched at all, and what Gatekeeper said on first open (it is unsigned, so expect a warning and a right-click -> Open)",
+      "whether the Accessibility and Microphone prompts appeared, and whether you could find the settings pane",
+      "whether holding Right Option and speaking actually typed text into a window, and which app you tried it in",
+      "`yazses doctor` output with your username, hostname and home path removed"
     ],
-    "state": "verified",
+    "state": "open",
     "source": "packaging channels in README",
     "skills": []
   },
