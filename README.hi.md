@@ -404,12 +404,19 @@ yazses doctor                           # says if anything is still missing
 ### macOS
 
 ```sh
-# pipx (Python ≥ 3.11)
+# Homebrew — Apple Silicon only
+brew tap MSKazemi/yazses
+brew install --cask yazses
+
+# pipx (Python ≥ 3.11) — works on Apple Silicon AND Intel
 pipx install yazses
 
-# App bundle (.dmg) — unsigned developer preview
+# App bundle (.dmg) — unsigned developer preview, Apple Silicon only
 # https://github.com/MSKazemi/yazses/releases/latest
 ```
+
+> **On an Intel Mac, use pipx.** The `.dmg` has no `x86_64` slice and cannot launch there.
+> See [docs/macos-install.md](docs/macos-install.md).
 
 ### Windows
 
