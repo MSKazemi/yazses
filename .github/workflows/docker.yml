@@ -100,6 +100,10 @@ jobs:
             -f packaging/docker/Dockerfile -t yazses:ci .
           docker run --rm yazses:ci --version
           cp data/librispeech-sample/jfk.wav "$RUNNER_TEMP/clip.wav"
-          docker run --rm -v "$RUNNER_TEMP:/data" yazses:ci \
+          # --user matters: the image runs as uid 1000 and the runner's workspace
+          # is owned by a different uid, so without this the transcript cannot be
+          # written back into the mount. Anyone whose uid is not 1000 hits the
+          # same thing, which is why the docs say so too.
+          docker run --rm --user "$(id -u):$(id -g)" -v "$RUNNER_TEMP:/data" yazses:ci \
             transcribe /data/clip.wav --model tiny.en
           grep -qi "fellow americans" "$RUNNER_TEMP/clip.txt"

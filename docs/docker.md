@@ -85,9 +85,16 @@ See the [CLI reference](cli-reference.md#yazses-transcribe) for the full set.
 
 ## Notes on the image
 
-- **Non-root.** It runs as uid 1000 (`yazses`). Files it writes into your mounted
-  directory are owned by that uid; pass `--user "$(id -u):$(id -g)"` if you want
-  them owned by you.
+- **Non-root.** It runs as uid 1000 (`yazses`). **If your own uid is not 1000, add
+  `--user "$(id -u):$(id -g)"`** — otherwise the container cannot write the
+  transcript back into your mounted directory and the run fails with a permission
+  error. With a matching uid it works without the flag, which is exactly why this
+  is easy to miss; it is how our own CI first broke.
+
+  ```bash
+  docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/data" \
+      ghcr.io/mskazemi/yazses transcribe /data/talk.wav
+  ```
 - **`/data` is the convention**, not a requirement — mount wherever you like and
   give the container that path.
 - **Size: ~1.5 GB.** Most of it is PyTorch-free but still substantial ML wheels
