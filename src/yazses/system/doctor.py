@@ -671,7 +671,19 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
 
     checks: list[_Check] = []
 
-    checks.append(("Platform", "OK", platform.name))
+    # An experimental backend must say so here, not only in the docs. `doctor` is
+    # the one place a user checks before trusting the tool, and "it printed OK" on
+    # a platform nobody has run is exactly how an overclaim reaches someone.
+    if platform.extras.get("experimental"):
+        checks.append((
+            "Platform",
+            "WARN",
+            f"{platform.name} — experimental: wired up and unit-tested, but never run "
+            f"on real {platform.extras.get('family', 'this')} hardware. Please report "
+            f"what happens: https://github.com/MSKazemi/yazses/issues",
+        ))
+    else:
+        checks.append(("Platform", "OK", platform.name))
     checks.append(_version_check())
     checks.append(_daemon_check(platform))
     autostart = _autostart_check(platform)
