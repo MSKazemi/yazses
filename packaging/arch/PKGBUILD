@@ -14,7 +14,7 @@
 # guidelines tell you not to do.
 
 pkgname=yazses
-pkgver=2.17.0
+pkgver=2.18.2
 pkgrel=1
 pkgdesc='Offline hold-to-talk voice dictation that types into the focused app - local faster-whisper, no cloud'
 arch=('any')
@@ -30,7 +30,12 @@ depends=(
     'python-cryptography'
     'python-evdev'
     'python-xlib'
-    'pyside6'                  # voice-activity overlay, shipped in the base install
+    # Qt is an optional extra upstream (v2.18.0 moved PySide6 out of the base
+    # install; a headless one is ~650 MB lighter). It stays a hard dependency
+    # here on purpose: pyside6 is a shared system package on Arch, not a 650 MB
+    # private copy, and someone installing a desktop dictation app expects the
+    # tray icon to appear rather than to discover a second install step.
+    'pyside6'                  # voice-activity overlay + tray icon
     'portaudio'                # libportaudio.so, for sounddevice
     'python-faster-whisper'    # AUR
     'python-sounddevice'       # AUR
@@ -56,7 +61,7 @@ makedepends=(
 )
 
 source=("https://files.pythonhosted.org/packages/source/y/${pkgname}/${pkgname}-${pkgver}.tar.gz")
-sha256sums=('28f244cfd9f10941702765dde2b1f58a5ec828ebb8c2626e2f1ce000b1bf20d6')
+sha256sums=('d80214278b0b8c1f23e938d21815a0817f4964172fa4493d0ba1bfab4f615ff2')
 
 build() {
     cd "${pkgname}-${pkgver}"
