@@ -70,13 +70,25 @@ ENV PATH="/opt/venv/bin:$PATH"
 # beside it; nothing here needs root, and a transcription tool running as root
 # over a volume the user mounted is an unpleasant surprise.
 RUN useradd --create-home --uid 1000 yazses
-USER yazses
 WORKDIR /data
 
 # Models land here. Mount a named volume (`-v yazses-models:/home/yazses/.cache`)
 # and they download once instead of on every run.
-ENV XDG_CACHE_HOME=/home/yazses/.cache \
+ENV HOME=/home/yazses \
+    XDG_CACHE_HOME=/home/yazses/.cache \
     HF_HOME=/home/yazses/.cache/huggingface
+
+# World-writable on purpose. Writing a transcript back into a mounted directory
+# requires the container's uid to own it, so people run this image with
+# `--user "$(id -u):$(id -g)"` — and that uid then has no write access to the
+# cache, models and data dirs baked in for uid 1000. Without this the image works
+# only for people who happen to be uid 1000, which is a trap: it looks fine on the
+# machine of whoever built it. There is nothing secret here — a model cache and a
+# transcript the user just mounted in.
+RUN mkdir -p /home/yazses/.cache/huggingface /home/yazses/.local/share/yazses \
+    && chmod -R 0777 /home/yazses
+
+USER yazses
 
 ENTRYPOINT ["yazses"]
 CMD ["--help"]

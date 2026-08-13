@@ -89,7 +89,8 @@ See the [CLI reference](cli-reference.md#yazses-transcribe) for the full set.
   `--user "$(id -u):$(id -g)"`** — otherwise the container cannot write the
   transcript back into your mounted directory and the run fails with a permission
   error. With a matching uid it works without the flag, which is exactly why this
-  is easy to miss; it is how our own CI first broke.
+  is easy to miss; it is how our own CI first broke. The cache and data
+  directories are world-writable so the flag is all you need — no extra setup.
 
   ```bash
   docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/data" \
