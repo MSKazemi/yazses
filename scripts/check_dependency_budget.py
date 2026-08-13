@@ -73,6 +73,10 @@ EXTRA_MODULES: dict[str, tuple[str, ...]] = {
     # names -- one states intent, the other names the widget.
     "desktop": ("PySide6",),
     "diarization": ("sherpa_onnx",),
+    # The alternative diarizer. Mapped by its dotted name rather than the bare
+    # `pyannote` namespace, which is shared with pyannote.core/pyannote.database
+    # and would flag packages this extra does not own.
+    "diarization-pyannote": ("pyannote.audio",),
     "emg": ("serial",),
     "gaze": ("mediapipe", "cv2"),
     "lsp": ("pygls", "pynvim"),
@@ -84,6 +88,7 @@ EXTRA_MODULES: dict[str, tuple[str, ...]] = {
     "slm": ("llama_cpp",),
     "tts": ("kokoro_onnx", "onnxruntime", "soundfile"),
     "voiceprint": ("speechbrain",),
+    "voiceprint-resemblyzer": ("resemblyzer",),
 }
 
 # Extras that exist but cannot be enforced this way, each for a stated reason. An extra

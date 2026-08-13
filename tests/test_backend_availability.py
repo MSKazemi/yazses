@@ -144,7 +144,13 @@ def test_denoise_backend_none_is_a_passthrough_without_warning(caplog):
 
 # --- factories -----------------------------------------------------------------
 
-def test_voiceprint_resemblyzer_does_not_advise_an_extra_that_cannot_supply_it(caplog):
+def test_voiceprint_resemblyzer_advises_its_own_extra_not_the_neighbouring_one(caplog):
+    """The adapter ships now (#70), so the honest answer changed from "never" to "not yet".
+
+    What must not change is the extra it names: `voiceprint` is speechbrain/ECAPA
+    and cannot supply Resemblyzer, so advising it would still send the user after
+    a package that cannot help. The backend degrades to dormant either way.
+    """
     from yazses.config import VoiceprintConfig
     from yazses.voiceprint.factory import build_embedder
 
@@ -152,11 +158,13 @@ def test_voiceprint_resemblyzer_does_not_advise_an_extra_that_cannot_supply_it(c
     with caplog.at_level(logging.WARNING):
         assert build_embedder(cfg) is None            # still degrades to dormant
     msg = " ".join(r.getMessage() for r in caplog.records)
-    assert "not implemented in this build" in msg
+    assert "not implemented in this build" not in msg
+    assert "`voiceprint-resemblyzer` extra" in msg
     assert "`voiceprint` extra" not in msg
 
 
-def test_diarization_pyannote_does_not_advise_an_extra_that_cannot_supply_it(caplog):
+def test_diarization_pyannote_advises_its_own_extra_not_the_neighbouring_one(caplog):
+    """As above for #71: `diarization` is sherpa-onnx and cannot supply pyannote."""
     from yazses.config import RecimportConfig
     from yazses.recimport.factory import build_diarizer
 
@@ -164,5 +172,24 @@ def test_diarization_pyannote_does_not_advise_an_extra_that_cannot_supply_it(cap
     with caplog.at_level(logging.WARNING):
         assert build_diarizer(cfg) is None
     msg = " ".join(r.getMessage() for r in caplog.records)
-    assert "not implemented in this build" in msg
+    assert "not implemented in this build" not in msg
+    assert "`diarization-pyannote` extra" in msg
     assert "`diarization` extra" not in msg
+    # The sherpa-only model download would be a second wrong instruction.
+    assert "--download-models" not in msg
+
+
+def test_deepfilternet_still_reports_the_one_backend_that_cannot_be_shipped(caplog):
+    """#69 is not "not yet" — it is "not ever", and the message must not soften.
+
+    Every DeepFilterNet release caps numpy<2.0 while this project requires
+    numpy>=2.4.6, so no extra can be offered without lying. If someone later adds
+    a `denoise` extra, this fails and they have to justify it.
+    """
+    frontend._warned.clear()
+    cfg = replace(DenoiseConfig(), enabled=True, backend="deepfilternet")
+    with caplog.at_level(logging.WARNING):
+        apply_denoise(_audio(), cfg)
+    msg = " ".join(r.getMessage() for r in caplog.records)
+    assert "not implemented in this build" in msg
+    assert "extra" not in msg, "there is no installable denoise extra to advise"

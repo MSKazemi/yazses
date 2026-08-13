@@ -6,6 +6,62 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [2.18.1] - 2026-08-13
 
+### Added — two backends that config offered but no build could run (#70, #71)
+
+`[voiceprint] backend = "resemblyzer"` and `[recimport]`/`[meeting] backend = "pyannote"`
+were accepted by the config loader and then reported as *not implemented in this build*.
+Both now ship an adapter, each behind its own extra — `voiceprint-resemblyzer` and
+`diarization-pyannote`. Neither may advise the extra it sits beside: `voiceprint` is
+speechbrain and `diarization` is sherpa-onnx, so naming those would send you after a
+package that cannot supply the backend you picked. sherpa and ECAPA remain the defaults.
+
+Resemblyzer does **not** simply call `embed_utterance`. That function slices audio into
+1.6 s partials and zero-pads anything shorter, with no flag to disable it — so a 500 ms
+Cocktail Filter window would be encoded as 0.5 s of speech plus 1.1 s of digital silence.
+Below the partial length the adapter runs the same encoder directly on the frame instead.
+Measured on the bundled sample, same-speaker similarity against a full-utterance
+reference: **0.647 vs 0.509 at 500 ms** and **0.766 vs 0.605 at 1000 ms**, converging by
+1500 ms. The Cocktail Filter's default `target_threshold` is `0.5`, so the padding was
+dragging a speaker's *own* voice onto the rejection line.
+
+### Fixed — enabling pyannote diarization would have sent usage data off the machine
+
+pyannote.audio 4.x ships OpenTelemetry tracking that is **on by default**: its bundled
+`telemetry/config.yaml` sets `metrics_enabled: true` with an OTLP endpoint at
+`otel.pyannote.ai`, and its `track_pipeline_apply` hook reports the **duration of the audio
+being diarized** along with the requested speaker counts. `telemetry_log_level` is pinned
+to `CRITICAL`, so it says nothing either way. This is not an optional extra —
+`opentelemetry-exporter-otlp` and `pyannoteai-sdk` are hard requirements of the package.
+
+No audio would have been transmitted, but the length of your meetings and your usage
+pattern would have been, silently, from a tool whose entire promise is that nothing leaves
+the machine (ADR-011). The backend now sets `PYANNOTE_METRICS_ENABLED=false` **before**
+importing pyannote — the ordering is the mechanism, because upstream defaults the variable
+from its config file only when it is not already set, so disabling it afterwards would let
+the import-time tracker fire first. A test pins the ordering, not just the value.
+
+### Fixed — `missing_modules` raised instead of answering for dotted module names
+
+`importlib.util.find_spec` returns `None` for an absent top-level module but *raises*
+`ModuleNotFoundError` for a dotted name whose parent package is absent — it must import the
+parent to look inside it. `pyannote.audio` is the only backend asked about by dotted name,
+so the exception escaped into `recimport.factory._unavailable_detail`, whose blanket
+`except` then reported an unrelated error (`No module named 'torch'`) instead of the honest
+"install the `diarization-pyannote` extra". The whole point of that honesty layer was
+defeated for exactly one backend, and nothing noticed because no test used a dotted name.
+
+### Not shipped — DeepFilterNet noise suppression cannot be packaged (#69)
+
+`[denoise] backend = "deepfilternet"` stays honestly unimplemented, and there is
+deliberately **no `denoise` extra**. Every release of DeepFilterNet caps `numpy<2.0` while
+this project requires `numpy>=2.4.6`; the resolver's verdict is that "all versions of
+deepfilternet and all versions of yazses are incompatible", on every Python version.
+Behind that sit three more problems: `deepfilterlib` publishes wheels only up to cp311
+(so 3.12 would attempt a Rust build from sdist), it does not declare torch or torchaudio
+despite needing both, and its last release was August 2023. An extra that can never
+install is a worse lie than an honest "not implemented in this build", so the seam and its
+warning are unchanged. A numpy-2-compatible backend would be a different issue.
+
 ### Fixed — dictation cleanup could POST your transcribed text to any host you typed
 
 `[filters.disfluency] llm_endpoint` is a plain string, and when no local GGUF model was

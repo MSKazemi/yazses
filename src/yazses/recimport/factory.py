@@ -66,16 +66,26 @@ def build_diarizer(config):
 def _unavailable_detail(backend: str, exc: Exception) -> str:
     """Explain *why* a diarization backend failed, without misdirecting the user.
 
-    ``pyannote`` has no adapter module in this build, so the old blanket "install the
-    `diarization` extra" advice could never work — that extra ships sherpa-onnx only.
-    Route the message through the shared probe so each case is named honestly.
+    The backends ship behind *different* extras — ``diarization`` is sherpa-onnx,
+    ``diarization-pyannote`` is pyannote.audio — so a blanket "install the
+    `diarization` extra" would send a pyannote user after a package that cannot
+    supply what they selected. Route the message through the shared probe so each
+    case names its own extra.
+
+    Only sherpa gets the ``--download-models`` hint: pyannote fetches its
+    pretrained pipeline itself on first construction, so telling a pyannote user
+    to run a sherpa model download would be a second wrong instruction.
     """
     try:
         from yazses.system.backends import probe_backend
 
         adapters = {
             "sherpa": ("yazses.recimport.diarizer", ("sherpa_onnx",), "diarization"),
-            "pyannote": ("yazses.recimport.pyannote_backend", ("pyannote.audio",), None),
+            "pyannote": (
+                "yazses.recimport.pyannote_backend",
+                ("pyannote.audio",),
+                "diarization-pyannote",
+            ),
         }
         if backend in adapters:
             adapter, requires, extra = adapters[backend]
