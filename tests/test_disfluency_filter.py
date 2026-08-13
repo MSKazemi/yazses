@@ -409,3 +409,65 @@ def test_hyphen_token_is_kept_whole_or_dropped_whole():
                 f"{text!r} -> {out!r}: partially destructured {token!r}, "
                 f"leaving {survivors!r}"
             )
+
+
+# ---- a rollback trigger must not eat an instruction not to do it (#233) ------
+#
+# Found while writing a semantic vector for negation. `str.find` matched the
+# trigger anywhere, so "please do not delete that branch" — an instruction whose
+# entire point is the negation — was treated as a correction, everything before
+# the phrase was discarded, and the output was "branch". That is the worst class
+# of failure this filter can produce: it does not garble the sentence, it inverts
+# it, and the result reads as fluent.
+
+
+@pytest.mark.parametrize("text", [
+    "please do not delete that branch",
+    "do not delete that file",
+    "don't scratch that line",
+    "we cannot forget that detail",
+])
+def test_a_negated_trigger_is_prose_not_a_rollback(text):
+    assert filter_transcript(text, DisfluencyConfig()).text == text
+
+
+def test_a_trigger_that_contains_its_own_negation_is_a_known_gap():
+    """"never mind" is both a correction marker and an ordinary English phrase.
+
+    The guard reads the word *before* the trigger, and here the negation is inside
+    it, so "you should never mind the warning" is still treated as a correction.
+    Recorded rather than papered over: distinguishing the two needs more than the
+    adjacent word, and a rule guessed at here would break real corrections. Tracked
+    as a `known-gap` invariant in contract/semantic/invariants.json.
+    """
+    text = "you should never mind the warning"
+    assert filter_transcript(text, DisfluencyConfig()).text == "the warning"
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("send it to the archive scratch that send it to the inbox", "send it to the inbox"),
+    ("the first draft no wait the second draft", "the second draft"),
+    ("open the config delete that open the log", "open the log"),
+])
+def test_a_real_correction_still_rolls_back(text, expected):
+    """The fix must not be "stop rolling back" — that is the feature."""
+    assert filter_transcript(text, DisfluencyConfig()).text == expected
+
+
+@pytest.mark.parametrize("text", [
+    "undeleted that file",
+    "the scratchpad that we use",
+])
+def test_a_trigger_inside_a_word_is_not_a_trigger(text):
+    """Matching had no word boundaries either."""
+    assert filter_transcript(text, DisfluencyConfig()).text == text
+
+
+def test_the_negation_guard_looks_only_at_the_adjacent_word():
+    """A "not" earlier in a long sentence must not suppress a genuine correction.
+
+    A wider window would trade a loud failure (an uncorrected sentence the user
+    can see) for a silent one (a correction that never happened).
+    """
+    text = "the build is not ready send it to staging scratch that send it to prod"
+    assert filter_transcript(text, DisfluencyConfig()).text == "send it to prod"

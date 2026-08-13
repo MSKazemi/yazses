@@ -1,7 +1,7 @@
 {
   "layer": "semantic",
   "generated": false,
-  "contract_version": "6.2.0",
+  "contract_version": "6.3.0",
   "pipeline": "dictation",
   "pipeline_description": "The delivered-text chain of the DICTATE path, exactly as core/daemon.py::_on_hold_end runs it, minus injection: clean_text -> disfluency filter -> voice punctuation (only when options.voice_punctuation is true). `expected` is what a HUMAN says the user must receive; it is never read back from the implementation.",
   "semantics": {
@@ -130,7 +130,7 @@
     },
     {
       "id": "time-pain-yesterday",
-      "description": "The same symptom, a different day — an entirely different clinical fact.",
+      "description": "The same symptom, a different day \u2014 an entirely different clinical fact.",
       "options": {},
       "input": "the patient was in pain yesterday",
       "expected": "the patient was in pain yesterday",
@@ -187,7 +187,7 @@
     },
     {
       "id": "self-correction-keeps-corrected-dose",
-      "description": "The flagship case from the design review (issue #98): a spoken correction must not merely match desktop rollback behaviour, it must leave the CORRECTED quantity, its unit, and the marker that says which value supersedes the other — the last of which is asserted by `must_preserve_relation`, because a subset check cannot express order (#163).",
+      "description": "The flagship case from the design review (issue #98): a spoken correction must not merely match desktop rollback behaviour, it must leave the CORRECTED quantity, its unit, and the marker that says which value supersedes the other \u2014 the last of which is asserted by `must_preserve_relation`, because a subset check cannot express order (#163).",
       "options": {},
       "input": "give him fifty, sorry, fifteen milligrams",
       "expected": "give him fifty, sorry, fifteen milligrams",
@@ -217,7 +217,7 @@
     },
     {
       "id": "self-correction-inverted-dose-is-a-different-instruction",
-      "description": "The minimal pair for `self-correction-keeps-corrected-dose`. Same words, same extracted quantity set {15, 50}, same correction marker — and the opposite instruction. It exists to prove the relation assertion has teeth: it satisfies every `must_preserve` of the flagship case, so before #163 the two were indistinguishable to this contract.",
+      "description": "The minimal pair for `self-correction-keeps-corrected-dose`. Same words, same extracted quantity set {15, 50}, same correction marker \u2014 and the opposite instruction. It exists to prove the relation assertion has teeth: it satisfies every `must_preserve` of the flagship case, so before #163 the two were indistinguishable to this contract.",
       "options": {},
       "input": "give him fifteen, sorry, fifty milligrams",
       "expected": "give him fifteen, sorry, fifty milligrams",
@@ -413,7 +413,7 @@
     },
     {
       "id": "hedge-like-an-hour-ago",
-      "description": "The same approximation marker on a time rather than a measurement — default filtering must keep 'like' so the timing does not become exact.",
+      "description": "The same approximation marker on a time rather than a measurement \u2014 default filtering must keep 'like' so the timing does not become exact.",
       "options": {},
       "input": "he took it like an hour ago",
       "expected": "he took it like an hour ago",
@@ -426,6 +426,127 @@
       },
       "must_classify_as": "dictate",
       "status": "holds"
+    },
+    {
+      "id": "polarity-negated-rollback-trigger",
+      "description": "A self-correction trigger inside an instruction NOT to do the thing. 'delete that' is a rollback phrase, so the filter discarded everything before it and left 'branch' \u2014 an instruction against deleting became a bare noun. Losing a negation this way is worse than garbling: the surviving text reads as fluent and means the opposite. (#233)",
+      "options": {},
+      "input": "please do not delete that branch",
+      "expected": "please do not delete that branch",
+      "must_preserve": {
+        "polarity": "negative"
+      },
+      "must_not_acquire": {
+        "correction_marker": "present"
+      },
+      "must_classify_as": "dictate",
+      "minimal_pair": {
+        "partner": "polarity-bare-rollback-trigger",
+        "differs_in": "polarity"
+      },
+      "status": "holds"
+    },
+    {
+      "id": "polarity-bare-rollback-trigger",
+      "description": "The partner: the same trigger with nothing negating it really is a correction and must still roll back \u2014 and the value it rolls back to is the one that must survive. The fix for the negated case must not be 'stop rolling back'. (#233)",
+      "options": {},
+      "input": "give her fifty milligrams scratch that give her five milligrams",
+      "expected": "give her five milligrams",
+      "must_preserve": {
+        "actor": [
+          "third-person-female"
+        ],
+        "quantity": [
+          "5"
+        ],
+        "unit": [
+          "mg"
+        ],
+        "correction_marker": "absent"
+      },
+      "must_not_acquire": {
+        "quantity": [
+          "50"
+        ],
+        "polarity": "negative"
+      },
+      "must_classify_as": "dictate",
+      "minimal_pair": {
+        "partner": "polarity-negated-rollback-trigger",
+        "differs_in": "polarity"
+      },
+      "status": "holds"
+    },
+    {
+      "id": "polarity-negation-survives-filler-removal",
+      "description": "Filler removal runs either side of the negation ('you know' before, 'basically' after). Stripping a filler must never take the polarity with it. (#233)",
+      "options": {},
+      "input": "you know the tests do not pass basically",
+      "expected": "the tests do not pass",
+      "must_preserve": {
+        "polarity": "negative"
+      },
+      "must_not_acquire": {
+        "correction_marker": "present"
+      },
+      "must_classify_as": "dictate",
+      "status": "holds"
+    },
+    {
+      "id": "repetition-stutter-is-collapsed",
+      "description": "Dysfluency-Friendly Mode (opt-in): a hyphenated false start is one word spoken with difficulty, not several words. Collapsing it is the point of the mode. (#234)",
+      "options": {
+        "collapse_repetitions": true
+      },
+      "input": "b-b-because she took fifteen milligrams",
+      "expected": "because she took fifteen milligrams",
+      "must_preserve": {
+        "actor": [
+          "third-person-female"
+        ],
+        "quantity": [
+          "15"
+        ],
+        "unit": [
+          "mg"
+        ]
+      },
+      "must_classify_as": "dictate",
+      "status": "holds"
+    },
+    {
+      "id": "repetition-genuine-doubled-word-survives",
+      "description": "The partner, and what makes the collapse pass dangerous: 'had had' and 'that that' are grammatical English, not stutters. A rule that cannot tell them apart silently rewrites the tense and the clause structure of a correct sentence \u2014 and the speaker who needs this mode is the least able to catch it. (#234)",
+      "options": {
+        "collapse_repetitions": true
+      },
+      "input": "he said that that dose had had no effect",
+      "expected": "he said that that dose had had no effect",
+      "must_preserve": {
+        "actor": [
+          "third-person-male"
+        ],
+        "polarity": "negative"
+      },
+      "must_classify_as": "dictate",
+      "status": "holds"
+    },
+    {
+      "id": "polarity-trigger-contains-its-own-negation",
+      "description": "KNOWN GAP. '\"never mind\"' is both a self-correction marker and an ordinary English phrase. The negation guard reads the word before the trigger, and here the negation is inside it, so an instruction to disregard something is still treated as a correction and its subject is discarded. Recorded rather than guessed at: a rule that separated these would have to understand the clause, and a wrong one breaks real corrections. (#233)",
+      "options": {},
+      "input": "you should never mind the warning",
+      "expected": "you should never mind the warning",
+      "must_preserve": {
+        "polarity": "negative"
+      },
+      "must_classify_as": "dictate",
+      "status": "known-gap",
+      "gap": {
+        "actual": "the warning",
+        "cause": "The negation guard reads the word immediately before the trigger, and here the negation is inside the trigger itself. Separating 'never mind' the correction marker from 'never mind' the instruction needs the clause, not the adjacent word.",
+        "issue": "https://github.com/MSKazemi/yazses/issues/302"
+      }
     }
   ]
 }

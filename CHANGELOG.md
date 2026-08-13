@@ -6,6 +6,46 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a self-correction trigger could delete the sentence that said not to
+
+```
+please do not delete that branch   ->   branch
+```
+
+`delete that` is a self-correction phrase, and the filter matched it anywhere in
+the text, so an instruction whose entire point was the negation had everything
+before the phrase discarded. This is the worst output the pipeline can produce:
+it does not garble the sentence, it **inverts** it, and what survives reads as
+fluent. The same shape hit `scratch that`, `forget that` and `never mind`.
+
+Triggers now match on word boundaries and do not fire when a negation governs
+them — the same lesson `commands/revise.py` already encodes by anchoring its
+grammar. Real corrections are untouched: `send it to the archive scratch that
+send it to the inbox` still rolls back.
+
+The guard deliberately reads only the word immediately before the trigger. A
+wider window would suppress genuine corrections in any long sentence containing
+a "not", and a correction that silently does not happen is worse than an extra
+sentence the user can see.
+
+### Added — semantic vectors for negation and for stutters (#233, #234)
+
+Five cases in `contract/semantic/invariants.json`, contract 6.2.0 → 6.3.0. The
+negation ones are what found the bug above.
+
+- **Negation must survive filler removal and self-correction rollback** — with
+  the affirmative partner, so the fix could not be "stop rolling back".
+- **A stutter is not a repeated word** — `b-b-because` collapses under
+  Dysfluency-Friendly Mode, while `he said that that dose had had no effect` must
+  not. A collapse rule that cannot tell them apart rewrites the tense and clause
+  structure of a correct sentence, and the speaker who needs that mode is the
+  least able to catch it.
+- **One recorded `known-gap`**: `never mind` is both a correction marker and
+  ordinary English, and the negation guard cannot see a negation that is inside
+  the trigger. Documented with its cause and a tracked issue
+  ([#302](https://github.com/MSKazemi/yazses/issues/302)) rather than papered over
+  — the suite stays green while the gap is recorded and goes red if it is fixed.
+
 ### Added — `yazses vocab export` / `import`: the dictionary can move between machines
 
 The personal dictionary is the main lever anyone has over recognition of *their

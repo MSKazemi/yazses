@@ -1,8 +1,8 @@
 {
   "layer": "semantic",
   "generated": false,
-  "contract_version": "6.2.0",
-  "description": "Conserved-meaning dimensions used by invariants.json. Each dimension is a tiny, explicit, language-neutral extractor: apply the patterns to a piece of delivered text and read off a value. It is deliberately NOT a general NLP model — it only has to be exact on the vectors that cite it, and small enough that any platform can reimplement it in a few dozen lines.",
+  "contract_version": "6.3.0",
+  "description": "Conserved-meaning dimensions used by invariants.json. Each dimension is a tiny, explicit, language-neutral extractor: apply the patterns to a piece of delivered text and read off a value. It is deliberately NOT a general NLP model \u2014 it only has to be exact on the vectors that cite it, and small enough that any platform can reimplement it in a few dozen lines.",
   "matching": {
     "regex_flavour": "ECMA-262 subset: literals, character classes, alternation, \\b word boundaries",
     "case_sensitive": false,
@@ -17,7 +17,15 @@
       "values": [
         {
           "value": "negative",
-          "patterns": ["\\bnot\\b", "n't\\b", "\\bno\\b", "\\bnever\\b", "\\bwithout\\b", "\\brefus", "\\bdeclin"]
+          "patterns": [
+            "\\bnot\\b",
+            "n't\\b",
+            "\\bno\\b",
+            "\\bnever\\b",
+            "\\bwithout\\b",
+            "\\brefus",
+            "\\bdeclin"
+          ]
         }
       ]
     },
@@ -29,9 +37,21 @@
         {
           "value": "hedged",
           "patterns": [
-            "\\bsort of\\b", "\\bkind of\\b", "\\bmaybe\\b", "\\bmight\\b", "\\bpossibly\\b",
-            "\\bprobably\\b", "\\bnot sure\\b", "\\bunsure\\b", "\\babout\\b", "\\baround\\b",
-            "\\bapproximately\\b", "\\blike\\b", "\\bseems\\b", "\\bappears\\b", "\\bmay be\\b"
+            "\\bsort of\\b",
+            "\\bkind of\\b",
+            "\\bmaybe\\b",
+            "\\bmight\\b",
+            "\\bpossibly\\b",
+            "\\bprobably\\b",
+            "\\bnot sure\\b",
+            "\\bunsure\\b",
+            "\\babout\\b",
+            "\\baround\\b",
+            "\\bapproximately\\b",
+            "\\blike\\b",
+            "\\bseems\\b",
+            "\\bappears\\b",
+            "\\bmay be\\b"
           ]
         }
       ]
@@ -43,15 +63,34 @@
       "values": [
         {
           "value": "past",
-          "patterns": ["\\byesterday\\b", "\\bwas\\b", "\\bwere\\b", "\\bearlier\\b", "\\blast night\\b", "\\bago\\b", "\\bhad\\b"]
+          "patterns": [
+            "\\byesterday\\b",
+            "\\bwas\\b",
+            "\\bwere\\b",
+            "\\bearlier\\b",
+            "\\blast night\\b",
+            "\\bago\\b",
+            "\\bhad\\b"
+          ]
         },
         {
           "value": "future",
-          "patterns": ["\\btomorrow\\b", "\\bwill\\b", "\\bnext week\\b", "\\blater\\b"]
+          "patterns": [
+            "\\btomorrow\\b",
+            "\\bwill\\b",
+            "\\bnext week\\b",
+            "\\blater\\b"
+          ]
         },
         {
           "value": "present",
-          "patterns": ["\\bnow\\b", "\\btoday\\b", "\\bcurrently\\b", "\\bis\\b", "\\bare\\b"]
+          "patterns": [
+            "\\bnow\\b",
+            "\\btoday\\b",
+            "\\bcurrently\\b",
+            "\\bis\\b",
+            "\\bare\\b"
+          ]
         }
       ]
     },
@@ -59,35 +98,139 @@
       "kind": "set",
       "description": "Who did it, or who it was done to. Losing or swapping the actor reassigns an act to the wrong person.",
       "values": [
-        {"value": "speaker", "patterns": ["\\bI\\b", "\\bme\\b", "\\bmy\\b"]},
-        {"value": "patient", "patterns": ["\\bpatient\\b"]},
-        {"value": "caregiver", "patterns": ["\\bcaregiver\\b", "\\bcarer\\b"]},
-        {"value": "third-person-female", "patterns": ["\\bshe\\b", "\\bher\\b", "\\bhers\\b"]},
-        {"value": "third-person-male", "patterns": ["\\bhe\\b", "\\bhim\\b", "\\bhis\\b"]},
-        {"value": "third-person-plural", "patterns": ["\\bthey\\b", "\\bthem\\b"]}
+        {
+          "value": "speaker",
+          "patterns": [
+            "\\bI\\b",
+            "\\bme\\b",
+            "\\bmy\\b"
+          ]
+        },
+        {
+          "value": "patient",
+          "patterns": [
+            "\\bpatient\\b"
+          ]
+        },
+        {
+          "value": "caregiver",
+          "patterns": [
+            "\\bcaregiver\\b",
+            "\\bcarer\\b"
+          ]
+        },
+        {
+          "value": "third-person-female",
+          "patterns": [
+            "\\bshe\\b",
+            "\\bher\\b",
+            "\\bhers\\b"
+          ]
+        },
+        {
+          "value": "third-person-male",
+          "patterns": [
+            "\\bhe\\b",
+            "\\bhim\\b",
+            "\\bhis\\b"
+          ]
+        },
+        {
+          "value": "third-person-plural",
+          "patterns": [
+            "\\bthey\\b",
+            "\\bthem\\b"
+          ]
+        }
       ]
     },
     "quantity": {
       "kind": "set",
-      "description": "Numeric values present, normalised to digits so 'fifteen' and '15' are the same reading. Only the numbers the vectors actually use are listed — this lexicon grows with the cases, never speculatively.",
+      "description": "Numeric values present, normalised to digits so 'fifteen' and '15' are the same reading. Only the numbers the vectors actually use are listed \u2014 this lexicon grows with the cases, never speculatively.",
       "values": [
-        {"value": "0.5", "patterns": ["\\bzero point five\\b", "\\b0\\.5\\b"]},
-        {"value": "1", "patterns": ["\\bone\\b", "\\b1\\b"]},
-        {"value": "2", "patterns": ["\\btwo\\b", "\\b2\\b"]},
-        {"value": "5", "patterns": ["\\bfive\\b", "\\b5\\b"]},
-        {"value": "15", "patterns": ["\\bfifteen\\b", "\\b15\\b"]},
-        {"value": "50", "patterns": ["\\bfifty\\b", "\\b50\\b"]}
+        {
+          "value": "0.5",
+          "patterns": [
+            "\\bzero point five\\b",
+            "\\b0\\.5\\b"
+          ]
+        },
+        {
+          "value": "1",
+          "patterns": [
+            "\\bone\\b",
+            "\\b1\\b"
+          ]
+        },
+        {
+          "value": "2",
+          "patterns": [
+            "\\btwo\\b",
+            "\\b2\\b"
+          ]
+        },
+        {
+          "value": "5",
+          "patterns": [
+            "\\bfive\\b",
+            "\\b5\\b"
+          ]
+        },
+        {
+          "value": "15",
+          "patterns": [
+            "\\bfifteen\\b",
+            "\\b15\\b"
+          ]
+        },
+        {
+          "value": "50",
+          "patterns": [
+            "\\bfifty\\b",
+            "\\b50\\b"
+          ]
+        }
       ]
     },
     "unit": {
       "kind": "set",
       "description": "Units of measure. A dose that keeps its number and loses its unit is more dangerous than one that loses both, because it still looks complete.",
       "values": [
-        {"value": "mg", "patterns": ["\\bmilligrams?\\b", "\\bmg\\b"]},
-        {"value": "ml", "patterns": ["\\bmillilitres?\\b", "\\bmilliliters?\\b", "\\bml\\b"]},
-        {"value": "cm", "patterns": ["\\bcentimetres?\\b", "\\bcentimeters?\\b", "\\bcm\\b"]},
-        {"value": "hour", "patterns": ["\\bhours?\\b"]},
-        {"value": "day", "patterns": ["\\bdays?\\b"]}
+        {
+          "value": "mg",
+          "patterns": [
+            "\\bmilligrams?\\b",
+            "\\bmg\\b"
+          ]
+        },
+        {
+          "value": "ml",
+          "patterns": [
+            "\\bmillilitres?\\b",
+            "\\bmilliliters?\\b",
+            "\\bml\\b"
+          ]
+        },
+        {
+          "value": "cm",
+          "patterns": [
+            "\\bcentimetres?\\b",
+            "\\bcentimeters?\\b",
+            "\\bcm\\b"
+          ]
+        },
+        {
+          "value": "hour",
+          "patterns": [
+            "\\bhours?\\b"
+          ]
+        },
+        {
+          "value": "day",
+          "patterns": [
+            "\\bdays?\\b"
+          ]
+        }
       ]
     },
     "request_or_refusal": {
@@ -97,11 +240,26 @@
       "values": [
         {
           "value": "refusal",
-          "patterns": ["\\bdo not\\b", "\\bdon't\\b", "\\bnever\\b", "\\brefus", "\\bdeclin", "\\bwill not\\b", "\\bwon't\\b"]
+          "patterns": [
+            "\\bdo not\\b",
+            "\\bdon't\\b",
+            "\\bnever\\b",
+            "\\brefus",
+            "\\bdeclin",
+            "\\bwill not\\b",
+            "\\bwon't\\b"
+          ]
         },
         {
           "value": "request",
-          "patterns": ["\\bplease\\b", "\\bgive\\b", "\\badminister\\b", "\\bstop\\b", "\\bstart\\b", "\\bcall\\b"]
+          "patterns": [
+            "\\bplease\\b",
+            "\\bgive\\b",
+            "\\badminister\\b",
+            "\\bstop\\b",
+            "\\bstart\\b",
+            "\\bcall\\b"
+          ]
         }
       ]
     },
@@ -112,7 +270,13 @@
       "values": [
         {
           "value": "present",
-          "patterns": ["\\bactually\\b", "\\bsorry\\b", "\\bi mean\\b", "\\brather\\b", "\\bcorrection\\b"]
+          "patterns": [
+            "\\bactually\\b",
+            "\\bsorry\\b",
+            "\\bi mean\\b",
+            "\\brather\\b",
+            "\\bcorrection\\b"
+          ]
         }
       ]
     },
@@ -121,8 +285,22 @@
       "default": "unspecified",
       "description": "A judgement expressed about something ('the dose is right'). Tracked separately from polarity because 'not right' needs BOTH to survive to keep its meaning.",
       "values": [
-        {"value": "correct", "patterns": ["\\bright\\b", "\\bcorrect\\b", "\\bappropriate\\b"]},
-        {"value": "incorrect", "patterns": ["\\bwrong\\b", "\\bincorrect\\b", "\\binappropriate\\b"]}
+        {
+          "value": "correct",
+          "patterns": [
+            "\\bright\\b",
+            "\\bcorrect\\b",
+            "\\bappropriate\\b"
+          ]
+        },
+        {
+          "value": "incorrect",
+          "patterns": [
+            "\\bwrong\\b",
+            "\\bincorrect\\b",
+            "\\binappropriate\\b"
+          ]
+        }
       ]
     }
   }

@@ -320,6 +320,50 @@ def _dedup_2grams(text: str) -> str:
     return text
 
 
+# Words that, immediately before a self-correction trigger, mean the speaker is
+# *talking about* the action rather than performing it. "Please do not delete that
+# branch" is an instruction whose whole point is the negation; treating it as a
+# rollback deleted the sentence and left the object of the instruction behind
+# ("branch"), which is the most dangerous output the filter can produce — it does
+# not garble the meaning, it inverts it.
+_NEGATIONS_BEFORE_TRIGGER = (
+    "not", "don't", "dont", "doesn't", "doesnt", "didn't", "didnt",
+    "won't", "wont", "can't", "cant", "cannot", "never", "no",
+)
+
+
+def _trigger_is_negated(lower: str, idx: int) -> bool:
+    """True when the trigger at *idx* is governed by a preceding negation.
+
+    Only the word immediately before it is consulted. A wider window would start
+    suppressing genuine corrections in long sentences that merely happen to
+    contain a "not" somewhere earlier, and a missed rollback is a visible extra
+    sentence while a wrong one is silently destroyed meaning.
+    """
+    before = lower[:idx].rstrip(" ,")
+    if not before:
+        return False
+    return before.rsplit(" ", 1)[-1] in _NEGATIONS_BEFORE_TRIGGER
+
+
+def _trigger_positions(lower: str, trigger: str):
+    """Every position where *trigger* is a real rollback, earliest first.
+
+    ``str.find`` matched anywhere, including inside ordinary prose, so a sentence
+    that merely contains the words fired a rollback that discarded everything
+    before it. Each candidate is filtered on word boundaries and on whether a
+    negation governs it.
+    """
+    start = 0
+    while (idx := lower.find(trigger, start)) != -1:
+        start = idx + 1
+        before_ok = idx == 0 or not (lower[idx - 1].isalnum() or lower[idx - 1] == "'")
+        after = idx + len(trigger)
+        after_ok = after >= len(lower) or not (lower[after].isalnum() or lower[after] == "'")
+        if before_ok and after_ok and not _trigger_is_negated(lower, idx):
+            yield idx
+
+
 def _apply_self_corrections(text: str, triggers: list[str]) -> str:
     if not triggers:
         return text
@@ -334,7 +378,7 @@ def _apply_self_corrections(text: str, triggers: list[str]) -> str:
             (
                 (idx, trigger)
                 for trigger in triggers
-                if (idx := lower.find(trigger.lower())) != -1
+                for idx in _trigger_positions(lower, trigger.lower())
             ),
             default=None,
         )
