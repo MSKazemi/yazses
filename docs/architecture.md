@@ -71,6 +71,17 @@ zero, because a daemon that dies while loading a model would otherwise be report
 as restarted. Declining keeps a persistent "restart pending" hint. Decisions live
 in `settingsui/restart.py` (Qt-free, IPC injected); the dialog is dumb.
 
+**One way in, on every OS.** The window is reachable from the tray's *Settings…*
+entry on Linux, macOS and Windows, from `yazses settings`, and on Windows from a
+Start-menu shortcut. The three trays draw the label from one `tray/menu.py`
+constant rather than each spelling it themselves, so the menus cannot drift into
+offering a different product per platform. The Start-menu shortcut launches the
+single PyInstaller binary with `--settings`, which `__main__.py` dispatches
+alongside `--daemon`/`--tray`/`--cli` — a mode flag the bundle does not know falls
+through to the CLI and exits 2, and the windowed binary has no console to say so
+on, which is why the flag and its branch are asserted against each other in tests
+rather than trusted to stay in step across two files.
+
 **Offline Command Mode rewrites the selection locally.** Select text, hold the
 command key, say "make this shorter" — `commands/rewrite.py` parses the request
 (whole-utterance grammar, so the same words dictated as prose are unaffected),

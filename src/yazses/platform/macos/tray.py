@@ -15,6 +15,7 @@ from collections.abc import Callable
 from typing import Any
 
 from yazses.platform.base import TrayModel, TrayState
+from yazses.tray.menu import SETTINGS_LABEL
 
 log = logging.getLogger(__name__)
 
@@ -54,7 +55,21 @@ class MacosTray:
         class _App(rumps.App):
             def __init__(self_inner) -> None:
                 super().__init__("YazSes", icon=None, title=_GLYPH[TrayState.IDLE])
-                self_inner.menu = ["Pause hotkey", "Help & permissions"]
+                # "Settings…" opens the graphical settings window — the same
+                # entry the Linux tray has, so the menu means the same thing
+                # on every OS (#63).
+                self_inner.menu = [
+                    SETTINGS_LABEL, None, "Pause hotkey", "Help & permissions",
+                ]
+
+            @rumps.clicked(SETTINGS_LABEL)
+            def _on_settings(self_inner, _sender) -> None:
+                # A menu click that silently does nothing is indistinguishable
+                # from a frozen tray, so a failed launch says so.
+                if not _launch_settings():
+                    rumps.notification(
+                        "YazSes", "", "Could not open Settings — is `yazses` on PATH?"
+                    )
 
             @rumps.clicked("Pause hotkey")
             def _on_pause(self_inner, _sender) -> None:
@@ -92,3 +107,22 @@ class MacosTray:
             rumps.quit_application()
         except Exception:
             log.exception("Tray stop raised")
+
+
+def _launch_settings() -> bool:
+    """Open the settings window, detached. Shared by the menu handler above.
+
+    Kept module-level so it is importable and testable without rumps, which is
+    macOS-only and cannot be imported on a Linux CI runner.
+    """
+    import subprocess
+
+    try:
+        subprocess.Popen(
+            ["yazses", "settings"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True,
+        )
+        return True
+    except Exception:
+        log.exception("tray settings launch failed")
+        return False

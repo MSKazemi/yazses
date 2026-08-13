@@ -13,6 +13,7 @@ from collections.abc import Callable
 from typing import Any
 
 from yazses.platform.base import TrayModel, TrayState
+from yazses.tray.menu import SETTINGS_LABEL
 
 log = logging.getLogger(__name__)
 
@@ -62,8 +63,20 @@ class WindowsTray:
         def _quit_clicked(icon, _item) -> None:  # noqa: ANN001
             icon.stop()
 
+        def _settings_clicked(icon, _item) -> None:  # noqa: ANN001
+            # A menu click with no visible effect reads as a frozen tray, so a
+            # failed launch is reported rather than swallowed.
+            if not launch_settings():
+                try:
+                    icon.notify("Could not open Settings — is `yazses` on PATH?", "YazSes")
+                except Exception:
+                    log.debug("tray notification failed", exc_info=True)
+
         menu = pystray.Menu(
             pystray.MenuItem("YazSes", None, enabled=False),
+            pystray.Menu.SEPARATOR,
+            # The same entry the Linux and macOS trays have (#63).
+            pystray.MenuItem(SETTINGS_LABEL, _settings_clicked),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Pause hotkey", None, enabled=False),
             pystray.MenuItem("Help", None, enabled=False),
@@ -100,3 +113,19 @@ class WindowsTray:
                     self._icon.stop()
                 except Exception:
                     log.exception("Tray stop raised")
+
+
+def launch_settings() -> bool:
+    """Open the settings window, detached. Never blocks the tray thread."""
+    import subprocess
+
+    try:
+        subprocess.Popen(
+            ["yazses", "settings"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        return True
+    except Exception:
+        log.exception("tray settings launch failed")
+        return False

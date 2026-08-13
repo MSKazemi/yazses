@@ -50,8 +50,15 @@ that most often go wrong — the wrong microphone, and a daemon that needs a res
   capture. `Follow OS default` hands control back. This takes effect live, over IPC — no restart.
 - **Re-calibrate** — re-measures the room and writes a fitting silence threshold, for when
   dictation starts getting discarded as silence.
+- **Settings…** — opens the graphical settings window (the same thing as `yazses settings`),
+  where features, the hotkey, the microphone and the silence threshold are all editable without
+  hand-writing TOML.
 - **Restart daemon** / **Stop daemon** — and **Quit tray**, which closes only the icon and
   leaves dictation running.
+
+The **Settings…** entry is in the menu on **Linux, macOS and Windows** — the menu means the same
+thing wherever you run it. On Windows there is also a **YazSes Settings** shortcut in the Start
+menu, for when you haven't found the tray icon yet.
 
 Here it is being driven — the menu opening, the Microphone submenu expanding, and the daemon
 controls underneath:

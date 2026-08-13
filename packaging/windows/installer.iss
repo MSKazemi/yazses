@@ -64,6 +64,9 @@ Source: "yazses.cmd"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#MyAppName}";        Filename: "{app}\{#MyAppExeName}"; Parameters: "--tray"
+; A clickable Start-menu launcher for the settings window (#63) — the tray
+; entry alone is not discoverable to someone who has not found the tray yet.
+Name: "{group}\{#MyAppName} Settings"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--settings"
 Name: "{group}\Uninstall {#MyAppName}"; Filename: "{uninstallexe}"
 Name: "{userdesktop}\{#MyAppName}";  Filename: "{app}\{#MyAppExeName}"; Parameters: "--tray"; Tasks: desktopicon
 

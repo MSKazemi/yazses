@@ -9,6 +9,8 @@ Modes:
 - ``--daemon``  → run the dictation daemon
 - ``--tray``    → run the tray application (also the default if no args)
 - ``--cli``     → run the Typer CLI; remaining args pass through to it
+- ``--settings``→ open the graphical settings window (the Start-menu
+  shortcut and the tray's "Settings…" entry both use this)
 
 The default mode depends on which executable was launched. The Windows bundle
 ships two: a windowed ``YazSes.exe`` (tray/daemon, no console) and a console
@@ -48,6 +50,15 @@ def main() -> None:
 
         sys.argv = [sys.argv[0]] + args[1:]
         run_tray()
+    elif mode == "--settings":
+        # The Start-menu shortcut and the tray's "Settings…" both launch the
+        # bundle with this flag. Without a branch here the windowed binary would
+        # fall through to the CLI, exit 2 on an unknown argument, and — having no
+        # console to print to — look like a shortcut that does nothing at all.
+        from yazses.settingsui.app import run as run_settings
+
+        sys.argv = [sys.argv[0]] + args[1:]
+        run_settings()
     elif mode == "--cli":
         from yazses.cli import app
 

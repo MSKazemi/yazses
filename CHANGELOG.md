@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the tray menu means the same thing on every OS
+
+"Settings…" existed only in the Linux tray, so the same menu offered a different
+product depending on where you ran it — and on Windows and macOS the settings
+window was reachable only by knowing to type `yazses settings`.
+
+- **macOS (rumps) and Windows (pystray) trays** now carry the same **Settings…**
+  entry, from the same shared `SETTINGS_LABEL` constant, so the three menus
+  cannot drift into saying three different things.
+- A **Start-menu shortcut** on Windows, for people who have not found the tray
+  icon yet. It launches the bundle with `--settings`, which the single-binary
+  entry point now dispatches — without that branch the windowed `.exe` would have
+  fallen through to the CLI, exited 2 on an unknown argument, and (having no
+  console to print to) looked like a shortcut that does nothing.
+- A failed launch **says so** rather than being swallowed: a menu click with no
+  visible effect is indistinguishable from a frozen tray.
+
+Verified by driving the real dispatch and by asserting the installer's flag
+against what the bundle accepts — the two are written in different files and had
+no reason to stay in step. Clicking it on a Mac or a Windows box still needs
+someone on that OS. (#63)
+
 ### Added — the three settings people actually tweak get real controls
 
 Feature toggles are booleans; the hotkey, the microphone and the VAD threshold
