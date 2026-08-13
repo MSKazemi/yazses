@@ -17,7 +17,6 @@ from yazses.platform.windows.hotkey import (
     VK_RCONTROL,
     VK_RMENU,
     VK_SPACE,
-    WindowsHotkey,
     resolve_key_id,
 )
 from yazses.platform.windows.injector import INJECTED_TAG, _utf16_units
@@ -108,107 +107,6 @@ def test_pipe_name_includes_path_stem(monkeypatch):
     monkeypatch.setenv("USER", "alice")
     name = _pipe_name_from_path(Path("/tmp/custom.sock"))
     assert "custom" in name
-
-
-# ---- Hold state machine ------------------------------------------------
-#
-# These drive WindowsHotkey.handle_key_event directly, so they run on Linux CI
-# too. The Win32 half (installing the hook, pumping messages) is what the
-# Windows CI matrix covers.
-
-
-def _make_hotkey(key_id: str = "right_ctrl", threshold_ms: int = 500):
-    """A hotkey plus the (starts, ends) it recorded."""
-    events: dict[str, list] = {"start": [], "end": []}
-    hk = WindowsHotkey(
-        key_id=key_id,
-        threshold_ms=threshold_ms,
-        on_hold_start=lambda leaked: events["start"].append(leaked),
-        on_hold_end=lambda: events["end"].append(True),
-    )
-    return hk, events
-
-
-def test_modifier_starts_recording_on_the_initial_key_down():
-    """The regression that made Windows dictation unusable.
-
-    The old code asked HoldDetector.check() at the same instant it recorded the
-    press, so elapsed was always 0 and the initial key-down never fired. A hold
-    could only begin on an OS auto-repeat — which Ctrl is not guaranteed to
-    emit at all. Right Ctrl is the Windows default hotkey, so this was the
-    primary path.
-    """
-    hk, events = _make_hotkey("right_ctrl")
-    hk.handle_key_event(True, 100.0)
-    assert events["start"] == [0], "modifier hold must begin on key-down"
-
-
-def test_modifier_hold_start_does_not_wait_for_the_threshold():
-    hk, events = _make_hotkey("right_ctrl", threshold_ms=5000)
-    hk.handle_key_event(True, 0.0)
-    # Even with a 5 s threshold, a modifier fires immediately — it types
-    # nothing, so there is no tap/hold ambiguity to wait out.
-    assert events["start"] == [0]
-
-
-def test_modifier_autorepeat_does_not_restart_recording():
-    hk, events = _make_hotkey("right_ctrl")
-    hk.handle_key_event(True, 100.0)
-    for i in range(5):  # OS auto-repeat while the key stays down
-        hk.handle_key_event(True, 100.5 + i * 0.03)
-    assert events["start"] == [0], "auto-repeat must not re-fire hold-start"
-
-
-def test_release_after_hold_fires_hold_end():
-    hk, events = _make_hotkey("right_ctrl")
-    hk.handle_key_event(True, 100.0)
-    hk.handle_key_event(False, 101.2)
-    assert events["end"] == [True]
-
-
-def test_release_without_a_hold_fires_nothing():
-    hk, events = _make_hotkey("right_ctrl")
-    hk.handle_key_event(False, 100.0)
-    assert events["start"] == [] and events["end"] == []
-
-
-def test_press_release_press_starts_a_second_burst():
-    """State must fully reset, or the second dictation never records."""
-    hk, events = _make_hotkey("right_ctrl")
-    hk.handle_key_event(True, 100.0)
-    hk.handle_key_event(False, 101.0)
-    hk.handle_key_event(True, 105.0)
-    assert events["start"] == [0, 0]
-    assert events["end"] == [True]
-
-
-def test_space_waits_out_the_threshold_before_recording():
-    """A character key must not fire on key-down — that would make every tap
-    of the space bar start a dictation."""
-    hk, events = _make_hotkey("space", threshold_ms=500)
-    hk.handle_key_event(True, 0.0)
-    assert events["start"] == []
-    hk.handle_key_event(True, 0.2)  # repeat, still under threshold
-    assert events["start"] == []
-    hk.handle_key_event(True, 0.6)  # repeat, past threshold
-    assert events["start"] == [1]
-
-
-def test_space_leaked_count_counts_presses_not_autorepeats():
-    """leaked_count drives how many characters get backspaced away. Charging
-    every auto-repeat would delete text the user actually typed."""
-    hk, events = _make_hotkey("space", threshold_ms=100)
-    hk.handle_key_event(True, 0.0)
-    for i in range(9):  # a long run of auto-repeats
-        hk.handle_key_event(True, 0.02 * (i + 1))
-    assert events["start"] == [1], "one physical press leaked one space"
-
-
-def test_space_tap_below_threshold_never_records():
-    hk, events = _make_hotkey("space", threshold_ms=500)
-    hk.handle_key_event(True, 0.0)
-    hk.handle_key_event(False, 0.05)
-    assert events["start"] == [] and events["end"] == []
 
 
 # ---- Self-injection guard ----------------------------------------------

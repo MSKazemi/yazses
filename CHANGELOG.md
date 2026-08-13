@@ -38,66 +38,86 @@ fallback backend is an HTTP POST to Ollama — local by default, but a socket no
 The section now says which backend does what, names the one call that carries text, and
 documents the loopback guard and its opt-out. "What leaves your device" now names both
 paths that can, rather than only `yazses remote`.
-### Fixed — the Windows installer build has never actually worked
+### Fixed — Windows: hold-to-talk, command keys, and the liveness probe that killed the daemon
 
-Four defects, each independently enough to make the `.exe` unusable. All of them
-sat behind the same blind spot: CI proved the installer *built*, and nothing ever
-installed it or ran what came out.
+Eleven defects in `platform/windows/`, found by audit and each pinned by a regression test.
+Three of them meant core features could never have worked on Windows:
 
-**The daemon could not start.** The tray spawned it as `YazSes.exe -m yazses.main`,
-but the bundle dispatches on argv and knows only `--daemon`/`--tray`/`--cli`. `-m`
-matched nothing, fell through to the Typer CLI, and exited 2 while parsing it. The
-binary is windowed, so that error went nowhere: the tray reported "not running"
-forever with no diagnostic anywhere. Now resolved through
-`resolve_daemon_command()`, which is pure and unit-tested for both the frozen and
-pip-installed cases.
+- **`yazses status` terminated the daemon.** `is_running()` used `os.kill(pid, 0)` as a
+  liveness probe. That is the POSIX idiom; on Windows CPython's `os.kill` has no signal
+  semantics and falls through to `TerminateProcess(handle, sig)`, so signal 0 *kills the
+  process* with exit code 0 ([bpo-14480](https://bugs.python.org/issue14480)). `status`,
+  `doctor` and the tray's poll loop all reach it. Replaced with `OpenProcess` +
+  `GetExitCodeProcess`.
+- **Hold-to-talk never started.** The hold threshold was only re-checked when another key
+  event arrived, which assumes typematic auto-repeat. Modifier keys — every supported hotkey
+  except `space` — do not repeat, so with the default `right_ctrl` the single keydown landed
+  at t=0 and the next event was the keyup. A character key (`space`) now waits out the
+  threshold on a timer, as in the X11 backend, so it is no longer silently replaced by the
+  user's repeat-delay setting. A **modifier starts the instant it goes down** — it types
+  nothing, so there is no tap to tell from a hold and nothing to wait for, and waiting would
+  discard the opening words of every dictation (the pre-speech padding is a silence lead-in,
+  not buffered audio). That matches `evdev_hold.py`, so Linux and Windows feel the same.
+- **Every named command key was a no-op.** The VK table was keyed capitalised
+  (`"Return"`) but looked up lower-cased, so `Return`, `Tab`, `Escape`, `BackSpace` and the
+  arrows all resolved to `vk=0` — a keystroke Windows accepts and discards. `Home`, `End`,
+  `Page_Up` and `Page_Down` were missing from the table entirely. Unknown keys now log and
+  skip instead of injecting `vk=0`, and a contract test walks the dispatcher's real key
+  tables so a future binding Windows cannot express fails in CI.
 
-**Hold-to-talk never began on key-down.** `_press()` asked `HoldDetector.check()`
-at the same instant it recorded the press, so the elapsed time was always 0 and
-the initial key-down could not fire. A hold could only start on an OS auto-repeat
-— which arrives after the user's own key-repeat delay (250 ms–1 s) if it arrives
-at all, and Ctrl is not guaranteed to repeat. Right Ctrl is the Windows default
-hotkey, so this was the primary path. The Linux backend has started modifiers on
-key-down since it was written, with a comment explaining exactly why; Windows now
-matches, and the state machine is exposed as `handle_key_event()` so it is tested
-on every platform rather than only where a hook can be installed. Auto-repeats no
-longer inflate the leaked-character count either — with the space hotkey, one
-press was charged as six, so cleanup deleted five characters the user had typed.
+Also fixed: 64-bit handle truncation (`SetWindowsHookExW`/`GetModuleHandleW` had no
+`restype`, so ctypes truncated their pointers to `int`); `ctypes.get_last_error()` read off a
+library opened without `use_last_error`, so every "lastError=…" reported 0; a named-pipe
+handle leak that permanently consumed one of eight instances per failed accept and left IPC
+dead after eight; the IPC client storing `timeout_s` and never applying it, so the CLI hung
+forever on a wedged daemon where the Unix client times out; an autostart value written
+unquoted and without `--tray`, which broke on any username containing a space and overwrote
+the installer's correct value; and a recycled-PID guard that matched `"python"` anywhere in
+the `tasklist` row, including window titles.
 
-**The CLI was unreachable.** Everything diagnostic — `doctor`, `verify`, `status`,
-`logs`, `report` — lived only inside a windowed binary, which has no stdout, and
-the installer added nothing to PATH. There was no way for a user to run a
-diagnostic, or for a maintainer to ask them to. The bundle now also builds
-`yazses-cli.exe` (console subsystem) from the same Analysis, and the installer
-ships a `yazses` shim and puts it on the per-user PATH. Uninstall removes that one
-entry surgically instead of deleting the whole `Path` value.
+### Fixed — Windows packaging manifests no longer ship a release behind
 
-**Win32 calls were unsound.** `ctypes.windll` is cached without `use_last_error`,
-so every `lastError=` we logged was meaningless. Missing `restype` declarations
-truncated the 64-bit `HHOOK` from `SetWindowsHookExW` to 32 bits, so the handle
-passed to `UnhookWindowsHookEx` could differ from the one installed. Injected
-keystrokes carried no `dwExtraInfo` tag, letting the hook see the app's own
-synthetic Ctrl presses — the self-capture the Linux backend avoids by refusing to
-listen on injector devices.
+`scoop`, `chocolatey` and `winget` pin a version and a SHA256 by hand and nothing in the
+release pipeline touches them, so they sat at 2.17.0 — carrying the *previous* release's
+checksum — after 2.18.0 shipped. Bumped to 2.18.0 against the real published asset
+(`YazSes-2.18.0-windows-x64.exe`, sha256 `d5d78e9d…646a`, verified by download), and guarded
+by tests that check every manifest against `pyproject.toml` and cross-check the two channels'
+checksums against each other. `installer.iss` was already correct — it reads
+`YAZSES_VERSION` from the build script.
 
-### Added
+### Fixed — the Windows installer build could never have run
 
-- `Smoke-test the installer` in `build-windows.yml`: installs silently, asserts
-  the payload, runs the CLI and requires it to print, exercises the shim and PATH
-  entry, then uninstalls and checks PATH survived. This is the gate whose absence
-  let all of the above ship.
-- `tests/test_packaging_windows.py` — contract tests binding the spec, the shim,
-  the installer script and the Python entry point together, run on Linux CI where
-  the suite actually executes.
-- `scripts/winget-manifest.py` and `packaging/winget/` — generated, schema-valid
-  manifests for `winget install MSKazemi.YazSes`. Not yet submitted; see
-  `packaging/winget/README.md` for why a signed, post-fix release must come first.
+Three more defects in the bundle itself, all invisible because the binary is windowed and
+nothing in CI ever installed the artefact it built:
+
+- **The daemon could not start at all.** The tray spawned it as
+  `YazSes.exe -m yazses.main`, but the bundle dispatches on argv and knows only
+  `--daemon`/`--tray`/`--cli`. `-m` matched nothing, fell through to the Typer CLI and
+  exited 2 while parsing it. With no console attached that error went nowhere, so the tray
+  reported "not running" for ever with no diagnostic. Resolution now goes through a pure
+  `resolve_daemon_command()`, tested for the frozen and pip-installed cases.
+- **The entire CLI was unreachable.** `doctor`, `verify`, `status`, `logs` and `report`
+  existed only inside a GUI-subsystem binary, which has no stdout, and the installer put
+  nothing on PATH — so no user could run a diagnostic and no maintainer could ask for one.
+  The bundle now also builds `yazses-cli.exe` (console) from the same PyInstaller Analysis,
+  shipped behind a `yazses` shim and added to the per-user PATH. Uninstall removes that one
+  entry surgically; `uninsdeletevalue` on `Path` would have deleted the user's whole PATH.
+- **Injected keystrokes were untagged.** Synthetic events carried no `dwExtraInfo`, so the
+  hook saw the app's own Ctrl presses and could trigger itself — the self-capture the Linux
+  backend avoids by refusing to listen on ydotool/uinput devices.
+
+### Added — the gate whose absence let all of this ship
+
+`build-windows.yml` now installs the built artefact silently, asserts the payload, requires
+the CLI to actually print, exercises the shim and the PATH entry, then uninstalls and checks
+PATH survived. `tests/test_packaging_windows.py` binds the spec, the shim, the installer
+script and the Python entry point together on Linux CI, where the suite actually runs.
 
 ### Documentation
 
-- `docs/windows-install.md` gave the install location as `%USERPROFILE%\YazSes`
-  for every release so far. It is `%LOCALAPPDATA%\Programs\YazSes` — the documented
-  path never existed, so the uninstaller and CLI commands pointed nowhere.
+`docs/windows-install.md` gave the install location as `%USERPROFILE%\YazSes` in every
+release so far. It is `%LOCALAPPDATA%\Programs\YazSes` — the documented path never existed,
+so the uninstaller and CLI instructions pointed nowhere.
 
 ## [2.18.0] - 2026-08-13
 
