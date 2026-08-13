@@ -34,6 +34,12 @@ jobs:
       contents: write # uploads SHA256SUMS.txt onto the existing Release
     env:
       GH_TOKEN: ${{ github.token }}
+      # This job deliberately does not check out the repository -- it only needs
+      # the release assets. But without a checkout `gh` has no git remote to infer
+      # the repo from, so every `gh release` call fails. GH_REPO supplies it
+      # explicitly. Omitting this made the wait loop below poll an empty asset
+      # list for its full 40-minute deadline instead of failing.
+      GH_REPO: ${{ github.repository }}
       TAG: ${{ github.event.inputs.tag || github.event.release.tag_name }}
     steps:
       - name: Wait for platform builds to attach their assets
@@ -46,8 +52,23 @@ jobs:
         run: |
           set -euo pipefail
           deadline=$(( SECONDS + 2400 ))   # 40 minutes
+          fails=0
           while (( SECONDS < deadline )); do
-            names=$(gh release view "$TAG" --json assets -q '.assets[].name' || true)
+            # A failed query and a release with no assets yet are NOT the same
+            # thing. Swallowing both with `|| true` made a misconfiguration look
+            # exactly like a slow build. Tolerate a couple of transient errors,
+            # then fail loudly rather than waiting out the deadline.
+            if ! names=$(gh release view "$TAG" --json assets -q '.assets[].name'); then
+              fails=$(( fails + 1 ))
+              echo "::warning::could not query release $TAG (attempt $fails)"
+              if (( fails >= 3 )); then
+                echo "::error::gh release view failed 3x for $TAG -- aborting."
+                exit 1
+              fi
+              sleep 20
+              continue
+            fi
+            fails=0
             have_deb=$(grep -c '\.deb$'  <<<"$names" || true)
             have_dmg=$(grep -c '\.dmg$'  <<<"$names" || true)
             have_exe=$(grep -c '\.exe$'  <<<"$names" || true)
