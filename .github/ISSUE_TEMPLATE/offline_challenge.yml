@@ -1,0 +1,120 @@
+name: 🔌 Offline-inference report
+description: Report what happened when you ran YazSes with networking disabled.
+title: "[offline]: "
+labels: ["measurement-wanted", "documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for checking this rather than taking our word for it.
+
+        Please read [the offline-inference challenge](https://mskazemi.com/yazses/launch/offline-challenge.html)
+        first — it explains the one distinction that makes a report comparable:
+        **installing and downloading the model needs the network; transcribing does not.**
+        A run where the model was never cached tells us nothing.
+
+        **Do not paste dictated text you would rather keep private.** We never need your
+        words to diagnose this — timings, model name, daemon state and metadata log lines
+        are enough. `yazses report` collects those locally, redacts paths and identifiers,
+        and uploads nothing.
+
+        **A failure is more useful than a success.** If transcription broke with the
+        network off, that is a bug, and it is exactly what this exercise is for.
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Before going offline
+      options:
+        - label: I installed YazSes and pre-downloaded the speech model **while online**
+          required: true
+        - label: "`yazses doctor` reported the configured model as cached"
+          required: true
+        - label: I confirmed I was actually offline (e.g. `curl` to a public host failed)
+          required: true
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: What happened?
+      options:
+        - Both worked offline (dictation + file transcription)
+        - Dictation worked, file transcription did not
+        - File transcription worked, dictation did not
+        - Neither worked offline
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: YazSes version
+      description: Output of `yazses --version`
+      placeholder: "yazses 2.18.2"
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Model
+      description: The `[stt] model` in use, as reported by `yazses doctor`
+      placeholder: "base.en"
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: OS, CPU and session
+      description: e.g. `uname -a` plus X11/Wayland, or macOS/Windows version
+      placeholder: "Ubuntu 26.04, x86_64, X11, i7-1165G7"
+    validations:
+      required: true
+  - type: input
+    id: install
+    attributes:
+      label: How you installed it
+      placeholder: "pipx / uv tool / .deb / snap / .exe / .dmg / from source"
+    validations:
+      required: true
+  - type: dropdown
+    id: method
+    attributes:
+      label: How you disabled networking
+      options:
+        - Airplane mode / OS Wi-Fi toggle
+        - "Linux: nmcli networking off"
+        - "macOS: networksetup -setairportpower off"
+        - "Windows: Disable-NetAdapter"
+        - Unplugged Ethernet
+        - Other (describe below)
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Expected vs actual
+      description: |
+        What you expected each run to do, and what it did. Include rough timings.
+        Describe the output rather than quoting it if the text was private.
+      placeholder: |
+        Dictation: expected the sentence to be typed into a text editor.
+        Actual: typed correctly, ~1.4 s from key release to text appearing.
+
+        File transcription: expected a transcript of a 30 s WAV.
+        Actual: worked, took ~11 s.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics (optional)
+      description: |
+        Relevant lines from `yazses logs`, or a `yazses report` bundle.
+        Please redact anything you would rather not publish — we do not need it.
+      render: text
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Before you submit
+      options:
+        - label: I have not included dictated text or personal data I want to keep private
+          required: true
+        - label: I restored my networking afterwards
+          required: false
