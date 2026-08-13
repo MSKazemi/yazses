@@ -595,6 +595,25 @@ class PilotConfig:
 
 
 @dataclass
+class ActivationConfig:
+    """Intent-carrying activation sources (#137) and their confirmation gate (#138).
+
+    A source that decodes *meaning* — silent speech, EMG word decoding, a BCI —
+    emits a label plus a confidence instead of a bare onset. Because the best
+    reported non-invasive accuracy is 96–97% on 10–30 words (Tang,
+    arXiv:2504.13921; Kurotaki, doi:10.1002/aisy.70440), roughly one command in
+    thirty is wrong, so an intent is gated on confidence × consequence before it
+    executes. See ``activation/confirm.py`` for why these defaults.
+
+    OFF by default: with no intent-carrying source configured this changes
+    nothing, and ``EMGBackend`` (onset/offset only) is unaffected either way.
+    """
+    enabled: bool = False
+    confirm_threshold: float = 0.90   # below this, a reversible action confirms
+    reject_floor: float = 0.50        # below this, the intent is dropped outright
+
+
+@dataclass
 class ModalityConfig:
     """v2.0.0 Wave C — sEMG Command Layer & Modality Role Router (ADR-v2-011).
 
@@ -1507,6 +1526,7 @@ class Config:
     agent: AgentConfig = field(default_factory=AgentConfig)
     pilot: PilotConfig = field(default_factory=PilotConfig)
     modality: ModalityConfig = field(default_factory=ModalityConfig)
+    activation: ActivationConfig = field(default_factory=ActivationConfig)
     continuum: ContinuumConfig = field(default_factory=ContinuumConfig)
     bridge: BridgeConfig = field(default_factory=BridgeConfig)
     translate: TranslateConfig = field(default_factory=TranslateConfig)

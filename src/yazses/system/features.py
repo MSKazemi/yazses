@@ -997,7 +997,7 @@ _UNWIRED: frozenset[str] = frozenset({
     "crowdproof", "diagramvox", "earcon", "echo", "fieldaware",
     "focusprofile", "gesture", "hatselect", "headpointer",
     "hesitation", "hotwords", "interpret", "involuntary", "langroute",
-    "latency", "lipread", "loadguard", "math", "modality", "morsevox",
+    "latency", "lipread", "loadguard", "math", "morsevox",
     "mousegrid", "mouthswitch", "multiprofile", "pilot", "predict",
     "pronunciation", "proofback", "prosodypunct", "rag", "readback_clone",
     "reask", "screengrounded", "scribe", "scrub", "sentiment", "sign",

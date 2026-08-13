@@ -1,6 +1,6 @@
 {
   "unit": "filters.disfluency",
-  "contract_version": "6.0.0",
+  "contract_version": "6.1.0",
   "source": "src/yazses/stt/filters/disfluency.py::filter_transcript (.text)",
   "cases": [
     {

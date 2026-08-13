@@ -1029,11 +1029,11 @@ YazSes ships **141 capabilities**. All but the core are **off by default** — t
 
 ### Modality Role Router
 
-- **Toggle:** `modality`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[modality] — multi-input, experimental`
+- **Toggle:** `modality`  ·  **Tier:** experimental — not advised yet  ·  **Config:** `[modality] — multi-input, experimental`
 - **What it does:** Routes each input to its fastest role (gaze→point, EMG→command, voice→dictation). Needs EMG/gaze hardware; experimental. Off by default.
 - **Use when:** When you have EMG or gaze hardware and want each input assigned to its fastest role.
 - **Example:** Route dictation vs commands to different targets by role.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable modality` then `yazses restart`
 
 ### Glance-Type (camera)
 

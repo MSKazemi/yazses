@@ -514,12 +514,19 @@ class Daemon:
         # mode while held. Ignored if unset or the same as the dictation key.
         self._command_hotkey = self._make_command_hotkey(cfg, key_id)
 
-        # Optional non-keyboard activation sources (EMG squeeze via [emg]).
-        self._extra_activations = self._build_activation_sources(cfg)
-
         # Glance-Type look-to-pane (design/v2-cognitive-layer §3.3). Dormant unless
         # [gaze] enabled + route_dictation, with a calibration + X11 desktop + deps.
+        #
+        # Built before the activation sources so the modality router below can ask
+        # whether gaze *actually* came up, rather than whether it was requested.
         self._gaze_targeter = self._build_gaze_targeter(cfg)
+
+        # ADR-v2-011 role arbitration. Must precede the activation sources, because
+        # it decides what role EMG plays among them.
+        self._modality_roles = self._resolve_modality_roles(cfg)
+
+        # Optional non-keyboard activation sources (EMG squeeze via [emg]).
+        self._extra_activations = self._build_activation_sources(cfg)
 
         # Opt-in self-improvement corpus (ADR-012). Dormant unless enabled.
         self._corpus = build_writer(self._platform.paths.data_dir, cfg.learning)
@@ -663,6 +670,35 @@ class Daemon:
             self._on_command_hold_end,
         )
 
+    def _resolve_modality_roles(self, cfg) -> dict[str, str]:
+        """Resolve ``role -> modality`` from what is actually available (#136).
+
+        ADR-v2-011's router has been pure policy with no caller since July: the
+        `modality` slug sat in `_UNWIRED` because enabling it wrote a config key
+        nothing read. This is the read.
+
+        "Available" means configured-and-constructible, not merely enabled, so
+        the map describes the machine in front of the user: `voice` and
+        `keyboard` are always present, `emg` only with a device port, `gaze`
+        only when the targeter actually built (calibration + X11 + deps). An
+        empty map means the feature is off, and every caller treats that as
+        "behave exactly as before".
+        """
+        if not cfg.modality.enabled:
+            return {}
+        from yazses.modality.router import ModalityPolicy, resolve_roles
+
+        available = ["voice", "keyboard"]
+        if (cfg.emg.device_port or "").strip():
+            available.append("emg")
+        if getattr(self, "_gaze_targeter", None) is not None:
+            available.append("gaze")
+        policy = ModalityPolicy.from_preset(cfg.modality.preset, cfg.modality.priority)
+        roles = resolve_roles(available, policy)
+        log.info("Modality roles (%s): %s", cfg.modality.preset,
+                 ", ".join(f"{r}->{m}" for r, m in sorted(roles.items())) or "none")
+        return roles
+
     def _build_activation_sources(self, cfg) -> list:
         """Build the non-keyboard activation sources ([emg] squeeze-to-talk).
 
@@ -679,12 +715,23 @@ class Daemon:
         try:
             from yazses.platform.emg.backend import EMGBackend
 
-            if cfg.emg.mode == "command":
+            # The modality router, when enabled, is what decides whether EMG owns
+            # commands — that is the arbitration ADR-v2-011 describes, and the
+            # runtime read that takes `modality` out of _UNWIRED. With it off,
+            # `[emg] mode` alone decides, exactly as before.
+            mode = cfg.emg.mode
+            roles = getattr(self, "_modality_roles", {})
+            if roles:
+                mode = "command" if roles.get("command") == "emg" else "full_text"
+                if mode != cfg.emg.mode:
+                    log.info("Modality router set EMG to %s mode (config said %s).",
+                             mode, cfg.emg.mode)
+            if mode == "command":
                 start, end = self._on_command_hold_start, self._on_command_hold_end
             else:
                 start, end = self._on_hold_start, self._on_hold_end
             sources.append(EMGBackend(port, cfg.emg.baud_rate, start, end))
-            log.info("EMG activation source enabled on %s (%s mode).", port, cfg.emg.mode)
+            log.info("EMG activation source enabled on %s (%s mode).", port, mode)
         except Exception:
             log.warning("EMG activation source init failed; continuing without.",
                         exc_info=True)
@@ -2512,6 +2559,8 @@ class Daemon:
                 "platform": self._platform.name,
                 "streaming_enabled": self._config.streaming.enabled,
                 "commands_enabled": self._config.commands.enabled,
+                # Resolved ADR-v2-011 role map; {} when [modality] is off.
+                "modality_roles": dict(getattr(self, "_modality_roles", {})),
                 "read_back": self._config.accessibility.read_back,
                 "tts_backend": self._tts.name if self._tts is not None else None,
                 "remote_connected": self._remote_forwarder is not None and self._remote_forwarder.is_connected(),

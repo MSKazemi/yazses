@@ -430,6 +430,35 @@ def _keyboard_capture_check(perms, platform_name: str) -> _Check:
     return ("Keyboard capture", "OK" if state is PermissionState.OK else "FAIL", detail)
 
 
+def _modality_roles_check(cfg) -> _Check | None:
+    """Report which modality owns each role (ADR-v2-011), or nothing when off.
+
+    A role map is exactly the kind of state that is invisible until it
+    misbehaves: with `[modality]` on, whether EMG runs in command or dictation
+    mode stops being what `[emg] mode` says and starts being what the router
+    decided. Printing the resolved map means a user can see that without
+    reading config or the log.
+    """
+    if not getattr(cfg, "modality", None) or not cfg.modality.enabled:
+        return None
+    from yazses.modality.router import ModalityPolicy, resolve_roles
+
+    available = ["voice", "keyboard"]
+    if (cfg.emg.device_port or "").strip():
+        available.append("emg")
+    if cfg.gaze.enabled:
+        available.append("gaze")
+    roles = resolve_roles(
+        available, ModalityPolicy.from_preset(cfg.modality.preset, cfg.modality.priority)
+    )
+    if not roles:
+        return ("Modality roles", "WARN",
+                f"preset {cfg.modality.preset!r} assigned nothing to the available "
+                f"modalities ({', '.join(available)})")
+    summary = ", ".join(f"{role}→{mod}" for role, mod in sorted(roles.items()))
+    return ("Modality roles", "OK", f"preset {cfg.modality.preset}: {summary}")
+
+
 def _elevation_check(platform_name: str) -> _Check | None:
     """Windows: report elevation and what it means for elevated windows.
 
@@ -643,6 +672,11 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     elevation = _elevation_check(platform.name)
     if elevation is not None:
         checks.append(elevation)
+
+    # ADR-v2-011 role map, when [modality] is on. Absent otherwise.
+    modality = _modality_roles_check(cfg)
+    if modality is not None:
+        checks.append(modality)
 
     # Which input device the hotkey actually binds to (real keyboard vs a virtual
     # injector device). Surfaces the dead-hotkey failure mode directly.

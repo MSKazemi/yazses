@@ -34,6 +34,13 @@ from typing import Any, Callable
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
+from yazses.activation.confirm import (  # noqa: E402
+    DEFAULT_CONFIRM_THRESHOLD,
+    DEFAULT_REJECT_FLOOR,
+    classify_consequence,
+    decide,
+)
+from yazses.activation.intent import ActivationIntent, validate  # noqa: E402
 from yazses.commands.grammar import classify  # noqa: E402
 from yazses.config import DisfluencyConfig  # noqa: E402
 from yazses.postprocess.cleaner import clean_text  # noqa: E402
@@ -97,7 +104,73 @@ def _run_grammar(text: str, options: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _run_activation(events: list[dict[str, Any]], options: dict[str, Any]) -> list[dict[str, Any]]:
+    """Replay a source's event stream and report what the daemon must do (#139).
+
+    We are inviting research groups to plug decoders into YazSes, and without an
+    executable contract each of them integrates by reading our source and
+    guessing. This unit is device-neutral on purpose: the input is a sequence of
+    events any source could emit — onset, offset, intent — and the output is the
+    decision for each, so a decoder written in any language can prove conformance
+    without owning our pipeline.
+
+    Deliberately excluded: the dispatched key sequence. That is
+    platform-specific (see `platform/*/injector.py`), while act/confirm/reject is
+    the shared policy.
+    """
+    vocabulary = tuple(options.get("vocabulary", ()))
+    threshold = options.get("threshold", DEFAULT_CONFIRM_THRESHOLD)
+    floor = options.get("floor", DEFAULT_REJECT_FLOOR)
+
+    out: list[dict[str, Any]] = []
+    holding = False
+    for event in events:
+        kind = event.get("kind")
+        if kind == "onset":
+            # A second onset without an offset is a stuck source, not a new hold.
+            out.append({"event": "onset", "result": "ignored" if holding else "hold_start"})
+            holding = True
+        elif kind == "offset":
+            out.append({"event": "offset", "result": "hold_end" if holding else "ignored"})
+            holding = False
+        elif kind == "disappear":
+            # The source vanished (unplugged, crashed). Any open hold must be
+            # closed, or the daemon records forever.
+            out.append({"event": "disappear", "result": "hold_end" if holding else "ignored"})
+            holding = False
+        elif kind == "intent":
+            intent = ActivationIntent(
+                label=event.get("label", ""),
+                confidence=event.get("confidence", 0.0),
+                source=event.get("source", "contract"),
+            )
+            rejection = validate(intent, vocabulary)
+            if rejection is not None:
+                out.append({"event": "intent", "result": "refused",
+                            "reason": rejection.name.lower()})
+                continue
+            command = classify(intent.label)
+            action = command.action or ""
+            if command.intent.value == "dictate" or not action:
+                out.append({"event": "intent", "result": "refused",
+                            "reason": "not_a_command"})
+                continue
+            decision = decide(
+                intent.confidence, classify_consequence(action),
+                threshold=threshold, floor=floor,
+            )
+            out.append({"event": "intent", "result": decision.value, "action": action})
+        else:  # pragma: no cover - guarded by the schema test below
+            raise SystemExit(f"unknown activation event kind: {kind!r}")
+    return out
+
+
 UNITS: dict[str, tuple[str, Callable[[Any, dict[str, Any]], Any]]] = {
+    "sources.activation": (
+        "src/yazses/activation/intent.py::validate + "
+        "src/yazses/activation/confirm.py::decide",
+        _run_activation,
+    ),
     "postprocess.clean_text": (
         "src/yazses/postprocess/cleaner.py::clean_text",
         _run_clean_text,
@@ -135,7 +208,95 @@ UNITS: dict[str, tuple[str, Callable[[Any, dict[str, Any]], Any]]] = {
 # project), pathological repetition, and text that only *looks* like a disfluency
 # are all wanted.
 
+_VOCAB = ["undo", "save", "copy", "paste", "delete the last word", "go to line 40"]
+
 CASES: dict[str, list[dict[str, Any]]] = {
+    # ── activation sources (#139) ──────────────────────────────────────────
+    # The boring cases are here on purpose: the existing vector work found three
+    # shipped bugs in the disfluency filter, and every one came from an ordinary
+    # input rather than a clever one.
+    "sources.activation": [
+        {"id": "empty-stream", "description": "a source that emits nothing does nothing",
+         "options": {"vocabulary": _VOCAB}, "input": []},
+        {"id": "onset-offset-pair",
+         "description": "the ordinary trigger: one hold, opened and closed",
+         "options": {"vocabulary": _VOCAB},
+         "input": [{"kind": "onset"}, {"kind": "offset"}]},
+        {"id": "offset-without-onset",
+         "description": "a stray release (source started mid-hold) must not end a hold",
+         "options": {"vocabulary": _VOCAB}, "input": [{"kind": "offset"}]},
+        {"id": "double-onset",
+         "description": "a repeated onset is a stuck source, not a second hold",
+         "options": {"vocabulary": _VOCAB},
+         "input": [{"kind": "onset"}, {"kind": "onset"}, {"kind": "offset"}]},
+        {"id": "source-disappears-mid-hold",
+         "description": "unplugged while held: the hold must close, not record forever",
+         "options": {"vocabulary": _VOCAB},
+         "input": [{"kind": "onset"}, {"kind": "disappear"}]},
+        {"id": "disappear-while-idle",
+         "description": "a source vanishing with no hold open changes nothing",
+         "options": {"vocabulary": _VOCAB}, "input": [{"kind": "disappear"}]},
+        {"id": "confident-reversible-intent-acts",
+         "description": "high confidence + undoable action: act without asking",
+         "options": {"vocabulary": _VOCAB},
+         "input": [{"kind": "intent", "label": "undo", "confidence": 0.97}]},
+        {"id": "confident-irreversible-intent-confirms",
+         "description": "consequence outranks confidence: save always asks first",
+         "options": {"vocabulary": _VOCAB},
+         "input": [{"kind": "intent", "label": "save", "confidence": 1.0}]},
+        {"id": "unsure-reversible-intent-confirms",
+         "description": "below the threshold, even a reversible action asks",
+         "options": {"vocabulary": _VOCAB},
+         "input": [{"kind": "intent", "label": "undo", "confidence": 0.6}]},
+        {"id": "sub-chance-intent-rejected",
+         "description": "below the floor the label is dropped, not prompted",
+         "options": {"vocabulary": _VOCAB},
+         "input": [{"kind": "intent", "label": "undo", "confidence": 0.2}]},
+        {"id": "out-of-vocabulary-label-refused",
+         "description": "a source may not ask for what it never declared",
+         "options": {"vocabulary": _VOCAB},
+         "input": [{"kind": "intent", "label": "format disk", "confidence": 0.99}]},
+        {"id": "no-declared-vocabulary-refuses-every-intent",
+         "description": "a trigger-only source (EMG squeeze) cannot emit intents",
+         "options": {"vocabulary": []},
+         "input": [{"kind": "intent", "label": "undo", "confidence": 0.99}]},
+        {"id": "empty-label-refused",
+         "description": "the boring one: a decoder emitting an empty string",
+         "options": {"vocabulary": _VOCAB},
+         "input": [{"kind": "intent", "label": "", "confidence": 0.99}]},
+        {"id": "confidence-above-one-refused",
+         "description": "an uncalibrated decoder reporting 1.4 is a bug, not certainty",
+         "options": {"vocabulary": _VOCAB},
+         "input": [{"kind": "intent", "label": "undo", "confidence": 1.4}]},
+        {"id": "negative-confidence-refused",
+         "description": "a negative probability is not a probability",
+         "options": {"vocabulary": _VOCAB},
+         "input": [{"kind": "intent", "label": "undo", "confidence": -0.5}]},
+        {"id": "confidence-boundaries-are-inclusive",
+         "description": "exactly at the floor confirms; exactly at the threshold acts",
+         "options": {"vocabulary": _VOCAB},
+         "input": [{"kind": "intent", "label": "undo", "confidence": 0.5},
+                   {"kind": "intent", "label": "undo", "confidence": 0.9}]},
+        {"id": "in-vocabulary-but-not-a-command",
+         "description": "a declared label the grammar reads as prose is not typed",
+         "options": {"vocabulary": ["hello there"]},
+         "input": [{"kind": "intent", "label": "hello there", "confidence": 0.99}]},
+        {"id": "intent-with-an-argument",
+         "description": "a parameterised command keeps its argument through the seam",
+         "options": {"vocabulary": _VOCAB},
+         "input": [{"kind": "intent", "label": "go to line 40", "confidence": 0.95}]},
+        {"id": "intent-during-a-hold",
+         "description": "an intent mid-hold is decided on its own merits",
+         "options": {"vocabulary": _VOCAB},
+         "input": [{"kind": "onset"},
+                   {"kind": "intent", "label": "undo", "confidence": 0.99},
+                   {"kind": "offset"}]},
+        {"id": "custom-thresholds-are-honoured",
+         "description": "a source with published calibration may set its own gates",
+         "options": {"vocabulary": _VOCAB, "threshold": 0.7, "floor": 0.3},
+         "input": [{"kind": "intent", "label": "undo", "confidence": 0.75},
+                   {"kind": "intent", "label": "undo", "confidence": 0.35}]},
+    ],
     "postprocess.clean_text": [
         {"id": "empty-string", "description": "empty input survives untouched",
          "input": ""},
