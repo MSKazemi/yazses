@@ -1,4 +1,5 @@
 **其他语言版本：** [English](README.md) · [हिंदी](README.hi.md) · 简体中文 · [Русский](README.ru.md)
+<!-- yazses-l10n: locale=zh-CN; source=README.md; source_sha=96711bc; scope=partial; status=active -->
 
 > [README.md](README.md) 的简体中文翻译。若此处内容与英文版有出入，以**英文版为准**。
 >

@@ -1,4 +1,5 @@
 **अन्य भाषाओं में पढ़ें:** [English](README.md) · हिंदी · [简体中文](README.zh-CN.md) · [Русский](README.ru.md)
+<!-- yazses-l10n: locale=hi; source=README.md; source_sha=96711bc; scope=full; status=active; reviewer=@Sushanttmishraa -->
 
 > [README.md](README.md) का हिंदी अनुवाद। यदि यहाँ दी गई किसी जानकारी और अंग्रेज़ी संस्करण में अंतर हो, तो अंग्रेज़ी संस्करण को सही माना जाएगा।
 >
