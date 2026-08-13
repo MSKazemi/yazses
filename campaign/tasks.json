@@ -22855,8 +22855,8 @@
   {
     "id": "PKG-002",
     "family": "packaging",
-    "title": "Verify the Snap install path on arm64",
-    "value": "A broken install channel loses every user who tries it, silently. Verifying one channel end to end is cheap and nobody does it per release.",
+    "title": "Verify the Snap install path on arm64 (edge channel — stable has no arm64 build)",
+    "value": "A broken install channel loses every user who tries it, silently. Verifying one channel end to end is cheap and nobody does it per release. Measured 2026-08-13: the Snap Store has NO arm64 revision on stable, so a plain `snap install yazses` cannot succeed on arm64 — it needs `--edge`, which is currently a release behind (2.17.0, against 2.18.0 on amd64). Reporting how that edge build behaves is the actual ask; whether stable should get an arm64 build is a maintainer decision.",
     "risk": "L0",
     "minutes": 20,
     "cloud_agent_ready": false,
@@ -22872,8 +22872,9 @@
       "uv run python -m pytest tests/ -q"
     ],
     "evidence": [
-      "the exact install command and the version it produced",
-      "whether `yazses doctor` passed straight afterwards"
+      "the exact install command (`sudo snap install yazses --edge`) and the version it produced",
+      "whether `yazses doctor` passed straight afterwards",
+      "whether plain `snap install yazses` failed without `--edge`, and the exact error snapd gave"
     ],
     "state": "open",
     "source": "packaging channels in README",

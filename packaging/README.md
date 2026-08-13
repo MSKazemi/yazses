@@ -4,24 +4,29 @@ Per-channel packaging artefacts. **Read this when you want to publish to a
 new distribution channel** — the build scripts in `../scripts/` use the
 files here as inputs.
 
-## ⚠ Channel status — read this first (audited 2026-08-11; manifest versions re-synced 2026-08-13)
+## ⚠ Channel status — read this first (audited 2026-08-11; live re-check of every channel 2026-08-13)
 
 **A manifest living in this directory installs nobody.** It has to be published to the
-registry. Every channel below was checked live on 2026-08-11:
+registry.
+
+Every channel below was re-checked against its own API on **2026-08-13, after v2.18.2**.
+Do not trust a row without doing that — this pass found the Snap row overclaiming, and
+three rows describing a world two releases old. What held up: PyPI serves **2.18.2**, and
+the APT repo serves **2.18.2**, signed, `InRelease` 200.
 
 | Channel | Published? | In-repo artefact | State |
 |---|---|---|---|
 | PyPI | ✅ live | — | `pipx install yazses` |
-| Snap Store | ✅ live | `../snap/` | incl. arm64 |
+| Snap Store | ⚠ amd64 only on stable | `../snap/` | amd64 stable **2.18.2**; arm64 is **edge-only and three releases behind (2.17.0)** — see below |
 | APT repo | ✅ live | `../scripts/update-apt-repo.sh` | signed |
 | GitHub Releases | ✅ live | — | `.dmg`, `.exe`, `.deb` |
-| **Homebrew** | ✅ live | `homebrew/yazses.rb` | tap published 2026-08-13 at [MSKazemi/homebrew-yazses](https://github.com/MSKazemi/homebrew-yazses); cask at **2.18.0 (real sha)**, **arm64 only** — see the macOS section ([#6](https://github.com/MSKazemi/yazses/issues/6)) |
-| **winget** | ❌ **404** | `winget/…/2.18.0/` | manifests are **current (2.18.0, real sha)** — needs a PR to `microsoft/winget-pkgs` ([#78](https://github.com/MSKazemi/yazses/issues/78)) |
+| **Homebrew** | ✅ live | `homebrew/yazses.rb` | tap at [MSKazemi/homebrew-yazses](https://github.com/MSKazemi/homebrew-yazses), synced to **2.18.2 (real sha)**, **arm64 only** — see the macOS section ([#6](https://github.com/MSKazemi/yazses/issues/6)) |
+| **winget** | ❌ **404** | `winget/…/2.18.2/` | manifests **current (2.18.2, real sha)**; `microsoft/winget-pkgs` still has no `manifests/m/MSKazemi/YazSes` (404, re-checked) ([#78](https://github.com/MSKazemi/yazses/issues/78)) |
 | **AUR** | ❌ **404** | `arch/PKGBUILD` | ⚠ stale at `pkgver=0.4.0`, `sha256sums=SKIP` ([#67](https://github.com/MSKazemi/yazses/issues/67)) |
 | **Flathub** | ❌ not found | — | nothing built yet ([#45](https://github.com/MSKazemi/yazses/issues/45)) |
 | **Nix** | ❌ 0 hits | `../flake.nix` | authored; **every nixpkgs attribute verified to exist**, but ⚠ **never evaluated** (no Nix here) ([#68](https://github.com/MSKazemi/yazses/issues/68)) |
 | **Docker/GHCR** | ❌ 404 | `docker/Dockerfile` | image **builds and runs** — needs publishing ([#76](https://github.com/MSKazemi/yazses/issues/76)) |
-| **Scoop** | ❌ 404 | `scoop/yazses.json` | manifest **validates against Scoop's official `schema.json`**; needs a bucket repo ([#79](https://github.com/MSKazemi/yazses/issues/79)) |
+| **Scoop** | ✅ live | `../bucket/yazses.json` | bucket served from this repo — `scoop bucket add yazses https://github.com/MSKazemi/yazses`; manifest at **2.18.2**, raw URL 200 ([#79](https://github.com/MSKazemi/yazses/issues/79)) |
 | **Chocolatey** | ❌ 404 | `chocolatey/` | nuspec + checksum verified; ⚠ **`.ps1` scripts not syntax-checked** (no `pwsh` on the authoring machine) |
 
 > **Verification gotcha:** `curl -o /dev/null -w '%{http_code}'` **lies** about Flathub,
@@ -37,6 +42,44 @@ Rust binary** distribution. The releases they point at (`v1.0.0`, `v1.0.0-dev.1`
 checksums are still `PLACEHOLDER_…`. They are marked at the top of each file. **The
 canonical cask is `homebrew/yazses.rb`.**
 
+### Snap: `snap install yazses` does not work on arm64
+
+The table used to say "incl. arm64", which reads as *arm64 users are covered*. They are
+not. Measured 2026-08-13 from `api.snapcraft.io`:
+
+| Track/risk | Arch | Revision | Version |
+|---|---|---|---|
+| `latest/stable` | amd64 | 118 | 2.18.2 |
+| `latest/edge` | amd64 | 118 | 2.18.2 |
+| `latest/edge` | **arm64** | 116 | **2.17.0** |
+
+There is **no arm64 revision on `stable`**. `snap install yazses` resolves stable, so on
+a Raspberry Pi or an arm64 VM it fails to find a revision at all — the arm64 build exists
+only on `edge`.
+
+Note the second problem in that table: amd64 moved 2.18.0 → 2.18.2 while arm64 stayed at
+**2.17.0**. The gap is not static, it widens with every release, because whatever promotes
+amd64 is not promoting arm64.
+
+Two consequences worth stating plainly:
+
+- Anyone writing "works on arm64" in launch copy would be wrong. The honest line is
+  *"amd64 on stable; arm64 on `--edge` only"*.
+- The contributor task for verifying the Snap arm64 install (`campaign/tasks.json`) asked
+  someone to verify a path that cannot succeed with the documented command. Reworded to
+  name `--edge` — the same defect #216 had for Intel macOS.
+
+To fix properly, promote an arm64 build to stable in the Snap Store release channels, then
+change this row. Query it without a browser:
+
+```sh
+curl -H 'Snap-Device-Series: 16' \
+  'https://api.snapcraft.io/v2/snaps/info/yazses?fields=version,revision'
+```
+
+⚠ That header is **required** — without `Snap-Device-Series: 16` the API returns an error
+rather than the channel map, which makes it easy to conclude "no data" and move on.
+
 ### Homebrew tap
 
 Published 2026-08-13 at **[MSKazemi/homebrew-yazses](https://github.com/MSKazemi/homebrew-yazses)**,
@@ -51,9 +94,34 @@ python scripts/refresh-package-manifests.py --version <x.y.z>
 cp packaging/homebrew/yazses.rb <tap>/Casks/yazses.rb   # then commit + push the tap
 ```
 
-Verified at publication: the tap is public, `Casks/yazses.rb` serves HTTP 200 and matches
-the source byte for byte, and the `.dmg` URL the cask points at resolves on the v2.18.0
-release.
+⚠ **This is owed the moment a release is tagged, and nothing enforces it — it has already
+been missed once.** The tap was published against 2.18.0, then v2.18.1 and v2.18.2 shipped
+and the tap kept serving **2.18.0**. Nobody was broken (the 2.18.0 asset still exists and
+its digest still matched), which is precisely why it went unnoticed: every `brew install`
+in that window quietly delivered a build two releases old. Re-synced to 2.18.2 on
+2026-08-13 after checking the cask's sha256 against the digest GitHub reports for the real
+`YazSes-2.18.2.dmg`.
+
+Note the asymmetry, because it decides how this fails. The cask must track the **latest
+published release**, not `pyproject.toml`:
+
+- cask **behind** the newest release → users silently get an old build, forever, quietly;
+- cask **ahead** of it → Homebrew verifies the digest, finds nothing at that URL, and
+  refuses the download outright.
+
+There is deliberately **no test** asserting cask version == `pyproject` version: between a
+release-prep bump and the assets being published those two legitimately differ, so such a
+test would fail on every release commit and get disabled. The guard is this checklist plus
+`refresh-package-manifests.py --check`, which compares against the assets really attached
+to a tag.
+
+Verified at each sync: the tap is public, `Casks/yazses.rb` matches the source byte for
+byte, and the `.dmg` URL the cask points at resolves on the corresponding release.
+
+⚠ `raw.githubusercontent.com` caches for a few minutes, so it will serve the **old** cask
+right after a push and make a correct sync look like it failed. Check
+`gh api repos/MSKazemi/homebrew-yazses/contents/Casks/yazses.rb` instead — and note
+Homebrew itself clones the tap over git, so the CDN lag never affects real users.
 
 ⚠ **Not verified: that `brew install --cask yazses` actually completes.** Casks only
 install on macOS and the authoring machine is Linux, so the end-to-end run is owed by

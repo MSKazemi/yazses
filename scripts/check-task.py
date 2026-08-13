@@ -24,6 +24,16 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+
+#: How to read git's output as text.
+#:
+#: NOT `text=True`. That decodes with the *locale* encoding, which on an English
+#: Windows install is cp1252 -- and a diff of this repository is full of characters
+#: cp1252 has no mapping for (em dashes, arrows, ✅/⚠, and every non-Latin README).
+#: `git diff` then raised `UnicodeDecodeError` from inside `subprocess.run`, which is
+#: neither `OSError` nor `SubprocessError`, so it tore through the handlers below.
+#: git speaks UTF-8; say so, and never fail on a byte we only intend to grep.
+_TEXT = {"encoding": "utf-8", "errors": "replace"}
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from campaign_preflight import check_paths, scan_diff  # noqa: E402
@@ -41,10 +51,10 @@ def changed_files(base: str) -> list[str]:
     out: list[str] = []
     for cmd in cmds:
         try:
-            res = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=60)
+            res = subprocess.run(cmd, capture_output=True, check=True, timeout=60, **_TEXT)
         except (OSError, subprocess.SubprocessError):
             continue
-        for line in res.stdout.splitlines():
+        for line in (res.stdout or "").splitlines():
             if line.strip() and line.strip() not in out:
                 out.append(line.strip())
     return out
@@ -58,7 +68,9 @@ def working_diff(base: str) -> str:
         ["git", "-C", str(ROOT), "diff", "--cached"],
     ):
         try:
-            parts.append(subprocess.run(cmd, capture_output=True, text=True, timeout=60).stdout)
+            parts.append(
+                subprocess.run(cmd, capture_output=True, timeout=60, **_TEXT).stdout or ""
+            )
         except (OSError, subprocess.SubprocessError):
             pass
     return "\n".join(parts)

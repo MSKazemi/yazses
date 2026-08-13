@@ -668,3 +668,138 @@ def test_report_passes_a_clean_pr(preflight, tasks):
         task_id=task["id"], task=task, changed=["SHOWCASE.md"], outside=[], findings=[]
     )
     assert ok is True
+
+
+def _run_preflight(preflight, tmp_path, body: str, changed: list[str]) -> int:
+    """Drive main() the way the workflow does — body file in, no explicit --task-id."""
+    body_file = tmp_path / "pr-text.txt"
+    body_file.write_text(body, encoding="utf-8")
+    return preflight.main(
+        ["--pr-body-file", str(body_file), "--changed-files", *changed]
+    )
+
+
+def test_editing_a_task_definition_is_not_claiming_that_task(preflight, tasks, tmp_path):
+    """A maintainer PR that repairs a task must not be scored against that task's scope.
+
+    `find_task_id` guesses from any bare known id in the PR text, which is what catches
+    a contributor who writes the id in the title and nothing else. It cannot tell that
+    apart from a PR that merely *discusses* the task it is fixing — and then enforced
+    the task's `allowed_paths` against `campaign/tasks.json`, the one file a task
+    definition lives in. A PR fixing a wrongly scoped task was blocked by the wrong
+    scope it was fixing, with no way out but to avoid naming it.
+    """
+    task = next(
+        t for t in tasks
+        if t["state"] == "open" and "campaign/tasks.json" not in t["allowed_paths"]
+    )
+    body = f"Rewords {task['id']} because it asked for something impossible."
+
+    # The shape that used to fail: touching the inventory while naming the task.
+    assert _run_preflight(
+        preflight, tmp_path, body,
+        ["campaign/tasks.json", "campaign/generated/open-tasks.md", "docs/contribute/tasks.md"],
+    ) == 0
+
+    # And the guard must stay narrow: naming a task while touching something
+    # unrelated and out of scope is still a real violation.
+    assert _run_preflight(preflight, tmp_path, body, ["uv.lock"]) == 1
+
+
+def test_an_explicit_task_id_line_is_still_enforced(preflight, tasks, tmp_path):
+    """Only the *guess* is dropped. Someone who declares a task still gets scored."""
+    task = next(
+        t for t in tasks
+        if t["state"] == "open" and "campaign/tasks.json" not in t["allowed_paths"]
+    )
+    body_file = tmp_path / "pr-text.txt"
+    body_file.write_text("no id in the prose here", encoding="utf-8")
+    rc = preflight.main([
+        "--task-id", task["id"],
+        "--pr-body-file", str(body_file),
+        "--changed-files", "campaign/tasks.json",
+    ])
+    assert rc == 1
+
+
+def test_check_task_reads_git_as_utf8_not_the_platform_codec():
+    """`text=True` decodes with the *locale* encoding, which breaks on Windows.
+
+    `check-task.py` shells out to `git diff` and greps the result. With `text=True`
+    the decode uses cp1252 on an English Windows runner, and a diff of this
+    repository is full of characters cp1252 cannot represent — em dashes, arrows,
+    ✅/⚠, and every non-Latin README. `subprocess.run` then raised
+    `UnicodeDecodeError`, which is neither `OSError` nor `SubprocessError`, so it
+    went straight past the handlers guarding those calls.
+
+    It only surfaced when a PR's own diff happened to carry such a character, which
+    is why it reached `main` green and failed on an unrelated docs change.
+    """
+    import ast
+
+    source = (ROOT / "scripts" / "check-task.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+
+    # Assert on the calls themselves, not on the file's prose -- the first version of
+    # this test matched its own explanatory comment and failed against the fix.
+    offenders = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        name = getattr(func, "attr", None) or getattr(func, "id", None)
+        if name != "run":
+            continue
+        kwargs = {kw.arg for kw in node.keywords}
+
+        # Only calls that CAPTURE output have anything to decode. A call that lets
+        # the child inherit stdio (the validation runner below) never decodes, and
+        # flagging it would be noise.
+        captures = any(
+            kw.arg == "capture_output"
+            and isinstance(kw.value, ast.Constant)
+            and kw.value.value is True
+            for kw in node.keywords
+        ) or {"stdout", "stderr"} & kwargs
+        if not captures:
+            continue
+
+        explicit_utf8 = any(
+            kw.arg == "encoding"
+            and isinstance(kw.value, ast.Constant)
+            and kw.value.value == "utf-8"
+            for kw in node.keywords
+        )
+        # `**_TEXT` arrives as a keyword with arg=None.
+        spread = None in kwargs
+        if "text" in kwargs or not (explicit_utf8 or spread):
+            offenders.append(node.lineno)
+
+    assert not offenders, (
+        f"subprocess.run at line(s) {offenders} decodes git output with the platform "
+        'codec; pass encoding="utf-8", errors="replace" instead'
+    )
+
+
+def test_check_task_survives_a_diff_full_of_non_ascii(monkeypatch):
+    """Drive the real function over bytes cp1252 cannot encode."""
+    import subprocess as sp
+
+    mod = _load("check-task") if (ROOT / "scripts" / "check-task.py").exists() else None
+    assert mod is not None
+
+    spicy = "— ⚠ ✅ 日本語 –– ’\n"
+
+    def fake_run(cmd, **kwargs):
+        assert kwargs.get("encoding") == "utf-8", "git output must be decoded as utf-8"
+        return sp.CompletedProcess(cmd, 0, stdout=spicy, stderr="")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    assert spicy.strip() in mod.working_diff("origin/main")
+
+    # And a run that produced no captured output must not crash the join.
+    monkeypatch.setattr(
+        mod.subprocess, "run",
+        lambda cmd, **kw: sp.CompletedProcess(cmd, 0, stdout=None, stderr=None),
+    )
+    assert mod.working_diff("origin/main") == "\n"

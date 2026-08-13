@@ -319,6 +319,27 @@ def main(argv: list[str] | None = None) -> int:
         ]
 
     task = by_id.get(task_id) if task_id else None
+
+    # A PR that edits the task inventory is *maintaining* a task, not claiming one.
+    #
+    # `find_task_id` falls back to any bare known id in the PR text, which is what
+    # catches a contributor who writes the id in the title and nothing else. But it
+    # cannot tell that apart from a maintainer PR that merely *discusses* the task it
+    # is repairing -- and then enforces that task's `allowed_paths` against the very
+    # file the task is defined in. The result is a PR fixing a wrongly scoped task,
+    # blocked by the wrong scope it is fixing, with no way out but to avoid writing
+    # the id in the description.
+    #
+    # An explicit `Task ID:` line still means what it says; only the guess is dropped.
+    inventory_touched = any(
+        p.strip() == "campaign/tasks.json" or p.strip().startswith("campaign/generated/")
+        for p in changed
+    )
+    guessed = task_id is not None and not args.task_id
+    if task and guessed and inventory_touched:
+        task = None
+        task_id = None
+
     outside = check_paths(changed, task["allowed_paths"]) if task else []
     findings = []
     if args.diff_file and args.diff_file.exists():

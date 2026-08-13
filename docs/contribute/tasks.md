@@ -160,7 +160,7 @@ docs/config, **L2** bounded code.
 | Task | ID | Risk | Time | Needs | Validate with |
 |---|---|---|---|---|---|
 | Verify the Snap install path on x86-64 | `PKG-001` | L0 | 20 min | Snap, x86-64 | `uv run python -m pytest tests/ -q` |
-| Verify the Snap install path on arm64 | `PKG-002` | L0 | 20 min | Snap, arm64 | `uv run python -m pytest tests/ -q` |
+| Verify the Snap install path on arm64 (edge channel — stable has no arm64 build) | `PKG-002` | L0 | 20 min | Snap, arm64 | `uv run python -m pytest tests/ -q` |
 | Verify the PyPI via pipx install path on x86-64 | `PKG-003` | L0 | 20 min | PyPI via pipx, x86-64 | `uv run python -m pytest tests/ -q` |
 | Verify the PyPI via pipx install path on arm64 | `PKG-004` | L0 | 20 min | PyPI via pipx, arm64 | `uv run python -m pytest tests/ -q` |
 | Verify the PyPI via uv tool install path on x86-64 | `PKG-005` | L0 | 20 min | PyPI via uv tool, x86-64 | `uv run python -m pytest tests/ -q` |
