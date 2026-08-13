@@ -9,14 +9,28 @@ name: Publish release checksums
 #
 # The three artifacts are uploaded by three different workflows (release.yml,
 # build-macos.yml, build-windows.yml) which finish at different times, so the
-# checksum file cannot simply be produced by any one of them. This workflow runs
-# after the release is published, waits for the expected assets to appear, and
-# derives SHA256SUMS.txt from the assets that are actually attached -- never from
-# a value copied by hand.
+# checksum file cannot simply be produced by any one of them. This workflow waits
+# for the expected assets to appear and derives SHA256SUMS.txt from the assets
+# that are actually attached -- never from a value copied by hand.
+#
+# Trigger: the TAG PUSH, not `release: published`.
+# ------------------------------------------------
+# The obvious trigger is `release: published`, and it silently never fires.
+# release.yml creates the Release with softprops/action-gh-release using the
+# repository's GITHUB_TOKEN, and GitHub does not start new workflow runs from
+# events raised by GITHUB_TOKEN (workflow_dispatch and repository_dispatch are
+# the only exceptions). v2.18.2 proved it: published at 16:49 with the workflow
+# already on main, and no run was ever queued.
+#
+# Keying off the tag push instead -- the same trigger release.yml itself uses --
+# is a real user-initiated event, so it always fires. The consequence is that
+# this starts BEFORE the Release exists, which is why the wait step below
+# tolerates "release not found" instead of treating it as an error.
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
       tag:
@@ -37,11 +51,20 @@ jobs:
       # This job deliberately does not check out the repository -- it only needs
       # the release assets. But without a checkout `gh` has no git remote to infer
       # the repo from, so every `gh release` call fails. GH_REPO supplies it
-      # explicitly. Omitting this made the wait loop below poll an empty asset
-      # list for its full 40-minute deadline instead of failing.
+      # explicitly. Omitting it once cost a 40-minute run that polled an asset
+      # list it could never read; the preflight step now catches that in seconds.
       GH_REPO: ${{ github.repository }}
-      TAG: ${{ github.event.inputs.tag || github.event.release.tag_name }}
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
     steps:
+      - name: Check gh can reach the repository
+        # Proves the token and GH_REPO are usable BEFORE the wait loop starts.
+        # Without this the loop cannot tell "the environment is broken" from
+        # "the release does not exist yet" -- and it must tolerate the latter,
+        # because the tag push fires this before release.yml has created it.
+        run: |
+          set -euo pipefail
+          gh repo view --json name -q .name
+
       - name: Wait for platform builds to attach their assets
         # release.yml creates the Release as soon as the .deb is built, but the
         # macOS and Windows builds are still running at that point. Poll rather
@@ -52,23 +75,16 @@ jobs:
         run: |
           set -euo pipefail
           deadline=$(( SECONDS + 2400 ))   # 40 minutes
-          fails=0
           while (( SECONDS < deadline )); do
-            # A failed query and a release with no assets yet are NOT the same
-            # thing. Swallowing both with `|| true` made a misconfiguration look
-            # exactly like a slow build. Tolerate a couple of transient errors,
-            # then fail loudly rather than waiting out the deadline.
-            if ! names=$(gh release view "$TAG" --json assets -q '.assets[].name'); then
-              fails=$(( fails + 1 ))
-              echo "::warning::could not query release $TAG (attempt $fails)"
-              if (( fails >= 3 )); then
-                echo "::error::gh release view failed 3x for $TAG -- aborting."
-                exit 1
-              fi
-              sleep 20
+            # The release legitimately may not exist yet: this is triggered by the
+            # tag push, and release.yml only creates the Release once its test job
+            # has passed. So "not found" is a normal early state, not an error --
+            # the preflight step above has already proved gh itself works.
+            if ! names=$(gh release view "$TAG" --json assets -q '.assets[].name' 2>/dev/null); then
+              echo "release $TAG does not exist yet (${SECONDS}s elapsed)"
+              sleep 60
               continue
             fi
-            fails=0
             have_deb=$(grep -c '\.deb$'  <<<"$names" || true)
             have_dmg=$(grep -c '\.dmg$'  <<<"$names" || true)
             have_exe=$(grep -c '\.exe$'  <<<"$names" || true)
