@@ -4,6 +4,33 @@ All notable changes to YazSes are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.18.2] - 2026-08-13
+
+### Fixed — cutting a release could not publish to PyPI
+
+v2.18.1 was the first release tagged after `tests/test_platform_windows_hardening.py`
+landed, and it deadlocked. `release.yml` runs the suite **at the new tag**, and
+`_released_version()` returned that tag — so the manifest tests demanded that the
+packaging manifests already describe a release whose assets did not exist yet. The
+`.exe` and `.dmg` published from their own workflows, and PyPI never received 2.18.1
+at all, because the publish job sits behind that gate.
+
+The docstring had reasoned the gap away in one direction only: using the tag instead
+of `pyproject.toml` stops `main` going red on the release *commit*, but it moves the
+impossible window rather than closing it — straight onto the release itself.
+
+`_released_version()` now ignores the tag being released, detected from
+`GITHUB_REF_TYPE`/`GITHUB_REF_NAME`, so during a release it reports the previous
+published version — which is what the manifests correctly describe at that moment.
+**The gate is not weakened:** on `main` there is no tag ref and the behaviour is
+unchanged, so `main` still goes red after a release until the manifests are
+refreshed, which is the pressure that keeps them honest. Both directions are pinned
+by tests.
+
+Also carries the v2.18.1 manifest refresh: scoop, the chocolatey nuspec and its
+install script, the winget manifests and the Homebrew cask now point at the v2.18.1
+assets with checksums taken from the published files rather than by hand.
+
 ## [2.18.1] - 2026-08-13
 
 ### Fixed — dictation cleanup could POST your transcribed text to any host you typed

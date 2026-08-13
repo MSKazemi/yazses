@@ -6,9 +6,9 @@
     "component": {
       "type": "application",
       "name": "yazses",
-      "version": "2.18.1",
-      "purl": "pkg:pypi/yazses@2.18.1",
-      "bom-ref": "pkg:pypi/yazses@2.18.1",
+      "version": "2.18.2",
+      "purl": "pkg:pypi/yazses@2.18.2",
+      "bom-ref": "pkg:pypi/yazses@2.18.2",
       "description": "Offline, on-device voice dictation and speech-to-text for Linux, macOS and Windows.",
       "licenses": [
         {

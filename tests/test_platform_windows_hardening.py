@@ -413,7 +413,26 @@ def _released_version() -> str:
     version would turn `main` red on every release commit, for a gap nobody can
     close. The invariant that actually holds is "manifests describe the latest
     release".
+
+    **The tag alone does not measure that, and v2.18.1 proved it.** Using the
+    newest tag moved the impossible gap rather than closing it: the moment a tag
+    is pushed, the newest tag *is* the release being made, whose assets do not
+    exist yet — and `release.yml` runs this suite at that tag, with the PyPI and
+    `.deb` publish behind it. v2.18.1 was the first release cut after these
+    tests landed, and it deadlocked exactly there: the GitHub release published
+    its `.exe` and `.dmg`, and PyPI never got the version at all.
+
+    So when we are running *inside* the release of tag X, the latest **released**
+    version is the newest stable tag **before** X. `GITHUB_REF_TYPE`/
+    `GITHUB_REF_NAME` say which tag is in flight; both are set by Actions on a
+    tag push and absent everywhere else.
+
+    This does not weaken the gate. On `main` — no tag ref — the behaviour is
+    unchanged: manifests must match the newest tag, so `main` still goes red
+    after a release until they are refreshed, which is the pressure that keeps
+    them honest.
     """
+    import os
     import subprocess
 
     # `out` is bound before the try so the read below is unconditionally safe.
@@ -432,8 +451,12 @@ def _released_version() -> str:
     tags = [t.strip().lstrip("v") for t in out.stdout.splitlines() if t.strip()]
     # Ignore pre-releases; manifests only ever describe stable releases.
     stable = [t for t in tags if "-" not in t]
-    if not stable:  # pragma: no cover - shallow clone with no tags
-        pytest.skip("no release tags available (shallow clone?)")
+    # Drop the tag currently being released — its assets do not exist yet.
+    if os.environ.get("GITHUB_REF_TYPE") == "tag":
+        in_flight = os.environ.get("GITHUB_REF_NAME", "").lstrip("v")
+        stable = [t for t in stable if t != in_flight]
+    if not stable:  # pragma: no cover - shallow clone, or the very first release
+        pytest.skip("no published release tag available (shallow clone, or first release?)")
     return stable[0]
 
 
@@ -503,3 +526,36 @@ def test_stop_cancels_a_pending_hold_timer():
         t.name.startswith("Thread-") and t.is_alive() and isinstance(t, threading.Timer)
         for t in threading.enumerate()
     )
+
+
+def test_released_version_ignores_the_tag_being_released(monkeypatch):
+    """The v2.18.1 deadlock, pinned.
+
+    Cutting a release runs this suite at the new tag, before its assets exist.
+    If `_released_version()` returned that tag, the manifest tests could never
+    pass during a release — and the job that publishes to PyPI sits behind
+    them. v2.18.1 hit exactly this: the `.exe` and `.dmg` published, PyPI did
+    not get the version at all.
+    """
+    newest = _released_version()          # no tag ref set: the newest stable tag
+
+    monkeypatch.setenv("GITHUB_REF_TYPE", "tag")
+    monkeypatch.setenv("GITHUB_REF_NAME", f"v{newest}")
+    during_release = _released_version()
+
+    assert during_release != newest, (
+        "the tag being released is still reported as the latest release, so the "
+        "manifest tests can never pass during a release"
+    )
+
+
+def test_released_version_is_unchanged_outside_a_release(monkeypatch):
+    """On `main` the gate must keep biting, or stale manifests ship unnoticed."""
+    monkeypatch.delenv("GITHUB_REF_TYPE", raising=False)
+    monkeypatch.delenv("GITHUB_REF_NAME", raising=False)
+    baseline = _released_version()
+
+    # A branch push sets ref_type=branch; the manifests must still match the newest tag.
+    monkeypatch.setenv("GITHUB_REF_TYPE", "branch")
+    monkeypatch.setenv("GITHUB_REF_NAME", "main")
+    assert _released_version() == baseline
