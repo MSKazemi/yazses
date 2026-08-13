@@ -1,0 +1,33 @@
+pkgbase = yazses
+	pkgdesc = Offline hold-to-talk voice dictation that types into the focused app - local faster-whisper, no cloud
+	pkgver = 2.18.2
+	pkgrel = 1
+	url = https://github.com/MSKazemi/yazses
+	install = yazses.install
+	arch = any
+	license = Apache-2.0
+	makedepends = python-build
+	makedepends = python-installer
+	makedepends = python-wheel
+	makedepends = python-hatchling
+	depends = python>=3.11
+	depends = python-numpy
+	depends = python-typer
+	depends = python-platformdirs
+	depends = python-cryptography
+	depends = python-evdev
+	depends = python-xlib
+	depends = pyside6
+	depends = portaudio
+	depends = python-faster-whisper
+	depends = python-sounddevice
+	optdepends = xdotool: text injection and window targeting on X11
+	optdepends = ydotool: text injection on Wayland (preferred)
+	optdepends = wtype: text injection on Wayland (alternative)
+	optdepends = xclip: clipboard fallback on X11
+	optdepends = wl-clipboard: clipboard fallback on Wayland
+	optdepends = python-sherpa-onnx: speaker labels for `yazses transcribe --diarize` (AUR)
+	source = https://files.pythonhosted.org/packages/source/y/yazses/yazses-2.18.2.tar.gz
+	sha256sums = d80214278b0b8c1f23e938d21815a0817f4964172fa4493d0ba1bfab4f615ff2
+
+pkgname = yazses
