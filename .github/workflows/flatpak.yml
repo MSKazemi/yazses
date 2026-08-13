@@ -123,7 +123,14 @@ jobs:
         with:
           bundle: yazses.flatpak
           manifest-path: packaging/flatpak/${{ env.APP_ID }}.yml
-          cache-key: flatpak-builder-${{ github.sha }}
+          # Caching is OFF deliberately. Three consecutive runs reported the
+          # *same* pip temp directory (evdev_1dfb8b667a6b41cbaaa02215b5ebd6a7)
+          # while the manifest changed under them, which is not possible for
+          # genuinely independent builds — the cache was replaying a stale
+          # module failure, so two fixes appeared to change nothing. Correctness
+          # of the signal matters more here than build minutes; turn it back on
+          # once the build is green and understood.
+          cache: false
           # Flathub runs this on every submission; failing it here is cheaper
           # than failing it in their review queue.
           run-tests: false
