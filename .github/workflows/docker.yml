@@ -86,7 +86,15 @@ jobs:
           # the input — so `jfk.wav` produced `jfk.txt`, silently overwriting the
           # known-correct text the reader was being told to compare against. The
           # comparison then always looked perfect regardless of what the model said.
-          mkdir -p /tmp/out
+          # Both mounts must be writable by the image's unprivileged user (uid
+          # 1000). Docker creates a missing bind-mount source as root, so the
+          # first run failed with "Permission denied: '/models/hub'" the moment
+          # the model download tried to write — the container cannot chown a
+          # host directory. Creating them here, world-writable, is what the
+          # documented `docker run` relies on a normal user's own directories
+          # providing.
+          mkdir -p /tmp/out /tmp/models
+          chmod 0777 /tmp/out /tmp/models
           docker run --rm -v /tmp/models:/models \
             -v "$PWD/data/librispeech-sample:/data:ro" -v /tmp/out:/out \
             yazses:ci jfk.wav -o /out/jfk-heard.txt
