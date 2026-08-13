@@ -231,6 +231,7 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 
 | Key | Type | Default |
 |---|---|---|
+| `vocab_correction` | bool | `false` |
 | `enabled` | bool | `false` |
 | `engine` | str | `"kokoro"` |
 | `voice` | str | `"default"` |
