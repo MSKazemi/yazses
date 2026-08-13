@@ -108,13 +108,28 @@ python scripts/refresh-package-manifests.py --version <x.y.z>
 cp packaging/homebrew/yazses.rb <tap>/Casks/yazses.rb   # then commit + push the tap
 ```
 
-⚠ **This is owed the moment a release is tagged, and nothing enforces it — it has already
-been missed once.** The tap was published against 2.18.0, then v2.18.1 and v2.18.2 shipped
-and the tap kept serving **2.18.0**. Nobody was broken (the 2.18.0 asset still exists and
-its digest still matched), which is precisely why it went unnoticed: every `brew install`
-in that window quietly delivered a build two releases old. Re-synced to 2.18.2 on
-2026-08-13 after checking the cask's sha256 against the digest GitHub reports for the real
-`YazSes-2.18.2.dmg`.
+⚠ **This is owed the moment a release is tagged, and it has already been missed once.** The
+tap was published against 2.18.0, then v2.18.1 and v2.18.2 shipped and the tap kept serving
+**2.18.0**. Nobody was broken (the 2.18.0 asset still exists and its digest still matched),
+which is precisely why it went unnoticed: every `brew install` in that window quietly
+delivered a build two releases old. Re-synced to 2.18.2 on 2026-08-13 after checking the
+cask's sha256 against the digest GitHub reports for the real `YazSes-2.18.2.dmg`.
+
+✅ **You should not have to do this by hand — the automation already exists.**
+`.github/workflows/publish-channels.yml` has a `homebrew` job that regenerates the cask and
+pushes it to the tap on its own. It is gated on one secret:
+
+> `TAP_TOKEN` — a **fine-grained** PAT, resource owner `MSKazemi`, scoped to the single
+> repository `MSKazemi/homebrew-yazses`.
+
+Until that secret is set the job does not fail — it logs
+`::warning::TAP_TOKEN is not set -- skipping Homebrew` and **reports success**. So a green
+"Publish to package channels" run is *not* evidence the tap was updated. Check the tap's own
+last commit, or `gh api repos/MSKazemi/homebrew-yazses/contents/Casks/yazses.rb`.
+
+That skip-and-pass behaviour is the right call for a workflow that publishes to several
+registries — one missing credential should not block the others — but it does mean the
+manual step above stays owed until the secret exists, and nothing will remind you.
 
 Note the asymmetry, because it decides how this fails. The cask must track the **latest
 published release**, not `pyproject.toml`:
