@@ -179,13 +179,16 @@ jobs:
             "https://x-access-token:${TAP_TOKEN}@github.com/MSKazemi/homebrew-yazses.git" tap
           cp packaging/homebrew/yazses.rb tap/Casks/yazses.rb
           cd tap
-          if git diff --quiet; then
+          git config user.name  "Mohsen Seyedkazemi Ardebili"
+          git config user.email "mohsen.seyedkazemi@gmail.com"
+          # Same reason as the AUR job: compare the index, not the worktree, so a
+          # cask that does not exist yet is a change rather than a silent no-op.
+          git add -A
+          if git diff --cached --quiet; then
             echo "tap already at $VERSION -- nothing to push."
             exit 0
           fi
-          git config user.name  "Mohsen Seyedkazemi Ardebili"
-          git config user.email "mohsen.seyedkazemi@gmail.com"
-          git commit -am "yazses $VERSION"
+          git commit -m "yazses $VERSION"
           git push
 
       - name: Explain the skip
@@ -224,14 +227,20 @@ jobs:
           cp packaging/arch/PKGBUILD packaging/arch/.SRCINFO aur/
           cp packaging/arch/yazses.install aur/ 2>/dev/null || true
           cd aur
-          if git diff --quiet; then
+          git config user.name  "Mohsen Seyedkazemi Ardebili"
+          git config user.email "mohsen.seyedkazemi@gmail.com"
+          # `git add -A` before comparing, and compare the INDEX. The first publish
+          # clones an empty repo, so PKGBUILD/.SRCINFO arrive untracked -- and
+          # `git diff` ignores untracked files. The previous form therefore reported
+          # "already up to date" and exited 0 having pushed nothing, on the one run
+          # that actually creates the package.
+          git add -A
+          if git diff --cached --quiet; then
             echo "AUR already at $VERSION -- nothing to push."
             exit 0
           fi
-          git config user.name  "Mohsen Seyedkazemi Ardebili"
-          git config user.email "mohsen.seyedkazemi@gmail.com"
-          git commit -am "yazses $VERSION"
-          git push
+          git commit -m "yazses $VERSION"
+          git push origin HEAD:master
 
       - name: Explain the skip
         if: env.HAVE_SECRET != 'yes'
