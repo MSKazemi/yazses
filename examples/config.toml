@@ -1,0 +1,57 @@
+# YazSes — annotated example configuration
+#
+# Copy to your config directory and edit; every key here is OPTIONAL and shows the
+# built-in default, so an empty file behaves exactly like this one.
+#
+#   Linux    ~/.config/yazses/config.toml
+#   macOS    ~/Library/Application Support/yazses/config.toml
+#   Windows  %LOCALAPPDATA%\yazses\config.toml
+#
+# Apply changes with `yazses restart`, and check them with `yazses doctor`.
+#
+# This file is GENERATED from the dataclass defaults in src/yazses/config.py by
+# scripts/gen-example-config.py — do not hand-edit it, and do not trust a value
+# here that the code disagrees with (a test makes that impossible).
+#
+# The complete reference, including every section not shown here, is
+# docs/configuration.md.
+
+
+# How speech becomes text
+[stt]
+engine = "faster-whisper" # faster-whisper (default) | parakeet | moonshine
+model = "base.en"         # tiny.en fast · base.en balanced · small.en accurate — see docs/models.md
+language = "en"           # spoken language; "" auto-detects. Non-English needs a model without .en
+device = "cpu"            # cpu | cuda
+compute_type = "int8"     # int8 is the CPU default; float16 for a GPU
+initial_prompt = ""       # words to prime the recogniser with (Whisper only)
+vocab_correction = false  # repair mis-heard `yazses vocab` words after decoding
+
+# The key you hold to talk
+[hotkey]
+key = "auto"            # right_ctrl | left_ctrl | right_alt | space | … (modifiers + space only)
+hold_threshold_ms = 500 # how long to hold before recording starts
+command_key = ""        # a second key that forces command mode; "" disables
+
+# Microphone capture
+[audio]
+device = ""             # part of a mic name to pin it; "" follows the OS default
+sample_rate = 16000     # 16 kHz is what the models expect — changing this is rarely right
+auto_heal_device = true # switch back to the last working mic if capture goes silent
+
+# How text reaches the focused app
+[injection]
+backend = "auto"               # auto | type | clipboard | wtype
+target_guard = "clipboard"     # what to do when the focused element accepts no text
+continuation_window_ms = 30000 # gap under which a new burst continues the last sentence
+
+# Speech and hearing accommodations
+[accessibility]
+vad_threshold = 0.01        # silence gate; lower it for a quiet voice (`yazses mic-level --set`)
+pre_speech_padding_ms = 300 # silence prepended so the first word is not clipped
+dysfluency_friendly = false # collapse repetitions and prolongations, widen onset padding
+
+# Spoken commands rather than text
+[commands]
+enabled = true            # recognise 'delete the last word', 'new line', …
+voice_punctuation = false # 'comma' -> ',' — useful for code, noisy for prose

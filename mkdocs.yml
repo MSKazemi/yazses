@@ -278,6 +278,7 @@ nav:
       - Law, medicine & journalism: use-cases/confidential-professions.md
       - Coding by voice: use-cases/voice-coding.md
       - Control your computer by voice: use-cases/voice-commands.md
+      - Dictating code and technical vocabulary: use-cases/dictating-code.md
       - Accessibility & RSI: use-cases/accessibility-rsi-hands-free.md
       - Transcribe recordings offline: use-cases/transcribe-audio-offline.md
       - Research interviews & ethics approval: use-cases/research-interview-transcription.md
@@ -318,6 +319,8 @@ nav:
       - Configuration: configuration.md
       - Tray icon & overlay: tray-and-overlay.md
       - Known-good microphones: known-good-microphones.md
+      - Choosing a model: models.md
+      - Platform support: platform-support.md
       - Privacy statement: privacy-statement.md
       - Offline-inference challenge: launch/offline-challenge.md
       - Code signing & verification: code-signing.md

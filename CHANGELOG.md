@@ -6,6 +6,36 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `[stt] vocab_correction` was declared on the wrong dataclass
+
+It landed on `TtsConfig` instead of `SttConfig`, so `[stt] vocab_correction = true`
+was dropped by the config loader and the feature could never turn on — silently,
+because the daemon reads the flag with a defaulted `getattr`. Found by the new
+example-config generator, which reads the real dataclasses; a test now asserts
+every documented key exists on the class it is documented under.
+
+### Added — four documentation gaps closed
+
+- **`examples/config.toml`** is annotated and **generated from the dataclass
+  defaults**, with a test that fails when it drifts. The previous hand-written
+  example said `key = "space"` and `model = "tiny.en"` long after the defaults had
+  moved — the file newcomers were told to copy taught them settings the program no
+  longer used. (#20)
+- **[Choosing a model](models.md)** — measured word-error rate, latency and memory
+  for `tiny.en`/`base.en`/`small.en`, from this project's own benchmark harness
+  rather than model cards, plus when Parakeet or Moonshine is the better answer.
+  Its headline: `small.en` cuts errors by a third and costs 3× the wait, which is
+  why the default sits where it does. (#16)
+- **[Platform support](platform-support.md)** — one matrix of OS × capability,
+  derived from the backends that actually ship, with the reason behind the two
+  ❌ rows (Wayland forbids one client focusing or reading another's window, so
+  voice window control and gaze routing are X11-only by design, not by omission).
+  (#19)
+- **[Dictating code and technical vocabulary](use-cases/dictating-code.md)** — the
+  top use case had no page. Exact commands for `yazses vocab`, the new
+  `vocab_correction`, spoken punctuation and `initial_prompt`, and why a bigger
+  model is usually the wrong fix for a word it has never heard. (#250)
+
 ### Added — the personal dictionary now reaches every engine
 
 `initial_prompt` is a Whisper concept, so with `[stt] engine = "parakeet"` the

@@ -23,6 +23,7 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 | `device` | str | `"cpu"` |
 | `compute_type` | str | `"int8"` |
 | `initial_prompt` | str | `""` |
+| `vocab_correction` | bool | `false` |
 | `chinese_script` | str | `""` |
 
 ## `[hotkey]`
@@ -231,7 +232,6 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 
 | Key | Type | Default |
 |---|---|---|
-| `vocab_correction` | bool | `false` |
 | `enabled` | bool | `false` |
 | `engine` | str | `"kokoro"` |
 | `voice` | str | `"default"` |

@@ -38,6 +38,12 @@ class SttConfig:
     # spell domain terms and proper nouns it otherwise mis-transcribes. `yazses
     # tune` proposes additions here from the learning corpus.
     initial_prompt: str = ""
+    # Recover personal-vocabulary words the recogniser mis-heard, after decoding
+    # (#73). `initial_prompt` is Whisper-only, so with `engine = "parakeet"` the
+    # personal dictionary is otherwise ignored entirely — this is engine-agnostic
+    # and helps Whisper too. OFF by default: it rewrites transcribed text, and
+    # that is a thing a user should switch on knowingly.
+    vocab_correction: bool = False
     # Which Han script Chinese output is written in: "simplified" (简体, mainland)
     # | "traditional" (繁體, Taiwan/Hong Kong) | "" to leave the model's own choice
     # alone. Whisper picks a script per utterance and is not consistent about it,
@@ -215,12 +221,6 @@ class TtsConfig:
     KittenTTS (Apache-2.0); GPL Piper fork and XTTS are excluded. The TTS deps live
     in the optional ``tts`` extra (kokoro-onnx, onnxruntime, soundfile).
     """
-    # Recover personal-vocabulary words the recogniser mis-heard, after decoding
-    # (#73). `initial_prompt` is Whisper-only, so with `engine = "parakeet"` the
-    # personal dictionary is otherwise ignored entirely — this is engine-agnostic
-    # and helps Whisper too. OFF by default: it rewrites transcribed text, and
-    # that is a thing a user should switch on knowingly.
-    vocab_correction: bool = False
     enabled: bool = False
     engine: str = "kokoro"            # kokoro | melo | kitten
     voice: str = "default"
