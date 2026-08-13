@@ -127,6 +127,27 @@ script and the Python entry point together on Linux CI, where the suite actually
 release so far. It is `%LOCALAPPDATA%\Programs\YazSes` — the documented path never existed,
 so the uninstaller and CLI instructions pointed nowhere.
 
+### Added — `brew install --cask yazses` works, via a real tap
+
+The cask has existed in `packaging/homebrew/` since v1, and `brew install yazses` has
+404'd that entire time, because a manifest that never reaches a registry installs nobody.
+The tap is now published at
+**[MSKazemi/homebrew-yazses](https://github.com/MSKazemi/homebrew-yazses)**:
+
+```sh
+brew tap MSKazemi/yazses
+brew install --cask yazses
+```
+
+`Casks/yazses.rb` there is byte-identical to `packaging/homebrew/yazses.rb`, which stays
+the source of truth; copying it across is a step in the post-release checklist in
+`packaging/README.md`. Closes [#6](https://github.com/MSKazemi/yazses/issues/6).
+
+Apple Silicon only — see the architecture note below. The install itself has **not** been
+run end to end, because casks only install on macOS; what is verified is that the tap is
+public, the cask is served intact, and the `.dmg` URL and checksum match the released
+asset.
+
 ### Fixed — every macOS `.app` since v0.1.3 told the OS it was version 0.1.2
 
 `packaging/macos/yazses.spec` set `CFBundleVersion` and `CFBundleShortVersionString` as

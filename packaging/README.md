@@ -15,7 +15,7 @@ registry. Every channel below was checked live on 2026-08-11:
 | Snap Store | ✅ live | `../snap/` | incl. arm64 |
 | APT repo | ✅ live | `../scripts/update-apt-repo.sh` | signed |
 | GitHub Releases | ✅ live | — | `.dmg`, `.exe`, `.deb` |
-| **Homebrew** | ⚠ see below | `homebrew/yazses.rb` | cask refreshed to **2.18.0 (real sha)** and now declares `arch: :arm64` — tap status in the macOS section below ([#6](https://github.com/MSKazemi/yazses/issues/6)) |
+| **Homebrew** | ✅ live | `homebrew/yazses.rb` | tap published 2026-08-13 at [MSKazemi/homebrew-yazses](https://github.com/MSKazemi/homebrew-yazses); cask at **2.18.0 (real sha)**, **arm64 only** — see the macOS section ([#6](https://github.com/MSKazemi/yazses/issues/6)) |
 | **winget** | ❌ **404** | `winget/…/2.18.0/` | manifests are **current (2.18.0, real sha)** — needs a PR to `microsoft/winget-pkgs` ([#78](https://github.com/MSKazemi/yazses/issues/78)) |
 | **AUR** | ❌ **404** | `arch/PKGBUILD` | ⚠ stale at `pkgver=0.4.0`, `sha256sums=SKIP` ([#67](https://github.com/MSKazemi/yazses/issues/67)) |
 | **Flathub** | ❌ not found | — | nothing built yet ([#45](https://github.com/MSKazemi/yazses/issues/45)) |
@@ -36,6 +36,29 @@ Rust binary** distribution. The releases they point at (`v1.0.0`, `v1.0.0-dev.1`
 **never published** — `gh release view v1.0.0` returns *release not found* — and their
 checksums are still `PLACEHOLDER_…`. They are marked at the top of each file. **The
 canonical cask is `homebrew/yazses.rb`.**
+
+### Homebrew tap
+
+Published 2026-08-13 at **[MSKazemi/homebrew-yazses](https://github.com/MSKazemi/homebrew-yazses)**,
+which is what makes `brew tap MSKazemi/yazses && brew install --cask yazses` resolve. The
+repository name must stay `homebrew-yazses` — Homebrew derives the tap name from it.
+
+`Casks/yazses.rb` there is **byte-identical** to `homebrew/yazses.rb` here, which stays the
+source of truth. After each release, refresh the checksum and copy it across:
+
+```sh
+python scripts/refresh-package-manifests.py --version <x.y.z>
+cp packaging/homebrew/yazses.rb <tap>/Casks/yazses.rb   # then commit + push the tap
+```
+
+Verified at publication: the tap is public, `Casks/yazses.rb` serves HTTP 200 and matches
+the source byte for byte, and the `.dmg` URL the cask points at resolves on the v2.18.0
+release.
+
+⚠ **Not verified: that `brew install --cask yazses` actually completes.** Casks only
+install on macOS and the authoring machine is Linux, so the end-to-end run is owed by
+whoever first has a Mac in hand. What is proven is that every input Homebrew reads is
+present, well-formed and correctly hashed.
 
 ### macOS: the .dmg is Apple Silicon only
 
