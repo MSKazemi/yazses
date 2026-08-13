@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the three settings people actually tweak get real controls
+
+Feature toggles are booleans; the hotkey, the microphone and the VAD threshold
+are not, and each has a way of being wrong a checkbox cannot be.
+
+- **Hotkey picker** validates against the platform's own key map *before*
+  writing. An unbindable key would otherwise leave someone unable to dictate with
+  no message explaining why, and the refusal names the keys that do work.
+- **Microphone dropdown** mirrors `yazses audio devices` exactly — ● default,
+  ★ pinned — including that a pinned value is matched as a *substring*, because
+  that is what the recorder does. "Follow the system default" is the first row
+  and writes `""`, which is the state most people should be in.
+- **VAD slider** is **logarithmic**: the useful range spans three orders of
+  magnitude (0.0005 for a quiet voice, 0.05 for a noisy room) and a linear slider
+  puts every usable value in the leftmost pixel. It writes a real number, rounded
+  to four significant figures so nobody finds `0.004000000000000001` in their
+  config, and the meter answers the question behind every "Silent audio --
+  discarding" report: is my voice above the line?
+
+Qt-free models in `settingsui/controls.py` with hardware injected — 21 tests, no
+keyboard, no microphone, no Qt. (#62)
+
 ### Added — the settings window can restart the daemon and prove it came back
 
 Changing a feature writes config, and the daemon reads config at startup — so

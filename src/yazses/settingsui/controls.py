@@ -1,0 +1,176 @@
+"""The three settings people actually tweak, as Qt-free models (#62).
+
+Feature toggles are booleans; these three are not, and each has a way of being
+wrong that a checkbox cannot be:
+
+* **Hotkey** — a key the platform cannot bind leaves the user with no way to
+  dictate and no clue why, so the picker validates against the platform's own key
+  map before writing anything.
+* **Microphone** — the list has to mean the same thing as `yazses audio devices`
+  (● default, ★ pinned) or the window and the CLI disagree about the machine.
+* **VAD threshold** — the number that silently discards speech. A slider without
+  a live level meter is a user guessing at a float; with one, they can *see* their
+  voice sitting under the line.
+
+Hardware access is injected, so all of this tests without a keyboard, a
+microphone or Qt — the pattern the rest of `settingsui/` uses. Writes go through
+`system/configedit.py::set_config_key`, which preserves comments and infers
+types, so a threshold stays a number rather than becoming the string "0.004".
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+
+# A VAD threshold outside this range is not a setting, it is a broken microphone
+# gate: 0 accepts silence as speech, and anything above ~0.2 rejects a shout.
+VAD_MIN = 0.0001
+VAD_MAX = 0.2
+# Slider widgets are integral; this is the resolution the float is quantised to.
+VAD_SLIDER_STEPS = 1000
+
+
+@dataclass(frozen=True)
+class MicChoice:
+    """One row of the microphone dropdown."""
+
+    label: str
+    value: str          # what goes in `[audio] device`; "" follows the OS default
+    is_default: bool = False
+    is_pinned: bool = False
+
+
+def supported_hotkeys(key_map: dict[str, int] | Sequence[str]) -> list[str]:
+    """The key names this platform can actually bind, sorted for display."""
+    names = key_map.keys() if isinstance(key_map, dict) else key_map
+    return sorted(names)
+
+
+def validate_hotkey(name: str, key_map) -> str | None:
+    """None when *name* is bindable here, otherwise why not.
+
+    Writing an unbindable key leaves the user with no way to dictate and no
+    message explaining it — the picker refuses instead.
+    """
+    cleaned = (name or "").strip().lower()
+    if not cleaned:
+        return "no key was captured"
+    supported = set(supported_hotkeys(key_map))
+    if cleaned not in supported:
+        return (
+            f"{name!r} cannot be used as a hold-to-talk key on this platform. "
+            f"Supported: {', '.join(sorted(supported))}"
+        )
+    return None
+
+
+def mic_choices(
+    devices: Sequence,
+    *,
+    default_name: str | None,
+    pinned: str,
+) -> list[MicChoice]:
+    """Build the dropdown, mirroring `yazses audio devices` exactly.
+
+    The first row is always "follow the system default" — which is what an empty
+    `[audio] device` means, and the state most people should be in. Pinning is
+    for when a device *steals* capture, not the normal case.
+    """
+    rows = [MicChoice(
+        label="Follow the system default"
+              + (f" (currently {default_name})" if default_name else ""),
+        value="",
+        is_default=True,
+        is_pinned=not pinned,
+    )]
+    for device in devices:
+        name = getattr(device, "name", str(device))
+        marks = ""
+        if default_name and name == default_name:
+            marks += " ●"
+        # `[audio] device` is matched as a substring by the recorder, so a pinned
+        # value is a *substring* of the device name, not necessarily equal to it.
+        if pinned and pinned.lower() in name.lower():
+            marks += " ★"
+        rows.append(MicChoice(
+            label=f"{name}{marks}",
+            value=name,
+            is_default=bool(default_name and name == default_name),
+            is_pinned=bool(pinned and pinned.lower() in name.lower()),
+        ))
+    return rows
+
+
+def clamp_threshold(value: float) -> float:
+    """Keep a threshold inside the range where it means something."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return VAD_MIN
+    return min(VAD_MAX, max(VAD_MIN, number))
+
+
+def threshold_to_slider(value: float) -> int:
+    """Map a threshold to an integer slider position.
+
+    Logarithmic, because the useful range spans three orders of magnitude
+    (0.0005 for a quiet voice, 0.05 for a noisy room) and a linear slider would
+    put every usable value in the leftmost pixel.
+    """
+    import math
+
+    value = clamp_threshold(value)
+    span = math.log10(VAD_MAX) - math.log10(VAD_MIN)
+    position = (math.log10(value) - math.log10(VAD_MIN)) / span
+    return int(round(position * VAD_SLIDER_STEPS))
+
+
+def slider_to_threshold(position: int) -> float:
+    """Inverse of :func:`threshold_to_slider`, rounded to a readable float."""
+    import math
+
+    steps = max(0, min(VAD_SLIDER_STEPS, int(position)))
+    span = math.log10(VAD_MAX) - math.log10(VAD_MIN)
+    value = 10 ** (math.log10(VAD_MIN) + span * (steps / VAD_SLIDER_STEPS))
+    # 4 significant figures: enough resolution, and it does not write
+    # 0.004000000000000001 into someone's config file.
+    return float(f"{value:.4g}")
+
+
+def meter_reading(level: float, threshold: float) -> tuple[int, bool]:
+    """Level as a 0–100 bar, plus whether it currently clears the gate.
+
+    The boolean is the whole point of the meter: it answers "is my voice above
+    the line?", which is the question behind every "Silent audio -- discarding"
+    report.
+    """
+    position = min(100, max(0, threshold_to_slider(max(level, VAD_MIN)) * 100 // VAD_SLIDER_STEPS))
+    return int(position), bool(level >= threshold)
+
+
+def recommend_threshold(speech_level: float, *, headroom: float = 0.5) -> float:
+    """A threshold that sits below measured speech, with room to spare.
+
+    Half of the measured level: high enough to reject a quiet room, low enough
+    that a softer sentence still passes. Mirrors what `yazses mic-level --set`
+    writes, so the window and the CLI cannot recommend different numbers.
+    """
+    return clamp_threshold(max(speech_level, VAD_MIN) * headroom)
+
+
+def apply_setting(
+    section: str,
+    key: str,
+    value,
+    *,
+    write: Callable[[str, str, object], bool],
+) -> tuple[bool, str]:
+    """Write one setting and produce the message the window should show."""
+    try:
+        ok = bool(write(section, key, value))
+    except Exception as exc:  # noqa: BLE001 - surfaced, never raised at Qt
+        return False, f"Could not save [{section}] {key}: {exc}"
+    if not ok:
+        return False, f"Could not save [{section}] {key}."
+    return True, f"Saved [{section}] {key} = {value!r}. Restart YazSes to apply."
