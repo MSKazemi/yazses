@@ -668,3 +668,55 @@ def test_report_passes_a_clean_pr(preflight, tasks):
         task_id=task["id"], task=task, changed=["SHOWCASE.md"], outside=[], findings=[]
     )
     assert ok is True
+
+
+def _run_preflight(preflight, tmp_path, body: str, changed: list[str]) -> int:
+    """Drive main() the way the workflow does — body file in, no explicit --task-id."""
+    body_file = tmp_path / "pr-text.txt"
+    body_file.write_text(body, encoding="utf-8")
+    return preflight.main(
+        ["--pr-body-file", str(body_file), "--changed-files", *changed]
+    )
+
+
+def test_editing_a_task_definition_is_not_claiming_that_task(preflight, tasks, tmp_path):
+    """A maintainer PR that repairs a task must not be scored against that task's scope.
+
+    `find_task_id` guesses from any bare known id in the PR text, which is what catches
+    a contributor who writes the id in the title and nothing else. It cannot tell that
+    apart from a PR that merely *discusses* the task it is fixing — and then enforced
+    the task's `allowed_paths` against `campaign/tasks.json`, the one file a task
+    definition lives in. A PR fixing a wrongly scoped task was blocked by the wrong
+    scope it was fixing, with no way out but to avoid naming it.
+    """
+    task = next(
+        t for t in tasks
+        if t["state"] == "open" and "campaign/tasks.json" not in t["allowed_paths"]
+    )
+    body = f"Rewords {task['id']} because it asked for something impossible."
+
+    # The shape that used to fail: touching the inventory while naming the task.
+    assert _run_preflight(
+        preflight, tmp_path, body,
+        ["campaign/tasks.json", "campaign/generated/open-tasks.md", "docs/contribute/tasks.md"],
+    ) == 0
+
+    # And the guard must stay narrow: naming a task while touching something
+    # unrelated and out of scope is still a real violation.
+    assert _run_preflight(preflight, tmp_path, body, ["uv.lock"]) == 1
+
+
+def test_an_explicit_task_id_line_is_still_enforced(preflight, tasks, tmp_path):
+    """Only the *guess* is dropped. Someone who declares a task still gets scored."""
+    task = next(
+        t for t in tasks
+        if t["state"] == "open" and "campaign/tasks.json" not in t["allowed_paths"]
+    )
+    body_file = tmp_path / "pr-text.txt"
+    body_file.write_text("no id in the prose here", encoding="utf-8")
+    rc = preflight.main([
+        "--task-id", task["id"],
+        "--pr-body-file", str(body_file),
+        "--changed-files", "campaign/tasks.json",
+    ])
+    assert rc == 1
