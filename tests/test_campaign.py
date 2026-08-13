@@ -720,3 +720,86 @@ def test_an_explicit_task_id_line_is_still_enforced(preflight, tasks, tmp_path):
         "--changed-files", "campaign/tasks.json",
     ])
     assert rc == 1
+
+
+def test_check_task_reads_git_as_utf8_not_the_platform_codec():
+    """`text=True` decodes with the *locale* encoding, which breaks on Windows.
+
+    `check-task.py` shells out to `git diff` and greps the result. With `text=True`
+    the decode uses cp1252 on an English Windows runner, and a diff of this
+    repository is full of characters cp1252 cannot represent — em dashes, arrows,
+    ✅/⚠, and every non-Latin README. `subprocess.run` then raised
+    `UnicodeDecodeError`, which is neither `OSError` nor `SubprocessError`, so it
+    went straight past the handlers guarding those calls.
+
+    It only surfaced when a PR's own diff happened to carry such a character, which
+    is why it reached `main` green and failed on an unrelated docs change.
+    """
+    import ast
+
+    source = (ROOT / "scripts" / "check-task.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+
+    # Assert on the calls themselves, not on the file's prose -- the first version of
+    # this test matched its own explanatory comment and failed against the fix.
+    offenders = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        name = getattr(func, "attr", None) or getattr(func, "id", None)
+        if name != "run":
+            continue
+        kwargs = {kw.arg for kw in node.keywords}
+
+        # Only calls that CAPTURE output have anything to decode. A call that lets
+        # the child inherit stdio (the validation runner below) never decodes, and
+        # flagging it would be noise.
+        captures = any(
+            kw.arg == "capture_output"
+            and isinstance(kw.value, ast.Constant)
+            and kw.value.value is True
+            for kw in node.keywords
+        ) or {"stdout", "stderr"} & kwargs
+        if not captures:
+            continue
+
+        explicit_utf8 = any(
+            kw.arg == "encoding"
+            and isinstance(kw.value, ast.Constant)
+            and kw.value.value == "utf-8"
+            for kw in node.keywords
+        )
+        # `**_TEXT` arrives as a keyword with arg=None.
+        spread = None in kwargs
+        if "text" in kwargs or not (explicit_utf8 or spread):
+            offenders.append(node.lineno)
+
+    assert not offenders, (
+        f"subprocess.run at line(s) {offenders} decodes git output with the platform "
+        'codec; pass encoding="utf-8", errors="replace" instead'
+    )
+
+
+def test_check_task_survives_a_diff_full_of_non_ascii(monkeypatch):
+    """Drive the real function over bytes cp1252 cannot encode."""
+    import subprocess as sp
+
+    mod = _load("check-task") if (ROOT / "scripts" / "check-task.py").exists() else None
+    assert mod is not None
+
+    spicy = "— ⚠ ✅ 日本語 –– ’\n"
+
+    def fake_run(cmd, **kwargs):
+        assert kwargs.get("encoding") == "utf-8", "git output must be decoded as utf-8"
+        return sp.CompletedProcess(cmd, 0, stdout=spicy, stderr="")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    assert spicy.strip() in mod.working_diff("origin/main")
+
+    # And a run that produced no captured output must not crash the join.
+    monkeypatch.setattr(
+        mod.subprocess, "run",
+        lambda cmd, **kw: sp.CompletedProcess(cmd, 0, stdout=None, stderr=None),
+    )
+    assert mod.working_diff("origin/main") == "\n"
