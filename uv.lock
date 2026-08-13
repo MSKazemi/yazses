@@ -416,6 +416,18 @@ wheels = [
 ]
 
 [[package]]
+name = "brainflow"
+version = "5.22.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "setuptools" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/54/09/328877c8ed6d082ec6a12e41b4dd7c58ac622b856ae8577254ff41f5d463/brainflow-5.22.2-py3-none-any.whl", hash = "sha256:607564ef3e326e9dee5f532a0cdee18cc6a066bd84f32db6d114068fe83d4141", size = 31227732, upload-time = "2026-05-22T22:06:12.909Z" },
+]
+
+[[package]]
 name = "cachecontrol"
 version = "0.14.4"
 source = { registry = "https://pypi.org/simple" }
@@ -6481,6 +6493,9 @@ diarization-pyannote = [
 emg = [
     { name = "pyserial" },
 ]
+emg-band = [
+    { name = "brainflow" },
+]
 gaze = [
     { name = "mediapipe" },
     { name = "opencv-python" },
@@ -6543,6 +6558,7 @@ docs = [
 requires-dist = [
     { name = "bleak", marker = "extra == 'all'", specifier = ">=3.0.2" },
     { name = "bleak", marker = "extra == 'ble'", specifier = ">=3.0.2" },
+    { name = "brainflow", marker = "extra == 'emg-band'", specifier = ">=5.22.2" },
     { name = "cryptography", specifier = ">=50.0.0" },
     { name = "evdev", marker = "sys_platform == 'linux'", specifier = ">=1.9.3" },
     { name = "faster-whisper", specifier = ">=1.2.1" },
@@ -6597,7 +6613,7 @@ requires-dist = [
     { name = "speechbrain", marker = "extra == 'voiceprint'", specifier = ">=1.1" },
     { name = "typer", specifier = ">=0.26.8" },
 ]
-provides-extras = ["slm", "lsp", "emg", "ble", "overlay", "desktop", "prosody", "chinese", "tts", "denoise", "voiceprint", "voiceprint-resemblyzer", "parakeet", "diarization", "diarization-pyannote", "notes", "silero", "agent", "gaze", "all"]
+provides-extras = ["slm", "lsp", "emg", "ble", "overlay", "desktop", "prosody", "chinese", "tts", "emg-band", "denoise", "voiceprint", "voiceprint-resemblyzer", "parakeet", "diarization", "diarization-pyannote", "notes", "silero", "agent", "gaze", "all"]
 
 [package.metadata.requires-dev]
 dev = [

@@ -263,6 +263,13 @@
     },
     {
       "type": "library",
+      "name": "brainflow",
+      "version": "5.22.2",
+      "purl": "pkg:pypi/brainflow@5.22.2",
+      "bom-ref": "pkg:pypi/brainflow@5.22.2"
+    },
+    {
+      "type": "library",
       "name": "cachecontrol",
       "version": "0.14.4",
       "purl": "pkg:pypi/cachecontrol@0.14.4",

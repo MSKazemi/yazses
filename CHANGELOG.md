@@ -44,6 +44,24 @@ DeepFilterNet adapter, which no environment can satisfy: its latest release
 now the default. It is weaker than DeepFilterNet and the docs say so — it removes
 steady broadband noise, not a second speaker. (#69)
 
+### Added — graded squeeze, and EMG hardware you can buy
+
+The EMG backend answered one question: is the muscle tense? Grip force regresses
+at r≈0.97 in the literature, so a squeeze can carry *which mode* too — **light
+squeezes to dictate, hard squeezes for command mode**, mirroring the command key
+so all three mode switches behave the same way. Onset uses the Teager–Kaiser
+energy operator rather than a bare threshold, because TKEO weighs frequency as
+well as amplitude and so ignores the baseline wander a rectified threshold reads
+as a contraction. Thresholds come from the user's own relaxed baseline and
+maximum contraction — muscle amplitude varies by an order of magnitude between
+people, so fixed microvolt numbers are meaningless, and an indistinguishable
+baseline is refused rather than guessed at.
+
+A BrainFlow source (`emg-band` extra) adds OpenBCI, Muse and friends alongside the
+DIY serial path. A missing device or dependency is a logged no-op, and the session
+is released even after an error — an un-released board keeps the device locked for
+every later run. (#103)
+
 ### Added — gaze calibration that refines itself from ordinary clicks
 
 A click is ground truth for where you were looking. Explicit calibration drifts

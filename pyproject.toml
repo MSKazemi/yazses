@@ -143,6 +143,12 @@ tts = [
     "onnxruntime>=1.27.0",
     "soundfile>=0.14.0",
 ]
+# EMG device breadth (#103). BrainFlow is MIT, offline and Linux-native, and
+# covers OpenBCI/Muse and friends behind one API. Imported lazily; absent or
+# unplugged degrades to a logged no-op, exactly like the serial YESP path.
+emg-band = [
+    "brainflow>=5.22.2",
+]
 # Real-time noise suppression before STT (ADR-v2-015, #69). Spectral gating over
 # numpy + scipy — no torch, no numpy ceiling. DeepFilterNet is deliberately NOT
 # here: its latest release pins numpy<2.0 against this project's numpy>=2.4.6, so
@@ -300,7 +306,8 @@ files = ["src"]
 [[tool.mypy.overrides]]
 module = [
     "bleak.*", "cv2.*", "df.*", "faster_whisper.*", "kokoro_onnx.*", "l2cs.*",
-    "llama_cpp.*", "mediapipe.*", "moonshine_onnx.*", "noisereduce.*", "opencc.*",
+    "brainflow.*", "llama_cpp.*", "mediapipe.*", "moonshine_onnx.*", "noisereduce.*",
+    "opencc.*",
     "pyannote.*", "pyatspi.*", "pynvim.*",
     "pywintypes.*", "resemblyzer.*", "sherpa_onnx.*", "silero_vad.*", "sounddevice.*",
     "speechbrain.*", "tomli_w.*", "torch.*", "win32file.*", "win32pipe.*", "Xlib.*",
