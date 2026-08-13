@@ -104,8 +104,12 @@ modules:
       # /usr/lib/python3.11/site-packages/_distutils_hack/__init__.py").
       # So it goes to ${FLATPAK_DEST} and PYTHONPATH (set below) puts it ahead
       # of the SDK's copy on sys.path.
+      # --ignore-installed, NOT --upgrade: --upgrade makes pip uninstall the
+      # existing setuptools first, and that one lives in read-only /usr, so it
+      # fails with Errno 30 before installing anything — even with --prefix
+      # pointing elsewhere.
       - pip3 install --no-index --find-links="file://${PWD}"
-          --prefix=${FLATPAK_DEST} --upgrade setuptools
+          --prefix=${FLATPAK_DEST} --ignore-installed setuptools
       # Assert it took. Without this, the next failure hides behind evdev again
       # instead of naming itself.
       - python3 -c "import setuptools; print('setuptools', setuptools.__version__,
