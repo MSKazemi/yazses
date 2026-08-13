@@ -27,6 +27,18 @@ runtime-version: '6.7'
 sdk: org.kde.Sdk
 command: yazses
 
+# Make the setuptools installed into /app win over the SDK's own.
+#
+# pip builds an sdist's metadata in an in-process hook run by /usr/bin/python,
+# which imports setuptools from the SDK's /usr/lib/python3.11/site-packages.
+# Installing a newer one into ${FLATPAK_DEST} therefore changed nothing on its
+# own — the first attempt failed with the identical error. PYTHONPATH is
+# searched before system site-packages, so this is what actually makes the
+# newer setuptools the one that parses evdev's PEP 639 licence field.
+build-options:
+  env:
+    PYTHONPATH: /app/lib/python3.11/site-packages
+
 finish-args:
   # --- Microphone. Without this there is no audio at all. -----------------------------
   - --socket=pulseaudio
