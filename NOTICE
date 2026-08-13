@@ -15,3 +15,48 @@ If YazSes is useful to you, please consider:
 - Starring the repository: https://github.com/MSKazemi/yazses
 - Citing it in your work using CITATION.cff
 - Mentioning it in blog posts, talks, or documentation
+
+---
+
+## Third-party components
+
+YazSes is Apache-2.0. The published binaries (the Windows `.exe`, the macOS
+`.dmg`) are frozen bundles built with PyInstaller, so they redistribute the
+libraries below. All are OSI-approved open source; none is proprietary.
+
+| Component | Licence | Source |
+|---|---|---|
+| faster-whisper | MIT | https://github.com/SYSTRAN/faster-whisper |
+| CTranslate2 | MIT | https://github.com/OpenNMT/CTranslate2 |
+| onnxruntime | MIT | https://github.com/microsoft/onnxruntime |
+| tokenizers | Apache-2.0 | https://github.com/huggingface/tokenizers |
+| huggingface-hub | Apache-2.0 | https://github.com/huggingface/huggingface_hub |
+| sounddevice | MIT | https://github.com/spatialaudio/python-sounddevice |
+| NumPy | BSD-3-Clause | https://github.com/numpy/numpy |
+| Typer | MIT | https://github.com/fastapi/typer |
+| platformdirs | MIT | https://github.com/tox-dev/platformdirs |
+| cryptography | Apache-2.0 OR BSD-3-Clause | https://github.com/pyca/cryptography |
+| PyAV | BSD-3-Clause | https://github.com/PyAV-Org/PyAV |
+| Pillow | MIT-CMU | https://github.com/python-pillow/Pillow |
+| pywin32 (Windows) | PSF | https://github.com/mhammond/pywin32 |
+| **pystray (Windows)** | **LGPL-3.0** | https://github.com/moses-palmer/pystray |
+
+### A note on pystray and the LGPL
+
+`pystray` draws the Windows tray icon and is **LGPL-3.0**, not permissive like
+everything else here. The Windows `.exe` is a single-file PyInstaller bundle, so
+that library is redistributed inside it.
+
+The LGPL asks two things of anyone distributing such a combined work: say so, and
+let the recipient replace the library with their own build of it. This section is
+the first. For the second, the practical route is that YazSes is a Python
+application — the bundle contains `pystray` as ordinary importable Python, and
+running YazSes from source (`pipx install yazses`, or from this repository) uses
+whatever `pystray` you install, which you may modify freely.
+
+Setting `[tray] enabled = false` stops YazSes *using* the tray, but does not
+remove the library from an already-built `.exe` -- the bundle still contains it.
+A genuinely pystray-free Windows build means excluding it at build time in
+`packaging/windows/yazses.spec`, which the published binaries do not do.
+
+This note is a good-faith description, not legal advice.
