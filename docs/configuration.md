@@ -86,6 +86,7 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 | `disfluency.repetition_max_fragment_len` | int | `2` |
 | `disfluency.llm_enabled` | bool | `false` |
 | `disfluency.llm_endpoint` | str | `"http://localhost:11434"` |
+| `disfluency.llm_allow_remote_endpoint` | bool | `false` |
 | `disfluency.llm_model` | str | `""` |
 | `disfluency.llm_system_prompt` | str | `"Reformat only. Do not add facts and do not remove information. Preserve every proper noun, number, code identifier, and URL exactly as given. Fix capitalization, punctuation, and paragraph breaks; do not change word choices. Output ONLY the reformatted text with no preamble, no explanation, and no markdown fences."` |
 | `disfluency.llm_max_tokens` | int | `256` |

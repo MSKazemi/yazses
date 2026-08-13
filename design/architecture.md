@@ -454,6 +454,7 @@ collapse_repetitions = false   # ADR-015 opt-in: b-b-because → because, the th
 collapse_prolongations = false # ADR-015 opt-in: sooo → so
 llm_enabled = false
 llm_endpoint = "http://localhost:11434"
+llm_allow_remote_endpoint = false  # cleanup refuses a non-loopback endpoint without this
 
 [accessibility]
 vad_threshold = 0.01       # calibrate with `yazses enroll`

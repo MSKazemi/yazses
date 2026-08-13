@@ -158,6 +158,12 @@ class DisfluencyConfig:
     repetition_max_fragment_len: int = 2    # max length of a stutter "fragment"
     llm_enabled: bool = False
     llm_endpoint: str = "http://localhost:11434"
+    # Refuse an `llm_endpoint` that is not loopback. Cleanup sends *transcribed
+    # text* to the endpoint, so a remote host here would carry dictation off the
+    # machine — which AGENTS.md rule 1 ("nothing leaves the machine") forbids by
+    # default. Setting this true is the deliberate, documented opt-out; the
+    # daemon warns on every start while it is on.
+    llm_allow_remote_endpoint: bool = False
     # Local GGUF model path for offline cleanup; empty falls back to the Ollama
     # HTTP endpoint above. Mirrors the Rust v1.0 [cleanup] feature for the
     # Python path (kept in parity until v1.0 GA).

@@ -17,9 +17,11 @@ paths reject the same hallucinations.
 """
 from __future__ import annotations
 
+import ipaddress
 import json
 import logging
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -31,6 +33,62 @@ if TYPE_CHECKING:  # pragma: no cover - type hints only
     from llama_cpp import Llama  # type: ignore[import-untyped]
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Endpoint locality (the "nothing leaves the machine" guard)
+# ---------------------------------------------------------------------------
+
+def is_loopback_endpoint(endpoint: str) -> bool:
+    """True when ``endpoint`` can only reach this machine.
+
+    Cleanup is the one path that sends **transcribed text** anywhere, and the
+    endpoint is a plain user-supplied string. Ollama's own default is
+    ``http://localhost:11434``, so the overwhelmingly common case is local and
+    a one-character typo (``localhost`` → a real host that resolves) is what
+    turns an offline tool into an exfiltrating one. This decides that question
+    syntactically, before any socket is opened.
+
+    Loopback means the literal names ``localhost``/``localhost.localdomain``,
+    or an address inside 127.0.0.0/8 or ``::1``. A hostname that merely
+    *resolves* to 127.0.0.1 is deliberately **not** trusted — resolution is
+    attacker- and DNS-controlled, can change between the check and the connect,
+    and treating it as local would make the guard depend on the network it
+    exists to avoid.
+
+    A string with no host component is **not** loopback either. It is not an
+    address at all, and saying so here turns a malformed endpoint into one
+    logged sentence at startup instead of a fresh traceback on every burst —
+    ``urllib`` raises ``ValueError`` for it well after the point where the
+    decision should already have been made.
+
+    Note ``urlsplit`` puts userinfo outside ``hostname``, so the classic
+    ``http://127.0.0.1@evil.com`` bypass resolves to ``evil.com`` and is
+    correctly refused. That case is pinned by a test.
+    """
+    try:
+        parsed = urllib.parse.urlsplit(endpoint.strip())
+    except ValueError:
+        return False
+    host = parsed.hostname
+    if not host:
+        return False
+    if host.lower() in {"localhost", "localhost.localdomain"}:
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        # A name we cannot classify without DNS. Not local as far as we know.
+        return False
+
+
+def endpoint_is_permitted(config: DisfluencyConfig) -> bool:
+    """True when cleanup may talk to ``config.llm_endpoint``.
+
+    The opt-out is explicit and separate from the endpoint itself, so pointing
+    at a remote host takes two deliberate edits rather than one.
+    """
+    return config.llm_allow_remote_endpoint or is_loopback_endpoint(config.llm_endpoint)
 
 
 # ---------------------------------------------------------------------------
@@ -87,6 +145,7 @@ class LlmCleaner:
         self._enabled = config.llm_enabled
         self._model: Llama | None = None
         self._model_tried = False
+        self._warned_remote = False
 
     @property
     def enabled(self) -> bool:
@@ -128,8 +187,26 @@ class LlmCleaner:
         if self._config.llm_model:
             return self._complete_local(text, custom_prompt)
         if self._config.llm_endpoint:
+            if not endpoint_is_permitted(self._config):
+                # Refuse per call, not once at construction: the check is cheap
+                # and this is the only place the text would actually leave.
+                self._warn_remote_endpoint_once()
+                return None
             return self._complete_ollama(text, custom_prompt)
         return None
+
+    def _warn_remote_endpoint_once(self) -> None:
+        if self._warned_remote:
+            return
+        self._warned_remote = True
+        logger.warning(
+            "LLM cleanup is disabled: [filters.disfluency] llm_endpoint (%r) is not a "
+            "loopback address, and cleanup would send transcribed text to it. Point it "
+            "at localhost (e.g. http://localhost:11434), or set "
+            "llm_allow_remote_endpoint = true if sending dictated text off this machine "
+            "is what you intend. A malformed URL lands here too — check the scheme.",
+            self._config.llm_endpoint,
+        )
 
     def _prompt(self, text: str, custom_prompt: str | None) -> str:
         prompt = custom_prompt if custom_prompt is not None else self._config.llm_system_prompt
@@ -186,7 +263,11 @@ class LlmCleaner:
         req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
         timeout_s = max(0.1, self._config.llm_timeout_ms / 1000.0)
         try:
-            with urllib.request.urlopen(req, timeout=timeout_s) as resp:  # noqa: S310 - localhost only
+            # S310: the scheme/host is not arbitrary — `_complete` gates this call on
+            # `endpoint_is_permitted`, so we are here only for a loopback endpoint or an
+            # explicit `llm_allow_remote_endpoint = true`. This comment used to read
+            # "localhost only" as a statement of intent; it is now enforced.
+            with urllib.request.urlopen(req, timeout=timeout_s) as resp:  # noqa: S310
                 body = json.loads(resp.read().decode())
         except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
             logger.debug("LLM cleanup Ollama backend unavailable (%s)", exc)

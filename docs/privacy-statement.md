@@ -93,16 +93,47 @@ never transmitted outside your device and is discarded after each transcription.
 
 ## On-device language models (optional)
 
-Two optional features use a **local** language model, loaded from a model file on
-your disk via `llama-cpp-python`. Both run entirely on-device — there is **no cloud
-LLM, no OpenAI/Azure backend, and no HTTP API call**:
+Two optional features use a **local** language model. There is **no cloud LLM and no
+OpenAI/Azure/Anthropic backend** in either:
 
-- **SLM intent router** (`[commands] slm_model_path`) — a small local model that
-  resolves a spoken command when the fast regex grammar is unsure.
-- **Offline dictation cleanup** (`[filters.disfluency] llm_enabled`) — a local model
-  that lightly reformats dictation. Off by default.
+- **SLM intent router** (`[commands] slm_model_path`) — a small local model, loaded from
+  a model file on your disk via `llama-cpp-python`, that resolves a spoken command when
+  the fast regex grammar is unsure. In-process only; it opens no socket.
+- **Offline dictation cleanup** (`[filters.disfluency] llm_enabled`) — lightly reformats
+  dictation. **Off by default.** It has two backends: a local GGUF file via
+  `llama-cpp-python` (`llm_model`), or — if no model file is set — an **HTTP POST to
+  Ollama** at `llm_endpoint`, which defaults to `http://localhost:11434`.
 
 If you do not configure a model path, neither feature is active and no model runs.
+
+### The one call that carries text, and what stops it leaving
+
+Dictation cleanup's Ollama backend is the **only** path in YazSes that sends *transcribed
+text* over a socket. That is worth stating plainly rather than rounding down to "nothing
+leaves your machine", because it is an HTTP request and `llm_endpoint` is a string you can
+edit.
+
+**YazSes refuses to send it anywhere but this machine.** Before any request is made, the
+endpoint is checked to be a loopback address — `localhost`, anything in `127.0.0.0/8`, or
+`::1`. Point it at a LAN box, a VPS, or a hosted API and **cleanup switches itself off and
+logs why**, rather than quietly posting your dictation to it.
+
+A hostname that merely *resolves* to `127.0.0.1` is not accepted either. DNS is not a
+security boundary: the answer is controlled by whoever owns the zone and can change between
+the check and the connection, so a guard that trusted resolution would depend on the network
+it exists to avoid.
+
+If sending dictated text off this machine is genuinely what you want, it takes a second,
+separate, deliberate setting:
+
+```toml
+[filters.disfluency]
+llm_endpoint = "http://ollama.my-lan-box:11434"
+llm_allow_remote_endpoint = true    # off by default; warns on every daemon start
+```
+
+Two edits, not one, and never the default. Audio is never involved in any case — only the
+already-transcribed text, and only when you have turned cleanup on.
 
 ## Remote mode (`yazses remote <host>`)
 
@@ -124,6 +155,12 @@ trust and control the remote host before using this feature.
 | Telemetry / usage stats | Never collected | Never collected |
 
 In the default configuration, **nothing leaves your device**.
+
+Two features can change that, and both are off until you turn them on and neither ever
+moves audio: `yazses remote <host>` forwards the **final text** to a host you name, and
+dictation cleanup can POST **transcribed text** to an Ollama endpoint — which YazSes holds
+to loopback unless you also set `llm_allow_remote_endpoint = true`. There is no third path,
+and the table above is what the test suite and the `--network none` check below verify.
 
 ### Do not take our word for it — check
 

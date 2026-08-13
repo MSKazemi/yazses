@@ -260,6 +260,43 @@ def _config_validity(config_file: Path) -> list[_Check]:
     return out
 
 
+def _llm_endpoint_check(cfg) -> list[_Check]:
+    """Report where dictation cleanup would send transcribed text.
+
+    Cleanup's Ollama backend is the only path that puts *text* on a socket, and
+    the endpoint is a hand-edited string. A log line at daemon start is easy to
+    miss; someone auditing an offline install runs `doctor`, so the answer to
+    "does anything leave this machine" belongs here in one line.
+
+    Silent when cleanup is off, which is the default — doctor should not grow a
+    row per dormant feature.
+    """
+    disfluency = getattr(getattr(cfg, "filters", None), "disfluency", None)
+    if disfluency is None or not getattr(disfluency, "llm_enabled", False):
+        return []
+    if getattr(disfluency, "llm_model", ""):
+        return [("LLM cleanup", "OK", "local GGUF model — no network call")]
+
+    from yazses.postprocess.llm_cleanup import is_loopback_endpoint
+
+    endpoint = getattr(disfluency, "llm_endpoint", "")
+    if not endpoint:
+        return [("LLM cleanup", "WARN", "enabled but no model or endpoint configured")]
+    if is_loopback_endpoint(endpoint):
+        return [("LLM cleanup", "OK", f"{endpoint} (loopback — stays on this machine)")]
+    if getattr(disfluency, "llm_allow_remote_endpoint", False):
+        return [(
+            "LLM cleanup", "WARN",
+            f"{endpoint} is REMOTE and llm_allow_remote_endpoint = true — "
+            "transcribed text is being sent off this machine",
+        )]
+    return [(
+        "LLM cleanup", "WARN",
+        f"disabled: {endpoint} is not loopback. Point it at localhost, or set "
+        "llm_allow_remote_endpoint = true to send dictated text off this machine.",
+    )]
+
+
 def _config_summary(cfg, config_file: Path) -> list[_Check]:
     """Surface the active config file, resolved hotkey, and STT prompt status."""
     out: list[_Check] = []
@@ -271,6 +308,7 @@ def _config_summary(cfg, config_file: Path) -> list[_Check]:
             f"{config_file} (absent — using built-in defaults)",
         ))
     out.extend(_config_validity(config_file))
+    out.extend(_llm_endpoint_check(cfg))
     out.append((
         "Hotkey", "OK",
         f"{cfg.hotkey.key} (hold {cfg.hotkey.hold_threshold_ms} ms)",

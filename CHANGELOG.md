@@ -4,6 +4,41 @@ All notable changes to YazSes are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed — dictation cleanup could POST your transcribed text to any host you typed
+
+`[filters.disfluency] llm_endpoint` is a plain string, and when no local GGUF model was
+configured, cleanup POSTed the **transcribed text** to whatever it contained. The value was
+never checked for being local. The code was written for local Ollama — the default is
+`http://localhost:11434` and the call site even carried a `# noqa: S310 - localhost only`
+comment recording that intent — but nothing enforced it, so a typo or a copied config line
+pointing at a real host turned an offline-first tool into an exfiltrating one, silently.
+
+YazSes now checks the endpoint is loopback (`localhost`, `127.0.0.0/8`, `::1`) before any
+request. A non-loopback endpoint **disables cleanup and logs why**, once, rather than per
+burst. Sending dictated text off the machine now takes a second, separate, deliberate
+setting — `llm_allow_remote_endpoint = true`, off by default.
+
+A hostname that merely *resolves* to loopback is deliberately **not** trusted. DNS is
+controlled by whoever owns the zone and the answer can change between the check and the
+connection, so classifying by resolution would make the guard depend on the network it
+exists to avoid. `localtest.me` is pinned in the tests as the case that must stay refused,
+alongside `localhost.evil.com` for the suffix trick.
+
+Nothing changes for anyone running Ollama locally, which is the documented setup and the
+default. The local GGUF backend never touched this path at all.
+
+### Fixed — the privacy statement claimed cleanup made "no HTTP API call"
+
+It made one. `docs/privacy-statement.md` grouped dictation cleanup with the SLM intent
+router as in-process `llama-cpp-python` and stated there was "no cloud LLM, no OpenAI/Azure
+backend, and **no HTTP API call**". The router is genuinely in-process, but cleanup's
+fallback backend is an HTTP POST to Ollama — local by default, but a socket nonetheless.
+The section now says which backend does what, names the one call that carries text, and
+documents the loopback guard and its opt-out. "What leaves your device" now names both
+paths that can, rather than only `yazses remote`.
+
 ## [2.18.0] - 2026-08-13
 
 ### Changed — Qt is the `desktop` extra now, and a headless install is ~650 MB lighter
