@@ -58,8 +58,18 @@ dependencies = [
     "typer>=0.26.8",
     "platformdirs>=4.10.0",
     # Linux
+    # evdev stays Linux-only on purpose: it is a C extension compiled against
+    # <linux/input.h>. FreeBSD exposes /dev/input/event* with EVDEV_SUPPORT, but
+    # python-evdev does not build there, so BSD falls back to the X11 grab path.
     'evdev>=1.9.3; sys_platform == "linux"',
-    'python-xlib>=0.33; sys_platform == "linux"',
+    # python-xlib is pure Python and works anywhere X11 does, so the BSDs get it
+    # too — it is the only hotkey backend available to them.
+    #
+    # Matched on platform_system, NOT sys_platform: sys_platform carries the major
+    # version on a BSD ("freebsd14", "freebsd15"), and PEP 508 markers have no
+    # prefix operator, so a sys_platform list would silently stop matching at the
+    # next FreeBSD release. platform_system is the unversioned "FreeBSD".
+    'python-xlib>=0.33; sys_platform == "linux" or platform_system == "FreeBSD" or platform_system == "OpenBSD" or platform_system == "NetBSD" or platform_system == "DragonFly"',
     # macOS
     'pyobjc-framework-Quartz>=12.2.1; sys_platform == "darwin"',
     'pyobjc-framework-Cocoa>=12.2.1; sys_platform == "darwin"',
@@ -97,7 +107,7 @@ Repository = "https://github.com/MSKazemi/yazses"
 "Bug Tracker" = "https://github.com/MSKazemi/yazses/issues"
 
 [project.scripts]
-yazses = "yazses.cli:app"
+yazses = "yazses.cli:main"
 yazses-daemon = "yazses.main:run"
 yazses-tray = "yazses.tray.app:run"
 yazses-settings = "yazses.settingsui.app:run"

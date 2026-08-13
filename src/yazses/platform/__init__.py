@@ -13,9 +13,10 @@ from yazses.platform.base import (
     TrayState,
     UnsupportedPlatformError,
 )
-from yazses.platform.factory import get_platform
+from yazses.platform.factory import get_paths, get_platform
 
 __all__ = [
+    "get_paths",
     "get_platform",
     "HotkeyBackend",
     "InjectorBackend",
