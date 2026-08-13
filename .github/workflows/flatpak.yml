@@ -51,6 +51,20 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      # The flathub-infra image ships flatpak-builder but no runtimes, and
+      # --runtime makes the generator exec python3 *inside* org.kde.Sdk to read
+      # its platform tags. Without the SDK present that fails with "Failed to
+      # obtain platform tags from runtime", which is the generator saying it
+      # cannot see the interpreter it is resolving wheels for.
+      - name: Install the KDE SDK the wheels are resolved against
+        run: |
+          set -eux
+          flatpak remote-add --if-not-exists flathub \
+            https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak install -y --noninteractive flathub \
+            "org.kde.Sdk//${RUNTIME_VERSION}" "org.kde.Platform//${RUNTIME_VERSION}"
+          flatpak list --runtime --columns=application,branch
+
       - name: Fetch flatpak-pip-generator
         run: |
           set -euo pipefail
