@@ -303,6 +303,7 @@ nav:
       - Tray icon & overlay: tray-and-overlay.md
       - Known-good microphones: known-good-microphones.md
       - Privacy statement: privacy-statement.md
+      - Code signing & verification: code-signing.md
   - Architecture:
       - Overview: architecture.md
       - Diagrams: diagrams/index.md
