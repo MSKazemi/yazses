@@ -20,8 +20,28 @@ from yazses.system.snap import dependency_install_advice, in_snap
 
 
 def missing_modules(modules: Iterable[str]) -> list[str]:
-    """Return the import names in *modules* that are not importable."""
-    return [m for m in modules if importlib.util.find_spec(m) is None]
+    """Return the import names in *modules* that are not importable.
+
+    ``find_spec`` returns ``None`` for an absent top-level module but *raises*
+    ``ModuleNotFoundError`` for a dotted name whose parent package is absent —
+    it has to import the parent to look inside it. Treating that as an error
+    rather than as "missing" broke the one caller that asks about a dotted
+    name (``pyannote.audio``): the exception escaped into
+    ``recimport.factory._unavailable_detail``, whose blanket ``except`` then
+    reported whatever unrelated error came first instead of the honest "install
+    this extra". Both outcomes mean the same thing here, so both are reported
+    the same way.
+
+    ``ValueError`` covers a module already in ``sys.modules`` with no spec.
+    """
+    absent = []
+    for name in modules:
+        try:
+            if importlib.util.find_spec(name) is None:
+                absent.append(name)
+        except (ModuleNotFoundError, ValueError):
+            absent.append(name)
+    return absent
 
 
 def _nearest_existing(path: Path) -> Path:

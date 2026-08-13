@@ -147,6 +147,14 @@ tts = [
 voiceprint = [
     "speechbrain>=1.1",
 ]
+# The alternative embedder behind `[voiceprint] backend = "resemblyzer"`: GE2E
+# 256-d d-vectors, ~17 MB of weights. Declared separately from `voiceprint`
+# rather than folded into it because the two are *alternatives* — only one
+# backend runs — and merging them would make every ECAPA user download a second
+# model stack they never load.
+voiceprint-resemblyzer = [
+    "resemblyzer>=0.1.4",
+]
 # Pluggable STT — NVIDIA Parakeet TDT via onnx-asr (`[stt] engine = "parakeet"`,
 # `yazses features enable stt-parakeet`). onnxruntime only, no torch, no NeMo;
 # imported lazily by stt/parakeet.py — absent → stt/factory.py falls back to
@@ -159,6 +167,14 @@ parakeet = [
 # Audio decoding needs no extra (PyAV rides in with faster-whisper).
 diarization = [
     "sherpa-onnx>=1.13.4",
+]
+# The accuracy alternative behind `[recimport]`/`[meeting] backend = "pyannote"`.
+# Kept out of `diarization` (and out of `all`) on purpose: it pulls the whole
+# torch stack, and its pretrained pipeline is a *gated* Hugging Face repo whose
+# conditions have to be accepted once by hand — so it can never be a dependency
+# that installs silently underneath someone. sherpa stays the default.
+diarization-pyannote = [
+    "pyannote.audio>=4.0.7",
 ]
 # Meeting Mode minutes (ADR-v2-128). Optional local-LLM notes at `yazses meeting stop`;
 # imported lazily only when `[meeting] notes = true` AND `[meeting] notes_model` points at

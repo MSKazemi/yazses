@@ -10,12 +10,22 @@ there are two very different answers:
 * the adapter itself was never shipped in this build → installing anything is futile,
   and telling the user to try sends them after a fix that cannot work.
 
-The factories used to collapse both cases into "install the ``X`` extra". That message
-is actively misleading for the three backends that have no adapter module in-tree:
-``deepfilternet`` (there is no ``denoise`` extra at all), ``resemblyzer`` (the
-``voiceprint`` extra ships speechbrain only), and ``pyannote`` (the ``diarization``
-extra ships sherpa-onnx only). :func:`probe_backend` tells the two cases apart and
-produces an accurate message; callers log it and degrade exactly as before.
+The factories used to collapse both cases into "install the ``X`` extra".
+:func:`probe_backend` tells them apart and produces an accurate message; callers log
+it and degrade exactly as before.
+
+Both answers are live in this build, and the distinction is not hypothetical:
+
+* ``resemblyzer`` and ``pyannote`` **do** ship adapters now, each behind its own
+  extra (``voiceprint-resemblyzer``, ``diarization-pyannote``). Neither may point at
+  the extra it sits beside — ``voiceprint`` is speechbrain and ``diarization`` is
+  sherpa-onnx, so naming those would send the user after a package that cannot
+  supply the backend they selected.
+* ``deepfilternet`` has no adapter and **cannot get one**: every release of it caps
+  ``numpy<2.0`` while this project requires ``numpy>=2.4.6``, so the two are
+  unresolvable in one environment on any Python version. There is deliberately no
+  ``denoise`` extra, because an extra that can never install is a worse lie than an
+  honest "not implemented in this build". See issue #69.
 
 The probe is pure apart from the injected module lookup, so it unit-tests without any
 optional dependency installed.

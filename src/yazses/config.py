@@ -1133,7 +1133,9 @@ class RecimportConfig:
     """
     enabled: bool = False
     diarize: bool = False              # attribute speakers; false = plain transcript
-    backend: str = "sherpa"            # sherpa | pyannote (dormant) | none
+    # sherpa (default, ONNX/no torch) | pyannote (accuracy; needs the
+    # `diarization-pyannote` extra + a one-time gated HF model download) | none
+    backend: str = "sherpa"
     max_speakers: int = 0              # 0 = auto-detect
     min_speakers: int = 0
     cluster_threshold: float = 0.5     # sherpa fast-clustering threshold (auto-count mode)
@@ -1165,7 +1167,9 @@ class MeetingConfig:
     live_transcript: bool = True       # stream a rolling transcript for `meeting status`
     # --- diarization (batch post-pass; RecimportConfig-compatible) ---
     diarize: bool = True               # attribute speakers at stop
-    backend: str = "sherpa"            # sherpa | pyannote (dormant) | none
+    # sherpa (default, ONNX/no torch) | pyannote (accuracy; needs the
+    # `diarization-pyannote` extra + a one-time gated HF model download) | none
+    backend: str = "sherpa"
     max_speakers: int = 0              # 0 = auto-detect the count
     min_speakers: int = 0
     cluster_threshold: float = 0.5     # sherpa fast-clustering threshold (auto-count mode)

@@ -43,9 +43,11 @@ def build_embedder(config) -> SpeakerEmbedder | None:
 def _unavailable_detail(backend: str, exc: Exception) -> str:
     """Explain *why* a backend failed, without misdirecting the user.
 
-    ``resemblyzer`` has no adapter module in this build, so the old blanket "install
-    the `voiceprint` extra" advice could never work — that extra ships speechbrain
-    only. Route the message through the shared probe so each case is named honestly.
+    The two backends are alternatives shipped behind *different* extras —
+    ``voiceprint`` is speechbrain/ECAPA, ``voiceprint-resemblyzer`` is
+    Resemblyzer — so a single blanket "install the `voiceprint` extra" would send
+    half the users after a package that cannot supply what they selected. Route
+    the message through the shared probe so each case names its own extra.
     """
     try:
         from yazses.system.backends import probe_backend
@@ -55,7 +57,7 @@ def _unavailable_detail(backend: str, exc: Exception) -> str:
             "resemblyzer": (
                 "yazses.voiceprint.resemblyzer_backend",
                 ("resemblyzer",),
-                None,
+                "voiceprint-resemblyzer",
             ),
         }
         if backend in adapters:

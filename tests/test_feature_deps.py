@@ -13,6 +13,25 @@ def test_missing_modules_detects_absent_import():
     assert got == ["totally_not_a_real_module_xyz"]
 
 
+def test_missing_modules_answers_for_a_dotted_name_whose_parent_is_absent():
+    """It used to *raise* here, which silently defeated the backend-honesty layer.
+
+    ``find_spec`` returns None for an absent top-level module but raises
+    ``ModuleNotFoundError`` for ``a.b`` when ``a`` is missing, because it has to
+    import the parent to look inside it. ``pyannote.audio`` is the only backend
+    asked about by dotted name, so the exception escaped into
+    ``recimport.factory._unavailable_detail`` and its blanket ``except`` reported
+    an unrelated error instead of "install the `diarization-pyannote` extra".
+    """
+    got = deps.missing_modules(["totally_not_a_real_pkg_xyz.submodule"])
+    assert got == ["totally_not_a_real_pkg_xyz.submodule"]
+
+
+def test_missing_modules_reports_a_real_dotted_module_as_present():
+    """The dotted-name fix must not degrade into "everything dotted is missing"."""
+    assert deps.missing_modules(["os.path", "email.mime"]) == []
+
+
 def test_install_command_prefers_uv(monkeypatch):
     monkeypatch.setattr(deps.shutil, "which", lambda name: "/usr/bin/uv")
     cmd = deps.install_command(["mediapipe>=0.10"])
