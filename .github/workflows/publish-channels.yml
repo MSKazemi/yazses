@@ -1,0 +1,271 @@
+name: Publish to package channels
+
+# Why this exists
+# ---------------
+# A tag already builds every artifact and checks that they all shipped
+# (release-complete.yml). What it did NOT do is hand those artifacts to the
+# package managers -- winget, Chocolatey, Homebrew and the AUR were each updated
+# by a person remembering to, which is why at v2.18.2 the repo's own audit found
+# five channels still on an older version or absent entirely.
+#
+# Each channel below publishes itself on a tag.
+#
+# SECRETS, AND WHY A MISSING ONE IS A SKIP RATHER THAN A FAILURE
+# --------------------------------------------------------------
+# Every channel needs a credential this repository does not have yet. A job whose
+# secret is unset SKIPS with a warning naming the secret, and the summary at the
+# end lists them. The alternative -- failing -- would make every release red for a
+# reason no code change can fix, and a permanently red pipeline is one nobody
+# reads. Add a secret and that channel starts publishing on the next tag with no
+# edit here.
+#
+#   WINGET_TOKEN   GitHub PAT (public_repo) used to fork microsoft/winget-pkgs
+#                  and open the manifest PR. NOT the release signing cert --
+#                  but note winget-pkgs expects a signed installer, so this will
+#                  draw review until SignPath is in place (docs/code-signing.md).
+#   CHOCO_API_KEY  From https://community.chocolatey.org/account
+#   TAP_TOKEN      GitHub PAT (repo) with write access to MSKazemi/homebrew-yazses
+#   AUR_SSH_KEY    Private half of the SSH key registered on the AUR account
+#
+# NOT AUTOMATED HERE, AND WHY
+# ---------------------------
+#   Flathub  - the first submission is a reviewed PR to flathub/flathub against a
+#              reserved app ID. Once accepted, updates are PRs to its own repo and
+#              can be automated; there is nothing to automate until then.
+#              packaging/flatpak/ + flatpak.yml build and test the manifest today.
+#   nixpkgs  - same shape: a reviewed PR to NixOS/nixpkgs. flake.nix exists but has
+#              never been evaluated (no Nix on the authoring machine).
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish, without the leading v (e.g. 2.18.2)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  wait-for-assets:
+    # Every channel below needs the released binaries -- their checksums are what
+    # the manifests carry. On a tag push the builds are still running.
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - id: resolve
+        run: |
+          set -euo pipefail
+          version="${{ github.event.inputs.version }}"
+          [[ -n "$version" ]] || version="${GITHUB_REF_NAME#v}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Publishing v$version"
+
+      - name: Wait for the release to carry its Windows and macOS artifacts
+        run: |
+          set -euo pipefail
+          tag="v${{ steps.resolve.outputs.version }}"
+          deadline=$(( SECONDS + 3000 ))
+          while (( SECONDS < deadline )); do
+            if names=$(gh release view "$tag" --json assets -q '.assets[].name' 2>/dev/null); then
+              exe=$(grep -c '\.exe$' <<<"$names" || true)
+              dmg=$(grep -c '\.dmg$' <<<"$names" || true)
+              echo "exe=$exe dmg=$dmg (${SECONDS}s)"
+              (( exe > 0 && dmg > 0 )) && exit 0
+            else
+              echo "release $tag not created yet (${SECONDS}s)"
+            fi
+            sleep 60
+          done
+          echo "::error::$tag never gained its .exe/.dmg -- refusing to publish manifests with no artifact behind them."
+          exit 1
+
+  winget:
+    needs: wait-for-assets
+    runs-on: windows-latest
+    env:
+      HAVE_SECRET: ${{ secrets.WINGET_TOKEN != '' && 'yes' || 'no' }}
+      VERSION: ${{ needs.wait-for-assets.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        if: env.HAVE_SECRET == 'yes'
+
+      - name: Submit the manifests to microsoft/winget-pkgs
+        if: env.HAVE_SECRET == 'yes'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = "packaging/winget/manifests/m/MSKazemi/YazSes/$env:VERSION"
+          if (-not (Test-Path $dir)) {
+            Write-Error "no winget manifests for $env:VERSION at $dir -- run scripts/refresh-package-manifests.py first"
+          }
+          winget install --id Microsoft.WingetCreate --exact --source winget `
+            --accept-package-agreements --accept-source-agreements
+          # `submit` opens the PR against winget-pkgs from manifests we already
+          # generate and validate in-repo, rather than re-deriving them here.
+          wingetcreate submit --token $env:WINGET_TOKEN $dir
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+
+      - name: Explain the skip
+        if: env.HAVE_SECRET != 'yes'
+        run: echo "::warning::WINGET_TOKEN is not set -- skipping winget. Add it to publish automatically."
+
+  chocolatey:
+    needs: wait-for-assets
+    runs-on: windows-latest
+    env:
+      HAVE_SECRET: ${{ secrets.CHOCO_API_KEY != '' && 'yes' || 'no' }}
+      VERSION: ${{ needs.wait-for-assets.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        if: env.HAVE_SECRET == 'yes'
+
+      - name: Pack and push
+        if: env.HAVE_SECRET == 'yes'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # The .ps1 install scripts have never been syntax-checked on this
+          # project (no pwsh on the authoring machine). Do it here, before
+          # pushing something unrunnable to a public feed.
+          Get-ChildItem packaging/chocolatey/tools/*.ps1 | ForEach-Object {
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$errors) | Out-Null
+            if ($errors) { Write-Error "$($_.Name): $($errors -join '; ')" }
+            Write-Host "$($_.Name): parses OK"
+          }
+          choco pack packaging/chocolatey/yazses.nuspec --outputdirectory dist
+          choco push "dist/yazses.$env:VERSION.nupkg" `
+            --source https://push.chocolatey.org/ --api-key $env:CHOCO_API_KEY
+        env:
+          CHOCO_API_KEY: ${{ secrets.CHOCO_API_KEY }}
+
+      - name: Explain the skip
+        if: env.HAVE_SECRET != 'yes'
+        run: echo "::warning::CHOCO_API_KEY is not set -- skipping Chocolatey. Add it to publish automatically."
+
+  homebrew:
+    needs: wait-for-assets
+    runs-on: ubuntu-latest
+    env:
+      HAVE_SECRET: ${{ secrets.TAP_TOKEN != '' && 'yes' || 'no' }}
+      VERSION: ${{ needs.wait-for-assets.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        if: env.HAVE_SECRET == 'yes'
+
+      - name: Push the cask to the tap
+        if: env.HAVE_SECRET == 'yes'
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # Derive the cask from the released .dmg rather than trusting whatever
+          # is committed -- a hand-edited checksum is the failure this whole area
+          # keeps having.
+          python3 scripts/refresh-package-manifests.py --version "$VERSION"
+          git clone --depth 1 \
+            "https://x-access-token:${TAP_TOKEN}@github.com/MSKazemi/homebrew-yazses.git" tap
+          cp packaging/homebrew/yazses.rb tap/Casks/yazses.rb
+          cd tap
+          if git diff --quiet; then
+            echo "tap already at $VERSION -- nothing to push."
+            exit 0
+          fi
+          git config user.name  "Mohsen Seyedkazemi Ardebili"
+          git config user.email "mohsen.seyedkazemi@gmail.com"
+          git commit -am "yazses $VERSION"
+          git push
+
+      - name: Explain the skip
+        if: env.HAVE_SECRET != 'yes'
+        run: echo "::warning::TAP_TOKEN is not set -- skipping Homebrew. Add it to publish automatically."
+
+  aur:
+    needs: wait-for-assets
+    runs-on: ubuntu-latest
+    env:
+      HAVE_SECRET: ${{ secrets.AUR_SSH_KEY != '' && 'yes' || 'no' }}
+      VERSION: ${{ needs.wait-for-assets.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        if: env.HAVE_SECRET == 'yes'
+
+      - name: Push PKGBUILD to the AUR
+        if: env.HAVE_SECRET == 'yes'
+        env:
+          AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          # .SRCINFO is what the AUR actually indexes; a push without it, or with
+          # one that disagrees with the PKGBUILD, is rejected.
+          test -f packaging/arch/.SRCINFO
+          grep -q "pkgver = ${VERSION}" packaging/arch/.SRCINFO || {
+            echo "::error::packaging/arch/.SRCINFO is not at ${VERSION} -- refusing to push a stale package."
+            exit 1
+          }
+          mkdir -p ~/.ssh
+          printf '%s\n' "$AUR_SSH_KEY" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          ssh-keyscan -H aur.archlinux.org >> ~/.ssh/known_hosts 2>/dev/null
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/aur -o IdentitiesOnly=yes"
+          git clone ssh://aur@aur.archlinux.org/yazses.git aur
+          cp packaging/arch/PKGBUILD packaging/arch/.SRCINFO aur/
+          cp packaging/arch/yazses.install aur/ 2>/dev/null || true
+          cd aur
+          if git diff --quiet; then
+            echo "AUR already at $VERSION -- nothing to push."
+            exit 0
+          fi
+          git config user.name  "Mohsen Seyedkazemi Ardebili"
+          git config user.email "mohsen.seyedkazemi@gmail.com"
+          git commit -am "yazses $VERSION"
+          git push
+
+      - name: Explain the skip
+        if: env.HAVE_SECRET != 'yes'
+        run: echo "::warning::AUR_SSH_KEY is not set -- skipping AUR. Add it to publish automatically."
+
+  summary:
+    needs: [wait-for-assets, winget, chocolatey, homebrew, aur]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Say what published and what is still waiting on a credential
+        env:
+          HAVE_WINGET: ${{ secrets.WINGET_TOKEN != '' && 'yes' || 'no' }}
+          HAVE_CHOCO: ${{ secrets.CHOCO_API_KEY != '' && 'yes' || 'no' }}
+          HAVE_TAP: ${{ secrets.TAP_TOKEN != '' && 'yes' || 'no' }}
+          HAVE_AUR: ${{ secrets.AUR_SSH_KEY != '' && 'yes' || 'no' }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## Channel publishing — v${{ needs.wait-for-assets.outputs.version }}"
+            echo
+            echo "| Channel | Secret | Status |"
+            echo "|---|---|---|"
+            row() { # name secret have result
+              if [[ "$3" == "yes" ]]; then echo "| $1 | \`$2\` set | $4 |"
+              else echo "| $1 | \`$2\` **missing** | skipped |"; fi
+            }
+            row winget      WINGET_TOKEN  "$HAVE_WINGET" "${{ needs.winget.result }}"
+            row Chocolatey  CHOCO_API_KEY "$HAVE_CHOCO"  "${{ needs.chocolatey.result }}"
+            row Homebrew    TAP_TOKEN     "$HAVE_TAP"    "${{ needs.homebrew.result }}"
+            row AUR         AUR_SSH_KEY   "$HAVE_AUR"    "${{ needs.aur.result }}"
+            echo
+            echo "Flathub and nixpkgs are not here: both need a first, reviewed submission"
+            echo "to a third-party repository before any update can be automated."
+            echo
+            echo "Verify the result with: \`python3 scripts/check-release-channels.py --version <v>\`"
+          } >> "$GITHUB_STEP_SUMMARY"
