@@ -17,6 +17,43 @@ _RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 _RUN_VALUE_NAME = "YazSes"
 
 
+# ---- Pure command resolution ------------------------------------------------
+#
+# Kept free of winreg/subprocess (and therefore testable off Windows), mirroring
+# platform/linux/autostart.py. Both the frozen .exe and a pip install have to
+# produce a command that actually launches, and they need different argv.
+
+
+def resolve_daemon_command(executable: str, frozen: bool) -> list[str]:
+    """argv that starts the daemon.
+
+    The PyInstaller bundle dispatches on argv (see ``yazses/__main__.py``), so a
+    frozen build takes ``--daemon``. Passing ``-m yazses.main`` to it — as this
+    did — matches no mode, falls through to the Typer CLI, and dies parsing
+    ``-m`` as an option. Under a windowed build that failure is invisible, so
+    the tray would spawn nothing, forever, with no error anywhere.
+    """
+    if frozen:
+        return [executable, "--daemon"]
+    return [executable, "-m", "yazses.main"]
+
+
+def resolve_tray_command(executable: str, frozen: bool, tray_script: Path | None) -> str:
+    """The HKCU\\Run command string that starts the tray at sign-in.
+
+    Quoted because it is a single REG_SZ that Windows re-parses: any user whose
+    profile has a space in it (``C:\\Users\\Ada Lovelace\\...``) gets a command
+    that silently resolves to the wrong path when unquoted. The explicit
+    ``--tray`` keeps this byte-identical to what installer.iss writes, so the
+    in-app toggle and the installer can't drift apart.
+    """
+    if frozen:
+        return f'"{executable}" --tray'
+    if tray_script is not None and tray_script.exists():
+        return f'"{tray_script}"'
+    return f'"{executable}" -m yazses.tray.app'
+
+
 # Subprocess creation flags — defined here because Linux dev machines don't
 # have these constants on the subprocess module.
 _CREATE_NEW_PROCESS_GROUP = 0x00000200
@@ -74,8 +111,10 @@ class WindowsLifecycle:
         # CREATE_NEW_PROCESS_GROUP so we can later send CTRL_BREAK_EVENT for a
         # graceful shutdown; DETACHED_PROCESS so the daemon survives the parent.
         flags = _CREATE_NEW_PROCESS_GROUP | _DETACHED_PROCESS | _CREATE_NO_WINDOW
+        argv = resolve_daemon_command(sys.executable, bool(getattr(sys, "frozen", False)))
+        log.info("Starting daemon detached: %s", argv)
         subprocess.Popen(
-            [sys.executable, "-m", "yazses.main"],
+            argv,
             creationflags=flags,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -140,13 +179,8 @@ class WindowsLifecycle:
             return False
 
     def _tray_executable(self) -> str:
-        # When packaged by PyInstaller, sys.executable points at the bundle
-        # binary — that's what we want autostart to launch (in tray mode).
-        # When pip-installed, point at the yazses-tray script.
-        if getattr(sys, "frozen", False):
-            return sys.executable
-        candidate = Path(sys.executable).parent / "yazses-tray.exe"
-        if candidate.exists():
-            return str(candidate)
-        # Fallback: launch via the Python interpreter.
-        return f'"{sys.executable}" -m yazses.tray.app'
+        return resolve_tray_command(
+            sys.executable,
+            bool(getattr(sys, "frozen", False)),
+            Path(sys.executable).parent / "yazses-tray.exe",
+        )

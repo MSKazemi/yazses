@@ -38,6 +38,66 @@ fallback backend is an HTTP POST to Ollama — local by default, but a socket no
 The section now says which backend does what, names the one call that carries text, and
 documents the loopback guard and its opt-out. "What leaves your device" now names both
 paths that can, rather than only `yazses remote`.
+### Fixed — the Windows installer build has never actually worked
+
+Four defects, each independently enough to make the `.exe` unusable. All of them
+sat behind the same blind spot: CI proved the installer *built*, and nothing ever
+installed it or ran what came out.
+
+**The daemon could not start.** The tray spawned it as `YazSes.exe -m yazses.main`,
+but the bundle dispatches on argv and knows only `--daemon`/`--tray`/`--cli`. `-m`
+matched nothing, fell through to the Typer CLI, and exited 2 while parsing it. The
+binary is windowed, so that error went nowhere: the tray reported "not running"
+forever with no diagnostic anywhere. Now resolved through
+`resolve_daemon_command()`, which is pure and unit-tested for both the frozen and
+pip-installed cases.
+
+**Hold-to-talk never began on key-down.** `_press()` asked `HoldDetector.check()`
+at the same instant it recorded the press, so the elapsed time was always 0 and
+the initial key-down could not fire. A hold could only start on an OS auto-repeat
+— which arrives after the user's own key-repeat delay (250 ms–1 s) if it arrives
+at all, and Ctrl is not guaranteed to repeat. Right Ctrl is the Windows default
+hotkey, so this was the primary path. The Linux backend has started modifiers on
+key-down since it was written, with a comment explaining exactly why; Windows now
+matches, and the state machine is exposed as `handle_key_event()` so it is tested
+on every platform rather than only where a hook can be installed. Auto-repeats no
+longer inflate the leaked-character count either — with the space hotkey, one
+press was charged as six, so cleanup deleted five characters the user had typed.
+
+**The CLI was unreachable.** Everything diagnostic — `doctor`, `verify`, `status`,
+`logs`, `report` — lived only inside a windowed binary, which has no stdout, and
+the installer added nothing to PATH. There was no way for a user to run a
+diagnostic, or for a maintainer to ask them to. The bundle now also builds
+`yazses-cli.exe` (console subsystem) from the same Analysis, and the installer
+ships a `yazses` shim and puts it on the per-user PATH. Uninstall removes that one
+entry surgically instead of deleting the whole `Path` value.
+
+**Win32 calls were unsound.** `ctypes.windll` is cached without `use_last_error`,
+so every `lastError=` we logged was meaningless. Missing `restype` declarations
+truncated the 64-bit `HHOOK` from `SetWindowsHookExW` to 32 bits, so the handle
+passed to `UnhookWindowsHookEx` could differ from the one installed. Injected
+keystrokes carried no `dwExtraInfo` tag, letting the hook see the app's own
+synthetic Ctrl presses — the self-capture the Linux backend avoids by refusing to
+listen on injector devices.
+
+### Added
+
+- `Smoke-test the installer` in `build-windows.yml`: installs silently, asserts
+  the payload, runs the CLI and requires it to print, exercises the shim and PATH
+  entry, then uninstalls and checks PATH survived. This is the gate whose absence
+  let all of the above ship.
+- `tests/test_packaging_windows.py` — contract tests binding the spec, the shim,
+  the installer script and the Python entry point together, run on Linux CI where
+  the suite actually executes.
+- `scripts/winget-manifest.py` and `packaging/winget/` — generated, schema-valid
+  manifests for `winget install MSKazemi.YazSes`. Not yet submitted; see
+  `packaging/winget/README.md` for why a signed, post-fix release must come first.
+
+### Documentation
+
+- `docs/windows-install.md` gave the install location as `%USERPROFILE%\YazSes`
+  for every release so far. It is `%LOCALAPPDATA%\Programs\YazSes` — the documented
+  path never existed, so the uninstaller and CLI commands pointed nowhere.
 
 ## [2.18.0] - 2026-08-13
 

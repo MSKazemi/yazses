@@ -21,6 +21,24 @@ KEYEVENTF_KEYUP = 0x0002
 KEYEVENTF_UNICODE = 0x0004
 VK_BACK = 0x08
 
+# Stamped into every synthetic event's dwExtraInfo so our own WH_KEYBOARD_LL
+# hook can tell the text we type from the keys the user pressed. Any non-zero
+# constant works; this one is recognisable in a debugger.
+INJECTED_TAG = 0x59415A53  # 'YAZS'
+
+
+def _user32() -> "ctypes.WinDLL":  # type: ignore[name-defined]  # Windows-only in typeshed
+    """user32 with working error reporting.
+
+    ``ctypes.windll.user32`` is cached without ``use_last_error``, so
+    ``get_last_error()`` against it returns an unrelated value — a SendInput
+    failure would be reported with a meaningless error code.
+    """
+    lib = ctypes.WinDLL("user32", use_last_error=True)
+    lib.SendInput.argtypes = [wintypes.UINT, ctypes.c_void_p, ctypes.c_int]
+    lib.SendInput.restype = wintypes.UINT
+    return lib
+
 
 class _KEYBDINPUT(ctypes.Structure):
     _fields_ = [
@@ -91,7 +109,7 @@ class WindowsInjector:
                 wScan=unit,
                 dwFlags=KEYEVENTF_UNICODE,
                 time=0,
-                dwExtraInfo=None,
+                dwExtraInfo=INJECTED_TAG,
             )
             up = inputs[i * 2 + 1]
             up.type = INPUT_KEYBOARD
@@ -100,9 +118,11 @@ class WindowsInjector:
                 wScan=unit,
                 dwFlags=KEYEVENTF_UNICODE | KEYEVENTF_KEYUP,
                 time=0,
-                dwExtraInfo=None,
+                dwExtraInfo=INJECTED_TAG,
             )
-        sent = ctypes.windll.user32.SendInput(len(inputs), inputs, ctypes.sizeof(_INPUT))
+        sent = _user32().SendInput(
+            len(inputs), ctypes.byref(inputs), ctypes.sizeof(_INPUT)
+        )
         if sent != len(inputs):
             err = ctypes.get_last_error()
             log.warning("SendInput sent %d/%d events (lastError=%d)", sent, len(inputs), err)
@@ -115,14 +135,18 @@ class WindowsInjector:
             down = inputs[i * 2]
             down.type = INPUT_KEYBOARD
             down.ki = _KEYBDINPUT(
-                wVk=VK_BACK, wScan=0, dwFlags=0, time=0, dwExtraInfo=None
+                wVk=VK_BACK, wScan=0, dwFlags=0, time=0, dwExtraInfo=INJECTED_TAG
             )
             up = inputs[i * 2 + 1]
             up.type = INPUT_KEYBOARD
             up.ki = _KEYBDINPUT(
-                wVk=VK_BACK, wScan=0, dwFlags=KEYEVENTF_KEYUP, time=0, dwExtraInfo=None
+                wVk=VK_BACK,
+                wScan=0,
+                dwFlags=KEYEVENTF_KEYUP,
+                time=0,
+                dwExtraInfo=INJECTED_TAG,
             )
-        ctypes.windll.user32.SendInput(len(inputs), inputs, ctypes.sizeof(_INPUT))
+        _user32().SendInput(len(inputs), ctypes.byref(inputs), ctypes.sizeof(_INPUT))
 
     def inject_key_sequence(self, keys: list[str]) -> None:
         if not keys:
@@ -143,7 +167,9 @@ class WindowsInjector:
         def _make_vk_event(vk: int, flags: int) -> _INPUT:
             inp = _INPUT()
             inp.type = INPUT_KEYBOARD
-            inp.ki = _KEYBDINPUT(wVk=vk, wScan=0, dwFlags=flags, time=0, dwExtraInfo=None)
+            inp.ki = _KEYBDINPUT(
+                wVk=vk, wScan=0, dwFlags=flags, time=0, dwExtraInfo=INJECTED_TAG
+            )
             return inp
 
         all_inputs: list[_INPUT] = []
@@ -163,4 +189,4 @@ class WindowsInjector:
         if not all_inputs:
             return
         arr = (_INPUT * len(all_inputs))(*all_inputs)
-        ctypes.windll.user32.SendInput(len(arr), arr, ctypes.sizeof(_INPUT))
+        _user32().SendInput(len(arr), ctypes.byref(arr), ctypes.sizeof(_INPUT))

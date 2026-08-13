@@ -26,8 +26,9 @@ description: "Install YazSes on Windows for offline speech-to-text: pipx install
    *"Microsoft Defender SmartScreen prevented an unrecognized app from starting."*
    Click **More info** → **Run anyway**.
    You only need to do this once per version.
-4. The installer puts YazSes into your user folder (`%USERPROFILE%\YazSes`)
-   so you don't need administrator rights. Pick the optional tasks:
+4. The installer puts YazSes into your per-user programs folder
+   (`%LOCALAPPDATA%\Programs\YazSes`) and adds it to your PATH, so you don't
+   need administrator rights. Pick the optional tasks:
    - **Start YazSes automatically when I sign in** — enables the autostart
      toggle (recommended).
    - **Create a desktop shortcut** — off by default; tick if you want one.
@@ -75,15 +76,29 @@ Settings → Privacy & Security → Microphone → "Let desktop apps access your
 
 ## Verify with the CLI
 
-The installer also exposes the CLI:
+The installer puts `yazses` on your PATH, so the CLI works from any shell:
 
 ```powershell
-& "$env:USERPROFILE\YazSes\YazSes.exe" --cli doctor
-& "$env:USERPROFILE\YazSes\YazSes.exe" --cli status
+yazses doctor     # check prerequisites, config, model, daemon state
+yazses status     # query the running daemon
+yazses verify     # run the real capture → transcribe → inject chain
 ```
 
-Add `$env:USERPROFILE\YazSes` to your PATH if you want plain `YazSes`
-to work in any shell.
+Open a **new** terminal after installing — an already-open one still has the
+old PATH.
+
+The bundle contains two executables, and the difference matters:
+
+| Binary | Subsystem | Use |
+|---|---|---|
+| `YazSes.exe` | windowed | tray and daemon; no console window flashes |
+| `yazses-cli.exe` | console | the CLI — `yazses` on PATH is a shim to this |
+
+A windowed binary has no console attached, so `YazSes.exe --cli doctor` prints
+nothing at all. Use `yazses` (or `yazses-cli.exe` directly); that is what these
+docs mean everywhere they say `yazses`.
+
+Both live in `%LOCALAPPDATA%\Programs\YazSes`.
 
 ## Troubleshooting
 
@@ -109,8 +124,9 @@ update you may need to re-allow.
 ## Uninstall
 
 Use *Settings → Apps → Installed apps → YazSes → Uninstall*, or run the
-uninstaller from `%USERPROFILE%\YazSes\unins000.exe`. The uninstaller
-also removes the autostart registry entry.
+uninstaller from `%LOCALAPPDATA%\Programs\YazSes\unins000.exe`. The uninstaller
+stops a running daemon, removes the autostart registry entry, and takes its own
+entry back out of your PATH (leaving the rest of PATH untouched).
 
 To clear user data (config, logs, model cache) after uninstalling, also run:
 

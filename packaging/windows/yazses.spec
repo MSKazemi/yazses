@@ -1,8 +1,17 @@
 # PyInstaller spec file for YazSes (Windows).
 #
 # Produces a --onedir bundle at dist/YazSes/ that Inno Setup wraps into a
-# self-contained installer. Single binary dispatches by argv (--tray | --daemon
+# self-contained installer. Both binaries dispatch by argv (--tray | --daemon
 # | --cli); Inno Setup adds shortcuts that pass the right flag.
+#
+# TWO executables share one Analysis (so the ~400 MB of dependencies is
+# collected once):
+#   YazSes.exe      windowed  — tray and daemon; no console window to flash
+#   yazses-cli.exe  console   — the CLI, reachable as `yazses` via a .cmd shim
+#
+# The split is not cosmetic. A GUI-subsystem binary has no stdout attached, so
+# `YazSes.exe --cli doctor` prints nothing whatsoever; every diagnostic command
+# (doctor, verify, status, logs, report) was unreachable on an .exe install.
 #
 # Usage (from repo root, on Windows):
 #     uv run pyinstaller packaging/windows/yazses.spec --clean --noconfirm
@@ -76,8 +85,28 @@ exe = EXE(
     entitlements_file=None,
 )
 
+cli_exe = EXE(
+    pyz,
+    a.scripts,
+    [],
+    exclude_binaries=True,
+    name="yazses-cli",
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=False,
+    console=True,          # console subsystem: the CLI can actually print
+    icon=str(ICON) if ICON.exists() else None,
+    version_file=None,
+    disable_windowed_traceback=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+)
+
 coll = COLLECT(
     exe,
+    cli_exe,
     a.binaries,
     a.zipfiles,
     a.datas,
