@@ -133,9 +133,17 @@ They are deliberately committed as *unshipped* rather than published blind — t
 reason this file has a status table is that this repo already had three manifests that
 looked finished and installed nobody.
 
-⚠️ `scoop/yazses.json` deliberately has **no `autoupdate.hash`**. Releases publish no
-`SHA256SUMS` asset, so pointing at one would 404 and silently break every future update;
-with the key absent, Scoop downloads the new installer and computes the digest itself.
+⚠️ `scoop/yazses.json` deliberately has **no `autoupdate.hash`**. When it was written,
+releases published no `SHA256SUMS` asset, so pointing at one would 404 and silently break
+every future update; with the key absent, Scoop downloads the new installer and computes
+the digest itself.
+
+**That premise changed on 2026-08-13.** PR #262 added `.github/workflows/checksums.yml`,
+which attaches a `SHA256SUMS.txt` to every release. So `autoupdate.hash` *could* now point
+at it — but the manifest has not been changed, deliberately: the first release carrying
+that asset should be observed before a future auto-update is made to depend on it, and
+nothing here has been installed on a real Windows machine yet. Revisit alongside
+[#79](https://github.com/MSKazemi/yazses/issues/79).
 
 ### Nix
 
