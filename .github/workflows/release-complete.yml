@@ -51,6 +51,12 @@ jobs:
       GH_REPO: ${{ github.repository }}
       TAG: ${{ github.event.inputs.tag || github.ref_name }}
     steps:
+      # Needed for scripts/check-release-channels.py. GH_REPO above is still set
+      # explicitly rather than relying on the checkout's remote -- the two are
+      # independent, and an inferred repo is how the checksum job silently
+      # queried nothing for forty minutes.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
       - name: Check gh can reach the repository
         run: |
           set -euo pipefail
@@ -86,40 +92,16 @@ jobs:
             sleep 60
           done
 
-      - name: Report what shipped, and fail if anything did not
+      - name: Report every channel, and fail if any lacks this version
+        # Owner policy, 2026-08-13: maximum coverage -- every channel is checked,
+        # not just the ones CI builds. Some (winget, Chocolatey, Flathub, nixpkgs)
+        # are not published yet, so this step will fail until they are. That is
+        # the intent: a standing, itemised statement of what is still missing,
+        # rather than a green tick that only ever covered four of fourteen.
         run: |
           set -euo pipefail
-          names=$(gh release view "$TAG" --json assets -q '.assets[].name' 2>/dev/null || echo "")
-          pypi=$(curl -s -o /dev/null -w '%{http_code}' \
-            "https://pypi.org/pypi/yazses/$VERSION/json")
-
-          missing=()
-          grep -q '\.deb$' <<<"$names" || missing+=("Linux .deb")
-          grep -q '\.dmg$' <<<"$names" || missing+=("macOS .dmg")
-          grep -q '\.exe$' <<<"$names" || missing+=("Windows .exe")
-          [[ "$pypi" == "200" ]]        || missing+=("PyPI wheel/sdist")
-
-          {
-            echo "## Release completeness — \`$TAG\`"
-            echo
-            echo "| Channel | Published |"
-            echo "|---|---|"
-            for want in '\.deb$:Linux .deb' '\.dmg$:macOS .dmg' '\.exe$:Windows .exe'; do
-              pat="${want%%:*}"; label="${want#*:}"
-              if grep -q "$pat" <<<"$names"; then echo "| $label | ✅ |"; else echo "| $label | ❌ |"; fi
-            done
-            if [[ "$pypi" == "200" ]]; then echo "| PyPI | ✅ |"; else echo "| PyPI | ❌ (HTTP $pypi) |"; fi
-          } >> "$GITHUB_STEP_SUMMARY"
-
-          if (( ${#missing[@]} == 0 )); then
-            echo "Every supported platform published for $TAG."
-            exit 0
-          fi
-
-          joined=$(printf '%s, ' "${missing[@]}"); joined=${joined%, }
-          printf 'MISSING=%s\n' "$joined" >> "$GITHUB_ENV"
-          echo "::error::$TAG is incomplete -- missing: ${missing[*]}"
-          exit 1
+          python3 scripts/check-release-channels.py --version "$VERSION" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Demote an incomplete release so it is not advertised as Latest
         # Runs only when the check above failed.
@@ -145,8 +127,16 @@ jobs:
           fi
           latest=$(gh release view --json tagName -q .tagName 2>/dev/null || echo "")
           if [[ "$TAG" != "$latest" ]]; then
-            echo "::warning::$TAG is incomplete (${MISSING:-unknown}) but is superseded by ${latest:-unknown} -- reporting only, not demoting."
+            echo "::warning::$TAG is incomplete but is superseded by ${latest:-unknown} -- reporting only, not demoting."
+            exit 0
+          fi
+          # Demote only when a CHANNEL CI CONTROLS is missing, i.e. the release is
+          # actually broken for somebody on that OS. An unpublished Flathub or
+          # nixpkgs entry is a gap in reach, not a broken download -- failing the
+          # build says so loudly enough without relabelling a release that works.
+          if python3 scripts/check-release-channels.py --version "$VERSION" --core-only >/dev/null; then
+            echo "::warning::$TAG is missing some distribution channels, but every artifact CI builds is present -- not demoting."
             exit 0
           fi
           gh release edit "$TAG" --prerelease
-          echo "::warning::$TAG marked pre-release because it is missing: ${MISSING:-unknown}"
+          echo "::warning::$TAG marked pre-release -- an artifact CI builds is missing."
