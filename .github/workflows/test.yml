@@ -71,6 +71,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # Tags, not just the commit. The packaging-manifest guards compare
+          # scoop/chocolatey/winget against the latest release *tag*, and with
+          # no tags fetched they hit their "shallow clone" skip and passed
+          # silently -- so the guard meant to stop a stale manifest reaching a
+          # package manager has never once been enforced in CI.
+          fetch-depth: 0
+          filter: tree:0
 
       - name: Install system dependencies (Linux)
         if: runner.os == 'Linux'

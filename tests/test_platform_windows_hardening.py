@@ -559,3 +559,35 @@ def test_released_version_is_unchanged_outside_a_release(monkeypatch):
     monkeypatch.setenv("GITHUB_REF_TYPE", "branch")
     monkeypatch.setenv("GITHUB_REF_NAME", "main")
     assert _released_version() == baseline
+
+
+def test_scoop_bucket_copy_matches_the_packaging_manifest():
+    """`scoop bucket add yazses https://github.com/MSKazemi/yazses` reads
+    bucket/yazses.json. It is a copy of packaging/scoop/yazses.json, and a copy
+    that drifts is worse than no bucket at all: Scoop would serve a version
+    whose checksum no longer matches the asset, failing on every user's machine
+    at once. Scoop Extras requires 100 stars / 50 forks, so this self-hosted
+    bucket is the only Scoop route the project controls.
+    """
+    import json
+
+    root = _repo_root()
+    packaged = json.loads((root / "packaging" / "scoop" / "yazses.json").read_text())
+    served = json.loads((root / "bucket" / "yazses.json").read_text())
+    assert served == packaged, (
+        "bucket/yazses.json drifted from packaging/scoop/yazses.json — copy it over"
+    )
+
+
+def test_scoop_manifest_shims_the_cli():
+    """Without a `bin` entry Scoop installs the tray and shortcuts but no
+    command, and every diagnostic (doctor, verify, status, report) lives in the
+    CLI. The shim must point at the console binary, not the windowed one, which
+    has no stdout to print to."""
+    import json
+
+    m = json.loads((_repo_root() / "packaging" / "scoop" / "yazses.json").read_text())
+    assert "bin" in m, "Scoop users would have no `yazses` command at all"
+    flat = [x for entry in m["bin"] for x in (entry if isinstance(entry, list) else [entry])]
+    assert "yazses-cli.exe" in flat
+    assert "YazSes.exe" not in flat, "the windowed binary cannot print to a console"
