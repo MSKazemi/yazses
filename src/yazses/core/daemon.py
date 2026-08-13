@@ -1148,6 +1148,7 @@ class Daemon:
                     pass  # confidence annotation is best-effort; never break dictation
 
             text = clean_text(text)
+            text = self._correct_vocabulary(text, event)
             event["cleaned_text"] = text
             if not text:
                 event["discard_reason"] = "empty"
@@ -1942,6 +1943,49 @@ class Daemon:
             log.debug("Personal Adapter corpus mining failed; skipping", exc_info=True)
             self._personal_bias = []
         return self._personal_bias
+
+    def _correct_vocabulary(self, text: str, event: dict) -> str:
+        """Restore personal-vocabulary words the recogniser mangled (#73).
+
+        Runs after `clean_text` and before command classification, so a mis-heard
+        command word ("cubernetties") gets a chance to become the real one before
+        the grammar sees it.
+
+        Off unless `[stt] vocab_correction`. Every substitution is logged and
+        recorded on the learning event — silently rewriting what someone said is
+        the thing this must never do.
+        """
+        if not text or not getattr(self._config.stt, "vocab_correction", False):
+            return text
+        try:
+            from yazses.postprocess.vocab_correct import correct
+
+            fixed, changes = correct(text, self._vocabulary_terms())
+        except Exception:
+            log.debug("vocabulary correction failed; leaving text alone", exc_info=True)
+            return text
+        if changes:
+            event["vocab_corrections"] = [(c.heard, c.corrected) for c in changes]
+            log.info("Vocabulary correction: %s",
+                     ", ".join(f"{c.heard!r}->{c.corrected!r}" for c in changes))
+        return fixed
+
+    def _vocabulary_terms(self) -> list:
+        """The user's dictionary terms, as a list rather than a prompt string.
+
+        Same sources `_effective_initial_prompt` primes Whisper with, so the two
+        paths cannot disagree about what the user's vocabulary is.
+        """
+        from yazses.stt.vocabulary import APP_NAME
+        from yazses.system.vocabulary import load_vocab, vocab_path
+
+        # The coined product name is the one term every install shares, and
+        # the one `merge_initial_prompt` always primes — so it belongs here too.
+        words = [APP_NAME]
+        words += load_vocab(vocab_path(self._platform.paths.config_file.parent))
+        raw = os.environ.get("YAZSES_VOCABULARY", "")
+        words += [w.strip() for w in raw.split(",") if w.strip()]
+        return words
 
     def _effective_initial_prompt(self) -> str | None:
         """The STT ``initial_prompt``, biased toward the user (Voiceprint Mind P1).

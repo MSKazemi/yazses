@@ -6,6 +6,68 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the personal dictionary now reaches every engine
+
+`initial_prompt` is a Whisper concept, so with `[stt] engine = "parakeet"` the
+personal dictionary, the built-in name and `[stt] initial_prompt` were all
+silently dropped — switching engines for the speed cost you your only fix for
+names, jargon and code identifiers. `postprocess/vocab_correct.py` recovers
+mis-heard vocabulary **after** decoding, which is engine-agnostic and helps
+Whisper too. Matching is a phonetic key plus an edit-distance guard, with the
+budget scaled by how discriminative the key is.
+
+Most of the work is refusing to fire. Running the corrector over this project's
+own documentation with a control vocabulary that does not occur in it — so any
+change is definitionally a false positive — found three defects before release:
+891 hits rewriting the lowercase command name (a case difference is not a
+mis-hearing, and "run yazses doctor" must not become "run YazSes doctor"); `yazses
+say` read as a mangled "YazSes", deleting the subcommand; and `from this` →
+`Prometheus`, because f and p share a phonetic class. Stopwords may no longer take
+part in a multi-word match, and possessives keep their suffix. OFF by default
+(`[stt] vocab_correction`); every substitution is logged. (#73)
+
+### Added — a third STT engine, and a denoiser that can actually be installed
+
+**Moonshine** (`[stt] engine = "moonshine"`) is built for short segments on CPU,
+which is the shape of hold-to-talk, and needs only `onnxruntime` + `tokenizers` —
+no torch. The adapter absorbs two upstream facts read out of the published wheel:
+`transcribe()` returns a *list* (using it as a string would type `['hello']` into
+your document), and audio must be 2-D and between 0.1 s and 64 s, enforced with
+bare `assert`s. Both bounds are reachable — a key tap is under 0.1 s, a paragraph
+is over 64 s — so short buffers return empty and long ones split on the silence
+gate. (#74)
+
+**Noise suppression** finally has a backend. The seam shipped with only a
+DeepFilterNet adapter, which no environment can satisfy: its latest release
+(2023-08-31) pins `numpy<2.0` against this project's `numpy>=2.4.6`.
+`denoise/spectral.py` (`noisereduce`) has no numpy ceiling and no torch, and is
+now the default. It is weaker than DeepFilterNet and the docs say so — it removes
+steady broadband noise, not a second speaker. (#69)
+
+### Added — gaze calibration that refines itself from ordinary clicks
+
+A click is ground truth for where you were looking. Explicit calibration drifts
+within a session, and every desktop gaze tool answers that with another wizard.
+`gaze/implicit.py` is recursive least squares over the existing affine map —
+the same estimator, updated one sample at a time, so cost per click is constant
+and no history is retained. Guarded on eye-agreement confidence and a residual
+gate, with a forgetting factor so it follows a moved laptop lid; and
+`refined_if_better` only replaces the wizard's map when the candidate wins on
+**held-out** samples, per ADR-014. (#101)
+
+### Fixed — the semantic contract could not tell a dose correction from its inverse
+
+`contract/semantic/invariants.json` promised its flagship case preserved "the
+marker that says which value supersedes the other". It could not: `quantity` is a
+set dimension and `must_preserve` is a subset assertion, so "give him fifty,
+sorry, fifteen milligrams" and its inversion both extract {15, 50} with a
+correction marker and satisfied the invariant identically — while meaning the
+opposite. `must_preserve_relation` pins which value wins, positionally, and the
+inverted sentence is now a case in its own right so the assertion is proven to
+have teeth. Contract 6.1.0 → 6.2.0. Raised by @YossiMH in the #98 review. (#163)
+
+## [Unreleased]
+
 ### Added — an activation source can say *what* it meant, not just *when*
 
 `HotkeyBackend` could express two things: a hold started, a hold ended. That is the

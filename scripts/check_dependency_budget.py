@@ -72,6 +72,7 @@ EXTRA_MODULES: dict[str, tuple[str, ...]] = {
     # daemon-import time. `desktop` and `overlay` are the same dependency under two
     # names -- one states intent, the other names the widget.
     "desktop": ("PySide6",),
+    "denoise": ("noisereduce",),
     "diarization": ("sherpa_onnx",),
     # The alternative diarizer. Mapped by its dotted name rather than the bare
     # `pyannote` namespace, which is shared with pyannote.core/pyannote.database

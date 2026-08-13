@@ -23,9 +23,13 @@ Both answers are live in this build, and the distinction is not hypothetical:
   supply the backend they selected.
 * ``deepfilternet`` has no adapter and **cannot get one**: every release of it caps
   ``numpy<2.0`` while this project requires ``numpy>=2.4.6``, so the two are
-  unresolvable in one environment on any Python version. There is deliberately no
-  ``denoise`` extra, because an extra that can never install is a worse lie than an
-  honest "not implemented in this build". See issue #69.
+  unresolvable in one environment on any Python version (latest release 0.5.6,
+  2023-08-31). Selecting it is still accepted by config and degrades to a
+  passthrough with an honest message — but it is offered **no remedy**, because
+  advising an extra that can never install is a worse lie than "not implemented".
+  The denoise seam is served instead by ``spectral`` (``noisereduce``), which has
+  no numpy ceiling and no torch requirement, so the ``denoise`` extra now exists
+  and points there. See issue #69.
 
 The probe is pure apart from the injected module lookup, so it unit-tests without any
 optional dependency installed.

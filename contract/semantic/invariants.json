@@ -1,7 +1,7 @@
 {
   "layer": "semantic",
   "generated": false,
-  "contract_version": "6.1.0",
+  "contract_version": "6.2.0",
   "pipeline": "dictation",
   "pipeline_description": "The delivered-text chain of the DICTATE path, exactly as core/daemon.py::_on_hold_end runs it, minus injection: clean_text -> disfluency filter -> voice punctuation (only when options.voice_punctuation is true). `expected` is what a HUMAN says the user must receive; it is never read back from the implementation.",
   "semantics": {
@@ -19,9 +19,17 @@
       "options": {},
       "input": "I did not take the medication",
       "expected": "I did not take the medication",
-      "must_preserve": {"polarity": "negative", "actor": ["speaker"]},
+      "must_preserve": {
+        "polarity": "negative",
+        "actor": [
+          "speaker"
+        ]
+      },
       "must_classify_as": "dictate",
-      "minimal_pair": {"partner": "polarity-medication-taken", "differs_in": "polarity"},
+      "minimal_pair": {
+        "partner": "polarity-medication-taken",
+        "differs_in": "polarity"
+      },
       "status": "holds"
     },
     {
@@ -30,9 +38,17 @@
       "options": {},
       "input": "I took the medication",
       "expected": "I took the medication",
-      "must_preserve": {"polarity": "affirmative", "actor": ["speaker"]},
+      "must_preserve": {
+        "polarity": "affirmative",
+        "actor": [
+          "speaker"
+        ]
+      },
       "must_classify_as": "dictate",
-      "minimal_pair": {"partner": "polarity-medication-not-taken", "differs_in": "polarity"},
+      "minimal_pair": {
+        "partner": "polarity-medication-not-taken",
+        "differs_in": "polarity"
+      },
       "status": "holds"
     },
     {
@@ -41,10 +57,27 @@
       "options": {},
       "input": "give her five milligrams",
       "expected": "give her five milligrams",
-      "must_preserve": {"quantity": ["5"], "unit": ["mg"], "actor": ["third-person-female"]},
-      "must_not_acquire": {"quantity": ["50"]},
+      "must_preserve": {
+        "quantity": [
+          "5"
+        ],
+        "unit": [
+          "mg"
+        ],
+        "actor": [
+          "third-person-female"
+        ]
+      },
+      "must_not_acquire": {
+        "quantity": [
+          "50"
+        ]
+      },
       "must_classify_as": "dictate",
-      "minimal_pair": {"partner": "quantity-fifty-milligrams", "differs_in": "quantity"},
+      "minimal_pair": {
+        "partner": "quantity-fifty-milligrams",
+        "differs_in": "quantity"
+      },
       "status": "holds"
     },
     {
@@ -53,10 +86,27 @@
       "options": {},
       "input": "give her fifty milligrams",
       "expected": "give her fifty milligrams",
-      "must_preserve": {"quantity": ["50"], "unit": ["mg"], "actor": ["third-person-female"]},
-      "must_not_acquire": {"quantity": ["5"]},
+      "must_preserve": {
+        "quantity": [
+          "50"
+        ],
+        "unit": [
+          "mg"
+        ],
+        "actor": [
+          "third-person-female"
+        ]
+      },
+      "must_not_acquire": {
+        "quantity": [
+          "5"
+        ]
+      },
       "must_classify_as": "dictate",
-      "minimal_pair": {"partner": "quantity-five-milligrams", "differs_in": "quantity"},
+      "minimal_pair": {
+        "partner": "quantity-five-milligrams",
+        "differs_in": "quantity"
+      },
       "status": "holds"
     },
     {
@@ -65,9 +115,17 @@
       "options": {},
       "input": "the patient is in pain now",
       "expected": "the patient is in pain now",
-      "must_preserve": {"time": "present", "actor": ["patient"]},
+      "must_preserve": {
+        "time": "present",
+        "actor": [
+          "patient"
+        ]
+      },
       "must_classify_as": "dictate",
-      "minimal_pair": {"partner": "time-pain-yesterday", "differs_in": "time"},
+      "minimal_pair": {
+        "partner": "time-pain-yesterday",
+        "differs_in": "time"
+      },
       "status": "holds"
     },
     {
@@ -76,9 +134,17 @@
       "options": {},
       "input": "the patient was in pain yesterday",
       "expected": "the patient was in pain yesterday",
-      "must_preserve": {"time": "past", "actor": ["patient"]},
+      "must_preserve": {
+        "time": "past",
+        "actor": [
+          "patient"
+        ]
+      },
       "must_classify_as": "dictate",
-      "minimal_pair": {"partner": "time-pain-now", "differs_in": "time"},
+      "minimal_pair": {
+        "partner": "time-pain-now",
+        "differs_in": "time"
+      },
       "status": "holds"
     },
     {
@@ -87,9 +153,17 @@
       "options": {},
       "input": "I am sure this happened",
       "expected": "I am sure this happened",
-      "must_preserve": {"certainty": "definite", "actor": ["speaker"]},
+      "must_preserve": {
+        "certainty": "definite",
+        "actor": [
+          "speaker"
+        ]
+      },
       "must_classify_as": "dictate",
-      "minimal_pair": {"partner": "certainty-not-sure-it-happened", "differs_in": "certainty"},
+      "minimal_pair": {
+        "partner": "certainty-not-sure-it-happened",
+        "differs_in": "certainty"
+      },
       "status": "holds"
     },
     {
@@ -98,23 +172,76 @@
       "options": {},
       "input": "I am not sure this happened",
       "expected": "I am not sure this happened",
-      "must_preserve": {"certainty": "hedged", "actor": ["speaker"]},
+      "must_preserve": {
+        "certainty": "hedged",
+        "actor": [
+          "speaker"
+        ]
+      },
       "must_classify_as": "dictate",
-      "minimal_pair": {"partner": "certainty-sure-it-happened", "differs_in": "certainty"},
+      "minimal_pair": {
+        "partner": "certainty-sure-it-happened",
+        "differs_in": "certainty"
+      },
       "status": "holds"
     },
     {
       "id": "self-correction-keeps-corrected-dose",
-      "description": "The flagship case from the design review (issue #98): a spoken correction must not merely match desktop rollback behaviour, it must leave the CORRECTED quantity, its unit, and the marker that says which value supersedes the other.",
+      "description": "The flagship case from the design review (issue #98): a spoken correction must not merely match desktop rollback behaviour, it must leave the CORRECTED quantity, its unit, and the marker that says which value supersedes the other — the last of which is asserted by `must_preserve_relation`, because a subset check cannot express order (#163).",
       "options": {},
       "input": "give him fifty, sorry, fifteen milligrams",
       "expected": "give him fifty, sorry, fifteen milligrams",
       "must_preserve": {
-        "quantity": ["15"],
-        "unit": ["mg"],
+        "quantity": [
+          "15"
+        ],
+        "unit": [
+          "mg"
+        ],
         "correction_marker": "present",
-        "actor": ["third-person-male"]
+        "actor": [
+          "third-person-male"
+        ]
       },
+      "must_classify_as": "dictate",
+      "status": "holds",
+      "must_preserve_relation": [
+        {
+          "dimension": "quantity",
+          "relation": "supersedes",
+          "value": "15",
+          "over": "50",
+          "why": "`quantity` is a set dimension and `must_preserve` is a subset assertion, so {15, 50} satisfies it for this sentence AND for its inversion, which means the opposite. This pins which value wins."
+        }
+      ]
+    },
+    {
+      "id": "self-correction-inverted-dose-is-a-different-instruction",
+      "description": "The minimal pair for `self-correction-keeps-corrected-dose`. Same words, same extracted quantity set {15, 50}, same correction marker — and the opposite instruction. It exists to prove the relation assertion has teeth: it satisfies every `must_preserve` of the flagship case, so before #163 the two were indistinguishable to this contract.",
+      "options": {},
+      "input": "give him fifteen, sorry, fifty milligrams",
+      "expected": "give him fifteen, sorry, fifty milligrams",
+      "must_preserve": {
+        "quantity": [
+          "50"
+        ],
+        "unit": [
+          "mg"
+        ],
+        "correction_marker": "present",
+        "actor": [
+          "third-person-male"
+        ]
+      },
+      "must_preserve_relation": [
+        {
+          "dimension": "quantity",
+          "relation": "supersedes",
+          "value": "50",
+          "over": "15",
+          "why": "The mirror of the flagship case: here 50 is the corrected value."
+        }
+      ],
       "must_classify_as": "dictate",
       "status": "holds"
     },
@@ -124,9 +251,15 @@
       "options": {},
       "input": "do not stop the infusion",
       "expected": "do not stop the infusion",
-      "must_preserve": {"request_or_refusal": "refusal", "polarity": "negative"},
+      "must_preserve": {
+        "request_or_refusal": "refusal",
+        "polarity": "negative"
+      },
       "must_classify_as": "dictate",
-      "minimal_pair": {"partner": "request-stop-infusion", "differs_in": "request_or_refusal"},
+      "minimal_pair": {
+        "partner": "request-stop-infusion",
+        "differs_in": "request_or_refusal"
+      },
       "status": "holds"
     },
     {
@@ -135,9 +268,15 @@
       "options": {},
       "input": "stop the infusion",
       "expected": "stop the infusion",
-      "must_preserve": {"request_or_refusal": "request", "polarity": "affirmative"},
+      "must_preserve": {
+        "request_or_refusal": "request",
+        "polarity": "affirmative"
+      },
       "must_classify_as": "dictate",
-      "minimal_pair": {"partner": "refusal-do-not-stop-infusion", "differs_in": "request_or_refusal"},
+      "minimal_pair": {
+        "partner": "refusal-do-not-stop-infusion",
+        "differs_in": "request_or_refusal"
+      },
       "status": "holds"
     },
     {
@@ -146,10 +285,22 @@
       "options": {},
       "input": "the patient refused the transfusion",
       "expected": "the patient refused the transfusion",
-      "must_preserve": {"actor": ["patient"], "polarity": "negative"},
-      "must_not_acquire": {"actor": ["caregiver"]},
+      "must_preserve": {
+        "actor": [
+          "patient"
+        ],
+        "polarity": "negative"
+      },
+      "must_not_acquire": {
+        "actor": [
+          "caregiver"
+        ]
+      },
       "must_classify_as": "dictate",
-      "minimal_pair": {"partner": "actor-caregiver-refused", "differs_in": "actor"},
+      "minimal_pair": {
+        "partner": "actor-caregiver-refused",
+        "differs_in": "actor"
+      },
       "status": "holds"
     },
     {
@@ -158,10 +309,22 @@
       "options": {},
       "input": "the caregiver refused the transfusion",
       "expected": "the caregiver refused the transfusion",
-      "must_preserve": {"actor": ["caregiver"], "polarity": "negative"},
-      "must_not_acquire": {"actor": ["patient"]},
+      "must_preserve": {
+        "actor": [
+          "caregiver"
+        ],
+        "polarity": "negative"
+      },
+      "must_not_acquire": {
+        "actor": [
+          "patient"
+        ]
+      },
       "must_classify_as": "dictate",
-      "minimal_pair": {"partner": "actor-patient-refused", "differs_in": "actor"},
+      "minimal_pair": {
+        "partner": "actor-patient-refused",
+        "differs_in": "actor"
+      },
       "status": "holds"
     },
     {
@@ -170,9 +333,17 @@
       "options": {},
       "input": "she is stable",
       "expected": "she is stable",
-      "must_preserve": {"certainty": "definite", "actor": ["third-person-female"]},
+      "must_preserve": {
+        "certainty": "definite",
+        "actor": [
+          "third-person-female"
+        ]
+      },
       "must_classify_as": "dictate",
-      "minimal_pair": {"partner": "hedge-sort-of-stable", "differs_in": "certainty"},
+      "minimal_pair": {
+        "partner": "hedge-sort-of-stable",
+        "differs_in": "certainty"
+      },
       "status": "holds"
     },
     {
@@ -181,9 +352,17 @@
       "options": {},
       "input": "she is sort of stable",
       "expected": "she is sort of stable",
-      "must_preserve": {"certainty": "hedged", "actor": ["third-person-female"]},
+      "must_preserve": {
+        "certainty": "hedged",
+        "actor": [
+          "third-person-female"
+        ]
+      },
       "must_classify_as": "dictate",
-      "minimal_pair": {"partner": "certainty-definite-stable", "differs_in": "certainty"},
+      "minimal_pair": {
+        "partner": "certainty-definite-stable",
+        "differs_in": "certainty"
+      },
       "status": "holds"
     },
     {
@@ -192,7 +371,10 @@
       "options": {},
       "input": "that dose is not right",
       "expected": "that dose is not right",
-      "must_preserve": {"assessment": "correct", "polarity": "negative"},
+      "must_preserve": {
+        "assessment": "correct",
+        "polarity": "negative"
+      },
       "must_classify_as": "dictate",
       "status": "holds"
     },
@@ -202,7 +384,15 @@
       "options": {},
       "input": "the wound is like two centimetres across",
       "expected": "the wound is like two centimetres across",
-      "must_preserve": {"certainty": "hedged", "quantity": ["2"], "unit": ["cm"]},
+      "must_preserve": {
+        "certainty": "hedged",
+        "quantity": [
+          "2"
+        ],
+        "unit": [
+          "cm"
+        ]
+      },
       "must_classify_as": "dictate",
       "status": "holds"
     },
@@ -212,7 +402,12 @@
       "options": {},
       "input": "she said no, actually she said yes",
       "expected": "she said no, actually she said yes",
-      "must_preserve": {"correction_marker": "present", "actor": ["third-person-female"]},
+      "must_preserve": {
+        "correction_marker": "present",
+        "actor": [
+          "third-person-female"
+        ]
+      },
       "must_classify_as": "dictate",
       "status": "holds"
     },
@@ -222,7 +417,13 @@
       "options": {},
       "input": "he took it like an hour ago",
       "expected": "he took it like an hour ago",
-      "must_preserve": {"certainty": "hedged", "time": "past", "unit": ["hour"]},
+      "must_preserve": {
+        "certainty": "hedged",
+        "time": "past",
+        "unit": [
+          "hour"
+        ]
+      },
       "must_classify_as": "dictate",
       "status": "holds"
     }

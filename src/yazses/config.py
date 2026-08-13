@@ -215,6 +215,12 @@ class TtsConfig:
     KittenTTS (Apache-2.0); GPL Piper fork and XTTS are excluded. The TTS deps live
     in the optional ``tts`` extra (kokoro-onnx, onnxruntime, soundfile).
     """
+    # Recover personal-vocabulary words the recogniser mis-heard, after decoding
+    # (#73). `initial_prompt` is Whisper-only, so with `engine = "parakeet"` the
+    # personal dictionary is otherwise ignored entirely — this is engine-agnostic
+    # and helps Whisper too. OFF by default: it rewrites transcribed text, and
+    # that is a thing a user should switch on knowingly.
+    vocab_correction: bool = False
     enabled: bool = False
     engine: str = "kokoro"            # kokoro | melo | kitten
     voice: str = "default"
@@ -691,7 +697,10 @@ class DenoiseConfig:
     extra. OFF by default.
     """
     enabled: bool = False
-    backend: str = "deepfilternet"   # deepfilternet | none
+    # `spectral` is the only backend that can be installed: deepfilternet
+    # pins numpy<2.0 against this project's numpy>=2.4.6 (#69), so it is
+    # kept as a name the config accepts but nothing can supply.
+    backend: str = "spectral"   # spectral | deepfilternet | none
     strength: float = 1.0            # graded suppression (higher = more aggressive)
 
 

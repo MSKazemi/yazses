@@ -62,6 +62,47 @@ is a remote control.
 <figcaption>The whole system in six bands. Everything above the last band runs today; the last band is designed and deliberately absent.</figcaption>
 </figure>
 
+**Gaze calibration refines itself.** `gaze/implicit.py` treats a mouse click as
+ground truth for where the user was looking and folds it into the existing affine
+map with recursive least squares — the same estimator `fit_calibration` uses,
+updated one sample at a time, so cost per click is constant and no sample history
+is kept. It is gated on eye-agreement confidence and a residual bound, carries a
+forgetting factor so it tracks a moved laptop lid rather than averaging both
+positions, and `refined_if_better` only replaces the wizard's map when the
+candidate wins on **held-out** samples (ADR-014's rule). Capture stays opt-in and
+on-device per ADR-011/012; the module itself opens no camera and listens for no
+clicks, which is why it is testable without a desktop.
+
+**Three STT engines now sit behind one seam.** `faster-whisper` (default),
+`parakeet` (accuracy), and `moonshine` (#74 — built for short segments on CPU,
+which is the shape of hold-to-talk, and needs only `onnxruntime` + `tokenizers`,
+so it installs without torch). `stt/factory.py` selects on `[stt] engine` and
+falls back to faster-whisper with a warning whenever an engine's optional
+dependency is absent or its model fails to load — dictation always comes up.
+
+Neither Parakeet nor Moonshine supports `initial_prompt`, so the personal
+dictionary reaches them a different way: `postprocess/vocab_correct.py` (#73)
+recovers mis-heard vocabulary *after* decoding, which is why it was built
+engine-agnostic rather than as a Whisper prompt trick.
+
+Moonshine carries a hard upstream constraint the adapter absorbs rather than
+propagates: audio must be 2-D and between 0.1 s and 64 s, enforced with bare
+`assert`s. Both bounds are reachable — a stray key tap is under 0.1 s, a dictated
+paragraph is over 64 s — so short buffers return empty and long ones are split on
+the silence gate, instead of an `AssertionError` surfacing as a crash.
+
+**Noise suppression has a backend that can be installed.** The denoise seam
+(ADR-v2-015) shipped with only a `deepfilternet` adapter, which no environment can
+satisfy: its latest release pins `numpy<2.0` while this project needs
+`numpy>=2.4.6`, and those ranges are disjoint on every Python version — so the
+feature was designed, wired and permanently unusable. `denoise/spectral.py`
+(spectral gating over `noisereduce`) is the installable backend and the new
+default. It is weaker than DeepFilterNet and the docs say so: it removes steady
+broadband noise — fans, air conditioning, road hum — and does little against a
+second speaker, which is the Cocktail Filter's job. Selecting `deepfilternet`
+still parses and degrades to a passthrough, with no remedy offered, because
+advising an extra that can never install is worse than saying "unavailable".
+
 The control plane never touches the pipeline — the CLI, the settings window and
 the tray all speak to the daemon over the same JSON-RPC channel, which is why
 `yazses status` reports the truth rather than a guess, and why the tray can be
