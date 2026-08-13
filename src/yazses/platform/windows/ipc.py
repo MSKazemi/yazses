@@ -43,6 +43,14 @@ def _pipe_name_from_path(path: Path) -> str:
     return rf"\\.\pipe\yazses-{user}-{stem}"
 
 
+def _close_quietly(win32file, handle) -> None:  # noqa: ANN001
+    """Close a pipe handle, swallowing errors. Used on cleanup paths."""
+    try:
+        win32file.CloseHandle(handle)
+    except Exception:  # pragma: no cover - best effort cleanup
+        log.debug("CloseHandle failed", exc_info=True)
+
+
 class NamedPipeIpcServer:
     """JSON-RPC server bound to a Windows named pipe."""
 
@@ -83,24 +91,41 @@ class NamedPipeIpcServer:
 
     def _accept_loop(self) -> None:
         import pywintypes  # type: ignore[import-not-found]
+        import win32file  # type: ignore[import-not-found]
         import win32pipe  # type: ignore[import-not-found]
 
         while not self._stop.is_set():
-            handle = win32pipe.CreateNamedPipe(
-                self._pipe_name,
-                win32pipe.PIPE_ACCESS_DUPLEX,
-                win32pipe.PIPE_TYPE_BYTE
-                | win32pipe.PIPE_READMODE_BYTE
-                | win32pipe.PIPE_WAIT,
-                self._MAX_INSTANCES,
-                self._PIPE_BUFFER,
-                self._PIPE_BUFFER,
-                0,
-                None,
-            )
+            try:
+                handle = win32pipe.CreateNamedPipe(
+                    self._pipe_name,
+                    win32pipe.PIPE_ACCESS_DUPLEX,
+                    win32pipe.PIPE_TYPE_BYTE
+                    | win32pipe.PIPE_READMODE_BYTE
+                    | win32pipe.PIPE_WAIT,
+                    self._MAX_INSTANCES,
+                    self._PIPE_BUFFER,
+                    self._PIPE_BUFFER,
+                    0,
+                    None,
+                )
+            except pywintypes.error as exc:
+                # Every instance busy, or the name is taken. Backing off beats
+                # spinning the CPU, and returning would kill IPC for good.
+                if self._stop.is_set():
+                    break
+                log.warning("CreateNamedPipe failed: %s; retrying", exc)
+                self._stop.wait(0.5)
+                continue
+
             try:
                 win32pipe.ConnectNamedPipe(handle, None)
             except pywintypes.error:
+                # The handle must be closed on this path. Leaking it consumed
+                # one of _MAX_INSTANCES (8) permanently, so eight failed
+                # accepts — a client that connects and vanishes is enough —
+                # left CreateNamedPipe failing forever and the daemon
+                # unreachable until restarted.
+                _close_quietly(win32file, handle)
                 if self._stop.is_set():
                     break
                 continue
@@ -201,10 +226,29 @@ class NamedPipeIpcClient:
             return False
 
     def call(self, method: str, **params: Any) -> Any:
+        """Send one request and read one response, bounded by ``timeout_s``.
+
+        The timeout is not decoration: the Unix client applies it with
+        ``sock.settimeout`` (``ipc/client.py``), but this one merely *stored*
+        it, so a blocking-mode named pipe left ``yazses status``/``stop``
+        waiting forever on a daemon that was alive but wedged — the one
+        situation where the user most needs the CLI to answer.
+
+        A byte-mode pipe has no per-operation timeout, so the exchange runs on
+        a worker thread and the handle is closed on expiry, which unblocks the
+        pending ``ReadFile``.
+        """
         import pywintypes  # type: ignore[import-not-found]
         import win32file  # type: ignore[import-not-found]
+        import win32pipe  # type: ignore[import-not-found]
 
         request = Request(method=method, params=params, id=1)
+        # Bound the connect, too — CreateFile on a pipe whose instances are all
+        # busy blocks until one frees up.
+        try:
+            win32pipe.WaitNamedPipe(self._pipe_name, max(1, int(self._timeout_s * 1000)))
+        except pywintypes.error as exc:
+            raise IpcUnreachableError(self._pipe_name, cause=exc) from exc
         try:
             handle = win32file.CreateFile(
                 self._pipe_name,
@@ -217,20 +261,36 @@ class NamedPipeIpcClient:
             )
         except pywintypes.error as exc:
             raise IpcUnreachableError(self._pipe_name, cause=exc) from exc
-        try:
-            win32file.WriteFile(handle, request.to_json().encode("utf-8") + b"\n")
-            buf = bytearray()
-            while b"\n" not in buf:
-                _, chunk = win32file.ReadFile(handle, 4096)
-                if not chunk:
-                    break
-                buf.extend(chunk)
-        finally:
+
+        outcome: dict[str, Any] = {}
+
+        def _exchange() -> None:
             try:
-                win32file.CloseHandle(handle)
-            except Exception:
-                pass
-        line, _, _ = bytes(buf).partition(b"\n")
+                win32file.WriteFile(handle, request.to_json().encode("utf-8") + b"\n")
+                buf = bytearray()
+                while b"\n" not in buf:
+                    _, chunk = win32file.ReadFile(handle, 4096)
+                    if not chunk:
+                        break
+                    buf.extend(chunk)
+                outcome["buf"] = bytes(buf)
+            except BaseException as exc:  # noqa: BLE001 - relayed to the caller
+                outcome["exc"] = exc
+
+        worker = threading.Thread(target=_exchange, name="ipc-call", daemon=True)
+        worker.start()
+        worker.join(self._timeout_s)
+        timed_out = worker.is_alive()
+        _close_quietly(win32file, handle)
+        if timed_out:
+            raise IpcUnreachableError(
+                self._pipe_name,
+                cause=TimeoutError(f"no response within {self._timeout_s}s"),
+            )
+        if "exc" in outcome:
+            raise IpcUnreachableError(self._pipe_name, cause=outcome["exc"])
+
+        line, _, _ = bytes(outcome.get("buf", b"")).partition(b"\n")
         response = Response.from_json(line.decode("utf-8"))
         if response.error is not None:
             raise IpcCallError(response.error)

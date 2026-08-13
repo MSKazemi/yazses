@@ -4,7 +4,7 @@ Per-channel packaging artefacts. **Read this when you want to publish to a
 new distribution channel** — the build scripts in `../scripts/` use the
 files here as inputs.
 
-## ⚠ Channel status — read this first (audited 2026-08-11)
+## ⚠ Channel status — read this first (audited 2026-08-11; manifest versions re-synced 2026-08-13)
 
 **A manifest living in this directory installs nobody.** It has to be published to the
 registry. Every channel below was checked live on 2026-08-11:
@@ -16,7 +16,7 @@ registry. Every channel below was checked live on 2026-08-11:
 | APT repo | ✅ live | `../scripts/update-apt-repo.sh` | signed |
 | GitHub Releases | ✅ live | — | `.dmg`, `.exe`, `.deb` |
 | **Homebrew** | ❌ **404** | `homebrew/yazses.rb` | cask is **current (2.17.0, real sha)** — needs a tap repo ([#6](https://github.com/MSKazemi/yazses/issues/6)) |
-| **winget** | ❌ **404** | `winget/…/2.17.0/` | manifests are **current (real sha)** — needs a PR to `microsoft/winget-pkgs` ([#78](https://github.com/MSKazemi/yazses/issues/78)) |
+| **winget** | ❌ **404** | `winget/…/2.18.0/` | manifests are **current (2.18.0, real sha)** — needs a PR to `microsoft/winget-pkgs` ([#78](https://github.com/MSKazemi/yazses/issues/78)) |
 | **AUR** | ❌ **404** | `arch/PKGBUILD` | ⚠ stale at `pkgver=0.4.0`, `sha256sums=SKIP` ([#67](https://github.com/MSKazemi/yazses/issues/67)) |
 | **Flathub** | ❌ not found | — | nothing built yet ([#45](https://github.com/MSKazemi/yazses/issues/45)) |
 | **Nix** | ❌ 0 hits | `../flake.nix` | authored; **every nixpkgs attribute verified to exist**, but ⚠ **never evaluated** (no Nix here) ([#68](https://github.com/MSKazemi/yazses/issues/68)) |

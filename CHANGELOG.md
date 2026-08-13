@@ -4,6 +4,52 @@ All notable changes to YazSes are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed — Windows: hold-to-talk, command keys, and the liveness probe that killed the daemon
+
+Eleven defects in `platform/windows/`, found by audit and each pinned by a regression test.
+Three of them meant core features could never have worked on Windows:
+
+- **`yazses status` terminated the daemon.** `is_running()` used `os.kill(pid, 0)` as a
+  liveness probe. That is the POSIX idiom; on Windows CPython's `os.kill` has no signal
+  semantics and falls through to `TerminateProcess(handle, sig)`, so signal 0 *kills the
+  process* with exit code 0 ([bpo-14480](https://bugs.python.org/issue14480)). `status`,
+  `doctor` and the tray's poll loop all reach it. Replaced with `OpenProcess` +
+  `GetExitCodeProcess`.
+- **Hold-to-talk never started.** The hold threshold was only re-checked when another key
+  event arrived, which assumes typematic auto-repeat. Modifier keys — every supported hotkey
+  except `space` — do not repeat, so with the default `right_ctrl` the single keydown landed
+  at t=0 and the next event was the keyup. The threshold is now driven by a timer, as in the
+  X11 backend, so it means what it says on every key (and is no longer silently replaced by
+  the user's repeat-delay setting on `space`).
+- **Every named command key was a no-op.** The VK table was keyed capitalised
+  (`"Return"`) but looked up lower-cased, so `Return`, `Tab`, `Escape`, `BackSpace` and the
+  arrows all resolved to `vk=0` — a keystroke Windows accepts and discards. `Home`, `End`,
+  `Page_Up` and `Page_Down` were missing from the table entirely. Unknown keys now log and
+  skip instead of injecting `vk=0`, and a contract test walks the dispatcher's real key
+  tables so a future binding Windows cannot express fails in CI.
+
+Also fixed: 64-bit handle truncation (`SetWindowsHookExW`/`GetModuleHandleW` had no
+`restype`, so ctypes truncated their pointers to `int`); `ctypes.get_last_error()` read off a
+library opened without `use_last_error`, so every "lastError=…" reported 0; a named-pipe
+handle leak that permanently consumed one of eight instances per failed accept and left IPC
+dead after eight; the IPC client storing `timeout_s` and never applying it, so the CLI hung
+forever on a wedged daemon where the Unix client times out; an autostart value written
+unquoted and without `--tray`, which broke on any username containing a space and overwrote
+the installer's correct value; and a recycled-PID guard that matched `"python"` anywhere in
+the `tasklist` row, including window titles.
+
+### Fixed — Windows packaging manifests no longer ship a release behind
+
+`scoop`, `chocolatey` and `winget` pin a version and a SHA256 by hand and nothing in the
+release pipeline touches them, so they sat at 2.17.0 — carrying the *previous* release's
+checksum — after 2.18.0 shipped. Bumped to 2.18.0 against the real published asset
+(`YazSes-2.18.0-windows-x64.exe`, sha256 `d5d78e9d…646a`, verified by download), and guarded
+by tests that check every manifest against `pyproject.toml` and cross-check the two channels'
+checksums against each other. `installer.iss` was already correct — it reads
+`YAZSES_VERSION` from the build script.
+
 ## [2.18.0] - 2026-08-13
 
 ### Changed — Qt is the `desktop` extra now, and a headless install is ~650 MB lighter

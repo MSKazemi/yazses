@@ -6,8 +6,8 @@
 # The sha256 below was computed from the released asset itself:
 #   gh release download v2.17.0 -p 'YazSes-2.17.0.dmg' && sha256sum YazSes-2.17.0.dmg
 cask "yazses" do
-  version "2.17.0"
-  sha256 "24d0bc187d669eb0c885b6f4d9ac923a5480a15bd2072ddbe999655aacbaad34"
+  version "2.18.0"
+  sha256 "ef33405e19eb4fbe7c1ba1ffc02554d432288517354963cbe886cc7e41880370"
 
   url "https://github.com/MSKazemi/yazses/releases/download/v#{version}/YazSes-#{version}.dmg",
       verified: "github.com/MSKazemi/yazses/"

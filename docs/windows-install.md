@@ -102,6 +102,14 @@ those remappers.
 unsigned apps as new identities each time their hash changes. After every
 update you may need to re-allow.
 
+**"Dictation works everywhere except in one app."** If that app runs as
+administrator (Task Manager, an elevated PowerShell, some installers and
+enterprise tools), Windows blocks input sent to it from a non-elevated
+process — User Interface Privilege Isolation, a security boundary, not a
+bug. The daemon logs `SendInput sent 0/N events (lastError=5)` when this
+happens. Run YazSes elevated too if you need to dictate into elevated
+windows; otherwise leave it unelevated, which is the safer default.
+
 **"Tray icon is missing."** Windows may be hiding it under the chevron
 (`^`) at the left of the tray. Drag it out, or right-click the taskbar →
 **Taskbar settings** → **Other system tray icons** → flip on.
