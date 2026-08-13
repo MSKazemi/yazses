@@ -4,7 +4,30 @@ All notable changes to YazSes are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.18.0] - 2026-08-13
+
+### Changed — Qt is the `desktop` extra now, and a headless install is ~650 MB lighter
+
+A `uv tool install` was **1.1 GB**, and **648 MB of it — 59% — was PySide6**, present for
+exactly two features: the voice-activity overlay and the system tray. Every install that
+could never display either paid the full price — servers, containers, CI, and anyone who
+only runs `yazses transcribe`, which does not import it at all.
+
+**Nothing regresses for a desktop user.** `install.sh`, the `.deb` and the Snap all pull the
+`desktop` extra, so the tray and the overlay appear exactly as before; `yazses features
+enable tray|overlay` fetches Qt afterwards for anyone who changes their mind later. Base
+dependencies go 17 → 16.
+
+Two ways this could have broken people, both closed and both pinned by tests. The Snap never
+staged PySide6 — it arrived as a base dependency — and a snap can **never** pip-install at
+runtime (read-only squashfs plus PEP 668), so shipping this without adding it to
+`python-packages` would have removed both features for the life of the revision,
+unrecoverably. And `tray` was missing from `_FEATURE_DEPS`, so enabling the tray on a
+headless install could not have fetched its own dependency.
+
+The dependency-budget gate rejected the new extra for being unmapped, which was correct — an
+unmapped extra is enforced by nothing. Mapping it exposed that the `overlay` and `parakeet`
+exemptions both still read "already ships in the base install", which is now false for both.
 
 ### Added — Russian README, and the badge guard that should already have covered it
 

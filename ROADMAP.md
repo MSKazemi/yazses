@@ -11,13 +11,15 @@
 
 ## Current frontier — Waves F–O (all OFF by default)
 
-**Stable release: v2.17.0**, published on PyPI, GitHub Releases, Snap, and the APT repo, with
+**Stable release: v2.18.0**, published on PyPI, GitHub Releases, Snap, and the APT repo, with
 Windows `.exe`, macOS `.dmg`, and Debian `.deb` installers attached to the GitHub release (all
 release workflows fire on `v*` tags). The v2 line is delivered as a long series of research
 waves, each a fresh state-of-the-art sweep → ADRs → pure, 100%-covered, off-by-default cores.
 
-As of `v2.17.0`: **141 capabilities (68 wired / 72 honestly marked "planned")**, **2568 tests
-green**, ADRs `adr-v2-001..129`, and the per-wave state-of-the-art research notes.
+As of `v2.18.0`: **141 capabilities (74 wired / 67 honestly marked "planned")**, **2950 tests
+green**, ADRs `adr-v2-001..129`, and the per-wave state-of-the-art research notes. The counts
+come from the feature registry (`yazses.system.features`), not from counting by hand — they
+had gone stale on three of four numbers, each one understating what had actually shipped.
 
 - **Shipped in `v2.14.0` — the perception release** (ADR-v2-129, all opt-in, lazy deps):
   **Parakeet TDT** second STT engine (`yazses features enable stt-parakeet` — beats
@@ -37,7 +39,7 @@ green**, ADRs `adr-v2-001..129`, and the per-wave state-of-the-art research note
   no new dependency), plus optional local-LLM minutes; and **Glance-Type** (`[gaze]`) now fully
   wired and tested on X11 via a light MediaPipe FaceLandmarker backend (in-RAM frames only).
 
-- **Unreleased (core reliability/UX, on by default)** — **Mic-change guard**: dictation no longer
+- **Shipped in `v2.12.0` (core reliability/UX, on by default)** — **Mic-change guard**: dictation no longer
   dies in silence when the OS default input switches (e.g. a USB-C monitor stealing the mic) — a
   silent-discard streak + an idle-only default-device watcher auto-heal capture back to the last-good
   mic and pop an actionable desktop toast; pin a mic by name with `yazses audio use`. And a **Linux
@@ -315,7 +317,7 @@ specs in `design/specs/`). 507 tests.
 Deferred (need real hardware/models): Prosody Phase 2 latency gate, Ghost Ahead
 Phase 0 harness + speculative finalize, and the four model-blocked v2 features
 (Cocktail Filter, Voiceprint Mind, Polyglot Switch, Glance-Type). Read-Back Loop —
-the 6th feature — shipped P1 (see *Unreleased* above).
+the 6th feature — shipped P1 (see the `v2.12.0` bullet above).
 
 ### v0.5.1 — 2026-05-31
 Install reliability + dictation-quality fixes: DISPLAY inheritance for all
