@@ -122,16 +122,31 @@ jobs:
           exit 1
 
       - name: Demote an incomplete release so it is not advertised as Latest
-        # Runs only when the check above failed. A half-published release that
-        # still reads "Latest" is worse than an obviously provisional one: it
-        # sends people to a download that does not exist for their OS. Reverse
-        # with: gh release edit <tag> --prerelease=false --latest
+        # Runs only when the check above failed.
+        #
+        # ONLY the current latest release is demoted. Policy (owner, 2026-08-13):
+        # the newest version must carry every OS package; older ones need not.
+        # A superseded release being incomplete is history, not a live problem --
+        # nobody is directed to it, and rewriting old releases would misrepresent
+        # what was actually published at the time. But a half-published release
+        # that still reads "Latest" sends people to a download that does not
+        # exist for their OS, and that is worth demoting.
+        #
+        # This matters most for workflow_dispatch: running the check over an old
+        # tag should report, never rewrite.
+        #
+        # Reverse with: gh release edit <tag> --prerelease=false --latest
         if: failure()
         run: |
           set -euo pipefail
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release edit "$TAG" --prerelease
-            echo "::warning::$TAG marked pre-release because it is missing: ${MISSING:-unknown}"
-          else
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
             echo "No release exists for $TAG -- nothing to demote."
+            exit 0
           fi
+          latest=$(gh release view --json tagName -q .tagName 2>/dev/null || echo "")
+          if [[ "$TAG" != "$latest" ]]; then
+            echo "::warning::$TAG is incomplete (${MISSING:-unknown}) but is superseded by ${latest:-unknown} -- reporting only, not demoting."
+            exit 0
+          fi
+          gh release edit "$TAG" --prerelease
+          echo "::warning::$TAG marked pre-release because it is missing: ${MISSING:-unknown}"

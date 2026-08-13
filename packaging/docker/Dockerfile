@@ -32,10 +32,12 @@ RUN apt-get update \
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# PySide6 is a base dependency because the voice-activity overlay ships in the
-# default install. The overlay is a desktop feature and cannot run here, so it
-# is excluded to keep the image roughly a gigabyte smaller. Transcription never
-# imports it.
+# PySide6 is no longer a base dependency — v2.18.0 moved Qt into the optional
+# `desktop` extra, which is why a plain install is ~650 MB lighter than it was.
+# Installing plain `yazses` therefore already excludes it and the uninstall below
+# is a no-op kept only as a belt-and-braces guard: if Qt ever returns to the base
+# dependencies it would add roughly a gigabyte to an image that can never display
+# a window. Transcription does not import it.
 RUN pip install --no-cache-dir --upgrade pip \
  && pip install --no-cache-dir "yazses${YAZSES_VERSION:+==$YAZSES_VERSION}" \
  && pip uninstall -y PySide6 PySide6-Addons PySide6-Essentials shiboken6 || true
