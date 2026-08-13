@@ -62,6 +62,15 @@ is a remote control.
 <figcaption>The whole system in six bands. Everything above the last band runs today; the last band is designed and deliberately absent.</figcaption>
 </figure>
 
+**The settings window closes the loop over IPC.** Config is read at daemon
+startup, so a settings app that only writes config leaves the user looking at
+values that are not in effect. After Apply the window offers a restart, runs the
+same path as `yazses restart`, and then polls `status` over IPC until the daemon
+answers — success is defined as the daemon replying, not as a command exiting
+zero, because a daemon that dies while loading a model would otherwise be reported
+as restarted. Declining keeps a persistent "restart pending" hint. Decisions live
+in `settingsui/restart.py` (Qt-free, IPC injected); the dialog is dumb.
+
 **Offline Command Mode rewrites the selection locally.** Select text, hold the
 command key, say "make this shorter" — `commands/rewrite.py` parses the request
 (whole-utterance grammar, so the same words dictated as prose are unaffected),

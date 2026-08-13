@@ -142,6 +142,7 @@ class SettingsWindow:
         # Typed as Any: PySide6 has no stubs in this tree (mypy already ignores
         # its imports repo-wide), so a precise QThread annotation would be an
         # error rather than documentation.
+        self._restart_pending = False
         self._install_thread: Any = None
         self._install_worker: Any = None
         apply_btn.clicked.connect(self._on_apply)
@@ -223,6 +224,81 @@ class SettingsWindow:
         # Off the UI thread: a `mediapipe` or `speechbrain` install takes minutes,
         # and on the main thread that is indistinguishable from a hang.
         self._install_missing(report.missing_packages)
+
+        # Then close the loop: config is read at startup, so until the daemon is
+        # restarted the window is showing settings that are not in effect (#61).
+        if report.applied:
+            self._offer_restart()
+
+    def _offer_restart(self) -> None:
+        """Ask, restart, and report what the daemon actually says afterwards.
+
+        The decision logic is `settingsui/restart.py`; this method only supplies
+        the dialog and the IPC/subprocess effects, so the honest-state rules are
+        unit-tested without Qt.
+        """
+        from yazses.settingsui.restart import apply_and_restart
+
+        outcome = apply_and_restart(
+            is_running=self._daemon_running,
+            confirm=self._confirm_restart,
+            restart=self._run_restart,
+            status=self._daemon_status,
+        )
+        self._hint.setText(outcome.message)
+        self._restart_pending = outcome.needs_restart_hint
+
+    def _confirm_restart(self) -> bool:
+        from PySide6.QtWidgets import QMessageBox
+
+        answer = QMessageBox.question(
+            self._win,
+            "Restart YazSes now?",
+            "Your changes are saved. YazSes reads its configuration at startup, so "
+            "they take effect after a restart.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        return answer == QMessageBox.StandardButton.Yes
+
+    def _daemon_running(self) -> bool:
+        try:
+            from yazses.platform import get_platform
+
+            return bool(get_platform().lifecycle.is_running())
+        except Exception:
+            logging.getLogger(__name__).debug("daemon check failed", exc_info=True)
+            return False
+
+    def _daemon_status(self):
+        try:
+            from yazses.platform import get_platform
+
+            platform = get_platform()
+            return platform.ipc_client_factory(platform.paths.ipc_socket).call("status")
+        except Exception:
+            return None
+
+    @staticmethod
+    def _run_restart() -> tuple[bool, str]:
+        """The same path as `yazses restart`, as a subprocess.
+
+        Shelling out rather than importing the CLI keeps the window out of the
+        daemon's lifecycle: `restart` stops every daemon including detached ones,
+        and doing that in-process from a GUI is how you end up killing yourself.
+        """
+        import subprocess
+        import sys
+
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "yazses.cli", "restart"],
+                capture_output=True, text=True, timeout=90,
+            )
+        except Exception as exc:  # noqa: BLE001 - reported to the user
+            return False, str(exc)
+        if result.returncode != 0:
+            return False, (result.stderr or result.stdout or "").strip()[:200]
+        return True, ""
 
     def _install_missing(self, missing_by_slug) -> None:
         """Start the dependency install for whatever Apply just enabled.

@@ -6,6 +6,23 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the settings window can restart the daemon and prove it came back
+
+Changing a feature writes config, and the daemon reads config at startup — so
+until it restarts, the window is showing settings that are not in effect. The CLI
+answered that by printing "run `yazses restart`", which is exactly the terminal
+round-trip a settings app exists to remove.
+
+Apply now offers a restart, runs the same path as `yazses restart`, and then
+**polls `status` over IPC until the daemon answers** before claiming success. A
+zero exit code is not a running daemon: it still has to load a model, and a
+daemon that dies on startup would otherwise be reported as "Restarted!". Declining
+is a first-class outcome — the window keeps a persistent "takes effect when you
+restart" hint rather than going quiet and letting you believe a setting is live.
+
+All of the decisions are Qt-free in `settingsui/restart.py` with the IPC client
+injected, so the honest-state rules are tested with fakes. (#61)
+
 ### Added — Offline Command Mode: rewrite the selection by voice, locally
 
 Select text anywhere, hold the command key, and say **"make this shorter"**, **"fix
