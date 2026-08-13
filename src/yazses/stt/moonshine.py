@@ -76,33 +76,41 @@ class MoonshineEngine:
     def transcribe(
         self,
         audio: np.ndarray,
-        *,
+        sample_rate: int = _SAMPLE_RATE,
         initial_prompt: str | None = None,
-        language: str | None = None,
+        task: str | None = None,
     ) -> str:
-        """Decode one burst. `initial_prompt`/`language` are not supported."""
+        """Decode one burst. `initial_prompt`/`task` are accepted and ignored.
+
+        The signature matches `SttEngine` exactly — including the positional
+        `sample_rate` and the `task` the daemon always passes — so the call sites
+        need no per-engine branch. Getting this wrong is not a typing nicety: the
+        daemon would have raised on an unexpected keyword at the first dictation.
+        """
         if initial_prompt:
             log.debug("Moonshine ignores initial_prompt; see vocab_correct (#73).")
-        return self._decode(audio)
+        if task and task != "transcribe":
+            log.warning("Moonshine cannot %r; transcribing instead.", task)
+        return self._decode(audio, sample_rate)
 
     def transcribe_words(
         self,
         audio: np.ndarray,
-        *,
+        sample_rate: int = _SAMPLE_RATE,
         initial_prompt: str | None = None,
-        language: str | None = None,
-    ) -> tuple[str, list["Word"]]:
+        task: str | None = None,
+    ) -> "tuple[str, list[Word]]":
         """Text plus per-word timings — which Moonshine does not expose.
 
         Returns an empty word list rather than inventing timings. Callers that
         need them (diarisation alignment, prosody) already treat an empty list as
         "this engine cannot do that" and degrade.
         """
-        return self._decode(audio), []
+        return self._decode(audio, sample_rate), []
 
     def decode_window(self, audio: np.ndarray) -> str:
         """Streaming seam — a window is short by construction, so plain decode."""
-        return self._decode(audio)
+        return self._decode(audio, _SAMPLE_RATE)
 
     # ---- internals -------------------------------------------------------
 
@@ -114,26 +122,26 @@ class MoonshineEngine:
             log.info("Moonshine model %r loaded.", self._model_name)
         return self._model
 
-    def _decode(self, audio: np.ndarray) -> str:
+    def _decode(self, audio: np.ndarray, sample_rate: int = _SAMPLE_RATE) -> str:
         if audio is None or len(audio) == 0:
             return ""
-        seconds = len(audio) / _SAMPLE_RATE
+        seconds = len(audio) / max(1, int(sample_rate))
         if seconds <= MIN_SECONDS:
             # Below upstream's floor there is nothing to decode; asserting would
             # turn "the user tapped the key" into a traceback.
             return ""
         if seconds >= MAX_SECONDS:
-            return self._decode_long(audio)
-        return self._decode_one(audio)
+            return self._decode_long(audio, sample_rate)
+        return self._decode_one(audio, sample_rate)
 
-    def _decode_one(self, audio: np.ndarray) -> str:
+    def _decode_one(self, audio: np.ndarray, sample_rate: int = _SAMPLE_RATE) -> str:
         import moonshine_onnx
 
         waveform = np.asarray(audio, dtype=np.float32).reshape(1, -1)  # [batch, samples]
         result = moonshine_onnx.transcribe(waveform, self._load())
         return _first_text(result)
 
-    def _decode_long(self, audio: np.ndarray) -> str:
+    def _decode_long(self, audio: np.ndarray, sample_rate: int = _SAMPLE_RATE) -> str:
         """Split past upstream's 64 s ceiling and join the pieces.
 
         Cutting on the silence gate rather than on a fixed offset means the seams
@@ -141,8 +149,9 @@ class MoonshineEngine:
         """
         from yazses.audio.vad import is_silent
 
-        chunk = int((MAX_SECONDS - 4.0) * _SAMPLE_RATE)   # leave headroom
-        window = int(0.2 * _SAMPLE_RATE)
+        rate = max(1, int(sample_rate))
+        chunk = int((MAX_SECONDS - 4.0) * rate)   # leave headroom
+        window = int(0.2 * rate)
         pieces: list[str] = []
         start = 0
         while start < len(audio):
@@ -155,7 +164,7 @@ class MoonshineEngine:
                         cut = probe
                         break
                 end = cut
-            text = self._decode_one(audio[start:end])
+            text = self._decode_one(audio[start:end], sample_rate)
             if text:
                 pieces.append(text)
             start = end

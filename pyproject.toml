@@ -300,7 +300,8 @@ files = ["src"]
 [[tool.mypy.overrides]]
 module = [
     "bleak.*", "cv2.*", "df.*", "faster_whisper.*", "kokoro_onnx.*", "l2cs.*",
-    "llama_cpp.*", "mediapipe.*", "opencc.*", "pyannote.*", "pyatspi.*", "pynvim.*",
+    "llama_cpp.*", "mediapipe.*", "moonshine_onnx.*", "noisereduce.*", "opencc.*",
+    "pyannote.*", "pyatspi.*", "pynvim.*",
     "pywintypes.*", "resemblyzer.*", "sherpa_onnx.*", "silero_vad.*", "sounddevice.*",
     "speechbrain.*", "tomli_w.*", "torch.*", "win32file.*", "win32pipe.*", "Xlib.*",
 ]

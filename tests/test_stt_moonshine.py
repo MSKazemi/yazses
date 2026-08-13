@@ -174,3 +174,23 @@ def test_word_timings_are_reported_as_absent_not_invented(fake_moonshine):
     text, words = MoonshineEngine(_Cfg()).transcribe_words(_audio(2))
     assert text == "hello world"
     assert words == [], "Moonshine exposes no timings; inventing them would be worse"
+
+
+def test_the_engine_satisfies_the_SttEngine_protocol_exactly(fake_moonshine):
+    """The daemon passes `sample_rate` positionally and always passes `task`.
+
+    A keyword-only signature type-checks fine in isolation and then raises on the
+    first real dictation — mypy caught this before a user could.
+    """
+    import inspect
+
+    from yazses.stt.base import SttEngine
+
+    engine = MoonshineEngine(_Cfg())
+    for name in ("transcribe", "transcribe_words"):
+        expected = list(inspect.signature(getattr(SttEngine, name)).parameters)
+        actual = list(inspect.signature(getattr(engine, name)).parameters)
+        assert actual == [p for p in expected if p != "self"], f"{name} diverges from the protocol"
+
+    # And the call the daemon actually makes must work.
+    assert engine.transcribe(_audio(2), 16000, "a prompt", "transcribe") == "hello world"

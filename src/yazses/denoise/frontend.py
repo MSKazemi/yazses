@@ -75,10 +75,12 @@ def apply_denoise(audio, config, sample_rate: int = 16000):
         if backend == "spectral":
             # The only backend that can actually install: deepfilternet pins
             # numpy<2.0 against this project's numpy>=2.4.6 (#69).
-            from yazses.denoise.spectral import denoise as _run
-        else:
-            from yazses.denoise.deepfilter import denoise as _run  # lazy heavy import
-        return _run(audio, sample_rate, strength=strength)
+            from yazses.denoise.spectral import denoise as run_spectral
+
+            return run_spectral(audio, sample_rate, strength=strength)
+        from yazses.denoise.deepfilter import denoise as run_deepfilter  # lazy heavy
+
+        return run_deepfilter(audio, sample_rate, strength=strength)
     except Exception as exc:
         _warn_unavailable_once(backend, exc)
         return audio  # passthrough on any failure — never break dictation
