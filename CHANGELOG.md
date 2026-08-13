@@ -6,6 +6,21 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Russian README, and the badge guard that should already have covered it
+
+`README.ru.md` (lede, three-things, Quick Start — modules 1–2 of
+[`i18n/modules.yml`](i18n/modules.yml), which is a complete contribution), contributed by
+[@4nmus](https://github.com/4nmus). Every command, config key, path and code block is
+byte-identical to `README.md`, the untranslated tail below Quick Start is byte-identical to
+the English original, and `Русский` now appears in the language switcher of all four
+READMEs. It is the first Cyrillic-script translation the project has had.
+
+Adding it exposed that `tests/test_citation_metadata.py` checked the Zenodo DOI badge in a
+**hard-coded** `("README.md", "README.hi.md")`. Every translation carries its own copy of
+that badge, so `README.zh-CN.md` had already shipped unguarded and `README.ru.md` would
+have too — a copied identifier nobody re-reads is the exact thing that rots. The check now
+globs `README.*.md`, which is what the contributor-wall guard beside it already did.
+
 ### Added — the project now asks, once, in the two places someone is actually looking
 
 YazSes had ~583 PyPI downloads a week and four stars. The gap was not that people disliked
