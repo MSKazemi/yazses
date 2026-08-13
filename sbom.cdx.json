@@ -198,6 +198,19 @@
     },
     {
       "type": "library",
+      "name": "cachecontrol",
+      "version": "0.14.4",
+      "purl": "pkg:pypi/cachecontrol@0.14.4",
+      "bom-ref": "pkg:pypi/cachecontrol@0.14.4",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e6220afafa4c22a47dd0badb319f84475d79108100d04e26e8542ef7d3ab05a1"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "cairocffi",
       "version": "1.7.1",
       "purl": "pkg:pypi/cairocffi@1.7.1",
@@ -1171,6 +1184,19 @@
     },
     {
       "type": "library",
+      "name": "mkdocs-rss-plugin",
+      "version": "1.19.0",
+      "purl": "pkg:pypi/mkdocs-rss-plugin@1.19.0",
+      "bom-ref": "pkg:pypi/mkdocs-rss-plugin@1.19.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "0b9b7f14688393e5bd7d26a6dc14dfd2b228a8cdfe5b598a6677589b2159d957"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "mpmath",
       "version": "1.3.0",
       "purl": "pkg:pypi/mpmath@1.3.0",
@@ -1564,6 +1590,19 @@
         {
           "alg": "SHA-256",
           "content": "6dd81d246ce1eef5fd93d8cbdaf1bef61ca40ef1d2fc12aa23996a28071181e6"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "properdocs",
+      "version": "1.6.7",
+      "purl": "pkg:pypi/properdocs@1.6.7",
+      "bom-ref": "pkg:pypi/properdocs@1.6.7",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "adc7b16e562890af0e098a7e5b02e3a81c20894a87d6a28d345c9300de73c26e"
         }
       ]
     },
@@ -2595,13 +2634,13 @@
     {
       "type": "library",
       "name": "tzdata",
-      "version": "2026.3",
-      "purl": "pkg:pypi/tzdata@2026.3",
-      "bom-ref": "pkg:pypi/tzdata@2026.3",
+      "version": "2025.3",
+      "purl": "pkg:pypi/tzdata@2025.3",
+      "bom-ref": "pkg:pypi/tzdata@2025.3",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "4a1518b8993086a7982523e071643f3c0e5f213e75b21318e78bcabfff9d1415"
+          "content": "de39c2ca5dc7b0344f2eba86f49d614019d29f060fc4ebc8a417896a620b56a7"
         }
       ]
     },
