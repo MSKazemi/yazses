@@ -60,6 +60,9 @@ from yazses.postprocess.spacing import continuation_prefix
 from yazses.postprocess.voice_punctuation import apply_voice_punctuation
 from yazses.remote.forwarder import RemoteForwarder
 from yazses.remote.local_proxy import RemoteInjectorProxy
+from yazses.staged.buffer import StagedAction, StagedBuffer
+from yazses.staged.buffer import classify as staged_classify
+from yazses.staged.buffer import describe as staged_describe
 from yazses.stt.base import SttEngine
 from yazses.stt.endpoint import EndpointAnticipator
 from yazses.stt.factory import build_engine
@@ -198,6 +201,9 @@ class Daemon:
         # (#296). Bounded and in-memory: a diagnostic must not depend on the
         # opt-in learning corpus, and it must not write anything to disk.
         self._latency = LatencyWindow()
+        # Staged dictation (#294): when on, a burst lands here for review instead
+        # of typing straight into the focused app. Off by default.
+        self._staged = StagedBuffer()
         self._edit_watcher: EditWatcher | None = None
         self._cleaner: LlmCleaner | None = None
         # Read-Back Loop TTS backend (None when [tts] disabled — dormant).
@@ -639,6 +645,10 @@ class Daemon:
         socket_path = self._platform.paths.ipc_socket
         server = self._platform.ipc_server_factory(socket_path)
         server.register("status", self._handle_status)
+        # Staged dictation (#294): the deterministic commit path. Deliberately the
+        # default one — a spoken commit can be produced by the mis-transcription
+        # the buffer exists to catch.
+        server.register("staged", self._handle_staged)
         server.register("shutdown", self._handle_shutdown)
         server.register("inject", self._handle_inject)
         server.register("remote_start", self._handle_remote_start)
@@ -1512,6 +1522,18 @@ class Daemon:
                              macro_table=self._macro_table,
                              macro_context=self._build_macro_context())
             else:
+                # Staged dictation (#294): bursts land in a review buffer instead of
+                # typing, and only a commit types — `scratch that` is already too
+                # late once the wrong token is in a terminal. A commit hands back the
+                # buffer contents and falls through to the ordinary injection path
+                # below, so the no-text-target guard still applies to it.
+                if self._config.staged.enabled:
+                    staged_text = self._stage_or_commit(text, event)
+                    if staged_text is None:
+                        return
+                    text = staged_text
+                    event["final_text"] = text
+
                 # "No text target" guard: if there was no editable field focused, don't
                 # type into the wrong place — copy to the clipboard + notify (or warn only).
                 with self._lock:
@@ -1843,6 +1865,120 @@ class Daemon:
                 self._state.app_class = app_class
 
         threading.Thread(target=_run, name="target-detect", daemon=True).start()
+
+    def _handle_staged(self, request: Request) -> dict[str, object]:
+        """`yazses staged status|commit|discard|undo` over IPC.
+
+        Available whether or not staged mode is enabled, so `status` can answer
+        honestly instead of erroring, and so text already staged can still be
+        committed after the feature is turned off.
+        """
+        action = str((request.params or {}).get("action") or "status").lower()
+
+        if action == "commit":
+            result = self._staged.commit()
+            if not result.committed:
+                return {"ok": False, "committed": False, "detail": "nothing staged",
+                        "pending": self.staged_state()}
+            # Same injector the dictation path uses, so the backend, the target
+            # guard's absence here, and the failure mode are all the familiar ones.
+            injector = self._injector
+            if injector is None:
+                # Put it back rather than losing what the user dictated.
+                self._staged.chunks.append(result.text)
+                return {"ok": False, "committed": False, "detail": "no injector available",
+                        "pending": self.staged_state()}
+            try:
+                injector.inject(result.text)
+            except Exception as exc:
+                self._staged.chunks.append(result.text)
+                return {"ok": False, "committed": False, "detail": str(exc),
+                        "pending": self.staged_state()}
+            self._last_dictation_monotonic = time.monotonic()
+            return {"ok": True, "committed": True, "text": result.text,
+                    "pending": self.staged_state()}
+
+        if action == "discard":
+            dropped = self._staged.discard()
+            return {"ok": True, "discarded_words": len(dropped.split()),
+                    "pending": self.staged_state()}
+
+        if action == "undo":
+            removed = self._staged.undo()
+            return {"ok": removed, "pending": self.staged_state()}
+
+        return {"ok": True, "pending": self.staged_state()}
+
+    def staged_state(self) -> dict[str, object]:
+        """The buffer as the CLI, the tray and the overlay see it."""
+        return {
+            "enabled": self._config.staged.enabled,
+            "spoken_commit": self._config.staged.spoken_commit,
+            "bursts": len([c for c in self._staged.chunks if c.strip()]),
+            "words": len(self._staged.text.split()),
+            "preview": self._staged.preview(),
+            "summary": staged_describe(self._staged),
+        }
+
+    def _stage_or_commit(self, text: str, event: dict) -> str | None:
+        """Staged dictation (#294). The text to type, or None when nothing types.
+
+        A spoken commit returns the **buffer contents**, not the utterance that
+        triggered it — typing "commit that" into the editor would be an absurd but
+        very easy bug. It is returned rather than injected here so the ordinary
+        path still applies, including the no-text-target guard, which staged mode
+        has no business bypassing. Everything else (staging, undo, discard, an
+        empty commit) is terminal and returns None.
+        """
+        action = staged_classify(text, spoken_commands=self._config.staged.spoken_commit)
+
+        if action is StagedAction.UNDO:
+            removed = self._staged.undo()
+            event["staged_action"] = "undo"
+            self._notify_staged("Removed the last staged burst." if removed
+                                else "Nothing staged to remove.")
+            return None
+
+        if action is StagedAction.DISCARD:
+            self._staged.discard()
+            event["staged_action"] = "discard"
+            self._notify_staged("Discarded everything pending.")
+            return None
+
+        if action is StagedAction.COMMIT:
+            result = self._staged.commit()
+            event["staged_action"] = "commit"
+            if not result.committed:
+                # Nothing pending is not the same as typing nothing: say so rather
+                # than letting a commit look like it silently failed.
+                self._notify_staged("Nothing staged to commit.")
+                return None
+            return result.text
+
+        # Ordinary dictation: stage it. A runaway buffer is a bug, not a workflow.
+        if len(self._staged.chunks) >= max(1, self._config.staged.max_chunks):
+            self._notify_staged(
+                f"Staged buffer is full ({self._config.staged.max_chunks} bursts) — "
+                "commit or discard it."
+            )
+            event["staged_action"] = "full"
+            return None
+        self._staged.stage(text)
+        event["staged_action"] = "stage"
+        event["staged_pending_words"] = len(self._staged.text.split())
+        log.info("Staged %d word(s); %d burst(s) pending.",
+                 len(text.split()), len(self._staged.chunks))
+        return None
+
+    def _notify_staged(self, message: str) -> None:
+        """Say what happened to the buffer. Best-effort; never raises into dictation."""
+        log.info("Staged: %s", message)
+        try:
+            from yazses.system.notify import notify
+
+            notify("YazSes", f"{message} {staged_describe(self._staged)}")
+        except Exception:
+            log.debug("Staged notification failed", exc_info=True)
 
     def _handle_no_target(self, text: str) -> bool:
         """Handle a dictation with no text target. Returns True if injection was suppressed.
@@ -2765,6 +2901,8 @@ class Daemon:
                 # the slow tail you wait through. The count travels with it so a
                 # p95 over six utterances cannot be read as a p95.
                 "decode_latency": self._latency.as_dict(),
+                # Staged dictation (#294): what is pending review, if anything.
+                "staged": self.staged_state(),
             }
 
     def _handle_shutdown(self, _request: Request) -> dict[str, bool]:

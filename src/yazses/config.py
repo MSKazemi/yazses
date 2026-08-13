@@ -536,6 +536,26 @@ class TrayConfig:
 
 
 @dataclass
+class StagedConfig:
+    """Staged dictation — speak, review, then commit (#294).
+
+    Bursts accumulate in a buffer instead of typing straight into the focused app,
+    so a mis-transcribed token can be caught *before* it reaches a terminal or a
+    source file. OFF by default: an existing install must not change behaviour.
+
+    `spoken_commit` is opt-in on purpose. A spoken commit inside a buffer whose
+    purpose is catching mis-recognition can be triggered by the very
+    mis-recognition it exists to catch — prose mis-heard as "commit" types early,
+    which is the accident staged mode was turned on to prevent. A *missed* commit
+    costs one more action and is visible; a premature one has already typed.
+    """
+    enabled: bool = False
+    spoken_commit: bool = False       # also accept "commit that" / "discard that" by voice
+    show_in_overlay: bool = True      # show the pending text while you speak
+    max_chunks: int = 200             # a runaway buffer is a bug, not a workflow
+
+
+@dataclass
 class ConfidenceConfig:
     """v2.0.0 Wave A — Confidence Ink & Voice Re-pick (ADR-v2-001).
 
@@ -1542,6 +1562,7 @@ class Config:
     polyglot: PolyglotConfig = field(default_factory=PolyglotConfig)
     # v2.0.0 Wave A (Voice-First Interaction Layer)
     confidence: ConfidenceConfig = field(default_factory=ConfidenceConfig)
+    staged: StagedConfig = field(default_factory=StagedConfig)
     context: ContextConfig = field(default_factory=ContextConfig)
     recall: RecallConfig = field(default_factory=RecallConfig)
     agent: AgentConfig = field(default_factory=AgentConfig)

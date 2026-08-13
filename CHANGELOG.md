@@ -6,6 +6,34 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — staged dictation: speak, review, then commit
+
+Reported by a reader of the r/speechtech thread and conceded there as a real gap.
+Every transcript types straight into the focused app, which is right for prose and
+wrong for code and terminals: a mis-transcribed token is not a typo you skim past,
+it is a command you did not mean to run. `scratch that` is already too late.
+
+`yazses features enable staged` (**off by default**) makes each burst land in a
+review buffer; `yazses staged commit` is the thing that types.
+
+The issue left two questions open. Both are decided the same way — **the review
+step must not be defeatable by the mis-transcription it exists to catch**:
+
+- **Commit is a deliberate action by default**, spoken only if you ask for it
+  (`[staged] spoken_commit`). Prose misheard as "commit" would type the buffer
+  early, which is the exact accident staged mode prevents. A missed commit is
+  visible and costs one more action; a premature one has already run. When the
+  spoken phrases are on they are anchored at both ends, so "git commit -m fix" is
+  staged rather than obeyed.
+- **While something is pending, "scratch that" edits the buffer**, not the
+  committed text. The buffer is what the user is looking at.
+
+A commit hands the buffer back to the ordinary injection path rather than typing it
+itself, so the no-text-target guard still applies to it — staged mode has no
+business bypassing that. If the injector fails, the text goes **back** in the
+buffer rather than being lost; dictation the user has already reviewed is the worst
+thing to drop. `yazses status` and the IPC payload carry what is pending. (#294)
+
 ### Added — `yazses status` reports decode latency on your machine
 
 The number was always measured and logged (`Transcribed 3.2s audio in 740 ms`) and

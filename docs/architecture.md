@@ -71,6 +71,18 @@ zero, because a daemon that dies while loading a model would otherwise be report
 as restarted. Declining keeps a persistent "restart pending" hint. Decisions live
 in `settingsui/restart.py` (Qt-free, IPC injected); the dialog is dumb.
 
+**Staged dictation puts the review before the injection.** `staged/buffer.py` is a
+pure state machine — chunks in, commit/discard/undo out — held by the daemon and
+consulted in `_on_hold_end` before anything is typed. Chunks are kept separately
+rather than concatenated so "scratch that" can remove exactly the last burst, which
+is what it means. A commit *returns* the buffer to the ordinary injection path
+instead of typing it directly, so the no-text-target guard and the injector
+selection still apply; a failed inject puts the text back rather than losing work
+the user already reviewed. The spoken commit grammar is opt-in and anchored at both
+ends, for the same reason `commands/revise.py` anchors "scratch that": a suffix
+match would turn "git commit" into a commit, which is precisely the accident the
+feature exists to prevent.
+
 **Decode latency is summarised, not just logged.** The daemon has always timed
 every decode; `stt/latency.py` now keeps a bounded per-model window of those times
 and `yazses status` reports p50/p95 from it. Percentiles rather than a mean because

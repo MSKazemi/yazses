@@ -476,6 +476,26 @@ Grade a card's recall (SM-2) and update its schedule.
 - **Arguments:** `card`
 - `--grade`, `-g` — Recall quality 0–5 (<3 lapses).
 
+## `yazses staged`
+
+Speak, review, then commit — dictation lands in a buffer instead of typing.
+
+### `yazses staged commit`
+
+Type everything pending into the focused app and clear the buffer.
+
+### `yazses staged discard`
+
+Drop everything pending without typing it.
+
+### `yazses staged status`
+
+Show what is pending review, and whether staged mode is on.
+
+### `yazses staged undo`
+
+Remove the most recent staged burst (the same as saying "scratch that").
+
 ## `yazses start`
 
 Start the YazSes daemon (restarts cleanly if one is already running).

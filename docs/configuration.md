@@ -309,6 +309,15 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 | `threshold` | float | `0.55` |
 | `mark_in_overlay` | bool | `true` |
 
+## `[staged]`
+
+| Key | Type | Default |
+|---|---|---|
+| `enabled` | bool | `false` |
+| `spoken_commit` | bool | `false` |
+| `show_in_overlay` | bool | `true` |
+| `max_chunks` | int | `200` |
+
 ## `[context]`
 
 | Key | Type | Default |

@@ -169,6 +169,7 @@ def _registry() -> list[_Def]:
     dys_on, dys_off = _bool("accessibility", "dysfluency_friendly")
     vp_on, vp_off = _bool("commands", "voice_punctuation")
     conf_on, conf_off = _bool("confidence")
+    stgd_on, stgd_off = _bool("staged")
     ctx_on, ctx_off = _bool("context")
     se_on, se_off = _bool("commands", "spoken_edit")
     re_on, re_off = _bool("recall")
@@ -384,6 +385,11 @@ def _registry() -> list[_Def]:
         _Def("llm-cleanup", "LLM cleanup", "[filters.disfluency]", OPTIONAL,
              "Reformats dictation with a small offline LLM. Needs a model file.",
              lambda c: c.filters.disfluency.llm_enabled, llm_on, llm_off),
+        _Def("staged", "Staged dictation", "[staged] — review before it types", OPTIONAL,
+             "Dictation lands in a buffer you review instead of typing straight into "
+             "the app; `yazses staged commit` types it. For code and terminals, where a "
+             "mis-transcribed token is a command you did not mean to run.",
+             lambda c: c.staged.enabled, stgd_on, stgd_off),
         _Def("confidence", "Confidence Ink", "[confidence] — mark unsure words", OPTIONAL,
              "Marks words Whisper was unsure about so you can re-pick them by voice "
              "instead of re-dictating. Uses Whisper's own confidence; local only.",
@@ -978,6 +984,7 @@ _SLUG_PACKAGES: dict[str, tuple[str, ...]] = {
     "stt-moonshine": ("stt",),       # stt/moonshine.py
     "llm-cleanup": ("postprocess",),  # postprocess/llm_cleanup.py
     "confidence": ("postprocess",),  # postprocess/confidence.py
+    "staged": ("staged",),           # staged/buffer.py
     "spoken-edit": ("commands",),    # commands/edit_ops.py
     "context": ("system",),          # system/context_read.py
     "self_repair": ("selfrepair",),
@@ -1040,6 +1047,11 @@ def unwired_slugs() -> frozenset[str]:
 # registry (still a single source of truth) and enforced complete by
 # tests/test_features_examples.py so every new feature ships with a usage example.
 _EXAMPLES: dict[str, str] = {
+    "staged": (
+        "Hold the hotkey and say \"git checkout minus b feature slash retry\". Nothing "
+        "is typed — `yazses staged status` shows it waiting. Read it, then "
+        "`yazses staged commit` types it, or `yazses staged undo` drops the burst."
+    ),
     "dictation": "Hold your hotkey and speak; release to type.",
     "commands": "Hold the command key and say 'undo' or 'save'.",
     "voice-punctuation": "Say 'hello comma world period' → 'hello, world.'",
@@ -1191,6 +1203,12 @@ _EXAMPLES: dict[str, str] = {
 # `yazses features info <slug>` as a "Use when:" line, and enforced complete by
 # tests/test_features_examples.py.
 _USE_CASES: dict[str, str] = {
+    "staged": (
+        "Dictating into a terminal or a source file, where a single mis-transcribed "
+        "token is not a typo you skim past but a command you did not mean to run. "
+        "\"Scratch that\" is already too late once the wrong text is in your shell; "
+        "this puts the review before anything reaches the app."
+    ),
     "dictation": "When you want to type anywhere by voice instead of the keyboard, hands-free.",
     "commands": "When you want to trigger edits and actions by voice mid-dictation without touching keys.",
     "voice-punctuation": "When you must place exact punctuation and line breaks and won't trust automatic guessing.",
@@ -1346,7 +1364,7 @@ _CATEGORIES: dict[str, str] = {
     "undo": CAT_CORE, "overlay": CAT_CORE, "streaming": CAT_CORE, "mic-guard": CAT_CORE,
     "stt-parakeet": CAT_CORE,
     "stt-moonshine": CAT_CORE,
-    "tray": CAT_CORE, "target-guard": CAT_CORE,
+    "tray": CAT_CORE, "target-guard": CAT_CORE, "staged": CAT_CORE,
     "ghost-ahead": CAT_CORE, "autostop": CAT_CORE, "hesitation": CAT_CORE,
     "breath": CAT_CORE, "continuum": CAT_CORE, "whispermode": CAT_CORE,
     "wakeword": CAT_CORE, "focusprofile": CAT_CORE, "latency": CAT_CORE,

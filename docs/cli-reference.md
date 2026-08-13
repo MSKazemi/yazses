@@ -156,6 +156,36 @@ This needs nothing turned on: the samples live in memory in the running daemon,
 are never written to disk, and do not involve any audio or transcript text. They
 reset when the daemon restarts.
 
+### `yazses staged`
+
+**Speak, review, then commit.** With staged mode on, a hold-to-talk burst lands in a
+buffer instead of typing into the focused app; nothing reaches the application until
+you commit it.
+
+For prose, typing straight through is the whole point of hold-to-talk. For **code and
+terminal input it is the wrong default**: a mis-transcribed token is not a typo you
+skim past, it is a command you did not mean to run. `scratch that` cannot help —
+by the time you say it, the wrong text is already in your shell.
+
+```bash
+yazses features enable staged   # off by default
+yazses staged status            # what is waiting, and how much
+yazses staged commit            # type it into the focused app
+yazses staged undo              # drop the last burst ("scratch that" does this too)
+yazses staged discard           # drop everything pending
+```
+
+**Commit is a deliberate action, not a spoken word.** A spoken commit inside a buffer
+whose purpose is catching mis-recognition can be triggered by the very
+mis-recognition it exists to catch — prose misheard as "commit" types early, which is
+the accident staged mode was turned on to prevent. A *missed* commit is visible and
+costs one more keystroke; a premature one has already run. Turn the spoken phrases on
+with `[staged] spoken_commit = true` if you want them; they are matched as whole
+utterances, so "git commit -m fix" is staged rather than obeyed.
+
+While something is pending, **"scratch that" edits the buffer**, not the document —
+the buffer is what you are looking at.
+
 ### `yazses tray`
 
 Show a **microphone icon in the top bar** with a click-menu — a no-terminal way to

@@ -1413,6 +1413,83 @@ def wordgoal_reset() -> None:
     typer.echo("Word count reset to 0.")
 
 
+staged_app = typer.Typer(
+    name="staged",
+    help="Speak, review, then commit — dictation lands in a buffer instead of typing.",
+    context_settings=CONTEXT_SETTINGS,
+    no_args_is_help=True,
+)
+app.add_typer(staged_app, rich_help_panel=_DICTATION)
+
+
+def _staged_call(action: str) -> dict | None:
+    """Talk to the daemon's staged buffer, or explain why we cannot."""
+    platform = get_platform()
+    if not platform.lifecycle.is_running():
+        typer.echo("YazSes is not running — there is no staged buffer. Start it with `yazses start`.")
+        return None
+    client = platform.ipc_client_factory(platform.paths.ipc_socket)
+    try:
+        return client.call("staged", action=action)
+    except IpcUnreachableError:
+        typer.echo("YazSes is starting up — try again in a moment.")
+        return None
+
+
+@staged_app.command("status", epilog=_examples("yazses staged status    what is waiting to be typed"))
+def staged_status() -> None:
+    """Show what is pending review, and whether staged mode is on."""
+    info = _staged_call("status")
+    if info is None:
+        raise typer.Exit(1)
+    pending = info.get("pending") or {}
+    if not pending.get("enabled"):
+        typer.echo("Staged mode is OFF — dictation types straight into the focused app.")
+        typer.echo("Turn it on with `yazses features enable staged`.")
+    typer.echo(pending.get("summary") or "Nothing pending.")
+    preview = pending.get("preview")
+    if preview:
+        typer.echo("")
+        typer.echo(f"  {preview}")
+
+
+@staged_app.command("commit", epilog=_examples("yazses staged commit    type everything pending"))
+def staged_commit() -> None:
+    """Type everything pending into the focused app and clear the buffer."""
+    info = _staged_call("commit")
+    if info is None:
+        raise typer.Exit(1)
+    if not info.get("committed"):
+        # "Nothing staged" is not a failure to report as one, but it is not a
+        # success either — the user asked for text to appear and none did.
+        typer.echo(f"Nothing typed — {info.get('detail', 'nothing staged')}.")
+        raise typer.Exit(1)
+    words = len(str(info.get("text", "")).split())
+    typer.echo(f"Committed {words} word{'s' if words != 1 else ''}.")
+
+
+@staged_app.command("discard", epilog=_examples("yazses staged discard    drop everything pending"))
+def staged_discard() -> None:
+    """Drop everything pending without typing it."""
+    info = _staged_call("discard")
+    if info is None:
+        raise typer.Exit(1)
+    dropped = int(info.get("discarded_words") or 0)
+    typer.echo(f"Discarded {dropped} word{'s' if dropped != 1 else ''}.")
+
+
+@staged_app.command("undo", epilog=_examples("yazses staged undo    remove the last burst you staged"))
+def staged_undo() -> None:
+    """Remove the most recent staged burst (the same as saying "scratch that")."""
+    info = _staged_call("undo")
+    if info is None:
+        raise typer.Exit(1)
+    if not info.get("ok"):
+        typer.echo("Nothing staged to remove.")
+        raise typer.Exit(1)
+    typer.echo((info.get("pending") or {}).get("summary") or "Removed.")
+
+
 cliphistory_app = typer.Typer(
     name="cliphistory",
     help="A persistent clipboard history you can recall by voice-style reference — offline.",
