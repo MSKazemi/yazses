@@ -6,6 +6,56 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the Hindi and Russian READMEs told Intel Mac users to download the `.dmg`
+
+`README.md` was corrected when the `.dmg` turned out to be Apple-silicon-only, but its
+translations were not. `README.hi.md` and `README.ru.md` kept offering the `.dmg` with no
+architecture caveat and no mention of the Homebrew tap — so a Hindi or Russian reader was
+sent to download a bundle that cannot launch on their machine, while the English reader was
+warned.
+
+Both files now name the architecture and point at `docs/macos-install.md`. The macOS blocks
+in those files are English inside the code fences, so the correction did not require
+inventing Hindi or Russian technical prose that could not be checked; a native speaker
+should still translate the note. `README.zh-CN.md` is a partial translation with no per-OS
+install blocks and carried no claim to correct.
+
+This is the failure mode #166 (a translation drift checker) exists to catch: a correction
+applied to one README and not its copies is invisible until someone reads the other one.
+
+### Fixed — the published SBOM did not list `noisereduce`
+
+The spectral-denoise work added `noisereduce` to `pyproject.toml` without regenerating
+`uv.lock`, so `sbom.cdx.json` — which is generated from the lock — described a dependency
+set the project no longer had. Anyone consuming the SBOM for supply-chain review was reading
+a component list one package short.
+
+It also turned `main` red in a way that does not reproduce locally: `gen-sbom.py` reads the
+lock and nothing else, so against the *committed* lock the SBOM is self-consistent and the
+test passes on a developer machine. CI runs `uv sync` first, which updates the lock in the
+runner, and the mismatch only appears there.
+
+### Added — `scripts/inspect-dmg.py`, so the macOS artefact can be checked without a Mac
+
+The `.dmg` is the one artefact that cannot be opened on the machine this project is
+developed on, and two defects lived in exactly that gap — an `.app` reporting version
+`0.1.2` for every release from v0.1.3 to v2.18.0, and a bundle with no `x86_64` slice while
+the install guide promised Intel support. Neither is visible from a build log: the build
+succeeds and the wrong value sits inside the artefact.
+
+```sh
+uv run python scripts/inspect-dmg.py YazSes-<version>.dmg \
+    --expect-version <version> --expect-arch arm64
+```
+
+It decodes the UDIF container `create-dmg` produces and reads the bundle's `Info.plist` and
+every Mach-O header out of the raw image, in stdlib-only Python. Both flags exit non-zero on
+a mismatch, so a release job can gate on them; `--json` emits the findings for a job to
+record or diff. Either flag would have caught its defect years earlier.
+
+It answers *"is the right thing inside the artefact"*, never *"does it launch"* — that still
+needs a Mac.
+
 ### Added — the three settings people actually tweak get real controls
 
 Feature toggles are booleans; the hotkey, the microphone and the VAD threshold
@@ -174,8 +224,6 @@ correction marker and satisfied the invariant identically — while meaning the
 opposite. `must_preserve_relation` pins which value wins, positionally, and the
 inverted sentence is now a case in its own right so the assertion is proven to
 have teeth. Contract 6.1.0 → 6.2.0. Raised by @YossiMH in the #98 review. (#163)
-
-## [Unreleased]
 
 ### Added — an activation source can say *what* it meant, not just *when*
 
