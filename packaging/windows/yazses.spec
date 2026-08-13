@@ -23,6 +23,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from PyInstaller.utils.hooks import copy_metadata
+
 REPO = Path(SPECPATH).resolve().parents[1]
 ENTRY = str(REPO / "src" / "yazses" / "__main__.py")
 ICON = REPO / "assets" / "yazses.ico"
@@ -34,7 +36,12 @@ a = Analysis(
     [ENTRY],
     pathex=[str(REPO / "src")],
     binaries=[],
-    datas=[],
+    # The package's .dist-info. PyInstaller does not bundle metadata unless asked,
+    # and importlib.metadata.version("yazses") is what `--version`, `about`,
+    # `doctor`, `update` and the diagnostic report all read — every one of them
+    # raised PackageNotFoundError inside the bundle. The installer smoke test
+    # caught this on its first run.
+    datas=copy_metadata("yazses"),
     hiddenimports=[
         # pywin32 sub-modules used by the named-pipe IPC.
         "win32pipe",

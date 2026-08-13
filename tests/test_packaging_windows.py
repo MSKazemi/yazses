@@ -130,3 +130,32 @@ def test_installer_guards_against_duplicate_path_entries():
 def test_uninstall_stops_the_daemon_through_the_console_binary():
     iss = _ISS.read_text(encoding="utf-8")
     assert "yazses-cli.exe" in iss
+
+
+# ---- Version metadata --------------------------------------------------
+
+
+def test_spec_bundles_package_metadata():
+    """`--version` crashed in the frozen bundle with PackageNotFoundError.
+
+    PyInstaller ships no .dist-info unless told to, and
+    importlib.metadata.version("yazses") backs --version, about, doctor, update
+    and the diagnostic report. Found by the installer smoke test on its first run.
+    """
+    spec = _SPEC.read_text(encoding="utf-8")
+    assert "copy_metadata" in spec
+    assert 'copy_metadata("yazses")' in spec
+
+
+def test_version_lookup_never_raises_without_metadata(monkeypatch):
+    """--version is the first thing a bug report quotes; it must not be the
+    command that crashes."""
+    from importlib.metadata import PackageNotFoundError
+
+    import yazses.cli as cli
+
+    def _boom(_name):
+        raise PackageNotFoundError("yazses")
+
+    monkeypatch.setattr(cli, "_pkg_version", _boom)
+    assert cli._installed_version() == "0.0.0+unknown"

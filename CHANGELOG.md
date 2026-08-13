@@ -106,6 +106,14 @@ nothing in CI ever installed the artefact it built:
   hook saw the app's own Ctrl presses and could trigger itself — the self-capture the Linux
   backend avoids by refusing to listen on ydotool/uinput devices.
 
+- **`yazses --version` crashed in the bundle.** PyInstaller ships no `.dist-info`
+  unless asked, so `importlib.metadata.version("yazses")` raised
+  `PackageNotFoundError` — and `--version`, `about`, `doctor`, `update` and the
+  diagnostic report all read it. The CLI was the one call site missing the guard
+  that `__init__`, `branding` and `doctor` already had. The spec now bundles the
+  metadata and the lookup degrades instead of raising. **Found by the new smoke
+  test on its first run**, which is the whole argument for having it.
+
 ### Added — the gate whose absence let all of this ship
 
 `build-windows.yml` now installs the built artefact silently, asserts the payload, requires

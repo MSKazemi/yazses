@@ -2,6 +2,7 @@
 PID-file fallback for status.
 """
 
+from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _pkg_version
 from pathlib import Path
 from typing import Optional
@@ -452,9 +453,28 @@ def _resolved_hotkey(platform) -> str:
         return platform.default_hotkey
 
 
+def _installed_version() -> str:
+    """The package version, or a marker — never an exception.
+
+    ``--version`` is the first thing anyone runs and the first thing a bug report
+    quotes, so it must not be the command that crashes. It did: the PyInstaller
+    bundle carries no ``.dist-info``, so ``version("yazses")`` raised
+    ``PackageNotFoundError`` and `yazses --version` died with a traceback on every
+    Windows .exe install. The spec now ships the metadata (``copy_metadata``);
+    this keeps the command answering even if that regresses.
+
+    Every other call site already guarded this (``__init__``, ``branding``,
+    ``doctor``); the CLI was the one that did not.
+    """
+    try:
+        return _pkg_version("yazses")
+    except PackageNotFoundError:
+        return "0.0.0+unknown"
+
+
 def _version_callback(value: bool) -> None:
     if value:
-        typer.echo(f"yazses {_pkg_version('yazses')}")
+        typer.echo(f"yazses {_installed_version()}")
         raise typer.Exit()
 
 
@@ -2260,7 +2280,7 @@ def update(
     snap/pip upgrade, restart the daemon to load the new code:
     `systemctl --user restart yazses` (or `yazses stop && yazses start`).
     """
-    current = _pkg_version("yazses")
+    current = _installed_version()
     status = check_update(current)
     typer.echo(f"Installed:  yazses {current}  (via {status.method})")
 
