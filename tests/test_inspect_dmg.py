@@ -152,3 +152,21 @@ def test_a_file_that_is_not_a_dmg_fails_cleanly(mod, tmp_path):
 
 def test_a_missing_file_fails_cleanly(mod, tmp_path):
     assert mod.main([str(tmp_path / "absent.dmg")]) == 1
+
+
+def test_json_mode_is_machine_readable_and_still_enforces_expectations(mod, tmp_path, capsys):
+    """A release job wants the findings recorded, not just a pass/fail."""
+    import json
+
+    raw = INFO_PLIST + b"\0" * 64 + _macho(0x0100000C)
+    dmg = tmp_path / "T.dmg"
+    dmg.write_bytes(_build_dmg(raw))
+
+    assert mod.main([str(dmg), "--json", "--expect-arch", "arm64"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["macho_slices"] == {"arm64": 1}
+    assert payload["info_plist"]["CFBundleShortVersionString"] == "2.18.2"
+    assert payload["undecodable_chunks"] == 0
+
+    # The expectations must gate the exit code in JSON mode too, not just in text mode.
+    assert mod.main([str(dmg), "--json", "--expect-arch", "x86_64"]) == 1

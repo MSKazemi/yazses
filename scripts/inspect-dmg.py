@@ -43,6 +43,7 @@ from __future__ import annotations
 import argparse
 import base64
 import collections
+import json
 import plistlib
 import re
 import struct
@@ -170,6 +171,11 @@ def main(argv: list[str] | None = None) -> int:
         choices=sorted(set(CPU_TYPES.values())),
         help="fail unless every Mach-O slice is this architecture",
     )
+    ap.add_argument(
+        "--json",
+        action="store_true",
+        help="emit the findings as JSON, for a release job to record or diff",
+    )
     args = ap.parse_args(argv)
 
     if not args.dmg.is_file():
@@ -183,6 +189,27 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: could not decode {args.dmg.name}: {exc}", file=sys.stderr)
         return 1
 
+    info = read_info_plist(image)
+    tally, fat = scan_macho(image)
+
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "file": args.dmg.name,
+                    "compressed_bytes": len(data),
+                    "raw_bytes": len(image),
+                    "undecodable_chunks": skipped,
+                    "info_plist": info,
+                    "macho_slices": dict(tally),
+                    "fat_headers": fat,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return _verdict(args, info, tally, quiet=True)
+
     print(f"{args.dmg.name}: {len(data):,} bytes compressed -> {len(image):,} raw")
     if skipped:
         print(
@@ -190,7 +217,6 @@ def main(argv: list[str] | None = None) -> int:
             "decode (not zlib/raw); results may be incomplete"
         )
 
-    info = read_info_plist(image)
     if info:
         print("\nInfo.plist")
         for key in PLIST_KEYS:
@@ -201,11 +227,15 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print("\n  WARNING: no Info.plist values found")
 
-    tally, fat = scan_macho(image)
     print("\nMach-O")
     print(f"  slices by CPU type             {dict(tally) or '{}'}")
     print(f"  universal/fat headers          {fat}")
 
+    return _verdict(args, info, tally, quiet=False)
+
+
+def _verdict(args, info: dict[str, str], tally, *, quiet: bool) -> int:
+    """Apply --expect-* and return the exit code. Shared by both output modes."""
     problems: list[str] = []
     if args.expect_version:
         actual = info.get("CFBundleShortVersionString")
@@ -222,12 +252,11 @@ def main(argv: list[str] | None = None) -> int:
             problems.append(f"no {args.expect_arch} slice found at all")
 
     if problems:
-        print()
         for p in problems:
             print(f"ERROR: {p}", file=sys.stderr)
         return 1
 
-    if args.expect_version or args.expect_arch:
+    if not quiet and (args.expect_version or args.expect_arch):
         print("\nOK — the bundle matches what was expected.")
         print("(Well-formed is not the same as running. That still needs a Mac.)")
     return 0
