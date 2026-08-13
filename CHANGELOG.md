@@ -4,7 +4,7 @@ All notable changes to YazSes are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.18.1] - 2026-08-13
 
 ### Fixed — dictation cleanup could POST your transcribed text to any host you typed
 
