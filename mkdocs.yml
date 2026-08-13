@@ -322,5 +322,6 @@ nav:
       - Find a task that fits you: contribute/find.md
       - All open tasks: contribute/tasks.md
       - What contributors built: contribute/built.md
+      - Translation status: localization/STATUS.md
   - Roadmap: roadmap.md
   - Releases: releases/index.md

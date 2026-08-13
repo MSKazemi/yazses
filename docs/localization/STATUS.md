@@ -11,9 +11,9 @@ language fixes it.
 
 | Locale | File | Scope | Native reviewer | Translated from | Status | Next action |
 |---|---|---|---|---|---|---|
-| हिंदी (`hi`) | [README.hi.md](../../README.hi.md) | full | [@Sushanttmishraa](https://github.com/Sushanttmishraa) | `96711bc` (2026-08-13) | active | re-check against English when the README changes materially |
-| 简体中文 (`zh-CN`) | [README.zh-CN.md](../../README.zh-CN.md) | partial | *needed* | `96711bc` (2026-08-13) | active | covers install + quickstart only; a native reviewer is wanted |
-| Русский (`ru`) | [README.ru.md](../../README.ru.md) | full | [@4nmus](https://github.com/4nmus) | `96711bc` (2026-08-13) | active | re-check against English when the README changes materially |
+| हिंदी (`hi`) | [README.hi.md](https://github.com/MSKazemi/yazses/blob/main/README.hi.md) | full | [@Sushanttmishraa](https://github.com/Sushanttmishraa) | `96711bc` (2026-08-13) | active | re-check against English when the README changes materially |
+| 简体中文 (`zh-CN`) | [README.zh-CN.md](https://github.com/MSKazemi/yazses/blob/main/README.zh-CN.md) | partial | *needed* | `96711bc` (2026-08-13) | active | covers install + quickstart only; a native reviewer is wanted |
+| Русский (`ru`) | [README.ru.md](https://github.com/MSKazemi/yazses/blob/main/README.ru.md) | full | [@4nmus](https://github.com/4nmus) | `96711bc` (2026-08-13) | active | re-check against English when the README changes materially |
 
 **Scope** is what the translation claims to cover — `full` (the whole README) or
 `partial` (a named subset). A partial translation is not a defect; an *undeclared*

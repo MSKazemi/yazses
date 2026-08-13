@@ -4,6 +4,109 @@ All notable changes to YazSes are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added — an activation source can say *what* it meant, not just *when*
+
+`HotkeyBackend` could express two things: a hold started, a hold ended. That is the
+whole vocabulary of a key, and it is enough for a key. Every silent-speech and BCI
+system in the literature produces something richer — a command label with a confidence —
+and none of it fitted through an onset/offset seam, so a decoder that recognised "undo"
+at 96% had to discard the label, emit a bare onset, and wait for the user to say the
+word out loud. That is the opposite of what a silent interface is for.
+
+A source may now declare a **vocabulary** and emit an **intent** (label + confidence).
+Labels are validated against that declaration before anything else runs, so a source
+cannot ask for something it never advertised, and the label then goes through the
+**existing** command grammar and dispatcher — a silent "undo" and a spoken "undo" cannot
+drift apart, because there is one implementation of what "undo" means. Injecting decoded
+free text is deliberately out of scope: non-invasive decoding sits around 68% WER, so it
+would be typing noise. `EMGBackend` is untouched — it declares no vocabulary. Off by
+default under `[activation]`; nothing changes without an intent-carrying source. (#137)
+
+**A decoded intent is gated on confidence × consequence, and an irreversible action
+always confirms** — at any confidence. Best reported silent-command accuracy is 96–97%
+over 10–30 words, in-session, on 3–4 subjects, so roughly one command in thirty is wrong
+and there is no threshold that makes silently executing something unrecoverable
+defensible. Reversible actions act above `confirm_threshold` (0.90, chosen just below the
+reported operating point) and confirm below it; anything under `reject_floor` (0.50) is
+dropped rather than prompted, because asking people to confirm coin flips teaches them to
+dismiss prompts. Consequence is an **allow-list** of recoverable actions, so a command
+added later confirms rather than fires, and a test walks the dispatcher and fails if any
+action was never classified. (#138)
+
+`contract/vectors/activation.json` (20 cases, contract 6.0.0 → 6.1.0) lets an external
+decoder prove conformance **without reading our source**: onset/offset pairs, intents with
+confidence, out-of-vocabulary and empty labels, confidence of 1.4 and -0.5, a repeated
+onset, and a source that disappears mid-hold. (#139)
+
+### Added — focus a window by name, and the modality router is finally real
+
+"focus the browser", "switch to gedit". Matching reuses the file opener's fuzzy ranker
+rather than a second implementation, so the two cannot answer differently for the same
+words. **An ambiguous query focuses nothing** — two windows scoring alike would send your
+next sentence into a document you were not looking at — and a command that matched nothing
+is still not typed into your document. X11 only, and reported as such: Wayland forbids one
+client focusing another's window and no portal exposes it, so `yazses doctor` gains a
+"Voice window focus" line saying why and what still works. `windowctl` leaves the
+`_UNWIRED` set because a runtime path genuinely reads it now. (#39)
+
+The ADR-v2-011 **modality role router** had been pure policy with no caller since July, so
+enabling `[modality]` wrote a key nothing read. It now resolves roles from what is actually
+available — gaze counts only if the targeter really built — and decides whether EMG owns
+commands. Reported in `yazses doctor` and over IPC. (#136)
+
+### Added — the settings window installs a feature's packages
+
+`yazses features enable <slug>` has always installed a capability's optional packages
+before telling you to restart; the settings window wrote the config key and stopped. For
+the 15 rows that need an extra that produced `enabled = true` and a daemon that could not
+load the feature. Both front ends now make the identical `system/deps.py` call, on a
+worker thread, streaming pip's real output — a mediapipe install takes minutes, and on the
+Qt main thread that is indistinguishable from a hang.
+
+**When an install fails the config key stands**, and the window says the capability is on
+but dormant until its packages arrive. Rolling back would silently undo a switch you just
+moved, and a transient network blip would look like a broken window; "enabled but dormant"
+is a state `doctor` and `features` already model and a retry fixes. The *impossible* case
+is unchanged — enabling is refused before anything is written. (#135)
+
+### Fixed — "click bookmark" created a bookmark instead of typing it
+
+`parse_bookmark_command` was anchored only at the end, so any sentence ending in the
+ordinary English word "bookmark" was swallowed as a command. Same failure as
+`commands/revise.py::_SCRATCH_RE`, fixed the same way with a both-ends anchor.
+
+### Changed — session bookmarks resolve a real caret
+
+The earlier approach counted characters YazSes had injected and jumped by sending that
+many arrow keys. It desynchronised permanently after the first mouse click, grew into an
+unbounded key injection, and bypassed the no-text-target guard. Bookmarks now store a
+position the toolkit reports (AT-SPI's `Text.caretOffset`), scoped to a **document** rather
+than a session, and jumping is one positioning call. Refusing is designed behaviour, not a
+fallback: no backend, no caret, unknown name, or a caret now in a different document each
+refuse and move nothing — a jump into the wrong file would drop your next dictation there.
+`bookmarks` stays `_UNWIRED` until a daemon path calls it. (#162)
+
+### Documentation
+
+- **Translations get a status matrix and a read-only drift checker.** English is the source
+  of truth and the translations are native human work, so nothing rewrites them — the
+  checker reports and leaves the fix to someone who reads the language. It catches the
+  damaging case: a *translated command*. `yazses диагностика` is not a command, and a
+  reader who types it gets an error instead of a tool. Runs in CI, stdlib-only.
+  `docs/localization/STATUS.md` carries the matrix and the update procedure. (#166)
+- **A reproducible offline-inference challenge** (`docs/launch/offline-challenge.md`) and a
+  report template, built around the distinction that decides whether a result means
+  anything: installing and downloading a model needs the network, transcribing does not.
+  Called a demonstration, never proof of privacy — one run on one machine cannot establish
+  that. (#168)
+- **Multilingual dictation gains an offline smoke test**, guidance for recording your own
+  fixture (the repo ships none: a recording is personal data and corpus licensing varies
+  clip by clip), and a reporting matrix. Tests pin the trap at mocked boundaries — an `.en`
+  checkpoint has no language tokens, so pointing one at German transliterates into
+  fluent-looking English nonsense rather than failing. (#167)
+
 ## [2.18.2] - 2026-08-13
 
 ### Fixed — cutting a release could not publish to PyPI
