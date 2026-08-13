@@ -4,15 +4,18 @@ Per-channel packaging artefacts. **Read this when you want to publish to a
 new distribution channel** — the build scripts in `../scripts/` use the
 files here as inputs.
 
-## ⚠ Channel status — read this first (audited 2026-08-11; manifest versions re-synced 2026-08-13)
+## ⚠ Channel status — read this first (audited 2026-08-11; live re-check of every channel 2026-08-13)
 
 **A manifest living in this directory installs nobody.** It has to be published to the
-registry. Every channel below was checked live on 2026-08-11:
+registry. Every channel below was checked live on 2026-08-11 and re-checked against its
+own API on 2026-08-13 — which is how the Snap row turned out to be overclaiming, and
+confirmed PyPI (2.18.0) and the APT repo (2.18.0, signed, `InRelease` 200) are genuinely
+current:
 
 | Channel | Published? | In-repo artefact | State |
 |---|---|---|---|
 | PyPI | ✅ live | — | `pipx install yazses` |
-| Snap Store | ✅ live | `../snap/` | incl. arm64 |
+| Snap Store | ⚠ amd64 only on stable | `../snap/` | arm64 exists but is **edge-only and a release behind** — see below |
 | APT repo | ✅ live | `../scripts/update-apt-repo.sh` | signed |
 | GitHub Releases | ✅ live | — | `.dmg`, `.exe`, `.deb` |
 | **Homebrew** | ✅ live | `homebrew/yazses.rb` | tap published 2026-08-13 at [MSKazemi/homebrew-yazses](https://github.com/MSKazemi/homebrew-yazses); cask at **2.18.0 (real sha)**, **arm64 only** — see the macOS section ([#6](https://github.com/MSKazemi/yazses/issues/6)) |
@@ -37,6 +40,41 @@ Rust binary** distribution. The releases they point at (`v1.0.0`, `v1.0.0-dev.1`
 checksums are still `PLACEHOLDER_…`. They are marked at the top of each file. **The
 canonical cask is `homebrew/yazses.rb`.**
 
+### Snap: `snap install yazses` does not work on arm64
+
+The table used to say "incl. arm64", which reads as *arm64 users are covered*. They are
+not. Measured 2026-08-13 from `api.snapcraft.io`:
+
+| Track/risk | Arch | Revision | Version |
+|---|---|---|---|
+| `latest/stable` | amd64 | 115 | 2.18.0 |
+| `latest/edge` | amd64 | 115 | 2.18.0 |
+| `latest/edge` | **arm64** | 116 | **2.17.0** |
+
+There is **no arm64 revision on `stable`**. `snap install yazses` resolves stable, so on
+a Raspberry Pi or an arm64 VM it fails to find a revision at all — the arm64 build exists
+only on `edge`, and is a release behind.
+
+Two consequences worth stating plainly:
+
+- Anyone writing "works on arm64" in launch copy would be wrong. The honest line is
+  *"amd64 on stable; arm64 on `--edge` only"*.
+- The contributor task **PKG-002** ("Verify the Snap install path on arm64",
+  `docs/contribute/tasks.md`) currently asks someone to verify a path that cannot
+  succeed with the documented command. It needs `--edge` added, or rewording — the same
+  defect that #216 had for Intel macOS.
+
+To fix properly, promote an arm64 build to stable in the Snap Store release channels, then
+change this row. Query it without a browser:
+
+```sh
+curl -H 'Snap-Device-Series: 16' \
+  'https://api.snapcraft.io/v2/snaps/info/yazses?fields=version,revision'
+```
+
+⚠ That header is **required** — without `Snap-Device-Series: 16` the API returns an error
+rather than the channel map, which makes it easy to conclude "no data" and move on.
+
 ### Homebrew tap
 
 Published 2026-08-13 at **[MSKazemi/homebrew-yazses](https://github.com/MSKazemi/homebrew-yazses)**,
@@ -50,6 +88,19 @@ source of truth. After each release, refresh the checksum and copy it across:
 python scripts/refresh-package-manifests.py --version <x.y.z>
 cp packaging/homebrew/yazses.rb <tap>/Casks/yazses.rb   # then commit + push the tap
 ```
+
+⚠ **This is owed the moment a release is tagged, and nothing enforces it.** As of
+2026-08-13 `pyproject.toml` reads **2.18.1** while the cask points at **2.18.0** — which is
+correct *today*, because v2.18.0 is still the newest published release, and the cask must
+track the release rather than the source tree. But it becomes wrong the instant v2.18.1 is
+published, and Homebrew verifies the digest, so a stale cask does not degrade gracefully:
+it refuses the download outright.
+
+There is deliberately **no test** asserting cask version == `pyproject` version, precisely
+because of that window — such a test would fail on every release-prep commit and get
+disabled. The guard is this checklist plus
+`refresh-package-manifests.py --check`, which compares against the assets really attached
+to a tag.
 
 Verified at publication: the tap is public, `Casks/yazses.rb` serves HTTP 200 and matches
 the source byte for byte, and the `.dmg` URL the cask points at resolves on the v2.18.0
