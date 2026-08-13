@@ -9,16 +9,34 @@ Modes:
 - ``--daemon``  → run the dictation daemon
 - ``--tray``    → run the tray application (also the default if no args)
 - ``--cli``     → run the Typer CLI; remaining args pass through to it
+
+The default mode depends on which executable was launched. The Windows bundle
+ships two: a windowed ``YazSes.exe`` (tray/daemon, no console) and a console
+``yazses-cli.exe`` behind a ``yazses`` shim. A GUI-subsystem binary has no
+stdout to write to, so the CLI has to be reachable through the console one or
+``yazses doctor`` prints nothing at all.
 """
 
 from __future__ import annotations
 
 import sys
+from pathlib import Path
+
+# Executables whose bare invocation means "run the CLI" rather than "run the
+# tray". Matched on the argv[0] stem, so YazSes.exe and yazses-cli.exe stay
+# distinguishable on a case-insensitive filesystem.
+_CLI_SUFFIX = "-cli"
+
+
+def default_mode(argv0: str) -> str:
+    """The mode to use when no explicit ``--daemon/--tray/--cli`` flag is given."""
+    stem = Path(argv0).stem.lower()
+    return "--cli" if stem.endswith(_CLI_SUFFIX) else "--tray"
 
 
 def main() -> None:
     args = sys.argv[1:]
-    mode = args[0] if args else "--tray"
+    mode = args[0] if args else default_mode(sys.argv[0])
 
     if mode == "--daemon":
         from yazses.main import run as run_daemon

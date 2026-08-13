@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
+PackageIdentifier: MSKazemi.YazSes
+PackageVersion: 2.18.0
+InstallerType: inno
+Scope: user
+InstallModes:
+  - interactive
+  - silent
+  - silentWithProgress
+UpgradeBehavior: install
+ProductCode: '{F3E8B8A4-1B6C-4F24-9BE8-9B7E58E9C4A2}_is1'
+MinimumOSVersion: 10.0.19041.0
+ReleaseDate: 2026-08-13
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/MSKazemi/yazses/releases/download/v2.18.0/YazSes-2.18.0-windows-x64.exe
+    InstallerSha256: D5D78E9DB771E5C808A240624B9076444067E76922DAB109E1E72BE0F757646A
+ManifestType: installer
+ManifestVersion: 1.6.0

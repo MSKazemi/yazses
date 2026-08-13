@@ -124,6 +124,98 @@ jobs:
           Write-Host "Replaced unsigned installer with signed version: $($signed.Name)"
           Get-AuthenticodeSignature "${{ steps.locate.outputs.path }}" | Format-List
 
+      # Until this step existed, CI proved only that the installer *built*.
+      # Nothing checked that it installed, that the binaries ran, or that the
+      # CLI could print — and all three were broken in shipped releases.
+      - name: Smoke-test the installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $installer = "${{ steps.locate.outputs.path }}"
+          $app = "$env:LOCALAPPDATA\Programs\YazSes"
+          $log = "$env:RUNNER_TEMP\yazses-install.log"
+
+          Write-Host "::group::Silent install"
+          # /VERYSILENT is also what winget's validation pipeline uses, so this
+          # doubles as a check that the manifest's InstallerSwitches are honest.
+          $p = Start-Process -Wait -PassThru -FilePath $installer `
+               -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',"/LOG=$log"
+          if ($p.ExitCode -ne 0) {
+            Get-Content $log -Tail 40
+            throw "installer exited $($p.ExitCode)"
+          }
+          Write-Host "::endgroup::"
+
+          Write-Host "::group::Payload"
+          foreach ($f in @('YazSes.exe','yazses-cli.exe','yazses.cmd')) {
+            if (-not (Test-Path "$app\$f")) { throw "installer did not deliver $f" }
+            Write-Host "  ok  $f"
+          }
+          Write-Host "::endgroup::"
+
+          Write-Host "::group::CLI runs and prints"
+          # Native stdout goes to a file rather than through `2>&1`: under
+          # $ErrorActionPreference='Stop', anything a native command writes to
+          # stderr can abort the step, which would make an unrelated warning
+          # look like a build failure.
+          function Invoke-Cli([string[]]$CliArgs, [string]$Tag) {
+            $o = "$env:RUNNER_TEMP\$Tag.out"
+            $e = "$env:RUNNER_TEMP\$Tag.err"
+            $p = Start-Process -Wait -PassThru -NoNewWindow -FilePath "$app\yazses-cli.exe" `
+                 -ArgumentList $CliArgs -RedirectStandardOutput $o -RedirectStandardError $e
+            [pscustomobject]@{
+              Code = $p.ExitCode
+              Out  = (Get-Content $o -Raw -ErrorAction SilentlyContinue)
+              Err  = (Get-Content $e -Raw -ErrorAction SilentlyContinue)
+            }
+          }
+
+          # The regression this guards: the CLI used to live only in a windowed
+          # binary, which has no stdout, so this produced an empty string.
+          $v = Invoke-Cli @('--version') 'version'
+          if ($v.Code -ne 0) { throw "yazses-cli --version exited $($v.Code): $($v.Err)" }
+          if ([string]::IsNullOrWhiteSpace($v.Out)) {
+            throw "yazses-cli --version printed nothing (is it a windowed build?)"
+          }
+          Write-Host "  version: $($v.Out.Trim())"
+
+          # `doctor` is the widest cheap exercise of the bundle that needs no
+          # microphone. Informational: a runner has no mic and no audio device,
+          # so its warnings are expected and must not fail the build.
+          $d = Invoke-Cli @('doctor') 'doctor'
+          Write-Host $d.Out
+          Write-Host "  doctor exit: $($d.Code) (informational)"
+          Write-Host "::endgroup::"
+
+          Write-Host "::group::Shim + PATH"
+          $shimOut = "$env:RUNNER_TEMP\shim.out"
+          $sp = Start-Process -Wait -PassThru -NoNewWindow -FilePath "cmd.exe" `
+                -ArgumentList '/c',"`"$app\yazses.cmd`"",'--version' `
+                -RedirectStandardOutput $shimOut
+          if ($sp.ExitCode -ne 0) { throw "yazses.cmd exited $($sp.ExitCode)" }
+          $shim = Get-Content $shimOut -Raw -ErrorAction SilentlyContinue
+          if ([string]::IsNullOrWhiteSpace($shim)) { throw "yazses.cmd forwarded nothing" }
+          $userPath = (Get-ItemProperty -Path 'HKCU:\Environment' -Name Path).Path
+          if ($userPath -notlike "*$app*") { throw "installer did not add $app to PATH" }
+          Write-Host "  ok  shim + PATH entry"
+          Write-Host "::endgroup::"
+
+          Write-Host "::group::Uninstall"
+          $unins = Get-ChildItem "$app\unins*.exe" | Select-Object -First 1
+          if (-not $unins) { throw "no uninstaller was written" }
+          $u = Start-Process -Wait -PassThru -FilePath $unins.FullName `
+               -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART'
+          if ($u.ExitCode -ne 0) { throw "uninstaller exited $($u.ExitCode)" }
+
+          if (Test-Path "$app\YazSes.exe") { throw "uninstall left the binary behind" }
+          # A botched PATH removal is the one failure here that damages the
+          # machine rather than just the app, so assert both halves.
+          $after = (Get-ItemProperty -Path 'HKCU:\Environment' -Name Path).Path
+          if ($after -like "*$app*") { throw "uninstall left $app on PATH" }
+          if ([string]::IsNullOrWhiteSpace($after)) { throw "uninstall wiped the user PATH" }
+          Write-Host "  ok  removed cleanly, PATH intact"
+          Write-Host "::endgroup::"
+
       - name: Show build artefacts
         shell: pwsh
         run: Get-ChildItem dist | Format-Table Name, Length, LastWriteTime

@@ -70,6 +70,12 @@ uv run pyinstaller packaging\windows\yazses.spec --clean --noconfirm
 if (-not (Test-Path "dist\YazSes\YazSes.exe")) {
     Write-Error "PyInstaller did not produce dist\YazSes\YazSes.exe"
 }
+# The console binary is what makes `yazses doctor` able to print at all; a spec
+# edit that drops it would otherwise surface only as silent CLI output on a
+# user's machine.
+if (-not (Test-Path "dist\YazSes\yazses-cli.exe")) {
+    Write-Error "PyInstaller did not produce dist\YazSes\yazses-cli.exe (console CLI)"
+}
 
 # --- Inno Setup ---------------------------------------------------------
 Write-Host "==> Running Inno Setup"

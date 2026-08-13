@@ -19,8 +19,12 @@ from yazses.platform.windows.hotkey import (
     VK_SPACE,
     resolve_key_id,
 )
-from yazses.platform.windows.injector import _utf16_units
+from yazses.platform.windows.injector import INJECTED_TAG, _utf16_units
 from yazses.platform.windows.ipc import _pipe_name_from_path
+from yazses.platform.windows.lifecycle import (
+    resolve_daemon_command,
+    resolve_tray_command,
+)
 
 # ---- Hotkey resolution -------------------------------------------------
 
@@ -103,3 +107,64 @@ def test_pipe_name_includes_path_stem(monkeypatch):
     monkeypatch.setenv("USER", "alice")
     name = _pipe_name_from_path(Path("/tmp/custom.sock"))
     assert "custom" in name
+
+
+# ---- Self-injection guard ----------------------------------------------
+
+
+def test_injected_tag_is_non_zero():
+    """The hook compares dwExtraInfo against this tag to skip our own
+    SendInput traffic; a zero tag would match every real keypress."""
+    assert INJECTED_TAG != 0
+
+
+# ---- Lifecycle command resolution --------------------------------------
+
+
+def test_frozen_daemon_command_uses_the_argv_dispatch_flag():
+    """The regression that made a fresh .exe install do nothing.
+
+    The bundle dispatches on argv; `-m yazses.main` matches no mode, falls
+    through to the Typer CLI and exits non-zero parsing `-m`. Because the
+    build is windowed, that failure is silent — the tray spawned nothing and
+    reported "not running" forever.
+    """
+    argv = resolve_daemon_command(r"C:\Users\ada\YazSes\YazSes.exe", frozen=True)
+    assert argv == [r"C:\Users\ada\YazSes\YazSes.exe", "--daemon"]
+    assert "-m" not in argv
+
+
+def test_pip_install_daemon_command_still_uses_the_module():
+    argv = resolve_daemon_command(r"C:\Python312\python.exe", frozen=False)
+    assert argv == [r"C:\Python312\python.exe", "-m", "yazses.main"]
+
+
+def test_frozen_tray_command_is_quoted_for_profiles_containing_spaces():
+    """An unquoted REG_SZ breaks for every user whose profile has a space."""
+    cmd = resolve_tray_command(
+        r"C:\Users\Ada Lovelace\YazSes\YazSes.exe", frozen=True, tray_script=None
+    )
+    assert cmd == r'"C:\Users\Ada Lovelace\YazSes\YazSes.exe" --tray'
+    assert cmd.startswith('"')
+
+
+def test_frozen_tray_command_matches_what_the_installer_writes():
+    """installer.iss writes `"{app}\\YazSes.exe" --tray`. The in-app toggle
+    manages the same registry value, so the two must agree exactly or
+    toggling autostart silently rewrites the installer's entry."""
+    exe = r"C:\Users\ada\AppData\Local\Programs\YazSes\YazSes.exe"
+    assert resolve_tray_command(exe, frozen=True, tray_script=None) == f'"{exe}" --tray'
+
+
+def test_tray_command_prefers_the_console_script_when_not_frozen(tmp_path):
+    script = tmp_path / "yazses-tray.exe"
+    script.write_bytes(b"")
+    cmd = resolve_tray_command(r"C:\py\python.exe", frozen=False, tray_script=script)
+    assert cmd == f'"{script}"'
+
+
+def test_tray_command_falls_back_to_the_module_when_no_script(tmp_path):
+    cmd = resolve_tray_command(
+        r"C:\py\python.exe", frozen=False, tray_script=tmp_path / "absent.exe"
+    )
+    assert cmd == r'"C:\py\python.exe" -m yazses.tray.app'

@@ -8,6 +8,20 @@ to the loop, which is thread-safe.
 Right Ctrl vs Left Ctrl: the low-level hook reports distinct virtual keys
 (VK_RCONTROL vs VK_LCONTROL), so a simple vk-code comparison suffices —
 no need to inspect ``LLKHF_EXTENDED``.
+
+**The hold threshold is driven by a timer, not by key events.** Windows only
+delivers repeated ``WM_KEYDOWN`` for typematic keys, and modifier keys — which
+is every hotkey we support except ``space`` — do not repeat while held. An
+implementation that re-checks the elapsed time only when another key event
+arrives therefore never fires for the default ``right_ctrl``: the single
+keydown arrives at t=0, when no threshold has elapsed yet, and the next event
+is the keyup. Even for ``space``, which does repeat, the first repeat is gated
+on the user's typematic *repeat delay* (250–1000 ms, and disableable entirely
+via Accessibility → Filter Keys), so the configured threshold would be
+silently replaced by an OS setting. Arming a ``threading.Timer`` on the initial
+press — the same approach the X11 backend uses in
+``platform/linux/hotkey_xgrab.py`` — makes the threshold mean what it says on
+every key and every machine.
 """
 
 from __future__ import annotations
@@ -19,7 +33,7 @@ import time
 from collections.abc import Callable
 from ctypes import wintypes
 
-from yazses.hotkeys.hold_detector import HoldDetector
+from yazses.platform.windows.injector import INJECTED_TAG
 
 log = logging.getLogger(__name__)
 
@@ -92,6 +106,52 @@ _LowLevelKeyboardProc = ctypes.WINFUNCTYPE(
 ) if hasattr(ctypes, "WINFUNCTYPE") else None
 
 
+def _load_user32():
+    """Return user32 with `use_last_error` and correct 64-bit prototypes.
+
+    Two things this fixes over a bare ``ctypes.windll.user32``:
+
+    * ``ctypes.get_last_error()`` only ever returns a meaningful value when the
+      library was opened with ``use_last_error=True``. Read off ``windll`` it is
+      a private ctypes copy that nothing ever wrote to, so every "lastError=..."
+      in a failure message was reporting 0 regardless of the real error.
+    * Without an explicit ``restype``, ctypes assumes the return value is a C
+      ``int``. ``SetWindowsHookExW`` and ``GetModuleHandleW`` return pointers,
+      so on 64-bit Windows their handles are silently truncated to 32 bits —
+      after which ``UnhookWindowsHookEx`` and ``CallNextHookEx`` are handed a
+      corrupt handle.
+    """
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+    user32.SetWindowsHookExW.restype = wintypes.HHOOK
+    user32.SetWindowsHookExW.argtypes = [
+        ctypes.c_int, _LowLevelKeyboardProc, wintypes.HINSTANCE, wintypes.DWORD
+    ]
+    user32.UnhookWindowsHookEx.restype = wintypes.BOOL
+    user32.UnhookWindowsHookEx.argtypes = [wintypes.HHOOK]
+    user32.CallNextHookEx.restype = _LRESULT
+    user32.CallNextHookEx.argtypes = [
+        wintypes.HHOOK, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM
+    ]
+    user32.GetMessageW.restype = wintypes.BOOL
+    user32.GetMessageW.argtypes = [
+        ctypes.POINTER(wintypes.MSG), wintypes.HWND, wintypes.UINT, wintypes.UINT
+    ]
+    user32.PostThreadMessageW.restype = wintypes.BOOL
+    user32.PostThreadMessageW.argtypes = [
+        wintypes.DWORD, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM
+    ]
+    return user32
+
+
+def _load_kernel32():
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.GetModuleHandleW.restype = wintypes.HMODULE
+    kernel32.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
+    kernel32.GetCurrentThreadId.restype = wintypes.DWORD
+    kernel32.GetCurrentThreadId.argtypes = []
+    return kernel32
+
+
 class WindowsHotkey:
     """HotkeyBackend implementation for Windows."""
 
@@ -105,15 +165,22 @@ class WindowsHotkey:
         self._key_id, self._vk = resolve_key_id(key_id)
         self._produces_char = self._key_id in _CHARACTER_KEYS
 
-        self._detector = HoldDetector(threshold_ms=threshold_ms)
+        self._threshold_ms = threshold_ms
         self._on_hold_start = on_hold_start
         self._on_hold_end = on_hold_end
-        self._recording = False
 
+        # Press/hold state. `_press_time` is the "a press is being tracked"
+        # flag; `_timer` fires the hold once the threshold elapses.
+        self._press_time: float | None = None
+        self._leaked_count = 0
+        self._recording = False
+        self._timer: threading.Timer | None = None
+        self._state_lock = threading.Lock()
+
+        self._user32 = None
         self._hook_handle: int | None = None
         self._hook_thread_id: int | None = None
         self._hook_proc = None  # Strong ref so the C callback isn't GC'd.
-        self._stop_event = threading.Event()
 
     # ------------------------------------------------------------------
 
@@ -121,8 +188,8 @@ class WindowsHotkey:
         if _LowLevelKeyboardProc is None:
             raise RuntimeError("WINFUNCTYPE unavailable; not running on Windows.")
 
-        user32 = ctypes.windll.user32
-        kernel32 = ctypes.windll.kernel32
+        user32 = self._user32 = _load_user32()
+        kernel32 = _load_kernel32()
 
         self._hook_thread_id = kernel32.GetCurrentThreadId()
 
@@ -135,7 +202,11 @@ class WindowsHotkey:
         )
         if not self._hook_handle:
             err = ctypes.get_last_error()
-            raise OSError(f"SetWindowsHookExW failed (lastError={err})")
+            raise OSError(
+                f"SetWindowsHookExW failed (lastError={err}). A low-level keyboard "
+                "hook needs an interactive desktop session; it is unavailable in "
+                "services and over some remote-desktop configurations."
+            )
 
         log.info("WH_KEYBOARD_LL installed for key_id=%s (vk=0x%x)", self._key_id, self._vk)
 
@@ -154,11 +225,11 @@ class WindowsHotkey:
             self._teardown()
 
     def stop(self) -> None:
-        self._stop_event.set()
+        self._cancel_timer()
         if self._hook_thread_id is None:
             return
         try:
-            user32 = ctypes.windll.user32
+            user32 = self._user32 or _load_user32()
             user32.PostThreadMessageW(self._hook_thread_id, WM_QUIT, 0, 0)
         except Exception:
             log.exception("PostThreadMessageW(WM_QUIT) failed")
@@ -173,7 +244,12 @@ class WindowsHotkey:
         try:
             if n_code >= 0:
                 kbd = ctypes.cast(l_param, ctypes.POINTER(_KBDLLHOOKSTRUCT))[0]
-                if int(kbd.vkCode) == self._vk:
+                # Skip our own SendInput traffic. A command sequence containing
+                # Ctrl would otherwise look like the user pressing the hotkey,
+                # and the daemon would trigger itself. The Linux backend avoids
+                # the same loop by refusing to listen on ydotool/uinput devices.
+                injected = int(kbd.dwExtraInfo or 0) == INJECTED_TAG
+                if not injected and int(kbd.vkCode) == self._vk:
                     if w_param in (WM_KEYDOWN, WM_SYSKEYDOWN):
                         self._press()
                     elif w_param in (WM_KEYUP, WM_SYSKEYUP):
@@ -181,29 +257,84 @@ class WindowsHotkey:
         except Exception:
             log.exception("Hook callback raised")
         # Always pass through; we listen, we never block.
-        return ctypes.windll.user32.CallNextHookEx(
-            self._hook_handle or 0, n_code, w_param, l_param
-        )
+        user32 = self._user32
+        if user32 is None:  # pragma: no cover - hook can't fire before run()
+            return 0
+        return user32.CallNextHookEx(self._hook_handle or 0, n_code, w_param, l_param)
+
+    # ---- press/hold state machine (pure enough to unit-test) -------------
 
     def _press(self) -> None:
-        t = time.monotonic()
-        self._detector.on_press(t)
-        if not self._recording and self._detector.check(t):
-            self._recording = True
-            leaked = self._detector.leaked_count if self._produces_char else 0
-            self._on_hold_start(leaked)
+        """Handle a keydown. Repeats while held must not re-arm the timer."""
+        with self._state_lock:
+            if self._press_time is not None:
+                # Typematic repeat while still held. A character key leaks one
+                # more character into the focused app per repeat, so keep
+                # counting — that count is what gets backspaced away.
+                if self._produces_char:
+                    self._leaked_count += 1
+                return
+            self._press_time = time.monotonic()
+            self._leaked_count = 1 if self._produces_char else 0
+
+            if not self._produces_char:
+                # A modifier types nothing, so there is no tap to tell apart
+                # from a hold and nothing to wait for. Starting immediately is
+                # what platform/linux/evdev_hold.py does, for the reason it
+                # records there: waiting out the threshold on a modifier only
+                # clips the first words of speech. The pre-speech padding is a
+                # silence lead-in, not a buffer of real audio, so anything said
+                # before the hold starts is simply lost.
+                self._recording = True
+                self._timer = None
+                on_start = self._on_hold_start
+            else:
+                # A character key has already typed something by the time we
+                # see it, so tap-vs-hold genuinely needs the threshold. Use a
+                # timer rather than waiting for the next repeat event: typematic
+                # delay is a user setting (250 ms–1 s), which would otherwise
+                # silently redefine hold_threshold_ms per machine.
+                timer = threading.Timer(self._threshold_ms / 1000.0, self._fire_hold_start)
+                timer.daemon = True
+                self._timer = timer
+                on_start = None
+
+        if on_start is not None:
+            on_start(0)
+        elif self._timer is not None:
+            self._timer.start()
 
     def _release(self) -> None:
-        was_recording = self._recording
-        self._recording = False
-        self._detector.reset()
+        self._cancel_timer()
+        with self._state_lock:
+            was_recording = self._recording
+            self._recording = False
+            self._press_time = None
+            self._leaked_count = 0
         if was_recording:
             self._on_hold_end()
 
+    def _fire_hold_start(self) -> None:
+        """Timer callback: the key has now been held for the full threshold."""
+        with self._state_lock:
+            if self._press_time is None or self._recording:
+                return  # released before the threshold, or already recording
+            self._recording = True
+            leaked = self._leaked_count if self._produces_char else 0
+        self._on_hold_start(leaked)
+
+    def _cancel_timer(self) -> None:
+        with self._state_lock:
+            timer, self._timer = self._timer, None
+        if timer is not None:
+            timer.cancel()
+
     def _teardown(self) -> None:
+        self._cancel_timer()
         if self._hook_handle is not None:
             try:
-                ctypes.windll.user32.UnhookWindowsHookEx(self._hook_handle)
+                user32 = self._user32 or _load_user32()
+                user32.UnhookWindowsHookEx(self._hook_handle)
             except Exception:
                 log.exception("UnhookWindowsHookEx failed")
             self._hook_handle = None
