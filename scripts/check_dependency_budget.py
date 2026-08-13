@@ -73,6 +73,7 @@ EXTRA_MODULES: dict[str, tuple[str, ...]] = {
     # names -- one states intent, the other names the widget.
     "desktop": ("PySide6",),
     "denoise": ("noisereduce",),
+    "emg-band": ("brainflow",),
     "diarization": ("sherpa_onnx",),
     # The alternative diarizer. Mapped by its dotted name rather than the bare
     # `pyannote` namespace, which is shared with pyannote.core/pyannote.database

@@ -62,6 +62,19 @@ is a remote control.
 <figcaption>The whole system in six bands. Everything above the last band runs today; the last band is designed and deliberately absent.</figcaption>
 </figure>
 
+**A squeeze can now carry which mode, not just when.** `platform/emg/pressure.py`
+turns raw EMG into a level — relaxed / light / hard — using the Teager–Kaiser
+energy operator rather than a bare amplitude threshold, because TKEO responds to
+amplitude *and* frequency and therefore ignores the large, slow artefacts (baseline
+wander, cable sway, a shifting electrode) that a rectified threshold reads as a
+contraction. Light squeeze dictates, hard squeeze commands, mirroring the command
+key so all three mode switches behave identically. Thresholds are calibrated from
+the user's own relaxed baseline and maximum contraction, because muscle amplitude
+varies by an order of magnitude between people and fixed microvolt numbers are
+meaningless. `platform/emg/brainflow_source.py` adds buyable hardware (OpenBCI,
+Muse, …) through BrainFlow, keeping the serial YESP path as the DIY reference; a
+missing device or dependency is a logged no-op, never a crash. (#103)
+
 **Gaze calibration refines itself.** `gaze/implicit.py` treats a mouse click as
 ground truth for where the user was looking and folds it into the existing affine
 map with recursive least squares — the same estimator `fit_calibration` uses,
