@@ -1,0 +1,137 @@
+name: Release completeness
+
+# Why this exists
+# ---------------
+# A tag is supposed to produce a package for every supported OS. Nothing checked
+# that it did, and on 2026-08-13 v2.18.1 proved what that costs.
+#
+# Its `Release` workflow failed in the test job, so `release-linux` and
+# `publish-pypi` were both SKIPPED. But build-macos and build-windows are
+# separate workflows: they succeeded, created the GitHub Release themselves and
+# attached their own artifacts. The result was published as an ordinary release
+# and sat as "Latest" carrying:
+#
+#   .exe  yes        .dmg  yes        .deb  NO        PyPI  NO (404)
+#
+# Linux users following the documented `pipx install yazses` silently got the
+# previous version, and there was no .deb at all. Nothing anywhere said so --
+# every individual workflow had done its own job correctly.
+#
+# This gate exists so that cannot happen quietly again. It does not build
+# anything; it verifies that everything else did, and makes an incomplete
+# release loud and un-recommended instead of silent and "Latest".
+#
+# Trigger is the TAG PUSH, not `release: published` -- a Release created by a
+# workflow using GITHUB_TOKEN never raises an event that starts another workflow
+# run. See checksums.yml for the same reasoning.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to check (e.g. v2.19.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # may demote an incomplete release to pre-release
+    env:
+      GH_TOKEN: ${{ github.token }}
+      # No checkout: this job only inspects published artifacts. Without a
+      # checkout `gh` cannot infer the repository, so state it explicitly.
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - name: Check gh can reach the repository
+        run: |
+          set -euo pipefail
+          gh repo view --json name -q .name
+
+      - name: Wait for every platform to publish
+        # Deliberately generous: the Windows build is the long pole and PyPI
+        # needs a moment to become queryable. Waiting costs nothing; declaring a
+        # release complete before its slowest platform finishes costs the point
+        # of the check.
+        run: |
+          set -euo pipefail
+          VERSION="${TAG#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          deadline=$(( SECONDS + 3000 ))   # 50 minutes
+
+          while (( SECONDS < deadline )); do
+            if ! names=$(gh release view "$TAG" --json assets -q '.assets[].name' 2>/dev/null); then
+              echo "release $TAG does not exist yet (${SECONDS}s)"
+              sleep 60
+              continue
+            fi
+            deb=$(grep -c '\.deb$' <<<"$names" || true)
+            dmg=$(grep -c '\.dmg$' <<<"$names" || true)
+            exe=$(grep -c '\.exe$' <<<"$names" || true)
+            pypi=$(curl -s -o /dev/null -w '%{http_code}' \
+              "https://pypi.org/pypi/yazses/$VERSION/json")
+            echo "deb=$deb dmg=$dmg exe=$exe pypi=$pypi (${SECONDS}s)"
+            if (( deb > 0 && dmg > 0 && exe > 0 )) && [[ "$pypi" == "200" ]]; then
+              echo "All platforms published."
+              break
+            fi
+            sleep 60
+          done
+
+      - name: Report what shipped, and fail if anything did not
+        run: |
+          set -euo pipefail
+          names=$(gh release view "$TAG" --json assets -q '.assets[].name' 2>/dev/null || echo "")
+          pypi=$(curl -s -o /dev/null -w '%{http_code}' \
+            "https://pypi.org/pypi/yazses/$VERSION/json")
+
+          missing=()
+          grep -q '\.deb$' <<<"$names" || missing+=("Linux .deb")
+          grep -q '\.dmg$' <<<"$names" || missing+=("macOS .dmg")
+          grep -q '\.exe$' <<<"$names" || missing+=("Windows .exe")
+          [[ "$pypi" == "200" ]]        || missing+=("PyPI wheel/sdist")
+
+          {
+            echo "## Release completeness — \`$TAG\`"
+            echo
+            echo "| Channel | Published |"
+            echo "|---|---|"
+            for want in '\.deb$:Linux .deb' '\.dmg$:macOS .dmg' '\.exe$:Windows .exe'; do
+              pat="${want%%:*}"; label="${want#*:}"
+              if grep -q "$pat" <<<"$names"; then echo "| $label | ✅ |"; else echo "| $label | ❌ |"; fi
+            done
+            if [[ "$pypi" == "200" ]]; then echo "| PyPI | ✅ |"; else echo "| PyPI | ❌ (HTTP $pypi) |"; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if (( ${#missing[@]} == 0 )); then
+            echo "Every supported platform published for $TAG."
+            exit 0
+          fi
+
+          joined=$(printf '%s, ' "${missing[@]}"); joined=${joined%, }
+          printf 'MISSING=%s\n' "$joined" >> "$GITHUB_ENV"
+          echo "::error::$TAG is incomplete -- missing: ${missing[*]}"
+          exit 1
+
+      - name: Demote an incomplete release so it is not advertised as Latest
+        # Runs only when the check above failed. A half-published release that
+        # still reads "Latest" is worse than an obviously provisional one: it
+        # sends people to a download that does not exist for their OS. Reverse
+        # with: gh release edit <tag> --prerelease=false --latest
+        if: failure()
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --prerelease
+            echo "::warning::$TAG marked pre-release because it is missing: ${MISSING:-unknown}"
+          else
+            echo "No release exists for $TAG -- nothing to demote."
+          fi
