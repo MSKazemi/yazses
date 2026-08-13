@@ -14,11 +14,22 @@
 
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 
 REPO = Path(SPECPATH).resolve().parents[1]
 ENTRY = str(REPO / "src" / "yazses" / "__main__.py")
 ICON = REPO / "assets" / "yazses.icns"
+
+# Read the version from pyproject rather than restating it here. These two used
+# to be separate literals, and the copy in this file was never updated after
+# v0.1.2 -- so every .dmg from v0.1.3 to v2.18.0 shipped an .app that told macOS
+# it was version 0.1.2. Finder's Get Info, `mdls`, and any updater that compares
+# CFBundleShortVersionString all read that number, so a genuine upgrade looked
+# like a downgrade. Derive it and the drift cannot come back.
+VERSION = tomllib.loads(
+    (REPO / "pyproject.toml").read_text(encoding="utf-8")
+)["project"]["version"]
 
 block_cipher = None
 
@@ -72,7 +83,21 @@ exe = EXE(
     upx=False,
     console=False,         # --windowed
     disable_windowed_traceback=False,
-    target_arch=None,      # universal2 in CI; fallback to host arch locally
+    # Host arch only -- NOT universal2, whatever an earlier comment here claimed.
+    # PyInstaller reads target_arch=None as "build for the machine you are on",
+    # and CI builds on macos-latest, which is Apple Silicon (the v2.18.0 run
+    # resolved its Python to aarch64-apple-darwin). So the released .dmg is
+    # arm64-only and will not launch on an Intel Mac.
+    #
+    # universal2 is not reachable by flipping this value: PyInstaller can only
+    # emit a universal2 binary when *every* bundled native dependency is itself
+    # universal2, and ctranslate2 (via faster-whisper) publishes separate
+    # arm64 and x86_64 macOS wheels. Intel coverage needs a second CI job on an
+    # Intel runner, and those are `-large`/`-intel` labels, which GitHub bills
+    # even for public repositories. That is a spend decision, so it is filed
+    # rather than assumed -- see docs/macos-install.md for what Intel users do
+    # in the meantime (pipx install yazses).
+    target_arch=None,
     codesign_identity=None,  # signed in a separate step (deferred to public beta)
     entitlements_file=None,
 )
@@ -98,8 +123,8 @@ app = BUNDLE(
         "CFBundleName": "YazSes",
         "CFBundleDisplayName": "YazSes",
         "CFBundleIdentifier": "com.yazses.app",
-        "CFBundleVersion": "0.1.2",
-        "CFBundleShortVersionString": "0.1.2",
+        "CFBundleVersion": VERSION,
+        "CFBundleShortVersionString": VERSION,
         "CFBundleExecutable": "YazSes",
 
         # No Dock icon — tray-only app.

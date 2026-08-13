@@ -144,7 +144,7 @@ yazses verify               # speak once and prove the whole pipeline works
 
 Release the key — YazSes transcribes and acts. On a modern laptop CPU that is a median of **1.6 s** with the default `base.en` model, or **0.9 s** with `tiny.en` ([measured](docs/benchmarks.md)).
 
-> **First time on macOS?** v0 builds are unsigned: right-click the app → Open (Gatekeeper), then grant Accessibility + Microphone when prompted.
+> **First time on macOS?** The `.app` is still unsigned: right-click the app → Open (Gatekeeper), then grant Accessibility + Microphone when prompted.
 >
 > **First time on Windows?** If SmartScreen warns you, click **More info → Run anyway**.
 
@@ -418,12 +418,21 @@ yazses doctor                           # says if anything is still missing
 ### macOS
 
 ```sh
-# pipx (Python ≥ 3.11)
+# Homebrew — Apple Silicon only (see below)
+brew tap MSKazemi/yazses
+brew install --cask yazses
+
+# pipx (Python ≥ 3.11) — works on Apple Silicon and Intel
 pipx install yazses
 
-# App bundle (.dmg) — unsigned developer preview
+# App bundle (.dmg) — unsigned developer preview, Apple Silicon only
 # https://github.com/MSKazemi/yazses/releases/latest
 ```
+
+> **On an Intel Mac, use pipx.** The `.dmg` is built host-arch on GitHub's arm64
+> `macos-latest` runner and carries no `x86_64` slice, so it cannot launch on Intel;
+> the cask declares `arch: :arm64` and refuses rather than installing a broken app.
+> Details in [docs/macos-install.md](docs/macos-install.md).
 
 ### Windows
 

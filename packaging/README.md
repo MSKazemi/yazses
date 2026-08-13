@@ -15,7 +15,7 @@ registry. Every channel below was checked live on 2026-08-11:
 | Snap Store | ✅ live | `../snap/` | incl. arm64 |
 | APT repo | ✅ live | `../scripts/update-apt-repo.sh` | signed |
 | GitHub Releases | ✅ live | — | `.dmg`, `.exe`, `.deb` |
-| **Homebrew** | ❌ **404** | `homebrew/yazses.rb` | cask is **current (2.17.0, real sha)** — needs a tap repo ([#6](https://github.com/MSKazemi/yazses/issues/6)) |
+| **Homebrew** | ⚠ see below | `homebrew/yazses.rb` | cask refreshed to **2.18.0 (real sha)** and now declares `arch: :arm64` — tap status in the macOS section below ([#6](https://github.com/MSKazemi/yazses/issues/6)) |
 | **winget** | ❌ **404** | `winget/…/2.18.0/` | manifests are **current (2.18.0, real sha)** — needs a PR to `microsoft/winget-pkgs` ([#78](https://github.com/MSKazemi/yazses/issues/78)) |
 | **AUR** | ❌ **404** | `arch/PKGBUILD` | ⚠ stale at `pkgver=0.4.0`, `sha256sums=SKIP` ([#67](https://github.com/MSKazemi/yazses/issues/67)) |
 | **Flathub** | ❌ not found | — | nothing built yet ([#45](https://github.com/MSKazemi/yazses/issues/45)) |
@@ -36,6 +36,42 @@ Rust binary** distribution. The releases they point at (`v1.0.0`, `v1.0.0-dev.1`
 **never published** — `gh release view v1.0.0` returns *release not found* — and their
 checksums are still `PLACEHOLDER_…`. They are marked at the top of each file. **The
 canonical cask is `homebrew/yazses.rb`.**
+
+### macOS: the .dmg is Apple Silicon only
+
+Audited 2026-08-13, and this is the single most important fact about the macOS
+channel because the docs previously promised the opposite.
+
+`build-macos.yml` runs on `macos-latest`. That label is an **arm64** image — the
+v2.18.0 build resolved its Python to `aarch64-apple-darwin`, confirmed from the job
+log. `packaging/macos/yazses.spec` passes `target_arch=None`, which PyInstaller reads
+as *host architecture*, not `universal2` despite what the comment there used to say.
+So `YazSes-2.18.0.dmg` contains **no x86_64 slice and cannot launch on an Intel Mac.**
+
+`universal2` is not reachable by changing that one value. PyInstaller can only emit a
+universal binary when every bundled native dependency is itself universal, and
+`ctranslate2` (via `faster-whisper`) publishes separate arm64 and x86_64 macOS wheels.
+
+Intel coverage therefore needs a **second CI job on an Intel runner**. GitHub retired
+the free Intel image; Intel is now only `-large`/`-intel` labels, which are billed
+**even for public repositories**. That is a spend decision, so it is documented rather
+than assumed. Until it is made:
+
+- the cask declares `depends_on arch: :arm64`, so Homebrew refuses cleanly on Intel
+  instead of installing an app that cannot start;
+- `docs/macos-install.md` routes Intel users to `pipx install yazses`, which is
+  architecture independent.
+
+⚠ **Three open issues invite contributors to test on hardware that cannot work.**
+[#216](https://github.com/MSKazemi/yazses/issues/216) ("Test YazSes on macOS (Intel)")
+in particular asks someone to test a `.dmg` now known to be arm64-only;
+[#24](https://github.com/MSKazemi/yazses/issues/24) and
+[#182](https://github.com/MSKazemi/yazses/issues/182) should say which chip they mean.
+They need rewording before anyone spends an evening on them.
+
+⚠ **No human has confirmed the `.dmg` launches at all**, on either architecture. A
+71 MB artefact existing is not evidence that it runs — this repo has already shipped a
+Windows `.exe` across several releases that never started a daemon.
 
 ### Windows: Scoop and Chocolatey
 

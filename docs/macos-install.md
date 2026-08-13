@@ -13,17 +13,64 @@ description: "Install YazSes on macOS for private, on-device dictation: pipx ins
 
 ## Requirements
 
-- macOS 11 (Big Sur) or later, Apple Silicon or Intel
+- macOS 11 (Big Sur) or later
+- **Apple Silicon (M1 or later) for the `.dmg`** — see the note below if you
+  are on an Intel Mac
 - ~250 MB free disk for the app + the Whisper model on first download
 - A microphone
 
+### Which Mac do I have?
+
+Apple menu → **About This Mac**. If *Chip* says **Apple M1/M2/M3/M4**, use the
+`.dmg`. If *Processor* says **Intel**, use the pipx route below.
+
+Or from a terminal:
+
+```sh
+uname -m      # arm64 → Apple Silicon;  x86_64 → Intel
+```
+
 ## Install
+
+### Apple Silicon — Homebrew (recommended)
+
+```sh
+brew tap MSKazemi/yazses
+brew install --cask yazses
+```
+
+Upgrades then come with `brew upgrade --cask yazses`.
+
+### Apple Silicon — direct download
 
 1. Download `YazSes-<version>.dmg` from the
    [Releases](https://github.com/MSKazemi/yazses/releases) page.
 2. Open the `.dmg`. Drag **YazSes.app** into the **Applications** folder shown
    in the Finder window.
 3. Eject the `.dmg`.
+
+### Intel Macs — install from PyPI
+
+The `.dmg` is built on GitHub's `macos-latest` runner, which is an Apple
+Silicon image, and it is **not** a universal binary — it carries no `x86_64`
+slice and will not launch on an Intel Mac. The Homebrew cask declares
+`depends_on arch: :arm64`, so `brew install --cask yazses` refuses cleanly on
+Intel rather than installing something that cannot start.
+
+Install from PyPI instead, which is architecture independent:
+
+```sh
+pipx install yazses
+yazses quickstart
+```
+
+You get the same daemon and CLI; what you do not get is the `.app` bundle and
+its tray icon. Everything below about Accessibility and Microphone permissions
+still applies — grant them to your **terminal** app instead of to YazSes.app.
+
+> An Intel `.dmg` would need a second CI job on an Intel runner. GitHub now
+> offers those only as `-large`/`-intel` labels, which are billed even for
+> public repositories, so it is a spend decision rather than an oversight.
 
 ## First launch — Gatekeeper bypass
 
@@ -119,6 +166,17 @@ Run `--cli doctor` to see what YazSes is detecting.
 heuristics. Build from source (`scripts/build-macos.sh`) if you prefer.
 
 ## Uninstall
+
+If you installed with Homebrew, that route also removes the app, stops the
+launchd agent, and (with `--zap`) clears the support files:
+
+```sh
+brew uninstall --zap --cask yazses
+```
+
+Installed from PyPI? `pipx uninstall yazses`.
+
+For a manual `.dmg` install:
 
 ```sh
 launchctl bootout gui/$(id -u)/com.yazses.daemon 2>/dev/null || true
