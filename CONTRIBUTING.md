@@ -213,6 +213,47 @@ rules it is most likely to break (**no network calls or telemetry**, and **new f
 off by default**). Mention in the PR body if a change was largely AI-generated; it only
 changes how carefully we review, never whether we accept it.
 
+## After it is merged — please take the credit publicly
+
+Two things happen without you asking: you are added to
+[CONTRIBUTORS.md](CONTRIBUTORS.md), and to the contributor wall in `README.md` **and in every
+translation of it**. Both are permanent and both carry your name and your avatar.
+
+**Sharing your merged pull request is worth more to you than it is to us, and that is the
+reason we would rather you did it.** A merged PR is a public, permanent, linkable artifact
+with your name on the commit — a link to a real diff in a real project says something a
+bullet point on a CV cannot, because anyone can open it and read what you actually wrote.
+
+It also happens to be the only distribution this project has. There is no company behind
+YazSes and no ad budget; everyone who has found it found it because somebody said something.
+A post from the person who built a piece of it travels further than anything the maintainer
+can say about his own repository — and it puts *your* work at the front of the sentence.
+
+Something to paste and edit, if a blank box is the obstacle:
+
+> I contributed [what you did] to **YazSes**, an open-source offline voice-dictation daemon
+> for Linux, macOS and Windows — hold a key, speak, release, and the text is typed into
+> whatever app you are in. It all runs on your own CPU: no cloud, no API key, no
+> subscription.
+>
+> My pull request: [link to your merged PR]
+> The project: https://github.com/MSKazemi/yazses
+
+Worth linking alongside it, whichever platform you use: the
+[documentation site](https://mskazemi.com/yazses/), the
+[40-second demo](https://www.youtube.com/watch?v=nn8WUKsCvZ4) if you want something people
+will actually click, and [#18](https://github.com/MSKazemi/yazses/issues/18) (translations)
+or [#22](https://github.com/MSKazemi/yazses/issues/22) (everything open) if you would like to
+bring somebody with you. Releases are archived on Zenodo under a DOI
+([10.5281/zenodo.21856271](https://doi.org/10.5281/zenodo.21856271)), so if you ever need a
+citable reference for a thesis, a grant, or a portfolio, there is a real one to cite.
+
+None of this is expected, none of it is a condition of anything, and nobody will ask you a
+second time. **What this project will never do is manufacture the signal** — no star-for-star,
+no reciprocal-follow arrangements, no asking anyone to post something they do not mean. If
+the contribution was not a good experience, please tell us that instead; it is worth more to
+us than a post.
+
 ## License
 
 **There is nothing to sign — no CLA, and no DCO sign-off line.**
