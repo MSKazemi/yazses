@@ -25,7 +25,7 @@ the APT repo serves **2.18.2**, signed, `InRelease` 200.
 | **AUR** | ❌ **404** | `arch/PKGBUILD` | ⚠ stale at `pkgver=0.4.0`, `sha256sums=SKIP` ([#67](https://github.com/MSKazemi/yazses/issues/67)) |
 | **Flathub** | ❌ not found | — | nothing built yet ([#45](https://github.com/MSKazemi/yazses/issues/45)) |
 | **Nix** | ❌ 0 hits | `../flake.nix` | authored; **every nixpkgs attribute verified to exist**, but ⚠ **never evaluated** (no Nix here) ([#68](https://github.com/MSKazemi/yazses/issues/68)) |
-| **Docker/GHCR** | ❌ 404 | `docker/Dockerfile` | image **builds and runs** — needs publishing ([#76](https://github.com/MSKazemi/yazses/issues/76)) |
+| **Docker/GHCR** | ✅ live | `docker/Dockerfile` | `ghcr.io/mskazemi/yazses:2.18.2` is **public and pullable** — now published on every tag ([#76](https://github.com/MSKazemi/yazses/issues/76)). ⚠ the earlier "404" was a **measurement error**: GHCR rejects unauthenticated reads, so a bare `curl` returns 401/404 for images that exist. Verify with a pull token, see below |
 | **Scoop** | ✅ live | `../bucket/yazses.json` | bucket served from this repo — `scoop bucket add yazses https://github.com/MSKazemi/yazses`; manifest at **2.18.2**, raw URL 200 ([#79](https://github.com/MSKazemi/yazses/issues/79)) |
 | **Chocolatey** | ❌ 404 | `chocolatey/` | nuspec + checksum verified; ⚠ **`.ps1` scripts not syntax-checked** (no `pwsh` on the authoring machine) |
 
@@ -33,6 +33,20 @@ the APT repo serves **2.18.2**, signed, `InRelease` 200.
 > `search.nixos.org` and AlternativeTo — they are single-page apps that return **HTTP 200
 > for pages that do not exist**. Use an API instead:
 > `https://flathub.org/api/v2/appstream/<app-id>` correctly answers `App not found`.
+>
+> **And it lies the other way about GHCR.** A registry read without a token is rejected
+> whether or not the image exists, so `401`/`404` there is not evidence of absence — this
+> table carried "Docker ❌ 404" while `ghcr.io/mskazemi/yazses:2.18.2` was public and
+> pullable. Get an anonymous pull token first:
+>
+> ```bash
+> TOK=$(curl -s "https://ghcr.io/token?scope=repository:mskazemi/yazses:pull&service=ghcr.io" | jq -r .token)
+> curl -s -H "Authorization: Bearer $TOK" https://ghcr.io/v2/mskazemi/yazses/tags/list
+> ```
+>
+> **Do not hand-check any of this.** `scripts/check-release-channels.py --version <v>`
+> queries every channel in this table the correct way and prints it as a table;
+> `release-complete.yml` runs it on every tag.
 
 ### Two dead files kept only as history
 
