@@ -24,6 +24,8 @@ argument, and the record of it is the decision it altered.
   invariant for graded EMG activation ([#103](https://github.com/MSKazemi/yazses/issues/103)).
 
 ## Contributors
+- [@4nmus](https://github.com/4nmus) — Russian README translation, the project's first in
+  Cyrillic script
 - [@AshSgDe29071999](https://github.com/AshSgDe29071999)
 - [@HeaTTap](https://github.com/HeaTTap)
 - [@jackie-cqz](https://github.com/jackie-cqz)

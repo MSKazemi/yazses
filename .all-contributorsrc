@@ -11,7 +11,7 @@
   "commitConvention": "angular",
   "contributorsPerLine": 7,
   "contributorsSortAlphabetically": false,
-  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-11-orange.svg?style=flat-square)](#contributors)",
+  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-12-orange.svg?style=flat-square)](#contributors)",
   "contributors": [
     {
       "login": "MSKazemi",
@@ -117,6 +117,15 @@
       "name": "Prithvi4904",
       "avatar_url": "https://avatars.githubusercontent.com/u/216231806?v=4",
       "profile": "https://github.com/Prithvi4904",
+      "contributions": [
+        "translation"
+      ]
+    },
+    {
+      "login": "4nmus",
+      "name": "4nmus",
+      "avatar_url": "https://avatars.githubusercontent.com/u/145120721?v=4",
+      "profile": "https://github.com/4nmus",
       "contributions": [
         "translation"
       ]
