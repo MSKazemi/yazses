@@ -69,7 +69,14 @@ jobs:
 
           VERSION="$(curl -fsSL https://pypi.org/pypi/yazses/json \
             | python3 -c 'import sys,json;print(json.load(sys.stdin)["info"]["version"])')"
-          echo "yazses==${VERSION}" > /tmp/req.in
+          # setuptools and wheel are listed as requirements so req2flatpak
+          # vendors their wheels into the module's sources. pip builds evdev's
+          # sdist in an isolated env and resolves that env's build deps from
+          # --find-links when --no-index is set — so a modern setuptools has to
+          # be *in that directory*, not merely installed beside it. Installing
+          # it into /app and putting /app on PYTHONPATH both failed precisely
+          # because the isolated build env ignores them.
+          printf 'yazses==%s\nsetuptools\nwheel\n' "${VERSION}" > /tmp/req.in
 
           # Pin against the *runtime's* interpreter and arch, not the runner's.
           uv pip compile --quiet \
@@ -123,7 +130,14 @@ jobs:
         with:
           bundle: yazses.flatpak
           manifest-path: packaging/flatpak/${{ env.APP_ID }}.yml
-          cache-key: flatpak-builder-${{ github.sha }}
+          # Caching is OFF deliberately. Three consecutive runs reported the
+          # *same* pip temp directory (evdev_1dfb8b667a6b41cbaaa02215b5ebd6a7)
+          # while the manifest changed under them, which is not possible for
+          # genuinely independent builds — the cache was replaying a stale
+          # module failure, so two fixes appeared to change nothing. Correctness
+          # of the signal matters more here than build minutes; turn it back on
+          # once the build is green and understood.
+          cache: false
           # Flathub runs this on every submission; failing it here is cheaper
           # than failing it in their review queue.
           run-tests: false
