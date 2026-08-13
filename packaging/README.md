@@ -153,6 +153,19 @@ log. `packaging/macos/yazses.spec` passes `target_arch=None`, which PyInstaller 
 as *host architecture*, not `universal2` despite what the comment there used to say.
 So the `.dmg` contains **no x86_64 slice and cannot launch on an Intel Mac.**
 
+Reproduce any of this yourself, on Linux, with no Mac and no `hdiutil`:
+
+```sh
+uv run python scripts/inspect-dmg.py YazSes-<version>.dmg \
+    --expect-version <version> --expect-arch arm64
+```
+
+It decodes the UDIF container `create-dmg` produces and reads the bundle's
+`Info.plist` and every Mach-O header out of the raw image. Both flags exit non-zero on
+a mismatch, so a release job can assert them — which is what would have caught the
+`0.1.2` version and the missing Intel slice years earlier. ⚠ It answers *"is the right
+thing inside the artefact"*, never *"does it launch"*; the second still needs a Mac.
+
 This was **verified against the artefact**, not only inferred from the runner. The
 `.dmg` that CI built for PR #263 was decompressed on Linux (UDIF/`koly` trailer → blkx
 block table → zlib chunks; no macOS tooling involved) and every Mach-O header in the
