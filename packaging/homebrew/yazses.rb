@@ -19,8 +19,8 @@
 # worse than no cask: Homebrew refuses the download, so the first thing a new
 # user sees is a failure that looks like the project is broken.
 cask "yazses" do
-  version "2.18.1"
-  sha256 "9763a43d1400204355cf97a288538b278f04d93ef0bc13fcdc909e1fec78db38"
+  version "2.18.2"
+  sha256 "f3b24712bf7b65f5ad03cbe12c98f3ef713184d9a16c841820814b9e33103858"
 
   url "https://github.com/MSKazemi/yazses/releases/download/v#{version}/YazSes-#{version}.dmg",
       verified: "github.com/MSKazemi/yazses/"
