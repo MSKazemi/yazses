@@ -26,6 +26,7 @@ _ALIASES = {
     "mic-guard": "audio",          # device-change + silent-streak notify live under [audio]
     "target-guard": "injection",   # text-target guard writes [injection] target_guard
     "stt-parakeet": "stt",         # engine selector writes [stt] engine
+    "stt-moonshine": "stt",        # same selector, different engine
     "chinese-script": "stt",       # Han-script selector writes [stt] chinese_script
 }
 

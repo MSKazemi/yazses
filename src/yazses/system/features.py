@@ -143,6 +143,10 @@ def _registry() -> list[_Def]:
     # the faster-whisper default (stt/factory.py falls back safely either way).
     pk_on = (("stt", "engine", "parakeet", True),)
     pk_off = (("stt", "engine", "faster-whisper", True),)
+    # `ms_*` is already mouthswitch's — a collision here silently makes one
+    # feature write the other's config key (test_features_write_targets).
+    moon_on = (("stt", "engine", "moonshine", True),)
+    moon_off = (("stt", "engine", "faster-whisper", True),)
     # Mic-change guard: one toggle drives both the device-change monitor and the
     # silent-streak notifier (both live under [audio]). Distinct var names — `mg_*`
     # is already taken by mousegrid below (a toggle-collision the tests guard against).
@@ -363,6 +367,15 @@ def _registry() -> list[_Def]:
              "model (~600 MB) on first use; disable restores faster-whisper.",
              lambda c: (c.stt.engine or "").strip().lower() == "parakeet",
              pk_on, pk_off),
+        _Def("stt-moonshine", "Moonshine STT engine (fast, short bursts)", "[stt] engine",
+             OPTIONAL,
+             "Swaps Whisper for Moonshine, which is built for short segments on "
+             "CPU — the shape of hold-to-talk. Needs only onnxruntime and "
+             "tokenizers (no torch), so it is a much smaller install than the "
+             "alternatives. English only; no per-word timings. Disable restores "
+             "faster-whisper.",
+             lambda c: (c.stt.engine or "").strip().lower() == "moonshine",
+             moon_on, moon_off),
         _Def("learning", "Learning loop", "[learning] — yazses tune", OPTIONAL,
              "Records an encrypted local corpus so `yazses tune` can improve "
              "accuracy. Opt-in; nothing leaves your machine.",
@@ -915,6 +928,7 @@ _FEATURE_DEPS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     # [cpu] pins onnxruntime; [hub] adds huggingface-hub so load_model can
     # actually download the Parakeet checkpoint on first use.
     "stt-parakeet": (("onnx_asr",), ("onnx-asr[cpu,hub]>=0.12",)),
+    "stt-moonshine": (("moonshine_onnx",), ("useful-moonshine-onnx>=20251121",)),
     "recimport": (("sherpa_onnx",), ("sherpa-onnx>=1.13.4",)),
     "meeting": (("sherpa_onnx",), ("sherpa-onnx>=1.13.4",)),
 }
@@ -952,6 +966,7 @@ _SLUG_PACKAGES: dict[str, tuple[str, ...]] = {
     "read-back": ("tts",),
     "streaming": ("stt",),           # stt/streaming.py
     "stt-parakeet": ("stt",),        # stt/parakeet.py
+    "stt-moonshine": ("stt",),       # stt/moonshine.py
     "llm-cleanup": ("postprocess",),  # postprocess/llm_cleanup.py
     "confidence": ("postprocess",),  # postprocess/confidence.py
     "spoken-edit": ("commands",),    # commands/edit_ops.py
@@ -1032,6 +1047,7 @@ _EXAMPLES: dict[str, str] = {
     "polyglot": "Set [polyglot] pair='fa-en'; dictate mixing the two languages.",
     "streaming": "yazses features enable streaming — text appears as you speak.",
     "stt-parakeet": "yazses features enable stt-parakeet — same hotkey, sharper transcripts.",
+    "stt-moonshine": "yazses features enable stt-moonshine — a smaller, faster engine for short bursts.",
     "learning": "yazses features enable learning; then 'yazses tune' to review proposals.",
     "llm-cleanup": "yazses features enable llm-cleanup — offline LLM tidies dictation.",
     "confidence": "See the low-confidence word count in 'yazses status'.",
@@ -1181,6 +1197,7 @@ _USE_CASES: dict[str, str] = {
     "polyglot": "When you naturally mix two languages in one sentence and need both transcribed correctly.",
     "streaming": "When you want to see text land live as you talk rather than only on release.",
     "stt-parakeet": "When you want noticeably fewer English word errors without a bigger, slower Whisper model.",
+    "stt-moonshine": "When you dictate in short bursts and want the smallest, quickest engine that still reads well.",
     "learning": "When you want dictation accuracy to improve over time from your own corrected usage.",
     "llm-cleanup": "When rambly dictation needs polishing into clean prose and you have an offline LLM available.",
     "confidence": "When you want to spot and fix words the recognizer was unsure of instead of re-reading everything.",
@@ -1317,6 +1334,7 @@ _CATEGORIES: dict[str, str] = {
     "dictation": CAT_CORE, "commands": CAT_CORE, "voice-punctuation": CAT_CORE,
     "undo": CAT_CORE, "overlay": CAT_CORE, "streaming": CAT_CORE, "mic-guard": CAT_CORE,
     "stt-parakeet": CAT_CORE,
+    "stt-moonshine": CAT_CORE,
     "tray": CAT_CORE, "target-guard": CAT_CORE,
     "ghost-ahead": CAT_CORE, "autostop": CAT_CORE, "hesitation": CAT_CORE,
     "breath": CAT_CORE, "continuum": CAT_CORE, "whispermode": CAT_CORE,

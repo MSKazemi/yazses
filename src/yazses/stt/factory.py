@@ -53,10 +53,27 @@ def _build_raw_engine(stt: "SttConfig") -> "SttEngine":
                 "Parakeet STT engine failed to load — falling back to faster-whisper"
             )
         return _build_faster_whisper(stt, fallback_from="parakeet")
+    if name == "moonshine":
+        try:
+            from yazses.stt.moonshine import MoonshineEngine
+
+            return MoonshineEngine(stt)
+        except ModuleNotFoundError as exc:
+            log.warning(
+                "[stt] engine = \"moonshine\" but its optional dependency (%s) is not "
+                "installed — falling back to faster-whisper for now. Fix: "
+                "yazses features enable stt-moonshine",
+                exc.name or "moonshine_onnx",
+            )
+        except Exception:
+            log.exception(
+                "Moonshine STT engine failed to load — falling back to faster-whisper"
+            )
+        return _build_faster_whisper(stt, fallback_from="moonshine")
     if name not in ("", DEFAULT_ENGINE):
         log.warning(
             "Unknown [stt] engine %r — falling back to %s "
-            "(valid engines: faster-whisper, parakeet)",
+            "(valid engines: faster-whisper, parakeet, moonshine)",
             name, DEFAULT_ENGINE,
         )
     return _build_faster_whisper(stt)

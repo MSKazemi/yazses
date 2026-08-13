@@ -62,6 +62,24 @@ is a remote control.
 <figcaption>The whole system in six bands. Everything above the last band runs today; the last band is designed and deliberately absent.</figcaption>
 </figure>
 
+**Three STT engines now sit behind one seam.** `faster-whisper` (default),
+`parakeet` (accuracy), and `moonshine` (#74 — built for short segments on CPU,
+which is the shape of hold-to-talk, and needs only `onnxruntime` + `tokenizers`,
+so it installs without torch). `stt/factory.py` selects on `[stt] engine` and
+falls back to faster-whisper with a warning whenever an engine's optional
+dependency is absent or its model fails to load — dictation always comes up.
+
+Neither Parakeet nor Moonshine supports `initial_prompt`, so the personal
+dictionary reaches them a different way: `postprocess/vocab_correct.py` (#73)
+recovers mis-heard vocabulary *after* decoding, which is why it was built
+engine-agnostic rather than as a Whisper prompt trick.
+
+Moonshine carries a hard upstream constraint the adapter absorbs rather than
+propagates: audio must be 2-D and between 0.1 s and 64 s, enforced with bare
+`assert`s. Both bounds are reachable — a stray key tap is under 0.1 s, a dictated
+paragraph is over 64 s — so short buffers return empty and long ones are split on
+the silence gate, instead of an `AssertionError` surfacing as a crash.
+
 **Noise suppression has a backend that can be installed.** The denoise seam
 (ADR-v2-015) shipped with only a `deepfilternet` adapter, which no environment can
 satisfy: its latest release pins `numpy<2.0` while this project needs
