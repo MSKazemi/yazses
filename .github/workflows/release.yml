@@ -122,6 +122,12 @@ jobs:
           body: |
             Local, offline voice dictation. **Hold a key, speak, release.** No cloud, no GPU.
 
+            ### Verify your download
+
+            `SHA256SUMS.txt` below lists the hash of every artifact in this release.
+            How to check it, how release binaries are signed, and who approves a
+            signing request: **[Code signing & verification](https://mskazemi.com/yazses/code-signing.html)**.
+
             ## macOS
 
             Download `YazSes-<version>.dmg` from the Assets below, open it, drag

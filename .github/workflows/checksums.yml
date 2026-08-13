@@ -1,0 +1,87 @@
+name: Publish release checksums
+
+# Why this exists
+# ---------------
+# Until 2026-08-13 a release shipped a .deb, a .dmg and an unsigned .exe and
+# published *no* checksums anywhere. A user who downloaded the Windows installer
+# had no way at all to tell whether the file was the one the project built --
+# the binary is unsigned, so there was neither a signature nor a hash to check.
+#
+# The three artifacts are uploaded by three different workflows (release.yml,
+# build-macos.yml, build-windows.yml) which finish at different times, so the
+# checksum file cannot simply be produced by any one of them. This workflow runs
+# after the release is published, waits for the expected assets to appear, and
+# derives SHA256SUMS.txt from the assets that are actually attached -- never from
+# a value copied by hand.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to checksum (e.g. v2.19.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  checksums:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # uploads SHA256SUMS.txt onto the existing Release
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.event.inputs.tag || github.event.release.tag_name }}
+    steps:
+      - name: Wait for platform builds to attach their assets
+        # release.yml creates the Release as soon as the .deb is built, but the
+        # macOS and Windows builds are still running at that point. Poll rather
+        # than sleep a fixed amount: the .exe build is the long pole and its
+        # duration varies. Missing assets are not fatal -- a platform build may
+        # legitimately have failed, and a partial SHA256SUMS.txt is still far
+        # better than none. Re-run via workflow_dispatch to regenerate.
+        run: |
+          set -euo pipefail
+          deadline=$(( SECONDS + 2400 ))   # 40 minutes
+          while (( SECONDS < deadline )); do
+            names=$(gh release view "$TAG" --json assets -q '.assets[].name' || true)
+            have_deb=$(grep -c '\.deb$'  <<<"$names" || true)
+            have_dmg=$(grep -c '\.dmg$'  <<<"$names" || true)
+            have_exe=$(grep -c '\.exe$'  <<<"$names" || true)
+            echo "deb=$have_deb dmg=$have_dmg exe=$have_exe (${SECONDS}s elapsed)"
+            if (( have_deb > 0 && have_dmg > 0 && have_exe > 0 )); then
+              echo "All expected assets present."
+              break
+            fi
+            sleep 60
+          done
+
+      - name: Download assets and generate SHA256SUMS.txt
+        run: |
+          set -euo pipefail
+          mkdir -p dist && cd dist
+          # Explicit patterns rather than '*': this must never download a previous
+          # SHA256SUMS.txt, or a re-run would checksum its own output. `gh release
+          # download` has no --exclude flag, so listing what we want is also the
+          # only correct way to express that.
+          # Each pattern is tolerated separately -- if one platform's build failed,
+          # a partial checksum file is still better than none.
+          for pat in '*.deb' '*.dmg' '*.exe'; do
+            gh release download "$TAG" --clobber --pattern "$pat" || \
+              echo "note: no asset matched $pat"
+          done
+          shopt -s nullglob
+          files=(*.deb *.dmg *.exe)
+          if (( ${#files[@]} == 0 )); then
+            echo "::error::No release assets found for $TAG -- nothing to checksum."
+            exit 1
+          fi
+          sha256sum -- "${files[@]}" > SHA256SUMS.txt
+          echo "--- SHA256SUMS.txt ---"
+          cat SHA256SUMS.txt
+
+      - name: Attach SHA256SUMS.txt to the release
+        run: gh release upload "$TAG" dist/SHA256SUMS.txt --clobber
