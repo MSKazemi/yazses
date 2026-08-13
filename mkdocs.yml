@@ -265,6 +265,7 @@ nav:
   - Home: index.md
   - Get started:
       - Try it without installing: try-without-installing.md
+      - Platform support (OS + CPU): platform-support.md
       - Install on Linux: install-linux.md
       - Install on macOS: macos-install.md
       - Install on Windows: windows-install.md
