@@ -69,7 +69,24 @@ channel because the docs previously promised the opposite.
 v2.18.0 build resolved its Python to `aarch64-apple-darwin`, confirmed from the job
 log. `packaging/macos/yazses.spec` passes `target_arch=None`, which PyInstaller reads
 as *host architecture*, not `universal2` despite what the comment there used to say.
-So `YazSes-2.18.0.dmg` contains **no x86_64 slice and cannot launch on an Intel Mac.**
+So the `.dmg` contains **no x86_64 slice and cannot launch on an Intel Mac.**
+
+This was **verified against the artefact**, not only inferred from the runner. The
+`.dmg` that CI built for PR #263 was decompressed on Linux (UDIF/`koly` trailer → blkx
+block table → zlib chunks; no macOS tooling involved) and every Mach-O header in the
+image inspected:
+
+```
+Mach-O slices found, by CPU type: {'arm64': 122}
+MH_EXECUTE (main binaries):      1, arm64
+universal/fat headers (0xCAFEBABE): 0
+```
+
+122 arm64 slices, **zero x86_64, zero universal headers**. The same pass read the
+bundle's `Info.plist` straight out of the image and confirmed the version fix landed:
+`CFBundleShortVersionString` and `CFBundleVersion` both `2.18.0` (they were the literal
+`0.1.2` before), and `LSMinimumSystemVersion` `11.0`, matching the cask's
+`depends_on macos: ">= :big_sur"`.
 
 `universal2` is not reachable by changing that one value. PyInstaller can only emit a
 universal binary when every bundled native dependency is itself universal, and
