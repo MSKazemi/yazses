@@ -205,8 +205,23 @@ def test_a_refusal_says_the_text_was_left_alone():
 # ---- the clipboard read path ------------------------------------------------
 
 
-def test_read_selection_prefers_primary_then_clipboard():
-    from yazses.system.clipboard import read_selection
+def test_read_selection_prefers_primary_then_clipboard(monkeypatch):
+    """PRIMARY must be tried before CLIPBOARD — highlighting is the gesture.
+
+    The tool lookup is stubbed rather than inherited from the host. `read_selection`
+    builds its candidate commands with `shutil.which`, so on a machine without
+    xclip/xsel/wl-paste it produces *no* commands at all, the injected runner is
+    never called, and this test cannot see the ordering it exists to check. That is
+    not hypothetical: it passed on developer machines and failed on all six CI jobs,
+    because GitHub's runners ship none of those tools.
+
+    WAYLAND_DISPLAY is cleared for the same reason — otherwise the assertion would
+    exercise whichever of the two branches the host happens to be in.
+    """
+    from yazses.system import clipboard
+
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    monkeypatch.setattr(clipboard.shutil, "which", lambda tool: f"/usr/bin/{tool}")
 
     calls = []
 
@@ -217,9 +232,20 @@ def test_read_selection_prefers_primary_then_clipboard():
         calls.append(cmd)
         return _R()
 
-    read_selection(runner=runner)
+    clipboard.read_selection(runner=runner)
+
+    assert calls, "no clipboard command was attempted at all"
     joined = " ".join(" ".join(c) for c in calls)
     assert "primary" in joined, "PRIMARY must be tried — highlighting is the gesture"
+
+    # Ordering is the actual invariant: PRIMARY has to be asked before CLIPBOARD,
+    # not merely somewhere in the list.
+    first_primary = next(i for i, c in enumerate(calls) if "primary" in " ".join(c))
+    clipboards = [i for i, c in enumerate(calls) if "clipboard" in " ".join(c)]
+    assert clipboards, "CLIPBOARD must still be tried as the fallback"
+    assert first_primary < clipboards[0], (
+        f"CLIPBOARD was tried before PRIMARY: {calls}"
+    )
 
 
 def test_get_clipboard_never_raises_on_a_broken_tool():

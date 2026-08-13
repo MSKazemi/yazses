@@ -234,6 +234,31 @@ def _hotkey(key_id="right_ctrl", threshold_ms=40):
     return hk, started, ended
 
 
+def _wait_for(predicate, timeout=2.0, interval=0.005):
+    """Poll until ``predicate()`` is true, or give up after ``timeout``.
+
+    These tests assert on a callback fired by a background timer thread, and a
+    fixed ``time.sleep`` encodes an assumption about scheduler latency that a
+    loaded CI runner breaks. ``test_space_counts_leaked_characters_across_repeats``
+    failed exactly this way on macOS 3.12 while passing on every other job and
+    locally: the 40 ms threshold had not been serviced within the 150 ms the
+    test waited. Nothing was wrong with the code under test.
+
+    Polling is both faster on an idle machine and correct on a busy one, and
+    the generous timeout is never reached when the behaviour is right.
+
+    **Negative assertions still use a fixed sleep, deliberately.** "Nothing
+    fired" has no state to poll for — you can only wait a while and look — so
+    those are left alone.
+    """
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        time.sleep(interval)
+    return predicate()
+
+
 def test_hold_fires_without_any_further_key_events():
     """The regression: one keydown, no repeats, must still start recording.
 
@@ -245,7 +270,7 @@ def test_hold_fires_without_any_further_key_events():
     hk, started, _ = _hotkey(key_id="space")
     hk._press()
     assert started == [], "must not fire before the threshold"
-    time.sleep(0.15)
+    _wait_for(lambda: started == [1])
     assert started == [1], "hold never fired -- threshold depends on key repeat"
 
 
@@ -287,7 +312,7 @@ def test_modifier_repeat_does_not_restart_recording():
 def test_release_after_threshold_ends_the_hold():
     hk, started, ended = _hotkey()
     hk._press()
-    time.sleep(0.15)
+    _wait_for(lambda: started == [0])
     hk._release()
     assert started == [0]
     assert ended == [1]
@@ -300,7 +325,8 @@ def test_repeat_keydowns_do_not_rearm_the_timer():
     for _ in range(5):
         time.sleep(0.02)
         hk._press()
-    time.sleep(0.1)
+    _wait_for(lambda: len(started) >= 1)
+    time.sleep(0.05)  # settle: a second, wrongly re-armed fire would land here
     assert started == [0], f"expected exactly one hold start, got {started}"
 
 
@@ -310,7 +336,7 @@ def test_space_counts_leaked_characters_across_repeats():
     hk._press()
     for _ in range(3):
         hk._press()
-    time.sleep(0.15)
+    _wait_for(lambda: started == [4])
     assert started == [4], "leaked-character count must include repeats"
 
 
