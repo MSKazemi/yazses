@@ -49,9 +49,12 @@ run the file** — please [open an issue](https://github.com/MSKazemi/yazses/iss
 
 !!! note
 
-    `SHA256SUMS.txt` is published for releases **after v2.18.0**. For v2.18.0 and
-    earlier, compare against the hashes recorded in the package manifests under
+    `SHA256SUMS.txt` is published from **v2.18.0 onwards**. For releases older than
+    that, compare against the hashes recorded in the package manifests under
     [`packaging/`](https://github.com/MSKazemi/yazses/tree/main/packaging).
+
+    If a release is missing an artifact for your platform, that artifact's line is
+    simply absent — the checksum file lists what was actually published.
 
 ## Verify a code signature
 
