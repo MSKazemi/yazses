@@ -62,6 +62,18 @@ is a remote control.
 <figcaption>The whole system in six bands. Everything above the last band runs today; the last band is designed and deliberately absent.</figcaption>
 </figure>
 
+**Noise suppression has a backend that can be installed.** The denoise seam
+(ADR-v2-015) shipped with only a `deepfilternet` adapter, which no environment can
+satisfy: its latest release pins `numpy<2.0` while this project needs
+`numpy>=2.4.6`, and those ranges are disjoint on every Python version — so the
+feature was designed, wired and permanently unusable. `denoise/spectral.py`
+(spectral gating over `noisereduce`) is the installable backend and the new
+default. It is weaker than DeepFilterNet and the docs say so: it removes steady
+broadband noise — fans, air conditioning, road hum — and does little against a
+second speaker, which is the Cocktail Filter's job. Selecting `deepfilternet`
+still parses and degrades to a passthrough, with no remedy offered, because
+advising an extra that can never install is worse than saying "unavailable".
+
 The control plane never touches the pipeline — the CLI, the settings window and
 the tray all speak to the daemon over the same JSON-RPC channel, which is why
 `yazses status` reports the truth rather than a guess, and why the tray can be

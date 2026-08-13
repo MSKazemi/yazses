@@ -697,7 +697,10 @@ class DenoiseConfig:
     extra. OFF by default.
     """
     enabled: bool = False
-    backend: str = "deepfilternet"   # deepfilternet | none
+    # `spectral` is the only backend that can be installed: deepfilternet
+    # pins numpy<2.0 against this project's numpy>=2.4.6 (#69), so it is
+    # kept as a name the config accepts but nothing can supply.
+    backend: str = "spectral"   # spectral | deepfilternet | none
     strength: float = 1.0            # graded suppression (higher = more aggressive)
 
 

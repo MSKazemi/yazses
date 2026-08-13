@@ -143,6 +143,13 @@ tts = [
     "onnxruntime>=1.27.0",
     "soundfile>=0.14.0",
 ]
+# Real-time noise suppression before STT (ADR-v2-015, #69). Spectral gating over
+# numpy + scipy — no torch, no numpy ceiling. DeepFilterNet is deliberately NOT
+# here: its latest release pins numpy<2.0 against this project's numpy>=2.4.6, so
+# an extra for it could never install.
+denoise = [
+    "noisereduce>=3.0.3",
+]
 # v2 cognitive layer — speaker voiceprint (Cocktail Filter + Voiceprint Mind)
 voiceprint = [
     "speechbrain>=1.1",

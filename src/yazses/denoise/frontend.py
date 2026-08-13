@@ -31,12 +31,24 @@ def _warn_unavailable_once(backend: str, exc: Exception) -> None:
     try:
         from yazses.system.backends import probe_backend
 
-        status = probe_backend(
-            backend,
-            adapter="yazses.denoise.deepfilter",
-            requires=("df",),
-            extra=None,  # there is no `denoise` extra — probe reports this honestly
-        )
+        # Per-backend, because they fail for opposite reasons: `spectral` is
+        # missing a package you can install, while `deepfilternet` has no adapter
+        # and can never get one (numpy<2.0 vs this project's numpy>=2.4.6, #69) —
+        # so it must be offered no remedy at all.
+        if backend == "spectral":
+            status = probe_backend(
+                backend,
+                adapter="yazses.denoise.spectral",
+                requires=("noisereduce",),
+                extra="denoise",
+            )
+        else:
+            status = probe_backend(
+                backend,
+                adapter="yazses.denoise.deepfilter",
+                requires=("df",),
+                extra=None,  # nothing to install — see the module docstring
+            )
         detail = status.message
     except Exception:  # pragma: no cover - diagnostics must never break dictation
         detail = f"{backend!r} unavailable ({exc})"
@@ -58,9 +70,15 @@ def apply_denoise(audio, config, sample_rate: int = 16000):
     backend = str(getattr(config, "backend", "none") or "none").lower()
     if backend in ("", "none"):
         return audio
+    strength = float(getattr(config, "strength", 1.0))
     try:
-        from yazses.denoise.deepfilter import denoise as _df  # lazy heavy import
-        return _df(audio, sample_rate, strength=float(getattr(config, "strength", 1.0)))
+        if backend == "spectral":
+            # The only backend that can actually install: deepfilternet pins
+            # numpy<2.0 against this project's numpy>=2.4.6 (#69).
+            from yazses.denoise.spectral import denoise as _run
+        else:
+            from yazses.denoise.deepfilter import denoise as _run  # lazy heavy import
+        return _run(audio, sample_rate, strength=strength)
     except Exception as exc:
         _warn_unavailable_once(backend, exc)
         return audio  # passthrough on any failure — never break dictation
