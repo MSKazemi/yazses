@@ -3660,12 +3660,12 @@ def tune(
         "yazses transcribe mtg.m4a --diarize --speakers 3    force an exact speaker count",
         "yazses transcribe mtg.wav --diarize --names 'Alice,Bob,Carol'   name them in order",
         "yazses transcribe mtg.wav --diarize --rename speaker_0=Alice    name one speaker",
-        "yazses transcribe mtg.m4a --download-models         fetch the ~15 MB diarize models, then exit",
+        "yazses transcribe mtg.m4a --download-models         fetch the ~45 MB diarize models, then exit",
     ),
 )
 def transcribe(
-    audio_file: Path = typer.Argument(
-        ..., exists=True, dir_okay=False, readable=True,
+    audio_file: Optional[Path] = typer.Argument(
+        None, exists=True, dir_okay=False, readable=True,
         help="Audio file to transcribe (wav/mp3/m4a/ogg/flac/opus/mp4…).",
     ),
     fmt: str = typer.Option(
@@ -3696,7 +3696,7 @@ def transcribe(
         None, "--out", "-o", help="Output file path (default: sidecar <audio_file>.<format>)."),
     download_models: bool = typer.Option(
         False, "--download-models",
-        help="Download the ~15 MB sherpa diarization models, then exit (no transcription)."),
+        help="Download the ~45 MB sherpa diarization models, then exit (no transcription)."),
 ) -> None:
     """Transcribe an audio file to text — fully offline, on your machine.
 
@@ -3714,7 +3714,7 @@ def transcribe(
     --language translate transcribes non-English audio into English text.
 
     With --diarize it also tags who said what, using local sherpa-onnx speaker
-    models (install the `diarization` extra; the first run downloads ~15 MB, or
+    models (install the `diarization` extra; the first run downloads ~45 MB, or
     pre-fetch with --download-models). Each utterance is then prefixed by a
     speaker label; provide --names (positional) or --rename (explicit map) to use
     real names, cap the count with --speakers / --min-speakers / --max-speakers,
@@ -3737,6 +3737,10 @@ def transcribe(
     ri = cfg.recimport
 
     if download_models:
+        # Optional above, required here. `--download-models` exits before any
+        # transcription and is what the tool tells you to run when diarization is
+        # unavailable — with a required argument, that advice could not be
+        # followed at all ("Missing argument 'audio_file'").
         from yazses.recimport.download import download_models as _dl
 
         try:
@@ -3745,6 +3749,14 @@ def transcribe(
             typer.echo(f"Model download failed: {exc}", err=True)
             raise typer.Exit(1)
         return
+
+    if audio_file is None:
+        typer.echo(
+            "Missing argument 'audio_file'. Pass a file to transcribe, or use "
+            "`yazses transcribe --download-models` to fetch the diarization models.",
+            err=True,
+        )
+        raise typer.Exit(2)
 
     want_diarize = ri.diarize if diarize is None else diarize
     eff = dataclasses.replace(
@@ -3785,7 +3797,7 @@ def transcribe(
     from yazses.recimport.pipeline import transcribe_file
 
     if want_diarize:
-        typer.echo("Transcribing and diarizing… (first diarized run downloads ~15 MB of models)", err=True)
+        typer.echo("Transcribing and diarizing… (first diarized run downloads ~45 MB of models)", err=True)
     else:
         typer.echo("Transcribing…", err=True)
     try:

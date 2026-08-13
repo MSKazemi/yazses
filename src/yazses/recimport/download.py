@@ -3,7 +3,7 @@
 Downloads the pyannote segmentation-3.0 ONNX model and a 3D-Speaker embedding extractor
 from the k2-fsa GitHub releases into the diarization model dir, under the filenames the
 :class:`~yazses.recimport.diarizer.SherpaDiarizer` expects. Explicit, on-demand, one-time
-(~15 MB) — nothing downloads unless the user runs ``yazses transcribe --download-models``
+(~45 MB) — nothing downloads unless the user runs ``yazses transcribe --download-models``
 (ADR-011). Network/tooling dependent, so exercised manually, not in CI.
 """
 from __future__ import annotations

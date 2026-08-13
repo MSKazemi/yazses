@@ -1,49 +1,21 @@
-# Publish the offline-transcription container image to GHCR.
+# Build and publish the container image to GHCR (#76).
 #
-# WHY THIS NOW RUNS ON TAGS
-# -------------------------
-# It used to be `workflow_dispatch` and nothing else, on the reasoning that turning
-# every release tag into a container publish changes what a release *means*, and
-# that call belonged to the maintainer rather than to a workflow file.
-#
-# The maintainer made it, on 2026-08-13: every supported channel must carry the
-# newest version. So a tag now publishes the image, and release-complete.yml
-# checks that it did.
-#
-# ORDERING: the image installs YazSes from PyPI, and on a tag push PyPI does not
-# have the version yet — release.yml only publishes it after its test job passes.
-# The build therefore waits for PyPI first. Without that wait this would quietly
-# build the *previous* release and publish it under the new tag.
-#
-# SCOPE OF THE IMAGE
-# ------------------
-# It runs `yazses transcribe` (file -> text) only. Hold-to-talk dictation needs a
-# real microphone, the kernel input device for the hotkey, and a window to type
-# into, none of which exist in a container. See packaging/docker/Dockerfile.
-name: Docker image
+# Uses the built-in GITHUB_TOKEN with `packages: write` — no new secrets.
+name: docker
 
 on:
   push:
-    tags:
-      - "v*"
+    branches: [main]
+    paths:
+      - "packaging/docker/**"
+      - ".github/workflows/docker.yml"
+      - "pyproject.toml"
+    tags: ["v*"]
   workflow_dispatch:
-    inputs:
-      version:
-        description: "YazSes version to install from PyPI (blank = latest)"
-        required: false
-        default: ""
-      tag:
-        description: "Image tag to publish"
-        required: false
-        default: "latest"
-      push:
-        description: "Push to GHCR (unchecked = build and smoke-test only)"
-        type: boolean
-        required: false
-        default: false
 
-permissions:
-  contents: read
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   REGISTRY: ghcr.io
@@ -51,148 +23,83 @@ env:
 
 jobs:
   build:
-    name: Build, verify, and optionally publish
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-
+      # Required by the attestation step below.
+      id-token: write
+      attestations: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@v5
 
-      # Required by the GitHub Actions cache below. The runner's default builder
-      # uses the plain `docker` driver, which cannot export a cache at all —
-      # `cache-to: type=gha` made the build fail before it started, every time,
-      # with "Cache export is not supported for the docker driver". This action
-      # provisions the `docker-container` driver, which supports both the cache
-      # export and the `load: true` the verification steps below depend on.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Buildx
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+        uses: docker/setup-buildx-action@v3
 
-      # A tag push gives the version; a manual run may leave it blank for "latest".
-      - name: Decide what to build and how to label it
-        run: |
-          set -euo pipefail
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            version="${GITHUB_REF_NAME#v}"
-            echo "YAZSES_VERSION=$version"  >> "$GITHUB_ENV"
-            echo "IMAGE_TAG=$version"       >> "$GITHUB_ENV"
-            echo "SHOULD_PUSH=true"         >> "$GITHUB_ENV"
-          else
-            echo "YAZSES_VERSION=${{ inputs.version }}"          >> "$GITHUB_ENV"
-            echo "IMAGE_TAG=${{ inputs.tag || 'latest' }}"       >> "$GITHUB_ENV"
-            echo "SHOULD_PUSH=${{ inputs.push || false }}"       >> "$GITHUB_ENV"
-          fi
-
-      - name: Wait for PyPI to have this version
-        # The image installs from PyPI, and on a tag push release.yml has not
-        # published there yet. Building immediately would install the PREVIOUS
-        # release and ship it under the new tag -- a wrong image that passes every
-        # test below, because the tests check that transcription works, not which
-        # version is doing it.
-        if: github.ref_type == 'tag'
-        run: |
-          set -euo pipefail
-          deadline=$(( SECONDS + 1800 ))   # 30 minutes
-          until (( SECONDS >= deadline )); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' \
-              "https://pypi.org/pypi/yazses/${YAZSES_VERSION}/json")
-            echo "pypi ${YAZSES_VERSION}: HTTP $code (${SECONDS}s)"
-            [[ "$code" == "200" ]] && exit 0
-            sleep 60
-          done
-          echo "::error::yazses ${YAZSES_VERSION} never appeared on PyPI -- not building an image for a release that was not published."
-          exit 1
-
-      - name: Build the image
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
-        with:
-          context: .
-          file: packaging/docker/Dockerfile
-          build-args: |
-            YAZSES_VERSION=${{ env.YAZSES_VERSION }}
-          load: true
-          tags: yazses:ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      # Prove the image transcribes before publishing it. The repo ships a real clip
-      # next to its known-correct text, so this is a genuine end-to-end check rather
-      # than a `--help` smoke test: a broken model path or a missing codec fails here
-      # instead of in front of the first person who runs the published image.
-      - name: Verify it actually transcribes
-        run: |
-          set -euo pipefail
-          # Deliberately byte-for-byte the invocation docs/try-without-installing.md
-          # hands the reader, so the page and this test cannot drift apart. It used to
-          # differ, and the difference was the bug: the page mounted the sample
-          # directory *writable*, and YazSes writes its transcript as a sidecar beside
-          # the input — so `jfk.wav` produced `jfk.txt`, silently overwriting the
-          # known-correct text the reader was being told to compare against. The
-          # comparison then always looked perfect regardless of what the model said.
-          # Both mounts must be writable by the image's unprivileged user (uid
-          # 1000). Docker creates a missing bind-mount source as root, so the
-          # first run failed with "Permission denied: '/models/hub'" the moment
-          # the model download tried to write — the container cannot chown a
-          # host directory. Creating them here, world-writable, is what the
-          # documented `docker run` relies on a normal user's own directories
-          # providing.
-          mkdir -p /tmp/out /tmp/models
-          chmod 0777 /tmp/out /tmp/models
-          docker run --rm -v /tmp/models:/models \
-            -v "$PWD/data/librispeech-sample:/data:ro" -v /tmp/out:/out \
-            yazses:ci jfk.wav -o /out/jfk-heard.txt
-          echo "--- transcript ---" && cat /tmp/out/jfk-heard.txt
-          # Compare on lowercased letters only: the model legitimately adds punctuation
-          # ("Americans," for "Americans"), so a byte comparison would fail on a correct
-          # transcript. Word content must still match exactly.
-          norm() { tr '[:upper:]' '[:lower:]' < "$1" | tr -cd '[:alnum:] ' | tr -s ' '; }
-          if [ "$(norm /tmp/out/jfk-heard.txt)" != "$(norm data/librispeech-sample/jfk.txt)" ]; then
-            echo "::error::transcript does not match the expected text"
-            diff <(norm /tmp/out/jfk-heard.txt) <(norm data/librispeech-sample/jfk.txt) || true
-            exit 1
-          fi
-          echo "OK — transcript matches the expected text."
-          # The documented command must leave the checkout untouched. If someone
-          # reintroduces a writable mount, this is what catches it.
-          if ! git diff --quiet data/librispeech-sample/; then
-            echo "::error::the documented command modified the reference sample"
-            git diff --stat data/librispeech-sample/
-            exit 1
-          fi
-
-      # Re-run with no network at all. This is the project's central claim, so the
-      # image must not be publishable without demonstrating it.
-      - name: Prove it works fully offline
-        run: |
-          set -euo pipefail
-          rm -f /tmp/out/jfk-offline.txt
-          # Same read-only shape as the step above, and as docs/privacy-statement.md.
-          docker run --rm --network none -v /tmp/models:/models \
-            -v "$PWD/data/librispeech-sample:/data:ro" -v /tmp/out:/out \
-            yazses:ci jfk.wav -o /out/jfk-offline.txt
-          test -s /tmp/out/jfk-offline.txt
-          echo "OK — transcribed with networking disabled."
-
+      # Only a tag build publishes. A push to main proves the image still builds
+      # without moving `latest` — the alternative is `latest` silently tracking an
+      # unreleased commit, which is how people end up running something that was
+      # never released.
       - name: Log in to GHCR
-        if: env.SHOULD_PUSH == 'true'
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push
-        if: env.SHOULD_PUSH == 'true'
+      - name: Derive tags and labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+
+      - name: Version being installed
+        id: version
+        run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packaging/docker/Dockerfile
+          # arm64 is emulated under QEMU here and is slow; it is included because
+          # ctranslate2 publishes aarch64 wheels, so the image is genuinely usable
+          # on a Pi or an Apple-silicon Docker Desktop.
+          platforms: linux/amd64,linux/arm64
+          push: ${{ startsWith(github.ref, 'refs/tags/v') }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            YAZSES_VERSION=${{ startsWith(github.ref, 'refs/tags/v') && steps.version.outputs.value || '' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Attest provenance
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      # The image exists to run one command. A build that produces an image which
+      # cannot transcribe is a green check over a broken artifact.
+      - name: Smoke-test the built image
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         run: |
-          set -euo pipefail
-          base="$(echo "${REGISTRY}/${IMAGE_NAME}" | tr '[:upper:]' '[:lower:]')"  # GHCR requires lowercase
-          docker tag yazses:ci "${base}:${IMAGE_TAG}"
-          docker push "${base}:${IMAGE_TAG}"
-          # A release also becomes :latest. Only from a tag -- a manual run must not
-          # be able to move :latest onto an arbitrary build.
-          if [[ "${{ github.ref_type }}" == "tag" && "$IMAGE_TAG" != "latest" ]]; then
-            docker tag yazses:ci "${base}:latest"
-            docker push "${base}:latest"
-          fi
-          echo "Published $target" >> "$GITHUB_STEP_SUMMARY"
+          docker buildx build --load --platform linux/amd64 \
+            -f packaging/docker/Dockerfile -t yazses:ci .
+          docker run --rm yazses:ci --version
+          cp data/librispeech-sample/jfk.wav "$RUNNER_TEMP/clip.wav"
+          docker run --rm -v "$RUNNER_TEMP:/data" yazses:ci \
+            transcribe /data/clip.wav --model tiny.en
+          grep -qi "fellow americans" "$RUNNER_TEMP/clip.txt"

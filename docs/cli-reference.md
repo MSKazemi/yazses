@@ -884,7 +884,7 @@ and most other ffmpeg-decodable media.
 | `--min-speakers <N>` / `--max-speakers <N>` | Bounds on the auto-detected speaker count. |
 | `--names "Alice,Bob"` | Comma list mapped to speakers in order of first appearance. |
 | `--rename speaker_0=Alice` | Explicit speaker→name map, repeatable. |
-| `--download-models` | Fetch the ~15 MB sherpa diarization models, then exit (no transcription). |
+| `--download-models` | Fetch the ~45 MB sherpa diarization models, then exit (no transcription). |
 
 ```bash
 yazses transcribe talk.mp3                     # → talk.txt beside it

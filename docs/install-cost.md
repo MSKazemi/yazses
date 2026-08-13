@@ -18,7 +18,7 @@ numbers, not estimates, so you can decide before you start.
 | Speech model — `tiny.en` | 75 MB | fastest, least accurate |
 | Speech model — `base.en` | **141 MB** | **the default** |
 | Speech model — `small.en` | 464 MB | most accurate of the three |
-| Speaker diarization models | ~15 MB | only if you use `--diarize` |
+| Speaker diarization models | ~45 MB | only if you use `--diarize` |
 | Docker image (transcription only) | 833 MB | no Qt |
 
 **A normal desktop install is therefore about 1.25 GB**: 1.1 GB of program plus the

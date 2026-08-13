@@ -137,6 +137,19 @@ def _unavailable_detail(backend: str, exc: Exception) -> str:
             status = probe_backend(
                 backend, adapter=adapter, requires=requires, extra=extra
             )
+            if status.available:
+                # The adapter imported and its dependencies are installed, so the
+                # probe has nothing to report — pasting its "is available" onto an
+                # "unavailable:" prefix produced a message that contradicted
+                # itself. Whatever went wrong is downstream of the import, and for
+                # sherpa that is almost always the ~45 MB of model files not being
+                # on disk yet.
+                if backend == "sherpa":
+                    return (
+                        "its models are not downloaded — run "
+                        f"`yazses transcribe --download-models` ({exc})"
+                    )
+                return str(exc)
             if backend == "sherpa" and status.implemented:
                 return (
                     f"{status.message} and run `yazses transcribe --download-models`"

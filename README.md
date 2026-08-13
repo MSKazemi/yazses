@@ -53,7 +53,7 @@ transcription unless you ask to keep it, and speaker names come from voiceprints
 enroll yourself — never from a cloud account.
 
 > **What's optional:** dictation works out of the box. Speaker labels need the
-> diarization extra (`pipx install 'yazses[diarization]'`, ~15 MB of models, downloaded
+> diarization extra (`pipx install 'yazses[diarization]'`, ~45 MB of models, downloaded
 > once); meeting minutes additionally need the `notes` extra plus a local GGUF model you
 > point at. Both are off by default — see [offline meeting notes](docs/meeting-notes-offline.md).
 
@@ -80,6 +80,11 @@ every system prerequisite (audio, keystroke injection, clipboard, `input` group,
 `ydotoold`), and finishes by running **`yazses doctor`** so any missing tool surfaces *during*
 install. The APT and `pipx` paths install the last tagged release. YazSes is also on the
 [Snap Store](https://snapcraft.io/yazses) (`sudo snap install yazses`).
+
+**Just want to transcribe a recording?** There is a container for that — no install at
+all: `docker run --rm -v "$PWD:/data" ghcr.io/mskazemi/yazses transcribe /data/talk.m4a
+--diarize`. It does file→transcript with speaker labels and **not** hold-to-talk
+dictation, which needs a real desktop session; see [the Docker page](https://mskazemi.github.io/yazses/docker/).
 
 > **Piping a script from the internet into your shell?** Fair. Add `--dry-run` and it
 > inspects your machine, prints every change it would make, and exits without making any

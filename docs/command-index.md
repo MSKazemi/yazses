@@ -538,7 +538,7 @@ Transcribe an audio file to text — fully offline, on your machine.
 - `--language` — 'en' (default) or 'translate' to render any-language audio into English text.
 - `--model` — STT model override, e.g. base.en (fast) or small.en (more accurate). Default: your config model.
 - `--out`, `-o` — Output file path (default: sidecar <audio_file>.<format>).
-- `--download-models` — Download the ~15 MB sherpa diarization models, then exit (no transcription).
+- `--download-models` — Download the ~45 MB sherpa diarization models, then exit (no transcription).
 
 ## `yazses tray`
 

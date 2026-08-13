@@ -1,75 +1,82 @@
-# YazSes — offline transcription in a container.
+# YazSes — offline transcription and diarization in a box (#76).
 #
-# SCOPE, honestly: this image runs the *file → text* side of YazSes
-# (`yazses transcribe`). It is a way to hear how good the on-device
-# transcription is before you install anything on your machine.
+# WHAT THIS IMAGE IS: the headless side of YazSes — `yazses transcribe`, including
+# `--diarize`, on a file you mount. No install, no Python environment, no network
+# once the models are cached.
 #
-# It deliberately does NOT do hold-to-talk dictation. Dictation needs the
-# host's microphone, the kernel input device for the hotkey, and the ability to
-# inject keystrokes into the focused window — three things a container is the
-# wrong shape for. Install YazSes natively for dictation:
-#   https://mskazemi.com/yazses/install-linux.html
+# WHAT IT IS NOT: hold-to-talk dictation. That needs a microphone, /dev/input and
+# keystroke injection into your desktop session; a container is the wrong shape for
+# it and pretending otherwise would waste people's time. Install natively for that
+# — see https://mskazemi.github.io/yazses/.
 #
-# Build:
-#   docker build -f packaging/docker/Dockerfile -t yazses .
-#
-# Run (model is cached in a named volume so it downloads once):
-#   docker run --rm -v yazses-models:/models -v "$PWD:/data" yazses meeting.m4a
-#
-# ---------------------------------------------------------------------------
-# Stage 1 — build. `evdev` publishes an sdist and no wheels at all, so it is
-# compiled from C source and needs a toolchain plus the Python headers. None of
-# that has to reach the runtime image.
-# ---------------------------------------------------------------------------
+# Multi-stage so the compilers and wheel caches used to install do not ship. The
+# final stage carries the interpreter, the packages, and ffmpeg — nothing else.
+
+# ---- build stage -----------------------------------------------------------
 FROM python:3.12-slim AS build
 
-ARG YAZSES_VERSION=
+# Version to install. Pinned by CI to the tag being built so the image and the
+# release cannot disagree about what is inside it; defaults to the newest release.
+ARG YAZSES_VERSION=""
 
+ENV PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# `evdev` is a hard Linux dependency of the package (it is how hold-to-talk reads
+# the keyboard) and it publishes **no wheels**, so it compiles from source and
+# needs a C compiler plus the kernel's input headers. The container never uses it
+# — dictation is out of scope here — but pip still has to resolve and build it.
+# This is why the image is multi-stage: the toolchain exists only in this stage
+# and never reaches the published one.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends build-essential \
- && rm -rf /var/lib/apt/lists/*
+    && apt-get install --no-install-recommends -y gcc libc6-dev linux-libc-dev \
+    && rm -rf /var/lib/apt/lists/*
 
+# Installed into a virtualenv rather than the system interpreter so the whole
+# installation is one directory to copy into the final stage.
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# PySide6 is no longer a base dependency — v2.18.0 moved Qt into the optional
-# `desktop` extra, which is why a plain install is ~650 MB lighter than it was.
-# Installing plain `yazses` therefore already excludes it and the uninstall below
-# is a no-op kept only as a belt-and-braces guard: if Qt ever returns to the base
-# dependencies it would add roughly a gigabyte to an image that can never display
-# a window. Transcription does not import it.
-RUN pip install --no-cache-dir --upgrade pip \
- && pip install --no-cache-dir "yazses${YAZSES_VERSION:+==$YAZSES_VERSION}" \
- && pip uninstall -y PySide6 PySide6-Addons PySide6-Essentials shiboken6 || true
+# `diarization` is the extra that makes `--diarize` work (sherpa-onnx int8 ONNX).
+# Without it the flag is accepted and silently produces an un-attributed
+# transcript, which is exactly the failure this image should not ship with.
+RUN if [ -n "$YAZSES_VERSION" ]; then \
+        pip install "yazses[diarization]==${YAZSES_VERSION}"; \
+    else \
+        pip install "yazses[diarization]"; \
+    fi
 
-# ---------------------------------------------------------------------------
-# Stage 2 — runtime.
-# ---------------------------------------------------------------------------
+# ---- final stage -----------------------------------------------------------
 FROM python:3.12-slim
 
 LABEL org.opencontainers.image.title="YazSes" \
-      org.opencontainers.image.description="Offline, on-device speech-to-text — transcribe audio and video files with no cloud, no API key, no subscription." \
-      org.opencontainers.image.url="https://mskazemi.com/yazses/" \
+      org.opencontainers.image.description="Offline speech-to-text and speaker diarization. Transcribe a file with no cloud, no account and no network." \
+      org.opencontainers.image.url="https://mskazemi.github.io/yazses/" \
       org.opencontainers.image.source="https://github.com/MSKazemi/yazses" \
-      org.opencontainers.image.licenses="Apache-2.0"
+      org.opencontainers.image.documentation="https://mskazemi.github.io/yazses/docker/" \
+      org.opencontainers.image.licenses="AGPL-3.0-or-later" \
+      org.opencontainers.image.authors="Mohsen Seyedkazemi Ardebili <mohsen.seyedkazemi@gmail.com>"
+
+# ffmpeg is the decode fallback for formats PyAV cannot open. It is the only
+# system package the transcribe path needs.
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Keep the Whisper model outside the image so the image stays small and the
-# model survives `docker run --rm`. Mount a volume at /models to cache it.
-ENV HF_HOME=/models \
-    XDG_CACHE_HOME=/models
-
-# Transcription is pure CPU maths; one thread per core is not always a win and
-# unbounded threads hurt on small machines. Callers can override.
-ENV OMP_NUM_THREADS=4
-
-RUN useradd --create-home --uid 1000 yazses \
- && mkdir -p /models /data \
- && chown yazses:yazses /models /data
+# Non-root. The container only ever reads a mounted file and writes a transcript
+# beside it; nothing here needs root, and a transcription tool running as root
+# over a volume the user mounted is an unpleasant surprise.
+RUN useradd --create-home --uid 1000 yazses
 USER yazses
 WORKDIR /data
 
-ENTRYPOINT ["yazses", "transcribe"]
+# Models land here. Mount a named volume (`-v yazses-models:/home/yazses/.cache`)
+# and they download once instead of on every run.
+ENV XDG_CACHE_HOME=/home/yazses/.cache \
+    HF_HOME=/home/yazses/.cache/huggingface
+
+ENTRYPOINT ["yazses"]
 CMD ["--help"]

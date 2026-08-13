@@ -6,6 +6,42 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — an official container image: offline transcription and diarization in a box
+
+```bash
+docker run --rm -v "$PWD:/data" ghcr.io/mskazemi/yazses \
+    transcribe /data/meeting.m4a --diarize -f md
+```
+
+Multi-stage `python:3.12-slim`, non-root, `linux/amd64` + `linux/arm64`, published
+to GHCR on tags with the built-in `GITHUB_TOKEN` (no new secrets) and build
+provenance attested. Verified against the native CLI on the same clip — the
+transcripts are byte-identical — and `--diarize` produces speaker-labelled output
+in the container. Final image ~1.5 GB, which the docs state rather than let people
+discover.
+
+**The docs lead with what it cannot do.** Hold-to-talk dictation needs a
+microphone, `/dev/input` and keystroke injection into a desktop session; a
+container is the wrong shape for all three, and an image that implied otherwise
+would waste someone's evening. (#76)
+
+### Fixed — three things building that image exposed
+
+- **`yazses transcribe --download-models` could not be run.** It exits before
+  transcribing and its help says so, but `audio_file` was a *required* argument —
+  so the command the tool tells you to run when diarization is unavailable failed
+  with "Missing argument 'audio_file'". The argument is now optional, with a clear
+  message when neither a file nor the flag is given.
+- **The diarization failure message contradicted itself.** With the extra
+  installed, the probe reported "backend 'sherpa' is available", the factory
+  appended its download hint and the caller prefixed "unavailable:", producing
+  `unavailable: backend 'sherpa' is available and run …`. When the import
+  succeeds, the cause is downstream of it — for sherpa, almost always the models
+  not being on disk — and the message now says that, with the real error kept.
+- **The models are ~45 MB, not ~15 MB.** Measured: 39 MB embedding + 6 MB
+  segmentation. The old figure appeared in nine places, including the install-cost
+  table people use to decide whether to bother.
+
 ### Added — staged dictation: speak, review, then commit
 
 Reported by a reader of the r/speechtech thread and conceded there as a real gap.

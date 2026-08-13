@@ -118,3 +118,86 @@ def test_public_feature_exposes_deps_for_cli():
     # every public Feature must carry both fields (CLI touches them unguarded).
     for f in feature_status(cfg):
         assert hasattr(f, "pip_packages") and hasattr(f, "check_modules")
+
+
+# ---- the diarization "unavailable" message must not contradict itself --------
+
+
+def _detail(monkeypatch, *, available, implemented=True):
+    """Drive `_unavailable_detail` with a probe result we control."""
+    from yazses.recimport import factory
+    from yazses.system import backends
+
+    status = backends.BackendStatus(
+        backend="sherpa",
+        available=available,
+        reason="" if available else "sherpa-onnx is not installed",
+        remedy="" if available or not implemented else "install the `diarization` extra",
+    )
+    monkeypatch.setattr(backends, "probe_backend", lambda *a, **k: status)
+    return factory._unavailable_detail("sherpa", RuntimeError("no such file: model.onnx"))
+
+
+def test_a_backend_whose_deps_are_installed_is_never_called_available_and_unavailable(monkeypatch):
+    """Found by running the container image, where the extra *is* installed.
+
+    The probe reported "backend 'sherpa' is available", the factory appended its
+    download hint, and the caller prefixed "unavailable:" — producing
+    "unavailable: backend 'sherpa' is available and run ...", which tells the user
+    nothing and reads as a bug in the tool.
+    """
+    detail = _detail(monkeypatch, available=True)
+    assert "is available" not in detail, detail
+    assert "models are not downloaded" in detail
+    assert "--download-models" in detail
+
+
+def test_that_message_still_carries_the_underlying_error(monkeypatch):
+    """The guess about models is a guess; the real error has to remain visible."""
+    assert "no such file: model.onnx" in _detail(monkeypatch, available=True)
+
+
+def test_a_missing_extra_still_names_the_extra_and_the_download(monkeypatch):
+    detail = _detail(monkeypatch, available=False, implemented=True)
+    assert "diarization" in detail
+    assert "--download-models" in detail
+
+
+def test_an_unshipped_adapter_offers_no_remedy_it_cannot_deliver(monkeypatch):
+    detail = _detail(monkeypatch, available=False, implemented=False)
+    assert "--download-models" not in detail
+    assert "not installed" in detail
+
+
+# ---- the remedy the tool prints has to be a command that runs ---------------
+
+
+def test_download_models_runs_without_an_audio_file(monkeypatch):
+    """`yazses transcribe --download-models` is what the diarization failure tells
+    you to run. It exits before transcribing anything, but `audio_file` was a
+    required argument — so the advice failed with "Missing argument 'audio_file'"
+    and could not be followed at all. Found by running the container image.
+    """
+    from typer.testing import CliRunner
+
+    import yazses.cli as cli
+    from yazses.recimport import download as dl_module
+
+    called = []
+    monkeypatch.setattr(dl_module, "download_models", lambda cfg, echo=None: called.append(cfg))
+
+    result = CliRunner().invoke(cli.app, ["transcribe", "--download-models"])
+
+    assert result.exit_code == 0, result.output
+    assert len(called) == 1
+
+
+def test_transcribe_with_no_file_and_no_flag_still_says_what_is_missing():
+    from typer.testing import CliRunner
+
+    import yazses.cli as cli
+
+    result = CliRunner().invoke(cli.app, ["transcribe"])
+    assert result.exit_code == 2
+    assert "audio_file" in result.output
+    assert "--download-models" in result.output, "point at the other valid use"
