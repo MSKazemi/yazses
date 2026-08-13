@@ -346,11 +346,23 @@ def test_elevation_detail_names_the_consequence_in_each_state():
     assert len({not_elevated, elevated, unknown}) == 3
 
 
-def test_is_elevated_returns_none_off_windows():
-    """Must degrade to 'unknown', never raise, on a non-Windows host."""
+def test_is_elevated_degrades_to_unknown_and_never_raises():
+    """Must answer on Windows and degrade to 'unknown' elsewhere, never raise.
+
+    Asserting `is None` unconditionally passes only off Windows — which is where
+    this suite usually runs, so it looked fine and failed the moment the Windows
+    matrix ran it. The contract is per-platform, so the test has to be too.
+    """
+    import sys
+
     from yazses.platform.windows.permissions import is_elevated
 
-    assert is_elevated() is None
+    result = is_elevated()
+    if sys.platform == "win32":
+        # A real answer, or None if the token probe itself failed.
+        assert result is None or isinstance(result, bool)
+    else:
+        assert result is None, "must not claim to know elevation off Windows"
 
 
 def test_doctor_elevation_check_is_windows_only():
@@ -404,12 +416,18 @@ def _released_version() -> str:
     """
     import subprocess
 
+    # `out` is bound before the try so the read below is unconditionally safe.
+    # pytest.skip() does raise, but nothing in the signature says so, and a
+    # reader (or a static analyser) has to take the fall-through on trust.
+    out: subprocess.CompletedProcess[str] | None = None
     try:
         out = subprocess.run(
             ["git", "tag", "--list", "v[0-9]*", "--sort=-v:refname"],
             cwd=_repo_root(), capture_output=True, text=True, check=False, timeout=10,
         )
     except (OSError, subprocess.SubprocessError):  # pragma: no cover
+        pass
+    if out is None:  # pragma: no cover - git missing from the image
         pytest.skip("git unavailable")
     tags = [t.strip().lstrip("v") for t in out.stdout.splitlines() if t.strip()]
     # Ignore pre-releases; manifests only ever describe stable releases.
