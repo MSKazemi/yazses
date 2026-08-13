@@ -290,6 +290,62 @@ def test_modifier_key_reports_no_leaked_characters():
     assert started == [0]
 
 
+# ---- Elevation / UIPI honesty -------------------------------------------
+#
+# "Keyboard capture: ok" is about installing the hook and says nothing about
+# elevated windows, which UIPI excludes either way. doctor read as "input works
+# everywhere" while dictation into an admin window silently went nowhere.
+
+
+def test_elevation_detail_names_the_consequence_in_each_state():
+    from yazses.platform.windows.permissions import elevation_detail
+
+    not_elevated = elevation_detail(False)
+    assert "administrator" in not_elevated.lower()
+    assert "block" in not_elevated.lower()
+
+    elevated = elevation_detail(True)
+    assert "administrator" in elevated.lower()
+
+    unknown = elevation_detail(None)
+    assert "could not determine" in unknown.lower()
+
+    # Three genuinely different messages, not one string with a flag in it.
+    assert len({not_elevated, elevated, unknown}) == 3
+
+
+def test_is_elevated_returns_none_off_windows():
+    """Must degrade to 'unknown', never raise, on a non-Windows host."""
+    from yazses.platform.windows.permissions import is_elevated
+
+    assert is_elevated() is None
+
+
+def test_doctor_elevation_check_is_windows_only():
+    from yazses.system.doctor import _elevation_check
+
+    assert _elevation_check("linux") is None
+    assert _elevation_check("darwin") is None
+
+
+def test_doctor_elevation_check_is_informational_not_a_failure():
+    """Running unelevated is correct and more secure -- it must not read FAIL."""
+    from yazses.system.doctor import _elevation_check
+
+    check = _elevation_check("windows")
+    assert check is not None
+    name, status, detail = check
+    assert name == "Elevated windows"
+    assert status == "OK"
+    assert detail
+
+
+def test_how_to_grant_mentions_the_elevated_window_trap():
+    from yazses.platform.windows.permissions import WindowsPermissions
+
+    assert "elevated" in WindowsPermissions().how_to_grant().lower()
+
+
 # ---- Windows packaging manifests ----------------------------------------
 #
 # scoop/chocolatey/winget pin a version AND a SHA256 by hand. Nothing in the

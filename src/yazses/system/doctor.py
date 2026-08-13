@@ -392,6 +392,22 @@ def _keyboard_capture_check(perms, platform_name: str) -> _Check:
     return ("Keyboard capture", "OK" if state is PermissionState.OK else "FAIL", detail)
 
 
+def _elevation_check(platform_name: str) -> _Check | None:
+    """Windows: report elevation and what it means for elevated windows.
+
+    Informational, never a FAIL — running unelevated is the correct default and
+    the *more* secure choice. The point is that the consequence is stated rather
+    than discovered as "dictation randomly doesn't work in Task Manager".
+    """
+    if platform_name != "windows":
+        return None
+    try:
+        from yazses.platform.windows.permissions import elevation_detail, is_elevated
+    except Exception:  # pragma: no cover - defensive
+        return None
+    return ("Elevated windows", "OK", elevation_detail(is_elevated()))
+
+
 def _hotkey_device_check(cfg) -> _Check | None:
     """Report which /dev/input device the hotkey will bind to (Linux/evdev).
 
@@ -581,6 +597,14 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
 
     # Keyboard capture
     checks.append(_keyboard_capture_check(perms, platform.name))
+
+    # Windows only: "Keyboard capture: ok" is about installing the hook and says
+    # nothing about elevated windows, which UIPI excludes either way. Without
+    # this line doctor reads as "input works everywhere" while dictation into an
+    # admin window silently goes nowhere.
+    elevation = _elevation_check(platform.name)
+    if elevation is not None:
+        checks.append(elevation)
 
     # Which input device the hotkey actually binds to (real keyboard vs a virtual
     # injector device). Surfaces the dead-hotkey failure mode directly.
