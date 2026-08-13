@@ -35,6 +35,36 @@ description: "Install YazSes on Windows for offline speech-to-text: pipx install
 5. Click **Install**, then **Finish** (leave the *"Launch YazSes now"* box
    checked).
 
+### From a package manager
+
+Prefer the terminal? The manifests live in this repo and track each release.
+
+```powershell
+# Scoop — add the bucket once, then install and update like anything else
+scoop bucket add yazses https://github.com/MSKazemi/yazses
+scoop install yazses
+```
+
+`scoop update yazses` picks up new releases on its own: the manifest reads the
+`SHA256SUMS.txt` that every release publishes, so the version and its checksum move
+together rather than the checksum going stale.
+
+**Status, honestly.** The Scoop bucket is served from this repo
+([`bucket/yazses.json`](https://github.com/MSKazemi/yazses/blob/main/bucket/yazses.json))
+and the winget manifests
+([`packaging/winget/`](https://github.com/MSKazemi/yazses/tree/main/packaging/winget))
+are written and versioned here, but neither has been installed end-to-end on a
+clean Windows machine yet, and the winget submission to
+`microsoft/winget-pkgs` is still open. Until someone confirms them, the installer
+above is the path we can vouch for. If you have a Windows box and try one,
+[issue #79](https://github.com/MSKazemi/yazses/issues/79) (Scoop) and
+[#78](https://github.com/MSKazemi/yazses/issues/78) (winget) are where to say what
+happened — that report is the only thing standing between these and being
+recommended here.
+
+The `.exe` is not code-signed yet, so SmartScreen warns on first launch whichever
+route you take.
+
 ## First run
 
 YazSes's tray icon appears in the system tray (next to the clock). The

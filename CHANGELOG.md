@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — packaging metadata that was wrong or could not work
+
+- **The Scoop manifest could not update itself.** `autoupdate` rewrote the
+  installer URL for a new release but carried no way to obtain the new hash, so
+  `scoop update` would fail on every release after the pinned one — a manifest
+  that looks self-updating and silently is not. It now reads the `SHA256SUMS.txt`
+  each release already publishes, so the version and its checksum move together.
+  The extraction is tested against a real published checksum file rather than
+  assumed to match. (#79)
+- **The Windows install page pointed at a bucket that does not exist.** The Scoop
+  bucket is served from this repo, not from a separate `scoop-yazses`. The page
+  now documents the Scoop path, and says plainly that neither Scoop nor winget has
+  been installed end-to-end on a clean Windows machine yet — with a link to the
+  issues where a report would change that. (#78, #79)
+- **Drift guards for packaging metadata.** The licence, the repo namespace and the
+  autoupdate URL are now compared against `pyproject.toml` by a test. Each channel
+  restates them by hand in a file nobody opens between releases; the container
+  image added this week was written with the wrong licence, and nothing would have
+  caught it.
+
 ### Added — an official container image: offline transcription and diarization in a box
 
 ```bash

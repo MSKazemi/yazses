@@ -54,7 +54,7 @@ LABEL org.opencontainers.image.title="YazSes" \
       org.opencontainers.image.url="https://mskazemi.github.io/yazses/" \
       org.opencontainers.image.source="https://github.com/MSKazemi/yazses" \
       org.opencontainers.image.documentation="https://mskazemi.github.io/yazses/docker/" \
-      org.opencontainers.image.licenses="AGPL-3.0-or-later" \
+      org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.authors="Mohsen Seyedkazemi Ardebili <mohsen.seyedkazemi@gmail.com>"
 
 # ffmpeg is the decode fallback for formats PyAV cannot open. It is the only

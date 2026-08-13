@@ -33,7 +33,11 @@
     "autoupdate": {
         "architecture": {
             "64bit": {
-                "url": "https://github.com/MSKazemi/yazses/releases/download/v$version/YazSes-$version-windows-x64.exe#/setup.exe"
+                "url": "https://github.com/MSKazemi/yazses/releases/download/v$version/YazSes-$version-windows-x64.exe#/setup.exe",
+                "hash": {
+                    "url": "https://github.com/MSKazemi/yazses/releases/download/v$version/SHA256SUMS.txt",
+                    "regex": "$sha256\\s+YazSes-$version-windows-x64.exe"
+                }
             }
         }
     }
