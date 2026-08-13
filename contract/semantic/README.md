@@ -76,6 +76,52 @@ she is sort of stable  -> "she is stable"     <- the distinction is gone
 
 Both outputs are fine sentences. Only the pair proves something was destroyed.
 
+## The third check: `must_preserve_relation`
+
+`must_preserve` is a **subset** assertion, and `quantity` is a **set** dimension.
+That combination cannot express *order*, and the flagship case is exactly where
+order is the meaning:
+
+```
+give him fifty, sorry, fifteen milligrams     -> quantity {15, 50}, marker present
+give him fifteen, sorry, fifty milligrams     -> quantity {15, 50}, marker present
+```
+
+Both satisfy `must_preserve: {quantity: ["15"], correction_marker: "present"}`
+identically, and they are opposite instructions. The one case the semantic layer
+exists to protect was the one it did not pin (#163, raised by @YossiMH in the
+[#98](https://github.com/MSKazemi/yazses/issues/98) review).
+
+A relation says which value **supersedes** which:
+
+```jsonc
+"must_preserve_relation": [
+  {
+    "dimension": "quantity",
+    "relation": "supersedes",
+    "value": "15",          // the corrected value
+    "over": "50",           // the one it replaces
+    "why": "a subset check accepts the inversion, which means the opposite"
+  }
+]
+```
+
+It is checked **positionally** — the winning value must appear after the value it
+supersedes, using the dimension's own extraction patterns so a relation is
+anchored to exactly what `must_preserve` reads. That is deliberate and it is the
+limit of this layer: the contract pins *delivered text*, not meaning, and a
+positional rule is checkable in any language without an NLP stack. A case whose
+correction is expressed some other way needs its own case, not a cleverer rule.
+
+Only `supersedes` exists. Two further dimensions proposed in the same review —
+laterality and conditionality — are deliberately **not** here: the layer's own
+rule is that a dimension is added when someone can name a failing minimal pair,
+and neither has one yet.
+
+**Every relation must ship with its minimal pair.** The inverted sentence is a
+case in its own right, so the assertion is proven to have teeth rather than
+assumed to.
+
 ## Known gaps
 
 A case with `status: "known-gap"` is an invariant the shipped filter does **not**

@@ -78,6 +78,61 @@ def deliver(case: dict[str, Any]) -> str:
     return text
 
 
+def _positions(dimension: str, value: str, text: str) -> list[int]:
+    """Every character offset in *text* where *value* is read for *dimension*.
+
+    Uses the dimension's own extraction patterns, so a relation is anchored to
+    exactly what `must_preserve` reads — not to a second, looser search.
+    """
+    spec = DIMENSIONS["dimensions"][dimension]
+    flags = re.IGNORECASE if spec.get("ignore_case", True) else 0
+    for entry in spec["values"]:
+        if str(entry["value"]) != str(value):
+            continue
+        return sorted(
+            m.start() for pattern in entry["patterns"] for m in re.finditer(pattern, text, flags)
+        )
+    return []
+
+
+def _check_relations(case: dict[str, Any], actual: str) -> list[str]:
+    """Assert ORDER between values, which `must_preserve` cannot express (#163).
+
+    `quantity` is a set dimension and `must_preserve` is a subset assertion, so
+    "give him fifty, sorry, fifteen milligrams" and its inversion both extract
+    {15, 50} with a correction marker and satisfy the invariant identically —
+    while meaning the opposite. The flagship case the semantic layer exists to
+    protect was the one it did not actually pin.
+
+    A relation says *which value supersedes*: `supersedes` requires that the
+    winning value appears after the superseded one, so the inverted sentence
+    fails. Deliberately positional rather than semantic — the contract's own rule
+    is that it pins delivered text, not meaning.
+    """
+    failures = []
+    for relation in case.get("must_preserve_relation") or []:
+        dimension = relation["dimension"]
+        kind = relation["relation"]
+        winner, loser = str(relation["value"]), str(relation["over"])
+        winner_at = _positions(dimension, winner, actual)
+        loser_at = _positions(dimension, loser, actual)
+        if not winner_at:
+            failures.append(f"{dimension}: {winner!r} is absent, so it cannot {kind} {loser!r}")
+            continue
+        if not loser_at:
+            continue      # the superseded value is gone entirely — nothing to confuse
+        if kind == "supersedes":
+            if not (max(winner_at) > min(loser_at)):
+                failures.append(
+                    f"{dimension}: {winner!r} must supersede {loser!r}, but it does not "
+                    f"appear after it (winner at {winner_at}, superseded at {loser_at}) — "
+                    f"this reads as the opposite instruction"
+                )
+        else:
+            failures.append(f"unknown relation kind {kind!r}")
+    return failures
+
+
 def _check_invariants(case: dict[str, Any], actual: str) -> list[str]:
     """Return a human-readable failure per violated invariant (empty == all held)."""
     failures = []
@@ -99,6 +154,7 @@ def _check_invariants(case: dict[str, Any], actual: str) -> list[str]:
         )
         if acquired:
             failures.append(f"{dimension}: output wrongly acquired {sorted(acquired)}")
+    failures += _check_relations(case, actual)
     return failures
 
 
@@ -269,3 +325,42 @@ def test_every_dimension_is_exercised_by_a_case():
         cited |= set(case.get("must_not_acquire") or {})
     unused = set(DIMENSIONS["dimensions"]) - cited
     assert not unused, f"dimensions defined but never used by a case: {sorted(unused)}"
+
+
+def test_a_relation_rejects_the_inversion_a_subset_check_accepts():
+    """The whole point of `must_preserve_relation` (#163).
+
+    "give him fifty, sorry, fifteen milligrams" and its inversion extract the
+    same quantity set {15, 50} with the same correction marker, so the flagship
+    case's `must_preserve` is satisfied by BOTH — while they mean the opposite.
+    This pins that the relation is what separates them, and that removing it
+    brings the hole back.
+    """
+    flagship = next(
+        c for c in INVARIANTS["cases"] if c["id"] == "self-correction-keeps-corrected-dose"
+    )
+    inverted = "give him fifteen, sorry, fifty milligrams"
+
+    without_relation = {k: v for k, v in flagship.items() if k != "must_preserve_relation"}
+    assert not _check_invariants(without_relation, inverted), (
+        "the subset assertion is expected to accept the inversion — that is the gap"
+    )
+    failures = _check_invariants(flagship, inverted)
+    assert failures, "must_preserve_relation must reject the inverted instruction"
+    assert "supersede" in failures[0]
+
+
+def test_every_relation_names_a_dimension_that_exists():
+    for case in INVARIANTS["cases"]:
+        for relation in case.get("must_preserve_relation") or []:
+            assert relation["dimension"] in DIMENSIONS["dimensions"], (
+                f"{case['id']} relates an unknown dimension {relation['dimension']!r}"
+            )
+            assert relation["relation"] == "supersedes", "only `supersedes` is implemented"
+            assert relation.get("why"), f"{case['id']}: a relation must say why it exists"
+
+
+def test_the_minimal_pair_for_the_flagship_case_is_present():
+    """A relation without its counter-example is an assertion nobody has tested."""
+    ids = {c["id"] for c in INVARIANTS["cases"]}
+    assert "self-correction-inverted-dose-is-a-different-instruction" in ids
