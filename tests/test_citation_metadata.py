@@ -80,11 +80,20 @@ def test_citation_does_not_use_a_version_pinned_doi() -> None:
 
 
 def test_readme_badge_uses_the_same_concept_doi() -> None:
-    """The README badge and the citation file must not disagree about the identifier."""
-    for readme in ("README.md", "README.hi.md"):
-        text = (REPO_ROOT / readme).read_text(encoding="utf-8")
+    """The README badge and the citation file must not disagree about the identifier.
+
+    Every translation carries its own copy of the badge block, so this globs rather
+    than naming files: the list was hard-coded to `README.md` + `README.hi.md`, and
+    `README.zh-CN.md` and `README.ru.md` both arrived afterwards and were never
+    checked. A copied badge is exactly the thing that goes stale unwatched.
+    """
+    readmes = [REPO_ROOT / "README.md", *sorted(REPO_ROOT.glob("README.*.md"))]
+    for readme in readmes:
+        text = readme.read_text(encoding="utf-8")
         dois = set(re.findall(r"10\.5281/zenodo\.\d+", text))
-        assert dois == {CONCEPT_DOI}, f"{readme} DOI badge disagrees with CITATION.cff: {dois}"
+        assert dois == {CONCEPT_DOI}, (
+            f"{readme.name} DOI badge disagrees with CITATION.cff: {dois}"
+        )
 
 
 def test_citation_release_date_is_iso() -> None:
