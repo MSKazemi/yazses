@@ -1470,6 +1470,19 @@
     },
     {
       "type": "library",
+      "name": "noisereduce",
+      "version": "3.0.3",
+      "purl": "pkg:pypi/noisereduce@3.0.3",
+      "bom-ref": "pkg:pypi/noisereduce@3.0.3",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "ff64a28fb92e3c81f153cf29550e5c2db56b2523afa8f56f5e03c177cc5e918f"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "numba",
       "version": "0.66.0",
       "purl": "pkg:pypi/numba@0.66.0",

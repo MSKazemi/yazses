@@ -2848,6 +2848,23 @@ wheels = [
 ]
 
 [[package]]
+name = "noisereduce"
+version = "3.0.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "joblib" },
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "scipy", version = "1.18.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/11/08/539e3cff148b7f9bde5b4b060451a7445d708fa3fe5d8a2bc0c552976e52/noisereduce-3.0.3.tar.gz", hash = "sha256:ff64a28fb92e3c81f153cf29550e5c2db56b2523afa8f56f5e03c177cc5e918f", size = 20968, upload-time = "2024-10-06T13:43:45.431Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ce/c5/fc00b3e8f86437039fb300ba41d5d683fdf0878d8782e827c2bad074eb59/noisereduce-3.0.3-py3-none-any.whl", hash = "sha256:95cb64cfe29b5fa0311ac764755d2f503ae71571040693577796412be1a54b9d", size = 22142, upload-time = "2024-10-06T13:43:43.886Z" },
+]
+
+[[package]]
 name = "numba"
 version = "0.66.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4330,8 +4347,6 @@ version = "0.19.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pillow" },
-    { name = "pyobjc-framework-quartz", marker = "python_version < '0'" },
-    { name = "python-xlib", marker = "python_version < '0'" },
     { name = "six" },
 ]
 wheels = [
@@ -6451,6 +6466,9 @@ ble = [
 chinese = [
     { name = "opencc-python-reimplemented" },
 ]
+denoise = [
+    { name = "noisereduce" },
+]
 desktop = [
     { name = "pyside6" },
 ]
@@ -6536,6 +6554,7 @@ requires-dist = [
     { name = "mcp", marker = "extra == 'agent'", specifier = ">=1.28.1" },
     { name = "mediapipe", marker = "extra == 'all'", specifier = ">=0.10.35" },
     { name = "mediapipe", marker = "extra == 'gaze'", specifier = ">=0.10.35" },
+    { name = "noisereduce", marker = "extra == 'denoise'", specifier = ">=3.0.3" },
     { name = "numpy", specifier = ">=2.4.6" },
     { name = "onnx-asr", extras = ["cpu", "hub"], marker = "extra == 'all'", specifier = ">=0.12" },
     { name = "onnx-asr", extras = ["cpu", "hub"], marker = "extra == 'parakeet'", specifier = ">=0.12" },
@@ -6578,7 +6597,7 @@ requires-dist = [
     { name = "speechbrain", marker = "extra == 'voiceprint'", specifier = ">=1.1" },
     { name = "typer", specifier = ">=0.26.8" },
 ]
-provides-extras = ["slm", "lsp", "emg", "ble", "overlay", "desktop", "prosody", "chinese", "tts", "voiceprint", "voiceprint-resemblyzer", "parakeet", "diarization", "diarization-pyannote", "notes", "silero", "agent", "gaze", "all"]
+provides-extras = ["slm", "lsp", "emg", "ble", "overlay", "desktop", "prosody", "chinese", "tts", "denoise", "voiceprint", "voiceprint-resemblyzer", "parakeet", "diarization", "diarization-pyannote", "notes", "silero", "agent", "gaze", "all"]
 
 [package.metadata.requires-dev]
 dev = [
