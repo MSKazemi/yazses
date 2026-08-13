@@ -430,6 +430,26 @@ def _keyboard_capture_check(perms, platform_name: str) -> _Check:
     return ("Keyboard capture", "OK" if state is PermissionState.OK else "FAIL", detail)
 
 
+def _window_focus_check(is_wayland: bool, is_x11: bool) -> _Check | None:
+    """Report whether "focus the browser" can work on this session (#39).
+
+    Wayland deliberately forbids one client focusing another's window and no
+    portal exposes it, so this is a permanent property of the session rather
+    than something to install. Saying so here is the difference between a user
+    concluding YazSes is broken and knowing the platform said no.
+    """
+    if not (is_wayland or is_x11):
+        return None
+    from yazses.windowctl.focus import wayland_limitation
+
+    if is_wayland:
+        return ("Voice window focus", "SKIP", wayland_limitation())
+    if not shutil.which("xdotool"):
+        return ("Voice window focus", "WARN",
+                "needs xdotool to enumerate and raise windows — run `yazses setup`")
+    return ("Voice window focus", "OK", "xdotool (X11) — \"focus the browser\" works")
+
+
 def _modality_roles_check(cfg) -> _Check | None:
     """Report which modality owns each role (ADR-v2-011), or nothing when off.
 
@@ -720,6 +740,11 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
         checks.append(_tool("wl-copy", required=False))
 
         checks.extend(_injection_readiness(is_wayland, is_x11))
+
+        # Whether "focus the browser" can work here. Wayland cannot, by design.
+        window_focus = _window_focus_check(is_wayland, is_x11)
+        if window_focus is not None:
+            checks.append(window_focus)
 
     # Model cache (Hugging Face)
     hf_cache = Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface")) / "hub"

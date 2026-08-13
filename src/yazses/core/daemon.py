@@ -525,6 +525,10 @@ class Daemon:
         # it decides what role EMG plays among them.
         self._modality_roles = self._resolve_modality_roles(cfg)
 
+        # Voice window focus (#39). None on Wayland (which forbids cross-client
+        # focus) and without xdotool; the spoken command then stays dictation.
+        self._window_backend = self._build_window_backend()
+
         # Optional non-keyboard activation sources (EMG squeeze via [emg]).
         self._extra_activations = self._build_activation_sources(cfg)
 
@@ -1208,6 +1212,12 @@ class Daemon:
                             if stream_injector is not None:
                                 stream_injector.cancel()
                             return
+                    # "focus the browser" (#39). Whole-utterance grammar, so it
+                    # cannot shadow dictation containing the word "focus".
+                    if self._try_window_focus(text, event):
+                        if stream_injector is not None:
+                            stream_injector.cancel()
+                        return
                     # Ambient Scratch (ADR-v2-005): capture a note-to-self ("note to
                     # self ...") to the scratch pad instead of typing it. Command-key
                     # gated + off by default.
@@ -2136,6 +2146,58 @@ class Daemon:
         self._last_dictation_monotonic = time.monotonic()
         log.info("Punch-In: corrected %d chars.", len(last))
         return {"ok": True, "applied": True, "old": last, "new": corrected, "candidates": cand_view}
+
+    def _build_window_backend(self):
+        """X11 window backend for voice focus, or None (logged) when impossible."""
+        try:
+            import os
+
+            from yazses.windowctl.focus import build_window_backend
+
+            return build_window_backend(os.environ.get("XDG_SESSION_TYPE", ""))
+        except Exception:
+            log.debug("window focus backend init failed", exc_info=True)
+            return None
+
+    def _try_window_focus(self, phrase: str, event: dict) -> bool:
+        """Focus a window the user named out loud ("focus the browser", #39).
+
+        Returns True when the phrase was a focus command, so it is consumed
+        rather than typed. A command that matched nothing is still consumed —
+        typing "focus the browser" into the document because no window matched
+        would be a worse outcome than doing nothing.
+
+        X11 only: Wayland forbids one client focusing another's window, so the
+        backend is None there and this returns False, leaving the words to be
+        dictated normally. `yazses doctor` explains why.
+        """
+        try:
+            from yazses.windowctl.focus import focus_by_name, parse_focus_command
+        except Exception:
+            return False
+        target = parse_focus_command(phrase)
+        if target is None:
+            return False
+        backend = self._window_backend
+        if backend is None:
+            return False
+        event["intent_type"] = "window_focus"
+        event["intent_action"] = target
+        window = focus_by_name(target, backend)
+        if window is None:
+            event["discard_reason"] = "window_focus_no_match"
+            log.info("Voice focus: no unambiguous window matches %r.", target)
+            try:
+                from yazses.system.notify import notify
+
+                notify("No window matched",
+                       f"Nothing was focused for {target!r}. Say part of the "
+                       "window title, or check `yazses doctor`.")
+            except Exception:
+                log.debug("focus notification failed", exc_info=True)
+            return True
+        log.info("Voice focus: activated %r (%s).", window.title, window.id)
+        return True
 
     def _try_deixis(self, phrase: str, event: dict) -> bool:
         """Act on a gaze-deixis command ("close this", "focus that").
