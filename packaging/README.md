@@ -15,7 +15,7 @@ registry. Every channel below was checked live on 2026-08-11:
 | Snap Store | ✅ live | `../snap/` | incl. arm64 |
 | APT repo | ✅ live | `../scripts/update-apt-repo.sh` | signed |
 | GitHub Releases | ✅ live | — | `.dmg`, `.exe`, `.deb` |
-| **Homebrew** | ❌ **404** | `homebrew/yazses.rb` | cask is **current (2.17.0, real sha)** — needs a tap repo ([#6](https://github.com/MSKazemi/yazses/issues/6)) |
+| **Homebrew** | ✅ live | `homebrew/yazses.rb` | tap published 2026-08-13 at [MSKazemi/homebrew-yazses](https://github.com/MSKazemi/homebrew-yazses); cask at **2.18.0 (real sha)**, **arm64 only** — see the macOS section ([#6](https://github.com/MSKazemi/yazses/issues/6)) |
 | **winget** | ❌ **404** | `winget/…/2.18.0/` | manifests are **current (2.18.0, real sha)** — needs a PR to `microsoft/winget-pkgs` ([#78](https://github.com/MSKazemi/yazses/issues/78)) |
 | **AUR** | ❌ **404** | `arch/PKGBUILD` | ⚠ stale at `pkgver=0.4.0`, `sha256sums=SKIP` ([#67](https://github.com/MSKazemi/yazses/issues/67)) |
 | **Flathub** | ❌ not found | — | nothing built yet ([#45](https://github.com/MSKazemi/yazses/issues/45)) |
@@ -37,6 +37,82 @@ Rust binary** distribution. The releases they point at (`v1.0.0`, `v1.0.0-dev.1`
 checksums are still `PLACEHOLDER_…`. They are marked at the top of each file. **The
 canonical cask is `homebrew/yazses.rb`.**
 
+### Homebrew tap
+
+Published 2026-08-13 at **[MSKazemi/homebrew-yazses](https://github.com/MSKazemi/homebrew-yazses)**,
+which is what makes `brew tap MSKazemi/yazses && brew install --cask yazses` resolve. The
+repository name must stay `homebrew-yazses` — Homebrew derives the tap name from it.
+
+`Casks/yazses.rb` there is **byte-identical** to `homebrew/yazses.rb` here, which stays the
+source of truth. After each release, refresh the checksum and copy it across:
+
+```sh
+python scripts/refresh-package-manifests.py --version <x.y.z>
+cp packaging/homebrew/yazses.rb <tap>/Casks/yazses.rb   # then commit + push the tap
+```
+
+Verified at publication: the tap is public, `Casks/yazses.rb` serves HTTP 200 and matches
+the source byte for byte, and the `.dmg` URL the cask points at resolves on the v2.18.0
+release.
+
+⚠ **Not verified: that `brew install --cask yazses` actually completes.** Casks only
+install on macOS and the authoring machine is Linux, so the end-to-end run is owed by
+whoever first has a Mac in hand. What is proven is that every input Homebrew reads is
+present, well-formed and correctly hashed.
+
+### macOS: the .dmg is Apple Silicon only
+
+Audited 2026-08-13, and this is the single most important fact about the macOS
+channel because the docs previously promised the opposite.
+
+`build-macos.yml` runs on `macos-latest`. That label is an **arm64** image — the
+v2.18.0 build resolved its Python to `aarch64-apple-darwin`, confirmed from the job
+log. `packaging/macos/yazses.spec` passes `target_arch=None`, which PyInstaller reads
+as *host architecture*, not `universal2` despite what the comment there used to say.
+So the `.dmg` contains **no x86_64 slice and cannot launch on an Intel Mac.**
+
+This was **verified against the artefact**, not only inferred from the runner. The
+`.dmg` that CI built for PR #263 was decompressed on Linux (UDIF/`koly` trailer → blkx
+block table → zlib chunks; no macOS tooling involved) and every Mach-O header in the
+image inspected:
+
+```
+Mach-O slices found, by CPU type: {'arm64': 122}
+MH_EXECUTE (main binaries):      1, arm64
+universal/fat headers (0xCAFEBABE): 0
+```
+
+122 arm64 slices, **zero x86_64, zero universal headers**. The same pass read the
+bundle's `Info.plist` straight out of the image and confirmed the version fix landed:
+`CFBundleShortVersionString` and `CFBundleVersion` both `2.18.0` (they were the literal
+`0.1.2` before), and `LSMinimumSystemVersion` `11.0`, matching the cask's
+`depends_on macos: ">= :big_sur"`.
+
+`universal2` is not reachable by changing that one value. PyInstaller can only emit a
+universal binary when every bundled native dependency is itself universal, and
+`ctranslate2` (via `faster-whisper`) publishes separate arm64 and x86_64 macOS wheels.
+
+Intel coverage therefore needs a **second CI job on an Intel runner**. GitHub retired
+the free Intel image; Intel is now only `-large`/`-intel` labels, which are billed
+**even for public repositories**. That is a spend decision, so it is documented rather
+than assumed. Until it is made:
+
+- the cask declares `depends_on arch: :arm64`, so Homebrew refuses cleanly on Intel
+  instead of installing an app that cannot start;
+- `docs/macos-install.md` routes Intel users to `pipx install yazses`, which is
+  architecture independent.
+
+⚠ **Three open issues invite contributors to test on hardware that cannot work.**
+[#216](https://github.com/MSKazemi/yazses/issues/216) ("Test YazSes on macOS (Intel)")
+in particular asks someone to test a `.dmg` now known to be arm64-only;
+[#24](https://github.com/MSKazemi/yazses/issues/24) and
+[#182](https://github.com/MSKazemi/yazses/issues/182) should say which chip they mean.
+They need rewording before anyone spends an evening on them.
+
+⚠ **No human has confirmed the `.dmg` launches at all**, on either architecture. A
+71 MB artefact existing is not evidence that it runs — this repo has already shipped a
+Windows `.exe` across several releases that never started a daemon.
+
 ### Windows: Scoop and Chocolatey
 
 Both were authored from the **verified** SHA256 of the released
@@ -57,9 +133,17 @@ They are deliberately committed as *unshipped* rather than published blind — t
 reason this file has a status table is that this repo already had three manifests that
 looked finished and installed nobody.
 
-⚠️ `scoop/yazses.json` deliberately has **no `autoupdate.hash`**. Releases publish no
-`SHA256SUMS` asset, so pointing at one would 404 and silently break every future update;
-with the key absent, Scoop downloads the new installer and computes the digest itself.
+⚠️ `scoop/yazses.json` deliberately has **no `autoupdate.hash`**. When it was written,
+releases published no `SHA256SUMS` asset, so pointing at one would 404 and silently break
+every future update; with the key absent, Scoop downloads the new installer and computes
+the digest itself.
+
+**That premise changed on 2026-08-13.** PR #262 added `.github/workflows/checksums.yml`,
+which attaches a `SHA256SUMS.txt` to every release. So `autoupdate.hash` *could* now point
+at it — but the manifest has not been changed, deliberately: the first release carrying
+that asset should be observed before a future auto-update is made to depend on it, and
+nothing here has been installed on a real Windows machine yet. Revisit alongside
+[#79](https://github.com/MSKazemi/yazses/issues/79).
 
 ### Nix
 

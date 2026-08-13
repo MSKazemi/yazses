@@ -127,6 +127,68 @@ script and the Python entry point together on Linux CI, where the suite actually
 release so far. It is `%LOCALAPPDATA%\Programs\YazSes` — the documented path never existed,
 so the uninstaller and CLI instructions pointed nowhere.
 
+### Added — `brew install --cask yazses` works, via a real tap
+
+The cask has existed in `packaging/homebrew/` since v1, and `brew install yazses` has
+404'd that entire time, because a manifest that never reaches a registry installs nobody.
+The tap is now published at
+**[MSKazemi/homebrew-yazses](https://github.com/MSKazemi/homebrew-yazses)**:
+
+```sh
+brew tap MSKazemi/yazses
+brew install --cask yazses
+```
+
+`Casks/yazses.rb` there is byte-identical to `packaging/homebrew/yazses.rb`, which stays
+the source of truth; copying it across is a step in the post-release checklist in
+`packaging/README.md`. Closes [#6](https://github.com/MSKazemi/yazses/issues/6).
+
+Apple Silicon only — see the architecture note below. The install itself has **not** been
+run end to end, because casks only install on macOS; what is verified is that the tap is
+public, the cask is served intact, and the `.dmg` URL and checksum match the released
+asset.
+
+### Fixed — every macOS `.app` since v0.1.3 told the OS it was version 0.1.2
+
+`packaging/macos/yazses.spec` set `CFBundleVersion` and `CFBundleShortVersionString` as
+string literals, and they were last touched at v0.1.2. Every `.dmg` from v0.1.3 through
+v2.18.0 therefore shipped a bundle that reported **0.1.2** to macOS. Finder's *Get Info*,
+`mdls`, and anything comparing `CFBundleShortVersionString` all read that number, so a
+genuine upgrade looked like a downgrade.
+
+Nothing surfaced it because the value is only observable on a built `.app`, which requires
+a Mac. The spec now reads the version from `pyproject.toml`, so the two cannot drift, and
+`tests/test_packaging_macos.py` fails if the literal ever comes back.
+
+### Fixed — the Homebrew cask was a release behind, and would have installed a broken app on Intel
+
+Two independent problems in `packaging/homebrew/yazses.rb`:
+
+**Stale.** It pinned `2.17.0` and that release's checksum while `2.18.0` was current.
+Homebrew verifies the digest, so this is not a cosmetic lag — the download is refused and
+the first thing a new user sees looks like a broken project. Refreshed from the real
+attached asset via `scripts/refresh-package-manifests.py`. That step is manual and no
+workflow runs it, which is how it drifted; the file now says so at the top instead of
+implying it is automatic.
+
+**Architecture.** The `.dmg` is built on `macos-latest`, which is an **arm64** image (the
+v2.18.0 run resolved Python to `aarch64-apple-darwin`), and the spec passes
+`target_arch=None` — host architecture, *not* `universal2`, whatever the comment there
+claimed. The shipped `.dmg` has no `x86_64` slice and cannot launch on an Intel Mac, yet
+the cask had no architecture constraint and `docs/macos-install.md` explicitly promised
+"Apple Silicon or Intel".
+
+The cask now declares `depends_on arch: :arm64` so Homebrew refuses cleanly instead of
+installing something that silently fails to start, and both the cask caveats and the macOS
+guide route Intel users to `pipx install yazses`, which is architecture independent.
+
+`universal2` is not reachable by editing that one value: PyInstaller emits a universal
+binary only when every bundled native dependency is universal, and `ctranslate2` publishes
+separate arm64 and x86_64 macOS wheels. Real Intel coverage needs a second CI job on an
+Intel runner, and GitHub now offers those only as `-large`/`-intel` labels, which are
+billed even for public repositories. That is a spend decision, so it is written down in
+`packaging/README.md` rather than quietly assumed.
+
 ## [2.18.0] - 2026-08-13
 
 ### Changed — Qt is the `desktop` extra now, and a headless install is ~650 MB lighter

@@ -35,7 +35,8 @@ sudo apt remove yazses           # the APT / .deb path
 sudo snap remove yazses          # the Snap path
 ```
 
-On **macOS**, drag `YazSes.app` to the Trash if you used the `.dmg`.
+On **macOS**, run `brew uninstall --zap --cask yazses` if you installed from the
+Homebrew tap, or drag `YazSes.app` to the Trash if you used the `.dmg`.
 On **Windows**, use *Settings → Apps → Installed apps → YazSes → Uninstall*.
 
 ## 3. Remove your data
