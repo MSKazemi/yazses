@@ -1,0 +1,117 @@
+# Build the Flatpak, and regenerate the Python dependency modules it needs.
+#
+# WHY THIS EXISTS
+# ---------------
+# Flathub will not accept a manifest that does not build, and the manifest cannot
+# build until `python3-yazses.json` exists — a generated list of every Python
+# dependency with its URL and hash. That file has never been committed, which is
+# the single reason the Flathub submission (issue #45) has never been made.
+#
+# It cannot be generated correctly on a developer machine either. The wheels have
+# to match the *runtime's* Python, not the host's, so flatpak-pip-generator must
+# run inside org.kde.Sdk. That means having flatpak and the SDK installed, which
+# a CI runner can do reproducibly and a laptop usually cannot.
+#
+# So: `generate` produces the file and uploads it as an artifact for a human to
+# commit; `build` proves the manifest actually builds once it is committed. The
+# build job is what gates the Flathub PR.
+name: Flatpak
+
+on:
+  pull_request:
+    paths:
+      - 'packaging/flatpak/**'
+      - '.github/workflows/flatpak.yml'
+  workflow_dispatch:
+    inputs:
+      regenerate:
+        description: "Regenerate python3-yazses.json from PyPI"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  APP_ID: com.mskazemi.YazSes
+  # Must match `runtime-version` in the manifest. flatpak-pip-generator resolves
+  # wheels for this SDK's Python, so a mismatch here produces a dependency list
+  # that installs on nothing.
+  RUNTIME_VERSION: '6.7'
+
+jobs:
+  generate:
+    name: Regenerate the Python dependency modules
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.regenerate }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.7
+      options: --privileged
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Fetch flatpak-pip-generator
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/flatpak-pip-generator \
+            https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/master/pip/flatpak-pip-generator.py
+          python3 -m pip install --quiet requirements-parser
+
+      - name: Generate python3-yazses.json
+        run: |
+          set -euo pipefail
+          cd packaging/flatpak
+          # Resolve against the SDK's interpreter, not the runner's — this is the
+          # whole reason generation happens in CI.
+          python3 /tmp/flatpak-pip-generator \
+            --runtime="org.kde.Sdk//${RUNTIME_VERSION}" \
+            --output python3-yazses \
+            "yazses==$(curl -fsSL https://pypi.org/pypi/yazses/json | python3 -c 'import sys,json;print(json.load(sys.stdin)["info"]["version"])')"
+          echo "--- modules generated ---"
+          python3 -c 'import json;d=json.load(open("python3-yazses.json"));print(len(d["modules"]),"modules")'
+
+      - name: Upload for review and commit
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: python3-yazses-json
+          path: packaging/flatpak/python3-yazses.json
+          if-no-files-found: error
+
+  build:
+    name: Build the Flatpak
+    # Only meaningful once the generated dependency file is committed; until then
+    # the manifest references a file that does not exist and the build cannot run.
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.regenerate }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.7
+      options: --privileged
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # Until the generated file is committed the manifest references something
+      # that does not exist, so there is nothing to build. Warn loudly rather
+      # than fail: this workflow has to reach the default branch before
+      # workflow_dispatch can be used to produce that very file, and a job that
+      # cannot pass would block its own prerequisite.
+      - name: Are the generated dependencies committed?
+        id: deps
+        run: |
+          if [ -f packaging/flatpak/python3-yazses.json ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::packaging/flatpak/python3-yazses.json is missing, so the Flatpak was NOT built. Run this workflow with 'regenerate' checked and commit the artifact it uploads; the Flathub submission is blocked until then."
+          fi
+
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@401fe28a8384095fc1531b9d320b292f0ee45adb # v6.7
+        if: steps.deps.outputs.present == 'true'
+        with:
+          bundle: yazses.flatpak
+          manifest-path: packaging/flatpak/${{ env.APP_ID }}.yml
+          cache-key: flatpak-builder-${{ github.sha }}
+          # Flathub runs this on every submission; failing it here is cheaper
+          # than failing it in their review queue.
+          run-tests: false
+          verbose: true
