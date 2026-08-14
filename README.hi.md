@@ -48,7 +48,7 @@ YazSes एक मुफ़्त, ओपन-सोर्स, ऑफलाइन 
 *40-सेकंड का परिचय: मुख्य workflow, command line और system tray। Terminal output वास्तविक है; स्पष्टता के लिए command-line typing को दोबारा प्रदर्शित किया गया है।*
 ▶️ **[YouTube पर देखें](https://www.youtube.com/watch?v=nn8WUKsCvZ4)** — वही वीडियो chapters के साथ।
 
-![yazses doctor — all green, fully offline](docs/screenshots/yazses-doctor.png)
+![yazses doctor — all green, fully offline by default](docs/screenshots/yazses-doctor.png)
 
 वीडियो की बजाय टेक्स्ट पसंद है? [`docs/demo/yazses-cli.cast`](docs/demo/yazses-cli.cast) CLI के
 सामान्य workflow (`-h` → `about` → `quickstart` → `features` →

@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "yazses"
 version = "2.18.2"
-description = "Local, offline voice dictation for Linux, macOS, and Windows — hold a key, speak, release"
+description = "Local, offline-by-default voice dictation for Linux, macOS, and Windows — hold a key, speak, release"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.11"

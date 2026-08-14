@@ -25,7 +25,7 @@ from importlib.metadata import version as _pkg_version
 from typing import Callable, Iterable, Sequence, TextIO
 
 APP_NAME = "YazSes"
-TAGLINE = "Local, offline voice dictation — hold a key, speak, release."
+TAGLINE = "Local, offline-by-default voice dictation — hold a key, speak, release."
 
 # Brand gradient, lifted from docs/assets/favicon.svg's linearGradient stops.
 # Swept diagonally (x1,y1 -> x2,y2) across the mark, matching the SVG.

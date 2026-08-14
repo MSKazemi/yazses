@@ -121,7 +121,7 @@ focused app. **No cloud. No API key. No subscription. Nothing leaves your machin
 *40-second tour: the core loop, the command line, and the system tray. Terminal output is real; the command-line typing is re-enacted for legibility.*
 [:material-youtube: Watch it with narration and chapters on YouTube](https://www.youtube.com/watch?v=nn8WUKsCvZ4)
 
-![yazses doctor — all green, fully offline](screenshots/yazses-doctor.png)
+![yazses doctor — all green, fully offline by default](screenshots/yazses-doctor.png)
 
 ## Why YazSes
 
