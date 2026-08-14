@@ -62,6 +62,44 @@ One finding worth recording: the Gradle paths `:native:whispercpp` and
 segment. (#84)
 
 ### Fixed — the mid-sentence half of the correction-trigger bug
+### Added — 25 README translations, shipped as reviewable drafts
+
+The README existed in three languages and 26 issues asked for more. It is now in
+**28**, generated from a string table by
+`scripts/gen-readme-translation.py`, with the localisation tooling extended so a
+new language cannot break the existing ones.
+
+**Every new file is `status=draft`, and says so in the reader's own language at the
+top**, next to an English sentence stating that it is machine-assisted and not yet
+reviewed. That is the project's own mechanism —
+`scripts/check-translations.py` already required a visible banner for
+`status=draft` — and it changes the ask rather than removing it: **reviewing a
+draft is a much smaller job than translating a README from scratch**, which is
+what the linked issue now asks for.
+
+What the generator guarantees, because these are the things that break by hand:
+
+- **Commands are copied verbatim** from the English README. A translated
+  `yazses quickstart` is a command that does not exist, and the checker fails the
+  build if one appears.
+- **The badge block and the all-contributors wall are copied from the English
+  README at generation time**, so the contributor count and the DOI cannot drift
+  across 28 files — two existing tests enforce exactly that.
+- **The language switcher lists every locale.** Adding twelve languages initially
+  dropped Hindi, Russian and Chinese from every switcher: each file was
+  individually valid and the *set* was broken. `check-translations.py` now fails
+  when a locale is unreachable from another, and that guard was verified by
+  reproducing the regression.
+- **`docs/localization/STATUS.md` is kept in sync**, so no language is missing from
+  the page a would-be translator reads first.
+- Right-to-left locales (Arabic, Persian, Hebrew, Urdu) wrap the body in
+  `dir="rtl"` with the switcher left on line 1, where the checker requires it.
+
+New: Arabic, Bengali, Czech, Dutch, French, German, Greek, Hebrew, Indonesian,
+Italian, Japanese, Korean, Persian, Polish, Portuguese (Brazil), Spanish, Swedish,
+Tamil, Telugu, Thai, Traditional Chinese, Turkish, Ukrainian, Urdu, Vietnamese.
+
+### Fixed — `yazses setup` sent snap users round a loop that can never close
 
 The utterance-initial guard fixed sentences that *open* with a trigger. It cannot
 reach one with text in front of it, and those were still being destroyed:
