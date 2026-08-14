@@ -51,3 +51,38 @@ You can also supply your own custom LLM prompt directly in the configuration.
 ## How It Works
 When you stop holding the dictation key, YazSes resolves the window you are focused on and checks for a match.
 If `[filters.disfluency] llm_enabled = true` is set, YazSes will then run the rewrite pass using the specific tone you have configured. If `verbatim` is chosen, the engine skips any processing entirely. Unknown apps get the standard cleaning pass if enabled.
+
+---
+
+## When the application rewrites what you dictated
+
+A profile changes what YazSes *sends*. It cannot change what the application does
+with it after it arrives — and some applications rewrite it.
+
+The clearest case, measured by injecting into a live window and reading the
+document back:
+
+| | |
+|---|---|
+| dictated | `kubectl get pods --namespace prod` |
+| arrived in LibreOffice Writer | `Kubectl get pods –namespace prod` |
+
+Two of Writer's own defaults did that. **AutoCapitalise** made `kubectl` into
+`Kubectl`, a different command. **AutoCorrect** replaced the double hyphen with an
+**en dash**, so `--namespace` became `–namespace` — which no program accepts, and
+which is nearly invisible when you read it back.
+
+No YazSes setting prevents this, because it happens inside the application. Turn
+the features off there:
+
+```
+Tools → AutoCorrect Options → Options       [ ] Capitalize first letter of every sentence
+Tools → AutoCorrect Options → Localized     [ ] Replace dashes
+```
+
+**How to tell whether your app does this:** dictate `--namespace` and look closely
+at the dash, then dictate a lowercase command name at the start of a line. Word
+processors and chat clients are the usual offenders; terminals and code editors
+were verified not to touch the text at all
+([kitty, Alacritty, Konsole, tmux, Neovim, Emacs](https://github.com/MSKazemi/yazses/tree/main/examples)).
+

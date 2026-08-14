@@ -1,0 +1,57 @@
+# examples/config.libreoffice-writer.toml
+# A YazSes setup for dictating into LibreOffice Writer.
+#
+# READ THE NOTE BELOW BEFORE USING THIS FOR ANYTHING TECHNICAL. Writer rewrites
+# what it receives, and no YazSes setting can prevent it — the change happens
+# inside Writer, after the characters have already arrived.
+#
+# Copy to ~/.config/yazses/config.toml and edit as needed.
+
+# ---------------------------------------------------------------------------
+# Measured, by injecting a string into a live Writer window and reading back
+# what the document actually contained:
+#
+#     dictated:  kubectl get pods --namespace prod
+#     arrived:   Kubectl get pods –namespace prod
+#
+# Two of Writer's own features did that, both on by default:
+#
+#   * AutoCapitalise turned `kubectl` into `Kubectl` — a different command.
+#   * AutoCorrect replaced the double hyphen with an EN DASH, so `--namespace`
+#     became `–namespace`. That is not a flag any program accepts, and it is
+#     almost invisible when you read it back.
+#
+# Turn both off before dictating anything you intend to run or paste into code:
+#
+#     Tools -> AutoCorrect Options -> Options tab
+#         [ ] Capitalize first letter of every sentence
+#     Tools -> AutoCorrect Options -> Localized Options
+#         [ ] Replace dashes
+#     or simply:  Tools -> AutoCorrect -> While Typing   (untick)
+#
+# For ordinary prose, leaving them on is fine and often what you want.
+# ---------------------------------------------------------------------------
+
+[stt]
+model = "base.en"          # prose rather than commands; base.en is the balance
+device = "cpu"
+compute_type = "int8"
+
+[hotkey]
+key = "right_ctrl"         # Writer binds ctrl+<letter>, never bare right_ctrl
+hold_threshold_ms = 400
+
+[audio]
+sample_rate = 16000
+channels = 1
+max_record_seconds = 120   # longer: document dictation runs in paragraphs
+
+[injection]
+backend = "type"           # typing lands in the document; verified
+fallback_to_clipboard = true
+
+[commands]
+voice_punctuation = true   # say "comma"/"period"/"new paragraph" while writing prose
+
+[general]
+log_level = "INFO"

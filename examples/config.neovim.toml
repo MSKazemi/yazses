@@ -1,0 +1,44 @@
+# examples/config.neovim.toml
+# A YazSes setup for dictating into Neovim.
+#
+# Verified: an injected string arrived byte for byte, including `--namespace`,
+# `&&` and `src/main.py`. Tested by driving the real xdotool injector against a
+# live Neovim window on an isolated X display — not by dictating aloud, so the
+# speech half is unverified. See the pull request for the method.
+#
+# Copy to ~/.config/yazses/config.toml and edit as needed.
+
+# Dictation lands wherever the cursor is, so you must already be in INSERT mode —
+# YazSes types characters, it does not know about modes. Dictating in normal mode
+# runs each letter as a command, which is the one way to lose work here.
+#
+# `voice_punctuation` is off on purpose: with it on, saying "period" in insert
+# mode is fine, but the same words in normal mode are motions.
+#
+# [commands] lsp_enabled = true feeds Neovim's LSP symbols to Whisper as context,
+# which measurably helps with identifiers. It needs `[commands] lsp_editor` and a
+# running Neovim with --listen; see docs/how-to/editor-jump.md.
+
+[stt]
+model = "base.en"          # base.en balances accuracy and speed for commands + prose
+device = "cpu"
+compute_type = "int8"
+
+[hotkey]
+key = "right_ctrl"         # right_ctrl is unbound in stock Neovim
+hold_threshold_ms = 400
+
+[audio]
+sample_rate = 16000
+channels = 1
+max_record_seconds = 60
+
+[injection]
+backend = "type"       # typing reaches insert mode; a paste needs a register
+fallback_to_clipboard = true
+
+[commands]
+voice_punctuation = false   # off: in normal mode the word "period" is a motion, not punctuation
+
+[general]
+log_level = "INFO"

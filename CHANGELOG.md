@@ -6,6 +6,32 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — seven tested app configs, and a finding about apps that rewrite dictation
+
+`examples/config.{kitty,alacritty,konsole,tmux,neovim,emacs,libreoffice-writer}.toml`,
+each written from a measurement rather than from assumption.
+
+**Method.** Each application was launched on an isolated virtual X display inside a
+container and driven with the same `xdotool` XTEST path the daemon uses — so the
+application could not distinguish it from a real keypress — and what arrived was
+read back. The speech half is not covered by this; the configs say so.
+
+**The finding.** Terminals and code editors deliver the text byte for byte,
+including `--namespace`, `&&` and `src/main.py`. LibreOffice Writer does not:
+
+| | |
+|---|---|
+| dictated | `kubectl get pods --namespace prod` |
+| arrived | `Kubectl get pods –namespace prod` |
+
+AutoCapitalise made `kubectl` a different command, and AutoCorrect replaced the
+double hyphen with an **en dash** — a flag no program accepts, and nearly
+invisible on re-reading. **No YazSes setting can prevent it**, because it happens
+inside Writer after the characters arrive, so the config documents the two
+Writer options to turn off instead of pretending to fix it.
+[The app-profiles guide](https://mskazemi.com/yazses/how-to/app-profiles.html)
+now explains how to test whether your own application does the same.
+
 ### Added — `:core:audio`, `:core:vad`, and a `vad_gate` contract both platforms share
 
 The silence gate now has **contract vectors of its own** (`contract/vectors/vad_gate.json`,

@@ -1,0 +1,33 @@
+# examples/config.kitty.toml
+# A YazSes setup for dictating into kitty.
+#
+# Verified: an injected string arrived byte for byte, including `--namespace`,
+# `&&` and `src/main.py`. Tested by driving the real xdotool injector against a
+# live kitty window on an isolated X display — not by dictating aloud, so the
+# speech half is unverified. See the pull request for the method.
+#
+# Copy to ~/.config/yazses/config.toml and edit as needed.
+
+[stt]
+model = "base.en"          # base.en balances accuracy and speed for commands + prose
+device = "cpu"
+compute_type = "int8"
+
+[hotkey]
+key = "right_ctrl"         # kitty passes ctrl through to the shell; right_ctrl stays free
+hold_threshold_ms = 400
+
+[audio]
+sample_rate = 16000
+channels = 1
+max_record_seconds = 60
+
+[injection]
+backend = "type"       # typing works; clipboard-paste is a no-op in a terminal
+fallback_to_clipboard = true
+
+[commands]
+voice_punctuation = true   # say "comma"/"period"/"new line" — handy for shell one-liners
+
+[general]
+log_level = "INFO"
