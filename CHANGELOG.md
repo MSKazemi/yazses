@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.19.0] - 2026-08-14
+
 ### Added — About, Help and Check for updates in the tray menu
 
 The tray menu ended at daemon control, so the three questions you have *at the
