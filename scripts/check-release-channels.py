@@ -46,7 +46,12 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
 REPO = "MSKazemi/yazses"
-FLATPAK_ID = "io.github.mskazemi.YazSes"
+# Must match packaging/flatpak/com.mskazemi.YazSes.yml `app-id` exactly. It previously read
+# "io.github.mskazemi.YazSes", which no manifest ever declared, so this check was querying an ID that
+# can never exist and would have reported Flathub as unpublished forever -- including after a
+# successful publish. com.mskazemi.* is the correct prefix: Flathub requires an ID under a domain the
+# maintainer controls, and mskazemi.com is his.
+FLATPAK_ID = "com.mskazemi.YazSes"
 TIMEOUT = 20
 RETRIES = 3
 RETRY_BACKOFF_S = 2

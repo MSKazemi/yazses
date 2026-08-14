@@ -1,0 +1,39 @@
+# examples/config.emacs.toml
+# A YazSes setup for dictating into Emacs.
+#
+# Verified: an injected string arrived byte for byte, including `--namespace`,
+# `&&` and `src/main.py`. Tested by driving the real xdotool injector against a
+# live Emacs window on an isolated X display — not by dictating aloud, so the
+# speech half is unverified. See the pull request for the method.
+#
+# Copy to ~/.config/yazses/config.toml and edit as needed.
+
+# Emacs binds ctrl to almost everything, so the hotkey choice matters more here
+# than anywhere else: pick a key you never chord. right_ctrl held on its own is
+# not a binding Emacs claims.
+#
+# Verified in `emacs -nw` inside a terminal. GUI Emacs was not tested.
+
+[stt]
+model = "base.en"          # base.en balances accuracy and speed for commands + prose
+device = "cpu"
+compute_type = "int8"
+
+[hotkey]
+key = "right_ctrl"         # Emacs binds ctrl heavily, but not bare right_ctrl held alone
+hold_threshold_ms = 400
+
+[audio]
+sample_rate = 16000
+channels = 1
+max_record_seconds = 60
+
+[injection]
+backend = "type"       # typing goes to the current buffer; paste needs the kill ring
+fallback_to_clipboard = true
+
+[commands]
+voice_punctuation = false   # off: "period" and "comma" are ordinary words in prose buffers
+
+[general]
+log_level = "INFO"
