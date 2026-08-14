@@ -1,6 +1,6 @@
 ---
-title: YazSes vs Dragon, Talon, Wispr Flow & nerd-dictation — offline dictation compared
-description: "An honest comparison of offline voice dictation tools for Linux, macOS and Windows: YazSes vs Dragon NaturallySpeaking, Talon Voice, nerd-dictation, Vocalinux, TalkType, VOXD, Speech Note, Wispr Flow, Google and Apple dictation — which runs offline, which does voice commands, which supports Wayland, and which is free."
+title: YazSes vs Handy, OpenWhispr, Talon, Dragon & Wispr Flow — offline dictation compared
+description: "An honest comparison of offline voice dictation tools for Linux, macOS and Windows: YazSes vs Handy, OpenWhispr, FluidVoice, VoiceInk, Dragon NaturallySpeaking, Talon Voice, nerd-dictation, Vocalinux, TalkType, VOXD, Speech Note, Wispr Flow, Google and Apple dictation — which runs offline, which does voice commands, which supports Wayland, and which is free."
 ---
 
 # YazSes vs. other dictation tools
@@ -18,6 +18,9 @@ wins.
 | Tool | Runs offline | Voice commands | Linux | macOS / Windows | Cost | Open source |
 |---|---|---|---|---|---|---|
 | **YazSes** | **Yes** (on-device faster-whisper) | **Yes** (regex grammar + optional SLM router) | **Yes** (X11 & Wayland) | **Yes** | **Free** | **Yes (Apache-2.0)** |
+| **Handy** | Yes (whisper.cpp) | No | Yes | Yes | Free | Yes (MIT) |
+| **OpenWhispr** | Yes (Whisper/Parakeet; cloud optional) | Spoken instructions | Yes | Yes | Free | Yes (MIT) |
+| **FluidVoice** | Yes (Parakeet) | Yes (Command Mode) | Announced | macOS (Windows community port) | Free | Yes (GPLv3) |
 | Dragon (Nuance) | Yes | Yes | No | Windows | Paid (commercial) | No |
 | Talon Voice | Yes | Yes (advanced scripting) | Yes | Yes | Freemium | No (free tier + paid beta) |
 | nerd-dictation | Yes (VOSK) | Via Python config | Yes | No | Free | Yes (GPLv3) |
@@ -314,9 +317,58 @@ difference, and it needs no configuration: install YazSes and dictate.
 Details and the forwarding case (text typed on a *remote host's own display*):
 [dictation over SSH](how-to/remote-dictation.md).
 
+### YazSes vs Handy
+
+[Handy](https://github.com/cjpais/Handy) is the closest thing to a direct
+comparison: MIT-licensed, free, genuinely cross-platform (Linux, macOS, Windows),
+on-device, and built around the same hold-a-key-and-speak loop. It is popular for
+good reason.
+
+**Choose Handy** if you want dictation and nothing else, with the smallest install
+and the least to configure. It does one job and does not ask you to care about
+anything else.
+
+**Choose YazSes** if you also want the things that are not dictation: a documented
+voice-command grammar, whole-meeting capture with speaker labels, offline
+transcription of existing recordings, and a configuration surface deep enough to
+tune the silence gate, the disfluency filter and per-application tone.
+
+The four adjectives people reach for — open source, local, cross-platform, free —
+describe both. They are not a differentiator, and this page would be dishonest if
+it implied otherwise.
+
+### YazSes vs OpenWhispr
+
+[OpenWhispr](https://github.com/OpenWhispr/openwhispr) is MIT-licensed, runs on
+macOS, Windows and Linux, and transcribes locally with Whisper, Parakeet or
+Nemotron models. It also accepts spoken instructions such as "clean this up", and
+can optionally use a cloud model with your own API key.
+
+**Choose OpenWhispr** if you want a polished desktop app and regard an optional
+cloud fallback as a feature rather than a dealbreaker.
+
+**Choose YazSes** if "offline" needs to mean *there is no cloud path at all* —
+YazSes ships no remote inference of any kind, and the one place a local LLM
+endpoint can be configured refuses a non-loopback address unless you explicitly
+opt out. Also if you want speaker-labelled meeting transcripts, or published
+benchmark numbers with a method attached.
+
+### YazSes vs FluidVoice
+
+[FluidVoice](https://github.com/altic-dev/FluidVoice) is GPLv3, macOS-first, built
+on Parakeet, and has both a Write Mode and a Command Mode that can drive the OS
+itself — launching apps and running Shortcuts.
+
+**Choose FluidVoice** if you are on macOS and want voice control of the *machine*,
+which is broader than what YazSes's editor-oriented command grammar does.
+
+**Choose YazSes** if you are on Linux (FluidVoice announces it but does not ship
+it) or want the same experience across all three desktops.
+
 ### Others in this space
 
-[Whispering](https://github.com/epicenter-so/epicenter), OpenWhispr, Handy and
+[Whispering](https://github.com/epicenter-so/epicenter),
+[VoiceInk](https://github.com/Beingpax/VoiceInk) (macOS, paid) and
 [VOXD](https://github.com/jakovius/voxd) are also active open-source offline
 dictation projects, mostly built on whisper.cpp.
 

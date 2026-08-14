@@ -73,7 +73,19 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+        # `requires-python = ">=3.11"`, so every version from 3.11 up is a version
+        # users install on. Stopping the matrix at 3.12 meant a break on a newer
+        # interpreter reached a user before it reached CI — which is exactly how
+        # 3.13's new class dunders (`__firstlineno__`, `__static_attributes__`)
+        # broke a test that nothing here could see. 3.13 and 3.14 run on Linux
+        # only: the failure mode being caught is interpreter behaviour, not OS
+        # behaviour, and a full 3x5 matrix buys nothing for the runtime it costs.
         python-version: ["3.11", "3.12"]
+        include:
+          - os: ubuntu-latest
+            python-version: "3.13"
+          - os: ubuntu-latest
+            python-version: "3.14"
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

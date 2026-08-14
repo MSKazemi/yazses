@@ -135,7 +135,13 @@ def test_bsd_inherits_the_posix_lifecycle() -> None:
     from yazses.platform.linux.lifecycle import LinuxLifecycle
 
     assert issubclass(BsdLifecycle, LinuxLifecycle)
-    overridden = set(BsdLifecycle.__dict__) - {"__doc__", "__module__"}
+    # Filter every dunder rather than an allow-list of the ones that existed when
+    # this was written: Python 3.13 added `__firstlineno__` and
+    # `__static_attributes__` to every class body, so a named exclusion set turns
+    # into a failure on the next interpreter release. CI pins 3.11/3.12, so that
+    # break would first appear for a user, not here.
+    overridden = {name for name in BsdLifecycle.__dict__
+                  if not (name.startswith("__") and name.endswith("__"))}
     assert overridden == {"install_autostart", "uninstall_autostart"}, (
         f"BsdLifecycle overrides {sorted(overridden)} — anything beyond autostart "
         f"is POSIX and should be inherited, not forked"

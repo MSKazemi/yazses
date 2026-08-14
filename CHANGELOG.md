@@ -6,6 +6,38 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a `.venv` symlink reached `main`, and nothing was looking for it
+
+A merge landed `.venv` in git as a symlink to an absolute path on the machine that
+created it. It looks harmless there, because the target exists; every other clone
+gets a **dangling link that points outside the working tree**, so a `uv sync` or
+`python -m venv .venv` in a fresh clone follows it and writes somewhere the user
+never chose.
+
+`.gitignore` listed `.venv/` — with the trailing slash, which matches a *directory*.
+The thing that slipped through was a file. Both forms are now ignored, and a test
+reads the git index and refuses any tracked symlink that escapes the repository,
+so the next one fails before it is pushed rather than after.
+
+### Changed — the comparison table named the paid tools and omitted the free ones
+
+The **Comparison & alternatives** table listed Dragon, Talon, Windows Voice Access
+and Wispr Flow — the landscape when it was written. It did not mention the active
+wave of open-source, local, free dictation tools, which made the project's most-read
+honesty surface read as evasive to the readers most likely to know about them.
+
+- **Handy, OpenWhispr and FluidVoice are now in the tables**, in the README and on
+  the comparison page, each with a section saying where it is the better pick —
+  Handy promoted out of a footnote, since it is the closest comparison there is.
+- **The differentiator claim has been narrowed to what is still true.** "Open
+  source, local, cross-platform, free" no longer separates YazSes from the field:
+  Handy and OpenWhispr share all four. What remains is voice *commands* as well as
+  dictation, Linux as a first-class target rather than a port, speaker-labelled
+  meeting capture, published benchmarks with a stated method, and accessibility as
+  a design constraint.
+- Compiled from each project's own documentation in August 2026 and **not** from
+  testing each tool — the pages say so, and ask to be corrected. (#304)
+
 ### Fixed — a self-correction trigger could delete the sentence that said not to
 
 ```
