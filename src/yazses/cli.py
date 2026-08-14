@@ -254,6 +254,20 @@ def meeting_stop() -> None:
     try:
         result = client.call("meeting_stop")
     except IpcUnreachableError:
+        # A timeout and an absent daemon raise the same error, and stopping a
+        # meeting routinely outlasts the 2 s IPC timeout: it waits for the
+        # in-flight live decode to wind down before it answers. Reporting
+        # "Daemon is not running" there tells someone they lost a meeting that
+        # is, at that moment, finalizing successfully. Ask the lock — which is
+        # held for the process lifetime and cannot be stale — before saying so.
+        if platform.lifecycle.is_running():
+            typer.echo(
+                "The daemon did not answer in time — it is almost certainly still "
+                "finalizing this meeting (stopping waits for the current decode)."
+            )
+            typer.echo("  Check progress: yazses meeting status")
+            typer.echo("  Results land in: ~/.local/share/yazses/meetings/")
+            raise typer.Exit(0)
         typer.echo("Daemon is not running.", err=True)
         raise typer.Exit(1)
     if result.get("ok"):
