@@ -1,0 +1,66 @@
+# Android build and unit tests.
+#
+# PATH-FILTERED on purpose: the desktop project is Python, and a Python
+# contributor must never watch a Gradle job run on a docs typo. It triggers only
+# on `android/**` and `contract/**` — the second because the contract vectors are
+# what `:core:contract-test` asserts against, so changing them can break the
+# Kotlin port without touching a Kotlin file.
+name: Android
+
+on:
+  push:
+    branches: ["main"]
+    paths: ["android/**", "contract/**", ".github/workflows/android-test.yml"]
+  pull_request:
+    branches: ["main"]
+    paths: ["android/**", "contract/**", ".github/workflows/android-test.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: android
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up JDK
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@94baf225fe0a508e581a564467443d0e2379123b # v4
+
+      # `:core:*` are kotlin("jvm") and need no SDK; the Android modules do.
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+
+      # The rule that keeps `:core:*` portable. Run first and on its own so a
+      # layering violation is reported as one, rather than as a confusing
+      # variant-resolution error thousands of lines into a build log.
+      - name: Architecture rules
+        run: ./gradlew checkLayering
+
+      - name: Unit tests
+        run: ./gradlew test
+
+      - name: Lint
+        run: ./gradlew lint
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: android-test-reports
+          path: android/**/build/reports/
+          if-no-files-found: ignore

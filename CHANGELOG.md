@@ -6,6 +6,40 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the Android Gradle skeleton, with the architecture rules enforced by the build
+
+`android/` had one README. It now has every module from
+[architecture.md §3](https://mskazemi.com/yazses/mobile/architecture.html) — 21 of them —
+each compiling with a placeholder test, so several people can start in parallel
+without colliding or re-deciding the same questions in review.
+
+**Two rules the build enforces, verified by making them fail:**
+
+- **`:core:*` cannot see Android.** They are `kotlin("jvm")`, so the SDK is not on
+  the classpath: adding `import android.content.Context` to `:core:vad` fails with
+  *"Unresolved reference 'android'"*. Not a lint rule — there is nothing to import.
+- **Dependencies point one way.** `checkLayering` fails a `:core:* → :feature:*` or
+  `:platform:* → :feature:*` edge and prints the reason and the fix. Worth having
+  even where Gradle would fail anyway: for a core→feature edge it fails on *variant
+  resolution*, which is a wall of attribute-matching text that never mentions the
+  architecture.
+
+`:core:contract-test` runs `contract/vectors/*.json` — the same files the Python
+suite asserts against — so a port is reviewable against the JSON rather than
+against someone's memory of what the desktop does.
+
+CI is **path-filtered** to `android/**` and `contract/**`, so a Python contributor
+never watches a Gradle job run on a docs typo. `contract/**` is in there because
+changing a vector can break the Kotlin port without touching a Kotlin file.
+
+`./gradlew test` is green from a clean clone with no phone attached, and Gradle
+downloads the JDK 17 toolchain itself rather than requiring it to be installed.
+
+One finding worth recording: the Gradle paths `:native:whispercpp` and
+`:native:sherpaonnx` match the architecture doc, but their namespaces are
+`com.yazses.jni.*` — **`native` is a Java keyword** and cannot be a package
+segment. (#84)
+
 ### Fixed — the mid-sentence half of the correction-trigger bug
 
 The utterance-initial guard fixed sentences that *open* with a trigger. It cannot

@@ -1,0 +1,32 @@
+# Single source of truth for every dependency version in the Android build.
+# A version catalog rather than per-module literals: ten people working in
+# parallel must not each pick their own Kotlin version (ADR-MOB-002).
+
+[versions]
+# Kotlin and AGP move together; check the compatibility table before bumping either.
+kotlin = "2.0.21"
+agp = "8.7.2"
+# Android API levels. minSdk 26 is Android 8.0 — the floor where the IME APIs and
+# the audio behaviour this app depends on are consistent.
+compileSdk = "34"
+minSdk = "26"
+targetSdk = "34"
+# Test stack. kotlin.test over JUnit assertions so the core modules stay
+# framework-light — a drive-by contributor should not have to learn one.
+junit = "5.11.3"
+kotlinxSerialization = "1.7.3"
+
+[libraries]
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version = "1.11.3" }
+# Reading contract/vectors/*.json in :core:contract-test. Deliberately the only
+# parsing dependency in the core tree.
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
