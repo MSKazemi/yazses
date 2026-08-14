@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — three troubleshooting guides, each written from commands actually run
+
+The issues asked for pages built from real output rather than guesswork, so these
+carry the machine they were verified on and mark the parts that were not tested.
+
+- **["Silent audio -- discarding"](https://mskazemi.com/yazses/how-to/silent-audio-discarding.html)**
+  — the most common report, end to end. Splits the two causes that share one
+  symptom (the gate is above your voice vs nothing is being recorded), with real
+  `yazses mic-level` output. Includes the trap that the recommendation is computed
+  from whatever it heard: if you do not speak during the four seconds it measures
+  your *room* and suggests a threshold below it. (#243)
+- **[The tray icon does not appear](https://mskazemi.com/yazses/how-to/tray-icon-missing.html)**
+  — GNOME has had no built-in tray since 3.26 and needs an AppIndicator extension;
+  Ubuntu ships one enabled, which is why it "just works" there and not elsewhere.
+  Starts by telling apart "the tray is not running" from "the desktop is not showing
+  it", because those look identical. (#249)
+- **[Running fully air-gapped](https://mskazemi.com/yazses/how-to/air-gapped.html)**
+  — which two directories to carry across, and **how to prove the claim** rather
+  than trust it: `HF_HUB_OFFLINE=1` is a real test here because the loader asks for
+  a cached snapshot first, plus an `strace` recipe and taking the interface down.
+  (#246)
+
 ### Added — `[stt] cpu_threads`, and two guides written from measurements
 
 A decode that takes **one second of your time spends about five seconds of CPU**,

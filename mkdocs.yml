@@ -298,6 +298,9 @@ nav:
       - House style: how-to/house-style.md
       - Choosing a model on a low-RAM machine: how-to/low-ram-models.md
       - CPU use and battery on a laptop: how-to/cpu-and-battery.md
+      - "'Silent audio -- discarding'": how-to/silent-audio-discarding.md
+      - The tray icon does not appear: how-to/tray-icon-missing.md
+      - Running fully air-gapped: how-to/air-gapped.md
       - Remote dictation: how-to/remote-dictation.md
       - Performance tuning: how-to/performance-tuning.md
       - Per-app tone profiles: how-to/app-profiles.md
