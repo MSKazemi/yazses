@@ -6,6 +6,21 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `:core:commands` and `:core:vocab` in Kotlin
+
+The Tier-1 grammar classifier and the `initial_prompt` merge, both verified
+against their shipping vectors. `:core:contract-test` now runs **215 cases**
+across six vector files.
+
+The grammar's every pattern is anchored at both ends, which is the whole safety
+property: an unanchored rule turns a sentence that merely contains the words into
+a command, and "click undo" stops being typed. Dictation is the default because
+typing a command by mistake is recoverable and executing dictation by mistake is
+not.
+
+Checked red-green — deleting one `undo` rule failed 4 vectors, so a green run
+means the vectors actually ran. (#94)
+
 ### Added — the Android privacy gates, as build failures
 
 [ADR-MOB-007](https://mskazemi.com/yazses/mobile/adr/adr-mob-007-privacy-permissions-lifecycle.html)
