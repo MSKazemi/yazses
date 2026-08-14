@@ -254,7 +254,37 @@ pipx install yazses
 Note that settings do not carry over: the snap keeps config and models under
 `~/snap/yazses/`, an unconfined install under `~/.config/yazses`.
 
-### 3f. Fedora and the RHEL family (COPR)
+### 3f. Arch Linux and derivatives (AUR)
+
+```bash
+yay -S yazses        # or: paru -S yazses
+yazses doctor
+```
+
+**Use an AUR helper, not `makepkg` alone.** Two runtime dependencies live in the
+AUR (`python-faster-whisper`, `python-sounddevice`), and faster-whisper pulls a
+further AUR chain of its own — `python-ctranslate2`, `python-tokenizers`,
+`python-onnxruntime`, `python-av`. `makepkg` never fetches AUR dependencies by
+design; only a helper resolves them recursively. A bare `makepkg -si` therefore
+stops with *target not found*, which looks like a broken PKGBUILD and is not one.
+
+The [`PKGBUILD`](https://github.com/MSKazemi/yazses/blob/main/packaging/arch/PKGBUILD)
+is built from the PyPI sdist — the artifact the release actually publishes, with a
+checksum that is stable and quotable — rather than a GitHub tag tarball.
+
+Verify it yourself on a clean Arch container:
+
+```bash
+podman run --rm -v "$PWD:/src:z" archlinux:base-devel /src/packaging/arch/build-and-test.sh
+```
+
+That script checks the PKGBUILD parses, that `.SRCINFO` matches it (the file the
+AUR refuses a push without), builds and installs the package, and runs
+`yazses --version`. It deliberately does **not** claim `yazses doctor` end to end,
+because the AUR chain above is the helper's job and is not present in a bare
+container.
+
+### 3g. Fedora and the RHEL family (COPR)
 
 ```bash
 sudo dnf copr enable mskazemi/yazses
