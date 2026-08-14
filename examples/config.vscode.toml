@@ -1,0 +1,76 @@
+# examples/config.vscode.toml
+# A YazSes setup for dictating into Visual Studio Code.
+#
+# Verified: an injected string arrived byte for byte —
+#
+#     sent:     kubectl get pods --namespace prod
+#     arrived:  kubectl get pods --namespace prod
+#
+# `kubectl` was not auto-capitalised and `--namespace` kept both hyphens, which
+# is the failure LibreOffice Writer shows. Measured by driving the real xdotool
+# injector — the same XTEST path the daemon uses — against a live VS Code window
+# on an isolated X display, then reading the buffer back. Not by dictating
+# aloud, so the speech half is unverified.
+#
+# So Electron does accept synthetic keystrokes. `scripts/appprobe/probe.sh`
+# cannot show this and once recorded the opposite: VS Code needs ~40 s to draw
+# in a container against the 7 s that script waits, and its first-run modal eats
+# every keystroke silently (see below). A negative result from a harness is a
+# claim about the harness until you have looked at the screen.
+#
+# The same settings should suit other Electron editors (Cursor, VSCodium,
+# Windsurf), but those were not measured.
+#
+# Copy to ~/.config/yazses/config.toml and edit as needed.
+
+# TWO WAYS THIS LOOKS BROKEN WHEN IT IS NOT. Both were found by measurement.
+#
+# 1. A modal dialog swallows every keystroke, silently. VS Code's first run
+#    opens on "Sign in to use GitHub Copilot"; the workspace-trust prompt and
+#    the Welcome tab do the same. The text is sent correctly and lands in the
+#    dialog. Nothing is typed, nothing errors, and no log line appears — it is
+#    indistinguishable from an injection failure. Dismiss it once with Escape.
+#
+# 2. The Chat panel on the right is also a text target. If dictation lands
+#    there instead of the editor, click into the editor area first. The "no
+#    text target" guard cannot tell them apart, because both are genuinely
+#    editable — it only knows whether *a* text field has focus, never whether
+#    it is the one you meant.
+#
+# [commands] lsp_enabled = true feeds VS Code's LSP symbols to Whisper as
+# context, which measurably helps with identifiers. It needs the YazSes VS Code
+# extension to write the context file; that extension is not published yet, so
+# the setting is off below. Without it the bridge logs a warning and context
+# injection stays disabled — it never breaks dictation. See
+# docs/how-to/editor-jump.md.
+
+[stt]
+model = "base.en"          # base.en balances accuracy and speed for code + prose
+device = "cpu"
+compute_type = "int8"
+# Primes the decoder for the vocabulary that dictating code actually produces.
+# Whisper spells these wrong without it; edit for your own stack.
+initial_prompt = "kubectl, kubernetes, namespace, async, await, stdout, stderr, JSON, YAML"
+
+[hotkey]
+key = "right_ctrl"         # VS Code binds ctrl+<letter>, never a bare right_ctrl
+hold_threshold_ms = 400
+
+[audio]
+sample_rate = 16000
+channels = 1
+max_record_seconds = 60
+
+[injection]
+backend = "type"           # typing lands in the focused editor buffer; verified above
+fallback_to_clipboard = true
+target_guard = "clipboard" # a burst aimed at a modal is saved, not lost
+
+[commands]
+voice_punctuation = false  # off: "period"/"comma" are ordinary words in code and comments;
+                           # turn on when dictating Markdown or notes
+lsp_enabled = false        # on needs the YazSes VS Code extension (see header)
+lsp_editor = "vscode"      # which bridge to use once lsp_enabled = true
+
+[general]
+log_level = "INFO"

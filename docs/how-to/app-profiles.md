@@ -84,5 +84,14 @@ Tools → AutoCorrect Options → Localized     [ ] Replace dashes
 at the dash, then dictate a lowercase command name at the start of a line. Word
 processors and chat clients are the usual offenders; terminals and code editors
 were verified not to touch the text at all
-([kitty, Alacritty, Konsole, tmux, Neovim, Emacs](https://github.com/MSKazemi/yazses/tree/main/examples)).
+([kitty, Alacritty, Konsole, tmux, Neovim, Emacs, Sublime Text, VS Code](https://github.com/MSKazemi/yazses/tree/main/examples)).
+
+**Nothing arriving at all is a different failure**, and an easy one to misread as
+YazSes being broken: the text is sent correctly and something in front of the window
+absorbs it. A modal dialog is the usual cause — VS Code's first run opens on *"Sign
+in to use GitHub Copilot"*, and every keystroke goes there with no error anywhere.
+The other cause is the wrong text field: VS Code's Chat panel, Thunderbird's subject
+line and a browser's address bar are all genuinely editable, so the "no text target"
+guard passes. It can only tell you whether *a* text target has focus, never whether
+it is the one you meant. Click where you want the words before holding the key.
 
