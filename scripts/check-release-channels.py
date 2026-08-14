@@ -46,7 +46,14 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
 REPO = "MSKazemi/yazses"
-FLATPAK_ID = "io.github.mskazemi.YazSes"
+# Must match the manifest, the metainfo and .github/workflows/flatpak.yml, all of
+# which use com.mskazemi.YazSes (a domain the maintainer controls, as Flathub
+# requires). This read io.github.mskazemi.YazSes until 2026-08-14. Both IDs 404
+# today because the app is not on Flathub yet, so the gate looked healthy — it
+# would have started reporting a published app as missing, forever, on the day
+# the submission landed. A check against the wrong identifier does not fail; it
+# lies quietly.
+FLATPAK_ID = "com.mskazemi.YazSes"
 TIMEOUT = 20
 RETRIES = 3
 RETRY_BACKOFF_S = 2
