@@ -6,6 +6,21 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — a guide for SSH and Remote-SSH editors
+
+**[Over SSH, and in Remote-SSH editors](https://mskazemi.com/yazses/how-to/ssh-and-remote.html)**
+— the case people expect to be hard and is not: text is injected at the OS level
+into the focused *local* window, so dictating into `ssh`, `tmux`, or VS Code
+Remote-SSH needs nothing installed on the remote host, which cannot tell the
+difference from typing.
+
+Also covers the case that genuinely does not work (a remote *graphical* window,
+which is what `yazses remote` and `yazses-agent` are for), and one fact worth
+knowing: **the agent binds `127.0.0.1`, never `0.0.0.0`** — verified by connecting
+to it — so it is reachable through the SSH tunnel and nothing else. Transcription
+always happens where the microphone is, so the remote host receives finished text
+and never audio. (#245)
+
 ### Added — an app-grid launcher, and a page for the Settings window
 
 - **`yazses settings --install-launcher`** puts *YazSes Settings* in your
