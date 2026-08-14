@@ -1,4 +1,4 @@
-**其他语言版本：** [English](README.md) · [हिंदी](README.hi.md) · 简体中文 · [Русский](README.ru.md)
+**Read this in other languages:** [English](README.md) · [Deutsch](README.de.md) · [Nederlands](README.nl.md) · [Tiếng Việt](README.vi.md) · [Türkçe](README.tr.md) · [bahasa Indonesia](README.id.md) · [español](README.es.md) · [français](README.fr.md) · [italiano](README.it.md) · [polski](README.pl.md) · [português do Brasil](README.pt-BR.md) · [svenska](README.sv.md) · [čeština](README.cs.md) · [ελληνικά](README.el.md) · [Русский](README.ru.md) · [українська](README.uk.md) · [עברית](README.he.md) · [اردو](README.ur.md) · [العربية](README.ar.md) · [فارسی](README.fa.md) · [हिंदी](README.hi.md) · [বাংলা](README.bn.md) · [தமிழ்](README.ta.md) · [తెలుగు](README.te.md) · [ไทย](README.th.md) · [日本語](README.ja.md) · 简体中文 · [繁體中文](README.zh-TW.md) · [한국어](README.ko.md)
 <!-- yazses-l10n: locale=zh-CN; source=README.md; source_sha=96711bc; scope=partial; status=active -->
 
 > [README.md](README.md) 的简体中文翻译。若此处内容与英文版有出入，以**英文版为准**。

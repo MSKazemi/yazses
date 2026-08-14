@@ -162,6 +162,19 @@ def check_locale(
         if target.split("#", 1)[0] not in existing_files:
             report.problems.append(f"{where}: language-switcher link {target!r} does not exist")
 
+    # Every locale must be reachable from every other. Only "the links that ARE
+    # here resolve" was checked, so adding a language and regenerating the
+    # switchers silently dropped three existing translations from every README —
+    # each file was individually valid and the set was broken.
+    listed = {t.split("#", 1)[0] for t in switcher_targets(text)}
+    for other in sorted(existing_files):
+        if other.startswith("README.") and other.endswith(".md") \
+                and other not in (locale.name, "README.md") and other not in listed:
+            report.problems.append(
+                f"{where}: language switcher does not list {other} — a reader of this "
+                "locale cannot reach it"
+            )
+
     # A draft must say so where a reader will see it, not only in metadata.
     if locale.status == "draft" and "draft" not in text.lower()[:2000]:
         report.problems.append(
