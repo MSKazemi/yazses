@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — a Fedora/RHEL package, built and installed on a clean Fedora container
+
+`packaging/fedora/yazses.spec`, plus `build-and-test.sh` which runs the issue's
+acceptance criterion rather than asserting it: build the RPM on a clean Fedora 41,
+install it, run `yazses doctor`. Verified — `yazses-2.18.2-1.fc41.x86_64.rpm`
+installs, `/usr/bin/yazses` resolves, `yazses --version` prints `2.18.2`, and
+`doctor` reports exactly the three things a container legitimately lacks (no
+`input` group, no audio device, no autostart).
+
+Two things the spec is deliberately honest about, and the docs repeat both:
+
+- **It bundles its Python dependencies** (~380 MB installed). The idiomatic
+  approach declares each as a `python3dist(...)` require, and that is not possible
+  today — faster-whisper, ctranslate2 and onnx-asr are not in the Fedora
+  repositories, so such a spec would fail dependency generation on a clean build.
+  Bundling is fine for a COPR and is **not** fine for official Fedora, which is
+  the issue's stretch goal and a much larger job.
+- **`portaudio` is required; the injection tools are not.** `xdotool`/`xclip` are
+  *Recommends* and `ydotool`/`wl-clipboard` *Suggests*, because
+  `yazses transcribe` needs none of them and a hard dependency would pull an X11
+  stack onto a headless machine. (#77)
+
 ### Added — seven tested app configs, and a finding about apps that rewrite dictation
 
 `examples/config.{kitty,alacritty,konsole,tmux,neovim,emacs,libreoffice-writer}.toml`,
