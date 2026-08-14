@@ -47,7 +47,7 @@ Speaker 2:  Right, and that's exactly where the previous approach broke down.
 ```
 
 Speakers are distinguished by **voice embeddings and clustering** — not by pitch
-— using a small int8 ONNX model (about 15 MB, fetched once). Diarization is an
+— using a small int8 ONNX model (about 45 MB, fetched once). Diarization is an
 optional extra, so if you do not need it you do not pay for it in install size:
 
 ```sh

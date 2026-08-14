@@ -76,7 +76,7 @@ yazses transcribe interview.m4a --diarize --names "Interviewer,Participant"
 
 That writes `interview.txt` next to the recording, with each utterance attributed. Speaker
 labelling needs one extra component — `pipx install 'yazses[diarization]'` — which downloads
-about 15 MB of speaker models on first use.
+about 45 MB of speaker models on first use.
 
 Other output formats, for different analysis workflows:
 

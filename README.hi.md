@@ -72,7 +72,7 @@ transcription के बाद हटा दिया जाता है, ज�
 आप स्वयं enroll करते हैं — किसी cloud account से कभी नहीं।
 
 > **क्या वैकल्पिक है:** dictation सीधे काम करता है। Speaker labels के लिए
-> diarization extra (`pipx install 'yazses[diarization]'`, ~15 MB models, एक बार download)
+> diarization extra (`pipx install 'yazses[diarization]'`, ~45 MB models, एक बार download)
 > आवश्यक है; meeting minutes के लिए इसके अतिरिक्त `notes` extra और एक local GGUF model चाहिए, जिसकी ओर आप
 > संकेत करते हैं। दोनों default रूप से बंद हैं — [offline meeting notes](docs/meeting-notes-offline.md) देखें।
 
