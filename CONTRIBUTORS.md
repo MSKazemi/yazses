@@ -31,6 +31,9 @@ argument, and the record of it is the decision it altered.
 - [@jackie-cqz](https://github.com/jackie-cqz)
 - [@lntutor](https://github.com/lntutor)
 - [@Maqbool61](https://github.com/Maqbool61)
+- [@Mr-Neutr0n](https://github.com/Mr-Neutr0n) — the VS Code app profile
+  ([#43](https://github.com/MSKazemi/yazses/issues/43)), the project's first Electron editor
+  and the one most people asked for
 - [@Parinitha-26](https://github.com/Parinitha-26)
 - [@Prithvi4904](https://github.com/Prithvi4904) — first README translation (Hindi), and the
   language switcher that makes every later translation reachable
