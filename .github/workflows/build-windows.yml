@@ -21,12 +21,13 @@ permissions:
 jobs:
   build:
     permissions:
-      id-token: write   # SignPath OIDC authentication
+      id-token: write   # SignPath OIDC authentication, and build provenance
       contents: write   # softprops/action-gh-release attaches the .exe
-      # Build provenance: the attestation ties this binary to this workflow and
-      # commit, which matters most for an UNSIGNED artifact — it is the only
-      # verifiable link a user has (OpenSSF Signed-Releases, #116).
-      id-token: write
+      # Build provenance ties this binary to this workflow and commit, which
+      # matters most for an UNSIGNED artifact — it is the only verifiable link a
+      # user has (OpenSSF Signed-Releases, #116). `id-token` above is shared with
+      # SignPath; listing it twice is a duplicate key, which YAML parsers accept
+      # silently and GitHub Actions rejects outright.
       attestations: write
     # One installer per architecture. Windows on ARM is a real desktop target
     # now, and until this matrix existed the only .exe was x64 -- an ARM user
