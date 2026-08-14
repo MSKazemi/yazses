@@ -6,6 +6,36 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — every CLI command was unreachable on the Windows installer
+
+`yazses doctor` on Windows printed nothing and then died in a message box with
+`AttributeError: 'NoneType' object has no attribute 'isatty'`. Two defects,
+stacked:
+
+**The console shim could never win.** The bundle ships two binaries on purpose —
+a windowed one for the tray/daemon and `yazses-cli.exe` for the CLI — with a
+`yazses.cmd` shim putting the console one on `PATH`. But the windowed binary was
+named `YazSes.exe`, Windows resolves a bare `yazses` through `PATHEXT` (which
+lists `.EXE` before `.CMD`), and NTFS is case-insensitive. `YazSes.exe` therefore
+answered to `yazses` and shadowed the shim in the same directory. Every
+`yazses <command>` reached the *windowed* binary, which has no console — so
+`yazses doctor` and `yazses -h` printed nothing whatsoever. The shim shipped as
+dead code and the two-binary split it existed to enable never engaged for
+anyone. The windowed binary is now `YazSesApp.exe`; the installer deletes a
+leftover `YazSes.exe` on upgrade, or the orphan would keep shadowing the shim.
+
+**A missing stdout was fatal rather than degrading.** `sys.stdout` is `None` in a
+GUI-subsystem PyInstaller build, so `sys.stdout.isatty()` — used to decide
+colour — raised instead of answering "not a tty". New `system/streams.py`
+centralises that policy and is used everywhere the std streams are touched
+(`doctor`, `vocab export`, the upgrade nudge, `setup`'s calibration prompt).
+`system/wincon.py` adds the second line of defence: a CLI command that reaches
+the windowed binary anyway now borrows the launching terminal's console via
+`AttachConsole`, and falls back to `os.devnull` rather than leaving the streams
+`None`.
+
+Reported from a live Windows install; hold-to-talk dictation itself was working.
+
 ## [2.19.0] - 2026-08-14
 
 ### Added — About, Help and Check for updates in the tray menu

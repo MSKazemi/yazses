@@ -45,8 +45,9 @@ def test_cli_binary_defaults_to_the_cli(argv0):
 @pytest.mark.parametrize(
     "argv0",
     [
-        r"C:\Program Files\YazSes\YazSes.exe",
-        "YazSes.exe",
+        r"C:\Program Files\YazSes\YazSesApp.exe",
+        "YazSesApp.exe",
+        "YazSes.exe",  # the pre-2.18.3 name, still dispatched correctly
         "yazses.exe",  # case-insensitive filesystems fold this onto YazSes.exe
     ],
 )
@@ -91,6 +92,53 @@ def test_shim_forwards_to_the_cli_binary_relative_to_itself():
 def test_installer_ships_the_shim():
     iss = _ISS.read_text(encoding="utf-8")
     assert "yazses.cmd" in iss
+
+
+# ---- The shim has to be *reachable* ------------------------------------
+#
+# Shipping the shim is not the same as it being used. Windows resolves a bare
+# `yazses` through PATHEXT, whose default order puts .EXE ahead of .CMD, and
+# NTFS is case-insensitive. A windowed binary named YazSes.exe therefore answers
+# to `yazses` and the shim beside it is dead code — which is exactly what
+# shipped through 2.18.2: `yazses doctor` in PowerShell printed nothing (a GUI
+# binary has no stdout) and then crashed in a message box.
+
+_PATHEXT_BEFORE_CMD = (".com", ".exe", ".bat")
+
+
+def _windowed_exe_name() -> str:
+    """The windowed binary's name, from the spec that builds it."""
+    spec = _SPEC.read_text(encoding="utf-8")
+    # the EXE(...) block carrying console=False
+    windowed = spec[: spec.index("console=False")]
+    return windowed[windowed.rindex('name="') + len('name="') :].split('"')[0]
+
+
+def test_no_bundled_binary_shadows_the_yazses_shim():
+    """No shipped executable may case-fold onto `yazses` with an extension that
+    PATHEXT resolves before .CMD."""
+    for name in (_windowed_exe_name(), "yazses-cli"):
+        for ext in _PATHEXT_BEFORE_CMD:
+            assert (name + ext).lower() != "yazses" + ext, (
+                f"{name}{ext} answers to a bare `yazses` and shadows yazses.cmd; "
+                "the CLI would reach a binary with no stdout"
+            )
+
+
+def test_installer_exe_define_matches_the_spec():
+    """installer.iss shortcuts and the HKCU\\Run entry point at the windowed
+    binary by name. If the spec renames it, every shortcut breaks silently."""
+    iss = _ISS.read_text(encoding="utf-8")
+    assert f'#define MyAppExeName "{_windowed_exe_name()}.exe"' in iss
+
+
+def test_installer_deletes_the_pre_rename_windowed_binary():
+    """Inno only overwrites files it ships. On an upgrade from <= 2.18.2 an
+    orphaned YazSes.exe would stay in {app} and keep shadowing the shim, so the
+    fix would not reach existing users."""
+    iss = _ISS.read_text(encoding="utf-8")
+    assert "[InstallDelete]" in iss
+    assert r'Name: "{app}\YazSes.exe"' in iss
 
 
 # ---- Installer / app agreement -----------------------------------------

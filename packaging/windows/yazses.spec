@@ -6,12 +6,21 @@
 #
 # TWO executables share one Analysis (so the ~400 MB of dependencies is
 # collected once):
-#   YazSes.exe      windowed  — tray and daemon; no console window to flash
+#   YazSesApp.exe   windowed  — tray and daemon; no console window to flash
 #   yazses-cli.exe  console   — the CLI, reachable as `yazses` via a .cmd shim
 #
 # The split is not cosmetic. A GUI-subsystem binary has no stdout attached, so
-# `YazSes.exe --cli doctor` prints nothing whatsoever; every diagnostic command
-# (doctor, verify, status, logs, report) was unreachable on an .exe install.
+# `YazSesApp.exe --cli doctor` prints nothing whatsoever; every diagnostic
+# command (doctor, verify, status, logs, report) was unreachable on an .exe
+# install.
+#
+# The windowed binary must NOT be named YazSes.exe, however obvious that name
+# looks. Windows resolves a bare `yazses` through PATHEXT, which lists .EXE
+# *before* .CMD, and NTFS is case-insensitive — so `YazSes.exe` answers to
+# `yazses` and permanently shadows the yazses.cmd shim sitting in the same
+# directory. That shipped: `yazses doctor` in PowerShell reached the windowed
+# binary, printed nothing at all (no console), and crashed in a message box the
+# moment any code touched sys.stdout, which is None there.
 #
 # Usage (from repo root, on Windows):
 #     uv run pyinstaller packaging/windows/yazses.spec --clean --noconfirm
@@ -78,7 +87,8 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="YazSes",
+    # NOT "YazSes" — that case-folds onto `yazses` and shadows the .cmd shim.
+    name="YazSesApp",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

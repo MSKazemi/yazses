@@ -28,7 +28,10 @@
 #endif
 #define MyAppPublisher "MSKazemi"
 #define MyAppURL "https://github.com/MSKazemi/yazses"
-#define MyAppExeName "YazSes.exe"
+; The windowed binary. Deliberately NOT "YazSes.exe": PATHEXT resolves .EXE
+; before .CMD and NTFS is case-insensitive, so a YazSes.exe in {app} answers to
+; a bare `yazses` and permanently shadows the yazses.cmd console shim below.
+#define MyAppExeName "YazSesApp.exe"
 
 [Setup]
 AppId={{F3E8B8A4-1B6C-4F24-9BE8-9B7E58E9C4A2}
@@ -73,6 +76,13 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "autostart"; Description: "Start YazSes automatically when I sign in"; GroupDescription: "Optional:"
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Optional:"; Flags: unchecked
+
+[InstallDelete]
+; Upgrading from <= 2.18.2, where the windowed binary was named YazSes.exe.
+; Inno only overwrites files it ships; an orphaned YazSes.exe left in {app}
+; would keep answering to a bare `yazses` (PATHEXT puts .EXE ahead of .CMD) and
+; the shim would stay shadowed even after this fix. Delete it explicitly.
+Type: files; Name: "{app}\YazSes.exe"
 
 [Files]
 Source: "..\..\dist\YazSes\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion

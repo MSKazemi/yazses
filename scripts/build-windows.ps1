@@ -78,8 +78,14 @@ Remove-Item -Recurse -Force build, dist -ErrorAction SilentlyContinue
 Write-Host "==> Running PyInstaller"
 uv run pyinstaller packaging\windows\yazses.spec --clean --noconfirm
 
-if (-not (Test-Path "dist\YazSes\YazSes.exe")) {
-    Write-Error "PyInstaller did not produce dist\YazSes\YazSes.exe"
+if (-not (Test-Path "dist\YazSes\YazSesApp.exe")) {
+    Write-Error "PyInstaller did not produce dist\YazSes\YazSesApp.exe"
+}
+# The windowed binary must not case-fold onto `yazses`: PATHEXT resolves .EXE
+# before .CMD, so a YazSes.exe here would shadow the yazses.cmd shim and every
+# CLI command would reach a binary with no stdout.
+if (Test-Path "dist\YazSes\yazses.exe") {
+    Write-Error "dist\YazSes\yazses.exe shadows the yazses.cmd shim on PATH"
 }
 # The console binary is what makes `yazses doctor` able to print at all; a spec
 # edit that drops it would otherwise surface only as silent CLI output on a

@@ -15,6 +15,7 @@ from importlib.metadata import version as _pkg_version
 from pathlib import Path
 
 from yazses.platform import PermissionState, get_platform
+from yazses.system import streams
 from yazses.system.miclevel import LevelStats
 from yazses.system.snap import in_strict_snap, keyboard_capture_advice
 
@@ -620,7 +621,10 @@ _ANSI = {
 
 
 def _color_enabled() -> bool:
-    return sys.stdout.isatty() and os.environ.get("NO_COLOR") is None
+    # streams.stdout_isatty() rather than sys.stdout.isatty(): a windowed
+    # PyInstaller build has no console, so sys.stdout is None and the raw call
+    # raises AttributeError — turning `doctor` into a crash dialog on Windows.
+    return streams.stdout_isatty() and os.environ.get("NO_COLOR") is None
 
 
 def _c(text: str, *styles: str) -> str:

@@ -41,12 +41,10 @@ def _maybe_point_at_project(data_dir, *, succeeded: bool) -> None:
     message must not be able to fail a command that has already succeeded.
     """
     try:
-        import sys
-
-        from yazses.system import nudge
+        from yazses.system import nudge, streams
 
         if not nudge.should_show(
-            data_dir, succeeded=succeeded, interactive=sys.stdout.isatty()
+            data_dir, succeeded=succeeded, interactive=streams.stdout_isatty()
         ):
             return
         typer.echo("")
@@ -1353,7 +1351,10 @@ def vocab_export(
     if output is None:
         # No trailing blank line: typer.echo would add a second newline to text
         # that already ends in one, and the round-trip has to be byte-exact.
-        sys.stdout.write(text)
+        from yazses.system import streams
+
+        if not streams.write_out(text):
+            raise typer.Exit(1)  # no console (windowed build): fail loudly, not silently
         return
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(text, encoding="utf-8")
@@ -3222,6 +3223,8 @@ def setup(
     """
     import sys as _sys
 
+    from yazses.system import streams as _streams
+
     if _sys.platform != "linux":
         typer.echo("yazses setup currently provisions Linux only; nothing to do.")
         return
@@ -3275,7 +3278,7 @@ def setup(
     # Offer to "connect to voice" now — run the mic calibration interactively when
     # we have a terminal and nothing blocks recording (mic granted, no re-login due).
     can_calibrate = not mic_pending and not (plan.add_to_input_group or _setup.input_group_pending_relogin())
-    if can_calibrate and _sys.stdin.isatty() and typer.confirm(
+    if can_calibrate and _streams.stdin_isatty() and typer.confirm(
         "\nCalibrate the mic to your voice now?", default=True
     ):
         try:

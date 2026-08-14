@@ -121,14 +121,22 @@ The bundle contains two executables, and the difference matters:
 
 | Binary | Subsystem | Use |
 |---|---|---|
-| `YazSes.exe` | windowed | tray and daemon; no console window flashes |
+| `YazSesApp.exe` | windowed | tray and daemon; no console window flashes |
 | `yazses-cli.exe` | console | the CLI — `yazses` on PATH is a shim to this |
 
-A windowed binary has no console attached, so `YazSes.exe --cli doctor` prints
-nothing at all. Use `yazses` (or `yazses-cli.exe` directly); that is what these
-docs mean everywhere they say `yazses`.
+A windowed binary has no console attached, so `YazSesApp.exe --cli doctor` has
+nowhere to print. Use `yazses` (or `yazses-cli.exe` directly); that is what
+these docs mean everywhere they say `yazses`.
 
 Both live in `%LOCALAPPDATA%\Programs\YazSes`.
+
+> **Upgrading from 2.18.2 or earlier?** The windowed binary used to be called
+> `YazSes.exe`, which — because Windows resolves `.exe` before `.cmd` and
+> filenames are case-insensitive — answered to a bare `yazses` and shadowed the
+> shim. That is why `yazses doctor` printed nothing and then failed with
+> *"'NoneType' object has no attribute 'isatty'"*. The installer deletes the old
+> binary on upgrade; if you ever see a stray `YazSes.exe` in the install folder
+> after a manual copy, delete it.
 
 ## Troubleshooting
 
