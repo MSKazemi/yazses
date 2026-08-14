@@ -95,8 +95,21 @@ def test_factory_returns_none_when_backend_none():
     assert build_diarizer(_cfg(diarize=True, backend="none")) is None
 
 
-def test_factory_returns_none_when_extra_missing():
-    # sherpa-onnx is not installed in CI → build degrades to None, not a crash.
+def test_factory_returns_none_when_extra_missing(monkeypatch):
+    """A missing extra degrades to None rather than crashing.
+
+    The import is forced to fail rather than assumed to fail. This used to rely
+    on sherpa-onnx being absent from the environment, which made it a test of
+    the machine: installing the `diarization` extra — which
+    `yazses features enable meeting` does — turned it red with nothing wrong in
+    the code.
+    """
+    import sys
+
+    monkeypatch.setitem(sys.modules, "sherpa_onnx", None)
+    for name in [m for m in sys.modules if m.startswith("yazses.recimport.diarizer")]:
+        monkeypatch.delitem(sys.modules, name, raising=False)
+
     assert build_diarizer(_cfg(diarize=True, backend="sherpa")) is None
 
 

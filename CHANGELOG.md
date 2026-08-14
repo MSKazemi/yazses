@@ -6,6 +6,31 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — three bugs found by actually running Meeting Mode (#48)
+
+- **`yazses meeting stop` reported "Daemon is not running" on a daemon that was
+  working.** A timeout and an absent daemon raise the same error, and stopping
+  waits for the in-flight live decode before answering — which routinely exceeds
+  the 2-second IPC timeout. The meeting finalized successfully five seconds after
+  the CLI declared the daemon dead. It now asks the single-instance lock (which
+  cannot be stale) before saying so, and otherwise says the daemon is still
+  finalizing and where the results will land. **Telling someone they lost a
+  meeting they did not lose is the worst thing this command can do.**
+- **`yazses features enable <name>` can install into an interpreter the daemon
+  never loads.** Here the daemon came from a `uv tool` install and `yazses` on
+  PATH came from a checkout, so the `diarization` extra landed in the wrong
+  environment — and the daemon then told the user to run
+  `yazses features enable meeting`, the command they had just run. It now detects
+  the mismatch and prints the command that actually fixes it. The check compares
+  **environment prefixes, not interpreter paths**: a venv's `python` is a symlink
+  to a shared base, so the obvious `/proc/PID/exe` comparison silently never
+  fires — which is exactly what the first draft did.
+- **A test asserted the absence of an optional dependency.**
+  `test_factory_returns_none_when_extra_missing` passed only while sherpa-onnx
+  was not installed, so installing the `diarization` extra — which
+  `yazses features enable meeting` does — turned `main` red with nothing wrong in
+  the code. It now forces the import to fail instead of assuming the machine will.
+
 ### Fixed — the Nix flake had never been evaluated, and did not evaluate
 
 Its own header said so: *"authored, NOT YET EVALUATED … the authoring machine has

@@ -89,6 +89,49 @@ def install_command(packages: Sequence[str]) -> list[str]:
     return [sys.executable, "-m", "pip", "install", *packages]
 
 
+def daemon_interpreter_differs(lifecycle=None) -> str | None:
+    """The daemon's Python, when it is not the one running this command.
+
+    `install_packages` installs into the interpreter running the CLI. That is
+    right for a single install and wrong the moment there are two — a `uv tool`
+    install providing the daemon plus a checkout providing `yazses` on PATH, say.
+    The extra then lands in the interpreter that will never load it, the daemon
+    keeps reporting the feature as unavailable, and the message it prints tells
+    the user to run the command they just ran.
+
+    Returns the daemon's interpreter path when it differs, else None. Best
+    effort: an unreadable process table means we say nothing rather than warn
+    wrongly.
+    """
+    import os
+    import sys
+
+    try:
+        from yazses.platform import get_platform
+
+        life = lifecycle if lifecycle is not None else get_platform().lifecycle
+        if not life.is_running():
+            return None
+        pid = life.read_pid()
+        if not pid:
+            return None
+        # NOT /proc/PID/exe: a venv's `python` is a symlink to a base
+        # interpreter, so two different virtualenvs built on the same base
+        # resolve to the identical path and the check silently never fires.
+        # argv[0] is the venv's own python, which is the thing that differs.
+        raw = Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0")
+        argv0 = raw[0].decode() if raw and raw[0] else ""
+    except Exception:
+        return None
+    if not argv0:
+        return None
+    # `<env>/bin/python` -> `<env>`, which is what sys.prefix reports for ours.
+    daemon_prefix = os.path.dirname(os.path.dirname(argv0))
+    if not daemon_prefix or daemon_prefix == sys.prefix:
+        return None
+    return argv0
+
+
 def install_packages(packages: Sequence[str], *, echo=print) -> bool:
     """Install *packages* into the current environment. Returns True on success."""
     if not packages:
@@ -99,6 +142,19 @@ def install_packages(packages: Sequence[str], *, echo=print) -> bool:
         return False
     cmd = install_command(packages)
     echo("Installing dependencies: " + " ".join(packages))
+    other = daemon_interpreter_differs()
+    if other is not None:
+        import sys
+
+        echo(
+            "\n⚠ The running daemon uses a DIFFERENT Python:\n"
+            f"    daemon:  {other}\n"
+            f"    this:    {sys.executable}\n"
+            "  These packages are going into the second one, so the daemon will\n"
+            "  still report the feature as unavailable after a restart. Install\n"
+            "  them into the daemon's environment instead, e.g.\n"
+            f"    {other} -m pip install " + " ".join(packages) + "\n"
+        )
     try:
         subprocess.run(cmd, check=True)
         return True
