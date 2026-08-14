@@ -75,6 +75,30 @@ jobs:
         id: version
         run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
+      # The image installs `yazses[diarization]==<version>` from PyPI, but the
+      # PyPI upload happens in release.yml, which a tag starts at the same
+      # moment as this workflow. Whichever wins the race decides whether the
+      # release gets a container: on v2.19.0 and v2.20.0 this job lost, pip
+      # found no such version, and the tag shipped without an image until
+      # someone re-ran it by hand. Wait for the version to exist instead.
+      - name: Wait for PyPI to have this version
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+          url="https://pypi.org/pypi/yazses/${VERSION}/json"
+          for attempt in $(seq 1 40); do
+            if curl -fsS -o /dev/null "$url"; then
+              echo "yazses ${VERSION} is on PyPI (attempt ${attempt})."
+              exit 0
+            fi
+            echo "yazses ${VERSION} not on PyPI yet; retrying in 30s (${attempt}/40)."
+            sleep 30
+          done
+          echo "::error::yazses ${VERSION} never appeared on PyPI -- refusing to build an image that would pin the wrong version."
+          exit 1
+
       - name: Build and push
         id: push
         uses: docker/build-push-action@v6
