@@ -42,6 +42,12 @@ ROOT = Path(__file__).resolve().parent.parent
 CASK = ROOT / "packaging" / "homebrew" / "yazses.rb"
 WINGET_DIR = ROOT / "packaging" / "winget" / "manifests" / "m" / "MSKazemi" / "YazSes"
 SCOOP = ROOT / "bucket" / "yazses.json"
+# The reviewed copy. `bucket/` is what Scoop actually fetches; this one is what a
+# reviewer reads in a diff, and a test asserts they are identical. Refreshing only
+# the served copy would turn a release into a red suite — and refreshing only the
+# reviewed one would ship a stale bucket, which is the silent failure this script
+# exists to prevent.
+SCOOP_REVIEWED = ROOT / "packaging" / "scoop" / "yazses.json"
 PKGBUILD = ROOT / "packaging" / "arch" / "PKGBUILD"
 SRCINFO = ROOT / "packaging" / "arch" / ".SRCINFO"
 
@@ -232,8 +238,10 @@ def main(argv: list[str] | None = None) -> int:
     # still pointed at an older release. The Scoop bucket is served straight out
     # of this repository, so a stale manifest means `scoop update yazses` keeps
     # installing the previous version indefinitely.
+    scoop_text = render_scoop(version, exe, SCOOP.read_text(encoding="utf-8"))
     simple = {
-        SCOOP: render_scoop(version, exe, SCOOP.read_text(encoding="utf-8")),
+        SCOOP: scoop_text,
+        SCOOP_REVIEWED: scoop_text,
         PKGBUILD: render_pkgbuild(version, sdist_sha, PKGBUILD.read_text(encoding="utf-8")),
         SRCINFO: render_srcinfo(version, sdist_sha, SRCINFO.read_text(encoding="utf-8")),
     }

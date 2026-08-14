@@ -140,3 +140,19 @@ def test_the_autoupdate_hash_url_points_at_a_file_releases_publish():
     url = manifest["autoupdate"]["architecture"]["64bit"]["hash"]["url"]
     assert url.endswith("SHA256SUMS.txt")
     assert "$version" in url, "a fixed URL would pin every update to one release"
+
+
+def test_the_refresh_script_derives_both_scoop_copies():
+    """`bucket/` is what Scoop fetches; `packaging/scoop/` is what a reviewer reads.
+
+    A test already asserts the two are identical, so a refresh that rewrote only
+    one of them would turn every release into a red suite — or, worse, ship a
+    stale bucket, which is the silent failure the refresh script exists to
+    prevent (`scoop update` keeps installing the previous release and the
+    checksum still verifies, because it is the old file's checksum).
+    """
+    source = (ROOT / "scripts/refresh-package-manifests.py").read_text(encoding="utf-8")
+    assert "SCOOP_REVIEWED" in source
+    assert 'packaging" / "scoop"' in source
+    # Both must be written from the same rendered text, not rendered twice.
+    assert "SCOOP: scoop_text," in source and "SCOOP_REVIEWED: scoop_text," in source
