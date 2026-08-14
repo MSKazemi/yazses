@@ -27,7 +27,7 @@ the APT repo serves **2.18.2**, signed, `InRelease` 200.
 | **Nix** | ❌ 0 hits | `../flake.nix` | authored; **every nixpkgs attribute verified to exist**, but ⚠ **never evaluated** (no Nix here) ([#68](https://github.com/MSKazemi/yazses/issues/68)) |
 | **Docker/GHCR** | ✅ live | `docker/Dockerfile` | `ghcr.io/mskazemi/yazses:2.18.2` is **public and pullable** — now published on every tag ([#76](https://github.com/MSKazemi/yazses/issues/76)). ⚠ the earlier "404" was a **measurement error**: GHCR rejects unauthenticated reads, so a bare `curl` returns 401/404 for images that exist. Verify with a pull token, see below |
 | **Scoop** | ✅ live | `../bucket/yazses.json` | bucket served from this repo — `scoop bucket add yazses https://github.com/MSKazemi/yazses`; manifest at **2.18.2**, raw URL 200 ([#79](https://github.com/MSKazemi/yazses/issues/79)) |
-| **Chocolatey** | ❌ 404 | `chocolatey/` | nuspec + checksum verified; ⚠ **`.ps1` scripts not syntax-checked** (no `pwsh` on the authoring machine) |
+| **Chocolatey** | ❌ 404 | `chocolatey/` | nuspec + checksum verified; `.ps1` scripts **parse cleanly** (checked in `mcr.microsoft.com/powershell`), and the publish job re-parses them on a Windows runner before every push |
 
 > **Verification gotcha:** `curl -o /dev/null -w '%{http_code}'` **lies** about Flathub,
 > `search.nixos.org` and AlternativeTo — they are single-page apps that return **HTTP 200
