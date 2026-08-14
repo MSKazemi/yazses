@@ -306,6 +306,23 @@ be worse**; treat them as a comparison between models, not a promise about your
 desk. Full method, hardware and the commands to reproduce every number are on the
 [benchmarks page](benchmarks.md).
 
+### Your machine, not this one
+
+Every number above is one laptop. `yazses status` reports **p50 and p95 decode
+latency per model from your own dictation** — percentiles rather than a mean,
+because decode time is right-skewed and the slow tail is what you actually wait
+through, and with the sample count attached because a p95 over six utterances is
+not a p95. `stt/latency.py` keeps a bounded in-memory window per model; nothing is
+written to disk and no audio or text is involved, so it does not depend on the
+opt-in learning corpus and is available exactly when it is wanted.
+
+**Wall-clock is not the only cost.** A decode taking a second of your time spends
+around five seconds of CPU, because the work spreads across cores — the right
+trade on mains power and the wrong one on battery. `[stt] cpu_threads` caps it
+(`0`, the default, leaves the library alone). Measured on this machine, capping at
+4 changed nothing; the trade only begins below that. See
+[CPU and battery](how-to/cpu-and-battery.md).
+
 ## The daemon and its states
 
 The orchestrator is a single long-lived process, `yazses-daemon`
@@ -376,6 +393,17 @@ or plain hold-to-talk dictation (`mode = "full_text"`). Each activation source
 runs in its own background thread beside the keyboard hook and is stopped at
 shutdown; the same seam is where future non-keyboard triggers (wake word,
 switch access) plug in.
+
+### Reaching the app grid
+
+A `.deb` or snap can write into `/usr/share/applications`; a `pipx` or `uv tool`
+install owns nothing outside its own virtualenv, which left those users with a
+Settings window reachable only by typing a command. `system/launcher.py` is the
+per-user equivalent — it writes the `.desktop` entry and the icon set into
+`$XDG_DATA_HOME`, which is what XDG intends and needs no privileged step
+(`yazses settings --install-launcher`). The `Exec=` line is the bare command
+rather than an absolute path: hard-coding today's interpreter is how a launcher
+breaks at the next upgrade.
 
 ### Adding a new operating system
 

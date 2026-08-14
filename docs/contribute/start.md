@@ -11,7 +11,7 @@ Pick the row that matches what you have in front of you right now.
 
 | What you have | Do this | Time |
 |---|---|---|
-| **A browser, nothing else** | [Translate the README into your language](https://github.com/MSKazemi/yazses/issues/18) — the intro and Quick Start alone is a complete pull request | 30–45 min |
+| **A browser, nothing else** | [Review a draft README translation](https://github.com/MSKazemi/yazses/issues/18) in a language you speak — 25 languages have a machine-assisted draft that says so at the top, and correcting the prose is a much smaller job than translating one. Languages with no draft yet are still open to translate. | 20–45 min |
 | **A laptop, any OS** | [Install YazSes and report what happened](https://github.com/MSKazemi/yazses/issues/42) — working *or* broken, both are useful | 20 min |
 | **A microphone you like** | [Add it to the known-good list](https://github.com/MSKazemi/yazses/issues/21) with its measured level | 15 min |
 | **An editor or terminal you use daily** | [Share a config for it](https://github.com/MSKazemi/yazses/issues/43) | 30 min |

@@ -72,15 +72,15 @@ docs/config, **L2** bounded code.
 
 | Task | ID | Risk | Time | Needs | Validate with |
 |---|---|---|---|---|---|
-| Translate README module 1 (Landing) into German | `I18N-DE-M1` | L1 | 30 min | a text editor | `uv run python -m pytest tests/test_contributors_wall.py -q` |
-| Translate README module 1 (Landing) into Spanish | `I18N-ES-M1` | L1 | 30 min | a text editor | `uv run python -m pytest tests/test_contributors_wall.py -q` |
-| Translate README module 1 (Landing) into French | `I18N-FR-M1` | L1 | 30 min | a text editor | `uv run python -m pytest tests/test_contributors_wall.py -q` |
-| Translate README module 1 (Landing) into Portuguese, Brazilian | `I18N-PTBR-M1` | L1 | 30 min | a text editor | `uv run python -m pytest tests/test_contributors_wall.py -q` |
+| Review the German draft translation — module 1 (Landing) | `I18N-DE-M1` | L1 | 30 min | a text editor | `uv run python scripts/check-translations.py` |
+| Review the Spanish draft translation — module 1 (Landing) | `I18N-ES-M1` | L1 | 30 min | a text editor | `uv run python scripts/check-translations.py` |
+| Review the French draft translation — module 1 (Landing) | `I18N-FR-M1` | L1 | 30 min | a text editor | `uv run python scripts/check-translations.py` |
+| Review the Portuguese, Brazilian draft translation — module 1 (Landing) | `I18N-PTBR-M1` | L1 | 30 min | a text editor | `uv run python scripts/check-translations.py` |
 | Translate README module 1 (Landing) into Chinese, Simplified | `I18N-ZHCN-M1` | L1 | 30 min | a text editor | `uv run python -m pytest tests/test_contributors_wall.py -q` |
-| Translate README module 2 (Quick Start) into German | `I18N-DE-M2` | L1 | 45 min | a text editor | `uv run python -m pytest tests/test_contributors_wall.py -q` |
-| Translate README module 2 (Quick Start) into Spanish | `I18N-ES-M2` | L1 | 45 min | a text editor | `uv run python -m pytest tests/test_contributors_wall.py -q` |
-| Translate README module 2 (Quick Start) into French | `I18N-FR-M2` | L1 | 45 min | a text editor | `uv run python -m pytest tests/test_contributors_wall.py -q` |
-| Translate README module 2 (Quick Start) into Portuguese, Brazilian | `I18N-PTBR-M2` | L1 | 45 min | a text editor | `uv run python -m pytest tests/test_contributors_wall.py -q` |
+| Review the German draft translation — module 2 (Quick Start) | `I18N-DE-M2` | L1 | 45 min | a text editor | `uv run python scripts/check-translations.py` |
+| Review the Spanish draft translation — module 2 (Quick Start) | `I18N-ES-M2` | L1 | 45 min | a text editor | `uv run python scripts/check-translations.py` |
+| Review the French draft translation — module 2 (Quick Start) | `I18N-FR-M2` | L1 | 45 min | a text editor | `uv run python scripts/check-translations.py` |
+| Review the Portuguese, Brazilian draft translation — module 2 (Quick Start) | `I18N-PTBR-M2` | L1 | 45 min | a text editor | `uv run python scripts/check-translations.py` |
 | Translate README module 2 (Quick Start) into Chinese, Simplified | `I18N-ZHCN-M2` | L1 | 45 min | a text editor | `uv run python -m pytest tests/test_contributors_wall.py -q` |
 
 ## contract-vector (20)
