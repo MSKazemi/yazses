@@ -24,6 +24,15 @@ _RED = "#e53935"        # problem — error or silent-streak
 _DEFAULT_SILENT_STREAK_LIMIT = 3
 # Label for the menu entry that opens the graphical settings window (`yazses settings`).
 SETTINGS_LABEL = "Settings…"
+# The three entries that answer the questions a user has *at the icon*: what am I
+# running, where do I get help, is there a newer version. One constant each, imported by
+# all three trays, so the same menu cannot come to mean different things per OS (#63).
+ABOUT_LABEL = "About YazSes"
+HELP_LABEL = "Help"
+DOCS_LABEL = "Documentation"
+TROUBLESHOOTING_LABEL = "Troubleshooting"
+REPORT_BUG_LABEL = "Report a bug…"
+UPDATE_LABEL = "Check for updates…"
 # Actively capturing/handling your dictation → green. Everything else that is not a
 # problem → blue (normal). Meeting Mode also captures audio, so it is green too.
 _RECORDING_STATES = frozenset(

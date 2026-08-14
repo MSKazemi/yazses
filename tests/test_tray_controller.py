@@ -85,3 +85,72 @@ def test_call_wraps_failure():
 
     res = TrayController(_Boom()).pin("X")
     assert res["ok"] is False and "nope" in res["error"]
+
+
+# ---- help / about / updates ------------------------------------------------
+
+
+def test_open_url_uses_the_injected_opener():
+    opened = []
+    ctrl = TrayController(_FakeClient(), opener=lambda url: opened.append(url) or True)
+    assert ctrl.open_url("https://example.test/docs") is True
+    assert opened == ["https://example.test/docs"]
+
+
+def test_open_url_reports_a_failure_rather_than_raising():
+    def _boom(_url):
+        raise RuntimeError("no display")
+
+    ctrl = TrayController(_FakeClient(), opener=_boom)
+    assert ctrl.open_url("https://example.test/") is False
+    assert TrayController(_FakeClient(), opener=lambda _u: False).open_url("x") is False
+
+
+def test_check_updates_survives_a_dead_network(monkeypatch):
+    """No network is the common case for an offline-first tool; it must not raise."""
+    def _boom(_current, **_kw):
+        raise OSError("name resolution failed")
+
+    monkeypatch.setattr("yazses.system.updater.check_update", _boom)
+
+    status = TrayController(_FakeClient()).check_updates()
+    assert status.latest is None
+    assert status.available is False
+    assert "name resolution failed" in status.note
+
+
+def test_check_updates_passes_the_running_version_through(monkeypatch):
+    seen = {}
+
+    def _fake(current, **_kw):
+        seen["current"] = current
+        from yazses.system.updater import UpdateStatus
+
+        return UpdateStatus("uv", current, "9.9.9", True, ["uv", "tool", "upgrade", "yazses"])
+
+    monkeypatch.setattr("yazses.system.updater.check_update", _fake)
+    monkeypatch.setattr("yazses.branding.version", lambda: "1.2.3")
+
+    status = TrayController(_FakeClient()).check_updates()
+    assert seen["current"] == "1.2.3"
+    assert status.latest == "9.9.9"
+
+
+def test_install_update_runs_the_upgrade_and_reports_the_exit_code(monkeypatch):
+    from yazses.system.updater import UpdateStatus
+
+    ran = []
+    monkeypatch.setattr(
+        "yazses.system.updater.run_upgrade", lambda s: ran.append(s.command) or 0
+    )
+    status = UpdateStatus("uv", "1.0", "2.0", True, ["uv", "tool", "upgrade", "yazses"])
+    assert TrayController(_FakeClient()).install_update(status) == 0
+    assert ran == [["uv", "tool", "upgrade", "yazses"]]
+
+
+def test_install_update_reports_a_failure_rather_than_raising(monkeypatch):
+    def _boom(_status):
+        raise OSError("uv is gone")
+
+    monkeypatch.setattr("yazses.system.updater.run_upgrade", _boom)
+    assert TrayController(_FakeClient()).install_update(object()) == 1

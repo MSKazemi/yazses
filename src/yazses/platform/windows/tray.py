@@ -13,7 +13,14 @@ from collections.abc import Callable
 from typing import Any
 
 from yazses.platform.base import TrayModel, TrayState
-from yazses.tray.menu import SETTINGS_LABEL
+from yazses.tray.about import about_lines, about_title, help_links
+from yazses.tray.menu import (
+    ABOUT_LABEL,
+    HELP_LABEL,
+    SETTINGS_LABEL,
+    UPDATE_LABEL,
+)
+from yazses.tray.updates import check_and_describe
 
 log = logging.getLogger(__name__)
 
@@ -72,6 +79,39 @@ class WindowsTray:
                 except Exception:
                     log.debug("tray notification failed", exc_info=True)
 
+        def _notify(icon, title: str, body: str) -> None:  # noqa: ANN001
+            try:
+                icon.notify(body, title)
+            except Exception:
+                log.debug("tray notification failed", exc_info=True)
+
+        def _link_clicked(url: str):
+            def _handler(icon, _item) -> None:  # noqa: ANN001
+                if not open_link(url):
+                    _notify(icon, "YazSes", f"Could not open your browser. The link is: {url}")
+
+            return _handler
+
+        def _about_clicked(icon, _item) -> None:  # noqa: ANN001
+            # pystray has no dialog, so About is a notification. The version — the one
+            # thing About is opened for — leads the body so it survives truncation.
+            _notify(icon, about_title(), "\n".join(about_lines()))
+
+        def _update_clicked(icon, _item) -> None:  # noqa: ANN001
+            # Off the UI thread: the check hits the network and would freeze the menu.
+            _notify(icon, "YazSes", "Checking for updates…")
+
+            def _work() -> None:
+                title, body = check_and_describe()
+                _notify(icon, title, body)
+
+            threading.Thread(target=_work, name="tray-update-check", daemon=True).start()
+
+        # The same Help/About/update entries the Linux and macOS trays have. "Help" used
+        # to be a disabled placeholder here — a menu item that did nothing when clicked.
+        help_menu = pystray.Menu(
+            *(pystray.MenuItem(label, _link_clicked(url)) for label, url in help_links())
+        )
         menu = pystray.Menu(
             pystray.MenuItem("YazSes", None, enabled=False),
             pystray.Menu.SEPARATOR,
@@ -79,7 +119,10 @@ class WindowsTray:
             pystray.MenuItem(SETTINGS_LABEL, _settings_clicked),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Pause hotkey", None, enabled=False),
-            pystray.MenuItem("Help", None, enabled=False),
+            pystray.MenuItem(HELP_LABEL, help_menu),
+            pystray.MenuItem(ABOUT_LABEL, _about_clicked),
+            pystray.MenuItem(UPDATE_LABEL, _update_clicked),
+            pystray.Menu.SEPARATOR,
             pystray.MenuItem("Quit", _quit_clicked),
         )
 
@@ -113,6 +156,13 @@ class WindowsTray:
                     self._icon.stop()
                 except Exception:
                     log.exception("Tray stop raised")
+
+
+def open_link(url: str) -> bool:
+    """Open a Help/About link in the browser. Never raises; returns the handoff."""
+    from yazses.system.browser import open_url
+
+    return open_url(url)
 
 
 def launch_settings() -> bool:

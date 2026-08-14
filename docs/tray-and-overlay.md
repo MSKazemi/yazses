@@ -42,26 +42,54 @@ The badge isn't only an indicator. Clicking it opens a menu, rebuilt fresh each 
 carries the daemon's current state at the top and everything you need to fix the two things
 that most often go wrong — the wrong microphone, and a daemon that needs a restart.
 
-![The YazSes tray menu open with the Microphone submenu expanded, listing each input device](screenshots/tray-mic-picker.png)
+![The full YazSes tray menu: state lines, Microphone, Restart and Stop daemon, Settings, Help, About YazSes, Check for updates and Quit tray](screenshots/tray-menu-full.png)
 
 - **`YazSes — idle`** and **`Mic: default`** — the same state the badge colour encodes, in words.
 - **Microphone** — every input device the system reports, with the active one marked. Picking
   one **pins** it, so a USB-C monitor or a headset that appears later can't quietly steal
   capture. `Follow OS default` hands control back. This takes effect live, over IPC — no restart.
+
+  ![The Microphone submenu expanded, listing each input device with the active one marked](screenshots/tray-mic-picker.png)
+
 - **Re-calibrate** — re-measures the room and writes a fitting silence threshold, for when
   dictation starts getting discarded as silence.
 - **Settings…** — opens the graphical settings window (the same thing as `yazses settings`),
   where features, the hotkey, the microphone and the silence threshold are all editable without
   hand-writing TOML.
+- **Help** — a submenu with **Documentation**, **Troubleshooting** and **Report a bug…**, each
+  opening the right page in your browser. No terminal needed to find the docs from the icon.
+
+  ![The Help submenu: Documentation, Troubleshooting, then Report a bug](screenshots/tray-help-submenu.png)
+
+- **About YazSes** — the version you are actually running, the tagline, and links to the
+  website, the source and the issue tracker. This is the number to quote in a bug report.
+
+  ![The About YazSes dialog showing the version, the tagline and clickable Website, Source and Issues links](screenshots/tray-about.png)
+
+- **Check for updates…** — asks the source you installed from (PyPI, or your snap channel)
+  whether there is a newer release. If there is one and it can be installed without a
+  password, the dialog offers **Install now**; snap installs are shown the
+  `sudo snap refresh yazses` command to run in a terminal instead, because a tray click has
+  nowhere to type a password. Either way, restart the daemon afterwards to run the new
+  version. The check runs in the background — the menu never freezes waiting on the network.
+
+  ![The update dialog reading: You're on the latest version](screenshots/tray-update-check.png)
+
 - **Restart daemon** / **Stop daemon** — and **Quit tray**, which closes only the icon and
   leaves dictation running.
 
-The **Settings…** entry is in the menu on **Linux, macOS and Windows** — the menu means the same
-thing wherever you run it. On Windows there is also a **YazSes Settings** shortcut in the Start
-menu, for when you haven't found the tray icon yet.
+The **Settings…**, **Help**, **About** and **Check for updates…** entries are in the menu on
+**Linux, macOS and Windows** — the menu means the same thing wherever you run it. (macOS and
+Windows show About as an alert/notification rather than a dialog, since their menu toolkits
+have no dialog of their own.) On Windows there is also a **YazSes Settings** shortcut in the
+Start menu, for when you haven't found the tray icon yet.
+
+Nothing here phones home on its own: the update check runs **only** when you click it, and it
+asks for a version number and nothing else. See the [privacy statement](privacy-statement.md).
 
 Here it is being driven — the menu opening, the Microphone submenu expanding, and the daemon
-controls underneath:
+controls underneath. (This recording predates the Help / About / Check-for-updates entries,
+so it stops at `Settings…`; everything it shows still works the same way.)
 
 ![The tray menu being used: opened, Microphone submenu expanded and collapsed, then the daemon controls](screenshots/tray-menu.gif)
 

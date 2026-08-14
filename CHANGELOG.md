@@ -6,6 +6,31 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — About, Help and Check for updates in the tray menu
+
+The tray menu ended at daemon control, so the three questions you have *at the
+icon* — what version am I running, where are the docs, is there a newer release —
+could only be answered in a terminal (`yazses about`, `yazses update`), which is
+exactly what a tray user does not have open. All three are now menu entries, on
+**Linux, macOS and Windows**:
+
+- **About YazSes** — version, tagline and clickable Website / Source / Issues
+  links, from the same `branding.contact_lines()` block `doctor` prints.
+- **Help ▸** — Documentation, Troubleshooting, Report a bug…, each opening the
+  page in your browser.
+- **Check for updates…** — asks PyPI or your snap channel, then offers
+  **Install now** when the upgrade can run without a password. A snap install is
+  shown `sudo snap refresh yazses` to run in a terminal instead: launched from a
+  tray click there is nowhere to type a password, so an Install button there
+  would hang invisibly. The check runs on a worker thread — a 5-second network
+  lookup on the UI loop would freeze the icon and the menu with it.
+
+Windows had shipped a `Help` entry wired to nothing (`enabled=False`); it is now
+real. The cross-OS parity test written for #63 was generalised from `Settings…`
+to every shared label, including the wiring check that would have caught that
+placeholder, and its macOS check now compares full `@rumps.clicked` label
+*paths* so submenu entries aren't misread as one label bound three times.
+
 ### Fixed — three shipped commands were missing from the CLI reference
 
 `docs/cli-reference.md` documented 55 of the 58 commands the CLI actually ships.

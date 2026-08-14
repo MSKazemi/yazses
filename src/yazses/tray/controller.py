@@ -9,12 +9,18 @@ running daemon (no restart). Restart shells out to the ``yazses`` CLI, which alr
 knows how to cleanly restart via systemd / detached process. Stop uses the existing
 ``shutdown`` IPC method. Launching the settings window shells out the same way, as a
 detached ``yazses settings`` process — the tray never blocks waiting on it.
+
+Help/About open a URL through an injected opener. The update check is the one action that
+*blocks* (it reaches PyPI, or shells ``snap info``), so it is exposed as a plain call the
+caller is expected to run on a worker thread — the Qt tray marshals the result back.
 """
 from __future__ import annotations
 
 import logging
 import subprocess
 from collections.abc import Callable
+
+from yazses.system.browser import open_url
 
 log = logging.getLogger(__name__)
 
@@ -26,9 +32,11 @@ class TrayController:
         self,
         client,
         launcher: Callable[[list[str]], object] = subprocess.Popen,
+        opener: Callable[[str], bool] = open_url,
     ) -> None:
         self._client = client
         self._launch = launcher
+        self._open = opener
 
     # ---- reads ----
     def status(self) -> dict:
@@ -92,6 +100,37 @@ class TrayController:
     def stop_daemon(self) -> dict:
         """Ask the daemon to shut down."""
         return self._call("shutdown")
+
+    # ---- help / about / updates -------------------------------------------
+    def open_url(self, url: str) -> bool:
+        """Open a docs/issues URL in the browser. Returns whether it was handed off."""
+        try:
+            return bool(self._open(url))
+        except Exception:
+            log.exception("tray url launch failed: %s", url)
+            return False
+
+    def check_updates(self):
+        """Look up whether a newer YazSes is published, for the running install method.
+
+        Blocking: this reaches PyPI (or shells ``snap info``), so callers must run it off
+        the GUI thread. A failure comes back as a ``latest=None`` status rather than an
+        exception, so the tray always has something to show. Shared with the macOS and
+        Windows trays, which have no controller of their own.
+        """
+        from yazses.tray.updates import check_updates
+
+        return check_updates()
+
+    def install_update(self, status) -> int:
+        """Run the upgrade command for ``status``; return its exit code (blocking)."""
+        from yazses.system.updater import run_upgrade
+
+        try:
+            return run_upgrade(status)
+        except Exception:
+            log.exception("tray update install failed")
+            return 1
 
     def _call(self, method: str, **params) -> dict:
         try:

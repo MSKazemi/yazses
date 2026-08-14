@@ -7,7 +7,8 @@ calls ``set_state``; ``run`` owns the Qt event loop. PySide6 is already a base d
 
 The icon shows daemon state (and flags a live silent-streak in orange); the click-menu —
 rebuilt fresh each time it opens — lets you pick/pin the input microphone, re-calibrate,
-restart/stop the daemon, and open the graphical settings window. On GNOME/AppIndicator the
+restart/stop the daemon, open the graphical settings window, reach the docs and the issue
+tracker, see which version is running, and check for a newer one. On GNOME/AppIndicator the
 menu is the *primary* interaction (shown on click via ``setContextMenu``); left-click
 activation isn't delivered there.
 
@@ -75,12 +76,17 @@ class LinuxTray:
             )
             return
 
-        # Marshal set_state (called from the poller thread) onto the GUI thread.
+        # Marshal work done off the GUI thread back onto it: state from the poller, and
+        # the update check / install, which block on the network and must not run here.
         class _Bridge(QObject):
             changed = Signal(object)
+            update_ready = Signal(object)
+            notified = Signal(object)
 
         self._bridge = _Bridge()
         self._bridge.changed.connect(self._apply_model)
+        self._bridge.update_ready.connect(self._show_update_result)
+        self._bridge.notified.connect(lambda pair: self._notify(*pair))
 
         self._tray = QSystemTrayIcon()
         self._tray.setToolTip("YazSes")
@@ -173,7 +179,14 @@ class LinuxTray:
     def _populate_menu(self, menu) -> None:
         from PySide6.QtGui import QActionGroup
 
-        from yazses.tray.menu import build_menu_model
+        from yazses.tray.about import help_links
+        from yazses.tray.menu import (
+            ABOUT_LABEL,
+            HELP_LABEL,
+            REPORT_BUG_LABEL,
+            UPDATE_LABEL,
+            build_menu_model,
+        )
 
         menu.clear()
         ctrl = self._controller
@@ -219,6 +232,19 @@ class LinuxTray:
         menu.addAction("Stop daemon").triggered.connect(self._on_stop_daemon)
         menu.addSeparator()
         menu.addAction(model.settings_label).triggered.connect(self._on_settings)
+
+        # Help / About / updates — the questions you have *at the icon*, where a terminal
+        # (`yazses about`, `yazses update`) is exactly what you don't have to hand.
+        help_menu = menu.addMenu(HELP_LABEL)
+        for label, url in help_links():
+            if label == REPORT_BUG_LABEL:
+                help_menu.addSeparator()
+            help_menu.addAction(label).triggered.connect(
+                lambda _checked=False, u=url: self._on_open_url(u)
+            )
+        menu.addAction(ABOUT_LABEL).triggered.connect(self._on_about)
+        menu.addAction(UPDATE_LABEL).triggered.connect(self._on_check_updates)
+
         menu.addSeparator()
         menu.addAction("Quit tray").triggered.connect(self._on_quit_tray)
 
@@ -270,6 +296,102 @@ class LinuxTray:
             self._notify(
                 "YazSes", "Could not open Settings — is `yazses` on PATH?"
             )
+
+    def _brand_icon(self):
+        """The YazSes mark in the brand colour, for dialog windows."""
+        from yazses import branding
+
+        return self._make_icon("#%02x%02x%02x" % branding.BRAND_TOP)
+
+    def _dialog(self, title: str, text: str, *, rich: bool = False,
+                accept_label: str | None = None) -> bool:
+        """Show a modal dialog. Returns True only when ``accept_label`` was clicked.
+
+        Falls back to a tray notification if Qt's dialogs are unavailable, so a click
+        still says something rather than doing nothing visible.
+        """
+        try:
+            from PySide6.QtCore import Qt
+            from PySide6.QtWidgets import QMessageBox
+        except ImportError:  # pragma: no cover - PySide6 is a base dep
+            self._notify(title, text)
+            return False
+        try:
+            box = QMessageBox()
+            box.setWindowTitle(title)
+            box.setWindowIcon(self._brand_icon())
+            box.setIconPixmap(self._brand_icon().pixmap(_ICON_PX, _ICON_PX))
+            box.setText(text)
+            if rich:
+                # Rich text so the Website/Source/Issues URLs are clickable; the browser
+                # interaction flag is what actually lets a click open them.
+                box.setTextFormat(Qt.TextFormat.RichText)
+                box.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+            if accept_label:
+                accept = box.addButton(accept_label, QMessageBox.ButtonRole.AcceptRole)
+                box.addButton("Later", QMessageBox.ButtonRole.RejectRole)
+                box.exec()
+                return box.clickedButton() is accept
+            box.addButton(QMessageBox.StandardButton.Ok)
+            box.exec()
+            return False
+        except Exception:
+            log.exception("Tray dialog failed")
+            self._notify(title, text)
+            return False
+
+    def _on_open_url(self, url: str) -> None:
+        if self._controller is not None and not self._controller.open_url(url):
+            self._notify("YazSes", f"Could not open your browser. The link is:\n{url}")
+
+    def _on_about(self) -> None:
+        from yazses.tray.about import about_html, about_title
+
+        self._dialog(about_title(), about_html(), rich=True)
+
+    def _on_check_updates(self) -> None:
+        """Check for a newer release — on a worker thread, never on the Qt loop.
+
+        The check reaches PyPI (5 s timeout) or shells ``snap info`` (10 s). Running that
+        inline would freeze the menu and the icon for as long as it takes, which on a slow
+        or captive network looks exactly like a crashed tray.
+        """
+        ctrl = self._controller
+        if ctrl is None:
+            return
+        self._notify("YazSes", "Checking for updates…")
+
+        def _work() -> None:
+            status = ctrl.check_updates()
+            bridge = self._bridge
+            if bridge is not None:
+                bridge.update_ready.emit(status)
+
+        threading.Thread(target=_work, name="tray-update-check", daemon=True).start()
+
+    def _show_update_result(self, status) -> None:
+        """GUI-thread slot: report the check, and offer the install when we can run it."""
+        from yazses.tray.about import needs_terminal, update_message, upgrade_result_message
+
+        title, body = update_message(status)
+        offerable = bool(status.available and status.command) and not needs_terminal(status)
+        accepted = self._dialog(
+            title, body, accept_label="Install now" if offerable else None
+        )
+        # Both conditions, not just the dialog's answer: nothing may install unless there
+        # was an install to offer *and* the user clicked it.
+        ctrl = self._controller
+        if not (offerable and accepted) or ctrl is None:
+            return
+        self._notify("YazSes", "Installing the update…")
+
+        def _work() -> None:
+            code = ctrl.install_update(status)
+            bridge = self._bridge
+            if bridge is not None:
+                bridge.notified.emit(upgrade_result_message(code))
+
+        threading.Thread(target=_work, name="tray-update-install", daemon=True).start()
 
     def _on_quit_tray(self) -> None:
         # Close the tray only; leave the daemon running.

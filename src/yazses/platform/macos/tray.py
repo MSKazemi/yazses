@@ -15,9 +15,31 @@ from collections.abc import Callable
 from typing import Any
 
 from yazses.platform.base import TrayModel, TrayState
-from yazses.tray.menu import SETTINGS_LABEL
+from yazses.tray.about import (
+    DOCS_URL,
+    REPORT_BUG_URL,
+    TROUBLESHOOTING_URL,
+    about_lines,
+    about_title,
+)
+from yazses.tray.menu import (
+    ABOUT_LABEL,
+    DOCS_LABEL,
+    HELP_LABEL,
+    REPORT_BUG_LABEL,
+    SETTINGS_LABEL,
+    TROUBLESHOOTING_LABEL,
+    UPDATE_LABEL,
+)
+from yazses.tray.updates import check_and_describe
 
 log = logging.getLogger(__name__)
+
+# macOS-only: dictation cannot inject keystrokes without this permission, so the hint the
+# old "Help & permissions" entry carried is kept — as a line in Help, not a menu entry.
+_PERMISSIONS_HINT = (
+    "Grant Accessibility access in System Settings → Privacy & Security → Accessibility."
+)
 
 
 # Unicode glyphs that read clearly in the menu bar at small sizes.
@@ -57,9 +79,14 @@ class MacosTray:
                 super().__init__("YazSes", icon=None, title=_GLYPH[TrayState.IDLE])
                 # "Settings…" opens the graphical settings window — the same
                 # entry the Linux tray has, so the menu means the same thing
-                # on every OS (#63).
+                # on every OS (#63). Help/About/updates likewise.
                 self_inner.menu = [
-                    SETTINGS_LABEL, None, "Pause hotkey", "Help & permissions",
+                    SETTINGS_LABEL,
+                    None,
+                    "Pause hotkey",
+                    [HELP_LABEL, [DOCS_LABEL, TROUBLESHOOTING_LABEL, REPORT_BUG_LABEL]],
+                    ABOUT_LABEL,
+                    UPDATE_LABEL,
                 ]
 
             @rumps.clicked(SETTINGS_LABEL)
@@ -76,13 +103,40 @@ class MacosTray:
                 # Wired via IPC by the tray entry point; no-op here in v0.
                 rumps.notification("YazSes", "Pause", "Pausing the dictation hotkey…")
 
-            @rumps.clicked("Help & permissions")
-            def _on_help(self_inner, _sender) -> None:
-                rumps.notification(
-                    "YazSes",
-                    "Help",
-                    "Grant Accessibility access in System Settings → Privacy & Security → Accessibility.",
+            @rumps.clicked(HELP_LABEL, DOCS_LABEL)
+            def _on_docs(self_inner, _sender) -> None:
+                _open(DOCS_URL)
+
+            @rumps.clicked(HELP_LABEL, TROUBLESHOOTING_LABEL)
+            def _on_troubleshooting(self_inner, _sender) -> None:
+                _open(TROUBLESHOOTING_URL)
+
+            @rumps.clicked(HELP_LABEL, REPORT_BUG_LABEL)
+            def _on_report_bug(self_inner, _sender) -> None:
+                _open(REPORT_BUG_URL)
+
+            @rumps.clicked(ABOUT_LABEL)
+            def _on_about(self_inner, _sender) -> None:
+                # An alert rather than a notification: it stays on screen long enough
+                # to read a version number off, which is the point of About.
+                rumps.alert(
+                    title=about_title(),
+                    message="\n".join([*about_lines(), "", _PERMISSIONS_HINT]),
                 )
+
+            @rumps.clicked(UPDATE_LABEL)
+            def _on_check_updates(self_inner, _sender) -> None:
+                # Off the UI thread: the check reaches the network and would otherwise
+                # freeze the menu bar for as long as the lookup takes.
+                rumps.notification("YazSes", "", "Checking for updates…")
+
+                def _work() -> None:
+                    title, body = check_and_describe()
+                    rumps.notification("YazSes", title, body)
+
+                threading.Thread(
+                    target=_work, name="tray-update-check", daemon=True
+                ).start()
 
         self._app = _App()
         log.info("Launching rumps tray (NSApp.run blocks)")
@@ -107,6 +161,25 @@ class MacosTray:
             rumps.quit_application()
         except Exception:
             log.exception("Tray stop raised")
+
+
+def _open(url: str) -> bool:
+    """Open a Help/About link, telling the user if no browser could be reached.
+
+    Module-level for the same reason as ``_launch_settings``: importable and testable
+    without rumps, which cannot be imported on a Linux CI runner.
+    """
+    from yazses.system.browser import open_url
+
+    if open_url(url):
+        return True
+    try:
+        import rumps  # type: ignore[import-not-found]
+
+        rumps.notification("YazSes", "", f"Could not open your browser. The link is: {url}")
+    except Exception:
+        log.debug("tray notification failed", exc_info=True)
+    return False
 
 
 def _launch_settings() -> bool:
