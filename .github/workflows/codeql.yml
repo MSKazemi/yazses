@@ -37,6 +37,9 @@ jobs:
         with:
           language: ${{ matrix.language }}
           queries: security-and-quality
+          # Scopes the analysis; see the file for why android/ is excluded and
+          # what bringing it in properly would take.
+          config-file: ./.github/codeql/codeql-config.yml
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4
