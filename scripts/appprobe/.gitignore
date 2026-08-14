@@ -1,0 +1,4 @@
+# Written by the probes into the mounted work dir, not source.
+*.png
+out.txt
+scratch.txt

@@ -82,7 +82,26 @@ Tools → AutoCorrect Options → Localized     [ ] Replace dashes
 
 **How to tell whether your app does this:** dictate `--namespace` and look closely
 at the dash, then dictate a lowercase command name at the start of a line. Word
-processors and chat clients are the usual offenders; terminals and code editors
-were verified not to touch the text at all
-([kitty, Alacritty, Konsole, tmux, Neovim, Emacs](https://github.com/MSKazemi/yazses/tree/main/examples)).
+processors and chat clients are the usual offenders; terminals, code editors and
+browsers were verified not to touch the text at all
+([kitty, Alacritty, Konsole, tmux, Neovim, Emacs, Sublime Text, VS Code, Firefox,
+Thunderbird](https://github.com/MSKazemi/yazses/tree/main/examples)).
+
+## When nothing arrives at all
+
+A separate failure, and one that is easy to misread as YazSes being broken: the
+text is sent correctly and **something in front of the window absorbs it**.
+
+- **A modal dialog.** VS Code's first run opens on *"Sign in to use GitHub
+  Copilot"*; every keystroke goes to the dialog and nothing appears in the
+  editor. There is no error, in the log or on screen. Dismiss it once.
+- **The wrong text field.** VS Code's Chat panel, Thunderbird's subject line and
+  a browser's address bar are all genuinely editable, so the "no text target"
+  guard passes — it can only tell you whether *a* text target has focus, never
+  whether it is the one you meant. Click where you want the words before holding
+  the key.
+
+Both were found by measurement, not from reports: an earlier version of this
+project's own test harness recorded *"Electron never receives a keystroke"* for
+exactly the first reason. It receives them fine.
 

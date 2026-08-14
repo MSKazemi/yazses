@@ -1,0 +1,53 @@
+# examples/config.thunderbird.toml
+# A YazSes setup for dictating email in Mozilla Thunderbird.
+#
+# Copy to ~/.config/yazses/config.toml and edit as needed.
+
+# ---------------------------------------------------------------------------
+# Measured, by injecting a string into a live Thunderbird compose window and
+# reading the message body back:
+#
+#     dictated:  kubectl get pods --namespace prod
+#     arrived:   kubectl get pods --namespace prod      (exact)
+#
+# Thunderbird shares Firefox's engine, so it behaves the same way: synthetic
+# keystrokes land, and nothing is auto-corrected on the way in.
+#
+# Same packaging trap as Firefox: on Ubuntu `thunderbird` is a snap stub. If
+# the snap is absent the command prints "snap install thunderbird" and exits,
+# which looks like a crash rather than a missing package. Check
+# `thunderbird --version` first.
+#
+# Compose-window specific: the subject line, the address fields and the body
+# are all editable, and dictation lands in whichever has focus. Click into the
+# body before holding the key — the guard cannot distinguish them, because all
+# three are genuinely text targets.
+# ---------------------------------------------------------------------------
+
+[stt]
+model = "base.en"          # email is prose; base.en punctuates it better
+device = "cpu"
+compute_type = "int8"
+
+[hotkey]
+key = "right_ctrl"         # Thunderbird binds ctrl+<letter>, not bare right_ctrl
+hold_threshold_ms = 400
+
+[audio]
+sample_rate = 16000
+channels = 1
+max_record_seconds = 180   # a whole paragraph of email in one hold
+
+[injection]
+backend = "type"           # verified EXACT into the compose body
+fallback_to_clipboard = true
+target_guard = "clipboard"
+
+[commands]
+voice_punctuation = true   # "comma", "period", "new paragraph" while writing
+
+[filters.disfluency]
+enabled = true             # strips the "um"s that creep into spoken email
+
+[general]
+log_level = "INFO"

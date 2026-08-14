@@ -6,6 +6,38 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — VS Code, Firefox and Thunderbird configs, and a wrong result withdrawn
+
+`examples/config.{vscode,firefox,thunderbird}.toml`, each written from a
+measurement, plus `probe-gui.sh` and `Dockerfile.gui` so the measurement can be
+repeated. All three deliver `kubectl get pods --namespace prod` byte for byte.
+(#185, #225, #226)
+
+**This corrects a claim this project published.** `scripts/appprobe/README.md`
+said Electron *"opens a window and no keystroke ever lands"* and that Gecko
+produced *"no window at all"*. Both were wrong, and both were wrong about the
+harness rather than about the toolkit:
+
+- **VS Code was showing a first-run modal** — *"Sign in to use GitHub Copilot"* —
+  which swallowed every keystroke silently. Two Escapes before typing, and it
+  returns the text exactly. A screenshot showed this in seconds; ninety seconds
+  of extra waiting had not, because the wait was never the problem.
+- **`apt install firefox` on Ubuntu 24.04 installs a snap stub**, a script that
+  prints `snap install firefox` and exits. With no snapd in a container the
+  browser never starts. Taking the tarball from Mozilla instead, Firefox and
+  Thunderbird both work.
+
+The probe now reports `DIALOG_ONLY` with a screenshot when the only window on
+screen is too small to be the application, rather than `NO_WINDOW` — the two
+were indistinguishable in the output, and that is precisely how the wrong
+conclusion got recorded. **A negative result from a harness is a claim about the
+harness until you have looked at the screen.**
+
+`docs/how-to/app-profiles.md` gains a section on the same distinction for users:
+text that never arrives is usually a dialog in front of the window, or the wrong
+text field having focus — neither of which the "no text target" guard can catch,
+because in both cases a real text target does have focus.
+
 ### Added — build provenance on every release artifact
 
 The `.deb`, `.dmg`, `.exe` and the PyPI wheel now carry a signed attestation

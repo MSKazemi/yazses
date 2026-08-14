@@ -1,0 +1,40 @@
+# Electron and Gecko applications, for `probe-gui.sh`.
+#
+# Kept separate from the base image on purpose: this one downloads ~500 MB and
+# takes minutes to build, and the native-toolkit probe — which is what most
+# contributors need — should not pay for that.
+#
+#   docker build -f scripts/appprobe/Dockerfile.gui -t yazses-appprobe-gui scripts/appprobe
+FROM ubuntu:24.04
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      xvfb x11-utils xdotool xclip xterm openbox procps ca-certificates \
+      wget gpg bzip2 imagemagick libasound2t64 libdbus-glib-1-2 libgtk-3-0t64 \
+      libx11-xcb1 libxtst6 libnss3 libxss1 libsecret-1-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Firefox and Thunderbird come from Mozilla, NOT from apt.
+#
+# On Ubuntu 24.04 `apt install firefox` gives you a *snap stub*: a tiny script
+# that prints "snap install firefox" and exits non-zero. Inside a container,
+# where snapd is absent, the browser therefore never starts — and the probe
+# reports NO_WINDOW, which reads as "Gecko does not work under Xvfb". It does.
+# That result was a packaging artefact and cost a wrong entry in this README.
+ARG FIREFOX_VERSION=133.0
+ARG THUNDERBIRD_VERSION=128.4.3esr
+RUN wget -qO /tmp/ff.tar.bz2 \
+      "https://ftp.mozilla.org/pub/firefox/releases/${FIREFOX_VERSION}/linux-x86_64/en-US/firefox-${FIREFOX_VERSION}.tar.bz2" \
+    && tar xf /tmp/ff.tar.bz2 -C /opt && rm /tmp/ff.tar.bz2
+RUN wget -qO /tmp/tb.tar.bz2 \
+      "https://ftp.mozilla.org/pub/thunderbird/releases/${THUNDERBIRD_VERSION}/linux-x86_64/en-US/thunderbird-${THUNDERBIRD_VERSION}.tar.bz2" \
+    && tar xf /tmp/tb.tar.bz2 -C /opt && rm /tmp/tb.tar.bz2
+
+# VS Code, as the Electron representative.
+RUN wget -qO- https://packages.microsoft.com/keys/microsoft.asc \
+      | gpg --dearmor > /usr/share/keyrings/microsoft.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main" \
+      > /etc/apt/sources.list.d/vscode.list \
+    && apt-get update && apt-get install -y --no-install-recommends code \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /work

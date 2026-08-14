@@ -1,0 +1,54 @@
+# examples/config.vscode.toml
+# A YazSes setup for dictating into Visual Studio Code (and other Electron
+# editors — Cursor, VSCodium, Windsurf share this toolkit and this config).
+#
+# Copy to ~/.config/yazses/config.toml and edit as needed.
+
+# ---------------------------------------------------------------------------
+# Measured, by injecting a string into a live VS Code window in a container and
+# reading the saved file back:
+#
+#     dictated:  kubectl get pods --namespace prod
+#     arrived:   kubectl get pods --namespace prod      (exact)
+#
+# So Electron does accept synthetic keystrokes (XTEST), and typing is the
+# right backend here. Two things about VS Code specifically:
+#
+#   * A first-run modal ("Sign in to use GitHub Copilot", the Welcome tab,
+#     the workspace-trust prompt) sits above the editor and swallows every
+#     keystroke. Nothing is typed and nothing errors — it looks exactly like
+#     an injection failure. Dismiss it once, then dictation works.
+#   * The Chat panel on the right is also a text target. If dictation lands
+#     there instead of the editor, click into the editor area first; the
+#     "no text target" guard cannot tell the two apart, since both are
+#     genuinely editable.
+# ---------------------------------------------------------------------------
+
+[stt]
+model = "base.en"          # code identifiers benefit from the larger model
+device = "cpu"
+compute_type = "int8"
+initial_prompt = "kubectl, kubernetes, namespace, async, await, stdout, stderr, JSON, YAML"
+
+[hotkey]
+key = "right_ctrl"         # VS Code binds ctrl+<letter>, never bare right_ctrl
+hold_threshold_ms = 400
+
+[audio]
+sample_rate = 16000
+channels = 1
+max_record_seconds = 60
+
+[injection]
+backend = "type"           # verified EXACT into the editor buffer
+fallback_to_clipboard = true
+target_guard = "clipboard" # a burst aimed at a modal is saved, not lost
+
+[commands]
+voice_punctuation = false  # off for code: "period" and "comma" are real words
+
+[filters.disfluency]
+enabled = true
+
+[general]
+log_level = "INFO"
