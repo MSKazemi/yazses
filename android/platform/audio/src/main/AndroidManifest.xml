@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Capture is what this module is for. Declared here rather than in :app so
+         the permission travels with the code that needs it, and shows up in the
+         manifest golden diff if it ever moves. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+</manifest>

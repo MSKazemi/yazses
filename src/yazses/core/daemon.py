@@ -1327,9 +1327,19 @@ class Daemon:
             if is_dictation and self._config.revise.enabled and parse_revise(text):
                 if use_streaming and stream_injector is not None:
                     stream_injector.cancel()
-                n = self._ledger.scratch_last()
+                # Peek, inject, and only THEN commit. `scratch_last()` pops as it
+                # reports, so asking the ledger for the count *is* the undo: if the
+                # injection below then failed, the burst had already been dropped
+                # while its text was still on screen, and the next "scratch that"
+                # would delete the burst *before* it — text the user never asked to
+                # remove. Compounding, and silent, because the surrounding pipeline
+                # swallows the exception. `last_text()` is a sound non-mutating peek:
+                # `record()` and `replace_last()` are the only writers and both keep
+                # `_counts[-1] == len(_texts[-1])`.
+                n = len(self._ledger.last_text())
                 if n > 0:
                     injector.inject_key_sequence(["BackSpace"] * n)
+                    self._ledger.scratch_last()
                 event["intent_type"] = "revise"
                 event["revise_chars"] = n
                 log.info("Mid-thought undo: scratched %d chars.", n)
@@ -2763,11 +2773,6 @@ class Daemon:
             from yazses.meeting.session import read_wav_mono_f32
 
             audio = read_wav_mono_f32(wav_path)
-            if not cfg.retain_audio:
-                try:
-                    wav_path.unlink()
-                except OSError:
-                    pass
         except Exception as exc:
             log.exception("Meeting stop/capture failed")
             with self._lock:
@@ -2776,12 +2781,29 @@ class Daemon:
             return {"ok": False, "reason": f"could not stop meeting: {exc}"}
 
         def _finalize() -> None:
+            # The recording is deleted only *after* the post-pass that consumes it
+            # has succeeded. It used to be unlinked immediately after being read
+            # into `audio`, which made every failure below unrecoverable: the file
+            # was gone, and the only remaining copy was in a `daemon=True` thread
+            # that a daemon stop or a shutdown kills without running `finally`.
+            # A whole meeting could be lost on the default path, since
+            # `retain_audio` is False by default — and `stop` had already told the
+            # user `ok: True`. Deleting last turns that into a retry.
             try:
                 info = controller.finalize(audio)
                 log.info("Meeting finalized: %s (%d speakers)",
                          info["id"], info["num_speakers"])
+                if not cfg.retain_audio:
+                    try:
+                        wav_path.unlink()
+                    except OSError:
+                        pass
             except Exception:
-                log.exception("Meeting finalize failed")
+                log.exception(
+                    "Meeting finalize failed — the recording has been KEPT at %s "
+                    "so it can be retried; it is not deleted until finalize succeeds",
+                    wav_path,
+                )
             finally:
                 with self._lock:
                     self._meeting_finalizing = False

@@ -34,7 +34,7 @@ explicit before contributors start adding dependencies:
 
 | Permission | Where | Why |
 |---|---|---|
-| `RECORD_AUDIO` | `:app` | the product |
+| `RECORD_AUDIO` | `:platform:audio` | the product. Declared beside the code that opens the microphone rather than in `:app`, so it travels with that code and the manifest gate reports it if it ever moves. Manifest merging puts it in the app either way. |
 | `INTERNET` | **`:model` only** | model download ([[adr-mob-006]]) |
 | `POST_NOTIFICATIONS` | `:app` | Meeting Mode ongoing notification, download status |
 | `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_MICROPHONE` | `:feature:meeting` | long capture |

@@ -132,3 +132,94 @@ def test_full_start_feed_stop_finalize(tmp_path, monkeypatch):
     mdir = Path(stopped["dir"])
     assert (mdir / "transcript.json").exists()
     assert (mdir / "meeting.json").exists()
+
+
+# ---- D4: the recording must outlive a failed finalize --------------------
+#
+# `retain_audio` defaults to False, so on the DEFAULT path the WAV used to be
+# unlinked the moment it had been read into memory — before the post-pass that
+# consumes it. Every failure after that point was unrecoverable: the file was
+# gone and the only copy lived in a `daemon=True` thread that a shutdown kills
+# without running `finally`. `stop` had already returned `ok: True`.
+
+
+def _started_meeting(tmp_path, monkeypatch, *, retain=False):
+    monkeypatch.setattr(daemon_mod, "AudioRecorder", _FakeRecorder)
+    d = _daemon(tmp_path)
+    d._config.meeting.retain_audio = retain
+    assert d._handle_meeting_start(None)["ok"] is True
+    d._meeting_controller.feed(np.ones(16000, dtype="float32"))
+    return d
+
+
+def _capture_wav_path(controller, monkeypatch):
+    """`stop_capture()` returns the recording path; remember it so the test can
+    check the file after the daemon has finished with it."""
+    seen: list = []
+    original = controller.stop_capture
+
+    def _spy():
+        path = original()
+        seen.append(path)
+        return path
+
+    monkeypatch.setattr(controller, "stop_capture", _spy)
+    return seen
+
+
+def _wait_for_finalize(d):
+    for _ in range(200):
+        if not d._meeting_finalizing:
+            return
+        time.sleep(0.02)
+
+
+def test_recording_is_kept_when_finalize_fails(tmp_path, monkeypatch):
+    """The regression: a failed post-pass must leave the audio on disk.
+
+    Without the fix this test fails — the WAV is already unlinked by the time
+    finalize raises, and the meeting is gone with no way to retry.
+    """
+    d = _started_meeting(tmp_path, monkeypatch, retain=False)
+    controller = d._meeting_controller
+    seen = _capture_wav_path(controller, monkeypatch)
+
+    def _boom(audio):
+        raise RuntimeError("diarization exploded")
+
+    monkeypatch.setattr(controller, "finalize", _boom)
+
+    stopped = d._handle_meeting_stop(None)
+    assert stopped["ok"] is True
+    _wait_for_finalize(d)
+
+    wav_path = seen[0]
+    assert wav_path.exists(), (
+        "finalize failed and the recording was deleted anyway — the meeting is "
+        "unrecoverable"
+    )
+
+
+def test_recording_is_deleted_after_a_successful_finalize(tmp_path, monkeypatch):
+    """The fix must not turn `retain_audio = False` into a leak.
+
+    Deleting later must still mean deleting: the whole point of the default is
+    that a meeting recording does not linger on disk once it has been consumed.
+    """
+    d = _started_meeting(tmp_path, monkeypatch, retain=False)
+    seen = _capture_wav_path(d._meeting_controller, monkeypatch)
+
+    assert d._handle_meeting_stop(None)["ok"] is True
+    _wait_for_finalize(d)
+
+    assert not seen[0].exists(), "retain_audio is False, so a consumed recording must go"
+
+
+def test_retain_audio_keeps_the_recording_after_success(tmp_path, monkeypatch):
+    d = _started_meeting(tmp_path, monkeypatch, retain=True)
+    seen = _capture_wav_path(d._meeting_controller, monkeypatch)
+
+    assert d._handle_meeting_stop(None)["ok"] is True
+    _wait_for_finalize(d)
+
+    assert seen[0].exists(), "retain_audio is True — the recording must survive"

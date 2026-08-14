@@ -1,0 +1,20 @@
+# CodeQL scope.
+#
+# `android/` is excluded deliberately, not by neglect. CodeQL's autobuild cannot
+# build an Android project without a provisioned SDK, so once Kotlin appeared in
+# the tree every analysis job failed with "detected code written in Java/Kotlin
+# but could not process any of it" — a red X that says nothing about the code.
+#
+# The Android tree is not unchecked: `.github/workflows/android-test.yml` runs its
+# unit tests, its lint, the architecture rules, and the ADR-MOB-007 privacy gates.
+#
+# To bring it into CodeQL properly, add `java-kotlin` to the matrix with
+# `build-mode: manual`, set up the JDK and Android SDK, and run
+# `./gradlew assembleDebug` between init and analyze. That is a real piece of
+# work rather than a flag, which is why it is written down here instead of done
+# badly.
+name: "YazSes CodeQL config"
+
+paths-ignore:
+  - android/**
+  - site/**

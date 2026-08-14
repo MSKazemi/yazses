@@ -50,9 +50,78 @@ against a checksum shipped inside the signed APK.
 
 ## Building
 
-Nothing to build yet. The M0 issue creates the Gradle skeleton; when it lands, this section
-becomes the real build instructions (JDK version, SDK/NDK levels, `./gradlew test`, how to
-run the contract vectors, and how to build the `foss` flavour the way F-Droid will).
+The skeleton is in place: every module from
+[architecture.md §3](../docs/mobile/architecture.md#3-module-map) exists, compiles and has a
+placeholder test, so several people can start in parallel without colliding.
+
+**There is still no app.** Every module is empty. What works today is the structure, the
+rules it enforces, and the contract harness.
+
+### What you need
+
+| | |
+|---|---|
+| **JDK** | 21 to run Gradle. The modules target 17 and Gradle **downloads that toolchain itself**, so you do not need it installed. |
+| **Android SDK** | `compileSdk 34`, `minSdk 26`. Only the Android modules need it; `:core:*` do not. Point `ANDROID_HOME` at it, or write `sdk.dir=` into `android/local.properties`. |
+| **NDK** | not yet — arrives with `:native:whispercpp`. |
+
+### Commands
+
+```bash
+cd android
+
+./gradlew test            # every module's unit tests, no emulator, no phone
+./gradlew checkLayering   # the architecture rules below
+./gradlew check           # both
+```
+
+`./gradlew test` is green from a clean clone with nothing attached.
+
+### The contract vectors
+
+`:core:contract-test` runs `contract/vectors/*.json` — the same files the Python suite uses —
+against the Kotlin cores. That is what makes a port reviewable: **the JSON is the definition
+of correct**, so you never have to guess what the desktop does or wait for someone to tell you
+whether an edge case was intentional ([ADR-MOB-008](../docs/mobile/adr/adr-mob-008-cross-platform-contract.md)).
+
+```bash
+./gradlew :core:contract-test:test
+```
+
+### Two rules the build enforces, so review does not have to
+
+**`:core:*` cannot see Android.** They are `kotlin("jvm")` modules, so the SDK is not on the
+classpath and `import android.content.Context` fails to compile — not by a lint rule, by there
+being nothing to import. This is what keeps the suite emulator-free and the KMP door open for
+iOS ([ADR-MOB-002 §3](../docs/mobile/adr/adr-mob-002-native-kotlin-stack.md)).
+
+**Dependencies point one way.** `:feature:* → :core:*` is fine; `:core:* → :feature:*` is a
+build failure. `checkLayering` reports it with the reason and the fix, because the raw Gradle
+error for that case is a variant-resolution wall of text.
+
+### Privacy gates
+
+`./gradlew checkPrivacy` turns [ADR-MOB-007](../docs/mobile/adr/adr-mob-007-privacy-permissions-lifecycle.md)
+into build failures, because on Android the privacy posture is decided by the *merged*
+manifest and by *transitive* dependencies — an SDK three levels down can add `INTERNET`
+and phone-home behaviour that no reviewer spots in a diff.
+
+| Gate | Fails when |
+|---|---|
+| `checkManifestGolden` | a permission or exported component appears that `privacy/manifest-golden.txt` does not list |
+| `checkDependencyPolicy` | any analytics/crash SDK appears anywhere, or network code appears outside `:model` |
+| `checkNoContentLogging` | a log statement carries a transcript or raw audio |
+
+A new permission is not automatically wrong — it is something a human has to agree to. When
+it is intended, update `privacy/manifest-golden.txt` (`./gradlew updateManifestGolden`) **and**
+the permission table in the ADR, in the same pull request. Every gate prints the fix, not just
+the failure.
+
+### A note on `:native:*`
+
+The Gradle paths are `:native:whispercpp` and `:native:sherpaonnx`, as the architecture says.
+Their Java namespaces are `com.yazses.jni.*` — **`native` is a Java keyword** and cannot be a
+package segment.
 
 ## Module stewards
 

@@ -360,11 +360,22 @@ def _dedup_2grams(text: str) -> str:
 _NEGATIONS_BEFORE_TRIGGER = (
     "not", "don't", "dont", "doesn't", "doesnt", "didn't", "didnt",
     "won't", "wont", "can't", "cant", "cannot", "never", "no",
+    # Modals, auxiliaries and infinitive/politeness markers put the trigger
+    # *inside* a verb phrase, which is prose describing the action rather than
+    # performing it: "you should never mind the warning", "we can forget that
+    # idea", "remember to delete that file". Those still lost their first half
+    # after the utterance-initial guard above, because they are mid-sentence.
+    #
+    # A correction is an interjection — it interrupts a clause, it never
+    # continues one — so a governing verb is decisive evidence against it. Only
+    # the immediately preceding word is consulted, for the reason below.
+    "should", "would", "could", "can", "will", "shall", "must", "may", "might",
+    "do", "does", "did", "to", "please", "let", "lets", "let's",
 )
 
 
 def _trigger_is_negated(lower: str, idx: int) -> bool:
-    """True when the trigger at *idx* is governed by a preceding negation.
+    """True when the trigger at *idx* is governed by a preceding verb phrase.
 
     Only the word immediately before it is consulted. A wider window would start
     suppressing genuine corrections in long sentences that merely happen to

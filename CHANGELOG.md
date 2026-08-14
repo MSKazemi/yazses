@@ -6,6 +6,192 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `:core:audio`, `:core:vad`, and a `vad_gate` contract both platforms share
+
+The silence gate now has **contract vectors of its own** (`contract/vectors/vad_gate.json`,
+generated from `audio/vad_calibrated.py`), so "what counts as silence" is one
+definition rather than two implementations that drift. The Kotlin port passes all
+nine, and `:core:contract-test` is up to **225 cases** across seven files.
+
+The cases are chosen to pin the parts that are easy to get wrong:
+
+- **Mean, not peak.** One loud click among fifteen silent samples has a peak of 0.9
+  and a mean of 0.056 — a door slam is not a burst worth transcribing. Writing this
+  case caught the first draft, where the example was too short to demonstrate its
+  own claim and the expectation contradicted the description.
+- **Empty audio is silence**, because handing an empty buffer to a recogniser is
+  how a confident hallucination gets typed into someone's document.
+- **Lowering the gate is what makes a quiet voice usable** — the whole reason the
+  threshold is calibrated rather than fixed.
+
+`:core:audio` has the pre-speech ring buffer, with the test that matters: audio
+captured after the key was pressed still contains the leading word. People with
+hypophonia have delayed voice onset, and without this the opening syllable is
+simply missing.
+
+`:platform:audio` has the `AudioRecord` shim — 16 kHz mono PCM16 on a dedicated
+thread that never blocks on decode, with permission-revoked and mic-stolen ending
+in a clean stop and a reason rather than a crash inside a keyboard. **It compiles
+and has not been run on a device**, which is what the remaining boxes on #88 are.
+
+Declaring `RECORD_AUDIO` in `:platform:audio` rather than `:app` made the new
+privacy gate fail, which is the gate working: the golden file and the ADR's
+permission table were both updated in the same change, with the reason.
+
+### Added — `:core:commands` and `:core:vocab` in Kotlin
+
+The Tier-1 grammar classifier and the `initial_prompt` merge, both verified
+against their shipping vectors. `:core:contract-test` now runs **215 cases**
+across six vector files.
+
+The grammar's every pattern is anchored at both ends, which is the whole safety
+property: an unanchored rule turns a sentence that merely contains the words into
+a command, and "click undo" stops being typed. Dictation is the default because
+typing a command by mistake is recoverable and executing dictation by mistake is
+not.
+
+Checked red-green — deleting one `undo` rule failed 4 vectors, so a green run
+means the vectors actually ran. (#94)
+
+### Added — the Android privacy gates, as build failures
+
+[ADR-MOB-007](https://mskazemi.com/yazses/mobile/adr/adr-mob-007-privacy-permissions-lifecycle.html)
+was a policy document. `./gradlew checkPrivacy` now makes it a build failure, because
+on Android the privacy posture is decided by the **merged manifest** and by
+**transitive dependencies** — an SDK three levels down can add `INTERNET` and
+phone-home behaviour no reviewer spots in a diff, and a keyboard is the most
+sensitive app class the platform has.
+
+- **Manifest golden diff** — every permission and exported component in one
+  reviewable file. Verified: adding `CAMERA` to `:feature:ime` fails, names the
+  permission and the module, and tells you to update both the golden file and the
+  ADR's permission table in the same PR.
+- **Dependency allow-list and network containment** — no analytics or crash SDK
+  anywhere, and network code only in `:model`. Verified: OkHttp in `:feature:ime`
+  fails with *"only :model may reach the network"*.
+- **No content in logs** — verified: `println("delivered: $transcript")` in
+  `:core:session` fails, because logcat is readable by the user, by any bug report,
+  and by anything holding `READ_LOGS`.
+
+Each gate prints the fix rather than the fact. A new permission is not
+automatically wrong — it is something a human has to agree to, and the gate exists
+to make sure one does. (#85)
+
+### Added — `:core:postprocess` ported to Kotlin, verified against the shipping vectors
+
+The four units that turn recognised words into the text actually typed —
+`cleanText`, the three-pass disfluency filter, continuation spacing and voice
+punctuation — now exist in Kotlin, and `:core:contract-test` runs **180 cases from
+`contract/vectors`** against them. The same JSON the Python suite asserts on.
+
+That is the whole definition of done: a contributor never has to guess what the
+desktop does, and a reviewer never has to remember. The harness was checked
+red-green — breaking `cleanText` on purpose failed 7 vectors.
+
+**The vectors caught a real disagreement.** The Kotlin initially chained
+self-correction triggers (a trigger that became utterance-initial because an
+earlier one was consumed could still fire). The desktop does not do that, the
+vector said so, and the Kotlin was changed to match. That is the harness doing
+exactly the job it exists for — the contract is the Python, not the porter's
+preference.
+
+Idiomatic Kotlin rather than a transliteration, as ADR-MOB-008 §4 requires: the
+contract constrains behaviour, never structure. (#86)
+
+### Added — the Android Gradle skeleton, with the architecture rules enforced by the build
+
+`android/` had one README. It now has every module from
+[architecture.md §3](https://mskazemi.com/yazses/mobile/architecture.html) — 21 of them —
+each compiling with a placeholder test, so several people can start in parallel
+without colliding or re-deciding the same questions in review.
+
+**Two rules the build enforces, verified by making them fail:**
+
+- **`:core:*` cannot see Android.** They are `kotlin("jvm")`, so the SDK is not on
+  the classpath: adding `import android.content.Context` to `:core:vad` fails with
+  *"Unresolved reference 'android'"*. Not a lint rule — there is nothing to import.
+- **Dependencies point one way.** `checkLayering` fails a `:core:* → :feature:*` or
+  `:platform:* → :feature:*` edge and prints the reason and the fix. Worth having
+  even where Gradle would fail anyway: for a core→feature edge it fails on *variant
+  resolution*, which is a wall of attribute-matching text that never mentions the
+  architecture.
+
+`:core:contract-test` runs `contract/vectors/*.json` — the same files the Python
+suite asserts against — so a port is reviewable against the JSON rather than
+against someone's memory of what the desktop does.
+
+CI is **path-filtered** to `android/**` and `contract/**`, so a Python contributor
+never watches a Gradle job run on a docs typo. `contract/**` is in there because
+changing a vector can break the Kotlin port without touching a Kotlin file.
+
+`./gradlew test` is green from a clean clone with no phone attached, and Gradle
+downloads the JDK 17 toolchain itself rather than requiring it to be installed.
+
+One finding worth recording: the Gradle paths `:native:whispercpp` and
+`:native:sherpaonnx` match the architecture doc, but their namespaces are
+`com.yazses.jni.*` — **`native` is a Java keyword** and cannot be a package
+segment. (#84)
+
+### Fixed — the mid-sentence half of the correction-trigger bug
+### Added — 25 README translations, shipped as reviewable drafts
+
+The README existed in three languages and 26 issues asked for more. It is now in
+**28**, generated from a string table by
+`scripts/gen-readme-translation.py`, with the localisation tooling extended so a
+new language cannot break the existing ones.
+
+**Every new file is `status=draft`, and says so in the reader's own language at the
+top**, next to an English sentence stating that it is machine-assisted and not yet
+reviewed. That is the project's own mechanism —
+`scripts/check-translations.py` already required a visible banner for
+`status=draft` — and it changes the ask rather than removing it: **reviewing a
+draft is a much smaller job than translating a README from scratch**, which is
+what the linked issue now asks for.
+
+What the generator guarantees, because these are the things that break by hand:
+
+- **Commands are copied verbatim** from the English README. A translated
+  `yazses quickstart` is a command that does not exist, and the checker fails the
+  build if one appears.
+- **The badge block and the all-contributors wall are copied from the English
+  README at generation time**, so the contributor count and the DOI cannot drift
+  across 28 files — two existing tests enforce exactly that.
+- **The language switcher lists every locale.** Adding twelve languages initially
+  dropped Hindi, Russian and Chinese from every switcher: each file was
+  individually valid and the *set* was broken. `check-translations.py` now fails
+  when a locale is unreachable from another, and that guard was verified by
+  reproducing the regression.
+- **`docs/localization/STATUS.md` is kept in sync**, so no language is missing from
+  the page a would-be translator reads first.
+- Right-to-left locales (Arabic, Persian, Hebrew, Urdu) wrap the body in
+  `dir="rtl"` with the switcher left on line 1, where the checker requires it.
+
+New: Arabic, Bengali, Czech, Dutch, French, German, Greek, Hebrew, Indonesian,
+Italian, Japanese, Korean, Persian, Polish, Portuguese (Brazil), Spanish, Swedish,
+Tamil, Telugu, Thai, Traditional Chinese, Turkish, Ukrainian, Urdu, Vietnamese.
+
+### Fixed — `yazses setup` sent snap users round a loop that can never close
+
+The utterance-initial guard fixed sentences that *open* with a trigger. It cannot
+reach one with text in front of it, and those were still being destroyed:
+
+```
+you should never mind the warning   ->  the warning
+we can forget that idea             ->  idea
+remember to delete that file        ->  file
+```
+
+A second signal closes it: a **modal or auxiliary immediately before the trigger**
+makes it part of the verb phrase — "should never mind", "can forget that",
+"to delete that". A self-correction is an interjection; it interrupts a clause and
+never continues one, so a governing verb is decisive evidence against it. Only the
+adjacent word is consulted, because a wider window would suppress genuine
+corrections in any long sentence containing a "should".
+
+The `known-gap` invariant recorded for this is **promoted to `holds`** — the
+transition the harness exists to force. Contract 6.4.0 → 6.5.0.
+([#302](https://github.com/MSKazemi/yazses/issues/302))
+
 ### Fixed — a sentence that *began* with a correction phrase lost its first half
 
 Every phrase in the default self-correction list is ordinary English in some
