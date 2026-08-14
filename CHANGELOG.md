@@ -6,6 +6,42 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a sentence that *began* with a correction phrase lost its first half
+
+Every phrase in the default self-correction list is ordinary English in some
+sentence, and each of them silently deleted everything before it:
+
+```
+"delete that file when you are done"     ->  "file when you are done"
+"strike that clause from the contract"   ->  "clause from the contract"
+"scratch that itch on the backlog"       ->  "itch on the backlog"
+"never mind the warning"                 ->  "the warning"
+"forget that idea for now"               ->  "idea for now"
+"no wait for the build to finish"        ->  "for the build to finish"
+```
+
+All six on default settings. This is the worst output the filter can produce,
+because what survives reads as fluent text the user never said.
+
+**A trigger that opens the utterance now needs the pause.** There is nothing in
+front of it to roll back, so those words are either a correction marker or the
+start of a sentence — and the two are not distinguishable by what follows:
+*"no wait I should reconsider"* and *"no wait for the build to finish"* differ only
+in meaning. The punctuation Whisper writes for a spoken pause is the only signal,
+so it is required in that position; `"scratch that. meet at four"` still rolls back.
+
+**Mid-utterance corrections are untouched**, punctuated or not — Whisper does not
+reliably render a pause, and that path is a supported case.
+
+The cost is asymmetric and that is the whole argument: a correction marker left in
+place is two visible words to delete, while the old behaviour cost a sentence its
+first half without any sign that it happened. One case changed as a result —
+`"no wait I should reconsider"` now types as spoken — and the fixture says why.
+
+[#302](https://github.com/MSKazemi/yazses/issues/302) stays open for the residual
+case (`"you should never mind the warning"`, mid-sentence prose), which is still
+recorded as a `known-gap` invariant that goes red the moment it is fixed.
+
 ### Added — a guide for SSH and Remote-SSH editors
 
 **[Over SSH, and in Remote-SSH editors](https://mskazemi.com/yazses/how-to/ssh-and-remote.html)**

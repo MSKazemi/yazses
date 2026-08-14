@@ -161,8 +161,8 @@
   },
   {
     "input": "no wait I should reconsider",
-    "expected": "I should reconsider",
-    "notes": "self-correction no wait trigger at start with no sentence boundary"
+    "expected": "no wait I should reconsider",
+    "notes": "a trigger that OPENS the utterance has nothing to roll back, so it is either a correction marker or the start of an ordinary sentence \u2014 'no wait I should reconsider' vs 'no wait for the build to finish' differ only in meaning. Whisper's punctuation for the pause is the only signal, so it is required at position 0; without it the words are typed as spoken (#302)"
   },
   {
     "input": "is is is this correct",

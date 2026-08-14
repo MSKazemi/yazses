@@ -295,10 +295,29 @@ def test_self_correction_consumes_the_triggers_own_period():
 def test_self_correction_resolves_in_text_order_not_config_order():
     # #145: "no wait" is declared before "scratch that" in the default trigger
     # list, and used to win regardless of which the user actually said first.
-    assert filter_transcript("scratch that. no wait meet at four").text == "meet at four"
+    assert filter_transcript(
+        "meet at three. scratch that. no wait. meet at four"
+    ).text == "meet at three. meet at four"
     assert filter_transcript(
         "meet at three. scratch that. no wait meet at four"
     ).text == "meet at three. meet at four"
+
+
+def test_a_trigger_that_opens_the_utterance_needs_its_pause():
+    """At position 0 there is nothing to roll back, so the words are either a
+    correction marker or the start of an ordinary sentence — and those are not
+    distinguishable by what follows: "no wait I should reconsider" and "no wait
+    for the build to finish" differ only in meaning.
+
+    The punctuation Whisper writes for the pause is the only signal, so it is
+    required there. Without it the words are typed as spoken, which costs the user
+    a visible two-word deletion; the alternative cost every sentence that happens
+    to begin "delete that…" its entire first half.
+    """
+    assert filter_transcript("scratch that. meet at four").text == "meet at four"
+    assert filter_transcript("no wait I should reconsider").text == (
+        "no wait I should reconsider"
+    )
 
 
 def test_self_correction_without_punctuation_still_rolls_back():
@@ -471,3 +490,22 @@ def test_the_negation_guard_looks_only_at_the_adjacent_word():
     """
     text = "the build is not ready send it to staging scratch that send it to prod"
     assert filter_transcript(text, DisfluencyConfig()).text == "send it to prod"
+
+
+
+@pytest.mark.parametrize("text", [
+    "delete that file when you are done",
+    "strike that clause from the contract",
+    "scratch that itch on the backlog",
+    "never mind the warning",
+    "forget that idea for now",
+    "no wait for the build to finish",
+])
+def test_a_sentence_that_merely_opens_with_a_trigger_is_not_a_correction(text):
+    """Every phrase in the default trigger list is ordinary English in some
+    sentence, and each of these previously lost everything before the trigger —
+    "delete that file when you are done" became "file when you are done". That is
+    the worst output this filter can produce, because the remainder reads as
+    fluent text the user never said.
+    """
+    assert filter_transcript(text, DisfluencyConfig()).text == text

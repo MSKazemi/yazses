@@ -209,6 +209,20 @@
       "expected": "the tests are slow"
     },
     {
+      "id": "sentence-opening-with-a-trigger-is-not-a-correction",
+      "description": "every phrase in the default trigger list is ordinary English in some sentence. This returned 'file when you are done' — the whole first half deleted, and the remainder reads as fluent text the user never said (#302)",
+      "options": {},
+      "input": "delete that file when you are done",
+      "expected": "delete that file when you are done"
+    },
+    {
+      "id": "opening-trigger-with-its-pause-is-a-correction",
+      "description": "the same words with the pause Whisper writes as punctuation really are a correction, so the fix cannot be 'stop rolling back' (#302)",
+      "options": {},
+      "input": "scratch that. meet at four",
+      "expected": "meet at four"
+    },
+    {
       "id": "filler-substring-not-matched",
       "description": "word boundaries: 'like' inside 'likely' must survive — this returned 'that is ly correct' until a trailing \\b was added",
       "options": {},
@@ -262,7 +276,7 @@
       "description": "Rule C with no preceding sentence to roll back to",
       "options": {},
       "input": "scratch that send it to Alice",
-      "expected": "send it to Alice"
+      "expected": "scratch that send it to Alice"
     },
     {
       "id": "self-correction-trigger-inside-quote",
@@ -442,7 +456,7 @@
       "description": "triggers resolve in the order they were spoken, not the order they happen to sit in the config list — 'scratch that' is applied first here even though 'no wait' is declared earlier (#145)",
       "options": {},
       "input": "scratch that. no wait meet at four",
-      "expected": "meet at four"
+      "expected": "no wait meet at four"
     },
     {
       "id": "self-correction-three-trigger-chain-resolves-cleanly",

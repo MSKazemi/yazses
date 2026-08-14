@@ -377,7 +377,47 @@ def _trigger_is_negated(lower: str, idx: int) -> bool:
     return before.rsplit(" ", 1)[-1] in _NEGATIONS_BEFORE_TRIGGER
 
 
-def _trigger_positions(lower: str, trigger: str):
+def _has_text_to_roll_back(text: str, start: int, end: int) -> bool:
+    """True when something precedes the trigger for it to correct.
+
+    A self-correction replaces what was just said, so a trigger with nothing in
+    front of it cannot be one — it is the sentence starting with those words.
+    That single observation accounts for every ordinary-English use of the default
+    trigger list, because each of them opens the sentence:
+
+        "delete that file when you are done"
+        "strike that clause from the contract"
+        "scratch that itch on the backlog"
+        "never mind the warning"
+        "forget that idea for now"
+        "no wait for the build to finish"
+
+    Each of those previously discarded everything before the trigger and left the
+    remainder — "file when you are done" — which is the worst thing this filter
+    can do, because the result reads as fluent text the user never said.
+
+    Deliberately does NOT require punctuation around the trigger: Whisper does not
+    reliably render a spoken pause, and mid-utterance corrections without it are a
+    supported case. The residual ambiguity — a trigger mid-sentence in prose, as in
+    "you should never mind the warning" — is tracked as a known gap rather than
+    guessed at (issue #302).
+    """
+    if text[:start].strip():
+        # Something precedes it, so it can genuinely roll back. Left as it was:
+        # mid-utterance corrections without punctuation are a supported case,
+        # because Whisper does not reliably render a spoken pause.
+        return True
+    # At the very start there is nothing to roll back, so the trigger is either a
+    # correction marker the user opened with ("Scratch that. Meet at four") or the
+    # first words of an ordinary sentence ("Delete that file when you are done").
+    # Those are indistinguishable by the following word — "no wait I should
+    # reconsider" and "no wait for the build to finish" differ only in meaning —
+    # so the punctuation Whisper writes for the pause is the only signal, and the
+    # safe default is to require it. Without one the words are typed as spoken.
+    return text[end:end + 1] in tuple(".,;:!?…")
+
+
+def _trigger_positions(lower: str, trigger: str, *, require_boundary: bool = True):
     """Every position where *trigger* is a real rollback, earliest first.
 
     ``str.find`` matched anywhere, including inside ordinary prose, so a sentence
@@ -391,8 +431,11 @@ def _trigger_positions(lower: str, trigger: str):
         before_ok = idx == 0 or not (lower[idx - 1].isalnum() or lower[idx - 1] == "'")
         after = idx + len(trigger)
         after_ok = after >= len(lower) or not (lower[after].isalnum() or lower[after] == "'")
-        if before_ok and after_ok and not _trigger_is_negated(lower, idx):
-            yield idx
+        if not (before_ok and after_ok) or _trigger_is_negated(lower, idx):
+            continue
+        if require_boundary and not _has_text_to_roll_back(lower, idx, after):
+            continue
+        yield idx
 
 
 def _apply_self_corrections(text: str, triggers: list[str]) -> str:

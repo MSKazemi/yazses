@@ -581,6 +581,16 @@ CASES: dict[str, list[dict[str, Any]]] = {
                         "comma between subject and verb, because only the closing comma was "
                         "consumed (#236)",
          "input": "the tests, you know, are slow"},
+        {"id": "sentence-opening-with-a-trigger-is-not-a-correction",
+         "description": "every phrase in the default trigger list is ordinary English in "
+                        "some sentence. This returned 'file when you are done' — the whole "
+                        "first half deleted, and the remainder reads as fluent text the "
+                        "user never said (#302)",
+         "input": "delete that file when you are done"},
+        {"id": "opening-trigger-with-its-pause-is-a-correction",
+         "description": "the same words with the pause Whisper writes as punctuation really "
+                        "are a correction, so the fix cannot be 'stop rolling back' (#302)",
+         "input": "scratch that. meet at four"},
         {"id": "filler-substring-not-matched",
          "description": "word boundaries: 'like' inside 'likely' must survive — this returned "
                         "'that is ly correct' until a trailing \\b was added",
