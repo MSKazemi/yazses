@@ -99,6 +99,24 @@ iOS ([ADR-MOB-002 §3](../docs/mobile/adr/adr-mob-002-native-kotlin-stack.md)).
 build failure. `checkLayering` reports it with the reason and the fix, because the raw Gradle
 error for that case is a variant-resolution wall of text.
 
+### Privacy gates
+
+`./gradlew checkPrivacy` turns [ADR-MOB-007](../docs/mobile/adr/adr-mob-007-privacy-permissions-lifecycle.md)
+into build failures, because on Android the privacy posture is decided by the *merged*
+manifest and by *transitive* dependencies — an SDK three levels down can add `INTERNET`
+and phone-home behaviour that no reviewer spots in a diff.
+
+| Gate | Fails when |
+|---|---|
+| `checkManifestGolden` | a permission or exported component appears that `privacy/manifest-golden.txt` does not list |
+| `checkDependencyPolicy` | any analytics/crash SDK appears anywhere, or network code appears outside `:model` |
+| `checkNoContentLogging` | a log statement carries a transcript or raw audio |
+
+A new permission is not automatically wrong — it is something a human has to agree to. When
+it is intended, update `privacy/manifest-golden.txt` (`./gradlew updateManifestGolden`) **and**
+the permission table in the ADR, in the same pull request. Every gate prints the fix, not just
+the failure.
+
 ### A note on `:native:*`
 
 The Gradle paths are `:native:whispercpp` and `:native:sherpaonnx`, as the architecture says.

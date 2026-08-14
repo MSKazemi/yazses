@@ -67,7 +67,14 @@ val checkLayering by tasks.registering {
     }
 }
 
-// `check` is what CI runs, so the rule cannot be skipped by running `test`.
+// ADR-MOB-007 privacy gates: merged-manifest golden diff, dependency allow-list,
+// network containment, and no content in logs.
+apply(from = "gradle/privacy.gradle.kts")
+
+// `check` is what CI runs, so neither rule can be skipped by running `test`.
 subprojects {
-    tasks.matching { it.name == "check" }.configureEach { dependsOn(checkLayering) }
+    tasks.matching { it.name == "check" }.configureEach {
+        dependsOn(checkLayering)
+        dependsOn(rootProject.tasks.named("checkPrivacy"))
+    }
 }

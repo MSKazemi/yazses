@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the Android privacy gates, as build failures
+
+[ADR-MOB-007](https://mskazemi.com/yazses/mobile/adr/adr-mob-007-privacy-permissions-lifecycle.html)
+was a policy document. `./gradlew checkPrivacy` now makes it a build failure, because
+on Android the privacy posture is decided by the **merged manifest** and by
+**transitive dependencies** — an SDK three levels down can add `INTERNET` and
+phone-home behaviour no reviewer spots in a diff, and a keyboard is the most
+sensitive app class the platform has.
+
+- **Manifest golden diff** — every permission and exported component in one
+  reviewable file. Verified: adding `CAMERA` to `:feature:ime` fails, names the
+  permission and the module, and tells you to update both the golden file and the
+  ADR's permission table in the same PR.
+- **Dependency allow-list and network containment** — no analytics or crash SDK
+  anywhere, and network code only in `:model`. Verified: OkHttp in `:feature:ime`
+  fails with *"only :model may reach the network"*.
+- **No content in logs** — verified: `println("delivered: $transcript")` in
+  `:core:session` fails, because logcat is readable by the user, by any bug report,
+  and by anything holding `READ_LOGS`.
+
+Each gate prints the fix rather than the fact. A new permission is not
+automatically wrong — it is something a human has to agree to, and the gate exists
+to make sure one does. (#85)
+
 ### Added — `:core:postprocess` ported to Kotlin, verified against the shipping vectors
 
 The four units that turn recognised words into the text actually typed —
