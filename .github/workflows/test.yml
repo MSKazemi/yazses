@@ -145,21 +145,34 @@ jobs:
         uses: vmactions/freebsd-vm@83b151f58c6047089f4c80eb5ba2039d158ce093 # v1.5.3
         with:
           usesh: true
-          # python311 = the floor this project supports; py311-sqlite3 is a separate
-          # port on FreeBSD and the learning corpus needs it. portaudio backs
-          # sounddevice, which dlopen's it at import time.
+          # Derived, not pinned. The first run of this job found two independent
+          # reasons the obvious spelling cannot work:
+          #   * `py311-pip` is not in the binary repo — 3.12 is the ports default
+          #     and pip is built only for the default flavour. `py311-sqlite3`
+          #     does exist, which makes the gap look arbitrary until you check.
+          #   * `lang/python311` configures `--without-ensurepip`, so even with the
+          #     right interpreter `python -m venv` cannot bootstrap pip itself.
+          # So: install the DEFAULT python, ask it which flavour prefix it is, and
+          # install pip/sqlite3 for exactly that. This survives the ports default
+          # moving 3.12 → 3.13, and it exercises the interpreter a FreeBSD user
+          # actually gets rather than one we pinned. portaudio backs sounddevice,
+          # which dlopen's it at import time.
           prepare: |
-            pkg install -y python311 py311-sqlite3 py311-pip portaudio
+            pkg install -y python3 portaudio
+            PYV=$(python3 -c 'import sys; print(f"{sys.version_info[0]}{sys.version_info[1]}")')
+            python3 -V
+            pkg install -y "py${PYV}-pip" "py${PYV}-sqlite3"
           run: |
             set -e
-            python3.11 -V
-            # A venv, not --break-system-packages: FreeBSD's python311 port may
-            # ship a PEP 668 EXTERNALLY-MANAGED marker, and a venv is correct
-            # either way. `dev` is a PEP 735 dependency-group, NOT an extra, so
-            # `.[dev]` does not exist — the test deps are named explicitly.
-            python3.11 -m venv /tmp/venv
+            python3 -V
+            # `--without-pip --system-site-packages`: the port is built
+            # `--without-ensurepip`, so a plain venv cannot create pip at all.
+            # Borrowing the pkg-installed pip through system-site-packages is the
+            # FreeBSD idiom, and installs still land in the venv because
+            # VIRTUAL_ENV points here. `dev` is a PEP 735 dependency-group, NOT an
+            # extra, so `.[dev]` does not exist — the test deps are named explicitly.
+            python3 -m venv --without-pip --system-site-packages /tmp/venv
             . /tmp/venv/bin/activate
-            python -m pip install --upgrade pip
             python -m pip install -e .
             python -m pip install pytest pytest-mock hypothesis
             # The platform-selection tests are the point of this job: they must
