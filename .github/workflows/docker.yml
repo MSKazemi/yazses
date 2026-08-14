@@ -3,13 +3,23 @@
 # Uses the built-in GITHUB_TOKEN with `packages: write` — no new secrets.
 name: docker
 
+# NOTE ON THE TRIGGER (fixed 2026-08-14 — do not re-add `paths:`)
+#
+# This used to carry a `paths:` filter alongside `tags: ["v*"]`. A `push` filter
+# set applies to EVERY push the workflow sees, tags included, and a tag push
+# changes no files — so the paths filter matched nothing and silently suppressed
+# every tag build. Result: `7aa2879 ci: ... let a tag publish the container` never
+# did. Five releases (v2.16.0 -> v2.18.2) produced zero tag-triggered runs, and
+# `ghcr.io/mskazemi/yazses:latest` still 404s.
+#
+# The cost of dropping `paths` is that a push to main now always runs the build +
+# smoke test (~1.5 min) instead of only when docker files change. That is a build-
+# health check on the release artifact, which is worth 1.5 minutes. The publish is
+# still gated on the tag ref by the `if:`/`push:` conditions below, so a push to
+# main still cannot move `latest`.
 on:
   push:
     branches: [main]
-    paths:
-      - "packaging/docker/**"
-      - ".github/workflows/docker.yml"
-      - "pyproject.toml"
     tags: ["v*"]
   workflow_dispatch:
 
