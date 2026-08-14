@@ -1,0 +1,39 @@
+# examples/config.vscode.toml
+# A YazSes setup for dictating into Visual Studio Code.
+#
+# Verified: injected strings arrive byte for byte in the editor buffer, same
+# method as the other app configs (scripts/appprobe/README.md). Copy to
+# ~/.config/yazses/config.toml and edit as needed.
+
+[stt]
+model = "base.en"          # base.en balances accuracy and speed for code + prose
+device = "cpu"
+compute_type = "int8"
+
+[hotkey]
+key = "right_ctrl"         # VS Code binds ctrl+<letter>, never a bare right_ctrl
+hold_threshold_ms = 400
+
+[audio]
+sample_rate = 16000
+channels = 1
+max_record_seconds = 60
+
+[injection]
+backend = "type"           # typing lands in the focused editor; verified
+fallback_to_clipboard = true
+
+[commands]
+voice_punctuation = false  # off: "period"/"comma" are ordinary words in code comments;
+                           # flip to true when dictating Markdown or notes
+lsp_enabled = true         # feeds VS Code's LSP symbols to Whisper as context, which
+                           # measurably helps with identifiers
+lsp_editor = "vscode"      # needs the YazSes extension to write its context file; see
+                           # docs/how-to/editor-jump.md. Degrades gracefully if absent.
+
+[general]
+log_level = "INFO"
+
+# VS Code's auto-suggest popup takes Enter and Tab while it is open, so a
+# dictated line can end up auto-completed into something you did not say —
+# Escape dismisses it. That is editor behaviour, not a YazSes setting.
