@@ -48,7 +48,7 @@ YazSes — бесплатная оффлайн служба голосовой �
 *40-секундный обзор: основной рабочий цикл, командная строка и системный ввод. Вывод терминала настоящий; ввод команд в командной строке воспроизведён заново для читаемости.*
 ▶️ **[Смотреть на YouTube](https://www.youtube.com/watch?v=nn8WUKsCvZ4)** — тот же ролик с заголовками.
 
-![yazses doctor — all green, fully offline](docs/screenshots/yazses-doctor.png)
+![yazses doctor — all green, fully offline by default](docs/screenshots/yazses-doctor.png)
 
 Предпочитаете текст вместо видео? [`docs/demo/yazses-cli.cast`](docs/demo/yazses-cli.cast) — это
 запись asciinema стандартного CLI (`-h` → `about` → `quickstart` → `features` →

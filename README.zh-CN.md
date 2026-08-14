@@ -48,7 +48,7 @@ YazSes 是一个免费、开源、离线的语音听写与语音转文字守护�
 *40 秒演示：核心流程、命令行与系统托盘。终端输出是真实的；命令行输入为了清晰起见做了重新演示。*
 ▶️ **[在 YouTube 上观看](https://www.youtube.com/watch?v=nn8WUKsCvZ4)** —— 同一段演示，带章节。
 
-![yazses doctor — 全部通过，完全离线](docs/screenshots/yazses-doctor.png)
+![yazses doctor — 全部通过，默认完全离线](docs/screenshots/yazses-doctor.png)
 
 ---
 
