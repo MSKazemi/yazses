@@ -31,6 +31,9 @@ argument, and the record of it is the decision it altered.
 - [@jackie-cqz](https://github.com/jackie-cqz)
 - [@lntutor](https://github.com/lntutor)
 - [@Maqbool61](https://github.com/Maqbool61)
+- [@mercael91](https://github.com/mercael91) — went after the FreeBSD CI job nobody had looked
+  at, which is how we learned the BSD backend had never once been executed
+  ([#306](https://github.com/MSKazemi/yazses/issues/306))
 - [@Mr-Neutr0n](https://github.com/Mr-Neutr0n) — the VS Code app profile
   ([#43](https://github.com/MSKazemi/yazses/issues/43)), the project's first Electron editor
   and the one most people asked for

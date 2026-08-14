@@ -11,7 +11,7 @@
   "commitConvention": "angular",
   "contributorsPerLine": 7,
   "contributorsSortAlphabetically": false,
-  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-13-orange.svg?style=flat-square)](#contributors)",
+  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-14-orange.svg?style=flat-square)](#contributors)",
   "contributors": [
     {
       "login": "MSKazemi",
@@ -137,6 +137,15 @@
       "profile": "https://github.com/Mr-Neutr0n",
       "contributions": [
         "doc"
+      ]
+    },
+    {
+      "login": "mercael91",
+      "name": "mercael",
+      "avatar_url": "https://avatars.githubusercontent.com/u/257655913?v=4",
+      "profile": "https://github.com/mercael91",
+      "contributions": [
+        "infra"
       ]
     }
   ]

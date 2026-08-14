@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the FreeBSD job timed out instead of installing YazSes
+
+Contributed by [@mercael91](https://github.com/mercael91)
+([#307](https://github.com/MSKazemi/yazses/pull/307)). The advisory `freebsd` job
+had never once run the suite, and because it is `continue-on-error` the workflow
+reported success every time — so `platform/bsd/` looked covered while being
+covered by nothing.
+
+PyPI ships no FreeBSD wheels, so every compiled dependency is a source build.
+`cryptography` needs a Rust toolchain and died on `metadata-generation-failed`;
+`numpy` compiled from its 20 MB sdist for 38 minutes and hit the 45-minute limit,
+which GitHub reports as *"cancelled"* rather than as a build being too slow. Both
+now come from `pkg` where the ports version satisfies the pin exactly
+(`py312-numpy` 2.4.6 against `numpy>=2.4.6`) and from `rust` where it does not
+(`py312-cryptography` is 48.0.1 against `cryptography>=50.0.0`). The job went
+from **45m04s timing out** to **5m29s with a readable error**.
+
+**It is still red, and that is now an honest result rather than a broken one.**
+`faster-whisper` needs `ctranslate2`, which publishes 35 wheels — macOS, manylinux,
+Windows — no source distribution, and has no FreeBSD port. `pip install -e .`
+therefore cannot succeed on FreeBSD as the dependency set stands, which is a fact
+about the platform rather than a CI defect. Tracked in
+[#306](https://github.com/MSKazemi/yazses/issues/306).
+
 ### Added — the CLI demo now plays in the docs site (#23)
 
 `docs/watch-the-cli.md` embeds `docs/demo/yazses-cli.cast` in a real player. The
