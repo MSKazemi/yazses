@@ -1,0 +1,19 @@
+[[hotkeys]
+  # Hotkey for dictation
+  dictation = "Ctrl+Alt+D"
+
+[[injection]
+  # Injection method
+  method = "clipboard"
+
+[[dictation]
+  # Dictation engine
+  engine = "vosk"
+
+[[vosk]
+  # Vosk model path
+  model_path = "{{ vosk_model_path }}"
+
+[[logseq]
+  # Logseq specific settings
+]
