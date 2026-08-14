@@ -1333,9 +1333,14 @@ class Daemon:
                         stream_injector.cancel()
                     applied = 0
                     for _ in range(count):
+                        # Peek, inject, then commit — same ordering as "scratch
+                        # that" below. `undo()`/`redo()` mutate as they report, so
+                        # asking what to do *is* doing it: if the injection then
+                        # failed, the history had already moved on and the next
+                        # undo would target text that is still on screen.
                         op = (
-                            self._timeline.undo(scope) if action == "undo"
-                            else self._timeline.redo()
+                            self._timeline.peek_undo(scope) if action == "undo"
+                            else self._timeline.peek_redo()
                         )
                         if op is None:
                             break  # history exhausted — stop, don't keep pressing keys
@@ -1343,6 +1348,10 @@ class Daemon:
                             injector.inject_key_sequence(["BackSpace"] * op.backspaces)
                         if op.insert:
                             injector.inject(op.insert)
+                        if action == "undo":
+                            self._timeline.undo(scope)
+                        else:
+                            self._timeline.redo()
                         applied += 1
                     event["intent_type"] = action
                     event["timeline_scope"] = scope
