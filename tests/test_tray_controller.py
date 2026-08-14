@@ -136,16 +136,35 @@ def test_check_updates_passes_the_running_version_through(monkeypatch):
     assert status.latest == "9.9.9"
 
 
-def test_install_update_runs_the_upgrade_and_reports_the_exit_code(monkeypatch):
+def test_install_update_runs_the_upgrade_and_verifies_the_version_moved(monkeypatch):
     from yazses.system.updater import UpdateStatus
 
     ran = []
     monkeypatch.setattr(
         "yazses.system.updater.run_upgrade", lambda s: ran.append(s.command) or 0
     )
+    monkeypatch.setattr("yazses.system.updater.installed_version", lambda **kw: "2.0")
     status = UpdateStatus("uv", "1.0", "2.0", True, ["uv", "tool", "upgrade", "yazses"])
-    assert TrayController(_FakeClient()).install_update(status) == 0
+
+    outcome = TrayController(_FakeClient()).install_update(status)
+
     assert ran == [["uv", "tool", "upgrade", "yazses"]]
+    assert outcome.ok and outcome.after == "2.0"
+
+
+def test_install_update_does_not_call_a_pinned_no_op_a_success(monkeypatch):
+    """Exit 0 with an unchanged version is the pinned-install case, not a success."""
+    from yazses.system.updater import UpdateStatus
+
+    monkeypatch.setattr("yazses.system.updater.run_upgrade", lambda s: 0)
+    monkeypatch.setattr("yazses.system.updater.installed_version", lambda **kw: "1.0")
+    status = UpdateStatus("uv", "1.0", "2.0", True, ["uv", "tool", "upgrade", "yazses"])
+
+    outcome = TrayController(_FakeClient()).install_update(status)
+
+    assert outcome.code == 0
+    assert not outcome.changed
+    assert not outcome.ok
 
 
 def test_install_update_reports_a_failure_rather_than_raising(monkeypatch):
@@ -153,4 +172,6 @@ def test_install_update_reports_a_failure_rather_than_raising(monkeypatch):
         raise OSError("uv is gone")
 
     monkeypatch.setattr("yazses.system.updater.run_upgrade", _boom)
-    assert TrayController(_FakeClient()).install_update(object()) == 1
+    outcome = TrayController(_FakeClient()).install_update(object())
+    assert outcome.code == 1
+    assert not outcome.ok

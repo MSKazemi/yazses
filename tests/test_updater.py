@@ -103,3 +103,67 @@ def test_check_update_no_latest_resolved(monkeypatch):
     st = updater.check_update("0.8.0", method="uv")
     assert st.available is False
     assert "could not" in st.note.lower() or st.latest is None
+
+
+# ---- the upgrade has to be verified, not assumed -----------------------------
+
+
+def test_run_upgrade_checked_reports_a_real_upgrade():
+    from yazses.system.updater import UpdateStatus, run_upgrade_checked
+
+    status = UpdateStatus("uv", "2.19.0", "2.20.0", True, ["uv", "tool", "upgrade", "yazses"])
+    outcome = run_upgrade_checked(status, upgrade=lambda _s: 0, read_version=lambda: "2.20.0")
+
+    assert outcome.ok
+    assert outcome.changed
+    assert (outcome.before, outcome.after) == ("2.19.0", "2.20.0")
+    assert outcome.method == "uv"
+
+
+def test_run_upgrade_checked_catches_the_pinned_no_op():
+    """`uv tool upgrade` prints "Nothing to upgrade" and exits 0 when the tool was
+    installed with an exact version pin. Trusting the exit code reports that as done."""
+    from yazses.system.updater import UpdateStatus, run_upgrade_checked
+
+    status = UpdateStatus("uv", "2.19.0", "2.20.0", True, ["uv", "tool", "upgrade", "yazses"])
+    outcome = run_upgrade_checked(status, upgrade=lambda _s: 0, read_version=lambda: "2.19.0")
+
+    assert outcome.code == 0
+    assert not outcome.changed
+    assert not outcome.ok
+
+
+def test_run_upgrade_checked_does_not_guess_when_the_version_is_unreadable():
+    from yazses.system.updater import UpdateStatus, run_upgrade_checked
+
+    status = UpdateStatus("pip", "1.0", "2.0", True, ["pip", "install", "-U", "yazses"])
+    outcome = run_upgrade_checked(status, upgrade=lambda _s: 0, read_version=lambda: None)
+
+    assert not outcome.changed and not outcome.ok
+
+
+def test_installed_version_reads_the_console_script():
+    """Out-of-process on purpose: the caller is still running the code it started with."""
+    from types import SimpleNamespace
+
+    from yazses.system.updater import installed_version
+
+    seen = {}
+
+    def _runner(argv, **kw):
+        seen["argv"] = argv
+        return SimpleNamespace(returncode=0, stdout="yazses 2.20.0\n", stderr="")
+
+    assert installed_version(runner=_runner) == "2.20.0"
+    assert seen["argv"] == ["yazses", "--version"]
+
+
+def test_installed_version_falls_back_when_the_script_is_unreachable():
+    """A frozen bundle, or `yazses` not on PATH — must not raise into a menu click."""
+    from yazses.system.updater import installed_version
+
+    def _boom(argv, **kw):
+        raise OSError("no such file")
+
+    # Falls back to reading our own metadata, which is installed in the test env.
+    assert installed_version(runner=_boom) is not None

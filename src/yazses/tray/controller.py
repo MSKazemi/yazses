@@ -122,15 +122,27 @@ class TrayController:
 
         return check_updates()
 
-    def install_update(self, status) -> int:
-        """Run the upgrade command for ``status``; return its exit code (blocking)."""
-        from yazses.system.updater import run_upgrade
+    def install_update(self, status):
+        """Run the upgrade for ``status`` and verify it (blocking).
+
+        Returns an ``UpgradeOutcome``, not an exit code: the package managers exit 0
+        without doing anything when the install is pinned, so only a re-read of the
+        installed version can tell the user the truth.
+        """
+        from yazses.system.updater import UpgradeOutcome, run_upgrade_checked
 
         try:
-            return run_upgrade(status)
+            return run_upgrade_checked(status)
         except Exception:
             log.exception("tray update install failed")
-            return 1
+            return UpgradeOutcome(
+                code=1,
+                before=getattr(status, "current", ""),
+                after=None,
+                expected=getattr(status, "latest", None),
+                method=getattr(status, "method", ""),
+                command=getattr(status, "command", None),
+            )
 
     def _call(self, method: str, **params) -> dict:
         try:

@@ -172,10 +172,121 @@ def check_update(
 
 
 def run_upgrade(status: UpdateStatus) -> int:
-    """Run the upgrade command for *status*; return its exit code (1 if none)."""
+    """Run the upgrade command for *status*; return its exit code (1 if none).
+
+    Output is left on the terminal rather than captured, so `yazses update` shows
+    the package manager's own progress and hints live. Callers that need to know
+    whether the upgrade *took* must use :func:`run_upgrade_checked` — an exit code
+    of 0 does not mean the version moved.
+    """
     if not status.command:
         return 1
     try:
         return subprocess.run(status.command, check=False).returncode
     except (OSError, subprocess.SubprocessError):
         return 1
+
+
+@dataclass
+class UpgradeOutcome:
+    """What actually happened when the upgrade command ran."""
+
+    code: int                 # the command's exit status
+    before: str               # the version that was installed when we started
+    after: str | None         # the version on disk now; None = could not be read
+    expected: str | None      # the version we were trying to reach
+    method: str = ""          # snap | uv | pipx | pip — decides the "why not" hint
+    command: list[str] | None = None  # what was run, to quote back to the user
+
+    @property
+    def changed(self) -> bool:
+        """Did the installed version actually move?"""
+        return self.after is not None and self.after != self.before
+
+    @property
+    def ok(self) -> bool:
+        """A clean exit *and* a version that really changed."""
+        return self.code == 0 and self.changed
+
+
+def installed_version(
+    *, package: str = "yazses", runner=subprocess.run, timeout: float = 20.0
+) -> str | None:
+    """The version on disk *right now*, read from a fresh process.
+
+    Deliberately out-of-process: after an upgrade the caller is still running the
+    code it started with, and its own import machinery has already resolved the
+    old distribution. Asking the console script is what a user would do, and it is
+    the only answer that reflects what the next launch will actually run.
+
+    Falls back to reading our own metadata (with the import caches invalidated) when
+    the console script cannot be reached — a frozen bundle, or `yazses` not on PATH.
+    """
+    try:
+        proc = runner(
+            [package, "--version"], capture_output=True, text=True, timeout=timeout
+        )
+        out = f"{proc.stdout or ''} {proc.stderr or ''}".strip()
+        if proc.returncode == 0 and out:
+            # `yazses --version` prints "yazses X.Y.Z"; take the last token.
+            return out.split()[-1]
+    except (OSError, subprocess.SubprocessError, ValueError):
+        pass
+    try:
+        import importlib
+        import importlib.metadata
+
+        importlib.invalidate_caches()
+        return importlib.metadata.version(package)
+    except Exception:
+        return None
+
+
+def pinned_install_hint(method: str, command: list[str] | None) -> str:
+    """How to get out of an install that refuses to upgrade itself.
+
+    ``uv tool upgrade`` reports "Nothing to upgrade" and exits **0** when the tool was
+    installed with an exact version pin (``uv tool install yazses==2.19.0``). The fix is
+    to reinstall unpinned — and it has to carry the extras across, because a bare
+    ``yazses@latest`` installs base dependencies only and takes PySide6 with it, which
+    silently removes the Qt tray and the overlay.
+    """
+    if method == "uv":
+        return (
+            "An install pinned to an exact version will not upgrade itself. Reinstall it "
+            "unpinned, keeping your extras:\n"
+            "    uv tool install 'yazses[desktop]@latest'"
+        )
+    joined = " ".join(command or [])
+    if joined:
+        return f"Run it in a terminal to see what it reported:\n    {joined}"
+    return "Run `yazses update` in a terminal to see what it reported."
+
+
+def run_upgrade_checked(
+    status: UpdateStatus, *, upgrade=None, read_version=None
+) -> UpgradeOutcome:
+    """Run the upgrade, then *verify* it by re-reading the installed version.
+
+    The exit code alone is not evidence. `uv tool upgrade` exits 0 and prints
+    "Nothing to upgrade" when the tool was installed with an exact version pin
+    (`uv tool install yazses==2.19.0`), and the pip family behaves the same way for
+    a constraint it cannot satisfy. Reporting that as "Updated to 2.20.0" sends the
+    user off to restart a daemon that comes back on exactly the version they had —
+    which is the failure this function exists to make impossible.
+    """
+    # Resolved here rather than as default arguments: a default binds the function
+    # object at definition time, so patching the module attribute in a test (or
+    # swapping it at runtime) would never be seen.
+    upgrade = upgrade or run_upgrade
+    read_version = read_version or installed_version
+
+    code = upgrade(status)
+    return UpgradeOutcome(
+        code=code,
+        before=status.current,
+        after=read_version(),
+        expected=status.latest,
+        method=status.method,
+        command=status.command,
+    )

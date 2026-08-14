@@ -100,8 +100,11 @@ def test_an_available_update_offers_to_install_it():
 
     class _Ctrl:
         def install_update(self, status):
+            from yazses.system.updater import UpgradeOutcome
+
             installed.append(status.command)
-            return 0
+            return UpgradeOutcome(code=0, before="1.0", after="2.0", expected="2.0",
+                                  method="uv", command=status.command)
 
     tray = _tray(_Ctrl())
     seen = _capture_dialog(tray, accept=True)
@@ -117,6 +120,7 @@ def test_an_available_update_offers_to_install_it():
     assert installed == [["uv", "tool", "upgrade", "yazses"]]
     (message, _thread), = tray._bridge.notified.emitted
     assert "Restart" in message[1]
+    assert "2.0" in message[1]
 
 
 def test_declining_the_offer_installs_nothing():

@@ -133,14 +133,61 @@ def test_no_command_is_not_mistaken_for_a_terminal_upgrade():
     assert needs_terminal(_status()) is False
 
 
+def _outcome(code=0, before="2.19.0", after="2.20.0", method="uv"):
+    from yazses.system.updater import UpgradeOutcome
+
+    return UpgradeOutcome(
+        code=code, before=before, after=after, expected="2.20.0", method=method,
+        command=["uv", "tool", "upgrade", "yazses"],
+    )
+
+
 def test_a_finished_upgrade_says_the_daemon_is_still_the_old_one():
     """The new code is on disk; the process running your dictation is not."""
-    _title, body = upgrade_result_message(0)
+    _title, body = upgrade_result_message(_outcome())
     assert "Restart" in body
+    assert "2.20.0" in body
 
-    _title, failed = upgrade_result_message(1)
+    _title, failed = upgrade_result_message(_outcome(code=1))
     assert "failed" in failed
     assert "yazses update" in failed
+
+
+def test_an_upgrade_that_changed_nothing_is_not_reported_as_installed():
+    """The bug a user hit: `uv tool upgrade` exits 0 on a version-pinned install.
+
+    The tray said "Update installed. Restart the daemon", the daemon came back on the
+    same version, and nothing on screen explained why. Success has to mean the version
+    moved, not that the command exited 0.
+    """
+    title, body = upgrade_result_message(_outcome(after="2.19.0"))
+
+    assert "did not apply" in title.lower()
+    assert "still 2.19.0" in body
+    assert "Restart" not in body
+    assert "installed." not in body.lower()
+    # and it must say how to get out of it
+    assert "uv tool install" in body
+
+
+def test_a_version_that_cannot_be_read_is_not_claimed_as_success():
+    _title, body = upgrade_result_message(_outcome(after=None))
+    assert "not confirmed" in body
+    assert "Updated to" not in body
+
+
+def test_the_pin_hint_keeps_the_extras():
+    """A bare `yazses@latest` reinstalls base deps only and deletes PySide6 with it,
+    which silently removes the tray and the overlay — the exact way this machine lost
+    them once already."""
+    from yazses.system.updater import pinned_install_hint
+
+    hint = pinned_install_hint("uv", ["uv", "tool", "upgrade", "yazses"])
+    assert "[desktop]" in hint
+
+    # A non-uv method has no pin story, so it quotes the command back instead.
+    other = pinned_install_hint("pip", ["pip", "install", "--upgrade", "yazses"])
+    assert "pip install --upgrade yazses" in other
 
 
 def test_a_source_checkout_is_never_told_to_upgrade(monkeypatch):

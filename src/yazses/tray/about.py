@@ -103,20 +103,41 @@ def update_message(status) -> tuple[str, str]:
     return ("Update available", body)
 
 
-def upgrade_result_message(code: int) -> tuple[str, str]:
+def upgrade_result_message(outcome) -> tuple[str, str]:
     """``(title, body)`` for a finished in-place upgrade.
 
-    A successful upgrade replaces the code on disk but the running daemon is still the old
-    one, so the message says so rather than leaving the user thinking they are on the new
-    version already.
+    Three outcomes, because an exit status of 0 is not evidence that anything happened:
+
+    * the version really moved — say so, and say the running daemon is still the old one
+    * the command failed — say that
+    * the command succeeded and the version did **not** move — the case that made this
+      function take an outcome instead of an exit code. `uv tool upgrade` exits 0 on a
+      pinned install, and reporting "Update installed. Restart the daemon" then sends the
+      user to restart into the very same version, over and over, with nothing to explain it.
     """
-    if code == 0:
+    if outcome.ok:
         return (
             branding.APP_NAME,
-            "Update installed. Restart the daemon to run it "
+            f"Updated to {outcome.after}. Restart the daemon to run it "
             "(tray → Restart daemon, or `yazses restart`).",
         )
+    if outcome.code != 0:
+        return (
+            branding.APP_NAME,
+            f"The upgrade command failed (exit {outcome.code}). "
+            "Run `yazses update` in a terminal to see why.",
+        )
+    if outcome.after is None:
+        return (
+            branding.APP_NAME,
+            "The upgrade command finished, but the installed version could not be read, "
+            "so it is not confirmed. Check with `yazses --version`.",
+        )
+    from yazses.system.updater import pinned_install_hint
+
     return (
-        branding.APP_NAME,
-        "The upgrade command failed. Run `yazses update` in a terminal to see why.",
+        "Update did not apply",
+        f"The upgrade command finished without an error, but {branding.APP_NAME} is "
+        f"still {outcome.after}.\n\n"
+        + pinned_install_hint(outcome.method, outcome.command),
     )

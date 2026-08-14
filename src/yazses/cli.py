@@ -13,7 +13,7 @@ import typer
 from yazses import branding
 from yazses.ipc.client import IpcUnreachableError
 from yazses.platform import get_paths, get_platform
-from yazses.system.updater import check_update, run_upgrade
+from yazses.system.updater import check_update, pinned_install_hint, run_upgrade_checked
 
 # `-h` is accepted everywhere alongside `--help`. Sub-apps each need their own
 # copy (Typer does not propagate context settings into added sub-typers).
@@ -2558,13 +2558,30 @@ def update(
         typer.echo("Skipped.")
         return
 
-    code = run_upgrade(status)
-    if code == 0:
-        typer.echo(f"\nUpdated to {status.latest}. Restart the daemon to load it:")
+    # Verified, not assumed: `uv tool upgrade` exits 0 and changes nothing when the
+    # install carries an exact version pin, and this used to print "Updated to X"
+    # over the top of the package manager's own "Nothing to upgrade".
+    outcome = run_upgrade_checked(status)
+    if outcome.ok:
+        typer.echo(f"\nUpdated to {outcome.after}. Restart the daemon to load it:")
         typer.echo("  systemctl --user restart yazses   # or: yazses stop && yazses start")
-    else:
-        typer.echo(f"\nUpgrade command exited with code {code}.", err=True)
-        raise typer.Exit(code or 1)
+        return
+    if outcome.code != 0:
+        typer.echo(f"\nUpgrade command exited with code {outcome.code}.", err=True)
+        raise typer.Exit(outcome.code or 1)
+    if outcome.after is None:
+        typer.echo(
+            "\nThe upgrade command finished, but the installed version could not be "
+            "read — check with `yazses --version`.",
+            err=True,
+        )
+        raise typer.Exit(1)
+    typer.echo(
+        f"\nThe upgrade command finished without an error, but yazses is still "
+        f"{outcome.after}.\n{pinned_install_hint(outcome.method, outcome.command)}",
+        err=True,
+    )
+    raise typer.Exit(1)
 
 
 def _calibrate_mic(*, seconds: float = 4.0, set_threshold: bool = False) -> bool:

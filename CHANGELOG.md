@@ -6,6 +6,31 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — "Update installed" was reported for upgrades that never happened
+
+Reported from a real install: the tray's **Check for updates…** offered 2.19.0 → 2.20.0,
+**Install now** said *"Update installed. Restart the daemon"*, the daemon was restarted,
+and it came back on 2.19.0. Every time.
+
+The upgrade really did run — and really did nothing. `uv tool upgrade yazses` prints
+`Nothing to upgrade` and **exits 0** when the tool was installed with an exact version pin
+(`uv tool install yazses==2.19.0`); the pip family behaves the same way for a constraint it
+cannot satisfy. Both the tray and `yazses update` treated exit 0 as proof, so the one piece
+of information that would have explained it — uv's own hint about the pin — was thrown away
+and replaced with a success message.
+
+An exit code is no longer taken as evidence. `updater.run_upgrade_checked()` runs the
+upgrade and then re-reads the installed version **out of process** (the caller is still
+running the code it started with, so its own import machinery cannot see the new one), and
+reports one of four outcomes: upgraded, command failed, version unreadable, or *finished but
+unchanged*. The last one names the version you are still on and how to get out of it —
+`uv tool install 'yazses[desktop]@latest'`, with the extras kept, because a bare
+`yazses@latest` installs base dependencies only and silently removes PySide6, the tray and
+the overlay along with it.
+
+`yazses update` now exits non-zero in that case rather than printing "Updated to 2.20.0"
+directly over the package manager's "Nothing to upgrade".
+
 ## [2.20.0] - 2026-08-14
 
 ### Fixed — a blocked model download killed the daemon instead of explaining (#310)

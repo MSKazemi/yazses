@@ -386,10 +386,10 @@ class LinuxTray:
         self._notify("YazSes", "Installing the update…")
 
         def _work() -> None:
-            code = ctrl.install_update(status)
+            outcome = ctrl.install_update(status)
             bridge = self._bridge
             if bridge is not None:
-                bridge.notified.emit(upgrade_result_message(code))
+                bridge.notified.emit(upgrade_result_message(outcome))
 
         threading.Thread(target=_work, name="tray-update-install", daemon=True).start()
 

@@ -73,6 +73,13 @@ that most often go wrong — the wrong microphone, and a daemon that needs a res
   nowhere to type a password. Either way, restart the daemon afterwards to run the new
   version. The check runs in the background — the menu never freezes waiting on the network.
 
+  After installing, YazSes **re-reads the version on disk** and only reports success if it
+  actually moved. If it didn't, the dialog says so instead — most often because the install
+  is pinned to an exact version (`uv tool install yazses==2.19.0`), which makes
+  `uv tool upgrade` exit successfully while doing nothing. The fix is to reinstall unpinned,
+  keeping your extras: `uv tool install 'yazses[desktop]@latest'`. Dropping the `[desktop]`
+  part installs base dependencies only and removes the tray and overlay with them.
+
   ![The update dialog reading: You're on the latest version](screenshots/tray-update-check.png)
 
 - **Restart daemon** / **Stop daemon** — and **Quit tray**, which closes only the icon and
