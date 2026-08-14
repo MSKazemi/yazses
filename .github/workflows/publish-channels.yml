@@ -243,6 +243,10 @@ jobs:
           AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
         run: |
           set -euo pipefail
+          # Regenerate from the release first, so a PKGBUILD nobody remembered to
+          # bump does not silently publish the previous version to the AUR. The
+          # guard below then only fires if that regeneration itself failed.
+          python3 scripts/refresh-package-manifests.py --version "$VERSION"
           # .SRCINFO is what the AUR actually indexes; a push without it, or with
           # one that disagrees with the PKGBUILD, is rejected.
           test -f packaging/arch/.SRCINFO
