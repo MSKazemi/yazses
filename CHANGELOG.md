@@ -6,6 +6,23 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — two more troubleshooting guides
+
+- **[Dictation types into the wrong window](https://mskazemi.com/yazses/how-to/wrong-window.html)**
+  — separates the three causes that share one symptom, and names the trap behind
+  most of them: precise "is this a text field" detection needs the **system**
+  `python3-pyatspi` package, which a `pipx` or `uv tool` environment cannot see, so
+  `apt install` alone changes nothing. `yazses doctor` reports which mode you are
+  in. (#244)
+- **[After a distro upgrade](https://mskazemi.com/yazses/how-to/after-a-distro-upgrade.html)**
+  — the four things a release upgrade breaks: a virtualenv pointing at a Python
+  that moved, a session silently switched to Wayland (where dictation *appears* to
+  work and the text goes nowhere), lost `input` group membership, and a stopped
+  `ydotoold`. Each with the command that tells them apart. (#242)
+
+Both say plainly what was not done: no system package was installed and no
+distribution was upgraded to write them.
+
 ### Added — three troubleshooting guides, each written from commands actually run
 
 The issues asked for pages built from real output rather than guesswork, so these

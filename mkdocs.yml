@@ -301,6 +301,8 @@ nav:
       - "'Silent audio -- discarding'": how-to/silent-audio-discarding.md
       - The tray icon does not appear: how-to/tray-icon-missing.md
       - Running fully air-gapped: how-to/air-gapped.md
+      - Dictation types into the wrong window: how-to/wrong-window.md
+      - After a distro upgrade: how-to/after-a-distro-upgrade.md
       - Remote dictation: how-to/remote-dictation.md
       - Performance tuning: how-to/performance-tuning.md
       - Per-app tone profiles: how-to/app-profiles.md
