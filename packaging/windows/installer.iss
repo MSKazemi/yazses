@@ -28,7 +28,10 @@
 #endif
 #define MyAppPublisher "MSKazemi"
 #define MyAppURL "https://github.com/MSKazemi/yazses"
-#define MyAppExeName "YazSes.exe"
+; The windowed binary. Deliberately NOT "YazSes.exe": PATHEXT resolves .EXE
+; before .CMD and NTFS is case-insensitive, so a YazSes.exe in {app} answers to
+; a bare `yazses` and permanently shadows the yazses.cmd console shim below.
+#define MyAppExeName "YazSesApp.exe"
 
 [Setup]
 AppId={{F3E8B8A4-1B6C-4F24-9BE8-9B7E58E9C4A2}
@@ -62,6 +65,14 @@ OutputBaseFilename=YazSes-{#MyAppVersion}-windows-{#MyAppArch}
 SolidCompression=yes
 WizardStyle=modern
 Compression=lzma
+; The installer's own icon: the wizard window, its taskbar button, and the
+; downloaded file in Explorer. Without it a first-time user downloads an unsigned
+; .exe with a generic icon, which is the worst possible first impression.
+; Path is relative to this .iss file.
+SetupIconFile=..\..\assets\yazses.ico
+; Stays pointed at the exe rather than at a copy of the .ico: the exe now carries
+; the right icon resource, so Add/Remove Programs is correct for free and there is
+; no second path to drift.
 UninstallDisplayIcon={app}\{#MyAppExeName}
 ; We append {app} to the per-user PATH so `yazses doctor` works from a shell;
 ; this broadcasts WM_SETTINGCHANGE so open shells pick it up.
@@ -74,12 +85,23 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "autostart"; Description: "Start YazSes automatically when I sign in"; GroupDescription: "Optional:"
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Optional:"; Flags: unchecked
 
+[InstallDelete]
+; Upgrading from <= 2.18.2, where the windowed binary was named YazSes.exe.
+; Inno only overwrites files it ships; an orphaned YazSes.exe left in {app}
+; would keep answering to a bare `yazses` (PATHEXT puts .EXE ahead of .CMD) and
+; the shim would stay shadowed even after this fix. Delete it explicitly.
+Type: files; Name: "{app}\YazSes.exe"
+
 [Files]
 Source: "..\..\dist\YazSes\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
 ; `yazses` on PATH → yazses-cli.exe (see yazses.cmd for why the rename).
 Source: "yazses.cmd"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
+; No IconFilename: here on purpose. Every shortcut points at {#MyAppExeName},
+; which carries the brand icon as a resource (packaging/windows/yazses.spec), so
+; they all inherit it. Naming a .ico explicitly would add a fourth place the icon
+; can go stale and would need the file shipped into {app}.
 Name: "{group}\{#MyAppName}";        Filename: "{app}\{#MyAppExeName}"; Parameters: "--tray"
 ; A clickable Start-menu launcher for the settings window (#63) — the tray
 ; entry alone is not discoverable to someone who has not found the tray yet.

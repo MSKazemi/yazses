@@ -89,8 +89,13 @@ release, and the transcribed text appears in whatever window is focused.
 > ```
 
 The first transcription downloads the Whisper model (~80 MB for `tiny.en`)
-into `%LOCALAPPDATA%\huggingface\hub\`. Subsequent dictations are fully
+into `%USERPROFILE%\.cache\huggingface\hub\`. Subsequent dictations are fully
 offline.
+
+> **Behind a firewall?** That one download is the only time YazSes needs the
+> network, and a personal firewall will block it. Fetch it deliberately instead —
+> `yazses model download tiny.en` — or see
+> [Choosing a model → Installing a model without network access](models.md#installing-a-model-without-network-access).
 
 ## Microphone access
 
@@ -121,14 +126,22 @@ The bundle contains two executables, and the difference matters:
 
 | Binary | Subsystem | Use |
 |---|---|---|
-| `YazSes.exe` | windowed | tray and daemon; no console window flashes |
+| `YazSesApp.exe` | windowed | tray and daemon; no console window flashes |
 | `yazses-cli.exe` | console | the CLI — `yazses` on PATH is a shim to this |
 
-A windowed binary has no console attached, so `YazSes.exe --cli doctor` prints
-nothing at all. Use `yazses` (or `yazses-cli.exe` directly); that is what these
-docs mean everywhere they say `yazses`.
+A windowed binary has no console attached, so `YazSesApp.exe --cli doctor` has
+nowhere to print. Use `yazses` (or `yazses-cli.exe` directly); that is what
+these docs mean everywhere they say `yazses`.
 
 Both live in `%LOCALAPPDATA%\Programs\YazSes`.
+
+> **Upgrading from 2.18.2 or earlier?** The windowed binary used to be called
+> `YazSes.exe`, which — because Windows resolves `.exe` before `.cmd` and
+> filenames are case-insensitive — answered to a bare `yazses` and shadowed the
+> shim. That is why `yazses doctor` printed nothing and then failed with
+> *"'NoneType' object has no attribute 'isatty'"*. The installer deletes the old
+> binary on upgrade; if you ever see a stray `YazSes.exe` in the install folder
+> after a manual copy, delete it.
 
 ## Troubleshooting
 
@@ -158,6 +171,18 @@ windows; otherwise leave it unelevated, which is the safer default.
 **"Tray icon is missing."** Windows may be hiding it under the chevron
 (`^`) at the left of the tray. Drag it out, or right-click the taskbar →
 **Taskbar settings** → **Other system tray icons** → flip on.
+
+**"The icons are generic or blank."** Releases before this fix shipped without
+their icon file, so shortcuts showed PyInstaller's default artwork and the tray
+showed a plain coloured disc. Upgrade; if a stale shortcut keeps the old icon,
+Windows is serving it from its icon cache — sign out and back in, or delete
+`%LOCALAPPDATA%\IconCache.db` and restart Explorer.
+
+**What the tray colour means.** The badge is the YazSes "Y" in a state colour:
+🔵 blue ready/idle, 🟢 green dictating into a text field, 🟡 yellow dictating with
+**no text field focused** (the words would go nowhere, so they are copied to the
+clipboard instead), 🟣 purple command mode (the command key is held), 🔴 red a
+problem — an error, or several silent clips in a row. Hover for the details.
 
 ## Uninstall
 

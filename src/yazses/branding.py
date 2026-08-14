@@ -96,10 +96,9 @@ def _supports_banner() -> bool:
     art never garbles logs or non-UTF-8 captures."""
     if os.environ.get("NO_COLOR"):
         return False
-    try:
-        return bool(sys.stdout.isatty())
-    except Exception:
-        return False
+    from yazses.system import streams
+
+    return streams.stdout_isatty()
 
 
 # --------------------------------------------------------------------------

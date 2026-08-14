@@ -6,6 +6,145 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.20.0] - 2026-08-14
+
+### Fixed — a blocked model download killed the daemon instead of explaining (#310)
+
+Reported by [@AtmanActive](https://github.com/AtmanActive) on Windows 10 behind
+the [Fort](https://github.com/tnodir/fort) firewall: on first run the daemon
+tried to fetch the Whisper model, the firewall refused the socket
+(`WinError 10013`), and the process died with a raw `huggingface_hub` traceback —
+which the PyInstaller bundle renders as a modal *"Failed to execute script"*.
+Nothing on screen said what YazSes wanted, why, or what to do about it.
+
+`core/daemon.py::run()` wrapped `_build_pipeline()` in `try`/`finally` with no
+`except`, so **every** startup failure escaped to the top. Notably `stt/factory.py`
+already got this right for the Parakeet and Moonshine engines ("dictation must
+still come up"); the default engine had no such guard.
+
+Now: `stt/errors.py::ModelUnavailableError` carries ready-to-print guidance —
+the cause, a firewall hint when the cause reads like one, and the three ways to
+get the model (`yazses model download <name>`, unblock and restart, or fetch the
+repo by hand into the printed cache directory). The daemon holds itself in
+`ERROR` state with that text attached rather than exiting, so the tray turns red
+with the reason and `yazses status` can answer — exiting would have taken the
+tray down too, leaving a vanished window as the only symptom.
+
+### Added — `yazses model download` handles speech models, not just SLMs
+
+The model can now be fetched as a deliberate, watchable step instead of a side
+effect of the first dictation, which is the only workable route on a firewalled
+or air-gapped machine. `yazses model list` gained a speech-to-text section
+showing every model and whether it is already present, plus the cache path.
+
+New `stt/download.py` owns the name→repository mapping, mirrored from
+faster-whisper's private table and **kept honest by a test that fails on drift**.
+It is not derivable: `large` resolves to `large-v3`, `turbo` comes from a
+different organisation, and the distil models use another prefix — so a URL
+built from a template would have sent three of them to a 404.
+
+### Fixed — the documented model-cache path was wrong on Windows
+
+`docs/windows-install.md` said `%LOCALAPPDATA%\huggingface\hub`. huggingface_hub
+actually uses `~/.cache/huggingface/hub` on every platform, so anyone placing a
+model by hand was putting it where nothing would read it. `doctor` now asks
+huggingface_hub for the path rather than re-deriving it, which also makes it
+honour `HF_HUB_CACHE` and `XDG_CACHE_HOME` instead of only `HF_HOME`.
+
+### Fixed — Windows shipped without its icon, and the tray showed a blank disc
+
+Reported with screenshots: the desktop shortcut carried PyInstaller's generic
+default artwork, and the tray icon beside the clock was a plain flat blue circle
+with jagged edges. Two separate causes, both long-standing.
+
+- **`assets/yazses.ico` never existed.** `packaging/windows/yazses.spec` had
+  referenced it since the file was written, behind
+  `icon=str(ICON) if ICON.exists() else None` — so every build silently passed
+  `icon=None` and shipped the default icon to the desktop shortcut, the Start
+  menu, the taskbar and Add/Remove Programs. `packaging/macos/yazses.spec`
+  carried the identical dangling `assets/yazses.icns`. Both now **fail the build**
+  rather than degrading in silence, and the containers are generated and
+  committed. The installer brands itself too (`SetupIconFile`), so the downloaded
+  `.exe` is no longer a generic blob in Explorer.
+- **The tray glyph is now the YazSes mark** — a rounded badge with the white "Y",
+  matching Linux — instead of a bare disc. Pillow anti-aliases nothing, which is
+  where the jagged edge came from; the mark is supersampled and downsampled as
+  coverage, so it has neither jagged edges nor the dark halo the naive fix
+  introduces. Below 40 px the sound-wave bars are sub-pixel, so small frames
+  carry a simplified variant rather than a grey smear.
+- **The Windows tray now obeys the shared colour policy.** It had kept a private
+  seven-entry table that bypassed `tray/menu.py::icon_spec`, so Windows showed
+  different colours from Linux for the same state, had **no** command-mode purple
+  and **no** "no text field focused" yellow, and rendered five of the twelve tray
+  states — including Meeting Mode — as idle blue. Both trays now share one
+  `status_from_model` bridge.
+- **The tray tooltip's "Mic:" line was always wrong.** The daemon reported the
+  active input device, but `TrayModel` had no field for it, so every platform
+  showed `Mic: default` however the microphone was pinned.
+- New `scripts/gen-icons.py` renders both containers from one shared
+  `yazses.brandmark` renderer — the same code the tray glyph uses, so the
+  shortcut icon and the tray badge cannot drift apart.
+
+Also fixed while in the file: `build-windows.yml`'s installer smoke test still
+looked for `YazSes.exe`, renamed to `YazSesApp.exe` in 13d7a6d, so the payload
+check threw on every run and the matching uninstall assertion silently passed
+without ever checking anything.
+
+### Added — About, Help and Check for updates in the tray menu
+
+The tray menu ended at daemon control, so the three questions you have *at the
+icon* — what version am I running, where are the docs, is there a newer release —
+could only be answered in a terminal (`yazses about`, `yazses update`), which is
+exactly what a tray user does not have open. All three are now menu entries, on
+**Linux, macOS and Windows**:
+
+- **About YazSes** — version, tagline and clickable Website / Source / Issues
+  links, from the same `branding.contact_lines()` block `doctor` prints.
+- **Help ▸** — Documentation, Troubleshooting, Report a bug…, each opening the
+  page in your browser.
+- **Check for updates…** — asks PyPI or your snap channel, then offers
+  **Install now** when the upgrade can run without a password. A snap install is
+  shown `sudo snap refresh yazses` to run in a terminal instead: launched from a
+  tray click there is nowhere to type a password, so an Install button there
+  would hang invisibly. The check runs on a worker thread — a 5-second network
+  lookup on the UI loop would freeze the icon and the menu with it.
+
+Windows had shipped a `Help` entry wired to nothing (`enabled=False`); it is now
+real. The cross-OS parity test written for #63 was generalised from `Settings…`
+to every shared label, including the wiring check that would have caught that
+placeholder, and its macOS check now compares full `@rumps.clicked` label
+*paths* so submenu entries aren't misread as one label bound three times.
+
+### Fixed — every CLI command was unreachable on the Windows installer
+
+`yazses doctor` on Windows printed nothing and then died in a message box with
+`AttributeError: 'NoneType' object has no attribute 'isatty'`. Two defects,
+stacked:
+
+**The console shim could never win.** The bundle ships two binaries on purpose —
+a windowed one for the tray/daemon and `yazses-cli.exe` for the CLI — with a
+`yazses.cmd` shim putting the console one on `PATH`. But the windowed binary was
+named `YazSes.exe`, Windows resolves a bare `yazses` through `PATHEXT` (which
+lists `.EXE` before `.CMD`), and NTFS is case-insensitive. `YazSes.exe` therefore
+answered to `yazses` and shadowed the shim in the same directory. Every
+`yazses <command>` reached the *windowed* binary, which has no console — so
+`yazses doctor` and `yazses -h` printed nothing whatsoever. The shim shipped as
+dead code and the two-binary split it existed to enable never engaged for
+anyone. The windowed binary is now `YazSesApp.exe`; the installer deletes a
+leftover `YazSes.exe` on upgrade, or the orphan would keep shadowing the shim.
+
+**A missing stdout was fatal rather than degrading.** `sys.stdout` is `None` in a
+GUI-subsystem PyInstaller build, so `sys.stdout.isatty()` — used to decide
+colour — raised instead of answering "not a tty". New `system/streams.py`
+centralises that policy and is used everywhere the std streams are touched
+(`doctor`, `vocab export`, the upgrade nudge, `setup`'s calibration prompt).
+`system/wincon.py` adds the second line of defence: a CLI command that reaches
+the windowed binary anyway now borrows the launching terminal's console via
+`AttachConsole`, and falls back to `os.devnull` rather than leaving the streams
+`None`.
+
+Reported from a live Windows install; hold-to-talk dictation itself was working.
+
 ## [2.19.0] - 2026-08-14
 
 ### Added — About, Help and Check for updates in the tray menu

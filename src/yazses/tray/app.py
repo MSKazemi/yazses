@@ -73,7 +73,13 @@ def unreachable_decision(ever_connected: bool, waiting_s: float) -> PollDecision
 
 
 def run() -> None:
-    """Entry point — `yazses-tray` console script."""
+    """Entry point — the `yazses-tray` GUI script."""
+    # A GUI script has no console on Windows, so sys.stderr is None and
+    # basicConfig's StreamHandler would raise on its first log line. Must come
+    # before basicConfig, which binds the stream at construction time.
+    from yazses.system.wincon import ensure_streams
+
+    ensure_streams()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
     platform = get_platform()
