@@ -24,6 +24,7 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 | `compute_type` | str | `"int8"` |
 | `initial_prompt` | str | `""` |
 | `vocab_correction` | bool | `false` |
+| `cpu_threads` | int | `0` |
 | `chinese_script` | str | `""` |
 
 ## `[hotkey]`

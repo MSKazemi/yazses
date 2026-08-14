@@ -6,7 +6,8 @@ from faster_whisper import WhisperModel
 log = logging.getLogger(__name__)
 
 
-def _load_model(model_name: str, device: str, compute_type: str) -> WhisperModel:
+def _load_model(model_name: str, device: str, compute_type: str,
+                cpu_threads: int = 0) -> WhisperModel:
     """Load the model from the local cache first, and only then from the network.
 
     `WhisperModel(name)` defaults to `local_files_only=False`, so faster-whisper asks
@@ -30,15 +31,19 @@ def _load_model(model_name: str, device: str, compute_type: str) -> WhisperModel
     network at all, and a missing one is fetched exactly as before. The fallback keeps
     the previous behaviour intact rather than trading one failure mode for another.
     """
+    # 0 means "leave it to ctranslate2", which is how it behaved before this
+    # existed; only a positive value is passed through.
+    extra = {"cpu_threads": int(cpu_threads)} if int(cpu_threads or 0) > 0 else {}
     try:
         return WhisperModel(
-            model_name, device=device, compute_type=compute_type, local_files_only=True
+            model_name, device=device, compute_type=compute_type,
+            local_files_only=True, **extra,
         )
     except Exception:
         # Not in the cache (or the cache is unusable) — this is the first run, or a
         # newly configured model. Fetch it, which is what the user is waiting for.
         log.info("Model '%s' is not in the local cache; downloading it once.", model_name)
-        return WhisperModel(model_name, device=device, compute_type=compute_type)
+        return WhisperModel(model_name, device=device, compute_type=compute_type, **extra)
 
 
 class FasterWhisperEngine:
@@ -53,9 +58,10 @@ class FasterWhisperEngine:
         device: str = "cpu",
         compute_type: str = "int8",
         language: str = "en",
+        cpu_threads: int = 0,
     ) -> None:
         log.info("Loading STT model '%s' on %s (%s)...", model_name, device, compute_type)
-        self._model = _load_model(model_name, device, compute_type)
+        self._model = _load_model(model_name, device, compute_type, cpu_threads)
         # `[stt] language`; "" means auto-detect, expressed to faster-whisper by
         # omitting the kwarg entirely (passing language=None means the same thing
         # but relies on an undocumented default — omission is the explicit form).

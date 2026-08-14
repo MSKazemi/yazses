@@ -6,6 +6,43 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `[stt] cpu_threads`, and two guides written from measurements
+
+A decode that takes **one second of your time spends about five seconds of CPU**,
+because the work is spread across cores. Nothing capped that, so a laptop on battery
+had no lever at all beyond changing model.
+
+`[stt] cpu_threads` caps it; `0` (the default) leaves the library alone, so nobody's
+behaviour changed. Measured on `base.en`, three runs per setting, 11-second clip,
+20-core laptop:
+
+| `cpu_threads` | Mean wall | Mean CPU |
+|---|---|---|
+| `0` (default) | 0.98 s | 5.49 s |
+| `4` | 0.98 s | 5.45 s |
+| `2` | 1.32 s | 4.55 s |
+| `1` | 2.05 s | 4.08 s |
+
+**Capping at 4 changed nothing measurable** — the decoder was not using 20 cores'
+worth to begin with, so the "limit the threads" advice written for other Whisper
+tools does not transfer. The trade only starts below that. Both new pages say so
+rather than selling the setting.
+
+Two guides, from numbers measured on the machine rather than assembled from
+guesswork:
+
+- **[Reducing CPU use and battery drain](https://mskazemi.com/yazses/how-to/cpu-and-battery.html)**
+  — the CPU cost per model, what actually reduces it, what polls while idle, and
+  which optional features do extra work per utterance. (#248)
+- **[Choosing a model on a low-RAM machine](https://mskazemi.com/yazses/how-to/low-ram-models.html)**
+  — measured **peak resident memory**, which is roughly *twice* the download size
+  (`base.en`: 148 MB on disk, 370 MB resident) and is the number that decides
+  whether a small machine swaps. Includes how to tell whether it is swapping, and
+  what does *not* reduce memory. (#247)
+
+Both pages end with what was **not** measured — no battery was measured in
+watt-hours, and no machine that actually has 2 GB was tested.
+
 ### Fixed — dictating a sentence that began "run" executed it
 
 `run CMD` types the command **and presses Return**. Its grammar is `^run (.+)$`,

@@ -296,6 +296,8 @@ nav:
       - Personal vocabulary: how-to/personal-vocabulary.md
       - Macros & snippets: how-to/macros-and-snippets.md
       - House style: how-to/house-style.md
+      - Choosing a model on a low-RAM machine: how-to/low-ram-models.md
+      - CPU use and battery on a laptop: how-to/cpu-and-battery.md
       - Remote dictation: how-to/remote-dictation.md
       - Performance tuning: how-to/performance-tuning.md
       - Per-app tone profiles: how-to/app-profiles.md

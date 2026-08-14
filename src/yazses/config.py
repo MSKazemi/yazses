@@ -44,6 +44,12 @@ class SttConfig:
     # and helps Whisper too. OFF by default: it rewrites transcribed text, and
     # that is a thing a user should switch on knowingly.
     vocab_correction: bool = False
+    # How many CPU cores the decoder may use. 0 keeps ctranslate2's default, which
+    # is "all of them" — a 0.8 s decode measured 4.9 CPU-seconds on a 20-core
+    # laptop, because the work is spread across every core. That is the right
+    # trade on mains power and the wrong one on battery, where the cost is the
+    # core-seconds rather than the wall-clock. Nothing capped it before this.
+    cpu_threads: int = 0
     # Which Han script Chinese output is written in: "simplified" (简体, mainland)
     # | "traditional" (繁體, Taiwan/Hong Kong) | "" to leave the model's own choice
     # alone. Whisper picks a script per utterance and is not consistent about it,
