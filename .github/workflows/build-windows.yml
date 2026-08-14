@@ -23,6 +23,11 @@ jobs:
     permissions:
       id-token: write   # SignPath OIDC authentication
       contents: write   # softprops/action-gh-release attaches the .exe
+      # Build provenance: the attestation ties this binary to this workflow and
+      # commit, which matters most for an UNSIGNED artifact — it is the only
+      # verifiable link a user has (OpenSSF Signed-Releases, #116).
+      id-token: write
+      attestations: write
     # One installer per architecture. Windows on ARM is a real desktop target
     # now, and until this matrix existed the only .exe was x64 -- an ARM user
     # could run it under emulation but never got a native build.
@@ -251,6 +256,11 @@ jobs:
           path: dist/YazSes-*-windows-${{ matrix.arch }}.exe
           if-no-files-found: error
           retention-days: 14
+
+      - name: Attest build provenance for the .exe
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v2
+        with:
+          subject-path: "*.exe"
 
       - name: Attach to release (tag builds only)
         if: startsWith(github.ref, 'refs/tags/v')
