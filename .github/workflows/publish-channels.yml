@@ -140,6 +140,12 @@ jobs:
             --token $env:WINGET_TOKEN $dir
         env:
           WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          # refresh-package-manifests.py calls `gh release view`; without these
+          # it exits 1. Latent until the secret above is set, because the step
+          # is skipped entirely while it is absent — the job reports success
+          # having published nothing. The AUR job failed exactly this way.
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
 
       - name: Explain the skip
         if: env.HAVE_SECRET != 'yes'
@@ -186,6 +192,12 @@ jobs:
             --source https://push.chocolatey.org/ --api-key $env:CHOCO_API_KEY
         env:
           CHOCO_API_KEY: ${{ secrets.CHOCO_API_KEY }}
+          # refresh-package-manifests.py calls `gh release view`; without these
+          # it exits 1. Latent until the secret above is set, because the step
+          # is skipped entirely while it is absent — the job reports success
+          # having published nothing. The AUR job failed exactly this way.
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
 
       - name: Explain the skip
         if: env.HAVE_SECRET != 'yes'
@@ -247,6 +259,13 @@ jobs:
         if: env.HAVE_SECRET == 'yes'
         env:
           AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
+          # refresh-package-manifests.py shells out to `gh release view` to read
+          # the published assets. Without these it dies with "set the GH_TOKEN
+          # environment variable" — which is why the AUR push has never once
+          # succeeded, and why it read as a missing AUR credential when the
+          # credential was fine. The winget and homebrew jobs already set both.
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           # Regenerate from the release first, so a PKGBUILD nobody remembered to
