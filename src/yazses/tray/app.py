@@ -126,7 +126,6 @@ def run() -> None:
                         silent_streak=int(info.get("silent_streak") or 0),
                         target_ok=info.get("target_ok"),
                         command_mode=bool(info.get("command_mode")),
-                        input_device=str(info.get("input_device") or ""),
                     )
                 )
                 if str(info.get("state") or "") in _RECORDING_STATES:
