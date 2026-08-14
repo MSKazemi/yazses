@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `:core:postprocess` ported to Kotlin, verified against the shipping vectors
+
+The four units that turn recognised words into the text actually typed —
+`cleanText`, the three-pass disfluency filter, continuation spacing and voice
+punctuation — now exist in Kotlin, and `:core:contract-test` runs **180 cases from
+`contract/vectors`** against them. The same JSON the Python suite asserts on.
+
+That is the whole definition of done: a contributor never has to guess what the
+desktop does, and a reviewer never has to remember. The harness was checked
+red-green — breaking `cleanText` on purpose failed 7 vectors.
+
+**The vectors caught a real disagreement.** The Kotlin initially chained
+self-correction triggers (a trigger that became utterance-initial because an
+earlier one was consumed could still fire). The desktop does not do that, the
+vector said so, and the Kotlin was changed to match. That is the harness doing
+exactly the job it exists for — the contract is the Python, not the porter's
+preference.
+
+Idiomatic Kotlin rather than a transliteration, as ADR-MOB-008 §4 requires: the
+contract constrains behaviour, never structure. (#86)
+
 ### Added — the Android Gradle skeleton, with the architecture rules enforced by the build
 
 `android/` had one README. It now has every module from
