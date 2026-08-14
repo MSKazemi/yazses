@@ -91,13 +91,30 @@ def test_bsd_is_flagged_experimental(name: str, as_platform) -> None:
     assert platform.extras.get("family") == "bsd"
 
 
-def test_bsd_uses_xdg_paths_like_linux(as_platform) -> None:
+def test_bsd_uses_the_same_paths_as_linux(as_platform) -> None:
     """platformdirs already returns the XDG locations BSDs use; the Linux module
-    name is historical, nothing in it is Linux-specific."""
+    name is historical, nothing in it is Linux-specific.
+
+    Asserted as an *equality against the Linux backend* rather than by looking
+    for `.config` in the string. `platformdirs` resolves against the real host,
+    not the patched `sys.platform`, so a literal-path assertion tests the
+    machine the suite happens to run on: it read `.config` on Linux and macOS
+    and `C:\\Users\\...\\AppData\\Local` on the Windows job, which is what turned
+    `main` red. Same shape as the earlier POSIX-path assertion that broke the
+    Windows job before.
+
+    The equality is also the stronger claim. What matters is not that the string
+    contains `.config` — it is that BSD gets *the Linux paths*, which is the
+    entire reason the BSD backend reuses that module.
+    """
     as_platform("freebsd14")
-    paths = get_platform().paths
-    assert paths.config_dir.name == "yazses"
-    assert ".config" in str(paths.config_dir) or str(paths.config_dir).startswith("/")
+    bsd_paths = get_platform().paths
+
+    as_platform("linux")
+    linux_paths = get_platform().paths
+
+    assert bsd_paths == linux_paths, "BSD must reuse the Linux path layout verbatim"
+    assert bsd_paths.config_dir.name == "yazses"
 
 
 def test_bsd_autostart_refuses_instead_of_writing_a_dead_systemd_unit(tmp_path) -> None:
