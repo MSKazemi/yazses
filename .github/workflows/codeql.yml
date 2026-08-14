@@ -35,7 +35,11 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4
         with:
-          language: ${{ matrix.language }}
+          # `languages`, plural. `language:` is not an input the action has, so it
+          # was silently ignored and CodeQL auto-detected everything in the tree —
+          # which is why adding Kotlin turned every job red at once, and why the
+          # matrix was decorative before that.
+          languages: ${{ matrix.language }}
           queries: security-and-quality
           # Scopes the analysis; see the file for why android/ is excluded and
           # what bringing it in properly would take.
