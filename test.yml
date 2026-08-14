@@ -1,0 +1,12 @@
+...
+- name: Install Python
+  uses: actions/setup-python@v2
+    with:
+      python-version: '3.1.1'
+  - name: Install pip
+    uses: pypa/pip@v20.0.2
+      with:
+        python-version: '3.1.1'
+        pip-version: '21.2.4'
+  - name: Run tests
+    run: make test
