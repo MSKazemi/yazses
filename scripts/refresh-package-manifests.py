@@ -41,6 +41,9 @@ REPO = "MSKazemi/yazses"
 ROOT = Path(__file__).resolve().parent.parent
 CASK = ROOT / "packaging" / "homebrew" / "yazses.rb"
 WINGET_DIR = ROOT / "packaging" / "winget" / "manifests" / "m" / "MSKazemi" / "YazSes"
+SCOOP = ROOT / "bucket" / "yazses.json"
+PKGBUILD = ROOT / "packaging" / "arch" / "PKGBUILD"
+SRCINFO = ROOT / "packaging" / "arch" / ".SRCINFO"
 
 # Inno Setup registers itself as "<AppId>_is1"; the AppId is fixed in
 # packaging/windows/installer.iss and must not change between versions, or winget
@@ -147,6 +150,48 @@ ManifestVersion: 1.6.0
     }
 
 
+def pypi_sdist_sha256(version: str) -> str:
+    """The Arch package builds from the PyPI sdist, not from a GitHub asset.
+
+    PyPI publishes the digest in its JSON API, so this needs no download -- which
+    also means the Arch manifests can be refreshed before the binaries finish
+    uploading.
+    """
+    url = f"https://pypi.org/pypi/yazses/{version}/json"
+    with urllib.request.urlopen(url, timeout=60) as resp:  # noqa: S310 - pypi.org only
+        data = json.load(resp)
+    for f in data.get("urls", []):
+        if f.get("packagetype") == "sdist":
+            return f["digests"]["sha256"]
+    raise SystemExit(f"yazses {version} has no sdist on PyPI -- cannot refresh the AUR package")
+
+
+def render_scoop(version: str, exe: Asset, previous: str) -> str:
+    """Rewrite only version/url/hash; the notes and bin/shortcut wiring are prose."""
+    data = json.loads(previous)
+    data["version"] = version
+    arch = data["architecture"]["64bit"]
+    arch["url"] = f"{exe.url}#/setup.exe"
+    arch["hash"] = exe.sha256
+    return json.dumps(data, indent=4) + "\n"
+
+
+def render_pkgbuild(version: str, sdist_sha: str, previous: str) -> str:
+    out = re.sub(r"^pkgver=.*$", f"pkgver={version}", previous, count=1, flags=re.M)
+    out = re.sub(r"^sha256sums=\(.*\)$", f"sha256sums=('{sdist_sha}')", out, count=1, flags=re.M)
+    return out
+
+
+def render_srcinfo(version: str, sdist_sha: str, previous: str) -> str:
+    out = re.sub(r"^(\tpkgver = ).*$", rf"\g<1>{version}", previous, count=1, flags=re.M)
+    out = re.sub(
+        r"^(\tsource = ).*$",
+        rf"\g<1>https://files.pythonhosted.org/packages/source/y/yazses/yazses-{version}.tar.gz",
+        out, count=1, flags=re.M)
+    out = re.sub(r"^(\tsha256sums = ).*$", rf"\g<1>{sdist_sha}", out, count=1, flags=re.M)
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--version", required=True, help="release version, e.g. 2.17.0")
@@ -177,13 +222,28 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  {dmg.name}  {dmg.sha256}")
     print(f"  {exe.name}  {exe.sha256}")
 
+    sdist_sha = pypi_sdist_sha256(version)
+    print(f"  PyPI sdist                    {sdist_sha}")
+
     cask_text = render_cask(version, dmg, CASK.read_text(encoding="utf-8"))
     winget_files = render_winget(version, exe, release_date)
     winget_target = WINGET_DIR / version
+    # Scoop and Arch were hand-maintained and therefore drifted: at v2.18.2 both
+    # still pointed at an older release. The Scoop bucket is served straight out
+    # of this repository, so a stale manifest means `scoop update yazses` keeps
+    # installing the previous version indefinitely.
+    simple = {
+        SCOOP: render_scoop(version, exe, SCOOP.read_text(encoding="utf-8")),
+        PKGBUILD: render_pkgbuild(version, sdist_sha, PKGBUILD.read_text(encoding="utf-8")),
+        SRCINFO: render_srcinfo(version, sdist_sha, SRCINFO.read_text(encoding="utf-8")),
+    }
 
     if args.check:
         if CASK.read_text(encoding="utf-8") != cask_text:
             problems.append(f"{CASK.relative_to(ROOT)} is out of date")
+        for path, body in simple.items():
+            if path.read_text(encoding="utf-8") != body:
+                problems.append(f"{path.relative_to(ROOT)} is out of date")
         for filename, body in winget_files.items():
             path = winget_target / filename
             if not path.exists():
@@ -202,7 +262,10 @@ def main(argv: list[str] | None = None) -> int:
     winget_target.mkdir(parents=True, exist_ok=True)
     for filename, body in winget_files.items():
         (winget_target / filename).write_text(body, encoding="utf-8")
-    print(f"\nWrote {CASK.relative_to(ROOT)} and {winget_target.relative_to(ROOT)}/")
+    for path, body in simple.items():
+        path.write_text(body, encoding="utf-8")
+    written = ", ".join(str(p.relative_to(ROOT)) for p in simple)
+    print(f"\nWrote {CASK.relative_to(ROOT)}, {winget_target.relative_to(ROOT)}/, {written}")
     print(
         "The locale manifest carries prose, not checksums, so it is left alone —\n"
         "copy it from the previous version and edit the description if it changed."
