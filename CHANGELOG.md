@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Verified — the Android skeleton's architecture rules, by breaking them on purpose
+
+The `android/` skeleton was built but had never been executed — its README still
+said *"design complete, no code yet"*, because the authoring machine had no JDK. A
+container has one. `android/verify.sh` now runs the whole thing on
+`gradle:8.10-jdk21` with no local toolchain:
+
+| Rule | How it is enforced | Result |
+|---|---|---|
+| `:core:*` cannot import `android.*` | by construction — a `kotlin("jvm")` module has no `android.jar` on its classpath | **enforced**: `Unresolved reference 'android'` |
+| `:core:*` may not depend on `:feature:*` | `checkLayering`, wired into every `check` | **enforced**: `:core:vocab (implementation) -> :feature:ime` |
+
+Both are tested by **adding the violation and requiring the build to fail**, with a
+clean-tree baseline first so a check that always failed could not pass for the
+wrong reason. `gradle test` is green on the `:core:*` modules, and the module map
+resolves exactly as `docs/mobile/architecture.md` §3 specifies.
+
+Scoped honestly: only the pure-JVM half is exercised. The Android modules need the
+SDK, which CI installs and this script does not claim to cover. (#84)
+
 ### Fixed — three bugs found by actually running Meeting Mode (#48)
 
 - **`yazses meeting stop` reported "Daemon is not running" on a daemon that was
