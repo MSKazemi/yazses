@@ -37,6 +37,15 @@ from PyInstaller.utils.hooks import copy_metadata
 REPO = Path(SPECPATH).resolve().parents[1]
 ENTRY = str(REPO / "src" / "yazses" / "__main__.py")
 ICON = REPO / "assets" / "yazses.ico"
+# A hard failure, not `icon=... if ICON.exists() else None`. That fallback is why
+# every Windows release shipped with PyInstaller's default icon on the desktop
+# shortcut, the Start menu, the taskbar and Add/Remove Programs: assets/ never
+# existed, and nothing in the build, the tests or CI ever said a word.
+if not ICON.exists():
+    raise SystemExit(
+        f"Brand icon missing: {ICON}\n"
+        "Run `uv run python scripts/gen-icons.py` and commit assets/yazses.ico."
+    )
 
 block_cipher = None
 
@@ -94,7 +103,7 @@ exe = EXE(
     strip=False,
     upx=False,
     console=False,         # --windowed
-    icon=str(ICON) if ICON.exists() else None,
+    icon=str(ICON),
     version_file=None,
     disable_windowed_traceback=False,
     target_arch=None,
@@ -113,7 +122,7 @@ cli_exe = EXE(
     strip=False,
     upx=False,
     console=True,          # console subsystem: the CLI can actually print
-    icon=str(ICON) if ICON.exists() else None,
+    icon=str(ICON),
     version_file=None,
     disable_windowed_traceback=False,
     target_arch=None,

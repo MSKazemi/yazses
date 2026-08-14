@@ -65,6 +65,14 @@ OutputBaseFilename=YazSes-{#MyAppVersion}-windows-{#MyAppArch}
 SolidCompression=yes
 WizardStyle=modern
 Compression=lzma
+; The installer's own icon: the wizard window, its taskbar button, and the
+; downloaded file in Explorer. Without it a first-time user downloads an unsigned
+; .exe with a generic icon, which is the worst possible first impression.
+; Path is relative to this .iss file.
+SetupIconFile=..\..\assets\yazses.ico
+; Stays pointed at the exe rather than at a copy of the .ico: the exe now carries
+; the right icon resource, so Add/Remove Programs is correct for free and there is
+; no second path to drift.
 UninstallDisplayIcon={app}\{#MyAppExeName}
 ; We append {app} to the per-user PATH so `yazses doctor` works from a shell;
 ; this broadcasts WM_SETTINGCHANGE so open shells pick it up.
@@ -90,6 +98,10 @@ Source: "..\..\dist\YazSes\*"; DestDir: "{app}"; Flags: recursesubdirs createall
 Source: "yazses.cmd"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
+; No IconFilename: here on purpose. Every shortcut points at {#MyAppExeName},
+; which carries the brand icon as a resource (packaging/windows/yazses.spec), so
+; they all inherit it. Naming a .ico explicitly would add a fourth place the icon
+; can go stale and would need the file shipped into {app}.
 Name: "{group}\{#MyAppName}";        Filename: "{app}\{#MyAppExeName}"; Parameters: "--tray"
 ; A clickable Start-menu launcher for the settings window (#63) — the tray
 ; entry alone is not discoverable to someone who has not found the tray yet.

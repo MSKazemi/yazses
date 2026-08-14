@@ -20,6 +20,14 @@ from pathlib import Path
 REPO = Path(SPECPATH).resolve().parents[1]
 ENTRY = str(REPO / "src" / "yazses" / "__main__.py")
 ICON = REPO / "assets" / "yazses.icns"
+# A hard failure, not `icon=... if ICON.exists() else None`. assets/ never existed,
+# so that fallback silently gave every .app the generic bundle icon in Finder and
+# the Dock -- the same defect the Windows spec carried.
+if not ICON.exists():
+    raise SystemExit(
+        f"Brand icon missing: {ICON}\n"
+        "Run `uv run python scripts/gen-icons.py` and commit assets/yazses.icns."
+    )
 
 # Read the version from pyproject rather than restating it here. These two used
 # to be separate literals, and the copy in this file was never updated after
@@ -116,7 +124,7 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name="YazSes.app",
-    icon=str(ICON) if ICON.exists() else None,
+    icon=str(ICON),
     bundle_identifier="com.yazses.app",
     info_plist={
         # Identity

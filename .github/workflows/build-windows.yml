@@ -9,7 +9,10 @@ on:
       - 'src/yazses/__main__.py'
       - 'src/yazses/tray/**'
       - 'packaging/windows/**'
+      - 'assets/**'
       - 'scripts/build-windows.ps1'
+      - 'scripts/gen-icons.py'
+      - 'src/yazses/brandmark.py'
       - '.github/workflows/build-windows.yml'
       - 'pyproject.toml'
   workflow_dispatch:
@@ -177,7 +180,7 @@ jobs:
           Write-Host "::endgroup::"
 
           Write-Host "::group::Payload"
-          foreach ($f in @('YazSes.exe','yazses-cli.exe','yazses.cmd')) {
+          foreach ($f in @('YazSesApp.exe','yazses-cli.exe','yazses.cmd')) {
             if (-not (Test-Path "$app\$f")) { throw "installer did not deliver $f" }
             Write-Host "  ok  $f"
           }
@@ -237,7 +240,7 @@ jobs:
                -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART'
           if ($u.ExitCode -ne 0) { throw "uninstaller exited $($u.ExitCode)" }
 
-          if (Test-Path "$app\YazSes.exe") { throw "uninstall left the binary behind" }
+          if (Test-Path "$app\YazSesApp.exe") { throw "uninstall left the binary behind" }
           # A botched PATH removal is the one failure here that damages the
           # machine rather than just the app, so assert both halves.
           $after = (Get-ItemProperty -Path 'HKCU:\Environment' -Name Path).Path

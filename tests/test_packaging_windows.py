@@ -207,3 +207,47 @@ def test_version_lookup_never_raises_without_metadata(monkeypatch):
 
     monkeypatch.setattr(cli, "_pkg_version", _boom)
     assert cli._installed_version() == "0.0.0+unknown"
+
+
+# ---- Brand icon --------------------------------------------------------
+
+
+def test_spec_fails_loudly_when_the_brand_icon_is_missing():
+    """The silent fallback is why every release shipped a generic icon.
+
+    `icon=str(ICON) if ICON.exists() else None` meant a missing assets/yazses.ico
+    produced a perfectly successful build carrying PyInstaller's default artwork
+    on the desktop shortcut, the Start menu, the taskbar and Add/Remove Programs.
+    A build that cannot brand itself must fail, not shrug.
+    """
+    spec = _SPEC.read_text(encoding="utf-8")
+    # Comments are stripped: the fix's own rationale quotes the old expression.
+    code = "\n".join(
+        ln for ln in spec.splitlines() if not ln.lstrip().startswith("#")
+    )
+    assert "if ICON.exists() else None" not in code
+    assert "raise SystemExit" in code
+    assert "scripts/gen-icons.py" in spec
+
+
+def test_spec_points_at_an_icon_that_exists():
+    spec = _SPEC.read_text(encoding="utf-8")
+    assert 'ICON = REPO / "assets" / "yazses.ico"' in spec
+    assert (_PKG.parents[1] / "assets" / "yazses.ico").is_file()
+    assert spec.count("icon=str(ICON),") == 2  # windowed + console binaries
+
+
+def test_installer_brands_the_setup_executable():
+    """Without SetupIconFile the downloaded installer is a generic unsigned blob."""
+    iss = _ISS.read_text(encoding="utf-8")
+    assert "SetupIconFile=" in iss
+    ref = next(ln for ln in iss.splitlines() if ln.startswith("SetupIconFile="))
+    target = (_PKG / ref.split("=", 1)[1].strip().replace("\\", "/")).resolve()
+    assert target.is_file(), f"SetupIconFile points at a missing file: {target}"
+
+
+def test_build_script_preflights_the_icon():
+    """Fail in two seconds, not after a ten-minute PyInstaller run."""
+    ps1 = (_PKG.parents[1] / "scripts" / "build-windows.ps1").read_text(encoding="utf-8")
+    assert r"assets\yazses.ico" in ps1
+    assert "gen-icons.py" in ps1
