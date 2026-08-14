@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the mid-sentence half of the correction-trigger bug
+
+The utterance-initial guard fixed sentences that *open* with a trigger. It cannot
+reach one with text in front of it, and those were still being destroyed:
+
+```
+you should never mind the warning   ->  the warning
+we can forget that idea             ->  idea
+remember to delete that file        ->  file
+```
+
+A second signal closes it: a **modal or auxiliary immediately before the trigger**
+makes it part of the verb phrase — "should never mind", "can forget that",
+"to delete that". A self-correction is an interjection; it interrupts a clause and
+never continues one, so a governing verb is decisive evidence against it. Only the
+adjacent word is consulted, because a wider window would suppress genuine
+corrections in any long sentence containing a "should".
+
+The `known-gap` invariant recorded for this is **promoted to `holds`** — the
+transition the harness exists to force. Contract 6.4.0 → 6.5.0.
+([#302](https://github.com/MSKazemi/yazses/issues/302))
+
 ### Fixed — a sentence that *began* with a correction phrase lost its first half
 
 Every phrase in the default self-correction list is ordinary English in some

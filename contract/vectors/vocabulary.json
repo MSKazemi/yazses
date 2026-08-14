@@ -1,6 +1,6 @@
 {
   "unit": "stt.vocabulary",
-  "contract_version": "6.4.0",
+  "contract_version": "6.5.0",
   "source": "src/yazses/stt/vocabulary.py::merge_initial_prompt",
   "cases": [
     {

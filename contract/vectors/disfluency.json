@@ -1,6 +1,6 @@
 {
   "unit": "filters.disfluency",
-  "contract_version": "6.4.0",
+  "contract_version": "6.5.0",
   "source": "src/yazses/stt/filters/disfluency.py::filter_transcript (.text)",
   "cases": [
     {
@@ -221,6 +221,20 @@
       "options": {},
       "input": "scratch that. meet at four",
       "expected": "meet at four"
+    },
+    {
+      "id": "self-correction-governed-by-a-modal-is-prose",
+      "description": "the mid-sentence half of #302: 'you should never mind the warning' has text in front of the trigger, so 'nothing to roll back' does not apply — but 'should' makes the trigger part of the verb phrase, and a correction is an interjection that never continues the clause it interrupts",
+      "options": {},
+      "input": "you should never mind the warning",
+      "expected": "you should never mind the warning"
+    },
+    {
+      "id": "self-correction-after-an-auxiliary-is-prose",
+      "description": "same signal, different auxiliary (#302)",
+      "options": {},
+      "input": "we can forget that idea",
+      "expected": "we can forget that idea"
     },
     {
       "id": "filler-substring-not-matched",

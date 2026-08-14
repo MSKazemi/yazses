@@ -1,7 +1,7 @@
 {
   "layer": "semantic",
   "generated": false,
-  "contract_version": "6.4.0",
+  "contract_version": "6.5.0",
   "pipeline": "dictation",
   "pipeline_description": "The delivered-text chain of the DICTATE path, exactly as core/daemon.py::_on_hold_end runs it, minus injection: clean_text -> disfluency filter -> voice punctuation (only when options.voice_punctuation is true). `expected` is what a HUMAN says the user must receive; it is never read back from the implementation.",
   "semantics": {
@@ -533,7 +533,7 @@
     },
     {
       "id": "polarity-trigger-contains-its-own-negation",
-      "description": "KNOWN GAP. '\"never mind\"' is both a self-correction marker and an ordinary English phrase. The negation guard reads the word before the trigger, and here the negation is inside it, so an instruction to disregard something is still treated as a correction and its subject is discarded. Recorded rather than guessed at: a rule that separated these would have to understand the clause, and a wrong one breaks real corrections. (#233)",
+      "description": "'never mind' is both a self-correction marker and ordinary English, and the utterance-initial guard does not reach it because the sentence has text in front: 'you should never mind the warning'. Closed by a second signal \u2014 a modal or auxiliary immediately before the trigger makes it part of the verb phrase, and a correction is an interjection that never continues the clause it interrupts. (#302)",
       "options": {},
       "input": "you should never mind the warning",
       "expected": "you should never mind the warning",
@@ -541,12 +541,7 @@
         "polarity": "negative"
       },
       "must_classify_as": "dictate",
-      "status": "known-gap",
-      "gap": {
-        "actual": "the warning",
-        "cause": "The negation guard reads the word immediately before the trigger, and here the negation is inside the trigger itself. Separating 'never mind' the correction marker from 'never mind' the instruction needs the clause, not the adjacent word.",
-        "issue": "https://github.com/MSKazemi/yazses/issues/302"
-      }
+      "status": "holds"
     },
     {
       "id": "command-undo-spoken-as-prose",

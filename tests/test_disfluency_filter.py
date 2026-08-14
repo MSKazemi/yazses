@@ -450,17 +450,21 @@ def test_a_negated_trigger_is_prose_not_a_rollback(text):
     assert filter_transcript(text, DisfluencyConfig()).text == text
 
 
-def test_a_trigger_that_contains_its_own_negation_is_a_known_gap():
-    """"never mind" is both a correction marker and an ordinary English phrase.
+def test_a_trigger_governed_by_a_verb_phrase_is_prose():
+    """The mid-sentence half of #302, closed after the utterance-initial guard.
 
-    The guard reads the word *before* the trigger, and here the negation is inside
-    it, so "you should never mind the warning" is still treated as a correction.
-    Recorded rather than papered over: distinguishing the two needs more than the
-    adjacent word, and a rule guessed at here would break real corrections. Tracked
-    as a `known-gap` invariant in contract/semantic/invariants.json.
+    "You should never mind the warning" has text in front of the trigger, so
+    "nothing to roll back" does not apply — but `should` makes the trigger part of
+    the verb phrase, and a correction is an interjection that never continues the
+    clause it interrupts.
     """
-    text = "you should never mind the warning"
-    assert filter_transcript(text, DisfluencyConfig()).text == "the warning"
+    for text in (
+        "you should never mind the warning",
+        "we can forget that idea",
+        "remember to delete that file",
+        "I would scratch that idea",
+    ):
+        assert filter_transcript(text, DisfluencyConfig()).text == text
 
 
 @pytest.mark.parametrize("text,expected", [

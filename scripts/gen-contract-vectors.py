@@ -591,6 +591,16 @@ CASES: dict[str, list[dict[str, Any]]] = {
          "description": "the same words with the pause Whisper writes as punctuation really "
                         "are a correction, so the fix cannot be 'stop rolling back' (#302)",
          "input": "scratch that. meet at four"},
+        {"id": "self-correction-governed-by-a-modal-is-prose",
+         "description": "the mid-sentence half of #302: 'you should never mind the "
+                        "warning' has text in front of the trigger, so "
+                        "'nothing to roll back' does not apply — but 'should' makes the "
+                        "trigger part of the verb phrase, and a correction is an "
+                        "interjection that never continues the clause it interrupts",
+         "input": "you should never mind the warning"},
+        {"id": "self-correction-after-an-auxiliary-is-prose",
+         "description": "same signal, different auxiliary (#302)",
+         "input": "we can forget that idea"},
         {"id": "filler-substring-not-matched",
          "description": "word boundaries: 'like' inside 'likely' must survive — this returned "
                         "'that is ly correct' until a trailing \\b was added",
