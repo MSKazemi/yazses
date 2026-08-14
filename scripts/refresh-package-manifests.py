@@ -50,6 +50,13 @@ SCOOP = ROOT / "bucket" / "yazses.json"
 SCOOP_REVIEWED = ROOT / "packaging" / "scoop" / "yazses.json"
 PKGBUILD = ROOT / "packaging" / "arch" / "PKGBUILD"
 SRCINFO = ROOT / "packaging" / "arch" / ".SRCINFO"
+# Chocolatey and Flatpak were refreshed by neither this script nor CI, so both sat
+# at the previous release after every tag: the nuspec packed a nupkg filename that
+# did not exist, and Flathub advertised the wrong release notes.
+NUSPEC = ROOT / "packaging" / "chocolatey" / "yazses.nuspec"
+CHOCO_INSTALL = ROOT / "packaging" / "chocolatey" / "tools" / "chocolateyinstall.ps1"
+METAINFO = ROOT / "packaging" / "flatpak" / "com.mskazemi.YazSes.metainfo.xml"
+LOCALE_NAME = "MSKazemi.YazSes.locale.en-US.yaml"
 
 # Inno Setup registers itself as "<AppId>_is1"; the AppId is fixed in
 # packaging/windows/installer.iss and must not change between versions, or winget
@@ -156,6 +163,65 @@ ManifestVersion: 1.6.0
     }
 
 
+def render_winget_locale(version: str, previous: str) -> str:
+    """Carry the previous locale manifest forward, restamping the version fields.
+
+    The prose here is hand-written and must survive a release, which is why this
+    used to be left to a human. Leaving it out entirely was worse than editing
+    it: winget rejects any submission missing the defaultLocale manifest, so
+    every refresh produced a version directory that could not be submitted, and
+    nobody noticed until the next attempt. Copy the prose, restamp the two
+    fields that are mechanically derived from the version.
+    """
+    out = re.sub(r"(?m)^PackageVersion:.*$", f"PackageVersion: {version}", previous)
+    return re.sub(
+        r"(?m)^ReleaseNotesUrl:.*$",
+        f"ReleaseNotesUrl: https://github.com/{REPO}/releases/tag/v{version}",
+        out,
+    )
+
+
+def latest_winget_locale(version: str) -> str | None:
+    """The newest existing locale manifest to carry forward, if there is one."""
+    candidates = [
+        p / LOCALE_NAME
+        for p in sorted(WINGET_DIR.glob("*"), key=lambda d: _version_key(d.name), reverse=True)
+        if p.is_dir() and p.name != version and (p / LOCALE_NAME).exists()
+    ]
+    return candidates[0].read_text(encoding="utf-8") if candidates else None
+
+
+def _version_key(name: str) -> tuple:
+    """Sort 2.19.0 above 2.9.0 — a lexical sort gets that backwards."""
+    return tuple(int(p) if p.isdigit() else -1 for p in name.split("."))
+
+
+def render_nuspec(version: str, previous: str) -> str:
+    return re.sub(
+        r"(?s)(<version>).*?(</version>)", rf"\g<1>{version}\g<2>", previous, count=1
+    )
+
+
+def render_choco_install(version: str, exe: Asset, previous: str) -> str:
+    """Point the Chocolatey install script at this release's .exe and checksum."""
+    out = re.sub(r"(?m)^(\s*url64bit\s*=\s*).*$", rf"\g<1>'{exe.url}'", previous)
+    return re.sub(
+        r"(?m)^(\s*checksum64\s*=\s*).*$", rf"\g<1>'{exe.sha256}'", out
+    )
+
+
+def render_metainfo(version: str, release_date: str, previous: str) -> str:
+    """Add this version to the Flatpak AppStream <releases> list.
+
+    Flathub shows the newest <release> in the store listing, so a metainfo left
+    at the previous version advertises the wrong release notes to every visitor.
+    """
+    if f'version="{version}"' in previous:
+        return previous
+    entry = f'    <release version="{version}" date="{release_date}"/>\n'
+    return previous.replace("<releases>\n", f"<releases>\n{entry}", 1)
+
+
 def pypi_sdist_sha256(version: str) -> str:
     """The Arch package builds from the PyPI sdist, not from a GitHub asset.
 
@@ -244,7 +310,26 @@ def main(argv: list[str] | None = None) -> int:
         SCOOP_REVIEWED: scoop_text,
         PKGBUILD: render_pkgbuild(version, sdist_sha, PKGBUILD.read_text(encoding="utf-8")),
         SRCINFO: render_srcinfo(version, sdist_sha, SRCINFO.read_text(encoding="utf-8")),
+        NUSPEC: render_nuspec(version, NUSPEC.read_text(encoding="utf-8")),
+        CHOCO_INSTALL: render_choco_install(
+            version, exe, CHOCO_INSTALL.read_text(encoding="utf-8")
+        ),
+        METAINFO: render_metainfo(
+            version, release_date, METAINFO.read_text(encoding="utf-8")
+        ),
     }
+
+    # The defaultLocale manifest is prose, so it is carried forward rather than
+    # generated — but it must exist, or winget rejects the whole submission.
+    previous_locale = latest_winget_locale(version)
+    if previous_locale is not None:
+        winget_files[LOCALE_NAME] = render_winget_locale(version, previous_locale)
+    else:
+        print(
+            f"WARNING: no previous {LOCALE_NAME} to carry forward — winget will "
+            "reject this version directory until one is written by hand.",
+            file=sys.stderr,
+        )
 
     if args.check:
         if CASK.read_text(encoding="utf-8") != cask_text:
@@ -275,8 +360,8 @@ def main(argv: list[str] | None = None) -> int:
     written = ", ".join(str(p.relative_to(ROOT)) for p in simple)
     print(f"\nWrote {CASK.relative_to(ROOT)}, {winget_target.relative_to(ROOT)}/, {written}")
     print(
-        "The locale manifest carries prose, not checksums, so it is left alone —\n"
-        "copy it from the previous version and edit the description if it changed."
+        "The winget locale manifest was carried forward from the previous version:\n"
+        "its prose is unchanged — review it if the description should move on."
     )
     return 0
 
