@@ -263,6 +263,7 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Watch the CLI: watch-the-cli.md
   - Get started:
       - Try it without installing: try-without-installing.md
       - Platform support (OS + CPU): platform-support.md

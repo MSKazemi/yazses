@@ -6,6 +6,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the CLI demo now plays in the docs site (#23)
+
+`docs/watch-the-cli.md` embeds `docs/demo/yazses-cli.cast` in a real player. The
+cast has existed since August and was only ever *linked* — which meant reading
+the demo required installing `asciinema` first, so in practice nobody saw it.
+
+The player (asciinema-player 3.17.0, Apache-2.0) is **vendored into
+`docs/assets/asciinema/` and served from this site, not a CDN**. That is not
+incidental: a tool whose entire claim is that your voice never leaves your
+machine cannot have documentation that reports every reader's IP address to a
+third party. This site already had that bug once, with Google Fonts.
+
+The upstream issue also asks for an upload to asciinema.org. That needs an
+account, so it stays with the maintainer — and the self-hosted player is the
+better answer for this project anyway.
+
 ### Added — Obsidian, Zed and GNOME Terminal configs, and two more harness claims withdrawn
 
 `examples/config.{obsidian,zed,gnome-terminal}.toml`, each measured the same
