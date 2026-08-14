@@ -109,9 +109,21 @@ Repository = "https://github.com/MSKazemi/yazses"
 [project.scripts]
 yazses = "yazses.cli:main"
 yazses-daemon = "yazses.main:run"
+yazses-agent = "yazses.remote.agent:main"
+
+# Windowed programs. On Windows, pip builds a console launcher for
+# [project.scripts] and a pythonw launcher for [project.gui-scripts] — so
+# listing these above meant a console window appeared behind the tray, the
+# settings window and the overlay, and popped up at every login (Windows
+# autostart runs yazses-tray.exe). Identical to [project.scripts] on Linux and
+# macOS, where the two tables generate the same launcher.
+#
+# Each of these run() functions calls system.wincon.ensure_streams() first: a
+# GUI launcher has no console, so sys.stderr is None and logging.basicConfig
+# would raise on its first line.
+[project.gui-scripts]
 yazses-tray = "yazses.tray.app:run"
 yazses-settings = "yazses.settingsui.app:run"
-yazses-agent = "yazses.remote.agent:main"
 yazses-overlay = "yazses.overlay.app:run"
 
 [project.optional-dependencies]
@@ -263,6 +275,10 @@ dev = [
     "ruff>=0.14.5",
     "mypy>=1.19.1",
     "jiwer>=3.0.0",
+    # Pillow is a win32-only runtime dep (the pystray tray), but the brand-mark
+    # renderer and `scripts/gen-icons.py` need it on every platform so the icon
+    # assets can be regenerated and unit-tested on the Linux CI leg too.
+    "Pillow>=12.3.0",
 ]
 # Documentation site (MkDocs + Material). Build-only; never shipped in the wheel.
 # `uv sync --group docs` then `uv run mkdocs serve`. Deployed to GitHub Pages by

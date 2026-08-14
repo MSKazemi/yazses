@@ -42,7 +42,12 @@ _NO_DISPLAY_MSG = (
 
 
 def run() -> None:
-    """Entry point — `yazses-settings` console script / `yazses settings`."""
+    """Entry point — the `yazses-settings` GUI script / `yazses settings`."""
+    # No console on Windows for a GUI script: sys.stderr is None, which would
+    # take down both basicConfig and the print() diagnostics below.
+    from yazses.system.wincon import ensure_streams
+
+    ensure_streams()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
     if not pyside_available():

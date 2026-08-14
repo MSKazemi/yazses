@@ -85,7 +85,12 @@ def compute_frame(
 
 
 def run() -> None:  # pragma: no cover - thin Qt shell around compute_frame
-    """Console-script entry point for ``yazses-overlay``."""
+    """GUI-script entry point for ``yazses-overlay``."""
+    # No console on Windows for a GUI script, so sys.stderr is None and
+    # basicConfig would raise on its first log line.
+    from yazses.system.wincon import ensure_streams
+
+    ensure_streams()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
     try:
