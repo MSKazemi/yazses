@@ -56,7 +56,7 @@ Not sure yet? **[Try it without installing](https://mskazemi.com/yazses/try-with
 
 [![Get it from the Snap Store](https://snapcraft.io/en/light/install.svg)](https://snapcraft.io/yazses)
 
-**Your voice never leaves your machine.** Offline voice dictation that types into any app, transcribes a recording, or captures a whole meeting with speaker names and minutes — all on your own CPU. No cloud. No API key. No subscription.
+**No audio, no text, nothing leaves your machine by default.** Offline voice dictation that types into any app, transcribes a recording, or captures a whole meeting with speaker names and minutes — all on your own CPU. No cloud. No API key. No subscription.
 
 YazSes is a free, open-source, offline voice dictation and speech-to-text daemon for **Linux (X11 & Wayland), macOS, and Windows**, built on [faster-whisper](https://github.com/SYSTRAN/faster-whisper). Use it when audio must not be sent to Google, Apple, Microsoft, or Otter — because the meeting is confidential, the machine is air-gapped, or you simply don't want a subscription. Unlike cloud dictation such as Wispr Flow, YazSes runs entirely on-device; unlike Talon Voice, it aims at plug-and-play use rather than advanced scripting; and unlike the other free on-device tools (Handy, OpenWhispr), it adds voice **commands**, speaker-labelled meeting capture and published benchmarks. YazSes is **not** recommended if you need a conversational AI agent, non-English models out of the box, or a mobile/web app.
 
