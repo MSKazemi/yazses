@@ -5,19 +5,19 @@
   #   nix shell github:MSKazemi/yazses          # drop it into a shell
   #   nix profile install github:MSKazemi/yazses
   #
-  # ⚠️ STATUS: authored, NOT YET EVALUATED. Every nixpkgs attribute referenced below was
-  # verified to exist in `pkgs/top-level/python-packages.nix` on nixos-unstable
-  # (2026-08-11) — including the two that block a conda-forge recipe outright,
-  # `faster-whisper` (1.2.1, matching this project's floor) and `ctranslate2` — but no
-  # `nix build` has been run against it, because the authoring machine has no Nix and
-  # fetching a Nix binary to get one was not an acceptable trade.
+  # STATUS: evaluated. `nix flake check` passes for x86_64-linux — run it yourself
+  # without installing Nix:
   #
-  # So treat this as a reviewed draft, not a shipped package. Before anyone advertises
-  # it, run:
-  #     nix flake check
-  #     nix build .#yazses && ./result/bin/yazses --help
-  #     nix run . -- transcribe data/librispeech-sample/jfk.wav
-  # and compare the output with data/librispeech-sample/jfk.txt.
+  #     docker run --rm -v "$PWD:/host:ro" nixos/nix /host/packaging/nix/build-and-test.sh
+  #
+  # That first evaluation found two real defects, which is exactly why a manifest
+  # should not ship unevaluated: the version was pinned at 2.17.0 while the project
+  # had moved on, and `yazses-desktop` used `overrideAttrs`, which sees the
+  # derivation AFTER buildPythonApplication has consumed `dependencies` — so
+  # `old.dependencies` did not exist and evaluation failed outright.
+  #
+  # Still NOT verified: aarch64 and Darwin (the check omits incompatible systems),
+  # and installing from a real NixOS machine rather than a container.
   #
   # See packaging/README.md for why this repo distinguishes "authored" from "published"
   # so pedantically: it already shipped three manifests that looked finished and
@@ -38,7 +38,7 @@
 
         yazses = python.pkgs.buildPythonApplication rec {
           pname = "yazses";
-          version = "2.17.0";
+          version = "2.18.2";
           pyproject = true;
           src = ./.;
 
@@ -99,9 +99,14 @@
           inherit yazses;
 
           # The desktop build: adds Qt for the voice-activity overlay and the tray icon.
-          yazses-desktop = yazses.overrideAttrs (old: {
+          # overridePythonAttrs, NOT overrideAttrs: `dependencies` is an argument to
+          # buildPythonApplication, which consumes it and turns it into
+          # propagatedBuildInputs. overrideAttrs sees the derivation AFTER that, so
+          # `old.dependencies` does not exist there — the first evaluation of this
+          # flake failed with exactly that ("attribute 'dependencies' missing").
+          yazses-desktop = yazses.overridePythonAttrs (old: {
             pname = "yazses-desktop";
-            dependencies = old.dependencies ++ [ python.pkgs.pyside6 ];
+            dependencies = (old.dependencies or [ ]) ++ [ python.pkgs.pyside6 ];
           });
         };
 
