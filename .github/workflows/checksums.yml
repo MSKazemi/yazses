@@ -63,7 +63,16 @@ jobs:
         # because the tag push fires this before release.yml has created it.
         run: |
           set -euo pipefail
-          gh repo view --json name -q .name
+          # The repo is passed POSITIONALLY, not via GH_REPO. That variable only
+          # overrides commands which accept `--repo`, and `gh repo view` takes a
+          # positional `[<repository>]` instead -- so it ignored GH_REPO, fell back
+          # to reading a git remote, and died with "not a git repository" in a job
+          # that deliberately does not check out. The step added to prove the
+          # environment works was the only call in this file that could not work:
+          # every `gh release` call below does accept `--repo` and was always fine.
+          # v2.19.0 was the first tag push to reach it; the earlier green runs were
+          # all workflow_dispatch from before this step existed.
+          gh repo view "$GH_REPO" --json name -q .name
 
       - name: Wait for platform builds to attach their assets
         # release.yml creates the Release as soon as the .deb is built, but the
