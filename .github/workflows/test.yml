@@ -157,11 +157,31 @@ jobs:
           # moving 3.12 → 3.13, and it exercises the interpreter a FreeBSD user
           # actually gets rather than one we pinned. portaudio backs sounddevice,
           # which dlopen's it at import time.
+          #
+          # PyPI ships no FreeBSD wheels, so anything with a compiled extension is
+          # a source build here. Two of them are why this job could not finish, and
+          # both were measured rather than guessed:
+          #
+          #   * `cryptography` builds through maturin and needs `rust`. Without it
+          #     the job dies on `metadata-generation-failed` before a single test.
+          #     With it the build takes ~5 minutes. FreeBSD's own binary package
+          #     would be faster, but ports carries py312-cryptography 48.0.1
+          #     against our `cryptography>=50.0.0`, so pip rejects it and builds
+          #     anyway — re-check when ports catches up.
+          #   * `numpy` has no wheel either, and compiling it from the 20 MB sdist
+          #     ran for 38 minutes and hit `timeout-minutes` without finishing.
+          #     py312-numpy is 2.4.6, which satisfies our `numpy>=2.4.6` exactly,
+          #     so the binary port removes that build entirely. Same for
+          #     sounddevice (0.5.5 vs `>=0.5.5`).
+          #
+          # Install the compiled ones from pkg and let the `--system-site-packages`
+          # venv below find them, so pip never reaches for a source build.
           prepare: |
-            pkg install -y python3 portaudio
+            pkg install -y python3 portaudio rust
             PYV=$(python3 -c 'import sys; print(f"{sys.version_info[0]}{sys.version_info[1]}")')
             python3 -V
-            pkg install -y "py${PYV}-pip" "py${PYV}-sqlite3"
+            pkg install -y "py${PYV}-pip" "py${PYV}-sqlite3" \
+                           "py${PYV}-numpy" "py${PYV}-sounddevice"
           run: |
             set -e
             python3 -V
