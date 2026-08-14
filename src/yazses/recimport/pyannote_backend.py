@@ -118,7 +118,8 @@ class PyannoteDiarizer:
         # `token=`, not `use_auth_token=`. pyannote 3.x used the latter and 4.x
         # renamed it with no alias and no **kwargs, so the old spelling is a
         # TypeError rather than a silently ignored argument. A faked pipeline
-        # cannot catch that — see test_pyannote_from_pretrained_signature.
+        # cannot catch that — see
+        # test_pyannote_adapter_call_binds_against_the_real_signature.
         pipeline = Pipeline.from_pretrained(PIPELINE_ID, token=_auth_token())
         if pipeline is None:
             # from_pretrained returns None (rather than raising) when the repo is

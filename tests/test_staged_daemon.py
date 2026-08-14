@@ -60,7 +60,12 @@ def test_a_spoken_commit_falls_through_so_the_target_guard_still_applies(mocker)
 
     source = inspect.getsource(Daemon._on_hold_end)
     staged_at = source.index("_stage_or_commit")
-    guard_at = source.index("_handle_no_target")
+    # Match the CALL, not the bare name. Searching for `_handle_no_target`
+    # also matched a comment that merely mentions it — an unrelated change
+    # explaining why the command-mode branch does *not* reuse the helper made
+    # this fail, because `index()` returns the first hit anywhere in the
+    # source, comments included.
+    guard_at = source.index("self._handle_no_target(")
     assert staged_at < guard_at, "the commit must reach the guard, not skip it"
 
 

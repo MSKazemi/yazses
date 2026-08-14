@@ -1237,10 +1237,29 @@ class Daemon:
                         if stream_injector is not None:
                             stream_injector.cancel()
                         return
+                    # From here down, handlers put text on screen. The no-text-target
+                    # guard lives ~300 lines away on the dictation path, so in command
+                    # mode these ran unguarded: with nothing editable focused,
+                    # `_try_spoken_edit` would backspace into whatever window *did*
+                    # have focus, and `_try_rewrite` would type a rewritten selection
+                    # there.
+                    #
+                    # Gated individually rather than hoisting one check to the top of
+                    # this branch, because the handlers above and between are the ones
+                    # that SHOULD still work with no text target: deixis and window
+                    # focus act on a window, and Ambient Scratch captures a note to a
+                    # pad — that is most useful precisely when nothing is focused.
+                    #
+                    # `_handle_no_target` is deliberately not reused: it copies the
+                    # transcript to the clipboard, which is right for dictation and
+                    # wrong for a command. "change hello to goodbye" on the clipboard
+                    # helps nobody.
+                    can_type = self._state.target_ok is not False
+
                     # Offline Command Mode (#99): rewrite the selection locally.
                     # Whole-utterance grammar, so dictation containing "make this
                     # shorter" as prose is unaffected.
-                    if self._try_rewrite(text, event):
+                    if can_type and self._try_rewrite(text, event):
                         if stream_injector is not None:
                             stream_injector.cancel()
                         return
@@ -1255,14 +1274,23 @@ class Daemon:
                     # Spoken Edit Mode (ADR-v2-003): before discarding an unmatched
                     # command, try to read it as an open-ended edit of the last
                     # dictation ("change X to Y"). Command-key gated + off by default.
-                    if self._config.commands.spoken_edit:
+                    if can_type and self._config.commands.spoken_edit:
                         if stream_injector is not None:
                             stream_injector.cancel()
                         if self._try_spoken_edit(text, event):
                             return
-                    event["discard_reason"] = "command_unmatched"
-                    log.info("Command mode: no command matched %d-char phrase; "
-                             "ignoring (not typed).", len(text))
+                    if not can_type:
+                        # Say which of the two it was. "no command matched" would be
+                        # a lie here: the phrase may well have matched, and was
+                        # refused because applying it would have typed elsewhere.
+                        event["discard_reason"] = "command_no_text_target"
+                        log.info("Command mode: no editable target, so the %d-char "
+                                 "phrase was not applied — an edit would have typed "
+                                 "into another window.", len(text))
+                    else:
+                        event["discard_reason"] = "command_unmatched"
+                        log.info("Command mode: no command matched %d-char phrase; "
+                                 "ignoring (not typed).", len(text))
                     if stream_injector is not None:
                         stream_injector.cancel()
                     return
