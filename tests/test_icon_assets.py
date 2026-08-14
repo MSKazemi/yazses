@@ -133,9 +133,28 @@ class TestRegeneration:
             "assets/yazses.ico is stale — run `uv run python scripts/gen-icons.py`"
         )
 
+    @staticmethod
+    def _icns_sizes(blob: bytes) -> set:
+        """The representation set an .icns declares.
+
+        Not the pixels: ImageSequence yields a single (largest) frame for ICNS,
+        and macOS decodes that one through a different path than Linux, so the
+        RGBA bytes differ for an identical file. `info["sizes"]` is what the
+        container actually declares and is stable across decoders.
+        """
+        import io
+
+        from PIL import Image
+
+        with Image.open(io.BytesIO(blob)) as im:
+            return set(im.info.get("sizes", []))
+
     def test_committed_icns_matches_the_generator(self) -> None:
+        """Structure only — see _icns_sizes. Pixel-level staleness is covered by
+        the .ico test above: both are rendered from the same brandmark, so a
+        changed mark that was not regenerated fails there."""
         gen = self._generator()
-        assert self._frames(_ICNS.read_bytes()) == self._frames(gen.build_icns()), (
+        assert self._icns_sizes(_ICNS.read_bytes()) == self._icns_sizes(gen.build_icns()), (
             "assets/yazses.icns is stale — run `uv run python scripts/gen-icons.py`"
         )
 
