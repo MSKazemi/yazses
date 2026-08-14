@@ -127,11 +127,17 @@ jobs:
           if (-not (Test-Path $dir)) {
             Write-Error "no winget manifests for $env:VERSION at $dir -- run scripts/refresh-package-manifests.py first"
           }
-          winget install --id Microsoft.WingetCreate --exact --source winget `
-            --accept-package-agreements --accept-source-agreements
+          # Download the standalone exe rather than `winget install`. winget is a
+          # Store-delivered app and is not dependably present on a hosted Windows
+          # runner in a non-interactive session, so installing wingetcreate through
+          # it can fail before the submit is ever reached. Downloading the exe is
+          # the method winget-create's own README documents for pipelines.
+          Invoke-WebRequest https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
           # `submit` opens the PR against winget-pkgs from manifests we already
           # generate and validate in-repo, rather than re-deriving them here.
-          wingetcreate submit --token $env:WINGET_TOKEN $dir
+          .\wingetcreate.exe submit `
+            --prtitle "YazSes $env:VERSION" `
+            --token $env:WINGET_TOKEN $dir
         env:
           WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
 
