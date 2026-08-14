@@ -29,7 +29,7 @@ asserted.
 
 | App | Result |
 |---|---|
-| kitty, Alacritty, Konsole, tmux, Neovim, Emacs, xterm | **EXACT** — byte for byte |
+| kitty, Alacritty, Konsole, tmux, Neovim, Emacs, xterm, Sublime Text | **EXACT** — byte for byte |
 | LibreOffice Writer | **PARTIAL** — see below |
 
 LibreOffice Writer turned `kubectl get pods --namespace prod` into
@@ -52,12 +52,21 @@ bash /work/probe.sh emacs "" "ctrl+x ctrl+s ctrl+x ctrl+c" \
     xterm -e "emacs -nw /work/out.txt"
 ```
 
-## Known limits
+## Known limits — where the boundary actually is
 
-- **Electron and heavy GUI apps** (VS Code, Firefox, Thunderbird, GNOME Terminal)
-  did not come up usefully in this container — no window, or no response to XTEST.
-  They need a fuller session than a bare Xvfb, and are still best tested on a real
-  desktop. Adding one is a genuinely useful contribution.
+Tested, so you do not have to rediscover it:
+
+| Toolkit | Result |
+|---|---|
+| X11/GTK/Qt native — terminals, Vim, Emacs, Sublime | works, byte for byte |
+| **Electron** — VS Code | window opens with the right title, and **no keystroke ever lands**. Not a timing problem: a 90-second wait and a click into the editor produced an empty buffer and an empty clipboard. |
+| **Gecko** — Firefox, Thunderbird | no window at all in a bare Xvfb |
+| **GTK with a session bus** — GNOME Terminal | no window, even with `dbus-launch` and `gnome-terminal-server` started by hand |
+| **Java/Swing** — JetBrains | starts, but stops at a licence agreement. Clicking through a EULA automatically is not something this script should do. |
+
+So the probe covers native toolkits. Electron, Gecko and anything needing a real
+desktop session are still best tested by a human on a real desktop — and making
+the probe handle them would itself be a useful contribution.
 - **The first few characters can be lost** in a GUI app if typing starts before a
   text field has the caret. Use a sentinel prefix to tell that apart from the app
   mangling your input — that is how the LibreOffice result above was confirmed to
