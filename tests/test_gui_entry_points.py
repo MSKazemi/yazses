@@ -69,30 +69,25 @@ def test_gui_entry_point_survives_having_no_console(module, _script, monkeypatch
     for name in ("stdout", "stderr", "stdin"):
         monkeypatch.setattr(sys, name, None)
 
-    # Stop right after the part under test. basicConfig is replaced with a real
-    # StreamHandler build so the None-stderr crash would still fire if
-    # ensure_streams() were removed — a no-op stub would make this test pass
-    # against the very bug it guards.
+    # Replace basicConfig with something that does the one thing that actually
+    # crashes on a detached stream — build a StreamHandler and emit through it —
+    # and then stop. A no-op stub would make this test pass against the very bug
+    # it guards; running on past it would reach Qt, which is installed on some
+    # CI legs and must never open a window here.
     class _Stop(Exception):
         pass
 
-    def _boom(*_a, **_k):
+    def _probe(**_kw):
+        logging.StreamHandler().emit(
+            logging.LogRecord("t", logging.INFO, __file__, 0, "probe", None, None)
+        )
         raise _Stop
 
-    monkeypatch.setattr(
-        logging, "basicConfig",
-        lambda **kw: logging.StreamHandler().emit(
-            logging.LogRecord("t", logging.INFO, __file__, 0, "probe", None, None)
-        ),
-    )
-    monkeypatch.setattr(mod, "get_platform", _boom, raising=False)
-    monkeypatch.setattr(mod, "pyside_available", _boom, raising=False)
+    monkeypatch.setattr(logging, "basicConfig", _probe)
 
-    # _Stop  = reached the body past stream setup.
-    # SystemExit = a clean "no backend / no display / no PySide6" exit, which
-    #              also means logging worked. Either is a pass; an
-    #              AttributeError on a None stream is not.
-    with pytest.raises((_Stop, SystemExit)):
+    # Reaching _Stop means ensure_streams() ran and logging survived it, which
+    # is the whole assertion. An AttributeError on a None stream would not.
+    with pytest.raises(_Stop):
         mod.run()
 
     # The streams must have been repaired rather than left as None.

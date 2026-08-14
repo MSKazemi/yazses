@@ -108,17 +108,47 @@ class TestRegeneration:
         spec.loader.exec_module(module)
         return module
 
+    # Compared as images, never as bytes. PNG output is not reproducible across
+    # platforms — zlib version and Pillow build change the compressed stream for
+    # pixel-identical input — so a byte assertion here passes only on the machine
+    # that produced the committed file and fails on every other CI leg. It did:
+    # the Windows and macOS legs went red on assets that were perfectly correct.
+    # Decoding first keeps what the test is actually for (the mark changed and
+    # nobody regenerated) and drops the part that only measured the encoder.
+    @staticmethod
+    def _frames(blob: bytes) -> dict:
+        import io
+
+        from PIL import Image, ImageSequence
+
+        out = {}
+        with Image.open(io.BytesIO(blob)) as im:
+            for frame in ImageSequence.Iterator(im):
+                out[frame.size] = frame.convert("RGBA").tobytes()
+        return out
+
     def test_committed_ico_matches_the_generator(self) -> None:
         gen = self._generator()
-        assert _ICO.read_bytes() == gen.build_ico(), (
+        assert self._frames(_ICO.read_bytes()) == self._frames(gen.build_ico()), (
             "assets/yazses.ico is stale — run `uv run python scripts/gen-icons.py`"
         )
 
     def test_committed_icns_matches_the_generator(self) -> None:
         gen = self._generator()
-        assert _ICNS.read_bytes() == gen.build_icns(), (
+        assert self._frames(_ICNS.read_bytes()) == self._frames(gen.build_icns()), (
             "assets/yazses.icns is stale — run `uv run python scripts/gen-icons.py`"
         )
+
+    def test_the_regeneration_check_still_detects_a_changed_mark(self) -> None:
+        """Guards the guard: comparing decoded pixels must still fail when the
+        artwork actually differs, or the relaxation above would be a no-op."""
+        import io
+
+        from PIL import Image
+
+        different = io.BytesIO()
+        Image.new("RGBA", (256, 256), (1, 2, 3, 255)).save(different, format="PNG")
+        assert self._frames(_ICO.read_bytes()) != self._frames(different.getvalue())
 
     def test_ico_frames_are_natively_rendered_not_downscaled(self) -> None:
         """A downscaled 16 px frame smears the wave bars; a native one omits them."""
