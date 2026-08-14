@@ -6,6 +6,36 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Obsidian, Zed and GNOME Terminal configs, and two more harness claims withdrawn
+
+`examples/config.{obsidian,zed,gnome-terminal}.toml`, each measured the same
+way: inject into a live window, read back what arrived. All three are byte for
+byte exact. (#188, #219, #222)
+
+Every one of them had been recorded as impossible, and every one was a property
+of the container rather than of the application:
+
+- **GNOME Terminal** was *"no window, even with `dbus-launch`"*. The session bus
+  was never the problem — `gnome-terminal-server` refuses to start under a
+  non-UTF-8 locale, and a container defaults to `ANSI_X3.4-1968`. The base image
+  now sets `LANG=C.UTF-8`.
+- **Zed** exits with *"Failed to create surface"* without a Vulkan device, and
+  then stacks an "Unsupported GPU" notice on a "Trust this project?" prompt —
+  which **Escape cannot answer**, only Return. Hence `PROBE_PRE_KEYS`.
+- **Obsidian** opens on its vault picker, so there is genuinely nothing to type
+  into until a vault exists.
+
+Zed's saved file carries a trailing newline that the dictation did not contain.
+That is its ensure-final-newline-on-save, not mangling — checked with `od`,
+because a naive read-back reports it as a mismatch and it is not one.
+
+`probe.sh` gains `PROBE_WAIT` (the 7-second default is far too short for a
+D-Bus-activated app, and a slow start is indistinguishable from a dead one in
+the output). The known-limits table now separates apps that need an account
+(Slack, Discord — only the login field is reachable, and a config asserting the
+untested composer would be worse than none) from apps that are merely not
+packaged for apt (Logseq).
+
 ### Added — VS Code, Firefox and Thunderbird configs, and a wrong result withdrawn
 
 `examples/config.{vscode,firefox,thunderbird}.toml`, each written from a

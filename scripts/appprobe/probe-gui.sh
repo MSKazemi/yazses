@@ -70,7 +70,11 @@ fi
 xdotool windowactivate --sync "$WIN" 2>/dev/null; sleep 3
 
 # Dismiss whatever first-run dialog is in front. Harmless if there is none.
-xdotool key Escape; sleep 1; xdotool key Escape; sleep 1
+#
+# PROBE_PRE_KEYS is for the ones Escape cannot answer: Zed stacks an
+# "Unsupported GPU" notice on top of a "Trust this project?" prompt, and the
+# second needs Return, not Escape. Set it to a space-separated xdotool key list.
+for k in ${PROBE_PRE_KEYS:-Escape Escape}; do xdotool key "$k"; sleep 1; done
 
 eval "$(xdotool getwindowgeometry --shell "$WIN")"
 xdotool mousemove $((X + WIDTH * CLICK_PCT / 100)) $((Y + HEIGHT / 2)) click 1

@@ -30,7 +30,8 @@ asserted.
 | App | Result |
 |---|---|
 | kitty, Alacritty, Konsole, tmux, Neovim, Emacs, xterm, Sublime Text | **EXACT** — byte for byte |
-| VS Code, Firefox, Thunderbird | **EXACT** — byte for byte (`probe-gui.sh`) |
+| GNOME Terminal | **EXACT** — byte for byte (needs a session bus, see below) |
+| VS Code, Firefox, Thunderbird, Obsidian, Zed | **EXACT** — byte for byte (`probe-gui.sh`) |
 | LibreOffice Writer | **PARTIAL** — see below |
 
 LibreOffice Writer turned `kubectl get pods --namespace prod` into
@@ -82,6 +83,22 @@ RESULT|thunderbird|EXACT|kubectl get pods --namespace prod
 RESULT|vscode|EXACT|kubectl get pods --namespace prod
 ```
 
+Obsidian needs a vault to exist, or it opens on its vault picker and there is
+nothing to type into; Zed stacks two modals that Escape cannot answer, so its
+`PROBE_PRE_KEYS` starts with Return:
+
+```bash
+docker run --rm --shm-size=2g $P yazses-appprobe-gui bash -c '
+    mkdir -p /tmp/vault /root/.config/obsidian
+    echo "{\"vaults\":{\"0123456789abcdef\":{\"path\":\"/tmp/vault\",\"ts\":1700000000000,\"open\":true}}}" \
+        > /root/.config/obsidian/obsidian.json
+    bash /work/probe-gui.sh obsidian 45 60 obsidian --no-sandbox --disable-gpu'
+
+docker run --rm --shm-size=2g -e PROBE_PRE_KEYS="Return Escape" $P yazses-appprobe-gui bash -c '
+    mkdir -p /tmp/proj; : > /tmp/proj/a.txt
+    bash /work/probe-gui.sh zed 55 50 /opt/zed.app/bin/zed /tmp/proj/a.txt'
+```
+
 Seed the VS Code scratch file with `:`, not `echo` — `echo` writes a newline, and
 `ctrl+a` then selects it, so a perfectly good run reports `PARTIAL`.
 
@@ -104,6 +121,23 @@ conclusion that was published in this file**:
 The general lesson, which is worth more than the table: **a negative result from
 a harness is a claim about the harness until you have looked at the screen.**
 
+## GNOME Terminal
+
+It is a thin client for `gnome-terminal-server`, which needs a session D-Bus
+**and refuses to start under a non-UTF-8 locale** — the base image now sets
+`LANG=C.UTF-8` for exactly that reason. Give it the bus as part of the launch
+command, not as a wrapper around the probe:
+
+```bash
+docker run --rm -e PROBE_WAIT=25 -v "$PWD/scripts/appprobe:/work" yazses-appprobe \
+    bash /work/probe.sh gnome-terminal "" "ctrl+d" \
+    dbus-run-session -- gnome-terminal --wait -- bash -c 'cat > /work/out.txt'
+```
+
+`PROBE_WAIT` exists because the D-Bus activation puts this well past the
+7-second default, and a slow start is indistinguishable from a dead one in the
+output.
+
 ## Known limits — where the boundary actually is
 
 | Toolkit | Result |
@@ -111,9 +145,10 @@ a harness is a claim about the harness until you have looked at the screen.**
 | X11/GTK/Qt native — terminals, Vim, Emacs, Sublime | works, byte for byte |
 | Electron — VS Code | works, byte for byte, once the first-run modal is dismissed |
 | Gecko — Firefox, Thunderbird | works, byte for byte, with the Mozilla build |
-| **GTK with a session bus** — GNOME Terminal | no window, even with `dbus-launch` and `gnome-terminal-server` started by hand |
+| GTK with a session bus — GNOME Terminal | works, byte for byte, under `dbus-run-session` in a UTF-8 locale |
 | **Java/Swing** — JetBrains | starts, but stops at a licence agreement. Clicking through a EULA automatically is not something this script should do. |
-| **AppImage/`.deb`-only apps** — Obsidian, Logseq, Zed, Slack, Discord | not in any apt repository, so the image cannot install them unattended. Adding one to `Dockerfile.gui` is a good contribution. |
+| **Apps behind a login** — Slack, Discord | the message composer is the interesting part and it is behind an account. Only the login field is reachable, and a config asserting the untested half would be worse than no config. |
+| **AppImage-only apps** — Logseq | not in any apt repository. Adding one to `Dockerfile.gui` is a good contribution. |
 
 Two remaining traps:
 

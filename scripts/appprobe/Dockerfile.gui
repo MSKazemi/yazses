@@ -37,4 +37,23 @@ RUN wget -qO- https://packages.microsoft.com/keys/microsoft.asc \
     && apt-get update && apt-get install -y --no-install-recommends code \
     && rm -rf /var/lib/apt/lists/*
 
+# Obsidian, as the "Electron app that is not an editor" case.
+ARG OBSIDIAN_VERSION=1.13.7
+RUN wget -qO /tmp/obs.deb \
+      "https://github.com/obsidianmd/obsidian-releases/releases/download/v${OBSIDIAN_VERSION}/obsidian_${OBSIDIAN_VERSION}_amd64.deb" \
+    && apt-get update && apt-get install -y --no-install-recommends /tmp/obs.deb \
+    && rm /tmp/obs.deb && rm -rf /var/lib/apt/lists/*
+
+# Zed, as the GPU-accelerated case. It needs a Vulkan device, so a software one
+# (mesa's lavapipe) has to be present or it exits with "Failed to create
+# surface" before drawing anything.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      mesa-vulkan-drivers libgl1-mesa-dri libglx-mesa0 \
+    && rm -rf /var/lib/apt/lists/*
+RUN wget -qO /tmp/zed.tar.gz "https://zed.dev/api/releases/stable/latest/zed-linux-x86_64.tar.gz" \
+    && tar xf /tmp/zed.tar.gz -C /opt && rm /tmp/zed.tar.gz
+# Zed refuses to run as root, and refuses a software GPU, unless told otherwise.
+# Both are correct defaults for a desktop and wrong for a probe container.
+ENV ZED_ALLOW_ROOT=true ZED_ALLOW_EMULATED_GPU=1
+
 WORKDIR /work
