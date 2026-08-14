@@ -1,8 +1,8 @@
 # Incident and spam response
 
 For the failure modes a contributor drive brings that ordinary maintenance does not.
-[`SECURITY.md`](../SECURITY.md) covers vulnerabilities and
-[`CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md) covers behaviour; this covers the rest.
+[`SECURITY.md`](../.github/SECURITY.md) covers vulnerabilities and
+[`CODE_OF_CONDUCT.md`](../.github/CODE_OF_CONDUCT.md) covers behaviour; this covers the rest.
 
 **The governing bias: act on the contribution, not the person.** Almost every "bad" first
 pull request is a misunderstanding, a language barrier, or a badly written task — ours, not
@@ -76,7 +76,7 @@ Never quote the leaked value in a public comment while asking them to remove it.
 
 ## Harassment
 
-Follow [`CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md). Two additions that matter during a
+Follow [`CODE_OF_CONDUCT.md`](../.github/CODE_OF_CONDUCT.md). Two additions that matter during a
 campaign: the target decides how public the response is, never the maintainer's
 convenience; and a reviewer receiving abuse is removed from that thread immediately and
 without having to ask.

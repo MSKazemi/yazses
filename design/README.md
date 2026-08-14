@@ -74,4 +74,4 @@ If you want to add a reference, put it in
   — fifteen entries in the corpus would have been wrong if written from memory, so this
   is not ceremony.
 
-Start with [`CONTRIBUTING.md`](../CONTRIBUTING.md) for the code side.
+Start with [`CONTRIBUTING.md`](../.github/CONTRIBUTING.md) for the code side.

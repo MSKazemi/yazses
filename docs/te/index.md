@@ -1,25 +1,20 @@
-**Read this in other languages:** [English](README.md) · [Deutsch](README.de.md) · [Nederlands](README.nl.md) · [Tiếng Việt](README.vi.md) · [Türkçe](README.tr.md) · [bahasa Indonesia](README.id.md) · [español](README.es.md) · [français](README.fr.md) · [italiano](README.it.md) · [polski](README.pl.md) · [português do Brasil](README.pt-BR.md) · [svenska](README.sv.md) · [čeština](README.cs.md) · [ελληνικά](README.el.md) · [Русский](README.ru.md) · [українська](README.uk.md) · [עברית](README.he.md) · [اردو](README.ur.md) · [العربية](README.ar.md) · [فارسی](README.fa.md) · [हिंदी](README.hi.md) · [বাংলা](README.bn.md) · [தமிழ்](README.ta.md) · తెలుగు · [ไทย](README.th.md) · [日本語](README.ja.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [한국어](README.ko.md)
-<!-- yazses-l10n: locale=te; source=README.md; source_sha=346ba97; scope=partial; status=draft -->
+---
+title: "YazSes — తెలుగు"
+description: "YazSes అనేది Linux, macOS మరియు Windows కోసం ఉచిత, ఓపెన్ సోర్స్, ఆఫ్‌లైన్ వాయిస్ డిక్టేషన్ సేవ. ఒక కీని నొక్కి పట్టుకుని మాట్లాడి వదిలేయండి — మీరు టైప్ చేస్తున్న చోటే వచనం కనిపిస్తుంది. అంతా మీ కంప్యూటర్‌లోనే జరుగుతుంది: క్లౌడ్ లేదు, ఖాతా లేదు, చందా లేదు."
+alternates:
+  en: index.md
+---
+
+**Read this in other languages:** [English](../index.md) · [Deutsch](../de/index.md) · [Nederlands](../nl/index.md) · [Tiếng Việt](../vi/index.md) · [Türkçe](../tr/index.md) · [bahasa Indonesia](../id/index.md) · [español](../es/index.md) · [français](../fr/index.md) · [italiano](../it/index.md) · [polski](../pl/index.md) · [português do Brasil](../pt-BR/index.md) · [svenska](../sv/index.md) · [čeština](../cs/index.md) · [ελληνικά](../el/index.md) · [Русский](../ru/index.md) · [українська](../uk/index.md) · [עברית](../he/index.md) · [اردو](../ur/index.md) · [العربية](../ar/index.md) · [فارسی](../fa/index.md) · [हिंदी](../hi/index.md) · [বাংলা](../bn/index.md) · [தமிழ்](../ta/index.md) · తెలుగు · [ไทย](../th/index.md) · [日本語](../ja/index.md) · [简体中文](../zh-CN/index.md) · [繁體中文](../zh-TW/index.md) · [한국어](../ko/index.md)
+<!-- yazses-l10n: locale=te; source=README.md; source_sha=3baacb8; scope=partial; status=draft -->
 
 > ⚠️ **ముసాయిదా అనువాదం** — యంత్ర సహాయంతో చేసినది; ఇంకా మాతృభాషీయుల సమీక్షకు నోచుకోలేదు.
 >
 > *This is a machine-assisted **draft** translation, not yet reviewed by a native
-> speaker. English is authoritative: [README.md](README.md). Improving it is a
+> speaker. English is authoritative: [README.md](https://github.com/MSKazemi/yazses#readme). Improving it is a
 > welcome first contribution — see [issue #230](https://github.com/MSKazemi/yazses/issues/230).*
 
 # YazSes
-
-[![Tests](https://github.com/MSKazemi/yazses/actions/workflows/test.yml/badge.svg)](https://github.com/MSKazemi/yazses/actions/workflows/test.yml)
-[![Snap Status](https://snapcraft.io/yazses/badge.svg)](https://snapcraft.io/yazses)
-[![PyPI](https://img.shields.io/pypi/v/yazses)](https://pypi.org/project/yazses/)
-[![PyPI Downloads](https://static.pepy.tech/personalized-badge/yazses?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/yazses)
-[![PyPI Downloads](https://img.shields.io/pypi/dm/yazses)](https://pypi.org/project/yazses/)
-[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21856271.svg)](https://doi.org/10.5281/zenodo.21856271)
-[![Documentation](https://img.shields.io/badge/docs-mskazemi.com%2Fyazses-5e35b1)](https://mskazemi.com/yazses/)
-[![Open Source Helpers](https://www.codetriage.com/mskazemi/yazses/badges/users.svg)](https://www.codetriage.com/mskazemi/yazses)
-[![All Contributors](https://img.shields.io/badge/all_contributors-14-orange.svg?style=flat-square)](#contributors)
-[![Get it from the Snap Store](https://snapcraft.io/en/light/install.svg)](https://snapcraft.io/yazses)
 
 YazSes అనేది Linux, macOS మరియు Windows కోసం ఉచిత, ఓపెన్ సోర్స్, ఆఫ్‌లైన్ వాయిస్ డిక్టేషన్ సేవ. ఒక కీని నొక్కి పట్టుకుని మాట్లాడి వదిలేయండి — మీరు టైప్ చేస్తున్న చోటే వచనం కనిపిస్తుంది. అంతా మీ కంప్యూటర్‌లోనే జరుగుతుంది: క్లౌడ్ లేదు, ఖాతా లేదు, చందా లేదు.
 
@@ -53,7 +48,7 @@ yazses start
 మిగిలిన పత్రాలు ప్రస్తుతానికి ఇంగ్లీషులో ఉన్నాయి.
 
 - [పత్రాలు](https://mskazemi.com/yazses/)
-- [పూర్తి ఇంగ్లీష్ README](README.md)
+- [పూర్తి ఇంగ్లీష్ README](https://github.com/MSKazemi/yazses#readme)
 - [సమస్యలు మరియు ప్రశ్నలు](https://github.com/MSKazemi/yazses/issues)
 
 ---
@@ -80,8 +75,6 @@ yazses start
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/YossiMH"><img src="https://avatars.githubusercontent.com/u/21257793?v=4?s=100" width="100px;" alt="YossiMH"/><br /><sub><b>YossiMH</b></sub></a><br /><a href="#ideas-YossiMH" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/MSKazemi/yazses/issues?q=author%3AYossiMH" title="Bug reports">🐛</a> <a href="#research-YossiMH" title="Research">🔬</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Prithvi4904"><img src="https://avatars.githubusercontent.com/u/216231806?v=4?s=100" width="100px;" alt="Prithvi4904"/><br /><sub><b>Prithvi4904</b></sub></a><br /><a href="#translation-Prithvi4904" title="Translation">🌍</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/4nmus"><img src="https://avatars.githubusercontent.com/u/145120721?v=4?s=100" width="100px;" alt="4nmus"/><br /><sub><b>4nmus</b></sub></a><br /><a href="#translation-4nmus" title="Translation">🌍</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Mr-Neutr0n"><img src="https://avatars.githubusercontent.com/u/64578610?v=4?s=100" width="100px;" alt="hari"/><br /><sub><b>hari</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=Mr-Neutr0n" title="Documentation">📖</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/mercael91"><img src="https://avatars.githubusercontent.com/u/257655913?v=4?s=100" width="100px;" alt="mercael"/><br /><sub><b>mercael</b></sub></a><br /><a href="#infra-mercael91" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
     </tr>
   </tbody>
 </table>

@@ -6,7 +6,7 @@ branch — that is where every contribution goes. (An early-stage Rust prototype
 it.)
 
 **Want a concrete task rather than an issue to interpret?**
-[`campaign/generated/open-tasks.md`](campaign/generated/open-tasks.md) lists 130 open tasks
+[`campaign/generated/open-tasks.md`](../campaign/generated/open-tasks.md) lists 130 open tasks
 — each with the exact files it may touch, the command that decides it is done, and an
 honest time estimate. Run `uv run python scripts/check-task.py <ID>` before you push and it
 tells you what CI will say.
@@ -19,7 +19,7 @@ a small imperfect PR and polish it afterwards than leave you waiting.
 ## Getting started
 
 **Want to skip setup entirely?** The repo ships a
-[Dev Container](.devcontainer/devcontainer.json), so
+[Dev Container](../.devcontainer/devcontainer.json), so
 [opening it in GitHub Codespaces](https://codespaces.new/MSKazemi/yazses) gives you a
 working environment in the browser with `uv sync` already done — no compiler, no Python,
 no clone. Docs, config examples, tests, and pure-logic changes are fully doable there.
@@ -80,7 +80,7 @@ Feature direction is driven in the open:
 - 💡 **[Ideas discussions](https://github.com/MSKazemi/yazses/discussions/categories/ideas)** —
   suggest a feature and **upvote (👍) the ones you want**. The most-upvoted ideas rise to the
   top and are what we build next. Start with the *frustration*, not the solution.
-- 🗺️ **[ROADMAP.md](ROADMAP.md)** — what's shipped, in progress, and planned.
+- 🗺️ **[ROADMAP.md](../ROADMAP.md)** — what's shipped, in progress, and planned.
 - 🙏 **[Q&A discussions](https://github.com/MSKazemi/yazses/discussions/categories/q-a)** —
   setup help and "how do I…" questions (run `yazses doctor` first and paste the output).
 
@@ -93,7 +93,7 @@ feature *ideas* belong in Discussions where everyone can vote.
 ## Who decides what
 
 Reviewing someone else's PR — including as your own next step after a first merge — is
-[`REVIEWING.md`](REVIEWING.md). It describes the lanes, what a machine may never decide,
+[`REVIEWING.md`](../REVIEWING.md). It describes the lanes, what a machine may never decide,
 and a path into reviewing that does not start with repository permissions.
 
 [`GOVERNANCE.md`](GOVERNANCE.md) is the short version: what you can merge yourself,
@@ -160,13 +160,13 @@ its own decision records and its own contribution ladder. As of 2026-08-07 there
 Android code yet** — the design was written first, on purpose, so that many people can build
 it at once. That means the ground floor is open.
 
-- **Start here:** [`docs/mobile/index.md`](docs/mobile/index.md) — what we are building, why
+- **Start here:** [`docs/mobile/index.md`](../docs/mobile/index.md) — what we are building, why
   Android before iOS, and the M0–M4 milestones.
-- **Before your first PR:** [`docs/mobile/architecture.md`](docs/mobile/architecture.md)
+- **Before your first PR:** [`docs/mobile/architecture.md`](../docs/mobile/architecture.md)
   (module map, pipeline, testing) and
-  [`docs/mobile/contributing.md`](docs/mobile/contributing.md) (roles, claiming, review bar).
+  [`docs/mobile/contributing.md`](../docs/mobile/contributing.md) (roles, claiming, review bar).
 - **Why things are the way they are:**
-  [the ten mobile ADRs](docs/mobile/adr/README.md) — each one ends with a *Rejected* section
+  [the ten mobile ADRs](../docs/mobile/adr/README.md) — each one ends with a *Rejected* section
   that tells you which arguments have already been had.
 - **Find work:** issues labelled [`android`](https://github.com/MSKazemi/yazses/labels/android),
   coordinated by [the Android epic, #81](https://github.com/MSKazemi/yazses/issues/81).
@@ -178,7 +178,7 @@ Two things worth knowing before you decide it is not for you:
 
 **You do not need an Android phone, or Kotlin, to help.** The first milestone (M0) is
 *Python* work in this repository: building the golden test vectors that define shared
-behaviour for every platform (see [`docs/mobile/contract.md`](docs/mobile/contract.md)). And
+behaviour for every platform (see [`docs/mobile/contract.md`](../docs/mobile/contract.md)). And
 the Kotlin `:core:*` modules are plain JVM modules — `./gradlew :core:postprocess:test`
 needs no emulator, no microphone and no model.
 
@@ -207,7 +207,7 @@ whether a native speaker has reviewed it:
 <!-- yazses-l10n: locale=ru; source=README.md; source_sha=96711bc; scope=full; status=active -->
 ```
 
-[`docs/localization/STATUS.md`](docs/localization/STATUS.md) explains each field, lists every
+[`docs/localization/STATUS.md`](../docs/localization/STATUS.md) explains each field, lists every
 translation, and shows how to find what changed in English since your `source_sha`. Before
 opening a PR, run:
 
@@ -229,7 +229,7 @@ people actually look at. A test enforces that, so copy that block across verbati
 
 That is fine, and increasingly common — but the PR is yours, so please read and understand
 every line before you open it, and confirm the tests pass locally rather than assuming.
-[`AGENTS.md`](AGENTS.md) gives your assistant the project conventions, the gates, and the two
+[`AGENTS.md`](../AGENTS.md) gives your assistant the project conventions, the gates, and the two
 rules it is most likely to break (**no network calls or telemetry**, and **new features ship
 off by default**). Mention in the PR body if a change was largely AI-generated; it only
 changes how carefully we review, never whether we accept it.
@@ -237,7 +237,7 @@ changes how carefully we review, never whether we accept it.
 ## After it is merged — please take the credit publicly
 
 Two things happen without you asking: you are added to
-[CONTRIBUTORS.md](CONTRIBUTORS.md), and to the contributor wall in `README.md` **and in every
+[CONTRIBUTORS.md](../CONTRIBUTORS.md), and to the contributor wall in `README.md` **and in every
 translation of it**. Both are permanent and both carry your name and your avatar.
 
 **Sharing your merged pull request is worth more to you than it is to us, and that is the

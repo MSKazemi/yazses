@@ -4,10 +4,10 @@
 
 Start here:
 
-- [Install on Linux](docs/install-linux.md)
-- [Install on macOS](docs/macos-install.md)
-- [Install on Windows](docs/windows-install.md)
-- [CLI reference](docs/cli-reference.md)
+- [Install on Linux](../docs/install-linux.md)
+- [Install on macOS](../docs/macos-install.md)
+- [Install on Windows](../docs/windows-install.md)
+- [CLI reference](../docs/cli-reference.md)
 
 ## Diagnostics
 
@@ -32,4 +32,4 @@ Open an issue at https://github.com/MSKazemi/yazses/issues and include:
 
 ## Security issues
 
-Do **not** open a public issue for security vulnerabilities. See [SECURITY.md](.github/SECURITY.md).
+Do **not** open a public issue for security vulnerabilities. See [SECURITY.md](SECURITY.md).

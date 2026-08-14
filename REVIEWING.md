@@ -1,8 +1,8 @@
 # Reviewing YazSes contributions
 
 For people reviewing someone else's pull request. If you are sending one, you want
-[`CONTRIBUTING.md`](CONTRIBUTING.md); if you want to know who decides what,
-[`GOVERNANCE.md`](GOVERNANCE.md).
+[`CONTRIBUTING.md`](.github/CONTRIBUTING.md); if you want to know who decides what,
+[`GOVERNANCE.md`](.github/GOVERNANCE.md).
 
 **Honest state:** there is currently one maintainer. This file exists so that reviewing
 does not require being that person — it is written to be handed to someone on their first
@@ -86,7 +86,7 @@ There is a real path and it does not start with permissions:
    checks it before it posts. No access needed.
 2. **Reviewer** — approve L0/L1 in one lane.
 3. **Captain** — calibrate other reviewers, take disputed calls, approve bounded L2.
-4. **Module steward** — [`GOVERNANCE.md`](GOVERNANCE.md) already defines this: two
+4. **Module steward** — [`GOVERNANCE.md`](.github/GOVERNANCE.md) already defines this: two
    non-trivial PRs to a module and it is yours to review.
 
 Write access is not required for steps 1–2 and is not the reward; a maintainer merges what

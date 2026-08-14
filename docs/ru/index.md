@@ -1,7 +1,14 @@
-**Read this in other languages:** [English](README.md) · [Deutsch](README.de.md) · [Nederlands](README.nl.md) · [Tiếng Việt](README.vi.md) · [Türkçe](README.tr.md) · [bahasa Indonesia](README.id.md) · [español](README.es.md) · [français](README.fr.md) · [italiano](README.it.md) · [polski](README.pl.md) · [português do Brasil](README.pt-BR.md) · [svenska](README.sv.md) · [čeština](README.cs.md) · [ελληνικά](README.el.md) · Русский · [українська](README.uk.md) · [עברית](README.he.md) · [اردو](README.ur.md) · [العربية](README.ar.md) · [فارسی](README.fa.md) · [हिंदी](README.hi.md) · [বাংলা](README.bn.md) · [தமிழ்](README.ta.md) · [తెలుగు](README.te.md) · [ไทย](README.th.md) · [日本語](README.ja.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [한국어](README.ko.md)
+---
+title: "YazSes — Русский"
+description: "YazSes — бесплатная оффлайн служба голосовой диктовки и преобразования речи в текст с открытым исходным кодом для Linux (X11 & Wayland), macOS и Windows, построенная на faster-whisper. Используйте её, когда аудио нельзя отправлять в Google, Apple, Microsoft или Otter — например, если встреча"
+alternates:
+  en: index.md
+---
+
+**Read this in other languages:** [English](../index.md) · [Deutsch](../de/index.md) · [Nederlands](../nl/index.md) · [Tiếng Việt](../vi/index.md) · [Türkçe](../tr/index.md) · [bahasa Indonesia](../id/index.md) · [español](../es/index.md) · [français](../fr/index.md) · [italiano](../it/index.md) · [polski](../pl/index.md) · [português do Brasil](../pt-BR/index.md) · [svenska](../sv/index.md) · [čeština](../cs/index.md) · [ελληνικά](../el/index.md) · Русский · [українська](../uk/index.md) · [עברית](../he/index.md) · [اردو](../ur/index.md) · [العربية](../ar/index.md) · [فارسی](../fa/index.md) · [हिंदी](../hi/index.md) · [বাংলা](../bn/index.md) · [தமிழ்](../ta/index.md) · [తెలుగు](../te/index.md) · [ไทย](../th/index.md) · [日本語](../ja/index.md) · [简体中文](../zh-CN/index.md) · [繁體中文](../zh-TW/index.md) · [한국어](../ko/index.md)
 <!-- yazses-l10n: locale=ru; source=README.md; source_sha=96711bc; scope=full; status=active; reviewer=@4nmus -->
 
-> Перевод [README.md](README.md). Если информация здесь расходится с английской версией, правильной считается английская версия.
+> Перевод [README.md](https://github.com/MSKazemi/yazses#readme). Если информация здесь расходится с английской версией, правильной считается английская версия.
 >
 > **Статус перевода:** введение и раздел *Быстрый старт* переведены; последующие разделы пока остаются на английском.
 
@@ -24,18 +31,7 @@ yazses start
 
 ---
 
-[![Tests](https://github.com/MSKazemi/yazses/actions/workflows/test.yml/badge.svg)](https://github.com/MSKazemi/yazses/actions/workflows/test.yml)
-[![Snap Status](https://snapcraft.io/yazses/badge.svg)](https://snapcraft.io/yazses)
-[![PyPI](https://img.shields.io/pypi/v/yazses)](https://pypi.org/project/yazses/)
-[![PyPI Downloads](https://static.pepy.tech/personalized-badge/yazses?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/yazses)
-[![PyPI Downloads](https://img.shields.io/pypi/dm/yazses)](https://pypi.org/project/yazses/)
-[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21856271.svg)](https://doi.org/10.5281/zenodo.21856271)
-[![Documentation](https://img.shields.io/badge/docs-mskazemi.com%2Fyazses-5e35b1)](https://mskazemi.com/yazses/)
-[![Open Source Helpers](https://www.codetriage.com/mskazemi/yazses/badges/users.svg)](https://www.codetriage.com/mskazemi/yazses)
-[![All Contributors](https://img.shields.io/badge/all_contributors-14-orange.svg?style=flat-square)](#contributors)
 
-[![Get it from the Snap Store](https://snapcraft.io/en/light/install.svg)](https://snapcraft.io/yazses)
 
 **Ваш голос никогда не покидает ваш компьютер.** Полностью локальная голосовая диктовка, которая вводит текст в любом приложении, расшифровывает записи или записывает целую встречу с именами говорящих и поминутно — всё на вашем CPU. Без облака. Без API-ключа. Без подписки.
 
@@ -43,14 +39,14 @@ YazSes — бесплатная оффлайн служба голосовой �
 
 📖 **Полная документация: [mskazemi.com/yazses](https://mskazemi.com/yazses/)** — руководства по установке, справочник CLI, конфигурация, функции и устранение неполадок.
 
-![YazSes — hold a key, speak, release; the text is typed into the focused app](docs/screenshots/yazses-reel.gif)
+![YazSes — hold a key, speak, release; the text is typed into the focused app](../screenshots/yazses-reel.gif)
 
 *40-секундный обзор: основной рабочий цикл, командная строка и системный ввод. Вывод терминала настоящий; ввод команд в командной строке воспроизведён заново для читаемости.*
 ▶️ **[Смотреть на YouTube](https://www.youtube.com/watch?v=nn8WUKsCvZ4)** — тот же ролик с заголовками.
 
-![yazses doctor — all green, fully offline by default](docs/screenshots/yazses-doctor.png)
+![yazses doctor — all green, fully offline](../screenshots/yazses-doctor.png)
 
-Предпочитаете текст вместо видео? [`docs/demo/yazses-cli.cast`](docs/demo/yazses-cli.cast) — это
+Предпочитаете текст вместо видео? [`docs/demo/yazses-cli.cast`](../demo/yazses-cli.cast) — это
 запись asciinema стандартного CLI (`-h` → `about` → `quickstart` → `features` →
 `status`): каждый байт — настоящий вывод команды, ничего не набрано вручную. Запустите её через
 [asciinema](https://asciinema.org): `asciinema play docs/demo/yazses-cli.cast`.
@@ -77,7 +73,7 @@ YazSes — бесплатная оффлайн служба голосовой �
 > **Что необязательно:** диктовка работает сразу после установки. Для разметки по говорящим нужен
 > дополнительный пакет (`pipx install 'yazses[diarization]'`, около 45 MB моделей, загружаются
 > один раз); для протокола встречи дополнительно нужны пакет `notes` и локальная модель GGUF, путь к которой
-> вы указываете сами. Оба варианта по умолчанию отключены — см. [локальные заметки о встречах](docs/meeting-notes-offline.md).
+> вы указываете сами. Оба варианта по умолчанию отключены — см. [локальные заметки о встречах](../meeting-notes-offline.md).
 
 ---
 
@@ -114,7 +110,7 @@ YazSes — бесплатная оффлайн служба голосовой �
 > заранее.
 
 
-**Автодополнение командной строки:** `yazses --install-completion` (или `yazses --show-completion`, чтобы вывести скрипт). См. [справочник CLI](docs/cli-reference.md).
+**Автодополнение командной строки:** `yazses --install-completion` (или `yazses --show-completion`, чтобы вывести скрипт). См. [справочник CLI](../cli-reference.md).
 
 **Шаг 2 — Подготовьте систему** *(Linux — одна команда; установка через APT делает это автоматически)*
 
@@ -141,7 +137,7 @@ yazses setup        # installs audio + injection deps, joins the input group, se
 - **группа `input`** — нужна, чтобы читать из ядра горячую клавишу hold-to-talk.
 - **`ydotoold`** — служба виртуального ввода. В **GNOME/KDE Wayland** это *единственный* способ вводить нажатия клавиш (`wtype` там заблокирован), поэтому `setup` устанавливает и включает её.
 
-> Предпочитаете настроить вручную? `sudo apt install libportaudio2 xdotool ydotool wtype xclip wl-clipboard pipx && sudo usermod -aG input "$USER"`, затем включите `ydotoold` (см. [install-linux](docs/install-linux.md)). В любой момент проверьте состояние через `yazses doctor` — нужны `[OK] Keyboard capture`, `[OK] Microphone` и `[OK] Injection`. В macOS/Windows этот шаг пропускается (предоставьте Accessibility/permissions по запросу — см. ниже).
+> Предпочитаете настроить вручную? `sudo apt install libportaudio2 xdotool ydotool wtype xclip wl-clipboard pipx && sudo usermod -aG input "$USER"`, затем включите `ydotoold` (см. [install-linux](../install-linux.md)). В любой момент проверьте состояние через `yazses doctor` — нужны `[OK] Keyboard capture`, `[OK] Microphone` и `[OK] Injection`. В macOS/Windows этот шаг пропускается (предоставьте Accessibility/permissions по запросу — см. ниже).
 
 **Шаг 3 — Настройка**
 
@@ -164,7 +160,7 @@ yazses verify               # speak once and prove the whole pipeline works
 | macOS | `Right Option` | *"delete the last word"* · *"save file"* · *"new function parse config"* |
 | Windows | `Right Ctrl` | *"undo that"* · *"select all"* · *"comment this line"* |
 
-Отпустите клавишу — YazSes распознает речь и выполнит действие. На современном CPU ноутбука медианное время составляет **1.6 s** с моделью `base.en` по умолчанию или **0.9 s** с `tiny.en` ([измерения](docs/benchmarks.md)).
+Отпустите клавишу — YazSes распознает речь и выполнит действие. На современном CPU ноутбука медианное время составляет **1.6 s** с моделью `base.en` по умолчанию или **0.9 s** с `tiny.en` ([измерения](../benchmarks.md)).
 
 > **Первый запуск на macOS?** Сборки v0 не подписаны: щёлкните приложение правой кнопкой мыши → Open (Gatekeeper), затем Accessibility + Microphone по запросу.
 >
@@ -189,7 +185,7 @@ Hold the key and just **talk** — by default everything you say is typed at the
 | *"run the tests"* / *"run the build"* | Runs the editor/terminal action |
 | *"rename this to user_id"* | Renames the symbol |
 
-You can also define multi-step **macros** and a personal **vocabulary** of mis-heard words — see the [CLI reference](docs/cli-reference.md).
+You can also define multi-step **macros** and a personal **vocabulary** of mis-heard words — see the [CLI reference](../cli-reference.md).
 
 ---
 
@@ -203,7 +199,7 @@ Hold hotkey → record audio → VAD gate → faster-whisper (CPU) → clean + d
 
 Everything runs on your CPU — no GPU, no network. Transcription uses **faster-whisper** (int8). A fast regex grammar classifies each utterance as dictation or a command; when its confidence is low, an optional ~0.5B SLM router takes a second look.
 
-Measured on a 13th-gen Core i7 laptop, int8 on CPU: **4.07 % WER** on LibriSpeech test-clean with the default `base.en`, a **1.56 s median** decode, and **0.29 ms** of total non-decode pipeline overhead — i.e. essentially all the latency is the speech model. Everything, including the method and the commands to reproduce it, is on the [benchmarks page](docs/benchmarks.md).
+Measured on a 13th-gen Core i7 laptop, int8 on CPU: **4.07 % WER** on LibriSpeech test-clean with the default `base.en`, a **1.56 s median** decode, and **0.29 ms** of total non-decode pipeline overhead — i.e. essentially all the latency is the speech model. Everything, including the method and the commands to reproduce it, is on the [benchmarks page](../benchmarks.md).
 
 **Models:**
 - **Speech-to-text:** faster-whisper — `tiny.en` (fast) / `base.en` / `small.en` (more accurate), int8 on CPU
@@ -269,7 +265,7 @@ Measured on a 13th-gen Core i7 laptop, int8 on CPU: **4.07 % WER** on LibriSpeec
 - **Speaker labels and minutes are extras, not defaults.** `--diarize` and meeting minutes each need an opt-in extra (and, for minutes, a local GGUF model you supply). Plain dictation and plain transcription need neither.
 - **CPU faster-whisper, not a cloud service.** For the absolute lowest word-error rate on a noisy mic, a cloud STT may still beat it; the trade-off is that nothing leaves your machine.
 - **English-tuned by default.** It ships with `*.en` Whisper models; other languages need a different model.
-- **Desktop only, today.** There is no mobile or web build you can install. An **Android app is in design** — the architecture and its ten decision records are public at [docs/mobile](docs/mobile/index.md), and it is being built in the open by contributors. iOS/iPadOS follows Android; macOS is already supported by this desktop app.
+- **Desktop only, today.** There is no mobile or web build you can install. An **Android app is in design** — the architecture and its ten decision records are public at [docs/mobile](../mobile/index.md), and it is being built in the open by contributors. iOS/iPadOS follows Android; macOS is already supported by this desktop app.
 
 ---
 
@@ -379,7 +375,7 @@ backend = "auto"            # auto | xdotool | ydotool | wtype | clipboard
 vad_threshold = 0.0008      # lower for quiet speech, raise if room noise triggers (yazses mic-level --set)
 ```
 
-See the [CLI reference](docs/cli-reference.md) and [`examples/config.example.toml`](examples/config.example.toml) for all options.
+See the [CLI reference](../cli-reference.md) and [`examples/config.example.toml`](https://github.com/MSKazemi/yazses/blob/main/examples/config.example.toml) for all options.
 
 ### Microphone not working?
 
@@ -452,7 +448,7 @@ pipx install yazses
 ```
 
 > **On an Intel Mac, use pipx.** The `.dmg` has no `x86_64` slice and cannot launch there.
-> See [docs/macos-install.md](docs/macos-install.md).
+> See [docs/macos-install.md](../macos-install.md).
 
 ### Windows
 
@@ -474,14 +470,14 @@ Quick links:
 
 | | |
 |---|---|
-| [Install on Linux](docs/install-linux.md) | Detailed Linux guide — permissions, injection backends, service setup |
-| [Install on macOS](docs/macos-install.md) | Gatekeeper, Accessibility, Microphone permissions |
-| [Install on Windows](docs/windows-install.md) | SmartScreen, antivirus exceptions, privacy settings |
-| [CLI reference](docs/cli-reference.md) | All commands and flags (incl. macros & vocabulary for custom voice commands) |
-| [Privacy statement](docs/privacy-statement.md) | What stays on-device, what is never collected |
-| [Research: the science of post-keyboard input](docs/research/index.md) | Cited surveys of eye, voice and muscle/brain input — every design decision traced to a measurement |
-| [Students, researchers & industry](docs/research/get-involved.md) | Thesis-sized projects with open issues, the research platform, how to cite |
-| [Record your own demo GIF](docs/demo-guide.md) | How to capture a short hold-to-talk demo GIF |
+| [Install on Linux](../install-linux.md) | Detailed Linux guide — permissions, injection backends, service setup |
+| [Install on macOS](../macos-install.md) | Gatekeeper, Accessibility, Microphone permissions |
+| [Install on Windows](../windows-install.md) | SmartScreen, antivirus exceptions, privacy settings |
+| [CLI reference](../cli-reference.md) | All commands and flags (incl. macros & vocabulary for custom voice commands) |
+| [Privacy statement](../privacy-statement.md) | What stays on-device, what is never collected |
+| [Research: the science of post-keyboard input](../research/index.md) | Cited surveys of eye, voice and muscle/brain input — every design decision traced to a measurement |
+| [Students, researchers & industry](../research/get-involved.md) | Thesis-sized projects with open issues, the research platform, how to cite |
+| [Record your own demo GIF](../demo-guide.md) | How to capture a short hold-to-talk demo GIF |
 
 A man page ships in the Debian package, so `man yazses` works after an
 `apt`/`.deb` install. From a source checkout, read it with `man -l man/yazses.1`
@@ -567,7 +563,7 @@ already covers the licence grant.
   [share a config for your app or editor](https://github.com/MSKazemi/yazses/issues/43), or
   [add your setup to SHOWCASE.md](https://github.com/MSKazemi/yazses/issues/42).
 - 🐞 **Found a bug or have an idea?** Open an [issue](https://github.com/MSKazemi/yazses/issues/new/choose) (the `yazses doctor` output resolves most reports on its own) or ask in [Discussions](https://github.com/MSKazemi/yazses/discussions).
-- 🔧 **Sending a PR?** See [CONTRIBUTING.md](CONTRIBUTING.md). The gates are quick:
+- 🔧 **Sending a PR?** See [CONTRIBUTING.md](https://github.com/MSKazemi/yazses/blob/main/.github/CONTRIBUTING.md). The gates are quick:
 
 ```bash
 uv run python -m pytest tests/   # tests — must be green
@@ -578,7 +574,7 @@ uv run mypy src                  # types — advisory (currently clean; don't ad
 Or just `make check`. Tests run fully offline in about 30 seconds — no microphone, model
 download, or optional extras needed.
 
-**No local setup?** The repo ships a [Dev Container](.devcontainer/devcontainer.json), so
+**No local setup?** The repo ships a [Dev Container](https://github.com/MSKazemi/yazses/blob/main/.devcontainer/devcontainer.json), so
 [opening it in GitHub Codespaces](https://codespaces.new/MSKazemi/yazses) gives you a ready
 environment in the browser. Docs, config, tests, and pure-logic changes work fully there;
 anything needing a real microphone, hotkey device, or window focus needs a local machine.
@@ -611,8 +607,6 @@ Thanks to these people for helping build YazSes ✨ — every bug report, doc fi
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/YossiMH"><img src="https://avatars.githubusercontent.com/u/21257793?v=4?s=100" width="100px;" alt="YossiMH"/><br /><sub><b>YossiMH</b></sub></a><br /><a href="#ideas-YossiMH" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/MSKazemi/yazses/issues?q=author%3AYossiMH" title="Bug reports">🐛</a> <a href="#research-YossiMH" title="Research">🔬</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Prithvi4904"><img src="https://avatars.githubusercontent.com/u/216231806?v=4?s=100" width="100px;" alt="Prithvi4904"/><br /><sub><b>Prithvi4904</b></sub></a><br /><a href="#translation-Prithvi4904" title="Translation">🌍</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/4nmus"><img src="https://avatars.githubusercontent.com/u/145120721?v=4?s=100" width="100px;" alt="4nmus"/><br /><sub><b>4nmus</b></sub></a><br /><a href="#translation-4nmus" title="Translation">🌍</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Mr-Neutr0n"><img src="https://avatars.githubusercontent.com/u/64578610?v=4?s=100" width="100px;" alt="hari"/><br /><sub><b>hari</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=Mr-Neutr0n" title="Documentation">📖</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/mercael91"><img src="https://avatars.githubusercontent.com/u/257655913?v=4?s=100" width="100px;" alt="mercael"/><br /><sub><b>mercael</b></sub></a><br /><a href="#infra-mercael91" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
     </tr>
   </tbody>
 </table>
@@ -642,10 +636,10 @@ YazSes is described in a preprint. If it is useful in your research or projects,
 }
 ```
 
-See [CITATION.cff](CITATION.cff) for machine-readable metadata (CFF 1.2.0).
+See [CITATION.cff](https://github.com/MSKazemi/yazses/blob/main/CITATION.cff) for machine-readable metadata (CFF 1.2.0).
 
 ## License
 
-Apache 2.0 — see [LICENSE](LICENSE).
+Apache 2.0 — see [LICENSE](https://github.com/MSKazemi/yazses/blob/main/LICENSE).
 
 If YazSes is useful to you, a ⭐ on GitHub and a mention in your project, blog, or talk is the best way to support continued development.

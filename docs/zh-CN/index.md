@@ -1,7 +1,14 @@
-**Read this in other languages:** [English](README.md) · [Deutsch](README.de.md) · [Nederlands](README.nl.md) · [Tiếng Việt](README.vi.md) · [Türkçe](README.tr.md) · [bahasa Indonesia](README.id.md) · [español](README.es.md) · [français](README.fr.md) · [italiano](README.it.md) · [polski](README.pl.md) · [português do Brasil](README.pt-BR.md) · [svenska](README.sv.md) · [čeština](README.cs.md) · [ελληνικά](README.el.md) · [Русский](README.ru.md) · [українська](README.uk.md) · [עברית](README.he.md) · [اردو](README.ur.md) · [العربية](README.ar.md) · [فارسی](README.fa.md) · [हिंदी](README.hi.md) · [বাংলা](README.bn.md) · [தமிழ்](README.ta.md) · [తెలుగు](README.te.md) · [ไทย](README.th.md) · [日本語](README.ja.md) · 简体中文 · [繁體中文](README.zh-TW.md) · [한국어](README.ko.md)
+---
+title: "YazSes — 简体中文"
+description: "YazSes 是一个免费、开源、离线的语音听写与语音转文字守护进程，支持 Linux（X11 与 Wayland）、macOS 和 Windows，基于 faster-whisper 构建。当音频不能被上传到 Google、Apple、Microsoft 或 Otter 时使用它 —— 因为会议内容涉密、机器处于内网隔离状态，或者你只是不想再付订阅费。与 Wispr Flow 这类云端听写不同，YazSes 完全在本地设备上运行；与 Talon Voice 不同，它追求开箱即用，而非高级脚本定制。如果你需要的是对话式 AI 助手、开箱即用的非英语模型，或者移动端／网页版应用，那么"
+alternates:
+  en: index.md
+---
+
+**Read this in other languages:** [English](../index.md) · [Deutsch](../de/index.md) · [Nederlands](../nl/index.md) · [Tiếng Việt](../vi/index.md) · [Türkçe](../tr/index.md) · [bahasa Indonesia](../id/index.md) · [español](../es/index.md) · [français](../fr/index.md) · [italiano](../it/index.md) · [polski](../pl/index.md) · [português do Brasil](../pt-BR/index.md) · [svenska](../sv/index.md) · [čeština](../cs/index.md) · [ελληνικά](../el/index.md) · [Русский](../ru/index.md) · [українська](../uk/index.md) · [עברית](../he/index.md) · [اردو](../ur/index.md) · [العربية](../ar/index.md) · [فارسی](../fa/index.md) · [हिंदी](../hi/index.md) · [বাংলা](../bn/index.md) · [தமிழ்](../ta/index.md) · [తెలుగు](../te/index.md) · [ไทย](../th/index.md) · [日本語](../ja/index.md) · 简体中文 · [繁體中文](../zh-TW/index.md) · [한국어](../ko/index.md)
 <!-- yazses-l10n: locale=zh-CN; source=README.md; source_sha=96711bc; scope=partial; status=active -->
 
-> [README.md](README.md) 的简体中文翻译。若此处内容与英文版有出入，以**英文版为准**。
+> [README.md](https://github.com/MSKazemi/yazses#readme) 的简体中文翻译。若此处内容与英文版有出入，以**英文版为准**。
 >
 > **翻译进度：** 简介、「三大功能」、快速开始、《中文听写》、系统要求、主要特性、局限与常用命令已翻译；对比与替代方案、常见问题、配置、全部安装方式、开发等章节仍为英文。最后同步的英文源提交：`40d3abd`（2026-08-11）。
 
@@ -24,18 +31,7 @@ yazses start
 
 ---
 
-[![Tests](https://github.com/MSKazemi/yazses/actions/workflows/test.yml/badge.svg)](https://github.com/MSKazemi/yazses/actions/workflows/test.yml)
-[![Snap Status](https://snapcraft.io/yazses/badge.svg)](https://snapcraft.io/yazses)
-[![PyPI](https://img.shields.io/pypi/v/yazses)](https://pypi.org/project/yazses/)
-[![PyPI Downloads](https://static.pepy.tech/personalized-badge/yazses?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/yazses)
-[![PyPI Downloads](https://img.shields.io/pypi/dm/yazses)](https://pypi.org/project/yazses/)
-[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21856271.svg)](https://doi.org/10.5281/zenodo.21856271)
-[![Documentation](https://img.shields.io/badge/docs-mskazemi.com%2Fyazses-5e35b1)](https://mskazemi.com/yazses/)
-[![Open Source Helpers](https://www.codetriage.com/mskazemi/yazses/badges/users.svg)](https://www.codetriage.com/mskazemi/yazses)
-[![All Contributors](https://img.shields.io/badge/all_contributors-14-orange.svg?style=flat-square)](#contributors)
 
-[![Get it from the Snap Store](https://snapcraft.io/en/light/install.svg)](https://snapcraft.io/yazses)
 
 **你的声音永远不会离开你的电脑。** 离线语音听写：把语音直接输入到任何应用，转写录音文件，或者录下整场会议并生成带说话人姓名的纪要 —— 全部在你自己的 CPU 上完成。无需云端，无需 API key，无需订阅。
 
@@ -43,12 +39,12 @@ YazSes 是一个免费、开源、离线的语音听写与语音转文字守护�
 
 📖 **完整文档：[mskazemi.com/yazses](https://mskazemi.com/yazses/)** —— 安装指南、CLI 参考、配置、功能与故障排查。
 
-![YazSes — 按住热键，说话，松开；文字被输入到当前焦点应用](docs/screenshots/yazses-reel.gif)
+![YazSes — 按住热键，说话，松开；文字被输入到当前焦点应用](../screenshots/yazses-reel.gif)
 
 *40 秒演示：核心流程、命令行与系统托盘。终端输出是真实的；命令行输入为了清晰起见做了重新演示。*
 ▶️ **[在 YouTube 上观看](https://www.youtube.com/watch?v=nn8WUKsCvZ4)** —— 同一段演示，带章节。
 
-![yazses doctor — 全部通过，默认完全离线](docs/screenshots/yazses-doctor.png)
+![yazses doctor — 全部通过，完全离线](../screenshots/yazses-doctor.png)
 
 ---
 
@@ -62,7 +58,7 @@ YazSes 是一个免费、开源、离线的语音听写与语音转文字守护�
 
 三者都在你的 CPU 上运行，全程无需联网。除非你明确要求保留，会议录音在转写后会被删除；说话人姓名来自你自己录入的声纹 —— 绝不来自任何云端账号。
 
-> **哪些是可选的：** 听写开箱即用。说话人标注需要 diarization 扩展（`pipx install 'yazses[diarization]'`，约 45 MB 模型，只需下载一次）；会议纪要还额外需要 `notes` 扩展以及你自行指定的本地 GGUF 模型。两者默认关闭 —— 详见[离线会议纪要](docs/meeting-notes-offline.md)。
+> **哪些是可选的：** 听写开箱即用。说话人标注需要 diarization 扩展（`pipx install 'yazses[diarization]'`，约 45 MB 模型，只需下载一次）；会议纪要还额外需要 `notes` 扩展以及你自行指定的本地 GGUF 模型。两者默认关闭 —— 详见[离线会议纪要](../meeting-notes-offline.md)。
 
 ---
 
@@ -92,7 +88,7 @@ Whisper 会**逐句**自行决定输出简体还是繁体，而且并不一致�
 | `small` | 35.9% | **16.9%** |
 | `large-v3` | 12.3% | **11.3%** |
 
-同一批音频、同一个模型，只改了这一个配置项。**这个设置对小模型的作用最大，而小模型正是 CPU 用户实际会用的那一档** —— `small` 提升 19 个百分点，`large-v3` 只提升 1 个百分点（大模型本身就更倾向输出简体）。详见 [`src/yazses/postprocess/han_script.py`](src/yazses/postprocess/han_script.py) 与[中文语音输入文档](https://mskazemi.com/yazses/zh/chinese-voice-typing.html)。
+同一批音频、同一个模型，只改了这一个配置项。**这个设置对小模型的作用最大，而小模型正是 CPU 用户实际会用的那一档** —— `small` 提升 19 个百分点，`large-v3` 只提升 1 个百分点（大模型本身就更倾向输出简体）。详见 [`src/yazses/postprocess/han_script.py`](https://github.com/MSKazemi/yazses/blob/main/src/yazses/postprocess/han_script.py) 与[中文语音输入文档](https://mskazemi.com/yazses/zh/chinese-voice-typing.html)。
 
 ### 请如实看待精度
 
@@ -124,7 +120,7 @@ Whisper 会**逐句**自行决定输出简体还是繁体，而且并不一致�
 >
 > 决定之前请先看：**[安装到底要付出什么代价](https://mskazemi.com/yazses/install-cost.html)**（1.1 GB 加上 141 MB 模型，以及它对系统做的改动）和**[如何卸载](https://mskazemi.com/yazses/uninstall.html)** —— 这两页都是有意提前公开的。
 
-**Shell 补全：** `yazses --install-completion`（或用 `yazses --show-completion` 打印脚本）。详见 [CLI 参考](docs/cli-reference.md)。
+**Shell 补全：** `yazses --install-completion`（或用 `yazses --show-completion` 打印脚本）。详见 [CLI 参考](../cli-reference.md)。
 
 **第 2 步 —— 配置系统** *（Linux 专用，一条命令即可；APT 安装会自动完成）*
 
@@ -143,7 +139,7 @@ yazses setup        # 安装音频与注入依赖，加入 input 组，配置 yd
 - **`input` 用户组** —— 从内核读取按住说话热键所必需。
 - **`ydotoold`** —— 虚拟输入守护进程。在 **GNOME/KDE Wayland** 上这是注入按键的*唯一*途径（`wtype` 在那里被禁用），因此 `setup` 会安装并启用它。
 
-> 想手动完成？`sudo apt install libportaudio2 xdotool ydotool wtype xclip wl-clipboard pipx && sudo usermod -aG input "$USER"`，然后启用 `ydotoold`（见 [install-linux](docs/install-linux.md)）。随时可用 `yazses doctor` 验证 —— 你需要看到 `[OK] Keyboard capture`、`[OK] Microphone` 和 `[OK] Injection`。macOS/Windows 可跳过此步（按提示授予辅助功能／相关权限，见下文）。
+> 想手动完成？`sudo apt install libportaudio2 xdotool ydotool wtype xclip wl-clipboard pipx && sudo usermod -aG input "$USER"`，然后启用 `ydotoold`（见 [install-linux](../install-linux.md)）。随时可用 `yazses doctor` 验证 —— 你需要看到 `[OK] Keyboard capture`、`[OK] Microphone` 和 `[OK] Injection`。macOS/Windows 可跳过此步（按提示授予辅助功能／相关权限，见下文）。
 
 **第 3 步 —— 初始化**
 
@@ -196,7 +192,7 @@ yazses verify               # 说一句话，验证整条流水线确实可用
 - **发言人标注与会议纪要是附加功能，而非默认功能。** `--diarize` 与会议纪要各自需要额外安装可选组件（纪要还需要你自备本地 GGUF 模型）。普通听写与普通转写都不需要。
 - **它是 CPU 上的 faster-whisper，不是云服务。** 若你在嘈杂麦克风下追求绝对最低的词错误率，云端 STT 可能仍然更准；代价是数据要离开你的机器。
 - **默认针对英语调优。** 默认附带 `*.en` 系列 Whisper 模型；其他语言需要换用对应模型。中文用户请参见上文《中文听写》一节。
-- **目前仅支持桌面端。** 尚无可安装的移动端或网页版。**Android 应用正在设计中** —— 架构与十份决策记录已公开在 [docs/mobile](docs/mobile/index.md)，由贡献者公开协作开发。iOS/iPadOS 将在 Android 之后；macOS 已由本桌面应用支持。
+- **目前仅支持桌面端。** 尚无可安装的移动端或网页版。**Android 应用正在设计中** —— 架构与十份决策记录已公开在 [docs/mobile](../mobile/index.md)，由贡献者公开协作开发。iOS/iPadOS 将在 Android 之后；macOS 已由本桌面应用支持。
 
 ---
 
@@ -224,7 +220,7 @@ yazses verify               # 说一句话，验证整条流水线确实可用
 
 ---
 
-> 以下章节仍为英文，请见 [README.md](README.md)：全部安装方式、功能列表、配置、语音命令、隐私说明与架构。
+> 以下章节仍为英文，请见 [README.md](https://github.com/MSKazemi/yazses#readme)：全部安装方式、功能列表、配置、语音命令、隐私说明与架构。
 
 ---
 
@@ -252,8 +248,6 @@ yazses verify               # 说一句话，验证整条流水线确实可用
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/YossiMH"><img src="https://avatars.githubusercontent.com/u/21257793?v=4?s=100" width="100px;" alt="YossiMH"/><br /><sub><b>YossiMH</b></sub></a><br /><a href="#ideas-YossiMH" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/MSKazemi/yazses/issues?q=author%3AYossiMH" title="Bug reports">🐛</a> <a href="#research-YossiMH" title="Research">🔬</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Prithvi4904"><img src="https://avatars.githubusercontent.com/u/216231806?v=4?s=100" width="100px;" alt="Prithvi4904"/><br /><sub><b>Prithvi4904</b></sub></a><br /><a href="#translation-Prithvi4904" title="Translation">🌍</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/4nmus"><img src="https://avatars.githubusercontent.com/u/145120721?v=4?s=100" width="100px;" alt="4nmus"/><br /><sub><b>4nmus</b></sub></a><br /><a href="#translation-4nmus" title="Translation">🌍</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Mr-Neutr0n"><img src="https://avatars.githubusercontent.com/u/64578610?v=4?s=100" width="100px;" alt="hari"/><br /><sub><b>hari</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=Mr-Neutr0n" title="Documentation">📖</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/mercael91"><img src="https://avatars.githubusercontent.com/u/257655913?v=4?s=100" width="100px;" alt="mercael"/><br /><sub><b>mercael</b></sub></a><br /><a href="#infra-mercael91" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
     </tr>
   </tbody>
 </table>
@@ -271,10 +265,10 @@ yazses verify               # 说一句话，验证整条流水线确实可用
 
 > Seyedkazemi Ardebili, M. (2026). *YazSes: An Offline, Privacy-First, Cross-Platform Hold-to-Talk Voice-Dictation System.* arXiv:2607.28878. <https://arxiv.org/abs/2607.28878>
 
-详见 [CITATION.cff](CITATION.cff)（CFF 1.2.0 机器可读元数据）。
+详见 [CITATION.cff](https://github.com/MSKazemi/yazses/blob/main/CITATION.cff)（CFF 1.2.0 机器可读元数据）。
 
 ## 许可证
 
-Apache 2.0 —— 见 [LICENSE](LICENSE)。
+Apache 2.0 —— 见 [LICENSE](https://github.com/MSKazemi/yazses/blob/main/LICENSE)。
 
 如果 YazSes 对你有用，在 GitHub 上点一个 ⭐，并在你的项目、博客或分享中提一句，就是对它持续开发最好的支持。

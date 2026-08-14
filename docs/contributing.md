@@ -5,7 +5,7 @@ were credited for it. **One contribution is a real contribution** — a doc fix,
 already use, a microphone that worked, or a bug report with `yazses doctor` output.
 
 This page is the short version for people arriving from the docs. The authoritative guide is
-[`CONTRIBUTING.md`](https://github.com/MSKazemi/yazses/blob/main/CONTRIBUTING.md) in the
+[`CONTRIBUTING.md`](https://github.com/MSKazemi/yazses/blob/main/.github/CONTRIBUTING.md) in the
 repository, and it is the one to trust if these ever disagree.
 
 ## Start here
@@ -98,7 +98,7 @@ The pre-commit hook blocks `*.pdf` outright.
 
 Two commitments a contribution cannot change without a superseding decision record: **nothing
 leaves the machine by default**, and **new features ship off by default** so nothing changes
-someone's setup until they opt in. [`GOVERNANCE.md`](https://github.com/MSKazemi/yazses/blob/main/GOVERNANCE.md)
+someone's setup until they opt in. [`GOVERNANCE.md`](https://github.com/MSKazemi/yazses/blob/main/.github/GOVERNANCE.md)
 covers the rest, including how a module becomes yours to review.
 
 **Using an AI assistant is fine** — increasingly normal — but the pull request is yours, so

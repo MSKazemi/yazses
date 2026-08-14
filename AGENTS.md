@@ -1,7 +1,7 @@
 # AGENTS.md — project conventions for coding agents
 
 A short, machine-readable brief for AI coding assistants working in this repository.
-Humans should read [CONTRIBUTING.md](CONTRIBUTING.md) instead; this file exists so an
+Humans should read [CONTRIBUTING.md](.github/CONTRIBUTING.md) instead; this file exists so an
 agent-assisted contribution arrives correct on the first try.
 
 **This file is canonical for every tool** — Codex, Claude Code, Gemini CLI, Cursor,

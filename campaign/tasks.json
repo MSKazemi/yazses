@@ -1698,7 +1698,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ar.md",
+      "docs/ar/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -1721,7 +1721,7 @@
     "minutes": 45,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ar.md",
+      "docs/ar/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -1744,7 +1744,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ar.md",
+      "docs/ar/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -1767,7 +1767,7 @@
     "minutes": 40,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ar.md",
+      "docs/ar/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -1790,7 +1790,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ar.md",
+      "docs/ar/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -1813,7 +1813,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ar.md",
+      "docs/ar/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -1836,7 +1836,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ar.md",
+      "docs/ar/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -1859,7 +1859,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ar.md",
+      "docs/ar/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -1882,7 +1882,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.bn.md",
+      "docs/bn/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -1905,7 +1905,7 @@
     "minutes": 45,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.bn.md",
+      "docs/bn/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -1928,7 +1928,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.bn.md",
+      "docs/bn/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -1951,7 +1951,7 @@
     "minutes": 40,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.bn.md",
+      "docs/bn/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -1974,7 +1974,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.bn.md",
+      "docs/bn/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -1997,7 +1997,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.bn.md",
+      "docs/bn/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -2020,7 +2020,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.bn.md",
+      "docs/bn/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -2043,7 +2043,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.bn.md",
+      "docs/bn/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -2066,7 +2066,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.zh-CN.md",
+      "docs/zh-CN/index.md",
       "README.md"
     ],
     "validation": [
@@ -2088,7 +2088,7 @@
     "minutes": 45,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.zh-CN.md",
+      "docs/zh-CN/index.md",
       "README.md"
     ],
     "validation": [
@@ -2110,7 +2110,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.zh-CN.md",
+      "docs/zh-CN/index.md",
       "README.md"
     ],
     "validation": [
@@ -2132,7 +2132,7 @@
     "minutes": 40,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.zh-CN.md",
+      "docs/zh-CN/index.md",
       "README.md"
     ],
     "validation": [
@@ -2154,7 +2154,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.zh-CN.md",
+      "docs/zh-CN/index.md",
       "README.md"
     ],
     "validation": [
@@ -2176,7 +2176,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.zh-CN.md",
+      "docs/zh-CN/index.md",
       "README.md"
     ],
     "validation": [
@@ -2198,7 +2198,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.zh-CN.md",
+      "docs/zh-CN/index.md",
       "README.md"
     ],
     "validation": [
@@ -2220,7 +2220,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.zh-CN.md",
+      "docs/zh-CN/index.md",
       "README.md"
     ],
     "validation": [
@@ -2243,7 +2243,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.zh-TW.md",
+      "docs/zh-TW/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -2266,7 +2266,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.zh-TW.md",
+      "docs/zh-TW/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -2289,7 +2289,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.zh-TW.md",
+      "docs/zh-TW/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -2312,7 +2312,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.zh-TW.md",
+      "docs/zh-TW/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -2335,7 +2335,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.zh-TW.md",
+      "docs/zh-TW/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -2358,7 +2358,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.zh-TW.md",
+      "docs/zh-TW/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -2381,7 +2381,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.zh-TW.md",
+      "docs/zh-TW/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -2404,7 +2404,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.zh-TW.md",
+      "docs/zh-TW/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -2426,7 +2426,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.cs.md",
+      "docs/cs/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -2449,7 +2449,7 @@
     "minutes": 45,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.cs.md",
+      "docs/cs/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -2472,7 +2472,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.cs.md",
+      "docs/cs/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -2495,7 +2495,7 @@
     "minutes": 40,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.cs.md",
+      "docs/cs/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -2518,7 +2518,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.cs.md",
+      "docs/cs/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -2541,7 +2541,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.cs.md",
+      "docs/cs/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -2564,7 +2564,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.cs.md",
+      "docs/cs/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -2587,7 +2587,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.cs.md",
+      "docs/cs/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -2611,7 +2611,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.nl.md",
+      "docs/nl/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -2634,7 +2634,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.nl.md",
+      "docs/nl/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -2657,7 +2657,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.nl.md",
+      "docs/nl/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -2680,7 +2680,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.nl.md",
+      "docs/nl/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -2703,7 +2703,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.nl.md",
+      "docs/nl/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -2726,7 +2726,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.nl.md",
+      "docs/nl/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -2749,7 +2749,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.nl.md",
+      "docs/nl/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -2772,7 +2772,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.nl.md",
+      "docs/nl/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -2794,7 +2794,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.fr.md",
+      "docs/fr/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -2817,7 +2817,7 @@
     "minutes": 45,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.fr.md",
+      "docs/fr/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -2840,7 +2840,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.fr.md",
+      "docs/fr/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -2863,7 +2863,7 @@
     "minutes": 40,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.fr.md",
+      "docs/fr/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -2886,7 +2886,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.fr.md",
+      "docs/fr/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -2909,7 +2909,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.fr.md",
+      "docs/fr/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -2932,7 +2932,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.fr.md",
+      "docs/fr/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -2955,7 +2955,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.fr.md",
+      "docs/fr/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -2978,7 +2978,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.de.md",
+      "docs/de/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3001,7 +3001,7 @@
     "minutes": 45,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.de.md",
+      "docs/de/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3024,7 +3024,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.de.md",
+      "docs/de/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3047,7 +3047,7 @@
     "minutes": 40,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.de.md",
+      "docs/de/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3070,7 +3070,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.de.md",
+      "docs/de/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3093,7 +3093,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.de.md",
+      "docs/de/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3116,7 +3116,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.de.md",
+      "docs/de/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3139,7 +3139,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.de.md",
+      "docs/de/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3162,7 +3162,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.el.md",
+      "docs/el/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3185,7 +3185,7 @@
     "minutes": 45,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.el.md",
+      "docs/el/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3208,7 +3208,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.el.md",
+      "docs/el/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3231,7 +3231,7 @@
     "minutes": 40,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.el.md",
+      "docs/el/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3254,7 +3254,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.el.md",
+      "docs/el/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3277,7 +3277,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.el.md",
+      "docs/el/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3300,7 +3300,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.el.md",
+      "docs/el/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3323,7 +3323,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.el.md",
+      "docs/el/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3346,7 +3346,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.he.md",
+      "docs/he/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3369,7 +3369,7 @@
     "minutes": 45,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.he.md",
+      "docs/he/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3392,7 +3392,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.he.md",
+      "docs/he/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3415,7 +3415,7 @@
     "minutes": 40,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.he.md",
+      "docs/he/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3438,7 +3438,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.he.md",
+      "docs/he/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3461,7 +3461,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.he.md",
+      "docs/he/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3484,7 +3484,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.he.md",
+      "docs/he/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3507,7 +3507,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.he.md",
+      "docs/he/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3530,7 +3530,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.id.md",
+      "docs/id/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3553,7 +3553,7 @@
     "minutes": 45,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.id.md",
+      "docs/id/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3576,7 +3576,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.id.md",
+      "docs/id/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3599,7 +3599,7 @@
     "minutes": 40,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.id.md",
+      "docs/id/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3622,7 +3622,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.id.md",
+      "docs/id/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3645,7 +3645,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.id.md",
+      "docs/id/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3668,7 +3668,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.id.md",
+      "docs/id/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3691,7 +3691,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.id.md",
+      "docs/id/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3714,7 +3714,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.it.md",
+      "docs/it/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3737,7 +3737,7 @@
     "minutes": 45,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.it.md",
+      "docs/it/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3760,7 +3760,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.it.md",
+      "docs/it/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3783,7 +3783,7 @@
     "minutes": 40,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.it.md",
+      "docs/it/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3806,7 +3806,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.it.md",
+      "docs/it/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3829,7 +3829,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.it.md",
+      "docs/it/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3852,7 +3852,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.it.md",
+      "docs/it/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3875,7 +3875,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.it.md",
+      "docs/it/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3898,7 +3898,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ja.md",
+      "docs/ja/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3921,7 +3921,7 @@
     "minutes": 45,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ja.md",
+      "docs/ja/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3944,7 +3944,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ja.md",
+      "docs/ja/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3967,7 +3967,7 @@
     "minutes": 40,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ja.md",
+      "docs/ja/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -3990,7 +3990,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ja.md",
+      "docs/ja/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -4013,7 +4013,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ja.md",
+      "docs/ja/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -4036,7 +4036,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ja.md",
+      "docs/ja/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -4059,7 +4059,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ja.md",
+      "docs/ja/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -4082,7 +4082,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ko.md",
+      "docs/ko/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -4105,7 +4105,7 @@
     "minutes": 45,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ko.md",
+      "docs/ko/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -4128,7 +4128,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ko.md",
+      "docs/ko/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -4151,7 +4151,7 @@
     "minutes": 40,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ko.md",
+      "docs/ko/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -4174,7 +4174,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ko.md",
+      "docs/ko/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -4197,7 +4197,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ko.md",
+      "docs/ko/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -4220,7 +4220,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ko.md",
+      "docs/ko/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -4243,7 +4243,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ko.md",
+      "docs/ko/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -4266,7 +4266,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.fa.md",
+      "docs/fa/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -4289,7 +4289,7 @@
     "minutes": 45,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.fa.md",
+      "docs/fa/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -4312,7 +4312,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.fa.md",
+      "docs/fa/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -4335,7 +4335,7 @@
     "minutes": 40,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.fa.md",
+      "docs/fa/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -4358,7 +4358,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.fa.md",
+      "docs/fa/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -4381,7 +4381,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.fa.md",
+      "docs/fa/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -4404,7 +4404,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.fa.md",
+      "docs/fa/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -4427,7 +4427,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.fa.md",
+      "docs/fa/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -4451,7 +4451,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.pl.md",
+      "docs/pl/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -4474,7 +4474,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.pl.md",
+      "docs/pl/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -4497,7 +4497,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.pl.md",
+      "docs/pl/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -4520,7 +4520,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.pl.md",
+      "docs/pl/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -4543,7 +4543,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.pl.md",
+      "docs/pl/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -4566,7 +4566,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.pl.md",
+      "docs/pl/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -4589,7 +4589,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.pl.md",
+      "docs/pl/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -4612,7 +4612,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.pl.md",
+      "docs/pl/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -4635,7 +4635,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.pt-BR.md",
+      "docs/pt-BR/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -4658,7 +4658,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.pt-BR.md",
+      "docs/pt-BR/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -4681,7 +4681,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.pt-BR.md",
+      "docs/pt-BR/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -4704,7 +4704,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.pt-BR.md",
+      "docs/pt-BR/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -4727,7 +4727,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.pt-BR.md",
+      "docs/pt-BR/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -4750,7 +4750,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.pt-BR.md",
+      "docs/pt-BR/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -4773,7 +4773,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.pt-BR.md",
+      "docs/pt-BR/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -4796,7 +4796,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.pt-BR.md",
+      "docs/pt-BR/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -4818,7 +4818,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ru.md",
+      "docs/ru/index.md",
       "README.md"
     ],
     "validation": [
@@ -4840,7 +4840,7 @@
     "minutes": 45,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ru.md",
+      "docs/ru/index.md",
       "README.md"
     ],
     "validation": [
@@ -4862,7 +4862,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ru.md",
+      "docs/ru/index.md",
       "README.md"
     ],
     "validation": [
@@ -4884,7 +4884,7 @@
     "minutes": 40,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ru.md",
+      "docs/ru/index.md",
       "README.md"
     ],
     "validation": [
@@ -4906,7 +4906,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ru.md",
+      "docs/ru/index.md",
       "README.md"
     ],
     "validation": [
@@ -4928,7 +4928,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ru.md",
+      "docs/ru/index.md",
       "README.md"
     ],
     "validation": [
@@ -4950,7 +4950,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ru.md",
+      "docs/ru/index.md",
       "README.md"
     ],
     "validation": [
@@ -4972,7 +4972,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.ru.md",
+      "docs/ru/index.md",
       "README.md"
     ],
     "validation": [
@@ -4994,7 +4994,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.es.md",
+      "docs/es/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -5017,7 +5017,7 @@
     "minutes": 45,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.es.md",
+      "docs/es/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -5040,7 +5040,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.es.md",
+      "docs/es/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -5063,7 +5063,7 @@
     "minutes": 40,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.es.md",
+      "docs/es/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -5086,7 +5086,7 @@
     "minutes": 25,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.es.md",
+      "docs/es/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -5109,7 +5109,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.es.md",
+      "docs/es/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -5132,7 +5132,7 @@
     "minutes": 30,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.es.md",
+      "docs/es/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -5155,7 +5155,7 @@
     "minutes": 20,
     "cloud_agent_ready": false,
     "allowed_paths": [
-      "README.es.md",
+      "docs/es/index.md",
       "README.md",
       "scripts/translations.py"
     ],
@@ -5179,7 +5179,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.sv.md",
+      "docs/sv/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5202,7 +5202,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.sv.md",
+      "docs/sv/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5225,7 +5225,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.sv.md",
+      "docs/sv/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5248,7 +5248,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.sv.md",
+      "docs/sv/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5271,7 +5271,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.sv.md",
+      "docs/sv/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5294,7 +5294,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.sv.md",
+      "docs/sv/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5317,7 +5317,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.sv.md",
+      "docs/sv/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5340,7 +5340,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.sv.md",
+      "docs/sv/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5363,7 +5363,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.tr.md",
+      "docs/tr/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5386,7 +5386,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.tr.md",
+      "docs/tr/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5409,7 +5409,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.tr.md",
+      "docs/tr/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5432,7 +5432,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.tr.md",
+      "docs/tr/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5455,7 +5455,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.tr.md",
+      "docs/tr/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5478,7 +5478,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.tr.md",
+      "docs/tr/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5501,7 +5501,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.tr.md",
+      "docs/tr/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5524,7 +5524,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.tr.md",
+      "docs/tr/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5547,7 +5547,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.uk.md",
+      "docs/uk/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5570,7 +5570,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.uk.md",
+      "docs/uk/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5593,7 +5593,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.uk.md",
+      "docs/uk/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5616,7 +5616,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.uk.md",
+      "docs/uk/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5639,7 +5639,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.uk.md",
+      "docs/uk/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5662,7 +5662,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.uk.md",
+      "docs/uk/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5685,7 +5685,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.uk.md",
+      "docs/uk/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5708,7 +5708,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.uk.md",
+      "docs/uk/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5731,7 +5731,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.vi.md",
+      "docs/vi/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5754,7 +5754,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.vi.md",
+      "docs/vi/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5777,7 +5777,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.vi.md",
+      "docs/vi/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5800,7 +5800,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.vi.md",
+      "docs/vi/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5823,7 +5823,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.vi.md",
+      "docs/vi/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5846,7 +5846,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.vi.md",
+      "docs/vi/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5869,7 +5869,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.vi.md",
+      "docs/vi/index.md",
       "scripts/translations.py"
     ],
     "validation": [
@@ -5892,7 +5892,7 @@
     "cloud_agent_ready": false,
     "allowed_paths": [
       "README.md",
-      "README.vi.md",
+      "docs/vi/index.md",
       "scripts/translations.py"
     ],
     "validation": [

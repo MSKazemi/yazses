@@ -44,7 +44,8 @@ argument, and the record of it is the decision it altered.
 - [@waterlemonnn](https://github.com/MSKazemi/yazses/commits?author=waterlemonnn)
 
 <!-- New contributors: added on merge, alphabetical. Want to be here? See CONTRIBUTING.md and grab a
-     good first issue: https://github.com/MSKazemi/yazses/labels/good%20first%20issue -->
+     good first issue: https://github.com/MSKazemi/yazses/labels/good%20first%20issue
+     (CONTRIBUTING.md lives in .github/ — GitHub surfaces it from there.) -->
 
 ---
 

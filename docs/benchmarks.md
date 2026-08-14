@@ -17,7 +17,7 @@ These are the same measurements reported in the
     · Python 3.12.3 · faster-whisper 1.2.1 · YazSes 2.12.0 · **int8 on CPU, no GPU**
 
     A slower or older CPU will be proportionally slower. Report yours — see
-    [contributing](https://github.com/MSKazemi/yazses/blob/main/CONTRIBUTING.md).
+    [contributing](https://github.com/MSKazemi/yazses/blob/main/.github/CONTRIBUTING.md).
 
 !!! tip "Measure your own machine, without running anything"
     `yazses status` reports **p50 and p95 decode latency per model** from your own

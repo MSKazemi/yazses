@@ -14,7 +14,7 @@ never has to guess who can say yes.
 | **Module steward** | You own a module's *internal* design: you review its PRs, and your call decides how it works inside the boundaries its ADRs set. | Ship two non-trivial PRs to that module, then ask on the issue or the relevant epic |
 | **Maintainer** | Architecture, ADRs, releases, signing keys, the final call when consensus does not appear. | Currently one person; see *Growing the maintainer group* |
 
-Stewards are recorded in [`.github/CODEOWNERS`](.github/CODEOWNERS), which also makes
+Stewards are recorded in [`.github/CODEOWNERS`](CODEOWNERS), which also makes
 GitHub request their review automatically. Adding yourself there is part of the PR
 that makes you a steward.
 
@@ -42,7 +42,7 @@ it merges. The ladder only exists for the things that are expensive to undo.
 An ADR follows the house style: **Context, Decision, Consequences, Rejected**. The
 *Rejected* section is not optional — it is where most of the long-term value is,
 because it tells the next person which arguments have already been had. The public
-[mobile ADRs](docs/mobile/adr/README.md) are the worked example.
+[mobile ADRs](../docs/mobile/adr/README.md) are the worked example.
 
 **What is protected on `main`.** Rulesets block force-pushes and deletion of
 `main` and of every `v*` release tag, so published history and the commits that
@@ -54,7 +54,7 @@ the first thing to revisit when there is a second maintainer.
 
 ## Things that are not up for negotiation in a PR
 
-These are settled by [ADR-011](docs/privacy-statement.md) and its mobile
+These are settled by [ADR-011](../docs/privacy-statement.md) and its mobile
 counterparts, and a PR that weakens one will be declined regardless of how good the
 rest of it is:
 

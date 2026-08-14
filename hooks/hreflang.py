@@ -38,7 +38,17 @@ from typing import Any
 
 # Top-level docs directories that denote a translation rather than a section.
 # Keep in step with any language directory added under docs/.
-LANGUAGE_DIRS = {"hi", "zh"}
+#
+# `hi` and `zh` predate the rest: they hold single use-case pages written to answer a
+# question people ask in that language. The remainder arrived when the 28 README
+# translations moved out of the repo root, where a `blob/main/README.xx.md` page could
+# carry neither `hreflang` nor `canonical` and the whole set read to a search engine as
+# unrelated duplicates of each other.
+LANGUAGE_DIRS = {
+    "ar", "bn", "cs", "de", "el", "es", "fa", "fr", "he", "hi", "id", "it", "ja",
+    "ko", "nl", "pl", "pt-BR", "ru", "sv", "ta", "te", "th", "tr", "uk", "ur",
+    "vi", "zh", "zh-CN", "zh-TW",
+}
 
 DEFAULT_LANGUAGE = "en"
 

@@ -1,4 +1,4 @@
-**Read this in other languages:** **English** · [Deutsch](README.de.md) · [Nederlands](README.nl.md) · [Tiếng Việt](README.vi.md) · [Türkçe](README.tr.md) · [bahasa Indonesia](README.id.md) · [español](README.es.md) · [français](README.fr.md) · [italiano](README.it.md) · [polski](README.pl.md) · [português do Brasil](README.pt-BR.md) · [svenska](README.sv.md) · [čeština](README.cs.md) · [ελληνικά](README.el.md) · [Русский](README.ru.md) · [українська](README.uk.md) · [עברית](README.he.md) · [اردو](README.ur.md) · [العربية](README.ar.md) · [فارسی](README.fa.md) · [हिंदी](README.hi.md) · [বাংলা](README.bn.md) · [தமிழ்](README.ta.md) · [తెలుగు](README.te.md) · [ไทย](README.th.md) · [日本語](README.ja.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [한국어](README.ko.md)
+**Read this in other languages:** **English** · [Deutsch](docs/de/index.md) · [Nederlands](docs/nl/index.md) · [Tiếng Việt](docs/vi/index.md) · [Türkçe](docs/tr/index.md) · [bahasa Indonesia](docs/id/index.md) · [español](docs/es/index.md) · [français](docs/fr/index.md) · [italiano](docs/it/index.md) · [polski](docs/pl/index.md) · [português do Brasil](docs/pt-BR/index.md) · [svenska](docs/sv/index.md) · [čeština](docs/cs/index.md) · [ελληνικά](docs/el/index.md) · [Русский](docs/ru/index.md) · [українська](docs/uk/index.md) · [עברית](docs/he/index.md) · [اردو](docs/ur/index.md) · [العربية](docs/ar/index.md) · [فارسی](docs/fa/index.md) · [हिंदी](docs/hi/index.md) · [বাংলা](docs/bn/index.md) · [தமிழ்](docs/ta/index.md) · [తెలుగు](docs/te/index.md) · [ไทย](docs/th/index.md) · [日本語](docs/ja/index.md) · [简体中文](docs/zh-CN/index.md) · [繁體中文](docs/zh-TW/index.md) · [한국어](docs/ko/index.md)
 
 # YazSes
 
@@ -640,7 +640,7 @@ already covers the licence grant.
   [share a config for your app or editor](https://github.com/MSKazemi/yazses/issues/43), or
   [add your setup to SHOWCASE.md](https://github.com/MSKazemi/yazses/issues/42).
 - 🐞 **Found a bug or have an idea?** Open an [issue](https://github.com/MSKazemi/yazses/issues/new/choose) (the `yazses doctor` output resolves most reports on its own) or ask in [Discussions](https://github.com/MSKazemi/yazses/discussions).
-- 🔧 **Sending a PR?** See [CONTRIBUTING.md](CONTRIBUTING.md). The gates are quick:
+- 🔧 **Sending a PR?** See [CONTRIBUTING.md](.github/CONTRIBUTING.md). The gates are quick:
 
 ```bash
 uv run python -m pytest tests/   # tests — must be green
