@@ -261,7 +261,10 @@ jobs:
       - name: Attest build provenance for the .exe
         uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v2
         with:
-          subject-path: "*.exe"
+          # dist/, not the repo root — same defect as build-macos.yml. The glob
+          # matched nothing, the step failed, and the "Attach to release" step
+          # after it never ran, so the installer never reached the release.
+          subject-path: dist/YazSes-*-windows-${{ matrix.arch }}.exe
 
       - name: Attach to release (tag builds only)
         if: startsWith(github.ref, 'refs/tags/v')

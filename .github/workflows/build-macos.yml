@@ -163,7 +163,12 @@ jobs:
       - name: Attest build provenance for the .dmg
         uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v2
         with:
-          subject-path: "*.dmg"
+          # dist/, not the repo root. Every other step in this job addresses the
+          # artifact as dist/YazSes-*.dmg; this one globbed the workspace root,
+          # found nothing, and failed the job — which skipped "Attach to release"
+          # below, so the .dmg was built and uploaded as a run artifact but never
+          # reached the release. v2.19.0 shipped with only the two .deb files.
+          subject-path: dist/YazSes-*.dmg
 
       - name: Attach to release (tag builds only)
         if: startsWith(github.ref, 'refs/tags/v')
