@@ -436,6 +436,9 @@ Format dictated lines as Fountain screenplay markup — fully offline.
 
 Open the Settings window — every capability as a toggle, grouped by category.
 
+- `--install-launcher` — Add 'YazSes Settings' to your desktop app grid, then exit.
+- `--uninstall-launcher` — Remove the app-grid entry and its icons, then exit.
+
 ## `yazses setup`
 
 Provision all Linux runtime requirements so dictation works out of the box.

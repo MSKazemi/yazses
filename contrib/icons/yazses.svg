@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="YazSes">
+  <!-- App icon: the same "Y over a sound-wave" mark the docs header and the CLI
+       banner use, on the brand gradient so it reads on any launcher background.
+       Colours are branding.BRAND_TOP / BRAND_BOTTOM. -->
+  <defs>
+    <linearGradient id="yz" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7C4DFF"/>
+      <stop offset="1" stop-color="#4527A0"/>
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="10" fill="url(#yz)"/>
+  <path d="M13 12 L24 26 L35 12" stroke="#ffffff" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M24 26 L24 34" stroke="#ffffff" stroke-width="4.4" stroke-linecap="round" fill="none"/>
+  <g stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" opacity="0.92" fill="none">
+    <path d="M8 38 L8 40"/>
+    <path d="M14 35 L14 43"/>
+    <path d="M20 37 L20 41"/>
+    <path d="M28 37 L28 41"/>
+    <path d="M34 35 L34 43"/>
+    <path d="M40 38 L40 40"/>
+  </g>
+</svg>

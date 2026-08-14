@@ -92,7 +92,7 @@ After a successful update, restart the daemon to load it:
 | `yazses status` | Show state, hotkey, model, injection backend, uptime and decode latency (p50/p95) over IPC. |
 | `yazses tray` | Show the top-bar tray icon + click-menu (pick/pin mic, re-calibrate, start/stop). |
 | `yazses features` | See capabilities and turn them on/off — no config-file editing. |
-| `yazses settings` | The same switchboard as a window — every capability as a checkbox. |
+| `yazses settings` | The same switchboard as a window — every capability as a checkbox. See [the Settings window](settings-gui.md). |
 | `yazses-daemon` | Run the daemon in the **foreground** (logs to console) — useful for debugging. |
 
 ### `yazses start`

@@ -327,6 +327,7 @@ nav:
       - Command index: command-index.md
       - Configuration: configuration.md
       - Tray icon & overlay: tray-and-overlay.md
+      - The Settings window: settings-gui.md
       - Known-good microphones: known-good-microphones.md
       - Choosing a model: models.md
       - Capability matrix: capability-matrix.md

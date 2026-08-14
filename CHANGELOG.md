@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — an app-grid launcher, and a page for the Settings window
+
+- **`yazses settings --install-launcher`** puts *YazSes Settings* in your
+  application menu, with an icon at 48/64/128/256 px plus a scalable SVG, all
+  rendered from the same "Y over a sound-wave" mark the docs header and the CLI
+  banner use. A `.deb` now installs the same files system-wide;
+  `--uninstall-launcher` removes them. A `pipx` or `uv tool` install owns nothing
+  outside its own virtualenv, which left those users with a settings window
+  reachable only by typing a command. `Exec=` is the bare `yazses settings`, not an
+  absolute path, because hard-coding today's interpreter is how a launcher breaks
+  at the next upgrade. Validated with `desktop-file-validate`, and a test asserts
+  each PNG really is the size its filename claims. (#59)
+- **[The Settings window](https://mskazemi.com/yazses/settings-gui.html)** — how to
+  open it three ways, what the recommendation tiers mean, how a capability that
+  needs extra packages installs them (and why a failed install leaves the switch
+  **on** rather than silently discarding your intent), and why Apply offers a
+  restart and then waits for the daemon to answer over IPC rather than trusting an
+  exit code. The screenshot is the real window, rendered offscreen from the
+  shipping code. (#64)
+
 ### Added — two more troubleshooting guides
 
 - **[Dictation types into the wrong window](https://mskazemi.com/yazses/how-to/wrong-window.html)**

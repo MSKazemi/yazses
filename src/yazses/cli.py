@@ -819,14 +819,44 @@ def tray(
         "yazses settings    open the settings window (needs a graphical session)",
     ),
 )
-def settings() -> None:
+def settings(
+    install_launcher: bool = typer.Option(
+        False, "--install-launcher",
+        help="Add 'YazSes Settings' to your desktop app grid, then exit."),
+    uninstall_launcher: bool = typer.Option(
+        False, "--uninstall-launcher",
+        help="Remove the app-grid entry and its icons, then exit."),
+) -> None:
     """Open the Settings window — every capability as a toggle, grouped by category.
 
     Reads and writes the same config keys as `yazses features enable/disable`, so
     the two never disagree. Needs a graphical session (no system tray required);
     on a headless or SSH machine use `yazses features` instead. Restart the daemon
     after applying changes: `yazses restart`.
+
+    `--install-launcher` puts an entry in your application menu. A .deb or snap
+    does this for you; a pipx or uv-tool install cannot write outside its own
+    virtualenv, which left those users with a settings window and no way to reach
+    it except by typing this command.
     """
+    import os
+
+    data_home = Path(os.environ.get("XDG_DATA_HOME") or (Path.home() / ".local" / "share"))
+
+    if uninstall_launcher:
+        from yazses.system.launcher import uninstall_launcher as _remove
+
+        removed = _remove(data_home)
+        typer.echo(f"Removed {len(removed)} file(s)." if removed else "Nothing to remove.")
+        return
+
+    if install_launcher:
+        from yazses.system.launcher import install_launcher as _install
+
+        result = _install(data_home)
+        typer.echo(result.describe())
+        raise typer.Exit(0 if result.installed else 1)
+
     from yazses.settingsui.app import run as run_settings
 
     run_settings()

@@ -269,6 +269,7 @@ Hold the hotkey (Space on Linux, Right Option on macOS, Right Ctrl on Windows), 
 - :material-speedometer: **[Choosing a model](models.md)** — measured accuracy vs latency
 - :material-monitor-multiple: **[Platform support](platform-support.md)** — will it run on my OS and CPU
 - :material-table-check: **[Capability matrix](capability-matrix.md)** — which features work where, and why not
+- :material-tune: **[The Settings window](settings-gui.md)** — every capability as a checkbox, no config file
 - :material-translate: **[More than one language](use-cases/multilingual-dictation.md)** — non-English and code-switching
 
 </div>

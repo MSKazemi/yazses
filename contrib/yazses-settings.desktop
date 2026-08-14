@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=YazSes Settings
+GenericName=Voice dictation settings
+Comment=Configure offline voice dictation — hotkey, microphone, and every capability
+Exec=yazses settings
+Icon=yazses
+Terminal=false
+Categories=Utility;Accessibility;
+Keywords=voice;dictation;speech;transcription;accessibility;microphone;
+StartupNotify=true
+StartupWMClass=yazses

@@ -30,6 +30,19 @@ cp contrib/ydotoold.service "$STAGING/usr/lib/systemd/user/ydotoold.service"
 mkdir -p "$STAGING/etc/xdg/autostart"
 cp contrib/yazses-session.desktop "$STAGING/etc/xdg/autostart/yazses-session.desktop"
 
+# App-grid launcher (#59). A .deb can write into /usr/share, which a pipx or
+# uv-tool install cannot — those users get the same files per-user via
+# `yazses settings --install-launcher`.
+mkdir -p "$STAGING/usr/share/applications"
+cp contrib/yazses-settings.desktop "$STAGING/usr/share/applications/"
+mkdir -p "$STAGING/usr/share/icons/hicolor/scalable/apps"
+cp contrib/icons/yazses.svg "$STAGING/usr/share/icons/hicolor/scalable/apps/yazses.svg"
+for size in 48 64 128 256; do
+  mkdir -p "$STAGING/usr/share/icons/hicolor/${size}x${size}/apps"
+  cp "contrib/icons/yazses-${size}.png" \
+     "$STAGING/usr/share/icons/hicolor/${size}x${size}/apps/yazses.png"
+done
+
 # Example config and install helper
 mkdir -p "$STAGING/usr/share/yazses"
 cp examples/config.example.toml "$STAGING/usr/share/yazses/"
