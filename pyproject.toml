@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "yazses"
-version = "2.19.0"
+version = "2.20.0"
 description = "Local, offline-by-default voice dictation for Linux, macOS, and Windows — hold a key, speak, release"
 readme = "README.md"
 license = {text = "Apache-2.0"}

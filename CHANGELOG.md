@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.20.0] - 2026-08-14
+
 ### Fixed — a blocked model download killed the daemon instead of explaining (#310)
 
 Reported by [@AtmanActive](https://github.com/AtmanActive) on Windows 10 behind
