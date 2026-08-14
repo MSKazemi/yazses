@@ -117,20 +117,26 @@ def test_the_autoupdate_hash_regex_actually_extracts_the_right_hash():
     version = manifest["version"]
     spec = manifest["autoupdate"]["architecture"]["64bit"]["hash"]
 
-    # A real SHA256SUMS.txt from a release, in the format the workflow writes.
+    # A real SHA256SUMS.txt from a release, in the format the workflow writes. The
+    # .exe line carries the manifest's OWN hash: what is under test is whether the
+    # regex picks the Windows line out of three, so the .deb and .dmg hashes are
+    # decoys and only their distinctness matters. Hardcoding the .exe hash instead
+    # pinned one release's value, and the test then failed on the next one — it did,
+    # on v2.19.0 — reporting a stale fixture as if the regex had broken.
+    expected = manifest["architecture"]["64bit"]["hash"]
     published = (
         "87ee4e8eb0f3f2dc36b15643bd2bc26227364aec27a269a9db4b3211b3a9a789  "
         f"yazses_{version}_amd64.deb\n"
         "f3b24712bf7b65f5ad03cbe12c98f3ef713184d9a16c841820814b9e33103858  "
         f"YazSes-{version}.dmg\n"
-        "78d08aa50ea1456b450ab5305d6151778ece3cfe471f4bc04d24073a7534f775  "
+        f"{expected}  "
         f"YazSes-{version}-windows-x64.exe\n"
     )
 
     pattern = spec["regex"].replace("$version", version).replace("$sha256", "([a-fA-F0-9]{64})")
     match = re.search(pattern, published)
     assert match, f"regex {pattern!r} matches nothing in a real SHA256SUMS.txt"
-    assert match.group(1) == manifest["architecture"]["64bit"]["hash"], (
+    assert match.group(1) == expected, (
         "extracted a hash, but not the one for the Windows installer"
     )
 
