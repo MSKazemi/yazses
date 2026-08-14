@@ -48,7 +48,7 @@ YazSes एक मुफ़्त, ओपन-सोर्स, ऑफलाइन 
 *40-सेकंड का परिचय: मुख्य workflow, command line और system tray। Terminal output वास्तविक है; स्पष्टता के लिए command-line typing को दोबारा प्रदर्शित किया गया है।*
 ▶️ **[YouTube पर देखें](https://www.youtube.com/watch?v=nn8WUKsCvZ4)** — वही वीडियो chapters के साथ।
 
-![yazses doctor — all green, fully offline](docs/screenshots/yazses-doctor.png)
+![yazses doctor — all green, fully offline by default](docs/screenshots/yazses-doctor.png)
 
 वीडियो की बजाय टेक्स्ट पसंद है? [`docs/demo/yazses-cli.cast`](docs/demo/yazses-cli.cast) CLI के
 सामान्य workflow (`-h` → `about` → `quickstart` → `features` →
@@ -72,7 +72,7 @@ transcription के बाद हटा दिया जाता है, ज�
 आप स्वयं enroll करते हैं — किसी cloud account से कभी नहीं।
 
 > **क्या वैकल्पिक है:** dictation सीधे काम करता है। Speaker labels के लिए
-> diarization extra (`pipx install 'yazses[diarization]'`, ~15 MB models, एक बार download)
+> diarization extra (`pipx install 'yazses[diarization]'`, ~45 MB models, एक बार download)
 > आवश्यक है; meeting minutes के लिए इसके अतिरिक्त `notes` extra और एक local GGUF model चाहिए, जिसकी ओर आप
 > संकेत करते हैं। दोनों default रूप से बंद हैं — [offline meeting notes](docs/meeting-notes-offline.md) देखें।
 

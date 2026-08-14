@@ -61,7 +61,7 @@ yazses transcribe note.fr.m4a --language translate
 Speaker tagging is opt-in and needs a small one-time setup, because it uses a
 separate speaker model (sherpa-onnx — CPU-only, no PyTorch, no GPU, no account).
 
-**One-time:** install the extra and fetch the models (~15 MB):
+**One-time:** install the extra and fetch the models (~45 MB):
 
 ```sh
 uv sync --extra diarization                 # or: pipx inject yazses sherpa-onnx

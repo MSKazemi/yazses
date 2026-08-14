@@ -1,0 +1,52 @@
+# examples/config.gnome-terminal.toml
+# A YazSes setup for dictating into GNOME Terminal (the default terminal on
+# Ubuntu, Fedora Workstation and Debian GNOME).
+#
+# Copy to ~/.config/yazses/config.toml and edit as needed.
+
+# ---------------------------------------------------------------------------
+# Measured, by injecting a string into a live GNOME Terminal and reading what
+# the shell received on stdin:
+#
+#     dictated:  kubectl get pods --namespace prod && cat src/main.py
+#     arrived:   kubectl get pods --namespace prod && cat src/main.py   (exact)
+#
+# Byte for byte, including the double hyphen, the `&&` and the path — as with
+# every other terminal tested. Terminals are the easy case; it is word
+# processors and chat clients that rewrite what arrives.
+#
+# One GNOME-specific note that has nothing to do with YazSes: gnome-terminal is
+# a thin client for `gnome-terminal-server`, which refuses to start under a
+# non-UTF-8 locale ("Non UTF-8 locale (ANSI_X3.4-1968) is not supported!") and
+# needs a session D-Bus. On a normal desktop both are already true. Over a bare
+# `ssh -X` or in a container they may not be, and the failure looks like the
+# terminal simply never opening.
+# ---------------------------------------------------------------------------
+
+[stt]
+model = "small.en"         # commands are unforgiving; small.en earns its cost here
+device = "cpu"
+compute_type = "int8"
+initial_prompt = "git, kubectl, docker, systemctl, grep, sudo, apt, ssh, chmod, journalctl"
+
+[hotkey]
+key = "right_ctrl"         # ctrl+<letter> is taken by the shell and by readline
+hold_threshold_ms = 400
+
+[audio]
+sample_rate = 16000
+channels = 1
+max_record_seconds = 45    # a command line, not a paragraph
+
+[injection]
+backend = "type"           # REQUIRED: clipboard paste is a no-op in a terminal
+fallback_to_clipboard = false
+
+[commands]
+voice_punctuation = false  # a shell command must not gain stray punctuation
+
+[filters.disfluency]
+enabled = true
+
+[general]
+log_level = "INFO"

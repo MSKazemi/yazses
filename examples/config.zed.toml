@@ -1,0 +1,56 @@
+# examples/config.zed.toml
+# A YazSes setup for dictating into the Zed editor.
+#
+# Copy to ~/.config/yazses/config.toml and edit as needed.
+
+# ---------------------------------------------------------------------------
+# Measured, by injecting a string into a live Zed buffer and reading the saved
+# file back byte for byte:
+#
+#     dictated:  kubectl get pods --namespace prod
+#     on disk:   kubectl get pods --namespace prod\n
+#
+# Exact. The trailing newline is Zed's ensure-final-newline-on-save, not
+# anything done to the dictated text — worth stating, because a naive read-back
+# reports that as a mismatch and it is not one.
+#
+# Zed opens behind up to two modals on a first run, and each swallows every
+# keystroke silently:
+#
+#   * "Unrecognized Project — Restricted Mode" wants Enter (Trust and Continue).
+#     Escape does not answer it.
+#   * "Unsupported GPU" appears when Zed cannot find a hardware Vulkan device,
+#     including over remote X and in a VM.
+#
+# Neither produces an error anywhere YazSes can see. If dictation seems to do
+# nothing in Zed, look at the window before touching the config.
+# ---------------------------------------------------------------------------
+
+[stt]
+model = "base.en"
+device = "cpu"
+compute_type = "int8"
+initial_prompt = "kubectl, kubernetes, namespace, async, await, stdout, stderr, JSON, YAML"
+
+[hotkey]
+key = "right_ctrl"         # Zed binds ctrl+<letter>, never bare right_ctrl
+hold_threshold_ms = 400
+
+[audio]
+sample_rate = 16000
+channels = 1
+max_record_seconds = 60
+
+[injection]
+backend = "type"           # verified EXACT into the buffer
+fallback_to_clipboard = true
+target_guard = "clipboard"
+
+[commands]
+voice_punctuation = false  # off for code: "period" and "comma" are real words
+
+[filters.disfluency]
+enabled = true
+
+[general]
+log_level = "INFO"

@@ -48,7 +48,7 @@ YazSes 是一个免费、开源、离线的语音听写与语音转文字守护�
 *40 秒演示：核心流程、命令行与系统托盘。终端输出是真实的；命令行输入为了清晰起见做了重新演示。*
 ▶️ **[在 YouTube 上观看](https://www.youtube.com/watch?v=nn8WUKsCvZ4)** —— 同一段演示，带章节。
 
-![yazses doctor — 全部通过，完全离线](docs/screenshots/yazses-doctor.png)
+![yazses doctor — 全部通过，默认完全离线](docs/screenshots/yazses-doctor.png)
 
 ---
 
@@ -62,7 +62,7 @@ YazSes 是一个免费、开源、离线的语音听写与语音转文字守护�
 
 三者都在你的 CPU 上运行，全程无需联网。除非你明确要求保留，会议录音在转写后会被删除；说话人姓名来自你自己录入的声纹 —— 绝不来自任何云端账号。
 
-> **哪些是可选的：** 听写开箱即用。说话人标注需要 diarization 扩展（`pipx install 'yazses[diarization]'`，约 15 MB 模型，只需下载一次）；会议纪要还额外需要 `notes` 扩展以及你自行指定的本地 GGUF 模型。两者默认关闭 —— 详见[离线会议纪要](docs/meeting-notes-offline.md)。
+> **哪些是可选的：** 听写开箱即用。说话人标注需要 diarization 扩展（`pipx install 'yazses[diarization]'`，约 45 MB 模型，只需下载一次）；会议纪要还额外需要 `notes` 扩展以及你自行指定的本地 GGUF 模型。两者默认关闭 —— 详见[离线会议纪要](docs/meeting-notes-offline.md)。
 
 ---
 

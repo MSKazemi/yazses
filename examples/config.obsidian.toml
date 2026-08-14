@@ -1,0 +1,56 @@
+# examples/config.obsidian.toml
+# A YazSes setup for dictating notes into Obsidian.
+#
+# Copy to ~/.config/yazses/config.toml and edit as needed.
+
+# ---------------------------------------------------------------------------
+# Measured, by injecting a string into a note in a live Obsidian window and
+# reading the note back:
+#
+#     dictated:  kubectl get pods --namespace prod
+#     arrived:   kubectl get pods --namespace prod      (exact)
+#
+# Obsidian is Electron, and it does not rewrite what arrives: the double hyphen
+# survives, and nothing is auto-capitalised. That matters for a notes app more
+# than it sounds — a note is where commands and snippets get parked, and a word
+# processor would have silently turned `--namespace` into an en dash.
+#
+# Two Obsidian-specific things:
+#
+#   * The Quick Switcher (ctrl+O), the search pane and the command palette are
+#     all text fields. Dictation lands in whichever has focus, and the "no text
+#     target" guard cannot help — they are genuine text targets. Close the
+#     palette before you hold the key.
+#   * Obsidian's own Markdown shortcuts still apply. Dictating a line that
+#     starts with "hash" or "dash space" produces a heading or a bullet. That is
+#     usually what you want in a notes app, and it is worth knowing before you
+#     dictate a command that starts with `#`.
+# ---------------------------------------------------------------------------
+
+[stt]
+model = "base.en"
+device = "cpu"
+compute_type = "int8"
+
+[hotkey]
+key = "right_ctrl"         # Obsidian binds ctrl+<letter>, never bare right_ctrl
+hold_threshold_ms = 400
+
+[audio]
+sample_rate = 16000
+channels = 1
+max_record_seconds = 180   # a whole thought, in one hold
+
+[injection]
+backend = "type"           # verified EXACT into a note
+fallback_to_clipboard = true
+target_guard = "clipboard"
+
+[commands]
+voice_punctuation = true   # notes are prose; spoken punctuation is wanted
+
+[filters.disfluency]
+enabled = true
+
+[general]
+log_level = "INFO"

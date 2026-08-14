@@ -1,12 +1,12 @@
 name: yazses
 base: core24
 version: "2.17.0"
-summary: Local, offline voice dictation for Linux
+summary: Local, offline-by-default voice dictation for Linux
 description: |
-  YazSes is offline, on-device voice dictation. Hold a key (Space by default),
-  speak, release — your words are transcribed locally and typed into whatever
-  app has focus. No cloud, no API key, no subscription; nothing leaves your
-  machine.
+  YazSes is offline-by-default, on-device voice dictation. Hold a key (Space by
+  default), speak, release — your words are transcribed locally and typed into
+  whatever app has focus. No cloud, no API key, no subscription; no audio and no
+  text leave your machine by default.
 
   - Offline speech-to-text with faster-whisper (CPU, int8) — no GPU needed
   - Voice commands for editors and terminals: "undo that", "save file",

@@ -134,7 +134,7 @@ pypandoc.convert_file(
         "-V", "monofont=DejaVu Sans Mono",
         "-V", "sansfont=DejaVu Sans",
         "-M", "title=YazSes — The Complete Reference",
-        "-M", f"subtitle=Local, offline voice dictation · v{version}",
+        "-M", f"subtitle=Local, offline-by-default voice dictation · v{version}",
         "-M", "author=Mohsen Seyedkazemi Ardebili",
     ],
 )

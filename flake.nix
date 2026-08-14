@@ -5,8 +5,11 @@
   #   nix shell github:MSKazemi/yazses          # drop it into a shell
   #   nix profile install github:MSKazemi/yazses
   #
-  # STATUS: evaluated. `nix flake check` passes for x86_64-linux — run it yourself
-  # without installing Nix:
+  # STATUS: evaluated, NOT yet building. `nix flake check` passes for x86_64-linux, but
+  # `nix build .#yazses` fails: pyproject requires typer>=0.26.8 and nixpkgs ships 0.25.1
+  # in every Python package set. Evaluation passing is not the same as a package
+  # existing — see design/packaging/nix-binary-cache.md. Run it yourself, no Nix install
+  # needed (add `-v yazses-nix-store:/nix` to keep the store between runs):
   #
   #     docker run --rm -v "$PWD:/host:ro" nixos/nix /host/packaging/nix/build-and-test.sh
   #
@@ -34,7 +37,14 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        python = pkgs.python312;
+
+        # `pkgs.python3`, the DEFAULT interpreter — never a pinned `pkgs.python312`.
+        # Hydra only builds and caches nixpkgs' *default* Python package set, so
+        # pinning any other interpreter silently opts every dependency out of the
+        # binary cache and into a source build. This line was `pkgs.python312` once
+        # and cost four hours of compiling PyTorch on a laptop; see
+        # design/packaging/nix-binary-cache.md for the incident and the measurements.
+        python = pkgs.python3;
 
         yazses = python.pkgs.buildPythonApplication rec {
           pname = "yazses";

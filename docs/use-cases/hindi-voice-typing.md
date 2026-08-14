@@ -1,14 +1,23 @@
 ---
-title: "Hindi voice typing for PC — free, offline speech to text for Windows, Linux and macOS"
-description: "Type in Hindi by speaking, with no internet connection and no account. Offline Hindi voice typing software for PC, plus Tamil, Telugu, Bengali, Marathi and ten more Indian languages — all transcribed on your own machine."
+title: "Offline Hindi voice typing on a PC — how to configure it with YazSes"
+description: "YazSes is an English-tuned dictation tool and its default model cannot decode Hindi at all. This page shows how to point it at a multilingual Whisper model for Hindi and other Indian languages. No accuracy data is published for any of them — a how-to, not a support claim."
 ---
 
-# Hindi voice typing on a PC, fully offline
+# Offline Hindi voice typing on a PC, with YazSes
 
-**Short answer:** YazSes is free, open-source dictation software that types Hindi
-into any application on your PC while completely disconnected from the internet.
-You hold a key, speak, release, and the Devanagari text appears where your cursor
-is. Nothing is uploaded, there is no account, and there is no per-minute charge.
+!!! warning "Bottom line first: YazSes is an English dictation tool"
+
+    YazSes ships `base.en` and is tuned for English. **We do not claim Hindi support, or
+    support for any other Indian language.** Every accuracy benchmark this project publishes
+    is English ([LibriSpeech](../benchmarks.md)); we have published **no** measurement for
+    Hindi or any language on this page. The multilingual decoding below is **Whisper's**
+    capability, not YazSes's — YazSes passes a `language` flag through and you supply the
+    model. Quality will vary by language and you should test it on your own voice before
+    relying on it.
+
+**What this page is:** a how-to for pointing YazSes at Whisper's multilingual models.
+You hold a key, speak, release, and the text appears where your cursor is. Nothing is
+uploaded by default, there is no account, and there is no per-minute charge.
 
 Most Hindi voice typing tools are websites or Android keyboards: you dictate into
 their text box and then copy the result out, and they stop working the moment your
@@ -17,10 +26,13 @@ into Word, a browser, a code editor, WhatsApp Web or a terminal directly, and it
 works on a train, in a village with patchy data, or on a machine that never touches
 the internet.
 
-## Which Indian languages are supported
+## Which Indian languages Whisper can decode
 
-The speech model shipped with YazSes is multilingual. Every one of these is
-supported by the installed model and can be set as your dictation language:
+**The model shipped with YazSes is `base.en` — English-only. It cannot decode any of the
+languages below.** You must switch to a multilingual checkpoint first (see the
+configuration section). Once you have, these are the language codes Whisper accepts;
+**this project has measured none of them**, and accuracy varies a great deal between
+them — larger models help disproportionately for lower-resource languages:
 
 | Language | Code | Language | Code |
 |---|---|---|---|

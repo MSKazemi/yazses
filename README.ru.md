@@ -48,7 +48,7 @@ YazSes — бесплатная оффлайн служба голосовой �
 *40-секундный обзор: основной рабочий цикл, командная строка и системный ввод. Вывод терминала настоящий; ввод команд в командной строке воспроизведён заново для читаемости.*
 ▶️ **[Смотреть на YouTube](https://www.youtube.com/watch?v=nn8WUKsCvZ4)** — тот же ролик с заголовками.
 
-![yazses doctor — all green, fully offline](docs/screenshots/yazses-doctor.png)
+![yazses doctor — all green, fully offline by default](docs/screenshots/yazses-doctor.png)
 
 Предпочитаете текст вместо видео? [`docs/demo/yazses-cli.cast`](docs/demo/yazses-cli.cast) — это
 запись asciinema стандартного CLI (`-h` → `about` → `quickstart` → `features` →
@@ -75,7 +75,7 @@ YazSes — бесплатная оффлайн служба голосовой �
 вы добавляете сами — не из облачной учётной записи.
 
 > **Что необязательно:** диктовка работает сразу после установки. Для разметки по говорящим нужен
-> дополнительный пакет (`pipx install 'yazses[diarization]'`, около 15 MB моделей, загружаются
+> дополнительный пакет (`pipx install 'yazses[diarization]'`, около 45 MB моделей, загружаются
 > один раз); для протокола встречи дополнительно нужны пакет `notes` и локальная модель GGUF, путь к которой
 > вы указываете сами. Оба варианта по умолчанию отключены — см. [локальные заметки о встречах](docs/meeting-notes-offline.md).
 

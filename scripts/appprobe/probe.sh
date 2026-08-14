@@ -31,7 +31,12 @@ sleep 2
 openbox >/dev/null 2>&1 &
 sleep 2
 "$@" >/dev/null 2>&1 &
-sleep 7
+# 7s covers a terminal emulator. GNOME Terminal is a thin client for
+# gnome-terminal-server, which has to be D-Bus-activated first and takes
+# longer; set PROBE_WAIT=20 for it. An app that has not drawn yet and an app
+# that ignores XTEST look identical in the output, so when you get NO_WINDOW,
+# raise this before concluding anything.
+sleep "${PROBE_WAIT:-7}"
 
 WIN=$(xdotool search --onlyvisible --class . 2>/dev/null | tail -1)
 [ -z "$WIN" ] && { echo "RESULT|$LABEL|NO_WINDOW|"; exit 0; }

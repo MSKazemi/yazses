@@ -78,7 +78,7 @@ _APP_EPILOG = (
 
 app = typer.Typer(
     name="yazses",
-    help="Local, offline voice dictation — hold a key, speak, release.",
+    help=branding.TAGLINE,
     context_settings=CONTEXT_SETTINGS,
     no_args_is_help=True,          # bare `yazses` shows help instead of an error
     rich_markup_mode="rich",

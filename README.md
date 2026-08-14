@@ -67,12 +67,13 @@ YazSes is a free, open-source, offline voice dictation and speech-to-text daemon
 *40-second tour: the core loop, the command line, and the system tray. Terminal output is real; the command-line typing is re-enacted for legibility.*
 ▶️ **[Watch it on YouTube](https://www.youtube.com/watch?v=nn8WUKsCvZ4)** — same reel with chapters.
 
-![yazses doctor — all green, fully offline](docs/screenshots/yazses-doctor.png)
+![yazses doctor — all green, fully offline by default](docs/screenshots/yazses-doctor.png)
 
-Prefer text over video? [`docs/demo/yazses-cli.cast`](docs/demo/yazses-cli.cast) is an
-asciinema recording of the CLI happy path (`-h` → `about` → `quickstart` → `features` →
-`status`) — every byte is real command output, nothing hand-typed. Play it with
-[asciinema](https://asciinema.org): `asciinema play docs/demo/yazses-cli.cast`.
+Prefer text over video? **[Watch the CLI in your browser](https://mskazemi.github.io/yazses/watch-the-cli.html)**
+— an asciinema recording of the happy path (`-h` → `about` → `quickstart` → `features` →
+`status`), where every byte is real command output and nothing is hand-typed. The player is
+served from the docs site itself, not a CDN, so reading it does not report you to anyone.
+In your own terminal: `asciinema play docs/demo/yazses-cli.cast`.
 
 > ⭐ **If that looks useful, a star is how other people find it.** There's no company and no
 > ad budget behind this — word of mouth is the entire distribution strategy.

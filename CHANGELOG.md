@@ -6,6 +6,88 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the CLI demo now plays in the docs site (#23)
+
+`docs/watch-the-cli.md` embeds `docs/demo/yazses-cli.cast` in a real player. The
+cast has existed since August and was only ever *linked* — which meant reading
+the demo required installing `asciinema` first, so in practice nobody saw it.
+
+The player (asciinema-player 3.17.0, Apache-2.0) is **vendored into
+`docs/assets/asciinema/` and served from this site, not a CDN**. That is not
+incidental: a tool whose entire claim is that your voice never leaves your
+machine cannot have documentation that reports every reader's IP address to a
+third party. This site already had that bug once, with Google Fonts.
+
+The upstream issue also asks for an upload to asciinema.org. That needs an
+account, so it stays with the maintainer — and the self-hosted player is the
+better answer for this project anyway.
+
+### Added — Obsidian, Zed and GNOME Terminal configs, and two more harness claims withdrawn
+
+`examples/config.{obsidian,zed,gnome-terminal}.toml`, each measured the same
+way: inject into a live window, read back what arrived. All three are byte for
+byte exact. (#188, #219, #222)
+
+Every one of them had been recorded as impossible, and every one was a property
+of the container rather than of the application:
+
+- **GNOME Terminal** was *"no window, even with `dbus-launch`"*. The session bus
+  was never the problem — `gnome-terminal-server` refuses to start under a
+  non-UTF-8 locale, and a container defaults to `ANSI_X3.4-1968`. The base image
+  now sets `LANG=C.UTF-8`.
+- **Zed** exits with *"Failed to create surface"* without a Vulkan device, and
+  then stacks an "Unsupported GPU" notice on a "Trust this project?" prompt —
+  which **Escape cannot answer**, only Return. Hence `PROBE_PRE_KEYS`.
+- **Obsidian** opens on its vault picker, so there is genuinely nothing to type
+  into until a vault exists.
+
+Zed's saved file carries a trailing newline that the dictation did not contain.
+That is its ensure-final-newline-on-save, not mangling — checked with `od`,
+because a naive read-back reports it as a mismatch and it is not one.
+
+`probe.sh` gains `PROBE_WAIT` (the 7-second default is far too short for a
+D-Bus-activated app, and a slow start is indistinguishable from a dead one in
+the output). The known-limits table now separates apps that need an account
+(Slack, Discord — only the login field is reachable, and a config asserting the
+untested composer would be worse than none) from apps that are merely not
+packaged for apt (Logseq).
+
+### Added — Firefox and Thunderbird configs, and a wrong result withdrawn
+
+`examples/config.{firefox,thunderbird}.toml`, each written from a measurement,
+plus `probe-gui.sh` and `Dockerfile.gui` so the measurement can be repeated.
+Both deliver `kubectl get pods --namespace prod` byte for byte. (#225, #226)
+
+VS Code (#185) was measured here too and reached the same verdict independently,
+but the profile that ships is [@Mr-Neutr0n](https://github.com/Mr-Neutr0n)'s from
+[#305](https://github.com/MSKazemi/yazses/pull/305) — see the entry below. Two
+people finding the same first-run modal from opposite directions is the strongest
+evidence in this changelog that it is real.
+
+**This corrects a claim this project published.** `scripts/appprobe/README.md`
+said Electron *"opens a window and no keystroke ever lands"* and that Gecko
+produced *"no window at all"*. Both were wrong, and both were wrong about the
+harness rather than about the toolkit:
+
+- **VS Code was showing a first-run modal** — *"Sign in to use GitHub Copilot"* —
+  which swallowed every keystroke silently. Two Escapes before typing, and it
+  returns the text exactly. A screenshot showed this in seconds; ninety seconds
+  of extra waiting had not, because the wait was never the problem.
+- **`apt install firefox` on Ubuntu 24.04 installs a snap stub**, a script that
+  prints `snap install firefox` and exits. With no snapd in a container the
+  browser never starts. Taking the tarball from Mozilla instead, Firefox and
+  Thunderbird both work.
+
+The probe now reports `DIALOG_ONLY` with a screenshot when the only window on
+screen is too small to be the application, rather than `NO_WINDOW` — the two
+were indistinguishable in the output, and that is precisely how the wrong
+conclusion got recorded. **A negative result from a harness is a claim about the
+harness until you have looked at the screen.**
+
+`docs/how-to/app-profiles.md` gains a section on the same distinction for users:
+text that never arrives is usually a dialog in front of the window, or the wrong
+text field having focus — neither of which the "no text target" guard can catch,
+because in both cases a real text target does have focus.
 ### Added — a VS Code app profile, and a check on every app profile
 
 `examples/config.vscode.toml`, contributed by

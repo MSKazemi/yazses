@@ -13,7 +13,7 @@ License: Apache-2.0
 LicenseUrl: https://github.com/MSKazemi/yazses/blob/main/LICENSE
 Copyright: Copyright (c) MSKazemi
 CopyrightUrl: https://github.com/MSKazemi/yazses/blob/main/LICENSE
-ShortDescription: Local, offline voice dictation — hold a key, speak, release.
+ShortDescription: Local, offline-by-default voice dictation — hold a key, speak, release.
 Description: |-
   YazSes is a local, offline voice-to-text dictation app for Windows.
   Hold a key (Right Ctrl by default), speak, release — the transcribed text
