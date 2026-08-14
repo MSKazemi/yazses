@@ -1327,9 +1327,19 @@ class Daemon:
             if is_dictation and self._config.revise.enabled and parse_revise(text):
                 if use_streaming and stream_injector is not None:
                     stream_injector.cancel()
-                n = self._ledger.scratch_last()
+                # Peek, inject, and only THEN commit. `scratch_last()` pops as it
+                # reports, so asking the ledger for the count *is* the undo: if the
+                # injection below then failed, the burst had already been dropped
+                # while its text was still on screen, and the next "scratch that"
+                # would delete the burst *before* it — text the user never asked to
+                # remove. Compounding, and silent, because the surrounding pipeline
+                # swallows the exception. `last_text()` is a sound non-mutating peek:
+                # `record()` and `replace_last()` are the only writers and both keep
+                # `_counts[-1] == len(_texts[-1])`.
+                n = len(self._ledger.last_text())
                 if n > 0:
                     injector.inject_key_sequence(["BackSpace"] * n)
+                    self._ledger.scratch_last()
                 event["intent_type"] = "revise"
                 event["revise_chars"] = n
                 log.info("Mid-thought undo: scratched %d chars.", n)
