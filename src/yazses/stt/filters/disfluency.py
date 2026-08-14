@@ -212,6 +212,27 @@ def _drop_all_filler_hyphen_tokens(text: str, fillers: frozenset[str]) -> str:
     return ' '.join(kept)
 
 
+def _tidy_orphaned_punctuation(text: str) -> str:
+    """Repair punctuation left stranded by removing a filler.
+
+    The filler pattern consumes a comma *after* the word but not before it, so a
+    filler that closed a clause left the comma dangling — "this is probably fine,
+    you know" became "this is probably fine," and "the tests, you know, are slow"
+    became "the tests, are slow". Both are text typed into someone's document, and
+    both read as a bug in the tool rather than as speech.
+
+    Only ever applied when the filler pass actually removed something, so text
+    nobody touched keeps whatever punctuation was dictated.
+    """
+    # ", ," -> ","  (filler sat between two commas)
+    text = re.sub(r",\s*,", ",", text)
+    # " ," -> ","   (the word before the comma was the one removed)
+    text = re.sub(r"\s+([,;:])", r"\1", text)
+    # a clause separator with nothing left after it
+    text = re.sub(r"[,;:]\s*$", "", text)
+    return text
+
+
 def _remove_fillers(text: str, filler_words: list[str]) -> str:
     if not filler_words:
         return text
@@ -238,8 +259,12 @@ def _remove_fillers(text: str, filler_words: list[str]) -> str:
     # of a URL. Every filler is alphabetic, so a word boundary on both sides is
     # always the right anchor.
     sorted_fillers = sorted(filler_words, key=len, reverse=True)
+    # The optional leading `,\s*` matters as much as the trailing one: a filler
+    # is often a parenthetical ("the tests, you know, are slow"), and consuming
+    # only the closing comma left "the tests, are slow" — a comma between subject
+    # and verb, typed into the user's document.
     pattern = re.compile(
-        r'\b(' + '|'.join(re.escape(w) for w in sorted_fillers) + r')\b[,]?\s*',
+        r'(?:,\s*)?\b(' + '|'.join(re.escape(w) for w in sorted_fillers) + r')\b[,]?\s*',
         re.IGNORECASE,
     )
 
@@ -286,11 +311,17 @@ def _remove_fillers(text: str, filler_words: list[str]) -> str:
                 return matched
         if at_start:
             removed_leading = True
-        return ''
+        # When the match swallowed the parenthetical's opening comma it also
+        # swallowed the space in front of it, so returning nothing would glue the
+        # neighbours together ("the tests, you know, are slow" -> "the testsare
+        # slow"). One space; the collapse pass at the end tidies any doubling.
+        return ' ' if matched.lstrip().startswith(',') else ''
 
     out = pattern.sub(_replacer, text)
     if removed_leading:
         out = out.lstrip(_TRAILING_PUNCTUATION + ' ')
+    if out != text:
+        out = _tidy_orphaned_punctuation(out)
     return out
 
 

@@ -1273,6 +1273,23 @@ class Daemon:
                                        macro_table=self._macro_table)
                     event["intent_type"] = intent.intent.value
                     event["intent_action"] = intent.action
+                    # `run <anything>` types the words AND presses Return, so it
+                    # EXECUTES. Its grammar is `^run (.+)$`, which any ordinary
+                    # sentence beginning with "run" satisfies — "run the numbers
+                    # again before Friday" would be executed in whatever window
+                    # has focus. Every other command is recoverable by retyping;
+                    # this one is not, so the open-ended form requires the
+                    # command key, where the user has said they mean a command.
+                    # The closed-vocabulary rules (`run the tests`, `run the
+                    # build`, `run that`) are unambiguous whole utterances and
+                    # stay available without it.
+                    if intent.action == "run_command":
+                        log.info("Ignoring open-ended `run …` outside command mode; "
+                                 "typing it instead. Bind [hotkey] command_key to use it.")
+                        event["intent_type"] = IntentType.DICTATE.value
+                        event["intent_action"] = "dictate"
+                        event["refused_open_run"] = True
+                        intent = None
                 is_dictation = intent is None or intent.intent == IntentType.DICTATE
 
             # Voice Undo/Redo Timeline (ADR-v2-089): a whole-utterance "undo the last

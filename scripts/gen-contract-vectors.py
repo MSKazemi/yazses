@@ -555,6 +555,32 @@ CASES: dict[str, list[dict[str, Any]]] = {
                         "this returned 'call _fn in main.py' until the guard was fixed to "
                         "test the enclosing token",
          "input": "call basically_fn in um main.py"},
+        {"id": "unicode-identifier-survives-round-trip",
+         "description": "non-ASCII identifiers are real code — Python 3 allows them and "
+                        "codebases outside English use them. Any normalisation or "
+                        "accent-stripping produces a name that does not exist, and the "
+                        "failure surfaces at import time, far from dictation (#237)",
+         "input": "the function is called naïve_bayes and the class is Ωmega"},
+        {"id": "code-identifiers-keep-their-exact-shape",
+         "description": "underscores, dots and command names must survive byte for byte; "
+                        "the filler guard already protects them and this pins the "
+                        "guarantee rather than the implementation detail (#240)",
+         "input": "call get_user_by_id in main.py then check the kubectl output"},
+        {"id": "hedge-word-basically-is-not-a-filler-by-default",
+         "description": "'it seems basically correct' is a hedge and 'it seems correct' is a "
+                        "claim. #146 removed like/right/actually for exactly this reason; "
+                        "basically and literally were missed (#236)",
+         "input": "it seems basically correct and literally zero errors"},
+        {"id": "trailing-filler-leaves-no-orphan-comma",
+         "description": "removing a filler must not strand the punctuation around it — this "
+                        "returned 'this is probably fine,' with a dangling comma typed into "
+                        "the document (#236)",
+         "input": "this is probably fine, you know"},
+        {"id": "parenthetical-filler-takes-both-its-commas",
+         "description": "'the tests, you know, are slow' returned 'the tests, are slow' — a "
+                        "comma between subject and verb, because only the closing comma was "
+                        "consumed (#236)",
+         "input": "the tests, you know, are slow"},
         {"id": "filler-substring-not-matched",
          "description": "word boundaries: 'like' inside 'likely' must survive — this returned "
                         "'that is ly correct' until a trailing \\b was added",
@@ -932,6 +958,23 @@ CASES: dict[str, list[dict[str, Any]]] = {
          "input": "the quick brown fox jumps over the lazy dog"},
         {"id": "undo-that", "description": "a canonical single command",
          "input": "undo that"},
+        {"id": "undo-alone-is-a-command",
+         "description": "the bare word is the command, and must stay one (#235)",
+         "input": "undo"},
+        {"id": "undo-inside-a-sentence-is-dictation",
+         "description": "'undo' is an ordinary English verb first; a grammar that "
+                        "matched it anywhere would fire a keystroke instead of "
+                        "typing the instruction (#235)",
+         "input": "undo the last three commits before you deploy"},
+        {"id": "run-alone-is-a-terminal-command",
+         "description": "`run <anything>` is a real command — the daemon gates it "
+                        "to command mode, but the grammar still recognises it",
+         "input": "run kubectl get pods"},
+        {"id": "run-inside-a-sentence-still-matches-the-grammar",
+         "description": "pins WHY the daemon gate exists: `^run (.+)$` cannot tell a "
+                        "shell command from an English clause, because the clause is "
+                        "the argument. The safety decision belongs to the caller",
+         "input": "run the numbers again before Friday"},
         {"id": "select-all", "description": "another canonical command",
          "input": "select all"},
         {"id": "save-file", "description": "save the current file",

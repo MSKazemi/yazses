@@ -148,9 +148,14 @@ class DisfluencyConfig:
         # into facts, drops predicates ("not right" → "not"), and erases
         # correction markers. Users who want aggressive filler removal can add
         # them back under [filters.disfluency].
+        #
+        # `basically` and `literally` were removed for the same reason (issue
+        # #236): "it seems basically correct" is a hedge and "it seems correct"
+        # is a claim, and "the value is literally zero" asserts a precision that
+        # "the value is zero" does not. The #146 test applies to them exactly —
+        # they were simply missed when it was applied to the others.
         "um", "uh", "er", "ah", "hmm", "you know",
-        "i mean", "basically", "okay so",
-        "literally",
+        "i mean", "okay so",
         "so um", "so uh",
     ])
     self_correction_triggers: list[str] = field(default_factory=lambda: [

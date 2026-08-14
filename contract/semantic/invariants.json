@@ -1,7 +1,7 @@
 {
   "layer": "semantic",
   "generated": false,
-  "contract_version": "6.3.0",
+  "contract_version": "6.4.0",
   "pipeline": "dictation",
   "pipeline_description": "The delivered-text chain of the DICTATE path, exactly as core/daemon.py::_on_hold_end runs it, minus injection: clean_text -> disfluency filter -> voice punctuation (only when options.voice_punctuation is true). `expected` is what a HUMAN says the user must receive; it is never read back from the implementation.",
   "semantics": {
@@ -479,10 +479,10 @@
     },
     {
       "id": "polarity-negation-survives-filler-removal",
-      "description": "Filler removal runs either side of the negation ('you know' before, 'basically' after). Stripping a filler must never take the polarity with it. (#233)",
+      "description": "Filler removal runs either side of the negation ('you know' before, 'basically' after). Stripping a filler must never take the polarity with it. `basically` itself is no longer stripped by default (#236); 'you know' is, and the negation survives both. (#233)",
       "options": {},
       "input": "you know the tests do not pass basically",
-      "expected": "the tests do not pass",
+      "expected": "the tests do not pass basically",
       "must_preserve": {
         "polarity": "negative"
       },
@@ -547,6 +547,75 @@
         "cause": "The negation guard reads the word immediately before the trigger, and here the negation is inside the trigger itself. Separating 'never mind' the correction marker from 'never mind' the instruction needs the clause, not the adjacent word.",
         "issue": "https://github.com/MSKazemi/yazses/issues/302"
       }
+    },
+    {
+      "id": "command-undo-spoken-as-prose",
+      "description": "'undo' is an ordinary English verb before it is a command. A grammar that matched it anywhere would fire a keystroke instead of typing the sentence \u2014 and the count, which is the whole instruction, would be lost with it. The bare utterance stays a command; this does not. (#235)",
+      "options": {},
+      "input": "undo the last three commits before you deploy",
+      "expected": "undo the last three commits before you deploy",
+      "must_preserve": {
+        "quantity": [
+          "3"
+        ]
+      },
+      "must_classify_as": "dictate",
+      "status": "holds"
+    },
+    {
+      "id": "certainty-hedge-survives-filler-removal",
+      "description": "'basically' is a hedge in 'it seems basically correct' and a filler in 'basically, we rewrite it'. A filter that cannot tell them apart turns a hedge into a claim \u2014 the reader sees a confident statement the speaker never made. #146 drew this line for like/right/actually; this is the same test applied to the two words it missed. (#236)",
+      "options": {},
+      "input": "it seems basically correct",
+      "expected": "it seems basically correct",
+      "must_preserve": {
+        "certainty": "hedged"
+      },
+      "must_not_acquire": {
+        "certainty": "committed"
+      },
+      "must_classify_as": "dictate",
+      "status": "holds"
+    },
+    {
+      "id": "certainty-hedge-survives-a-trailing-filler",
+      "description": "Removing a filler must not take the sentence's punctuation with it, or leave punctuation stranded: 'this is probably fine, you know' became 'this is probably fine,' \u2014 a trailing comma typed into the document. The hedge 'probably' has to survive intact either way. (#236)",
+      "options": {},
+      "input": "this is probably fine, you know",
+      "expected": "this is probably fine",
+      "must_preserve": {
+        "certainty": "hedged"
+      },
+      "must_not_acquire": {
+        "certainty": "committed"
+      },
+      "must_classify_as": "dictate",
+      "status": "holds"
+    },
+    {
+      "id": "quantity-units-and-time-stay-as-spoken",
+      "description": "A dose, a timeout and a time of day pass through the same filters as prose. Losing 'milligrams' leaves a bare number; losing 'pm' moves an appointment twelve hours. Neither is recoverable by reading the result. (#238)",
+      "options": {},
+      "input": "give her fifteen milligrams at three pm",
+      "expected": "give her fifteen milligrams at three pm",
+      "must_preserve": {
+        "quantity": [
+          "15"
+        ],
+        "unit": [
+          "mg"
+        ],
+        "actor": [
+          "third-person-female"
+        ]
+      },
+      "must_not_acquire": {
+        "quantity": [
+          "50"
+        ]
+      },
+      "must_classify_as": "dictate",
+      "status": "holds"
     }
   ]
 }

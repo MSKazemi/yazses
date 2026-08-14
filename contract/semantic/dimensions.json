@@ -1,7 +1,7 @@
 {
   "layer": "semantic",
   "generated": false,
-  "contract_version": "6.3.0",
+  "contract_version": "6.4.0",
   "description": "Conserved-meaning dimensions used by invariants.json. Each dimension is a tiny, explicit, language-neutral extractor: apply the patterns to a piece of delivered text and read off a value. It is deliberately NOT a general NLP model \u2014 it only has to be exact on the vectors that cite it, and small enough that any platform can reimplement it in a few dozen lines.",
   "matching": {
     "regex_flavour": "ECMA-262 subset: literals, character classes, alternation, \\b word boundaries",
@@ -167,6 +167,13 @@
           "patterns": [
             "\\btwo\\b",
             "\\b2\\b"
+          ]
+        },
+        {
+          "value": "3",
+          "patterns": [
+            "\\bthree\\b",
+            "\\b3\\b"
           ]
         },
         {

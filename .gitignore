@@ -123,5 +123,9 @@ keystore.properties
 YazSes-1000-Contributors-Playbook/
 YazSes-Rapid-Growth-Execution-Pack/
 
+# Product Questionbook run packages — candid internal assessment, never published
+.questionbook/
+runs/
+
 # Deferred until there are ~30 contributors — sprints need the maintainer present
 campaign/online-sprint.md

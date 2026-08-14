@@ -1013,8 +1013,24 @@ so "Save file." works the same as "save". Spelled-out numbers ("delete the last
 | "end of line" · "beginning of line" | End / Home |
 | "go to line N" | jump to line N |
 | "go to function NAME" · "go to class NAME" · "open file NAME" | editor navigation |
-| "run the tests" · "run the build" · "run CMD" | run in terminal |
+| "run the tests" · "run the build" · "run that" | run in terminal |
+| "run CMD" (anything else) | run in terminal — **command key only**, see below |
 | "rename this to NAME" | rename symbol (F2) |
+
+!!! warning "`run <anything>` needs the command key"
+
+    `run CMD` types the command **and presses Return**, so it executes. Its grammar
+    is `^run (.+)$` — which every ordinary sentence beginning with "run" satisfies,
+    because the sentence *is* the argument. Dictating "run the numbers again before
+    Friday" would have executed it in whatever window had focus.
+
+    So the open-ended form only fires while the **command key** is held
+    (`[hotkey] command_key`). Without it, the words are typed like any other
+    dictation. The closed-vocabulary forms — "run the tests", "run the build",
+    "run that" — are unambiguous whole utterances and still work without it.
+
+    Every other command is recoverable by retyping. This one is not, which is why
+    it is the only one gated this way.
 
 Don't see a command you want? Tell us — the grammar is easily extended.
 Natural-language commands beyond this fixed list require the optional Tier 2 SLM

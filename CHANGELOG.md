@@ -6,6 +6,74 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — dictating a sentence that began "run" executed it
+
+`run CMD` types the command **and presses Return**. Its grammar is `^run (.+)$`,
+which every ordinary sentence starting with "run" satisfies — the sentence *is* the
+argument — and `[commands] enabled` is true by default, so every dictated utterance
+was classified. "Run the numbers again before Friday" was executed in whatever
+window had focus.
+
+The open-ended form now requires the **command key**; without it the words are
+typed like any other dictation. The closed-vocabulary forms — "run the tests",
+"run the build", "run that" — are unambiguous whole utterances and are untouched.
+Narrowing the regex cannot fix this: a shell command and an English clause are not
+distinguishable by shape, so the decision belongs to the caller that knows whether
+the user meant a command. Every other command is recoverable by retyping; this one
+is not, which is why it is the only one gated.
+
+Found while writing the semantic vector for #235.
+
+### Fixed — removing a filler left the punctuation around it stranded
+
+- `"this is probably fine, you know"` → `"this is probably fine,"` — a dangling
+  comma typed into the document.
+- `"the tests, you know, are slow"` → `"the tests, are slow"` — a comma between
+  subject and verb, because only the closing comma of the parenthetical was
+  consumed.
+
+The filler pattern now takes the opening comma with the closing one, and leaves a
+separator behind so the neighbours do not glue together. (#236)
+
+### Changed — `basically` and `literally` are no longer stripped by default
+
+Issue #146 removed `like`, `right`, `sort of`, `kind of` and `actually` from the
+default filler list because each is a genuine filler in some positions and
+load-bearing content in others, and stripping them turns hedges into facts.
+`basically` and `literally` are the same class and were simply missed:
+
+- "it seems **basically** correct" is a hedge; "it seems correct" is a claim.
+- "the value is **literally** zero" asserts a precision that "the value is zero"
+  does not.
+
+Both stay in the recognised vocabulary — add them back under
+`[filters.disfluency] filler_words` if you want aggressive removal. (#236)
+
+### Added — six semantic and parity vectors, contract 6.3.0 → 6.4.0
+
+Negation under a rollback trigger and the stutter pair landed earlier; this closes
+the rest of the set. Two of them are the reason the two fixes above exist.
+
+- **`undo` inside a sentence is dictation**, and the bare word is still a command
+  — with the count preserved, because "undo the last three commits" loses its
+  instruction if the number goes. (#235)
+- **Hedging survives**, both the word itself and the punctuation around a filler
+  next to it. (#236)
+- **Unicode identifiers survive byte for byte** — `naïve_bayes`, `Ωmega`. Any
+  accent-stripping produces a name that does not exist, and it fails at import
+  time, far from dictation. (#237)
+- **Numbers, units and times stay as spoken** — losing "milligrams" leaves a bare
+  number; losing "pm" moves an appointment twelve hours. (#238)
+- **Code identifiers keep their exact shape** — `get_user_by_id`, `main.py`,
+  `kubectl`. (#240)
+- **A self-correction rolls back the right span**, with the affirmative partner so
+  the fix could not be "stop rolling back". (#239)
+
+Three of these turned out to be *parity* guarantees rather than semantic ones —
+they assert text, not meaning — and the invariants harness said so, so they live in
+`contract/vectors/` where a text guarantee belongs. The quantity lexicon grew by one
+entry to support a case, which is the documented way it grows.
+
 ### Fixed — a `.venv` symlink reached `main`, and nothing was looking for it
 
 A merge landed `.venv` in git as a symlink to an absolute path on the machine that

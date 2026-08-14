@@ -1,6 +1,6 @@
 {
   "unit": "filters.disfluency",
-  "contract_version": "6.3.0",
+  "contract_version": "6.4.0",
   "source": "src/yazses/stt/filters/disfluency.py::filter_transcript (.text)",
   "cases": [
     {
@@ -129,7 +129,7 @@
       "description": "the leading 'Literally' survives while the trailing lowercase 'literally' is still removed as a filler",
       "options": {},
       "input": "Literally means literally",
-      "expected": "Literally means"
+      "expected": "Literally means literally"
     },
     {
       "id": "protects-err-as-a-verb",
@@ -172,6 +172,41 @@
       "options": {},
       "input": "call basically_fn in um main.py",
       "expected": "call basically_fn in main.py"
+    },
+    {
+      "id": "unicode-identifier-survives-round-trip",
+      "description": "non-ASCII identifiers are real code — Python 3 allows them and codebases outside English use them. Any normalisation or accent-stripping produces a name that does not exist, and the failure surfaces at import time, far from dictation (#237)",
+      "options": {},
+      "input": "the function is called naïve_bayes and the class is Ωmega",
+      "expected": "the function is called naïve_bayes and the class is Ωmega"
+    },
+    {
+      "id": "code-identifiers-keep-their-exact-shape",
+      "description": "underscores, dots and command names must survive byte for byte; the filler guard already protects them and this pins the guarantee rather than the implementation detail (#240)",
+      "options": {},
+      "input": "call get_user_by_id in main.py then check the kubectl output",
+      "expected": "call get_user_by_id in main.py then check the kubectl output"
+    },
+    {
+      "id": "hedge-word-basically-is-not-a-filler-by-default",
+      "description": "'it seems basically correct' is a hedge and 'it seems correct' is a claim. #146 removed like/right/actually for exactly this reason; basically and literally were missed (#236)",
+      "options": {},
+      "input": "it seems basically correct and literally zero errors",
+      "expected": "it seems basically correct and literally zero errors"
+    },
+    {
+      "id": "trailing-filler-leaves-no-orphan-comma",
+      "description": "removing a filler must not strand the punctuation around it — this returned 'this is probably fine,' with a dangling comma typed into the document (#236)",
+      "options": {},
+      "input": "this is probably fine, you know",
+      "expected": "this is probably fine"
+    },
+    {
+      "id": "parenthetical-filler-takes-both-its-commas",
+      "description": "'the tests, you know, are slow' returned 'the tests, are slow' — a comma between subject and verb, because only the closing comma was consumed (#236)",
+      "options": {},
+      "input": "the tests, you know, are slow",
+      "expected": "the tests are slow"
     },
     {
       "id": "filler-substring-not-matched",
@@ -498,7 +533,7 @@
       "description": "text that only looks like content but isn't protected: a real phrase beginning with the lowercase word 'literally' is still stripped as a filler, because the position-0 exception only protects capitalized tokens",
       "options": {},
       "input": "literally a diamond in the sky",
-      "expected": "a diamond in the sky"
+      "expected": "literally a diamond in the sky"
     },
     {
       "id": "looks-like-filler-plural-survives",
@@ -591,7 +626,7 @@
       "description": "a ~500-word paragraph combining repeated fillers, a multi-word filler, pathological word repetition, and a self-correction, to prove the three-pass filter stays correct at meeting length, not just on short bursts",
       "options": {},
       "input": "um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. the the the the final number is forty two. no wait scratch that the final number is forty three.",
-      "expected": "so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. so the quarterly report is finished. the the final number is forty two. the final number is forty three."
+      "expected": "so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. the the final number is forty two. the final number is forty three."
     }
   ]
 }

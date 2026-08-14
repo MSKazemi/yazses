@@ -51,8 +51,8 @@
   },
   {
     "input": "um so I uh need to basically delete last line",
-    "expected": "so I need to delete last line",
-    "notes": "mixed fillers: um removed, uh removed, basically removed; so is not a standalone filler"
+    "expected": "so I need to basically delete last line",
+    "notes": "mixed fillers: um and uh removed; `basically` is NOT removed by default (#236) \u2014 it is a hedge in 'basically correct' as much as a filler here, and #146 already drew that line for like/right/actually"
   },
   {
     "input": "let me think hmm",
@@ -101,8 +101,8 @@
   },
   {
     "input": "I literally just said that",
-    "expected": "I just said that",
-    "notes": "literally filler removed mid-sentence"
+    "expected": "I literally just said that",
+    "notes": "`literally` is left alone by default (#236): 'the value is literally zero' asserts a precision that dropping it removes. Users who want it stripped add it to [filters.disfluency]"
   },
   {
     "input": "it is sort of complicated",

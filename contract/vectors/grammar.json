@@ -1,6 +1,6 @@
 {
   "unit": "commands.grammar",
-  "contract_version": "6.3.0",
+  "contract_version": "6.4.0",
   "source": "src/yazses/commands/grammar.py::classify",
   "cases": [
     {
@@ -49,6 +49,58 @@
         "action": "undo",
         "args": {},
         "raw_text": "undo that"
+      }
+    },
+    {
+      "id": "undo-alone-is-a-command",
+      "description": "the bare word is the command, and must stay one (#235)",
+      "options": {},
+      "input": "undo",
+      "expected": {
+        "intent": "edit",
+        "action": "undo",
+        "args": {},
+        "raw_text": "undo"
+      }
+    },
+    {
+      "id": "undo-inside-a-sentence-is-dictation",
+      "description": "'undo' is an ordinary English verb first; a grammar that matched it anywhere would fire a keystroke instead of typing the instruction (#235)",
+      "options": {},
+      "input": "undo the last three commits before you deploy",
+      "expected": {
+        "intent": "dictate",
+        "action": "inject",
+        "args": {},
+        "raw_text": "undo the last three commits before you deploy"
+      }
+    },
+    {
+      "id": "run-alone-is-a-terminal-command",
+      "description": "`run <anything>` is a real command — the daemon gates it to command mode, but the grammar still recognises it",
+      "options": {},
+      "input": "run kubectl get pods",
+      "expected": {
+        "intent": "terminal",
+        "action": "run_command",
+        "args": {
+          "cmd": "kubectl get pods"
+        },
+        "raw_text": "run kubectl get pods"
+      }
+    },
+    {
+      "id": "run-inside-a-sentence-still-matches-the-grammar",
+      "description": "pins WHY the daemon gate exists: `^run (.+)$` cannot tell a shell command from an English clause, because the clause is the argument. The safety decision belongs to the caller",
+      "options": {},
+      "input": "run the numbers again before Friday",
+      "expected": {
+        "intent": "terminal",
+        "action": "run_command",
+        "args": {
+          "cmd": "the numbers again before Friday"
+        },
+        "raw_text": "run the numbers again before Friday"
       }
     },
     {
