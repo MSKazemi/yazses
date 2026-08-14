@@ -881,6 +881,39 @@ yazses table --sep ';' "a, b next row c, d"   # semicolon-separated CSV
 yazses braille --grade 1 "abc"         # Grade 1 (uncontracted)
 ```
 
+### `yazses gitvoice`
+
+Turn a spoken git command into a git command, fully offline. It **always prints
+the resolved command and how to undo it**, which is the point — you see exactly
+what you are about to run before anything happens.
+
+**Options:** `--run` (execute instead of only printing) · `--yes` (confirm a
+destructive command so `--run` will run it).
+
+```bash
+$ yazses gitvoice "commit with message fix the parser"
+git commit -m 'fix the parser'
+undo: git reset --soft HEAD~1
+
+$ yazses gitvoice "discard changes in src"
+git checkout -- src
+undo: recover via: git reflog / your editor's local history (uncommitted changes are gone unless stashed first)
+```
+
+Reads the `TEXT` argument, or standard input when omitted, and **exits non-zero
+if it cannot parse the utterance** — so a misheard command produces an error, not
+a plausible wrong command.
+
+**Destructive commands are never run without `--yes`, even with `--run`.**
+Force-push, hard reset, `branch -D` and discarding uncommitted changes all
+require it. Misrecognition is a fact of dictation, so the one class of command
+you cannot undo is the one that asks twice:
+
+```bash
+yazses gitvoice "force push" --run          # refuses: destructive, needs --yes
+yazses gitvoice "force push" --run --yes    # actually runs it
+```
+
 ### `yazses punch-in`
 
 Re-speak just the wrong phrase to correct the last dictation burst. The daemon
@@ -990,6 +1023,48 @@ Notes:
   and point `notes_model` at a local GGUF — nothing is sent anywhere.
 - You are responsible for having consent to record and transcribe the meeting.
 
+### `yazses fileopen` — open a file by voice
+
+Fuzzy-matches a spoken query against the files in a directory and opens the best
+match with your desktop's default handler.
+
+**Arguments:** `QUERY` (required) — the spoken query.
+**Options:** `--dir` / `-d <path>` (directory to search, default `.`) ·
+`--yes` / `-y` (launch immediately, without the confirmation prompt).
+
+```bash
+yazses fileopen "the quarterly budget spreadsheet"
+yazses fileopen "meeting notes from march" --dir ~/Documents
+yazses fileopen "readme" -y          # skip the confirmation
+```
+
+Without `-y` it shows the match and asks first — a fuzzy match on a misheard
+query can otherwise open the wrong file.
+
+### `yazses jump` — move the caret by voice
+
+Jumps to a symbol or a line in the active editor, via the configured LSP editor
+bridge.
+
+**Arguments:** `TARGET` (required) — e.g. `line 240`, `function tokenize`, `main`.
+
+```bash
+yazses jump "line 240"
+yazses jump "function tokenize"
+```
+
+Requires `[commands] lsp_enabled = true` and a reachable editor bridge —
+`[commands] lsp_editor` is `auto` (the default), `neovim` or `vscode`. Start
+Neovim with `nvim --listen`, or install the YazSes VS Code extension. Without a
+live bridge there is no real cursor to move, so the command reports that rather
+than guessing:
+
+```
+$ yazses jump "line 240"
+Editor bridge not reachable. Start Neovim with `nvim --listen` (yazses reads $NVIM),
+or install the YazSes VS Code extension.
+```
+
 ### Voice command reference
 
 Hold the command key (or, with auto-detect, the dictation key) and say one of
@@ -1062,6 +1137,43 @@ that" / "no scratch that") as a whole utterance to delete the last thing YazSes
 typed — it issues backspaces, so it works in any text field, and a buffer ledger
 ensures it never deletes more than YazSes injected. Saying the phrase inside a
 sentence ("scratch the surface") does not trigger it.
+
+### Voice Undo / Redo timeline
+
+Off by default (`[timeline] enabled = true`). Where **Mid-Thought Undo** removes
+the last thing typed, the timeline steps back through *what YazSes typed* by an
+amount you name — and can step forward again.
+
+| You say | Effect |
+|---|---|
+| "undo" · "undo that" | step back one burst |
+| "undo two words" | step back 2 words |
+| "undo the last sentence" | step back 1 sentence |
+| "undo 3 bursts" | step back 3 bursts |
+| "undo everything" | step back over the whole session's injections |
+| "redo" | step forward again |
+
+Counts accept digits or the words `one`–`ten`; above ten (`MAX_REPEAT`) the
+utterance is not a command and is typed instead.
+
+**This is distinct from the `undo` voice *command***, which sends Ctrl+Z to the
+application (see the table above). The timeline knows what YazSes itself
+injected; Ctrl+Z is whatever the focused application decides it means.
+
+Like "scratch that", the grammar is **anchored at both ends**, so ordinary
+speech containing the word is typed, not executed:
+
+```
+"undo two words"           → steps back two words
+"click undo"               → typed
+"I need to undo that"      → typed
+"press control z to undo"  → typed
+```
+
+That anchoring is not a nicety. "undo" is an ordinary English word, and a
+pattern that merely has to *end* the utterance matches all three of the lines
+above — which would silently delete a user's text instead of typing their
+sentence.
 
 ---
 

@@ -167,6 +167,7 @@ help:
 	@echo "    make campaign-validate run the per-family record validators"
 	@echo "    make campaign-stats    measure the contributor funnel (read-only)"
 	@echo "    make campaign-queue    who is waiting on a human; lapsed claims"
+	@echo "    make campaign-generate rewrite campaign/generated/ (open-tasks, dashboard, stats)"
 	@echo ""
 	@echo "  Documentation"
 	@echo "    make docs        regenerate the generated reference docs"

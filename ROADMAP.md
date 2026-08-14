@@ -16,10 +16,19 @@ Windows `.exe`, macOS `.dmg`, and Debian `.deb` installers attached to the GitHu
 release workflows fire on `v*` tags). The v2 line is delivered as a long series of research
 waves, each a fresh state-of-the-art sweep → ADRs → pure, 100%-covered, off-by-default cores.
 
-As of `v2.18.2`: **141 capabilities (74 wired / 67 honestly marked "planned")**, **3049 tests
-green**, ADRs `adr-v2-001..129`, and the per-wave state-of-the-art research notes. The counts
-come from the feature registry (`yazses.system.features`), not from counting by hand — they
-had gone stale on three of four numbers, each one understating what had actually shipped.
+On `main` (v2.18.2 plus the unreleased frontier): **144 capabilities (79 wired / 65 honestly
+marked "planned")**, **4005 tests green**, ADRs `adr-v2-001..129`, and the per-wave
+state-of-the-art research notes. The counts come from the feature registry
+(`yazses.system.features`) and from running the suite, not from counting by hand — every one
+of them had gone stale again by 2026-08-14, and again in the direction of understating what
+had shipped. Re-derive them, do not edit them:
+
+```bash
+uv run python -c "from yazses.system import features as F; \
+    print(len(F._CATEGORIES), 'total;', len(F._CATEGORIES) - len(F._UNWIRED), 'wired;', \
+          len(F._UNWIRED), 'planned')"
+uv run python -m pytest tests/ -q | tail -1
+```
 
 - **Shipped in `v2.14.0` — the perception release** (ADR-v2-129, all opt-in, lazy deps):
   **Parakeet TDT** second STT engine (`yazses features enable stt-parakeet` — beats

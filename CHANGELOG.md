@@ -6,6 +6,37 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — three shipped commands were missing from the CLI reference
+
+`docs/cli-reference.md` documented 55 of the 58 commands the CLI actually ships.
+`gitvoice`, `fileopen` and `jump` were absent — all three appeared in the
+generated `docs/command-index.md`, so the gap was only visible by diffing the
+generated index against the hand-written reference.
+
+The reference is hand-written on purpose (example-first, grouped like the CLI's
+own `--help` panels), and the cost of that choice is exactly this. It is now
+guarded: `tests/test_cli_reference_covers_every_command.py` asserts against the
+**live Click tree**, not against the generated index — a stale index would agree
+with a stale reference and both would pass.
+
+Also documented: the **Voice Undo/Redo timeline** (`[timeline]`, off by default).
+The voice-command reference had only the `undo` command, which sends Ctrl+Z; the
+timeline is a different mechanism that steps back over what YazSes itself
+injected ("undo two words", "undo the last sentence", "redo"). Reading the old
+page, a user would reasonably conclude "undo two words" sent Ctrl+Z twice.
+
+### Fixed — the roadmap's headline numbers were stale again
+
+`ROADMAP.md` claimed **141 capabilities (74 wired / 67 planned)** and **3049
+tests**; the registry and the suite say **144 (79 / 65)** and **4005**. The same
+counts in `docs/mobile/index.md` were stale *and* did not add up (68 + 72 ≠ 141).
+
+That file already carried a note that these numbers had gone stale once before,
+"each one understating what had actually shipped". They did it again, in the same
+direction. So the fix is not just the numbers: the two commands that re-derive
+them from `yazses.system.features` and from `pytest` now sit beside them, and the
+text says to re-derive rather than edit.
+
 ### Fixed — the FreeBSD job timed out instead of installing YazSes
 
 Contributed by [@mercael91](https://github.com/mercael91)
