@@ -330,13 +330,13 @@ Manage SLM intent-routing models (download / list).
 
 ### `yazses model download`
 
-Download a GGUF model for Tier 2 SLM intent routing.
+Download a model: a speech-to-text checkpoint, or a GGUF for intent routing.
 
 - **Arguments:** `model_id`
 
 ### `yazses model list`
 
-List available SLM models and their download status.
+List available models (speech-to-text and SLM) and their status.
 
 ## `yazses outline`
 

@@ -3505,12 +3505,21 @@ def gaze_status() -> None:
 
 @model_app.command(
     "list",
-    epilog=_examples("yazses model list    show SLM intent-router models + which are downloaded"),
+    epilog=_examples("yazses model list    show speech + intent-router models, and which are present"),
 )
 def model_list() -> None:
-    """List available SLM models and their download status."""
+    """List available models (speech-to-text and SLM) and their status."""
     from yazses.commands.model_manager import list_models, local_path
+    from yazses.stt.download import WHISPER_MODELS, hub_cache_dir, is_cached
 
+    cache = hub_cache_dir()
+    typer.echo("Speech-to-text (`[stt] model`):\n")
+    for name in sorted(WHISPER_MODELS):
+        state = "downloaded" if is_cached(name, cache) else "not downloaded"
+        typer.echo(f"  {name:<24}  [{state}]")
+    typer.echo(f"\n  Cache: {cache}")
+
+    typer.echo("\nIntent routing (`[commands] slm_model_path`):\n")
     for info in list_models():
         path = local_path(info.id)
         status = f"installed: {path}" if path else f"not downloaded ({info.size_mb} MB)"
@@ -3521,12 +3530,43 @@ def model_list() -> None:
 
 @model_app.command(
     "download",
-    epilog=_examples("yazses model download qwen2.5-0.5b    download an SLM for intent routing"),
+    epilog=_examples(
+        "yazses model download base.en          fetch the speech model ahead of first use",
+        "yazses model download qwen2.5-0.5b     download an SLM for intent routing",
+    ),
 )
 def model_download(
     model_id: str = typer.Argument(..., help="Model ID (see `yazses model list`)."),
 ) -> None:
-    """Download a GGUF model for Tier 2 SLM intent routing."""
+    """Download a model: a speech-to-text checkpoint, or a GGUF for intent routing.
+
+    The speech model is normally fetched on the daemon's first run. Doing it here
+    instead makes it an explicit, watchable step — which is the only workable
+    route on a machine behind a firewall, where the implicit download fails with
+    nothing useful on screen (#310).
+    """
+    from yazses.stt.download import is_cached, is_whisper_model, whisper_model_url
+
+    if is_whisper_model(model_id):
+        from yazses.stt.download import download_stt_model
+
+        if is_cached(model_id):
+            typer.echo(f"{model_id} is already downloaded — nothing to do.")
+            return
+        try:
+            path = download_stt_model(model_id, echo=typer.echo)
+        except Exception as exc:
+            from yazses.stt.errors import model_unavailable_message
+
+            typer.echo("", err=True)
+            typer.echo(model_unavailable_message(model_id, exc), err=True)
+            raise typer.Exit(1)
+        typer.echo("\nDone. This is the model `[stt] model` selects:")
+        typer.echo("  [stt]")
+        typer.echo(f'  model = "{model_id}"')
+        typer.echo(f"\nStored in {path}")
+        return
+
     from yazses.commands.model_manager import download_model
 
     try:
@@ -3535,7 +3575,16 @@ def model_download(
         typer.echo("  [commands]")
         typer.echo(f'  slm_model_path = "{path}"')
     except ValueError as exc:
+        # Unknown to the GGUF registry — but the user may have meant a speech
+        # model and mistyped it, so name that possibility rather than just
+        # listing SLMs.
         typer.echo(str(exc), err=True)
+        if whisper_model_url(model_id) is None:
+            typer.echo(
+                "\nIf you meant a speech-to-text model, `yazses model list` "
+                "shows the valid names.",
+                err=True,
+            )
         raise typer.Exit(1)
     except Exception as exc:
         typer.echo(f"Download failed: {exc}", err=True)

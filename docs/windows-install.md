@@ -89,8 +89,13 @@ release, and the transcribed text appears in whatever window is focused.
 > ```
 
 The first transcription downloads the Whisper model (~80 MB for `tiny.en`)
-into `%LOCALAPPDATA%\huggingface\hub\`. Subsequent dictations are fully
+into `%USERPROFILE%\.cache\huggingface\hub\`. Subsequent dictations are fully
 offline.
+
+> **Behind a firewall?** That one download is the only time YazSes needs the
+> network, and a personal firewall will block it. Fetch it deliberately instead —
+> `yazses model download tiny.en` — or see
+> [Choosing a model → Installing a model without network access](models.md#installing-a-model-without-network-access).
 
 ## Microphone access
 
@@ -166,6 +171,18 @@ windows; otherwise leave it unelevated, which is the safer default.
 **"Tray icon is missing."** Windows may be hiding it under the chevron
 (`^`) at the left of the tray. Drag it out, or right-click the taskbar →
 **Taskbar settings** → **Other system tray icons** → flip on.
+
+**"The icons are generic or blank."** Releases before this fix shipped without
+their icon file, so shortcuts showed PyInstaller's default artwork and the tray
+showed a plain coloured disc. Upgrade; if a stale shortcut keeps the old icon,
+Windows is serving it from its icon cache — sign out and back in, or delete
+`%LOCALAPPDATA%\IconCache.db` and restart Explorer.
+
+**What the tray colour means.** The badge is the YazSes "Y" in a state colour:
+🔵 blue ready/idle, 🟢 green dictating into a text field, 🟡 yellow dictating with
+**no text field focused** (the words would go nowhere, so they are copied to the
+clipboard instead), 🟣 purple command mode (the command key is held), 🔴 red a
+problem — an error, or several silent clips in a row. Hover for the details.
 
 ## Uninstall
 

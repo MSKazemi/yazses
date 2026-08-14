@@ -65,6 +65,7 @@ from yazses.staged.buffer import classify as staged_classify
 from yazses.staged.buffer import describe as staged_describe
 from yazses.stt.base import SttEngine
 from yazses.stt.endpoint import EndpointAnticipator
+from yazses.stt.errors import ModelUnavailableError
 from yazses.stt.factory import build_engine
 from yazses.stt.filters.disfluency import filter_transcript
 from yazses.stt.latency import LatencyWindow
@@ -295,7 +296,16 @@ class Daemon:
             # rather than getting "daemon not reachable" for the 5–10 seconds
             # the model takes to load on first run.
             self._start_ipc_server()
-            self._build_pipeline()
+            try:
+                self._build_pipeline()
+            except ModelUnavailableError as exc:
+                # The one startup failure the user can fix themselves, and the one
+                # that used to kill the daemon with a raw traceback (#310). Hold the
+                # process in ERROR state instead: IPC is already up, so the tray goes
+                # red with the reason and `yazses status` can answer, rather than the
+                # daemon vanishing and leaving "not running" as the only clue.
+                self._await_shutdown_in_error(exc)
+                return
             with self._lock:
                 self._state.ready = True
                 self._state.state = TrayState.IDLE
@@ -327,6 +337,33 @@ class Daemon:
             self._hotkey.run()
         finally:
             self._shutdown()
+
+    def _await_shutdown_in_error(self, exc: ModelUnavailableError) -> None:
+        """Report a fixable startup failure and stay up until asked to stop.
+
+        Exiting here would be worse than it looks: the tray dies with the daemon,
+        so the user is left with a window that closed and no statement of why.
+        Staying resident costs nothing (no model is loaded, no hotkey is hooked)
+        and keeps every channel that can explain the problem alive — the tray
+        icon, `yazses status`, and the log.
+        """
+        message = str(exc)
+        log.error("%s", message)
+        with self._lock:
+            self._state.state = TrayState.ERROR
+            self._state.last_error = message
+            self._state.ready = False
+        try:
+            from yazses.system import notify as notify_mod
+
+            notify_mod.notify(
+                "YazSes cannot start dictation",
+                f"The speech model {exc.model!r} is missing and could not be "
+                f"downloaded. Run: yazses model download {exc.model}",
+            )
+        except Exception:  # noqa: BLE001 — a toast must not mask the real error
+            log.debug("Could not send the model-unavailable notification", exc_info=True)
+        self._stop_event.wait()
 
     def _maybe_launch_overlay(self) -> None:
         """Spawn the sonar overlay as a detached process when configured."""

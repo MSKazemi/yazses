@@ -179,27 +179,24 @@ def _daemon_check(platform) -> _Check:
 def _model_check(model: str, hf_cache: Path) -> _Check:
     """Report whether the configured STT model is available locally.
 
-    A local directory/file path is checked directly; otherwise we scan the
-    Hugging Face hub cache for a ``models--…<model>`` snapshot. We match on the
-    cache directory name (no ``faster_whisper`` import) so doctor stays fast.
+    Delegates the "is it here?" question to ``stt.download.is_cached``, which
+    matches on the hub cache's directory name (no ``faster_whisper`` import) so
+    doctor stays fast.
     """
-    local = Path(model).expanduser()
-    if local.exists():
+    from yazses.stt.download import is_cached
+
+    if Path(model).expanduser().exists():
         return ("STT model", "OK", f"{model} (local files)")
-    token = model.split("/")[-1]
-    if hf_cache.exists():
-        for entry in hf_cache.iterdir():
-            if (
-                entry.name.startswith("models--")
-                and entry.name.endswith(token)
-                and (entry / "snapshots").exists()
-            ):
-                return ("STT model", "OK", f"{model} (cached)")
+    if is_cached(model, hf_cache):
+        return ("STT model", "OK", f"{model} (cached)")
+    # Naming the command matters more than it looks: on a firewalled machine the
+    # automatic fetch is precisely what fails, and this is the route that reports
+    # why (#310).
     return (
         "STT model",
         "WARN",
         f"{model} not downloaded — fetched automatically on first dictation "
-        "(needs network once)",
+        f"(needs network once). To do it now: yazses model download {model}",
     )
 
 
@@ -763,7 +760,12 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
             checks.append(window_focus)
 
     # Model cache (Hugging Face)
-    hf_cache = Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface")) / "hub"
+    # Ask huggingface_hub rather than re-deriving: HF_HUB_CACHE and
+    # XDG_CACHE_HOME both override HF_HOME, and a wrong path here sends anyone
+    # placing the model by hand to a directory nothing reads.
+    from yazses.stt.download import hub_cache_dir
+
+    hf_cache = hub_cache_dir()
     checks.append(("Model cache", "OK" if hf_cache.exists() else "WARN", str(hf_cache)))
 
     # Configured STT model availability (downloaded vs fetched-on-first-use).
