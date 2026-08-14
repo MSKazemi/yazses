@@ -157,8 +157,18 @@ jobs:
           # moving 3.12 → 3.13, and it exercises the interpreter a FreeBSD user
           # actually gets rather than one we pinned. portaudio backs sounddevice,
           # which dlopen's it at import time.
+          #
+          # `rust` is here for `cryptography`, and the reason is worth writing down
+          # because the obvious economy does not work. PyPI publishes no FreeBSD
+          # wheel for it, so pip source-builds it through maturin, which needs a
+          # Rust toolchain — without one the job dies on `metadata-generation-failed`
+          # before a single test runs. The tempting fix is FreeBSD's own binary
+          # package instead of a 10-minute compile, but the ports tree carries
+          # py312-cryptography 48.0.1 against our `cryptography>=50.0.0`, so pip
+          # rejects it and source-builds anyway. Re-check when ports catches up:
+          # dropping `rust` here would take several minutes off every run.
           prepare: |
-            pkg install -y python3 portaudio
+            pkg install -y python3 portaudio rust
             PYV=$(python3 -c 'import sys; print(f"{sys.version_info[0]}{sys.version_info[1]}")')
             python3 -V
             pkg install -y "py${PYV}-pip" "py${PYV}-sqlite3"
