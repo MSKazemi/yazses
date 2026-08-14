@@ -51,6 +51,22 @@ pipx upgrade yazses          # or: yazses update
 
 </details>
 
+!!! warning "On arm64 (Raspberry Pi, Ampere, arm64 VMs), don't use the snap yet"
+
+    `snap install yazses` resolves the **stable** channel, and stable currently has an
+    **amd64 revision only** — on arm64 it fails to find a revision at all. An arm64 build
+    exists on `edge`, but it is a release behind:
+
+    ```bash
+    sudo snap install yazses --edge   # arm64: the only channel with a build today
+    ```
+
+    The publishing workflow now builds and releases arm64 to `stable` alongside amd64, so
+    this clears at the next tagged release ([#267](https://github.com/MSKazemi/yazses/issues/267)).
+    Until then the **universal script** (`install.sh`) and **pipx** are the recommended
+    arm64 paths — PyPI ships `aarch64` wheels for the whole runtime stack, so both work
+    today.
+
 ## 2. Finish setup
 
 Three steps only you can do — the installer prints this same list when it

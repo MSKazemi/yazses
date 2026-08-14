@@ -267,7 +267,8 @@ Hold the hotkey (Space on Linux, Right Option on macOS, Right Ctrl on Windows), 
 - :material-file-music: **[Transcribe recordings](use-cases/transcribe-audio-offline.md)** — offline, with speaker labels
 - :material-code-braces: **[Dictating code](use-cases/dictating-code.md)** — identifiers, jargon and punctuation
 - :material-speedometer: **[Choosing a model](models.md)** — measured accuracy vs latency
-- :material-monitor-multiple: **[Platform support](platform-support.md)** — what works where, and why
+- :material-monitor-multiple: **[Platform support](platform-support.md)** — will it run on my OS and CPU
+- :material-table-check: **[Capability matrix](capability-matrix.md)** — which features work where, and why not
 - :material-translate: **[More than one language](use-cases/multilingual-dictation.md)** — non-English and code-switching
 
 </div>

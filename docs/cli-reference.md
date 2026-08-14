@@ -50,6 +50,18 @@ report issues or request features (issues:
 yazses about    # author, version, links, and where to report a bug or request a feature
 ```
 
+The banner draws the YazSes mark — a "Y" over a listening sound-wave, the same
+logo as the docs site, the Snap listing, and the tray icon — with the brand
+gradient swept across it. It degrades automatically and never needs configuring:
+truecolor to 256-colour to no colour, and Unicode blocks to plain ASCII on a
+terminal whose codepage cannot encode them. Piped, redirected, or with
+[`NO_COLOR`](https://no-color.org/) set, you get a single plain
+`YazSes <version> — <tagline>` line instead, so captured output stays clean.
+
+`yazses quickstart` shows the same banner, and is the only command that animates
+it: the sound-wave ripples briefly and settles. That never happens off a TTY,
+under `NO_COLOR`, or in CI.
+
 ### `yazses update`
 
 Detects how YazSes was installed and checks the matching source — the tracked

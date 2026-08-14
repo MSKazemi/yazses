@@ -12,7 +12,7 @@ import typer
 
 from yazses import branding
 from yazses.ipc.client import IpcUnreachableError
-from yazses.platform import get_platform
+from yazses.platform import get_paths, get_platform
 from yazses.system.updater import check_update, run_upgrade
 
 # `-h` is accepted everywhere alongside `--help`. Sub-apps each need their own
@@ -407,8 +407,8 @@ def meeting_enroll(
     from yazses.meeting.participants import enroll_participant
     from yazses.voiceprint.factory import build_embedder
 
-    platform = get_platform()
-    cfg = load_config(platform.paths.config_file)
+    paths = get_paths()
+    cfg = load_config(paths.config_file)
     d = _meeting_dir(meeting_id)
     if not (d / "transcript.json").exists():
         typer.echo(f"No transcript for meeting {meeting_id} in {d}.", err=True)
@@ -420,7 +420,7 @@ def meeting_enroll(
             "`yazses features enable voiceprint`.", err=True,
         )
         raise typer.Exit(1)
-    cipher = Cipher(load_or_create_key(platform.paths.data_dir))
+    cipher = Cipher(load_or_create_key(paths.data_dir))
     try:
         path = enroll_participant(
             d, speaker, name, embedder=embedder, cipher=cipher, config=cfg.meeting,
@@ -477,6 +477,28 @@ def _version_callback(value: bool) -> None:
     if value:
         typer.echo(f"yazses {_installed_version()}")
         raise typer.Exit()
+
+
+def _show_intro_banner(*, animate: bool = True) -> None:
+    """Print the logo banner, optionally preceded by the settling sound-wave.
+
+    Only `quickstart` animates: it is the one screen a user meets before they
+    know what the tool does, and the wave says "this listens" before the text
+    does. Lookup commands (`about`, `status`, `features`) stay instant — nobody
+    wants a 0.4 s animation in front of a version number they are grepping for.
+    The ripple is skipped entirely off a TTY, under NO_COLOR, and in CI.
+    """
+    if animate and branding.should_animate():
+        import sys as _sys
+        import time
+
+        def _write(chunk: str) -> None:
+            _sys.stdout.write(chunk)
+            _sys.stdout.flush()
+
+        branding.play_ripple(write=_write, sleep=time.sleep, depth=branding.color_depth())
+    typer.echo(branding.banner())
+    typer.echo("")
 
 
 @app.command(
@@ -2335,7 +2357,7 @@ def quickstart() -> None:
     hotkey = _resolved_hotkey(platform)
     running = platform.lifecycle.is_running()
 
-    typer.secho("Welcome to YazSes — offline, hold-to-talk voice dictation.\n", bold=True)
+    _show_intro_banner()
     typer.echo("Everything runs on your machine. No cloud, no account, nothing leaves your computer.\n")
 
     step = 1
@@ -3822,8 +3844,12 @@ def transcribe(
         typer.echo(f"Unknown --format {fmt!r}; expected one of {', '.join(VALID_FORMATS)}.", err=True)
         raise typer.Exit(1)
 
-    platform = get_platform()
-    cfg = load_config(platform.paths.config_file)
+    # get_paths(), not get_platform(): transcribing a file needs a config
+    # location and nothing else from the platform layer. Routing it through the
+    # backend made it raise UnsupportedPlatformError on an OS without one —
+    # while that very error told the user `yazses transcribe` still worked here.
+    paths = get_paths()
+    cfg = load_config(paths.config_file)
     ri = cfg.recimport
 
     if download_models:
@@ -3878,7 +3904,7 @@ def transcribe(
             rename_map[key.strip()] = val.strip()
     embedder, profiles = None, None
     if want_diarize and eff.name_from_voiceprints:
-        embedder, profiles = _load_voiceprints(cfg, platform)
+        embedder, profiles = _load_voiceprints(cfg, paths)
         if profiles:
             typer.echo(
                 "Speaker naming uses voiceprints stored only on this machine; "
@@ -3914,11 +3940,16 @@ def transcribe(
     # `transcribe` is where most people meet this project working for the first time --
     # it is the one path that needs no microphone, no hotkey and no re-login, so it is
     # also what the container and Codespace trials run.
-    _maybe_point_at_project(get_platform().paths.data_dir, succeeded=True)
+    _maybe_point_at_project(paths.data_dir, succeeded=True)
 
 
-def _load_voiceprints(cfg, platform):
-    """Return (embedder, {name: embedding}) from the enrolled voiceprint, or (None, None)."""
+def _load_voiceprints(cfg, paths):
+    """Return (embedder, {name: embedding}) from the enrolled voiceprint, or (None, None).
+
+    Takes `paths`, not a `Platform`: it only ever needed the data directory, and
+    depending on a backend for that made `yazses transcribe` unusable on an OS
+    without one.
+    """
     try:
         from yazses.learning.crypto import Cipher, load_or_create_key
         from yazses.voiceprint.factory import build_embedder
@@ -3927,8 +3958,8 @@ def _load_voiceprints(cfg, platform):
         embedder = build_embedder(cfg.voiceprint)
         if embedder is None:
             return None, None
-        cipher = Cipher(load_or_create_key(platform.paths.data_dir))
-        emb = load_voiceprint(platform.paths.data_dir / "voiceprint.enc", cipher)
+        cipher = Cipher(load_or_create_key(paths.data_dir))
+        emb = load_voiceprint(paths.data_dir / "voiceprint.enc", cipher)
         if emb is None:
             return embedder, None
         return embedder, {"You": emb.vector}
@@ -4051,3 +4082,22 @@ def test() -> None:
     typer.echo(f"Local injector: {type(injector).__name__}")
     injector.inject("YazSes OK")
     typer.echo("Done. If you saw 'YazSes OK' appear, injection works.")
+
+
+def main() -> None:
+    """Console-script entry point.
+
+    Wraps the Typer app solely to turn `UnsupportedPlatformError` into a readable
+    message instead of a traceback. On a system with no backend — Solaris, Haiku,
+    anything unforeseen — the pure-CPU half of YazSes still works (`transcribe`,
+    the text commands), and a stack trace tells the user none of that. Click's
+    standalone mode only converts its own exception types, so this has to sit
+    outside it.
+    """
+    from yazses.platform.base import UnsupportedPlatformError
+
+    try:
+        app()
+    except UnsupportedPlatformError as exc:
+        typer.secho(f"\n{exc}\n", fg=typer.colors.RED, err=True)
+        raise SystemExit(2) from None

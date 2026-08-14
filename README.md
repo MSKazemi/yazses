@@ -2,6 +2,47 @@
 
 # YazSes
 
+## Hold a key, speak, and your words are typed into any app. Nothing ever leaves your computer.
+
+**It is a voice human–computer interaction layer, not just a dictation box** — speak commands,
+navigate your editor, target windows by looking at them, turn a meeting into speaker-labelled
+minutes. All offline, on your own CPU.
+
+## ⬇️ Install
+
+| Your computer | Install it | Full guide |
+|---|---|---|
+| 🐧 **Linux** | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)` | **[Linux install →](https://mskazemi.com/yazses/install-linux.html)** |
+| 🍎 **macOS** | `pipx install yazses` | **[macOS install →](https://mskazemi.com/yazses/macos-install.html)** |
+| 🪟 **Windows** | `pipx install yazses` | **[Windows install →](https://mskazemi.com/yazses/windows-install.html)** |
+
+Then run these two:
+
+```bash
+yazses quickstart   # 3 steps tailored to your machine — read-only, changes nothing
+yazses start        # now hold your hotkey, speak, release
+```
+
+*On Apple Silicon, a Raspberry Pi, or anything not x86_64?* The
+**[platform support matrix](https://mskazemi.com/yazses/platform-support.html)** lists every
+OS and CPU with the channel that works there today — `pipx install yazses` works everywhere
+that is supported at all, because the published wheel is architecture-independent.
+
+**How it works:** you hold a key → YazSes records → [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
+transcribes it on your CPU → the text is typed into whatever window has focus. There is no
+network call at any step, no account, and no API key.
+
+**How to change it:** `yazses hotkey set <key>` picks the hold-to-talk key, `yazses features`
+lists every capability and turns it on or off, and `yazses doctor` tells you what is missing.
+Settings live in `~/.config/yazses/config.toml` — see the
+[configuration reference](https://mskazemi.com/yazses/configuration.html).
+
+Not sure yet? **[Try it without installing](https://mskazemi.com/yazses/try-without-installing.html)**
+(runs in Docker or your browser), or read
+[what installing actually costs](https://mskazemi.com/yazses/install-cost.html) first.
+
+---
+
 [![Tests](https://github.com/MSKazemi/yazses/actions/workflows/test.yml/badge.svg)](https://github.com/MSKazemi/yazses/actions/workflows/test.yml)
 [![Snap Status](https://snapcraft.io/yazses/badge.svg)](https://snapcraft.io/yazses)
 [![PyPI](https://img.shields.io/pypi/v/yazses)](https://pypi.org/project/yazses/)
@@ -67,18 +108,15 @@ enroll yourself — never from a cloud account.
 > A clip ships with the repo, and `--network none` proves the transcription is really
 > happening on your own machine.
 
-**Step 1 — Install** (see [all install options](#all-install-options) for every platform)
+**Step 1 — Install** — the commands are at the [top of this page](#-install);
+[all install options](#all-install-options) covers every platform and package manager.
 
-| Platform | Command |
-|---|---|
-| **Linux** (recommended) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)` |
-| **Linux** (Debian/Ubuntu, APT) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)` |
-| **Any OS** (Python ≥ 3.11) | `pipx install yazses` |
-
-The **recommended** one-liner installs `uv` if needed, installs the latest YazSes, provisions
-every system prerequisite (audio, keystroke injection, clipboard, `input` group, Wayland
-`ydotoold`), and finishes by running **`yazses doctor`** so any missing tool surfaces *during*
-install. The APT and `pipx` paths install the last tagged release. YazSes is also on the
+The **recommended** Linux one-liner installs `uv` if needed, installs the latest YazSes,
+provisions every system prerequisite (audio, keystroke injection, clipboard, `input` group,
+Wayland `ydotoold`), and finishes by running **`yazses doctor`** so any missing tool surfaces
+*during* install. The APT script
+(`bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)`)
+and `pipx` paths install the last tagged release. YazSes is also on the
 [Snap Store](https://snapcraft.io/yazses) (`sudo snap install yazses`).
 
 **Just want to transcribe a recording?** There is a container for that — no install at

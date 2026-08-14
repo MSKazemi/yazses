@@ -107,3 +107,52 @@ jobs:
 
       - name: Run tests
         run: uv run pytest tests/ -v
+
+  freebsd:
+    # Runs the suite on a REAL FreeBSD VM, not a simulated `sys.platform`.
+    #
+    # `src/yazses/platform/bsd/` is composed from the Linux backend on the
+    # argument that those components are genuinely portable (platformdirs/XDG
+    # paths, evdev, ports-provided injection tools, Unix-socket IPC). That
+    # argument is only worth as much as an execution on the real thing — the
+    # unit tests can prove the wiring, never the assumption underneath it.
+    #
+    # GitHub has no BSD runners, so this drives a FreeBSD guest inside the Linux
+    # runner. It is deliberately ADVISORY (`continue-on-error`) until it has been
+    # green for a few runs: a brand-new cross-OS job that has never executed must
+    # not be able to turn `main` red on its first PR. Promote it to blocking —
+    # and upgrade the ⚗️ row in docs/platform-support.md to ✅ — once it is
+    # reliably passing.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Run the test suite on FreeBSD
+        uses: vmactions/freebsd-vm@83b151f58c6047089f4c80eb5ba2039d158ce093 # v1.5.3
+        with:
+          usesh: true
+          # python311 = the floor this project supports; py311-sqlite3 is a separate
+          # port on FreeBSD and the learning corpus needs it. portaudio backs
+          # sounddevice, which dlopen's it at import time.
+          prepare: |
+            pkg install -y python311 py311-sqlite3 py311-pip portaudio
+          run: |
+            set -e
+            python3.11 -V
+            # A venv, not --break-system-packages: FreeBSD's python311 port may
+            # ship a PEP 668 EXTERNALLY-MANAGED marker, and a venv is correct
+            # either way. `dev` is a PEP 735 dependency-group, NOT an extra, so
+            # `.[dev]` does not exist — the test deps are named explicitly.
+            python3.11 -m venv /tmp/venv
+            . /tmp/venv/bin/activate
+            python -m pip install --upgrade pip
+            python -m pip install -e .
+            python -m pip install pytest pytest-mock hypothesis
+            # The platform-selection tests are the point of this job: they must
+            # run natively, where sys.platform really is freebsdN rather than
+            # monkeypatched.
+            python -m pytest tests/test_platform_bsd_and_fallback.py -v
+            # Then the whole suite, to find out what else BSD breaks.
+            python -m pytest tests/ -q

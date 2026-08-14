@@ -340,6 +340,94 @@ every documented key exists on the class it is documented under.
   top use case had no page. Exact commands for `yazses vocab`, the new
   `vocab_correction`, spoken punctuation and `initial_prompt`, and why a bigger
   model is usually the wrong fix for a word it has never heard. (#250)
+### Added — a native Windows arm64 installer, and translated READMEs that lead with installation
+
+Windows on ARM is a real desktop target and the only `.exe` was x64, so an ARM user could
+run it under emulation but never got a native build. This was left alone while the Windows
+port itself was broken end to end; now that it is fixed, the architecture gap is worth
+closing.
+
+The target architecture was hardcoded in three places that had to agree and were never
+checked together — Inno Setup's `OutputBaseFilename`, the `$Out` path the build script
+verifies, and the workflow globs that locate, upload and attach the result. All three now
+derive from one value, taken from the build host (PyInstaller does not cross-compile, so
+the runner label *is* the target). The arm64 installer refuses to install on x64, while the
+x64 one keeps `x64compatible` so it still runs on ARM under emulation as the fallback.
+
+The arm64 job is advisory: neither `windows-11-arm` nor PyInstaller-on-ARM has run in this
+repository, and a new cross-architecture build must not be able to fail a release the x64
+build completed fine. `docs/platform-support.md` marks it built-but-unproven rather than
+supported.
+
+The Hindi, Chinese and Russian READMEs still had installation at lines 58, 48 and 61, behind
+the badges and the feature table — a reader who picked their language got the old
+experience. Each now carries an install block under the title, using that file's **own**
+existing table lifted verbatim, with a heading reusing a word already present in the
+translation. The new English framing lines are deliberately **not** carried over:
+machine-translating a project's positioning statement is exactly what reads wrong to a
+native speaker, so those are left for a follow-up from someone who speaks each language.
+
+### Fixed — the arm64 artifacts we advertise are now actually built
+
+The arm64 gap was documented but nothing built the artifacts, so the docs described a hole
+that stayed open every release. `snap.yml` — the only publisher to `stable` — ran one amd64
+job, so `snap install yazses` could not resolve a revision at all on a Raspberry Pi.
+`release.yml` built a single amd64 `.deb`, while `update-apt-repo.sh` had always written
+`Architectures "amd64 arm64 all"` into the APT `Release` file — so an arm64 machine added
+the repo and found no package.
+
+Both are now a matrix with a native job per architecture (`ubuntu-latest` and
+`ubuntu-24.04-arm`; arm64 runners are free for public repos). Release creation moved into
+its own job — two matrix jobs both calling `action-gh-release` would race on one tag.
+Artifacts are architecture-qualified, `fail-fast` is off so one arch cannot cancel the
+other and leave a release half-updated, and each build asserts the produced filename really
+carries the expected architecture: a wrong runner label would otherwise ship a second amd64
+artifact behind a green tick. `apt-repo.yml` ingests every `deb-package-*` artifact instead
+of one fixed name. `build-deb.sh` needed no change — it already reads
+`dpkg --print-architecture`. **The store does not change until the next tag is pushed.**
+
+### Added — BSD backends, and an unsupported OS that degrades instead of crashing
+
+FreeBSD, OpenBSD, NetBSD and DragonFly now get a real backend, composed from the Linux one
+rather than reimplemented: `linux/paths.py` is `platformdirs` and already returns the XDG
+locations BSDs use, IPC is a Unix socket, the injection tools are all in ports, and FreeBSD
+exposes `/dev/input/event*` with `EVDEV_SUPPORT`. Detection is a **prefix** match —
+`sys.platform` is `freebsd14`, never `freebsd`. Only autostart differs (no per-user
+systemd), so `BsdLifecycle` refuses with rc.d instructions instead of writing a `.service`
+file nothing on the system reads.
+
+`python-xlib` was gated `sys_platform == "linux"`. It is pure Python and the only hotkey
+backend a BSD can get, so `pip install` on FreeBSD would have produced an install with no
+way to read the key at all. Now matched on `platform_system` — deliberately not
+`sys_platform`, which carries the major version, and PEP 508 has no prefix operator.
+`evdev` stays Linux-only, so BSD tries the X11 grab path first and hold-to-talk there needs
+an X11 session.
+
+It is marked experimental **at runtime**, not only in docs: `doctor` prints `[WARN]`, not a
+reassuring `[OK]`, and a CI job now runs the suite in a real FreeBSD VM (advisory until it
+has been green a few times).
+
+And a system with no backend is no longer one where nothing works. `doctor`, `status`,
+`features` and `quickstart` used to die with an unhandled traceback — the worst answer from
+the command you run to find out whether it works. The error now names the supported set and
+what still runs, via a `cli:main` wrapper (Click's standalone mode only converts its own
+exception types). `transcribe` needed the platform only for two paths, so a new
+`platform.get_paths()` resolves the layout on any OS — otherwise the error would have
+claimed `transcribe` worked while being raised by `transcribe`.
+
+### Added — the terminal draws the real logo, and the README leads with installation
+
+The docs site, favicon, Snap listing and tray badge are one mark: a "Y" over a listening
+sound-wave. The terminal drew an unrelated figlet wordmark, only in `yazses about`. It now
+draws that mark with the brand gradient swept diagonally per character, and `quickstart`
+ripples the wave once before it settles. Everything degrades — truecolor → 256 → none, and
+Unicode blocks → ASCII, covering the text too, since our own tagline carries an em dash.
+
+The README opened with a language switcher, thirteen badges, a competitor paragraph, a GIF,
+two asks and a feature table before, around line 75, saying how to install it. Installation
+is now the first thing on the page, with a per-OS table; everything else still exists,
+below it. `docs/platform-support.md` is new and answers what nothing did: this OS and this
+CPU — does it run, and how do I install it.
 
 ### Added — the personal dictionary now reaches every engine
 
@@ -418,6 +506,7 @@ correction marker and satisfied the invariant identically — while meaning the
 opposite. `must_preserve_relation` pins which value wins, positionally, and the
 inverted sentence is now a case in its own right so the assertion is proven to
 have teeth. Contract 6.1.0 → 6.2.0. Raised by @YossiMH in the #98 review. (#163)
+
 
 ### Added — an activation source can say *what* it meant, not just *when*
 

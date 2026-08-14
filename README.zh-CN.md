@@ -7,6 +7,23 @@
 
 # YazSes
 
+## ⬇️ 安装
+
+| 平台 | 命令 |
+|---|---|
+| **Linux**（推荐） | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)` |
+| **Linux**（Debian/Ubuntu，APT） | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)` |
+| **任意系统**（Python ≥ 3.11） | `pipx install yazses` |
+
+```bash
+yazses quickstart
+yazses start
+```
+
+**[Platform support — OS + CPU →](https://mskazemi.com/yazses/platform-support.html)**
+
+---
+
 [![Tests](https://github.com/MSKazemi/yazses/actions/workflows/test.yml/badge.svg)](https://github.com/MSKazemi/yazses/actions/workflows/test.yml)
 [![Snap Status](https://snapcraft.io/yazses/badge.svg)](https://snapcraft.io/yazses)
 [![PyPI](https://img.shields.io/pypi/v/yazses)](https://pypi.org/project/yazses/)

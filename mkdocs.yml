@@ -265,6 +265,7 @@ nav:
   - Home: index.md
   - Get started:
       - Try it without installing: try-without-installing.md
+      - Platform support (OS + CPU): platform-support.md
       - Install on Linux: install-linux.md
       - Install on macOS: macos-install.md
       - Install on Windows: windows-install.md
@@ -321,7 +322,7 @@ nav:
       - Tray icon & overlay: tray-and-overlay.md
       - Known-good microphones: known-good-microphones.md
       - Choosing a model: models.md
-      - Platform support: platform-support.md
+      - Capability matrix: capability-matrix.md
       - Privacy statement: privacy-statement.md
       - Offline-inference challenge: launch/offline-challenge.md
       - Code signing & verification: code-signing.md
