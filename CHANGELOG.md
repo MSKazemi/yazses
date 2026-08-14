@@ -61,6 +61,25 @@ therefore cannot succeed on FreeBSD as the dependency set stands, which is a fac
 about the platform rather than a CI defect. Tracked in
 [#306](https://github.com/MSKazemi/yazses/issues/306).
 
+### Fixed — the BSD row on the platform-support page claimed an install that fails
+
+Following directly from the above, and the more consequential half of it.
+[`docs/platform-support.md`](https://mskazemi.com/yazses/platform-support.html) listed
+FreeBSD and the other BSDs as **✅ `pipx` (PyPI)** — which that page's own legend
+defines as *"published and installable today"*. It is not: `pip install yazses` fails
+during dependency resolution, before any YazSes code is reached, because `ctranslate2`
+has neither a BSD wheel nor an sdist.
+
+Nobody had run the install, and the CI job that was supposed to prove it is
+`continue-on-error`, so it reported success every run while never getting past `pkg`.
+The row is now **❌ with the resolver error quoted**, and the claim that "a CI job now
+runs the suite in a real FreeBSD VM" is corrected to say it has never got that far.
+
+Choosing a different speech engine does not help — `faster-whisper` is a hard
+dependency rather than an extra, so the Whisper stack would have to move behind an
+extra first. `py312-onnxruntime` *is* in ports, so the Parakeet path is plausible; it
+is untested and is not claimed.
+
 ### Added — the CLI demo now plays in the docs site (#23)
 
 `docs/watch-the-cli.md` embeds `docs/demo/yazses-cli.cast` in a real player. The

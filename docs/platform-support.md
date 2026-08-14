@@ -116,8 +116,32 @@ Code signing is tracked on the
 
 | System | `pipx` (PyPI) | Hold-to-talk | Autostart |
 |---|---|---|---|
-| **FreeBSD** | ✅ | ⚗️ experimental | ❌ no systemd — use rc.d or your session's autostart |
-| **OpenBSD**, **NetBSD**, **DragonFly** | ✅ | ⚗️ experimental | ❌ same |
+| **FreeBSD** | ❌ `ctranslate2` has no BSD build — see below | ⚗️ experimental | ❌ no systemd — use rc.d or your session's autostart |
+| **OpenBSD**, **NetBSD**, **DragonFly** | ❌ same | ⚗️ experimental | ❌ same |
+
+!!! failure "`pip install yazses` does not currently work on BSD"
+
+    This row said ✅ until it was measured. It is not: the install fails during
+    dependency resolution, before any YazSes code is reached.
+
+    `faster-whisper` requires `ctranslate2`, which publishes 35 wheels — macOS,
+    manylinux and Windows — **and no source distribution**. There is no FreeBSD
+    port either. So pip has nothing it can use and nothing it can build:
+
+    ```
+    ERROR: Could not find a version that satisfies the requirement
+           ctranslate2<5,>=4.0 (from faster-whisper) (from versions: none)
+    ```
+
+    `faster-whisper` is a hard dependency rather than an extra, so this is not
+    avoidable by choosing a different speech engine at install time — even though
+    `py312-onnxruntime` *is* in ports, which is what the Parakeet engine would
+    need. Making a BSD install possible means moving the Whisper stack behind an
+    extra, which is a packaging change and is tracked in
+    [#306](https://github.com/MSKazemi/yazses/issues/306).
+
+    Everything that does not need the decoder still runs — see
+    [Any other OS](#any-other-os) below, which applies here in full.
 
 YazSes builds a real backend on all four. It is a thin composition over the Linux
 one, because on a BSD desktop those components are genuinely the same code path
@@ -132,10 +156,14 @@ suite against a simulated BSD `sys.platform`, and **nobody has run YazSes on rea
 BSD hardware.** It is wired up so that it *can* work and so a BSD user gets a
 working `yazses doctor` and a truthful report — not because it is known to work end
 to end. `doctor` prints a `[WARN]` saying so rather than a reassuring `[OK]`.
-A CI job now runs the suite in a real FreeBSD VM; it is advisory until it has been
-green for a while. If you try it,
-[tell us what happened](https://github.com/MSKazemi/yazses/issues) — that is the
-only thing standing between this row and a plain ✅.
+A CI job boots a real FreeBSD VM to run the suite, and **it has never got that far** —
+it stops at the dependency install described above. It is `continue-on-error`, so the
+workflow reported success every run and the gap was invisible until someone went
+looking. That is corrected here rather than quietly: for as long as this note is
+present, the only evidence behind the BSD backend is the unit suite running against a
+simulated `sys.platform`. If you try it on real hardware,
+[tell us what happened](https://github.com/MSKazemi/yazses/issues) — that is still the
+thing standing between this row and a plain ✅.
 
 !!! info "You get the X11 hotkey backend, not evdev"
 
