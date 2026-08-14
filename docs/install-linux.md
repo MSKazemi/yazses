@@ -254,6 +254,47 @@ pipx install yazses
 Note that settings do not carry over: the snap keeps config and models under
 `~/snap/yazses/`, an unconfined install under `~/.config/yazses`.
 
+### 3f. Fedora and the RHEL family (COPR)
+
+```bash
+sudo dnf copr enable mskazemi/yazses
+sudo dnf install yazses
+yazses doctor
+```
+
+The spec lives at
+[`packaging/fedora/yazses.spec`](https://github.com/MSKazemi/yazses/blob/main/packaging/fedora/yazses.spec)
+and builds a package that has been installed and run on a clean Fedora 41
+container — `packaging/fedora/build-and-test.sh` is that test, and it is meant to
+be run in a container rather than on your machine:
+
+```bash
+podman run --rm -v "$PWD:/src:z" fedora:41 /src/packaging/fedora/build-and-test.sh
+```
+
+Two honest notes about this package:
+
+- **It bundles its Python dependencies** into a private virtualenv under
+  `/usr/lib64/yazses`, which makes the installed size about **380 MB**. The
+  idiomatic Fedora approach would declare each dependency as a
+  `python3dist(...)` require, and that is not possible today: faster-whisper,
+  ctranslate2 and onnx-asr are not in the Fedora repositories, and a spec that
+  declared them would fail dependency generation on a clean build. Bundling is
+  acceptable for a COPR and is **not** acceptable for the official Fedora
+  repositories — getting there means packaging that dependency tree first.
+- **`portaudio` is a hard requirement; the injection tools are not.** `xdotool`
+  and `xclip` are *Recommends*, `ydotool` and `wl-clipboard` are *Suggests*,
+  because transcribing files with `yazses transcribe` needs none of them and a
+  hard dependency would drag an X11 stack onto a headless machine.
+
+After installing, `yazses doctor` will still ask you to join the `input` group
+(§3b) — that is a system-level change no package can make on your behalf, and it
+needs a full logout.
+
+> **Status:** the spec and its container test are in the repository and verified.
+> The COPR itself lives under the maintainer's Fedora account; until it is
+> published, build the RPM locally with the command above.
+
 ## 4. Start at login
 
 **Usually already done.** `yazses start` sets this up once the daemon is up, whichever way
