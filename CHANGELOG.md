@@ -6,6 +6,25 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the AUR package, built and installed on a clean Arch container
+
+`packaging/arch/build-and-test.sh` runs what the issue asked for on
+`archlinux:base-devel`: the PKGBUILD parses, `.SRCINFO` matches it, the package
+builds (`yazses-2.18.2-1-any.pkg.tar.zst`), installs, and `yazses --version`
+prints `2.18.2`.
+
+**The finding worth recording: a bare `makepkg -si` cannot complete, and the
+PKGBUILD is not at fault.** Two runtime deps live in the AUR
+(`python-faster-whisper`, `python-sounddevice`), and faster-whisper pulls a
+further AUR chain — ctranslate2, tokenizers, onnxruntime, av. `makepkg` never
+fetches AUR dependencies by design; only a helper resolves them recursively, so
+the correct instruction is `yay -S yazses` and the docs now say that instead of
+letting a user hit *target not found* and assume the package is broken.
+
+The script therefore verifies what it can and states plainly what it does not:
+`yazses doctor` end to end is not claimed, because the dependency chain is the
+helper's job. (#67)
+
 ### Added — a Fedora/RHEL package, built and installed on a clean Fedora container
 
 `packaging/fedora/yazses.spec`, plus `build-and-test.sh` which runs the issue's
