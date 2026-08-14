@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the Nix flake had never been evaluated, and did not evaluate
+
+Its own header said so: *"authored, NOT YET EVALUATED … the authoring machine has
+no Nix and fetching a Nix binary to get one was not an acceptable trade."* A
+container has Nix, so that trade no longer exists —
+`packaging/nix/build-and-test.sh` runs `nix flake check` on `nixos/nix`.
+
+The first evaluation found two real defects:
+
+- **`yazses-desktop` failed outright** with *attribute 'dependencies' missing*.
+  It used `overrideAttrs`, which sees the derivation **after**
+  `buildPythonApplication` has consumed `dependencies` and turned it into
+  `propagatedBuildInputs`. `overridePythonAttrs` is the one that sees the
+  arguments.
+- **The version was pinned at 2.17.0** while the project had moved to 2.18.2.
+
+`nix flake check` now passes for `x86_64-linux`, and the flake header states what
+is still unproven — aarch64 and Darwin, which the check omits, and installing from
+a real NixOS machine rather than a container. A `docs/install-linux.md` section
+covers `nix run` and the headless/desktop split. (#68)
+
 ### Added — the AUR package, built and installed on a clean Arch container
 
 `packaging/arch/build-and-test.sh` runs what the issue asked for on

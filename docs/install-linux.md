@@ -284,7 +284,30 @@ AUR refuses a push without), builds and installs the package, and runs
 because the AUR chain above is the helper's job and is not present in a bare
 container.
 
-### 3g. Fedora and the RHEL family (COPR)
+### 3g. NixOS and Nix (flake)
+
+```bash
+nix run    github:MSKazemi/yazses          # run it without installing
+nix profile install github:MSKazemi/yazses
+```
+
+The flake is at the repository root and exposes `yazses` (headless — dictation,
+commands, transcription) and `yazses-desktop`, which adds Qt for the tray icon and
+the voice-activity overlay. Splitting them is deliberate: Qt is about 648 MB, and
+a server transcribing files should not pull it in.
+
+`nix flake check` passes for `x86_64-linux`. Verify it without installing Nix:
+
+```bash
+docker run --rm -v "$PWD:/host:ro" nixos/nix /host/packaging/nix/build-and-test.sh
+```
+
+> **Not verified:** aarch64 and Darwin — `nix flake check` omits systems it cannot
+> evaluate on, so those rows are unproven rather than broken. Nobody has installed
+> this from a real NixOS machine either; if you do,
+> [say what happened](https://github.com/MSKazemi/yazses/issues/68).
+
+### 3h. Fedora and the RHEL family (COPR)
 
 ```bash
 sudo dnf copr enable mskazemi/yazses
