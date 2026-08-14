@@ -110,3 +110,75 @@ def test_unknown_target_is_treated_as_usable():
     _command(d, "change hello to goodbye")
 
     assert inj.injected == ["goodbye world"]
+
+
+# ---- the same gap on the DICTATION path ---------------------------------
+#
+# "scratch that" and "undo the last word" both inject and then return, ~250
+# lines above the no-text-target guard, so neither ever consulted it. The
+# comment on the timeline branch — "it can never eat the user's own typing" —
+# is true of WHAT it replays and silent about WHERE: if focus moved since the
+# text was injected, the backspaces land on another document.
+
+
+def _dictation_daemon(*, target_ok):
+    cfg = Config()
+    cfg.filters.disfluency.enabled = False
+    cfg.commands.enabled = False
+    cfg.streaming.enabled = False
+    cfg.revise.enabled = True
+    cfg.timeline.enabled = True
+    cfg.injection.continuation_window_ms = 0
+    d = Daemon(config=cfg, platform=get_platform())
+    d._recorder = _FakeRecorder(np.full(16000, 0.5, dtype="float32"))
+    d._engine = _FakeEngine()
+    d._padding_buffer = None
+    inj = _Injector()
+    d._injector = inj
+    d._state.target_ok = target_ok
+    return d, inj
+
+
+def _dictate(d, text):
+    d._engine.text = text
+    d._on_hold_end()
+
+
+def test_scratch_that_is_refused_when_there_is_no_text_target():
+    d, inj = _dictation_daemon(target_ok=True)
+    _dictate(d, "hello world")
+
+    d._state.target_ok = False          # focus moved away
+    _dictate(d, "scratch that")
+
+    assert inj.backspaces == 0
+    assert d._ledger.last_text() == "hello world", "nothing was deleted, so nothing is consumed"
+
+
+def test_scratch_that_still_works_with_a_target():
+    d, inj = _dictation_daemon(target_ok=True)
+    _dictate(d, "hello world")
+    _dictate(d, "scratch that")
+
+    assert d._ledger.last_text() == "", "the burst must be consumed on the happy path"
+
+
+def test_timeline_undo_is_refused_when_there_is_no_text_target():
+    d, inj = _dictation_daemon(target_ok=True)
+    _dictate(d, "hello world")
+    before = d._timeline.text()
+
+    d._state.target_ok = False
+    _dictate(d, "undo the last word")
+
+    assert d._timeline.text() == before, "history must not advance on a refused replay"
+
+
+def test_timeline_undo_still_works_with_a_target():
+    d, inj = _dictation_daemon(target_ok=True)
+    _dictate(d, "hello world")
+    before = d._timeline.text()
+
+    _dictate(d, "undo the last word")
+
+    assert d._timeline.text() != before, "the happy path must still replay"

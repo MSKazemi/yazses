@@ -52,12 +52,17 @@ the output). The known-limits table now separates apps that need an account
 untested composer would be worse than none) from apps that are merely not
 packaged for apt (Logseq).
 
-### Added — VS Code, Firefox and Thunderbird configs, and a wrong result withdrawn
+### Added — Firefox and Thunderbird configs, and a wrong result withdrawn
 
-`examples/config.{vscode,firefox,thunderbird}.toml`, each written from a
-measurement, plus `probe-gui.sh` and `Dockerfile.gui` so the measurement can be
-repeated. All three deliver `kubectl get pods --namespace prod` byte for byte.
-(#185, #225, #226)
+`examples/config.{firefox,thunderbird}.toml`, each written from a measurement,
+plus `probe-gui.sh` and `Dockerfile.gui` so the measurement can be repeated.
+Both deliver `kubectl get pods --namespace prod` byte for byte. (#225, #226)
+
+VS Code (#185) was measured here too and reached the same verdict independently,
+but the profile that ships is [@Mr-Neutr0n](https://github.com/Mr-Neutr0n)'s from
+[#305](https://github.com/MSKazemi/yazses/pull/305) — see the entry below. Two
+people finding the same first-run modal from opposite directions is the strongest
+evidence in this changelog that it is real.
 
 **This corrects a claim this project published.** `scripts/appprobe/README.md`
 said Electron *"opens a window and no keystroke ever lands"* and that Gecko
@@ -83,6 +88,26 @@ harness until you have looked at the screen.**
 text that never arrives is usually a dialog in front of the window, or the wrong
 text field having focus — neither of which the "no text target" guard can catch,
 because in both cases a real text target does have focus.
+### Added — a VS Code app profile, and a check on every app profile
+
+`examples/config.vscode.toml`, contributed by
+[@Mr-Neutr0n](https://github.com/Mr-Neutr0n) ([#305](https://github.com/MSKazemi/yazses/pull/305)) —
+the first Electron editor covered by [#43](https://github.com/MSKazemi/yazses/issues/43),
+and the one asked for most.
+
+It records the two ways dictation into VS Code looks broken when it is not, both
+found by measurement rather than from reports: a first-run modal (*"Sign in to use
+GitHub Copilot"*) absorbs every keystroke silently, and the Chat panel is a second
+genuine text target that the "no text target" guard cannot tell from the editor.
+Injection itself is exact — `kubectl get pods --namespace prod` arrives with its
+capitalisation and both hyphens intact.
+
+`tests/test_app_example_configs.py` now checks every `examples/config.<app>.toml`,
+which nothing did before. Config loading is deliberately total ([#52](https://github.com/MSKazemi/yazses/issues/52)):
+an unknown key is dropped and recorded, never raised. So a profile naming a setting
+that does not exist — or putting a real one under the wrong section — installed
+cleanly, started cleanly, and silently did nothing. These files are copied verbatim
+by newcomers, and #43 invites many more of them.
 
 ### Added — build provenance on every release artifact
 

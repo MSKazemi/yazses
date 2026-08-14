@@ -1331,11 +1331,29 @@ class Daemon:
                     action, count, scope = t_cmd
                     if use_streaming and stream_injector is not None:
                         stream_injector.cancel()
+                    # Both branches below return before ever reaching the
+                    # no-text-target guard on the dictation path ~250 lines down,
+                    # so they replayed history into whatever window had focus.
+                    # "it can never eat the user's own typing" above is true of
+                    # *what* it replays and says nothing about *where* — if focus
+                    # moved since the text was injected, these backspaces land on
+                    # someone else's document.
+                    if self._state.target_ok is False:
+                        event["discard_reason"] = "timeline_no_text_target"
+                        log.info("Timeline: no editable target, so '%s' was not "
+                                 "replayed — the keystrokes would have gone to "
+                                 "another window.", action)
+                        return
                     applied = 0
                     for _ in range(count):
+                        # Peek, inject, then commit — same ordering as "scratch
+                        # that" below. `undo()`/`redo()` mutate as they report, so
+                        # asking what to do *is* doing it: if the injection then
+                        # failed, the history had already moved on and the next
+                        # undo would target text that is still on screen.
                         op = (
-                            self._timeline.undo(scope) if action == "undo"
-                            else self._timeline.redo()
+                            self._timeline.peek_undo(scope) if action == "undo"
+                            else self._timeline.peek_redo()
                         )
                         if op is None:
                             break  # history exhausted — stop, don't keep pressing keys
@@ -1343,6 +1361,10 @@ class Daemon:
                             injector.inject_key_sequence(["BackSpace"] * op.backspaces)
                         if op.insert:
                             injector.inject(op.insert)
+                        if action == "undo":
+                            self._timeline.undo(scope)
+                        else:
+                            self._timeline.redo()
                         applied += 1
                     event["intent_type"] = action
                     event["timeline_scope"] = scope
@@ -1355,6 +1377,15 @@ class Daemon:
             if is_dictation and self._config.revise.enabled and parse_revise(text):
                 if use_streaming and stream_injector is not None:
                     stream_injector.cancel()
+                # Same gap as the timeline branch above: this returns before the
+                # no-text-target guard, so with focus moved away the backspaces
+                # would delete someone else's text rather than YazSes's own.
+                if self._state.target_ok is False:
+                    event["discard_reason"] = "revise_no_text_target"
+                    log.info("Mid-thought undo: no editable target, so 'scratch "
+                             "that' was not applied — the backspaces would have "
+                             "gone to another window.")
+                    return
                 # Peek, inject, and only THEN commit. `scratch_last()` pops as it
                 # reports, so asking the ledger for the count *is* the undo: if the
                 # injection below then failed, the burst had already been dropped

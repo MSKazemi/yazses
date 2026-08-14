@@ -44,8 +44,34 @@ class InjectionTimeline:
             return len(last) - idx - 1 if 0 <= idx < len(last) - 1 else len(last)
         return len(last)
 
+    def peek_undo(self, scope: str = "last"):
+        """The :class:`UndoOp` that :meth:`undo` would return — **without mutating**.
+
+        `undo()` mutates as it reports, so asking it what to do *is* doing it. A
+        caller that then fails to apply the keystrokes has already lost the
+        history, and the next undo silently targets the wrong text. Peeking
+        first lets the caller inject and only then commit, which is the only
+        ordering that survives a failed injection.
+
+        Same trap the dictation ledger had; see `commands/revise.py`.
+        """
+        if not self._events:
+            return None
+        last = self._events[-1]
+        return UndoOp(backspaces=self._trailing_count(last, scope), insert="")
+
+    def peek_redo(self):
+        """The :class:`UndoOp` that :meth:`redo` would return — **without mutating**."""
+        if not self._redo:
+            return None
+        return UndoOp(backspaces=0, insert=self._redo[-1])
+
     def undo(self, scope: str = "last"):
-        """Undo the last word/sentence/burst; returns an :class:`UndoOp`, or ``None``. Pure state."""
+        """Undo the last word/sentence/burst; returns an :class:`UndoOp`, or ``None``. Pure state.
+
+        Mutates. Call :meth:`peek_undo` first if the caller has to do something
+        fallible (like injecting keystrokes) before the change is real.
+        """
         if not self._events:
             return None
         last = self._events[-1]

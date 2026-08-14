@@ -84,8 +84,8 @@ Tools → AutoCorrect Options → Localized     [ ] Replace dashes
 at the dash, then dictate a lowercase command name at the start of a line. Word
 processors and chat clients are the usual offenders; terminals, code editors and
 browsers were verified not to touch the text at all
-([kitty, Alacritty, Konsole, tmux, Neovim, Emacs, Sublime Text, VS Code, Firefox,
-Thunderbird](https://github.com/MSKazemi/yazses/tree/main/examples)).
+([kitty, Alacritty, Konsole, GNOME Terminal, tmux, Neovim, Emacs, Sublime Text,
+VS Code, Zed, Firefox, Thunderbird, Obsidian](https://github.com/MSKazemi/yazses/tree/main/examples)).
 
 ## When nothing arrives at all
 
