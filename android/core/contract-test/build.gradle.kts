@@ -16,6 +16,7 @@ dependencies {
     implementation(project(":core:postprocess"))
     implementation(project(":core:commands"))
     implementation(project(":core:vocab"))
+    implementation(project(":core:vad"))
     testImplementation(libs.kotlin.test)
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.kotlinx.serialization.json)

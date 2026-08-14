@@ -4,6 +4,7 @@ import com.yazses.core.commands.classify
 import com.yazses.core.postprocess.DisfluencyConfig
 import com.yazses.core.postprocess.applyVoicePunctuation
 import com.yazses.core.postprocess.filterTranscript
+import com.yazses.core.vad.CalibratedRmsGate
 import com.yazses.core.vocab.mergeInitialPrompt
 import com.yazses.core.postprocess.cleanText
 import com.yazses.core.postprocess.continuationPrefix
@@ -123,6 +124,22 @@ class ContractVectorTest {
             }
         }
 
+    @TestFactory
+    fun `the silence gate matches the contract`(): List<DynamicTest> =
+        cases("vad_gate.json").map { case ->
+            DynamicTest.dynamicTest("vad_gate.json :: ${case.str("id")}") {
+                val samples = case["input"]!!.jsonArray
+                    .map { it.jsonPrimitive.content.toFloat() }.toFloatArray()
+                val threshold = case["options"]?.jsonObject?.get("vad_threshold")
+                    ?.jsonPrimitive?.content?.toFloat() ?: CalibratedRmsGate.DEFAULT_THRESHOLD
+                assertEquals(
+                    case.str("expected").toBoolean(),
+                    CalibratedRmsGate(threshold).isSilent(samples),
+                    "${case.str("id")}: ${case.str("description")}",
+                )
+            }
+        }
+
     /** Build the config a case declares, falling back to the desktop defaults. */
     private fun disfluencyConfig(case: JsonObject): DisfluencyConfig {
         val options = case["options"]?.jsonObject ?: return DisfluencyConfig()
@@ -149,7 +166,7 @@ class ContractVectorTest {
     fun `every covered vector file exists and has cases`(): List<DynamicTest> =
         listOf(
                 "clean_text.json", "spacing.json", "voice_punctuation.json",
-                "disfluency.json", "grammar.json", "vocabulary.json",
+                "disfluency.json", "grammar.json", "vocabulary.json", "vad_gate.json",
             ).map { file ->
             DynamicTest.dynamicTest("$file is present and non-empty") {
                 assertTrue(cases(file).isNotEmpty(), "$file has no cases")

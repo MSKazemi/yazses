@@ -26,6 +26,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import sys
 from pathlib import Path
@@ -80,6 +81,22 @@ def _run_voice_punctuation(text: str, options: dict[str, Any]) -> str:
 
 def _run_spacing(text: str, options: dict[str, Any]) -> str:
     return continuation_prefix(text, had_recent_injection=options["had_recent_injection"])
+
+
+def _run_vad_gate(samples: list[float], options: dict[str, Any]) -> bool:
+    """The calibrated silence gate: mean(|audio|) below the threshold is silence.
+
+    Input is a plain list of floats rather than a WAV path, so the vector file
+    stays readable and every port can run it without an audio decoder. The
+    threshold is the same `[accessibility] vad_threshold` key the desktop uses.
+    """
+    import numpy as np
+
+    from yazses.audio.vad_calibrated import is_silent_calibrated
+    from yazses.config import AccessibilityConfig
+
+    cfg = dataclasses.replace(AccessibilityConfig(), **options)
+    return is_silent_calibrated(np.array(samples, dtype=np.float32), cfg)
 
 
 def _run_vocabulary(parts: list[str | None], options: dict[str, Any]) -> str | None:
@@ -170,6 +187,10 @@ UNITS: dict[str, tuple[str, Callable[[Any, dict[str, Any]], Any]]] = {
         "src/yazses/activation/intent.py::validate + "
         "src/yazses/activation/confirm.py::decide",
         _run_activation,
+    ),
+    "audio.vad_gate": (
+        "src/yazses/audio/vad_calibrated.py::is_silent_calibrated",
+        _run_vad_gate,
     ),
     "postprocess.clean_text": (
         "src/yazses/postprocess/cleaner.py::clean_text",
@@ -459,6 +480,49 @@ CASES: dict[str, list[dict[str, Any]]] = {
          "description": "less common ASCII whitespace controls (vertical tab, form feed) "
                         "are still whitespace-only",
          "input": "\v\f  "},
+    ],
+    "audio.vad_gate": [
+        {"id": "empty-audio-is-silence",
+         "description": "no samples cannot contain speech; delivering a Whisper "
+                        "hallucination on an empty buffer is the failure this prevents",
+         "input": []},
+        {"id": "digital-silence",
+         "description": "all-zero samples are below any threshold",
+         "input": [0.0, 0.0, 0.0, 0.0]},
+        {"id": "loud-speech-passes",
+         "description": "ordinary speech level clears the default gate",
+         "input": [0.2, -0.25, 0.18, -0.22]},
+        {"id": "quiet-room-is-discarded",
+         "description": "room tone below the threshold is discarded rather than "
+                        "transcribed — the 'Silent audio -- discarding' path",
+         "input": [0.0001, -0.0002, 0.00015, -0.0001]},
+        {"id": "mean-not-peak",
+         "description": "the metric is mean(|audio|), NOT peak. One loud click among "
+                        "fifteen silent samples has a peak of 0.9 and a mean of 0.056, "
+                        "so against a 0.1 gate the burst is silence — a door slam does "
+                        "not make a burst worth transcribing",
+         "options": {"vad_threshold": 0.1},
+         "input": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                   0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.9]},
+        {"id": "sign-is-ignored",
+         "description": "absolute value, so a negative-going waveform is as loud as a "
+                        "positive one",
+         "input": [-0.2, -0.2, -0.2, -0.2]},
+        {"id": "a-lower-threshold-passes-quieter-speech",
+         "description": "the whole point of calibration: someone with a quiet voice "
+                        "lowers the gate and their speech stops being discarded",
+         "options": {"vad_threshold": 0.00005},
+         "input": [0.0001, -0.0002, 0.00015, -0.0001]},
+        {"id": "a-higher-threshold-rejects-ordinary-speech",
+         "description": "and raising it too far discards real speech — the failure "
+                        "mode `yazses mic-level` exists to diagnose",
+         "options": {"vad_threshold": 0.5},
+         "input": [0.2, -0.25, 0.18, -0.22]},
+        {"id": "exactly-at-the-threshold-is-not-silence",
+         "description": "the comparison is strictly less-than, so a burst exactly at "
+                        "the gate is delivered rather than discarded",
+         "options": {"vad_threshold": 0.2},
+         "input": [0.2, -0.2, 0.2, -0.2]},
     ],
     "filters.disfluency": [
         {"id": "empty-string", "description": "empty input is returned unchanged",

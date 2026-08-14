@@ -6,6 +6,38 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `:core:audio`, `:core:vad`, and a `vad_gate` contract both platforms share
+
+The silence gate now has **contract vectors of its own** (`contract/vectors/vad_gate.json`,
+generated from `audio/vad_calibrated.py`), so "what counts as silence" is one
+definition rather than two implementations that drift. The Kotlin port passes all
+nine, and `:core:contract-test` is up to **225 cases** across seven files.
+
+The cases are chosen to pin the parts that are easy to get wrong:
+
+- **Mean, not peak.** One loud click among fifteen silent samples has a peak of 0.9
+  and a mean of 0.056 — a door slam is not a burst worth transcribing. Writing this
+  case caught the first draft, where the example was too short to demonstrate its
+  own claim and the expectation contradicted the description.
+- **Empty audio is silence**, because handing an empty buffer to a recogniser is
+  how a confident hallucination gets typed into someone's document.
+- **Lowering the gate is what makes a quiet voice usable** — the whole reason the
+  threshold is calibrated rather than fixed.
+
+`:core:audio` has the pre-speech ring buffer, with the test that matters: audio
+captured after the key was pressed still contains the leading word. People with
+hypophonia have delayed voice onset, and without this the opening syllable is
+simply missing.
+
+`:platform:audio` has the `AudioRecord` shim — 16 kHz mono PCM16 on a dedicated
+thread that never blocks on decode, with permission-revoked and mic-stolen ending
+in a clean stop and a reason rather than a crash inside a keyboard. **It compiles
+and has not been run on a device**, which is what the remaining boxes on #88 are.
+
+Declaring `RECORD_AUDIO` in `:platform:audio` rather than `:app` made the new
+privacy gate fail, which is the gate working: the golden file and the ADR's
+permission table were both updated in the same change, with the reason.
+
 ### Added — `:core:commands` and `:core:vocab` in Kotlin
 
 The Tier-1 grammar classifier and the `initial_prompt` merge, both verified
