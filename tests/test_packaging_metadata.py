@@ -13,6 +13,7 @@ against the single source of truth in `pyproject.toml`.
 from __future__ import annotations
 
 import json
+import re
 import tomllib
 from pathlib import Path
 
@@ -75,6 +76,35 @@ def test_no_packaging_file_still_names_the_retired_org():
     for path in (ROOT / "packaging").rglob("*"):
         if path.is_file() and path.suffix in {".json", ".yaml", ".yml", ".toml"}:
             assert "novafabric" not in path.read_text(encoding="utf-8", errors="ignore").lower(), path
+
+
+def test_the_lockfile_records_the_current_project_version():
+    """`uv.lock` carries its own copy of the project version, and it goes stale silently.
+
+    The lock has a `[[package]] name = "yazses"` entry with a `version` field. Nothing
+    regenerates it except an actual `uv sync`/`uv lock`, so a release that bumps
+    `pyproject.toml` and does not re-lock leaves the two disagreeing -- which is how
+    this file sat at 2.18.2 while the project shipped 2.19.0 and 2.20.0.
+
+    `test_sbom.py` does not cover this: it guards the *dependency* graph against
+    `uv.lock`, and both sides of that comparison were consistent the whole time. The
+    project's own version entry had no guard at all.
+
+    Why it matters beyond tidiness: `uv.lock` is committed so that a fresh clone
+    reproduces the exact environment a release was built and tested in. A lock that
+    names the wrong version of the thing being locked makes that record ambiguous,
+    and it is the file auditors and downstream packagers read to answer "what was in
+    this release?".
+    """
+    lock = (ROOT / "uv.lock").read_text(encoding="utf-8")
+    match = re.search(
+        r'^\[\[package\]\]\nname = "yazses"\nversion = "([^"]+)"', lock, re.MULTILINE
+    )
+    assert match, "no [[package]] entry for yazses in uv.lock"
+    assert match.group(1) == PYPROJECT["project"]["version"], (
+        f"uv.lock records yazses {match.group(1)} but pyproject.toml says "
+        f"{PYPROJECT['project']['version']}. Run `uv lock` and commit the result."
+    )
 
 
 # ---- the Scoop manifest has to be able to update itself --------------------

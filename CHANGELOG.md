@@ -33,6 +33,21 @@ BSD wheel and no sdist ([#306](https://github.com/MSKazemi/yazses/issues/306)) �
 a classifier asserts that the install works. That claim becomes true when the
 install does, not when the list is tidied.
 
+### Fixed — `uv.lock` still recorded the project as 2.18.2 after two releases shipped
+
+Found while re-locking for the audit above. `uv.lock` carries its own
+`[[package]] name = "yazses"` version entry, and nothing regenerates it except an
+actual `uv lock`/`uv sync` — so v2.19.0 and v2.20.0 both shipped with the lock
+naming the version before them. `test_sbom.py` did not catch it: that guard
+compares the *dependency* graph against the lock, and both sides were consistent
+the entire time. The project's own version entry had no guard at all.
+
+This matters because `uv.lock` is committed precisely so a fresh clone can
+reproduce the environment a release was built and tested in, and it is the file a
+downstream packager or auditor reads to answer "what was in this release?" — a lock
+that misnames the thing being locked makes that record ambiguous.
+`test_packaging_metadata.py` now pins it to `pyproject.toml`.
+
 ### Fixed — the benchmarks page told readers to run a harness that was not in the repo
 
 `docs/benchmarks.md` is public and its whole claim is that "every number on this
