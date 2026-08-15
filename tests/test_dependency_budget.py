@@ -260,3 +260,81 @@ def test_recorded_baseline_matches_pyproject(cdb):
         "scripts/dependency_budget_baseline.json is out of step with "
         "[project.dependencies] — run `--record-baseline` and commit."
     )
+
+
+# --- check 5: platform markers are part of the budget ------------------------
+#
+# A marker is how a dependency is kept off a platform. `Pillow; sys_platform ==
+# "win32"` costs a Linux user nothing; dropping the marker puts it in everyone's
+# base install. The name is identical either way, so a name-only comparison
+# cannot see the change — and the gate's whole premise (ADR-016: "a user who
+# never enables it must not pay a byte") is about exactly that cost.
+#
+# Found while pricing a proposal to make the Linux tray use the Pillow-based
+# brand renderer: the change would have widened Pillow to every platform, and
+# `check_growth` would have gone green because "Pillow" was already listed.
+
+
+def test_a_platform_marker_is_recorded_not_stripped(cdb) -> None:
+    """The recorded form must distinguish a marked dependency from a bare one."""
+    marked = cdb.base_dependency_specs(
+        ['Pillow>=12.3.0; sys_platform == "win32"', "numpy>=2.4.6"]
+    )
+    assert marked["pillow"], "the marker was thrown away — a widening becomes invisible"
+    assert not marked["numpy"], "an unmarked dependency has no marker to record"
+
+
+def test_dropping_a_marker_is_reported_as_growth(cdb, monkeypatch) -> None:
+    """The failure this exists for: same name, same count, everyone now pays."""
+    monkeypatch.setattr(cdb, "pr_labels", lambda: set())
+    baseline = _baseline(["numpy"])
+    baseline["base_dependency_markers"] = {"pillow": 'sys_platform == "win32"'}
+
+    widened = cdb.check_markers(
+        {"pillow": "", "numpy": ""}, baseline, is_pull_request=True
+    )
+    assert widened is False, "widening a platform marker must not pass silently"
+
+
+def test_keeping_a_marker_passes(cdb, monkeypatch) -> None:
+    monkeypatch.setattr(cdb, "pr_labels", lambda: set())
+    baseline = _baseline(["numpy"])
+    baseline["base_dependency_markers"] = {"pillow": 'sys_platform == "win32"'}
+    assert cdb.check_markers(
+        {"pillow": 'sys_platform == "win32"', "numpy": ""}, baseline, is_pull_request=True
+    ) is True
+
+
+def test_narrowing_a_marker_is_not_a_failure(cdb, monkeypatch) -> None:
+    """Adding a marker shrinks who pays. That is the direction we want."""
+    monkeypatch.setattr(cdb, "pr_labels", lambda: set())
+    baseline = _baseline(["numpy"])
+    baseline["base_dependency_markers"] = {}
+    assert cdb.check_markers(
+        {"numpy": 'sys_platform == "linux"'}, baseline, is_pull_request=True
+    ) is True
+
+
+def test_a_baseline_without_markers_does_not_crash(cdb, monkeypatch) -> None:
+    """Older baselines predate this field; the gate must degrade, not explode."""
+    monkeypatch.setattr(cdb, "pr_labels", lambda: set())
+    assert cdb.check_markers({"pillow": ""}, _baseline(["numpy"]), is_pull_request=True) is True
+
+
+def test_the_override_label_still_works(cdb, monkeypatch) -> None:
+    """A deliberate widening is allowed, the same way a new dependency is —
+    visibly, with a label, not by the gate failing to notice."""
+    monkeypatch.setattr(cdb, "pr_labels", lambda: {cdb.OVERRIDE_LABEL})
+    baseline = _baseline(["numpy"])
+    baseline["base_dependency_markers"] = {"pillow": 'sys_platform == "win32"'}
+    assert cdb.check_markers({"pillow": ""}, baseline, is_pull_request=True) is True
+
+
+def test_the_real_pyproject_still_marks_pillow(cdb) -> None:
+    """The live case that prompted this. Pillow is a win32 runtime dependency;
+    if it ever becomes unconditional that is a decision, not an accident."""
+    specs = cdb.base_dependency_specs()
+    assert "win32" in specs.get("pillow", ""), (
+        "Pillow is no longer win32-only in [project.dependencies] — every Linux and "
+        "macOS install now carries it. If that is intended, re-record the baseline."
+    )
