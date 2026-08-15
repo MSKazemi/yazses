@@ -969,6 +969,29 @@ _TIER_ALIASES = {
 }
 
 
+#: Width of the catalogue's DOWNLOAD column. Mirrors
+#: `depsize.SIZE_COLUMN_WIDTH`, which is what the labels are sized against;
+#: `tests/test_cli_features_grouped.py` fails if the two drift apart. Not
+#: imported at module scope because `yazses features` must not pay for an import
+#: it may not need.
+_SIZE_W = 9
+
+
+def _catalogue_size(feat) -> str:
+    """What *feat* downloads on a fresh install, for the catalogue, or ``""``.
+
+    Never raises: a size is a courtesy, and `yazses features` failing because one
+    could not be computed would be a bad trade (same rule as
+    `_feature_download_note`).
+    """
+    try:
+        from yazses.system.depsize import catalogue_size_label
+
+        return catalogue_size_label(feat.slug, bool(getattr(feat, "pip_packages", None)))
+    except Exception:  # pragma: no cover - a size must never break the catalogue
+        return ""
+
+
 def _echo_capabilities(
     platform,
     *,
@@ -1024,11 +1047,18 @@ def _echo_capabilities(
         typer.echo(f"┌─ {cat}  ({on_n}/{len(shown)} on)")
         if blurb:
             typer.echo(f"│  {blurb}")
-        typer.echo(f"│  {'':5}  {'NAME':<32} {'TOGGLE NAME':<16} ADVICE")
+        typer.echo(
+            f"│  {'':5}  {'NAME':<32} {'TOGGLE NAME':<16} "
+            f"{'DOWNLOAD':<{_SIZE_W}} ADVICE"
+        )
         for f in shown:
             mark = "● ON " if f.on else "○ off"
             slug = f.slug if f.toggleable else "—"
-            typer.echo(f"│  {mark}  {f.name:<32} {slug:<16} {f.tier_label}")
+            size = _catalogue_size(f)
+            typer.echo(
+                f"│  {mark}  {f.name:<32} {slug:<16} "
+                f"{size:<{_SIZE_W}} {f.tier_label}"
+            )
         typer.echo("└" + "─" * 40)
         total += len(shown)
 
@@ -1037,6 +1067,8 @@ def _echo_capabilities(
         return
     typer.echo(
         f"\n  {total} shown.  ●/○ = on/off.  Apply changes with `yazses restart`."
+        "\n  DOWNLOAD = what enabling fetches on a fresh install; blank = nothing"
+        " to download."
         "\n  Tip: `yazses features enable dysfluency` (use the TOGGLE NAME column)."
         "\n  Filter:  --on · --tier rec · --category access"
         "\n  Describe ALL capabilities (use case + example): `yazses features info`."
