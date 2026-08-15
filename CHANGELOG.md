@@ -6,6 +6,35 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the tray icon now shows whether your microphone is actually hearing you
+
+The badge has five colours and every one of them describes what YazSes is *doing*.
+None of them describes whether the microphone is picking anything up — and those two
+come apart exactly when it matters: a muted mic, a USB-C monitor that stole capture, a
+`vad_threshold` sitting above your voice. In all three the badge is green for
+"recording", you speak a whole sentence, and nothing is typed. That is the symptom
+behind [`silent-audio-discarding`](docs/how-to/silent-audio-discarding.md) and the
+silent-streak guard, and until now the icon looked identical throughout.
+
+While a burst is recording, the badge carries a **live input-level ring** with a notch
+marking the silence gate. Short of the notch, what you are saying will be discarded;
+past it, it will be transcribed. You find out *during* the sentence instead of after it.
+
+The design decision that makes it readable on any machine: **the gate is anchored at a
+fixed point on the ring** rather than the ring being a linear map of the raw level.
+`audio_level` is `mean(|samples|)`, whose useful range depends on the microphone, the
+room and the threshold — drawn linearly, a quiet setup would sit invisibly near zero and
+a loud one would peg. Anchored, "past the notch" means the same thing everywhere.
+
+No daemon change and no new IPC: `audio_level` and `vad_threshold` were already
+published for the voice-activity overlay, and simply were not reaching the tray.
+
+The ring is hidden whenever drawing it would say something untrue — when not recording
+(a ring on an idle badge implies YazSes is listening, which is the one thing this icon
+must never imply), when the threshold is missing or non-positive so the notch would have
+no meaning, and when the status is malformed. It never raises: it runs inside the icon
+paint path, where an exception loses the tray.
+
 ### Added — `yazses features` says what a capability will download, before it downloads it
 
 Implements ADR-018's first decision. `yazses features info <slug>` now shows a **Cost**

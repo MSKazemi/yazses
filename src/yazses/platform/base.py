@@ -54,6 +54,13 @@ class TrayModel:
     target_ok: bool | None = None
     # True while the dedicated command key is held (command mode → purple icon).
     command_mode: bool = False
+    # Live input level and the silence gate it is judged against, for the tray's
+    # level ring. Both are already published by the daemon for the overlay; the tray
+    # needs them because a green "recording" badge says nothing about whether the
+    # microphone is actually hearing anything, and that is the difference between
+    # "speak now" and "you are speaking into a muted mic".
+    audio_level: float = 0.0
+    vad_threshold: float = 0.0
 
 
 @dataclass(frozen=True)

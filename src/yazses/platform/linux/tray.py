@@ -109,6 +109,8 @@ class LinuxTray:
             "silent_streak": model.silent_streak,
             "target_ok": model.target_ok,
             "command_mode": model.command_mode,
+            "audio_level": model.audio_level,
+            "vad_threshold": model.vad_threshold,
         }
         with self._lock:
             self._latest.update(status)
@@ -136,13 +138,19 @@ class LinuxTray:
 
         color, tooltip = icon_spec(status)
         try:
-            self._tray.setIcon(self._make_icon(color))
+            self._tray.setIcon(self._make_icon(color, status))
             self._tray.setToolTip(tooltip)
         except Exception:
             log.exception("Tray icon update failed")
 
-    def _make_icon(self, color_hex: str):
-        """Draw the YazSes mark — a rounded badge in ``color_hex`` with a bold "Y"."""
+    def _make_icon(self, color_hex: str, status: dict | None = None):
+        """Draw the YazSes mark — a rounded badge in ``color_hex`` with a bold "Y".
+
+        *status* is the live poll result, passed in rather than read from
+        ``self._latest``: that cache is only refreshed when the context menu opens,
+        so a level ring drawn from it would freeze at whatever was true the last time
+        someone right-clicked.
+        """
         from PySide6.QtCore import QRectF, Qt
         from PySide6.QtGui import QBrush, QColor, QFont, QIcon, QPainter, QPixmap
 
@@ -163,9 +171,49 @@ class LinuxTray:
             p.setFont(font)
             p.setPen(QColor("#ffffff"))
             p.drawText(QRectF(0, 0, _ICON_PX, _ICON_PX), Qt.AlignmentFlag.AlignCenter, "Y")
+            self._draw_level_ring(p, status or {}, QRectF, Qt, QColor)
         finally:
             p.end()
         return QIcon(pm)
+
+    def _draw_level_ring(self, p, status: dict, QRectF, Qt, QColor) -> None:
+        """Draw the live input-level ring, if there is one to draw.
+
+        The badge colour says what YazSes is *doing*; this says whether the
+        microphone is actually hearing you. They come apart precisely when it
+        matters — a muted mic or a VAD threshold above your voice looks identical to
+        working, right up until nothing is typed.
+
+        The notch is the silence gate. Ring short of the notch means what you are
+        saying will be discarded; past it, it will be transcribed.
+        """
+        from PySide6.QtGui import QPen
+
+        from yazses.tray.menu import level_ring
+
+        ring = level_ring(status)
+        if not ring.show:
+            return
+
+        inset = 1.5
+        box = QRectF(inset, inset, _ICON_PX - 2 * inset, _ICON_PX - 2 * inset)
+        # Qt angles are sixteenths of a degree, anticlockwise from 3 o'clock. Start at
+        # the top and sweep clockwise, which is how a level meter is read.
+        start = 90 * 16
+        span = -int(360 * 16 * ring.fraction)
+
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        # Track: a faint full circle, so a short arc reads as "low" rather than as a
+        # rendering glitch.
+        p.setPen(QPen(QColor(255, 255, 255, 60), 3.0))
+        p.drawArc(box, 0, 360 * 16)
+        # The level itself. White above the gate, muted below it: below-gate is not an
+        # error state (you may simply not be speaking yet), it is "this will not count".
+        p.setPen(QPen(QColor("#ffffff") if ring.above_gate else QColor(255, 255, 255, 130), 3.0))
+        p.drawArc(box, start, span)
+        # The gate notch.
+        p.setPen(QPen(QColor(0, 0, 0, 160), 2.0))
+        p.drawArc(box, start - int(360 * 16 * ring.gate_fraction), -int(2.5 * 16))
 
     def _build_menu(self) -> None:
         """Attach a context menu that rebuilds itself each time it opens."""

@@ -34,6 +34,32 @@ The badge sits in your top bar (GNOME shown here) and changes colour as YazSes m
 
 > 🟡 **Yellow (no text target)** isn't pictured here — it looks like the blue/green badge but yellow, and it means *“I heard you, but there was no text box to type into, so I put your words on the clipboard.”* Paste with <kbd>Ctrl</kbd>+<kbd>V</kbd>.
 
+### The level ring — is the mic actually hearing me?
+
+Every colour above says what YazSes is **doing**. None of them says whether your
+microphone is picking anything up, and that is a different question with the same
+appearance: a muted mic, a monitor that quietly stole capture, or a silence threshold
+set above your speaking voice all look exactly like 🟢 green — right up until nothing
+is typed.
+
+So while you hold the key, the badge draws a **live input-level ring** with a small
+notch on it:
+
+| What you see | What it means |
+|---|---|
+| Ring **past the notch**, bright | Your voice is above the silence gate — this **will** be transcribed |
+| Ring **short of the notch**, dim | Too quiet — this burst **will be discarded** |
+| Ring barely moving while you speak | The mic is not hearing you at all — wrong device, muted, or unplugged |
+
+**The notch is always in the same place**, whatever your microphone or threshold — the
+ring is scaled around your configured gate, not around raw signal level. So "did it pass
+the notch" is the same judgement on every machine.
+
+If the ring never reaches the notch, that is the same condition as
+[Silent audio — discarding](how-to/silent-audio-discarding.md): run
+`yazses mic-level --set` to retune the threshold to your voice, or use the click-menu to
+pick a different mic.
+
 ---
 
 ## The click-menu — mic picker and daemon controls

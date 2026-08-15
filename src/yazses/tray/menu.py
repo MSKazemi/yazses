@@ -163,3 +163,79 @@ def icon_spec(status: dict) -> tuple[str, str]:
     if state in _RECORDING_STATES and not command_mode and target_ok is False:
         tooltip += "\n⚠ no text field focused — will save to clipboard"
     return color, tooltip
+
+
+# --------------------------------------------------------------------------- #
+# Live input level — the one thing the five colours cannot say
+# --------------------------------------------------------------------------- #
+# Green means "the daemon is recording". It does not mean "your microphone is
+# hearing you", and those come apart exactly when it matters: a muted mic, a USB-C
+# monitor that stole capture, a VAD threshold set above the user's voice. The
+# symptom is the most common one this project has — `Silent audio -- discarding`
+# has its own troubleshooting page — and today the icon looks identical throughout.
+# You speak a whole sentence, the badge is green, and nothing is typed.
+#
+# So the badge carries a level ring while recording. The daemon already publishes
+# both numbers it needs (`audio_level`, `vad_threshold`) for the overlay, so this
+# costs no daemon change and no extra IPC.
+#
+# The design decision that makes it readable: **the gate is anchored at a fixed
+# position on the ring** rather than the ring being a linear map of the raw level.
+# `audio_level` is mean(|samples|) — a number whose useful range depends on the mic,
+# the room and the threshold. Drawn linearly, a quiet setup would sit invisibly near
+# zero and a loud one would peg. Anchored, "the ring passed the notch" means
+# "this will be transcribed" on every machine, which is the only question being asked.
+_GATE_AT = 0.35     # the VAD threshold sits here on a 0..1 ring
+_RING_MIN = 0.04    # a floor, so a live-but-silent mic still reads as "listening"
+
+
+@dataclass(frozen=True)
+class LevelRing:
+    """How to draw the input-level ring around the badge.
+
+    ``fraction`` is 0..1 of a full sweep. ``above_gate`` is whether the current level
+    would pass the silence gate — i.e. whether speaking right now produces text.
+    ``show`` is false whenever there is nothing honest to draw.
+    """
+
+    fraction: float
+    above_gate: bool
+    show: bool
+
+    @property
+    def gate_fraction(self) -> float:
+        """Where to draw the notch that marks the threshold."""
+        return _GATE_AT
+
+
+def level_ring(status: dict) -> LevelRing:
+    """The level ring for *status*. Pure.
+
+    Hidden unless recording: an idle badge with a ring would imply YazSes is
+    listening when it is not, which is the opposite of what this project promises.
+    Hidden too when the threshold is missing or non-positive, because the gate
+    position would be meaningless and a ring with no reference point is decoration.
+    """
+    state = str(status.get("state") or "idle")
+    if state not in _RECORDING_STATES:
+        return LevelRing(0.0, False, False)
+
+    try:
+        level = float(status.get("audio_level") or 0.0)
+        threshold = float(status.get("vad_threshold") or 0.0)
+    except (TypeError, ValueError):
+        return LevelRing(0.0, False, False)
+    if threshold <= 0 or level < 0:
+        return LevelRing(0.0, False, False)
+
+    ratio = level / threshold
+    if ratio <= 1.0:
+        # Below the gate: the sub-gate range maps onto the arc before the notch, so
+        # a user can see themselves approaching it rather than only that they failed.
+        fraction = _GATE_AT * ratio
+    else:
+        # Above it: compress the tail so ordinary speech fills a useful amount of
+        # ring and a shout does not simply peg. 4x the threshold reaches full.
+        over = min((ratio - 1.0) / 3.0, 1.0)
+        fraction = _GATE_AT + (1.0 - _GATE_AT) * over
+    return LevelRing(max(_RING_MIN, min(1.0, fraction)), ratio > 1.0, True)
