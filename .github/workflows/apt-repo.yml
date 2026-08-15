@@ -108,9 +108,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GPG_KEY_ID: ${{ secrets.APT_REPO_GPG_KEY_ID }}
         run: |
+          shopt -s nullglob
           debs=(/tmp/debs/*.deb)
-          [[ ${#debs[@]} -eq 1 ]] || { echo "Expected 1 .deb, got ${#debs[@]}"; exit 1; }
-          bash scripts/update-apt-repo.sh "${debs[0]}" "$GPG_KEY_ID"
+          # One per architecture, so more than one is the normal case. The script
+          # rejects a repeated architecture; an empty set is the only error here.
+          (( ${#debs[@]} >= 1 )) || { echo "No .deb downloaded from the release run"; exit 1; }
+          echo "Ingesting ${#debs[@]} .deb(s): ${debs[*]##*/}"
+          bash scripts/update-apt-repo.sh "${debs[@]}" "$GPG_KEY_ID"
 
       # This workflow publishes to the `gh-pages` branch, which GitHub Pages
       # stopped serving when the docs moved to a workflow-built deployment.

@@ -133,3 +133,32 @@ def test_apt_workflow_ingests_every_architecture() -> None:
     assert re.search(r"merge-multiple:\s*true", text), (
         "apt-repo.yml needs merge-multiple so every arch lands in one directory"
     )
+
+
+def test_nothing_downstream_of_the_download_caps_the_deb_count() -> None:
+    """Downloading every arch is useless if the next step rejects more than one.
+
+    This is what broke the APT channel at v2.21.0. `apt-repo.yml` gained the
+    multi-arch download and a comment saying the script "indexes whatever lands in
+    the pool", but the guard immediately after it still read `-eq 1` and the script
+    still took a single `<path-to.deb>`. The release built amd64 **and** arm64, and
+    the job died with "Expected 1 .deb, got 2" — so no APT user got 2.21.0 at all,
+    on either architecture.
+
+    The download and its consumer live in different files, which is the same
+    invisible-from-either-side shape this module already guards for the *declared*
+    architectures.
+    """
+    arches = _deb_matrix_arches()
+    assert len(arches) > 1, "this guard assumes a multi-arch build; the matrix shrank"
+
+    for path in (APT, APT_SCRIPT):
+        text = path.read_text(encoding="utf-8")
+        for line in text.splitlines():
+            if ".deb" not in line and "debs" not in line:
+                continue
+            assert not re.search(r"\$\{#debs\[@\]\}\s*-eq\s*1", line), (
+                f"{path.name} rejects more than one .deb, but the release builds "
+                f"{sorted(arches)} — every multi-arch release will fail here:\n"
+                f"    {line.strip()}"
+            )
