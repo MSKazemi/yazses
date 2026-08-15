@@ -16,6 +16,7 @@ LOG_FILE := $(HOME)/.local/state/yazses/log/daemon.log
 # `campaign` and `hygiene` must be listed: `campaign/` is also a directory, so without
 # this make sees an up-to-date file target and silently does nothing.
 .PHONY: all install check test lint lint-fix types docs docs-serve man inbox \
+        feature-sizes research-watch \
         start stop restart status logs doctor overlay build clean help \
         hygiene campaign campaign-generate campaign-stats campaign-queue campaign-validate
 
@@ -86,11 +87,15 @@ types:
 
 # ── Documentation ─────────────────────────────────────────────────────────────
 
-# Regenerate docs/features.md, docs/configuration.md, docs/command-index.md.
-# Required after any CLI, feature-registry, or config change — a test enforces it.
+# Regenerate docs/features.md, docs/configuration.md, docs/command-index.md AND the
+# architecture figures. Required after any CLI, feature-registry or config change —
+# tests enforce both, so leaving the figures out of this target meant `make docs`
+# produced a tree that `make check` then rejected.
 docs:
 	@echo "▶  Regenerating reference docs…"
 	uv run python scripts/gen-docs.py
+	@echo "▶  Regenerating architecture figures…"
+	uv run python scripts/gen-arch-figures.py
 
 docs-serve:
 	@echo "▶  Serving the docs site at http://127.0.0.1:8000 …"
@@ -101,6 +106,23 @@ docs-serve:
 man:
 	@echo "▶  Regenerating man/yazses.1…"
 	uv run python scripts/gen-man.py
+
+# Per-feature download sizes for `yazses features` (ADR-018). Slow — it resolves every
+# feature's full dependency closure against a clean environment and prices each
+# distribution — so it is deliberately NOT part of `docs`. Run it when a feature's
+# dependencies change; a test fails when the table no longer covers them.
+feature-sizes:
+	@echo "▶  Regenerating the per-feature download-size table…"
+	uv run python scripts/gen-feature-sizes.py
+
+# Sweep the literature and write a dated digest (design/research/watch/). Maintainer
+# tooling, not part of the product: ADR-019 keeps the daemon's outbound paths to the
+# five it has. Every entry lands "(unreviewed)" and must be annotated or deleted before
+# it is committed — a test enforces that, because a feed nobody prunes is a feed nobody
+# reads.
+research-watch:
+	@echo "▶  Sweeping for new research…"
+	uv run python scripts/research-watch.py $(ARGS)
 
 # ── Maintainer ────────────────────────────────────────────────────────────────
 

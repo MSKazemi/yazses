@@ -147,6 +147,29 @@ or — for research-shaped work — at
 | **v2.19.0** | 2026-08-14 | The tray can answer the questions you ask it: **About**, **Help ▸** and **Check for updates…** on Linux, macOS and Windows. Three shipped commands (`gitvoice`, `fileopen`, `jump`) rejoin the CLI reference, now guarded against the live Click tree. Real AUR and Fedora packages, built and installed on clean containers; the Nix flake evaluates for the first time. |
 | **v2.20.0** | 2026-08-14 | The Windows release that actually works, driven by live user reports: a firewall-blocked model download killed the daemon with a raw traceback (#310), every CLI command was unreachable because `YazSes.exe` shadowed its own `.cmd` shim through `PATHEXT`, and `assets/yazses.ico` had never existed — so every build shipped PyInstaller's default artwork behind a silent `else None`. Plus `yazses model download` for speech models, and Windows tray colours that finally match Linux. **Current stable release.** |
 
+## In `[Unreleased]` — since v2.20.0
+
+Not yet in a tagged release, but on `main`:
+
+- **Three guards that stop a confident mistake reaching its destination.** A dictated
+  `rm -rf` waits for a spoken *confirm* (`cmdsafety`); a dictated card number that fails
+  its own check digit waits too (`checkdigit`); both share one release word. Each is
+  judged on how **rarely** it fires — a guard that stops a house number teaches you to
+  dismiss it. This is the direction [ADR-021](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-021-invest-in-error-cost.md)
+  picked to invest in, out of four scored candidates.
+- **The tray says whether the microphone is hearing you**, not just whether the daemon is
+  recording — a live level ring with the silence gate marked. Those two come apart exactly
+  when it matters.
+- **Earcons**: non-speech state cues, so the daemon is usable without watching the tray.
+- **`yazses features` prices a capability before installing it.** Measured: the three
+  speaker-voiceprint features pull 3.1 GB each, because `speechbrain` resolves to PyTorch
+  and the NVIDIA CUDA stack on a CPU-only tool.
+- **An Intel macOS build**, and `.dmg` filenames that name their architecture.
+- **The engineering tier is on the docs site** — decision records, specifications and
+  research notes, 242 pages that were previously reachable only by browsing GitHub.
+- **Settings-window secondary text now meets WCAG AA** on every theme; it was a hardcoded
+  grey failing on both light and dark.
+
 ## Future work
 
 The items below are planned directions. We distinguish clearly between what is
@@ -157,6 +180,19 @@ The items below are planned directions. We distinguish clearly between what is
 - **Cloud escalation for transcription.** Fully designed with strict
   guardrails — and **not implemented**, so the "nothing leaves your machine"
   default is never quietly weakened. Offline remains the only path.
+  [ADR-019](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-019-egress-inventory-and-escalation.md)
+  now generalises those guardrails to *any* future feature, enumerates every way data can
+  leave today, and names three things that may never leave at all whatever the consent:
+  voiceprint embeddings, the learning corpus, and anything captured from someone who did
+  not consent — the operator can consent for themselves, not for the room.
+- **Third-party plug-ins: declined, not deferred.**
+  [ADR-018](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-018-feature-packs-and-the-plugin-question.md)
+  records why — a plug-in would sit on the dictation hot path with the microphone, the
+  transcript and the injector — and what would reverse it: a real isolation boundary.
+- **Agent protocols.** YazSes as an **MCP server over stdio** is worth building, for two
+  tools: transcription, and *asking a human a question out loud*. FastAPI and
+  agent-to-agent are declined with reasons in
+  [ADR-020](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-020-agent-protocols.md).
 - **Personal speech adapters (LoRA).** On-device fine-tuning that adapts the
   model to your voice — including atypical speech (dysarthria, ALS,
   Parkinson's) — gated on a measured accuracy win on held-out data.

@@ -200,6 +200,36 @@ runtime path — see an internal planning note.)
 |---|---|
 | `daemon.py` | Orchestrator — owns state machine, IPC, pipeline wiring, signal handling |
 
+### Guards between the transcript and the injector
+
+Three run in `daemon.py::_on_hold_end`, **in this order**, and the order is load-bearing.
+
+| Module | Role |
+|---|---|
+| `cmdsafety/classify.py` | Risk-classify a dictated shell command; `ConfirmGate` holds a dangerous one pending a spoken confirm (ADR-v2-065) |
+| `cmdsafety/spoken.py` | Match the confirm/cancel word — anchored at **both** ends, because "cancel the meeting" is dictated text |
+| `checkdigit/guard.py` | Is this utterance a checkable number that failed? Bare numbers only, ≥12 digits, failing every applicable scheme (ADR-021) |
+| `checkdigit/validate.py` | Luhn / ISBN-10 / ISBN-13 / Verhoeff + single-edit fix suggestion (pure) |
+| `staged/buffer.py` | Review buffer — runs **after** the two above, which would otherwise have their confirm word swallowed as ordinary text |
+
+Each is judged on **how rarely it fires**. A guard that interrupts a house number teaches
+the user to dismiss it, and a dismissed guard costs attention while catching nothing —
+so each holds only on a specific, checkable signal, never a heuristic.
+
+`cmdsafety` judges the *command text* and deliberately **not** the focused window: focus
+detection needs AT-SPI or X11, so on Wayland without AT-SPI the window class is empty, and
+a guard that silently stops protecting on a whole display server is worse than none.
+
+### Feedback surfaces
+
+| Module | Role |
+|---|---|
+| `tray/menu.py::level_ring` | Live input-level ring with the silence gate **anchored at a fixed point**, so "past the notch" means the same thing on every microphone (pure) |
+| `earcon/tones.py` | Non-speech motif grammar + numpy synth (pure) |
+| `earcon/play.py` | Playback seam — never blocks the hot path, never raises, drops a concurrent cue rather than queueing a late one |
+| `settingsui/theme.py` | Secondary-text colour computed from the desktop palette to stay above WCAG AA 4.5:1; Qt-free maths |
+| `system/depsize.py` | What enabling a feature will download — *marginal* against what is installed, from a committed table of resolved closures (ADR-018) |
+
 ### `src/yazses/platform/`
 
 | File | Role |
@@ -514,6 +544,19 @@ Full v0.3.0 ADR files: `research/yazses-innovation/output/adrs/`
 | ADR-v04-003 | USB CDC serial (YESP protocol) for EMG devices — hardware-agnostic, 5 ASCII message types |
 
 Full v0.4.0 ADR files: `docs/adr/`
+
+### 2026-08 — packaging, egress and direction
+
+Each of these is a numbered ADR in [`design/adr/`](adr/index.md), and each records what
+would reverse it.
+
+| ADR | Decision |
+|---|---|
+| ADR-017 | Intel macOS support is built on `macos-15-intel`, advisory — and its **end date is GitHub's**: the last x86_64 image, until Aug 2027. `macos-13` was retired 2025-12-04 |
+| ADR-018 | Show a capability's **marginal** download cost before installing it; **no third-party plug-ins** — supersedes ADR-009's trust position, whose safety rested on a Rust build-time gate that was never built |
+| ADR-019 | The **egress inventory**: every outbound path enumerated and enforced by a test. Five *fetch*, exactly two *send*. Escalation rules generalised from ADR-v2-126 to any feature; three categories may never escalate |
+| ADR-020 | **MCP server yes** (stdio, two tools) · **FastAPI no** — it would trade an `AF_UNIX` structural guarantee for a configuration one on a process holding a live microphone · **A2A no** — YazSes has no goals |
+| ADR-021 | Invest in **carrying error cost through the pipeline** (scored 24/25 against three alternatives). First step shipped: `checkdigit` |
 
 ### v0.4.0 Configuration reference additions
 
