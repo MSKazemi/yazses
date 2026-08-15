@@ -998,11 +998,11 @@ YazSes ships **144 capabilities**. All but the core are **off by default** — t
 
 ### Earcon Feedback
 
-- **Toggle:** `earcon`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[earcon] — non-speech state tones`
+- **Toggle:** `earcon`  ·  **Tier:** optional  ·  **Config:** `[earcon] — non-speech state tones`
 - **What it does:** Tiny structured tones signal daemon state eyes-free (rising motif = recording, buzz = low confidence, chime = command done) — faster than spoken read-back. Off by default.
 - **Use when:** When you want instant eyes-free confirmation of daemon state without waiting for a read-back.
 - **Example:** A rising two-note beep tells you recording started, no glance needed.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable earcon` then `yazses restart`
 
 ### Local Voice Timer
 

@@ -48,6 +48,7 @@ from yazses.commands.grammar import IntentType, classify
 from yazses.commands.macros import MacroContext, build_macro_table
 from yazses.commands.revise import DictationLedger, parse_revise
 from yazses.config import Config, load_config
+from yazses.earcon.play import EarconPlayer
 from yazses.inject.streaming import StreamingInjector
 from yazses.ipc.protocol import Request
 from yazses.learning.capture import CorpusWriter, build_writer
@@ -211,6 +212,10 @@ class Daemon:
         # stays inert unless [cmdsafety] enabled, which keeps `_on_hold_end` free of
         # a None check on the hot path.
         self._cmdsafety = ConfirmGate()
+        # Earcon feedback (ADR-v2-096): non-speech tones for state changes, so the
+        # daemon is usable without seeing the tray. Always constructed and inert
+        # unless [earcon] enabled, keeping the hot path free of a None check.
+        self._earcon = EarconPlayer(self._config.earcon.enabled)
         self._edit_watcher: EditWatcher | None = None
         self._cleaner: LlmCleaner | None = None
         # Read-Back Loop TTS backend (None when [tts] disabled — dormant).
@@ -852,6 +857,8 @@ class Daemon:
         with self._lock:
             self._state.state = TrayState.RECORDING
         log.info("Recording started (cleaning up %d leaked char(s))", leaked)
+        # The eyes-free counterpart of the tray turning green. Non-blocking.
+        self._earcon.play("recording_start")
 
         # "No text target" guard: detect (off the hot path, so recording onset isn't
         # delayed) whether the focused element accepts text. Drives the yellow tray state
@@ -979,6 +986,7 @@ class Daemon:
             log.debug("hotkey-modifier release (best-effort) failed", exc_info=True)
 
     def _on_hold_end(self) -> None:
+        self._earcon.play("recording_stop")
         log.info("Recording stopped, transcribing...")
 
         # Force the compositor to release the hold-to-talk key NOW, before the
@@ -1067,6 +1075,10 @@ class Daemon:
                 self._adaptive_vad.observe_discard(level)
                 self._maybe_retune_threshold(acc.vad_threshold)
                 self._note_silent_discard()
+                # Nothing was heard, so nothing will be typed. Without a screen this is
+                # indistinguishable from a slow transcription, and the user waits for
+                # text that is never coming.
+                self._earcon.play("error")
                 if stream_injector is not None:
                     stream_injector.cancel()
                 return

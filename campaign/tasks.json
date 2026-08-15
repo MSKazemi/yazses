@@ -442,32 +442,6 @@
     "source": "issue #164 (63 designed capabilities awaiting wiring)"
   },
   {
-    "id": "WIRE-EARCON-001",
-    "family": "feature-wiring",
-    "title": "Wire the `earcon` capability so it is reachable from the daemon or CLI",
-    "value": "`earcon` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
-    "risk": "L2",
-    "minutes": 90,
-    "skills": [
-      "python"
-    ],
-    "cloud_agent_ready": true,
-    "allowed_paths": [
-      "src/yazses/**",
-      "tests/**",
-      "docs/features.md"
-    ],
-    "validation": [
-      "uv run python -m pytest tests/test_features_write_targets.py -q",
-      "uv run python -m pytest tests/ -q"
-    ],
-    "evidence": [
-      "the feature enabled and observed doing something on your machine"
-    ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
-  },
-  {
     "id": "WIRE-ECHO-001",
     "family": "feature-wiring",
     "title": "Wire the `echo` capability so it is reachable from the daemon or CLI",
