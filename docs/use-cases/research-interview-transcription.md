@@ -1,6 +1,6 @@
 ---
-title: Transcribing research interviews without the audio leaving your computer
-description: A tool-neutral guide for qualitative researchers, oral historians and journalists — why cloud transcription raises consent and ethics-approval questions, what local transcription actually means, the free options, and why every automated transcript still needs a correction pass.
+title: Transcribe research interviews on your own computer
+description: A tool-neutral guide for qualitative researchers and journalists — why cloud transcription raises consent and ethics questions, and the free local options.
 ---
 
 # Transcribing research interviews without the audio leaving your computer

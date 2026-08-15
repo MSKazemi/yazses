@@ -1,6 +1,6 @@
 ---
-title: Work with YazSes — student projects, research collaboration and industry pilots
-description: YazSes is an open research platform for voice-first human-computer interaction. Thesis- and course-sized projects with open issues, swappable interfaces for speech, gaze, diarization and EMG, an offline encrypted corpus that simplifies ethics review, and how to cite the project.
+title: "Work with YazSes: student and research collaboration"
+description: An open research platform for voice-first HCI — thesis-sized projects with open issues, swappable speech, gaze and EMG seams, and how to cite the project.
 ---
 
 # Work with YazSes: students, researchers, industry

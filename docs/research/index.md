@@ -1,6 +1,6 @@
 ---
-title: The science of post-keyboard input — voice, eye and muscle interfaces, measured
-description: An open, cited research notebook on post-keyboard human-computer interaction. How accurate webcam eye tracking really is, how offline speech recognition overtook the cloud, and why a $50 EMG electrode beats a $1,000 EEG headset — every number sourced, everything running on a laptop CPU.
+title: "Post-keyboard input, measured: voice, eye and muscle"
+description: An open, cited research notebook on voice, gaze and EMG input — what the measurements actually say, all of it running offline on an ordinary laptop CPU.
 ---
 
 # Research: the science of post-keyboard input
@@ -47,6 +47,9 @@ If you read nothing else, these five results are the whole argument:
   behind a swappable interface, so an experiment replaces one box and leaves
   the rest of the pipeline intact —
   [platform details & how to cite](get-involved.md#for-researchers-evaluation-citation-collaboration).
+  Sitting on interview recordings that an ethics approval forbids you to upload?
+  [Transcribe them without the audio leaving your
+  computer](../use-cases/research-interview-transcription.md).
 
 - :material-school-outline: **I'm a student.**
   There are eight thesis- and course-sized projects with an open issue, a

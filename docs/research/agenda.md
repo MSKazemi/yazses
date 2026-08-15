@@ -1,6 +1,6 @@
 ---
-title: Ten open questions in voice-first HCI — the YazSes research agenda
-description: Ten measurable research directions for offline voice input, each with the literature that defines the method, the code seam it touches, and the claim a result would establish. Three need no new code. All are open to collaborators and students.
+title: Ten open questions in voice-first HCI
+description: Ten measurable research directions for offline voice input — the method, the code seam each touches, and what a result would establish. Three need no new code.
 ---
 
 # Ten open questions

@@ -1,6 +1,6 @@
 ---
-title: Offline speech recognition in 2026 — accuracy, latency and the whisper channel
-description: The year local speech recognition passed the cloud. Measured word-error rates and CPU speeds for Whisper, Parakeet TDT and Moonshine, the latency budget that makes dictation feel instant, and how whispered speech becomes a command channel. Fully cited, with open research questions.
+title: "Offline speech recognition in 2026: accuracy, latency"
+description: The year local speech recognition passed the cloud — measured word-error rates and CPU speeds for Whisper, Parakeet TDT and Moonshine. Fully cited.
 ---
 
 # Voice control: the year local speech passed the cloud
