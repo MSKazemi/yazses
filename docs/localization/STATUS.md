@@ -11,7 +11,7 @@ language fixes it.
 
 | Locale | File | Scope | Native reviewer | Translated from | Status | Next action |
 |---|---|---|---|---|---|---|
-| हिंदी (`hi`) | [docs/hi/index.md](https://mskazemi.com/yazses/hi/index.html) | full | [@Sushanttmishraa](https://github.com/Sushanttmishraa) | `96711bc` (2026-08-13) | active | re-check against English when the README changes materially |
+| हिंदी (`hi`) | [docs/hi/index.md](https://mskazemi.com/yazses/hi/index.html) | full | @Sushanttmishraa — *account deleted* | `96711bc` (2026-08-13) | active | **a new native reviewer is wanted**; the translation itself is unaffected |
 | 简体中文 (`zh-CN`) | [docs/zh-CN/index.md](https://mskazemi.com/yazses/zh-CN/index.html) | partial | *needed* | `96711bc` (2026-08-13) | active | covers install + quickstart only; a native reviewer is wanted |
 | Русский (`ru`) | [docs/ru/index.md](https://mskazemi.com/yazses/ru/index.html) | full | [@4nmus](https://github.com/4nmus) | `96711bc` (2026-08-13) | active | re-check against English when the README changes materially |
 

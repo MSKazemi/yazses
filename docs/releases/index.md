@@ -23,9 +23,10 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.17.0](v2.17.0.md)** — what real use found in a day: streaming dictation could
-delete text it had never typed, a fresh snap install never mentioned the interface its
-hotkey needs, and `yazses start` never survived a reboot. Install it with:
+**[YazSes 2.20.0](v2.20.0.md)** — the Windows release that actually works: a
+firewall-blocked model download killed the daemon with a raw traceback, every CLI command was
+unreachable on the `.exe`, and the app icon had never shipped. All reported from live
+installs, all fixed and proven on a Windows runner. Install it with:
 
 ```sh
 pipx install yazses          # any OS, Python ≥ 3.11
@@ -34,6 +35,11 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.20.0](v2.20.0.md) — the Windows release that works: model download explains itself, the CLI is reachable, the icon ships.
+- [v2.19.0](v2.19.0.md) — About / Help / Check for updates in the tray; three commands rejoin the CLI reference; AUR + Fedora packages.
+- [v2.18.2](v2.18.2.md) — cutting a release could not publish to PyPI; the manifest gate deadlocked on its own tag.
+- [v2.18.1](v2.18.1.md) — the resemblyzer and pyannote backends ship; pyannote's default-on telemetry disabled; eleven Windows defects.
+- [v2.18.0](v2.18.0.md) — Qt becomes the `desktop` extra: a headless install is ~650 MB lighter.
 - [v2.17.0](v2.17.0.md) — streaming no longer deletes text it never typed; snap names both interfaces; autostart on start.
 - [v2.16.0](v2.16.0.md) — the snap becomes whole: bundled feature libraries; honest refusal for what cannot fit.
 - [v2.15.1](v2.15.1.md) — `err` is a verb (contract 4.0.0 → 5.0.0); mypy 73 → 0.
