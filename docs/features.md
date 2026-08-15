@@ -734,10 +734,10 @@ YazSes ships **145 capabilities**. All but the core are **off by default** — t
 - **Example:** Select a paragraph, hold the command key, say 'make this shorter'.
 - **Activate:** `yazses features enable rewrite` then `yazses restart`
 
-### Voice Window Management
+### Voice Window Focus
 
-- **Toggle:** `windowctl`  ·  **Tier:** optional  ·  **Config:** `[windowctl] — layout by voice`
-- **What it does:** Hands-free desktop layout: 'move window left half', 'maximize', 'workspace 3'. Needs the windowctl extra for your compositor. Off by default.
+- **Toggle:** `windowctl`  ·  **Tier:** optional  ·  **Config:** `[windowctl] — focus a window by name`
+- **What it does:** Say 'focus the browser' or 'switch to my editor' to raise a window by name. X11 only (Wayland does not let one app focus another). Rearranging windows by voice is designed but not connected yet. Off by default.
 - **Use when:** When you want to arrange windows and switch workspaces without touching the mouse.
 - **Example:** Say 'move window left half' or 'workspace 3' to arrange your desktop.
 - **Activate:** `yazses features enable windowctl` then `yazses restart`

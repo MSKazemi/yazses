@@ -676,9 +676,19 @@ def _registry() -> list[_Def]:
              "machine, and a rewrite that fails its safety checks leaves your text "
              "untouched. Off by default.",
              lambda c: c.commands.rewrite, rw_on, rw_off),
-        _Def("windowctl", "Voice Window Management", "[windowctl] — layout by voice", OPTIONAL,
-             "Hands-free desktop layout: 'move window left half', 'maximize', 'workspace 3'. "
-             "Needs the windowctl extra for your compositor. Off by default.",
+        # Describes focusing only, because that is all that runs. The layout verbs
+        # ("move window left half", "maximize", "workspace 3") were advertised here
+        # for a long time and none of them worked: their grammar lives in
+        # windowctl/commands.py, which nothing imports, and the WindowBackend
+        # protocol has only list_windows() and focus() — so there is no method that
+        # could carry out a WmAction even once it were wired. Enabling the feature
+        # succeeded and the examples did nothing, which is worse than not offering
+        # it. Guarded by tests/test_windowctl_promises.py.
+        _Def("windowctl", "Voice Window Focus", "[windowctl] — focus a window by name", OPTIONAL,
+             "Say 'focus the browser' or 'switch to my editor' to raise a window by "
+             "name. X11 only (Wayland does not let one app focus another). "
+             "Rearranging windows by voice is designed but not connected yet. "
+             "Off by default.",
              lambda c: c.windowctl.enabled, wc_on, wc_off),
         _Def("markup", "Structured-Markup Dictation", "[markup] — speak lists & tables", OPTIONAL,
              "Speak structure and get Markdown/org: 'bullet list: apples; oranges' → a list; "
