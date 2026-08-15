@@ -65,6 +65,40 @@ transcription" without retaining it or training on it. That is a real commitment
 and it is a different guarantee from audio that never leaves the machine. Checked
 2026-08-15.
 
+### Changed — the repo root was 28 READMEs deep before anything else
+
+A visitor landing on the repository met `README.ar.md` through `README.zh-TW.md`
+before reaching `src/`, `docs/`, or any file that says what this is. The
+translations earned their place — 28 languages is the reach — but the root is the
+first screen a stranger reads, and it was spent on files each of which is useful
+to roughly one reader in twenty-eight.
+
+- **The 28 translations are now `docs/<lang>/index.md`.** They are published pages
+  rather than blobs: each carries `title`/`description`/`alternates` front matter,
+  `hooks/hreflang.py` turns `alternates` into reciprocal `hreflang` tags, and
+  mkdocs lists them under a `Languages` section. A `blob/main/README.xx.md` page
+  can carry no `hreflang` and no `canonical`, so this is the surface they were
+  always supposed to have. The badge block is dropped from each translation — its
+  links were root-relative and rendered broken on the site.
+- **The five community-health files moved to `.github/`.** GitHub surfaces
+  `CONTRIBUTING`, `CODE_OF_CONDUCT`, `SECURITY`, `GOVERNANCE` and `SUPPORT` from
+  there identically — same links in the issue and PR flows, same community
+  profile — for no root cost.
+- **Four guards globbed `README.*.md` at the repo root, and every one of them
+  passes on an empty set.** `scripts/check-translations.py`,
+  `gen-readme-translation.py`, `test_contributors_wall.py` and
+  `test_citation_metadata.py` would all have gone quietly green while checking
+  zero files after the move — the drift check, the contributor wall and the
+  citation identifier included. They read `docs/*/index.md` now and assert the
+  count is 28.
+- `campaign/tasks.json` listed `README.<lang>.md` in 224 `allowed_paths` entries;
+  a contributor task whose allowed path does not exist is a task nobody can do.
+
+**The old `blob/main/README.xx.md` URLs 404 from here on.** Nothing inside the
+repository still points at them, but anything posted to a regional community
+during the localization pushes does; the replacement is the site page, which
+carries the hreflang signal those links never could.
+
 ### Added — the settings window explains every option, and can undo itself
 
 The switchboard listed ~200 capabilities as a checkbox, a name and a tier. That

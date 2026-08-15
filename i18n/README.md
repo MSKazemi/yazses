@@ -9,6 +9,32 @@ within weeks — the translated one silently, because nobody reads it. `README.m
 canonical; what lives here is the *map* of which slice to translate, and the terminology
 decisions that are genuinely new content.
 
+## Where the file goes
+
+`docs/<lang>/index.md` — `docs/fa/index.md`, `docs/pt-BR/index.md` — using the same
+code as the docs site, not the repo root. They used to be `README.<lang>.md` at the
+root; a GitHub blob page can carry neither `hreflang` nor `canonical`, so a
+translation there was invisible to the search engines it existed to reach.
+
+Start it with front matter, which is what earns the page that signal:
+
+```yaml
+---
+title: "YazSes — فارسی"
+description: "One or two sentences in your language, for search results."
+alternates:
+  en: index.md
+---
+```
+
+`hooks/hreflang.py` reads `alternates` and emits the reciprocal tags; add the page to
+the `Languages` section of `mkdocs.yml` so it is reachable. Links inside the page are
+relative to `docs/<lang>/`, so the English README is
+`https://github.com/MSKazemi/yazses#readme` and a screenshot is
+`../screenshots/<name>.png`. Leave the badge block out — its links are root-relative
+and render broken on the site. Then run `uv run python scripts/check-translations.py`,
+which is the same check CI runs.
+
 ## Modules — pick one, not the whole file
 
 `README.md` is 581 lines. Nobody should be asked to translate that as a first
@@ -36,7 +62,7 @@ Put the rest in English behind the status banner so the next reader — and the 
 translator — can see where the work stops:
 
 ```markdown
-> Translation of [README.md](../README.md). If anything here disagrees with the English
+> Translation of [README.md](https://github.com/MSKazemi/yazses#readme). If anything here disagrees with the English
 > version, the English version is correct.
 >
 > **Translation status:** modules 1–2 (landing, Quick Start) are translated; the sections
