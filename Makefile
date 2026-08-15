@@ -122,7 +122,8 @@ feature-sizes:
 # reads.
 research-watch:
 	@echo "▶  Sweeping for new research…"
-	uv run python scripts/research-watch.py $(ARGS)
+	uv run python scripts/research-watch.py --inbox .mohsen.note.md $(ARGS)
+	@echo "   Entries are marked unreviewed — annotate or delete before committing."
 
 # ── Maintainer ────────────────────────────────────────────────────────────────
 

@@ -181,11 +181,66 @@ def _render(new: list[dict], days: int, when: date) -> str:
     return "\n".join(lines)
 
 
+#: The heading the project note uses for raw, ungroomed input.
+_INBOX_HEADING = "## 📥 INBOX"
+
+
+def insert_into_inbox(note_text: str, line: str) -> str:
+    """Return *note_text* with *line* added to its inbox section.
+
+    Pure, and defensive to the point of dullness, because the note is the user's
+    own accumulated writing and is **not** in git — a bug here destroys something
+    with no undo. So: a file whose shape is not recognised comes back untouched
+    rather than being appended to on a guess, and a line already present is not
+    added twice (a weekly timer must not grow the inbox forever).
+    """
+    if _INBOX_HEADING not in note_text or line.strip() in note_text:
+        return note_text
+
+    lines = note_text.splitlines()
+    start = next(i for i, text in enumerate(lines) if text.startswith(_INBOX_HEADING))
+
+    # Insert after the heading and any HTML comment/blank lines that follow it,
+    # so the entry lands where a person would type rather than above the hint.
+    at = start + 1
+    while at < len(lines) and (not lines[at].strip() or lines[at].lstrip().startswith("<!--")):
+        at += 1
+
+    lines.insert(at, line)
+    return "\n".join(lines) + "\n"
+
+
+def write_inbox_line(note_path, line: str) -> bool:
+    """Add *line* to the note at *note_path*. Returns whether anything changed.
+
+    Never raises: an unattended sweep on a machine with no note (or a read-only
+    one) must still write its digest, which is the half that matters.
+    """
+    try:
+        before = note_path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    after = insert_into_inbox(before, line)
+    if after == before:
+        return False
+    try:
+        note_path.write_text(after, encoding="utf-8")
+    except OSError:
+        return False
+    return True
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--days", type=int, default=30, help="how far back to look")
     ap.add_argument("--max-per-query", type=int, default=25)
     ap.add_argument("--dry-run", action="store_true", help="print, write nothing")
+    ap.add_argument(
+        "--inbox", metavar="NOTE",
+        help="append a one-line pointer to this note's INBOX when papers are found "
+             "(e.g. .mohsen.note.md). A digest nobody is prompted to read is a "
+             "digest nobody reads.",
+    )
     args = ap.parse_args()
 
     since = datetime.now(timezone.utc) - timedelta(days=args.days)
@@ -223,6 +278,18 @@ def main() -> int:
     )
     print(f"\nwrote {out.relative_to(ROOT)} ({len(found)} new)")
     print(f"wrote {SEEN_PATH.relative_to(ROOT)} ({len(known)} known)")
+
+    # Only when there is something to report. A sweep that found nothing is the
+    # common case for a weekly run, and announcing it every time is how a signal
+    # becomes noise.
+    if args.inbox and found:
+        line = (
+            f"- research radar: {len(found)} new paper(s) in "
+            f"`{out.relative_to(ROOT)}` — each is marked unreviewed; annotate or "
+            f"delete before committing"
+        )
+        if write_inbox_line(Path(args.inbox), line):
+            print(f"noted {len(found)} finding(s) in {args.inbox}")
     return 0
 
 
