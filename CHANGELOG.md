@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the tray's **Settings…** could not open the settings window on the Windows installer
+
+Clicking **Settings…** in the tray produced a notification reading *"Could not open
+Settings — is `yazses` on PATH?"*, and nothing opened. Reported from a live Windows
+install.
+
+Every tray backend — Linux, macOS and Windows — launched the window with the literal
+`["yazses", "settings"]`, which assumes a console script on PATH. The PyInstaller
+bundle has no such thing: it ships `YazSesApp.exe` and `yazses-cli.exe` beside each
+other and puts neither on PATH. So the button was impossible on precisely the build
+whose users are least likely to have a terminal to fall back to — and the message,
+while accurate, asked the user to fix an assumption the application had no business
+making.
+
+`tray/launch.py::settings_command()` now resolves it once for all three backends: a
+frozen bundle uses the `yazses-cli` sitting next to the running binary, otherwise a
+console script on PATH, otherwise `[sys.executable, "-m", "yazses.cli", …]` — which
+works for any interpreter that can import the package. PATH is deliberately not
+consulted first when frozen: a machine can carry both the installer's app and an old
+`pip install`, and the stray one would silently open another version's settings.
+
+The same argv now backs the tray's **Restart**, which had the identical assumption.
+
 ### Changed — every `yazses` command starts in about half the time
 
 `yazses status`, `yazses stop`, `--help`, and the completion that runs on every Tab

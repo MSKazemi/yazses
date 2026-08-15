@@ -202,9 +202,14 @@ def launch_settings() -> bool:
     """Open the settings window, detached. Never blocks the tray thread."""
     import subprocess
 
+    from yazses.tray.launch import settings_command
+
     try:
         subprocess.Popen(
-            ["yazses", "settings"],
+            # Not `["yazses", "settings"]`: the installer build puts no `yazses` on
+            # PATH, so that spelling made this button impossible on the one install
+            # whose users have no terminal to fall back to.
+            settings_command(),
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )

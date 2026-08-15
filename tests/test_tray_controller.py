@@ -38,18 +38,32 @@ def test_stop_daemon_calls_shutdown():
     assert c.calls == [("shutdown", {})]
 
 
+# These two used to assert the literal `["yazses", "restart"]`, which is exactly
+# the spelling that made the tray's Settings button impossible on the Windows
+# installer build — there is no `yazses` on PATH there. They now assert the
+# *contract*: the verb is right and the argv is whatever `settings_command()`
+# resolves for this install, whose own rules are pinned in
+# tests/test_tray_settings_command.py.
+
+
 def test_restart_shells_out_to_cli():
+    from yazses.tray.launch import settings_command
+
     spawned = []
     ctrl = TrayController(_FakeClient(), launcher=lambda argv: spawned.append(argv))
     ctrl.restart()
-    assert spawned == [["yazses", "restart"]]
+    assert spawned == [settings_command("restart")]
+    assert spawned[0][-1] == "restart"
 
 
 def test_launch_settings_shells_out_to_cli():
+    from yazses.tray.launch import settings_command
+
     spawned = []
     ctrl = TrayController(_FakeClient(), launcher=lambda argv: spawned.append(argv))
     assert ctrl.launch_settings() is True
-    assert spawned == [["yazses", "settings"]]
+    assert spawned == [settings_command()]
+    assert spawned[0][-1] == "settings"
 
 
 def test_launch_settings_does_not_raise_when_launch_fails():

@@ -78,7 +78,9 @@ class TrayController:
         rather than reporting a restart that never began.
         """
         try:
-            self._launch(["yazses", "restart"])
+            from yazses.tray.launch import settings_command
+
+            self._launch(settings_command("restart"))
             return True
         except Exception:
             log.exception("tray restart failed")
@@ -91,7 +93,9 @@ class TrayController:
         nothing is indistinguishable from a frozen tray, so the caller reports it.
         """
         try:
-            self._launch(["yazses", "settings"])
+            from yazses.tray.launch import settings_command
+
+            self._launch(settings_command())
             return True
         except Exception:
             log.exception("tray settings launch failed")

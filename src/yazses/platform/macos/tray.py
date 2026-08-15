@@ -204,9 +204,13 @@ def _launch_settings() -> bool:
     """
     import subprocess
 
+    from yazses.tray.launch import settings_command
+
     try:
         subprocess.Popen(
-            ["yazses", "settings"],
+            # The .app bundle has no `yazses` on PATH either; `settings_command`
+            # finds the CLI beside the running binary. See its docstring.
+            settings_command(),
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True,
         )
         return True
