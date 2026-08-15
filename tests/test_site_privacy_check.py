@@ -109,3 +109,30 @@ def test_a_dirty_site_fails(tmp_path, monkeypatch) -> None:
     (site / "index.html").write_text("hi")
     (site / "secrets" / "plan.html").write_text("confidential")
     assert mod.main(["prog", str(site)]) == 1
+
+
+def test_paths_are_compared_posix_style_on_every_platform(tmp_path) -> None:
+    """Windows renders a relative path with backslashes.
+
+    The first version called `str()` on it, `offending_paths` splits on "/", and
+    every path collapsed to one segment that matched nothing — so the check
+    reported a clean site and exited 0. A privacy guard that fails *open* is worse
+    than no guard, and only the Windows CI job saw it.
+
+    Asserting through `main()` on a real directory tree is the point: the bug was
+    in how paths were produced, not in the matcher, so testing the matcher alone
+    would have stayed green.
+    """
+    mod = _script()
+    monkey = 'x"(^|[^a-zA-Z0-9_/-])(secrets)/"'
+    site = tmp_path / "site"
+    (site / "secrets" / "deep").mkdir(parents=True)
+    (site / "index.html").write_text("hi")
+    (site / "secrets" / "deep" / "plan.html").write_text("confidential")
+
+    original = mod._hook_text
+    mod._hook_text = lambda: monkey
+    try:
+        assert mod.main(["prog", str(site)]) == 1, "a nested private file must be caught"
+    finally:
+        mod._hook_text = original

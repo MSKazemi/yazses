@@ -14,6 +14,7 @@ from yazses import branding
 from yazses.hotkeys.names import SETTABLE_HOTKEYS, SUPPORTED_HOTKEYS, canonical
 from yazses.ipc.client import IpcUnreachableError
 from yazses.platform import get_paths, get_platform
+
 # `yazses.system.updater` is imported inside `update()` rather than here: it pulls
 # `urllib.request` and `http.client` (~21 ms) for a network stack that only that one
 # command uses, and every invocation — `status`, `stop`, each Tab-completion — was
@@ -2418,7 +2419,6 @@ def hotkey_command(
 
     Example:  yazses hotkey command right_ctrl   (dictate on right_alt, command on right_ctrl)
     """
-    from yazses.config import load_config
     from yazses.system.configedit import set_config_key
 
     platform = get_platform()

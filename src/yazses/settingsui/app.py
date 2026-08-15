@@ -291,6 +291,7 @@ class SettingsWindow:
         editable, and a window that refuses to appear because a microphone is
         missing is a worse failure than a dropdown with one entry in it.
         """
+        from PySide6.QtCore import Qt
         from PySide6.QtWidgets import (
             QComboBox,
             QFormLayout,
@@ -299,7 +300,6 @@ class SettingsWindow:
             QSlider,
             QVBoxLayout,
         )
-        from PySide6.QtCore import Qt
 
         from yazses.settingsui.controls import (
             VAD_SLIDER_STEPS,

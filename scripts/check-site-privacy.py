@@ -95,8 +95,13 @@ def main(argv: list[str]) -> int:
         return 2
 
     prefixes = private_prefixes(_hook_text())
+    # `as_posix()`, not `str()`. On Windows a relative path renders with
+    # backslashes, `offending_paths` splits on "/", and every path becomes a
+    # single segment that matches nothing — so the check reports a clean site and
+    # exits 0. A privacy guard that fails *open* is worse than none, and it would
+    # have done so silently: caught by CI on Windows, not by any Linux run.
     published = [
-        str(p.relative_to(site)) for p in site.rglob("*") if p.is_file()
+        p.relative_to(site).as_posix() for p in site.rglob("*") if p.is_file()
     ]
     if not published:
         print(f"{site} contains no files — refusing to report a clean site", file=sys.stderr)

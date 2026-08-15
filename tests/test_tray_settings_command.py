@@ -44,10 +44,16 @@ def test_a_frozen_bundle_uses_its_sibling_cli_not_dash_m() -> None:
 
 
 def test_the_frozen_sibling_is_extensionless_off_windows() -> None:
-    """macOS ships the same layout without `.exe`; a hardcoded suffix misses it."""
+    """macOS ships the same layout without `.exe`; a hardcoded suffix misses it.
+
+    Expectation built with `Path`, not a "/"-joined literal: on a Windows runner
+    `str(Path(...))` renders backslashes, and the first version of this test failed
+    there while the code under test was perfectly correct. The separator is the
+    host's business, not this assertion's.
+    """
     exe = Path("/Applications/YazSes.app/Contents/MacOS/YazSesApp")
     cmd = settings_command(frozen=True, executable=exe, which=lambda _: None, windows=False)
-    assert cmd == ["/Applications/YazSes.app/Contents/MacOS/yazses-cli", "settings"]
+    assert cmd == [str(exe.with_name("yazses-cli")), "settings"]
 
 
 def test_a_normal_install_prefers_the_console_script() -> None:
@@ -59,8 +65,9 @@ def test_a_normal_install_prefers_the_console_script() -> None:
 
 def test_without_a_console_script_it_falls_back_to_dash_m() -> None:
     """A venv whose bin/ is not on PATH still has an interpreter that can import us."""
-    cmd = settings_command(frozen=False, executable=Path("/venv/bin/python"), which=lambda _: None)
-    assert cmd == ["/venv/bin/python", "-m", "yazses.cli", "settings"]
+    exe = Path("/venv/bin/python")
+    cmd = settings_command(frozen=False, executable=exe, which=lambda _: None)
+    assert cmd == [str(exe), "-m", "yazses.cli", "settings"]
 
 
 def test_path_is_not_consulted_when_frozen() -> None:
@@ -79,10 +86,9 @@ def test_path_is_not_consulted_when_frozen() -> None:
 
 def test_the_subcommand_is_configurable() -> None:
     """`restart` needs the same resolution; only the verb differs."""
-    cmd = settings_command(
-        "restart", frozen=False, executable=Path("/venv/bin/python"), which=lambda _: None
-    )
-    assert cmd == ["/venv/bin/python", "-m", "yazses.cli", "restart"]
+    exe = Path("/venv/bin/python")
+    cmd = settings_command("restart", frozen=False, executable=exe, which=lambda _: None)
+    assert cmd == [str(exe), "-m", "yazses.cli", "restart"]
 
 
 def test_the_real_call_returns_something_runnable() -> None:
