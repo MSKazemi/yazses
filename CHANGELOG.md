@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — secondary text in the Settings window failed WCAG AA on every theme
+
+The window styled its descriptions, hints and filter status with `color: gray` — a
+literal `#808080`, repeated in five places. Measured against Qt's own defaults that is
+**3.43:1** on the light window and **3.44:1** on the dark one, where normal text needs
+**4.5:1**. Not marginally, and not on an unusual theme: on both of the backgrounds most
+users actually have.
+
+It is now computed from the desktop's own palette — the theme's text colour blended
+toward its background only as far as contrast allows — so it reads as secondary and stays
+legible whether the desktop is light, dark or something else. If a theme's *own* text
+colour already falls below AA, the window leaves it unchanged rather than fading it
+further; that is the theme's problem and making it worse would not help.
+
+Measured cost: **0.33 ms** added across the five call sites at window construction, and
+nothing at idle — it runs once per widget, not per frame.
+
+For a project whose research pages argue that assistive technology is priced out of reach
+and skips Linux, unreadable secondary text in its own settings window was the wrong detail
+to get wrong. `tests/test_settingsui_theme.py` keeps the old value on record as a failing
+case, so the change cannot later be mistaken for a matter of taste.
+
 ### Added — a dictated card number with a misheard digit no longer types
 
 `checkdigit` had a complete, tested implementation of Luhn, ISBN-10, ISBN-13 and Verhoeff

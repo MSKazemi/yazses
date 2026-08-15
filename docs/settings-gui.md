@@ -49,6 +49,17 @@ accuracy and correction, accessibility, and so on — and each row carries a
 A greyed-out row is one that cannot be switched — `Dictation core` is the pipeline
 itself, not a feature.
 
+!!! note "Secondary text follows your desktop theme"
+
+    Descriptions, hints and the filter status are drawn in a muted colour derived from
+    **your** palette rather than a fixed grey, and it is computed to stay above the
+    WCAG AA contrast minimum (4.5:1) on whatever background your theme supplies.
+
+    This used to be a hardcoded `gray`, which measured **3.43:1** on a light desktop and
+    **3.44:1** on a dark one — below the readable threshold on both. If your theme's own
+    text colour already falls below that, the window leaves it alone rather than fading it
+    further; that is a theme problem, and making it worse would not help.
+
 ## Finding a capability
 
 There are around two hundred rows, so the box at the top filters them. It matches

@@ -45,6 +45,7 @@ from yazses.settingsui.help import (
 from yazses.settingsui.launch import has_display, pyside_available
 from yazses.settingsui.model import SettingRow, SettingsModel, build_settings_model
 from yazses.settingsui.search import describe_filter, matches, visible_counts
+from yazses.settingsui.theme import muted_style_for
 
 log = logging.getLogger(__name__)
 
@@ -164,7 +165,7 @@ class SettingsWindow:
             "details, examples and the exact config keys it writes."
         )
         intro.setWordWrap(True)
-        intro.setStyleSheet("color: gray;")
+        intro.setStyleSheet(muted_style_for(intro))
         outer.addWidget(intro)
 
         outer.addLayout(self._build_filter_box())
@@ -183,7 +184,7 @@ class SettingsWindow:
             if group.blurb:
                 blurb = QLabel(group.blurb)
                 blurb.setWordWrap(True)
-                blurb.setStyleSheet("color: gray;")
+                blurb.setStyleSheet(muted_style_for(blurb))
                 box_layout.addWidget(blurb)
             members: list[tuple[str, Any]] = []
             for row in group.rows:
@@ -202,7 +203,7 @@ class SettingsWindow:
 
         self._hint = QLabel("")
         self._hint.setWordWrap(True)
-        self._hint.setStyleSheet("color: gray;")
+        self._hint.setStyleSheet(muted_style_for(self._hint))
         outer.addWidget(self._hint)
 
         from PySide6.QtWidgets import QHBoxLayout
@@ -268,7 +269,7 @@ class SettingsWindow:
 
         self._filter_status = QLabel("")
         self._filter_status.setWordWrap(True)
-        self._filter_status.setStyleSheet("color: gray;")
+        self._filter_status.setStyleSheet(muted_style_for(self._filter_status))
         wrap.addWidget(self._filter_status)
         return wrap
 
@@ -329,7 +330,7 @@ class SettingsWindow:
         subtitle = QLabel(summary_line(row))
         subtitle.setWordWrap(True)
         subtitle.setToolTip(card)
-        subtitle.setStyleSheet("color: gray; margin-left: 24px;")
+        subtitle.setStyleSheet(muted_style_for(subtitle, "margin-left: 24px;"))
         line.addWidget(subtitle)
         return line
 
