@@ -84,6 +84,10 @@ the hardware.
   correction cost outranks word error rate, and the three things we have not
   measured.
 
+- :material-alphabetical-variant: **[Glossary](glossary.md)**
+  Plain definitions for the speech, HCI and evaluation terms these pages use —
+  including why WER is not enough and what text-entry research reports instead.
+
 - :material-help-circle-outline: **[Ten open questions](agenda.md)**
   The research agenda: what we think is worth measuring next, with the method
   and the literature for each. Three need no new code. All are open.
