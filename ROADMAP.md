@@ -11,13 +11,13 @@
 
 ## Current frontier — Waves F–O (all OFF by default)
 
-**Stable release: v2.18.2**, published on PyPI, GitHub Releases, Snap, and the APT repo, with
+**Stable release: v2.20.0**, published on PyPI, GitHub Releases, Snap, and the APT repo, with
 Windows `.exe`, macOS `.dmg`, and Debian `.deb` installers attached to the GitHub release (all
 release workflows fire on `v*` tags). The v2 line is delivered as a long series of research
 waves, each a fresh state-of-the-art sweep → ADRs → pure, 100%-covered, off-by-default cores.
 
-On `main` (v2.18.2 plus the unreleased frontier): **144 capabilities (79 wired / 65 honestly
-marked "planned")**, **4005 tests green**, ADRs `adr-v2-001..129`, and the per-wave
+On `main` (v2.20.0 plus the unreleased frontier): **144 capabilities (79 wired / 65 honestly
+marked "planned")**, **4347 tests green**, ADRs `adr-v2-001..129`, and the per-wave
 state-of-the-art research notes. The counts come from the feature registry
 (`yazses.system.features`) and from running the suite, not from counting by hand — every one
 of them had gone stale again by 2026-08-14, and again in the direction of understating what
