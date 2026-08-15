@@ -1,6 +1,6 @@
 ---
 title: Find a task that fits you
-description: Filter 128 open YazSes contributor tasks by what you have — a browser, a laptop, specific hardware — how much time, and whether you want to write code.
+description: Filter 127 open YazSes contributor tasks by what you have — a browser, a laptop, specific hardware — how much time, and whether you want to write code.
 ---
 
 # Find a task that fits you
@@ -34,7 +34,7 @@ say so on the issue it links to, and open the pull request.
   </label>
 </div>
 
-<p id="yz-count"><strong>128</strong> tasks shown.</p>
+<p id="yz-count"><strong>127</strong> tasks shown.</p>
 
 <table class="yz-table">
 <thead><tr><th>Task</th><th>You need</th><th>Skills</th></tr></thead>
@@ -166,7 +166,6 @@ say so on the issue it links to, and open the pull request.
 <tr class="yz-row" data-env="cloud" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `bookmarks` capability so it is reachable from the daemon or cli a browser or container"><td><strong>Wire the `bookmarks` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-BOOKMARKS-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>
 <tr class="yz-row" data-env="cloud" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `breath` capability so it is reachable from the daemon or cli a browser or container"><td><strong>Wire the `breath` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-BREATH-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>
 <tr class="yz-row" data-env="cloud" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `bridge` capability so it is reachable from the daemon or cli a browser or container"><td><strong>Wire the `bridge` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-BRIDGE-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>
-<tr class="yz-row" data-env="cloud" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `checkdigit` capability so it is reachable from the daemon or cli a browser or container"><td><strong>Wire the `checkdigit` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-CHECKDIGIT-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>
 </tbody>
 </table>
 

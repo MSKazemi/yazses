@@ -1024,7 +1024,7 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 # without wiring it fails CI.
 _UNWIRED: frozenset[str] = frozenset({
     "acoustic_profiles", "affect", "agent", "audioguard", "autostop",
-    "bookmarks", "breath", "bridge", "checkdigit", "cmdspotter",
+    "bookmarks", "breath", "bridge", "cmdspotter",
     "code", "codec", "compose", "condense", "contour", "corrdict",
     "crowdproof", "diagramvox", "earcon", "echo", "fieldaware",
     "focusprofile", "gesture", "hatselect", "headpointer",

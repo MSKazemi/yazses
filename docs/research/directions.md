@@ -103,7 +103,9 @@ argument"*. Corrections are character- and word-shaped while the thing being edi
 structure — so a single misrecognition inside a function call costs the whole utterance.
 
 **Where the idea comes from.** [Cursorless](https://github.com/cursorless-dev/cursorless)
-(1,334★) gives spoken names to syntax-tree nodes, so you address the code's structure
+(1,334★) — one of several projects surveyed in the
+[adjacent-projects study](https://github.com/MSKazemi/yazses/blob/main/design/research/2026-08-15-adjacent-projects.md)
+— gives spoken names to syntax-tree nodes, so you address the code's structure
 rather than its characters. It is the most interesting idea in the adjacent neighbourhood,
 and it survives all three gates.
 

@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — a dictated card number with a misheard digit no longer types
+
+`checkdigit` had a complete, tested implementation of Luhn, ISBN-10, ISBN-13 and Verhoeff
+plus single-digit fix suggestion — and no caller, so `yazses features enable checkdigit`
+refused it. It is now wired, as the first step of
+[ADR-021](design/adr/adr-021-invest-in-error-cost.md).
+
+With `yazses features enable checkdigit`, a dictated number that *fails its own checksum*
+is held and announced instead of typed, with the single-digit correction offered when
+exactly one candidate passes. Release it with the same spoken **"confirm"** the command
+safety gate uses — one release word, not one per guard.
+
+**The design constraint is how rarely it fires, not how much it catches.** A guard that
+stops a house number or a year teaches you to dismiss it, and a dismissed guard is worse
+than none: it costs attention and catches nothing. So it only examines an utterance that is
+a *bare* number (prose containing a number is prose), at least 12 digits, and failing
+**every** scheme whose length it fits — a 13-digit string is not an ISBN-10, so ISBN-10's
+opinion of it is noise. Anything satisfying an applicable checksum types with no comment.
+
+Why this one first: a misheard digit is the cheapest error to catch and among the most
+expensive to miss, because nothing downstream notices. It surfaces as a declined payment or
+a wrong record, not as a typo.
+
 ### Added — the tray icon now shows whether your microphone is actually hearing you
 
 The badge has five colours and every one of them describes what YazSes is *doing*.

@@ -1438,8 +1438,29 @@ class MorsevoxConfig:
 
 @dataclass
 class CheckdigitConfig:
-    """v2.9 Wave M — Checksum-Validated Data Entry (ADR-v2-106). OFF by default."""
+    """Checksum-Validated Data Entry (ADR-v2-106, wired by ADR-021). OFF by default.
+
+    A mis-heard digit in a card number, IBAN or ISBN is the cheapest error to catch and
+    one of the most expensive to miss: nothing downstream will notice, and the failure
+    surfaces as a declined payment or a wrong record rather than as a typo.
+
+    **It fires only on arithmetic, never on a guess.** The utterance must look like a
+    checkable number *and* fail its check digit. Digits that pass are typed with no
+    comment, and anything that is not a plausible number is not examined at all — which
+    is what keeps a guard like this from training the user to dismiss it (ADR-021: judge
+    these on how rarely they fire, not on how much they catch).
+    """
     enabled: bool = False
+    #: Which checksums to test, in order. `luhn` covers payment cards and many national
+    #: IDs; `isbn13`/`isbn10` books; `verhoeff` several government schemes (e.g. Aadhaar).
+    schemes: list[str] = field(default_factory=lambda: ["luhn", "isbn13", "isbn10"])
+    #: Shortest run of digits worth checking. Below this, false positives dominate —
+    #: a 4-digit year or a house number is not a card number, and Luhn will happily
+    #: reject it.
+    min_digits: int = 12
+    #: Offer the single-digit correction when exactly one candidate passes. More than one
+    #: candidate means the suggestion would be a guess between them, so none is offered.
+    suggest_fix: bool = True
 
 
 @dataclass

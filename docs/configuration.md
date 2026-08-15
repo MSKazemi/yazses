@@ -1027,6 +1027,9 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 | Key | Type | Default |
 |---|---|---|
 | `enabled` | bool | `false` |
+| `schemes` | list | `['luhn', 'isbn13', 'isbn10']` |
+| `min_digits` | int | `12` |
+| `suggest_fix` | bool | `true` |
 
 ## `[sembr]`
 

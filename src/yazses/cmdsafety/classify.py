@@ -69,6 +69,22 @@ class ConfirmGate:
             return None
         return text
 
+    def hold(self, text: str) -> None:
+        """Hold *text* pending confirmation, whatever :func:`assess_command` thinks.
+
+        ``submit`` decides *whether* to hold using this module's own shell-risk rules.
+        Other guards reach a hold decision by different reasoning — a dictated card
+        number that fails its check digit is not a dangerous *command*, it is a
+        confidently wrong *value* (ADR-021) — and they still want the same held slot and
+        the same spoken release word, so the user learns one confirm phrase rather than
+        one per guard.
+
+        Kept separate from ``submit`` rather than adding a ``force=`` flag, because the
+        two answer different questions and merging them would let a caller silently skip
+        the risk assessment on a path that ought to have it.
+        """
+        self._pending = text
+
     def confirm(self):
         """Release and return the held command (or ``None`` if nothing is pending)."""
         held, self._pending = self._pending, None

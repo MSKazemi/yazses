@@ -261,11 +261,11 @@ YazSes ships **144 capabilities**. All but the core are **off by default** — t
 
 ### Checksum-Validated Entry
 
-- **Toggle:** `checkdigit`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[checkdigit] — verify dictated ID numbers`
+- **Toggle:** `checkdigit`  ·  **Tier:** recommended  ·  **Config:** `[checkdigit] — verify dictated ID numbers`
 - **What it does:** Runs dictated account/ID numbers (credit card, IBAN, ISBN) through their check-digit algorithm and flags a mis-heard digit before it lands — with fix suggestions. Off by default.
 - **Use when:** When you dictate a card, IBAN, or ID number where one mis-heard digit would be costly to miss.
 - **Example:** Dictate a card number and a mis-heard digit is caught instantly.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable checkdigit` then `yazses restart`
 
 ### Involuntary-Vocalization Excision
 

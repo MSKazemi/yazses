@@ -1663,6 +1663,18 @@ class Daemon:
                     text = gated
                     event["final_text"] = text
 
+                # Checksum-Validated Entry (ADR-v2-106, wired by ADR-021): a dictated
+                # card number, IBAN or ISBN whose check digit fails waits rather than
+                # typing a number nothing downstream will notice is wrong. Shares the
+                # command gate's confirm word, so the user learns one release phrase
+                # rather than one per guard.
+                if self._config.checkdigit.enabled:
+                    checked = self._checkdigit_gate(text, event)
+                    if checked is None:
+                        return
+                    text = checked
+                    event["final_text"] = text
+
                 # Staged dictation (#294): bursts land in a review buffer instead of
                 # typing, and only a commit types — `scratch that` is already too
                 # late once the wrong token is in a terminal. A commit hands back the
@@ -2124,6 +2136,45 @@ class Daemon:
             )
             return None
         return text
+
+    def _checkdigit_gate(self, text: str, event: dict) -> str | None:
+        """Checksum-Validated Entry (ADR-021). The text to type, or None when it waits.
+
+        Deliberately narrow, per ADR-021's rule that a confirmation is judged on how
+        *rarely* it fires: this only holds an utterance that is a bare number, long
+        enough for a checksum to mean anything, and failing every scheme whose length it
+        fits. Prose containing a number, a short number, and any number that satisfies an
+        applicable checksum all pass through with no comment.
+
+        Reuses the command gate's held-command slot and its confirm word. A second guard
+        with a second release phrase would be a second thing to remember at exactly the
+        moment the user is already surprised.
+        """
+        from yazses.checkdigit.guard import check, describe
+
+        # A pending hold is the command gate's to resolve — it owns the confirm word,
+        # and re-checking the confirmation utterance here would hold "confirm" itself
+        # for failing a checksum it was never a candidate for.
+        if self._cmdsafety.pending is not None:
+            return text
+
+        result = check(
+            text,
+            self._config.checkdigit.schemes,
+            min_digits=self._config.checkdigit.min_digits,
+            want_suggestion=self._config.checkdigit.suggest_fix,
+        )
+        if not result.failed:
+            return text
+
+        self._cmdsafety.hold(text)
+        event["checkdigit_action"] = "held"
+        event["checkdigit_scheme"] = result.scheme
+        if result.suggestion:
+            event["checkdigit_suggestion"] = result.suggestion
+        log.warning("Check digit: holding a number that fails %s.", result.scheme)
+        self._notify_cmdsafety(describe(result))
+        return None
 
     def _notify_cmdsafety(self, message: str) -> None:
         """Say what the gate did. Best-effort; never raises into dictation."""
