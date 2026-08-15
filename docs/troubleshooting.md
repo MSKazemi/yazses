@@ -23,6 +23,15 @@ daemon state, settings with paths and identifiers removed, and the metadata-only
 Your dictated text is never in it, and **nothing is uploaded**; the file is yours to read
 before deciding to attach it to an issue.
 
+!!! tip "Some of this fixes itself — check before you debug"
+
+    A microphone that was stolen mid-session, a silence gate that drifted above
+    your voice, a crashed daemon and a crashed tray all recover on their own, and
+    each says so when it happens. If you are about to debug one of those, read
+    **[what recovers by itself, and what does not](reliability.md)** first — it
+    also lists the failures that are deliberately left for you, so you can tell
+    which kind you are looking at.
+
 ## It works, but not after I reboot
 
 YazSes is a daemon, so it should already be running when you sit down:

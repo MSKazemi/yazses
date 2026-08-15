@@ -619,6 +619,13 @@ distinction worth the code is *dead* versus *wedged* — a daemon that is alive 
 answering still holds the single-instance lock, so replacing it is impossible and red is
 the honest answer.
 
+The user-facing inventory of every one of these — what triggers it, what bounds it,
+and the failures deliberately left alone — is
+[Reliability: what recovers by itself](reliability.md). Keep the two in step: that
+page states the actual constants (`MAX_DAEMON_RELAUNCHES`, `RELAUNCH_COOLDOWN_S`,
+`silent_streak_threshold`), so changing one here without changing it there
+publishes a number that is no longer true.
+
 **A self-healing action nobody sees is only half of one.** `system/notify.py` speaks
 `notify-send`, which exists on Linux and nowhere else, so on Windows and macOS the mic
 auto-heal and the VAD retune repaired capture and told the user nothing. The daemon now
