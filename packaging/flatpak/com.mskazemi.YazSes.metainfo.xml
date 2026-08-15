@@ -62,6 +62,38 @@
 
   <launchable type="desktop-id">com.mskazemi.YazSes.desktop</launchable>
 
+  <!--
+    Screenshots are not decoration on Flathub: they are the listing. GNOME Software
+    and KDE Discover render this block as the app's entire visual identity, and
+    flathub's linter flags a desktop-application that has none. This file had no
+    <screenshots> at all, which is a second submission blocker alongside the demo
+    video the checklist asks for (issue #45).
+
+    URLs point at `main` rather than a tag on purpose. Flathub downloads and mirrors
+    these at build time, so what ships is a snapshot either way — but a tag pin would
+    keep serving an old UI after a redesign, and would silently 404 the first time a
+    screenshot is renamed. Every image below is at least 620 px wide, which is the
+    minimum flathub accepts.
+  -->
+  <screenshots>
+    <screenshot type="default">
+      <caption>Configure every feature from the settings window</caption>
+      <image type="source" width="820" height="860">https://raw.githubusercontent.com/MSKazemi/yazses/main/docs/screenshots/settings-window.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Hold the key and speak — the overlay shows it is recording</caption>
+      <image type="source" width="1400" height="1050">https://raw.githubusercontent.com/MSKazemi/yazses/main/docs/screenshots/overlay-green-recording.jpg</image>
+    </screenshot>
+    <screenshot>
+      <caption>Every capability, with what it does and whether it is on</caption>
+      <image type="source" width="1844" height="1197">https://raw.githubusercontent.com/MSKazemi/yazses/main/docs/screenshots/yazses-features.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Check the microphone, permissions and model before you start</caption>
+      <image type="source" width="1028" height="802">https://raw.githubusercontent.com/MSKazemi/yazses/main/docs/screenshots/yazses-doctor.png</image>
+    </screenshot>
+  </screenshots>
+
   <url type="homepage">https://mskazemi.com/yazses/</url>
   <url type="bugtracker">https://github.com/MSKazemi/yazses/issues</url>
   <url type="vcs-browser">https://github.com/MSKazemi/yazses</url>

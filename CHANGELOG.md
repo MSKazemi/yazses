@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the Flathub listing had no screenshots, and nothing in the repo read that file
+
+[#45](https://github.com/MSKazemi/yazses/issues/45) records the closed Flathub submission
+([flathub#9765](https://github.com/flathub/flathub/pull/9765)) as blocked on one thing: a
+demo video. Reading `com.mskazemi.YazSes.metainfo.xml` turned up a second blocker nobody had
+noticed — it had **no `<screenshots>` block at all**. That file *is* the store listing;
+GNOME Software and KDE Discover render it and flathub.org indexes it as a page. Flathub's
+linter flags a desktop-application with none, and the listing would have shipped with no
+images. Four captioned screenshots added, and `tests/test_flatpak_metainfo.py` now guards
+listing completeness — including that every screenshot URL resolves to a file that exists in
+this repository and that its declared dimensions match the real image, which no linter checks.
+
+Two stale claims corrected while there: `packaging/flatpak/README.md` said
+`python3-yazses.json` was "**not committed yet**" and `.github/workflows/flatpak.yml` called
+that "the single reason the submission has never been made" — it has been committed all
+along, with 45 pinned wheels. New `packaging/flatpak/SUBMISSION.md` carries the resubmission
+pack: why the bot closed the first PR (a custom description instead of the template), the
+filled-in template body ready to paste, the `new-pr` base-branch requirement, and a shot list
+for the video.
+
 ### Fixed — every release was fully attested and still scored 0/10 for signed releases
 
 `b3c4197` added build-provenance attestations to the `.deb`, `.dmg`, `.exe` and the PyPI

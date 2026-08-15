@@ -115,12 +115,19 @@ jobs:
           # only correct way to express that.
           # Each pattern is tolerated separately -- if one platform's build failed,
           # a partial checksum file is still better than none.
-          for pat in '*.deb' '*.dmg' '*.exe'; do
+          #
+          # `*.intoto.jsonl` is here because the release body promises that
+          # "SHA256SUMS.txt below lists the hash of every artifact in this release".
+          # The provenance bundles became artifacts when the release workflows
+          # started attaching them, and leaving them out would quietly make that
+          # sentence false -- for the one asset type whose entire purpose is being
+          # verifiable.
+          for pat in '*.deb' '*.dmg' '*.exe' '*.intoto.jsonl'; do
             gh release download "$TAG" --clobber --pattern "$pat" || \
               echo "note: no asset matched $pat"
           done
           shopt -s nullglob
-          files=(*.deb *.dmg *.exe)
+          files=(*.deb *.dmg *.exe *.intoto.jsonl)
           if (( ${#files[@]} == 0 )); then
             echo "::error::No release assets found for $TAG -- nothing to checksum."
             exit 1
