@@ -1060,6 +1060,12 @@ def _echo_feature_card(feat, *, full: bool) -> None:
                 "see the matching design/adr/ entry."
             )
         elif feat.toggleable:
+            # What it will cost, before it is spent (ADR-018). `speechbrain` alone
+            # resolves to torch plus the NVIDIA CUDA stack, and until this line
+            # existed the only way to find that out was to watch it download.
+            note = _feature_download_note(feat)
+            if note:
+                typer.echo(f"\n  Cost:     {note}")
             typer.echo(f"\n  Enable:   yazses features enable {feat.slug}")
             typer.echo(f"  Disable:  yazses features disable {feat.slug}")
             typer.echo("  Apply:    yazses restart")
@@ -1197,6 +1203,22 @@ def features_enable(
     typer.echo("Apply it:  yazses restart")
 
 
+def _feature_download_note(feat) -> str:
+    """What enabling *feat* will fetch on this machine, or ``""`` (ADR-018).
+
+    Never raises into the catalogue: a size is a courtesy, and `yazses features`
+    failing because a size could not be computed would be a bad trade.
+    """
+    if not getattr(feat, "pip_packages", None):
+        return ""
+    try:
+        from yazses.system.depsize import download_note
+
+        return download_note(feat.slug, _missing_feature_deps(feat))
+    except Exception:  # pragma: no cover - a size must never break the catalogue
+        return ""
+
+
 def _missing_feature_deps(feat) -> list[str]:
     """The feature's optional pip deps that are not importable right now."""
     if not feat.pip_packages:
@@ -1230,6 +1252,22 @@ def _install_feature_deps(feat, *, skip: bool) -> None:
 
     if not _missing_feature_deps(feat):
         return
+    # Say what this costs before spending it (ADR-018). Printed even when the
+    # install proceeds: a download that turns out to be gigabytes is one the user
+    # should have been able to cancel, and knowing mid-download still beats
+    # knowing afterwards.
+    note = _feature_download_note(feat)
+    if note:
+        from yazses.system.depsize import is_a_large_download
+
+        loud = is_a_large_download(feat.slug, _missing_feature_deps(feat))
+        prefix = "\n⚠  Large download — " if loud else "\n"
+        typer.echo(f"{prefix}this {note}.")
+        if loud:
+            typer.echo(
+                "   Ctrl-C now to stop. `--no-install` prints the packages instead "
+                "of fetching them."
+            )
     if skip:
         typer.echo(
             "Skipping dependency install (--no-install). This feature needs:\n  "

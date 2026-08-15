@@ -6,6 +6,37 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `yazses features` says what a capability will download, before it downloads it
+
+Implements ADR-018's first decision. `yazses features info <slug>` now shows a **Cost**
+line, and `features enable` prints the size before fetching anything — loudly, with a
+Ctrl-C hint, when it is large.
+
+The case that motivated it: **`yazses features enable voiceprint` resolves `speechbrain`
+to torch *and the entire NVIDIA CUDA stack*** — cuDNN, NCCL, cuSPARSE, cuSOLVER — on a
+CPU-only, offline dictation tool. Nothing told the user before the progress bar started.
+
+Three properties, each ruling out an easier implementation:
+
+- **Marginal, not total.** The `tts`, `silero` and `parakeet` extras each name an
+  `onnxruntime` that a base install already has via `faster-whisper`. Measured: `read-back`
+  declares three packages and needs one; `stt-moonshine` declares one and needs **none**, so
+  enabling it is free and now says so. The figure is computed against what is missing *on
+  this machine*, which `deps.missing_modules` already answers.
+- **Resolved closures, not wheel sizes.** `speechbrain`'s own wheel is a few MB. Pricing the
+  wheel would tell a user a feature is cheap immediately before it fills their disk, so
+  `scripts/gen-feature-sizes.py` resolves each feature with `uv pip install --dry-run`
+  against a clean base environment and prices every distribution in the result.
+- **Offline and instant.** The catalogue lists 144 capabilities and must render with no
+  outbound connection (ADR-011). Sizes come from a committed table, never a live query — a
+  stale number is acceptable, a hang is not.
+
+A partially-installed feature is quoted as **"up to"** its full closure rather than
+apportioned, because apportioning would be a guess and this is the direction to be wrong in:
+told "up to 2.4 GB" and given 300 MB you are mildly surprised; told 300 MB and given 2.4 GB
+you were misled about the only thing you asked. An unknown size shows **nothing** rather than
+zero. A missing or corrupt table degrades the catalogue quietly instead of taking it down.
+
 ### Decided — show what a feature costs before enabling it; no third-party plug-ins
 
 [ADR-018](design/adr/adr-018-feature-packs-and-the-plugin-question.md), answering "a user who
