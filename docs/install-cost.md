@@ -12,7 +12,7 @@ numbers, not estimates, so you can decide before you start.
 
 | What | Size | Notes |
 |---|---|---|
-| YazSes, headless (no desktop extra) | **~450 MB** | `pip install yazses` — enough for `transcribe` |
+| YazSes, headless (no desktop extra) | **414 MB** | `pip install yazses` — enough for `transcribe`. 42 distributions; 84% of it is four binary wheels that arrive with faster-whisper |
 | YazSes + the `desktop` extra | **1.1 GB** | what `install.sh`, the `.deb` and the Snap install |
 | ↳ of which **PySide6 (Qt)** | **648 MB** | the overlay and the tray — now optional, see below |
 | Speech model — `tiny.en` | 75 MB | fastest, least accurate |
@@ -22,8 +22,23 @@ numbers, not estimates, so you can decide before you start.
 | Docker image (transcription only) | 833 MB | no Qt |
 
 **A normal desktop install is therefore about 1.25 GB**: 1.1 GB of program plus the
-141 MB default model. A **headless** install is roughly **590 MB** all-in. Only one
+141 MB default model. A **headless** install is roughly **555 MB** all-in. Only one
 model is downloaded — the one you configure.
+
+!!! question "Can the headless 414 MB be made smaller?"
+
+    Not meaningfully, and it is worth being straight about why. **84% of it is four
+    binary wheels that arrive with the speech engine**: `ctranslate2` (135 MB), PyAV
+    (103 MB), `numpy` (58 MB) and `onnxruntime` (53 MB) — the last of which is
+    `faster-whisper`'s own dependency, for its bundled voice-activity detector.
+    YazSes' own code is **4 MB**, under 1% of the install.
+
+    So the floor is set by the speech engine's dependency tree, not by how YazSes is
+    packaged. Every lever packaging *does* control has already been pulled: Qt is an
+    extra, the 21 optional features install on demand, and no speech model ships with
+    the program — it is fetched on first use, and only the one you configure.
+    Measurements and the full breakdown:
+    [modular distribution survey](https://github.com/MSKazemi/yazses/blob/main/design/research/2026-08-15-modular-distribution-survey.md).
 
 !!! success "Qt is now optional — headless installs are ~650 MB lighter"
     `PySide6` is **no longer a base dependency**. It is 648 MB of Qt and it exists for
