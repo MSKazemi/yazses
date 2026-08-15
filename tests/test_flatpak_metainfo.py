@@ -31,8 +31,18 @@ ROOT = Path(__file__).resolve().parent.parent
 METAINFO = ROOT / "packaging/flatpak/com.mskazemi.YazSes.metainfo.xml"
 PYPROJECT = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 
-#: Flathub rejects images narrower than this.
+#: House floor, not a Flathub rule -- worth being precise about, because an invented
+#: requirement enforced by a test is indistinguishable from a real one to whoever hits
+#: it next. Flathub's quality guidelines state no minimum; they say a screenshot's
+#: *window* should be 1000x700 or smaller (2000x1400 HiDPI). 620px is the width below
+#: which appstream-glib has historically warned and below which store thumbnails
+#: render poorly, so it is a sensible floor to hold ourselves to.
 MIN_SCREENSHOT_WIDTH = 620
+
+#: Flathub's quality guidelines, verbatim: "Every screenshot should have a caption
+#: briefly describing it. Captions should only be one sentence and not end with a full
+#: stop." These two are real, citable requirements -- unlike the width above.
+MAX_SCREENSHOT_HEIGHT_HIDPI = 1400
 
 RAW_PREFIX = "https://raw.githubusercontent.com/MSKazemi/yazses/main/"
 
@@ -59,11 +69,13 @@ def test_the_listing_has_screenshots():
 
 
 def test_exactly_one_screenshot_is_the_default():
+    """A house rule rather than a Flathub one: the store shows a header image, and
+    leaving which one to chance means it changes when the list is reordered."""
     shots = _root().findall("screenshots/screenshot")
     default = [s for s in shots if s.get("type") == "default"]
     assert len(default) == 1, (
-        f"{len(default)} screenshots marked type='default'; AppStream expects exactly "
-        f"one, and it is the image shown in the store listing header"
+        f"{len(default)} screenshots marked type='default'; exactly one should be, and "
+        f"it is the image shown in the store listing header"
     )
 
 
@@ -94,13 +106,39 @@ def test_every_screenshot_file_exists_in_this_repository():
         assert path.is_file(), f"{url} points at {path.relative_to(ROOT)}, which does not exist"
 
 
-def test_every_screenshot_is_wide_enough_for_flathub():
+def test_every_screenshot_is_wide_enough_to_render_well():
     for image in _root().findall("screenshots/screenshot/image"):
         width = image.get("width")
         assert width, f"{image.text} declares no width"
         assert int(width) >= MIN_SCREENSHOT_WIDTH, (
-            f"{image.text} is {width}px wide; flathub requires at least "
-            f"{MIN_SCREENSHOT_WIDTH}px"
+            f"{image.text} is {width}px wide, below our {MIN_SCREENSHOT_WIDTH}px floor "
+            f"-- store thumbnails render poorly below it"
+        )
+
+
+def test_no_screenshot_exceeds_the_hidpi_window_size_guideline():
+    """Flathub: the window should be 1000x700 or smaller, 2000x1400 for HiDPI."""
+    for image in _root().findall("screenshots/screenshot/image"):
+        height = int(image.get("height", 0))
+        assert height <= MAX_SCREENSHOT_HEIGHT_HIDPI, (
+            f"{image.text} is {height}px tall; Flathub's guideline caps the captured "
+            f"window at 2000x1400 even for HiDPI"
+        )
+
+
+def test_captions_follow_flathubs_stated_style():
+    """Verbatim from the quality guidelines: one sentence, no trailing full stop.
+
+    Small, but it is the kind of thing a reviewer notices immediately and it costs a
+    round trip on a submission that has already been closed once.
+    """
+    for caption in _root().findall("screenshots/screenshot/caption"):
+        text = (caption.text or "").strip()
+        assert not text.endswith("."), (
+            f"caption {text!r} ends with a full stop; Flathub asks that captions do not"
+        )
+        assert text.count(".") == 0 and ";" not in text, (
+            f"caption {text!r} looks like more than one sentence; Flathub asks for one"
         )
 
 

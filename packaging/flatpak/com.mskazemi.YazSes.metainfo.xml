@@ -72,8 +72,12 @@
     URLs point at `main` rather than a tag on purpose. Flathub downloads and mirrors
     these at build time, so what ships is a snapshot either way — but a tag pin would
     keep serving an old UI after a redesign, and would silently 404 the first time a
-    screenshot is renamed. Every image below is at least 620 px wide, which is the
-    minimum flathub accepts.
+    screenshot is renamed.
+
+    Captions are one sentence with no trailing full stop, which is Flathub's stated
+    style rule. Flathub sets no minimum width; it asks that the captured window be
+    1000x700 or smaller (2000x1400 HiDPI). The 620 px floor these images clear is
+    ours, not theirs — see tests/test_flatpak_metainfo.py.
   -->
   <screenshots>
     <screenshot type="default">
