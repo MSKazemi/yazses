@@ -6,6 +6,35 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — three packaging guards passed on an empty set, and now the rule is mechanical
+
+`for path in SOMEWHERE.glob("*"): assert <property>(path)` is green in two
+situations: every file satisfies the property, and **there are no files**. The
+output is identical, and the second is what a rename, a moved directory or a
+changed suffix produces — which is exactly when the guard was needed.
+
+Found three times in one day, which is what turned it from a bug into a rule:
+
+- Four checks globbed `README.*.md` at the repo root. The translations moved to
+  `docs/<lang>/index.md` and all four went quietly green while checking zero files.
+- `test_cli_reference_covers_every_command.py` read only the top level of the Click
+  tree, so ~50 subcommands behind 15 groups were never looked at.
+- The three fixed here: `test_the_winget_identifier_is_the_current_one` and
+  `test_no_packaging_file_still_names_the_retired_org` (which passed with
+  `packaging/` **absent entirely**), and
+  `test_the_repo_ships_a_locale_manifest_for_every_winget_version` — that last one
+  guards a defect that has already shipped once, a winget submission missing its
+  `defaultLocale`.
+
+Each was proved vacuous first, by pointing it at an empty directory and watching it
+pass, then fixed by binding the glob to a name and asserting it non-empty — the
+idiom the repo already used in `test_docs_current_version_claims.py`.
+
+`tests/test_repo_hygiene_vacuous_guards.py` now walks the suite's own AST and fails
+on the shape, so the fourth occurrence is caught by a machine rather than by
+someone happening to look. It carries its own detector test: a check for a silent
+failure that fails silently is the same bug one level up.
+
 ### Fixed — the CLI-reference guard checked 58 command names and ignored the other 50
 
 `tests/test_cli_reference_covers_every_command.py` exists because three commands

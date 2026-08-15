@@ -68,14 +68,21 @@ def test_packaging_points_at_the_canonical_repo(path):
 
 def test_the_winget_identifier_is_the_current_one():
     """The old NovaFabric moniker is dead; nothing may reintroduce it."""
-    for manifest in WINGET.rglob("*.yaml"):
+    manifests = list(WINGET.rglob("*.yaml"))
+    assert manifests, f"no manifests under {WINGET} -- guard is blind"
+    for manifest in manifests:
         assert "NovaFabric" not in manifest.read_text(encoding="utf-8"), manifest
 
 
 def test_no_packaging_file_still_names_the_retired_org():
-    for path in (ROOT / "packaging").rglob("*"):
-        if path.is_file() and path.suffix in {".json", ".yaml", ".yml", ".toml"}:
-            assert "novafabric" not in path.read_text(encoding="utf-8", errors="ignore").lower(), path
+    paths = [
+        p
+        for p in (ROOT / "packaging").rglob("*")
+        if p.is_file() and p.suffix in {".json", ".yaml", ".yml", ".toml"}
+    ]
+    assert paths, "no packaging manifests matched -- guard is blind"
+    for path in paths:
+        assert "novafabric" not in path.read_text(encoding="utf-8", errors="ignore").lower(), path
 
 
 def test_the_lockfile_records_the_current_project_version():

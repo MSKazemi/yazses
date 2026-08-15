@@ -67,9 +67,13 @@ def test_locale_prose_survives_but_the_version_moves():
 def test_the_repo_ships_a_locale_manifest_for_every_winget_version():
     """winget rejects a version directory missing defaultLocale, so an incomplete
     one is not a partial success — it is a submission that cannot be made."""
-    for version_dir in refresh.WINGET_DIR.glob("*"):
-        if not version_dir.is_dir():
-            continue
+    version_dirs = [d for d in refresh.WINGET_DIR.glob("*") if d.is_dir()]
+    assert version_dirs, (
+        f"no version directories under {refresh.WINGET_DIR} -- guard is blind. "
+        "An empty or moved directory made this pass while checking nothing, which "
+        "is the failure it exists to catch."
+    )
+    for version_dir in version_dirs:
         assert (version_dir / refresh.LOCALE_NAME).exists(), (
             f"{version_dir.name} has no {refresh.LOCALE_NAME}"
         )
