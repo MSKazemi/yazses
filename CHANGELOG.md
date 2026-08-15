@@ -6,6 +6,33 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — PyPI was told YazSes supports two Python versions; CI proves four
+
+A cross-platform support audit compared every claim the project makes about
+operating systems and interpreters against what the code does and what CI actually
+runs. The prose came out clean: `docs/platform-support.md` and
+`docs/capability-matrix.md` match the code row for row, and the "macOS 11 (Big Sur)
+or newer" floor turns out to be exactly the floor its dependencies impose —
+`ctranslate2` publishes `macosx_11_0` wheels for both `arm64` and `x86_64`, which
+also confirms that Intel Macs really can install via `pipx`.
+
+The drift was in the metadata nobody reads by eye. `pyproject.toml` claimed
+`Programming Language :: Python :: 3.11` and `3.12` only, while the test matrix has
+been running the full suite on **3.13 and 3.14** since they were added. PyPI renders
+those classifiers as the project's own answer to "does this run on my Python?", and
+distro packagers and dependency dashboards filter on them without ever seeing a CI
+matrix — so support that had been green for weeks was invisible to exactly the
+people who cannot check it another way. Both classifiers are added.
+
+`tests/test_platform_support_claims.py` now holds the invariant in **both**
+directions, so a matrix entry without a classifier, or a classifier with no matrix
+entry behind it, fails the suite. It also pins one deliberate omission:
+`Operating System :: POSIX :: BSD` stays absent. A BSD backend ships and is
+unit-tested, but `pip install yazses` cannot succeed there — `ctranslate2` has no
+BSD wheel and no sdist ([#306](https://github.com/MSKazemi/yazses/issues/306)) — and
+a classifier asserts that the install works. That claim becomes true when the
+install does, not when the list is tidied.
+
 ### Fixed — the benchmarks page told readers to run a harness that was not in the repo
 
 `docs/benchmarks.md` is public and its whole claim is that "every number on this

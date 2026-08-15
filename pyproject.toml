@@ -46,9 +46,24 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: Microsoft :: Windows",
+    # One line per interpreter the test matrix actually runs the suite on --
+    # no more, no less. PyPI renders these as the project's own answer to "does
+    # this run on my Python?", and packagers filter on them without ever seeing
+    # the CI matrix, so drift here is a wrong answer given to the people least
+    # able to check it. 3.13 and 3.14 were green for weeks while these two lines
+    # still said otherwise. `tests/test_platform_support_claims.py` holds both
+    # directions of this invariant, so adding a matrix entry without a classifier
+    # (or a classifier without a matrix entry) now fails the suite.
+    #
+    # Deliberately absent: `Operating System :: POSIX :: BSD`. A BSD backend
+    # ships and is unit-tested, but `pip install yazses` cannot succeed there --
+    # ctranslate2 has no BSD wheel and no sdist (#306) -- and a classifier says
+    # the install works. Same test guards that omission.
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Multimedia :: Sound/Audio :: Speech",
 ]
 dependencies = [
