@@ -69,7 +69,7 @@ YazSes is a free, open-source, offline voice dictation and speech-to-text daemon
 
 ![yazses doctor — all green, fully offline by default](docs/screenshots/yazses-doctor.png)
 
-Prefer text over video? **[Watch the CLI in your browser](https://mskazemi.github.io/yazses/watch-the-cli.html)**
+Prefer text over video? **[Watch the CLI in your browser](https://mskazemi.com/yazses/watch-the-cli.html)**
 — an asciinema recording of the happy path (`-h` → `about` → `quickstart` → `features` →
 `status`), where every byte is real command output and nothing is hand-typed. The player is
 served from the docs site itself, not a CDN, so reading it does not report you to anyone.
@@ -123,7 +123,7 @@ and `pipx` paths install the last tagged release. YazSes is also on the
 **Just want to transcribe a recording?** There is a container for that — no install at
 all: `docker run --rm -v "$PWD:/data" ghcr.io/mskazemi/yazses transcribe /data/talk.m4a
 --diarize`. It does file→transcript with speaker labels and **not** hold-to-talk
-dictation, which needs a real desktop session; see [the Docker page](https://mskazemi.github.io/yazses/docker/).
+dictation, which needs a real desktop session; see [the Docker page](https://mskazemi.com/yazses/docker.html).
 
 > **Piping a script from the internet into your shell?** Fair. Add `--dry-run` and it
 > inspects your machine, prints every change it would make, and exits without making any

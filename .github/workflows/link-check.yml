@@ -1,0 +1,49 @@
+name: Outbound link check
+
+# Nothing checked outbound links, and it showed. `github.com/Sushanttmishraa` — the
+# credited native reviewer for the Hindi translation — had returned 404 on a
+# published page for an unknown length of time. That column is how the project
+# knows who to ask when the English README changes, so the status table was
+# pointing a maintainer at someone unreachable. It surfaced only because a human
+# swept all 334 links by hand once.
+#
+# SCHEDULED, NOT ON EVERY PUSH. These links rot on the *remote's* timetable, not
+# ours: an account is deleted, a paper moves, a vendor retires a page. Running it
+# per-push would spend CI minutes re-confirming the same 350 links and would make
+# an unrelated PR red for someone else's dead domain. Weekly catches it soon
+# enough for a docs site.
+#
+# ADVISORY BY DESIGN — `continue-on-error` on the job. A dead third-party link is
+# real but never urgent, and a checker that can block a merge on a remote host's
+# outage is one people route around. It reports; a human fixes.
+
+on:
+  schedule:
+    # Mondays, a little after the attribution check so the two summaries land together.
+    - cron: '43 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: link-check
+  cancel-in-progress: true
+
+jobs:
+  links:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+
+      # No dependencies on purpose: the script is stdlib-only, so this job needs
+      # no install step, no lockfile, and no third-party action with network
+      # access to the repo. Only `404` and `410` are reported — see the script's
+      # docstring for why every other status is deliberately ignored.
+      - name: Links that are definitively gone
+        run: python3 scripts/check-outbound-links.py
