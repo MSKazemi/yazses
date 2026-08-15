@@ -13,12 +13,10 @@ import typer
 from yazses import branding
 from yazses.ipc.client import IpcUnreachableError
 from yazses.platform import get_paths, get_platform
-from yazses.system.updater import (
-    check_update,
-    manual_update_steps,
-    pinned_install_hint,
-    run_upgrade_checked,
-)
+# `yazses.system.updater` is imported inside `update()` rather than here: it pulls
+# `urllib.request` and `http.client` (~21 ms) for a network stack that only that one
+# command uses, and every invocation — `status`, `stop`, each Tab-completion — was
+# paying it. Guarded by tests/test_cli_startup_cost.py.
 
 # `-h` is accepted everywhere alongside `--help`. Sub-apps each need their own
 # copy (Typer does not propagate context settings into added sub-typers).
@@ -2689,6 +2687,13 @@ def update(
     it prints the steps to update by hand instead of just failing. After an upgrade,
     restart the daemon to load the new code: `yazses restart`.
     """
+    from yazses.system.updater import (
+        check_update,
+        manual_update_steps,
+        pinned_install_hint,
+        run_upgrade_checked,
+    )
+
     current = _installed_version()
     status = check_update(current)
     typer.echo(f"Installed:  yazses {current}  (via {status.method})")

@@ -4,7 +4,13 @@ from __future__ import annotations
 from typer.testing import CliRunner
 
 import yazses.cli as cli
+import yazses.system.updater as updater
 from yazses.system.updater import UpdateStatus, UpgradeOutcome
+
+# Patched on `updater`, not on `cli`: `update()` imports these inside the function
+# so that `yazses status` does not pay for urllib/http (see
+# tests/test_cli_startup_cost.py). Patching the module that *defines* them works
+# either way, and does not re-break the day an import moves again.
 
 runner = CliRunner()
 
@@ -37,9 +43,9 @@ def _status(available, **kw):
 
 
 def test_update_reports_when_up_to_date(monkeypatch):
-    monkeypatch.setattr(cli, "check_update", lambda current: _status(False))
+    monkeypatch.setattr(updater, "check_update", lambda current: _status(False))
     ran = []
-    monkeypatch.setattr(cli, "run_upgrade_checked", _fake_upgrade(ran))
+    monkeypatch.setattr(updater, "run_upgrade_checked", _fake_upgrade(ran))
     result = runner.invoke(cli.app, ["update", "--check"])
     assert result.exit_code == 0
     assert "latest" in result.output.lower()
@@ -47,9 +53,9 @@ def test_update_reports_when_up_to_date(monkeypatch):
 
 
 def test_update_check_only_does_not_upgrade(monkeypatch):
-    monkeypatch.setattr(cli, "check_update", lambda current: _status(True))
+    monkeypatch.setattr(updater, "check_update", lambda current: _status(True))
     ran = []
-    monkeypatch.setattr(cli, "run_upgrade_checked", _fake_upgrade(ran))
+    monkeypatch.setattr(updater, "run_upgrade_checked", _fake_upgrade(ran))
     result = runner.invoke(cli.app, ["update", "--check"])
     assert result.exit_code == 0
     assert "0.5.0" in result.output
@@ -58,18 +64,18 @@ def test_update_check_only_does_not_upgrade(monkeypatch):
 
 
 def test_update_yes_runs_upgrade(monkeypatch):
-    monkeypatch.setattr(cli, "check_update", lambda current: _status(True))
+    monkeypatch.setattr(updater, "check_update", lambda current: _status(True))
     ran = []
-    monkeypatch.setattr(cli, "run_upgrade_checked", _fake_upgrade(ran))
+    monkeypatch.setattr(updater, "run_upgrade_checked", _fake_upgrade(ran))
     result = runner.invoke(cli.app, ["update", "--yes"])
     assert result.exit_code == 0
     assert len(ran) == 1  # upgrade was performed without prompting
 
 
 def test_update_prompt_decline_skips_upgrade(monkeypatch):
-    monkeypatch.setattr(cli, "check_update", lambda current: _status(True))
+    monkeypatch.setattr(updater, "check_update", lambda current: _status(True))
     ran = []
-    monkeypatch.setattr(cli, "run_upgrade_checked", _fake_upgrade(ran))
+    monkeypatch.setattr(updater, "run_upgrade_checked", _fake_upgrade(ran))
     result = runner.invoke(cli.app, ["update"], input="n\n")
     assert result.exit_code == 0
     assert ran == []  # declined at the prompt
@@ -89,7 +95,7 @@ def test_a_blocked_check_explains_how_to_update_by_hand(monkeypatch):
     from yazses.system.updater import offline_steps
 
     monkeypatch.setattr(
-        cli, "check_update",
+        updater, "check_update",
         lambda current: _status(
             False, latest=None, note="could not reach PyPI — offline, or a firewall",
             steps=offline_steps("pip"),
@@ -107,7 +113,7 @@ def test_a_windows_installer_install_prints_steps_and_succeeds(monkeypatch):
     from yazses.system.updater import manual_update_steps
 
     monkeypatch.setattr(
-        cli, "check_update",
+        updater, "check_update",
         lambda current: _status(
             True, method="windows-installer", command=None,
             steps=manual_update_steps("windows-installer"),
@@ -118,7 +124,7 @@ def test_a_windows_installer_install_prints_steps_and_succeeds(monkeypatch):
     # rework on main, the Windows channels on a branch. The assertion is unchanged
     # and is the one that matters, that nothing is shelled out to at all.
     ran = []
-    monkeypatch.setattr(cli, "run_upgrade_checked", _fake_upgrade(ran))
+    monkeypatch.setattr(updater, "run_upgrade_checked", _fake_upgrade(ran))
     result = runner.invoke(cli.app, ["update"])
     assert result.exit_code == 0
     assert "releases" in result.output
@@ -132,10 +138,10 @@ def test_update_without_a_known_upgrade_command_explains_instead_of_crashing(mon
     # reachable in production -- but it is one `apt` branch away from being, and
     # `" ".join(None)` would raise TypeError instead of telling the user anything.
     monkeypatch.setattr(
-        cli, "check_update", lambda current: _status(True, method="apt", command=None)
+        updater, "check_update", lambda current: _status(True, method="apt", command=None)
     )
     ran = []
-    monkeypatch.setattr(cli, "run_upgrade_checked", _fake_upgrade(ran))
+    monkeypatch.setattr(updater, "run_upgrade_checked", _fake_upgrade(ran))
     result = runner.invoke(cli.app, ["update"])
     assert result.exit_code == 1
     assert not isinstance(result.exception, TypeError)
@@ -152,12 +158,12 @@ def test_update_does_not_claim_success_when_the_version_did_not_move(monkeypatch
     own "Nothing to upgrade" scrolled off above. Exit status is not evidence.
     """
     monkeypatch.setattr(
-        cli, "check_update", lambda current: _status(True, method="uv",
+        updater, "check_update", lambda current: _status(True, method="uv",
                                                      command=["uv", "tool", "upgrade", "yazses"])
     )
     ran = []
     # Exit 0, but the installed version is exactly what it was.
-    monkeypatch.setattr(cli, "run_upgrade_checked", _fake_upgrade(ran, after="0.4.1"))
+    monkeypatch.setattr(updater, "run_upgrade_checked", _fake_upgrade(ran, after="0.4.1"))
 
     result = runner.invoke(cli.app, ["update", "--yes"])
 
@@ -169,9 +175,9 @@ def test_update_does_not_claim_success_when_the_version_did_not_move(monkeypatch
 
 
 def test_update_says_so_when_the_new_version_cannot_be_confirmed(monkeypatch):
-    monkeypatch.setattr(cli, "check_update", lambda current: _status(True))
+    monkeypatch.setattr(updater, "check_update", lambda current: _status(True))
     ran = []
-    monkeypatch.setattr(cli, "run_upgrade_checked", _fake_upgrade(ran, after=""))
+    monkeypatch.setattr(updater, "run_upgrade_checked", _fake_upgrade(ran, after=""))
 
     def _unreadable(status):
         ran.append(status)
@@ -179,7 +185,7 @@ def test_update_says_so_when_the_new_version_cannot_be_confirmed(monkeypatch):
                               expected=status.latest, method=status.method,
                               command=status.command)
 
-    monkeypatch.setattr(cli, "run_upgrade_checked", _unreadable)
+    monkeypatch.setattr(updater, "run_upgrade_checked", _unreadable)
     result = runner.invoke(cli.app, ["update", "--yes"])
 
     assert result.exit_code == 1

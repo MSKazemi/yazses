@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — every `yazses` command starts in about half the time
+
+`yazses status`, `yazses stop`, `--help`, and the completion that runs on every Tab
+all import `yazses.cli` first. Two things at module scope were charging them for
+work they never did: `yazses.system.updater` pulled in `urllib.request` and
+`http.client` — a whole network stack — for the benefit of `yazses update` alone,
+and `import yazses` resolved the installed version through `importlib.metadata`,
+which walks `sys.path` hunting for a `.dist-info` and was the single most expensive
+import in the tree.
+
+Both are now deferred to the point of use: the updater imports inside `update()`,
+and `__version__` resolves on first access (PEP 562) and is cached thereafter.
+Measured on the development machine, importing `yazses.cli` fell from **181 ms to
+110 ms — a 39% reduction**. Nothing changes about *what* the version says; only
+when it is read.
+
+`tests/test_cli_startup_cost.py` pins it by asking a fresh interpreter which
+modules an import actually pulled, rather than timing anything — a wall-clock
+assertion would be flaky on a loaded CI runner, while "was this imported" is exact.
+
 ## [2.21.0] - 2026-08-15
 
 Sixty-nine commits had built up behind `v2.20.0` without reaching anyone. The
