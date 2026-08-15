@@ -17,7 +17,7 @@ release workflows fire on `v*` tags). The v2 line is delivered as a long series 
 waves, each a fresh state-of-the-art sweep → ADRs → pure, 100%-covered, off-by-default cores.
 
 On `main` (v2.20.0 plus the unreleased frontier): **145 capabilities (83 wired / 62 honestly
-marked "planned")**, **4300+ tests green**, ADRs `adr-v2-001..129`, and the per-wave
+marked "planned")**, **4300+ tests green**, ADRs `adr-v2-001..130`, and the per-wave
 state-of-the-art research notes. The counts come from the feature registry
 (`yazses.system.features`) and from running the suite, not from counting by hand — every one
 of them had gone stale again by 2026-08-14, and again in the direction of understating what

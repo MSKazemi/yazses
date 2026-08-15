@@ -20,7 +20,7 @@ These decisions are binding for v1.0 and inform v2 design. To propose a change t
 
 ## Other series in this directory
 
-- `adr-012` … `adr-015`, `adr-v04-*`, `adr-v2-001..129` — the v0.4/v2 series. Internal, like this one.
+- `adr-012` … `adr-015`, `adr-v04-*`, `adr-v2-001..130` — the v0.4/v2 series. Internal, like this one.
 - **`adr-mob-001..010` — the mobile programme. Not here: they live in `docs/mobile/adr/` and
   are deliberately PUBLIC**, because the Android app is built by contributors who need to
   read the architecture they are implementing. See `design/mobile/README.md` for why that
