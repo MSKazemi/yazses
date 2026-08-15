@@ -1,4 +1,4 @@
-.TH YAZSES 1 "2026-08-14" "yazses 2.20.0" "User Commands"
+.TH YAZSES 1 "2026-08-15" "yazses 2.21.0" "User Commands"
 .SH NAME
 yazses \- Local, offline-by-default voice dictation \(em hold a key, speak, release.
 .SH SYNOPSIS
@@ -262,6 +262,8 @@ Flag the last dictation as a misrecognition (a learning signal).
 \fB\-\-correction, \-c\fR
 What you actually said (optional).
 .RE
+.SS "yazses mcp-server"
+Expose YazSes to another agent over MCP, on stdin/stdout (ADR-020).
 .SS "yazses meeting"
 Hands-free meeting recording with who-said-what speaker labels + notes.
 .TP

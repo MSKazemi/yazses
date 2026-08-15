@@ -280,6 +280,10 @@ Flag the last dictation as a misrecognition (a learning signal).
 
 - `--correction`, `-c` — What you actually said (optional).
 
+## `yazses mcp-server`
+
+Expose YazSes to another agent over MCP, on stdin/stdout (ADR-020).
+
 ## `yazses meeting`
 
 Hands-free meeting recording with who-said-what speaker labels + notes.

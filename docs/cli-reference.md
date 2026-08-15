@@ -1241,6 +1241,32 @@ sentence.
 | `yazses remote <host>` | Forward voice typing to a remote host over SSH. |
 | `yazses-agent --listen <port>` | Run the remote injection agent on the remote host. |
 
+### `yazses mcp-server`
+
+Expose YazSes to another agent over **MCP**, on stdin/stdout.
+
+Not a service you leave running: an MCP client *spawns* it as a child process and
+talks to it over pipes. There is no port, no bind address, and nothing another
+machine can reach — the same structural property as YazSes's own Unix-socket IPC,
+which is why [ADR-020](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-020-agent-protocols.md)
+chose stdio over HTTP for a daemon that holds a live microphone.
+
+Point an MCP client at it:
+
+```json
+{"command": "yazses", "args": ["mcp-server"]}
+```
+
+| Tool | What it does |
+|---|---|
+| `transcribe(path, diarize=false)` | Turn an audio or video file into text, entirely on this machine. Nothing is uploaded. |
+
+One tool today. ADR-020 specifies a second — `ask_human`, an agent asking you a
+question **out loud** and getting your spoken answer back — which needs the daemon
+(it owns the microphone and knows when you are mid-sentence). It is not offered
+yet rather than offered and broken: a listed tool that always fails teaches a model
+to stop calling it.
+
 ### `yazses remote`
 
 Speak on your local machine and have the text typed into the focused app on a

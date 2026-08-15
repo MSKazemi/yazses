@@ -4072,6 +4072,38 @@ def tune(
 
 
 @app.command(
+    name="mcp-server",
+    rich_help_panel=_REMOTE,
+    epilog=_examples(
+        "yazses mcp-server        speak MCP on stdin/stdout (for an agent to spawn)",
+    ),
+)
+def mcp_server() -> None:
+    """Expose YazSes to another agent over MCP, on stdin/stdout (ADR-020).
+
+    Not a service you leave running: an MCP client *spawns* this as a child
+    process and talks to it over pipes. There is no port, no bind address and
+    nothing another machine can reach — the same structural property as YazSes's
+    own Unix-socket IPC, which is why ADR-020 chose stdio over HTTP for a daemon
+    that holds a live microphone.
+
+    One tool today: `transcribe`, which turns an audio file into text on this
+    machine. `ask_human` — an agent asking you a question out loud — is specified
+    in ADR-020 and needs the daemon, so it is not offered yet rather than offered
+    and broken.
+
+    Point an MCP client at it with:
+
+        {"command": "yazses", "args": ["mcp-server"]}
+    """
+    from yazses.config import load_config
+    from yazses.mcp.server import serve
+
+    platform = get_platform()
+    raise typer.Exit(serve(load_config(platform.paths.config_file)))
+
+
+@app.command(
     rich_help_panel=_DICTATION,
     epilog=_examples(
         "yazses transcribe talk.mp3                          transcribe → talk.txt beside it",
