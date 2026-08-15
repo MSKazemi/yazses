@@ -140,6 +140,32 @@ def test_a_corrupt_table_degrades_quietly(monkeypatch, tmp_path):
 # ---- the table and the registry must not drift apart -----------------------
 
 
+def test_the_size_table_ships_inside_the_package():
+    """A data file outside the package directory never reaches a user.
+
+    `pyproject.toml` builds the wheel from `packages = ["src/yazses"]`, so anything
+    under that path ships and anything beside it does not. Verified against a real
+    `uv build` when this landed; this is the cheap standing check.
+
+    The failure this prevents is silent in the worst way: the table would be absent
+    at runtime, `_table()` would return `{}` exactly as designed for a corrupt file,
+    and every Cost line would simply not appear. Users would see the pre-ADR-018
+    behaviour and nothing would report an error. This project has shipped that shape
+    before — the Windows icon hidden behind an `else None`, and the provenance glob
+    that silently matched nothing.
+    """
+    from pathlib import Path
+
+    import yazses
+
+    package_root = Path(yazses.__file__).resolve().parent
+    assert depsize._TABLE_PATH.resolve().is_relative_to(package_root), (
+        f"{depsize._TABLE_PATH} is outside {package_root}, so it will not be "
+        f"included in the wheel and every download size will silently vanish"
+    )
+    assert depsize._TABLE_PATH.suffix == ".json"
+
+
 def test_every_feature_with_dependencies_is_priced():
     """A feature that gains a dependency must go stale loudly, not silently.
 
