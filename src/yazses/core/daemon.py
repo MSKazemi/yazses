@@ -345,6 +345,7 @@ class Daemon:
             if self._device_monitor is not None:
                 self._device_monitor.start()
                 log.info("Watching for audio-input device changes.")
+            self._start_update_watcher()
             self._hotkey.run()
         finally:
             self._shutdown()
@@ -465,6 +466,66 @@ class Daemon:
                 log.info("Relaunched system-tray indicator (pid %d).", proc.pid)
             except Exception:  # noqa: BLE001 — supervision must outlive its own errors
                 log.exception("Tray supervisor iteration failed")
+
+    # ---- update watcher ---------------------------------------------------
+
+    def _start_update_watcher(self) -> None:
+        """Start the opt-in "a newer YazSes is out" watcher.
+
+        Dormant unless ``[general] update_check`` is on — it is the only outbound
+        connection YazSes ever makes, so it is a choice, not a default.
+        """
+        if not getattr(self._config.general, "update_check", False):
+            return
+        threading.Thread(
+            target=self._watch_for_updates, name="update-check", daemon=True
+        ).start()
+        log.info("Update check enabled; will look for a newer release periodically.")
+
+    def _watch_for_updates(self) -> None:
+        """Ask periodically whether a newer release exists; announce it once.
+
+        Every failure is swallowed on purpose. A machine behind a firewall must
+        keep dictating exactly as before — a blocked check is a no-op that retries
+        at the next tick, never an error the user has to clear.
+        """
+        import time
+
+        from yazses.system import update_notify
+        from yazses.system.notify import notify
+        from yazses.system.updater import check_update
+
+        state_path = self._platform.paths.data_dir / update_notify.STATE_NAME
+        interval_h = getattr(self._config.general, "update_check_interval_hours", 24)
+        # Tick often enough to react to a laptop waking up mid-interval, but let
+        # `should_check` decide what is actually due.
+        tick_s = 900.0
+        # A first check right at startup would race the model load and compete
+        # with the user's first dictation, so the loop waits one tick first.
+        while not self._stop_event.wait(tick_s):
+            try:
+                state = update_notify.read_state(state_path)
+                now = time.time()
+                if not update_notify.should_check(now, state.last_check, interval_h):
+                    continue
+                status = check_update(self._version())
+                state.last_check = now
+                if update_notify.should_notify(status, state.notified_version):
+                    summary, body = update_notify.notification(status)
+                    notify(summary, body)
+                    state.notified_version = status.latest or ""
+                    log.info("A newer YazSes is available: %s", status.latest)
+                elif status.latest is None:
+                    log.debug("Update check could not reach the source: %s", status.note)
+                update_notify.write_state(state_path, state)
+            except Exception:  # noqa: BLE001 — a background check must never escalate
+                log.debug("Update check iteration failed", exc_info=True)
+
+    def _version(self) -> str:
+        """The running version, for the update check ("dev" in a source tree)."""
+        from yazses import branding
+
+        return branding.version()
 
     def shutdown(self) -> None:
         log.info("Shutting down.")

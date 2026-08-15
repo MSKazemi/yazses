@@ -142,6 +142,35 @@ def _outcome(code=0, before="2.19.0", after="2.20.0", method="uv"):
     )
 
 
+def test_a_windows_install_gets_steps_instead_of_a_dead_end():
+    """No command exists for a .exe install — the upgrade is a downloaded installer.
+
+    Without the steps the tray showed "2.19.0 → 2.20.0" and then nothing the user
+    could act on, since the Install button is (correctly) gated on `status.command`.
+    """
+    from yazses.system.updater import RELEASES_URL, manual_update_steps
+
+    _title, body = update_message(
+        _status(method="windows-installer", latest="2.20.0", available=True,
+                steps=manual_update_steps("windows-installer"))
+    )
+    assert RELEASES_URL in body
+    # The Windows tray renders this as a balloon, and Windows truncates those at
+    # roughly 256 characters. The one actionable thing has to survive that.
+    assert RELEASES_URL in body[:200]
+
+
+def test_a_blocked_check_says_yazses_still_works_and_how_to_update():
+    from yazses.system.updater import offline_steps
+
+    _title, body = update_message(
+        _status(note="could not reach PyPI — offline, or a firewall is blocking it",
+                steps=offline_steps("pip"))
+    )
+    assert "keeps working" in body
+    assert "pip install --upgrade yazses" in body
+
+
 def test_a_finished_upgrade_says_the_daemon_is_still_the_old_one():
     """The new code is on disk; the process running your dictation is not."""
     _title, body = upgrade_result_message(_outcome())

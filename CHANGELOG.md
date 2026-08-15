@@ -304,6 +304,66 @@ downstream packager or auditor reads to answer "what was in this release?" — a
 that misnames the thing being locked makes that record ambiguous.
 `test_packaging_metadata.py` now pins it to `pyproject.toml`.
 
+### Fixed — every Windows install was told to update itself with `pip`
+
+`yazses update` detected the install method from three path substrings and fell
+back to `pip` for everything else. There is no fourth branch, so **every** Windows
+install — the Inno `.exe`, Chocolatey, winget, Scoop — came out as a pip install
+and was told to run `pip install --upgrade yazses`. Inside the PyInstaller bundle
+there is no pip to run it; where a system pip exists elsewhere on the machine, that
+command installs an unrelated second copy into some other Python, prints success,
+and leaves the `.exe` the user actually launches sitting at the old version. An
+upgrade command that exits 0 without upgrading anything is worse than none.
+
+- **The Windows channels are now first-class install methods** —
+  `windows-installer`, `choco`, `winget`, `scoop`. Detection reads `sys.frozen`
+  (PyInstaller) and Chocolatey's package marker rather than guessing from a path,
+  and is injectable so the classification is tested on every OS.
+- **They are checked against the GitHub release, not PyPI.** The `.exe` is a
+  release asset; PyPI carries no `.exe` and has, in the past, lagged a tag
+  entirely — so asking PyPI about a Windows install could answer "up to date"
+  when it was not. Drafts and prereleases are refused: their tags exist before
+  the assets do.
+- **`windows-installer` has no upgrade command, and says so with steps.** The
+  upgrade is a downloaded `.exe` and there is nothing safe to shell out to, so the
+  CLI and the tray print the four steps to do it, plus the `winget` / `choco` /
+  `scoop` one-liners for people who installed through a package manager.
+- **The Chocolatey, Scoop and winget manifests were still pinned to 2.19.0** after
+  v2.20.0 shipped, so `choco upgrade` / `scoop update` / `winget upgrade` would
+  never have found the new release at all. Refreshed against the real v2.20.0
+  assets; `tests/test_platform_windows_hardening.py` was already red on this.
+
+### Fixed — a blocked update check read as a broken YazSes
+
+`yazses update` answered a failed lookup with "Could not determine the latest
+version" and exit 1. Behind a firewall or a corporate proxy — the same
+configuration that produced #310 — that is all the user got: no reason, no way
+forward, and the strong implication that YazSes itself was broken. It is not.
+Dictation is entirely local and a blocked update check changes nothing about it.
+
+The failure path now says that in the first line and then prints the steps that
+still work, per install method. Same in the tray, and after an upgrade command
+that failed.
+
+### Added — an opt-in check that tells you once when a new release lands (off by default)
+
+Nothing in YazSes ever announced a new version; you had to remember to run
+`yazses update`. `[general] update_check` adds a background watcher that notices a
+newer release and shows one desktop notification with the exact steps to install it.
+
+It **ships off**, and that is deliberate rather than cautious: this is the only
+thing in YazSes that opens an outbound connection on its own, and "nothing leaves
+the machine" is the product, not a preference. Enabled, it sends a plain "what is
+the latest version" GET to github.com or PyPI — no voice, no text, no config, no
+identifier — but that is still a choice the user makes. Turn it on with
+`yazses features enable update-check`.
+
+Three properties it holds when it is on: it runs on its own thread and swallows
+every failure, so a firewall makes it a silent no-op and never touches dictation;
+it announces a version once rather than once per check, and a newer release
+re-arms it; and the notification carries the update steps, so a Windows-installer
+user is not told "2.21.0 is available" with nothing to act on.
+
 ### Fixed — the benchmarks page told readers to run a harness that was not in the repo
 
 `docs/benchmarks.md` is public and its whole claim is that "every number on this

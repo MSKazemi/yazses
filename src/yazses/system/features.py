@@ -158,6 +158,9 @@ def _registry() -> list[_Def]:
         ("audio", "device_change_notify", "false", False),
         ("audio", "silent_streak_notify", "false", False),
     )
+    # The only feature in YazSes that opens an outbound connection, so it is
+    # OPTIONAL rather than RECOMMENDED and ships off. `uc_*` — `u_*` would collide.
+    uc_on, uc_off = _bool("general", "update_check")
     pe_on, pe_off = _bool("personalize")
     co_on, co_off = _bool("cocktail")
     # Gaze: enabling also turns on routing, so the feature actually targets the
@@ -330,6 +333,11 @@ def _registry() -> list[_Def]:
              "Notifies + auto-heals when your microphone silently switches (e.g. a "
              "USB-C monitor stealing capture) so dictation never dies in silence. Keep on.",
              lambda c: c.audio.device_change_notify, micguard_on, micguard_off),
+        _Def("update-check", "Update check", "[general] update_check", OPTIONAL,
+             "Tells you once when a newer YazSes is released, with the exact steps "
+             "to update. OFF by default and the only thing here that touches the "
+             "network — it asks github.com/PyPI for a version number and nothing else.",
+             lambda c: bool(getattr(c.general, "update_check", False)), uc_on, uc_off),
         _Def("dysfluency", "Dysfluency-Friendly", "[accessibility]", RECOMMENDED,
              "Collapses stutters/repeats (b-b-because→because). Try it if you "
              "stutter or have dysarthria.",
@@ -974,6 +982,7 @@ _SLUG_PACKAGES: dict[str, tuple[str, ...]] = {
     "undo": ("commands",),           # commands/revise.py, wired in daemon._on_hold_end
     "target-guard": ("inject",),     # inject/target.py
     "mic-guard": ("audio",),         # audio/device_monitor.py
+    "update-check": ("system",),     # system/update_notify.py, wired in core/daemon.py
     "dysfluency": ("stt",),          # stt/filters/disfluency.py
     "punch-in": ("postprocess",),    # postprocess/punch_in.py
     "prosody": ("postprocess",),     # postprocess/prosody.py
@@ -1175,6 +1184,7 @@ _EXAMPLES: dict[str, str] = {
     "autostop": "Tap once and speak; recording stops when you finish.",
     "mousegrid": "Say a grid number to move the cursor, then 'click'.",
     "mic-guard": "Plug in a USB-C monitor; YazSes notices the mic switched and pops a fix.",
+    "update-check": "A new release lands; you get one toast with the command to install it.",
     "tray": "Click the top-bar mic icon → pick a microphone or re-calibrate, no terminal.",
     "target-guard": "Dictate with no text box focused → it's copied to the clipboard, not lost.",
     "multiprofile": "Each enrolled speaker loads their own vocab/hotkey automatically.",
@@ -1333,6 +1343,7 @@ _USE_CASES: dict[str, str] = {
     "autostop": "When holding the hotkey the whole time is tiring and you'd rather tap once and let it stop itself.",
     "mousegrid": "When you need to click somewhere no accessibility tree exists and want to do it hands-free.",
     "mic-guard": "When plugging in a monitor/headset silently switches your mic and dictation stops working with no clue why.",
+    "update-check": "When you'd rather be told a fix has shipped than remember to run `yazses update` yourself.",
     "tray": "When you'd rather click a top-bar icon to switch mics or restart than remember terminal commands.",
     "target-guard": "When you sometimes speak before clicking into a text field and your words vanish into the wrong window.",
     "multiprofile": "When several people share one machine and each wants their own vocab and settings loaded.",
@@ -1371,6 +1382,7 @@ _CATEGORIES: dict[str, str] = {
     "stt-parakeet": CAT_CORE,
     "stt-moonshine": CAT_CORE,
     "tray": CAT_CORE, "target-guard": CAT_CORE, "staged": CAT_CORE,
+    "update-check": CAT_CORE,
     "ghost-ahead": CAT_CORE, "autostop": CAT_CORE, "hesitation": CAT_CORE,
     "breath": CAT_CORE, "continuum": CAT_CORE, "whispermode": CAT_CORE,
     "wakeword": CAT_CORE, "focusprofile": CAT_CORE, "latency": CAT_CORE,

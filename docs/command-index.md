@@ -566,7 +566,7 @@ Analyze the learning corpus and propose accuracy improvements.
 
 ## `yazses update`
 
-Check for a newer YazSes and update it (snap / uv tool / pipx / pip).
+Check for a newer YazSes and update it (snap / uv / pipx / pip / Windows).
 
 - `--check` — Only report whether an update is available; don't install.
 - `--yes`, `-y` — Install the update without prompting.

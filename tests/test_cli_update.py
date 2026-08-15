@@ -81,6 +81,51 @@ def test_update_in_help_panel(monkeypatch):
     assert "yazses update" in out  # example present
 
 
+def test_a_blocked_check_explains_how_to_update_by_hand(monkeypatch):
+    # The firewall case. `yazses update` used to print "Could not determine the
+    # latest version" and stop, which tells someone behind a corporate proxy
+    # nothing they can act on -- and implies YazSes itself is broken, when
+    # dictation is entirely local and completely unaffected.
+    from yazses.system.updater import offline_steps
+
+    monkeypatch.setattr(
+        cli, "check_update",
+        lambda current: _status(
+            False, latest=None, note="could not reach PyPI — offline, or a firewall",
+            steps=offline_steps("pip"),
+        ),
+    )
+    result = runner.invoke(cli.app, ["update"])
+    assert result.exit_code == 1  # the check genuinely failed
+    assert "keeps working" in result.output  # ...but YazSes did not
+    assert "pip install --upgrade yazses" in result.output
+
+
+def test_a_windows_installer_install_prints_steps_and_succeeds(monkeypatch):
+    # There is no command to run -- the upgrade is a downloaded .exe. Printing the
+    # exact steps is doing the job, so it is not an error.
+    from yazses.system.updater import manual_update_steps
+
+    monkeypatch.setattr(
+        cli, "check_update",
+        lambda current: _status(
+            True, method="windows-installer", command=None,
+            steps=manual_update_steps("windows-installer"),
+        ),
+    )
+    # Patches `run_upgrade_checked`, not `run_upgrade`: this test was written
+    # against the older API and the two landed independently — the verified-upgrade
+    # rework on main, the Windows channels on a branch. The assertion is unchanged
+    # and is the one that matters, that nothing is shelled out to at all.
+    ran = []
+    monkeypatch.setattr(cli, "run_upgrade_checked", _fake_upgrade(ran))
+    result = runner.invoke(cli.app, ["update"])
+    assert result.exit_code == 0
+    assert "releases" in result.output
+    assert "winget upgrade" in result.output
+    assert ran == []  # nothing to shell out to; it must not try
+
+
 def test_update_without_a_known_upgrade_command_explains_instead_of_crashing(monkeypatch):
     # upgrade_command() returns None for any install method it has no recipe for.
     # detect_install_method() only yields snap/uv/pipx/pip today, so this is not

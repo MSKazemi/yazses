@@ -65,6 +65,8 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 | Key | Type | Default |
 |---|---|---|
 | `log_level` | str | `"INFO"` |
+| `update_check` | bool | `false` |
+| `update_check_interval_hours` | int | `24` |
 
 ## `[streaming]`
 

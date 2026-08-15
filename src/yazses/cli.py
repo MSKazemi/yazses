@@ -13,7 +13,12 @@ import typer
 from yazses import branding
 from yazses.ipc.client import IpcUnreachableError
 from yazses.platform import get_paths, get_platform
-from yazses.system.updater import check_update, pinned_install_hint, run_upgrade_checked
+from yazses.system.updater import (
+    check_update,
+    manual_update_steps,
+    pinned_install_hint,
+    run_upgrade_checked,
+)
 
 # `-h` is accepted everywhere alongside `--help`. Sub-apps each need their own
 # copy (Typer does not propagate context settings into added sub-typers).
@@ -2617,6 +2622,15 @@ def doctor(
     run_doctor(check_mic=mic)
 
 
+def _echo_steps(steps: list[str]) -> None:
+    """Print manual update instructions as an indented block (blank lines kept)."""
+    if not steps:
+        return
+    typer.echo("")
+    for step in steps:
+        typer.echo(f"  {step}" if step else "")
+
+
 @app.command(
     rich_help_panel=_MAINT,
     epilog=_examples(
@@ -2633,20 +2647,26 @@ def update(
         False, "--yes", "-y", help="Install the update without prompting."
     ),
 ) -> None:
-    """Check for a newer YazSes and update it (snap / uv tool / pipx / pip).
+    """Check for a newer YazSes and update it (snap / uv / pipx / pip / Windows).
 
     Detects how YazSes was installed and checks the matching source — the tracked
-    snap channel for snap installs, PyPI for the pip-family ones — then upgrades
-    only when the available version is strictly newer (never a downgrade). After a
-    snap/pip upgrade, restart the daemon to load the new code:
-    `systemctl --user restart yazses` (or `yazses stop && yazses start`).
+    snap channel for snap, the GitHub release for the Windows installer, Chocolatey,
+    winget and Scoop (that is where the .exe lives), PyPI for the pip-family ones —
+    then upgrades only when the available version is strictly newer (never a
+    downgrade). Where there is no one-command upgrade, or the network is blocked,
+    it prints the steps to update by hand instead of just failing. After an upgrade,
+    restart the daemon to load the new code: `yazses restart`.
     """
     current = _installed_version()
     status = check_update(current)
     typer.echo(f"Installed:  yazses {current}  (via {status.method})")
 
     if status.latest is None:
-        typer.echo(f"Could not determine the latest version ({status.note}).", err=True)
+        # The check needs the network; dictation does not. A blocked check is not
+        # a broken YazSes, so say what still works and hand over the manual steps
+        # rather than leaving the user with an error and no way forward.
+        typer.echo(f"Could not check for updates — {status.note}.", err=True)
+        _echo_steps(status.steps)
         raise typer.Exit(1)
 
     typer.echo(f"Available:  yazses {status.latest}")
@@ -2657,17 +2677,24 @@ def update(
 
     typer.echo(f"\nUpdate available: {current} → {status.latest}")
     if not status.command:
-        # upgrade_command() returns None for any install method it has no recipe
-        # for. Today detect_install_method() only ever yields snap/uv/pipx/pip, so
-        # this is unreachable from here — but it is one `apt` branch away from
-        # being live, and joining None would crash instead of telling the user
-        # what to do.
-        typer.echo(
-            f"No automatic upgrade is available for a {status.method!r} install. "
-            "Upgrade it the same way you installed it.",
-            err=True,
-        )
-        raise typer.Exit(1)
+        # No command for this method — the Windows installer is the live case
+        # (the upgrade is a downloaded .exe, with nothing safe to shell out to).
+        # Exact steps for a channel we recognise is a success; for a method we
+        # have no recipe for, the generic advice is still printed but the exit
+        # code stays non-zero, because we genuinely could not do what was asked.
+        from yazses.system.updater import WINDOWS_METHODS
+
+        known = status.method in WINDOWS_METHODS
+        if known:
+            typer.echo(f"There's no one-command upgrade for a {status.method} install. Do this:")
+        else:
+            typer.echo(
+                f"No automatic upgrade is available for a {status.method!r} install.", err=True
+            )
+        _echo_steps(status.steps)
+        if not known:
+            raise typer.Exit(1)
+        return
     typer.echo(f"Command: {' '.join(status.command)}")
 
     if check:
@@ -2688,6 +2715,11 @@ def update(
         return
     if outcome.code != 0:
         typer.echo(f"\nUpgrade command exited with code {outcome.code}.", err=True)
+        # A failed upgrade leaves the user exactly where the offline path does:
+        # still running an old version, still needing a way forward. On the
+        # Windows installer channel there is no command that could have worked in
+        # the first place, so the steps are the only actionable thing we have.
+        _echo_steps(status.steps or manual_update_steps(status.method))
         raise typer.Exit(outcome.code or 1)
     if outcome.after is None:
         typer.echo(

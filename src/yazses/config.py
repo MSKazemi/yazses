@@ -125,6 +125,18 @@ class InjectionConfig:
 @dataclass
 class GeneralConfig:
     log_level: str = "INFO"
+    # Periodically ask whether a newer YazSes has been released and, if so, say
+    # so once with the exact steps to update.
+    #
+    # OFF by default, and it must stay that way: this is the only thing in YazSes
+    # that reaches the network on its own, and "nothing leaves the machine" is the
+    # product. A background check tells github.com/PyPI your IP and that you run
+    # this tool. Nothing about your voice, audio, text or config is ever sent —
+    # the request is a plain "what is the latest version" GET — but it is still an
+    # outbound connection the user has to choose. Turn it on with
+    # `yazses features enable update-check`.
+    update_check: bool = False
+    update_check_interval_hours: int = 24
 
 
 @dataclass

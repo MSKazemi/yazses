@@ -74,9 +74,22 @@ def needs_terminal(status) -> bool:
     A snap install upgrades with ``sudo snap refresh`` — launched from a tray there is no
     terminal to type a password into, so it hangs or dies invisibly. Those users are shown
     the command to run instead of an Install button that could not work.
+
+    A status with no command at all is *not* this case and answers False: the callers
+    already gate the Install button on ``status.command``, and a "run it in a terminal"
+    message for a Windows-installer upgrade would be wrong — there is no command to run,
+    only an .exe to download (see :func:`update_message`).
     """
     command = list(getattr(status, "command", None) or [])
     return command[:1] == ["sudo"]
+
+
+def _steps_block(status) -> str:
+    """The status's manual steps as an indented block, or "" when it has none."""
+    steps = list(getattr(status, "steps", None) or [])
+    if not steps:
+        return ""
+    return "\n" + "\n".join(f"    {s}" if s else "" for s in steps)
 
 
 def update_message(status) -> tuple[str, str]:
@@ -86,7 +99,8 @@ def update_message(status) -> tuple[str, str]:
         return (
             branding.APP_NAME,
             f"Could not check for updates — {note}.\n"
-            f"You're running {branding.APP_NAME} {status.current}.",
+            f"You're running {branding.APP_NAME} {status.current}, and it keeps working."
+            + _steps_block(status),
         )
     if not status.available:
         return (
@@ -100,6 +114,11 @@ def update_message(status) -> tuple[str, str]:
             body += f"\n\nRun this in a terminal to upgrade:\n    {joined}"
         else:
             body += f"\n\nUpgrade command: {joined}"
+    else:
+        # No command — a Windows-installer install, where the upgrade is a
+        # downloaded .exe. Without this the tray showed the headline and then
+        # nothing the user could act on.
+        body += "\n\nHow to update:" + _steps_block(status)
     return ("Update available", body)
 
 

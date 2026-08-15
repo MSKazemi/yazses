@@ -143,6 +143,55 @@ Both live in `%LOCALAPPDATA%\Programs\YazSes`.
 > binary on upgrade; if you ever see a stray `YazSes.exe` in the install folder
 > after a manual copy, delete it.
 
+## Updating
+
+Ask YazSes and it will tell you what applies to *your* install:
+
+```powershell
+yazses update --check    # what's available, and how to get it
+```
+
+It knows which of the four Windows channels you used, and checks the GitHub
+release — that is where the `.exe` lives, and PyPI carries no `.exe` at all.
+
+| How you installed | How to update |
+|---|---|
+| The `.exe` installer | Download the newest one from the [releases page](https://github.com/MSKazemi/yazses/releases/latest) and run it — it upgrades in place and keeps your settings and models |
+| winget | `winget upgrade --id MSKazemi.YazSes -e` |
+| Chocolatey | `choco upgrade yazses -y` |
+| Scoop | `scoop update yazses` |
+
+Restart YazSes afterwards (tray → **Restart daemon**, or `yazses restart`): the
+new code is on disk, but the process doing your dictation is still the old one.
+
+There is no one-command upgrade for the `.exe` installer — the upgrade *is* a
+downloaded installer, and there is nothing YazSes could safely run for you. It
+prints the steps instead of pretending otherwise.
+
+### Being told when a new version lands
+
+Off by default, because it is the only thing in YazSes that opens an outbound
+connection on its own:
+
+```powershell
+yazses features enable update-check
+yazses restart
+```
+
+Once on, YazSes checks daily and shows **one** notification per release, with the
+steps for your install method. It sends a plain "what is the latest version"
+request to github.com — no voice, no text, no config, no identifier — and nothing
+else about your machine ever leaves it.
+
+**Behind a firewall?** Nothing breaks. Dictation is entirely local and never needs
+the network, and a blocked update check is a silent no-op that retries later —
+it will not pop errors at you or stop the daemon. Run `yazses update` whenever you
+want and it will tell you it could not reach github.com, then print the steps to
+update by hand. (If your firewall also blocks the *first-run model download*, that
+is the one thing YazSes genuinely needs the network for once; see
+[#310](https://github.com/MSKazemi/yazses/issues/310) — it now explains itself
+instead of dying, and `yazses model download base.en` fetches it when you unblock.)
+
 ## Troubleshooting
 
 **"My antivirus flagged YazSes."** These builds are unsigned, which trips
