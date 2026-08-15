@@ -208,6 +208,64 @@ jobs:
           fi
           echo "No Qt test was skipped."
 
+  extras:
+    # The same hole the GUI job closed, still open for four other extras.
+    #
+    # `uv sync` installs base dependencies only, so every test guarded by an
+    # optional extra skips in the main job — and until this job existed, in
+    # *every* job. Fourteen tests were reporting green while executing nothing:
+    # eleven in `test_han_script.py` behind `chinese`, and one each behind
+    # `notes`, `diarization-pyannote` and `voiceprint-resemblyzer`. The Qt case
+    # proved what that costs: the settings-window tests had never run anywhere,
+    # and their first real execution immediately found two shipped defects.
+    #
+    # This covers the extras whose cost is trivial. `chinese` is a single
+    # pure-Python package (`opencc-python-reimplemented`), and installing it
+    # takes `test_han_script.py` from 30 passed / 11 skipped to 41 passed —
+    # eleven assertions about Simplified vs Traditional output that had never
+    # executed, on a code path a user in Taipei hits on every utterance.
+    #
+    # DELIBERATELY NOT COVERED, and named so the gap is visible rather than
+    # forgotten: `notes`/`slm` (llama-cpp-python compiles a C++ inference engine),
+    # `diarization-pyannote` and `voiceprint-resemblyzer` (both pull torch, ~2 GB).
+    # Those three tests stay skipped everywhere. That is a real gap — it is
+    # recorded here instead of being hidden behind a green tick.
+    #
+    # Linux only: these extras are pure Python or platform-independent, and the
+    # OS matrix in the main job already covers the code around them.
+    name: Optional extras
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+
+      - name: Install dependencies (with the light optional extras)
+        run: uv sync --extra chinese
+
+      - name: The extra must actually be importable
+        # Without this the guarded tests skip and the job passes green having
+        # tested nothing — the precise failure mode this job exists to end.
+        run: uv run python -c "import opencc; print('opencc ok')"
+
+      - name: Run the tests that only exist when the extra is installed
+        shell: bash
+        run: |
+          set -o pipefail
+          uv run python -m pytest -v -rs tests/test_han_script.py 2>&1 | tee extras-tests.txt
+
+      - name: No extra-guarded test may be silently skipped
+        shell: bash
+        run: |
+          if grep -q "^SKIPPED" extras-tests.txt; then
+            echo "::error::A test guarded by the 'chinese' extra was skipped — it guards nothing here."
+            grep "^SKIPPED" extras-tests.txt
+            exit 1
+          fi
+          echo "No extra-guarded test was skipped."
+
   freebsd:
     # Runs the suite on a REAL FreeBSD VM, not a simulated `sys.platform`.
     #
