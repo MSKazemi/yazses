@@ -11,6 +11,7 @@ from typing import Optional
 import typer
 
 from yazses import branding
+from yazses.hotkeys.names import SUPPORTED_HOTKEYS
 from yazses.ipc.client import IpcUnreachableError
 from yazses.platform import get_paths, get_platform
 # `yazses.system.updater` is imported inside `update()` rather than here: it pulls
@@ -2042,11 +2043,12 @@ def srs_review(
                f"(reps {updated['reps']}, ease {updated['ease']}).")
 
 
-# Valid hold-to-talk keys (mirror platform/linux/hotkey.py keymap).
-_HOTKEYS = [
-    "right_alt", "left_alt", "right_ctrl", "left_ctrl",
-    "right_shift", "left_shift", "right_meta", "left_meta", "space",
-]
+# Valid hold-to-talk keys. This used to be a hand-copied "mirror" of
+# platform/linux/hotkey.py's keymap, and it had drifted: every backend binds
+# right_option/left_option — the macOS spelling that exists so one config file
+# works on all three systems — and this list refused them. Now shared with the
+# settings window, and pinned against every backend by tests/test_hotkey_names.py.
+_HOTKEYS = list(SUPPORTED_HOTKEYS)
 
 @app.command(
     rich_help_panel=_SETUP,

@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses hotkey set right_option` was refused by a key every backend binds
+
+Four copies of the accepted-keys list existed: a private `_KEY_MAP` in each of the
+three platform hotkey backends, and `_HOTKEYS` in `cli.py` carrying the comment
+*"mirror platform/linux/hotkey.py keymap"*. The mirror had drifted. Every backend
+binds `right_option` and `left_option` — macOS's names for the alt keys, present so
+one config file behaves the same on all three systems — and the CLI rejected both:
+
+```console
+$ yazses hotkey set right_option
+Unknown key 'right_option'. Choose one of: right_alt, left_alt, ...
+```
+
+So the config file accepted a key the command that writes it would not.
+
+The list now lives once in `yazses/hotkeys/names.py`, and a test reads every
+backend's `_KEY_MAP` to prove the offered set is bindable on all three — the
+direction that matters, since offering a key nothing can bind leaves someone unable
+to dictate with no explanation.
+
 ### Fixed — the tray's **Settings…** could not open the settings window on the Windows installer
 
 Clicking **Settings…** in the tray produced a notification reading *"Could not open
