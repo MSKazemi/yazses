@@ -67,6 +67,10 @@ class SettingsModel:
     groups: tuple[SettingsGroup, ...]
     # Shipped on/off state per toggleable slug — what "Restore defaults" targets.
     defaults: dict[str, bool] = field(default_factory=dict)
+    # The configured hold-to-talk key. Not a feature toggle, so it is not a row:
+    # the picker needs to open on what is actually set, or it shows a default the
+    # user never chose and writes it the moment they touch anything else.
+    hotkey: str = ""
 
     def rows(self) -> tuple[SettingRow, ...]:
         return tuple(row for group in self.groups for row in group.rows)
@@ -88,7 +92,7 @@ def build_settings_model(cfg: Config) -> SettingsModel:
         )
         for category, blurb, feats in grouped_features(cfg)
     )
-    return SettingsModel(groups=groups, defaults=defaults)
+    return SettingsModel(groups=groups, defaults=defaults, hotkey=cfg.hotkey.key)
 
 
 def _row(f: Feature, defaults: dict[str, bool]) -> SettingRow:

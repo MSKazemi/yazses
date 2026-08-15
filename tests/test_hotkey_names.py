@@ -50,11 +50,18 @@ def test_every_platform_can_bind_every_offered_key(platform: str) -> None:
     )
 
 
-def test_the_cli_offers_exactly_the_shared_list() -> None:
-    """`yazses hotkey set` and the settings window must not disagree."""
-    from yazses.cli import _HOTKEYS
+def test_the_cli_and_the_window_offer_the_same_keys() -> None:
+    """They must not disagree about what is bindable.
 
-    assert set(_HOTKEYS) == set(SUPPORTED_HOTKEYS)
+    Asserted through the modules that actually consume the lists rather than a
+    CLI-local copy — the copy was the bug. `yazses hotkey set` also accepts
+    `auto`, which is a setting rather than a bindable key; that split is
+    `SETTABLE_HOTKEYS` and is covered in tests/test_cli_hotkey.py.
+    """
+    from yazses.hotkeys.names import SETTABLE_HOTKEYS
+
+    assert set(SETTABLE_HOTKEYS) == {"auto", *SUPPORTED_HOTKEYS}
+    assert SETTABLE_HOTKEYS[0] == "auto", "the default belongs first in a picker"
 
 
 def test_the_macos_spellings_resolve_to_the_keys_they_alias() -> None:

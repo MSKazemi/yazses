@@ -168,6 +168,7 @@ class SettingsWindow:
         intro.setStyleSheet(muted_style_for(intro))
         outer.addWidget(intro)
 
+        outer.addLayout(self._build_hotkey_row(model.hotkey))
         outer.addLayout(self._build_filter_box())
 
         scroll = QScrollArea()
@@ -238,6 +239,47 @@ class SettingsWindow:
         outer.addLayout(buttons)
 
         self._win.setCentralWidget(central)
+
+    def _build_hotkey_row(self, current: str):
+        """The hold-to-talk key picker — the one setting everybody changes.
+
+        Above the filter box because it is not a capability and filtering it away
+        would be surprising: someone typing "hotkey" into a *feature* filter should
+        not make the hotkey control vanish.
+
+        A dropdown rather than a "press a key" capture: the platforms bind eleven
+        specific keys, and a capture box would happily accept F13 and then leave
+        the user unable to dictate. `SUPPORTED_HOTKEYS` is the same list
+        `yazses hotkey set` offers, so the two surfaces cannot disagree.
+        """
+        from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel
+
+        from yazses.hotkeys.names import SETTABLE_HOTKEYS
+
+        line = QHBoxLayout()
+        label = QLabel("Hold-to-talk key:")
+        line.addWidget(label)
+
+        box = QComboBox()
+        box.addItems(SETTABLE_HOTKEYS)
+        if current in SETTABLE_HOTKEYS:
+            box.setCurrentIndex(SETTABLE_HOTKEYS.index(current))
+        elif current:
+            # A hand-edited config can hold something not offered. Show it rather
+            # than silently selecting a different key the user never chose.
+            box.insertItem(0, current)
+            box.setCurrentIndex(0)
+        box.setAccessibleName("Hold-to-talk key")
+        box.setToolTip(
+            "The key you hold down to dictate. Same list as `yazses hotkey set`.\n"
+            "auto = let YazSes pick the usual key for this operating system.\n"
+            "right_option / left_option are the macOS names for the alt keys.\n"
+            "Applied when you click Apply, and it takes effect after the restart."
+        )
+        self._hotkey_box = box
+        self._hotkey_baseline = current
+        line.addWidget(box, 1)
+        return line
 
     def _build_filter_box(self):
         """The filter box. Mirrors `yazses features --on/--tier/--category`.
@@ -432,6 +474,7 @@ class SettingsWindow:
 
     def _on_apply(self) -> None:
         report = self._controller.apply(self._pending)
+        hotkey_changed, hotkey_error = self._apply_hotkey()
 
         # Re-sync every checkbox with what actually landed: a row that failed
         # keeps its staged position (so Apply can be retried) but must not be
@@ -442,9 +485,13 @@ class SettingsWindow:
                 self._set_checked_silently(slug, self._pending.baseline(slug))
 
         summary = self._summarise(report)
+        if hotkey_changed:
+            summary = f"Hold-to-talk key set to {self._hotkey_baseline}. {summary}".strip()
         self._hint.setText(summary)
-        if report.errors:
-            self._warn("Some settings were not saved", "\n".join(report.errors))
+
+        errors = [*report.errors, *([hotkey_error] if hotkey_error else [])]
+        if errors:
+            self._warn("Some settings were not saved", "\n".join(errors))
 
         # Install the optional packages the newly-enabled capabilities need (#135).
         # Off the UI thread: a `mediapipe` or `speechbrain` install takes minutes,
@@ -453,8 +500,44 @@ class SettingsWindow:
 
         # Then close the loop: config is read at startup, so until the daemon is
         # restarted the window is showing settings that are not in effect (#61).
-        if report.applied:
+        # The hotkey counts: a changed key that has not been rebound is the most
+        # confusing of all — the old key stops being advertised and the new one
+        # does nothing yet.
+        if report.applied or hotkey_changed:
             self._offer_restart(summary)
+
+    def _apply_hotkey(self) -> tuple[bool, str | None]:
+        """Save the picked hotkey if it moved. Returns (changed, error).
+
+        Separate from the feature apply because it is not a feature: it has its
+        own validation, its own failure message, and it must not be silently
+        rolled into a report about capability rows.
+        """
+        box = getattr(self, "_hotkey_box", None)
+        if box is None:  # pragma: no cover - the row is always built
+            return False, None
+        chosen = box.currentText().strip()
+        if not chosen or chosen == self._hotkey_baseline:
+            return False, None
+
+        result = self._controller.set_hotkey(chosen)
+        if not result.ok:
+            # Put the box back on the value that is actually in the config, so the
+            # window never shows a key it failed to save as though it were set.
+            self._restore_hotkey_box()
+            return False, result.error or f"Could not set the hotkey to {chosen!r}."
+        self._hotkey_baseline = chosen
+        return True, None
+
+    def _restore_hotkey_box(self) -> None:
+        box = getattr(self, "_hotkey_box", None)
+        if box is None:  # pragma: no cover
+            return
+        index = box.findText(self._hotkey_baseline)
+        if index >= 0:
+            box.blockSignals(True)
+            box.setCurrentIndex(index)
+            box.blockSignals(False)
 
     def _offer_restart(self, summary: str = "") -> None:
         """Ask, restart, and report what the daemon actually says afterwards.

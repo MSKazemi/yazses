@@ -6,6 +6,32 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the hold-to-talk key can be changed from the settings window
+
+The key you hold to dictate is the most personal setting YazSes has, and it could
+only be changed by typing a command or editing TOML. The settings window offered
+feature checkboxes and nothing else — even though the validation for a hotkey
+picker was already written, already tested, and had no caller.
+
+**Settings → Hold-to-talk key** is a dropdown, not a press-a-key capture: the
+backends bind eleven specific keys, and a capture box would happily accept F13 and
+leave you unable to dictate with nothing on screen connecting the two. It offers
+the same list as `yazses hotkey set`, refuses before writing, and applies on Apply
+with the usual restart prompt.
+
+It also refuses a key that is already the **command key**, comparing through the
+aliases — `right_option` and `right_alt` are one physical key under two names, so a
+string comparison waves that clash through and command mode then swallows every
+dictation burst.
+
+### Fixed — the command key could be set to the dictation key on a default install
+
+Two ways, both silent. The check compared `[hotkey] command_key` against the raw
+`[hotkey] key`, which on a fresh install is the sentinel `"auto"` — never equal to
+a real key name, so the clash was invisible on exactly the config every new install
+starts with. And it compared strings, so `right_option` against a dictation key of
+`right_alt` sailed through as different names for one physical key.
+
 ### Fixed — `yazses hotkey set right_option` was refused by a key every backend binds
 
 Four copies of the accepted-keys list existed: a private `_KEY_MAP` in each of the

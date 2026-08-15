@@ -11,7 +11,7 @@ from typing import Optional
 import typer
 
 from yazses import branding
-from yazses.hotkeys.names import SUPPORTED_HOTKEYS
+from yazses.hotkeys.names import SETTABLE_HOTKEYS, SUPPORTED_HOTKEYS, canonical
 from yazses.ipc.client import IpcUnreachableError
 from yazses.platform import get_paths, get_platform
 # `yazses.system.updater` is imported inside `update()` rather than here: it pulls
@@ -2043,12 +2043,6 @@ def srs_review(
                f"(reps {updated['reps']}, ease {updated['ease']}).")
 
 
-# Valid hold-to-talk keys. This used to be a hand-copied "mirror" of
-# platform/linux/hotkey.py's keymap, and it had drifted: every backend binds
-# right_option/left_option — the macOS spelling that exists so one config file
-# works on all three systems — and this list refused them. Now shared with the
-# settings window, and pinned against every backend by tests/test_hotkey_names.py.
-_HOTKEYS = list(SUPPORTED_HOTKEYS)
 
 @app.command(
     rich_help_panel=_SETUP,
@@ -2368,7 +2362,7 @@ def hotkey_show() -> None:
         typer.echo(f"Command key:       {cmd}  (force command mode)")
     else:
         typer.echo("Command key:       (none) — commands auto-detected on the dictation key")
-    typer.echo(f"Choices: {', '.join(_HOTKEYS)}")
+    typer.echo(f"Choices: {', '.join(SETTABLE_HOTKEYS)}")
 
 
 @hotkey_app.command(
@@ -2386,9 +2380,13 @@ def hotkey_set(
     Pick a dedicated modifier (right_alt/right_ctrl/right_shift) so it doesn't
     collide with normal typing the way `space` can.
     """
-    if key not in _HOTKEYS:
+    # SETTABLE, not SUPPORTED: `auto` is a real choice — it is the shipped default
+    # and means "the usual key for this OS". Offering only bindable keys made
+    # picking one a door that closed behind you, with no way back to the default
+    # short of editing TOML.
+    if key not in SETTABLE_HOTKEYS:
         typer.echo(
-            f"Unknown key {key!r}. Choose one of: {', '.join(_HOTKEYS)}", err=True
+            f"Unknown key {key!r}. Choose one of: {', '.join(SETTABLE_HOTKEYS)}", err=True
         )
         raise typer.Exit(1)
     from yazses.system.configedit import set_config_key
@@ -2429,14 +2427,24 @@ def hotkey_command(
         typer.echo("Command key removed (commands auto-detected on the dictation key).")
         typer.echo("Apply it:  yazses restart")
         return
-    if key not in _HOTKEYS:
+    # SUPPORTED, not SETTABLE: `auto` means "the platform's default dictation
+    # key", which is meaningless for a *command* key and would silently alias
+    # onto the dictation key on most machines.
+    if key not in SUPPORTED_HOTKEYS:
         typer.echo(
-            f"Unknown key {key!r}. Choose one of: {', '.join(_HOTKEYS)}, or 'off'.",
+            f"Unknown key {key!r}. Choose one of: {', '.join(SUPPORTED_HOTKEYS)}, or 'off'.",
             err=True,
         )
         raise typer.Exit(1)
-    dictation = load_config(platform.paths.config_file).hotkey.key or platform.default_hotkey
-    if key == dictation:
+    # `_resolved_hotkey` rather than the raw config value: the default is the
+    # sentinel "auto", which never equals a real key name, so the clash below was
+    # invisible on exactly the config every new install starts with.
+    #
+    # Compared through `canonical()` because right_option and right_alt are one
+    # physical key under two names — a string comparison waves that clash through
+    # and command mode then swallows every dictation burst.
+    dictation = _resolved_hotkey(platform)
+    if canonical(key) == canonical(dictation):
         typer.echo(
             f"Command key must differ from your dictation key ({dictation!r}). "
             f"Change one with `yazses hotkey set <key>`.",

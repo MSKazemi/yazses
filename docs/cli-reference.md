@@ -703,9 +703,17 @@ is encrypted on-device data and is intentionally not portable (see the
 | `yazses hotkey set <key>` | Change the key you hold to **dictate** (e.g. `right_ctrl`), then `yazses restart`. |
 | `yazses hotkey command <key>` | Set a dedicated **command** key, or `off` to disable it. Then `yazses restart`. |
 
-Choices: `right_alt` (default), `left_alt`, `right_ctrl`, `left_ctrl`,
+Choices: `auto` (the shipped default — the usual key for your OS), `right_alt`,
+`left_alt`, `right_option`, `left_option`, `right_ctrl`, `left_ctrl`,
 `right_shift`, `left_shift`, `right_meta`, `left_meta`, `space`. Prefer a
 dedicated modifier so it doesn't collide with normal typing.
+
+`right_option` / `left_option` are the macOS names for the alt keys and mean the
+same physical key, so one config file behaves the same on every OS. The command
+key accepts everything except `auto`, which means "the platform's default
+*dictation* key" and would land on the dictation key itself.
+
+The same list is a dropdown in [the Settings window](settings-gui.md).
 
 ```bash
 yazses hotkey show                # print the keys + the choices

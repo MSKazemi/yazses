@@ -174,11 +174,34 @@ flow must never do.
 
 ## What it does not cover
 
-The window is the feature switchboard. A handful of settings are values rather
-than switches — the hotkey, the microphone and the silence threshold — and those
-have their own controls; everything else lives in
-[`config.toml`](configuration.md), which the window never reformats or reorders,
-because it writes through a comment-preserving TOML editor.
+The window is the feature switchboard, plus the **Hold-to-talk key** picker at the
+top (see below). Two other value settings — the **microphone** and the **silence
+threshold** — do not have controls yet; use
+[`yazses audio use`](cli-reference.md#yazses-audio) and
+[`yazses mic-level --set`](cli-reference.md#yazses-mic-level) for those.
+
+Everything else lives in [`config.toml`](configuration.md), which the window never
+reformats or reorders, because it writes through a comment-preserving TOML editor.
+
+## Changing the hold-to-talk key
+
+The dropdown at the top of the window sets the key you hold to dictate. It offers
+the same choices as `yazses hotkey set`, including **`auto`** — the shipped
+default, meaning "the usual key for this operating system".
+
+It is a dropdown rather than a press-a-key capture on purpose. The platforms bind
+eleven specific keys; a capture box would accept F13 quite happily and leave you
+unable to dictate, with nothing on screen connecting the two.
+
+Two keys it will refuse, before writing anything:
+
+- one no backend can bind;
+- one that is already your **command key** — a single physical key cannot be both,
+  or every dictation would be read as a command. Note `right_option` and
+  `right_alt` are the same key under two names, and the check knows that.
+
+The change lands on **Apply** and takes effect after the restart the window then
+offers, because the key is bound when the daemon starts.
 
 Related: [`yazses features`](cli-reference.md#yazses-features) for the same
 switchboard in a terminal, and the [feature reference](features.md) for what each

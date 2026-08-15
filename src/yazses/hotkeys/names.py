@@ -36,6 +36,18 @@ SUPPORTED_HOTKEYS: tuple[str, ...] = (
     "space",
 )
 
+#: The default, and a real setting rather than an absence: the daemon resolves it
+#: to `platform.default_hotkey` at start, which differs per OS. It is deliberately
+#: **not** in `SUPPORTED_HOTKEYS` — no backend has a key code for it, and the test
+#: that proves every offered key is bindable would rightly fail on it.
+AUTO = "auto"
+
+#: What a user may choose. `SUPPORTED_HOTKEYS` is what a backend can *bind*; this
+#: is what may be *written* to `[hotkey] key`. Without the distinction, picking any
+#: key was a one-way door — nothing offered `auto`, so there was no way back to the
+#: default short of editing TOML by hand.
+SETTABLE_HOTKEYS: tuple[str, ...] = (AUTO, *SUPPORTED_HOTKEYS)
+
 #: `right_option` is macOS's name for the key evdev calls `right_alt`; both are
 #: accepted and mean the same physical key. Kept here so a UI can say so rather
 #: than offering two entries that look like different choices.

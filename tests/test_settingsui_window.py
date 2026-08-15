@@ -353,3 +353,65 @@ def test_restore_defaults_ignores_the_filter(qapp):
 
     staged = {slug for slug, _ in win._pending.items()}
     assert staged - {"meeting"}, "a reset must reach rows the filter is hiding"
+
+
+# --- the hold-to-talk key picker -------------------------------------------
+#
+# Requested directly: the key you hold to dictate is the most personal setting in
+# the application, and until now it could only be changed by typing a command or
+# editing TOML. The validation existed and had no caller.
+
+
+def test_the_window_offers_a_hotkey_picker_showing_the_current_key(qapp):
+    win = _window(qapp, _Recorder())
+    assert win._hotkey_box.currentText() == Config().hotkey.key
+
+
+def test_picking_a_key_writes_it_on_apply(qapp):
+    rec = _Recorder()
+    win = _window(qapp, rec)
+    win._hotkey_box.setCurrentText("left_alt")
+    win._on_apply()
+    assert ("hotkey", "key", "left_alt", True) in rec.writes
+
+
+def test_an_untouched_picker_writes_nothing(qapp):
+    """Apply is pressed for feature changes too; it must not rewrite the hotkey
+    every time and churn the config file."""
+    rec = _Recorder()
+    win = _window(qapp, rec)
+    win._on_apply()
+    assert not [w for w in rec.writes if w[0] == "hotkey"]
+
+
+def test_a_refused_key_is_not_written_and_the_box_snaps_back(qapp):
+    """The clash rule: one physical key cannot be both hold-to-talk and command.
+
+    The box must not be left displaying a key that was never saved — that is the
+    window claiming a setting it does not have.
+    """
+    class _Clash(_Recorder):
+        def load(self):
+            cfg = Config()
+            object.__setattr__(cfg.hotkey, "command_key", "right_alt")
+            return cfg
+
+    rec = _Clash()
+    win = _window(qapp, rec)
+    before = win._hotkey_box.currentText()
+    win._hotkey_box.setCurrentText("right_option")   # same physical key as the command key
+    win._on_apply()
+
+    assert not [w for w in rec.writes if w[0] == "hotkey"]
+    assert win._hotkey_box.currentText() == before
+    assert win.warned, "a refused hotkey must be reported, not swallowed"
+
+
+def test_a_hand_edited_key_outside_the_list_is_still_shown(qapp):
+    """Selecting a *different* key than the config holds would be the window
+    quietly changing a setting the user never touched."""
+    cfg = Config()
+    object.__setattr__(cfg.hotkey, "key", "f13")
+    controller = SettingsController(_Recorder().load, _Recorder().write)
+    win = SettingsWindow(build_settings_model(cfg), controller)
+    assert win._hotkey_box.currentText() == "f13"

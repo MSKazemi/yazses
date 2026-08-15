@@ -158,6 +158,55 @@ class SettingsController:
         self._deps_probe = deps_probe or missing_modules
         self._blocked_probe = blocked_probe or install_blocked_reason
 
+    def set_hotkey(self, key: str) -> ToggleResult:
+        """Set the hold-to-talk key, refusing anything unbindable *before* writing.
+
+        A key the platform cannot bind is the worst kind of bad setting: it writes
+        fine, and then dictation simply never happens, with nothing on screen
+        connecting the two. So validation happens here rather than at the next
+        daemon start.
+
+        Two rejections, and the second is the interesting one:
+
+        * not in `SUPPORTED_HOTKEYS` — no backend binds it.
+        * the same physical key as ``[hotkey] command_key`` — command mode would
+          swallow every dictation burst. Compared through `canonical()` because
+          `right_option` and `right_alt` are one key under two names, so a string
+          comparison would wave the clash straight through.
+        """
+        from yazses.hotkeys.names import AUTO, SETTABLE_HOTKEYS, canonical
+        from yazses.settingsui.controls import validate_hotkey
+
+        cleaned = (key or "").strip().lower()
+        problem = validate_hotkey(cleaned, SETTABLE_HOTKEYS)
+        if problem:
+            return ToggleResult(ok=False, error=problem)
+
+        try:
+            cfg = self._load_config()
+        except Exception as exc:  # pragma: no cover - load_config is total
+            return ToggleResult(ok=False, error=f"Could not read the config: {exc}")
+
+        # `auto` is checked for a clash by the daemon, not here: it resolves to
+        # `platform.default_hotkey` at start, and this process cannot know what
+        # that will be on the machine the config ends up on.
+        command_key = getattr(getattr(cfg, "hotkey", None), "command_key", "") or ""
+        if cleaned != AUTO and command_key and canonical(command_key) == canonical(cleaned):
+            return ToggleResult(
+                ok=False,
+                error=(
+                    f"{key!r} is already the command key, and one physical key cannot "
+                    f"be both — every dictation would be read as a command. Change "
+                    f"the command key first, or pick another hold-to-talk key."
+                ),
+            )
+
+        try:
+            self._writer("hotkey", "key", cleaned, True)
+        except Exception as exc:  # noqa: BLE001 - surfaced, never raised at Qt
+            return ToggleResult(ok=False, error=f"Could not save the hotkey: {exc}")
+        return ToggleResult(ok=True)
+
     def set_enabled(self, slug: str, desired: bool, *, confirmed: bool = False) -> ToggleResult:
         """Put one feature into the *desired* state, mirroring `yazses features`.
 
