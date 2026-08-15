@@ -88,6 +88,15 @@ the hardware.
   The research agenda: what we think is worth measuring next, with the method
   and the literature for each. Three need no new code. All are open.
 
+- :material-signs-pointing-outline: **[Where YazSes goes next](directions.md)**
+  The forward-looking directions, sorted by what is actually buildable: on an
+  ordinary laptop today, only after a measurement, or not without a lab. Plus
+  what we have decided *not* to pursue, and why.
+
+- :material-toolbox-outline: **[Ten gaps for researchers](framework-gaps.md)**
+  What YazSes still lacks before you could run, replicate and publish a study
+  with it — deliberately unflattering, with the seam and the size for each.
+
 - :material-eye-outline: **[Eye control](eye-control.md)**
   What a $20 webcam can and cannot know about where you look — and why
   "coarse but honest" beats "precise but fake".
