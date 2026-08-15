@@ -74,6 +74,12 @@ mcp.json
 # never published: marketing copy, SEO analysis, vision/idea notes for features
 # that may never ship, and distribution status.
 # See design/README.md for the full contract.
+#
+# `.mohsen.*` is the owner's own scratch notes, dropped in the repo root while
+# working (`.mohsen.note` and friends): raw thinking — unordered task dumps,
+# half-formed feature ideas, reminders. Same tier, same reason. Globbed rather
+# than listed so a second note file does not have to remember to come back here.
+.mohsen.*
 strategy/
 notes/
 drafts/
