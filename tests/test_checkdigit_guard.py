@@ -179,3 +179,38 @@ def test_the_gate_runs_on_the_dictation_path():
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
     }
     assert "_checkdigit_gate" in called, "the guard is never reached from _on_hold_end"
+
+
+# ---- the message promises two ways out; both must work ---------------------
+
+
+def test_saying_it_again_correctly_replaces_the_held_number(mocker):
+    """The notification says "say it again, or say confirm". The first half is the one
+    a user will actually reach for, and it crosses two guards to work:
+
+    re-dictating hits the command gate first, whose "anything that is not a control word
+    discards the hold" rule drops the bad number; the corrected utterance then reaches
+    this gate, passes its checksum, and types. If that chain broke, the guard would have
+    a stuck state that the message tells people to use.
+    """
+    d = _daemon(mocker)
+    d._checkdigit_gate(BAD_CARD, {})
+    assert d._cmdsafety.pending == BAD_CARD
+
+    # The user repeats the number, correctly this time.
+    event: dict = {}
+    released = d._cmdsafety_gate(GOOD_CARD, event)
+    assert released == GOOD_CARD, "the re-dictation must survive the command gate"
+    assert event["cmdsafety_action"] == "implicit_cancel"
+    assert d._cmdsafety.pending is None, "the wrong number must not survive"
+    assert d._checkdigit_gate(released, {}) == GOOD_CARD, "and then it types"
+
+
+def test_saying_it_again_wrongly_holds_again(mocker):
+    """A second bad reading must not slip through on the back of the first being dropped."""
+    d = _daemon(mocker)
+    d._checkdigit_gate(BAD_CARD, {})
+    released = d._cmdsafety_gate(BAD_CARD, {})
+    assert released == BAD_CARD          # the command gate has no opinion about numbers
+    assert d._checkdigit_gate(released, {}) is None   # this one does
+    assert d._cmdsafety.pending == BAD_CARD
