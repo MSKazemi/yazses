@@ -103,6 +103,18 @@ cached streaming encoder (148–258 ms measured, with its streaming mode
 reported as *more* accurate than its own batch mode —
 [Kudlur et al.](#ref-moonshine)).
 
+!!! warning "We measured this on our own stack, and it went the other way"
+
+    Whisper-family streaming via LocalAgreement is **not** Moonshine's cached
+    encoder, and the difference shows. Fed at real time, our streaming path made
+    the final text arrive *later* on every model tested — +32 % on `tiny.en`,
+    +56 % on the default `base.en` — because the rolling decode competes for the
+    same CPU as the decode that actually produces your text. On `base.en`, 9 of
+    15 utterances showed **no** confirmed partial before key release. The full
+    table and method are in [benchmarks](../benchmarks.md). A streaming *encoder*
+    designed for the job is a different claim from a streaming *loop* bolted onto
+    a batch model, and only the first is supported by the literature above.
+
 ## The whisper channel: one microphone, two modes
 
 A dictation tool has a mode problem: the same audio channel must carry *text*
@@ -169,9 +181,15 @@ an accessibility problem disguised as an engineering problem.
    lightweight `onnx-asr` path has no boosting hook yet. What is the cheapest
    faithful reimplementation — and does edit-distance post-correction get 80%
    of the win for 5% of the work ([Lall & Tan](#ref-contextual))?
-3. **Latency benchmarking as a feature.** No offline tool publishes measured
-   release-to-text times per model and CPU. What would a fair, reproducible
-   `yazses bench` protocol look like?
+3. **Latency benchmarking as a feature — partly answered, and it cut against us.**
+   We now publish measured speech-end→text times per model, fed at real time,
+   reproducible from the repo ([benchmarks](../benchmarks.md)). The result
+   contradicted the feature it was meant to justify: streaming makes the final
+   text arrive **later** on every model but `tiny.en` (+32 % there, +56 % on the
+   default `base.en`), and on `base.en` no partial was confirmed before key
+   release in 9 of 15 utterances. What remains open is coverage, not method —
+   one machine and two models is not a protocol. What would a fair
+   cross-CPU, cross-model `yazses bench` look like, and who runs it?
 4. **Code-switching.** Stock Whisper cannot mix two languages in one utterance
    ("one language per 30 s window"); adapter-based approaches reach ~14% mixed
    error rate but need per-pair training. Which language pairs matter most to

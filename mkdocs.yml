@@ -268,10 +268,20 @@ markdown_extensions:
   - pymdownx.tasklist:
       custom_checkbox: true
 
+# Eight top-level tabs, deliberately. `navigation.tabs` renders the top level as
+# one horizontal bar that does **not** scroll for the reader — Material only
+# scrolls it programmatically, to the active tab. At fifteen tabs the list
+# overflowed its container, so the entries at the right-hand end were clipped off
+# and unreachable from the top nav on an ordinary laptop screen.
+#
+# Eight fits with room to spare. Before adding a ninth top-level entry, measure the
+# rendered width (`nav.scrollWidth - nav.getBoundingClientRect().width` on
+# `.md-tabs__list`); prefer nesting under an existing tab.
+# Guarded by tests/test_docs_nav_fits.py.
 nav:
   - Home: index.md
-  - Watch the CLI: watch-the-cli.md
   - Get started:
+      - Watch the CLI: watch-the-cli.md
       - Try it without installing: try-without-installing.md
       - Platform support (OS + CPU): platform-support.md
       - Install on Linux: install-linux.md
@@ -298,6 +308,85 @@ nav:
       - "हिंदी वॉयस टाइपिंग (Hindi)": hi/hindi-voice-typing.md
       - Chinese & Mandarin: use-cases/chinese-voice-typing.md
       - "中文语音输入 (Chinese)": zh/chinese-voice-typing.md
+  - Guides:
+      - Overview: how-to/index.md
+      - Change the hotkey: how-to/change-hotkey.md
+      - Personal vocabulary: how-to/personal-vocabulary.md
+      - Macros & snippets: how-to/macros-and-snippets.md
+      - House style: how-to/house-style.md
+      - Choosing a model on a low-RAM machine: how-to/low-ram-models.md
+      - CPU use and battery on a laptop: how-to/cpu-and-battery.md
+      - "'Silent audio -- discarding'": how-to/silent-audio-discarding.md
+      - The tray icon does not appear: how-to/tray-icon-missing.md
+      - Running fully air-gapped: how-to/air-gapped.md
+      - Dictation types into the wrong window: how-to/wrong-window.md
+      - Stop a misheard command from running: how-to/command-safety.md
+      - After a distro upgrade: how-to/after-a-distro-upgrade.md
+      - Over SSH and Remote-SSH editors: how-to/ssh-and-remote.md
+      - Remote dictation: how-to/remote-dictation.md
+      - Performance tuning: how-to/performance-tuning.md
+      - Per-app tone profiles: how-to/app-profiles.md
+      - Jump to a symbol by voice: how-to/editor-jump.md
+      - Glance-Type (look to pane): how-to/gaze-look-to-pane.md
+      - Transcribe recordings: tutorials/transcribe-recordings.md
+      - Troubleshooting: troubleshooting.md
+  - Research:
+      - The science of post-keyboard input: research/index.md
+      - Students, researchers & industry: research/get-involved.md
+      - Eye control: research/eye-control.md
+      - Voice control: research/voice-control.md
+      - Muscle & brain control: research/muscle-brain-control.md
+      - The HCI canon behind YazSes: research/hci-canon.md
+      - Glossary: research/glossary.md
+      - Where YazSes goes next: research/directions.md
+      - Ten gaps for researchers: research/framework-gaps.md
+      - Accessibility beyond the checkbox: research/accessibility-beyond-the-checkbox.md
+      - Ten open questions: research/agenda.md
+  - Reference:
+      - Features: features.md
+      - Comparison & alternatives: comparison.md
+      - Benchmarks: benchmarks.md
+      - FAQ: faq.md
+      - v2 features (preview): v2-features.md
+      - CLI reference: cli-reference.md
+      - Command index: command-index.md
+      - Configuration: configuration.md
+      - Tray icon & overlay: tray-and-overlay.md
+      - The Settings window: settings-gui.md
+      - Known-good microphones: known-good-microphones.md
+      - Choosing a model: models.md
+      - Capability matrix: capability-matrix.md
+      - Privacy statement: privacy-statement.md
+      - Offline-inference challenge: launch/offline-challenge.md
+      - Code signing & verification: code-signing.md
+      - Architecture:
+          - Overview: architecture.md
+          - Diagrams: diagrams/index.md
+      - Engineering (design):
+          - What is published, and why: design/README.md
+          - Decision records: design/adr/index.md
+          - Specifications: design/specs/index.md
+          - Research notes: design/research/index.md
+          - Architecture (internal): design/architecture.md
+          - Threat model: design/threat-model.md
+          - EMG protocol: design/emg-protocol.md
+      - Mobile (in design):
+          - Overview: mobile/index.md
+          - Android architecture: mobile/architecture.md
+          - The core contract: mobile/contract.md
+          - Portability matrix: mobile/portability.md
+          - Contributing to mobile: mobile/contributing.md
+          - Decision records: mobile/adr/README.md
+  - Project:
+      - Roadmap: roadmap.md
+      - Releases: releases/index.md
+      - Contributing:
+          - Start here — your first contribution: contribute/start.md
+          - How to contribute: contributing.md
+          - Find a task that fits you: contribute/find.md
+          - All open tasks: contribute/tasks.md
+          - What contributors built: contribute/built.md
+          - Translation status: localization/STATUS.md
   # The README in 28 languages. These pages carry `alternates:` front matter,
   # which hooks/hreflang.py turns into reciprocal hreflang tags — the signal a
   # `blob/main/README.xx.md` page could not carry, which is why they live here.
@@ -330,81 +419,3 @@ nav:
       - "简体中文": zh-CN/index.md
       - "繁體中文": zh-TW/index.md
       - "한국어": ko/index.md
-  - Guides:
-      - Overview: how-to/index.md
-      - Change the hotkey: how-to/change-hotkey.md
-      - Personal vocabulary: how-to/personal-vocabulary.md
-      - Macros & snippets: how-to/macros-and-snippets.md
-      - House style: how-to/house-style.md
-      - Choosing a model on a low-RAM machine: how-to/low-ram-models.md
-      - CPU use and battery on a laptop: how-to/cpu-and-battery.md
-      - "'Silent audio -- discarding'": how-to/silent-audio-discarding.md
-      - The tray icon does not appear: how-to/tray-icon-missing.md
-      - Running fully air-gapped: how-to/air-gapped.md
-      - Dictation types into the wrong window: how-to/wrong-window.md
-      - Stop a misheard command from running: how-to/command-safety.md
-      - After a distro upgrade: how-to/after-a-distro-upgrade.md
-      - Over SSH and Remote-SSH editors: how-to/ssh-and-remote.md
-      - Remote dictation: how-to/remote-dictation.md
-      - Performance tuning: how-to/performance-tuning.md
-      - Per-app tone profiles: how-to/app-profiles.md
-      - Jump to a symbol by voice: how-to/editor-jump.md
-      - Glance-Type (look to pane): how-to/gaze-look-to-pane.md
-      - Transcribe recordings: tutorials/transcribe-recordings.md
-  - Research:
-      - The science of post-keyboard input: research/index.md
-      - Students, researchers & industry: research/get-involved.md
-      - Eye control: research/eye-control.md
-      - Voice control: research/voice-control.md
-      - Muscle & brain control: research/muscle-brain-control.md
-      - The HCI canon behind YazSes: research/hci-canon.md
-      - Glossary: research/glossary.md
-      - Where YazSes goes next: research/directions.md
-      - Ten gaps for researchers: research/framework-gaps.md
-      - Accessibility beyond the checkbox: research/accessibility-beyond-the-checkbox.md
-      - Ten open questions: research/agenda.md
-  - Engineering (design):
-      - What is published, and why: design/README.md
-      - Decision records: design/adr/index.md
-      - Specifications: design/specs/index.md
-      - Research notes: design/research/index.md
-      - Architecture (internal): design/architecture.md
-      - Threat model: design/threat-model.md
-      - EMG protocol: design/emg-protocol.md
-  - Reference:
-      - Features: features.md
-      - Comparison & alternatives: comparison.md
-      - Benchmarks: benchmarks.md
-      - FAQ: faq.md
-      - v2 features (preview): v2-features.md
-      - CLI reference: cli-reference.md
-      - Command index: command-index.md
-      - Configuration: configuration.md
-      - Tray icon & overlay: tray-and-overlay.md
-      - The Settings window: settings-gui.md
-      - Known-good microphones: known-good-microphones.md
-      - Choosing a model: models.md
-      - Capability matrix: capability-matrix.md
-      - Privacy statement: privacy-statement.md
-      - Offline-inference challenge: launch/offline-challenge.md
-      - Code signing & verification: code-signing.md
-  - Architecture:
-      - Overview: architecture.md
-      - Diagrams: diagrams/index.md
-  - Mobile (in design):
-      - Overview: mobile/index.md
-      - Android architecture: mobile/architecture.md
-      - The core contract: mobile/contract.md
-      - Portability matrix: mobile/portability.md
-      - Contributing to mobile: mobile/contributing.md
-      - Decision records: mobile/adr/README.md
-  - Troubleshooting: troubleshooting.md
-  - Contributing:
-      - Start here — your first contribution: contribute/start.md
-      - How to contribute: contributing.md
-      - Find a task that fits you: contribute/find.md
-      - All open tasks: contribute/tasks.md
-      - What contributors built: contribute/built.md
-      - Translation status: localization/STATUS.md
-  - Roadmap: roadmap.md
-  - Releases: releases/index.md
