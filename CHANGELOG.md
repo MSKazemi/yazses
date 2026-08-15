@@ -6,6 +6,35 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Decided — show what a feature costs before enabling it; no third-party plug-ins
+
+[ADR-018](design/adr/adr-018-feature-packs-and-the-plugin-question.md), answering "a user who
+only wants dictation should install only what dictation needs, and anything more should come
+as a plug-in".
+
+Measuring first changed the answer. **That architecture already exists** — 21 optional
+extras, lazy imports, on-demand install via `features enable`, models fetched on first use —
+**and it is near its floor.** A base install is 414 MB, of which 84% is four binary wheels
+that arrive with faster-whisper; YazSes' own code is 4 MB. The floor belongs to the speech
+engine's dependency tree, and the one packaging lever with real leverage (Qt, 648 MB) was
+already pulled in #259.
+
+So the decision is about the two things genuinely missing: **`yazses features` will show the
+marginal cost** of enabling a feature — marginal, because `tts`/`silero`/`parakeet` all
+declare an `onnxruntime` that a base install already has, and a naive total would quote 53 MB
+nobody downloads — and a **named `minimal` intent** with honest per-install-path figures.
+
+**Third-party plug-in loading is declined, and this reverses ADR-009.** A plug-in would sit
+on the dictation hot path with the microphone, the transcript and the injector — every word
+the user speaks, and the ability to type anything anywhere. ADR-009 accepted "plugins run in
+the daemon process and are trusted (no sandboxing)", and that was sound for the system it
+described: a **Rust** core where plugin support sits behind a `python-plugins` cargo feature,
+so a build without it *cannot* load foreign code. That core was never built. In the Python
+daemon that shipped there is no build-time gate, so any plugin mechanism is live for every
+install — including everyone who chose this tool for the promise in ADR-011. ADR-009 is
+annotated in place, and ADR-018 records what would change the decision: a real isolation
+boundary, which is the "v2 restricted sub-interpreters" ADR-009 deferred without costing.
+
 ### Fixed — the Flathub listing had no screenshots, and nothing in the repo read that file
 
 [#45](https://github.com/MSKazemi/yazses/issues/45) records the closed Flathub submission

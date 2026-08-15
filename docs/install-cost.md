@@ -13,6 +13,12 @@ numbers, not estimates, so you can decide before you start.
 | What | Size | Notes |
 |---|---|---|
 | YazSes, headless (no desktop extra) | **414 MB** | `pip install yazses` — enough for `transcribe`. 42 distributions; 84% of it is four binary wheels that arrive with faster-whisper |
+
+*The 414 MB is measured on **Linux x86_64, CPython 3.12**. Expect it to differ by a few
+tens of MB elsewhere: the platform-conditional dependencies are not the same set —
+Linux compiles `evdev`, macOS pulls four `pyobjc` frameworks plus `rumps`, Windows pulls
+`pywin32`, `pystray` and Pillow. The four wheels that dominate the total are the same
+everywhere.*
 | YazSes + the `desktop` extra | **1.1 GB** | what `install.sh`, the `.deb` and the Snap install |
 | ↳ of which **PySide6 (Qt)** | **648 MB** | the overlay and the tray — now optional, see below |
 | Speech model — `tiny.en` | 75 MB | fastest, least accurate |

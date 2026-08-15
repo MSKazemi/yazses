@@ -12,7 +12,7 @@ This directory contains the 11 binding ADRs for YazSes v1.0.
 | [ADR-006](adr-006.md) | EditorBridge Protocol | Accepted |
 | [ADR-007](adr-007.md) | Personal memory: sqlite-vec + SQLCipher | Accepted |
 | [ADR-008](adr-008.md) | Distribution: cargo-dist + per-distro packagers | Accepted |
-| [ADR-009](adr-009.md) | Python plugin SDK via embedded PyO3 | Accepted |
+| [ADR-009](adr-009.md) | Python plugin SDK via embedded PyO3 | Accepted — plugin-trust position superseded by [ADR-018](adr-018-feature-packs-and-the-plugin-question.md) |
 | [ADR-010](adr-010.md) | Preserve v0.4 JSON-RPC 2.0 IPC contract | Accepted |
 | [ADR-011](adr-011.md) | Zero telemetry, offline-default, opt-in cloud | Accepted |
 
