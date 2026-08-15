@@ -703,6 +703,8 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 | Key | Type | Default |
 |---|---|---|
 | `enabled` | bool | `false` |
+| `confirm_words` | list | `[]` |
+| `cancel_words` | list | `[]` |
 
 ## `[spokenregex]`
 

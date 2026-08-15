@@ -42,6 +42,7 @@ from yazses.audio.device_monitor import DeviceMonitor, SilentStreakTracker
 from yazses.audio.padding import PreSpeechRingBuffer
 from yazses.audio.recorder import AudioRecorder
 from yazses.audio.vad_calibrated import is_silent_calibrated
+from yazses.cmdsafety.classify import ConfirmGate
 from yazses.commands.dispatch import dispatch as cmd_dispatch
 from yazses.commands.grammar import IntentType, classify
 from yazses.commands.macros import MacroContext, build_macro_table
@@ -205,6 +206,11 @@ class Daemon:
         # Staged dictation (#294): when on, a burst lands here for review instead
         # of typing straight into the focused app. Off by default.
         self._staged = StagedBuffer()
+        # Command Safety Gate (ADR-v2-065): holds one dangerous dictated command
+        # pending a spoken confirm. Always constructed — it is a couple of fields and
+        # stays inert unless [cmdsafety] enabled, which keeps `_on_hold_end` free of
+        # a None check on the hot path.
+        self._cmdsafety = ConfirmGate()
         self._edit_watcher: EditWatcher | None = None
         self._cleaner: LlmCleaner | None = None
         # Read-Back Loop TTS backend (None when [tts] disabled — dormant).
@@ -1645,6 +1651,18 @@ class Daemon:
                              macro_table=self._macro_table,
                              macro_context=self._build_macro_context())
             else:
+                # Command Safety Gate (ADR-v2-065): a dictated `rm -rf` waits for a
+                # spoken "confirm" instead of typing straight into a shell. Runs
+                # BEFORE staged dictation on purpose — the confirm word has to be
+                # consumed as a control utterance, and the staged buffer would
+                # otherwise swallow it as ordinary text.
+                if self._config.cmdsafety.enabled:
+                    gated = self._cmdsafety_gate(text, event)
+                    if gated is None:
+                        return
+                    text = gated
+                    event["final_text"] = text
+
                 # Staged dictation (#294): bursts land in a review buffer instead of
                 # typing, and only a commit types — `scratch that` is already too
                 # late once the wrong token is in a terminal. A commit hands back the
@@ -2042,6 +2060,80 @@ class Daemon:
             "preview": self._staged.preview(),
             "summary": staged_describe(self._staged),
         }
+
+    def _cmdsafety_gate(self, text: str, event: dict) -> str | None:
+        """Command Safety Gate (ADR-v2-065). The text to type, or None when nothing types.
+
+        Three outcomes, in the order they are checked:
+
+        1. **A control word while something is held.** "confirm" releases the held
+           command and returns *it* — not the word "confirm", which would type the
+           word into the shell instead of running the command. An explicit cancel
+           discards it and types nothing.
+        2. **Anything else while something is held.** The held command is discarded
+           and the new utterance is typed normally. This is deliberate: the
+           alternative is a modal state where the daemon ignores everything until the
+           magic word is said, and a user who has forgotten the word — or whose
+           "confirm" was mis-heard — is stuck with dictation apparently broken. The
+           safe direction is losing the dangerous command, never running it by
+           accident, so an implicit cancel costs one re-dictation and nothing else.
+        3. **Nothing held.** A dangerous command is held and announced; everything
+           else passes through untouched.
+
+        The gate never raises into the dictation path — notification is best-effort
+        and the text either types or does not.
+        """
+        from yazses.cmdsafety.classify import assess_command
+        from yazses.cmdsafety.spoken import match_control
+
+        control = match_control(
+            text,
+            self._config.cmdsafety.confirm_words,
+            self._config.cmdsafety.cancel_words,
+        )
+
+        if self._cmdsafety.pending is not None:
+            held = self._cmdsafety.pending
+            if control == "confirm":
+                released = self._cmdsafety.confirm()
+                event["cmdsafety_action"] = "confirm"
+                log.info("Command safety: confirmed, running the held command.")
+                self._notify_cmdsafety("Confirmed — running the held command.")
+                return released
+            self._cmdsafety.cancel()
+            if control == "cancel":
+                event["cmdsafety_action"] = "cancel"
+                log.info("Command safety: cancelled the held command.")
+                self._notify_cmdsafety("Cancelled — the command was not run.")
+                return None
+            # Neither word: drop the held command and treat this as ordinary dictation.
+            event["cmdsafety_action"] = "implicit_cancel"
+            log.info("Command safety: discarded the held command (not confirmed).")
+            self._notify_cmdsafety(
+                "Discarded the held command — it was not confirmed."
+            )
+            _ = held  # kept for the log line above; deliberately never injected
+
+        risk = assess_command(text)
+        if self._cmdsafety.submit(text) is None:
+            event["cmdsafety_action"] = "held"
+            event["cmdsafety_reason"] = risk.reason
+            log.warning("Command safety: holding a dangerous command (%s).", risk.reason)
+            self._notify_cmdsafety(
+                f"Held: {risk.reason}. Say “confirm” to run it."
+            )
+            return None
+        return text
+
+    def _notify_cmdsafety(self, message: str) -> None:
+        """Say what the gate did. Best-effort; never raises into dictation."""
+        log.info("Command safety: %s", message)
+        try:
+            from yazses.system.notify import notify
+
+            notify("YazSes — command safety", message)
+        except Exception:  # pragma: no cover - notification is never load-bearing
+            log.debug("Command-safety notification failed", exc_info=True)
 
     def _stage_or_commit(self, text: str, event: dict) -> str | None:
         """Staged dictation (#294). The text to type, or None when nothing types.

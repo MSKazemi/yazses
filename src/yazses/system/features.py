@@ -680,9 +680,10 @@ def _registry() -> list[_Def]:
              "Edit the whole document by voice: 'replace every utilise with use'. Not just the "
              "last utterance. Off by default.",
              lambda c: c.findreplace.enabled, fr_on, fr_off),
-        _Def("cmdsafety", "Terminal Command Safety Gate", "[cmdsafety] — confirm dangerous commands", RECOMMENDED,
-             "In a terminal, holds a destructive command (rm -rf, curl|sh, force-push) until you "
-             "say 'confirm', so a misrecognition can't fire it. Off by default.",
+        _Def("cmdsafety", "Command Safety Gate", "[cmdsafety] — confirm dangerous commands", RECOMMENDED,
+             "Holds a destructive dictated command (rm -rf, mkfs, dd, curl|sh, force-push) until "
+             "you say 'confirm', so a misrecognition can't fire it. Judged on the command text, "
+             "not on which window is focused, so it still protects on Wayland. Off by default.",
              lambda c: c.cmdsafety.enabled, csf_on, csf_off),
         _Def("spokenregex", "Spoken Regex Builder", "[spokenregex] — dictate search patterns", OPTIONAL,
              "Build regexes by voice: 'four digits dash two digits' → \\d{4}-\\d{2}. Feeds find "
@@ -1023,7 +1024,7 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 # without wiring it fails CI.
 _UNWIRED: frozenset[str] = frozenset({
     "acoustic_profiles", "affect", "agent", "audioguard", "autostop",
-    "bookmarks", "breath", "bridge", "checkdigit", "cmdsafety", "cmdspotter",
+    "bookmarks", "breath", "bridge", "checkdigit", "cmdspotter",
     "code", "codec", "compose", "condense", "contour", "corrdict",
     "crowdproof", "diagramvox", "earcon", "echo", "fieldaware",
     "focusprofile", "gesture", "hatselect", "headpointer",
@@ -1137,7 +1138,7 @@ _EXAMPLES: dict[str, str] = {
     "rewrite": "Select a paragraph, hold the command key, say 'make this shorter'.",
     "markup": "Say 'bullet list: apples; oranges; pears' to type a Markdown list.",
     "findreplace": "Say 'replace every utilise with use' to edit the whole document.",
-    "cmdsafety": "Dictate 'rm -rf' in a terminal and it waits for you to say 'confirm'.",
+    "cmdsafety": "Dictate 'rm -rf' and it waits for you to say 'confirm' before it types.",
     "spokenregex": "Say 'four digits dash two digits' to build \\d{4}-\\d{2}.",
     "slotfill": "Say 'high priority, affects Firefox' to fill a bug-report form.",
     "cmdspotter": "Enroll 'send' once, then say it to fire the action instantly.",
@@ -1299,7 +1300,7 @@ _USE_CASES: dict[str, str] = {
     "rewrite": "When you edit prose all day and want an offline alternative to the cloud voice-editing tools.",
     "markup": "When dictating notes that need real lists or tables, not a flat paragraph.",
     "findreplace": "When you need to change a word across the whole document, not just the last utterance.",
-    "cmdsafety": "When dictating into a terminal where a misheard rm or force-push could be catastrophic.",
+    "cmdsafety": "When you dictate into a shell and a misheard rm or force-push would be unrecoverable.",
     "spokenregex": "When you need a regex for a find dialog or grep but don't want to type the syntax.",
     "slotfill": "When filing a structured ticket or form and want one utterance routed to its named fields.",
     "cmdspotter": "When a few short commands come up constantly and you want them to fire without a full decode.",

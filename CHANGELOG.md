@@ -6,6 +6,37 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the Command Safety Gate is wired: a misheard `rm -rf` now waits for "confirm"
+
+`cmdsafety` had a designed, unit-tested classifier, a config section, a registry
+entry and a feature-page description — and no caller, so `yazses features enable
+cmdsafety` refused it and the page said "not possible yet". It is the shape issue
+[#164](https://github.com/MSKazemi/yazses/issues/164) describes: the algorithm was
+never the missing part, the door was.
+
+Dictation into a shell fails differently from dictation into a document — the
+mistake *executes*. With `yazses features enable cmdsafety`, a destructive dictated
+command (`rm -rf`, `mkfs`, `dd of=`, `curl | sh`, `git push --force`, a fork bomb) is
+held and announced instead of typed, and runs only after you say **"confirm"**. Say
+anything else and the held command is discarded and your words are typed normally —
+there is no modal state to get stuck in, and the gate only ever fails in the
+direction of *not* running the command.
+
+**It judges the command text, not the focused window.** The feature was designed as a
+*terminal* gate, and the obvious implementation asks the focus detector what has
+focus. That answer is unavailable exactly where the guard matters most: focus
+detection needs AT-SPI or X11, so on Wayland without AT-SPI the window class is
+empty, and a guard that silently stops protecting on a whole display server is worse
+than none. The patterns are specific enough that prose almost never matches; a false
+positive costs one spoken word, and the reverse mistake cannot be undone.
+
+Control words must be the **whole** utterance — "cancel the meeting" is dictated
+text. Loose matching of ordinary English words is how a previous wiring attempt in
+this repo swallowed 4 of 6 test phrases, and `cmdsafety/spoken.py` anchors for the
+same reason `commands/revise.py` does. Emptying `confirm_words` falls back to the
+defaults rather than leaving a held command unreleasable. New guide:
+[Stop a misheard command from running](how-to/command-safety.md). Off by default.
+
 ### Fixed — PyPI was told YazSes supports two Python versions; CI proves four
 
 A cross-platform support audit compared every claim the project makes about

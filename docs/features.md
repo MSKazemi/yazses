@@ -779,13 +779,13 @@ YazSes ships **144 capabilities**. All but the core are **off by default** — t
 - **Example:** Say 'force push' and it waits for confirm, and tells you the undo.
 - **Activate:** `yazses features enable gitvoice` then `yazses restart`
 
-### Terminal Command Safety Gate
+### Command Safety Gate
 
-- **Toggle:** `cmdsafety`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[cmdsafety] — confirm dangerous commands`
-- **What it does:** In a terminal, holds a destructive command (rm -rf, curl|sh, force-push) until you say 'confirm', so a misrecognition can't fire it. Off by default.
-- **Use when:** When dictating into a terminal where a misheard rm or force-push could be catastrophic.
-- **Example:** Dictate 'rm -rf' in a terminal and it waits for you to say 'confirm'.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Toggle:** `cmdsafety`  ·  **Tier:** recommended  ·  **Config:** `[cmdsafety] — confirm dangerous commands`
+- **What it does:** Holds a destructive dictated command (rm -rf, mkfs, dd, curl|sh, force-push) until you say 'confirm', so a misrecognition can't fire it. Judged on the command text, not on which window is focused, so it still protects on Wayland. Off by default.
+- **Use when:** When you dictate into a shell and a misheard rm or force-push would be unrecoverable.
+- **Example:** Dictate 'rm -rf' and it waits for you to say 'confirm' before it types.
+- **Activate:** `yazses features enable cmdsafety` then `yazses restart`
 
 ### Slot-Filling Dictation
 

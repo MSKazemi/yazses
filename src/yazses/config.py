@@ -1069,8 +1069,29 @@ class CmdspotterConfig:
 
 @dataclass
 class CmdsafetyConfig:
-    """v2.5 Wave I — Terminal Command Safety Gate (ADR-v2-065). OFF by default."""
+    """Command Safety Gate — hold a dangerous dictated command pending a spoken confirm
+    (ADR-v2-065). OFF by default.
+
+    **Why this does not gate on "am I in a terminal".** The feature was designed as a
+    *terminal* gate, and the obvious implementation asks the focus detector whether a
+    terminal is focused. That answer is unavailable in exactly the sessions where the
+    guard matters most: `TargetDetector` needs AT-SPI or X11, so on Wayland without
+    AT-SPI the app class is `""`. A guard that silently stops protecting on a whole
+    display server is worse than no guard, because the user believes it is on.
+
+    So the gate reads the *command text* and nothing else. That is defensible because
+    the patterns in `cmdsafety/classify.py` are highly specific -- `rm -rf`, `mkfs`,
+    `dd of=`, a fork bomb, `curl | sh`. Prose that matches one of them is vanishingly
+    rare, and when it happens the cost is one spoken "confirm". The reverse mistake --
+    letting a mis-heard `rm -rf /` through because the display server hid the window
+    class -- is unrecoverable. Asymmetric costs, so the gate fails safe.
+    """
     enabled: bool = False
+    # Phrases that release a held command / discard it. Empty falls back to the
+    # defaults in `cmdsafety/spoken.py` rather than disabling the words, because a
+    # held command with no release phrase cannot be run at all.
+    confirm_words: list[str] = field(default_factory=list)
+    cancel_words: list[str] = field(default_factory=list)
 
 
 @dataclass
