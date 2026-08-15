@@ -280,6 +280,19 @@ dev = [
     # assets can be regenerated and unit-tested on the Linux CI leg too.
     "Pillow>=12.3.0",
 ]
+# Reproducible benchmark harness behind docs/benchmarks.md and the arXiv paper
+# (paper/benchmark/). Build-only; never shipped in the wheel. `uv sync --group
+# benchmark` then `uv run python paper/benchmark/run_all.py`. jiwer = WER scoring;
+# whisper-normalizer = Whisper's own EnglishTextNormalizer, the standard that makes
+# our WER comparable with other Whisper results; psutil = RSS; soundfile = read
+# LibriSpeech FLAC; matplotlib = the paper figures.
+benchmark = [
+    "jiwer>=4.0.0",
+    "psutil>=7.1.0",
+    "matplotlib>=3.10.0",
+    "soundfile>=0.14.0",
+    "whisper-normalizer>=0.1.15",
+]
 # Documentation site (MkDocs + Material). Build-only; never shipped in the wheel.
 # `uv sync --group docs` then `uv run mkdocs serve`. Deployed to GitHub Pages by
 # .github/workflows/docs.yml. The `[imaging]` extra enables Material social cards

@@ -898,6 +898,19 @@
     },
     {
       "type": "library",
+      "name": "indic-numtowords",
+      "version": "1.1.0",
+      "purl": "pkg:pypi/indic-numtowords@1.1.0",
+      "bom-ref": "pkg:pypi/indic-numtowords@1.1.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d1addc21444c332e05bfd8726af427960c096c2a16776d98bee4fbc36ade5d25"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "iniconfig",
       "version": "2.3.0",
       "purl": "pkg:pypi/iniconfig@2.3.0",
@@ -1381,6 +1394,19 @@
         {
           "alg": "SHA-256",
           "content": "0b9b7f14688393e5bd7d26a6dc14dfd2b228a8cdfe5b598a6677589b2159d957"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "more-itertools",
+      "version": "11.1.0",
+      "purl": "pkg:pypi/more-itertools@11.1.0",
+      "bom-ref": "pkg:pypi/more-itertools@11.1.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "48e8f4d9e7e5878571ecf6f2b4e57634f93cd474cc8cfbd2376f2d11b396e30d"
         }
       ]
     },
@@ -1974,6 +2000,19 @@
         {
           "alg": "SHA-256",
           "content": "ce115a26fe0c39a2c29973d914d327e516a6455464489fe3cd1e51a1b354f81a"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "psutil",
+      "version": "7.2.2",
+      "purl": "pkg:pypi/psutil@7.2.2",
+      "bom-ref": "pkg:pypi/psutil@7.2.2",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "0746f5f8d406af344fd547f1c8daa5f5c33dbc293bb8d6a16d80b4bb88f59372"
         }
       ]
     },
@@ -2996,6 +3035,19 @@
     },
     {
       "type": "library",
+      "name": "text2num",
+      "version": "3.0.2",
+      "purl": "pkg:pypi/text2num@3.0.2",
+      "bom-ref": "pkg:pypi/text2num@3.0.2",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "27876b7c7a6ce0fbf38567d29c8717c2ed6269e529a21c0025c4b32750cacbbb"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "threadpoolctl",
       "version": "3.6.0",
       "purl": "pkg:pypi/threadpoolctl@3.6.0",
@@ -3292,6 +3344,19 @@
         {
           "alg": "SHA-256",
           "content": "f1bed2fb25b63fb7b1a55d64090c993c9c9167b28485ae0bcdd81cf6ede96aea"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "whisper-normalizer",
+      "version": "0.1.15",
+      "purl": "pkg:pypi/whisper-normalizer@0.1.15",
+      "bom-ref": "pkg:pypi/whisper-normalizer@0.1.15",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "6afec010671cc00cb4948957b4455f5e1bd1aacc76d3edbda980a27b2415f523"
         }
       ]
     },

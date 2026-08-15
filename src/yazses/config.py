@@ -129,11 +129,24 @@ class GeneralConfig:
 
 @dataclass
 class StreamingConfig:
-    # Disabled by default: live-partial injection corrects on commit via
-    # shift+Left selection (inject/streaming.py), which deletes text in apps
-    # where shift+Left isn't "extend selection". Batch transcribe-on-release is
-    # the reliable, higher-accuracy path proven by tools like nerd-dictation and
-    # faster-whisper-dictation. Opt back in with [streaming] enabled = true.
+    # Disabled by default for two independent reasons.
+    #
+    # Correctness: live-partial injection corrects on commit via shift+Left
+    # selection (inject/streaming.py), which deletes text in apps where
+    # shift+Left isn't "extend selection". Batch transcribe-on-release is the
+    # reliable, higher-accuracy path proven by tools like nerd-dictation and
+    # faster-whisper-dictation.
+    #
+    # Latency: streaming does NOT make the final text arrive sooner — commit()
+    # re-decodes the whole utterance anyway, now competing with a decode loop
+    # running every partial_interval_ms. Measured (paper/benchmark/bench_streaming.py,
+    # n=15 real-time-fed utterances): speech-end -> final text 0.92 s -> 1.22 s on
+    # tiny.en, and 1.42 s -> 2.21 s on base.en. Worse, on base.en the rolling
+    # decode cannot keep up with the audio, so LocalAgreement confirmed no prefix
+    # at all before release in 9 of 15 utterances (0 % visible at release, vs 72 %
+    # on tiny.en). Streaming is only a win on tiny.en.
+    #
+    # Opt back in with [streaming] enabled = true.
     enabled: bool = False
     partial_interval_ms: int = 300
     partial_marker: str = ""

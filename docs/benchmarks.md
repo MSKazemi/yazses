@@ -85,6 +85,53 @@ repetitions each:
 That is roughly **0.02 %** of `base.en` decode time. All latency is the speech model;
 optimising anything else would be pointless.
 
+## Speech end → text: what you actually wait for
+
+The table above measures the model. This measures **you**: from the moment you stop
+speaking, how long until the text is there? It is the number commercial dictation
+products advertise, so it is the one worth publishing.
+
+**Method:** 15 speaker-stratified LibriSpeech utterances (median duration 10.4 s), fed
+at **real time** — a microphone delivers 100 ms of audio every 100 ms, and a benchmark
+that feeds faster than that invents a machine which hears the future. Reproduce with
+`uv run python paper/benchmark/bench_streaming.py 15`. Same machine as above.
+
+| Model | Batch (default) | Streaming | Text already visible at release |
+|---|---|---|---|
+| `tiny.en` | **0.92 s** | 1.22 s | 72 % |
+| `base.en` **(default)** | **1.42 s** | 2.21 s | **0 %** |
+
+Two results here are worth stating bluntly, because both cut against the feature.
+
+**Streaming does not make the final text arrive sooner. It makes it arrive later.**
+`StreamingEngine.commit()` re-decodes the whole utterance on release regardless, so
+streaming adds a decode loop running every 300 ms *alongside* the decode that actually
+produces your text. On a CPU they compete. That costs 32 % on `tiny.en` and 56 % on
+`base.en`.
+
+**On the default model, streaming usually shows you nothing at all.** In 9 of 15
+`base.en` utterances, **not one partial was confirmed before the key was released** —
+median visible-at-release 0 %. LocalAgreement only emits a prefix two consecutive
+decode passes agree on, and on `base.en` a rolling window over a growing 10-second
+buffer takes long enough that the audio ends first. `tiny.en` is fast enough to keep
+up (72 % visible, a partial in every single utterance).
+
+So the honest guidance is narrower than "streaming buys perceived latency":
+
+- **`[streaming] enabled = true` is only worth it on `tiny.en`.** There it does what it
+  claims — most of your sentence is on screen before you let go — at the cost of ~0.3 s
+  on the final text and considerably more CPU.
+- **On `base.en` or `small.en`, enabling streaming is a straight loss:** a slower final
+  result, usually with no live text to show for it. This is a real trap, because
+  `yazses features enable streaming` does not currently check which model you run.
+- It remains **off by default**, which these numbers support independently of the
+  injection-correctness reason it was originally defaulted off for
+  ([troubleshooting](troubleshooting.md)).
+
+Caveats, in the spirit of the rest of this page: one machine, one run, n=15, and read
+audiobook speech rather than spontaneous dictation. The direction of the result is
+large and consistent; the exact percentages are not precise to the point given.
+
 ## Memory
 
 | Model | RSS after load | Peak RSS | Model's own footprint |
@@ -183,8 +230,9 @@ git clone https://github.com/MSKazemi/yazses
 cd yazses
 uv sync --group benchmark
 
-# one-time: fetch LibriSpeech test-clean (346 MB)
-cd paper/data
+# one-time: fetch LibriSpeech test-clean (346 MB). The corpus is not redistributed
+# here, so paper/data/ does not exist until you create it.
+mkdir -p paper/data && cd paper/data
 curl -fsSL -O https://www.openslr.org/resources/12/test-clean.tar.gz
 tar -xzf test-clean.tar.gz
 cd ../..
@@ -195,6 +243,7 @@ uv run python paper/benchmark/run_all.py --wer-n 200 --lat-n 30 --vad-n 200
 # or a single experiment
 uv run python paper/benchmark/bench_wer.py 200
 uv run python paper/benchmark/bench_latency.py 30
+uv run python paper/benchmark/bench_streaming.py 15
 ```
 
 Results land in `paper/results/*.json`. If your numbers differ materially from this

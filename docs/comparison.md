@@ -26,7 +26,10 @@ wins.
 | nerd-dictation | Yes (VOSK) | Via Python config | Yes | No | Free | Yes (GPLv3) |
 | Vocalinux | Yes (whisper.cpp / Whisper / VOSK) | Yes (text manipulation) | Yes (X11 & Wayland) | No | Free | Yes (GPLv3) |
 | Wispr Flow | No (cloud) | Limited | No | Yes | Subscription | No |
+| Willow Voice | No (cloud) | Limited | No | Yes (+ iOS) | Subscription | No |
+| Voice In | No (browser engine) | No | Via browser | Via browser | Freemium | No |
 | Google Voice Typing | No (cloud) | No | Via browser | Yes | Free | No |
+| Windows Voice Typing | No (cloud) | Limited | No | Windows only | Free | No |
 | Apple Dictation | Partial | Limited | No | macOS only | Free | No |
 | Whisper + DIY scripts | Yes | No (you build it) | Yes | Yes | Free | Yes |
 
@@ -111,12 +114,15 @@ Dictation is a tool you use every working day for years, which makes a monthly f
 unusual shape of cost: you keep paying for speech recognition that already worked the
 first month. The comparison is worth making concretely.
 
-Published list prices, **checked 2026-08-11** (verify before quoting — these change):
+Published list prices, **checked 2026-08-11** (Willow and Voice In **2026-08-15**;
+verify before quoting — these change):
 
 | Tool | Cheapest paid tier | Per year | Over 5 years |
 |---|---|---|---|
 | **YazSes** | — | **$0** | **$0** |
+| Voice In Plus | $60/year | $60 | **$300** |
 | Wispr Flow Pro | $12/mo billed annually ($15 monthly) | $144 | **$720** |
+| Willow Individual | $12/mo billed annually | $144 | **$720** |
 | Otter.ai Pro | $8.33/mo billed annually ($16.99 monthly) | $100 | **$500** |
 | Otter.ai Business | $19.99/mo billed annually ($30 monthly) | $240 | **$1,200** |
 
@@ -264,6 +270,56 @@ rewriting and do not need offline operation or Linux support.
 **Choose YazSes** if the audio must not leave the machine, if you are on Linux,
 or if you do not want a subscription. This is the clearest trade-off on the page:
 cloud polish versus local privacy.
+
+### YazSes vs Willow Voice
+
+**Choose Willow** if you want a polished commercial product on Mac, Windows or
+iPhone, with cloud-grade accuracy on technical vocabulary and a support contract
+behind it. It is a genuinely fast, well-made tool and it does things a laptop CPU
+cannot.
+
+**Choose YazSes** if you are on Linux, or if the audio genuinely must not leave
+the machine.
+
+One point is worth stating precisely, because it is easy to misread from
+comparison tables (including Willow's own, which lists Willow's offline support
+as an "optional mode"). Willow's **Private Mode is a retention control, not local
+processing.** Willow's privacy policy says plainly that "Willow uses cloud
+infrastructure to provide fast and accurate voice dictation, transcription,
+note-taking, and related features", and describes Private Mode as processing
+audio "transiently to return a transcription" without retaining it or training on
+it. That is a real and meaningful privacy commitment — no retention, no training,
+plus SOC 2 and HIPAA compliance — and for most users it is enough.
+
+It is simply a different guarantee from the one this project makes. "We do not
+keep your audio" requires you to trust an operator, a policy, and a network path.
+"Your audio never left the machine" is a property of where the software runs, and
+you can verify it with `tcpdump`. Neither is automatically the right answer:
+if your threat model is a vendor mishandling data, Willow's compliance posture
+may be worth more than a self-hosted tool with no auditor. If your threat model
+includes the network itself, or you work under a rule that forbids third-party
+processing at all, no retention policy substitutes for the audio not being sent.
+
+Checked against Willow's published privacy policy on 2026-08-15; verify before
+relying on it, since vendor policies change.
+
+### YazSes vs browser-extension dictation (Voice In, Google Docs voice typing)
+
+**Use a browser extension** if everything you dictate lives in a browser tab.
+[Voice In](https://dictanote.co/voicein/) works across Chrome and Edge on
+thousands of sites in 50+ languages, installs in seconds, and has a free tier —
+for dictating into Gmail, Notion or a web CRM it is the lowest-friction option on
+this page. Google Docs' built-in voice typing is similar, and narrower still.
+
+**Choose YazSes** when the text has to go somewhere a tab cannot reach. The
+limitation is structural, not a quality gap: a browser extension can only type
+into pages the browser renders. It cannot dictate into your terminal, your
+editor, an SSH session, a native desktop app, or an IDE. YazSes injects at the
+OS level, so the target window is not special to it.
+
+Two things not to assume about browser dictation: it is usually **not offline**
+(the browser's speech engine typically streams audio to the platform vendor even
+when the extension itself stores nothing), and it does not do voice commands.
 
 ### YazSes vs Google / Apple / Windows built-in dictation
 

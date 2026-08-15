@@ -103,7 +103,7 @@ YazSes ships **144 capabilities**. All but the core are **off by default** — t
 
 - **Toggle:** `streaming`  ·  **Tier:** optional  ·  **Config:** `[streaming]`
 - **What it does:** Injects words live as you speak (overtype). Off by default because it can fight some editors; enable if you want live text.
-- **Use when:** When you want to see text land live as you talk rather than only on release.
+- **Use when:** When you want to see text land live as you talk rather than only on release — and you run tiny.en. Measured on base.en the rolling decode cannot keep up: no live text appears in most utterances, and the final text lands 56 % later than with streaming off (docs/benchmarks.md).
 - **Example:** yazses features enable streaming — text appears as you speak.
 - **Activate:** `yazses features enable streaming` then `yazses restart`
 

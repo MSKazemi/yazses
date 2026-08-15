@@ -89,7 +89,12 @@ check with `yazses features`:
 
 - **Streaming** (`[streaming] enabled`) decodes overlapping windows *during* the
   hold, so it does substantially more decoding than one pass at the end. It buys
-  perceived latency; on battery it is the first thing to turn off.
+  perceived latency **only on `tiny.en`** — on `base.en` the rolling decode cannot
+  keep up with the audio, so in most utterances no live text appears before you
+  release the key and the final text still arrives 56 % *later* than with streaming
+  off ([measured](../benchmarks.md#speech-end--text-what-you-actually-wait-for)).
+  On battery it is the first thing to turn off; on `base.en` or larger it is worth
+  turning off regardless.
 - **LLM cleanup** (`[filters.disfluency] llm_enabled`) runs a second model over
   every dictation.
 - **Gaze** (`[gaze] enabled`) runs a camera and a face-landmark model during each

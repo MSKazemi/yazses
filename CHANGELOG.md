@@ -6,6 +6,65 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the benchmarks page told readers to run a harness that was not in the repo
+
+`docs/benchmarks.md` is public and its whole claim is that "every number on this
+page … can be reproduced with the commands at the bottom". Those commands were
+`git clone`, `uv sync --group benchmark`, and `paper/benchmark/run_all.py`. All
+three failed: `.gitignore` excluded the entire `paper/` tree (confirmed — the path
+404s on GitHub), and the committed `pyproject.toml` had no `benchmark` dependency
+group, because the group only existed in a private copy of the file. A page whose
+credibility rests on reproducibility was not reproducible by anyone.
+
+`paper/benchmark/` is now published — 11 files, ~84 KB of pure Python, no data and
+no manuscript. `paper/data/` (688 MB of LibriSpeech), the manuscript sources, and
+the third-party PDFs used for reference checking stay private and are still
+ignored. The `benchmark` dependency group is in `pyproject.toml`, `uv.lock` and
+`sbom.cdx.json` are regenerated to match, and the LibriSpeech download snippet now
+creates `paper/data/` instead of `cd`-ing into a directory a fresh clone does not
+have.
+
+### Measured — streaming transcription is a loss on every model but `tiny.en`
+
+The benchmarks page reported *decode* time. It never reported the number a user
+actually experiences, and the one every commercial dictation product advertises:
+**after you stop speaking, how long until the text is there?** The streaming path
+had no published latency at all. Measuring it (`paper/benchmark/bench_streaming.py`,
+15 speaker-stratified LibriSpeech utterances fed at real time) contradicted the
+docs:
+
+- **Streaming makes the final text arrive later, not sooner.** `commit()` re-decodes
+  the whole utterance on release regardless, so the 300 ms rolling loop is competing
+  with the decode that actually produces your text. Speech-end → text goes 0.92 s →
+  1.22 s on `tiny.en`, and **1.42 s → 2.21 s on `base.en`**.
+- **On the default model it usually shows nothing at all.** In **9 of 15** `base.en`
+  utterances LocalAgreement confirmed no prefix before the key was released — median
+  visible-at-release **0 %**. A rolling window over a growing 10-second buffer takes
+  longer than the speech that fills it. `tiny.en` keeps up: a partial in 15/15
+  utterances, 72 % of the text on screen at release.
+
+So `yazses features enable streaming` on default settings was a straight downgrade,
+and nothing said so. `features enable` now prints the measured caveat when
+`[stt] model` is not `tiny.en` (`system/features.py::enable_caveat` — advice, not a
+refusal; the user may have a reason). `docs/benchmarks.md` gains a *speech end →
+text* section, and the claims in `docs/features.md` and
+`docs/how-to/cpu-and-battery.md` that streaming "buys perceived latency" are now
+qualified with the model it is true for. The `StreamingConfig` default-off comment
+previously justified itself only on injection-correctness grounds; it now carries
+the latency evidence too.
+
+### Added — the commercial dictation cluster in the comparison
+
+`docs/comparison.md` covered the open-source and offline tools but none of the
+products that rank for "best voice dictation software": Willow Voice, Voice In,
+Windows Voice Typing. Added, with a distinction worth stating precisely — Willow's
+**Private Mode is a retention control, not local processing**. Their privacy policy
+says Willow "uses cloud infrastructure to provide fast and accurate voice
+dictation", and describes Private Mode as processing audio "transiently to return a
+transcription" without retaining it or training on it. That is a real commitment,
+and it is a different guarantee from audio that never leaves the machine. Checked
+2026-08-15.
+
 ### Added — the settings window explains every option, and can undo itself
 
 The switchboard listed ~200 capabilities as a checkbox, a name and a tier. That

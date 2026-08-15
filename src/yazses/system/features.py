@@ -1223,7 +1223,12 @@ _USE_CASES: dict[str, str] = {
     "read-back": "When you can't or won't look at the screen and need to hear what was transcribed.",
     "personalize": "When your jargon or names get mis-heard and you want STT biased to your own frequent terms.",
     "polyglot": "When you naturally mix two languages in one sentence and need both transcribed correctly.",
-    "streaming": "When you want to see text land live as you talk rather than only on release.",
+    "streaming": (
+        "When you want to see text land live as you talk rather than only on "
+        "release \u2014 and you run tiny.en. Measured on base.en the rolling decode "
+        "cannot keep up: no live text appears in most utterances, and the final "
+        "text lands 56 % later than with streaming off (docs/benchmarks.md)."
+    ),
     "stt-parakeet": "When you want noticeably fewer English word errors without a bigger, slower Whisper model.",
     "stt-moonshine": "When you dictate in short bursts and want the smallest, quickest engine that still reads well.",
     "learning": "When you want dictation accuracy to improve over time from your own corrected usage.",
@@ -1470,6 +1475,39 @@ def find_feature(cfg, slug: str) -> Feature | None:
 
 def toggleable_slugs() -> list[str]:
     return [d.slug for d in _registry() if d.on_writes]
+
+
+def enable_caveat(slug: str, cfg) -> str | None:
+    """A measured reason this capability may not do what the user expects *here*.
+
+    Distinct from the three refusals `features enable` already makes (unknown,
+    unwired, deps-can-never-arrive): the config is valid and the feature does
+    work. What it cannot express in the static registry is that some capabilities
+    only pay off in combination with the *rest* of the config — so enabling one
+    on the wrong settings is a silent loss rather than an error.
+
+    Returns advice to print, or ``None``. Never refuses; the user may have a
+    reason, and the honest move is to hand them the number, not the veto.
+    """
+    slug = (slug or "").strip().lower()
+    if slug == "streaming":
+        model = (getattr(getattr(cfg, "stt", None), "model", "") or "").strip().lower()
+        # Streaming only wins where a rolling decode keeps up with the speech.
+        # Measured (paper/benchmark/bench_streaming.py, n=15, real-time-fed):
+        # tiny.en confirmed a live prefix in 15/15 utterances (72 % of the text
+        # on screen at release); base.en managed it in 6/15 (0 % median), while
+        # still making the final text 56 % slower than with streaming off.
+        if model and not model.startswith("tiny"):
+            return (
+                f"Heads up: streaming is measured to pay off only on tiny.en, and "
+                f"[stt] model is {model}. On {model} the rolling decode cannot keep "
+                "up with the speech — in 9 of 15 benchmark utterances no live text "
+                "appeared before the key was released, and the final text still "
+                "arrived 56 % later than with streaming off. Either set "
+                "[stt] model = tiny.en, or leave streaming off. "
+                "Numbers: docs/benchmarks.md"
+            )
+    return None
 
 
 # Tiers we turn on for a fresh install. DEFAULT_ON are already on by dataclass

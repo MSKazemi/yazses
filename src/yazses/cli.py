@@ -1147,7 +1147,12 @@ def features_enable(
     --no-install).
     """
     from yazses.config import load_config
-    from yazses.system.features import EXPERIMENTAL, find_feature, toggleable_slugs
+    from yazses.system.features import (
+        EXPERIMENTAL,
+        enable_caveat,
+        find_feature,
+        toggleable_slugs,
+    )
 
     platform = get_platform()
     cfg = load_config(platform.paths.config_file)
@@ -1185,6 +1190,9 @@ def features_enable(
         raise typer.Exit(1)
     _apply_feature_writes(platform.paths.config_file, feat.on_writes)
     typer.echo(f"Enabled {feat.name}.  {feat.why}")
+    caveat = enable_caveat(feat.slug, cfg)
+    if caveat:
+        typer.echo(f"\n{caveat}\n")
     _install_feature_deps(feat, skip=no_install)
     typer.echo("Apply it:  yazses restart")
 
