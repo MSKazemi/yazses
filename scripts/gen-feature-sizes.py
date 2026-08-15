@@ -32,6 +32,7 @@ import sys
 import tempfile
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -67,19 +68,53 @@ def _strip_ansi(s: str) -> str:
     return re.sub(r"\x1b\[[0-9;]*m", "", s)
 
 
-_size_cache: dict[tuple[str, str], float] = {}
+_size_cache: dict[tuple[str, str], float | None] = {}
+
+
+def price_all(distributions: set[tuple[str, str]]) -> None:
+    """Fetch every distribution's size concurrently, into `_size_cache`.
+
+    The first version of this queried PyPI serially inside the per-feature loop. The
+    18 features resolve to a few hundred distinct distributions, each a separate HTTPS
+    round trip, and the run was still going after 30 minutes with nothing to show. A
+    thread pool turns that into seconds: the work is entirely network-bound, so the
+    GIL is irrelevant and the only real limit is politeness to PyPI.
+
+    Capped at 16 because this is someone else's free service and the whole job is a
+    few hundred requests -- there is nothing to gain from being greedier.
+    """
+    todo = [d for d in sorted(distributions) if d not in _size_cache]
+    if not todo:
+        return
+    print(f"Pricing {len(todo)} distributions ...", flush=True)
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        futures = {pool.submit(_fetch_wheel_mb, n, v): (n, v) for n, v in todo}
+        for done, future in enumerate(as_completed(futures), 1):
+            name, version = futures[future]
+            try:
+                _size_cache[(name, version)] = future.result()
+            except Exception:
+                _size_cache[(name, version)] = None
+            if done % 25 == 0 or done == len(todo):
+                print(f"  {done}/{len(todo)}", flush=True)
 
 
 def _wheel_mb(name: str, version: str) -> float | None:
-    """Largest linux/any wheel for this exact version, in MB."""
+    """The cached size for this exact version, fetching it if `price_all` missed it."""
     key = (name, version)
     if key in _size_cache:
         return _size_cache[key]
+    _size_cache[key] = _fetch_wheel_mb(name, version)
+    return _size_cache[key]
+
+
+def _fetch_wheel_mb(name: str, version: str) -> float | None:
+    """Largest linux/any wheel for this exact version, in MB. One HTTPS request."""
     url = f"https://pypi.org/pypi/{name}/{version}/json"
     try:
         with urllib.request.urlopen(url, timeout=30) as fh:
             data = json.load(fh)
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError):
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError):
         return None
     sizes = [
         u["size"] for u in data.get("urls", [])
@@ -88,17 +123,23 @@ def _wheel_mb(name: str, version: str) -> float | None:
     ]
     if not sizes:
         sizes = [u["size"] for u in data.get("urls", [])]
-    mb = round(max(sizes) / 1e6, 1) if sizes else None
-    _size_cache[key] = mb
-    return mb
+    return round(max(sizes) / 1e6, 1) if sizes else None
 
 
 def build(base_venv: Path) -> dict:
     from yazses.system.features import _FEATURE_DEPS
 
-    table: dict[str, dict] = {}
+    # Resolve every feature first, then price the union in one concurrent pass.
+    # Doing it per feature re-paid the network cost for every shared distribution --
+    # and torch appears in several closures.
+    closures: dict[str, list[tuple[str, str]]] = {}
     for slug, (_modules, packages) in sorted(_FEATURE_DEPS.items()):
-        closure = _resolve(list(packages), base_venv)
+        closures[slug] = _resolve(list(packages), base_venv)
+        print(f"  resolved {slug:22s} {len(closures[slug])} distributions", flush=True)
+    price_all({d for c in closures.values() for d in c})
+
+    table: dict[str, dict] = {}
+    for slug, closure in closures.items():
         total = 0.0
         unpriced = []
         for name, version in closure:
