@@ -32,6 +32,9 @@ exclude_docs: |
 # (46 files would swamp it); the Releases index links the notable ones.
 not_in_nav: |
   /releases/v*.md
+  /design/adr/*.md
+  /design/specs/*.md
+  /design/research/**/*.md
   /mobile/adr/adr-mob-*.md
 
 # A link to a heading that does not exist was only `info` by default, so it never
@@ -130,6 +133,10 @@ hooks:
   # "## References" section, so the structured data and the visible bibliography
   # cannot disagree.
   - hooks/research_schema.py
+  # Publishes the  tier (decision records, specifications, research notes)
+  # into the built site without copying it into . See the hook for why it is
+  # not in the nav: 155 ADRs would bury the user documentation.
+  - hooks/design_tier.py
   # Emits a `.md` twin of every page plus a <link rel="alternate"> pointing at
   # it. AI crawlers and coding agents ingest dedicated Markdown URLs (and prefer
   # them — ~80% fewer tokens, no chrome) while largely ignoring llms.txt, so
@@ -356,6 +363,14 @@ nav:
       - Ten gaps for researchers: research/framework-gaps.md
       - Accessibility beyond the checkbox: research/accessibility-beyond-the-checkbox.md
       - Ten open questions: research/agenda.md
+  - Engineering (design):
+      - What is published, and why: design/README.md
+      - Decision records: design/adr/index.md
+      - Specifications: design/specs/index.md
+      - Research notes: design/research/index.md
+      - Architecture (internal): design/architecture.md
+      - Threat model: design/threat-model.md
+      - EMG protocol: design/emg-protocol.md
   - Reference:
       - Features: features.md
       - Comparison & alternatives: comparison.md
