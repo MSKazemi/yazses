@@ -123,3 +123,80 @@ def test_the_model_carries_the_current_key_for_the_picker() -> None:
 def test_every_offered_key_is_accepted_by_the_controller(key: str) -> None:
     """The picker's list and the controller's validation must not disagree."""
     assert _controller().set_hotkey(key).ok
+
+
+# --- microphone and silence threshold ---------------------------------------
+#
+# The other two thirds of `settingsui/controls.py`, which had no callers either.
+# Both are values rather than switches, and both have a way of being wrong that a
+# checkbox cannot be: a pinned mic that no longer exists, and a gate set above
+# your own voice.
+
+
+class _AudioCfg(_Cfg):
+    class _Audio:
+        device = ""
+
+    class _Accessibility:
+        vad_threshold = 0.01
+
+    audio = _Audio()
+    accessibility = _Accessibility()
+
+
+def _audio_controller(writes: list) -> SettingsController:
+    def _write(section: str, key: str, value: object, quote: bool | None) -> None:
+        writes.append((section, key, value))
+
+    return SettingsController(lambda: _AudioCfg(), _write)
+
+
+def test_pinning_a_microphone_writes_the_name() -> None:
+    writes: list = []
+    assert _audio_controller(writes).set_microphone("Yeti Stereo Microphone").ok
+    assert writes == [("audio", "device", "Yeti Stereo Microphone")]
+
+
+def test_choosing_follow_the_system_default_clears_the_pin() -> None:
+    """An empty `[audio] device` is what "follow the OS default" means — it is a
+    real choice, not an unset field, so it has to be writable."""
+    writes: list = []
+    assert _audio_controller(writes).set_microphone("").ok
+    assert writes == [("audio", "device", "")]
+
+
+def test_a_threshold_inside_the_useful_range_is_written() -> None:
+    writes: list = []
+    assert _audio_controller(writes).set_vad_threshold(0.004).ok
+    assert writes == [("accessibility", "vad_threshold", 0.004)]
+
+
+def test_a_threshold_outside_the_range_is_clamped_not_refused() -> None:
+    """0 accepts silence as speech and anything past ~0.2 rejects a shout.
+
+    Clamped rather than rejected: a slider cannot produce a nonsense value, so a
+    refusal here would only ever be an API misuse, and silently discarding the
+    user's drag would be worse than pinning it to the edge.
+    """
+    writes: list = []
+    ctrl = _audio_controller(writes)
+    assert ctrl.set_vad_threshold(0.0).ok
+    assert ctrl.set_vad_threshold(99.0).ok
+    assert writes[0][2] > 0, "a threshold of 0 would treat silence as speech"
+    assert writes[1][2] <= 0.2
+
+
+def test_a_non_numeric_threshold_is_refused() -> None:
+    result = _audio_controller([]).set_vad_threshold("loud")  # type: ignore[arg-type]
+    assert not result.ok
+    assert result.error
+
+
+def test_the_model_carries_the_mic_and_threshold() -> None:
+    from yazses.config import Config
+    from yazses.settingsui.model import build_settings_model
+
+    cfg = Config()
+    model = build_settings_model(cfg)
+    assert model.microphone == cfg.audio.device
+    assert model.vad_threshold == cfg.accessibility.vad_threshold

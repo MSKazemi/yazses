@@ -169,6 +169,7 @@ class SettingsWindow:
         outer.addWidget(intro)
 
         outer.addLayout(self._build_hotkey_row(model.hotkey))
+        outer.addWidget(self._build_audio_rows(model))
         outer.addLayout(self._build_filter_box())
 
         scroll = QScrollArea()
@@ -280,6 +281,98 @@ class SettingsWindow:
         self._hotkey_baseline = current
         line.addWidget(box, 1)
         return line
+
+    def _build_audio_rows(self, model: SettingsModel):
+        """Microphone and silence threshold — the other two value settings.
+
+        Device enumeration is injected and wrapped: it opens PortAudio, which on a
+        machine with no sound card, a busy ALSA device or a container raises. The
+        settings window must still open there — every *other* setting is still
+        editable, and a window that refuses to appear because a microphone is
+        missing is a worse failure than a dropdown with one entry in it.
+        """
+        from PySide6.QtWidgets import (
+            QComboBox,
+            QFormLayout,
+            QGroupBox,
+            QLabel,
+            QSlider,
+            QVBoxLayout,
+        )
+        from PySide6.QtCore import Qt
+
+        from yazses.settingsui.controls import (
+            VAD_SLIDER_STEPS,
+            mic_choices,
+            slider_to_threshold,
+            threshold_to_slider,
+        )
+
+        box = QGroupBox("Audio")
+        form = QFormLayout(box)
+
+        devices, default_name = self._probe_devices()
+        choices = mic_choices(devices, default_name=default_name, pinned=model.microphone)
+        mic = QComboBox()
+        for choice in choices:
+            mic.addItem(choice.label, choice.value)
+        # Select by *value*, not by label: the label carries ● and ★ markers that
+        # change with the machine, and matching on it would silently reset the pin.
+        for index, choice in enumerate(choices):
+            if choice.value == model.microphone:
+                mic.setCurrentIndex(index)
+                break
+        mic.setAccessibleName("Microphone")
+        mic.setToolTip(
+            "Which microphone to record from. ● is the current system default, "
+            "★ is the one pinned here.\n"
+            "Pin one only if a device keeps stealing capture — following the "
+            "system default is the right state for most people.\n"
+            "Same list as `yazses audio devices`."
+        )
+        self._mic_box = mic
+        self._mic_baseline = model.microphone
+        form.addRow(QLabel("Microphone:"), mic)
+
+        slider = QSlider(Qt.Orientation.Horizontal)
+        slider.setRange(0, VAD_SLIDER_STEPS)
+        slider.setValue(threshold_to_slider(model.vad_threshold))
+        slider.setAccessibleName("Silence threshold")
+        slider.setToolTip(
+            "Audio quieter than this is discarded as silence — the number behind "
+            "'Silent audio -- discarding'.\n"
+            "Move it left if your speech is being dropped, right if a noisy room "
+            "triggers stray transcripts.\n"
+            "`yazses mic-level --set` measures a value for you instead of guessing."
+        )
+        self._vad_slider = slider
+        # The *position*, not the float. threshold_to_slider quantises to 1000
+        # integer steps, so round-tripping 0.01 yields 0.01001 — comparing floats
+        # made an untouched slider look moved and rewrote the key on every Apply.
+        self._vad_baseline_pos = threshold_to_slider(model.vad_threshold)
+
+        readout = QLabel(f"{model.vad_threshold:.4g}")
+        readout.setStyleSheet(muted_style_for(readout))
+        self._vad_readout = readout
+        slider.valueChanged.connect(
+            lambda pos: readout.setText(f"{slider_to_threshold(pos):.4g}")
+        )
+
+        wrap = QVBoxLayout()
+        wrap.addWidget(slider)
+        wrap.addWidget(readout)
+        form.addRow(QLabel("Silence threshold:"), wrap)
+        return box
+
+    def _probe_devices(self):
+        """(devices, default_name), or ([], None) when audio cannot be opened."""
+        try:
+            from yazses.audio.devices import current_default_input_name, list_input_devices
+
+            return list_input_devices(), current_default_input_name()
+        except Exception:  # noqa: BLE001 - a missing sound card must not block the window
+            log.debug("could not enumerate input devices for the settings window", exc_info=True)
+            return [], None
 
     def _build_filter_box(self):
         """The filter box. Mirrors `yazses features --on/--tier/--category`.
@@ -475,6 +568,7 @@ class SettingsWindow:
     def _on_apply(self) -> None:
         report = self._controller.apply(self._pending)
         hotkey_changed, hotkey_error = self._apply_hotkey()
+        audio_changed, audio_errors = self._apply_audio()
 
         # Re-sync every checkbox with what actually landed: a row that failed
         # keeps its staged position (so Apply can be retried) but must not be
@@ -489,7 +583,7 @@ class SettingsWindow:
             summary = f"Hold-to-talk key set to {self._hotkey_baseline}. {summary}".strip()
         self._hint.setText(summary)
 
-        errors = [*report.errors, *([hotkey_error] if hotkey_error else [])]
+        errors = [*report.errors, *([hotkey_error] if hotkey_error else []), *audio_errors]
         if errors:
             self._warn("Some settings were not saved", "\n".join(errors))
 
@@ -503,8 +597,43 @@ class SettingsWindow:
         # The hotkey counts: a changed key that has not been rebound is the most
         # confusing of all — the old key stops being advertised and the new one
         # does nothing yet.
-        if report.applied or hotkey_changed:
+        if report.applied or hotkey_changed or audio_changed:
             self._offer_restart(summary)
+
+    def _apply_audio(self) -> tuple[bool, list[str]]:
+        """Save the microphone and threshold if they moved. Returns (changed, errors).
+
+        Each is written independently: a failing microphone write must not discard
+        a threshold the user also just set.
+        """
+        changed = False
+        errors: list[str] = []
+
+        mic = getattr(self, "_mic_box", None)
+        if mic is not None:
+            chosen = mic.currentData()
+            if chosen is not None and chosen != self._mic_baseline:
+                result = self._controller.set_microphone(chosen)
+                if result.ok:
+                    self._mic_baseline = chosen
+                    changed = True
+                else:
+                    errors.append(result.error or "Could not save the microphone.")
+
+        slider = getattr(self, "_vad_slider", None)
+        if slider is not None:
+            from yazses.settingsui.controls import slider_to_threshold
+
+            position = slider.value()
+            if position != self._vad_baseline_pos:
+                result = self._controller.set_vad_threshold(slider_to_threshold(position))
+                if result.ok:
+                    self._vad_baseline_pos = position
+                    changed = True
+                else:
+                    errors.append(result.error or "Could not save the threshold.")
+
+        return changed, errors
 
     def _apply_hotkey(self) -> tuple[bool, str | None]:
         """Save the picked hotkey if it moved. Returns (changed, error).

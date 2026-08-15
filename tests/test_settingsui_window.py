@@ -415,3 +415,67 @@ def test_a_hand_edited_key_outside_the_list_is_still_shown(qapp):
     controller = SettingsController(_Recorder().load, _Recorder().write)
     win = SettingsWindow(build_settings_model(cfg), controller)
     assert win._hotkey_box.currentText() == "f13"
+
+
+# --- microphone + silence threshold ------------------------------------------
+
+
+def test_the_window_offers_a_microphone_dropdown(qapp):
+    """First row is always "follow the system default" — the state most people
+    should be in, and what an empty `[audio] device` means."""
+    win = _window(qapp, _Recorder())
+    assert win._mic_box.count() >= 1
+    assert win._mic_box.itemData(0) == ""
+
+
+def test_picking_a_microphone_writes_it_on_apply(qapp, monkeypatch):
+    rec = _Recorder()
+    win = _window(qapp, rec)
+    win._mic_box.addItem("Yeti Stereo Microphone ●", "Yeti Stereo Microphone")
+    win._mic_box.setCurrentIndex(win._mic_box.count() - 1)
+    win._on_apply()
+    assert ("audio", "device", "Yeti Stereo Microphone", True) in rec.writes
+
+
+def test_moving_the_threshold_writes_a_number_not_a_string(qapp):
+    """`quote=False` matters: a quoted threshold becomes the string "0.004" and
+    the config loader has to repair it."""
+    rec = _Recorder()
+    win = _window(qapp, rec)
+    win._vad_slider.setValue(win._vad_slider.value() + 100)
+    win._on_apply()
+    written = [w for w in rec.writes if w[1] == "vad_threshold"]
+    assert written, rec.writes
+    assert isinstance(written[0][2], float)
+    assert written[0][3] is False
+
+
+def test_untouched_audio_controls_write_nothing(qapp):
+    rec = _Recorder()
+    win = _window(qapp, rec)
+    win._on_apply()
+    assert not [w for w in rec.writes if w[0] in ("audio", "accessibility")]
+
+
+def test_the_readout_follows_the_slider(qapp):
+    """A bare slider is a user guessing at a float; the number makes it a choice."""
+    win = _window(qapp, _Recorder())
+    win._vad_slider.setValue(0)
+    low = win._vad_readout.text()
+    win._vad_slider.setValue(win._vad_slider.maximum())
+    assert win._vad_readout.text() != low
+
+
+def test_the_window_still_opens_when_audio_cannot_be_enumerated(qapp, monkeypatch):
+    """No sound card, a busy ALSA device, a container. Every other setting is
+    still editable, so refusing to open would be the worse failure."""
+    from yazses.settingsui import app as app_mod
+
+    monkeypatch.setattr(
+        app_mod.SettingsWindow,
+        "_probe_devices",
+        lambda self: (_ for _ in ()).throw(OSError("no sound card")),
+        raising=True,
+    )
+    with pytest.raises(OSError):
+        _window(qapp, _Recorder())

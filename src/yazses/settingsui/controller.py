@@ -207,6 +207,50 @@ class SettingsController:
             return ToggleResult(ok=False, error=f"Could not save the hotkey: {exc}")
         return ToggleResult(ok=True)
 
+    def set_microphone(self, name: str) -> ToggleResult:
+        """Pin capture to *name*, or follow the OS default when it is empty.
+
+        The empty string is a real choice, not an unset field: it is what
+        ``[audio] device`` holds when YazSes should follow whatever the system
+        picks, and it is the state most people should be in. Pinning is for when a
+        device *steals* capture — a USB-C monitor arriving mid-session — not the
+        normal case.
+
+        The name is matched as a *substring* by the recorder, so it is stored
+        exactly as the user chose it rather than normalised.
+        """
+        try:
+            self._writer("audio", "device", name.strip(), True)
+        except Exception as exc:  # noqa: BLE001 - surfaced, never raised at Qt
+            return ToggleResult(ok=False, error=f"Could not save the microphone: {exc}")
+        return ToggleResult(ok=True)
+
+    def set_vad_threshold(self, value: float) -> ToggleResult:
+        """Set the silence gate, clamped to the range where it means anything.
+
+        Clamped rather than refused. Below the floor the gate treats silence as
+        speech; above the ceiling it rejects a shout. A slider cannot produce a
+        value outside that range, so a refusal here would only ever be API misuse
+        — and silently dropping a drag would be worse than pinning it to the edge.
+
+        A non-numeric value *is* refused, because that is a caller bug and writing
+        the string "loud" into a float key would break config loading.
+        """
+        from yazses.settingsui.controls import clamp_threshold
+
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return ToggleResult(
+                ok=False, error=f"{value!r} is not a number — the threshold is a level, e.g. 0.004."
+            )
+
+        try:
+            self._writer("accessibility", "vad_threshold", clamp_threshold(number), False)
+        except Exception as exc:  # noqa: BLE001 - surfaced, never raised at Qt
+            return ToggleResult(ok=False, error=f"Could not save the threshold: {exc}")
+        return ToggleResult(ok=True)
+
     def set_enabled(self, slug: str, desired: bool, *, confirmed: bool = False) -> ToggleResult:
         """Put one feature into the *desired* state, mirroring `yazses features`.
 

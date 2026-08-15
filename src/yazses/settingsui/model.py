@@ -71,6 +71,12 @@ class SettingsModel:
     # the picker needs to open on what is actually set, or it shows a default the
     # user never chose and writes it the moment they touch anything else.
     hotkey: str = ""
+    # `[audio] device` — empty means "follow the OS default", which is a choice
+    # rather than an absence, so the dropdown needs to show it as one.
+    microphone: str = ""
+    # `[accessibility] vad_threshold` — the level below which audio is discarded
+    # as silence. The number behind every "Silent audio -- discarding" report.
+    vad_threshold: float = 0.01
 
     def rows(self) -> tuple[SettingRow, ...]:
         return tuple(row for group in self.groups for row in group.rows)
@@ -92,7 +98,13 @@ def build_settings_model(cfg: Config) -> SettingsModel:
         )
         for category, blurb, feats in grouped_features(cfg)
     )
-    return SettingsModel(groups=groups, defaults=defaults, hotkey=cfg.hotkey.key)
+    return SettingsModel(
+        groups=groups,
+        defaults=defaults,
+        hotkey=cfg.hotkey.key,
+        microphone=cfg.audio.device,
+        vad_threshold=cfg.accessibility.vad_threshold,
+    )
 
 
 def _row(f: Feature, defaults: dict[str, bool]) -> SettingRow:

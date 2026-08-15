@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the microphone and the silence threshold are in the settings window too
+
+The remaining two settings that are values rather than switches. `settingsui/controls.py`
+was written for exactly these three, tested, and called from nowhere; all of it is
+now wired.
+
+**Microphone** mirrors `yazses audio devices`, marks and all — ● the system default,
+★ the pinned one — with *Follow the system default* first, because that is the state
+most people should be in. If audio cannot be enumerated at all (no sound card, a busy
+device, a container) the dropdown is empty and the window still opens: refusing to
+show every other setting because a microphone is missing would be the worse failure.
+
+**Silence threshold** is a logarithmic slider with the exact value beside it. The
+range spans three orders of magnitude — ≈0.0005 for a quiet voice, ≈0.05 for a noisy
+room — so a linear slider would put every usable value in the leftmost few pixels,
+and a slider without a readout is a user guessing at a float.
+
+It writes an unquoted number, so the value stays a float rather than becoming the
+string `"0.004"` for the config loader to repair. And the untouched slider writes
+nothing: comparing the resulting floats made an idle Apply rewrite the key every
+time, because quantising 0.01 through 1000 integer steps returns 0.01001.
+
 ### Added — the hold-to-talk key can be changed from the settings window
 
 The key you hold to dictate is the most personal setting YazSes has, and it could

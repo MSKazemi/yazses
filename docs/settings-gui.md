@@ -174,14 +174,16 @@ flow must never do.
 
 ## What it does not cover
 
-The window is the feature switchboard, plus the **Hold-to-talk key** picker at the
-top (see below). Two other value settings — the **microphone** and the **silence
-threshold** — do not have controls yet; use
-[`yazses audio use`](cli-reference.md#yazses-audio) and
-[`yazses mic-level --set`](cli-reference.md#yazses-mic-level) for those.
+The window is the feature switchboard, plus the three settings that are **values
+rather than switches** — the hold-to-talk key, the microphone and the silence
+threshold (all below).
 
 Everything else lives in [`config.toml`](configuration.md), which the window never
 reformats or reorders, because it writes through a comment-preserving TOML editor.
+
+Not yet here: a **live level meter** beside the threshold slider. Until then,
+[`yazses mic-level`](cli-reference.md#yazses-mic-level) measures your voice and
+recommends a number, which beats guessing at a float.
 
 ## Changing the hold-to-talk key
 
@@ -202,6 +204,26 @@ Two keys it will refuse, before writing anything:
 
 The change lands on **Apply** and takes effect after the restart the window then
 offers, because the key is bound when the daemon starts.
+
+## Microphone and silence threshold
+
+**Microphone** lists the same devices as `yazses audio devices`, with the same
+marks: ● is the current system default, ★ is the one pinned here. The first entry,
+*Follow the system default*, is what most people should be on — pinning is for when
+a device *steals* capture, such as a USB-C monitor arriving mid-session.
+
+If the machine has no sound card, or the audio device is busy, the dropdown is
+empty rather than the window refusing to open. Every other setting still works.
+
+**Silence threshold** is the level below which audio is discarded as silence — the
+number behind every *"Silent audio -- discarding"* line in the log. Move it left if
+your speech is being dropped, right if a noisy room triggers stray transcripts. The
+slider is logarithmic, because the useful range spans three orders of magnitude
+(≈0.0005 for a quiet voice, ≈0.05 for a noisy room) and a linear one would put
+every usable value in the leftmost few pixels.
+
+The number beside it is the exact value that will be written, so the slider is a
+choice rather than a guess.
 
 Related: [`yazses features`](cli-reference.md#yazses-features) for the same
 switchboard in a terminal, and the [feature reference](features.md) for what each
