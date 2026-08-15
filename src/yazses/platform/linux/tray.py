@@ -118,6 +118,17 @@ class LinuxTray:
         if self._bridge is not None:
             self._bridge.changed.emit(snap)
 
+    def notify(self, title: str, body: str) -> None:
+        """Deliberately a no-op — on Linux the daemon already toasted directly.
+
+        `system/notify.py` uses `notify-send`, which exists here, so the relay
+        that feeds the Windows and macOS trays never fires on Linux. Showing
+        anything would be a duplicate of a toast the user has already seen.
+        Present rather than absent because `TrayBackend` is `runtime_checkable`,
+        so a missing method makes `isinstance(tray, TrayBackend)` fail.
+        """
+        log.debug("Ignoring relayed notification on Linux (notify-send handled it).")
+
     def stop(self) -> None:
         if self._app is not None:
             try:

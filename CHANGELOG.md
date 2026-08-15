@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a crashed daemon stayed dead on Windows and macOS, watched by a tray that did nothing
+
+Linux gets this for free: the systemd user unit carries `Restart=on-failure`, so a
+daemon that dies comes back. launchd's `KeepAlive` does the same on macOS *when the
+daemon is run as an agent*. The Windows autostart is an `HKCU\Run` value, which
+fires exactly once at login and never again — so a daemon that crashed at 10am
+stayed dead until the user logged out and back in.
+
+The tray was already watching. It polls `status`, it had already gone red, and it
+holds the lifecycle handle — it simply had no instruction to act. It now relaunches
+a daemon it sees has died, bounded by `MAX_DAEMON_RELAUNCHES` with a
+`RELAUNCH_COOLDOWN_S` gap, so a daemon that cannot start is not restarted forever in
+a loop. The bound matters more than the relaunch: a crash-loop that reads as
+"working" is worse than one that visibly stops.
+
+Also relays what the daemon could not show. `system/notify.py` shells out to
+`notify-send`, which exists only on Linux, so every self-healing event — the
+microphone auto-heal, a VAD retune, a silent-streak warning — was **log-only** on
+Windows and macOS. Those are precisely the events a user needs to see, because each
+one means YazSes quietly changed its own behaviour. The daemon now queues them onto
+its `status` reply and the tray shows them natively on whichever platform it is.
+
 ### Added — an Intel macOS build, and `.dmg` filenames that name their architecture
 
 Implements [ADR-017](design/adr/adr-017-intel-mac-support-has-a-deadline.md). CI now

@@ -208,15 +208,32 @@ def _autostart_check(platform) -> _Check | None:
     program you must remember to launch. It is reported as a FAIL rather than a warning
     because "I have to run `yazses start` every morning" is the symptom people live with
     for months without realising it is fixable.
+
+    It also has to be honest about the *other* half of "does it come back": what
+    happens when the daemon crashes mid-session. systemd (``Restart=on-failure``)
+    and launchd (``KeepAlive``) supervise it themselves; the Windows autostart is
+    an ``HKCU\\Run`` value that fires once at login and never again, so there
+    recovery comes from the tray poller instead — which means it is only covered
+    while the tray is running. Reporting a bare "yes" on Windows implied a
+    supervision that does not exist.
     """
-    if sys.platform != "linux":
-        return None
     lifecycle = getattr(platform, "lifecycle", None)
     if lifecycle is None or not hasattr(lifecycle, "is_autostart_installed"):
         return None
+    mechanism = {
+        "linux": "systemd user service is enabled; it also restarts a crashed daemon",
+        "darwin": "launchd agent is loaded; it also restarts a crashed daemon",
+        "win32": (
+            "HKCU\\Run entry — that covers login only. Windows has no service "
+            "supervising the daemon, so a crash is recovered by the tray; keep the "
+            "tray running (`yazses tray`) for that safety net"
+        ),
+    }.get(sys.platform)
+    if mechanism is None:  # a platform with autostart we have nothing accurate to say about
+        return None
     try:
         if lifecycle.is_autostart_installed():
-            return ("Starts at login", "OK", "yes — systemd user service is enabled")
+            return ("Starts at login", "OK", f"yes — {mechanism}")
     except Exception as exc:  # noqa: BLE001 — never let a probe break doctor
         return ("Starts at login", "WARN", f"could not be determined ({exc})")
     return (

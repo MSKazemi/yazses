@@ -149,6 +149,24 @@ class WindowsTray:
             except Exception:
                 log.exception("Tray icon update failed")
 
+    def notify(self, title: str, body: str) -> None:
+        """Show a balloon toast from the tray icon.
+
+        Windows has no libnotify, so the daemon cannot toast at all — every
+        self-healing event (the mic auto-heal, a VAD retune, a silent streak) was
+        written only to a log file. The daemon now relays them here through the
+        `status` reply the tray is already polling. pystray's balloon carries no
+        buttons, so the body must already spell out the fix — which is exactly
+        what `system/notify.py` builds for its no-actions fallback.
+        """
+        with self._lock:
+            if self._icon is None:
+                return
+            try:
+                self._icon.notify(body, title)
+            except Exception:
+                log.debug("tray notification failed", exc_info=True)
+
     def stop(self) -> None:
         with self._lock:
             if self._icon is not None:

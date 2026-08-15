@@ -217,6 +217,19 @@ bug. The daemon logs `SendInput sent 0/N events (lastError=5)` when this
 happens. Run YazSes elevated too if you need to dictate into elevated
 windows; otherwise leave it unelevated, which is the safer default.
 
+**"Dictation stopped working part-way through the day."** If the daemon crashes,
+Windows will not restart it on its own — the autostart entry only fires at login,
+and there is no Windows Service supervising it. The **tray** is the safety net: it
+notices the daemon has gone, restarts it (up to five times, then it stops and says
+so), and turns red meanwhile. So keep the tray running. If you quit the tray, start
+it again with `yazses tray`; to recover by hand, run `yazses start`.
+
+**"Where do the mic warnings go?"** Windows has no libnotify, so the daemon cannot
+show a toast itself. It hands them to the tray instead, which shows them as balloon
+notifications — a microphone that changed, a silence threshold that was re-tuned,
+several silent clips in a row. With the tray closed those only reach
+`yazses logs`.
+
 **"Tray icon is missing."** Windows may be hiding it under the chevron
 (`^`) at the left of the tray. Drag it out, or right-click the taskbar →
 **Taskbar settings** → **Other system tray icons** → flip on.

@@ -1,9 +1,11 @@
 # YazSes for Android
 
-> **Status: design complete, no code yet (2026-08-07).**
-> This directory is the future home of the Android app. Right now it contains only this
-> file. That is deliberate: the architecture was written down *before* the code so that
-> many people can build it at once without colliding or re-deciding the same questions.
+> **Status: skeleton built and verified (2026-08-14). No app yet.**
+> Every module from [architecture.md §3](../docs/mobile/architecture.md#3-module-map)
+> exists and compiles, `gradle test` is green on the `:core:*` modules, and **both
+> layering rules were tested by breaking them on purpose** — see *Verifying the rules*
+> below. The architecture was written down *before* the code so that many people can
+> build it at once without colliding or re-deciding the same questions.
 >
 > **There is no APK. There is nothing to install.** If you came here looking for a working
 > app, watch [the tracking epic, #81](https://github.com/MSKazemi/yazses/issues/81).
@@ -47,6 +49,26 @@ against a checksum shipped inside the signed APK.
   the iOS door open. ([MOB-002](../docs/mobile/adr/adr-mob-002-native-kotlin-stack.md))
 - **New features ship off by default** — the same rule as the desktop.
 - **Nothing is advertised before it works.** Not in the README, not in the store listing.
+
+## Verifying the rules
+
+The two architecture rules are enforced by the build, not by review, so they are
+worth testing the way any other guarantee is — by breaking them and watching the
+build fail. `verify.sh` does exactly that in a container, so you need no local JDK:
+
+```bash
+docker run --rm -v "$PWD/android:/host:ro" gradle:8.10-jdk21 /host/verify.sh
+```
+
+Results on 2026-08-14, `gradle:8.10-jdk21`:
+
+| Rule | How it is enforced | Result |
+|---|---|---|
+| `:core:*` cannot import `android.*` | by construction — a `kotlin("jvm")` module has no `android.jar` on its classpath | **enforced**: `Unresolved reference 'android'` |
+| `:core:*` may not depend on `:feature:*` | `checkLayering`, wired into every `check` | **enforced**: `:core:vocab (implementation) -> :feature:ime` |
+
+The second row has a baseline: `checkLayering` exits 0 on a clean tree, so it is
+failing on the violation rather than always failing.
 
 ## Building
 

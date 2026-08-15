@@ -100,7 +100,8 @@ conversation we want to have.
   produces speaker-labelled transcripts and minutes without audio ever
   reaching a third party.
 - **Scriptable deployment** — plain TOML config, a CLI for everything,
-  systemd/launchd/SCM lifecycle, and (coming) a container image for the
+  systemd/launchd lifecycle (Windows autostarts per-user; there is no Windows
+  Service backend yet), and (coming) a container image for the
   headless transcription pipeline ([#76](https://github.com/MSKazemi/yazses/issues/76)).
 - Pilots and integration questions: open a Discussion or contact the
   maintainer (see the repository profile). Honest expectations: this is an

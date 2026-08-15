@@ -70,6 +70,33 @@ def parse_action_result(stdout: str | None, actions: list[NotifyAction] | None) 
     return key if key in valid else None
 
 
+# Where a notification goes when libnotify is absent. The daemon registers a sink
+# that queues the message onto its `status` reply, which the tray is already
+# polling; the tray then shows it with the OS's own toast (pystray on Windows,
+# rumps on macOS). Module-level because `notify()` is called from eight places in
+# the daemon that have no business knowing how a toast is delivered.
+_fallback_sink: Callable[[str, str], None] | None = None
+
+
+def set_fallback_sink(sink: Callable[[str, str], None] | None) -> None:
+    """Register (or clear with ``None``) the no-libnotify delivery sink."""
+    global _fallback_sink
+    _fallback_sink = sink
+
+
+def _deliver_to_fallback(title: str, body: str) -> bool:
+    """Hand the message to the sink. True if it took it. Never raises."""
+    sink = _fallback_sink
+    if sink is None:
+        return False
+    try:
+        sink(title, body)
+        return True
+    except Exception:
+        log.debug("fallback notification sink raised", exc_info=True)
+        return False
+
+
 def notifier_available(which: Callable[[str], str | None] = shutil.which) -> bool:
     """True when ``notify-send`` is on PATH."""
     return which("notify-send") is not None
@@ -120,7 +147,14 @@ def notify(
     """
     avail = notifier_available() if available is None else available
     if not avail:
-        log.info("Desktop notification (notify-send unavailable): %s — %s", title, body)
+        # No libnotify — i.e. Windows and macOS, where every self-healing event
+        # (the mic auto-heal, a VAD retune, a silent streak) used to be written to
+        # a log file the user never opens. Hand it to whatever sink is registered
+        # so the tray can surface it natively; the log line stays either way.
+        if _deliver_to_fallback(title, body):
+            log.info("Desktop notification (via fallback sink): %s — %s", title, body)
+        else:
+            log.info("Desktop notification (notify-send unavailable): %s — %s", title, body)
         return
 
     use_actions = bool(actions) and (

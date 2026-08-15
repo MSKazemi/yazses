@@ -154,6 +154,20 @@ class MacosTray:
             except Exception:
                 log.exception("Tray title update failed")
 
+    def notify(self, title: str, body: str) -> None:
+        """Show a Notification Center banner relayed from the daemon.
+
+        macOS has no libnotify either, so the daemon's self-healing messages (mic
+        auto-heal, VAD retune, silent streak) were log-only here too. They arrive
+        over the `status` reply the tray already polls.
+        """
+        try:
+            import rumps  # type: ignore[import-not-found]
+
+            rumps.notification("YazSes", title, body)
+        except Exception:
+            log.debug("tray notification failed", exc_info=True)
+
     def stop(self) -> None:
         try:
             import rumps  # type: ignore[import-not-found]

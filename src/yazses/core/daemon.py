@@ -131,6 +131,11 @@ class _DaemonState:
 
 # Tone names with house phrasing. Anything else in `[profiles.app]` is appended
 # verbatim as "Use a <tone> tone." — see `Daemon._clean_dictation`.
+# How many undelivered toasts to hold for the tray. Small on purpose: these are
+# transient status messages, and a tray that has been quit must not make the
+# daemon accumulate them for the rest of the session.
+_MAX_PENDING_NOTIFICATIONS = 10
+
 _TONE_INSTRUCTIONS: dict[str, str] = {
     "casual": "Use a casual, conversational tone.",
     "formal": "Use a formal, professional tone.",
@@ -155,6 +160,8 @@ class Daemon:
         self._command_hotkey: HotkeyBackend | None = None
         self._command_thread: threading.Thread | None = None
         self._command_mode: bool = False
+        # Toasts awaiting collection by the tray, where the OS has no libnotify.
+        self._pending_notifications: list[dict[str, str]] = []
         # Non-keyboard activation sources (EMG squeeze — [emg] device_port).
         # Each is a HotkeyBackend duck-type driving the same hold callbacks.
         self._extra_activations: list[HotkeyBackend] = []
@@ -296,6 +303,11 @@ class Daemon:
         if not self._acquire_instance_lock():
             return
         self._install_signal_handlers()
+        # Where a toast goes when this OS has no libnotify: onto the status reply
+        # for the tray to show. No-op on Linux, which uses notify-send directly.
+        from yazses.system.notify import set_fallback_sink
+
+        set_fallback_sink(self._queue_notification)
 
         lifecycle = self._platform.lifecycle
         lifecycle.write_pid()
@@ -3210,6 +3222,31 @@ class Daemon:
             return None
         return getattr(self._injector, "backend_name", None) or type(self._injector).__name__
 
+    def _queue_notification(self, title: str, body: str) -> None:
+        """Hold a toast the daemon cannot show, for the tray to collect.
+
+        Registered with ``system.notify.set_fallback_sink`` at startup, so it only
+        ever runs where ``notify-send`` is absent — Windows and macOS. Called from
+        the audio and hotkey threads, hence the lock.
+
+        The queue is bounded and drops the OLDEST on overflow: these are status
+        messages, so a recent one ("switched back to your USB mic") is worth more
+        than the tenth copy of an older one, and an unbounded queue behind a tray
+        that has quit would grow for the life of the daemon.
+        """
+        with self._lock:
+            self._pending_notifications.append({"title": title, "body": body})
+            if len(self._pending_notifications) > _MAX_PENDING_NOTIFICATIONS:
+                del self._pending_notifications[:-_MAX_PENDING_NOTIFICATIONS]
+
+    def _drain_notifications(self) -> list[dict[str, str]]:
+        """Take the queued toasts. Caller must hold ``self._lock``."""
+        if not self._pending_notifications:
+            return []
+        pending = self._pending_notifications
+        self._pending_notifications = []
+        return pending
+
     def _handle_status(self, _request: Request) -> dict[str, object]:
         with self._lock:
             uptime = (time.monotonic() - self._state.started_at) if self._state.started_at else 0.0
@@ -3254,6 +3291,10 @@ class Daemon:
                 "decode_latency": self._latency.as_dict(),
                 # Staged dictation (#294): what is pending review, if anything.
                 "staged": self.staged_state(),
+                # Toasts the daemon could not show itself (no libnotify — Windows and
+                # macOS), handed to the tray to display natively. DRAINED by this
+                # read, so each one is delivered once; see _queue_notification.
+                "notifications": self._drain_notifications(),
             }
 
     def _handle_shutdown(self, _request: Request) -> dict[str, bool]:
@@ -3455,6 +3496,15 @@ class Daemon:
         return self._platform.default_hotkey if key == "auto" else key
 
     def _shutdown(self) -> None:
+        # Drop the sink first: it points at this instance, and notify() is module
+        # level, so leaving it set would queue toasts onto a dead daemon (and keep
+        # it alive) in any process that builds a second one — tests, most of all.
+        try:
+            from yazses.system.notify import set_fallback_sink
+
+            set_fallback_sink(None)
+        except Exception:
+            log.debug("clearing the notification sink failed", exc_info=True)
         if self._stream_engine is not None:
             try:
                 self._stream_engine.stop()  # join the decode loop before exit

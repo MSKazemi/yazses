@@ -58,6 +58,10 @@ Thumbs.db
 # AI / assistant tooling
 .claude/
 CLAUDE.md
+# Maintainer's personal inbox/backlog for this project (single entry point for
+# ideas + tasks, driven by .claude/skills/note). Never published.
+.mohsen.note
+.mohsen.note.*
 GEMINI.md
 # AGENTS.md is deliberately NOT ignored: unlike CLAUDE.md it holds no private
 # config, it is the public agents.md contributor standard that coding agents read.
@@ -85,10 +89,20 @@ notes/
 drafts/
 .craft/
 
-# The manuscript stays private until the preprint is posted. It also contains
-# paper/data/ (688 MB LibriSpeech) and third-party paper PDFs used for reference
-# checking, neither of which may ever be published.
-paper/
+# The manuscript stays private. It also contains paper/data/ (688 MB LibriSpeech)
+# and third-party paper PDFs used for reference checking, neither of which may
+# ever be published.
+#
+# The BENCHMARK HARNESS is the exception, and deliberately so: docs/benchmarks.md
+# is a public page whose whole claim is "every number here can be reproduced with
+# the commands at the bottom", and those commands are `git clone` + a script under
+# paper/benchmark/. While all of paper/ was ignored those instructions 404'd for
+# every reader, which made the page's central promise false. The harness is pure
+# Python (~84 KB, no data, no PDFs, no manuscript), so it is published and the
+# rest stays private.
+paper/*
+!paper/benchmark/
+paper/benchmark/__pycache__/
 
 # Private-only docs — deliberately not published.
 # Delete a line here to publish that doc. Only the master-reference PDF stays

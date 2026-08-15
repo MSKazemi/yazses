@@ -198,6 +198,15 @@ class TrayBackend(Protocol):
 
     def stop(self) -> None: ...
 
+    def notify(self, title: str, body: str) -> None:
+        """Show a desktop toast, if this backend can.
+
+        The daemon relays here only where the OS has no libnotify (Windows,
+        macOS) — see ``system.notify.set_fallback_sink``. Defaulted to a no-op so
+        a backend that cannot toast is silent rather than a crash, and so Linux,
+        which already went out through ``notify-send``, does not double-show.
+        """
+
 
 HotkeyFactory = Callable[[str, int, Callable[[int], None], Callable[[], None]], HotkeyBackend]
 """Args: key_id, threshold_ms, on_hold_start(leaked_count), on_hold_end."""

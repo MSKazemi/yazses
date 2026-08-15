@@ -610,6 +610,38 @@ adds noise the user can see.
 left dictation running unobserved. `tray/supervisor.py` re-checks every 20 s using the tray
 lock as the liveness signal, bounded at five relaunches.
 
+**And so does the daemon — supervision runs both ways.** systemd and launchd restart a
+crashed daemon; Windows autostart is an `HKCU\Run` value that fires once at login, so there
+a crash meant no dictation until the next sign-in while the tray watched and did nothing.
+The tray's poller now restarts it, under the same shape as the supervisor above: bounded
+attempts, spaced by a cooldown, then stop and say how to see the real error. The one
+distinction worth the code is *dead* versus *wedged* — a daemon that is alive but not
+answering still holds the single-instance lock, so replacing it is impossible and red is
+the honest answer.
+
+**A self-healing action nobody sees is only half of one.** `system/notify.py` speaks
+`notify-send`, which exists on Linux and nowhere else, so on Windows and macOS the mic
+auto-heal and the VAD retune repaired capture and told the user nothing. The daemon now
+queues those toasts onto its `status` reply — the channel the tray already polls — and the
+tray shows them with the OS's own notifier. Deliberately not a new IPC direction: the
+daemon never calls the tray, so a tray that has quit costs at most a bounded queue.
+
+**And it says the same thing on every OS.** The badge's colour and tooltip come from one
+pure function, `tray/menu.py::icon_spec`, fed by one `TrayModel`→status bridge,
+`status_from_model`. That is not decoration: the Windows tray once kept a private colour
+table of its own, so the same daemon state was a different colour on Windows than on Linux,
+command mode and "no text field focused" had no colour at all, and five of the twelve tray
+states — Meeting Mode among them — fell through to idle blue. A second implementation of a
+policy is a second policy.
+
+**One renderer draws the mark everywhere.** `brandmark.py` redraws `contrib/icons/yazses.svg`
+in Pillow, and both the live tray badge and the packaged `.ico`/`.icns`
+(`scripts/gen-icons.py`) come out of it, so the shortcut icon and the tray glyph cannot
+diverge. The build now *fails* when the icon file is absent. It used to fall back to
+`icon=None`, which is why every Windows release shipped PyInstaller's default artwork on the
+desktop shortcut: the asset had never existed, and a silent fallback meant no build, test, or
+CI run ever mentioned it.
+
 Two commands expose the result: `yazses verify` runs the real chain and names the first
 broken link, and `yazses report` writes a redacted diagnostic bundle locally — never
 uploaded, per the privacy posture below.
