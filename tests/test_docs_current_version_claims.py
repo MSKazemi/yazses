@@ -240,3 +240,47 @@ def test_json_ld_in_the_home_page_still_parses():
     assert blocks, "the home page lost its JSON-LD block"
     for block in blocks:
         json.loads(block)
+
+
+# --- the release index must link the pages that exist -----------------------
+
+
+def _unlisted_releases(index_text: str, page_stems: set[str]) -> set[str]:
+    """Release pages that exist on disk but are linked from nowhere in the index.
+
+    Pure so the failure mode can be tested directly. A page nothing links to is
+    reachable only by guessing its URL: it is in the sitemap and the RSS feed, and
+    absent from the one page a reader opens to find it.
+    """
+    return {stem for stem in page_stems if f"{stem}.md" not in index_text}
+
+
+def test_the_release_index_links_every_release_page() -> None:
+    """`test_every_released_version_has_a_release_note_page` proves the page was
+    written; nothing proved anyone could find it.
+
+    The index is hand-maintained, and adding a release means editing it in two
+    places — the "Current stable" paragraph *and* the list below. The first has a
+    guard (above). The second did not, so a release could ship with a page that the
+    index never mentions and no test would object.
+    """
+    index = ROOT / "docs" / "releases" / "index.md"
+    text = index.read_text(encoding="utf-8")
+    stems = {p.stem for p in (ROOT / "docs" / "releases").glob("v*.md")}
+    assert stems, "no release note pages found — this guard is checking nothing"
+
+    missing = _unlisted_releases(text, stems)
+    assert not missing, (
+        "release note pages exist that docs/releases/index.md never links, so a "
+        f"reader cannot reach them from the releases page: {sorted(missing)}"
+    )
+
+
+def test_the_index_guard_notices_an_unlinked_page() -> None:
+    """Red-green for the guard above, without mutating the repository.
+
+    A guard that iterates is green on an empty set and green on a set it never
+    compares; this pins that it actually reports a miss.
+    """
+    assert _unlisted_releases("- [v1.0.0](v1.0.0.md)", {"v1.0.0"}) == set()
+    assert _unlisted_releases("- [v1.0.0](v1.0.0.md)", {"v1.0.0", "v1.1.0"}) == {"v1.1.0"}
