@@ -37,6 +37,11 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 
+#: Below this many collected tests, treat the run as a subset (`-k`, one file) and
+#: skip the suite-wide floor check. Deliberately a fixed number, not a fraction of
+#: the claimed floor -- see `test_the_test_count_floor_is_still_true`.
+_FULL_RUN_MIN = 1000
+
 
 def current_version() -> str:
     """The version the project claims to be, from the one authoritative file."""
@@ -164,6 +169,49 @@ def test_capability_counts_match_the_registry():
             f"{relpath} claims {got}, the registry says {(total, wired, planned)}. "
             f"Re-derive them; do not edit them by hand."
         )
+
+
+def test_the_test_count_floor_is_still_true(request):
+    """`ROADMAP.md`'s test figure is a floor, and this is what holds it up.
+
+    An exact count cannot be guarded honestly: adding the tests in this very file
+    moved the claim 4337 -> 4347 in one sitting, so any exact number is stale as
+    soon as the suite grows. A floor inverts that -- it stays true as tests are
+    added and only breaks when tests are *removed*, which is the direction that
+    deserves a failure.
+
+    The count comes from the **live session**, not a subprocess, so this costs
+    nothing and cannot recurse. That makes it meaningless on a partial run (`-k`,
+    one file), so it skips below a threshold rather than failing people who ran a
+    subset -- a test that cries wolf during ordinary development gets deleted.
+    """
+    collected = getattr(request.session, "testscollected", 0) or len(
+        getattr(request.session, "items", [])
+    )
+    text = (ROOT / "ROADMAP.md").read_text(encoding="utf-8")
+    match = re.search(r"\*\*([0-9][0-9,]*)\+ tests green\*\*", text)
+    assert match is not None, (
+        "ROADMAP.md no longer states a test floor in the `N+ tests green` form. "
+        "Keep it a floor -- an exact count cannot be guarded (see the docstring)."
+    )
+    floor = int(match.group(1).replace(",", ""))
+
+    # "Is this the whole suite?" must NOT be derived from the floor. Scaling the
+    # threshold off `floor` conflates two unrelated questions, and it fails open in
+    # the one case that matters: set the floor absurdly high and `collected` falls
+    # below the scaled threshold, so the test *skips* instead of reporting the
+    # claim it exists to check. Caught by red-green -- a floor of 9000 against 4348
+    # collected passed silently. A fixed threshold decouples them; a real suite
+    # below it would be an emergency worth failing on anyway.
+    if collected < _FULL_RUN_MIN:
+        pytest.skip(
+            f"partial run ({collected} tests collected) -- the floor is only "
+            f"meaningful for the whole suite"
+        )
+    assert collected >= floor, (
+        f"ROADMAP.md claims {floor}+ tests, but the suite collected {collected}. "
+        f"Tests were removed, or the floor was raised too far."
+    )
 
 
 def test_adr_range_matches_the_files_on_disk():

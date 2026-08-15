@@ -17,11 +17,13 @@ release workflows fire on `v*` tags). The v2 line is delivered as a long series 
 waves, each a fresh state-of-the-art sweep → ADRs → pure, 100%-covered, off-by-default cores.
 
 On `main` (v2.20.0 plus the unreleased frontier): **144 capabilities (79 wired / 65 honestly
-marked "planned")**, **4347 tests green**, ADRs `adr-v2-001..129`, and the per-wave
+marked "planned")**, **4300+ tests green**, ADRs `adr-v2-001..129`, and the per-wave
 state-of-the-art research notes. The counts come from the feature registry
 (`yazses.system.features`) and from running the suite, not from counting by hand — every one
 of them had gone stale again by 2026-08-14, and again in the direction of understating what
-had shipped. Re-derive them, do not edit them:
+had shipped. All three are now pinned by
+`tests/test_docs_current_version_claims.py`, so they fail CI rather than rotting
+quietly. Re-derive them, do not edit them:
 
 ```bash
 uv run python -c "from yazses.system import features as F; \
@@ -29,6 +31,13 @@ uv run python -c "from yazses.system import features as F; \
           len(F._UNWIRED), 'planned')"
 uv run python -m pytest tests/ -q | tail -1
 ```
+
+The test figure is deliberately a **floor** (`4300+`), not an exact count. An exact
+one is self-invalidating: adding the guard tests that check this very line moved it
+4337 → 4347 in the same sitting, so any number written here is stale the moment the
+suite grows. A floor stays true as tests are added and only breaks if tests are
+*removed* — which is the direction worth being told about. Raise it when the margin
+gets embarrassing; the guard fails if the suite ever drops below it.
 
 - **Shipped in `v2.14.0` — the perception release** (ADR-v2-129, all opt-in, lazy deps):
   **Parakeet TDT** second STT engine (`yazses features enable stt-parakeet` — beats
