@@ -65,6 +65,7 @@ YazSes ships **144 capabilities**. All but the core are **off by default** — t
 - **What it does:** Sonar rings near the cursor while you talk. Visual only; safe.
 - **Use when:** When you want a glanceable visual cue that the mic is live and hearing you.
 - **Example:** Watch the sonar rings near the cursor while you talk.
+- **Download:** ~256 MB
 - **Activate:** `yazses features enable overlay` then `yazses restart`
 
 ### System-tray icon
@@ -73,6 +74,7 @@ YazSes ships **144 capabilities**. All but the core are **off by default** — t
 - **What it does:** A microphone icon in the top bar; click it to pick/pin your mic, re-calibrate, and start/stop the daemon. Needs a system tray (GNOME: AppIndicator extension).
 - **Use when:** When you'd rather click a top-bar icon to switch mics or restart than remember terminal commands.
 - **Example:** Click the top-bar mic icon → pick a microphone or re-calibrate, no terminal.
+- **Download:** ~256 MB
 - **Activate:** `yazses features enable tray` then `yazses restart`
 
 ### Text-target guard
@@ -113,6 +115,7 @@ YazSes ships **144 capabilities**. All but the core are **off by default** — t
 - **What it does:** Swaps Whisper for NVIDIA Parakeet TDT: better English accuracy than whisper-large-v3 at roughly 4x whisper-small CPU speed, and no hallucinated text on silence. English only (v2). Downloads the model (~600 MB) on first use; disable restores faster-whisper.
 - **Use when:** When you want noticeably fewer English word errors without a bigger, slower Whisper model.
 - **Example:** yazses features enable stt-parakeet — same hotkey, sharper transcripts.
+- **Download:** ~4.0 MB
 - **Activate:** `yazses features enable stt-parakeet` then `yazses restart`
 
 ### Moonshine STT engine (fast, short bursts)
@@ -121,6 +124,7 @@ YazSes ships **144 capabilities**. All but the core are **off by default** — t
 - **What it does:** Swaps Whisper for Moonshine, which is built for short segments on CPU — the shape of hold-to-talk. Needs only onnxruntime and tokenizers (no torch), so it is a much smaller install than the alternatives. English only; no per-word timings. Disable restores faster-whisper.
 - **Use when:** When you dictate in short bursts and want the smallest, quickest engine that still reads well.
 - **Example:** yazses features enable stt-moonshine — a smaller, faster engine for short bursts.
+- **Download:** ~113 MB
 - **Activate:** `yazses features enable stt-moonshine` then `yazses restart`
 
 ### Staged dictation
@@ -377,6 +381,7 @@ YazSes ships **144 capabilities**. All but the core are **off by default** — t
 - **What it does:** Write Chinese output in one Han script instead of whichever one Whisper picked for that utterance. Measured on clean Mandarin speech, 13 of 20 correct transcriptions came back in Traditional characters. Enable for Simplified (mainland); set [stt] chinese_script = "traditional" for Taiwan/Hong Kong. Only affects Chinese text, so it also needs a multilingual model ([stt] model without the .en suffix) and language = "zh" — on an English-only model it can do nothing.
 - **Use when:** When you dictate Chinese and want it always written in your own script — Simplified on the mainland, Traditional in Taiwan or Hong Kong.
 - **Example:** Dictating 简体中文 and getting 繁體字 back — this pins the script.
+- **Download:** ~0.5 MB
 - **Activate:** `yazses features enable chinese-script` then `yazses restart`
 
 ### Prosody Ink
@@ -385,6 +390,7 @@ YazSes ships **144 capabilities**. All but the core are **off by default** — t
 - **What it does:** Turns pauses into paragraphs and stressed words into bold.
 - **Use when:** When you want your natural pauses and emphasis to become paragraphs and bold automatically.
 - **Example:** Pause between thoughts → a new paragraph; stress a word → bold.
+- **Download:** ~11 MB
 - **Activate:** `yazses features enable prosody` then `yazses restart`
 
 ### LLM cleanup
@@ -393,6 +399,7 @@ YazSes ships **144 capabilities**. All but the core are **off by default** — t
 - **What it does:** Reformats dictation with a small offline LLM. Needs a model file.
 - **Use when:** When rambly dictation needs polishing into clean prose and you have an offline LLM available.
 - **Example:** yazses features enable llm-cleanup — offline LLM tidies dictation.
+- **Download:** ~72 MB
 - **Activate:** `yazses features enable llm-cleanup` then `yazses restart`
 
 ### BrailleOut
@@ -833,6 +840,7 @@ YazSes ships **144 capabilities**. All but the core are **off by default** — t
 - **What it does:** Speak an intent to run allowlisted tools via MCP; state-changing tools ask first. Needs the 'agent' extra + a local planner model. Off by default.
 - **Use when:** When you want to run allowlisted tools or actions by voice through a local planner.
 - **Example:** Say 'create a calendar event tomorrow at 3' (allowlisted tools).
+- **Download:** ~4.4 MB
 - **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
 
 ### Voice Pilot (AT-SPI)
@@ -913,6 +921,7 @@ YazSes ships **144 capabilities**. All but the core are **off by default** — t
 - **What it does:** Speaks the transcript back to you (accessibility). Downloads a TTS model on first use.
 - **Use when:** When you can't or won't look at the screen and need to hear what was transcribed.
 - **Example:** yazses features enable read-back — then it speaks the transcript back.
+- **Download:** ~25 MB
 - **Activate:** `yazses features enable read-back` then `yazses restart`
 
 ### LoadGuard
@@ -1033,6 +1042,7 @@ YazSes ships **144 capabilities**. All but the core are **off by default** — t
 - **What it does:** Read the transcript back in a clone of your own voice from a short enrollment. Permissive OpenVoice V2 default; embedding stays in the encrypted corpus. Needs the tts extra and downloads a voice-clone model on first use. Off by default.
 - **Use when:** When you want read-back spoken in a clone of your own voice, not a generic TTS voice.
 - **Example:** Enroll once; read-back then uses a clone of your own voice.
+- **Download:** ~25 MB
 - **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
 
 ### Vocal-Strain Guard
@@ -1041,6 +1051,7 @@ YazSes ships **144 capabilities**. All but the core are **off by default** — t
 - **What it does:** Advises a break when your voice shows rising strain (jitter/shimmer/HNR) over a session. Advisory only, not diagnostic. Off by default.
 - **Use when:** When you dictate in long stretches and want a nudge to rest before your voice strains.
 - **Example:** Get a break reminder when your voice shows rising strain.
+- **Download:** ~11 MB
 - **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
 
 ### Voice Mouse Grid
@@ -1065,6 +1076,7 @@ YazSes ships **144 capabilities**. All but the core are **off by default** — t
 - **What it does:** Uses the webcam to route dictation to the pane you look at. Experimental; needs a webcam + X11.
 - **Use when:** When you have several panes open and want dictation to land in whichever one you look at.
 - **Example:** Glance at a screen zone to choose where the next dictation lands.
+- **Download:** ~219 MB
 - **Activate:** `yazses features enable gaze` then `yazses restart`
 
 ## Learning, memory & analytics
@@ -1117,6 +1129,7 @@ YazSes ships **144 capabilities**. All but the core are **off by default** — t
 - **What it does:** On a shared machine, loads each enrolled speaker's own vocab/hotkey/cleanup from their voiceprint — no manual switching. Needs the voiceprint extra + 2+ enrolled profiles. Off by default.
 - **Use when:** When several people share one machine and each wants their own vocab and settings loaded.
 - **Example:** Each enrolled speaker loads their own vocab/hotkey automatically.
+- **Download:** ~3.1 GB
 - **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
 
 ### Ask My Notes (voice RAG)
@@ -1153,6 +1166,7 @@ YazSes ships **144 capabilities**. All but the core are **off by default** — t
 - **What it does:** Run `yazses transcribe <file>` to batch-transcribe voice memos/lectures/meetings offline to .txt/.md/.srt/.vtt/.json. Add --diarize to tag who said what ('Speaker 1: …'), --names/--rename or an enrolled voiceprint for real names. Needs the diarization extra for speaker tags. Off by default.
 - **Use when:** When you have existing voice memos, lectures, or meeting recordings to batch-transcribe offline.
 - **Example:** Drop in a lecture recording and get a searchable .srt transcript.
+- **Download:** ~18 MB
 - **Activate:** `yazses features enable recimport` then `yazses restart`
 
 ### Meeting Mode
@@ -1161,6 +1175,7 @@ YazSes ships **144 capabilities**. All but the core are **off by default** — t
 - **What it does:** `yazses meeting start` records a whole meeting hands-free (no key to hold), streams a live transcript, and at `yazses meeting stop` writes a speaker-labelled transcript ('Alice: …', 'You: …') plus opt-in notes. Speakers are found by voice embedding + clustering (auto count); fix a miscount with `yazses meeting relabel`. Needs the diarization extra for speaker tags. On-device; off by default.
 - **Use when:** When you're in a live meeting and want a hands-free, speaker-labelled transcript and notes afterwards.
 - **Example:** Hit start, put the phone down, and get who-said-what minutes at the end.
+- **Download:** ~18 MB
 - **Activate:** `yazses features enable meeting` then `yazses restart`
 
 ### Crowd-Proof Dictation
@@ -1177,6 +1192,7 @@ YazSes ships **144 capabilities**. All but the core are **off by default** — t
 - **What it does:** Capture a live conversation as attributed Markdown (**Alice:** …) and rename speakers by voice ('call speaker two Alice'). Needs the diarize extra. Off by default.
 - **Use when:** When capturing a live multi-speaker conversation you need attributed to each person.
 - **Example:** A two-person chat is typed as **Alice:** … **Bob:** … you can rename by voice.
+- **Download:** ~18 MB
 - **Activate:** `yazses features enable diarize` then `yazses restart`
 
 ### Meeting Scribe
@@ -1193,6 +1209,7 @@ YazSes ships **144 capabilities**. All but the core are **off by default** — t
 - **What it does:** Tries to focus on your voice and reject other speakers. Currently over-rejects your OWN voice — leave off until improved.
 - **Use when:** When others are talking nearby and you want only your own voice to reach STT (still rough).
 - **Example:** yazses features enable cocktail --force — filters other voices (experimental).
+- **Download:** ~3.1 GB
 - **Activate:** `yazses features enable cocktail` then `yazses restart`
 
 ### Voice Guard (biometric + anti-spoof)
@@ -1201,6 +1218,7 @@ YazSes ships **144 capabilities**. All but the core are **off by default** — t
 - **What it does:** Types only when the live speaker matches your enrolled voiceprint and the audio isn't a recording/synthetic. Needs enrollment + the voiceguard extra; false-reject risk (fail-open by default). Off by default.
 - **Use when:** When you must guarantee only your live voice types, blocking recordings, synthesis, or others.
 - **Example:** yazses features enable voiceguard --force — only your voice dictates.
+- **Download:** ~3.1 GB
 - **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
 
 ### Glasses↔Desktop Bridge
