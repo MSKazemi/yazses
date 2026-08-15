@@ -68,6 +68,31 @@ model is downloaded — the one you configure.
     unavailable rather than failing. Tracked as
     [#259](https://github.com/MSKazemi/yazses/issues/259).
 
+## What each install path actually pulls
+
+There is no single installer, and they do not all install the same thing — correctly,
+because a container and a laptop need different software. This is what each one
+decides for you:
+
+| How you installed | Pulls the `desktop` extra (Qt, 648 MB)? | You get | Roughly |
+|---|---|---|---|
+| `pip install yazses` / `pipx install yazses` | **No** | The CLI, dictation, `transcribe`, meetings | **414 MB** |
+| `install.sh` (the Linux one-liner) | **Yes** | …plus the tray and the voice-activity overlay | ~1.1 GB |
+| The `.deb` | **Yes** (`yazses[desktop]`) | Same as above | ~1.1 GB |
+| The Snap | **Yes** (bundled) | Same, in a confined package | ~1.1 GB |
+| The Docker image | **No** — it has no display | `transcribe` + diarization only | 833 MB |
+
+**If you want the smallest install, `pip install yazses` already is it.** There is no
+`minimal` extra to ask for, because the base install *is* the minimum — see the box
+above for why 414 MB is a floor rather than a choice. Everything beyond it is opt-in
+through `yazses features enable <name>`, which now tells you the download size before
+it fetches anything.
+
+`install.sh` names Qt directly rather than asking for the `desktop` extra — `uv`
+resolves extras awkwardly from a `git+` source — so the two are kept in step by
+[`tests/test_install_paths_agree.py`](https://github.com/MSKazemi/yazses/blob/main/tests/test_install_paths_agree.py)
+rather than by anyone remembering.
+
 ## Downloads
 
 Nothing is downloaded that you did not ask for, and **the speech model is the only large
