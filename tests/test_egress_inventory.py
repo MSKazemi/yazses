@@ -28,7 +28,7 @@ this guards our code, the container guards the whole process.
 from __future__ import annotations
 
 import ast
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 import pytest
 
@@ -84,7 +84,14 @@ def _modules_with_network_imports() -> dict[str, list[str]]:
                 if node.module.split(".")[0] in _NETWORK_ROOTS:
                     hits.add(node.module)
         if hits:
-            found[str(path.relative_to(SRC))] = sorted(hits)
+            # `.as_posix()`, not `str()`: `str()` renders a WindowsPath with
+            # backslashes (`ipc\client.py`), and the inventory below is keyed with
+            # forward slashes. On Windows that made *every* module look undeclared
+            # and *every* inventory entry look stale — 9 phantom egress findings
+            # and a red `main`, while Linux and macOS stayed green. The key is a
+            # stable identifier shared with a markdown table, so it must not vary
+            # by the OS that happens to run the suite.
+            found[path.relative_to(SRC).as_posix()] = sorted(hits)
     return found
 
 
@@ -94,6 +101,28 @@ def test_the_scan_finds_something():
         "the network-import scan found nothing at all, which cannot be right — "
         "the detector is broken, not the codebase"
     )
+
+
+def test_module_keys_are_posix_on_every_os():
+    """The inventory key must not depend on which OS ran the suite.
+
+    This scan keys modules by their path relative to `src/yazses`, and the same
+    string is used in the ADR-019 markdown table. `str(WindowsPath(...))` renders
+    backslashes, so on Windows every module missed the forward-slash inventory:
+    nine phantom "undeclared egress" findings *and* nine phantom "stale entry"
+    findings at once, with Linux and macOS green throughout.
+
+    Asserting on the live scan would prove nothing here — on Linux both spellings
+    agree. Constructing the Windows flavour explicitly is what makes this
+    regression visible on any machine.
+    """
+    windows = PureWindowsPath("ipc/client.py")
+    assert str(windows) == r"ipc\client.py", "precondition: str() uses backslashes"
+    assert windows.as_posix() == "ipc/client.py"
+
+    # And the keys the real scan produces agree with the inventory's spelling.
+    for key in _modules_with_network_imports():
+        assert "\\" not in key, f"module key is not POSIX-spelled: {key!r}"
 
 
 def test_no_undeclared_module_can_reach_the_network():
