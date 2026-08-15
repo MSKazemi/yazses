@@ -116,6 +116,44 @@ def test_an_unknown_size_is_not_flagged_as_large(table):
     assert depsize.is_a_large_download("whatever", ["x"]) is False
 
 
+# ---- the catalogue column --------------------------------------------------
+
+
+def test_the_catalogue_quotes_the_whole_closure_not_this_machine(table):
+    """The listing is a reference table, not a per-machine quote.
+
+    `features enable` answers "what will *I* pay now" and uses the marginal
+    figure. The catalogue answers "what does this cost", for a reader who may not
+    have any of it — so a dev box that happens to have torch must not advertise
+    a 3 GB feature to everyone else as free.
+    """
+    table(HEAVY)
+    assert depsize.catalogue_size_label("voiceprint", True) == "~2.4 GB"
+
+
+def test_a_feature_with_no_dependencies_shows_nothing(table):
+    """Pure-logic features download nothing; a `0 MB` column would be noise."""
+    table(HEAVY)
+    assert depsize.catalogue_size_label("reflow", False) == ""
+
+
+def test_an_unpriced_feature_shows_nothing_rather_than_a_guess(table):
+    table({})
+    assert depsize.catalogue_size_label("voiceprint", True) == ""
+
+
+def test_a_zero_sized_feature_is_not_labelled_already_installed(table):
+    """`format_mb(0)` says "already installed" — true of a machine, not of a table."""
+    table({"tiny": {"download_mb": 0.0, "packages": 0}})
+    assert depsize.catalogue_size_label("tiny", True) == ""
+
+
+def test_the_label_fits_the_column(table):
+    """The CLI pads this to a fixed width; an overflow would shift ADVICE."""
+    table({"big": {"download_mb": 3065.9, "packages": 37}})
+    assert len(depsize.catalogue_size_label("big", True)) <= depsize.SIZE_COLUMN_WIDTH
+
+
 # ---- it must never break the catalogue -------------------------------------
 
 

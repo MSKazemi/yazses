@@ -220,7 +220,13 @@ Ubuntu); disable auto-launch with `yazses features disable tray`.
 
 The friendly switchboard for turning capabilities on and off — no config-file
 editing. Bare `yazses features` lists **every** capability **grouped by category**,
-showing whether each is on/off, its toggle name, and an advice tier.
+showing whether each is on/off, its toggle name, what enabling it downloads, and an
+advice tier.
+
+The **DOWNLOAD** column is what the capability fetches on a fresh install — the whole
+dependency closure, so `cocktail` reads as `~3.1 GB` rather than as the one package
+you type. Blank means nothing to download, which is true of most capabilities. See
+[Install only what you need](how-to/install-only-what-you-need.md).
 
 ![yazses features — capabilities grouped by category, each with its on/off state, toggle name, and advice tier](screenshots/yazses-features.png)
 

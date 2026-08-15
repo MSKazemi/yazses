@@ -112,6 +112,37 @@ def format_mb(mb: float | None) -> str:
     return f"~{mb:.1f} MB"
 
 
+#: Width the catalogue pads the size column to. `~3.1 GB` is the longest real
+#: label; ADVICE follows it, so an overflow would shift a whole column.
+SIZE_COLUMN_WIDTH = 9
+
+
+def catalogue_size_label(slug: str, has_pip_deps: bool) -> str:
+    """The size shown beside *slug* in `yazses features`, or ``""``.
+
+    Deliberately the **whole** closure rather than the marginal figure
+    `download_note` quotes. The catalogue is a reference table read by someone
+    deciding what to turn on, and it is not per-machine: quoting this machine's
+    remainder would advertise a 3 GB feature as free to every reader of a dev box
+    that happens to already have torch. `features enable` still quotes the
+    marginal cost, because that one is a bill, not a price list.
+
+    It is also the only figure that can be produced instantly -- the marginal one
+    needs `deps.missing_modules`, which imports each feature's modules, and the
+    catalogue has 144 rows to render with no perceptible delay (ADR-018).
+
+    Empty for a feature that downloads nothing, that is absent from the table, or
+    whose size is zero -- `format_mb(0)` says "already installed", which is a
+    claim about a machine and this function is not looking at one.
+    """
+    if not has_pip_deps:
+        return ""
+    mb = full_download_mb(slug)
+    if not mb:
+        return ""
+    return format_mb(mb)
+
+
 def download_note(slug: str, missing: list[str] | tuple[str, ...] | None) -> str:
     """One line for the user about what enabling *slug* will fetch, or ``""``.
 

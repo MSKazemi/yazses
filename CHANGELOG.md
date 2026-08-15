@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `yazses features` prices what it offers
+
+The catalogue listed 145 capabilities and told you what none of them cost. The size
+existed — `yazses features enable <name>` has printed it since ADR-018 — but only at
+the moment the download began, which is after the decision, not before it. Three
+capabilities (`cocktail`, `multiprofile`, `voiceguard`) resolve to ~3.1 GB each,
+because `speechbrain` pulls PyTorch and the CUDA stack behind a name that reads like
+a small audio filter.
+
+`yazses features` now carries a **DOWNLOAD** column. It quotes the whole dependency
+closure on a fresh install, which is the honest figure for a table anyone reads;
+`features enable` keeps quoting what is missing on *your* machine, which is the
+figure you actually pay. Blank means nothing to download — true of most capabilities,
+since they are pure logic that ships in the base install.
+
+The number is a lookup in a table that ships inside the package, so the listing stays
+offline and instant (ADR-011, ADR-018). A capability whose size is unknown shows
+nothing rather than a guess.
+
+New: **[Install only what you need](docs/how-to/install-only-what-you-need.md)** — how
+to read the column, what the advice tiers mean, and how to keep a dictation-only
+install small.
+
 ### Security — the open `diskcache` advisory now has a published assessment, pinned by tests
 
 Dependabot has an open alert on `diskcache` ≤ 5.6.3 (unsafe pickle
