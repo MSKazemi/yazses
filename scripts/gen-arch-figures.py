@@ -772,6 +772,80 @@ def fig_latency(bench: dict) -> str:
 
 
 # --------------------------------------------------------------------------- #
+
+def fig_direction_triage() -> str:
+    """How an idea becomes buildable work, or does not.
+
+    This figure is a *policy*, not a measurement, so unlike the others it derives
+    nothing from the benchmark file -- the geometry is the content. It earns a place
+    beside them because the policy is the thing that keeps 65 designed-but-unwired
+    capabilities from becoming 130: an idea that cannot name the problem it answers
+    does not get built, and that gate is invisible in prose.
+    """
+    b: list[str] = [defs()]
+    ny, nh = 176, 74          # gate row
+    top, topy = 44, 62        # outcome row (up)
+    bot = 330                 # outcome row (down)
+
+    def gate(x: float, w: float, head: str, sub: str, hover: str) -> None:
+        b.append(box(x, ny, w, nh, "yz-box"))
+        b.append(tip(hover))
+        b.append(text(x + w / 2, ny + 28, head, "yz-l", "middle"))
+        b.append(text(x + w / 2, ny + 48, sub, "yz-s", "middle"))
+
+    def outcome(x: float, y: float, w: float, head: str, sub: str, cls: str) -> None:
+        b.append(box(x, y, w, top, cls))
+        b.append(text(x + w / 2, y + 27, head, "yz-l", "middle"))
+        b.append(text(x + w / 2, y + 46, sub, "yz-s", "middle"))
+
+    # Entry, then three gates left to right.
+    b.append(box(14, ny + 8, 104, 58, "yz-box yz-box--chip"))
+    b.append(text(66, ny + 34, "An idea", "yz-l", "middle"))
+    b.append(text(66, ny + 52, "from anywhere", "yz-s", "middle"))
+
+    gate(150, 168, "Names a problem?", "problem-space A1-A5, B1-B3",
+         "An idea that cannot name the problem it answers is not built. "
+         "This is the gate that stops the catalogue growing faster than the evidence.")
+    gate(352, 168, "Runs on a laptop?", "offline, CPU only",
+         "ADR-011 and ADR-016: no data centre, no new heavy base dependency.")
+    gate(554, 192, "Can we tell if it worked?", "a metric, even an expensive one",
+         "Without a measurement it is a research question, not a feature.")
+
+    # Outcomes.
+    outcome(378, topy, 128, "Needs hardware", "or a lab", "yz-box yz-box--plan")
+    outcome(596, topy, 150, "Build now", "ships off by default", "yz-box")
+    outcome(596, bot, 150, "Measure first", "a study, not a feature", "yz-box yz-box--untimed")
+    outcome(176, bot, 128, "Not built", "no problem, no build", "yz-box yz-box--untimed")
+
+    # Edges: across the gate row, then the branches.
+    for x1, x2 in ((118, 146), (318, 348), (520, 550)):
+        b.append(f'<path class="yz-flow" d="M {x1} {ny + 37} H {x2}" marker-end="url(#yz-arrow)"/>')
+    b.append(text(132, ny + 30, "", "yz-s", "middle"))
+    for x, label in ((334, "yes"), (536, "yes")):
+        b.append(text(x, ny + 30, label, "yz-s yz-halo", "middle"))
+
+    b.append(f'<path class="yz-flow" d="M 240 {ny + nh} V {bot - 4}" marker-end="url(#yz-arrow)"/>')
+    b.append(text(254, 288, "no", "yz-s yz-halo"))
+    b.append(f'<path class="yz-flow" d="M 442 {ny} V {topy + top + 4}" marker-end="url(#yz-arrow)"/>')
+    b.append(text(456, 156, "no", "yz-s yz-halo"))
+    b.append(f'<path class="yz-flow" d="M 671 {ny} V {topy + top + 4}" marker-end="url(#yz-arrow)"/>')
+    b.append(text(685, 156, "yes", "yz-s yz-halo"))
+    b.append(f'<path class="yz-flow" d="M 671 {ny + nh} V {bot - 4}" marker-end="url(#yz-arrow)"/>')
+    b.append(text(685, 288, "no", "yz-s yz-halo"))
+
+    return svg(
+        "direction-triage", 420,
+        "How a YazSes idea is triaged into buildable, measurable or deferred work",
+        "A flowchart with three gates in series. An idea first has to name the problem "
+        "it answers from the problem space; if it cannot, it is not built. It then has "
+        "to run offline on an ordinary laptop CPU; if it cannot, it is filed as needing "
+        "hardware or a lab. Finally it has to have a way of telling whether it worked; "
+        "if it does, it is built now, and if it does not, it is a study rather than a "
+        "feature.",
+        b,
+    )
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     bench = read_benchmarks()
@@ -786,6 +860,7 @@ def main() -> None:
         "states.svg": fig_states(),
         "capabilities.svg": fig_capabilities(rows),
         "latency.svg": fig_latency(bench),
+        "direction-triage.svg": fig_direction_triage(),
     }
     for name, content in written.items():
         (OUT / name).write_text(content, encoding="utf-8")
