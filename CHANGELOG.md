@@ -6,6 +6,36 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — an Intel macOS build, and `.dmg` filenames that name their architecture
+
+Implements [ADR-017](design/adr/adr-017-intel-mac-support-has-a-deadline.md). CI now
+builds `YazSes-<version>-macos-x86_64.dmg` on `macos-15-intel` alongside the Apple
+Silicon one, closing the gap [#264](https://github.com/MSKazemi/yazses/issues/264)
+described — at no cost, since GitHub-hosted runners are free for public repositories.
+
+**The rename matters as much as the new build.** The `.dmg` was called
+`YazSes-<version>.dmg`, which reads as though it were for everybody — and that is a
+large part of why an Apple-silicon-only bundle went unnoticed for months. Both bundles
+now carry their architecture, and `build-macos.sh` derives it from `uname -m` rather
+than taking a flag, because PyInstaller does not cross-compile: the build host *is* the
+target, and a flag is a second thing that can disagree with the runner label.
+
+The Intel leg is **advisory** (`continue-on-error`), exactly as the `windows-11-arm` leg
+is: `macos-15-intel` has never completed a build here, and a brand-new
+cross-architecture job must not be able to fail a release the primary build completed
+fine. The Homebrew cask still tracks arm64 only, and will until the Intel build has been
+green a few times — a cask whose hash is a guess is worse than no cask.
+
+Renaming an asset is the change that breaks a download link silently: the URL still
+resolves, to a 404, and a failed download is the first thing a new user sees. The cask,
+the manifest refresher and the release notes were all updated, and
+`tests/test_macos_artifact_naming.py` now pins the four places that have to agree about
+the name and never see each other.
+
+**The deadline is not ours.** `macos-15-intel` is the last x86_64 image GitHub Actions
+will offer, available until **August 2027**; `macos-13` was retired on 2025-12-04. When
+it goes, `pipx install yazses` is the Intel path that outlives it.
+
 ### Fixed — secondary text in the Settings window failed WCAG AA on every theme
 
 The window styled its descriptions, hints and filter status with `color: gray` — a

@@ -78,13 +78,23 @@ macOS 11 (Big Sur) or newer.
 | CPU | `pipx` (PyPI) | Homebrew | `.dmg` app bundle |
 |---|---|---|---|
 | **Apple Silicon** (`arm64`) | ✅ | ✅ `brew install --cask mskazemi/yazses/yazses` | ✅ (unsigned) |
-| **Intel** (`x86_64`) | ✅ | ❌ | ❌ arm64-only bundle ([#264](https://github.com/MSKazemi/yazses/issues/264)) |
+| **Intel** (`x86_64`) | ✅ | ❌ cask tracks arm64 | ⏳ built, unproven ([#264](https://github.com/MSKazemi/yazses/issues/264)) |
 
-**On an Intel Mac, use `pipx install yazses`.** The `.dmg` is built on an Apple
-Silicon runner and the bundled Mach-O has no `x86_64` slice, so the app bundle will
-not launch there. A universal2 build is **not** reachable — several of the runtime
-wheels ship single-architecture binaries — so the fix would be a separate Intel
-build, not a fat one.
+**On an Intel Mac, use `pipx install yazses`.** A universal2 build is **not**
+reachable — several of the runtime wheels ship single-architecture binaries — so the
+fix is a *separate* Intel build rather than a fat one, and that build now exists: CI
+produces `YazSes-<version>-macos-x86_64.dmg` alongside the Apple Silicon one.
+
+It is marked ⏳ rather than ✅ for a specific reason. The `macos-15-intel` runner has
+never completed a build in this repository, so the leg is advisory — a brand-new
+cross-architecture job must not be able to fail a release the Apple Silicon build
+completed fine. It becomes ✅ once it has produced a working `.dmg`, not before, and
+the Homebrew cask will not offer it until then either: a cask whose hash is a guess is
+worse than no cask.
+
+**The `.dmg` filenames now name their architecture.** They did not, and
+`YazSes-2.20.0.dmg` reads as though it were for everybody — which is a large part of
+why an Apple-silicon-only bundle went unnoticed.
 
 !!! warning "Intel Mac support has an end date, and it is not ours"
 

@@ -276,7 +276,12 @@ def main(argv: list[str] | None = None) -> int:
     version = args.version.lstrip("v")
 
     assets, release_date = release_info(version)
-    dmg_name = f"YazSes-{version}.dmg"
+    # The .dmg carries its architecture since ADR-017 added the Intel leg. The cask
+    # tracks arm64 only for now: the Intel build is `continue-on-error` and unproven,
+    # and a cask entry whose hash was guessed is worse than no entry -- Homebrew
+    # refuses the download, so the first thing a new user sees is a failure that
+    # looks like the project is broken.
+    dmg_name = f"YazSes-{version}-macos-arm64.dmg"
     exe_name = f"YazSes-{version}-windows-x64.exe"
     problems: list[str] = []
 

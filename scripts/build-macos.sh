@@ -8,7 +8,7 @@
 #   4. Wrap the .app in a .dmg with create-dmg.
 #
 # Outputs:
-#   dist/YazSes-<VERSION>.dmg
+#   dist/YazSes-<VERSION>-macos-<arch>.dmg     (arch = arm64 | x86_64)
 #
 # Requires:  macOS, Xcode command-line tools, Homebrew (for create-dmg).
 
@@ -51,11 +51,25 @@ if [[ ! -d dist/YazSes.app ]]; then
     exit 1
 fi
 
+# --- target architecture --------------------------------------------------
+# PyInstaller freezes for the machine it runs on -- it does not cross-compile,
+# and `target_arch=None` in the spec means "host architecture" -- so the build
+# host IS the target and the runner label is what selects it. Derived here
+# rather than passed as a flag, for the same reason build-windows.ps1 derives
+# it: a flag and a runner label are two things that can disagree, and the
+# failure is a correctly-built binary with the wrong name on it.
+#
+# Until ADR-017 there was one .dmg and its name said nothing about architecture,
+# which is a large part of why an arm64-only bundle went unnoticed for months:
+# `YazSes-2.20.0.dmg` looks like it is for everybody.
+ARCH="$(uname -m)"
+echo "==> Target architecture: ${ARCH} (from the build host)"
+
 echo "==> Building .dmg"
-DMG="dist/YazSes-${VERSION}.dmg"
+DMG="dist/YazSes-${VERSION}-macos-${ARCH}.dmg"
 rm -f "${DMG}"
 create-dmg \
-    --volname "YazSes ${VERSION}" \
+    --volname "YazSes ${VERSION} (${ARCH})" \
     --window-size 540 380 \
     --icon-size 96 \
     --app-drop-link 380 180 \

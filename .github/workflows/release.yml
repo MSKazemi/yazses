@@ -206,8 +206,13 @@ jobs:
 
             ## macOS
 
-            Download `YazSes-<version>.dmg` from the Assets below, open it, drag
+            Download the `.dmg` for your Mac from the Assets below — `…-macos-arm64.dmg`
+            for Apple Silicon, `…-macos-x86_64.dmg` for Intel — open it, and drag
             **YazSes.app** into **Applications**.
+
+            Not sure which? Run `uname -m` in Terminal. If no Intel `.dmg` is attached,
+            that build did not succeed for this release; `pipx install yazses` works on
+            both architectures.
 
             On first launch, **right-click → Open** (the v0 build is unsigned;
             signing is coming). Grant **Accessibility** + **Microphone** when prompted.

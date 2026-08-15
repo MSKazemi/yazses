@@ -27,7 +27,36 @@ jobs:
       # verifiable link a user has (OpenSSF Signed-Releases, #116).
       id-token: write
       attestations: write
-    runs-on: macos-latest
+    # One .dmg per architecture. `macos-latest` is an Apple-silicon image, so until
+    # this matrix existed the only bundle was arm64 -- an Intel Mac could install via
+    # pipx but the .app would not launch, and its name said nothing about that.
+    #
+    # PyInstaller does not cross-compile and `target_arch=None` in the spec means
+    # "host architecture", so the runner label IS the target. build-macos.sh derives
+    # the name from `uname -m` rather than a flag, which keeps the two from
+    # disagreeing (the same reasoning as build-windows.ps1).
+    #
+    # x86_64 is `continue-on-error` on purpose: `macos-15-intel` has never run in
+    # this repository, and a brand-new leg must not be able to fail a release that
+    # the arm64 build completed fine. Promote it once it has been green a few times.
+    #
+    # It also has a deadline that is not ours (ADR-017): `macos-15-intel` is the LAST
+    # x86_64 image GitHub Actions will offer, available until August 2027, and
+    # `macos-13` was retired on 2025-12-04. When it goes, this leg goes with it and
+    # `pipx` becomes the only Intel path.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-latest
+            experimental: false
+          - arch: x86_64
+            runner: macos-15-intel
+            experimental: true
+    name: build (macos-${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    continue-on-error: ${{ matrix.experimental }}
     timeout-minutes: 30
 
     env:
@@ -155,7 +184,7 @@ jobs:
       - name: Upload .dmg (signed if applicable)
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: yazses-macos-${{ steps.sign.outputs.sign == 'true' && 'signed' || 'unsigned' }}-${{ github.sha }}
+          name: yazses-macos-${{ matrix.arch }}-${{ steps.sign.outputs.sign == 'true' && 'signed' || 'unsigned' }}-${{ github.sha }}
           path: dist/YazSes-*.dmg
           if-no-files-found: error
           retention-days: 14
@@ -176,7 +205,7 @@ jobs:
       # bundle was attached too. See the longer note in release.yml.
       - name: Attach the provenance bundle as a release asset
         if: startsWith(github.ref, 'refs/tags/v')
-        run: cp "${{ steps.attest.outputs.bundle-path }}" "dist/YazSes-${GITHUB_REF_NAME#v}-macos.intoto.jsonl"
+        run: cp "${{ steps.attest.outputs.bundle-path }}" "dist/YazSes-${GITHUB_REF_NAME#v}-macos-${{ matrix.arch }}.intoto.jsonl"
 
       - name: Attach to release (tag builds only)
         if: startsWith(github.ref, 'refs/tags/v')
