@@ -157,29 +157,72 @@ class LinuxTray:
         someone right-clicked.
         """
         from PySide6.QtCore import QRectF, Qt
-        from PySide6.QtGui import QBrush, QColor, QFont, QIcon, QPainter, QPixmap
+        from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
 
         pm = QPixmap(_ICON_PX, _ICON_PX)
         pm.fill(Qt.GlobalColor.transparent)
         p = QPainter(pm)
         try:
             p.setRenderHint(QPainter.RenderHint.Antialiasing)
-            p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
-            # Rounded-square badge in the state colour (blue = working, red = idle/problem).
-            p.setBrush(QBrush(QColor(color_hex)))
-            p.setPen(Qt.PenStyle.NoPen)
-            p.drawRoundedRect(QRectF(5, 5, _ICON_PX - 10, _ICON_PX - 10), 15.0, 15.0)
-            # Bold white "Y" — the YazSes mark.
-            font = QFont()
-            font.setBold(True)
-            font.setPixelSize(int(_ICON_PX * 0.62))
-            p.setFont(font)
-            p.setPen(QColor("#ffffff"))
-            p.drawText(QRectF(0, 0, _ICON_PX, _ICON_PX), Qt.AlignmentFlag.AlignCenter, "Y")
+            self._paint_mark(p, color_hex)
             self._draw_level_ring(p, status or {}, QRectF, Qt, QColor)
         finally:
             p.end()
         return QIcon(pm)
+
+    @staticmethod
+    def _paint_mark(p, color_hex: str) -> None:
+        """Paint the YazSes mark from `brandmark`'s geometry, with Qt.
+
+        The badge used to be a rounded rect with an invented radius plus a bold
+        letter "Y" from whatever `QFont` the system supplied — while Windows drew
+        the same badge from `brandmark.py`, whose numbers come from the committed
+        SVG. Two platforms, visibly different icons for identical state, and the
+        Linux glyph changing with the user's installed fonts.
+
+        The numbers are now shared and the painting is not. Reusing
+        `brandmark.render_mark` directly was the obvious move and is a trap:
+        Pillow is a `sys_platform == "win32"` runtime dependency plus a dev-group
+        one, so on the snap, the .deb, the AUR package or `pip install
+        yazses[desktop]` there is no Pillow. The import would raise inside
+        `_apply_status`'s `except`, which swallows it — leaving a tray with no
+        icon at all, silently. Qt anti-aliases natively and has round caps and
+        joins, so it needs neither Pillow nor brandmark's 8x supersampling.
+
+        Kept inset by 5px of 64, as before: the level ring is drawn in the band
+        outside the badge, and a full-bleed mark would fill it.
+        """
+        from PySide6.QtCore import QPointF, QRectF, Qt
+        from PySide6.QtGui import QBrush, QColor, QPainterPath, QPen
+
+        from yazses.brandmark import _GRID, _RADIUS, _Y_PATHS, _Y_STROKE
+
+        inset = 5.0
+        side = _ICON_PX - 2 * inset
+        # brandmark's coordinates are on a 48-unit grid; scale them onto the badge.
+        k = side / _GRID
+
+        def at(x: float, y: float) -> QPointF:
+            return QPointF(inset + x * k, inset + y * k)
+
+        p.setBrush(QBrush(QColor(color_hex)))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.drawRoundedRect(QRectF(inset, inset, side, side), _RADIUS * k, _RADIUS * k)
+
+        pen = QPen(QColor("#ffffff"))
+        pen.setWidthF(_Y_STROKE * k)
+        # Round caps and joins are what make the fork read as one stroke rather
+        # than three segments — the same choice the SVG makes.
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        p.setPen(pen)
+        p.setBrush(Qt.BrushStyle.NoBrush)
+
+        for stroke in _Y_PATHS:
+            path = QPainterPath(at(*stroke[0]))
+            for point in stroke[1:]:
+                path.lineTo(at(*point))
+            p.drawPath(path)
 
     def _draw_level_ring(self, p, status: dict, QRectF, Qt, QColor) -> None:
         """Draw the live input-level ring, if there is one to draw.
