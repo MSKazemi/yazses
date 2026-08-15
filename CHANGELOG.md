@@ -6,6 +6,82 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security — the open `diskcache` advisory now has a published assessment, pinned by tests
+
+Dependabot has an open alert on `diskcache` ≤ 5.6.3 (unsafe pickle
+deserialization) with **no patched release upstream**, so it cannot be closed by
+bumping a version. It appears in every supply-chain scan run against this
+repository, and there was nowhere to read what it means here. An unanswered alert
+is not neutral: it is how the *next* finding gets waved through by someone who has
+learned the alerts are noise.
+
+It is not exploitable as shipped, and `.github/SECURITY.md` now gives the
+reasoning rather than asserting the conclusion. `diskcache` is not a dependency of
+YazSes; it arrives only under `llama-cpp-python`, which is opt-in (`slm`, `notes`
+and `all` extras, never `project.dependencies`), so a default install never
+downloads it. And the vulnerability requires a cache file to be unpickled —
+`llama_cpp` reads one only when a caller installs a cache via
+`Llama.set_cache(...)`, which YazSes never does.
+
+Both of those are load-bearing claims about this codebase, and this project has
+already shipped changelog entries describing code that was never on `main`. So
+`tests/test_dependency_advisories.py` pins them: the suite fails if
+`llama-cpp-python` becomes a base dependency, if anything starts touching a
+llama-cpp cache or importing `diskcache`, or if the assessment disappears from the
+policy while the guards remain. It also asserts the AST scanner can still match a
+real call — a security detector that silently stops matching reports "all clear"
+forever, which is the worst failure available to it.
+
+### Fixed — a CI job that could only ever be red, for weeks
+
+The `freebsd` leg had failed on **every** run, `main` included. Being advisory it
+blocked nothing; it simply made a red X in Tests look normal, which costs more
+than the coverage it was meant to add, because the next red X gets the same shrug.
+
+It was never a FreeBSD problem. `pip install -e .` resolves `faster-whisper` →
+`ctranslate2`, and PyPI has neither a FreeBSD wheel **nor an sdist** for it — pip
+reports `from versions: none`, so there was nothing to build from either. The job
+died on an unsatisfiable install before running a single test.
+
+The coverage it exists for never needed that stack: the claim under test is that
+FreeBSD really selects and builds the composed BSD backend, which needs
+`sys.platform` to genuinely be `freebsdN`, not a transcription engine. Measured in
+a clean venv, all 48 tests in `tests/test_platform_bsd_and_fallback.py` pass with
+numpy, platformdirs and typer alone. The job now installs `--no-deps` plus those
+and runs exactly that file; the suite-wide run is gone rather than tolerated,
+since most of it imports the transcription stack and would reinstate the permanent
+red. **CI is now green on every job for the first time.**
+
+`docs/platform-support.md` said "nobody has run YazSes on real BSD hardware" and
+that the job "has never got that far". Both were true when written and are not
+now, so the page has been corrected — including the part that has *not* changed:
+nobody has dictated a word on BSD, because the speech pipeline still cannot be
+installed there. The row stays ⚗️ for that reason, not for the platform layer.
+
+### Fixed — eleven tests behind an optional extra were skipped in every job
+
+`uv sync` installs base dependencies only, so any test guarded by an optional
+extra skipped in the main job — and until now, in *every* job. Fourteen tests were
+reporting green while executing nothing.
+
+This is the hole the GUI job was built to close, still open for four other extras,
+and that precedent is the argument: the settings-window tests had been skipped in
+CI for their entire life, and their first real execution immediately found two
+shipped defects. A test that is always skipped is not a test.
+
+The new `extras` job covers the extras whose cost is trivial. `chinese` is a
+single pure-Python package, and installing it takes `tests/test_han_script.py`
+from 30 passed / 11 skipped to **41 passed** — eleven assertions about Simplified
+vs Traditional output that had never run anywhere, on a code path a user in Taipei
+hits on every utterance, and one that has already produced a real user-visible bug
+in this project.
+
+Built like the GUI job, because the failure mode is identical: import the extra
+explicitly first, run with `-rs`, and fail the job on any `SKIPPED` line. Three
+tests stay uncovered — `notes`/`slm` compiles a C++ inference engine, and
+`diarization-pyannote` and `voiceprint-resemblyzer` each pull torch (~2 GB). That
+is a real gap, and it is named in the job rather than hidden behind a green tick.
+
 ### Fixed — three packaging guards passed on an empty set, and now the rule is mechanical
 
 `for path in SOMEWHERE.glob("*"): assert <property>(path)` is green in two

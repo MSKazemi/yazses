@@ -181,19 +181,29 @@ when the kernel has `EVDEV_SUPPORT` — the default since FreeBSD 12 — `xdotoo
 `wtype`, `ydotool`, `xclip` and `wl-clipboard` are all in ports/pkgsrc, and a Unix
 domain socket is a Unix domain socket.
 
-**⚗️ "Experimental" means exactly this:** every component is exercised by the test
-suite against a simulated BSD `sys.platform`, and **nobody has run YazSes on real
-BSD hardware.** It is wired up so that it *can* work and so a BSD user gets a
-working `yazses doctor` and a truthful report — not because it is known to work end
-to end. `doctor` prints a `[WARN]` saying so rather than a reassuring `[OK]`.
-A CI job boots a real FreeBSD VM to run the suite, and **it has never got that far** —
-it stops at the dependency install described above. It is `continue-on-error`, so the
-workflow reported success every run and the gap was invisible until someone went
-looking. That is corrected here rather than quietly: for as long as this note is
-present, the only evidence behind the BSD backend is the unit suite running against a
-simulated `sys.platform`. If you try it on real hardware,
-[tell us what happened](https://github.com/MSKazemi/yazses/issues) — that is still the
-thing standing between this row and a plain ✅.
+**⚗️ "Experimental" means exactly this:** the platform layer is now exercised on a
+real FreeBSD VM in CI, and **the transcription stack still is not, because it
+cannot be installed there at all.** `doctor` prints a `[WARN]` saying so rather
+than a reassuring `[OK]`.
+
+What is actually verified, as of 2026-08-15: a CI job boots a FreeBSD guest and
+runs `tests/test_platform_bsd_and_fallback.py` natively — 48 tests, green — where
+`sys.platform` genuinely *is* `freebsdN` rather than monkeypatched. That covers
+platform detection, the composed backend, path resolution, and the
+OS-independent commands (`reflow`, `table`, `shellpipe`, `transcribe`) that must
+work on a platform with no backend at all.
+
+That job spent weeks failing before a single test ran, on the dependency install
+described above, and being `continue-on-error` it reported success every time — so
+the gap was invisible in a green workflow. It now installs `--no-deps` and only
+what those tests need, which is why the evidence above exists.
+
+**What is still unverified is the part you actually came for.** Nobody has
+dictated a word with YazSes on BSD hardware, and CI cannot try: `ctranslate2` has
+no BSD build, so the speech pipeline is not installable in that VM either. The row
+stays ⚗️ for that reason, not for the platform layer. If you try it on real
+hardware, [tell us what happened](https://github.com/MSKazemi/yazses/issues) —
+that is the thing standing between this row and a plain ✅.
 
 !!! info "You get the X11 hotkey backend, not evdev"
 
