@@ -120,6 +120,94 @@ jobs:
       - name: Run tests
         run: uv run pytest tests/ -v
 
+  gui:
+    # The windowed surfaces — settings window, tray, overlay — on the two OSes
+    # most users run them on.
+    #
+    # PySide6 is deliberately not a base dependency (648 MB of Qt), so `uv sync`
+    # never installs it and EVERY Qt test in the suite is skipped by the job
+    # above. The result was that the settings window's own tests had never
+    # executed anywhere, and running them for the first time found two defects
+    # they were written to catch: they hung forever on any machine with a daemon
+    # running, and a partly-failed Apply reported itself as a clean save. A test
+    # that is always skipped is not a test.
+    #
+    # Ubuntu + Windows only: macOS adds a third Qt build for the same code paths
+    # and the failures being caught are Qt/logic, not platform. Runs offscreen,
+    # so no display server is needed. `--no-skip-gui` does not exist — instead
+    # the run fails if PySide6 is missing, because a silent skip here would
+    # restore exactly the hole this job closes.
+    name: GUI (Qt) — ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libportaudio2 \
+            libegl1 libgl1 libxkbcommon0 libdbus-1-3 libfontconfig1 \
+            libxcb-cursor0 libxcb-xinerama0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+
+      - name: Install dependencies (with Qt)
+        run: uv sync --extra overlay
+
+      - name: PySide6 must actually be importable
+        # Without this the Qt tests skip and the job passes green having tested
+        # nothing — the precise failure mode this job exists to end.
+        run: uv run python -c "import PySide6; print(PySide6.__version__)"
+
+      - name: Run the windowed-surface tests
+        # One run, not two. `-rs` lists skip reasons in the same output the
+        # assertions produce, and `pipefail` keeps pytest's exit code from being
+        # swallowed by `tee` — without it a red suite would report success and
+        # only the skip check below would ever fail.
+        #
+        # `python -m pytest`, not `uv run pytest`: it puts the project on
+        # sys.path the way AGENTS.md/CLAUDE.md specify for this repo.
+        shell: bash
+        run: |
+          set -o pipefail
+          uv run python -m pytest -v -rs \
+            tests/test_settingsui_window.py \
+            tests/test_settingsui_help.py \
+            tests/test_settingsui_search.py \
+            tests/test_settingsui_model.py \
+            tests/test_settingsui_controller.py \
+            tests/test_settingsui_controls.py \
+            tests/test_settingsui_restart.py \
+            tests/test_settingsui_deps.py \
+            tests/test_settingsui_launch.py \
+            tests/test_gui_entry_points.py \
+            tests/test_tray_settings_parity.py \
+            tests/test_tray_about.py 2>&1 | tee gui-tests.txt
+
+      - name: No Qt test may be silently skipped
+        # A skip here means a guard stopped guarding — which is the whole reason
+        # this job exists, since the suite above was skipped in CI for its entire
+        # life and nobody could see it in a green run.
+        shell: bash
+        run: |
+          if grep -q "^SKIPPED" gui-tests.txt; then
+            echo "::error::A Qt test was skipped in the GUI job — it guards nothing here."
+            grep "^SKIPPED" gui-tests.txt
+            exit 1
+          fi
+          echo "No Qt test was skipped."
+
   freebsd:
     # Runs the suite on a REAL FreeBSD VM, not a simulated `sys.platform`.
     #

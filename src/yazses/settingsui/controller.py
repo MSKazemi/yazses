@@ -84,6 +84,10 @@ class PendingChanges:
         """The state *slug* loaded with (or last successfully applied as)."""
         return self._original.get(slug, False)
 
+    def current(self, slug: str) -> bool:
+        """The state the window is *showing* — staged if edited, else baseline."""
+        return self._desired.get(slug, self._original.get(slug, False))
+
     def items(self) -> list[tuple[str, bool]]:
         """Staged ``(slug, desired)`` pairs, in a stable order."""
         return sorted(self._desired.items())
@@ -96,6 +100,33 @@ class PendingChanges:
 
     def __len__(self) -> int:
         return len(self._desired)
+
+
+def defaults_diff(
+    defaults: Mapping[str, bool],
+    pending: PendingChanges,
+    *,
+    toggleable: Iterable[str] | None = None,
+) -> list[tuple[str, bool]]:
+    """``(slug, default)`` for every row the window is showing off-default.
+
+    Compares against what the window currently *shows* (staged edits included),
+    not against the file, so clicking Restore defaults after ticking three boxes
+    undoes those three too — which is what "restore" means to the person
+    clicking it.
+
+    ``toggleable`` restricts the result to rows that can actually be switched
+    here. Without it a reset could stage a capability the window renders greyed
+    out, and Apply would then report a failure the user has no way to act on.
+    """
+    allowed = None if toggleable is None else set(toggleable)
+    out: list[tuple[str, bool]] = []
+    for slug, default in sorted(defaults.items()):
+        if allowed is not None and slug not in allowed:
+            continue
+        if pending.current(slug) != default:
+            out.append((slug, default))
+    return out
 
 
 @dataclass

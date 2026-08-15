@@ -6,6 +6,68 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the settings window explains every option, and can undo itself
+
+The switchboard listed ~200 capabilities as a checkbox, a name and a tier. That
+answers "is it on?" and nothing else: not what the capability does to your
+dictation, not when you would want it, and — the one a config file makes
+checkable — not what ticking the box actually writes. The material to answer all
+three already existed; `yazses features info` has printed it for a year. Only the
+window had no way to show it.
+
+- **A filter box.** `yazses features` has had `--on`/`--tier`/`--category` since
+  it was written; the window had none of it, so reaching a capability meant
+  scrolling past every other one — and a row you never reach cannot explain
+  itself, however good its help text is. It matches the name, the toggle name,
+  the category *and* the description, so `stutter` finds Dysfluency-Friendly;
+  `on:`/`off:`/`tier:rec` take the same words the CLI flags take. Visibility
+  only: a hidden row keeps its staged edit, and Apply and Restore defaults act on
+  every capability, not the visible ones.
+- **Every row explains itself, three ways.** A one-line summary under the label
+  (always visible, so a category is scannable), the full card on hover, and a
+  **?** button that opens that same card in a dialog. The button is there *as
+  well as* the tooltip, not instead of it: hover is unreachable by keyboard,
+  unavailable on touch, and never announced by a screen reader — which for this
+  project's users is not a detail. Rows also carry an accessible description, so
+  the help is spoken rather than merely displayed.
+- **The card names the config keys.** Alongside what it does, when to use it, an
+  example and any packages it installs, each row states the exact
+  `[section] key = value` writes ticking it performs — so the window stays
+  auditable against a `config.toml` you may also be editing by hand. A greyed row
+  explains *why* it is greyed, instead of just refusing to move.
+- **Restore defaults.** Puts every switch back to the state a fresh install ships
+  with. It stages rather than writes, and names every capability it would touch,
+  split into on and off, before anything happens — so a misclick costs nothing.
+  It never enables an experimental capability (those are by definition not the
+  advised set), it only writes the rows that actually differ rather than churning
+  all ~200 keys, and it leaves your hotkey, microphone, threshold and vocabulary
+  alone. It is a reset of the switchboard, not of your config file.
+- **`yazses features reset`** is the same operation in a terminal, with
+  `--dry-run`, `--yes` and `--no-install` — so a headless box, an SSH session, or
+  a distribution too old to load Qt is not cut off from it. Both surfaces read
+  one definition of "default" (`features.default_state()`), which is the same set
+  first-run seeds, so they cannot drift.
+
+All of the wording is pure and unit-tested (`settingsui/help.py`), because the
+window itself is skipped wherever PySide6 is absent — CI included.
+
+### Fixed — the settings window's tests had never run anywhere
+
+`tests/test_settingsui_window.py` is skipped without PySide6, which CI does not
+install (Qt is deliberately not a base dependency), so the Qt shell was verified
+by nothing. Running it for the first time turned up two defects it had been
+written to catch and then never executed:
+
+- **The tests hung on any machine with a daemon running.** They stubbed the
+  experimental dialog but not the restart one, and Apply asks the *host* whether
+  a daemon is up. On a developer's own machine — i.e. anyone actually using
+  YazSes — Apply opened a real modal dialog and the run blocked forever. Green in
+  CI purely because no daemon runs there.
+- **A partly-failed Apply reported itself as a clean save.** The restart outcome
+  overwrote Apply's summary, and that summary was the only place the window said
+  some rows had failed and were still staged. The two are now composed, not
+  replaced.
+
 ### Fixed — "Update installed" was reported for upgrades that never happened
 
 Reported from a real install: the tray's **Check for updates…** offered 2.19.0 → 2.20.0,

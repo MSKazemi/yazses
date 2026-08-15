@@ -71,6 +71,37 @@ zero, because a daemon that dies while loading a model would otherwise be report
 as restarted. Declining keeps a persistent "restart pending" hint. Decisions live
 in `settingsui/restart.py` (Qt-free, IPC injected); the dialog is dumb.
 
+**A row you cannot reach cannot explain itself.** `yazses features` has had
+`--on`/`--tier`/`--category` since it was written; the window had none of it, so
+the only way to a capability was to scroll past every other one.
+`settingsui/search.py` is the filter — pure, matching name, slug, category and
+description text, with `on:`/`off:`/`tier:` tokens taking the same words the CLI
+flags take rather than inventing a second vocabulary. It changes visibility and
+nothing else: a hidden row keeps its staged edit, and both Apply and Restore
+defaults act on the whole model, never on what happens to be on screen.
+
+**A switch that cannot explain itself is not a setting.** With ~200 capabilities,
+a checkbox and a tier tell the user nothing about what a row does, when to reach
+for it, or what ticking it writes. `settingsui/help.py` renders that from the same
+registry entries `yazses features info` prints — one source, three renderings: a
+one-line summary that is always visible (a category has to stay scannable), the
+full card as a hover tooltip, and the same card behind a **?** button. The button
+is not redundant with the tooltip: hover is unreachable by keyboard, unavailable
+on touch, and never announced by a screen reader, so each row also carries an
+accessible description in plain text. The card names the exact
+`[section] key = value` writes a toggle performs, which is what keeps the window
+auditable against a config file the user may also be editing by hand.
+
+**Restore defaults stages rather than writes.** "Default" has exactly one
+definition — `features.default_state()`, the same set `system/firstrun.py` seeds a
+new install with — read by both the window's button and `yazses features reset`,
+so the two cannot drift. The window computes the difference against what it is
+*showing* (staged edits included), names every capability it would touch before
+anything happens, and leaves it staged for Apply; the CLI writes only the rows
+that differ rather than rewriting all ~200 keys and churning the file's comments.
+Neither can turn an experimental capability on, because the defaults are by
+definition the advised set — a reset can only ever switch one off.
+
 **Staged dictation puts the review before the injection.** `staged/buffer.py` is a
 pure state machine — chunks in, commit/discard/undo out — held by the daemon and
 consulted in `_on_hold_end` before anything is typed. Chunks are kept separately

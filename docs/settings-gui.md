@@ -9,7 +9,7 @@ Everything YazSes can do is a switch, and this is the switchboard. It writes the
 same `config.toml` keys as `yazses features enable/disable`, so the window and the
 CLI can never disagree about what is on.
 
-![The YazSes Settings window, showing the Core dictation group with each capability as a checkbox and its recommendation tier underneath](screenshots/settings-window.png)
+![The YazSes Settings window: a filter box at the top, then the Core dictation group with each capability as a checkbox, its recommendation tier and a one-line description underneath, a ? button per row, and Restore defaults / Apply along the bottom](screenshots/settings-window.png)
 
 ## Opening it
 
@@ -48,6 +48,85 @@ accuracy and correction, accessibility, and so on — and each row carries a
 
 A greyed-out row is one that cannot be switched — `Dictation core` is the pipeline
 itself, not a feature.
+
+## Finding a capability
+
+There are around two hundred rows, so the box at the top filters them. It matches
+the name you can see, the toggle name the CLI uses, the category heading, **and
+the description** — so typing `stutter` finds *Dysfluency-Friendly*, whose label
+contains neither word. Several words narrow rather than widen.
+
+Two tokens mirror the `yazses features` flags rather than inventing a second
+vocabulary:
+
+| Type | Shows |
+|---|---|
+| `on:` / `off:` | only what is currently enabled / disabled |
+| `tier:rec` | only one tier — `core`, `on`, `rec`, `opt`, `exp` |
+| `on: meeting` | combine freely |
+
+A category with nothing left in it disappears with its rows. Filtering is
+visibility only: a hidden row keeps any change you staged, and **Apply** and
+**Restore defaults** both act on every capability, not just the visible ones.
+
+## What does this option actually do?
+
+A checkbox and a name answer "is it on?" and nothing else, which is not enough
+when there are around two hundred of them. So every row explains itself, three
+ways — because any single way excludes someone:
+
+- **A one-line summary, always visible**, under the label: the tier, then the
+  first sentence of the description. Enough to scan a category without hovering
+  anything.
+- **A tooltip on hover**, with the full card.
+- **A `?` button**, which opens that same card in a dialog you can reach with the
+  keyboard, tap on a touchscreen, and read for as long as you like. Hover does
+  none of those things, and a screen reader never announces a tooltip at all —
+  which is why the button is there *as well*, not instead.
+
+The card answers the questions a switch cannot:
+
+| Line | Answers |
+|---|---|
+| **What it does** | the capability, in a sentence or two |
+| **Use when** | the situation you'd reach for it in |
+| **Example** | a spoken phrase or command that exercises it |
+| **Turning it on** | the exact `config.toml` keys ticking the box writes |
+| **Also installs** | any optional Python packages it will download |
+| **Out of the box** | whether it ships on or off — or why it is not a switch |
+| **Status** | the recommendation tier |
+
+**Turning it on** is the line worth knowing about: it names the real keys, so the
+window stays auditable against a config file you may also be editing by hand. A
+greyed row explains *why* it is greyed there too — "part of the pipeline itself,
+not a switch", or "designed but not wired into this build yet".
+
+It is the same material `yazses features info <name>` prints in a terminal,
+rendered from the same registry entry. The window and the CLI cannot describe a
+capability differently.
+
+## Restore defaults
+
+**Restore defaults** puts every switch back to the state a fresh install ships
+with — the `on by default` and `recommended` tiers on, everything else off.
+
+It **stages**, it does not write. Before anything happens it names every
+capability it would touch, split into what goes on and what goes off, and nothing
+reaches your config file until you press **Apply**. A misclick costs nothing.
+
+Three things it will not do:
+
+- **It never enables an experimental capability.** Those are, by definition, not
+  the advised set, so a reset can only ever switch one *off*.
+- **It only touches feature switches.** Your hotkey, your microphone, your VAD
+  threshold, your vocabulary and every setting you hand-edited are left exactly
+  as they are. This is a reset of the switchboard, not of `config.toml`.
+- **It only writes what actually differs.** Rewriting all ~200 keys to change
+  three of them would churn the whole file, comments included.
+
+No graphical session? `yazses features reset` is the same operation in a
+terminal, with `--dry-run` to see the list first — which is also the answer on a
+distribution too old to load Qt.
 
 **Experimental capabilities are refused here as they are on the CLI**, where
 `yazses features enable` requires `--force`. That refusal is the point: it is the

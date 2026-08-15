@@ -240,6 +240,7 @@ showing whether each is on/off, its toggle name, and an advice tier.
 | `yazses features info <name>` | Describe one capability — what it does, a usage example, and how to toggle it. |
 | `yazses features enable <name>` | Turn a capability **on** (writes your config), then `yazses restart` to apply. |
 | `yazses features disable <name>` | Turn a capability **off**, then `yazses restart`. |
+| `yazses features reset` | Restore **every** capability to the state a fresh install ships with. |
 
 ```bash
 yazses features                          # every capability, grouped, + advice
@@ -250,8 +251,25 @@ yazses features info                     # describe ALL capabilities + usage exa
 yazses features info reflow              # describe one + show a usage example
 yazses features enable read-back         # turn one on  (use the TOGGLE NAME)
 yazses features disable cocktail         # turn one off
+yazses features reset --dry-run          # what a reset would change; writes nothing
+yazses features reset                    # restore the defaults (asks first)
 yazses restart                           # apply
 ```
+
+**`yazses features reset`** is the terminal half of the settings window's
+**Restore defaults** button — the same operation, for a machine with no
+graphical session, no PySide6, or a distribution too old to load Qt.
+
+| Option | Description |
+|---|---|
+| `--dry-run` | List what would change and write nothing. |
+| `--yes` / `-y` | Skip the confirmation prompt. |
+| `--no-install` | Don't auto-install optional deps for what it turns back on. |
+
+It writes **only** the capabilities that are off their default, so your config
+file and its comments are not churned to change three lines — and it resets the
+feature switches only. Your hotkey, microphone, vocabulary and every hand-edited
+setting are left exactly as they are.
 
 Each row shows an **advice** tier:
 
@@ -271,7 +289,8 @@ it's not advised and exits; add `--force` to override.
 ### `yazses settings`
 
 The same switchboard as a **window**: every capability as a checkbox, grouped by
-the same categories `yazses features` prints, with its advice tier underneath.
+the same categories `yazses features` prints, with its advice tier and a one-line
+description underneath.
 
 ```bash
 yazses settings           # open the window (blocks until you close it)
@@ -283,14 +302,28 @@ feature registry as the CLI, so the two can never disagree — and it honours th
 same rules: core and *planned — designed, not yet wired* features are shown but
 not clickable, and an experimental one asks for confirmation before it is staged.
 
-A few things it deliberately does **not** do (yet — see the
-[settings-gui epic](https://github.com/MSKazemi/yazses/issues/65)):
+Three things it gives you that a plain checkbox list cannot:
 
-- It does not install a feature's optional Python packages. `yazses features
-  enable <name>` does; the window tells you which packages are missing and names
-  that command.
-- It needs a **graphical session**. On a headless box or a bare SSH session it
-  says so and points you at `yazses features` instead of failing at Qt.
+- **A filter box.** Matches the name, the toggle name, the category *and* the
+  description, so `stutter` finds Dysfluency-Friendly. `on:` / `off:` and
+  `tier:rec` mirror the flags above. Filtering is visibility only — Apply and
+  Restore defaults still act on every capability.
+
+- **Help on every option.** Hover a row, or click its **?** button, for the same
+  card `yazses features info` prints — what it does, when you'd want it, an
+  example, the exact config keys ticking it writes, and any packages it installs.
+  The **?** button exists beside the tooltip rather than instead of it: hover is
+  unreachable by keyboard, unavailable on touch, and never announced by a screen
+  reader.
+- **Restore defaults.** Puts every switch back to the state a fresh install ships
+  with. It *stages* the change and names every capability it would touch first,
+  so nothing is written until you press Apply — and it never turns an
+  experimental capability on, because those are by definition not the advised
+  set. `yazses features reset` is the same operation in a terminal.
+
+It needs a **graphical session**. On a headless box or a bare SSH session it says
+so and points you at `yazses features` / `yazses features reset` instead of
+failing at Qt.
 
 ### `yazses-daemon`
 

@@ -6,6 +6,17 @@ checkbox per row, stages checkbox changes in memory, and writes them all when
 Apply is clicked — mirroring `yazses features enable/disable`. Experimental
 features are confirmed the moment you check them, before anything is staged.
 
+Every row explains itself three ways, because one way always excludes someone:
+a one-line summary that is always visible, a hover tooltip with the full card,
+and a "?" button that opens the same card in a dialog — reachable by keyboard,
+by touch, and by a screen reader, none of which can hover. The wording is
+:mod:`yazses.settingsui.help`, rendered from the same registry entries
+`yazses features info` prints.
+
+**Restore defaults** stages, it does not write: it moves every switch back to
+its shipped state and leaves them staged, so the change is visible and
+cancellable before Apply commits it — and so a misclick costs nothing.
+
 All the bookkeeping (what is staged, what was confirmed, what landed) lives in
 the pure :class:`~yazses.settingsui.controller.PendingChanges` /
 :class:`~yazses.settingsui.controller.SettingsController` pair, so this file only
@@ -19,25 +30,44 @@ import os
 import sys
 from typing import Any
 
-from yazses.settingsui.controller import ApplyReport, PendingChanges, SettingsController
+from yazses.settingsui.controller import (
+    ApplyReport,
+    PendingChanges,
+    SettingsController,
+    defaults_diff,
+)
+from yazses.settingsui.help import (
+    accessible_description,
+    help_html,
+    reset_message,
+    summary_line,
+)
 from yazses.settingsui.launch import has_display, pyside_available
 from yazses.settingsui.model import SettingRow, SettingsModel, build_settings_model
+from yazses.settingsui.search import describe_filter, matches, visible_counts
 
 log = logging.getLogger(__name__)
 
+# Both fallbacks name the *whole* terminal equivalent, `reset` included: a
+# machine that cannot run Qt (an old distribution, a headless box) is exactly the
+# one that must not be left without a way to undo a setting.
+_TERMINAL_EQUIVALENT = (
+    "    yazses features                     list every capability and its state\n"
+    "    yazses features info <name>         what one does, when to use it, an example\n"
+    "    yazses features enable <name>       turn one on\n"
+    "    yazses features disable <name>      turn one off\n"
+    "    yazses features reset               restore every capability to its default"
+)
 _MISSING_PYSIDE_MSG = (
     "The settings window needs PySide6. Install it with:\n"
     "    uv sync --extra overlay      # or: pip install 'yazses[overlay]'\n"
-    "Every setting is also available from the terminal: yazses features"
+    "Every setting is also available from the terminal:\n" + _TERMINAL_EQUIVALENT
 )
 _NO_DISPLAY_MSG = (
     "The settings window needs a graphical session — no DISPLAY or WAYLAND_DISPLAY\n"
     "is set, so there is nothing to open it on (an SSH session without X forwarding,\n"
     "or a headless machine).\n"
-    "Use the terminal instead:\n"
-    "    yazses features                     list every capability and its state\n"
-    "    yazses features enable <name>       turn one on\n"
-    "    yazses features disable <name>      turn one off"
+    "Use the terminal instead:\n" + _TERMINAL_EQUIVALENT
 )
 
 
@@ -84,6 +114,13 @@ def run() -> None:
     sys.exit(app.exec())
 
 
+def _rich_text():
+    """``Qt.TextFormat.RichText``, imported at call time like the rest of Qt here."""
+    from PySide6.QtCore import Qt
+
+    return Qt.TextFormat.RichText
+
+
 class SettingsWindow:
     """The settings window itself. Only imports Qt when instantiated."""
 
@@ -100,23 +137,46 @@ class SettingsWindow:
         )
 
         self._controller = controller
+        self._model = model
         self._checkboxes: dict[str, QCheckBox] = {}
+        # Typed Any for the same reason as the QThread refs below: PySide6 ships
+        # no stubs in this tree.
+        self._info_buttons: dict[str, Any] = {}
+        self._rows: dict[str, SettingRow] = {
+            row.slug: row for group in model.groups for row in group.rows
+        }
+        self._defaults = dict(model.defaults)
         self._pending = PendingChanges(
-            {row.slug: row.enabled for group in model.groups for row in group.rows}
+            {slug: row.enabled for slug, row in self._rows.items()}
         )
 
         self._win = QMainWindow()
         self._win.setWindowTitle("YazSes Settings")
-        self._win.resize(640, 720)
+        self._win.resize(680, 760)
 
         central = QWidget()
         outer = QVBoxLayout(central)
+
+        # Tooltips are invisible until you already suspect they exist, so say so
+        # once at the top rather than hoping every user discovers hovering.
+        intro = QLabel(
+            "Hover any capability for the full description, or click ? for its "
+            "details, examples and the exact config keys it writes."
+        )
+        intro.setWordWrap(True)
+        intro.setStyleSheet("color: gray;")
+        outer.addWidget(intro)
+
+        outer.addLayout(self._build_filter_box())
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         body = QWidget()
         body_layout = QVBoxLayout(body)
 
+        # (group_box, category, [(slug, row_widget), ...]) — everything the filter
+        # needs to hide a row and, when a whole category empties, its heading too.
+        self._group_widgets: list[tuple[Any, str, list[tuple[str, Any]]]] = []
         for group in model.groups:
             box = QGroupBox(group.category)
             box_layout = QVBoxLayout(box)
@@ -125,8 +185,15 @@ class SettingsWindow:
                 blurb.setWordWrap(True)
                 blurb.setStyleSheet("color: gray;")
                 box_layout.addWidget(blurb)
+            members: list[tuple[str, Any]] = []
             for row in group.rows:
-                box_layout.addLayout(self._build_row(row))
+                # A QWidget per row, not a bare layout: Qt can hide a widget, and
+                # there is no equivalent for a layout short of walking its items.
+                holder = QWidget()
+                holder.setLayout(self._build_row(row))
+                box_layout.addWidget(holder)
+                members.append((row.slug, holder))
+            self._group_widgets.append((box, group.category, members))
             body_layout.addWidget(box)
         body_layout.addStretch(1)
 
@@ -138,7 +205,22 @@ class SettingsWindow:
         self._hint.setStyleSheet("color: gray;")
         outer.addWidget(self._hint)
 
+        from PySide6.QtWidgets import QHBoxLayout
+
+        buttons = QHBoxLayout()
+        reset_btn = QPushButton("Restore defaults")
+        reset_btn.setToolTip(
+            "Move every capability back to the state a fresh install ships with. "
+            "Staged only — nothing is written until you click Apply."
+        )
+        self._reset_button = reset_btn
+        reset_btn.clicked.connect(self._on_restore_defaults)
+        buttons.addWidget(reset_btn)
+        buttons.addStretch(1)
+
         apply_btn = QPushButton("Apply")
+        # Enter applies; the destructive-ish button never gets that for free.
+        apply_btn.setDefault(True)
         self._apply_button = apply_btn
         # Dependency-install state (#135). `_auto_install` mirrors the CLI's
         # --no-install; the thread/worker refs keep Qt from collecting a
@@ -151,26 +233,121 @@ class SettingsWindow:
         self._install_thread: Any = None
         self._install_worker: Any = None
         apply_btn.clicked.connect(self._on_apply)
-        outer.addWidget(apply_btn)
+        buttons.addWidget(apply_btn)
+        outer.addLayout(buttons)
 
         self._win.setCentralWidget(central)
 
+    def _build_filter_box(self):
+        """The filter box. Mirrors `yazses features --on/--tier/--category`.
+
+        Two hundred rows in one scroll means the only way to reach a capability
+        was to pass every other one — and a row you never reach cannot explain
+        itself, however good its help text is.
+        """
+        from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QVBoxLayout
+
+        wrap = QVBoxLayout()
+        line = QHBoxLayout()
+        line.addWidget(QLabel("Filter:"))
+
+        box = QLineEdit()
+        box.setPlaceholderText("name, category, or what it does — e.g. stutter, tier:rec, on:")
+        box.setClearButtonEnabled(True)
+        box.setToolTip(
+            "Matches the name, the toggle name, the category and the description,"
+            " so 'stutter' finds Dysfluency-Friendly.\n"
+            "on: / off: — only what is currently enabled or disabled\n"
+            "tier:core|on|rec|opt|exp — only one recommendation tier"
+        )
+        box.setAccessibleName("Filter capabilities")
+        box.textChanged.connect(self._on_filter_changed)
+        self._filter_box = box
+        line.addWidget(box, 1)
+        wrap.addLayout(line)
+
+        self._filter_status = QLabel("")
+        self._filter_status.setWordWrap(True)
+        self._filter_status.setStyleSheet("color: gray;")
+        wrap.addWidget(self._filter_status)
+        return wrap
+
+    def _on_filter_changed(self, query: str) -> None:
+        """Hide what does not match — and any category left with nothing in it.
+
+        Only visibility changes. A hidden row keeps its staged state, so filtering
+        mid-edit can never quietly discard a change or exclude one from Apply.
+        """
+        for box, category, members in self._group_widgets:
+            visible = 0
+            for slug, holder in members:
+                shown = matches(self._rows[slug], query, category=category)
+                holder.setVisible(shown)
+                visible += int(shown)
+            box.setVisible(visible > 0)
+        matching, total = visible_counts(self._model.groups, query)
+        self._filter_status.setText(describe_filter(matching, total, query))
+
     def _build_row(self, row: SettingRow):
-        from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLabel, QVBoxLayout
+        from PySide6.QtWidgets import (
+            QCheckBox,
+            QHBoxLayout,
+            QLabel,
+            QToolButton,
+            QVBoxLayout,
+        )
+
+        card = help_html(row)
+        spoken = accessible_description(row)
 
         line = QVBoxLayout()
         top = QHBoxLayout()
         cb = QCheckBox(row.label)
         cb.setChecked(row.enabled)
         cb.setEnabled(row.toggleable)
+        cb.setToolTip(card)
+        # A disabled QCheckBox does not show its tooltip on every platform, and a
+        # greyed row is exactly the one people need explained ("why can't I turn
+        # this on?"). The description is on the row's ? button either way.
+        cb.setAccessibleDescription(spoken)
         cb.toggled.connect(lambda checked, r=row: self._on_toggled(r, checked))
         self._checkboxes[row.slug] = cb
         top.addWidget(cb)
+        top.addStretch(1)
+
+        info = QToolButton()
+        info.setText("?")
+        info.setAutoRaise(True)
+        info.setToolTip(card)
+        info.setAccessibleName(f"Details about {row.label}")
+        info.setAccessibleDescription(spoken)
+        info.clicked.connect(lambda _checked=False, r=row: self._show_details(r))
+        self._info_buttons[row.slug] = info
+        top.addWidget(info)
         line.addLayout(top)
-        subtitle = QLabel(row.tier_label)
+
+        subtitle = QLabel(summary_line(row))
+        subtitle.setWordWrap(True)
+        subtitle.setToolTip(card)
         subtitle.setStyleSheet("color: gray; margin-left: 24px;")
         line.addWidget(subtitle)
         return line
+
+    def _show_details(self, row: SettingRow) -> None:
+        """The same card the tooltip shows, in a dialog you can reach and read.
+
+        Not a tooltip: hover is unreachable by keyboard, unavailable on touch,
+        and never announced by a screen reader — and it disappears while you are
+        still reading it.
+        """
+        from PySide6.QtWidgets import QMessageBox
+
+        box = QMessageBox(self._win)
+        box.setWindowTitle(row.label)
+        box.setTextFormat(_rich_text())
+        box.setText(help_html(row))
+        box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        box.exec()
 
     def _on_toggled(self, row: SettingRow, checked: bool) -> None:
         if not row.toggleable:
@@ -198,6 +375,48 @@ class SettingsWindow:
             if count else ""
         )
 
+    def _on_restore_defaults(self) -> None:
+        """Move every switch back to its shipped state — staged, not written.
+
+        Restricted to rows that are actually toggleable here, so a reset can
+        never stage a greyed-out row and hand the user an Apply failure they
+        cannot act on.
+        """
+        diff = defaults_diff(
+            self._defaults,
+            self._pending,
+            toggleable=[slug for slug, row in self._rows.items() if row.toggleable],
+        )
+        labels = {slug: row.label for slug, row in self._rows.items()}
+        if not diff:
+            self._hint.setText(reset_message(diff, labels))
+            return
+        if not self._confirm_reset(diff, labels):
+            return
+
+        for slug, desired in diff:
+            self._pending.stage(slug, desired)
+            self._set_checked_silently(slug, desired)
+        # Defaults never include an experimental capability (they are, by
+        # definition, not advised), so a reset only ever turns those off and no
+        # confirmation is spent here. `PendingChanges.stage` drops rows that are
+        # already at their baseline, so a reset stages only genuine changes.
+        self._show_staged()
+
+    def _confirm_reset(self, diff, labels) -> bool:
+        from PySide6.QtWidgets import QMessageBox
+
+        answer = QMessageBox.question(
+            self._win,
+            "Restore default settings?",
+            f"{len(diff)} capabilit{'y' if len(diff) == 1 else 'ies'} will go back "
+            f"to the state a fresh install ships with.\n\n"
+            + reset_message(diff, labels),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        return answer == QMessageBox.StandardButton.Yes
+
     def _confirm_experimental(self, row: SettingRow) -> bool:
         from PySide6.QtWidgets import QMessageBox
 
@@ -221,7 +440,8 @@ class SettingsWindow:
             if slug not in still_staged:
                 self._set_checked_silently(slug, self._pending.baseline(slug))
 
-        self._hint.setText(self._summarise(report))
+        summary = self._summarise(report)
+        self._hint.setText(summary)
         if report.errors:
             self._warn("Some settings were not saved", "\n".join(report.errors))
 
@@ -233,14 +453,19 @@ class SettingsWindow:
         # Then close the loop: config is read at startup, so until the daemon is
         # restarted the window is showing settings that are not in effect (#61).
         if report.applied:
-            self._offer_restart()
+            self._offer_restart(summary)
 
-    def _offer_restart(self) -> None:
+    def _offer_restart(self, summary: str = "") -> None:
         """Ask, restart, and report what the daemon actually says afterwards.
 
         The decision logic is `settingsui/restart.py`; this method only supplies
         the dialog and the IPC/subprocess effects, so the honest-state rules are
         unit-tested without Qt.
+
+        The restart outcome is *appended* to Apply's summary rather than
+        replacing it: on a partly-failed Apply the summary is the only place the
+        window says some rows are still staged, and overwriting it left a
+        half-applied change looking like a clean save.
         """
         from yazses.settingsui.restart import apply_and_restart
 
@@ -250,7 +475,7 @@ class SettingsWindow:
             restart=self._run_restart,
             status=self._daemon_status,
         )
-        self._hint.setText(outcome.message)
+        self._hint.setText("  ".join(part for part in (summary, outcome.message) if part))
         self._restart_pending = outcome.needs_restart_hint
 
     def _confirm_restart(self) -> bool:

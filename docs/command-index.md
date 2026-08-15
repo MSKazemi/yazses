@@ -190,6 +190,14 @@ Describe a capability — what it does, a usage example, and how to toggle it.
 
 - **Arguments:** `name`
 
+### `yazses features reset`
+
+Restore every capability to the state a fresh install ships with.
+
+- `--yes`, `-y` — Skip the confirmation prompt.
+- `--dry-run` — List what would change and write nothing.
+- `--no-install` — Don't auto-install optional deps for what it turns on.
+
 ## `yazses fileopen`
 
 Open a file by voice: fuzzy matches your spoken query against files in a directory.

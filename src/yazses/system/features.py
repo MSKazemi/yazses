@@ -1504,3 +1504,42 @@ def default_enabled_writes() -> list[tuple]:
         if d.tier in _DEFAULT_ENABLED_TIERS and d.slug not in _UNWIRED:
             writes.extend(d.on_writes)
     return writes
+
+
+def default_state() -> dict[str, bool]:
+    """The out-of-the-box on/off state of every toggleable capability.
+
+    ``True`` for the recommended-by-default tiers — exactly what
+    :func:`default_enabled_writes` seeds a fresh config with — and ``False`` for
+    everything else, which is what each feature's ``off_writes`` restores and
+    what its config dataclass already defaults to. So this is not a second
+    opinion about defaults: it is the same one, expressed per capability.
+
+    This is what "restore defaults" means, and both the settings window and
+    ``yazses features reset`` read it, so they cannot drift apart.
+
+    Designed-but-unwired capabilities are excluded for the same reason
+    :func:`default_enabled_slugs` excludes them: nothing reads their key, so
+    "resetting" one would only write a claim the daemon ignores.
+    """
+    return {
+        d.slug: d.tier in _DEFAULT_ENABLED_TIERS
+        for d in _registry()
+        if d.on_writes and d.slug not in _UNWIRED
+    }
+
+
+def default_drift(cfg) -> list[tuple[Feature, bool]]:
+    """Every capability whose state in *cfg* is not its shipped default.
+
+    Returns ``(feature, default_state)`` pairs in registry order — the exact set
+    of rows a reset has to write, and nothing else. Computing the difference
+    rather than rewriting all ~200 keys matters: a reset that rewrote every key
+    would churn the whole config file (and its comments) to change three lines.
+    """
+    defaults = default_state()
+    return [
+        (f, defaults[f.slug])
+        for f in feature_status(cfg)
+        if f.slug in defaults and f.on != defaults[f.slug]
+    ]

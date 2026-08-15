@@ -166,6 +166,20 @@ Don't auto-install the feature's optional deps.
 .TP
 \fByazses features info\fR \fINAME\fR
 Describe a capability \(em what it does, a usage example, and how to toggle it.
+.TP
+\fByazses features reset\fR
+Restore every capability to the state a fresh install ships with.
+.RS
+.TP
+\fB\-\-yes, \-y\fR
+Skip the confirmation prompt.
+.TP
+\fB\-\-dry\-run\fR
+List what would change and write nothing.
+.TP
+\fB\-\-no\-install\fR
+Don't auto-install optional deps for what it turns on.
+.RE
 .SS "yazses fileopen"
 Open a file by voice: fuzzy matches your spoken query against files in a directory.
 .br

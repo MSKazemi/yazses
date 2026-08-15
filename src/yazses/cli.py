@@ -1264,6 +1264,80 @@ def features_disable(
     typer.echo("Apply it:  yazses restart")
 
 
+@features_app.command(
+    "reset",
+    epilog=_examples(
+        "yazses features reset --dry-run   show what would change, write nothing",
+        "yazses features reset             restore defaults (asks first)",
+        "yazses restart                    apply the change",
+    ),
+)
+def features_reset(
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip the confirmation prompt."),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="List what would change and write nothing."
+    ),
+    no_install: bool = typer.Option(
+        False, "--no-install", help="Don't auto-install optional deps for what it turns on."
+    ),
+) -> None:
+    """Restore every capability to the state a fresh install ships with.
+
+    The same "Restore defaults" the settings window offers, for machines with no
+    graphical session — an SSH box, a server, or a distribution too old for
+    PySide6. Only capabilities that are off their default are written, so your
+    config file (and its comments) is not churned to change three lines.
+
+    Your hotkey, microphone, vocabulary and any hand-edited settings are left
+    alone: this resets the feature switches, not the whole file.
+    """
+    from yazses.config import load_config
+    from yazses.system.features import default_drift
+
+    platform = get_platform()
+    cfg = load_config(platform.paths.config_file)
+    drift = default_drift(cfg)
+
+    if not drift:
+        typer.echo("Every capability is already at its default. Nothing to do.")
+        return
+
+    turning_on = [f for f, desired in drift if desired]
+    turning_off = [f for f, desired in drift if not desired]
+    typer.echo(f"{len(drift)} capabilit{'y' if len(drift) == 1 else 'ies'} differ(s) "
+               "from the defaults:\n")
+    for feat in turning_on:
+        typer.echo(f"  ○ → ● ON   {feat.name}  [{feat.slug}]")
+    for feat in turning_off:
+        typer.echo(f"  ● → ○ off  {feat.name}  [{feat.slug}]")
+
+    if dry_run:
+        typer.echo("\nDry run — nothing was written. Drop --dry-run to apply.")
+        return
+    if not yes and not typer.confirm("\nRestore these to their defaults?"):
+        typer.echo("Cancelled — nothing was written.")
+        raise typer.Exit(1)
+
+    written = 0
+    for feat, desired in drift:
+        # A default-on capability whose libraries this environment can never
+        # supply (a read-only snap, say) is skipped rather than written: the same
+        # refusal `features enable` makes, for the same reason — a config key
+        # nothing can honour is a lie, not a default.
+        if desired and (blocked := _feature_deps_blocked(feat)) is not None:
+            typer.echo(f"  Skipped {feat.name}: {blocked}", err=True)
+            continue
+        _apply_feature_writes(
+            platform.paths.config_file, feat.on_writes if desired else feat.off_writes
+        )
+        written += 1
+        if desired:
+            _install_feature_deps(feat, skip=no_install)
+    typer.echo(f"\nRestored {written} capabilit{'y' if written == 1 else 'ies'} "
+               "to their defaults.")
+    typer.echo("Apply it:  yazses restart")
+
+
 vocab_app = typer.Typer(
     name="vocab",
     help="Manage your personal dictionary (words STT mis-hears).",
