@@ -281,11 +281,30 @@ jobs:
             # extra, so `.[dev]` does not exist — the test deps are named explicitly.
             python3 -m venv --without-pip --system-site-packages /tmp/venv
             . /tmp/venv/bin/activate
-            python -m pip install -e .
-            python -m pip install pytest pytest-mock hypothesis
-            # The platform-selection tests are the point of this job: they must
-            # run natively, where sys.platform really is freebsdN rather than
-            # monkeypatched.
+            # `--no-deps` is the whole reason this job can finish. A plain
+            # `pip install -e .` resolves `faster-whisper`, which needs
+            # `ctranslate2`, and PyPI has **neither a FreeBSD wheel nor an sdist**
+            # for it — pip reports `from versions: none`, so there is nothing to
+            # build from either. Every run of this job failed there, for weeks,
+            # before a single test executed. A check that can only ever be red
+            # teaches people to stop reading CI, which costs more than the
+            # coverage it was meant to add.
+            #
+            # The coverage this job actually exists for does not need any of that.
+            # `platform/bsd/` is composed from the Linux backend, and the claim
+            # under test is that FreeBSD really selects and builds it — that needs
+            # `sys.platform` to genuinely be `freebsdN`, not the transcription
+            # stack. Measured: the 48 tests below pass with numpy, platformdirs
+            # and typer alone.
+            python -m pip install -e . --no-deps
+            python -m pip install platformdirs typer pytest pytest-mock hypothesis
+            # The point of the job: platform selection, natively, where
+            # sys.platform really is freebsdN rather than monkeypatched. This
+            # also covers the OS-independent commands (reflow, table, shellpipe,
+            # transcribe) that must work on a platform with no backend at all.
             python -m pytest tests/test_platform_bsd_and_fallback.py -v
-            # Then the whole suite, to find out what else BSD breaks.
-            python -m pytest tests/ -q
+            # Deliberately NOT `pytest tests/` — most of the suite imports the
+            # transcription stack, which cannot be installed here at all. Running
+            # it would re-introduce the permanent red this job just stopped being.
+            # Widening the FreeBSD surface needs a FreeBSD build of ctranslate2
+            # upstream, not a change here.

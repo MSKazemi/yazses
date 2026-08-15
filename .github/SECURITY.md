@@ -51,3 +51,39 @@ are welcome as public issues — there is nothing to exploit yet.
 Out of scope: vulnerabilities in third-party dependencies (report those
 upstream), and issues that require an already-compromised local account with
 the same privileges as the user running YazSes.
+
+## Known advisories in dependencies
+
+"Out of scope" is not the same as "unanswered". An advisory against a dependency
+still shows up in anyone's supply-chain scan of this repository, and leaving it
+with no published reasoning is how a real finding later gets waved through by
+someone who has learned the alerts are noise. So each open advisory with **no
+upstream patch** is assessed here, and **each assessment is pinned by a test** in
+`tests/test_dependency_advisories.py` — the reasoning below cannot quietly stop
+being true without the suite failing.
+
+### `diskcache` ≤ 5.6.3 — unsafe pickle deserialization
+
+**Not exploitable in YazSes as shipped.** No patched release exists upstream, so
+this alert stays open until one does.
+
+`diskcache` is not a dependency of YazSes. It arrives only underneath
+`llama-cpp-python`, and two things have to be true for the advisory to bite —
+neither is:
+
+1. **A default install never downloads it.** `llama-cpp-python` appears only in
+   the `slm`, `notes` and `all` extras, never in `project.dependencies`. Unless
+   you opted into a local LLM feature, the package is not on your machine.
+2. **Nothing here ever deserializes a cache.** The vulnerability is in unpickling
+   a `diskcache` file. `llama_cpp` reads one only when a caller installs a cache
+   object via `Llama.set_cache(...)`. YazSes never calls it, never constructs
+   `LlamaDiskCache`, and never imports `diskcache` — so no cache file is ever
+   written or read.
+
+Exploiting it would additionally require an attacker who can already write to
+your cache directory, which is the local-account precondition listed as out of
+scope above.
+
+If you enable a local LLM feature *and* configure llama-cpp's disk cache
+yourself, that assessment no longer covers you — that is a supported thing to
+want, so please open an issue rather than assuming.
