@@ -161,6 +161,7 @@ jobs:
           retention-days: 14
 
       - name: Attest build provenance for the .dmg
+        id: attest
         uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v2
         with:
           # dist/, not the repo root. Every other step in this job addresses the
@@ -170,9 +171,18 @@ jobs:
           # reached the release. v2.19.0 shipped with only the two .deb files.
           subject-path: dist/YazSes-*.dmg
 
+      # Scorecard's Signed-Releases check reads release ASSET FILENAMES, not
+      # GitHub's attestations API, so the attestation above scored 0/10 until the
+      # bundle was attached too. See the longer note in release.yml.
+      - name: Attach the provenance bundle as a release asset
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: cp "${{ steps.attest.outputs.bundle-path }}" "dist/YazSes-${GITHUB_REF_NAME#v}-macos.intoto.jsonl"
+
       - name: Attach to release (tag builds only)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
         with:
-          files: dist/YazSes-*.dmg
+          files: |
+            dist/YazSes-*.dmg
+            dist/YazSes-*.intoto.jsonl
           fail_on_unmatched_files: true

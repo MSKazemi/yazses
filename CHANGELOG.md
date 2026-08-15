@@ -6,6 +6,41 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — every release was fully attested and still scored 0/10 for signed releases
+
+`b3c4197` added build-provenance attestations to the `.deb`, `.dmg`, `.exe` and the PyPI
+wheel, `gh attestation verify` finds them, and [#116](https://github.com/MSKazemi/yazses/issues/116)
+recorded OpenSSF `Signed-Releases` as done on that basis. The live Scorecard API still
+reports **0/10 — "Project has not signed or included provenance with any releases."**
+
+The attestations are real; they live in GitHub's attestations API. Scorecard does not look
+there. Its `Signed-Releases` check reads the **filenames of the last five releases' assets**
+and counts `.asc`, `.sig`, `.sign`, `.minisig`, `.sigstore`, `.sigstore.json` and
+`.intoto.jsonl`. v2.20.0's assets are two `.deb`, a `.dmg`, an `.exe` and `SHA256SUMS.txt` —
+nothing a verifier can see. The signing was never the gap; publishing it was.
+
+All three release workflows now attach the attestation bundle from the attest step's
+`bundle-path` output as a `.intoto.jsonl` asset. That is worth doing beyond the score: it
+lets someone who downloaded an artifact and is now offline verify it against a file that came
+with it, instead of an API call they cannot make. `tests/test_release_provenance_assets.py`
+holds it structurally across all three workflows, since the previous failure was one of them
+silently diverging.
+
+### Changed — Intel Mac support has a published end date, and it is GitHub's, not ours
+
+[#264](https://github.com/MSKazemi/yazses/issues/264) asked whether to *pay* for an Intel
+macOS runner or declare Apple silicon only. Both premises were stale. GitHub Actions is free
+for standard runners on public repositories — this repo already runs `macos-latest` on every
+push and every tag — so an Intel leg costs runner minutes, not money. And `macos-13`, the
+Intel image the question assumes, was **retired on 4 December 2025**.
+
+The answer is neither option: build Intel now on `macos-15-intel`, advisory like the
+`windows-11-arm` leg, and write the deadline down. That label is the **last** x86_64 image
+Actions will offer, available until **August 2027**, with x86_64 macOS support ending in Fall
+2027. Recorded as [ADR-017](design/adr/adr-017-intel-mac-support-has-a-deadline.md), with the
+horizon now stated on the platform-support page so an Intel Mac owner can see that
+`pipx install yazses` is the path that outlives the bundle.
+
 ### Added — the Command Safety Gate is wired: a misheard `rm -rf` now waits for "confirm"
 
 `cmdsafety` had a designed, unit-tested classifier, a config section, a registry

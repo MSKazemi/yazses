@@ -86,6 +86,20 @@ not launch there. A universal2 build is **not** reachable — several of the run
 wheels ship single-architecture binaries — so the fix would be a separate Intel
 build, not a fat one.
 
+!!! warning "Intel Mac support has an end date, and it is not ours"
+
+    An Intel `.dmg` is being added on GitHub's `macos-15-intel` runner
+    ([ADR-017](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-017-intel-mac-support-has-a-deadline.md)).
+    It costs nothing, and it does not last: `macos-15-intel` is the **last** x86_64
+    image GitHub Actions will offer, it is available until **August 2027**, and
+    x86_64 macOS support ends entirely in **Fall 2027**. The `macos-13` image that
+    used to serve Intel builds was retired on 4 December 2025.
+
+    So the desktop bundle for Intel has a roughly two-year horizon that no decision
+    here can extend. **`pipx install yazses` is the Intel path that outlives it** —
+    `ctranslate2` publishes `macosx_11_0_x86_64` wheels, so the Python install works
+    on Intel today and keeps working as long as those wheels are published.
+
 The `.dmg` is unsigned: right-click → **Open** on first launch. Grant
 **Accessibility** and **Microphone** when prompted. See
 [Install on macOS](macos-install.md).

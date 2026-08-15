@@ -262,6 +262,7 @@ jobs:
           retention-days: 14
 
       - name: Attest build provenance for the .exe
+        id: attest
         uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v2
         with:
           # dist/, not the repo root — same defect as build-macos.yml. The glob
@@ -269,9 +270,24 @@ jobs:
           # after it never ran, so the installer never reached the release.
           subject-path: dist/YazSes-*-windows-${{ matrix.arch }}.exe
 
+      # Scorecard's Signed-Releases check reads release ASSET FILENAMES, not
+      # GitHub's attestations API, so the attestation above scored 0/10 until the
+      # bundle was attached too. See the longer note in release.yml. `pwsh` here:
+      # every other run step in this job sets it explicitly, and the arch is in the
+      # name because both matrix legs upload to the same release.
+      - name: Attach the provenance bundle as a release asset
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          Copy-Item "${{ steps.attest.outputs.bundle-path }}" `
+            "dist/YazSes-$version-windows-${{ matrix.arch }}.intoto.jsonl"
+
       - name: Attach to release (tag builds only)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
         with:
-          files: dist/YazSes-*-windows-${{ matrix.arch }}.exe
+          files: |
+            dist/YazSes-*-windows-${{ matrix.arch }}.exe
+            dist/YazSes-*-windows-${{ matrix.arch }}.intoto.jsonl
           fail_on_unmatched_files: true

@@ -172,14 +172,28 @@ jobs:
         run: ls -lh *.deb
 
       - name: Attest build provenance for every .deb
+        id: attest
         uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v2
         with:
           subject-path: "*.deb"
 
+      # The attestation above is real and `gh attestation verify` finds it, because
+      # it lives in GitHub's attestations API. OpenSSF Scorecard's Signed-Releases
+      # check does not look there: it reads the *filenames of the last five
+      # releases' assets* and counts `.asc`, `.sig`, `.sign`, `.minisig`,
+      # `.sigstore`, `.sigstore.json` and `.intoto.jsonl`. So the work was done, the
+      # check stayed at 0/10, and #116 recorded it as finished. Attaching the bundle
+      # is what closes the gap — and it is worth doing on its own merits, since a
+      # user who has downloaded a tarball offline can verify it without an API call.
+      - name: Attach the provenance bundle as a release asset
+        run: cp "${{ steps.attest.outputs.bundle-path }}" "yazses-${GITHUB_REF_NAME#v}-deb.intoto.jsonl"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
         with:
-          files: "*.deb"
+          files: |
+            *.deb
+            *.intoto.jsonl
           generate_release_notes: true
           body: |
             Local, offline voice dictation. **Hold a key, speak, release.** No cloud, no GPU.
