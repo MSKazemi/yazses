@@ -47,20 +47,39 @@ mkdir -p apt
 mapfile -t debs < <(ls "$TMPDIR"/*.deb 2>/dev/null)
 (( ${#debs[@]} >= 1 )) || { echo "ERROR: no .deb in $TMPDIR"; exit 1; }
 
-# One architecture must never be published twice in a run: two files for the same
-# arch means the caller merged artifacts wrongly, and the pool would end up with
-# whichever `cp` ran last, silently.
-declare -A seen_arch=()
+# De-duplicate by what apt actually keys on: Package + Version + Architecture.
+#
+# `build-deb.sh` declares `Architecture: all` (YazSes is pure Python) and uses
+# `dpkg --print-architecture` only to name the file. So the amd64 and arm64 matrix
+# jobs produce two files that are the *same package* to apt, differing in filename
+# alone. Copying both puts two entries with one Package/Version into the index.
+# Identical triples are therefore interchangeable: keep one, say so. A genuine
+# disagreement -- two files claiming one architecture with different versions -- is
+# still an error, because then the pool's contents would depend on `cp` ordering.
+declare -A chosen=()
 for deb in "${debs[@]}"; do
-  arch="$(dpkg-deb --field "$deb" Architecture 2>/dev/null || echo "")"
-  [[ -n "$arch" ]] || { echo "ERROR: cannot read Architecture from $deb"; exit 1; }
-  [[ -z "${seen_arch[$arch]:-}" ]] || { echo "ERROR: two .debs for $arch"; exit 1; }
-  seen_arch[$arch]=1
+  # The trailing newline is load-bearing: without it `read` hits EOF, returns
+  # non-zero, and `set -e` kills the run with no message at all.
+  read -r pkg ver arch < <(dpkg-deb --show --showformat='${Package} ${Version} ${Architecture}\n' "$deb")
+  [[ -n "$arch" ]] || { echo "ERROR: cannot read control fields from $deb"; exit 1; }
+  key="${pkg}_${ver}_${arch}"
+  if [[ -n "${chosen[$key]:-}" ]]; then
+    echo "  skipping $(basename "$deb") — same $key as $(basename "${chosen[$key]}")"
+    continue
+  fi
+  # Same arch, different package or version: ambiguous, and silently resolvable
+  # only by file order. Refuse.
+  for seen_key in "${!chosen[@]}"; do
+    [[ "${seen_key##*_}" == "$arch" ]] || continue
+    echo "ERROR: two different packages claim Architecture $arch: $seen_key and $key"
+    exit 1
+  done
+  chosen[$key]="$deb"
 done
-echo "Publishing ${#debs[@]} .deb(s): ${!seen_arch[*]}"
 
+echo "Publishing ${#chosen[@]} .deb(s) from ${#debs[@]} file(s): ${!chosen[*]}"
 rm -f apt/yazses_*.deb
-cp "${debs[@]}" apt/
+cp "${chosen[@]}" apt/
 
 # Install tools (idempotent on Ubuntu runners)
 sudo apt-get install -y -q dpkg-dev apt-utils 2>/dev/null

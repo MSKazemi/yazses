@@ -162,3 +162,34 @@ def test_nothing_downstream_of_the_download_caps_the_deb_count() -> None:
                 f"{sorted(arches)} — every multi-arch release will fail here:\n"
                 f"    {line.strip()}"
             )
+
+
+def test_the_deb_is_arch_independent_so_the_matrix_ships_one_package() -> None:
+    """`build-deb.sh` names the file per runner but stamps `Architecture: all`.
+
+    Both matrix jobs therefore emit the *same package* to apt — v2.21.0's two
+    files were `yazses 2.21.0 all` twice, differing only in filename. Publishing
+    both puts two entries with one Package/Version into the index, so
+    `update-apt-repo.sh` de-duplicates on Package+Version+Architecture rather than
+    trusting the filename.
+
+    Pinned because the filename is the misleading part: `yazses_2.21.0_arm64.deb`
+    reads like an arm64 build and is not one. If the .deb ever gains a native
+    component, `Architecture: all` becomes wrong and this test is where that
+    surfaces — the dedupe would then silently drop a real second architecture.
+    """
+    build = (ROOT / "scripts" / "build-deb.sh").read_text(encoding="utf-8")
+    assert re.search(r"^Architecture:\s*all\s*$", build, re.M), (
+        "build-deb.sh no longer declares `Architecture: all` — if the .deb is now "
+        "arch-specific, update-apt-repo.sh's Package+Version+Architecture dedupe "
+        "will collapse two genuinely different packages into one"
+    )
+    script = APT_SCRIPT.read_text(encoding="utf-8")
+    assert "${Architecture}" in script, (
+        "update-apt-repo.sh no longer reads the real Architecture field; it would "
+        "be back to trusting the filename, which says amd64/arm64 for an `all` package"
+    )
+    assert r"${Architecture}\n" in script, (
+        "the showformat lost its trailing newline — `read` then hits EOF, returns "
+        "non-zero, and `set -e` kills the publish with no message"
+    )
