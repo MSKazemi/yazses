@@ -760,6 +760,7 @@ If dictation goes quiet after changing your audio setup, run `yazses audio statu
 | Command | Description |
 |---|---|
 | `yazses gaze calibrate` | Calibrate the webcam so your gaze maps to screen zones. |
+| `yazses gaze status` | Show whether look-to-pane is ready: deps, desktop backend, calibration. |
 
 Requires `[gaze] enabled = true`, an X11 session with `xdotool`, and a webcam. The
 webcam gaze deps (mediapipe + opencv) are installed automatically on first run
@@ -770,6 +771,7 @@ hold only — never stored or sent.
 
 ```bash
 yazses gaze calibrate    # fit the webcam gaze → screen-zone mapping
+yazses gaze status       # deps, X11/xdotool, and whether a calibration exists
 ```
 
 ---
@@ -1031,6 +1033,7 @@ clustering**, not pitch. Off by default — enable with `yazses features enable 
 | `yazses meeting list` | List stored meetings on this machine (no daemon required). |
 | `yazses meeting relabel <id>` | Fix speaker labels and re-render: `--merge SPEAKER_2=speaker_1` folds clusters, `--rename speaker_1=Alice` names one (both repeatable); `--format`/`-f` picks the re-render format (default `md`). |
 | `yazses meeting notes <id>` | Generate minutes (summary, decisions, action items) from a stored transcript. Needs `[meeting] notes = true` and a local `notes_model` GGUF; runs locally (slow on CPU). |
+| `yazses meeting enroll <id> --speaker <cluster> --name <name>` | Enroll one speaker from a stored meeting as a named voiceprint, so they are auto-named next time. Both flags are required. Needs the recording to still exist — i.e. the meeting ran with `[meeting] retain_audio = true`. |
 
 ```bash
 yazses features enable meeting     # turn it on (writes [meeting] enabled = true)
@@ -1041,7 +1044,14 @@ yazses meeting list                # see stored meetings
 yazses meeting list --json         # machine-readable array
 yazses meeting relabel <id> --rename speaker_1=Alice --merge speaker_2=speaker_1
 yazses meeting notes <id>          # local-LLM minutes (needs notes_model)
+yazses meeting enroll <id> --speaker speaker_1 --name Alice   # name them for good
 ```
+
+`meeting enroll` is the one that carries across meetings: `relabel` fixes the labels
+on *one* transcript, while `enroll` saves that speaker's voiceprint so the next
+meeting names them on its own. The voiceprint is encrypted and never leaves the
+machine (ADR-011/012), it enrols only the speaker you name, and it needs the audio
+— which is deleted at stop unless `[meeting] retain_audio = true`.
 
 Notes:
 

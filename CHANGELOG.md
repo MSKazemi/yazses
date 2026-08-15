@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the CLI-reference guard checked 58 command names and ignored the other 50
+
+`tests/test_cli_reference_covers_every_command.py` exists because three commands
+once shipped with no entry in `docs/cli-reference.md`. It walked
+`typer.main.get_command(app).commands` — the **top level only**. Fifteen of those
+58 names are groups carrying roughly fifty subcommands between them, and the guard
+never opened one: `yazses meeting` appearing anywhere in the document made the
+whole group look documented.
+
+Two had drifted through the hole. `yazses meeting enroll` — the command that names
+a speaker for good, as opposed to `relabel`, which fixes one transcript — and
+`yazses gaze status` were both in `docs/command-index.md` and both in the man page,
+and in neither case in the reference the docs site links as canonical.
+
+- The guard now walks the tree and asserts every invocable path, groups included.
+- It descends by asking for `.commands`, **not** by `isinstance(cmd, click.Group)`:
+  under Click 8.4, `typer.core.TyperGroup` does not subclass `click.Group`, so an
+  isinstance walk finds no subcommands at all and passes while checking nothing —
+  the same silent pass, reintroduced by the fix for it. A second test pins that the
+  walk really reaches the subcommands.
+- Both missing commands are documented, with examples and the constraint that
+  actually bites: `meeting enroll` needs the audio, which stop deletes unless
+  `[meeting] retain_audio = true`.
+
 ### Fixed — a crashed daemon stayed dead on Windows and macOS, watched by a tray that did nothing
 
 Linux gets this for free: the systemd user unit carries `Restart=on-failure`, so a
