@@ -25,7 +25,7 @@ A problem earns a place here only if all four hold:
 4. **We could tell whether we fixed it.** There is a measurement, even an expensive one.
 
 Ideas that fail (4) are not thereby bad; they are research questions, and they belong
-in [the HCI research agenda](../research/2026-08-11-hci-research-agenda.md).
+in [the HCI research agenda](2026-08-11-hci-research-agenda.md).
 
 ---
 

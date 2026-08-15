@@ -14,7 +14,7 @@ buckets it is in, and states what would move it.
 
 !!! info "Companion pages"
 
-    - [The problem space](https://github.com/MSKazemi/yazses/blob/main/design/vision/problem-space.md) — the problems these answer, stated without features
+    - [The problem space](https://github.com/MSKazemi/yazses/blob/main/design/research/2026-08-15-problem-space.md) — the problems these answer, stated without features
     - [Ten open questions](agenda.md) — the research agenda, stated as measurable claims
     - [The science of post-keyboard input](index.md) — what the measurements say today
 
