@@ -6,6 +6,16 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.21.0] - 2026-08-15
+
+Sixty-nine commits had built up behind `v2.20.0` without reaching anyone. The
+theme, read back across them, is **things that were reported as working and were
+not**: a CI job that could only ever be red, eleven tests that were skipped in
+every job, three packaging guards that passed by iterating an empty list, a
+CLI-reference guard that checked 58 names and ignored 50, a crashed daemon that
+stayed dead on Windows and macOS while a tray watched and did nothing, and an
+"Update installed" message for upgrades that never happened.
+
 ### Added — `yazses features` prices what it offers
 
 The catalogue listed 145 capabilities and told you what none of them cost. The size
