@@ -8,8 +8,12 @@ so they unit-test directly.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from yazses.audio.devices import InputDevice, resolve_input_device
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from yazses.platform.base import TrayModel
 
 # Three-colour scheme: GREEN while recording your voice (you're holding the key and
 # speaking, through the brief transcribe/inject that finishes that dictation), BLUE for
@@ -163,6 +167,37 @@ def icon_spec(status: dict) -> tuple[str, str]:
     if state in _RECORDING_STATES and not command_mode and target_ok is False:
         tooltip += "\n⚠ no text field focused — will save to clipboard"
     return color, tooltip
+
+
+def status_from_model(model: TrayModel) -> dict:
+    """Flatten a ``TrayModel`` into the daemon-shaped status dict ``icon_spec`` reads.
+
+    Every platform tray receives a ``TrayModel`` but the pure policy above is
+    written against the daemon's own status dict, so each backend has to bridge
+    the two. Linux did it inline and Windows did not do it at all — which is how
+    the Windows tray ended up with a private seven-colour table, no command-mode
+    purple, no no-text-target yellow, and five ``TrayState`` members that
+    silently rendered as idle blue. One shared bridge, so they cannot diverge.
+    """
+    from yazses.platform.base import TrayState as _TrayState
+
+    state = model.state
+    return {
+        "state": state.value if isinstance(state, _TrayState) else state,
+        "hotkey": model.hotkey,
+        "model": model.model,
+        "input_device": model.input_device,
+        "silent_streak": model.silent_streak,
+        "target_ok": model.target_ok,
+        "command_mode": model.command_mode,
+        # The level ring reads these two. They belong in the shared bridge rather
+        # than in one backend's inline copy: the Linux tray built this dict by hand
+        # and included them, Windows built a different dict and did not, and that
+        # asymmetry is the same one that gave Windows a private colour table. A
+        # backend that cannot draw a ring simply ignores them.
+        "audio_level": model.audio_level,
+        "vad_threshold": model.vad_threshold,
+    }
 
 
 # --------------------------------------------------------------------------- #

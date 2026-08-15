@@ -54,6 +54,11 @@ class TrayModel:
     target_ok: bool | None = None
     # True while the dedicated command key is held (command mode → purple icon).
     command_mode: bool = False
+    # The microphone actually in use. The daemon has always reported this over IPC,
+    # but `TrayModel` had nowhere to put it, so every platform's tooltip rendered a
+    # hardcoded "Mic: default" no matter which device was pinned or auto-healed to —
+    # wrong precisely when the user is trying to find out why nothing is heard.
+    input_device: str | None = None
     # Live input level and the silence gate it is judged against, for the tray's
     # level ring. Both are already published by the daemon for the overlay; the tray
     # needs them because a green "recording" badge says nothing about whether the

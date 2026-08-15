@@ -12,39 +12,44 @@ import threading
 from collections.abc import Callable
 from typing import Any
 
-from yazses.platform.base import TrayModel, TrayState
+from yazses.platform.base import TrayModel
 from yazses.tray.about import about_lines, about_title, help_links
 from yazses.tray.menu import (
     ABOUT_LABEL,
     HELP_LABEL,
     SETTINGS_LABEL,
     UPDATE_LABEL,
+    icon_spec,
+    status_from_model,
 )
 from yazses.tray.updates import check_and_describe
 
 log = logging.getLogger(__name__)
 
 
-_GLYPH_COLOR = {
-    TrayState.LOADING: (170, 170, 170, 255),     # light grey, "still warming up"
-    TrayState.IDLE: (40, 130, 200, 255),         # blue
-    TrayState.RECORDING: (220, 60, 60, 255),     # red
-    TrayState.TRANSCRIBING: (255, 180, 30, 255), # amber
-    TrayState.INJECTING: (60, 180, 90, 255),     # green
-    TrayState.PAUSED: (140, 140, 140, 255),      # grey
-    TrayState.ERROR: (200, 40, 80, 255),         # magenta
-}
+# Matches LinuxTray's _ICON_PX. pystray hands the image to Windows through a
+# temporary .ico, and Windows picks a frame for the display scaling (16 px at
+# 100%, 20 at 125%, 24 at 150%, 32 at 200%) — 64 is a clean multiple of all four.
+_ICON_PX = 64
+
+# Shell_NotifyIcon's szTip is 128 wide chars including the terminator and
+# truncates silently; icon_spec's richest tooltip can exceed that with a long
+# device name, so it is cut here rather than mid-line by the shell.
+_TOOLTIP_MAX = 127
 
 
-def _make_icon(state: TrayState):
-    from PIL import Image, ImageDraw  # type: ignore[import-not-found]
+def _make_icon(color_hex: str):
+    """The YazSes mark — a rounded badge in the state colour with a white "Y".
 
-    img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-    color = _GLYPH_COLOR.get(state, _GLYPH_COLOR[TrayState.IDLE])
-    # Solid filled circle. Simple, recognisable at 16×16.
-    draw.ellipse((4, 4, 60, 60), fill=color)
-    return img
+    This used to be a bare `draw.ellipse` disc: no brand mark, and visibly
+    jagged because Pillow does not anti-alias. `render_mark` supersamples, and is
+    the same renderer that produces assets/yazses.ico, so the tray badge and the
+    shortcut icon are the same drawing. `wave=False` keeps the mark legible at
+    16 px — the sound-wave bars are sub-pixel there.
+    """
+    from yazses.brandmark import render_mark
+
+    return render_mark(_ICON_PX, fill=color_hex, wave=False)
 
 
 class WindowsTray:
@@ -126,10 +131,13 @@ class WindowsTray:
             pystray.MenuItem("Quit", _quit_clicked),
         )
 
+        # Seed through the same policy as every later update, so the icon the user
+        # first sees is not drawn by a second, divergent code path.
+        color, tooltip = icon_spec(status_from_model(TrayModel()))
         self._icon = pystray.Icon(
             "yazses",
-            _make_icon(TrayState.IDLE),
-            "YazSes",
+            _make_icon(color),
+            tooltip[:_TOOLTIP_MAX],
             menu,
         )
         log.info("Launching pystray tray (blocks the calling thread)")
@@ -140,12 +148,19 @@ class WindowsTray:
                 self._on_quit()
 
     def set_state(self, model: TrayModel) -> None:
+        # Colour and tooltip come from the shared policy in tray/menu.py, the same
+        # one the Linux tray uses. This backend used to keep a private seven-entry
+        # colour table, so Windows had different colours for the same daemon state,
+        # no purple command mode, no yellow "nowhere to type", and five TrayState
+        # members that fell through to idle blue.
+        status = status_from_model(model)
         with self._lock:
             if self._icon is None:
                 return
             try:
-                self._icon.icon = _make_icon(model.state)
-                self._icon.title = f"YazSes — {model.state.value}"
+                color, tooltip = icon_spec(status)
+                self._icon.icon = _make_icon(color)
+                self._icon.title = tooltip[:_TOOLTIP_MAX]
             except Exception:
                 log.exception("Tray icon update failed")
 

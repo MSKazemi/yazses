@@ -185,6 +185,11 @@ def run() -> None:
                         command_mode=bool(info.get("command_mode")),
                         audio_level=float(info.get("audio_level") or 0.0),
                         vad_threshold=float(info.get("vad_threshold") or 0.0),
+                        # The daemon has always sent this; nothing carried it, so the
+                        # tooltip said "Mic: default" however the device was pinned or
+                        # auto-healed. Declaring the field without reading it here would
+                        # just move the wrong answer one layer down.
+                        input_device=info.get("input_device"),
                     )
                 )
                 # Toasts the daemon could not show itself (no libnotify — Windows,

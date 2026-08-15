@@ -22,7 +22,7 @@ import threading
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from yazses.platform.base import TrayModel, TrayState
+from yazses.platform.base import TrayModel
 
 if TYPE_CHECKING:
     from yazses.tray.controller import TrayController
@@ -101,17 +101,11 @@ class LinuxTray:
 
     def set_state(self, model: TrayModel) -> None:
         # Called from the poller thread. Stash a status-shaped dict and, once the Qt
-        # bridge exists, hand it to the GUI thread via a queued signal.
-        status = {
-            "state": model.state.value if isinstance(model.state, TrayState) else model.state,
-            "hotkey": model.hotkey,
-            "model": model.model,
-            "silent_streak": model.silent_streak,
-            "target_ok": model.target_ok,
-            "command_mode": model.command_mode,
-            "audio_level": model.audio_level,
-            "vad_threshold": model.vad_threshold,
-        }
+        # bridge exists, hand it to the GUI thread via a queued signal. The mapping is
+        # shared with the Windows tray so the two backends cannot drift.
+        from yazses.tray.menu import status_from_model
+
+        status = status_from_model(model)
         with self._lock:
             self._latest.update(status)
             snap = dict(self._latest)
