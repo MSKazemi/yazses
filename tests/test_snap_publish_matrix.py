@@ -112,3 +112,41 @@ def test_artifact_name_is_arch_qualified() -> None:
         f"artifact name {upload.group(1)!r} is not arch-qualified — the two matrix "
         "jobs would collide"
     )
+
+
+def test_the_publish_step_cannot_hang_for_the_whole_job() -> None:
+    """A hung upload must fail loudly, not consume the job budget in silence.
+
+    v2.20.0 and v2.21.0 both built a good snap and then stalled in
+    `Publish to Snap Store` until the 60-minute job timeout killed it. GitHub
+    reports that outcome as **cancelled**, which reads like a human pressed stop —
+    so two releases went by with `latest/stable` sitting on 2.19.0 and nothing in
+    the run list looking like a failure.
+
+    This module already exists because a silent non-publish "hid a stuck-at-1.2.0
+    store for 9 releases" (snap.yml's own words). A hang is the same failure
+    wearing a different hat: the build is fine, the store never gets it, and the
+    signal is indistinguishable from noise. A step-level timeout shorter than the
+    job's turns it back into an error someone will see.
+    """
+    text = WORKFLOW.read_text(encoding="utf-8")
+    start = text.index("- name: Publish to Snap Store")
+    # The step ends where the next one begins, or at end of file.
+    nxt = text.find("\n      - name:", start + 1)
+    step = text[start:nxt if nxt != -1 else len(text)]
+
+    match = re.search(r"^\s*timeout-minutes:\s*(\d+)\s*$", step, re.M)
+    assert match, (
+        "the Snap Store publish step has no timeout-minutes, so a stalled upload "
+        "runs until the job's own limit and is reported as 'cancelled' rather than "
+        "as the failure it is"
+    )
+    step_limit = int(match.group(1))
+
+    job_match = re.search(r"^\s{4}timeout-minutes:\s*(\d+)\s*$", text, re.M)
+    assert job_match, "the snap job no longer declares a timeout"
+    assert step_limit < int(job_match.group(1)), (
+        f"the publish step's timeout ({step_limit}m) must be shorter than the job's "
+        f"({job_match.group(1)}m), or the job limit fires first and the outcome is "
+        f"'cancelled' again"
+    )
