@@ -695,6 +695,29 @@ the overlay along with it.
 `yazses update` now exits non-zero in that case rather than printing "Updated to 2.20.0"
 directly over the package manager's "Nothing to upgrade".
 
+**The way out is now reachable without the updater.** A repair to the update path cannot
+be delivered *through* the update path — whoever is stuck is, by definition, running the
+build that lacks the repair, and no amount of improving the client reaches them. So the
+recovery route is out of band: a new how-to page,
+[The update said it worked but the version did not change](https://mskazemi.com/yazses/how-to/update-did-nothing.html),
+carries the reinstall command per install method, and `pinned_install_hint()` now ends at
+that URL for **every** method rather than only `uv`. The others fell through to "run it in
+a terminal to see what it reported", which tells someone who has just run it nothing.
+
+Two more no-op-with-exit-0 cases are named where they were previously silent: a `pip`
+install held by a pin or a constraint file (`pip install --upgrade --force-reinstall
+'yazses[desktop]'`) and a **held snap**, which refuses to refresh and still exits 0
+(`sudo snap refresh --unhold yazses`). Both flags were checked against the tools
+themselves; methods whose reinstall command is *not* verified get the page instead of a
+guessed flag, since a guess that also does nothing repeats the original failure. The
+Windows installer channel is quoted no command at all — that upgrade is a download.
+
+`tests/test_updater.py` pins both halves: every install method's hint must name the
+recovery page, and that URL must resolve to a page that exists in `docs/` (including the
+`.html` suffix — `use_directory_urls: false`, so the trailing-slash form 404s). A stable
+URL compiled into a released client is quoted at the exact moment the user has already
+been misled once, and nothing downstream can correct it.
+
 ## [2.20.0] - 2026-08-14
 
 ### Fixed — a blocked model download killed the daemon instead of explaining (#310)

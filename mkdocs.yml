@@ -322,6 +322,7 @@ nav:
       - Dictation types into the wrong window: how-to/wrong-window.md
       - Stop a misheard command from running: how-to/command-safety.md
       - After a distro upgrade: how-to/after-a-distro-upgrade.md
+      - The update did not change the version: how-to/update-did-nothing.md
       - Over SSH and Remote-SSH editors: how-to/ssh-and-remote.md
       - Remote dictation: how-to/remote-dictation.md
       - Performance tuning: how-to/performance-tuning.md

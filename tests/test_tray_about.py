@@ -214,9 +214,13 @@ def test_the_pin_hint_keeps_the_extras():
     hint = pinned_install_hint("uv", ["uv", "tool", "upgrade", "yazses"])
     assert "[desktop]" in hint
 
-    # A non-uv method has no pin story, so it quotes the command back instead.
+    # pip has the same story — a pin or a constraint file makes --upgrade a no-op —
+    # so it gets a real way out too, and keeps the extras for the same reason. It
+    # used to have the failing command quoted back at it, which told someone who had
+    # just watched it run nothing at all.
     other = pinned_install_hint("pip", ["pip", "install", "--upgrade", "yazses"])
-    assert "pip install --upgrade yazses" in other
+    assert "--force-reinstall" in other
+    assert "[desktop]" in other
 
 
 def test_a_source_checkout_is_never_told_to_upgrade(monkeypatch):

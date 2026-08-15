@@ -40,6 +40,15 @@ WINGET_ID = "MSKazemi.YazSes"
 RELEASES_URL = "https://github.com/MSKazemi/yazses/releases/latest"
 _RELEASES_API = "https://api.github.com/repos/MSKazemi/yazses/releases/latest"
 
+# Where someone lands when the upgrade reported success and changed nothing.
+#
+# A repair to the update path cannot be delivered *through* the update path: the
+# person who needs it is, by definition, running the build without it. So the way
+# out has to be reachable by hand, and it has to be a page rather than only a
+# command — a page can be corrected after the fact without shipping a client,
+# which is the one property a message compiled into the old build does not have.
+RECOVERY_URL = "https://mskazemi.com/yazses/how-to/update-did-nothing.html"
+
 # Methods whose artifact is the Windows installer .exe rather than a Python wheel.
 # They share a version source (the GitHub release) and a manual upgrade story.
 WINDOWS_METHODS = ("windows-installer", "choco", "winget", "scoop")
@@ -431,17 +440,51 @@ def pinned_install_hint(method: str, command: list[str] | None) -> str:
     to reinstall unpinned — and it has to carry the extras across, because a bare
     ``yazses@latest`` installs base dependencies only and takes PySide6 with it, which
     silently removes the Qt tray and the overlay.
+
+    Every method ends at :data:`RECOVERY_URL`. The reinstall command is not known for
+    all of them, and the old fallback — "run it in a terminal to see what it reported" —
+    told someone who had just run it exactly nothing. Only commands checked against the
+    real tool are quoted here; a guessed flag that also does nothing repeats the failure
+    this whole path exists to correct.
     """
-    if method == "uv":
-        return (
+    escape = {
+        "uv": (
             "An install pinned to an exact version will not upgrade itself. Reinstall it "
             "unpinned, keeping your extras:\n"
             "    uv tool install 'yazses[desktop]@latest'"
+        ),
+        "pip": (
+            "A pin or a constraint file makes --upgrade a no-op. Force the reinstall, "
+            "keeping your extras:\n"
+            "    pip install --upgrade --force-reinstall 'yazses[desktop]'"
+        ),
+        "snap": (
+            "A held snap refuses to refresh and still exits 0. Release the hold first:\n"
+            "    sudo snap refresh --unhold yazses\n"
+            "    sudo snap refresh yazses"
+        ),
+    }.get(method)
+
+    if method == "windows-installer":
+        # No shell command upgrades the .exe channel — the upgrade *is* a download.
+        # Quoting one would be the same class of untruth as trusting the exit code.
+        escape = f"Download and run the current installer:\n    {RELEASES_URL}"
+    elif method in WINDOWS_METHODS:
+        # choco/winget/scoop each carry their own manifest, and those are published
+        # after the release rather than with it — they were still on 2.19.0 for a
+        # while after v2.20.0 shipped. So "already up to date" here is usually the
+        # channel lagging, which the user cannot fix and should not keep retrying.
+        escape = (
+            f"{method} may still be publishing the previous version — its manifest is "
+            "updated after a release, not with it. To get the current release now, "
+            f"download and run the installer:\n    {RELEASES_URL}"
         )
-    joined = " ".join(command or [])
-    if joined:
-        return f"Run it in a terminal to see what it reported:\n    {joined}"
-    return "Run `yazses update` in a terminal to see what it reported."
+    elif escape is None:
+        joined = " ".join(command or [])
+        ran = f"\n{joined} finished without upgrading anything." if joined else ""
+        escape = f"Reinstall YazSes the way you first installed it.{ran}"
+
+    return f"{escape}\nIf that does not move it either:  {RECOVERY_URL}"
 
 
 def run_upgrade_checked(

@@ -277,3 +277,73 @@ def test_offline_steps_name_the_source_that_could_not_be_reached():
     assert "github.com" in " ".join(updater.offline_steps("windows-installer"))
     assert "PyPI" in " ".join(updater.offline_steps("pip"))
     assert "snap" in " ".join(updater.offline_steps("snap"))
+
+
+# ---- the upgrade that reports success and changes nothing -------------------
+#
+# These cover the *recovery* half of that failure. `run_upgrade_checked` detects
+# the no-op; what the user then needs is a way out that does not go back through
+# the mechanism that just failed them. That route has to exist for every install
+# method, not only the one the bug was first reported on.
+
+ALL_INSTALL_METHODS = ("uv", "pipx", "pip", "snap", *updater.WINDOWS_METHODS)
+
+
+def test_pinned_hint_names_an_out_of_band_route_for_every_install_method():
+    """The fix for a broken updater cannot be delivered *through* the updater.
+
+    Whoever is stuck is running the old build, so the only route that reaches them
+    is one they can reach by hand. Every method must therefore name a stable page,
+    not just the methods whose reinstall command happens to be known -- the
+    fallback used to be "run it in a terminal to see what it reported", which
+    tells someone who already ran it precisely nothing.
+    """
+    for method in ALL_INSTALL_METHODS:
+        hint = updater.pinned_install_hint(method, updater.upgrade_command(method))
+        assert updater.RECOVERY_URL in hint, f"{method} has no recovery page"
+
+
+def test_pinned_hint_gives_the_reinstall_command_where_one_is_known():
+    """Only commands verified against the real tool are quoted.
+
+    `uv tool install ... @latest` is the route out of the exact-version pin this
+    was reported on; `pip --force-reinstall` and `snap refresh --unhold` were
+    checked against `--help` on the tools themselves. Anything unverified gets the
+    page instead of a guess.
+    """
+    uv = updater.pinned_install_hint("uv", ["uv", "tool", "upgrade", "yazses"])
+    assert "uv tool install 'yazses[desktop]@latest'" in uv
+
+    pip = updater.pinned_install_hint("pip", ["pip", "install", "--upgrade", "yazses"])
+    assert "--force-reinstall" in pip
+
+    snap = updater.pinned_install_hint("snap", ["sudo", "snap", "refresh", "yazses"])
+    assert "--unhold" in snap, "a held snap silently refuses to refresh"
+
+
+def test_pinned_hint_does_not_send_a_windows_installer_user_to_a_command():
+    """There is no command that upgrades the .exe channel -- the upgrade *is* a
+    download. Quoting a shell command there is the same class of lie as exit 0."""
+    hint = updater.pinned_install_hint("windows-installer", None)
+    assert updater.RELEASES_URL in hint
+    assert "pip install" not in hint
+
+
+def test_the_recovery_url_points_at_a_page_that_exists():
+    """A stable URL compiled into a released client that 404s is worse than none.
+
+    It is quoted at exactly the moment the user has already been lied to once, and
+    nothing downstream can correct it — the build carrying it is the build that
+    cannot update itself. So the page it names is checked here, against the repo,
+    including the `.html` suffix (`use_directory_urls: false` in mkdocs.yml, so the
+    trailing-slash form does not resolve).
+    """
+    from pathlib import Path
+
+    prefix = "https://mskazemi.com/yazses/"
+    assert updater.RECOVERY_URL.startswith(prefix)
+    assert updater.RECOVERY_URL.endswith(".html"), "the site publishes .html, not /"
+
+    rel = updater.RECOVERY_URL[len(prefix):].removesuffix(".html") + ".md"
+    page = Path(__file__).resolve().parent.parent / "docs" / rel
+    assert page.is_file(), f"{updater.RECOVERY_URL} has no source page at docs/{rel}"
