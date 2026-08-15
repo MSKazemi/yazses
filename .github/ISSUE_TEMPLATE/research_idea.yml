@@ -1,0 +1,98 @@
+name: 🔭 Research idea or future direction
+description: A forward-looking idea — a new modality, a study worth running, something YazSes could become.
+title: "[idea]: "
+labels: ["research", "help wanted"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **This is not the feature-request form, and the difference matters.**
+
+        Use *💡 Feature request* for something YazSes should do differently next release.
+        Use this one for a direction — a modality, a study, a capability that does not
+        exist anywhere yet.
+
+        Ideas here are sorted by the same three gates every direction goes through
+        ([how that works](https://mskazemi.com/yazses/research/directions.html)). The
+        questions below are those gates, so answering them is the whole review. **An idea
+        that fails a gate is not rejected — it is filed as an open question**, which is
+        often the more useful outcome.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: "Gate 1 — What problem does this answer?"
+      description: >-
+        Who loses what today, concretely. Not "it would be nice" — what is worse right now
+        because this does not exist. If it maps to one of the problems already written
+        down, say which.
+      placeholder: >-
+        Someone with a tremor cannot correct the fourth word of a sentence without
+        reaching for the mouse, so a single misrecognition costs the whole utterance…
+    validations:
+      required: true
+
+  - type: dropdown
+    id: laptop
+    attributes:
+      label: "Gate 2 — Could it run offline on an ordinary laptop CPU?"
+      description: >-
+        YazSes runs on the machine you already own, with no data centre. That is not
+        modesty about ambition — it is the property that makes the privacy promise
+        possible. An idea that needs more is still worth filing; it just gets sorted
+        differently.
+      options:
+        - "Yes — CPU only, no network"
+        - "Probably, with a small model"
+        - "No — it needs a GPU"
+        - "No — it needs a cloud service"
+        - "No — it needs hardware most people do not own"
+        - "I don't know"
+    validations:
+      required: true
+
+  - type: textarea
+    id: measurable
+    attributes:
+      label: "Gate 3 — How would we know if it worked?"
+      description: >-
+        A number, a task someone could complete or fail, a comparison. "Users would like
+        it" is not one. If there is no way to tell, say so — that is an honest answer and
+        makes this an open question rather than a feature.
+      placeholder: >-
+        Time to correct a single mis-recognised word, measured against reaching for the
+        keyboard, on a scripted editing task…
+    validations:
+      required: true
+
+  - type: textarea
+    id: prior_art
+    attributes:
+      label: Prior art — who has tried this?
+      description: >-
+        Papers, products, other projects. Links, not PDFs — we cite work, we do not
+        redistribute it. "Nobody, as far as I can tell" is a perfectly good answer and a
+        useful signal in itself.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Does it fit the invariants?
+      description: >-
+        These are not negotiable, and an idea that breaks one needs to say why it is worth
+        an exception rather than assume it is not noticed.
+      options:
+        - label: It does not require sending audio, transcripts or voiceprints off the machine
+        - label: It would be off by default
+        - label: It does not need a paid service to work at all
+
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Would you want to work on it?
+      options:
+        - label: I would like to build it
+        - label: I would like to run the measurement
+        - label: I am proposing it for someone else to pick up

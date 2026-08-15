@@ -96,6 +96,25 @@ optimises time-to-first-word, and [the benchmark](../benchmarks.md) shows it mak
 time-to-final-text **worse** on every model but `tiny.en`. Composition support has to be
 judged on the second number.
 
+### 4. Structural targets by voice
+
+**Problem: A2 and A3.** You can say *"delete the last word"* but not *"delete that
+argument"*. Corrections are character- and word-shaped while the thing being edited has
+structure — so a single misrecognition inside a function call costs the whole utterance.
+
+**Where the idea comes from.** [Cursorless](https://github.com/cursorless-dev/cursorless)
+(1,334★) gives spoken names to syntax-tree nodes, so you address the code's structure
+rather than its characters. It is the most interesting idea in the adjacent neighbourhood,
+and it survives all three gates.
+
+**What YazSes already has.** `hatselect` is exactly this idea, designed and unwired; `jump`
+and the Neovim LSP bridge are the substrate that gives it a tree to address.
+
+**The honest caveat.** Cursorless is an editor extension with the syntax tree in hand;
+YazSes is outside the editor looking in, and only the Neovim bridge supplies structure
+today. What transfers is the *naming scheme*, not the implementation — and outside a
+supported editor this degrades to what already exists.
+
 ---
 
 ## Needs measurement first — a study, not a feature
@@ -103,7 +122,7 @@ judged on the second number.
 These are plausible, and building them before measuring would produce a feature nobody can
 defend.
 
-### 4. Code-switching as the real multilingual failure
+### 5. Code-switching as the real multilingual failure
 
 **Problem: A4.** The assumption is that bilingual users struggle because of *accent*. The
 competing hypothesis is that they struggle because of **code-switching** — a recogniser
@@ -114,7 +133,7 @@ and `polyglot/lid.py` already implements the routing layer. What is missing is t
 comparison on code-switched versus monolingual utterances from the same speakers. Building
 the adapter first would be building on an assumption.
 
-### 5. Uncertainty the user can see
+### 6. Uncertainty the user can see
 
 **Problem: A1**, from the other side. If the recogniser knew it was unsure about a word,
 showing that is cheaper than any correction mechanism. Whether it *helps* is unmeasured:
@@ -129,7 +148,7 @@ sentence and slow reading down.
 
 Real, and not reachable from a laptop. Listed so they are not rediscovered as if new.
 
-### 6. Silent speech
+### 7. Silent speech
 
 Sub-vocal input — sEMG at the jaw and throat, reading articulation without audible sound.
 It is the genuinely transformative direction for both privacy and accessibility, and the
@@ -141,7 +160,7 @@ working day, which is the number that decides whether it is usable at all
 activation-source seam that already treats a squeeze as equivalent to a keypress. The
 software is not the blocker; the evidence is.
 
-### 7. Gaze that is precise enough to mean anything finer than a window
+### 8. Gaze that is precise enough to mean anything finer than a window
 
 Webcam gaze is honest at 2–4°, which is centimetres on a screen — enough to know *which
 window* you mean, never *which character*. YazSes ships that honest version
@@ -150,7 +169,7 @@ blocker is not optics: **Wayland forbids one application from focusing another's
 so the capability is structurally unavailable on the display server most distributions now
 default to.
 
-### 8. Personal adaptation that provably helps
+### 9. Personal adaptation that provably helps
 
 A per-user speech adapter is the most-requested idea in this space and the easiest to fake
 — any fine-tune will look better on the data it was tuned on. The bar is a **held-out WER
@@ -174,6 +193,9 @@ Recorded so the reasoning survives, rather than being relitigated.
 ---
 
 ## Contributing a direction
+
+There is a form for this: **[🔭 Research idea or future direction](https://github.com/MSKazemi/yazses/issues/new?template=research_idea.yml)**.
+Its three questions *are* the three gates, so filling it in is the whole review.
 
 The gates above are the whole review. An idea that names its problem, runs on a laptop and
 can be measured is welcome regardless of how strange it sounds —
