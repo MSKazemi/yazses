@@ -76,7 +76,7 @@ whisper.cpp's "diarization" flag is **stereo-channel splitting, not speaker diar
 sherpa-onnx's clustering runs with `num_clusters = -1` (auto) governed by `cluster_threshold`; the
 count falls out of the clustering. But **automatic count estimation is imperfect** — literature and
 practitioner reports put roughly **1 in 4 sessions** at the wrong count, with a bias toward
-*under*-counting (merging two quiet speakers) ([spectral-clustering diarization, ICASSP-2018](https://wangquan.me/files/research/diarization_ICASSP_2018.pdf);
+*under*-counting (merging two quiet speakers) ([spectral-clustering diarization, ICASSP-2018](https://arxiv.org/abs/1710.10468);
 eigengap/auto-tune discussion in the SoA report §C).
 
 **Consequence for the design:** we must ship a **human correction step**, not pretend the count is
