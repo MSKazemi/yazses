@@ -123,7 +123,7 @@ def download_note(slug: str, missing: list[str] | tuple[str, ...] | None) -> str
         return ""
     count = distribution_count(slug)
     approx = "up to " if missing and count and len(missing) < count else ""
-    packages = f" ({count} packages)" if count else ""
+    packages = f" ({count} package{'' if count == 1 else 's'})" if count else ""
     return f"downloads {approx}{format_mb(mb)}{packages}"
 
 

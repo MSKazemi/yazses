@@ -89,6 +89,17 @@ def test_sizes_render_at_a_sensible_precision(mb, expected):
     assert depsize.format_mb(mb) == expected
 
 
+def test_a_single_package_is_not_pluralised(table):
+    """`(1 packages)` is the kind of thing that makes a tool look unfinished."""
+    table({"prosody": {"download_mb": 10.8, "packages": 1}})
+    assert "(1 package)" in depsize.download_note("prosody", ["parselmouth"])
+
+
+def test_several_packages_are_pluralised(table):
+    table({"gaze": {"download_mb": 219.4, "packages": 12}})
+    assert "(12 packages)" in depsize.download_note("gaze", ["cv2", "mediapipe"])
+
+
 def test_a_large_download_is_flagged(table):
     table(HEAVY)
     assert depsize.is_a_large_download("voiceprint", ["speechbrain"]) is True

@@ -12,9 +12,15 @@ Implements ADR-018's first decision. `yazses features info <slug>` now shows a *
 line, and `features enable` prints the size before fetching anything — loudly, with a
 Ctrl-C hint, when it is large.
 
-The case that motivated it: **`yazses features enable voiceprint` resolves `speechbrain`
-to torch *and the entire NVIDIA CUDA stack*** — cuDNN, NCCL, cuSPARSE, cuSOLVER — on a
-CPU-only, offline dictation tool. Nothing told the user before the progress bar started.
+The case that motivated it, now measured: **the three speaker-voiceprint features
+(`cocktail`, `multiprofile`, `voiceguard`) download 3.1 GB across 37 packages.**
+`speechbrain` resolves to PyTorch *and the entire NVIDIA CUDA stack* — cuDNN, NCCL,
+cuSPARSE, cuSOLVER — none of which YazSes uses, because everything here runs on the CPU.
+That is **7× the size of YazSes itself**, and nothing told the user before the progress
+bar started. `[voiceprint] backend = "resemblyzer"` is the lighter alternative.
+
+The full table is in [what installing costs](docs/install-cost.md); the range runs from
+0.5 MB (`chinese-script`) to those 3.1 GB.
 
 Three properties, each ruling out an easier implementation:
 

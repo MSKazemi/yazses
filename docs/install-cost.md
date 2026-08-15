@@ -68,6 +68,42 @@ model is downloaded — the one you configure.
     unavailable rather than failing. Tracked as
     [#259](https://github.com/MSKazemi/yazses/issues/259).
 
+## What a feature costs to turn on
+
+Nothing below is installed unless you ask for it. `yazses features info <name>` shows
+the figure before you commit, and `yazses features enable` prints it again — loudly —
+before it fetches anything.
+
+| Feature | Download | Packages |
+|---|---:|---:|
+| `cocktail`, `multiprofile`, `voiceguard` (speaker voiceprint) | **~3.1 GB** | 37 |
+| `overlay`, `tray` (Qt) | ~256 MB | 4 |
+| `gaze` (mediapipe + OpenCV) | ~219 MB | 12 |
+| `stt-moonshine` | ~113 MB | 18 |
+| `llm-cleanup` (llama.cpp) | ~72 MB | 4 |
+| `read-back`, `readback_clone` (Kokoro TTS) | ~25 MB | 23 |
+| `diarize`, `meeting`, `recimport` (sherpa-onnx) | ~18 MB | 2 |
+| `prosody`, `voicehealth` | ~11 MB | 1 |
+| `agent` (MCP) | ~4 MB | 20 |
+| `stt-parakeet` | ~4 MB | 1 |
+| `chinese-script` | ~0.5 MB | 1 |
+
+!!! warning "The voiceprint features cost 3.1 GB, and it is worth knowing why"
+
+    `cocktail`, `multiprofile` and `voiceguard` all need a speaker-embedding model, and
+    the default backend (`speechbrain`) resolves to **PyTorch and the full NVIDIA CUDA
+    stack** — cuDNN, NCCL, cuSPARSE, cuSOLVER — none of which YazSes uses, because
+    everything here runs on the CPU. That is a dependency of a dependency, not a choice
+    this project makes, and it is **7× the size of YazSes itself**.
+
+    If you want speaker features without it, `[voiceprint] backend = "resemblyzer"` is
+    the lighter alternative. Otherwise, leave them off — all three are off by default
+    and `cocktail` is experimental besides.
+
+These are **download** sizes for the fully resolved dependency set, measured on Linux
+x86_64 against a clean base install, so they will not match a `du` afterwards. A feature
+whose packages you already have costs nothing, and says so.
+
 ## What each install path actually pulls
 
 There is no single installer, and they do not all install the same thing — correctly,
