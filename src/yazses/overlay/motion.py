@@ -140,9 +140,33 @@ def _linux_prefers_reduced() -> bool | None:
 
 
 def _macos_prefers_reduced() -> bool | None:
+    """AppKit first, `defaults` only as a fallback.
+
+    ``NSWorkspace.accessibilityDisplayShouldReduceMotion`` is the supported API —
+    *"a Boolean value that indicates whether the accessibility option to reduce
+    motion is in an enabled state"*, macOS 10.12+ — and pyobjc-framework-Cocoa is
+    already a hard dependency on darwin, so it costs nothing to ask properly.
+
+    The `defaults` path reads `com.apple.universalaccess reduceMotion`, which is an
+    **undocumented** preference key: it is not part of any published interface, it is
+    absent until the user has toggled the setting at least once, and Apple is free to
+    rename it. It stays as a fallback rather than the primary because a probe that
+    silently stops working looks exactly like a desktop with no such setting.
+
+    Unlike the Windows flag, this one is not inverted: true means reduce.
+    """
+    try:
+        from AppKit import NSWorkspace  # type: ignore[import-not-found]
+
+        return bool(NSWorkspace.sharedWorkspace().accessibilityDisplayShouldReduceMotion())
+    except Exception:
+        # ImportError off macOS or on a stripped install; anything else means the
+        # selector was unavailable. Either way there is still the older route.
+        log.debug("NSWorkspace reduce-motion probe unavailable", exc_info=True)
+
     value = _run(["defaults", "read", "com.apple.universalaccess", "reduceMotion"])
     if value is None:
-        return None  # the key is absent until the user has toggled it at least once
+        return None
     return value.strip() == "1"
 
 

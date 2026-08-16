@@ -285,3 +285,65 @@ def test_the_windows_flag_and_its_polarity_are_pinned(monkeypatch):
     _User32.animations_enabled = 0  # Windows: animations OFF
     assert motion._windows_prefers_reduced() is True
     assert calls == [0x1042, 0x1042], "the probe asked for a different system parameter"
+
+
+class _FakeWorkspace:
+    reduce = False
+
+    @classmethod
+    def sharedWorkspace(cls):  # noqa: N802 - ObjC selector name
+        return cls()
+
+    def accessibilityDisplayShouldReduceMotion(self):  # noqa: N802 - ObjC selector name
+        return _FakeWorkspace.reduce
+
+
+def _install_appkit(monkeypatch, workspace):
+    import sys
+    import types
+
+    module = types.ModuleType("AppKit")
+    module.NSWorkspace = workspace
+    monkeypatch.setitem(sys.modules, "AppKit", module)
+
+
+def test_macos_prefers_the_supported_api_over_the_undocumented_key(monkeypatch):
+    """`accessibilityDisplayShouldReduceMotion` is published; the defaults key is not.
+
+    `com.apple.universalaccess reduceMotion` is an undocumented preference: absent
+    until the user has toggled the setting once, and free to be renamed. pyobjc is a
+    hard dependency on darwin, so there is no reason to guess when we can ask.
+
+    Not inverted, unlike the Windows flag: true means reduce.
+    """
+    called = []
+    monkeypatch.setattr(motion, "_run", lambda argv: called.append(argv) or "1")
+    _install_appkit(monkeypatch, _FakeWorkspace)
+
+    _FakeWorkspace.reduce = True
+    assert motion._macos_prefers_reduced() is True
+    _FakeWorkspace.reduce = False
+    assert motion._macos_prefers_reduced() is False
+    assert not called, "shelled out to `defaults` while the supported API was available"
+
+
+def test_macos_falls_back_when_appkit_is_unavailable(monkeypatch):
+    """A stripped install must not lose the capability entirely."""
+    monkeypatch.setattr(motion, "_run", lambda argv: "1")
+    assert motion._macos_prefers_reduced() is True
+
+    monkeypatch.setattr(motion, "_run", lambda argv: None)
+    assert motion._macos_prefers_reduced() is None
+
+
+def test_macos_falls_back_when_the_selector_raises(monkeypatch):
+    """An AppKit that imports but cannot answer is not a reason to give up."""
+
+    class _Broken:
+        @classmethod
+        def sharedWorkspace(cls):  # noqa: N802
+            raise RuntimeError("no window server")
+
+    _install_appkit(monkeypatch, _Broken)
+    monkeypatch.setattr(motion, "_run", lambda argv: "0")
+    assert motion._macos_prefers_reduced() is False
