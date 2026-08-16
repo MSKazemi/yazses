@@ -102,6 +102,16 @@ class AudioConfig:
     # Cadence of the background default-input-device watcher, in seconds. 0 disables
     # the watcher (the silent-streak detector still works, being on the hot path).
     device_poll_interval_s: float = 3.0
+    # Answer the mic guard's [Re-calibrate]/[Pin this mic]/[Ignore] toast by SAYING one
+    # of them (ADR-022, Spec 1). Without this the daemon asks a question about your
+    # microphone that can only be answered with a pointer -- and the person seeing it is
+    # the one whose dictation just stopped working. OFF by default like the other
+    # utterance-consuming guards (`[cmdsafety]`, `[checkdigit]`): it swallows a burst
+    # that would otherwise be typed, and that is a behaviour change to opt into.
+    voice_answer: bool = False
+    # How long the toast stays answerable by voice. Bounded on purpose -- "ignore" is
+    # an ordinary word, and an unbounded window arms it for the rest of the session.
+    voice_answer_window_s: float = 45.0
 
 
 @dataclass

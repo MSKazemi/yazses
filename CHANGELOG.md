@@ -6,6 +6,36 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the mic guard's question can be answered out loud (`[audio] voice_answer`)
+
+The mic-change guard is the one part of the pipeline that *asks* rather than tells:
+when capture moves, or a run of clips comes back silent, it offers **Re-calibrate**,
+**Pin this mic** and **Ignore**. Those were buttons and only buttons, so the daemon
+interrupted you with a question about your microphone that could only be answered
+with a pointer — and the person seeing it is the one whose dictation has just
+stopped working, which is the worst possible moment to be sent to the mouse.
+
+ADR-022 counts this as one of exactly two daemon-initiated states with no voice-only
+exit. This is the half that needs no change to the command-safety gate: the three
+actions are already dispatched from a string key, so the spoken route reaches the
+same handler as the click and the two cannot drift apart.
+
+Two limits do most of the work, and both are about *not* firing. The whole utterance
+must be the answer — "please ignore the second paragraph" is prose and gets typed,
+the lesson `commands/revise.py` already learned by anchoring at both ends. And the
+words only count inside `voice_answer_window_s` (default 45 s) of the toast; an
+unbounded window would arm "ignore" as a control word for the rest of the session,
+and once it closes the word types normally rather than being swallowed.
+
+It runs after `[cmdsafety]` and `[checkdigit]` and before staged dictation, and both
+halves of that position are decisions: a held `rm -rf` keeps first claim on the
+utterance, and the staged buffer would otherwise swallow the answer as ordinary
+text. An AST guard pins the order.
+
+Off by default, like the other guards that consume a burst which would otherwise be
+typed. That leaves Spec 1's metric at 2 until it is switched on, which is worth
+saying plainly rather than claiming the baseline moved.
+
 ### Added — the overlay can stop moving (`[overlay] reduced_motion`)
 
 The voice-activity overlay expands rings outward from near the pointer, sixty times

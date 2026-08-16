@@ -78,6 +78,37 @@ desktop notification with **[Re-calibrate] / [Pin this mic] / [Ignore]**, becaus
 a silent fix is only half useful — you need to know the device moved. Pin one for
 good with `yazses audio use <name>`.
 
+### Answering that toast without a pointer
+
+Those are buttons, and until now they were *only* buttons — so the daemon asked you
+a question about your microphone that needed a mouse. The person seeing it is the
+one whose dictation has just stopped working, which is the worst moment to be sent
+to the pointer.
+
+Turn on `[audio] voice_answer` and you can hold your dictation key and **say** one
+of them instead:
+
+```toml
+[audio]
+voice_answer = true            # off by default
+voice_answer_window_s = 45.0   # how long the question stays answerable
+```
+
+| Say | Does |
+|---|---|
+| “re-calibrate” / “calibrate the mic” | the same as clicking **Re-calibrate** |
+| “pin this mic” / “pin the microphone” | the same as clicking **Pin this mic** |
+| “ignore” / “dismiss” / “never mind” | dismisses the toast |
+
+Two limits, both deliberate. The **whole utterance** must be the answer — “please
+ignore the second paragraph” is prose and gets typed, because a control word that
+eats your sentences is worse than no control word. And the words only count inside
+`voice_answer_window_s` of the toast; after that “ignore” is an ordinary word again
+and types normally, rather than staying armed for the rest of your session.
+
+It is off by default because it consumes a burst that would otherwise be typed —
+the same reason `[cmdsafety]` and `[checkdigit]` are opt-in.
+
 ## The silence gate drifted above your voice
 
 If the VAD threshold sits above how loudly you actually speak, every burst is

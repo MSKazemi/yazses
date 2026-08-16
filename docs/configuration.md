@@ -50,6 +50,8 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 | `silent_streak_threshold` | int | `3` |
 | `auto_heal_device` | bool | `true` |
 | `device_poll_interval_s` | float | `3.0` |
+| `voice_answer` | bool | `false` |
+| `voice_answer_window_s` | float | `45.0` |
 
 ## `[injection]`
 

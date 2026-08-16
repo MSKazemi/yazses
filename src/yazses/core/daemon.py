@@ -39,6 +39,7 @@ if TYPE_CHECKING:
 
 from yazses.audio.adaptive_vad import AdaptiveThreshold
 from yazses.audio.device_monitor import DeviceMonitor, SilentStreakTracker
+from yazses.audio.mic_prompt import MicPrompt
 from yazses.audio.padding import PreSpeechRingBuffer
 from yazses.audio.recorder import AudioRecorder
 from yazses.audio.vad_calibrated import is_silent_calibrated
@@ -220,6 +221,9 @@ class Daemon:
         # stays inert unless [cmdsafety] enabled, which keeps `_on_hold_end` free of
         # a None check on the hot path.
         self._cmdsafety = ConfirmGate()
+        # When the mic guard last asked something, so a spoken answer can be
+        # scoped to an open question rather than to the whole session.
+        self._mic_prompt = MicPrompt()
         # Earcon feedback (ADR-v2-096): non-speech tones for state changes, so the
         # daemon is usable without seeing the tray. Always constructed and inert
         # unless [earcon] enabled, keeping the hot path free of a None check.
@@ -1762,6 +1766,17 @@ class Daemon:
                     text = checked
                     event["final_text"] = text
 
+                # Spoken answer to the mic guard's toast (ADR-022): the daemon may
+                # not ask a question about your microphone that only a pointer can
+                # answer. After the two safety gates so a held command keeps first
+                # claim on the utterance; before staged, which would swallow it.
+                if self._config.audio.voice_answer:
+                    answered = self._mic_answer_gate(text, event)
+                    if answered is None:
+                        return
+                    text = answered
+                    event["final_text"] = text
+
                 # Staged dictation (#294): bursts land in a review buffer instead of
                 # typing, and only a commit types — `scratch that` is already too
                 # late once the wrong token is in a terminal. A commit hands back the
@@ -1883,6 +1898,12 @@ class Daemon:
 
     def _notify_mic(self, title: str, body: str, *, actions: bool = True) -> None:
         """Fire a desktop notification about the mic; never raises."""
+        if actions:
+            # Open the spoken-answer window (ADR-022). Only for toasts that actually
+            # ask something -- the nine informational ones pass actions=False, and
+            # arming "ignore" after a toast with no buttons would be a control word
+            # with nothing to control.
+            self._mic_prompt.ask(time.time())
         try:
             from yazses.system import notify as notify_mod
 
@@ -2159,6 +2180,41 @@ class Daemon:
             "preview": self._staged.preview(),
             "summary": staged_describe(self._staged),
         }
+
+    def _mic_answer_gate(self, text: str, event: dict) -> str | None:
+        """Spoken answer to the mic guard's toast. The text to type, or None.
+
+        Runs **after** the command-safety and check-digit gates and **before**
+        staged dictation, and both halves of that are deliberate.
+
+        After the safety gates, because a held `rm -rf` must keep first claim on the
+        utterance: putting this first would let "ignore" answer a mic toast while a
+        dangerous command sat waiting. It cannot steal their release words either --
+        the vocabularies do not overlap -- and if a command *is* held, saying a mic
+        answer discards it as an implicit cancel, which is the safe direction.
+
+        Before staged dictation, for the reason ADR-021 gives for the others: the
+        staged buffer would swallow the answer as ordinary text.
+        """
+        from yazses.audio.mic_prompt import match_mic_answer
+
+        now = time.time()
+        if not self._mic_prompt.is_open(now, self._config.audio.voice_answer_window_s):
+            return text
+        answer = match_mic_answer(text)
+        if answer is None:
+            return text
+
+        self._mic_prompt.close()
+        event["mic_answer"] = answer
+        log.info("Mic guard: answered %r by voice.", answer)
+        try:
+            self._on_mic_action(answer)
+        except Exception:
+            # The answer was still consumed -- typing "re-calibrate" into the user's
+            # document because re-calibration failed would be the worse outcome.
+            log.exception("Mic guard: spoken action %r failed", answer)
+        return None
 
     def _cmdsafety_gate(self, text: str, event: dict) -> str | None:
         """Command Safety Gate (ADR-v2-065). The text to type, or None when nothing types.
