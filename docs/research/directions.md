@@ -216,6 +216,34 @@ can be measured is welcome regardless of how strange it sounds —
 [the research agenda](agenda.md). An idea that cannot do those three things is not
 rejected, it is **filed as a question**, which is a different and often more useful thing.
 
+### What happens to an idea that passes
+
+Passing the gates does not mean "someone will build it". It means the idea has earned a
+place in the written record, and there are three of those — the difference is what kind
+of claim the idea makes, not how good it is.
+
+| The idea is… | It becomes | Because |
+|---|---|---|
+| A **decision that constrains future work** — a dependency, a default, an interface, something that would be expensive to reverse | an **[ADR](https://github.com/MSKazemi/yazses/tree/main/design/adr)** | The reasoning has to outlive the person who had it. Roughly 150 exist; each records the context, the options and the consequence. |
+| **Ordinary work** with a known shape | an **issue**, labelled and left open for whoever wants it | Most contributions are this. It does not need a decision record. |
+| A **question nobody has answered** | an entry in the **[research agenda](agenda.md)** | An unmeasured claim is not a plan. Building it first would produce a feature nobody can defend. |
+
+Two things worth knowing before writing an ADR:
+
+- **Anyone may write one.** A well-argued decision record is worth more than a rushed
+  implementation, and [`design/README.md`](https://github.com/MSKazemi/yazses/blob/main/design/README.md)
+  has the format. It does not require write access or an invitation.
+- **An accepted ADR is not edited to change its mind.** A decision that turns out wrong
+  gets a *new* ADR that supersedes it, so the reasoning that was true at the time stays
+  readable. That is the rule in
+  [`design/adr/README.md`](https://github.com/MSKazemi/yazses/blob/main/design/adr/README.md),
+  and it is why the record is worth reading years later.
+
+An idea can sit in more than one at once, and the page above shows both: directions 5
+and 6 are open agenda questions rather than planned work, while direction 1 has an ADR
+([ADR-021](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-021-invest-in-error-cost.md))
+because the argument for it constrains choices well beyond itself.
+
 ## References
 
 1. <a id="ref-ghosh"></a>Ghosh et al., *ACM Transactions on Computer-Human Interaction*
