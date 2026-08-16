@@ -210,3 +210,20 @@ def test_an_unparseable_colour_falls_back_rather_than_raising() -> None:
 
     assert glyph_for("not-a-colour").startswith("#")
     assert glyph_for("").startswith("#")
+
+
+def test_the_two_trays_agree_on_the_icon_size() -> None:
+    """`_ICON_PX` is declared in both tray backends, kept equal by a comment.
+
+    A comment is not a mechanism. The size decides which frame Windows picks for
+    the display scaling and how the level ring's geometry lands, so a divergence
+    would be visible on one platform and invisible to whoever caused it. The
+    geometry and the glyph colour are already shared; this is the last constant
+    that was not.
+    """
+    from yazses.platform.linux.tray import _ICON_PX as linux_px
+    from yazses.platform.windows.tray import _ICON_PX as windows_px
+
+    assert linux_px == windows_px, (
+        f"the Linux tray draws at {linux_px}px and the Windows tray at {windows_px}px"
+    )

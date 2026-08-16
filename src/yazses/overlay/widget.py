@@ -25,7 +25,14 @@ class SonarWidget(QWidget):
         self._size = size_px
         self._accent = QColor(accent)
         if not self._accent.isValid():
-            self._accent = QColor("#00e5ff")
+            # The documented default, read from the config dataclass rather than
+            # re-typed. A second literal here is a second source of truth: change
+            # `[overlay] accent`'s default and this fallback silently keeps the old
+            # colour, so a user with a malformed accent sees a different ring from
+            # a user with none.
+            from yazses.config import OverlayConfig
+
+            self._accent = QColor(OverlayConfig().accent)
         self._ripples: list[Ripple] = []
         self._core_intensity = 0.0
 
