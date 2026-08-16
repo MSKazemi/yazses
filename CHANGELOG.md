@@ -6,6 +6,59 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the Settings window's threshold slider has a live level meter
+
+Hold your dictation key and speak: the bar shows whether you are clearing the
+silence line, and re-judges as you drag the slider, so you can see when you have
+moved it far enough. Without it the slider is a person guessing at a float.
+
+It was deferred on a reason that turned out to be wrong — "it needs an audio stream
+in the window". It does not. The daemon already publishes `audio_level` in its
+status reply; it is what the tray's level ring has been drawing for weeks. The
+window asks the same running process, which is also the only correct answer: a
+second capture stream would fight the one dictation uses.
+
+Running it against a live daemon caught the defect that mattered. `audio_level`
+only moves during a hold, so at rest the meter read 0.0 and announced *"below the
+line — audio this quiet is discarded as silence"*: a claim about the user's
+microphone made at a moment when nothing was listening. It now says so instead.
+
+### Fixed — the Intel .dmg and the ARM64 .exe have not been built for two releases
+
+Both cross-architecture bundle legs were failing, and both workflows reported
+success: they are `continue-on-error`, which is right for a new cross-arch job and
+means the failure appears nowhere a person looks — not the run summary, the checks
+list, or the release page. v2.21.0 shipped neither file.
+
+macOS Intel died on `uv sync`: the lock pins onnxruntime 1.28.0, which upstream
+publishes for macOS arm64 only, and faster-whisper requires onnxruntime with no
+marker. That leg now resolves unlocked, where it backtracks to the last release
+with an Intel wheel. Pinning the project back below 1.24 would have cost every
+other platform two years of runtime for one architecture Apple has already
+scheduled for removal. `pipx install yazses` on Intel resolves the same way and was
+never affected — it was the bundle that was missing, not the path.
+
+Windows ARM64 died before compiling anything, asking `uv` for an interpreter it had
+no build of: `setup-uv` was pinned to `0.5.x` in these two workflows and `latest`
+in the other five. That pin predates Windows ARM64 Python entirely.
+
+`test_platform_support_claims.py` now cross-checks both build matrices against
+`docs/platform-support.md`, so an advisory leg can never be written up as a shipped
+one, and a blocking leg can never be left understated.
+
+### Fixed — every Linux arm64 channel was documented as unavailable, and all of them work
+
+Measured against the Snap Store API, the published APT index and the `.deb` control
+fields rather than this repository's manifests. The snap has an arm64 build on
+`stable`, not edge-only. The `.deb` declares `Architecture: all` and contains no
+compiled code, so the `amd64` and `arm64` release assets are the same package with
+different names — the architecture in the filename is the build host's — and the
+APT repo has therefore served arm64 all along.
+
+arm64 users were being sent to a slower install path for something they already
+had. Documentation drift is usually an overclaim; this one cost people support that
+existed.
+
 ### Fixed — the tray icon's mark was unreadable on two of its five states
 
 The "Y" was painted white on every state colour. Measured with the contrast maths

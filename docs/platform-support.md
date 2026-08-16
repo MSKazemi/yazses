@@ -6,9 +6,16 @@ description: Which operating systems and CPU architectures YazSes runs on, which
 # Platform support
 
 Which operating systems and CPU architectures YazSes runs on, and which install
-channel to use for each. **Audited live on 2026-08-13** against PyPI, the Snap Store
-API, the GitHub Releases assets and the Homebrew tap — not against the manifests in
-this repository, which can and do drift from what is actually published.
+channel to use for each. **Audited live on 2026-08-16** against PyPI, the Snap Store
+API, the GitHub Releases assets, the published APT index and the `.deb` control
+fields — not against the manifests in this repository, which can and do drift from
+what is actually published.
+
+That audit moved rows in **both** directions. Every Linux arm64 channel turned out
+to work already, and the two cross-architecture desktop bundles turned out not to
+exist — their build legs are advisory, so they had been failing while their
+workflows reported success. Understating support costs people a slower install;
+overstating it sends them after a file that is not there.
 
 !!! tip "The short answer"
 
@@ -46,14 +53,35 @@ fails the build in either direction.
 | CPU | `pipx` / `uv tool` (PyPI) | Universal script | APT repo | Snap | `.deb` asset |
 |---|---|---|---|---|---|
 | **x86_64** (`amd64`) | ✅ | ✅ | ✅ | ✅ `stable` | ✅ |
-| **aarch64** (`arm64`) | ✅ | ✅ | ⏳ | ⏳ (`--edge` today) | ⏳ |
+| **aarch64** (`arm64`) | ✅ | ✅ | ✅ | ✅ `stable` | ✅ |
 | `armhf`, `i386`, `ppc64el`, `s390x`, `riscv64` | ❌ | ❌ | ❌ | ❌ | ❌ |
 
-**On arm64 today**, use the universal script or `pipx`. Both work now — PyPI ships
-`aarch64` wheels for the whole runtime stack. The snap, the APT repo and the `.deb`
-gain arm64 at the next tagged release ([#267](https://github.com/MSKazemi/yazses/issues/267));
-until then `sudo snap install yazses --edge` is the only snap channel with an arm64
-build, and it is a release behind.
+**Every Linux channel works on arm64 today.** This page said otherwise until it was
+measured, and the measurement is worth stating because it changes what you should
+install:
+
+- **The snap is on `stable` for arm64**, not edge-only. The Snap Store API answers
+  `stable arm64` directly — the command is in [Verifying this page](#verifying-this-page-yourself).
+  What *is* true is that the whole snap, both architectures, sits two releases
+  behind the tag — at the time of writing `stable` is 2.19.0 against a 2.21.0
+  release. That is a publishing gap, not an architecture gap, and it affects x86_64
+  users equally.
+- **The `.deb` and the APT repo are architecture-independent by construction.** The
+  package declares `Architecture: all` and carries no compiled code: it installs a
+  systemd user unit, a man page, and a `postinst` that runs `pipx install yazses`,
+  which then fetches the architecture-appropriate wheels from PyPI. The two release
+  assets `yazses_<version>_amd64.deb` and `yazses_<version>_arm64.deb` are the same
+  package — same size, same file listing, both `Architecture: all`. The architecture
+  in the filename is the *build host's*, from `dpkg --print-architecture`, and says
+  nothing about what the package runs on.
+
+  Consequence worth knowing: **pick either asset, they are interchangeable**, and
+  the APT repo has served arm64 all along. This page previously told arm64 users to
+  wait for a future release, which sent them to a slower install path for something
+  they already had.
+
+`pipx` and the universal script work on arm64 as well — PyPI ships `aarch64` wheels
+for the whole runtime stack.
 
 **Why the other five architectures cannot work:** the runtime stack is wheel-only.
 `ctranslate2` (via faster-whisper), `onnxruntime` (via onnx-asr) and PySide6 publish
@@ -78,19 +106,37 @@ macOS 11 (Big Sur) or newer.
 | CPU | `pipx` (PyPI) | Homebrew | `.dmg` app bundle |
 |---|---|---|---|
 | **Apple Silicon** (`arm64`) | ✅ | ✅ `brew install --cask mskazemi/yazses/yazses` | ✅ (unsigned) |
-| **Intel** (`x86_64`) | ✅ | ❌ cask tracks arm64 | ⏳ built, unproven ([#264](https://github.com/MSKazemi/yazses/issues/264)) |
+| **Intel** (`x86_64`) | ✅ | ❌ cask tracks arm64 | ⏳ builds; lands at the next tag ([#264](https://github.com/MSKazemi/yazses/issues/264)) |
 
-**On an Intel Mac, use `pipx install yazses`.** A universal2 build is **not**
+**On an Intel Mac today, use `pipx install yazses`.** A universal2 build is **not**
 reachable — several of the runtime wheels ship single-architecture binaries — so the
-fix is a *separate* Intel build rather than a fat one, and that build now exists: CI
-produces `YazSes-<version>-macos-x86_64.dmg` alongside the Apple Silicon one.
+fix is a *separate* Intel build rather than a fat one. CI now produces
+`YazSes-<version>-macos-x86_64.dmg` alongside the Apple Silicon one, but no release
+carries it yet.
 
-It is marked ⏳ rather than ✅ for a specific reason. The `macos-15-intel` runner has
-never completed a build in this repository, so the leg is advisory — a brand-new
-cross-architecture job must not be able to fail a release the Apple Silicon build
-completed fine. It becomes ✅ once it has produced a working `.dmg`, not before, and
-the Homebrew cask will not offer it until then either: a cask whose hash is a guess is
-worse than no cask.
+The `pipx` path is unaffected by any of that and is the one that outlasts the
+hardware: resolving the runtime for `x86_64-apple-darwin` succeeds today, selecting
+Intel wheels for the whole stack.
+
+**It builds — as of 2026-08-16, and not before.** Until then this page said the build
+"exists", and it did not: every attempt had failed at dependency resolution and the
+workflow had reported success anyway, because the leg is `continue-on-error`. What it
+failed on was not the architecture but the lock file — `uv.lock` pins an onnxruntime
+that upstream publishes for Apple Silicon only, and `uv sync` installs exactly what
+the lock says. The Intel leg now resolves unlocked, which backtracks to the last
+release carrying an Intel wheel, and it produced a working
+`YazSes-2.21.0-macos-x86_64.dmg` on the first run afterwards.
+
+It stays ⏳ rather than ✅ because ⏳ is now the accurate mark: built by CI, not yet
+attached to a release. It lands on the next tag. The leg also remains advisory until
+it has been green more than once — a single pass is a fix, not a track record — and
+the Homebrew cask will not offer it until there is a published file to hash: a cask
+whose hash is a guess is worse than no cask.
+
+One consequence of building unlocked is worth stating rather than hiding: the Intel
+bundle is not built from the pinned dependency set, so it is not reproducible against
+`uv.lock` the way the Apple Silicon one is. The alternative was no Intel bundle at
+all.
 
 **The `.dmg` filenames now name their architecture.** They did not, and
 `YazSes-2.20.0.dmg` reads as though it were for everybody — which is a large part of
@@ -121,21 +167,36 @@ Windows 10 (21H2) or newer.
 | CPU | `pipx` (PyPI) | `.exe` installer |
 |---|---|---|
 | **x64** | ✅ | ✅ (unsigned) |
-| **arm64** | ⚠️ untested | ⏳ native build added, unproven |
+| **arm64** | ⚠️ untested | ❌ build added, currently failing |
 
 **On Windows arm64 today, use `pipx install yazses`,** or the x64 `.exe` — Inno Setup
 marks it `x64compatible`, which includes ARM, so it installs and runs under Windows'
 x86 emulation.
 
-A **native** arm64 installer is now built by CI on a `windows-11-arm` runner and will
-be attached to releases alongside the x64 one. It is marked ⏳ rather than ✅ for a
-specific reason: neither that runner nor PyInstaller-on-ARM has ever run in this
-repository, so the job is deliberately advisory — a brand-new cross-architecture
-build must not be able to fail a release the x64 build completed fine. It becomes ✅
-once it has produced a working installer, not before. Nobody has run YazSes on a
-Windows ARM machine either, which is why the `pipx` column stays ⚠️ untested;
-claiming a platform we have not exercised is exactly how the arm64 snap gap
-happened.
+**There is no native arm64 installer to download.** A build leg for one exists on a
+`windows-11-arm` runner, and on every tag so far it has failed before compiling
+anything:
+
+```
+error: No download found for request: cpython-3.12-windows-aarch64-none
+```
+
+The leg asked `uv` for a Python and `uv` had none for that architecture — it was
+pinned to a version predating Windows ARM64 interpreter builds. That pin is now
+lifted, but **the fix is unproven**: this workflow only runs on a tag, so nothing
+has exercised it yet. The row stays ❌ until an installer actually appears on a
+release, which is the only evidence that counts.
+
+This is worth saying plainly because the failure was invisible. The leg is
+`continue-on-error` — correct, so a new cross-architecture build cannot fail a
+release the x64 build completed fine — and the consequence is that the workflow
+reports **success** while shipping nothing for that architecture. Two releases went
+out that way. A test now cross-checks this page against those matrices so an
+advisory leg can never be written up here as a shipped one.
+
+Nobody has run YazSes on a Windows ARM machine either, which is why the `pipx`
+column stays ⚠️ untested; claiming a platform we have not exercised is exactly how
+the arm64 snap gap happened.
 
 The installer is unsigned, so SmartScreen will warn: **More info → Run anyway**.
 Code signing is tracked on the
