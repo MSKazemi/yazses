@@ -89,3 +89,36 @@ def test_the_tests_directory_is_not_ignored() -> None:
     """Same failure, equally silent: a new test that never runs in CI."""
     ignored = _ignored([str(p.relative_to(ROOT)) for p in (ROOT / "tests").glob("*.py")])
     assert not ignored, f"ignored test files: {sorted(ignored)[:10]}"
+
+
+def test_no_directory_holding_tracked_files_would_swallow_a_new_one() -> None:
+    """The general form, and the one that actually found the bug.
+
+    Anywhere the repository already keeps a tracked file, adding a sibling must
+    show up in `git status`. That is the property; `src/yazses/overlay/` was the
+    one place it did not hold, and the checks above were written narrowly around
+    the case I happened to trip over.
+
+    Note this is not "nothing may be ignored" — `paper/*` deliberately ignores a
+    688 MB dataset and third-party PDFs, and is followed by `!paper/benchmark/` so
+    the harness stays visible. That negation is exactly the shape a correct
+    exclusion takes, and this test passes because of it.
+
+    Probed with a hypothetical filename rather than by creating files: writing into
+    337 directories to run a test would be a worse idea than the bug.
+    """
+    tracked = subprocess.run(
+        ["git", "ls-files"], cwd=ROOT, capture_output=True, text=True
+    )
+    if tracked.returncode != 0:
+        pytest.skip("not a git checkout")
+
+    directories = sorted({str(Path(f).parent) for f in tracked.stdout.splitlines() if "/" in f})
+    assert len(directories) > 50, "too few directories found — the listing is wrong"
+
+    probes = [f"{d}/_would_a_new_file_be_seen.py" for d in directories]
+    swallowed = [line.rsplit("/", 1)[0] for line in _ignored(probes)]
+    assert not swallowed, (
+        "these directories hold tracked files but would silently ignore a new one, "
+        "so work added there never reaches a commit:\n  " + "\n  ".join(sorted(swallowed))
+    )
