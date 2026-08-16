@@ -72,7 +72,11 @@ if (-not (Test-Path "assets\yazses.ico")) {
 
 # --- sync runtime deps + add PyInstaller --------------------------------
 Write-Host "==> Syncing runtime dependencies"
-uv sync
+# `--no-dev`: the dev group (pytest, mypy, ruff, hypothesis, a moonshine ONNX
+# model) is installed into the environment PyInstaller analyses, and none of it
+# belongs in a shipped installer. Measured on macOS, where the leg that skipped it
+# produced an 85 MB bundle against 137 MB for the leg that did not.
+uv sync --no-dev
 
 Write-Host "==> Installing PyInstaller"
 uv pip install "pyinstaller>=6.10"

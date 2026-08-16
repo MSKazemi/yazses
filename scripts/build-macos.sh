@@ -66,7 +66,14 @@ if [[ "$(uname -m)" == "x86_64" ]]; then
     uv venv
     uv pip install .
 else
-    uv sync
+    # `--no-dev` because a desktop bundle has no business carrying the test suite.
+    # Measured on the 2.21.0 dispatch: the Apple Silicon .dmg came out at 137 MB
+    # against Intel's 85 MB, and the only structural difference between the two
+    # legs was that `uv sync` installs the dev group -- pytest, mypy, ruff,
+    # hypothesis, Pillow, a moonshine ONNX model -- into the environment
+    # PyInstaller then analyses. Shipping a linter inside an application is a size
+    # problem and a supply-chain one, and neither is paid for by anything.
+    uv sync --no-dev
 fi
 
 echo "==> Installing PyInstaller"
