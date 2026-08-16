@@ -146,22 +146,44 @@ def _macos_prefers_reduced() -> bool | None:
     return value.strip() == "1"
 
 
+#: `SPI_GETCLIENTAREAANIMATION`, the flag behind *Settings → Accessibility → Visual
+#: effects → Animation effects*. Value and semantics taken from the Win32
+#: `SystemParametersInfoW` reference, not from memory, because nothing on a Linux or
+#: macOS developer machine can catch a wrong constant: the call would simply fail and
+#: this module would report "cannot tell" forever, which looks exactly like a desktop
+#: with no such setting.
+_SPI_GETCLIENTAREAANIMATION = 0x1042
+
+
 def _windows_prefers_reduced() -> bool | None:
-    """`SPI_GETCLIENTAREAANIMATION` — the flag behind *Play animations in Windows*."""
+    """Does Windows say animations are off?
+
+    **The returned value is inverted, deliberately.** `SystemParametersInfoW` fills
+    `pvParam` with TRUE when animations are *enabled*; this function answers the
+    opposite question, so animations-enabled means "does not prefer reduced". An
+    inverted boolean is where a later tidy-up introduces a bug, so the polarity is
+    written down rather than left to be re-derived.
+
+    Microsoft's own justification for the flag is stronger than the vestibular one
+    this module leads with: *"flashing, blinking, flickering, and moving content can
+    cause seizures in users with photo-sensitive epilepsy."* That is also why the
+    reduced form quantises brightness instead of tracking a live level.
+    """
     try:
         import ctypes
     except ImportError:  # pragma: no cover - ctypes is stdlib everywhere we ship
         return None
     try:
-        enabled = ctypes.c_int(0)
+        # Win32 BOOL is a 32-bit int, which is what c_int is on every platform we ship.
+        animations_enabled = ctypes.c_int(0)
         ok = ctypes.windll.user32.SystemParametersInfoW(  # type: ignore[attr-defined]
-            0x1042, 0, ctypes.byref(enabled), 0
+            _SPI_GETCLIENTAREAANIMATION, 0, ctypes.byref(animations_enabled), 0
         )
     except (AttributeError, OSError):
         return None
     if not ok:
         return None
-    return enabled.value == 0
+    return animations_enabled.value == 0
 
 
 def detect_os_preference() -> bool | None:

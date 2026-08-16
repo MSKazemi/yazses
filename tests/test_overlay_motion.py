@@ -251,3 +251,37 @@ def test_detect_never_raises(monkeypatch):
 
     monkeypatch.setattr(subprocess, "run", _boom)
     assert motion.detect_os_preference() in (True, False, None)
+
+
+def test_the_windows_flag_and_its_polarity_are_pinned(monkeypatch):
+    """The Windows path cannot be exercised here, so pin what it depends on.
+
+    A wrong `SPI_GETCLIENTAREAANIMATION` fails silently in the worst way: the call
+    errors, the probe returns "cannot tell", and that is indistinguishable from a
+    desktop with no such setting — so reduced motion would simply never engage on
+    Windows and nothing would look broken. The value and the polarity are from the
+    Win32 `SystemParametersInfoW` reference: `pvParam` receives TRUE when animations
+    are ENABLED, so this module's answer is the inverse.
+    """
+    assert motion._SPI_GETCLIENTAREAANIMATION == 0x1042
+
+    calls = []
+
+    class _User32:
+        def SystemParametersInfoW(self, action, uiParam, pvParam, fWinIni):  # noqa: N802
+            calls.append(action)
+            pvParam._obj.value = _User32.animations_enabled
+            return 1
+
+    class _Windll:
+        user32 = _User32()
+
+    import ctypes
+
+    monkeypatch.setattr(ctypes, "windll", _Windll(), raising=False)
+
+    _User32.animations_enabled = 1  # Windows: animations ON
+    assert motion._windows_prefers_reduced() is False
+    _User32.animations_enabled = 0  # Windows: animations OFF
+    assert motion._windows_prefers_reduced() is True
+    assert calls == [0x1042, 0x1042], "the probe asked for a different system parameter"
