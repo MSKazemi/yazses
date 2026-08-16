@@ -28,6 +28,24 @@ clears it; the script runs on the contributor's own machine, while they can stil
 fix it. It cannot detect a fabricated marker word and does not claim to — it makes
 the requirement mechanical rather than remembered.
 
+### Fixed — ruff was told `_common` is a stranger, and its autofix acted on it
+
+`paper/benchmark/` is the reproducibility code `docs/benchmarks.md` points readers at,
+and it sits outside the `src tests scripts` the gate lints, so it had drifted to seven
+findings — two genuinely unused imports and five unsorted import blocks.
+
+The interesting half is why the autofix was not simply safe to apply. The nine benchmark
+scripts import a sibling helper as a bare `from _common import …`, because they run from
+that directory, and every one of them keeps it in its own block. Ruff had no way to know
+that and read it as third-party, so `--fix` folded `_common` in among `jiwer` and `numpy`
+— a correct-by-its-own-lights rewrite of a grouping the author chose. `known-first-party
+= ["_common"]` teaches it, after which the fix touches only what is actually wrong: one
+file that had been "broken" dropped out of the diff entirely.
+
+The lint *scope* is deliberately unchanged. `src tests scripts` is a recorded decision —
+`.devcontainer/setup.sh` once said `ruff check .` and exited 1 on a clean checkout — and
+widening it is not a cleanup.
+
 ## [2.22.0] - 2026-08-16
 
 ### Fixed — six ways YazSes starts itself, five of which could not work in a bundle

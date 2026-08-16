@@ -21,6 +21,7 @@ import bench_meta
 import bench_streaming
 import bench_vad
 import bench_wer
+
 from _common import RESULTS_DIR, provenance, write_result
 
 

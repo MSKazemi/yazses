@@ -34,7 +34,7 @@ import time
 
 import numpy as np
 
-from _common import load_audio, librispeech_subset, percentile
+from _common import librispeech_subset, load_audio, percentile
 
 MODELS = ["tiny.en", "base.en"]
 CHUNK_MS = 100  # mirrors the daemon's capture chunking granularity

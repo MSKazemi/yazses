@@ -12,7 +12,7 @@ import time
 import jiwer
 from whisper_normalizer.english import EnglishTextNormalizer
 
-from _common import load_audio, librispeech_subset, percentile
+from _common import librispeech_subset, load_audio, percentile
 
 MODELS = ["tiny.en", "base.en", "small.en"]
 _normalize = EnglishTextNormalizer()

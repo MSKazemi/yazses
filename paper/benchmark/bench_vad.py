@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from _common import load_audio, librispeech_subset, percentile
+from _common import librispeech_subset, load_audio, percentile
 
 SAMPLE_RATE = 16000
 

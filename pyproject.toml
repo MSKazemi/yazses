@@ -340,6 +340,14 @@ ignore = [
     "E702",  # `x = 1; i += 2; continue` — deliberate in the table-driven parsers
 ]
 
+[tool.ruff.lint.isort]
+# `_common` is the shared helper module that sits *beside* the benchmark scripts in
+# paper/benchmark/, imported as a bare name because they run from that directory.
+# Without this ruff reads it as third-party and folds it in among jiwer and numpy,
+# which is where its autofix would put it — the nine scripts that import it all keep
+# it in its own block, and that grouping is the author's, not an accident.
+known-first-party = ["_common"]
+
 [tool.ruff.lint.per-file-ignores]
 # Re-exports: package __init__ files intentionally import names they do not use.
 "__init__.py" = ["F401"]
