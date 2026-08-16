@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses report` leaked the account name in paths outside `$HOME`
+
+The bundle exists to be pasted into a public issue, and its own help promises
+"settings with paths and identifiers removed". It replaced the home directory
+everywhere, which is why `/home/<you>/…` correctly became `~/…` — and left the
+account name untouched wherever it appeared in a path that is *not* under `$HOME`:
+
+    /media/<you>/USB-STICK/note.wav      a file transcribed off a drive
+    /run/media/<you>/…                   the same, other distributions
+    /tmp/pytest-of-<you>/…               how this was noticed
+
+The first is the one that matters in ordinary use. Found by running
+`yazses report --print` on a real machine and counting: the account name appeared
+six times, zero of them under a home path.
+
+The account name is now redacted on word boundaries as well. Names shorter than
+three characters, and generic ones (`root`, `ubuntu`, `ci`, `runner`, `test` and
+friends) are deliberately left alone — such an account identifies nobody, and
+blanking a common short word would shred the surrounding log into unreadable
+diagnostics. Redaction that destroys the report defeats its purpose as surely as
+redaction that misses.
+
+
 ### Fixed — the test suite was writing into the user's real diagnostic log
 
 `yazses logs` prints `~/.local/state/yazses/log/daemon.log`, and `yazses report`

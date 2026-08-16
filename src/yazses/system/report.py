@@ -33,6 +33,43 @@ _REDACTED = "<redacted>"
 # A home directory leaks the account name wherever it appears in free text.
 _HOME = re.compile(re.escape(str(Path.home())))
 
+# ...but the account name also appears in paths that are NOT under $HOME, and those
+# survived home-only redaction. Real examples on an ordinary Linux desktop:
+#
+#     /media/<account>/USB-STICK        a file being transcribed off a drive
+#     /run/media/<account>/...          the same, on other distributions
+#     /tmp/pytest-of-<account>/...      how this was noticed
+#
+# The comment above already says the thing being protected is the *account name*;
+# only the home-path spelling of it was implemented.
+#
+# Names too short or too generic are left alone, and that is not a compromise: a
+# machine whose account is "root" or "ubuntu" is not identified by it, while
+# blanking a three-letter common word would shred the surrounding log into
+# unreadable diagnostics. Redaction that destroys the report defeats its purpose
+# as surely as redaction that misses.
+_GENERIC_ACCOUNTS = frozenset({
+    "root", "user", "users", "admin", "administrator", "test", "guest", "default",
+    "ubuntu", "debian", "fedora", "runner", "build", "builder", "ci", "jenkins",
+    "docker", "vagrant", "pi", "nobody", "localadmin", "developer",
+})
+
+
+def _account_pattern() -> re.Pattern[str] | None:
+    """A word-boundary matcher for this account name, or None if not worth hiding."""
+    try:
+        import getpass
+
+        name = (getpass.getuser() or "").strip()
+    except Exception:
+        return None
+    if len(name) < 3 or name.lower() in _GENERIC_ACCOUNTS:
+        return None
+    return re.compile(rf"\b{re.escape(name)}\b", re.IGNORECASE)
+
+
+_ACCOUNT = _account_pattern()
+
 
 @dataclass(frozen=True)
 class Bundle:
@@ -43,8 +80,15 @@ class Bundle:
 
 
 def redact_text(text: str) -> str:
-    """Replace the user's home directory with a placeholder, everywhere."""
-    return _HOME.sub("~", text)
+    """Replace the user's home directory and account name, everywhere.
+
+    Home first: it is the longer and more specific match, so `/home/ada/x` becomes
+    `~/x` rather than `/home/<redacted>/x`.
+    """
+    text = _HOME.sub("~", text)
+    if _ACCOUNT is not None:
+        text = _ACCOUNT.sub(_REDACTED, text)
+    return text
 
 
 def redact_config(raw: dict) -> dict:

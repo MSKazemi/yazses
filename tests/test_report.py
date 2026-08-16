@@ -133,3 +133,76 @@ def test_report_states_the_version_that_is_actually_installed():
     import yazses
 
     assert yazses.__version__ == pkg_version("yazses")
+
+
+# ---- the account name outside $HOME -----------------------------------------
+
+
+def _with_account(monkeypatch, name):
+    """Point the redactor at a chosen account name."""
+    import re
+
+    monkeypatch.setattr(
+        report_mod, "_ACCOUNT", re.compile(rf"\b{re.escape(name)}\b", re.IGNORECASE)
+    )
+
+
+def test_the_account_name_is_redacted_outside_the_home_directory(monkeypatch):
+    """Home-only redaction missed every path that embeds the name elsewhere.
+
+    Found by running `yazses report --print` on a real machine: the log tail
+    carried `/tmp/pytest-of-<account>/...` while `/home/<account>` was correctly
+    collapsed to `~`. The bundle is meant to be attached to a public issue, and its
+    own help text promises "paths and identifiers removed".
+
+    `/media/<account>/…` is the one that matters in normal use — it is where a
+    transcribed file off a USB stick lives.
+    """
+    _with_account(monkeypatch, "ada")
+    for path in (
+        "/media/ada/USB-STICK/note.wav",
+        "/run/media/ada/disk/note.wav",
+        "/tmp/pytest-of-ada/pytest-3/x.toml",
+        "sent mail to ada",
+    ):
+        assert "ada" not in report_mod.redact_text(path), path
+
+
+def test_the_home_path_still_collapses_rather_than_being_blanked(monkeypatch):
+    """Home is matched first because it is longer and more specific.
+
+    `~/.config/yazses` is diagnostically useful; `/home/<redacted>/.config/yazses`
+    is the same information with more noise.
+    """
+    _with_account(monkeypatch, "ada")
+    out = report_mod.redact_text(f"{Path.home()}/.config/yazses/config.toml")
+    assert out.startswith("~/"), out
+
+
+def test_a_generic_account_name_is_left_alone(monkeypatch):
+    """Redaction that destroys the report defeats its purpose as surely as
+    redaction that misses.
+
+    An account called `root`, `ubuntu` or `ci` identifies nobody, and blanking a
+    common short word would shred the surrounding log — `/usr/lib/test/...`,
+    `docker run`, "the build failed" — into unreadable diagnostics.
+    """
+    for generic in ("root", "ubuntu", "ci", "runner", "test"):
+        monkeypatch.setattr("getpass.getuser", lambda g=generic: g)
+        assert report_mod._account_pattern() is None, generic
+
+
+def test_a_short_account_name_is_left_alone(monkeypatch):
+    """Two letters cannot be matched on word boundaries without wrecking prose."""
+    monkeypatch.setattr("getpass.getuser", lambda: "jo")
+    assert report_mod._account_pattern() is None
+
+
+def test_an_unreadable_account_never_breaks_the_report(monkeypatch):
+    """A diagnostic bundle that raises while being collected is worse than one
+    that redacts a little less."""
+    def _boom():
+        raise OSError("no passwd entry")
+
+    monkeypatch.setattr("getpass.getuser", _boom)
+    assert report_mod._account_pattern() is None
