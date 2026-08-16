@@ -328,9 +328,28 @@ def test_macos_prefers_the_supported_api_over_the_undocumented_key(monkeypatch):
 
 
 def test_macos_falls_back_when_appkit_is_unavailable(monkeypatch):
-    """A stripped install must not lose the capability entirely."""
+    """A stripped install must not lose the capability entirely.
+
+    The absence has to be *made*, not assumed. The first version of this test simply
+    did not install a fake AppKit and trusted that none existed — true on the Linux
+    machine it was written on, false on the macOS runners, where the import succeeds
+    and the real `NSWorkspace` answers. It passed locally and turned both macOS jobs
+    red: a test that read the host rather than the code.
+
+    Setting `sys.modules["AppKit"] = None` makes `import AppKit` raise `ImportError`
+    whatever the platform, so this exercises the fallback everywhere. It is asserted
+    below that the block beats a *working* AppKit, which is what makes the test
+    meaningful on a machine that has one.
+    """
+    import sys
+
+    _install_appkit(monkeypatch, _FakeWorkspace)  # a working one, to be overridden
+    monkeypatch.setitem(sys.modules, "AppKit", None)
+
     monkeypatch.setattr(motion, "_run", lambda argv: "1")
-    assert motion._macos_prefers_reduced() is True
+    assert motion._macos_prefers_reduced() is True, (
+        "AppKit was still reachable — the fallback was never exercised"
+    )
 
     monkeypatch.setattr(motion, "_run", lambda argv: None)
     assert motion._macos_prefers_reduced() is None
