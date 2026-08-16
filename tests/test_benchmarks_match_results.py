@@ -14,6 +14,15 @@ Scope note: this checks the figures that are *mechanically derivable* from a
 results file. Plenty on that page legitimately is not — the narrative, the caveats,
 the "what is not measured here" section — and asserting on prose would make the
 guard a change-detector that fails on every honest edit.
+
+**Where this runs.** `paper/results/*.json` is gitignored (`.gitignore`: `paper/*`),
+so it exists on a machine that has run the harness and nowhere else — CI included.
+The module therefore skips when the results are absent, and that skip is honest
+rather than a hole: there is genuinely nothing to compare against, and the drift it
+catches happens exactly where the files *do* exist, on the machine of whoever
+re-ran the harness and then edited the page. The first version asserted the files
+were present and turned every CI job on every OS red, which is a fair illustration
+of how easily a guard can assume its own environment.
 """
 from __future__ import annotations
 
@@ -39,10 +48,14 @@ def _results(name: str) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def test_the_page_and_the_results_both_exist() -> None:
-    """Guard the guard: a missing page would make every assertion below vacuous."""
+def test_the_page_exists_and_quotes_numbers() -> None:
+    """Guard the guard: a missing or numberless page makes everything below vacuous.
+
+    Asserted on the page only. The results files are gitignored and legitimately
+    absent in CI — requiring them here is what reddened every job.
+    """
     assert DOC.is_file()
-    assert list(RESULTS.glob("*.json")), "no results files — nothing to compare against"
+    assert re.search(r"\d+\.\d+\s*%", _doc()), "the page quotes no figures at all"
 
 
 def test_the_vad_clip_counts_match_the_data() -> None:
