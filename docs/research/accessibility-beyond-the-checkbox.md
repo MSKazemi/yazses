@@ -123,7 +123,7 @@ guessing about people whose needs are not guessable.
 
 Five capabilities, and **four are already designed, tested, and unreachable.** That is not
 an accident of this page — it is the same finding as
-[the 63 unwired capabilities](directions.md): in this project the missing piece is almost
+[the 62 unwired capabilities](directions.md): in this project the missing piece is almost
 never the algorithm.
 
 It also explains why `earcon` was the one to build first. It needed no new dependency, no

@@ -103,6 +103,6 @@ grammar layer are all present, designed and tested. **Cursorless's advantage is 
 idea; it is that theirs is wired to a syntax tree and reachable by a user.**
 
 That is the same finding as [#164](https://github.com/MSKazemi/yazses/issues/164) and the
-64 unwired capabilities, arrived at from outside instead of inside. Mining the
+62 unwired capabilities, arrived at from outside instead of inside. Mining the
 neighbourhood for ideas produced one idea worth having and a much stronger reason to
 finish the ones already here.

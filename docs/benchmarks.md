@@ -146,18 +146,18 @@ model. This is the honest cost of a Python daemon — it is why the requirements
 
 ## Voice-activity gate
 
-The gate that decides whether a recording contains speech at all, tested against 200
-LibriSpeech clips as positives and digital silence plus Gaussian noise at 0.1×, 0.25×,
-0.5× and 0.75× the threshold as negatives:
+The gate that decides whether a recording contains speech at all, tested against 40
+LibriSpeech clips as positives and 5 negatives — digital silence plus Gaussian noise at
+0.1×, 0.25×, 0.5× and 0.75× the threshold:
 
 | Metric | Result |
 |---|---|
-| Speech detected | 100 % (200/200) |
-| Silence rejected | 100 % |
+| Speech detected | 100 % (40/40) |
+| Silence rejected | 100 % (5/5) |
 | Balanced accuracy | 100 % |
-| Median speech level vs threshold | 2.4× margin |
+| Median speech level vs threshold | 3.4× margin |
 
-The 2.4× margin is why `yazses mic-level --set` matters: the default threshold works
+The 3.4× margin is why `yazses mic-level --set` matters: the default threshold works
 because typical speech sits well above it, but a quiet voice or a low-gain
 microphone can fall below it — which shows up as `Silent audio -- discarding` in the
 log rather than as an error.
