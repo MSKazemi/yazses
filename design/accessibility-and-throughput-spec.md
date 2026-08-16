@@ -86,6 +86,26 @@ follows it.
 **The number it must move:** count of daemon-initiated states with no voice-only exit.
 Target zero. **Countable today, no harness needed** — which is why this goes first.
 
+**Counted, 2026-08-16: the baseline is 2.** Eleven notification sites exist in
+`core/daemon.py`; nine pass `actions=False` and are informational, so they are not
+states the daemon waits in. Two offer buttons and wait, and neither has a spoken route:
+
+| State | What it asks | Voice-only exit |
+|---|---|---|
+| Mic-change guard (`_notify_mic`, `daemon.py:1893`) | Re-calibrate / Pin this mic / Ignore | **none** — buttons only |
+| Destructive gaze deixis (`_confirm_deixis`, `daemon.py:2880`) | "Close it" / "Keep it" | **none** — buttons only |
+
+The second is the sharper one. Gaze targeting exists for people who may not be able to
+use a pointer, and its safety confirmation requires a pointer; the code says so in as
+many words — *"confirm with the button"* — and without actionable-notification support
+the action is silently dropped rather than offered another way.
+
+Both have a working pattern to adopt sitting in the same process: `ConfirmGate` already
+holds a destructive dictated command pending a spoken **confirm**, and `checkdigit`
+deliberately reuses its release word so the user learns one phrase rather than one per
+guard. Routing these two through the same gate is the whole of Spec 1's first step, and
+it moves the number from 2 to 0.
+
 ### Spec 2 — Error cost, not error count
 
 **Problem** (A1): the recogniser is confident and wrong, and the cost of being wrong varies
