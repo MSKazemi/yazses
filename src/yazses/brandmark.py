@@ -173,6 +173,7 @@ def render_mark(
     fill: str | tuple[int, int, int] | None = None,
     wave: bool | None = None,
     supersample: int = SUPERSAMPLE,
+    glyph_colour: str | tuple[int, int, int] = (255, 255, 255),
 ) -> Image:
     """Render the YazSes mark at ``size``×``size`` px, RGBA, transparent corners.
 
@@ -210,6 +211,14 @@ def render_mark(
     plane = _colour_plane(size, fill)
     img = plane.convert("RGBA")
     img.putalpha(badge)
-    # White at mask 235 (the SVG's opacity="0.92") blends rather than overwrites.
-    img.paste((255, 255, 255, 255), mask=glyph)
+    # Usually white, at mask 235 (the SVG's opacity="0.92") so it blends rather
+    # than overwrites. Callers may override it: on the tray's yellow badge a white
+    # mark measures 1.71:1 against WCAG AA's 4.5, and black measures 12.3 — see
+    # `tray/menu.py::glyph_for`, which decides. The packaged icons keep white,
+    # because they are painted on the brand gradient rather than a state colour.
+    mark = glyph_colour
+    if isinstance(mark, str):
+        text = mark.strip().lstrip("#")
+        mark = tuple(int(text[i:i + 2], 16) for i in (0, 2, 4)) if len(text) == 6 else (255, 255, 255)
+    img.paste((*mark, 255), mask=glyph)
     return img

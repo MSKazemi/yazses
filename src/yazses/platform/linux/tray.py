@@ -209,7 +209,12 @@ class LinuxTray:
         p.setPen(Qt.PenStyle.NoPen)
         p.drawRoundedRect(QRectF(inset, inset, side, side), _RADIUS * k, _RADIUS * k)
 
-        pen = QPen(QColor("#ffffff"))
+        from yazses.tray.menu import glyph_for
+
+        # Not always white: on the yellow "nowhere to type" badge a white
+        # mark measures 1.71:1, which is unreadable at 16 px. glyph_for
+        # picks whichever of black/white is legible on this state colour.
+        pen = QPen(QColor(glyph_for(color_hex)))
         pen.setWidthF(_Y_STROKE * k)
         # Round caps and joins are what make the fork read as one stroke rather
         # than three segments — the same choice the SVG makes.

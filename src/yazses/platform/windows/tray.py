@@ -48,8 +48,12 @@ def _make_icon(color_hex: str):
     16 px — the sound-wave bars are sub-pixel there.
     """
     from yazses.brandmark import render_mark
+    from yazses.tray.menu import glyph_for
 
-    return render_mark(_ICON_PX, fill=color_hex, wave=False)
+    # The mark is not always white: on the yellow "nowhere to type" badge a
+    # white glyph measures 1.71:1, unreadable at tray size. Shared with the Linux
+    # painter so the two platforms stay legible in the same way.
+    return render_mark(_ICON_PX, fill=color_hex, wave=False, glyph_colour=glyph_for(color_hex))
 
 
 class WindowsTray:

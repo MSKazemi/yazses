@@ -127,7 +127,15 @@ def test_the_glyph_is_the_brand_mark_not_a_bare_disc() -> None:
     assert img.mode == "RGBA"
     px = img.load()
     # A disc leaves the corners transparent too, so prove the mark is there: the
-    # centre must be the white "Y", which a solid-colour disc never has.
+    # centre must be the "Y", which a solid-colour disc never has.
+    #
+    # Asserted as *contrast against the badge* rather than as white. The glyph is
+    # no longer always white: on the yellow "nowhere to type" badge a white mark
+    # measures 1.71:1 and is unreadable, so `tray/menu.py::glyph_for` picks black
+    # there. Pinning the colour would pin the defect.
+    from yazses.settingsui.theme import AA_NORMAL, contrast_ratio
+
     mid = win_tray._ICON_PX // 2
-    assert px[mid, mid][:3] == (255, 255, 255)
+    badge = tuple(int(_BLUE.lstrip("#")[i:i + 2], 16) for i in (0, 2, 4))
+    assert contrast_ratio(px[mid, mid][:3], badge) >= AA_NORMAL
     assert px[0, 0][3] == 0

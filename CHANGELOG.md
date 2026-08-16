@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the tray icon's mark was unreadable on two of its five states
+
+The "Y" was painted white on every state colour. Measured with the contrast maths
+already in the codebase, white scores **1.71:1 on yellow**, 3.06 on green and 4.23
+on red — against WCAG AA's 4.5. Three of five failed, and the worst by a distance
+is yellow, which is the badge meaning *"recording, but there is nowhere to type"*.
+
+That is the state a user most needs to notice, wearing the least readable mark of
+the set. An icon that says "your words are going nowhere" and cannot be read is not
+doing the one job it exists for.
+
+The glyph colour is now chosen by contrast, per badge — black on yellow, green, red
+and blue; white on purple. Yellow goes from **1.71:1 to 12.30:1**, measured on the
+rendered icon. Both Linux and Windows share the decision, so they cannot diverge.
+
+Black or white rather than a computed tint: at 16 px the mark is a few hundred
+pixels of stroke, and a mid-tone loses to the badge whatever the maths says.
+
+`settingsui/theme.py` has computed contrast since the Settings window's secondary
+text was found failing AA on both themes. This is the first time anything else has
+used it — the tray is where it was most needed and least applied.
+
+
 ### Added — an agent can ask you a question out loud, and hear your answer
 
 ADR-020 decided that the genuinely novel thing YazSes can offer another agent is not

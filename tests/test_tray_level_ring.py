@@ -142,3 +142,71 @@ def test_the_poller_fills_them_from_the_daemon_status():
         f"tray/app.py builds TrayModel without the level fields ({sorted(filled)}), so "
         f"the ring would always draw a silent microphone"
     )
+
+
+# --- the glyph must be legible on its own badge ------------------------------
+#
+# The mark was painted white on every state colour. Measured against
+# settingsui/theme.py's contrast maths — the only such maths in the codebase, and
+# used nowhere near the tray until now — that is:
+#
+#     yellow  1.71:1     green  3.06:1     red  4.23:1     blue  4.51:1
+#
+# WCAG AA asks 4.5:1. Three of five failed, and the worst by a distance is yellow,
+# which is the state meaning "recording, but there is nowhere to type" — the one a
+# user most needs to notice. An icon that says "your words are going nowhere" and
+# cannot be read is not doing the job it exists for.
+
+
+def test_the_glyph_colour_is_chosen_by_contrast() -> None:
+    from yazses.settingsui.theme import contrast_ratio
+    from yazses.tray.menu import glyph_for
+
+    def _rgb(h: str) -> tuple[int, int, int]:
+        h = h.lstrip("#")
+        return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))  # type: ignore[return-value]
+
+    for badge in ("#34a853", "#fbbc04", "#9c27b0", "#1a73e8", "#e53935"):
+        glyph = glyph_for(badge)
+        chosen = contrast_ratio(_rgb(glyph), _rgb(badge))
+        other = contrast_ratio(_rgb("#000000" if glyph == "#ffffff" else "#ffffff"), _rgb(badge))
+        assert chosen >= other, f"{badge}: picked the less legible glyph"
+
+
+def test_the_worst_case_is_fixed() -> None:
+    """Yellow with a white glyph was 1.71:1 — effectively unreadable at 16 px."""
+    from yazses.settingsui.theme import contrast_ratio
+    from yazses.tray.menu import glyph_for
+
+    def _rgb(h: str) -> tuple[int, int, int]:
+        h = h.lstrip("#")
+        return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))  # type: ignore[return-value]
+
+    ratio = contrast_ratio(_rgb(glyph_for("#fbbc04")), _rgb("#fbbc04"))
+    assert ratio >= 4.5, f"the no-text-target badge is still only {ratio:.2f}:1"
+
+
+def test_every_shipped_state_colour_clears_aa() -> None:
+    """Not just the five: any colour the tray can paint has to be legible."""
+    from yazses.settingsui.theme import AA_NORMAL, contrast_ratio
+    from yazses.tray import menu as menu_mod
+
+    def _rgb(h: str) -> tuple[int, int, int]:
+        h = h.lstrip("#")
+        return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))  # type: ignore[return-value]
+
+    shipped = [v for k, v in vars(menu_mod).items()
+               if k.startswith("_") and isinstance(v, str) and v.startswith("#") and len(v) == 7]
+    assert shipped, "no state colours found — this guard is checking nothing"
+    for badge in shipped:
+        ratio = contrast_ratio(_rgb(menu_mod.glyph_for(badge)), _rgb(badge))
+        assert ratio >= AA_NORMAL, f"{badge} glyph is {ratio:.2f}:1, below AA"
+
+
+def test_an_unparseable_colour_falls_back_rather_than_raising() -> None:
+    """A bad colour must not take the tray icon down — the paint path swallows
+    exceptions, so raising here would mean no icon at all."""
+    from yazses.tray.menu import glyph_for
+
+    assert glyph_for("not-a-colour").startswith("#")
+    assert glyph_for("").startswith("#")

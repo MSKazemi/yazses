@@ -170,13 +170,22 @@ def test_the_ring_band_is_still_clear_when_idle(qapp):
 def test_the_mark_is_drawn_inside_the_badge(qapp):
     """A blank badge would pass every structural assertion above. This checks the
     Y actually put light pixels on the dark badge."""
-    icon = LinuxTray()._make_icon("#1a73e8", None)
+    from yazses.settingsui.theme import AA_NORMAL, contrast_ratio
+
+    badge_hex = "#1a73e8"
+    icon = LinuxTray()._make_icon(badge_hex, None)
     image = icon.pixmap(_ICON_PX, _ICON_PX).toImage()
+    badge = tuple(int(badge_hex.lstrip("#")[i:i + 2], 16) for i in (0, 2, 4))
     centre = _ICON_PX // 2
-    light = sum(
+    # Counted by *contrast against the badge*, not by lightness: the glyph is no
+    # longer always white — on yellow it is black, because white measures 1.71:1
+    # there. A lightness test would pin the defect this replaced.
+    legible = sum(
         1
         for x in range(centre - 12, centre + 12)
         for y in range(centre - 12, centre + 12)
-        if image.pixelColor(x, y).lightness() > 200
+        if contrast_ratio(
+            (image.pixelColor(x, y).red(), image.pixelColor(x, y).green(),
+             image.pixelColor(x, y).blue()), badge) >= AA_NORMAL
     )
-    assert light > 20, "no light pixels where the Y should be — the mark did not draw"
+    assert legible > 20, "no legible pixels where the Y should be — the mark did not draw"

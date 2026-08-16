@@ -134,6 +134,41 @@ def _silent_streak_limit(status: dict) -> int:
     return limit if limit > 0 else _DEFAULT_SILENT_STREAK_LIMIT
 
 
+def glyph_for(badge_hex: str) -> str:
+    """The mark colour that is actually legible on *badge_hex* — black or white.
+
+    The glyph was white on every state colour. Measured with the contrast maths
+    already in `settingsui/theme.py` — the only such maths in the codebase, and
+    never applied anywhere near the tray — white scores:
+
+        yellow 1.71:1 · green 3.06:1 · red 4.23:1 · blue 4.51:1 · purple 6.30:1
+
+    WCAG AA asks 4.5:1, so three of the five failed. The worst is **yellow**, which
+    is the badge meaning "recording, but there is nowhere to type" — the state a
+    user most needs to notice, wearing the least readable mark of the set. An icon
+    that says "your words are going nowhere" and cannot be read is not doing the
+    one job it exists for.
+
+    Black or white rather than a computed tint: at 16 px the mark is a few hundred
+    pixels of stroke, and a mid-tone loses to the badge whatever the maths says.
+    Falls back to white on an unparseable colour rather than raising — the paint
+    path swallows exceptions, so an error here would mean no icon at all.
+    """
+    from yazses.settingsui.theme import contrast_ratio
+
+    text = (badge_hex or "").strip().lstrip("#")
+    if len(text) != 6:
+        return "#ffffff"
+    try:
+        badge = tuple(int(text[i:i + 2], 16) for i in (0, 2, 4))
+    except ValueError:
+        return "#ffffff"
+
+    white = contrast_ratio((255, 255, 255), badge)  # type: ignore[arg-type]
+    black = contrast_ratio((0, 0, 0), badge)  # type: ignore[arg-type]
+    return "#ffffff" if white >= black else "#000000"
+
+
 def icon_spec(status: dict) -> tuple[str, str]:
     """Return ``(hex_color, tooltip)`` for the tray icon given a status dict.
 
