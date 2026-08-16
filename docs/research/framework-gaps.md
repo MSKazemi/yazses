@@ -165,6 +165,52 @@ research use exactly as it applies to dictation.
 
 ---
 
+## Where this list comes from
+
+The ten are not invented from taste. Two bodies of evidence shaped them, and it is worth
+saying which, because "what a research framework needs" is a question other people have
+already studied.
+
+**The FAIR Principles for Research Software** ([FAIR4RS v1.0](https://doi.org/10.1038/s41597-022-01710-x),
+an RDA / ReSA / FORCE11 working group) adapt FAIR from data to software, on the argument
+that software's executability, composite nature and continuous versioning make the data
+principles insufficient on their own. Read against this page, five of the ten are FAIR
+requirements this project does not yet meet:
+
+| FAIR4RS asks for | The entry that would provide it |
+|---|---|
+| Rich metadata, and provenance detailed enough to say what produced a result | **1. A run manifest** — version, config hash, model, engine, VAD, lock hash |
+| Reading and writing data in well-defined open formats | **4. Exportable timing traces**, **9. Result artifacts that survive the paper** |
+| Qualified references to other software | **10. A cited baseline you did not choose** |
+| Meeting domain-relevant community standards | **3. The field's error metrics, not just WER** |
+
+The gap FAIR4RS does *not* cover is the one entries 2, 5 and 6 address — running the
+experiment at all. FAIR is about the software as an object to be found and reused; a
+study also needs the software to be *driveable* without a person and a room.
+
+**An interview study of research software engineers**
+([Rosado de Souza, Haines, Vigo & Jay, 2019](https://arxiv.org/abs/1903.06039)) separates
+*intrinsic* sustainability — modularity, encapsulation, testability — from *extrinsic* —
+how the software is resourced, supported and shared, and concludes that quality and
+**discoverability** are what research software engineers believe drives sustainability.
+That maps onto an uncomfortable observation about this project: the intrinsic half is in
+reasonable shape (a seam behind every scientifically interesting component, ~5,000 tests),
+and the extrinsic half is where the ten gaps sit. Nothing here is blocked on architecture.
+
+**Comparable projects**, surveyed separately in the
+[adjacent-projects study](https://github.com/MSKazemi/yazses/blob/main/design/research/2026-08-15-adjacent-projects.md)
+— Handy, Cursorless, nerd-dictation, Dragonfly and Caster — with a specific lesson taken
+from each rather than a feature comparison.
+
+!!! warning "Two papers is not a literature review"
+
+    This is the evidence that actually shaped the list, not an exhaustive survey of
+    research-software adoption. If you know work that contradicts it — particularly
+    anything measuring what researchers *actually* adopt rather than what they say they
+    value — that is a more useful contribution than another capability.
+
+---
+
 ## What this list is not
 
 **It is not a roadmap.** Nothing here is scheduled, and several entries would be better
