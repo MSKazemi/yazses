@@ -24,6 +24,7 @@ _ALIASES = {
     "readback_clone": "tts",
     "llm-cleanup": "filters.disfluency",
     "mic-guard": "audio",          # device-change + silent-streak notify live under [audio]
+    "mic-voice-answer": "audio",   # the spoken exit from that same toast (ADR-022)
     "update-check": "general",     # the release-check toggle writes [general] update_check
     "target-guard": "injection",   # text-target guard writes [injection] target_guard
     "stt-parakeet": "stt",         # engine selector writes [stt] engine

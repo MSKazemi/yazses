@@ -160,6 +160,11 @@ def _registry() -> list[_Def]:
     )
     # The only feature in YazSes that opens an outbound connection, so it is
     # OPTIONAL rather than RECOMMENDED and ships off. `uc_*` — `u_*` would collide.
+    # The spoken exit from the mic guard's toast (ADR-022). Separate toggle from
+    # `mic-guard` on purpose: that one decides whether YazSes *asks*, this one
+    # decides whether the question can be answered without a pointer, and it
+    # consumes an utterance so it must be opted into on its own.
+    mva_on, mva_off = _bool("audio", "voice_answer")
     uc_on, uc_off = _bool("general", "update_check")
     pe_on, pe_off = _bool("personalize")
     co_on, co_off = _bool("cocktail")
@@ -333,6 +338,15 @@ def _registry() -> list[_Def]:
              "Notifies + auto-heals when your microphone silently switches (e.g. a "
              "USB-C monitor stealing capture) so dictation never dies in silence. Keep on.",
              lambda c: c.audio.device_change_notify, micguard_on, micguard_off),
+        _Def("mic-voice-answer", "Mic guard: answer by voice", "[audio] voice_answer",
+             OPTIONAL,
+             "Say \"re-calibrate\", \"pin this mic\" or \"ignore\" to answer the mic "
+             "guard's toast, instead of clicking it. Without this the daemon asks a "
+             "question about your microphone that only a pointer can answer -- and the "
+             "person seeing it is the one whose dictation just stopped. Off by default "
+             "because it consumes a burst that would otherwise be typed; the whole "
+             "utterance must be the answer, and only within 45s of the toast.",
+             lambda c: bool(getattr(c.audio, "voice_answer", False)), mva_on, mva_off),
         _Def("update-check", "Update check", "[general] update_check", OPTIONAL,
              "Tells you once when a newer YazSes is released, with the exact steps "
              "to update. OFF by default and the only thing here that touches the "
@@ -992,6 +1006,7 @@ _SLUG_PACKAGES: dict[str, tuple[str, ...]] = {
     "undo": ("commands",),           # commands/revise.py, wired in daemon._on_hold_end
     "target-guard": ("inject",),     # inject/target.py
     "mic-guard": ("audio",),         # audio/device_monitor.py
+    "mic-voice-answer": ("audio",),  # audio/mic_prompt.py, wired in daemon._on_hold_end
     "update-check": ("system",),     # system/update_notify.py, wired in core/daemon.py
     "dysfluency": ("stt",),          # stt/filters/disfluency.py
     "punch-in": ("postprocess",),    # postprocess/punch_in.py
@@ -1194,6 +1209,7 @@ _EXAMPLES: dict[str, str] = {
     "autostop": "Tap once and speak; recording stops when you finish.",
     "mousegrid": "Say a grid number to move the cursor, then 'click'.",
     "mic-guard": "Plug in a USB-C monitor; YazSes notices the mic switched and pops a fix.",
+    "mic-voice-answer": "The mic-switch toast appears; say \"pin this mic\" instead of reaching for the mouse.",
     "update-check": "A new release lands; you get one toast with the command to install it.",
     "tray": "Click the top-bar mic icon → pick a microphone or re-calibrate, no terminal.",
     "target-guard": "Dictate with no text box focused → it's copied to the clipboard, not lost.",
@@ -1353,6 +1369,7 @@ _USE_CASES: dict[str, str] = {
     "autostop": "When holding the hotkey the whole time is tiring and you'd rather tap once and let it stop itself.",
     "mousegrid": "When you need to click somewhere no accessibility tree exists and want to do it hands-free.",
     "mic-guard": "When plugging in a monitor/headset silently switches your mic and dictation stops working with no clue why.",
+    "mic-voice-answer": "When you cannot (or would rather not) use a pointer, and a toast asking about your microphone is the one thing you cannot answer hands-free.",
     "update-check": "When you'd rather be told a fix has shipped than remember to run `yazses update` yourself.",
     "tray": "When you'd rather click a top-bar icon to switch mics or restart than remember terminal commands.",
     "target-guard": "When you sometimes speak before clicking into a text field and your words vanish into the wrong window.",
@@ -1440,6 +1457,7 @@ _CATEGORIES: dict[str, str] = {
     "vocaljoystick": CAT_ACCESS, "mouthswitch": CAT_ACCESS, "morsevox": CAT_ACCESS,
     "contour": CAT_ACCESS, "earcon": CAT_ACCESS, "srpace": CAT_ACCESS,
     "echo": CAT_ACCESS, "proofback": CAT_ACCESS, "read-back": CAT_ACCESS,
+    "mic-voice-answer": CAT_ACCESS,
     "readback_clone": CAT_ACCESS, "voicehealth": CAT_ACCESS, "loadguard": CAT_ACCESS,
     "voicetimer": CAT_ACCESS, "spatialvad": CAT_ACCESS, "modality": CAT_ACCESS,
     "gaze": CAT_ACCESS, "mousegrid": CAT_ACCESS,
