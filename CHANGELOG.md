@@ -28,6 +28,15 @@ clears it; the script runs on the contributor's own machine, while they can stil
 fix it. It cannot detect a fabricated marker word and does not claim to — it makes
 the requirement mechanical rather than remembered.
 
+A marker word inside an unresolved `TODO` does not count. The review on PR #309
+handed the contributor a starter file headed `TODO(you): replace this block with
+what you actually observed.` — and the word "observed" in that instruction satisfied
+the check on its own, so the likeliest next submission would have passed it by
+quoting the instruction to fill it in. TODO lines are skipped rather than the file
+being rejected for containing one, because a profile that says "TODO: not tested on
+Wayland" is doing exactly what these files are for; it is only the *evidence* a TODO
+cannot supply.
+
 ### Fixed — ruff was told `_common` is a stranger, and its autofix acted on it
 
 `paper/benchmark/` is the reproducibility code `docs/benchmarks.md` points readers at,

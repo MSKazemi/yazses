@@ -46,19 +46,32 @@ GENERIC_EXAMPLES = frozenset(
 EVIDENCE_MARKERS = ("measured", "verified", "observed", "dictated", "arrived", "tested")
 
 
+#: A marker word sitting inside an unresolved TODO is the scaffold, not the evidence.
+#: This is not hypothetical: the review on PR #309 handed the contributor a starter file
+#: whose header read `TODO(you): replace this block with what you actually observed`, and
+#: the word "observed" in it satisfied this check on its own — the likeliest next
+#: submission would have passed the guard by quoting the instruction to fill it in.
+_UNRESOLVED = ("todo", "fixme", "xxx:")
+
+
 def records_evidence(text: str) -> bool:
     """Does this profile say what was observed, in its prose?
 
     Comments only: the prose is the evidence, a config key named `verified` is not.
     A marker word is cheap to add and this cannot detect a fabricated one — it makes
     the requirement mechanical rather than remembered, which is all it claims.
+
+    Lines still carrying a TODO are skipped rather than the whole file being rejected,
+    because a profile that says "TODO: not tested on Wayland" is doing exactly what
+    these files are for. It is only the *evidence* that a TODO cannot supply.
     """
     comments = [
         line.strip().lstrip("#").lower()
         for line in text.splitlines()
         if line.strip().startswith("#")
     ]
-    return any(marker in comment for comment in comments for marker in EVIDENCE_MARKERS)
+    settled = [c for c in comments if not any(flag in c for flag in _UNRESOLVED)]
+    return any(marker in comment for comment in settled for marker in EVIDENCE_MARKERS)
 
 
 def known_schema() -> dict[str, set[str]]:

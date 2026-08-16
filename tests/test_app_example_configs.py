@@ -141,6 +141,46 @@ def test_the_evidence_check_can_actually_fail(tmp_path: Path):
     )
 
 
+def test_an_unresolved_todo_does_not_count_as_evidence(tmp_path: Path):
+    """The scaffold must not satisfy the check that exists to reject scaffolds.
+
+    Taken verbatim from the review on PR #309, which handed the contributor a starter
+    file headed `TODO(you): replace this block with what you actually observed.` The
+    word "observed" in that instruction satisfied the evidence check on its own, so the
+    likeliest next submission would have passed by quoting the instruction to fill it in
+    — the guard endorsing exactly the file it was written to catch.
+    """
+    scaffold = tmp_path / "config.scaffold.toml"
+    scaffold.write_text(
+        "# examples/config.scaffold.toml\n"
+        "# A YazSes setup for dictating into Scaffold.\n"
+        "#\n"
+        "# TODO(you): replace this block with what you actually observed.\n\n"
+        '[hotkey]\nkey = "right_ctrl"\n',
+        encoding="utf-8",
+    )
+    assert not check_app_profile.records_evidence(scaffold.read_text(encoding="utf-8"))
+
+
+def test_a_todo_beside_real_evidence_is_still_accepted(tmp_path: Path):
+    """Saying what you did *not* test is the point of these files, not a defect.
+
+    The rule above skips TODO lines rather than rejecting a file that contains one:
+    "half a measurement, honestly labelled, is worth more than a whole one asserted"
+    is the standard these profiles are held to, and a blanket ban would punish exactly
+    the contributor who follows it.
+    """
+    honest = tmp_path / "config.honest.toml"
+    honest.write_text(
+        "# examples/config.honest.toml\n"
+        '# Measured: dictated "kubectl get pods --namespace prod", arrived exact.\n'
+        "# TODO: not tested on Wayland.\n\n"
+        '[hotkey]\nkey = "right_ctrl"\n',
+        encoding="utf-8",
+    )
+    assert check_app_profile.records_evidence(honest.read_text(encoding="utf-8"))
+
+
 def test_the_problem_check_can_actually_fail(tmp_path: Path):
     """Red-green guard for the assertion above.
 
