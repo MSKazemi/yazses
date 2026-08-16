@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `doctor` said "Good to go" about a daemon running an older build
+
+Upgrading replaces the files on disk. It does not touch a process that is already
+running, so the daemon keeps executing the build it started with until `yazses
+restart`. `doctor` printed the **CLI's** version on one line and the daemon's
+**liveness** on the next, never compared them, and concluded the machine was
+healthy — so the surface you open to ask *is everything fine* answered yes while
+dictation ran last week's code.
+
+Found on the maintainer's own machine, not hypothesised: a daemon up 8.6 hours,
+hours older than the v2.23.0 tag `doctor` was reporting on the line above it.
+
+The daemon now reports its own version over IPC and `doctor` compares the two,
+naming both and the fix. A daemon that reports **no** version is treated as
+evidence rather than as an unknown — the field is new, so its absence means the
+process is older than the CLI reading it, which is exactly the common case.
+
+Same shape as the `uv tool upgrade` defect fixed in 2.20.0: the command succeeded,
+and nothing checked that anything had actually moved.
+
+
 ### Fixed — the reduced-motion probe asked the wrong things on two platforms
 
 Both probes were written from memory and neither could be exercised on the machine

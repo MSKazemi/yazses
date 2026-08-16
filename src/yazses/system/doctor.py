@@ -156,6 +156,39 @@ def _version_check() -> _Check:
         return ("Version", "WARN", "yazses version metadata not found")
 
 
+def _stale_daemon_note(daemon_version: str) -> str:
+    """Is the running daemon a different build from the CLI asking? Pure.
+
+    An upgrade replaces the files on disk and does not touch the process that is
+    already running: the daemon keeps executing the build it started with until
+    `yazses restart`. So after every upgrade there is a window in which `yazses
+    --version` says one thing and the code actually handling your dictation is
+    another, and until this check nothing in the product could see it. `doctor`
+    printed the CLI's version beside the daemon's *liveness* and called it healthy,
+    which is the exact shape of "exit 0 is not proof an upgrade happened".
+
+    An **empty** version is itself the answer rather than a missing one: the field
+    was added in 2.24.0, so a daemon that does not report one is necessarily older
+    than the CLI reading this. Silence is evidence here, not an unknown.
+    """
+    try:
+        installed = _pkg_version("yazses")
+    except PackageNotFoundError:
+        return ""  # nothing to compare against; _version_check already warns
+
+    if not daemon_version:
+        return (
+            "the daemon predates version reporting, so it is older than this "
+            "install — run `yazses restart` to pick up the upgrade"
+        )
+    if daemon_version != installed:
+        return (
+            f"daemon is running {daemon_version}, you have {installed} — "
+            "run `yazses restart` so dictation uses the version you installed"
+        )
+    return ""
+
+
 def _daemon_check(platform) -> _Check:
     """Report whether the daemon is running, with live state when IPC answers."""
     lifecycle = platform.lifecycle
@@ -170,6 +203,10 @@ def _daemon_check(platform) -> _Check:
             f"model {info.get('model')}" if info.get("model") else "",
         ) if b]
         suffix = (", " + ", ".join(bits)) if bits else ""
+
+        stale = _stale_daemon_note(str(info.get("version") or ""))
+        if stale:
+            return ("Daemon", "WARN", f"running (PID {pid}{suffix}) — {stale}")
         return ("Daemon", "OK", f"running (PID {pid}{suffix})")
     except Exception:
         # Running but IPC not yet ready (still loading the model) or unreachable.

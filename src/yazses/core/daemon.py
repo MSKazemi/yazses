@@ -81,6 +81,22 @@ from yazses.tts.factory import build_tts
 log = logging.getLogger(__name__)
 
 
+def _running_version() -> str:
+    """The version of the yazses package this daemon imported. Never raises.
+
+    Deferred rather than module-level: `importlib.metadata` is the single most
+    expensive import in the tree (52 ms, measured), and CLI start-up cost is
+    guarded by `tests/test_cli_startup_cost.py`.
+    """
+    try:
+        from importlib.metadata import version
+
+        return version("yazses")
+    except Exception:
+        return ""
+
+
+
 def should_launch_overlay(config: Config, env: Mapping[str, str]) -> bool:
     """Whether the daemon should auto-spawn the voice-activity overlay.
 
@@ -3311,6 +3327,12 @@ class Daemon:
             return {
                 "state": self._state.state.value,
                 "ready": self._state.ready,
+                # The version of the code THIS PROCESS is running, which is not the
+                # version of the CLI asking. A daemon keeps running the build it
+                # started with until it is restarted, so an upgrade leaves the two
+                # disagreeing until `yazses restart` -- and nothing could see that
+                # before this field existed.
+                "version": _running_version(),
                 "model": self._config.stt.model,
                 "hotkey": self._resolved_hotkey(),
                 "injection_backend": self._injection_backend_name(),

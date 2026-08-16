@@ -46,9 +46,17 @@ def test_daemon_check_warns_when_not_running():
 
 
 def test_daemon_check_reports_state_via_ipc():
+    # The version has to be here for this to model a *healthy* daemon: an upgrade
+    # leaves the old process running, and a daemon that reports no version is
+    # necessarily older than the CLI asking (tests/test_doctor_stale_daemon.py).
+    # Read rather than hardcoded, so a release bump does not turn this red.
     plat = _fake_platform(
         running=True, pid=1234,
-        status_info={"state": "idle", "model": "small.en"},
+        status_info={
+            "state": "idle",
+            "model": "small.en",
+            "version": doctor._pkg_version("yazses"),
+        },
     )
     name, status, detail = doctor._daemon_check(plat)
     assert status == "OK"
