@@ -16,7 +16,7 @@ LOG_FILE := $(HOME)/.local/state/yazses/log/daemon.log
 # `campaign` and `hygiene` must be listed: `campaign/` is also a directory, so without
 # this make sees an up-to-date file target and silently does nothing.
 .PHONY: all install check test lint lint-fix types docs docs-serve man inbox \
-        feature-sizes research-watch \
+        feature-sizes research-watch adr-index \
         start stop restart status logs doctor overlay build clean help \
         hygiene campaign campaign-generate campaign-stats campaign-queue campaign-validate
 
@@ -115,6 +115,14 @@ feature-sizes:
 	@echo "▶  Regenerating the per-feature download-size table…"
 	uv run python scripts/gen-feature-sizes.py
 
+# Rebuild design/adr/README.md's index from the ADR files. Fast and offline — it only
+# reads headings — so run it whenever an ADR is added, renamed or retitled. A test
+# fails when the committed index no longer matches the directory; the index had drifted
+# to 12 of 156 before it was generated.
+adr-index:
+	@echo "▶  Regenerating the ADR index…"
+	python3 scripts/gen-adr-index.py
+
 # Sweep the literature and write a dated digest (design/research/watch/). Maintainer
 # tooling, not part of the product: ADR-019 keeps the daemon's outbound paths to the
 # five it has. Every entry lands "(unreviewed)" and must be annotated or deleted before
@@ -196,9 +204,12 @@ help:
 	@echo "    make docs        regenerate the generated reference docs"
 	@echo "    make docs-serve  serve the docs site locally"
 	@echo "    make man         regenerate man/yazses.1 from the CLI"
+	@echo "    make adr-index   regenerate design/adr/README.md from the ADR files"
 	@echo ""
 	@echo "  Maintainer"
 	@echo "    make inbox       open threads waiting on YOUR reply (ARGS=--all for bots)"
+	@echo "    make feature-sizes  reprice every feature's dependency closure (slow)"
+	@echo "    make research-watch sweep arXiv into a dated digest under design/research/"
 	@echo ""
 	@echo "  Daemon"
 	@echo "    make start       start the daemon"
