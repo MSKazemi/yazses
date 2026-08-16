@@ -11,6 +11,7 @@ Modes:
 - ``--cli``     → run the Typer CLI; remaining args pass through to it
 - ``--settings``→ open the graphical settings window (the Start-menu
   shortcut and the tray's "Settings…" entry both use this)
+- ``--overlay`` → run the voice-activity overlay (the daemon launches it)
 
 The default mode depends on which executable was launched. The Windows bundle
 ships two: a windowed ``YazSesApp.exe`` (tray/daemon, no console) and a console
@@ -79,6 +80,16 @@ def main() -> None:
 
         sys.argv = [sys.argv[0]] + args[1:]
         run_settings()
+    elif mode == "--overlay":
+        # The daemon launches the voice-activity overlay as its own process. Without
+        # a branch here there was no argv the bundle would accept for it at all, so
+        # the overlay was unreachable from a .app or .exe by construction -- the
+        # daemon's launch fell through to the CLI, exited 2, and had no console to
+        # say so.
+        from yazses.overlay.app import run as run_overlay
+
+        sys.argv = [sys.argv[0]] + args[1:]
+        run_overlay()
     elif mode == "--cli":
         _run_cli(args[1:])
     else:

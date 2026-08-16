@@ -6,11 +6,11 @@ import os
 import shutil
 import signal
 import subprocess
-import sys
 from pathlib import Path
 
 from yazses.platform.base import Paths
 from yazses.system import pid as pid_module
+from yazses.system.relaunch import Mode, command_for
 
 
 class LinuxLifecycle:
@@ -37,7 +37,7 @@ class LinuxLifecycle:
 
     def start_daemon_detached(self) -> None:
         subprocess.Popen(
-            [sys.executable, "-m", "yazses.main"],
+            command_for(Mode.DAEMON),
             start_new_session=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,

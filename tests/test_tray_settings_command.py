@@ -20,9 +20,12 @@ were each getting it wrong separately.
 
 Order matters and is asserted below:
 
-1. **Frozen** → the sibling `yazses-cli` executable inside the bundle. `sys.executable`
-   is the app itself there, so `-m` is meaningless: passing `-m yazses.cli` to
-   `YazSesApp.exe` re-launches the GUI rather than running a command.
+1. **Frozen** → the bundle itself, with the `--settings` flag its `__main__.py`
+   dispatches on. `sys.executable` is the app there, so `-m` is meaningless: passing
+   `-m yazses.cli` to `YazSesApp.exe` falls through to the CLI, exits 2, and has no
+   console to say so. (This first read "the sibling `yazses-cli`", which was wrong
+   twice over — the macOS .app ships no such file, and Settings is a window that
+   should not drag a console along. See `tests/test_system_relaunch.py`.)
 2. **`yazses` on PATH** → use it. Cheapest, and it is what a pipx/uv install gives.
 3. **Otherwise** → `[sys.executable, "-m", "yazses.cli", "settings"]`, which works for
    any interpreter that can import the package, including a venv whose `bin/` was
@@ -36,38 +39,64 @@ from pathlib import Path
 from yazses.tray.launch import settings_command
 
 
-def test_a_frozen_bundle_uses_its_sibling_cli_not_dash_m() -> None:
-    """`sys.executable` in a bundle is the app; `-m` would re-open the GUI."""
+def test_a_frozen_bundle_asks_the_binary_for_the_window_not_dash_m() -> None:
+    """`sys.executable` in a bundle is the app; `-m` would re-open the GUI.
+
+    The expectation here **changed**, and the old one was wrong. It asserted the
+    console `yazses-cli.exe`, but Settings is a window: `__main__.py` carries a
+    `--settings` branch precisely so the Start-menu shortcut and this button open it
+    without dragging a console window along for the life of the process. Routing a
+    GUI through the console binary was contradicting the entry point's own docstring.
+    """
     exe = Path("C:/Program Files/YazSes/YazSesApp.exe")
     cmd = settings_command(frozen=True, executable=exe, which=lambda _: None, windows=True)
-    assert cmd == [str(exe.with_name("yazses-cli.exe")), "settings"]
+    assert cmd == [str(exe), "--settings"]
 
 
-def test_the_frozen_sibling_is_extensionless_off_windows() -> None:
-    """macOS ships the same layout without `.exe`; a hardcoded suffix misses it.
+def test_the_macos_app_has_no_sibling_to_point_at() -> None:
+    """This test used to assert the bug, which is the worst place for one to live.
+
+    It read "macOS ships the same layout without `.exe`". It does not:
+    `packaging/macos/yazses.spec` builds exactly one `EXE(...)`, and the .app's
+    `Contents/MacOS/` holds that single multi-call binary. So the resolver returned
+    `.../MacOS/yazses-cli` — a path that exists nowhere — and the Settings… button
+    was broken on every macOS bundle while a green test said otherwise.
+
+    The sibling is now *tested for* rather than inferred from the platform, which is
+    also what makes this correct if the macOS spec ever grows a second executable.
 
     Expectation built with `Path`, not a "/"-joined literal: on a Windows runner
-    `str(Path(...))` renders backslashes, and the first version of this test failed
+    `str(Path(...))` renders backslashes, and an earlier version of this test failed
     there while the code under test was perfectly correct. The separator is the
     host's business, not this assertion's.
     """
-    exe = Path("/Applications/YazSes.app/Contents/MacOS/YazSesApp")
+    exe = Path("/Applications/YazSes.app/Contents/MacOS/YazSes")
     cmd = settings_command(frozen=True, executable=exe, which=lambda _: None, windows=False)
-    assert cmd == [str(exe.with_name("yazses-cli")), "settings"]
+    assert cmd == [str(exe), "--settings"]
 
 
-def test_a_normal_install_prefers_the_console_script() -> None:
+def test_a_normal_install_uses_the_console_script() -> None:
+    """PATH is consulted when the interpreter has no `yazses` beside it.
+
+    `exists` is injected false on purpose. Without that this reads the *real*
+    filesystem, finds `.venv/bin/yazses` beside the running interpreter, and passes
+    through the sibling branch instead — testing a different decision than its name
+    claims, which is the quiet way a suite stops covering what you think it does.
+    """
     cmd = settings_command(
-        frozen=False, executable=Path(sys.executable), which=lambda n: f"/usr/bin/{n}"
+        frozen=False, executable=Path(sys.executable), which=lambda n: f"/usr/bin/{n}",
+        exists=lambda _p: False,
     )
-    assert cmd == ["/usr/bin/yazses", "settings"]
+    assert cmd == ["/usr/bin/yazses-settings"]
 
 
 def test_without_a_console_script_it_falls_back_to_dash_m() -> None:
     """A venv whose bin/ is not on PATH still has an interpreter that can import us."""
     exe = Path("/venv/bin/python")
-    cmd = settings_command(frozen=False, executable=exe, which=lambda _: None)
-    assert cmd == [str(exe), "-m", "yazses.cli", "settings"]
+    cmd = settings_command(
+        frozen=False, executable=exe, which=lambda _: None, exists=lambda _p: False
+    )
+    assert cmd == [str(exe), "-m", "yazses.settingsui.app"]
 
 
 def test_path_is_not_consulted_when_frozen() -> None:
@@ -81,13 +110,17 @@ def test_path_is_not_consulted_when_frozen() -> None:
         frozen=True, executable=exe, which=lambda n: "C:/Python311/Scripts/yazses.exe",
         windows=True,
     )
-    assert cmd[0].endswith("yazses-cli.exe")
+    assert cmd[0] == str(exe)
+    assert "Python311" not in cmd[0]
 
 
 def test_the_subcommand_is_configurable() -> None:
     """`restart` needs the same resolution; only the verb differs."""
     exe = Path("/venv/bin/python")
-    cmd = settings_command("restart", frozen=False, executable=exe, which=lambda _: None)
+    cmd = settings_command(
+        "restart", frozen=False, executable=exe, which=lambda _: None,
+        exists=lambda _p: False,
+    )
     assert cmd == [str(exe), "-m", "yazses.cli", "restart"]
 
 
@@ -95,4 +128,4 @@ def test_the_real_call_returns_something_runnable() -> None:
     """No arguments: it must read the live process and still produce a command."""
     cmd = settings_command()
     assert cmd and all(isinstance(part, str) for part in cmd)
-    assert cmd[-1] == "settings"
+    assert cmd[-1].endswith(("yazses-settings", "yazses-settings.exe", "--settings"))

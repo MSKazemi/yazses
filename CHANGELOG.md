@@ -6,6 +6,47 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — six ways YazSes starts itself, five of which could not work in a bundle
+
+The audit that followed the Windows Settings… bug, which was not a one-off. Every
+component that spawns another one — the daemon launching the tray and the overlay,
+the Settings window's Restart, the macOS and Linux lifecycle backends starting the
+daemon — used `[sys.executable, "-m", "yazses.x"]`.
+
+That is correct for a pip, pipx or uv install and silently wrong inside the shipped
+`.app` and `.exe`. There, `sys.executable` is the application, not an interpreter;
+the bundle dispatches on argv; and an unrecognised first argument falls through to
+the CLI, which exits 2 with no console to print to. So in a bundle the tray never
+appeared, the overlay never appeared, the crashed-tray supervisor's five relaunch
+attempts each did nothing, and Apply→Restart never restarted — with no error
+anywhere. They now go through one resolver that asks the bundle by its mode flag.
+
+Three further defects came out of writing it down:
+
+- **The macOS Settings button pointed at a file that does not exist.** The earlier
+  fix named a `yazses-cli` sibling on any frozen non-Windows build, and the macOS
+  `.app` ships exactly one executable. Its test asserted that behaviour, so the bug
+  was green. The sibling is now tested for rather than inferred from the platform.
+- **The overlay had no argv a bundle would accept at all** — `__main__.py` carried no
+  `--overlay` branch, so it was unreachable from a bundle by construction.
+- **`python -m yazses.cli --version` printed nothing and exited 0.** No
+  `if __name__ == "__main__"` block, so the module was imported and discarded. That
+  is the documented last-resort launch path, taken by exactly the installs with no
+  other way to report a failure. Both it and `yazses.settingsui.app` now have one.
+
+A console script **beside the running interpreter** is now preferred over PATH. This
+machine carries a pipx copy, a `uv tool` copy and a checkout venv at once, and the
+checkout's `yazses` shadows the installed one — so PATH-first meant a daemon from one
+install could launch the tray from another, disagreeing about config, version and
+socket.
+
+Settings goes through its own `yazses-settings` gui-script, so on Windows it is
+launched by `pythonw.exe` and opens no console behind the window.
+
+The frozen paths cannot be exercised where this was written — no bundle, no Windows,
+no macOS — so every input is injectable and the decision is tested rather than the
+spawn. Proof on a real bundle is still owed.
+
 ### Added — the Settings window's threshold slider has a live level meter
 
 Hold your dictation key and speak: the bar shows whether you are clearing the

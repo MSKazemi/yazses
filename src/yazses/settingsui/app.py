@@ -46,6 +46,7 @@ from yazses.settingsui.launch import has_display, pyside_available
 from yazses.settingsui.model import SettingRow, SettingsModel, build_settings_model
 from yazses.settingsui.search import describe_filter, matches, visible_counts
 from yazses.settingsui.theme import muted_style_for
+from yazses.system.relaunch import Mode, command_for
 
 log = logging.getLogger(__name__)
 
@@ -828,11 +829,10 @@ class SettingsWindow:
         and doing that in-process from a GUI is how you end up killing yourself.
         """
         import subprocess
-        import sys
 
         try:
             result = subprocess.run(
-                [sys.executable, "-m", "yazses.cli", "restart"],
+                command_for(Mode.CLI, "restart"),
                 capture_output=True, text=True, timeout=90,
             )
         except Exception as exc:  # noqa: BLE001 - reported to the user
@@ -937,3 +937,10 @@ class SettingsWindow:
 
     def show(self) -> None:
         self._win.show()
+
+
+if __name__ == "__main__":  # pragma: no cover - exercised by `python -m yazses.settingsui.app`
+    # Same reason as `cli.py`: without this, `-m yazses.settingsui.app` imports the
+    # module and exits, so a caller reaching for it would open no window and see no
+    # error. `run()` is also the `yazses-settings` gui-script entry point.
+    run()

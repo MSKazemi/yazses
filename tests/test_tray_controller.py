@@ -63,7 +63,13 @@ def test_launch_settings_shells_out_to_cli():
     ctrl = TrayController(_FakeClient(), launcher=lambda argv: spawned.append(argv))
     assert ctrl.launch_settings() is True
     assert spawned == [settings_command()]
-    assert spawned[0][-1] == "settings"
+    # Asserts the *contract* — that the controller spawns whatever the resolver
+    # returns — not the argv itself, which depends on how this machine is installed
+    # and is covered by tests/test_system_relaunch.py. The literal "settings" was
+    # only ever true while every path ended in that word; Settings now has its own
+    # `yazses-settings` gui-script, so a frozen bundle ends in `--settings` and a
+    # normal install ends in the script name.
+    assert spawned[0][-1].endswith(("yazses-settings", "yazses-settings.exe", "--settings"))
 
 
 def test_launch_settings_does_not_raise_when_launch_fails():

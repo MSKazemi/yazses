@@ -14,6 +14,7 @@ from yazses import branding
 from yazses.hotkeys.names import SETTABLE_HOTKEYS, SUPPORTED_HOTKEYS, canonical
 from yazses.ipc.client import IpcUnreachableError
 from yazses.platform import get_paths, get_platform
+from yazses.system.relaunch import Mode, command_for
 
 # `yazses.system.updater` is imported inside `update()` rather than here: it pulls
 # `urllib.request` and `http.client` (~21 ms) for a network stack that only that one
@@ -815,10 +816,9 @@ def tray(
     """
     if background:
         import subprocess
-        import sys
 
         subprocess.Popen(
-            [sys.executable, "-m", "yazses.tray.app"],
+            command_for(Mode.TRAY),
             start_new_session=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -4445,3 +4445,14 @@ def main() -> None:
     except UnsupportedPlatformError as exc:
         typer.secho(f"\n{exc}\n", fg=typer.colors.RED, err=True)
         raise SystemExit(2) from None
+
+
+if __name__ == "__main__":  # pragma: no cover - exercised by `python -m yazses.cli`
+    # `python -m yazses.cli --version` printed nothing and exited 0 without this.
+    #
+    # That matters more than it looks: `-m yazses.cli` is the documented last-resort
+    # launch path -- the one `tray/launch.py` and `settingsui/app.py::_run_restart`
+    # fall back to when there is no console script to be found -- and it silently did
+    # nothing on every install that actually needed it. A fallback that fails quietly
+    # is worse than no fallback, because the code above it reports success.
+    main()

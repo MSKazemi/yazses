@@ -74,6 +74,7 @@ from yazses.stt.latency import LatencyWindow
 from yazses.stt.streaming import StreamingEngine
 from yazses.styleguard.loader import build_style_rules
 from yazses.styleguard.rules import apply_style
+from yazses.system.relaunch import Mode, command_for
 from yazses.tts.factory import build_tts
 
 log = logging.getLogger(__name__)
@@ -401,7 +402,7 @@ class Daemon:
             return
         try:
             self._overlay_proc = subprocess.Popen(
-                [sys.executable, "-m", "yazses.overlay.app"],
+                command_for(Mode.OVERLAY),
                 start_new_session=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -424,7 +425,7 @@ class Daemon:
             return
         try:
             self._tray_proc = subprocess.Popen(
-                [sys.executable, "-m", "yazses.tray.app"],
+                command_for(Mode.TRAY),
                 start_new_session=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -468,7 +469,7 @@ class Daemon:
                     continue
                 log.info("Tray supervisor: %s", decision.reason)
                 proc = subprocess.Popen(
-                    [sys.executable, "-m", "yazses.tray.app"],
+                    command_for(Mode.TRAY),
                     start_new_session=True,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,

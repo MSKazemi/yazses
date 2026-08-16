@@ -10,7 +10,6 @@ likely to own a terminal. Reported from a live install, 2026-08-15.
 """
 from __future__ import annotations
 
-import sys
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
@@ -35,43 +34,33 @@ def settings_command(
     executable: Path | None = None,
     which: Callable[[str], str | None] | None = None,
     windows: bool | None = None,
+    exists: Callable[[Path], bool] | None = None,
 ) -> list[str]:
     """The argv that runs ``yazses <subcommand>`` on *this* install.
 
-    Three cases, tried in this order, because each later one is a weaker
-    assumption than the last:
-
-    1. **A frozen bundle** — use the `yazses-cli` executable sitting beside the
-       running one. `sys.executable` is the *app* here, so ``-m yazses.cli`` would
-       hand a module flag to a windowed binary that ignores it and opens the GUI
-       again. PATH is deliberately **not** consulted first: a machine can carry
-       both the installer's app and an old `pip install`, and picking the stray
-       one silently opens another version's settings.
-    2. **A console script on PATH** — what pipx, uv and a normal pip install give.
-    3. **Neither** — ``[sys.executable, "-m", "yazses.cli", …]``. Any interpreter
-       that can import the package can run its CLI, which covers a venv whose
-       `bin/` was never exported. This is the same fallback
-       `settingsui/app.py::_run_restart` already relies on.
+    A frozen bundle is asked through its own mode flag; otherwise a console script
+    beside the running interpreter wins, then one on PATH, then ``-m``. The full
+    reasoning for that order lives with the implementation.
 
     Every input is injectable so the decision is testable without a bundle, a
     Windows box, or a real PATH.
+
+    Kept as the tray's name for the operation, but the decision now lives in
+    ``system/relaunch.py`` — the same question was being answered independently in
+    six other places, and one of those answers has to be the one that is maintained.
+    Delegating also fixed a real bug here: this named a ``yazses-cli`` sibling on any
+    frozen non-Windows build, and the macOS ``.app`` ships exactly one executable, so
+    the Settings button pointed at a file that does not exist. The sibling is now
+    tested for rather than assumed from the platform.
     """
-    import shutil
+    from yazses.system.relaunch import Mode, command_for
 
-    frozen = bool(getattr(sys, "frozen", False)) if frozen is None else frozen
-    executable = Path(sys.executable) if executable is None else executable
-    which = shutil.which if which is None else which
-    windows = sys.platform.startswith("win") if windows is None else windows
-
-    if frozen:
-        sibling = executable.with_name("yazses-cli.exe" if windows else "yazses-cli")
-        return [str(sibling), subcommand]
-
-    found = which("yazses")
-    if found:
-        return [found, subcommand]
-
-    return [str(executable), "-m", "yazses.cli", subcommand]
+    mode = Mode.SETTINGS if subcommand == "settings" else Mode.CLI
+    extra = () if subcommand == "settings" else (subcommand,)
+    return command_for(
+        mode, *extra, frozen=frozen, executable=executable, which=which,
+        windows=windows, exists=exists,
+    )
 
 
 def tray_dependency_available() -> bool:
