@@ -14,6 +14,9 @@ genuinely does not move, and that it still says what the overlay exists to say.
 from __future__ import annotations
 
 import subprocess
+import sys
+
+import pytest
 
 from yazses.config import OverlayConfig
 from yazses.overlay import motion
@@ -422,3 +425,27 @@ def test_a_portal_without_the_key_is_not_an_answer(monkeypatch):
 def test_neither_route_answers_is_unknown_not_false(monkeypatch):
     _fake_run(monkeypatch, {"gdbus": None, "gsettings": None})
     assert motion._linux_prefers_reduced() is None
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="needs a real AppKit")
+def test_the_real_nsworkspace_selector_works_on_macos(monkeypatch):
+    """The one thing the fakes above cannot check: that the selector is real.
+
+    Every other macOS test here injects a fake workspace, so all of them would pass
+    just as happily against a misspelt selector or a wrong call shape — and
+    `_macos_prefers_reduced` swallows the exception and falls through to `defaults`,
+    so a broken AppKit path fails *silently* and forever. The machine that wrote it
+    has no AppKit; the macOS runners do, and that asymmetry is the whole point of
+    running this there.
+
+    `_run` is made fatal so a fall-through cannot be mistaken for success: this
+    passes only if the answer genuinely came from AppKit.
+    """
+    def _must_not_shell_out(argv):
+        raise AssertionError(
+            f"fell back to {argv!r} — the NSWorkspace path raised on a machine that "
+            "has AppKit, so the selector or the call shape is wrong"
+        )
+
+    monkeypatch.setattr(motion, "_run", _must_not_shell_out)
+    assert motion._macos_prefers_reduced() in (True, False)
