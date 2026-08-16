@@ -96,16 +96,24 @@ jobs:
           deadline=$(( SECONDS + 3000 ))
           while (( SECONDS < deadline )); do
             if names=$(gh release view "$tag" --json assets -q '.assets[].name' 2>/dev/null); then
-              exe=$(grep -c '\.exe$' <<<"$names" || true)
-              dmg=$(grep -c '\.dmg$' <<<"$names" || true)
-              echo "exe=$exe dmg=$dmg (${SECONDS}s)"
+              # Matched by NAME, not by extension. These manifests point at two
+              # specific files -- winget/Chocolatey/Scoop at the x64 .exe, the
+              # Homebrew cask at the arm64 .dmg -- and neither consumes the
+              # cross-architecture bundles. Counting extensions was correct only
+              # while one of each existed: with an ARM .exe and an Intel .dmg now
+              # building too, "an .exe arrived" can be satisfied by the *other*
+              # architecture, and the manifests would be published pointing at a
+              # file that has not attached yet.
+              exe=$(grep -c 'windows-x64\.exe$'  <<<"$names" || true)
+              dmg=$(grep -c 'macos-arm64\.dmg$'  <<<"$names" || true)
+              echo "windows-x64.exe=$exe macos-arm64.dmg=$dmg (${SECONDS}s)"
               (( exe > 0 && dmg > 0 )) && exit 0
             else
               echo "release $tag not created yet (${SECONDS}s)"
             fi
             sleep 60
           done
-          echo "::error::$tag never gained its .exe/.dmg -- refusing to publish manifests with no artifact behind them."
+          echo "::error::$tag never gained YazSes-*-windows-x64.exe and/or YazSes-*-macos-arm64.dmg -- refusing to publish manifests with no artifact behind them. (A cross-architecture bundle attaching is not a substitute: no manifest points at one.)"
           exit 1
 
   winget:

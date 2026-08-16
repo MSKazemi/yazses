@@ -85,8 +85,14 @@ jobs:
             pypi=$(curl -s -o /dev/null -w '%{http_code}' \
               "https://pypi.org/pypi/yazses/$VERSION/json")
             echo "deb=$deb dmg=$dmg exe=$exe pypi=$pypi (${SECONDS}s)"
-            if (( deb > 0 && dmg > 0 && exe > 0 )) && [[ "$pypi" == "200" ]]; then
-              echo "All platforms published."
+            # TWO of each. This job exists to certify that a release completed, and
+            # "at least one .dmg" let it print "All platforms published" for a release
+            # carrying no Intel bundle -- which is exactly what happened for v2.20.0
+            # and v2.21.0 while the cross-architecture legs were failing silently.
+            # A completeness check that counts one of a pair is not a completeness
+            # check; it is the thing that made the gap invisible.
+            if (( deb > 1 && dmg > 1 && exe > 1 )) && [[ "$pypi" == "200" ]]; then
+              echo "All platforms published (both architectures of each bundle)."
               break
             fi
             sleep 60

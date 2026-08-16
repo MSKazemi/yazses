@@ -220,7 +220,14 @@ jobs:
 
             ## Windows
 
-            Download `YazSes-<version>-windows-x64.exe` from the Assets and run it.
+            Download the `.exe` for your machine from the Assets below —
+            `…-windows-x64.exe` for an Intel or AMD PC, `…-windows-arm64.exe` for an
+            ARM one (Snapdragon, Surface Pro X and similar).
+
+            Not sure which? Settings → System → About → *System type*. The x64
+            installer also runs on ARM under emulation, so it is the safe choice if in
+            doubt; the native build is faster. If no ARM `.exe` is attached, that build
+            did not succeed for this release — use the x64 one.
 
             SmartScreen may say *"unrecognized app"* — click **More info → Run anyway**
             (the v0 build is unsigned; signing is coming). Default hotkey: **Right
