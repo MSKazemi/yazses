@@ -6,6 +6,25 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses features` went ragged as its own list grew
+
+The table's columns were fixed *minimum* widths, so any name or toggle longer than
+them pushed DOWNLOAD and ADVICE right for that row alone. With 147 capabilities, 10
+rows had drifted out of alignment — and `overlay-reduced-motion`, added in 2.23.0,
+made it 11. Nothing failed, because nothing was looking at it.
+
+Widths are now measured across every row the table will show, so the groups line up
+with each other too. The two columns are treated differently on purpose: **TOGGLE
+NAME grows to fit and is never truncated**, because it is copied into `yazses
+features enable <name>` and a clipped slug is a command that does not run; NAME is
+prose and is clipped with an ellipsis, since sizing to the longest display name
+would widen all 147 rows by nine columns to accommodate two.
+
+Guarded, including against the naive fix: one test pins that every row's ADVICE
+column starts at the same offset, a second that every slug appears intact, and a
+third that the registry still contains a slug longer than the old fixed width — the
+first two are vacuous on a table with nothing long in it.
+
 ## [2.23.0] - 2026-08-16
 
 ### Added — the mic guard's question can be answered out loud (`[audio] voice_answer`)

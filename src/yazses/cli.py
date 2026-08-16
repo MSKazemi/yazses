@@ -975,6 +975,16 @@ _TIER_ALIASES = {
 #: imported at module scope because `yazses features` must not pay for an import
 #: it may not need.
 _SIZE_W = 9
+#: Width of the NAME column. A cap rather than a measurement: the longest display
+#: name is 41 characters, and sizing to it would widen every one of 147 rows by 9
+#: columns to accommodate two. Prose, so it is safe to clip -- unlike TOGGLE NAME.
+_NAME_W = 32
+
+
+def _clip(text: str, width: int) -> str:
+    """*text* trimmed to *width* columns, with an ellipsis when it did not fit."""
+    return text if len(text) <= width else text[: width - 1] + "\u2026"
+
 
 
 def _catalogue_size(feat) -> str:
@@ -1039,6 +1049,18 @@ def _echo_capabilities(
         or "YazSes capabilities — toggle with `yazses features enable/disable <name>`:\n"
     )
     total = 0
+    # Column widths, measured across every row the whole table will show rather than
+    # per group, so the groups line up with each other too. `:<32` and `:<16` were
+    # minimums, and any longer value pushed DOWNLOAD and ADVICE right for that row
+    # alone -- 10 of 147 rows were ragged, and adding one 22-character slug made it
+    # 11. The two columns are treated differently on purpose:
+    #
+    #   TOGGLE NAME is *copied* into `yazses features enable <name>`, so it grows to
+    #   fit and is never truncated. A shortened slug is a command that does not run.
+    #   NAME is prose and may be clipped; `yazses features info` carries the full text.
+    all_shown = [f for _, _, feats in groups for f in feats if _keep(f)]
+    slug_w = max([16, *(len(f.slug) for f in all_shown if f.toggleable)])
+
     for cat, blurb, feats in groups:
         shown = [f for f in feats if _keep(f)]
         if not shown:
@@ -1048,7 +1070,7 @@ def _echo_capabilities(
         if blurb:
             typer.echo(f"│  {blurb}")
         typer.echo(
-            f"│  {'':5}  {'NAME':<32} {'TOGGLE NAME':<16} "
+            f"│  {'':5}  {'NAME':<{_NAME_W}} {'TOGGLE NAME':<{slug_w}} "
             f"{'DOWNLOAD':<{_SIZE_W}} ADVICE"
         )
         for f in shown:
@@ -1056,7 +1078,7 @@ def _echo_capabilities(
             slug = f.slug if f.toggleable else "—"
             size = _catalogue_size(f)
             typer.echo(
-                f"│  {mark}  {f.name:<32} {slug:<16} "
+                f"│  {mark}  {_clip(f.name, _NAME_W):<{_NAME_W}} {slug:<{slug_w}} "
                 f"{size:<{_SIZE_W}} {f.tier_label}"
             )
         typer.echo("└" + "─" * 40)

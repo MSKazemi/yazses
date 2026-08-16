@@ -17,12 +17,12 @@ where you choose, not only where you pay.
 
 ```console
 $ yazses features
-│         NAME                             TOGGLE NAME      DOWNLOAD  ADVICE
-│  ● ON   Voice-activity overlay           overlay          ~256 MB   recommended (on by default)
-│  ○ off  Read-Back Loop                   read-back        ~25 MB    optional
-│  ○ off  Glance-Type (camera)             gaze             ~219 MB   experimental — not advised yet
-│  ○ off  Cocktail Filter (voice focus)    cocktail         ~3.1 GB   experimental — not advised yet
-│  ○ off  Dictation Reflow                 reflow                     optional
+│         NAME                             TOGGLE NAME            DOWNLOAD  ADVICE
+│  ● ON   Voice-activity overlay           overlay                ~256 MB   recommended (on by default)
+│  ○ off  Read-Back Loop                   read-back              ~25 MB    optional
+│  ○ off  Glance-Type (camera)             gaze                   ~219 MB   experimental — not advised yet
+│  ○ off  Cocktail Filter (voice focus)    cocktail               ~3.1 GB   experimental — not advised yet
+│  ○ off  Dictation Reflow                 reflow                           optional
 ```
 
 **DOWNLOAD** is what enabling fetches **on a fresh install** — the whole dependency
