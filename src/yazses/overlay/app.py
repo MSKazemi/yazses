@@ -22,6 +22,12 @@ from dataclasses import dataclass
 from yazses.config import OverlayConfig, load_config
 from yazses.overlay.animation import Ripple, SonarModel
 from yazses.overlay.envelope import EnvelopeFollower
+from yazses.overlay.motion import (
+    band,
+    detect_os_preference,
+    resolve_reduced_motion,
+    steady_ripples,
+)
 from yazses.overlay.poller import StatusPoller, StatusSnapshot
 from yazses.overlay.position import place_fixed, place_near_cursor
 
@@ -54,12 +60,17 @@ def compute_frame(
     now: float,
     cursor: tuple[int, int],
     screen: tuple[int, int, int, int],
+    reduced_motion: bool = False,
 ) -> Frame:
     """Advance the animation one tick and decide where/whether to draw.
 
     Pure: it mutates the supplied ``envelope``/``model`` (which carry the
     animation's state) but touches no Qt and reads no globals, so it is fully
     unit-testable.
+
+    ``reduced_motion`` is resolved once at startup rather than read here, because
+    answering it means asking the desktop's settings daemon and this runs sixty
+    times a second.
     """
     recording = snap.state == "recording"
     envelope.threshold = snap.vad_threshold
@@ -71,7 +82,17 @@ def compute_frame(
     else:
         intensity = envelope.update(0.0)  # decay toward silence after release
 
-    ripples = model.tick(now, intensity)
+    if reduced_motion:
+        # No travelling rings at all, so the model is never advanced and never
+        # accumulates births. While recording there is always exactly one ring,
+        # including in silence -- the animated form shows nothing then, which is
+        # tolerable when rings are about to appear and not when none ever will.
+        ripples = steady_ripples(intensity) if recording else []
+        # The widget sizes its centre glow from this, so it has to be banded too
+        # or the rings stop moving while the core keeps breathing at 60 fps.
+        intensity = band(intensity)
+    else:
+        ripples = model.tick(now, intensity)
 
     # Nothing to show: not recording and the last rings have faded.
     if not recording and not ripples:
@@ -116,6 +137,7 @@ def run() -> None:  # pragma: no cover - thin Qt shell around compute_frame
     widget = SonarWidget(cfg.size_px, cfg.accent)
     envelope = EnvelopeFollower()
     model = SonarModel()
+    reduced_motion = resolve_reduced_motion(cfg.reduced_motion, detect_os_preference())
 
     def _screen_rect() -> tuple[int, int, int, int]:
         screen = QGuiApplication.screenAt(QCursor.pos()) or QGuiApplication.primaryScreen()
@@ -132,6 +154,7 @@ def run() -> None:  # pragma: no cover - thin Qt shell around compute_frame
             time.monotonic(),
             (cursor.x(), cursor.y()),
             _screen_rect(),
+            reduced_motion,
         )
         if not frame.visible:
             if widget.isVisible():
@@ -147,7 +170,10 @@ def run() -> None:  # pragma: no cover - thin Qt shell around compute_frame
     timer.timeout.connect(_tick)
     timer.start(max(1, int(1000 / max(1, cfg.fps))))
 
-    log.info("YazSes overlay running (style=%s, position=%s).", cfg.style, cfg.position)
+    log.info(
+        "YazSes overlay running (style=%s, position=%s, reduced_motion=%s).",
+        cfg.style, cfg.position, reduced_motion,
+    )
     try:
         app.exec()
     finally:

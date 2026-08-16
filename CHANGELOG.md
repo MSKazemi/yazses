@@ -6,6 +6,35 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the overlay can stop moving (`[overlay] reduced_motion`)
+
+The voice-activity overlay expands rings outward from near the pointer, sixty times
+a second, for as long as you hold the key. That is the pattern people with
+vestibular disorders and motion sensitivity ask software to stop doing, and every
+desktop already carries a setting where they have said so — GNOME's *Reduce
+Animation*, macOS's *Reduce motion*, Windows's *Animation effects*. YazSes read
+none of them. `docs/assets/extra.css` has honoured `prefers-reduced-motion` on the
+documentation site for months: the site respected the preference, the accessibility
+product it documents did not.
+
+`[overlay] reduced_motion` is `auto` | `on` | `off`, defaulting to `auto` — follow
+the desktop. A desktop YazSes cannot read resolves to full motion, which is exactly
+what the overlay did before, so nobody's overlay changes on the strength of a failed
+probe; KDE, Xfce and bare window managers set `on` explicitly.
+
+Reduced motion removes **motion, not information**. The overlay answers one question
+— am I being heard, and how loudly — and a user asking for less animation has not
+asked to stop being told. So the reduced form keeps the ring and drops the travel:
+one steady circle while recording, brightness following your voice in four discrete
+bands. Discrete because a brightness recomputed each frame from a live microphone
+shimmers, and a shimmer at 60 Hz is its own accessibility problem rather than a fix
+for one. It also shows the ring during silence, which the animated form does not —
+tolerable when rings are about to appear, not when none ever will.
+
+The desktop is asked once at overlay startup, never on the render tick, and the
+probe never raises: an indicator that failed to appear because a settings key could
+not be read would be a worse bug than the one this fixes.
+
 ### Added — an example config must say what was observed, not what should work
 
 `examples/config.<app>.toml` files are copied verbatim by newcomers, so a wrong one

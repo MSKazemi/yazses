@@ -225,6 +225,7 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 | `size_px` | int | `220` |
 | `fps` | int | `60` |
 | `cursor_offset_px` | int | `28` |
+| `reduced_motion` | str | `"auto"` |
 
 ## `[tray]`
 

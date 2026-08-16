@@ -151,6 +151,27 @@ Notice the tray badge colour and the overlay together tell the whole story:
 
 The rings grow and fade with your speech level, then disappear the moment you release the key.
 
+### If moving things on screen are a problem — reduced motion
+
+Expanding rings travelling outward near the pointer, sixty times a second, are exactly the pattern people with vestibular disorders and motion sensitivity need software to stop doing. Your desktop already has a switch for this, and YazSes now reads it:
+
+| Desktop | The setting it reads |
+|---|---|
+| GNOME | **Settings → Accessibility → Reduce Animation** |
+| macOS | **System Settings → Accessibility → Display → Reduce motion** |
+| Windows | **Settings → Accessibility → Visual effects → Animation effects** |
+
+With reduced motion in effect the overlay **keeps the ring and drops the travel**: one steady circle while you hold the key, brightening in a few discrete steps as you get louder. You still see that YazSes is recording and roughly how loudly — nothing moves, and the brightness is stepped rather than continuous so it cannot flicker with microphone noise.
+
+On any other desktop — KDE, Xfce, a bare window manager — there is no setting YazSes knows how to read, so it leaves the animation alone and you can say so yourself:
+
+```toml
+[overlay]
+reduced_motion = "on"    # auto (follow the desktop, default) | on | off
+```
+
+`"off"` forces the full animation even if your desktop asks for less.
+
 ---
 
 ## Turn them on

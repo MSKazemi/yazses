@@ -554,6 +554,11 @@ class OverlayConfig:
     size_px: int = 220               # overlay window square size
     fps: int = 60                    # render tick rate
     cursor_offset_px: int = 28       # offset from the pointer so it isn't under the caret
+    # auto | on | off. `auto` follows the desktop's own reduce-animations setting
+    # (GNOME, macOS, Windows); a desktop it cannot read means full motion, as before.
+    # Reduced motion keeps the ring and drops the travel -- it removes the animation,
+    # not the answer to "am I being heard".
+    reduced_motion: str = "auto"
 
 
 @dataclass
