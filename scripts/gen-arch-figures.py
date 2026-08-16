@@ -846,6 +846,96 @@ def fig_direction_triage() -> str:
     )
 
 
+def fig_error_cost() -> str:
+    """Why "carry the error cost" is one idea rather than a fourth guard.
+
+    Three guards already sit between a finished transcript and the injector, and each
+    was built as a point fix for a different property **of the text**: is it a
+    destructive command, was it buffered before a terminal, is there a text target at
+    all. None of them asks the question that actually decides what a mistake costs --
+    *where is this about to go*.
+
+    The figure exists because that is the whole proposal and prose keeps making it
+    sound like a fourth box. Drawn, it is obviously a collapse: three triggers become
+    one question the pipeline can already answer, because `inject/target.py` resolves
+    the focused element for the no-text-target guard today.
+
+    Policy, not measurement, like `fig_direction_triage` -- the geometry is the content.
+    """
+    b: list[str] = [defs()]
+
+    # Row 1 -- the three point fixes, each asking about the text.
+    gy, gh = 46, 62
+    for x, w, head, sub, hover in (
+        (18, 232, "safety gate", "is the text destructive?",
+         "cmdsafety holds rm -rf, mkfs, a force-push, pending a spoken confirm."),
+        (264, 232, "staged dictation", "hold it before a terminal",
+         "staged buffers so a confirm is not swallowed as ordinary text."),
+        (510, 232, "no-text-target guard", "is there anywhere to type?",
+         "When the focused element is not editable, the text goes to the clipboard."),
+    ):
+        b.append(box(x, gy, w, gh))
+        b.append(tip(hover))
+        b.append(text(x + w / 2, gy + 25, fit(head, SZ_L, w - 24, "error-cost head"),
+                      "yz-l", "middle"))
+        b.append(text(x + w / 2, gy + 44, fit(sub, SZ_S, w - 20, "error-cost sub"),
+                      "yz-s", "middle"))
+
+    b.append(text(380, 130, "three triggers, all asking about the text",
+                  "yz-s yz-halo", "middle"))
+
+    # Collapse into one question.
+    one_y, one_h = 152, 62
+    for x in (134, 380, 626):
+        b.append(f'<path class="yz-flow" d="M {x} {gy + gh} V {one_y - 4}" '
+                 'marker-end="url(#yz-arrow)"/>')
+
+    b.append(box(196, one_y, 368, one_h, "yz-box yz-box--plan"))
+    b.append(tip("The destination decides the confirmation. This is the only new part."))
+    b.append(text(380, one_y + 25, "one question: what is this about to enter?",
+                  "yz-l", "middle"))
+    b.append(text(380, one_y + 44, "a terminal, a payment field, a chat box",
+                  "yz-s", "middle"))
+
+    # The seam that already answers it.
+    b.append(box(18, one_y + 6, 158, 50, "yz-box yz-box--chip"))
+    b.append(tip("Already shipped: TargetDetector resolves the focused element via "
+                 "AT-SPI, falling back to xdotool on X11."))
+    b.append(text(97, one_y + 24, "inject/target.py", "yz-l", "middle"))
+    b.append(text(97, one_y + 42, "already knows this", "yz-s", "middle"))
+    b.append(hline(176, 192, one_y + 31))
+
+    # Outcomes.
+    oy, oh = 268, 58
+    b.append(box(196, oy, 168, oh, "yz-box yz-box--untimed"))
+    b.append(text(280, oy + 24, "confirm first", "yz-l", "middle"))
+    b.append(text(280, oy + 42, "high-cost destination", "yz-s", "middle"))
+    b.append(box(396, oy, 168, oh))
+    b.append(text(480, oy + 24, "inject", "yz-l", "middle"))
+    b.append(text(480, oy + 42, "ordinary destination", "yz-s", "middle"))
+
+    b.append(f'<path class="yz-flow" d="M 280 {one_y + one_h} V {oy - 4}" '
+             'marker-end="url(#yz-arrow)"/>')
+    b.append(f'<path class="yz-flow" d="M 480 {one_y + one_h} V {oy - 4}" '
+             'marker-end="url(#yz-arrow)"/>')
+    b.append(text(380, 350, "the metric falls out: an error scored by where it landed",
+                  "yz-s yz-halo", "middle"))
+
+    return svg(
+        "error-cost", 366,
+        "Three text-triggered guards collapsing into one destination-triggered question",
+        "Three boxes across the top -- the safety gate, staged dictation and the "
+        "no-text-target guard -- each triggered by a property of the transcribed text. "
+        "Arrows from all three converge on a single box asking what the text is about "
+        "to enter, fed from the left by inject/target.py, which already resolves the "
+        "focused element. That question branches to two outcomes: confirm first for a "
+        "high-cost destination such as a terminal or a payment field, and inject "
+        "directly for an ordinary one. The proposal replaces three triggers with one "
+        "question rather than adding a fourth guard.",
+        b,
+    )
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     bench = read_benchmarks()
@@ -861,6 +951,7 @@ def main() -> None:
         "capabilities.svg": fig_capabilities(rows),
         "latency.svg": fig_latency(bench),
         "direction-triage.svg": fig_direction_triage(),
+        "error-cost.svg": fig_error_cost(),
     }
     for name, content in written.items():
         (OUT / name).write_text(content, encoding="utf-8")

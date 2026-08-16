@@ -63,6 +63,17 @@ improvement in the same change.
 **What is already there.** `cmdsafety/classify.py`, `staged/buffer.py`, `inject/target.py`.
 **What is missing.** A destination-risk model and one confirmation policy instead of three.
 
+<figure class="yz-figbox">
+--8<-- "assets/arch/error-cost.svg"
+<figcaption>Three triggers become one question, not a fourth guard.</figcaption>
+</figure>
+
+Drawn, the proposal is obviously a collapse rather than an addition. Each existing guard
+fires on a property of the *text*; the one thing none of them asks is where the text is
+about to go, which is the only thing that decides what a mistake costs. And the metric
+falls out of the same question: once a destination carries a risk, an error in it carries
+a cost, and cost-weighted error rate is that sum.
+
 ### 2. A hands-free mode that is actually a mode
 
 **Problem: A3.** You can dictate a paragraph but you cannot open the file, fix the fourth
