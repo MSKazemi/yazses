@@ -163,7 +163,9 @@ Expanding rings travelling outward near the pointer, sixty times a second, are e
 
 With reduced motion in effect the overlay **keeps the ring and drops the travel**: one steady circle while you hold the key, brightening in a few discrete steps as you get louder. You still see that YazSes is recording and roughly how loudly — nothing moves, and the brightness is stepped rather than continuous so it cannot flicker with microphone noise.
 
-On any other desktop — KDE, Xfce, a bare window manager — there is no setting YazSes knows how to read, so it leaves the animation alone and you can say so yourself:
+YazSes asks the **XDG desktop portal** first and falls back to GNOME's own key, so any desktop with a portal backend is covered without YazSes needing to know how that desktop stores the setting. That order also matters inside the **snap**: a confined process reading `gsettings` may be answering about the sandbox rather than about your session.
+
+Where neither answers — a bare window manager, or a desktop with no portal — YazSes leaves the animation alone rather than guessing, and you say so yourself:
 
 ```toml
 [overlay]

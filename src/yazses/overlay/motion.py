@@ -27,6 +27,7 @@ has an explicit ``on`` for the desktops nobody has taught it to read.
 from __future__ import annotations
 
 import logging
+import re
 import subprocess
 import sys
 
@@ -126,13 +127,56 @@ def _run(argv: list[str]) -> str | None:
     return out.stdout.strip()
 
 
-def _linux_prefers_reduced() -> bool | None:
-    """GNOME only. Other desktops return ``None`` rather than a guess.
+_PORTAL_ANIMATIONS = re.compile(r"'enable-animations':\s*<(true|false)>")
 
-    KDE, Xfce and the rest each store this differently, and inventing a reading
-    for a key that is not there would produce a confident wrong answer. Users on
-    those desktops set ``reduced_motion = "on"`` and the probe is never consulted.
+
+def _portal_prefers_reduced() -> bool | None:
+    """Ask the XDG desktop portal, which is not a GNOME-only route.
+
+    Two reasons this is tried before ``gsettings``, and the second is the one that
+    actually bites:
+
+    * The portal is a freedesktop interface with backends beyond GNOME, so a
+      desktop that implements one answers here without this module needing to know
+      how that desktop stores the setting.
+    * **YazSes ships as a snap.** A confined process reading ``gsettings`` may be
+      talking to the sandbox rather than to the user's session, in which case the
+      answer is not wrong so much as about the wrong machine. The portal is the
+      sanctioned way out of confinement, and it is how a sandboxed app is supposed
+      to learn anything about its host.
+
+    The key lives under the ``org.gnome.desktop.interface`` namespace for historical
+    reasons; portal backends map their own settings into it, which is the same
+    mechanism that gets GTK apps the right theme on a non-GNOME desktop.
     """
+    out = _run([
+        "gdbus", "call", "--session",
+        "--dest", "org.freedesktop.portal.Desktop",
+        "--object-path", "/org/freedesktop/portal/desktop",
+        "--method", "org.freedesktop.portal.Settings.ReadAll",
+        "['org.gnome.desktop.interface']",
+    ])
+    if not out:
+        return None
+    match = _PORTAL_ANIMATIONS.search(out)
+    if match is None:
+        return None  # a portal that answers but does not carry this key
+    return match.group(1) == "false"
+
+
+def _linux_prefers_reduced() -> bool | None:
+    """Portal first, then GNOME's own key; ``None`` rather than a guess.
+
+    If neither answers -- a desktop with no portal backend and no GNOME schema --
+    the result is "cannot tell", not "no". KDE, Xfce and the rest each store this
+    differently where the portal is absent, and inventing a reading for a key that
+    is not there would produce a confident wrong answer. Those users set
+    ``reduced_motion = "on"`` and no probe is consulted at all.
+    """
+    portal = _portal_prefers_reduced()
+    if portal is not None:
+        return portal
+
     value = _run(["gsettings", "get", "org.gnome.desktop.interface", "enable-animations"])
     if value is None:
         return None

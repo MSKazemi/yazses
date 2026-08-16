@@ -347,3 +347,59 @@ def test_macos_falls_back_when_the_selector_raises(monkeypatch):
     _install_appkit(monkeypatch, _Broken)
     monkeypatch.setattr(motion, "_run", lambda argv: "0")
     assert motion._macos_prefers_reduced() is False
+
+
+# --------------------------------------------------------------------------
+# Linux: the portal is tried before GNOME's own key
+# --------------------------------------------------------------------------
+
+_PORTAL_ON = "({'enable-animations': <true>, 'color-scheme': <uint32 1>},)"
+_PORTAL_OFF = "({'enable-animations': <false>},)"
+
+
+def _fake_run(monkeypatch, answers):
+    """Route `_run` by the command being invoked; record what was asked."""
+    asked = []
+
+    def _run(argv):
+        asked.append(argv[0])
+        return answers.get(argv[0])
+
+    monkeypatch.setattr(motion, "_run", _run)
+    return asked
+
+
+def test_the_portal_answers_and_gsettings_is_not_consulted(monkeypatch):
+    """The portal is the route that works beyond GNOME *and* inside a snap.
+
+    A confined process reading `gsettings` may be answering about the sandbox
+    rather than the user's session, so this order is not a preference — under
+    confinement it is the difference between right and about-the-wrong-machine.
+    """
+    asked = _fake_run(monkeypatch, {"gdbus": _PORTAL_OFF, "gsettings": "true"})
+    assert motion._linux_prefers_reduced() is True
+    assert asked == ["gdbus"], f"fell through to {asked[1:]} despite a portal answer"
+
+    asked = _fake_run(monkeypatch, {"gdbus": _PORTAL_ON, "gsettings": "false"})
+    assert motion._linux_prefers_reduced() is False
+    assert asked == ["gdbus"]
+
+
+def test_no_portal_falls_back_to_gsettings(monkeypatch):
+    asked = _fake_run(monkeypatch, {"gdbus": None, "gsettings": "false"})
+    assert motion._linux_prefers_reduced() is True
+    assert asked == ["gdbus", "gsettings"]
+
+
+def test_a_portal_without_the_key_is_not_an_answer(monkeypatch):
+    """A backend can answer ReadAll and carry no animation key. That is "cannot
+    tell", and it must fall through rather than be read as "animations on"."""
+    asked = _fake_run(monkeypatch, {"gdbus": "({'color-scheme': <uint32 1>},)",
+                                    "gsettings": "false"})
+    assert motion._linux_prefers_reduced() is True
+    assert asked == ["gdbus", "gsettings"]
+
+
+def test_neither_route_answers_is_unknown_not_false(monkeypatch):
+    _fake_run(monkeypatch, {"gdbus": None, "gsettings": None})
+    assert motion._linux_prefers_reduced() is None

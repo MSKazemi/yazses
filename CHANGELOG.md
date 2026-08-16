@@ -6,6 +6,32 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the reduced-motion probe asked the wrong things on two platforms
+
+Both probes were written from memory and neither could be exercised on the machine
+that wrote them, which is the condition under which a wrong answer is invisible:
+the call fails, the probe returns "cannot tell", and that is indistinguishable from
+a desktop with no such setting. Reduced motion would simply never engage and
+nothing would look broken.
+
+**macOS** shelled out to `defaults read com.apple.universalaccess reduceMotion`, an
+undocumented preference key that is absent until the user has toggled the setting
+once. It now asks `NSWorkspace.accessibilityDisplayShouldReduceMotion` — the
+supported API, and pyobjc is already an unconditional dependency there — with the
+`defaults` read kept only as a fallback.
+
+**Linux** asked GNOME's `gsettings` and nothing else. It now asks the **XDG desktop
+portal** first, which two things depend on: desktops beyond GNOME implement a portal
+backend, and — the one that actually bites — **YazSes ships as a snap**, where a
+confined process reading `gsettings` may be answering about the sandbox rather than
+about the user's session. Verified against this machine's live portal, not inferred.
+
+**Windows**' `SPI_GETCLIENTAREAANIMATION` was checked against the Win32 reference
+and was already right. It is now a named constant with its inverted polarity written
+down — `pvParam` receives TRUE when animations are *enabled* — and pinned by a test,
+because an unexplained inverted boolean is where a later tidy-up introduces a bug.
+
+
 ### Fixed — “never mind” meant three different things
 
 2.23.0 shipped `[audio] voice_answer` accepting “never mind” as a way to dismiss the
