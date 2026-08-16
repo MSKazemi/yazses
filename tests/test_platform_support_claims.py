@@ -129,3 +129,135 @@ def test_every_os_with_a_backend_that_can_install_is_classified():
     joined = " ".join(CLASSIFIERS)
     for token in ("POSIX :: Linux", "MacOS", "Microsoft :: Windows"):
         assert token in joined, f"no Operating System classifier mentioning {token!r}"
+
+
+# --- desktop bundles: an advisory build leg must not read as a shipped one -----
+#
+# `build-macos.yml` and `build-windows.yml` each carry a cross-architecture leg
+# marked `experimental: true`, which sets `continue-on-error` on it. That is the
+# right call -- a brand-new cross-arch job must not be able to fail a release the
+# primary architecture completed fine -- but it has a consequence that has now
+# bitten this repository twice:
+#
+#   **A failing advisory leg reports the workflow as successful.** Nothing in the
+#   run summary, the release, or the checks list says the architecture was not
+#   built. The FreeBSD job spent weeks failing before a single test ran while
+#   reporting success; on v2.21.0 both the macOS Intel and Windows ARM legs failed
+#   and the page still described them as built.
+#
+# So the page may describe an experimental leg as *attempted*, never as *available*.
+# The ✅ mark is defined there as "published and installable today", and no leg
+# whose failure is invisible has earned it.
+#
+# The check is deliberately per-section: `arm64` is a shipped architecture under
+# macOS and an unshipped one under Windows, and a page-wide search cannot tell
+# those apart.
+
+#: workflow -> (page section, the word that must appear in the bundle column's
+#: header). The bundle column is the LAST one in each table, and the header word
+#: is asserted so that reordering the table fails this guard loudly instead of
+#: quietly checking `pipx` -- which is a different claim with a different truth.
+#: The first version of this checked the whole row and tripped over the ✅ in the
+#: pipx column, which is correct: `pipx install yazses` really does work on an
+#: Intel Mac. It is the .dmg that does not exist.
+BUNDLE_WORKFLOWS = {
+    ".github/workflows/build-macos.yml": ("## macOS", ".dmg"),
+    ".github/workflows/build-windows.yml": ("## Windows", ".exe"),
+}
+
+PLATFORM_PAGE = ROOT / "docs/platform-support.md"
+
+
+def _bundle_matrix(relpath: str) -> dict[str, bool]:
+    """arch -> is it an advisory (continue-on-error) leg."""
+    workflow = yaml.safe_load((ROOT / relpath).read_text(encoding="utf-8"))
+    (job,) = [j for j in workflow["jobs"].values() if "strategy" in j]
+    return {
+        str(entry["arch"]): bool(entry.get("experimental", False))
+        for entry in job["strategy"]["matrix"]["include"]
+    }
+
+
+def _section_rows(heading: str) -> list[str]:
+    """The markdown table rows under one `##` heading of the platform page."""
+    text = PLATFORM_PAGE.read_text(encoding="utf-8")
+    start = text.index(heading) + len(heading)
+    rest = text[start:]
+    end = rest.find("\n## ")
+    body = rest if end == -1 else rest[:end]
+    return [line for line in body.splitlines() if line.startswith("|")]
+
+
+def _row_for(arch: str, rows: list[str]) -> str:
+    # Matched against the **CPU column only**, not the whole row. The macOS Intel
+    # row reads "❌ cask tracks arm64" in its Homebrew cell, so a whole-row search
+    # for `arm64` finds two rows and picks the wrong one -- which is how the first
+    # version of this guard failed.
+    matches = [r for r in rows if arch in r.split("|")[1]]
+    assert len(matches) == 1, (
+        f"expected exactly one table row mentioning {arch!r}, found {len(matches)}: "
+        f"{matches}. The page's shape changed, so this guard is no longer reading "
+        f"what it thinks it is."
+    )
+    return matches[0]
+
+
+def _bundle_cell(row: str) -> str:
+    cells = [c for c in row.split("|") if c.strip()]
+    return cells[-1]
+
+
+def _bundle_column(heading: str, header_word: str) -> list[str]:
+    """The bundle column's cells, header first, for one page section."""
+    rows = _section_rows(heading)
+    assert len(rows) >= 3, f"{heading}: expected a table with rows, got {rows}"
+    header = _bundle_cell(rows[0])
+    assert header_word in header, (
+        f"{heading}: the last table column is {header!r}, which does not look "
+        f"like the {header_word} bundle. The columns were reordered, so this "
+        f"guard would be reading the wrong claim."
+    )
+    return rows
+
+
+def test_the_bundle_matrices_are_readable():
+    """Guard the guard: an unparsed matrix would make every case below vacuous."""
+    for relpath in BUNDLE_WORKFLOWS:
+        matrix = _bundle_matrix(relpath)
+        assert len(matrix) >= 2, f"{relpath} has no cross-architecture matrix"
+        assert any(matrix.values()), f"{relpath} marks no leg experimental"
+        assert not all(matrix.values()), f"{relpath} marks every leg experimental"
+
+
+def test_no_advisory_build_leg_is_documented_as_available():
+    """The overstating direction, and the one that shipped."""
+    for relpath, (heading, word) in BUNDLE_WORKFLOWS.items():
+        rows = _bundle_column(heading, word)
+        for arch, experimental in _bundle_matrix(relpath).items():
+            if not experimental:
+                continue
+            cell = _bundle_cell(_row_for(arch, rows))
+            assert "✅" not in cell, (
+                f"{heading.strip('# ')} {arch}: docs/platform-support.md marks the "
+                f"bundle ✅ ('published and installable today'), but its build leg "
+                f"in {relpath} is `experimental: true` -- continue-on-error, so a "
+                f"failure there reports the workflow as green and ships nothing. "
+                f"Promote the leg first, then the row.\n  {cell}"
+            )
+
+
+def test_every_proven_build_leg_is_documented_as_available():
+    """The understating direction. A blocking leg that has to pass for the release
+    to exist is exactly the evidence ✅ is meant to record; leaving it at ⏳ sends
+    people to a slower install path for no reason."""
+    for relpath, (heading, word) in BUNDLE_WORKFLOWS.items():
+        rows = _bundle_column(heading, word)
+        for arch, experimental in _bundle_matrix(relpath).items():
+            if experimental:
+                continue
+            cell = _bundle_cell(_row_for(arch, rows))
+            assert "✅" in cell, (
+                f"{heading.strip('# ')} {arch}: its build leg in {relpath} is "
+                f"blocking -- the release cannot be cut without it -- but the page "
+                f"does not mark the bundle ✅.\n  {cell}"
+            )

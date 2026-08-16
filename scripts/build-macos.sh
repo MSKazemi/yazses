@@ -35,7 +35,39 @@ if ! command -v create-dmg >/dev/null 2>&1; then
 fi
 
 echo "==> Syncing runtime dependencies"
-uv sync
+if [[ "$(uname -m)" == "x86_64" ]]; then
+    # Intel is the one leg that deliberately builds UNLOCKED, and it has to be.
+    #
+    # `uv.lock` is a single universal resolution and it pins onnxruntime 1.28.0,
+    # which publishes no macOS x86_64 wheel at all -- upstream ships arm64 only.
+    # faster-whisper depends on onnxruntime unconditionally, so it is not
+    # avoidable by dropping an extra. `uv sync` installs exactly what the lock
+    # says, so on Intel it cannot succeed:
+    #
+    #   error: Distribution `onnxruntime==1.28.0` can't be installed because it
+    #   doesn't have a source distribution or wheel for the current platform
+    #
+    # That is precisely how every Intel .dmg since the leg was added failed,
+    # while the workflow reported success -- the job is `continue-on-error`.
+    #
+    # A fresh resolution *can* satisfy Intel: it backtracks to onnxruntime
+    # 1.23.2, the last release with a macosx x86_64 wheel. Verified with
+    #   uv pip compile --python-platform x86_64-apple-darwin pyproject.toml
+    #
+    # The alternative -- pinning onnxruntime below 1.24 in pyproject.toml --
+    # would hold every other platform two years back for one architecture Apple
+    # has already scheduled for removal (ADR-017). Trading the whole project's
+    # runtime for a bundle with a two-year horizon is the wrong way round.
+    #
+    # The cost is stated rather than hidden: the Intel bundle is not built from
+    # the locked dependency set, so it is not bit-reproducible against it. It is
+    # that or no Intel bundle, and `pipx install yazses` -- which resolves the
+    # same way -- remains the Intel path that outlives the hardware.
+    uv venv
+    uv pip install .
+else
+    uv sync
+fi
 
 echo "==> Installing PyInstaller"
 uv pip install 'pyinstaller>=6.10'
@@ -44,7 +76,10 @@ echo "==> Cleaning previous build"
 rm -rf build dist
 
 echo "==> Running PyInstaller"
-uv run pyinstaller packaging/macos/yazses.spec --clean --noconfirm
+# --no-sync: `uv run` re-syncs from the lock by default, which on Intel would
+# undo the resolution above and fail exactly where `uv sync` did. On arm64 the
+# sync has already happened, so it is a no-op there.
+uv run --no-sync pyinstaller packaging/macos/yazses.spec --clean --noconfirm
 
 if [[ ! -d dist/YazSes.app ]]; then
     echo "PyInstaller did not produce dist/YazSes.app" >&2

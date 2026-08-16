@@ -82,7 +82,18 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
-          version: '0.5.x'
+          # `latest`, like every other workflow here. This was pinned to '0.5.x'
+          # — a toolchain from December 2024 — and only in the two desktop-bundle
+          # workflows, which is also where both cross-architecture legs failed.
+          # On windows-11-arm the pin is the whole failure:
+          #
+          #   error: No download found for request: cpython-3.12-windows-aarch64-none
+          #
+          # uv 0.5 predates python-build-standalone's Windows ARM64 builds, so it
+          # cannot fetch an interpreter for the runner it is standing on. A pin
+          # that old is not stability, it is a platform that had not been invented
+          # yet.
+          version: 'latest'
 
       - name: Set up Python
         run: uv python install 3.12
