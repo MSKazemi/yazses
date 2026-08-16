@@ -50,9 +50,15 @@ Two tiers, and the second one is optional:
 
 ```toml
 [commands]
-slm_model_path = ""            # empty = Tier 2 disabled
-slm_confidence_threshold = 0.6 # below this, ask the router
+slm_model_path = ""            # reserved — see below
+slm_confidence_threshold = 0.6 # reserved — see below
 ```
+
+!!! warning "Tier 2 is designed, not wired"
+
+    Nothing constructs the router these two keys configure, so setting them changes
+    nothing today: **Tier 1 decides every utterance**. They are documented here
+    because they exist in the config schema, not because they do anything yet.
 
 ### When you want to be certain it types, not acts
 

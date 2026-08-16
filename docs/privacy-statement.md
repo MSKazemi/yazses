@@ -85,11 +85,17 @@ network port or listen on any external interface for this.
 
 ## Editor context (optional)
 
-When the LSP editor-context feature is enabled (`lsp_enabled = true` under
-`[commands]`; **off by default**), YazSes reads the active file path, language, and
-cursor line from your editor and uses them only as a prefix to the transcription
-prompt, so code identifiers from your current file are recognised. This context is
-never transmitted outside your device and is discarded after each transcription.
+**Correction (2026-08-17):** this section previously described the daemon reading
+your active file path, language and cursor line into every transcription prompt,
+controlled by `lsp_enabled`. **That never happened.** The daemon does not construct
+the editor bridge, and `lsp_enabled` is read by nothing — so no editor context has
+ever reached the transcription prompt. The statement overstated what YazSes
+collects, and the mitigation it offered protected against nothing.
+
+What is true: the editor bridge is contacted **only when you run a command that
+needs it** — `yazses jump` — which asks your editor for symbols and cursor position
+to move the caret, on demand, for that one invocation. Nothing is stored, and
+nothing leaves your device.
 
 ## On-device language models (optional)
 
@@ -234,7 +240,7 @@ it drifts out of step with the lock file. Regenerate it yourself with
 |---|---|
 | Disable the learning corpus | Leave `[learning]` off (default), or `yazses features disable learning` |
 | Erase all captured data | `yazses corpus destroy` (or delete `corpus.db`) |
-| Disable editor context | Set `lsp_enabled = false` under `[commands]` (the default) |
+| Disable editor context | Nothing to disable — the daemon never reads your editor; only `yazses jump` contacts it, when you run it |
 | Disable the offline cleanup LLM | Set `llm_enabled = false` under `[filters.disfluency]` (the default) |
 | Inspect stored data | `yazses corpus status` |
 

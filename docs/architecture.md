@@ -277,8 +277,9 @@ Stage by stage:
    (`yazses features enable stt-parakeet`) — lower word-error rate than
    whisper-large-v3 at roughly 4× whisper-small's CPU speed, with no hallucinated
    text on silence. On the Whisper path an `initial_prompt` biases the model
-   toward the right words — the app name, your personal vocabulary, and
-   (optionally) context from your active editor.
+   toward the right words — the app name and your personal vocabulary.
+   (An editor-context prefix was designed and is **not wired**: the daemon never
+   constructs `LspContextProvider`, so nothing from your editor reaches the prompt.)
 6. **Text cleanup.** `clean_text()` strips Whisper artefacts such as
    `[BLANK_AUDIO]` and stray leading punctuation (`src/yazses/postprocess/cleaner.py`).
 7. **Disfluency filter.** A three-pass filter removes fillers, de-duplicates
@@ -286,8 +287,10 @@ Stage by stage:
    (`src/yazses/stt/filters/disfluency.py`).
 8. **Command classification.** A fast **Tier 1 regex grammar** decides whether the
    utterance is plain dictation or a command like *"undo that"* or *"go to line 42"*
-   (`src/yazses/commands/grammar.py`). When Tier 1 is unsure, an optional
-   **Tier 2 small-language-model router** (`slm_router.py`) resolves the intent.
+   (`src/yazses/commands/grammar.py`). A **Tier 2 small-language-model router**
+   (`slm_router.py`) was designed for the unsure case and is **not wired** —
+   `grammar.classify()` accepts an `slm_router` argument and nothing constructs one,
+   which `tests/test_orphan_modules.py` records. Tier 1 decides every utterance.
 9. **Dispatch and inject.** Plain dictation goes to text injection; commands go to
    a key sequence (`src/yazses/commands/dispatch.py`). For dictation only, two
    optional finishing steps run first: an offline **LLM cleanup** pass that lightly

@@ -110,6 +110,12 @@ lsp_enabled = true
 lsp_editor = "neovim"
 ```
 
+!!! warning "These keys are not read"
+
+    The editor-context prompt was designed and never wired — the daemon does not
+    construct the editor bridge, so setting these changes nothing. `yazses jump`
+    contacts your editor directly and works regardless of them.
+
 You can also maintain a [personal vocabulary](../how-to/personal-vocabulary.md)
 of project-specific names the model keeps mishearing.
 

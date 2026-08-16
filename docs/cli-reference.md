@@ -1110,8 +1110,10 @@ yazses jump "line 240"
 yazses jump "function tokenize"
 ```
 
-Requires `[commands] lsp_enabled = true` and a reachable editor bridge —
-`[commands] lsp_editor` is `auto` (the default), `neovim` or `vscode`. Start
+Requires a reachable editor bridge. (`[commands] lsp_enabled` and `lsp_editor` are
+**not read by anything** — this command contacts the editor directly whichever way
+they are set; the keys are reserved for an editor-context prompt that is designed
+and not wired.) Start
 Neovim with `nvim --listen`, or install the YazSes VS Code extension. Without a
 live bridge there is no real cursor to move, so the command reports that rather
 than guessing:

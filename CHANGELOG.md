@@ -6,6 +6,32 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the docs described two pipeline stages that do not exist
+
+`grammar.classify()` accepts an `slm_router` argument and **nothing constructs
+one**, so Tier 1 decides every utterance. The daemon never constructs
+`LspContextProvider`, so **no editor context has ever reached the transcription
+prompt**. `docs/architecture.md` described both as working parts of the pipeline,
+and four config keys were documented as knobs with no hint that nothing reads them.
+
+The repo already knew about half of it: `tests/test_orphan_modules.py` records
+`commands.slm_router` as *"a plumbed seam never filled"*. The ledger and the
+architecture page were both checked in, disagreeing.
+
+**The privacy statement is the part that mattered most.** It said that with
+`lsp_enabled = true` YazSes reads your active file path, language and cursor line
+into every transcription prompt, and offered turning it off as a mitigation. None of
+that happened — it overstated what is collected and offered protection against
+nothing. Corrected in place, with what is actually true: the editor bridge is
+contacted only when you run `yazses jump`, for that one invocation.
+
+`yazses jump` does **not** require `lsp_enabled = true` either, though the CLI
+reference said so — it contacts the editor directly however that key is set.
+
+Found by sweeping all 432 config fields for names never referenced outside
+`config.py`, then triaging the 32 hits by whether the owning feature ships.
+
+
 ### Fixed — `[injection] fallback_to_clipboard` was documented and read by nothing
 
 `LinuxInjector` built its clipboard fallback unconditionally. The setting appears in
