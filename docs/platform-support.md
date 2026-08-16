@@ -167,25 +167,25 @@ Windows 10 (21H2) or newer.
 | CPU | `pipx` (PyPI) | `.exe` installer |
 |---|---|---|
 | **x64** | ✅ | ✅ (unsigned) |
-| **arm64** | ⚠️ untested | ❌ build added, currently failing |
+| **arm64** | ⚠️ untested | ⏳ builds; lands at the next tag |
 
 **On Windows arm64 today, use `pipx install yazses`,** or the x64 `.exe` — Inno Setup
 marks it `x64compatible`, which includes ARM, so it installs and runs under Windows'
 x86 emulation.
 
-**There is no native arm64 installer to download.** A build leg for one exists on a
-`windows-11-arm` runner, and on every tag so far it has failed before compiling
-anything:
+**A native arm64 installer now builds, and no release carries one yet.** On every
+tag before 2026-08-16 the leg failed before compiling anything:
 
 ```
 error: No download found for request: cpython-3.12-windows-aarch64-none
 ```
 
 The leg asked `uv` for a Python and `uv` had none for that architecture — it was
-pinned to a version predating Windows ARM64 interpreter builds. That pin is now
-lifted, but **the fix is unproven**: this workflow only runs on a tag, so nothing
-has exercised it yet. The row stays ❌ until an installer actually appears on a
-release, which is the only evidence that counts.
+pinned to a version predating Windows ARM64 interpreter builds. With that pin lifted
+the leg produced a 160 MB `YazSes-2.21.0-windows-arm64.exe` on its first run.
+
+⏳ rather than ✅ because it has been built and not published: it attaches to the
+next tag. The leg also stays advisory until it is green more than once.
 
 This is worth saying plainly because the failure was invisible. The leg is
 `continue-on-error` — correct, so a new cross-architecture build cannot fail a

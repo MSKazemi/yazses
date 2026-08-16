@@ -64,6 +64,18 @@ only moves during a hold, so at rest the meter read 0.0 and announced *"below th
 line — audio this quiet is discarded as silence"*: a claim about the user's
 microphone made at a moment when nothing was listening. It now says so instead.
 
+### Changed — the macOS bundle is half the size it was
+
+143.9 MB → 70.4 MB for Apple Silicon, measured across two builds of the same commit.
+`uv sync` was installing the **dev group** — pytest, mypy, ruff, hypothesis, a
+moonshine ONNX model — into the environment PyInstaller then analyses, so a linter
+and a test runner were being shipped inside the application.
+
+The Intel bundle did not move (88.96 → 88.95 MB), which is the confirmation rather
+than an anomaly: that leg installs the project alone and never carried the dev group.
+Windows saved less than 3 MB — its spec already excluded most of it — and is changed
+for the same reason regardless.
+
 ### Fixed — the Intel .dmg and the ARM64 .exe have not been built for two releases
 
 Both cross-architecture bundle legs were failing, and both workflows reported
@@ -81,7 +93,9 @@ never affected — it was the bundle that was missing, not the path.
 
 Windows ARM64 died before compiling anything, asking `uv` for an interpreter it had
 no build of: `setup-uv` was pinned to `0.5.x` in these two workflows and `latest`
-in the other five. That pin predates Windows ARM64 Python entirely.
+in the other five. That pin predates Windows ARM64 Python entirely. With it lifted
+the leg produced a 160 MB `YazSes-2.21.0-windows-arm64.exe` on its first run — the
+first native Windows ARM installer this project has built.
 
 `test_platform_support_claims.py` now cross-checks both build matrices against
 `docs/platform-support.md`, so an advisory leg can never be written up as a shipped
