@@ -6,6 +6,35 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `[learning] retention_days` and `max_corpus_mb` did nothing
+
+`CorpusStore.prune()` has existed since the learning corpus shipped, with its own
+tests, and **nothing in `src/` ever called it**. Both settings were documented — *"auto-evict
+events older than this"*, *"cap corpus size; oldest events trimmed first"* — and
+neither was ever applied.
+
+Found by running `yazses corpus status` on a real machine: **1292 MB against the
+500 MB default cap, spanning 38 days against the 30-day default retention**, on a
+config that had changed neither.
+
+The disk cost is the lesser half. Retention is a privacy control (ADR-012): the
+promise is that captured audio and transcripts age out, and they were not ageing
+out. A privacy limit that silently does not apply is worse than one that was never
+offered, because the user has already decided they are protected by it.
+
+The writer now prunes on its background thread — once at start, then every 200
+events, so a daemon left running for weeks cannot grow without limit and no disk
+work lands on the dictation path. A failing prune is logged and swallowed: a dead
+writer thread stops capture silently, which is far worse than a corpus briefly over
+its cap.
+
+!!! warning "This evicts data the first time your daemon restarts"
+
+    If your corpus is over its limits, the first restart after upgrading will apply
+    them. Raise `max_corpus_mb` / `retention_days` **before** restarting if you want
+    to keep what is there. `yazses corpus status` shows the current size.
+
+
 ### Fixed — `yazses report` leaked the account name in paths outside `$HOME`
 
 The bundle exists to be pasted into a public issue, and its own help promises
