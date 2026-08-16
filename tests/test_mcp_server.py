@@ -150,3 +150,60 @@ class _FakePlatform:
 
     def ipc_client_factory(self, _socket):
         return self._client
+
+
+# --- the transport is stdio, and stays stdio ----------------------------------
+
+
+def test_the_mcp_package_cannot_reach_the_network() -> None:
+    """ADR-019's egress inventory is the real guard here, and it already fails on a
+    `socket`/`http`/`urllib` import anywhere under `src/yazses/` — verified by adding
+    one to this module and watching `test_no_undeclared_module_can_reach_the_network`
+    go red.
+
+    This states the property where an MCP contributor would look for it. An agent
+    bridge is the natural place for someone to reach for "just expose it on a port",
+    and the whole design rests on it being a pipe between two processes on this
+    machine: an HTTP listener is a hole in ADR-011 that no config flag makes safe.
+    """
+    import ast
+    from pathlib import Path
+
+    package = Path(__file__).resolve().parent.parent / "src/yazses/mcp"
+    modules = sorted(package.glob("*.py"))
+    assert len(modules) >= 3, f"only found {modules} — this guard would be vacuous"
+
+    network = {"socket", "socketserver", "http", "urllib", "requests", "httpx", "aiohttp"}
+    for path in modules:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                names = [alias.name.split(".")[0] for alias in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                names = [(node.module or "").split(".")[0]]
+            else:
+                continue
+            offending = network.intersection(names)
+            assert not offending, (
+                f"{path.name} imports {sorted(offending)}. The MCP bridge is stdio "
+                f"between two processes on this machine; a listener would put the "
+                f"user's dictation on a port."
+            )
+
+
+def test_serve_reads_the_streams_it_is_given() -> None:
+    """The transport is injectable, which is what makes the above testable at all —
+    and is why the server needs no socket to be exercised."""
+    import io
+
+    from yazses.config import Config
+    from yazses.mcp.server import serve
+
+    stdin = io.StringIO(
+        '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}\n'
+    )
+    stdout = io.StringIO()
+    code = serve(Config(), stdin=stdin, stdout=stdout)
+
+    assert code == 0
+    assert '"jsonrpc"' in stdout.getvalue(), stdout.getvalue()
