@@ -165,6 +165,29 @@ def check_snap(version: str) -> tuple[bool | None, str]:
     return version in stable, f"stable={','.join(sorted(set(stable)))}"
 
 
+def _evidence(label: str, found: list[str], version: str, limit: int = 4) -> str:
+    """Report evidence that supports the verdict rather than the head of a list.
+
+    Both of these truncated with ``[:n]``, and a registry returns tags roughly in
+    insertion order — so GHCR carrying 2.22.0 was reported as ``tags=2.18.2,2.19.0``
+    and read exactly like an image three releases behind. The verdict was right the
+    whole time; the evidence beside it said the opposite, which is worse than no
+    evidence because it invites the reader to distrust the correct answer.
+
+    So: name the queried version first when it is present, then the tail, which is
+    where a recent release actually lands.
+    """
+    if not found:
+        return f"{label}=none"
+    if version in found:
+        rest = [v for v in found if v != version][-(limit - 1):]
+        shown = [version, *rest]
+    else:
+        shown = found[-limit:]
+    more = "" if len(shown) >= len(found) else f" (+{len(found) - len(shown)} more)"
+    return f"{label}={','.join(shown)}{more}"
+
+
 def check_apt(version: str) -> tuple[bool | None, str]:
     status, body = _get(
         f"https://raw.githubusercontent.com/{REPO}/gh-pages/apt/Packages"
@@ -172,7 +195,7 @@ def check_apt(version: str) -> tuple[bool | None, str]:
     if status != 200:
         return _verdict(status, False), f"Packages HTTP {status}"
     found = re.findall(r"^Version:\s*(\S+)", body.decode("utf-8", "replace"), re.M)
-    return version in found, f"apt={','.join(found[:3]) or 'none'}"
+    return version in found, _evidence("apt", found, version, limit=3)
 
 
 def check_homebrew(version: str) -> tuple[bool | None, str]:
@@ -257,7 +280,12 @@ def check_docker(version: str) -> tuple[bool | None, str]:
     if status != 200 or not data:
         return _verdict(status, False), f"tags HTTP {status}"
     tags = data.get("tags") or []
-    return version in tags, f"tags={','.join(tags[:4]) or 'none'}"
+    # `sha256-…` entries are the attestation/referrer artifacts the attest step
+    # pushes alongside the image. They are tags as far as the registry is concerned
+    # and noise as far as a human reading "is 2.22.0 published?" is concerned, so
+    # they are excluded from the evidence — never from the verdict.
+    readable = [t for t in tags if not t.startswith("sha256-")]
+    return version in tags, _evidence("tags", readable, version)
 
 
 CHECKS = [
