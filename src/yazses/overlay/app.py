@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from yazses.config import OverlayConfig, load_config
 from yazses.overlay.animation import Ripple, SonarModel
 from yazses.overlay.envelope import EnvelopeFollower
-from yazses.overlay.poller import StatusSnapshot, StatusPoller
+from yazses.overlay.poller import StatusPoller, StatusSnapshot
 from yazses.overlay.position import place_fixed, place_near_cursor
 
 log = logging.getLogger(__name__)
