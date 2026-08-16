@@ -61,6 +61,31 @@ leg — and document that Intel support ends in 2027 because GitHub ends it.**
    `pipx install yazses` — which works on Intel today, since `ctranslate2` publishes
    `macosx_11_0_x86_64` wheels — is the path that outlives it.
 
+## Outcome — measured 2026-08-16
+
+The decision holds and the answer to #264 is confirmed: **nothing needed buying.** But the
+"Good" paragraph below was written ahead of its evidence and was false for a day, which is
+worth recording where the decision is, not only in a changelog.
+
+Adding the leg was not the same as producing a bundle. Every Intel build from the leg's
+introduction through v2.21.0 **failed**, and because the leg is `continue-on-error` the
+workflow reported success each time — so `docs/platform-support.md` said CI "produces
+`YazSes-<version>-macos-x86_64.dmg`" while no release had ever carried one.
+
+The cause was not the architecture and not the runner. `uv.lock` is a single universal
+resolution pinning an onnxruntime that upstream publishes for Apple Silicon only, and
+`faster-whisper` requires onnxruntime with no marker, so `uv sync` — which installs exactly
+what the lock says — could not succeed on Intel. The Intel leg now resolves unlocked, where
+it backtracks to the last release carrying an Intel wheel.
+
+Evidence: run `31921146844` produced `YazSes-2.21.0-macos-x86_64.dmg`, 85 MB, attested, on
+the first attempt after the change (`da4f4a0`). The premise of this ADR — that a free
+runner is sufficient — is now demonstrated rather than assumed.
+
+Two things follow. The **accepted cost** below is real but smaller than stated: the second
+`.dmg` exists and is named by architecture. And the leg stays advisory until it is green
+more than once, because one pass is a fix and not a track record.
+
 ## Consequences
 
 **Good.** The gap closes at zero cost, using a mechanism already proven in this repo. #216

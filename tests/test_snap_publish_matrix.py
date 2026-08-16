@@ -18,6 +18,7 @@ import re
 from pathlib import Path
 
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 SNAPCRAFT = ROOT / "snap" / "snapcraft.yaml"
@@ -150,3 +151,50 @@ def test_the_publish_step_cannot_hang_for_the_whole_job() -> None:
         f"({job_match.group(1)}m), or the job limit fires first and the outcome is "
         f"'cancelled' again"
     )
+
+
+def test_a_publish_timeout_explains_itself() -> None:
+    """A bare "timed out after 20 minutes" points at the wrong half of the problem.
+
+    Measured on run 31906962075: `snapcraft upload` transfers the file, the store
+    accepts the credentials, and then it answers `Status: processing` 971 times —
+    about once a second for nineteen unbroken minutes. The upload succeeds; the
+    store's review of the revision is what does not finish.
+
+    Without that said out loud, the next person reads a red publish step as broken
+    credentials and goes to re-export a login that is demonstrably working. This is
+    the same class of defect as the silent stall it replaced: the run reports
+    something true and useless.
+    """
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    steps = [s for job in workflow["jobs"].values() for s in job.get("steps", [])]
+
+    publish = [s for s in steps if s.get("id") == "publish"]
+    assert publish, "the publish step needs an `id` for a later step to condition on"
+
+    explainers = [
+        s for s in steps
+        if "steps.publish.outcome == 'failure'" in str(s.get("if", ""))
+    ]
+    assert explainers, (
+        "nothing explains a failed publish. A timeout here means the revision is "
+        "queued for store review, not that the pipeline is broken."
+    )
+
+    body = " ".join(str(s.get("run", "")) for s in explainers).lower()
+    for cue in ("processing", "review", "latest/stable"):
+        assert cue in body, f"the explanation never mentions {cue!r}"
+
+
+def test_the_explanation_does_not_turn_a_failed_publish_green() -> None:
+    """The job must still fail. Nothing reached `latest/stable`, and a green workflow
+    that published nothing is precisely the failure this area exists to prevent —
+    two releases went out that way before the timeout was added."""
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    for job in workflow["jobs"].values():
+        for step in job.get("steps", []):
+            if step.get("id") == "publish":
+                assert "continue-on-error" not in step, (
+                    "the publish step must not swallow its own failure — explaining a "
+                    "failure is not the same as tolerating it"
+                )
