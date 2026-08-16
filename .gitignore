@@ -94,6 +94,16 @@ notes/
 drafts/
 .craft/
 
+# Three subtrees of the otherwise-public `design/` that are strategy, not
+# engineering. They were named private by the pre-commit hook's link-leak check and
+# by hooks/design_tier.py — which excludes them from the built site — and were in
+# neither the hook's block list nor here, so `git add -A` would have published them.
+# Found 2026-08-16; the hook's two lists are now cross-checked by
+# tests/test_privacy_hook_blocks_what_it_calls_private.py.
+design/vision/
+design/marketing/
+design/seo/
+
 # The manuscript stays private. It also contains paper/data/ (688 MB LibriSpeech)
 # and third-party paper PDFs used for reference checking, neither of which may
 # ever be published.
