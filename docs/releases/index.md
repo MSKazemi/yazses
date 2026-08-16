@@ -23,11 +23,12 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.22.0](v2.22.0.md)** — the builds that reported success and produced
-nothing: the Intel `.dmg` and the Windows ARM64 `.exe` had never once existed, and both
-build now. Five of the six ways YazSes starts itself could not work inside a bundle, so
-the tray, the overlay and Apply → Restart were silently dead in every `.app` and `.exe`.
-The macOS download is half the size. Install it with:
+**[YazSes 2.23.0](v2.23.0.md)** — the accessibility product that ignored your
+accessibility settings: the overlay animated straight through your desktop's
+reduce-motion switch while this documentation site honoured it, and the mic guard asked
+a question about your microphone that only a pointer could answer. Both fixed, both
+listed in `yazses features`. An example config must now say what was *observed*.
+Install it with:
 
 ```sh
 pipx install yazses          # any OS, Python ≥ 3.11
@@ -36,6 +37,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.23.0](v2.23.0.md) — the overlay ignored your desktop's reduce-motion setting; the mic guard's question could only be answered with a pointer.
 - [v2.22.0](v2.22.0.md) — the Intel `.dmg` and ARM64 `.exe` exist for the first time; five launch paths that could not work in a bundle; the macOS download halves.
 - [v2.21.0](v2.21.0.md) — guards that passed by checking nothing; a crashed daemon that stayed dead on Windows; `yazses features` prices what it offers.
 - [v2.20.0](v2.20.0.md) — the Windows release that works: model download explains itself, the CLI is reachable, the icon ships.

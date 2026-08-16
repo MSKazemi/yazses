@@ -39,7 +39,7 @@ hide:
         "Dysfluency-friendly mode for stuttered or dysarthric speech",
         "EMG/USB muscle-sensor trigger for hands-free accessibility use"
       ],
-      "softwareVersion": "2.22.0",
+      "softwareVersion": "2.23.0",
       "author": { "@id": "https://orcid.org/0000-0002-1166-6559" },
       "publisher": { "@id": "https://orcid.org/0000-0002-1166-6559" }
     },

@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.23.0] - 2026-08-16
+
 ### Added — the mic guard's question can be answered out loud (`[audio] voice_answer`)
 
 The mic-change guard is the one part of the pipeline that *asks* rather than tells:

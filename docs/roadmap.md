@@ -7,7 +7,7 @@ description: Where YazSes is going — the vision of keyboard-optional, fully pr
 
 YazSes is a fully-offline, hold-to-talk voice dictation daemon for Linux,
 macOS, and Windows — no cloud, no account, nothing leaves your machine.
-**The current stable release is v2.22.0**, published on PyPI, GitHub
+**The current stable release is v2.23.0**, published on PyPI, GitHub
 Releases, Snap, and the APT repository.
 
 This page is two things at once: an honest status report, and a statement of
@@ -148,7 +148,7 @@ or — for research-shaped work — at
 | **v2.20.0** | 2026-08-14 | The Windows release that actually works, driven by live user reports: a firewall-blocked model download killed the daemon with a raw traceback (#310), every CLI command was unreachable because `YazSes.exe` shadowed its own `.cmd` shim through `PATHEXT`, and `assets/yazses.ico` had never existed — so every build shipped PyInstaller's default artwork behind a silent `else None`. Plus `yazses model download` for speech models, and Windows tray colours that finally match Linux. |
 | **v2.21.0** | 2026-08-15 | Sixty-nine commits of things that were reported as working and were not: a CI job that could only ever be red, eleven tests skipped in every job, three packaging guards that passed by iterating an empty list, a CLI-reference guard that checked 58 names and ignored 50, a crashed daemon that stayed dead on Windows and macOS while the tray watched, and "Update installed" for upgrades that never happened. Plus a `DOWNLOAD` column in `yazses features`, the Command Safety Gate wired, check-digit validation on dictated numbers, a mic-level ring in the tray, and an Intel macOS build. **Current stable release.** |
 
-## In `[Unreleased]` — since v2.22.0
+## In `[Unreleased]` — since v2.23.0
 
 Not yet in a tagged release, but on `main`:
 
