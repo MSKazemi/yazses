@@ -27,6 +27,27 @@ A problem earns a place here only if all four hold:
 Ideas that fail (4) are not thereby bad; they are research questions, and they belong
 in [the HCI research agenda](2026-08-11-hci-research-agenda.md).
 
+## Which of these is YazSes actually placed to solve
+
+Every entry below carries a **"Why YazSes is positioned"** paragraph, because a problem
+list without one is a survey rather than a plan. Read together they do not flatter the
+project, and that is the useful part:
+
+| | Problem | Position |
+|---|---|---|
+| **A3** | Hands-free as a working mode | **Structural.** Needs pointer control, window focus and an accessibility tree — a hosted API cannot reach any of them. The pieces are already in this repository, unwired. |
+| **A1** | The cost of an error isn't carried | **Structural.** Error cost is a property of the *destination*, and only the injector knows the destination. Cannot exist behind an API boundary. |
+| **A5** | Voice is biometric | **Already held.** ADR-011 is the answer; the work is not eroding it. |
+| **B3** | Meeting capture is governance | **Good.** On-device capture plus consent-gated enrolment is the whole requirement. |
+| **B2** | No machine-readable contract for speech | **Plausible, unproven.** The raw materials exist; nothing has been proposed as a contract. |
+| **B1** | Agents cannot cheaply ask a human | **Hypothesis.** No evidence anyone wants it. |
+| **A2** | Speaking is serial, thinking is not | **Weak.** The advantage is in *evidence* — the corpus and the throughput harness — not in capability. |
+| **A4** | Code-switching | **Weak.** Vendors hold more multilingual data; only the per-person adaptation is durable. |
+
+Two of eight are structural advantages nobody else can copy without becoming a local
+application. One is already won and must be defended. The rest are ordinary problems
+where this project competes on execution or not at all.
+
 ---
 
 ## A. Problems for humans
@@ -45,6 +66,15 @@ error is not carried anywhere in the pipeline.**
 
 **Why it is unsolved.** Every dictation product optimises word error rate, which
 weights all words equally. The user does not.
+
+**Why YazSes is positioned — structurally, not incidentally.** The cost of an error is
+a property of *where the token lands*, and only the component doing the injecting knows
+that. A hosted recogniser returns a string; it cannot know the string is about to enter
+a terminal, a legal filing or a chat box. YazSes already reads the destination —
+`inject/target.py`'s AT-SPI/X11 probe answers "is the focused element editable text?"
+for the no-text-target guard — and already runs three destination-aware guards in a
+fixed order (`cmdsafety`, `checkdigit`, `staged`). The materials for a cost-weighted
+pipeline exist here and cannot exist behind an API boundary.
 
 **How we would know.** Cost-weighted error rate: errors scored by the consequence of
 the token's destination, not by count. Nobody publishes this; the metric would be a
@@ -69,6 +99,14 @@ this.)
 **Why it is unsolved.** Products treat speech as a keyboard substitute. The keyboard is
 not the thing being replaced; the composing loop is.
 
+**Why YazSes is positioned — weakly, and worth saying so.** Nothing about the composing
+loop requires local inference, and a well-resourced vendor could study it better. The
+one real advantage is that the signal lives here already and can be gathered *without
+anyone shipping audio anywhere*: the learning corpus (opt-in, encrypted, on-device) is
+built out of exactly the re-dictation events the 62% finding is about, and `paper/
+benchmark/bench_throughput.py` is the instrument for the study. That is an advantage in
+**evidence**, not in capability, and it should not be dressed up as more.
+
 **How we would know.** Net WPM after correction, on *composed* prose rather than
 transcribed passages — the study already specified as direction 1 of the research agenda.
 
@@ -87,6 +125,15 @@ were designed and never joined into a mode someone could actually live in.
 **Why it is unsolved.** Each piece is individually unglamorous and only valuable in
 combination — exactly the shape that does not get built by feature-driven roadmaps.
 
+**Why YazSes is positioned — the strongest case in this document.** Working hands-free
+is not a transcription problem; it is an *input* problem, and it requires moving the
+pointer, focusing windows, and reading the accessibility tree. A browser tab and a
+hosted API structurally cannot do any of that. A local daemon holding an injection
+backend, an AT-SPI bridge and a hotkey seam already can — which is precisely why the
+unwired list is full of the pieces (`mousegrid`, `headpointer`, `pilot`, `mouthswitch`,
+`vocaljoystick`, `hatselect`) rather than empty of them. The gap here is assembly, not
+capability, and assembly is the one thing an incumbent has no incentive to do.
+
 **How we would know.** Task completion, not word accuracy: can a participant complete a
 realistic workflow — open a file, edit a specific line, respond to a prompt, save — with
 no keyboard or mouse, and how long does it take relative to using them.
@@ -101,6 +148,14 @@ mid-sentence, where a recogniser locked to one language transcribes the other as
 decode path until recently, and the open research question (#258) asks precisely whether
 code-switching rather than accent is the dominant failure for bilingual users. That
 question is open — this entry is a **hypothesis**, not a finding.
+
+**Why YazSes is positioned — barely, and the honest answer is "not especially".** The
+large vendors hold far more multilingual audio than this project will ever see, and if
+code-switching becomes commercially interesting they will close this faster than we
+can. The narrow, durable piece is per-*person* rather than per-language: one user's
+code-switching is idiosyncratic and stable, their corpus is bilingual by construction,
+and adapting to it on-device needs no round trip and no one else's consent. That is a
+personalisation advantage, not a speech-recognition one.
 
 **How we would know.** WER on code-switched utterances versus monolingual ones from the
 same speakers.
