@@ -98,7 +98,13 @@ voice_answer_window_s = 45.0   # how long the question stays answerable
 |---|---|
 | “re-calibrate” / “calibrate the mic” | the same as clicking **Re-calibrate** |
 | “pin this mic” / “pin the microphone” | the same as clicking **Pin this mic** |
-| “ignore” / “dismiss” / “never mind” | dismisses the toast |
+| “ignore” / “ignore that” / “dismiss” | dismisses the toast |
+
+“never mind” is deliberately *not* one of these. It already means **cancel the held
+command** to the [command-safety gate](how-to/command-safety.md), and it is a
+self-correction trigger for the disfluency filter besides — a phrase that means a
+different thing depending on which invisible thing is pending is exactly what these
+guards are designed to avoid.
 
 Two limits, both deliberate. The **whole utterance** must be the answer — “please
 ignore the second paragraph” is prose and gets typed, because a control word that

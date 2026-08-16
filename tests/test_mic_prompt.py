@@ -39,6 +39,34 @@ def test_every_button_can_be_said():
             assert match_mic_answer(phrase) == key
 
 
+def test_no_answer_is_also_a_command_safety_control_word():
+    """The two vocabularies must stay disjoint, and once they were not.
+
+    `_mic_answer_gate`'s docstring claimed they did not overlap. They did:
+    "never mind" was in this module's `ignore` list *and* in
+    `DEFAULT_CANCEL_WORDS`, where it means *discard the held command*. Because the
+    mic gate runs second, saying it with both pending cancelled the command and left
+    the toast unanswered — so the same words did different things depending on state
+    the user cannot see, which is what ADR-021's one-phrase rule exists to prevent.
+
+    The claim is now enforced rather than asserted, in both directions: adding a
+    phrase to either list re-runs this.
+    """
+    from yazses.cmdsafety.spoken import (
+        DEFAULT_CANCEL_WORDS,
+        DEFAULT_CONFIRM_WORDS,
+        normalise_utterance,
+    )
+
+    control = {normalise_utterance(w) for w in DEFAULT_CONFIRM_WORDS + DEFAULT_CANCEL_WORDS}
+    mine = {normalise_utterance(p) for phrases in ANSWERS.values() for p in phrases}
+    clash = sorted(control & mine)
+    assert not clash, (
+        f"{clash} mean both a mic answer and a command-safety control word — with both "
+        "pending the user cannot tell which one they just released"
+    )
+
+
 def test_whisper_punctuation_does_not_defeat_an_answer():
     """The decoder punctuates freely; "Ignore." is the same answer as "ignore"."""
     assert match_mic_answer("Ignore.") == "ignore"

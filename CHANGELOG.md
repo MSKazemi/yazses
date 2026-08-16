@@ -6,6 +6,25 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — “never mind” meant three different things
+
+2.23.0 shipped `[audio] voice_answer` accepting “never mind” as a way to dismiss the
+mic toast, and the gate's own docstring claimed its vocabulary did not overlap the
+command-safety gate's. It did. “never mind” is one of `DEFAULT_CANCEL_WORDS`, where
+it means *discard the held command*, and it is a self-correction trigger for the
+disfluency filter besides.
+
+Because the mic gate deliberately runs second, saying it with both pending cancelled
+the held command and left the toast unanswered — the same words doing different
+things according to state the user cannot see, which is precisely what ADR-021's
+one-release-phrase rule exists to prevent.
+
+Removed from the mic answers, leaving “ignore”, “ignore that” and “dismiss”, which
+mean nothing else here. The claim is now enforced instead of asserted: a test fails
+if any mic answer is also a default confirm or cancel word, so adding a phrase to
+either list re-runs the check.
+
+
 ### Fixed — `yazses features` went ragged as its own list grew
 
 The table's columns were fixed *minimum* widths, so any name or toggle longer than

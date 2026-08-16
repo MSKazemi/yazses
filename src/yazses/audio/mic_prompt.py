@@ -51,13 +51,17 @@ ANSWERS: dict[str, tuple[str, ...]] = {
         "pin the microphone",
         "pin this one",
     ),
+    # "never mind" is deliberately NOT here, and neither is "nevermind". It is already
+    # one of `cmdsafety.spoken.DEFAULT_CANCEL_WORDS` -- it means *discard the held
+    # command*. A phrase that means one thing or another depending on which invisible
+    # thing is pending is the ambiguity ADR-021's one-phrase rule exists to prevent,
+    # and the user has no way to see which of the two they just released.
+    # `test_mic_prompt.py` pins the two vocabularies as disjoint.
     "ignore": (
         "ignore",
         "ignore it",
         "ignore that",
         "dismiss",
-        "never mind",
-        "nevermind",
     ),
 }
 
