@@ -23,11 +23,11 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.21.0](v2.21.0.md)** — the things that were reported as working and were
-not: a CI job that could only ever be red, eleven tests skipped in every job, three
-packaging guards that passed by iterating an empty list, and a crashed daemon that
-stayed dead on Windows and macOS while the tray watched. Plus a `DOWNLOAD` column in
-`yazses features`, so a 3 GB capability says so before you enable it. Install it with:
+**[YazSes 2.22.0](v2.22.0.md)** — the builds that reported success and produced
+nothing: the Intel `.dmg` and the Windows ARM64 `.exe` had never once existed, and both
+build now. Five of the six ways YazSes starts itself could not work inside a bundle, so
+the tray, the overlay and Apply → Restart were silently dead in every `.app` and `.exe`.
+The macOS download is half the size. Install it with:
 
 ```sh
 pipx install yazses          # any OS, Python ≥ 3.11
@@ -36,6 +36,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.22.0](v2.22.0.md) — the Intel `.dmg` and ARM64 `.exe` exist for the first time; five launch paths that could not work in a bundle; the macOS download halves.
 - [v2.21.0](v2.21.0.md) — guards that passed by checking nothing; a crashed daemon that stayed dead on Windows; `yazses features` prices what it offers.
 - [v2.20.0](v2.20.0.md) — the Windows release that works: model download explains itself, the CLI is reachable, the icon ships.
 - [v2.19.0](v2.19.0.md) — About / Help / Check for updates in the tray; three commands rejoin the CLI reference; AUR + Fedora packages.

@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.22.0] - 2026-08-16
+
 ### Fixed — six ways YazSes starts itself, five of which could not work in a bundle
 
 The audit that followed the Windows Settings… bug, which was not a one-off. Every
