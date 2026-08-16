@@ -67,16 +67,77 @@ def transcribe_tool(config) -> ToolSpec:
     )
 
 
-def build_tools(config) -> tuple[ToolSpec, ...]:
-    """The tools this server offers.
+def ask_human_tool(config) -> ToolSpec:
+    """`ask_human(question, timeout_s)` — ask the person out loud, get their answer.
 
-    Only `transcribe` for now. ADR-020 specifies a second — `ask_human`, the one
-    genuinely novel thing here — and it needs the daemon, which owns the
-    microphone and knows whether the user is mid-hold. Listing it before it works
-    would be worse than not listing it: a model would call it, and a tool that
-    always fails teaches the model to stop trying.
+    Forwarded to the daemon over IPC rather than done here, because the daemon
+    owns the microphone, knows whether a hold is in progress, and owns the
+    injector that must not fire. This process owns none of those.
+
+    A refusal comes back as ordinary text rather than an exception: "you have used
+    this hour's questions" and "the user is speaking right now" are things a model
+    should read and act on, not transport failures.
     """
-    return (transcribe_tool(config),)
+    def _run(question: str, timeout_s: float = 30.0) -> str:
+        from yazses.ipc.client import IpcUnreachableError
+        from yazses.platform import get_platform
+
+        platform = get_platform()
+        client = platform.ipc_client_factory(platform.paths.ipc_socket)
+        try:
+            # `call` takes keyword params, not a dict — passing a dict makes it a
+            # positional argument and raises TypeError before the socket is
+            # touched. Caught by running it against the live daemon; the unit
+            # tests used a fake client that accepted anything.
+            reply = client.call(
+                "ask_human", question=question, timeout_s=timeout_s, caller="mcp"
+            )
+        except IpcUnreachableError:
+            return (
+                "YazSes is not running, so nobody can be asked. Start it with "
+                "`yazses start`."
+            )
+        if reply.get("ok"):
+            return str(reply.get("answer") or "")
+        reason = str(reply.get("reason") or "The question was not asked.")
+        wait = reply.get("retry_after_s")
+        return f"{reason}" + (f" (try again in about {round(float(wait))}s)" if wait else "")
+
+    return ToolSpec(
+        name="ask_human",
+        description=(
+            "Ask the person at this machine a question out loud and return their "
+            "spoken answer. Use it when you are stuck on a decision only a human "
+            "can make — authorisation, ambiguity, taste. Interrupts are rate-limited "
+            "and may be refused; read the reply rather than retrying."
+        ),
+        schema={
+            "type": "object",
+            "properties": {
+                "question": {"type": "string", "description": "Asked aloud, verbatim."},
+                "timeout_s": {
+                    "type": "number",
+                    "description": "How long to listen for an answer. Capped by the daemon.",
+                },
+            },
+            "required": ["question"],
+        },
+        run=_run,
+    )
+
+
+def build_tools(config) -> tuple[ToolSpec, ...]:
+    """The tools this server offers — ADR-020's two, and no more.
+
+    `ask_human` appears only when it is switched on. A tool that is listed and
+    always refuses teaches a model to stop calling it, which would waste the one
+    genuinely novel thing on offer; and off-by-default is the rule for every
+    feature here, doubly so for one that can interrupt someone.
+    """
+    tools = [transcribe_tool(config)]
+    if getattr(getattr(config, "mcp", None), "ask_human", False):
+        tools.append(ask_human_tool(config))
+    return tuple(tools)
 
 
 def serve(config, stdin: TextIO | None = None, stdout: TextIO | None = None) -> int:

@@ -88,3 +88,65 @@ def test_the_transcribe_schema_names_its_required_argument() -> None:
     schema = build_tools(Config())[0].schema
     assert schema["required"] == ["path"]
     assert "diarize" in schema["properties"]
+
+
+# --- ask_human appears only when switched on ---------------------------------
+
+
+def test_ask_human_is_offered_when_enabled() -> None:
+    cfg = Config()
+    object.__setattr__(cfg.mcp, "ask_human", True)
+    assert [t.name for t in build_tools(cfg)] == ["transcribe", "ask_human"]
+
+
+def test_ask_human_is_absent_by_default() -> None:
+    """Off by default like everything, and doubly so for a tool that can interrupt
+    someone. A listed tool that always refuses teaches a model to stop calling it."""
+    assert "ask_human" not in [t.name for t in build_tools(Config())]
+
+
+def test_the_ask_human_schema_requires_a_question() -> None:
+    cfg = Config()
+    object.__setattr__(cfg.mcp, "ask_human", True)
+    schema = [t for t in build_tools(cfg) if t.name == "ask_human"][0].schema
+    assert schema["required"] == ["question"]
+    assert "timeout_s" in schema["properties"]
+
+
+def test_a_stopped_daemon_is_reported_as_text_not_a_crash(monkeypatch) -> None:
+    """Nobody to ask is an ordinary answer for a model to read, not a transport
+    failure — and the server must survive it, since the client cannot restart it."""
+    from yazses.mcp import server as server_mod
+
+    cfg = Config()
+    object.__setattr__(cfg.mcp, "ask_human", True)
+    tool = [t for t in build_tools(cfg) if t.name == "ask_human"][0]
+
+    class _Down:
+        def call(self, *a, **k):
+            from yazses.ipc.client import IpcUnreachableError
+
+            raise IpcUnreachableError("not listening")
+
+    monkeypatch.setattr(
+        server_mod, "get_platform", lambda: _FakePlatform(_Down()), raising=False
+    )
+    import yazses.platform as platform_mod
+
+    monkeypatch.setattr(platform_mod, "get_platform", lambda: _FakePlatform(_Down()))
+    out = tool.run(question="ready?")
+    assert "not running" in out.lower()
+
+
+class _FakePlatform:
+    def __init__(self, client):
+        self._client = client
+
+    @property
+    def paths(self):
+        import types
+
+        return types.SimpleNamespace(ipc_socket="/tmp/nope.sock")
+
+    def ipc_client_factory(self, _socket):
+        return self._client

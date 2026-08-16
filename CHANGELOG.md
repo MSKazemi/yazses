@@ -6,6 +6,42 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — an agent can ask you a question out loud, and hear your answer
+
+ADR-020 decided that the genuinely novel thing YazSes can offer another agent is not
+transcription — it is **a human**. An agent stalled on a decision only a person can
+make has, until now, one route: put text on a screen and wait for someone to notice,
+read it, and type. Voice is the cheapest interrupt a working person can service,
+because it needs neither their eyes nor their hands.
+
+`ask_human(question, timeout_s)` is now the MCP server's second tool. It speaks the
+question, listens for the spoken answer, and hands it back to the calling agent.
+
+**Off by default**, and it stays that way until `[mcp] ask_human = true`. It is not
+even listed until then: a tool that is offered and always refuses teaches a model to
+stop calling it.
+
+The restraints are the feature, not decoration — ADR-020 says it "ships with these,
+or does not ship":
+
+- **A budget.** `[mcp] ask_human_per_hour` (default 3), shared across every caller
+  because it protects the person rather than each agent's fair share. Nothing a
+  caller does earns another slot; a refusal says when the next one frees.
+- **Never during a hold.** If you are mid-sentence the daemon knows, and the question
+  waits — without costing the agent a slot, since that would punish it for your timing.
+- **The caller is named** in what is spoken, so "who is asking" is never ambiguous.
+- **The answer goes back to the caller, never into the focused window.** This is why
+  it lives in the daemon rather than the MCP server: the daemon owns the microphone,
+  knows about the hold, and owns the injector that must not fire.
+- **A question that could not be asked costs nothing** — no speakers, a busy device,
+  or you walked away. An agent should not lose its hour to a question nobody heard.
+
+Silence is reported as silence rather than as an empty answer, because "they said
+nothing meaningful" and "they never answered" are different facts an agent will act
+on differently. A caller's timeout is capped at two minutes: an agent asking for an
+hour is holding the microphone hostage.
+
+
 ### Added — the microphone and the silence threshold are in the settings window too
 
 The remaining two settings that are values rather than switches. `settingsui/controls.py`

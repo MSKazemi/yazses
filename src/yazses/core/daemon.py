@@ -788,6 +788,7 @@ class Daemon:
         server.register("meeting_status", self._handle_meeting_status)
         server.register("pin_mic", self._handle_pin_mic)
         server.register("recalibrate_mic", self._handle_recalibrate_mic)
+        server.register("ask_human", self._handle_ask_human)
         server.serve_in_thread()
         self._ipc_server = server
 
@@ -3440,6 +3441,87 @@ class Daemon:
         correction = params.get("correction")
         flagged = self._corpus.mark_last_wrong(correction)
         return {"ok": flagged}
+
+    def _handle_ask_human(self, request: Request) -> dict[str, object]:
+        """Ask the user a question out loud on an agent's behalf (ADR-020 §1, §4).
+
+        Lives here rather than in the MCP server because this process owns the
+        three things the feature turns on: the microphone, the knowledge of
+        whether a hold is in progress, and the injector that must **not** fire —
+        the answer travels back to the caller and is never typed into whatever the
+        user had open.
+
+        Every refusal is returned as data, never raised: the caller is an agent on
+        the other side of a JSON-RPC socket, and it needs the reason to decide
+        whether to ask again.
+        """
+        from yazses.mcp.ask import AskHumanService, Refusal
+
+        params = request.params if isinstance(request.params, dict) else {}
+        question = str(params.get("question") or "")
+        caller = str(params.get("caller") or "an agent")
+        timeout_s = float(params.get("timeout_s") or 30.0)
+
+        service = AskHumanService(
+            speaker=self._ask_human_speaker(),
+            listener=self._ask_human_listener,
+            max_per_hour=self._config.mcp.ask_human_per_hour,
+            enabled=self._config.mcp.ask_human,
+            # A hold means the user is speaking right now. `_state.state` is the
+            # same field the tray reads, so this cannot drift from what the user
+            # sees.
+            is_holding=lambda: self._state.state == TrayState.RECORDING,
+            clock=time.monotonic,
+        )
+        try:
+            return {"ok": True, "answer": service.ask(question, caller=caller, timeout_s=timeout_s)}
+        except Refusal as refusal:
+            return {
+                "ok": False,
+                "reason": str(refusal),
+                "retry_after_s": refusal.retry_after_s,
+                "deferred": refusal.deferred,
+            }
+
+    def _ask_human_speaker(self):
+        """The TTS backend, or one that raises if speech is unavailable.
+
+        Raising is right: a question the user never heard must not be recorded as
+        asked, and `AskHumanService` turns the failure into a refusal that does not
+        spend the caller's budget.
+        """
+        tts = getattr(self, "_tts", None)
+        if tts is not None:
+            return tts
+
+        class _Unavailable:
+            def speak(self, text: str) -> None:
+                raise RuntimeError(
+                    "no text-to-speech backend is configured "
+                    "(`yazses features enable read-back` installs one)"
+                )
+
+        return _Unavailable()
+
+    def _ask_human_listener(self, timeout_s: float) -> str:
+        """Record one answer and transcribe it, **without touching the injector**.
+
+        Uses the recorder's own start/stop rather than the hold-to-talk path on
+        purpose: `_on_hold_end` is where transcription becomes typing, and this
+        answer must reach the caller instead. Reusing it would type the user's
+        reply into whatever window happened to be focused.
+
+        The recorder is always stopped, including on failure — leaving the stream
+        open would hold the microphone against the next real dictation.
+        """
+        self._recorder.start()
+        try:
+            time.sleep(max(1.0, float(timeout_s)))
+        finally:
+            audio = self._recorder.stop()
+        if audio is None or not len(audio):
+            return ""
+        return (self._engine.transcribe(audio) or "").strip()
 
     # ---- Signals & helpers -------------------------------------------------
 

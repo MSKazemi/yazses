@@ -820,6 +820,13 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 |---|---|---|
 | `enabled` | bool | `false` |
 
+## `[mcp]`
+
+| Key | Type | Default |
+|---|---|---|
+| `ask_human` | bool | `false` |
+| `ask_human_per_hour` | int | `3` |
+
 ## `[recimport]`
 
 | Key | Type | Default |

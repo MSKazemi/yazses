@@ -1257,15 +1257,27 @@ Point an MCP client at it:
 {"command": "yazses", "args": ["mcp-server"]}
 ```
 
-| Tool | What it does |
-|---|---|
-| `transcribe(path, diarize=false)` | Turn an audio or video file into text, entirely on this machine. Nothing is uploaded. |
+| Tool | What it does | Offered when |
+|---|---|---|
+| `transcribe(path, diarize=false)` | Turn an audio or video file into text, entirely on this machine. Nothing is uploaded. | always |
+| `ask_human(question, timeout_s)` | Ask **you** a question out loud and return your spoken answer. | `[mcp] ask_human = true` |
 
-One tool today. ADR-020 specifies a second — `ask_human`, an agent asking you a
-question **out loud** and getting your spoken answer back — which needs the daemon
-(it owns the microphone and knows when you are mid-sentence). It is not offered
-yet rather than offered and broken: a listed tool that always fails teaches a model
-to stop calling it.
+`ask_human` is the reason this exists. An agent stuck on a decision only a person
+can make otherwise has to put text on a screen and wait to be noticed; speaking is
+the cheapest interrupt you can service, because it needs neither your eyes nor your
+hands.
+
+It is **off by default** and not even listed until you enable it — a tool that is
+offered and always refuses teaches a model to stop calling it. When on:
+
+- **`[mcp] ask_human_per_hour`** (default 3) is a budget shared by every caller, so
+  it limits interruptions to *you* rather than per agent. Nothing a caller does
+  earns another slot.
+- Nothing is spoken **while you are dictating**; the question waits, and costs the
+  agent nothing.
+- The caller is **named** in what is spoken.
+- Your answer goes **back to the agent** and is never typed into the window you had
+  open.
 
 ### `yazses remote`
 

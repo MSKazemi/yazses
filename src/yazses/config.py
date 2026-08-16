@@ -1219,6 +1219,28 @@ class ShellpipeConfig:
 
 
 @dataclass
+class McpConfig:
+    """Being callable by another agent over MCP (ADR-020). Off by default.
+
+    Two tools and only two. `transcribe` reads a file the caller already has and
+    returns text — it touches no microphone and no window, so it needs no
+    permission beyond running the server at all.
+
+    `ask_human` is the one with restraints, because an agent that can speak to you
+    at will is an agent that can interrupt you at will. ADR-020 §4 makes the
+    interrupt budget a condition of the feature existing rather than a setting:
+    `ask_human_per_hour = 0` keeps the tool listed and always refusing, which is
+    different from the tool being absent — the caller learns *why*.
+    """
+
+    #: Offer `ask_human` at all. `yazses mcp-server` always offers `transcribe`.
+    ask_human: bool = False
+    #: Spoken questions allowed per rolling hour, shared across every caller — it
+    #: protects the person, not each agent's fair share. 0 = never.
+    ask_human_per_hour: int = 3
+
+
+@dataclass
 class RecimportConfig:
     """Recording Import — offline batch file transcription with speaker attribution.
 
@@ -1710,6 +1732,7 @@ class Config:
     fileopen: FileopenConfig = field(default_factory=FileopenConfig)
     jump: JumpConfig = field(default_factory=JumpConfig)
     shellpipe: ShellpipeConfig = field(default_factory=ShellpipeConfig)
+    mcp: McpConfig = field(default_factory=McpConfig)
     recimport: RecimportConfig = field(default_factory=RecimportConfig)
     meeting: MeetingConfig = field(default_factory=MeetingConfig)
     crowdproof: CrowdproofConfig = field(default_factory=CrowdproofConfig)

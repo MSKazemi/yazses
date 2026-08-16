@@ -57,10 +57,6 @@ KNOWN_ORPHANS = {
     "activation.pipeline":
         "Its own docstring says the daemon wires the real classify/dispatch/confirm "
         "into it. The daemon does not.",
-    "mcp.budget":
-        "The ask_human interrupt budget (ADR-020 §4), committed ahead of the tool "
-        "it guards. mcp/server.py does not import it because ask_human is not "
-        "offered yet — deliberate, and still an orphan until it is.",
     "gaze.implicit":
         "gaze is wired through targeter/route/zones; this module is not on that path.",
     "personalize.adapter_gate":
@@ -166,6 +162,6 @@ def test_every_ledger_entry_says_what_is_missing() -> None:
 def test_the_ledger_does_not_grow_unnoticed() -> None:
     """A ceiling on the debt itself. Raising it is a deliberate edit with a diff,
     which is the point — it makes 'we added another orphan' visible in review."""
-    assert len(KNOWN_ORPHANS) <= 9, (
+    assert len(KNOWN_ORPHANS) <= 8, (
         f"{len(KNOWN_ORPHANS)} known orphans. Wire one before adding another."
     )
