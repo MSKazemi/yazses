@@ -17,6 +17,7 @@ that a `.md` link can escape the published set just as easily.
 from __future__ import annotations
 
 import importlib.util
+import re
 from pathlib import Path
 
 import pytest
@@ -166,3 +167,69 @@ def test_a_status_is_trimmed_to_its_first_clause(hook, tmp_path):
     path = tmp_path / "adr.md"
     path.write_text("# T\n\n**Status:** Accepted (2026-08-15) · Wave Z\n", encoding="utf-8")
     assert hook._status_of(path) == "Accepted"
+
+
+# --- the reverse direction: docs/ linking INTO design/ ------------------------
+
+
+def test_docs_pages_link_into_design_by_absolute_url_not_relative_path():
+    """The convention looks like a mistake and is not. Do not "fix" it.
+
+    The design tier is published to the site, so a link from `docs/` to `design/`
+    looks as though it should be a plain relative path. Whether that works depends on
+    **how deep the docs page sits**, and it fails silently at the shallow end:
+
+    * `docs/research/x.md` -> `site/research/x.html`; `../design/y.md` resolves to
+      `site/design/y.html`, and mkdocs rewrites the extension. Correct.
+    * `docs/faq.md` -> `site/faq.html`; `../design/y.md` points *outside the site
+      root*. Measured: mkdocs warns "the target is not found among documentation
+      files" — so it fails `--strict` — and emits the href unrewritten, still `.md`.
+
+    So a relative link is right on some pages and broken on others, which is the
+    worst available property. An absolute `blob/main/...` URL is the one form that
+    works from every docs page, on the site **and** in the GitHub rendering of the
+    same file, and it is why all 21 of these links are written that way.
+
+    This test exists because the convention reads as leftover from before the design
+    tier was published, and the obvious tidy-up ships broken links on exactly the
+    pages nobody thinks to check.
+    """
+    docs = ROOT / "docs"
+    pages = sorted(docs.rglob("*.md"))
+    assert len(pages) > 20, "no docs pages found — this guard would be vacuous"
+
+    offenders: list[str] = []
+    for page in pages:
+        text = page.read_text(encoding="utf-8")
+        for match in re.finditer(r"\]\((\.\./[^)]*design/[^)]+)\)", text):
+            offenders.append(f"{page.relative_to(ROOT)} -> {match.group(1)}")
+
+    assert not offenders, (
+        "these docs pages link into design/ with a relative path. That resolves only "
+        "from a page one directory deep; from a top-level page it points outside the "
+        "site root, fails --strict, and is emitted without the .md->.html rewrite. "
+        "Use https://github.com/MSKazemi/yazses/blob/main/design/... instead:\n  "
+        + "\n  ".join(offenders)
+    )
+
+
+def test_the_design_links_that_do_exist_point_at_files_that_exist():
+    """An absolute URL is not checked by anything — mkdocs treats it as external and
+    the link checker only runs on a schedule. A blob link to a renamed ADR is a 404
+    that nothing in the normal gate would catch."""
+    docs = ROOT / "docs"
+    dead: list[str] = []
+    for page in sorted(docs.rglob("*.md")):
+        text = page.read_text(encoding="utf-8")
+        for match in re.finditer(
+            r"https://github\.com/MSKazemi/yazses/blob/main/(design/[A-Za-z0-9/._-]+)", text
+        ):
+            target = ROOT / match.group(1)
+            # A bare directory link (…/design/adr/) is legitimate.
+            if match.group(1).endswith("/"):
+                if not target.is_dir():
+                    dead.append(f"{page.relative_to(ROOT)} -> {match.group(1)}")
+            elif not target.exists():
+                dead.append(f"{page.relative_to(ROOT)} -> {match.group(1)}")
+
+    assert not dead, "docs pages link to design files that do not exist:\n  " + "\n  ".join(dead)
