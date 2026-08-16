@@ -98,8 +98,20 @@ jobs:
             have_dmg=$(grep -c '\.dmg$'  <<<"$names" || true)
             have_exe=$(grep -c '\.exe$'  <<<"$names" || true)
             echo "deb=$have_deb dmg=$have_dmg exe=$have_exe (${SECONDS}s elapsed)"
-            if (( have_deb > 0 && have_dmg > 0 && have_exe > 0 )); then
-              echo "All expected assets present."
+            # TWO of each, not one. Every architecture ships its own bundle now --
+            # amd64/arm64 .deb, arm64/x86_64 .dmg, x64/arm64 .exe -- and "at least
+            # one" was accurate only while the cross-architecture legs were failing.
+            # With them building, one-of-each lets this proceed the moment the
+            # primary architecture lands, so SHA256SUMS.txt could be generated
+            # before the second bundle attaches and would omit it permanently:
+            # the file users verify against would silently not cover their download.
+            #
+            # Falling short is not fatal. The loop simply runs to its deadline and
+            # the job proceeds with whatever exists, which is the old behaviour --
+            # so a regressed advisory leg costs waiting, never the release. The
+            # printed counts say which one was missing.
+            if (( have_deb > 1 && have_dmg > 1 && have_exe > 1 )); then
+              echo "All expected assets present (both architectures of each)."
               break
             fi
             sleep 60
