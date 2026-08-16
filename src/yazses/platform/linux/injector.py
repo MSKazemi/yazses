@@ -26,10 +26,31 @@ class LinuxInjector:
     back to clipboard-paste if that backend fails at runtime.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, fallback_to_clipboard: bool | None = None) -> None:
+        """*fallback_to_clipboard* ``None`` reads ``YAZSES_INJECT_FALLBACK``.
+
+        `[injection] fallback_to_clipboard` has been documented and defaulted to
+        true since injection shipped -- it appears in seventeen places across the
+        docs and the example configs people copy -- and nothing read it. The
+        fallback was built unconditionally, so a user who turned it off was
+        silently overruled.
+
+        Turning it off is a real remedy, not a preference. `xdotool.py` records the
+        failure: a timeout can fire *after* xdotool has already typed part of the
+        text, this class reads that as "the backend is broken", the clipboard paste
+        types the text a second time, and the streaming commit then deletes a span
+        computed from the first copy. Someone who has met that wants the primary
+        backend to fail loudly instead.
+        """
+        if fallback_to_clipboard is None:
+            fallback_to_clipboard = (
+                os.environ.get("YAZSES_INJECT_FALLBACK", "1").strip().lower()
+                not in {"0", "false", "no", "off"}
+            )
         self._primary: BaseInjector = get_injector()
-        self._fallback: ClipboardInjector | None
-        self._fallback = None if isinstance(self._primary, ClipboardInjector) else ClipboardInjector()
+        self._fallback: ClipboardInjector | None = None
+        if fallback_to_clipboard and not isinstance(self._primary, ClipboardInjector):
+            self._fallback = ClipboardInjector()
         self._is_wayland = bool(os.environ.get("WAYLAND_DISPLAY"))
 
     def inject(self, text: str) -> None:

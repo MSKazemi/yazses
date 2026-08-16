@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `[injection] fallback_to_clipboard` was documented and read by nothing
+
+`LinuxInjector` built its clipboard fallback unconditionally. The setting appears in
+**seventeen** places across the docs and the example configs people copy, defaults
+to `true`, and no code ever looked at it — so anyone who turned it off was silently
+overruled.
+
+Turning it off is a remedy, not a preference. `inject/xdotool.py` already records
+the failure it answers: a timeout can fire *after* xdotool has typed part of the
+text, `LinuxInjector` reads that as "the backend is broken", the clipboard paste
+types the text a second time, and the streaming commit then deletes a span computed
+from the first copy. Someone who has met that wants the primary backend to fail
+loudly instead — and asked for exactly that, in writing, to no effect.
+
+Bridged through an environment variable the way `[injection] backend` already is,
+for the reason that bridge gives in its own comment: no platform factory signature
+has to move, and non-Linux platforms ignore it.
+
+Found by sweeping every config field for ones never named outside `config.py`. Of
+432 fields, 32 are never referenced; most belong to capabilities honestly listed as
+*planned — not yet wired*, where that is expected rather than a defect.
+
+
 ### Fixed — `[learning] retention_days` and `max_corpus_mb` did nothing
 
 `CorpusStore.prune()` has existed since the learning corpus shipped, with its own

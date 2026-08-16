@@ -595,6 +595,11 @@ class Daemon:
         backend = (self._config.injection.backend or "auto").strip().lower()
         if backend and backend != "auto":
             os.environ["YAZSES_INJECTOR"] = backend
+        # Same bridge for [injection] fallback_to_clipboard, which was documented,
+        # defaulted to true, and read by nothing -- so turning it off did nothing.
+        os.environ["YAZSES_INJECT_FALLBACK"] = (
+            "1" if self._config.injection.fallback_to_clipboard else "0"
+        )
         self._injector = self._platform.injector_factory()
         log.info("Injection backend: %s", self._injection_backend_name())
 
