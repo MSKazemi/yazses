@@ -165,6 +165,12 @@ def _registry() -> list[_Def]:
     # decides whether the question can be answered without a pointer, and it
     # consumes an utterance so it must be opted into on its own.
     mva_on, mva_off = _bool("audio", "voice_answer")
+    # Reduced motion is tri-state, not a boolean, so disabling restores "auto"
+    # (follow the desktop) rather than writing "off". Forcing full animation on a
+    # user whose desktop asked for less would be a different opinion, not an off
+    # switch -- the same reasoning as `chinese-script` above.
+    rm_on = (("overlay", "reduced_motion", "on", True),)
+    rm_off = (("overlay", "reduced_motion", "auto", True),)
     uc_on, uc_off = _bool("general", "update_check")
     pe_on, pe_off = _bool("personalize")
     co_on, co_off = _bool("cocktail")
@@ -347,6 +353,15 @@ def _registry() -> list[_Def]:
              "because it consumes a burst that would otherwise be typed; the whole "
              "utterance must be the answer, and only within 45s of the toast.",
              lambda c: bool(getattr(c.audio, "voice_answer", False)), mva_on, mva_off),
+        _Def("overlay-reduced-motion", "Overlay: reduced motion",
+             "[overlay] reduced_motion", OPTIONAL,
+             "Stops the overlay's rings travelling: one steady ring while you speak, "
+             "brightness in discrete steps. The default is \"auto\", which already "
+             "follows GNOME/macOS/Windows' own reduce-animations setting -- enable this "
+             "only if your desktop has no such setting YazSes can read (KDE, Xfce, a "
+             "bare WM). Disabling restores \"auto\", not full motion.",
+             lambda c: getattr(c.overlay, "reduced_motion", "auto") == "on",
+             rm_on, rm_off),
         _Def("update-check", "Update check", "[general] update_check", OPTIONAL,
              "Tells you once when a newer YazSes is released, with the exact steps "
              "to update. OFF by default and the only thing here that touches the "
@@ -1007,6 +1022,7 @@ _SLUG_PACKAGES: dict[str, tuple[str, ...]] = {
     "target-guard": ("inject",),     # inject/target.py
     "mic-guard": ("audio",),         # audio/device_monitor.py
     "mic-voice-answer": ("audio",),  # audio/mic_prompt.py, wired in daemon._on_hold_end
+    "overlay-reduced-motion": ("overlay",),  # overlay/motion.py
     "update-check": ("system",),     # system/update_notify.py, wired in core/daemon.py
     "dysfluency": ("stt",),          # stt/filters/disfluency.py
     "punch-in": ("postprocess",),    # postprocess/punch_in.py
@@ -1210,6 +1226,7 @@ _EXAMPLES: dict[str, str] = {
     "mousegrid": "Say a grid number to move the cursor, then 'click'.",
     "mic-guard": "Plug in a USB-C monitor; YazSes notices the mic switched and pops a fix.",
     "mic-voice-answer": "The mic-switch toast appears; say \"pin this mic\" instead of reaching for the mouse.",
+    "overlay-reduced-motion": "The rings stop travelling; one steady ring shows the mic is live.",
     "update-check": "A new release lands; you get one toast with the command to install it.",
     "tray": "Click the top-bar mic icon → pick a microphone or re-calibrate, no terminal.",
     "target-guard": "Dictate with no text box focused → it's copied to the clipboard, not lost.",
@@ -1370,6 +1387,7 @@ _USE_CASES: dict[str, str] = {
     "mousegrid": "When you need to click somewhere no accessibility tree exists and want to do it hands-free.",
     "mic-guard": "When plugging in a monitor/headset silently switches your mic and dictation stops working with no clue why.",
     "mic-voice-answer": "When you cannot (or would rather not) use a pointer, and a toast asking about your microphone is the one thing you cannot answer hands-free.",
+    "overlay-reduced-motion": "When moving things on screen make you unwell and your desktop has no reduce-animations setting YazSes can read.",
     "update-check": "When you'd rather be told a fix has shipped than remember to run `yazses update` yourself.",
     "tray": "When you'd rather click a top-bar icon to switch mics or restart than remember terminal commands.",
     "target-guard": "When you sometimes speak before clicking into a text field and your words vanish into the wrong window.",
@@ -1458,6 +1476,7 @@ _CATEGORIES: dict[str, str] = {
     "contour": CAT_ACCESS, "earcon": CAT_ACCESS, "srpace": CAT_ACCESS,
     "echo": CAT_ACCESS, "proofback": CAT_ACCESS, "read-back": CAT_ACCESS,
     "mic-voice-answer": CAT_ACCESS,
+    "overlay-reduced-motion": CAT_ACCESS,
     "readback_clone": CAT_ACCESS, "voicehealth": CAT_ACCESS, "loadguard": CAT_ACCESS,
     "voicetimer": CAT_ACCESS, "spatialvad": CAT_ACCESS, "modality": CAT_ACCESS,
     "gaze": CAT_ACCESS, "mousegrid": CAT_ACCESS,

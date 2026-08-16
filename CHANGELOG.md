@@ -65,6 +65,12 @@ The desktop is asked once at overlay startup, never on the render tick, and the
 probe never raises: an indicator that failed to appear because a settings key could
 not be read would be a worse bug than the one this fixes.
 
+Both accessibility settings are listed by `yazses features` (`mic-voice-answer`,
+`overlay-reduced-motion`) rather than living only in prose. An opt-in accessibility
+capability nobody can find is one nobody switches on. Disabling `overlay-reduced-motion`
+restores `auto` rather than writing `off` — overriding a user whose desktop asked for
+less motion is a different opinion, not an off switch.
+
 ### Added — an example config must say what was observed, not what should work
 
 `examples/config.<app>.toml` files are copied verbatim by newcomers, so a wrong one

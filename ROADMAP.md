@@ -16,7 +16,7 @@ Windows `.exe`, macOS `.dmg`, and Debian `.deb` installers attached to the GitHu
 release workflows fire on `v*` tags). The v2 line is delivered as a long series of research
 waves, each a fresh state-of-the-art sweep → ADRs → pure, 100%-covered, off-by-default cores.
 
-On `main` (v2.22.0 plus the unreleased frontier): **146 capabilities (84 wired / 62 honestly
+On `main` (v2.22.0 plus the unreleased frontier): **147 capabilities (85 wired / 62 honestly
 marked "planned")**, **4300+ tests green**, ADRs `adr-v2-001..131`, and the per-wave
 state-of-the-art research notes. The counts come from the feature registry
 (`yazses.system.features`) and from running the suite, not from counting by hand — every one
