@@ -6,6 +6,31 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the test suite was writing into the user's real diagnostic log
+
+`yazses logs` prints `~/.local/state/yazses/log/daemon.log`, and `yazses report`
+bundles a tail of it into bug reports. Running the test suite put **44 KB** of test
+output there per run: fake recorders, deliberately invalid backends, and injected
+`OSError`s with tracebacks pointing into `tests/`. Anyone reading that log to
+diagnose a real fault would find `Microphone unavailable` and `uv is gone` and have
+no way to know none of it happened to them.
+
+The mechanism is that `Daemon.run()` attaches a `RotatingFileHandler` to the **root**
+logger and never removes it, so a single test calling the real `run()` redirected
+every later test in the session into the file. Two such tests lived in the same
+file, and the second was only found after the first was fixed.
+
+Separately, `_configure_logging` was not idempotent: a second call added a second
+handler on the same file, so every line was written twice and the 1 MB rotation
+threshold arrived twice as fast — halving how much history a bug report can carry.
+It now returns early if the root logger already has that file.
+
+Guarded rather than fixed case by case: an autouse fixture fails any test that
+leaves a file handler on the root logger, and removes it so one careless test
+cannot take the rest of the session with it. Verified by measurement — a full run
+moved the real log 44 KB before, 0 bytes after.
+
+
 ### Fixed — `doctor` said "Good to go" about a daemon running an older build
 
 Upgrading replaces the files on disk. It does not touch a process that is already

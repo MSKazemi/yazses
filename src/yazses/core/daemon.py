@@ -3633,15 +3633,23 @@ class Daemon:
         from logging.handlers import RotatingFileHandler
 
         log_dir = self._platform.paths.log_dir
+        target = log_dir / "daemon.log"
+        # Adding to the root logger is additive and permanent, so a second call
+        # writes every line twice and reaches the 1 MB rotation threshold twice as
+        # fast -- halving how much history a bug report can carry. Measured: one
+        # call gave one handler, two calls gave two, both on the same file.
+        root = logging.getLogger()
+        for existing in root.handlers:
+            if getattr(existing, "baseFilename", None) == str(target.absolute()):
+                existing.setLevel(level)
+                return
         try:
             log_dir.mkdir(parents=True, exist_ok=True)
-            handler = RotatingFileHandler(
-                log_dir / "daemon.log", maxBytes=1_000_000, backupCount=3
-            )
+            handler = RotatingFileHandler(target, maxBytes=1_000_000, backupCount=3)
             handler.setFormatter(logging.Formatter(fmt))
             handler.setLevel(level)
             logging.getLogger().addHandler(handler)
-            log.info("Logging to %s", log_dir / "daemon.log")
+            log.info("Logging to %s", target)
         except OSError as exc:
             log.warning("Could not open log file in %s: %s", log_dir, exc)
 

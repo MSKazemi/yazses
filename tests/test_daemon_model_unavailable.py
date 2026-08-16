@@ -92,6 +92,12 @@ def test_run_catches_the_error_instead_of_letting_it_escape(mocker):
     """The regression itself: a raising _build_pipeline must not propagate out
     of run(), because nothing above it can render an exception usefully."""
     d = _daemon()
+    # Not incidental: the real one attaches a RotatingFileHandler to the ROOT
+    # logger pointing at the user's actual ~/.local/state/yazses log, and never
+    # removes it -- so every later test in the session logged into it. One full
+    # run put 44 KB of fake recorders and deliberate OSErrors into the file
+    # `yazses logs` shows and `yazses report` bundles.
+    mocker.patch.object(d, "_configure_logging")
     mocker.patch.object(d, "_acquire_instance_lock", return_value=True)
     mocker.patch.object(d, "_install_signal_handlers")
     mocker.patch.object(d, "_start_ipc_server")
@@ -115,6 +121,8 @@ def test_an_unexpected_error_is_still_not_swallowed(mocker):
     import pytest
 
     d = _daemon()
+    mocker.patch.object(d, "_configure_logging")  # see the note above: real
+    # logging attaches a root handler on the user\'s actual log and never removes it.
     mocker.patch.object(d, "_acquire_instance_lock", return_value=True)
     mocker.patch.object(d, "_install_signal_handlers")
     mocker.patch.object(d, "_start_ipc_server")
