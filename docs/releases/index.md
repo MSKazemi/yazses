@@ -23,11 +23,11 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.23.0](v2.23.0.md)** — the accessibility product that ignored your
-accessibility settings: the overlay animated straight through your desktop's
-reduce-motion switch while this documentation site honoured it, and the mic guard asked
-a question about your microphone that only a pointer could answer. Both fixed, both
-listed in `yazses features`. An example config must now say what was *observed*.
+**[YazSes 2.24.0](v2.24.0.md)** — the settings that were documented and read by
+nothing: the learning corpus ignored its own retention and size limits (measured at
+1292 MB against a 500 MB cap), `yazses report` leaked your account name into a bundle
+meant for public issues, and the privacy statement described an editor-context data
+flow that never existed. Plus a `doctor` that called a stale daemon healthy.
 Install it with:
 
 ```sh
@@ -37,6 +37,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.24.0](v2.24.0.md) — two privacy controls that never ran; a report that leaked your account name; a doctor that called a stale daemon healthy.
 - [v2.23.0](v2.23.0.md) — the overlay ignored your desktop's reduce-motion setting; the mic guard's question could only be answered with a pointer.
 - [v2.22.0](v2.22.0.md) — the Intel `.dmg` and ARM64 `.exe` exist for the first time; five launch paths that could not work in a bundle; the macOS download halves.
 - [v2.21.0](v2.21.0.md) — guards that passed by checking nothing; a crashed daemon that stayed dead on Windows; `yazses features` prices what it offers.

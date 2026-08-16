@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.24.0] - 2026-08-17
+
 ### Fixed — the docs described two pipeline stages that do not exist
 
 `grammar.classify()` accepts an `slm_router` argument and **nothing constructs
