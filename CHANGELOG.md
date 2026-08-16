@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — an example config must say what was observed, not what should work
+
+`examples/config.<app>.toml` files are copied verbatim by newcomers, so a wrong one
+costs more than no one at all. Three checks already guarded them: valid TOML, every
+key resolving to a real field on a real section, and an opening comment. All three
+pass just as happily on a profile nobody ran — valid TOML, real keys, real values
+and a header can be written without the application ever being opened, and that is
+the failure the task issues warn about in as many words.
+
+The 14 app profiles in the tree already record what was seen, several with the
+dictated and arrived text side by side. Nothing enforced it. `check-app-profile.py`
+and the test suite now do, with `config.example.toml` (the generic template) and
+`config.terminal.toml` (a per-use-case example) exempt by name, because neither
+names an application to have been observed in.
+
+The check lives in the script rather than only in the suite, and that placement is
+the point. A fork PR from a first-time contributor arrives with every real workflow
+held at `action_required`, so the suite cannot see the file until a maintainer
+clears it; the script runs on the contributor's own machine, while they can still
+fix it. It cannot detect a fabricated marker word and does not claim to — it makes
+the requirement mechanical rather than remembered.
+
 ## [2.22.0] - 2026-08-16
 
 ### Fixed — six ways YazSes starts itself, five of which could not work in a bundle

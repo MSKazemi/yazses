@@ -14,6 +14,7 @@ section — installs cleanly, starts cleanly, and silently does nothing.
 
 from __future__ import annotations
 
+import importlib.util
 import tomllib
 from pathlib import Path
 
@@ -26,6 +27,23 @@ EXAMPLES = ROOT / "examples"
 
 # config.toml is the generated one; test_example_config.py owns it.
 APP_CONFIGS = sorted(p for p in EXAMPLES.glob("config.*.toml") if p.name != "config.toml")
+
+# The exemption list and the marker words live in the checker script, not here.
+# That script is the one a contributor runs before opening the PR — and on a fork PR
+# from a first-time contributor it is the *only* one that runs, because every real
+# workflow is held at `action_required` until a maintainer clears it. Two copies of
+# this list would drift, and the copy that reaches the contributor is the one that
+# matters, so this reads that one.
+_CHECKER = ROOT / "scripts" / "check-app-profile.py"
+_spec = importlib.util.spec_from_file_location("check_app_profile", _CHECKER)
+assert _spec and _spec.loader
+check_app_profile = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(check_app_profile)
+
+GENERIC_EXAMPLES = check_app_profile.GENERIC_EXAMPLES
+EVIDENCE_MARKERS = check_app_profile.EVIDENCE_MARKERS
+
+APP_PROFILES = [p for p in APP_CONFIGS if p.name not in GENERIC_EXAMPLES]
 
 
 def test_there_are_app_configs_to_check():
@@ -62,6 +80,65 @@ def test_it_explains_itself(path: Path):
     text = path.read_text(encoding="utf-8")
     assert text.startswith("#"), f"{path.name} does not open with a comment header"
     assert text.endswith("\n"), f"{path.name} has no trailing newline"
+
+
+def test_the_generic_examples_still_exist():
+    """Pins the exemption list against a rename.
+
+    If one of these files is renamed the entry becomes dead weight, and the reason
+    written beside it stops being true of anything.
+    """
+    missing = sorted(n for n in GENERIC_EXAMPLES if not (EXAMPLES / n).exists())
+    assert not missing, f"exempted example(s) no longer exist: {missing}"
+
+
+def test_there_are_app_profiles_to_check():
+    """Guards the filter above: an empty parametrize list passes silently."""
+    assert APP_PROFILES, "every example was treated as generic -- the evidence guard is blind"
+
+
+@pytest.mark.parametrize("path", APP_PROFILES, ids=lambda p: p.name)
+def test_it_records_what_was_observed(path: Path):
+    """An app profile must say what was seen, not what should work.
+
+    Every check above this one passes just as happily on a *plausible* profile as
+    on a real one: valid TOML, real keys, real values, and a comment header can all
+    be produced without the application ever being opened. That is the failure the
+    task issues warn about in as many words -- "a generated config that nobody
+    tested is worse than none, because the next person trusts it" -- and until this
+    test nothing in the gate could tell the two apart.
+
+    It still cannot tell them apart, and should not be read as if it could: a
+    marker word is cheap to add. What it does is make the requirement mechanical
+    and visible at review time instead of remembered, the same job the header check
+    does. All 14 app profiles already met it when it was written.
+    """
+    assert check_app_profile.records_evidence(path.read_text(encoding="utf-8")), (
+        f"{path.name} never says what was observed in the running application. "
+        f"Record it in a comment -- what you dictated and what arrived, as the "
+        f"other profiles do -- using one of: {', '.join(EVIDENCE_MARKERS)}."
+    )
+
+
+def test_the_evidence_check_can_actually_fail(tmp_path: Path):
+    """Red-green guard: a schema-clean but unevidenced profile must be rejected.
+
+    Modelled on a real one. PR #309 proposed an `examples/config.logseq.toml` whose
+    every section was invented, so it was caught earlier by the TOML and schema
+    checks; this is the same file after those two are satisfied, which is what the
+    next attempt looks like.
+    """
+    plausible = tmp_path / "config.plausible.toml"
+    plausible.write_text(
+        "# examples/config.plausible.toml\n"
+        "# A YazSes setup for dictating into Plausible.\n\n"
+        '[hotkey]\nkey = "right_ctrl"\n',
+        encoding="utf-8",
+    )
+    assert not load_config_checked(plausible).problems, "fixture should be schema-clean"
+    assert not check_app_profile.records_evidence(plausible.read_text(encoding="utf-8")), (
+        "a profile with no observation passed the evidence check -- the guard above is inert"
+    )
 
 
 def test_the_problem_check_can_actually_fail(tmp_path: Path):
