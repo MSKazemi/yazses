@@ -21,11 +21,16 @@ htmlcov/
 site/
 .cache/
 
-# Snap build artifacts
-stage/
-prime/
-parts/
-overlay/
+# Snap build artifacts. Anchored to the repository root with a leading slash:
+# an unanchored `overlay/` matches a directory of that name at ANY depth, and it
+# was silently swallowing `src/yazsesoverlay/` — the shipped voice-activity
+# overlay package. Tracked files there were unaffected, so nothing looked wrong,
+# but a NEW file added to that package never appeared in `git status` at all.
+# `parts/` and `stage/` are common enough words to deserve the same treatment.
+/stage/
+/prime/
+/parts/
+/overlay/
 *.snap
 
 # Editor / OS
