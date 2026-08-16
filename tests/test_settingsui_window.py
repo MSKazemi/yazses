@@ -479,3 +479,68 @@ def test_the_window_still_opens_when_audio_cannot_be_enumerated(qapp, monkeypatc
     )
     with pytest.raises(OSError):
         _window(qapp, _Recorder())
+
+
+# --- the live level meter ----------------------------------------------------
+#
+# Deferred when the threshold slider shipped, on the grounds that it "needs an
+# audio stream in the window". It does not: the daemon already publishes
+# `audio_level` in its status reply (core/daemon.py), which is exactly how the
+# tray draws its level ring. The window can ask the same question.
+#
+# It matters because a slider without a meter is a user guessing at a float. The
+# meter answers the one question behind every "Silent audio -- discarding" report:
+# is my voice above the line?
+
+
+def test_the_meter_shows_the_level_relative_to_the_gate(qapp):
+    win = _window(qapp, _Recorder())
+    win._apply_level({"audio_level": 0.05, "vad_threshold": 0.01, "state": "recording"})
+    assert win._meter.value() > 0
+    assert "above" in win._meter_label.text().lower()
+
+
+def test_a_quiet_microphone_says_so(qapp):
+    """The failure the meter exists for: speech below the gate is discarded in
+    silence, and the log line is the only clue anything happened."""
+    win = _window(qapp, _Recorder())
+    win._apply_level({"audio_level": 0.0005, "vad_threshold": 0.01, "state": "recording"})
+    assert "below" in win._meter_label.text().lower()
+
+
+def test_the_meter_follows_the_slider_not_the_saved_value(qapp):
+    """Dragging the slider must re-judge the level immediately — otherwise you are
+    tuning against the old threshold and cannot tell when you have gone far
+    enough."""
+    win = _window(qapp, _Recorder())
+    win._apply_level({"audio_level": 0.004, "state": "recording"})
+    win._vad_slider.setValue(0)  # lowest threshold
+    low = win._meter_label.text()
+    win._vad_slider.setValue(win._vad_slider.maximum())  # highest
+    assert win._meter_label.text() != low
+
+
+def test_no_daemon_means_no_claim_about_your_voice(qapp):
+    """With nothing polling, the meter must not read as "silent" — that is a
+    statement about the microphone, and we do not have one."""
+    win = _window(qapp, _Recorder())
+    win._apply_level(None)
+    assert win._meter.value() == 0
+    assert "not running" in win._meter_label.text().lower()
+
+
+def test_a_malformed_status_does_not_take_the_window_down(qapp):
+    win = _window(qapp, _Recorder())
+    win._apply_level({"audio_level": "loud", "vad_threshold": None, "state": "recording"})
+    assert win._meter_label.text()
+
+
+def test_an_idle_daemon_is_not_reported_as_a_quiet_microphone(qapp):
+    """The daemon only updates `audio_level` while a hold is in progress, so idle
+    it reports 0.0. Reading that as "below the line" would be a claim about the
+    microphone when in fact nothing is listening — found by running the window
+    against the live daemon, where it said exactly that."""
+    win = _window(qapp, _Recorder())
+    win._apply_level({"audio_level": 0.0, "vad_threshold": 0.01, "state": "idle"})
+    assert "below" not in win._meter_label.text().lower()
+    assert "hold" in win._meter_label.text().lower()

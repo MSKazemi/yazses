@@ -181,9 +181,15 @@ threshold (all below).
 Everything else lives in [`config.toml`](configuration.md), which the window never
 reformats or reorders, because it writes through a comment-preserving TOML editor.
 
-Not yet here: a **live level meter** beside the threshold slider. Until then,
-[`yazses mic-level`](cli-reference.md#yazses-mic-level) measures your voice and
-recommends a number, which beats guessing at a float.
+The threshold slider has a **live level meter** beneath it: hold your dictation
+key and speak, and the bar shows whether you are clearing the line. Drag the slider
+while speaking and the verdict updates against the *new* threshold, so you can see
+when you have moved it far enough.
+
+The level comes from the running daemon — it is the process that owns the
+microphone, and opening a second capture stream here would fight the one dictation
+uses. With no daemon running the meter says so rather than showing an empty bar,
+which would read as "your microphone is silent".
 
 ## Changing the hold-to-talk key
 

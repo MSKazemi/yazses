@@ -358,11 +358,109 @@ class SettingsWindow:
             lambda pos: readout.setText(f"{slider_to_threshold(pos):.4g}")
         )
 
+        # The live meter. A slider without one is a user guessing at a float; with
+        # one they can *see* their voice sitting under the line, which is the
+        # question behind every "Silent audio -- discarding" report.
+        #
+        # Fed from the daemon's status reply rather than by opening the microphone
+        # here: the daemon already publishes `audio_level`, it is the process that
+        # owns the device, and a second capture stream in this window would fight
+        # the one dictation uses.
+        from PySide6.QtWidgets import QProgressBar
+
+        meter = QProgressBar()
+        meter.setRange(0, 100)
+        meter.setTextVisible(False)
+        meter.setAccessibleName("Microphone level")
+        self._meter = meter
+        self._meter_label = QLabel("")
+        self._meter_label.setStyleSheet(muted_style_for(self._meter_label))
+        self._latest_level: float | None = None
+
+        # Re-judge on drag: tuning against the *saved* threshold would leave you
+        # unable to tell when you had moved it far enough.
+        slider.valueChanged.connect(lambda _pos: self._refresh_meter())
+
         wrap = QVBoxLayout()
         wrap.addWidget(slider)
         wrap.addWidget(readout)
+        wrap.addWidget(meter)
+        wrap.addWidget(self._meter_label)
         form.addRow(QLabel("Silence threshold:"), wrap)
+        self._start_level_polling()
         return box
+
+    def _start_level_polling(self) -> None:
+        """Poll the daemon for the live input level, on a Qt timer.
+
+        Never raises into the window: no daemon is the ordinary case (the settings
+        window opens fine without one), and an unreachable socket must leave the
+        meter saying so rather than taking the dialog down.
+        """
+        from PySide6.QtCore import QTimer
+
+        def _tick() -> None:
+            try:
+                from yazses.platform import get_platform
+
+                platform = get_platform()
+                client = platform.ipc_client_factory(platform.paths.ipc_socket)
+                self._apply_level(client.call("status"))
+            except Exception:
+                self._apply_level(None)
+
+        self._level_timer = QTimer(self._win)
+        self._level_timer.timeout.connect(_tick)
+        # 150 ms while the window is open — the same cadence the tray uses while
+        # recording, fast enough that the bar tracks a syllable.
+        self._level_timer.start(150)
+
+    def _apply_level(self, status: dict | None) -> None:
+        """Update the meter from one status reply, or from nothing."""
+        if status is None:
+            self._latest_level = None
+            self._recording = False
+        else:
+            try:
+                self._latest_level = float(status.get("audio_level") or 0.0)
+            except (TypeError, ValueError):
+                self._latest_level = None
+            # The daemon only updates `audio_level` while a hold is in progress —
+            # idle it reports 0.0. Without this distinction the meter would say
+            # "below the line" whenever you were not speaking, which is a claim
+            # about your microphone rather than about the fact that nothing is
+            # listening. Caught by running it against the live daemon.
+            self._recording = str(status.get("state") or "").lower() == "recording"
+        self._refresh_meter()
+
+    def _refresh_meter(self) -> None:
+        from yazses.settingsui.controls import meter_reading, slider_to_threshold
+
+        meter = getattr(self, "_meter", None)
+        if meter is None:  # pragma: no cover - built together with the slider
+            return
+        if self._latest_level is None:
+            meter.setValue(0)
+            # Deliberately not "silent": that would be a claim about the
+            # microphone, and with no daemon we do not have one.
+            self._meter_label.setText("YazSes is not running, so there is no level to show.")
+            return
+
+        if not getattr(self, "_recording", False):
+            meter.setValue(0)
+            self._meter_label.setText(
+                "Hold your dictation key and speak — the bar shows whether you clear the line."
+            )
+            return
+
+        threshold = slider_to_threshold(self._vad_slider.value())
+        position, above = meter_reading(self._latest_level, threshold)
+        meter.setValue(position)
+        self._meter_label.setText(
+            "Your voice is above the line — this would be transcribed."
+            if above
+            else "Below the line — audio this quiet is discarded as silence."
+        )
 
     def _probe_devices(self):
         """(devices, default_name), or ([], None) when audio cannot be opened."""
