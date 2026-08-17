@@ -6,6 +6,31 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — an undecodable file showed you the ffmpeg command line
+
+Pointing `yazses transcribe` at something that is not audio — a `.docx`, a truncated
+download, a renamed file — printed this:
+
+```
+Transcription failed: Command '['ffmpeg', '-nostdin', '-threads', '0', '-i',
+'/…/notes.docx', '-f', 'f32le', '-ac', '1', '-ar', '16000', '-']' returned
+non-zero exit status 183.
+```
+
+It names neither the problem nor anything you can do about it.
+
+`load_audio` already promised better. Its docstring says it *"raises `RuntimeError`
+if no decoder can read it (neither PyAV nor a system ffmpeg)"* — but the ffmpeg
+fallback was unguarded, so that promise held only when ffmpeg was **absent**. In the
+ordinary case, with ffmpeg installed and the file simply not being audio, a raw
+`subprocess.CalledProcessError` escaped instead. The function broke its own contract
+on its most likely failure.
+
+It now raises the documented error, says the file is probably not audio or is
+truncated, and lists formats that do work. The no-ffmpeg branch keeps its own advice
+— *install ffmpeg* — because that is the useful thing to say when that is the fault.
+
+
 ### Fixed — `yazses transcribe` reported success over an empty transcript
 
 Audio with nothing recognisable in it — music, silence, or speech in a language an
