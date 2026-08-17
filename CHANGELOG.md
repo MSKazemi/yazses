@@ -9,7 +9,7 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed — the loopback guard answered differently on Python 3.11
 
 `is_loopback_endpoint` trusted `IPv6Address.is_loopback`, and CPython only began
-counting IPv4-mapped addresses as loopback in **3.12**. On 3.11 the same endpoint —
+counting IPv4-mapped addresses as loopback in **3.13**. On 3.11 and 3.12 the same endpoint —
 `http://[::ffff:127.0.0.1]:11434`, which genuinely reaches this machine — was
 refused.
 
@@ -18,8 +18,8 @@ answers depending on the interpreter: a config that worked on one machine was
 rejected on another, with a message about sending dictated text off-device. It now
 resolves the IPv4 mapping itself, so every supported Python agrees.
 
-The security direction was never wrong — 3.11 was the stricter of the two — but a
-guard whose answer depends on the interpreter cannot be reasoned about.
+The security direction was never wrong — the older interpreters were the stricter —
+but a guard whose answer depends on the interpreter cannot be reasoned about.
 
 
 ### Fixed — a bare JSON array over IPC got no reply and a traceback in the log

@@ -158,10 +158,11 @@ def test_the_ipv4_mapped_form_is_loopback_on_every_supported_python():
 
     It is also the reason `is_loopback_endpoint` resolves `ipv4_mapped` itself
     instead of trusting `IPv6Address.is_loopback`. CPython only started counting
-    IPv4-mapped addresses as loopback in **3.12**; on 3.11 it answers False. This
+    IPv4-mapped addresses as loopback in **3.13**; on 3.11 and 3.12 it answers False. This
     project's matrix spans 3.11 to 3.14, so leaning on the stdlib made a privacy
     guard give two different answers depending on the interpreter — the same
     config accepted on one machine and refused on another. Caught by Windows 3.11
-    going red while Windows 3.12 passed, which is the narrowest possible signal.
+    and macOS 3.11 and ubuntu 3.12 going red while ubuntu 3.13 and 3.14 passed --
+    which is also how the boundary was located: 3.12 red, 3.13 green.
     """
     assert is_loopback_endpoint("http://[::ffff:127.0.0.1]:11434") is True

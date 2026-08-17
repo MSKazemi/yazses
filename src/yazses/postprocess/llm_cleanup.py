@@ -78,8 +78,8 @@ def is_loopback_endpoint(endpoint: str) -> bool:
     try:
         parsed = ipaddress.ip_address(host)
         # `::ffff:127.0.0.1` reaches 127.0.0.1 on this machine, and CPython only
-        # started saying so in 3.12: on 3.11 `is_loopback` is False for IPv4-mapped
-        # addresses. This project supports 3.11 through 3.14, so relying on that
+        # started saying so in 3.13: on 3.11 and 3.12 `is_loopback` is False for
+        # IPv4-mapped addresses. This project supports 3.11 through 3.14, so relying on that
         # made a privacy guard answer differently per interpreter -- an endpoint
         # accepted on one runner and refused on another, which CI caught only
         # because the matrix spans the change. Resolve the mapping ourselves.
