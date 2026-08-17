@@ -183,3 +183,47 @@ def test_the_check_is_on_utterances_not_the_rendered_text(tmp_path, monkeypatch)
     assert "no speech was recognised" in r.output, (
         "the empty-transcript note was skipped for VTT, whose rendered text is never empty"
     )
+
+
+# ---- --min-speakers is not honoured by the shipped diarizer -----------------
+
+
+def test_min_speakers_warns_that_the_shipped_diarizer_ignores_it(tmp_path, monkeypatch):
+    """`--help` calls it "Lower bound on the auto-detected speaker count", and on the
+    default backend it does nothing at all.
+
+    Only `recimport/pyannote_backend.py` reads `min_speakers`, and pyannote is one of
+    the adapters this build does not ship. The sherpa diarizer reads `max_speakers`
+    alone. Saying so before a long transcription beats the user inferring it from a
+    speaker count that ignored their floor.
+    """
+    _patch(monkeypatch, diarizer=_FakeDiarizer())
+    r = runner.invoke(
+        cli.app,
+        ["transcribe", str(_audio(tmp_path)), "--diarize", "--min-speakers", "3"],
+        env=_ENV,
+    )
+    assert r.exit_code == 0, r.output
+    assert "--min-speakers is ignored" in r.output
+    assert "sherpa" in r.output, "the note does not say which backend is in use"
+    assert "--speakers" in r.output, "a note with no alternative is a note to dismiss"
+
+
+def test_no_warning_when_no_lower_bound_was_asked_for(tmp_path, monkeypatch):
+    """It must stay silent in the ordinary case, or it is noise on every run."""
+    _patch(monkeypatch, diarizer=_FakeDiarizer())
+    r = runner.invoke(
+        cli.app, ["transcribe", str(_audio(tmp_path)), "--diarize"], env=_ENV)
+    assert "--min-speakers" not in r.output
+
+
+def test_no_warning_without_diarization(tmp_path, monkeypatch):
+    """Speaker bounds are meaningless without `--diarize`; warning about one there
+    would be answering a question nobody asked."""
+    _patch(monkeypatch, diarizer=None)
+    r = runner.invoke(
+        cli.app,
+        ["transcribe", str(_audio(tmp_path)), "--no-diarize", "--min-speakers", "3"],
+        env=_ENV,
+    )
+    assert "--min-speakers is ignored" not in r.output

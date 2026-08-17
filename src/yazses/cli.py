@@ -4251,6 +4251,17 @@ def transcribe(
         language=language or ri.language,
     )
 
+    # `--min-speakers` is read only by recimport/pyannote_backend.py, which is one of
+    # the adapters this build does not ship (system/backends.py calls that class out
+    # separately from "the optional dependency is missing"). The default `sherpa`
+    # diarizer reads max_speakers alone, so a lower bound silently does nothing --
+    # said here, before a long transcription, rather than discovered after it.
+    if want_diarize and min_speakers and (eff.backend or "sherpa").strip().lower() != "pyannote":
+        typer.echo(
+            f"Note: --min-speakers is ignored by the '{eff.backend}' diarizer; only the "
+            "pyannote backend honours a lower bound, and it is not shipped in this "
+            "build. Use --speakers to force an exact count.", err=True)
+
     # Build the STT engine from the configured [stt] settings.
     from yazses.stt.faster_whisper import FasterWhisperEngine
 

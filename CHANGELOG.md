@@ -6,6 +6,24 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `--min-speakers` did nothing on the diarizer this build ships
+
+`yazses transcribe --help` describes it as *"Lower bound on the auto-detected speaker
+count"*. Only `recimport/pyannote_backend.py` reads `min_speakers`, and pyannote is
+one of the adapters this build does not ship — `system/backends.py` calls that class
+out separately from *"the optional dependency is missing"*, precisely so a factory
+never sends someone after an extra that cannot supply the backend.
+
+The default `sherpa` diarizer reads `max_speakers` alone. So a user asking for at
+least three speakers got no error, no effect, and a transcript that ignored the
+floor — discovered, if at all, by reading the result.
+
+It now says so before the transcription starts, names the backend actually in use,
+and points at `--speakers` as the flag that does constrain the count. Silent when no
+lower bound was asked for, and silent without `--diarize`, where speaker bounds are
+meaningless anyway.
+
+
 ### Fixed — an undecodable file showed you the ffmpeg command line
 
 Pointing `yazses transcribe` at something that is not audio — a `.docx`, a truncated
