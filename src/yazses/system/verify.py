@@ -102,7 +102,20 @@ def verify(
             "language — try a larger one with `[stt] model`.",
         )
         return result
-    result.add("Transcription", True, f"produced {len(text.split())} word(s)")
+    # Show the words, not a count of them. A count cannot be checked against what
+    # you said, so it cannot contradict anything: run in a quiet room with nobody
+    # speaking, this printed "produced 1 word(s)" and then "Dictation works end to
+    # end", because ambient noise cleared the gate and the model answered
+    # near-silence with a confident invented word. That is the real shape of a
+    # muted or wrong microphone in a room with any noise in it.
+    #
+    # Whether a word is invented cannot be decided reliably. Whether it is what you
+    # said can -- by you, instantly, if it is on the screen.
+    spoken = " ".join(text.split())
+    n = len(text.split())
+    shown = spoken if len(spoken) <= 60 else spoken[:59].rstrip() + "\u2026"
+    detail = f'heard "{shown}"' + (f" ({n} words)" if n > 8 else "")
+    result.add("Transcription", True, detail)
 
     if inject is None:
         result.add("Injection", True, "skipped (not requested)")

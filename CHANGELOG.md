@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses verify` reported a word count instead of the word
+
+Run in a quiet room with nobody speaking:
+
+```
+[OK] Signal: level 0.0013 clears the gate (0.0005)
+[OK] Transcription: produced 1 word(s)
+✓ Dictation works end to end on this machine.
+```
+
+The one word was Whisper's silence hallucination. Ambient noise cleared the gate, the
+model answered near-silence with a confident invented word, and the command whose
+entire purpose is to prove the chain honestly certified it.
+
+The case that matters is not a user who said nothing — it is a **muted or wrong
+microphone in a room with any noise in it**, which produces exactly this and is the
+situation `verify` exists for.
+
+Whether a word is invented cannot be decided reliably. Whether it is what you said
+can — by you, instantly, if it is on the screen. The line now reads `heard "You"`,
+truncated for a long dictation with the full word count kept. It costs nothing and it
+is the single most informative thing this command could print, because the person
+running it is the only one who knows what they said.
+
 ### Fixed — `yazses report` understated the learning corpus 430x
 
 Two surfaces, one corpus, measured on a real machine:
