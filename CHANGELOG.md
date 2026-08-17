@@ -6,7 +6,21 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Fixed — the loopback guard answered differently on Python 3.11
+### Added — `yazses transcribe --format json` has a documented shape
+
+The research guide told people to use it because it is "structured, for import into
+other tools", and never said what the structure is — so anyone writing that import
+had to run the command and reverse-engineer the fields. The
+[interview guide](docs/use-cases/research-interview-transcription.md) now shows the
+real output, with a field table and the two things a parser needs and could not have
+guessed: `speaker` is a cluster id rather than a person and does not carry across
+files, and the empty shapes differ (undiarized output still has utterances with an
+empty `speaker`; nothing-recognised output has none at all).
+
+Nothing about the output changed. It was already more dependable than it was
+described.
+
+### Fixed — the loopback guard answered differently on Python 3.11 and 3.12
 
 `is_loopback_endpoint` trusted `IPv6Address.is_loopback`, and CPython only began
 counting IPv4-mapped addresses as loopback in **3.13**. On 3.11 and 3.12 the same endpoint —
