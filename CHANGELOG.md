@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the tray left a zombie behind every time you opened Settings
+
+Observed in a live process tree, not a fixture:
+
+```
+yazses-tray    (1442790)
+└── yazses-settings (1802882)  Z, 4023s
+```
+
+A settings window that had been closed **67 minutes earlier** was still holding a PID
+as a zombie. The tray spawns it with `Popen` and deliberately does not wait — right,
+because blocking would freeze the icon for as long as the window is open — but nothing
+ever called `poll()` either. `subprocess` only reaps opportunistically when the *next*
+`Popen` is created, so opening Settings once and closing it leaks until the tray
+happens to spawn something else, and opening it repeatedly accumulates.
+
+The controller now remembers what it started and reaps finished children from the
+tray's existing per-tick update: one `poll()` per live child per tick, nothing when
+there are none, and it never raises into the icon.
+
+Found while investigating a separate report — *"selecting a feature in the GUI and
+applying it closes YazSes"* — which is not this, and is still open. The process tree
+that answers that question is what showed the zombie.
+
 ### Fixed — the man page's release date stopped resolving at 2.25.0
 
 `scripts/gen-man.py` stamps `.TH` with the version's date from the changelog, rather

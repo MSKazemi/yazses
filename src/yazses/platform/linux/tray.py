@@ -105,6 +105,14 @@ class LinuxTray:
         # shared with the Windows tray so the two backends cannot drift.
         from yazses.tray.menu import status_from_model
 
+        # Reap anything the menu started and did not wait on. This is the per-tick
+        # hook: the poller calls `set_state` every interval, and a settings window
+        # closed an hour ago should not still hold a PID as a zombie.
+        try:
+            self._controller.reap()
+        except Exception:  # pragma: no cover - never let bookkeeping break the icon
+            pass
+
         status = status_from_model(model)
         with self._lock:
             self._latest.update(status)

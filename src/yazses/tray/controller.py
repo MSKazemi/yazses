@@ -37,6 +37,41 @@ class TrayController:
         self._client = client
         self._launch = launcher
         self._open = opener
+        # Handles for children we started and deliberately do not wait on. Kept so
+        # they can be reaped; see `reap`.
+        self._children: list = []
+
+    def _spawn(self, argv: list[str]) -> None:
+        """Start a detached child and remember it so it can be reaped later."""
+        handle = self._launch(argv)
+        if hasattr(handle, "poll"):
+            self._children.append(handle)
+
+    def reap(self) -> int:
+        """Collect finished children. Returns how many were reaped. Never raises.
+
+        The tray must not block on the settings window -- that would freeze the icon
+        for as long as the window is open -- but not waiting at all leaves a zombie.
+        Observed on a live machine: `yazses-settings` sat defunct under the tray for
+        **67 minutes**, because `subprocess` only reaps opportunistically when the
+        next `Popen` is created. Open Settings once and close it and the PID leaks
+        until the tray happens to spawn something else; open it repeatedly and they
+        accumulate.
+
+        Called from the tray's existing per-tick update, so it costs one `poll()` per
+        live child per tick and nothing when there are none.
+        """
+        alive, reaped = [], 0
+        for handle in self._children:
+            try:
+                if handle.poll() is None:
+                    alive.append(handle)
+                else:
+                    reaped += 1
+            except Exception:  # pragma: no cover - a handle that cannot be polled
+                log.debug("could not poll a spawned child", exc_info=True)
+        self._children = alive
+        return reaped
 
     # ---- reads ----
     def status(self) -> dict:
@@ -80,7 +115,7 @@ class TrayController:
         try:
             from yazses.tray.launch import settings_command
 
-            self._launch(settings_command("restart"))
+            self._spawn(settings_command("restart"))
             return True
         except Exception:
             log.exception("tray restart failed")
@@ -95,7 +130,7 @@ class TrayController:
         try:
             from yazses.tray.launch import settings_command
 
-            self._launch(settings_command())
+            self._spawn(settings_command())
             return True
         except Exception:
             log.exception("tray settings launch failed")
