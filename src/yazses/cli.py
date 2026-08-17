@@ -4224,7 +4224,10 @@ def transcribe(
     speakers: int = typer.Option(
         0, "--speakers", help="Force an exact speaker count (0 = auto-detect)."),
     min_speakers: int = typer.Option(
-        0, "--min-speakers", help="Lower bound on the auto-detected speaker count."),
+        0, "--min-speakers",
+        help="IGNORED by the shipped sherpa diarizer (only the unshipped pyannote "
+             "adapter reads it) — the run warns and continues. Use --speakers to "
+             "constrain the count."),
     max_speakers: int = typer.Option(
         0, "--max-speakers",
         help="Force exactly this many speakers on the shipped diarizer (same as "

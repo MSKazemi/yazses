@@ -518,7 +518,7 @@ Tag who said what with local speaker models (needs the diarization extra).
 Force an exact speaker count (0 = auto-detect).
 .TP
 \fB\-\-min\-speakers\fR
-Lower bound on the auto-detected speaker count.
+IGNORED by the shipped sherpa diarizer (only the unshipped pyannote adapter reads it) \(em the run warns and continues. Use --speakers to constrain the count.
 .TP
 \fB\-\-max\-speakers\fR
 Force exactly this many speakers on the shipped diarizer (same as --speakers). 0 = auto-detect.

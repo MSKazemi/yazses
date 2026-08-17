@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `--min-speakers` still advertised itself as a lower bound
+
+This cycle taught the run to say that `--min-speakers` is ignored by the diarizer this
+build ships. It did not change the flag's own `--help`, which still read *"Lower bound
+on the auto-detected speaker count."*
+
+So the false claim stayed at the source, and everything downstream inherited it: the
+generated command index repeated it verbatim, and the transcription tutorial went
+further and told people to *"use `--min-speakers` / `--max-speakers` to give a range
+instead of an exact number"* — which is wrong twice over, since `--max-speakers` forces
+an exact count rather than capping one.
+
+The help now says the flag is ignored, names why (only the unshipped pyannote adapter
+reads it) and points at `--speakers`, which does constrain the count. The command index
+and man page are regenerated from it, and the tutorial says plainly that there is no
+range option on the shipped diarizer.
+
+A warning at runtime does not undo a wrong `--help`: the help is what people read
+*before* running the command, which is when the decision is made.
+
 ### Fixed — the tray left a zombie behind every time you opened Settings
 
 Observed in a live process tree, not a fixture:
