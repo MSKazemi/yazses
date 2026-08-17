@@ -117,3 +117,69 @@ def test_transcribe_help_lists_flags():
     assert r.exit_code == 0
     for flag in ("--diarize", "--speakers", "--names", "--format", "--rename"):
         assert flag in r.output
+
+
+# ---- audio with no recognisable speech --------------------------------------
+
+
+class _SilentEngine:
+    """Transcribes to nothing — music, silence, or a language the model cannot read."""
+
+    def __init__(self, *a, **k):
+        pass
+
+    def transcribe_words(self, audio, sample_rate=16000, initial_prompt=None, task=None):
+        return "", []
+
+
+def _patch_silent(monkeypatch):
+    _patch(monkeypatch, diarizer=None)
+    monkeypatch.setattr(
+        "yazses.stt.faster_whisper.FasterWhisperEngine", _SilentEngine, raising=True)
+
+
+def test_an_empty_transcript_says_so(tmp_path, monkeypatch):
+    """"Wrote transcript.txt" over an empty file is a silent failure, on the surface
+    where most people meet YazSes working for the first time.
+
+    A file of music, of silence, or of speech in a language an `.en` model cannot
+    read all produce nothing — and the command reported success, named the file, and
+    went on to ask for a star.
+    """
+    _patch_silent(monkeypatch)
+    f = _audio(tmp_path)
+    r = runner.invoke(cli.app, ["transcribe", str(f), "--no-diarize"], env=_ENV)
+    assert r.exit_code == 0, r.output
+    assert f.with_suffix(".txt").read_text().strip() == ""
+    assert "no speech was recognised" in r.output, (
+        f"an empty transcript was reported as an ordinary success: {r.output!r}"
+    )
+
+
+def test_the_note_names_causes_the_user_can_act_on(tmp_path, monkeypatch):
+    """A warning with no cause is a warning to dismiss. The English-only model is the
+    one a user can neither see nor guess from an empty file."""
+    _patch_silent(monkeypatch)
+    r = runner.invoke(cli.app, ["transcribe", str(_audio(tmp_path)), "--no-diarize"], env=_ENV)
+    for cause in ("music", "language", ".en"):
+        assert cause in r.output, f"the note never mentions {cause!r}"
+
+
+def test_a_normal_transcript_stays_quiet(tmp_path, monkeypatch):
+    """The note must not fire on success, or it becomes noise to scroll past."""
+    _patch(monkeypatch, diarizer=None)
+    r = runner.invoke(cli.app, ["transcribe", str(_audio(tmp_path)), "--no-diarize"], env=_ENV)
+    assert "no speech was recognised" not in r.output
+
+
+def test_the_check_is_on_utterances_not_the_rendered_text(tmp_path, monkeypatch):
+    """VTT with no cues is still "WEBVTT", so a check on the rendered string would
+    stay silent for exactly one of the five formats — the subtle half of this fix."""
+    _patch_silent(monkeypatch)
+    f = _audio(tmp_path)
+    r = runner.invoke(cli.app, ["transcribe", str(f), "--no-diarize", "-f", "vtt"], env=_ENV)
+    assert r.exit_code == 0, r.output
+    assert f.with_suffix(".vtt").read_text().strip(), "the VTT header vanished"
+    assert "no speech was recognised" in r.output, (
+        "the empty-transcript note was skipped for VTT, whose rendered text is never empty"
+    )

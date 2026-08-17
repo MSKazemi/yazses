@@ -4303,10 +4303,28 @@ def transcribe(
     n_spk = len({u.speaker for u in result.utterances if u.speaker})
     summary = f" ({n_spk} speaker{'s' if n_spk != 1 else ''})" if result.diarized else ""
     typer.echo(f"Wrote {out_path}{summary}")
+
+    # Nothing was recognised. Say so: "Wrote transcript.txt" over an empty file is the
+    # silent failure this project spends its earcons and guards avoiding, and it lands
+    # on the surface where most people meet YazSes working for the first time.
+    #
+    # Tested on `result.utterances` rather than on the rendered text, because the text
+    # is not empty for every format -- a VTT with no cues is still "WEBVTT\n", so a
+    # check on the string would stay quiet for exactly one of the five.
+    if not result.utterances:
+        typer.echo(
+            f"Note: no speech was recognised, so {out_path.name} is empty. Common "
+            "causes: the file holds music or silence; it is speech in another language "
+            "while the model is English-only (`[stt] model` ending in `.en`); or the "
+            "audio decoded to nothing. `yazses doctor` reports the configured model.",
+            err=True,
+        )
+
     # `transcribe` is where most people meet this project working for the first time --
     # it is the one path that needs no microphone, no hotkey and no re-login, so it is
-    # also what the container and Codespace trials run.
-    _maybe_point_at_project(paths.data_dir, succeeded=True)
+    # also what the container and Codespace trials run. An empty transcript is not the
+    # moment to ask them for a star.
+    _maybe_point_at_project(paths.data_dir, succeeded=bool(result.utterances))
 
 
 def _load_voiceprints(cfg, paths):

@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses transcribe` reported success over an empty transcript
+
+Audio with nothing recognisable in it — music, silence, or speech in a language an
+English-only model cannot read — produced an empty file, the message `Wrote
+transcript.txt`, and then the one-time *"if this was useful, a star helps"* pointer.
+Success, by every signal the command gives.
+
+That is the silent failure this project spends its earcons and guards avoiding, on
+the surface where most people meet YazSes working for the first time: `transcribe`
+is the one path needing no microphone, no hotkey and no re-login, so it is what the
+container and Codespace trials run.
+
+It now says the transcript is empty and names causes you can act on, the useful one
+being the English-only model — which you can neither see nor guess from a blank
+file. The pointer no longer treats an empty transcript as a success.
+
+The check reads `result.utterances`, not the rendered text: a VTT with no cues is
+still `WEBVTT`, so a check on the string would have stayed silent for exactly one of
+the five formats.
+
+
 ## [2.24.0] - 2026-08-17
 
 ### Fixed — the docs described two pipeline stages that do not exist
