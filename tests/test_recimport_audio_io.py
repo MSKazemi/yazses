@@ -88,3 +88,42 @@ def test_a_missing_ffmpeg_still_says_to_install_it(tmp_path, monkeypatch):
 
     with pytest.raises(RuntimeError, match="Install ffmpeg"):
         audio_io.load_audio(bad)
+
+
+def test_digital_silence_carries_no_signal():
+    """Two seconds of real silence transcribed to "You" on a live run.
+
+    That is Whisper's well-known silence hallucination, and the empty-transcript
+    note cannot catch it because the transcript is not empty — it is a confident
+    word with a start and end time. The check that does catch it is about the
+    *input*: audio with no signal in it cannot contain speech, which is a
+    measurement rather than a guess about the model.
+    """
+    import numpy as np
+
+    from yazses.recimport.audio_io import carries_no_signal
+
+    assert carries_no_signal(np.zeros(32000, dtype="float32")) is True
+    assert carries_no_signal(np.array([], dtype="float32")) is True
+
+
+def test_a_quiet_but_real_recording_still_carries_signal():
+    """The floor must sit below any usable recording's noise floor.
+
+    Peak, not mean: a one-hour interview with sparse speech averages close to
+    zero, so a mean-based gate — the one the daemon uses for a hold-to-talk burst
+    — would call a real recording silent.
+    """
+    import numpy as np
+
+    from yazses.recimport.audio_io import carries_no_signal
+
+    rng = np.random.default_rng(0)
+    quiet = (rng.standard_normal(32000) * 1e-3).astype("float32")
+    assert carries_no_signal(quiet) is False, "a real noise floor was called silent"
+
+    sparse = np.zeros(160000, dtype="float32")
+    sparse[80000:80400] = 0.2  # a quarter-second of speech in ten seconds
+    assert carries_no_signal(sparse) is False, (
+        "sparse speech in a long file averages to nearly zero — this must use peak"
+    )

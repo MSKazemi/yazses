@@ -4333,11 +4333,27 @@ def transcribe(
             err=True,
         )
 
+    # Silence that produced *words* -- the case the note above cannot see, because the
+    # transcript is not empty. Two seconds of digital silence decodes to "You", with a
+    # start and an end time, and nothing about that output marks it as invented. The
+    # evidence is in the input, so that is where it is measured.
+    elif result.silent_input:
+        typer.echo(
+            f"Note: the audio carries no signal, so the text in {out_path.name} was "
+            "produced from silence and is not trustworthy -- speech models answer "
+            "silence with confident invented words rather than nothing. Common causes: "
+            "the microphone was muted, another application held the input device, or "
+            "the wrong device was recorded. `yazses audio devices` lists the inputs.",
+            err=True,
+        )
+
     # `transcribe` is where most people meet this project working for the first time --
     # it is the one path that needs no microphone, no hotkey and no re-login, so it is
     # also what the container and Codespace trials run. An empty transcript is not the
     # moment to ask them for a star.
-    _maybe_point_at_project(paths.data_dir, succeeded=bool(result.utterances))
+    _maybe_point_at_project(
+        paths.data_dir, succeeded=bool(result.utterances) and not result.silent_input
+    )
 
 
 def _load_voiceprints(cfg, paths):

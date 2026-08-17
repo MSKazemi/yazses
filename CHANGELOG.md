@@ -6,6 +6,41 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — silence transcribed to a confident word, reported as a transcript
+
+Two seconds of digital silence through `yazses transcribe` produces this:
+
+```
+Wrote out.txt
+$ cat out.txt
+You
+```
+
+A word, with a start and an end time, in the JSON output as an utterance. That is
+Whisper's well-known silence hallucination, and the empty-transcript note shipped
+alongside it cannot see it — the transcript is not empty.
+
+Nothing about the output separates an invented word from a real one, so the check has
+to be about the input, where the answer is unambiguous: **audio with no signal in it
+cannot contain speech.** A muted microphone, an input device held by another
+application, and capture pointed at the wrong device all produce exactly this, and all
+three are ordinary — they are why this project has a mic-change guard, a silent-streak
+tracker and an error earcon on the dictation path. The file path had none of it.
+
+`transcribe` now says the audio carries no signal, that the text was produced from
+silence and is not trustworthy, and names the three causes. The transcript is still
+written — you may want to see what was invented — but it is no longer presented as a
+result, and it no longer earns the "a star helps" pointer.
+
+Measured on the **peak**, not the mean. The daemon's silence gate averages, which is
+right for a hold-to-talk burst that is nearly all speech and wrong for a file: an hour
+of interview with sparse talking averages to almost nothing, so a mean-based gate would
+call a real recording silent.
+
+Every test in `test_cli_transcribe.py` had been decoding `np.zeros(16000)` into
+"hello there general" — a pairing that cannot occur, and one that hid this from all of
+them. The fixture now carries a noise floor.
+
 ### Fixed — the release gate named a channel missing while it was still building
 
 The v2.25.0 report listed Docker/GHCR as absent. Re-checking minutes later showed

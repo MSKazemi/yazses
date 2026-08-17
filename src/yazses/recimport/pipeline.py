@@ -24,6 +24,7 @@ class TranscriptResult:
     language: str
     diarized: bool
     speaker_names: dict       # canonical speaker id -> display name
+    silent_input: bool = False  # the audio carried no signal; any text is hallucinated
 
 
 def _build_engine(config):
@@ -55,6 +56,12 @@ def transcribe_file(
     if engine is None:
         engine = _build_engine(config)
     task = "translate" if getattr(config, "language", "en") == "translate" else None
+    # Measured before decoding, on the audio itself. Whisper answers silence with a
+    # confident hallucination rather than nothing, so this cannot be inferred from the
+    # transcript afterwards.
+    from yazses.recimport.audio_io import carries_no_signal
+
+    silent_input = carries_no_signal(audio)
     text, words = engine.transcribe_words(audio, sample_rate, task=task)
     words = [w for w in words if (getattr(w, "text", "") or "").strip()]
     if progress:
@@ -96,4 +103,5 @@ def transcribe_file(
         language=getattr(config, "language", "en"),
         diarized=diarized,
         speaker_names=speaker_names,
+        silent_input=silent_input,
     )

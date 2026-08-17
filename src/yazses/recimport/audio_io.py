@@ -70,3 +70,32 @@ def _decode_ffmpeg(path, sample_rate):
     ]
     proc = subprocess.run(cmd, capture_output=True, check=True)
     return np.frombuffer(proc.stdout, dtype="float32").copy()
+
+
+# Peak amplitude below which a recording carries nothing a microphone produced.
+# A muted input, a device that was never opened, or capture stolen by another
+# application all write exact digital zero; a working microphone's noise floor is
+# orders of magnitude above this even in a quiet room. Set low deliberately: this
+# exists to catch "there is no audio here at all", not to judge quiet speech.
+SIGNAL_FLOOR = 1e-4
+
+
+def carries_no_signal(audio, floor: float = SIGNAL_FLOOR) -> bool:
+    """True when *audio* holds no signal at all -- a failed capture, not quiet speech.
+
+    Measured on the **peak**, not the mean. The daemon's silence gate averages,
+    which is right for a hold-to-talk burst that is nearly all speech, and wrong
+    for a file: an hour of interview with sparse talking averages to almost
+    nothing, so a mean-based gate would call a real recording silent.
+
+    This is a statement about the input, which is why it is worth making. Whisper
+    answers silence with a confident hallucination -- two seconds of digital
+    silence decodes to "You", with a start and an end time -- so the empty
+    transcript check cannot see it, and no threshold on the *output* separates a
+    hallucinated word from a real one.
+    """
+    import numpy as np
+
+    if audio is None or getattr(audio, "size", 0) == 0:
+        return True
+    return float(np.abs(audio).max()) < floor

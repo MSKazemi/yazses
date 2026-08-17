@@ -34,15 +34,24 @@ class _FakeDiarizer:
         return [DiarTurn(0.0, 1.2, "speaker_0"), DiarTurn(1.8, 3.0, "speaker_1")]
 
 
+def _signal(n=16000):
+    """Audio a working microphone could have produced (a noise floor above zero)."""
+    rng = np.random.default_rng(0)
+    return (rng.standard_normal(n) * 1e-2).astype("float32")
+
+
 def _patch(monkeypatch, diarizer=None):
     monkeypatch.setattr(cli, "load_config", lambda *_a, **_k: Config(), raising=False)
     monkeypatch.setattr(
         "yazses.config.load_config", lambda *_a, **_k: Config(), raising=False)
     monkeypatch.setattr(
         "yazses.stt.faster_whisper.FasterWhisperEngine", _FakeEngine, raising=True)
+    # Audio with a real noise floor. This used to be `np.zeros(...)`, so every test
+    # in this file transcribed pure silence into "hello there general" -- a pairing
+    # that cannot occur, and one that hid the silent-input note from all of them.
     monkeypatch.setattr(
         "yazses.recimport.audio_io.load_audio",
-        lambda *_a, **_k: (np.zeros(16000, dtype="float32"), 16000), raising=True)
+        lambda *_a, **_k: (_signal(), 16000), raising=True)
     monkeypatch.setattr(
         "yazses.recimport.pipeline.build_diarizer",
         lambda *_a, **_k: diarizer, raising=True)
@@ -227,3 +236,36 @@ def test_no_warning_without_diarization(tmp_path, monkeypatch):
         env=_ENV,
     )
     assert "--min-speakers is ignored" not in r.output
+
+
+def test_words_decoded_from_silence_are_flagged_as_invented(tmp_path, monkeypatch):
+    """The failure the empty-transcript note cannot see.
+
+    Found by running the real command on two seconds of digital silence: it wrote
+    "You" — a confident word with a start and an end time — named the file, and
+    asked for a star. The transcript is not empty, so the existing check stays
+    quiet, and no property of the output distinguishes an invented word from a
+    real one.
+
+    So the evidence has to come from the input, which is unambiguous: audio with
+    no signal in it cannot contain speech. A muted microphone, a device held by
+    another application, and capture pointed at the wrong input all produce
+    exactly this, and all of them are ordinary.
+    """
+    _patch(monkeypatch, diarizer=None)
+    monkeypatch.setattr(
+        "yazses.recimport.audio_io.load_audio",
+        lambda *_a, **_k: (np.zeros(32000, dtype="float32"), 16000), raising=True)
+    r = runner.invoke(cli.app, ["transcribe", str(_audio(tmp_path)), "--no-diarize"], env=_ENV)
+    assert r.exit_code == 0, r.output
+    assert "carries no signal" in r.output, (
+        f"words decoded from silence were reported as an ordinary transcript: {r.output!r}"
+    )
+    assert "muted" in r.output, "a warning with no cause is a warning to dismiss"
+
+
+def test_a_recording_with_a_noise_floor_is_not_flagged(tmp_path, monkeypatch):
+    """It must stay silent on every real recording or it becomes noise to scroll past."""
+    _patch(monkeypatch, diarizer=None)
+    r = runner.invoke(cli.app, ["transcribe", str(_audio(tmp_path)), "--no-diarize"], env=_ENV)
+    assert "carries no signal" not in r.output, r.output
