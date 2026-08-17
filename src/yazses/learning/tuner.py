@@ -34,7 +34,22 @@ def run_tune(
 ) -> list[Proposal]:
     """Run the tuning flow. Returns the proposals that were applied."""
     if do_retranscribe and transcribe_fn is not None:
-        n = retranscribe(store, transcribe_fn)
+        # Announce the scale, then show movement. This is the slow step by a wide
+        # margin -- on a real 3683-event corpus it ran for over eight minutes with
+        # the model already cached and printed nothing at all, which is
+        # indistinguishable from a hang. The count is a metadata query.
+        def _progress(done: int, total: int) -> None:
+            if total == 0:
+                return
+            if done == 0:
+                echo(
+                    f"Re-transcribing {total} captured clip(s) with the tune model — "
+                    "the slow step; a large corpus can take a while."
+                )
+            elif done == total or done % 25 == 0:
+                echo(f"  {done}/{total} clip(s)…")
+
+        n = retranscribe(store, transcribe_fn, progress=_progress)
         echo(f"Re-transcribed {n} captured clip(s) for ground-truth comparison.")
 
     # Passive signal (a): infer corrections from re-dictations / "scratch that".

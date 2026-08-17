@@ -94,19 +94,28 @@ def retranscribe(
     store: CorpusStore,
     transcribe_fn: TranscribeFn,
     limit: int | None = None,
+    progress: "Callable[[int, int], None] | None" = None,
 ) -> int:
     """Re-run captured audio through a (larger) model, storing distance vs raw.
 
     ``transcribe_fn(audio, sample_rate) -> str`` is injected so tests need no
     real model. Only events that have audio and no prior re-transcription are
     processed. Returns the number of events updated.
+
+    ``progress(done, total)`` is called once with ``(0, total)`` before any audio
+    is touched and again after each clip. This is the slow step of `yazses tune`
+    by a wide margin -- thousands of clips through a larger model on CPU -- and it
+    used to report nothing until it finished, so a real corpus looked like a hang.
+    The candidates are known from metadata alone, so the total costs nothing.
     """
+    candidates = [r for r in store.events() if r.has_audio and not r.retx_text]
+    total = len(candidates) if limit is None else min(limit, len(candidates))
+    if progress is not None:
+        progress(0, total)
     updated = 0
-    for rec in store.events():
+    for rec in candidates:
         if limit is not None and updated >= limit:
             break
-        if not rec.has_audio or rec.retx_text:
-            continue
         loaded = store.load_audio(rec.id)
         if loaded is None:
             continue
@@ -118,6 +127,8 @@ def retranscribe(
             continue
         store.set_retx(rec.id, text, word_distance(rec.raw_text, text))
         updated += 1
+        if progress is not None:
+            progress(updated, total)
     return updated
 
 

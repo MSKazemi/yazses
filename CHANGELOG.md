@@ -6,6 +6,33 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses tune` looked like a hang for as long as it took
+
+Run against a real corpus (3683 events, 3280 of them with audio), `tune` printed:
+
+```
+Loading re-transcription model 'small.en'...
+```
+
+and then nothing at all. Still nothing eight minutes later, still going. The model was
+already cached, so that was the re-transcription itself — thousands of clips through a
+larger model on CPU, in silence. At the observed rate the run would have taken about
+two hours, and nothing on screen distinguished that from a crash.
+
+Nothing was broken. But the number of clips is known before any audio is touched — it
+is a metadata query — so there was no reason to withhold it. It now announces the
+total up front and reports movement every 25 clips:
+
+```
+Re-transcribing 3280 captured clip(s) with the tune model — the slow step; a large
+corpus can take a while.
+  25/3280 clip(s)…
+```
+
+`retranscribe()` gained an optional `progress(done, total)` callback, called once with
+`(0, total)` before the first clip. Its existing `limit` parameter — designed, tested
+and passed by nobody — still bounds the work for anyone who wants a shorter run.
+
 ### Fixed — the mic-level check was suppressed exactly when it mattered
 
 On a real machine, `yazses doctor --mic` printed:
