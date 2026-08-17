@@ -1267,7 +1267,13 @@ class RecimportConfig:
     # sherpa (default, ONNX/no torch) | pyannote (accuracy; needs the
     # `diarization-pyannote` extra + a one-time gated HF model download) | none
     backend: str = "sherpa"
-    max_speakers: int = 0              # 0 = auto-detect
+    # NOT an upper bound on the shipped `sherpa` backend, despite the name: it becomes
+    # FastClusteringConfig(num_clusters=N), which is an EXACT cluster count. Measured
+    # against sherpa-onnx 1.13.5 on two well-separated speakers: num_clusters=2 gave
+    # 2 clusters, 4 gave 4, and 6 gave 6 -- it splits real speakers to reach the
+    # number. So a generous "at most 6" invents six people. 0 auto-detects, which is
+    # why it is the default. Only the (unshipped) pyannote backend treats it as a cap.
+    max_speakers: int = 0              # 0 = auto-detect; otherwise an EXACT count
     min_speakers: int = 0
     cluster_threshold: float = 0.5     # sherpa fast-clustering threshold (auto-count mode)
     output_format: str = "txt"         # txt | md | srt | vtt | json
@@ -1301,7 +1307,8 @@ class MeetingConfig:
     # sherpa (default, ONNX/no torch) | pyannote (accuracy; needs the
     # `diarization-pyannote` extra + a one-time gated HF model download) | none
     backend: str = "sherpa"
-    max_speakers: int = 0              # 0 = auto-detect the count
+    # Exact cluster count on the shipped backend, not a cap -- see RecimportConfig.
+    max_speakers: int = 0              # 0 = auto-detect; otherwise an EXACT count
     min_speakers: int = 0
     cluster_threshold: float = 0.5     # sherpa fast-clustering threshold (auto-count mode)
     model: str = ""                    # "" => inherit the [stt] model

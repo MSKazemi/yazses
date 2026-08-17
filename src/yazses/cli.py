@@ -4157,7 +4157,9 @@ def transcribe(
     min_speakers: int = typer.Option(
         0, "--min-speakers", help="Lower bound on the auto-detected speaker count."),
     max_speakers: int = typer.Option(
-        0, "--max-speakers", help="Upper bound on the auto-detected speaker count."),
+        0, "--max-speakers",
+        help="Force exactly this many speakers on the shipped diarizer (same as "
+             "--speakers). 0 = auto-detect."),
     names: Optional[str] = typer.Option(
         None, "--names",
         help="Comma list mapped to speakers in order of first appearance: 'Alice,Bob,Carol'."),
@@ -4195,7 +4197,7 @@ def transcribe(
     models (install the `diarization` extra; the first run downloads ~45 MB, or
     pre-fetch with --download-models). Each utterance is then prefixed by a
     speaker label; provide --names (positional) or --rename (explicit map) to use
-    real names, cap the count with --speakers / --min-speakers / --max-speakers,
+    real names, force the count with --speakers,
     or let an enrolled voiceprint name you ("You"). Everything stays on this
     machine; speaker naming stores no new data and never enrolls anyone
     automatically.

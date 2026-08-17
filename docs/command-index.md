@@ -547,7 +547,7 @@ Transcribe an audio file to text — fully offline, on your machine.
 - `--diarize`, `--no-diarize` — Tag who said what with local speaker models (needs the diarization extra).
 - `--speakers` — Force an exact speaker count (0 = auto-detect).
 - `--min-speakers` — Lower bound on the auto-detected speaker count.
-- `--max-speakers` — Upper bound on the auto-detected speaker count.
+- `--max-speakers` — Force exactly this many speakers on the shipped diarizer (same as --speakers). 0 = auto-detect.
 - `--names` — Comma list mapped to speakers in order of first appearance: 'Alice,Bob,Carol'.
 - `--rename` — Explicit speaker→name map, repeatable: --rename speaker_0=Alice --rename speaker_1=Bob.
 - `--language` — 'en' (default) or 'translate' to render any-language audio into English text.

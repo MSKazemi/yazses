@@ -6,6 +6,32 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `--max-speakers` invented speakers instead of capping them
+
+`--help` called it *"Upper bound on the auto-detected speaker count"*. On the shipped
+`sherpa` diarizer it becomes `FastClusteringConfig(num_clusters=N)`, which is an
+**exact** cluster count — so `--max-speakers 6` on a three-person recording does not
+allow up to six, it manufactures six by splitting real speakers apart.
+
+Measured rather than reasoned about, against sherpa-onnx 1.13.5 on two
+well-separated synthetic speakers:
+
+| `num_clusters` | clusters produced |
+|---|---|
+| `-1` (auto) | 2 ✓ |
+| `2` | 2 ✓ |
+| `4` | **4** |
+| `6` | **6** |
+
+The help text, the command's own epilog (*"cap the count with …"*) and the config
+comments now say what it does. `0` still auto-detects and remains the default, so
+recordings and meetings are unaffected unless a bound was set deliberately.
+
+A real upper bound is not implemented — that needs a second clustering pass and the
+diarization models to verify end to end. The measurement above is recorded so
+whoever has them does not have to rediscover it.
+
+
 ### Fixed — `--min-speakers` did nothing on the diarizer this build ships
 
 `yazses transcribe --help` describes it as *"Lower bound on the auto-detected speaker
