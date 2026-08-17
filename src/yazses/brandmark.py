@@ -216,9 +216,18 @@ def render_mark(
     # mark measures 1.71:1 against WCAG AA's 4.5, and black measures 12.3 — see
     # `tray/menu.py::glyph_for`, which decides. The packaged icons keep white,
     # because they are painted on the brand gradient rather than a state colour.
-    mark = glyph_colour
-    if isinstance(mark, str):
-        text = mark.strip().lstrip("#")
-        mark = tuple(int(text[i:i + 2], 16) for i in (0, 2, 4)) if len(text) == 6 else (255, 255, 255)
+    # Built as an explicit 3-tuple rather than a generator: `tuple(... for ...)` is
+    # `tuple[int, ...]` to a type checker, which loses the "exactly three channels"
+    # that the RGBA paste below depends on.
+    mark: tuple[int, int, int]
+    if isinstance(glyph_colour, str):
+        text = glyph_colour.strip().lstrip("#")
+        mark = (
+            (int(text[0:2], 16), int(text[2:4], 16), int(text[4:6], 16))
+            if len(text) == 6
+            else (255, 255, 255)
+        )
+    else:
+        mark = glyph_colour
     img.paste((*mark, 255), mask=glyph)
     return img

@@ -108,10 +108,16 @@ class LinuxTray:
         # Reap anything the menu started and did not wait on. This is the per-tick
         # hook: the poller calls `set_state` every interval, and a settings window
         # closed an hour ago should not still hold a PID as a zombie.
-        try:
-            self._controller.reap()
-        except Exception:  # pragma: no cover - never let bookkeeping break the icon
-            pass
+        #
+        # The None check is separate from the except on purpose: no controller means
+        # the tray was built without one and there is nothing to reap, while an
+        # exception means reaping itself failed. Folding the first into the second
+        # would let a wiring bug look exactly like a transient waitpid error.
+        if self._controller is not None:
+            try:
+                self._controller.reap()
+            except Exception:  # pragma: no cover - never let bookkeeping break the icon
+                pass
 
         status = status_from_model(model)
         with self._lock:

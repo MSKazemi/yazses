@@ -2847,6 +2847,16 @@ class Daemon:
                                  "No local model is configured, so the selection was left alone.")
             return True
 
+        injector = self._injector
+        if injector is None:
+            # Same shape as the cleaner guard above: the injector is built during
+            # startup, so None here means a rewrite arrived before the daemon was
+            # ready. Saying so beats an AttributeError from inside the rewrite.
+            log.warning("Rewrite needs the injector, which is not ready yet.")
+            self._notify_rewrite("Rewrite unavailable",
+                                 "Text injection is not ready yet, so the selection was left alone.")
+            return True
+
         from yazses.rewrite.engine import rewrite_selection
         from yazses.system.clipboard import read_selection, set_clipboard
 
@@ -2854,7 +2864,7 @@ class Daemon:
             intent,
             read_selection=read_selection,
             rewrite=lambda instruction, text: cleaner.cleanup(text, custom_prompt=instruction),
-            inject=self._injector.inject,
+            inject=injector.inject,
             save_original=set_clipboard,
             fallback_text=self._ledger.last_text() or "",
         )
@@ -3630,14 +3640,22 @@ class Daemon:
         The recorder is always stopped, including on failure — leaving the stream
         open would hold the microphone against the next real dictation.
         """
-        self._recorder.start()
+        recorder, engine = self._recorder, self._engine
+        if recorder is None or engine is None:
+            # Both are built during startup. An empty answer is the honest result
+            # when there is nothing to record with — the caller already treats ""
+            # as "no answer given" and falls back accordingly.
+            log.warning("Cannot ask for a spoken answer before capture and STT are ready.")
+            return ""
+
+        recorder.start()
         try:
             time.sleep(max(1.0, float(timeout_s)))
         finally:
-            audio = self._recorder.stop()
+            audio = recorder.stop()
         if audio is None or not len(audio):
             return ""
-        return (self._engine.transcribe(audio) or "").strip()
+        return (engine.transcribe(audio) or "").strip()
 
     # ---- Signals & helpers -------------------------------------------------
 
