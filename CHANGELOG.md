@@ -6,6 +6,25 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the silent-audio how-to now covers "Empty transcription"
+
+The troubleshooting page someone reaches for when dictation stops was written for one
+message — `Silent audio -- discarding`, the gate rejecting the burst. It routed
+everything else to *"nothing is being recorded"*, which is the wrong page for the
+opposite problem.
+
+`Empty transcription -- discarding` means the audio **passed** the gate, reached the
+model, and decoded to nothing. The gate is not the fault and moving it will not help.
+Measured on a machine in exactly that state: four bursts at levels 0.0022–0.0069
+against **0.0199** for its own last successful dictation — audible, and far too quiet
+to recognise.
+
+The new step names the real cause (which microphone, at what gain), shows how to see
+the device behind the `default` alias, and gives the two commands that fix it. It also
+records that a run of these now trips the mic-change guard, which previously counted
+only silent discards — so a microphone that heard you but yielded nothing was invisible
+to the thing built to notice.
+
 ### Fixed — `--min-speakers` still advertised itself as a lower bound
 
 This cycle taught the run to say that `--min-speakers` is ignored by the diarizer this

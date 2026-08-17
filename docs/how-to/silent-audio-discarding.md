@@ -65,6 +65,7 @@ Read it as three facts:
 | What `mic-level` shows | What it means | Fix |
 |---|---|---|
 | mean level **well above** the threshold | your voice is getting in; the discard is something else | see step 4 |
+| the log says **`Empty transcription`**, not `Silent audio` | audio cleared the gate and the model still returned nothing | step 5 |
 | mean level **below** the threshold | the gate is set above your voice | step 3 |
 | mean level ≈ **0.0000** | nothing is being recorded at all | step 4 |
 
@@ -118,6 +119,53 @@ yazses audio status      # what the running daemon has open
   (`[audio] auto_heal_device`, on by default), and pops a notification with
   *Re-calibrate* / *Pin this mic* buttons. If you dismissed it,
   `yazses audio status` still shows the streak.
+
+## Step 5 — "Empty transcription", not "Silent audio"
+
+These are two different failures with the same outcome, and the log distinguishes
+them:
+
+```
+Silent audio -- discarding (level 0.0003 < vad_threshold 0.0005 …)
+Empty transcription -- discarding.
+```
+
+The second one means the audio **passed** the gate, reached the model, and decoded to
+nothing. So the gate is not your problem and raising or lowering it will not help.
+Measured on a machine in exactly this state: four bursts in a row at levels
+0.0022–0.0069, against **0.0199** for that same machine's last successful dictation.
+Audible, and far too quiet to recognise.
+
+That gap is nearly always **which microphone you are actually recording, or at what
+gain** — and on Linux you often cannot tell from the device name, because the default
+is a routing alias:
+
+```bash
+yazses audio status      # names the device behind `default`, and its volume
+```
+
+```
+OS default:    default
+               → Raptor Lake-P/U/H cAVS Digital Microphone  (volume 65%)
+```
+
+A far-field laptop array at 65% is a different instrument from a headset at 100%. Two
+things fix it:
+
+```bash
+wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 1.0   # or pick the other source in your mixer
+yazses mic-level --set                        # then recalibrate the gate to the new level
+```
+
+Pin the device afterwards (`yazses audio use <name>`) so a later hotplug cannot move
+capture again without telling you.
+
+!!! note "The guard counts these now"
+
+    A run of empty transcriptions trips the same mic-change guard as a run of silent
+    ones — it notifies and can auto-heal after three. Before that it counted only
+    silent discards, so a microphone that heard you but yielded nothing was invisible
+    to the thing built to notice.
 
 ## What "fixed" looks like
 
