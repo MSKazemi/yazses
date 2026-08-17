@@ -6,6 +6,34 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.27.0] — 2026-08-17
+
+### Fixed — four crashes waiting behind a type gate that said it was clean
+
+`make types` describes itself as *"advisory — currently clean; don't add errors"*.
+It was not clean. Seven errors stood in it, and because CI does not run mypy,
+nothing ever failed to say so.
+
+Four were real `AttributeError`s waiting on a code path, not checker pedantry:
+
+- **Rewrite crashed if it arrived during startup.** `_try_rewrite` guarded the LLM
+  cleaner for exactly this reason and then dereferenced the injector two lines
+  later without a guard. It now reports that injection is not ready, which is what
+  the neighbouring branch already did.
+- **Asking you a spoken question could crash the same way.** The recorder and the
+  STT engine are both None until startup finishes; the listener now returns an
+  empty answer, which its caller already handles as "no answer given".
+- **The tray reaped subprocesses through a controller that may not exist.** The
+  new None check sits outside the existing `except` on purpose: a missing
+  controller is a wiring bug and a raised exception is a transient `waitpid`
+  failure, and swallowing both in one handler made them look identical.
+- **The brand mark built its colour with a generator**, losing the
+  exactly-three-channels guarantee the RGBA paste depends on.
+
+The fifth is `onnx_asr` — a genuinely optional dependency with no stubs — and now
+carries an explicit ignore rather than sitting in the count. mypy: **7 → 0** across
+488 files.
+
 ### Added — the second clipboard path is documented, and its platform limit
 
 "My dictation went to the clipboard instead of being typed" has **two** causes with

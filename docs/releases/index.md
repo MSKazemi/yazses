@@ -23,10 +23,11 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.26.0](v2.26.0.md)** — when dictation stops, you find out. A microphone that hears you but yields nothing
-never tripped the guard built for exactly that; the device-change watcher cannot see a
-switch behind a PipeWire alias, so both now name the microphone actually in use; and
-`gitvoice` truncated a branch name before aiming a destructive command at what was left.
+**[YazSes 2.27.0](v2.27.0.md)** — what YazSes said about itself was not what it did. The README told Linux
+users to hold the wrong key and sent Intel Mac users away from a build that exists;
+eight pages offered features that `features enable` refuses; four crashes sat behind a
+type gate advertising itself as clean; and `yazses status` now reports how often
+dictation actually produced text.
 Install it with:
 
 ```sh
@@ -36,6 +37,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.27.0](v2.27.0.md) — the docs described a YazSes that does not exist: the wrong Linux hotkey, a hidden Intel Mac build, eight pages offering features that cannot be enabled; plus a status line that says whether dictation is working.
 - [v2.26.0](v2.26.0.md) — a mic that hears you but yields nothing now trips the guard; `default` is named as the route it is; `gitvoice` no longer truncates a branch name before deleting it.
 - [v2.25.1](v2.25.1.md) — nine fixes, one theme: commands that printed something confident and wrong — a mic check suppressed when it mattered, silence transcribed as a word, a corpus size 430x low.
 - [v2.25.0](v2.25.0.md) — confident answers that were wrong: an empty transcript reported as success; speaker flags that invented or ignored counts; a privacy guard that answered differently per Python.
