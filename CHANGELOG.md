@@ -6,6 +6,36 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the Windows Settings window could not open, and explained itself where nobody could see
+
+Reported from a Windows install: the tray's **Settings…** and **About** entries "do not
+work, do not show anything". Three faults line up to produce exactly that silence, and
+only the first is a missing feature.
+
+**The bundle shipped no Qt.** Qt moved out of the base dependencies and into the
+`desktop` extra. `snap/snapcraft.yaml` was updated in the same breath, and says so in a
+comment — *"it is now the `desktop` extra, so it MUST be listed"* — but both PyInstaller
+builds still ran a bare `uv sync --no-dev`. PySide6 was therefore missing from the
+environment PyInstaller analyses, and the shipped `.exe` contained no GUI at all.
+**macOS has the identical defect**: the `.dmg` cannot open Settings either, and nobody
+had reported it.
+
+**The explanation went to a stream that discards it.** The settings entry point handles
+a missing PySide6 correctly — it prints why and exits. But the tray launches it as a
+*windowed* process, which has no console, and the stream fixup then binds `stderr` to
+`os.devnull` precisely so that writes cannot raise. That function already **returns**
+whether output will be visible, and the caller discarded the answer. There is now a
+native message-box fallback, which needs no dependency — which matters, given the reason
+for the message is that a GUI toolkit is missing.
+
+**About overran the buffer Windows gives it.** With no dialog available, About is shown
+as a balloon, whose body is a 256-wide-character field; the About text is 347. It is now
+trimmed by dropping whole lines rather than cutting one — a half-printed URL still looks
+clickable — keeping the version at the top, since that is what About is opened for.
+
+The installer smoke test checked that three files exist and ran `--version` and `doctor`;
+it never opened the window. A new guard pins the invariant at the build scripts instead.
+
 ## [2.27.0] — 2026-08-17
 
 ### Fixed — four crashes waiting behind a type gate that said it was clean
