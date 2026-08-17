@@ -39,6 +39,37 @@ def about_lines() -> list[str]:
     ]
 
 
+#: Usable characters in a Windows balloon body. ``NOTIFYICONDATA.szInfo`` is a
+#: 256-wide-character buffer including the terminator, and pystray's win32 backend
+#: writes straight into it. The full About body is 347 characters, so it overran —
+#: and the caller reports failures to ``log.debug``, which nobody reads.
+BALLOON_LIMIT = 255
+
+
+def balloon_body(limit: int = BALLOON_LIMIT) -> str:
+    """The About text, trimmed to fit a fixed-size notification.
+
+    Drops whole lines from the end rather than cutting mid-URL: a half-printed link
+    is worse than an absent one, because it looks clickable and is not. The first
+    line always survives — the version is the single thing About is opened for, and
+    a body that omits it has failed at the only job it had.
+    """
+    lines = [ln for ln in about_lines() if ln.strip()]
+    if not lines:
+        return ""
+
+    kept = list(lines)
+    while len(kept) > 1 and len("\n".join(kept)) > limit:
+        kept.pop()
+
+    body = "\n".join(kept)
+    if len(body) > limit:
+        # One line and still too long: a version string this size is not realistic,
+        # but truncating beats handing the API something it will reject wholesale.
+        body = body[: max(0, limit - 1)] + "…"
+    return body
+
+
 def about_html() -> str:
     """The same About body as rich text, with the URLs as clickable links (Qt)."""
     links = "<br>".join(

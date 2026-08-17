@@ -77,23 +77,33 @@ def run() -> None:
     """Entry point — the `yazses-settings` GUI script / `yazses settings`."""
     # No console on Windows for a GUI script: sys.stderr is None, which would
     # take down both basicConfig and the print() diagnostics below.
-    from yazses.system.wincon import ensure_streams
+    from yazses.system.wincon import alert, ensure_streams
 
-    ensure_streams()
+    # The return value says whether anything printed below will actually be seen.
+    # It used to be discarded, and that was the whole of the Windows bug: launched
+    # from the tray, this process has no console, `ensure_streams` binds stderr to
+    # os.devnull so writes do not raise, and every explanation went to nowhere. The
+    # user clicked "Settings…" and got silence.
+    console_visible = ensure_streams()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
+    def _fatal(message: str) -> None:
+        """Report why the window will not open, on a surface the user can see."""
+        print(message, file=sys.stderr)
+        if not console_visible:
+            alert(message, "YazSes — Settings cannot open")
+        log.error("settings window refused to start: %s", message.splitlines()[0])
+        sys.exit(1)
+
     if not pyside_available():
-        print(_MISSING_PYSIDE_MSG, file=sys.stderr)
-        sys.exit(1)
+        _fatal(_MISSING_PYSIDE_MSG)
     if not has_display(os.environ):
-        print(_NO_DISPLAY_MSG, file=sys.stderr)
-        sys.exit(1)
+        _fatal(_NO_DISPLAY_MSG)
 
     try:
         from PySide6.QtWidgets import QApplication
     except ImportError as exc:  # installed but unusable (missing Qt libs on old distros)
-        print(f"{_MISSING_PYSIDE_MSG}\n\nImport failed: {exc}", file=sys.stderr)
-        sys.exit(1)
+        _fatal(f"{_MISSING_PYSIDE_MSG}\n\nImport failed: {exc}")
 
     from yazses.config import Config, load_config
     from yazses.platform import get_platform

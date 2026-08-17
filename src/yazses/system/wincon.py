@@ -48,6 +48,35 @@ def _rebind(name: str, target: str, mode: str) -> None:
     setattr(sys, name, stream)
 
 
+#: MB_OK | MB_ICONERROR | MB_SETFOREGROUND — the box must come to the front, because
+#: it is often the only thing the user will see.
+_MB_FLAGS = 0x0 | 0x10 | 0x10000
+
+
+def alert(message: str, title: str) -> bool:
+    """Show a native Windows message box. Returns whether one appeared.
+
+    The last resort for a windowed binary that has something the user must read.
+    ``ensure_streams`` will happily bind ``stderr`` to ``os.devnull`` when there is
+    no console to borrow — which is correct (writes must not raise) and invisible,
+    so a carefully written explanation is discarded in exactly the situation that
+    produced it.
+
+    ``user32`` is always present on Windows and this needs no dependency, which
+    matters because the usual reason for calling it is that a GUI toolkit is
+    missing. Never raises: a failure here would replace the message with nothing.
+    """
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+
+        ctypes.windll.user32.MessageBoxW(None, str(message), str(title), _MB_FLAGS)
+        return True
+    except Exception:  # noqa: BLE001 — a missing box must not mask the real fault
+        return False
+
+
 def ensure_streams() -> bool:
     """Make ``sys.stdout``/``stderr``/``stdin`` safe to use. Idempotent.
 

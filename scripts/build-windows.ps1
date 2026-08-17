@@ -76,7 +76,15 @@ Write-Host "==> Syncing runtime dependencies"
 # model) is installed into the environment PyInstaller analyses, and none of it
 # belongs in a shipped installer. Measured on macOS, where the leg that skipped it
 # produced an 85 MB bundle against 137 MB for the leg that did not.
-uv sync --no-dev
+#
+# `--extra desktop`: Qt moved out of the base dependencies in #259, and a frozen
+# bundle cannot install anything afterwards -- so without this PyInstaller has no
+# PySide6 to collect and the shipped .exe contains no GUI at all. The tray still
+# offers "Settings...", the launch still reports success (Popen worked), and the
+# child dies on the import with its explanation going to a stderr that a windowed
+# process does not have. `snap/snapcraft.yaml` carries the same note for the same
+# reason; `tests/test_frozen_bundles_ship_the_gui.py` now keeps both honest.
+uv sync --no-dev --extra desktop
 
 Write-Host "==> Installing PyInstaller"
 uv pip install "pyinstaller>=6.10"

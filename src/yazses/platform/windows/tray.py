@@ -13,7 +13,7 @@ from collections.abc import Callable
 from typing import Any
 
 from yazses.platform.base import TrayModel
-from yazses.tray.about import about_lines, about_title, help_links
+from yazses.tray.about import about_title, balloon_body, help_links
 from yazses.tray.menu import (
     ABOUT_LABEL,
     HELP_LABEL,
@@ -102,9 +102,12 @@ class WindowsTray:
             return _handler
 
         def _about_clicked(icon, _item) -> None:  # noqa: ANN001
-            # pystray has no dialog, so About is a notification. The version — the one
-            # thing About is opened for — leads the body so it survives truncation.
-            _notify(icon, about_title(), "\n".join(about_lines()))
+            # pystray has no dialog, so About is a notification. Windows gives that
+            # body a 256-wide-char buffer (`NOTIFYICONDATA.szInfo`); the full About
+            # text is 347 and overran it, which is why About appeared to do nothing
+            # at all. `balloon_body()` trims to fit by dropping whole lines, keeping
+            # the version — the one thing About is opened for — at the top.
+            _notify(icon, about_title(), balloon_body())
 
         def _update_clicked(icon, _item) -> None:  # noqa: ANN001
             # Off the UI thread: the check hits the network and would freeze the menu.

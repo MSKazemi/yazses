@@ -73,7 +73,12 @@ else
     # hypothesis, Pillow, a moonshine ONNX model -- into the environment
     # PyInstaller then analyses. Shipping a linter inside an application is a size
     # problem and a supply-chain one, and neither is paid for by anything.
-    uv sync --no-dev
+    #
+    # `--extra desktop` for the opposite reason: Qt left the base dependencies in
+    # #259, and a frozen .app cannot install it later. Without it the bundle ships
+    # no PySide6, so the tray's "Settings..." opens a process that dies on the
+    # import -- silently, because a windowed bundle has no stderr to print to.
+    uv sync --no-dev --extra desktop
 fi
 
 echo "==> Installing PyInstaller"
