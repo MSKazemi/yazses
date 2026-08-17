@@ -6,6 +6,25 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the remote how-to promised a `default_host` that cannot work
+
+It showed `[remote] default_host` as *"host to use when none is given"*, in a block
+introduced as "the defaults the `remote` command uses when you omit flags".
+
+**The host cannot be omitted.** It is a required positional argument: `yazses remote`
+with no host exits with *"Missing argument 'host'"* before any configuration is read,
+so there is no code path on which a default could apply. `default_host` appears exactly
+once in the source — its own declaration — and nothing else reads it. Its three
+siblings in that block (`ssh_port`, `agent_port`, `key_file`) are all genuinely wired,
+which is what made the dead one easy to miss.
+
+The page now says so rather than teaching a setting that silently does nothing. The key
+is left in place: the loader accepts it, and removing a key people may already have set
+is a separate decision from documenting it honestly.
+
+Found by cross-referencing every how-to and tutorial against the ledger of config keys
+no code reads — one hit across all of them, which is the useful part of that answer.
+
 ### Added — the silent-audio how-to now covers "Empty transcription"
 
 The troubleshooting page someone reaches for when dictation stops was written for one

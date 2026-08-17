@@ -151,11 +151,22 @@ uses when you omit flags:
 
 ```toml
 [remote]
-default_host = ""        # host to use when none is given
 ssh_port = 22
 agent_port = 9875        # must match `yazses-agent --listen`
 key_file = ""            # SSH private key path
 ```
+
+!!! warning "`default_host` is accepted but not implemented"
+
+    The section also takes a `default_host`, and **nothing reads it**. The host is a
+    required argument — `yazses remote` with no host exits with *"Missing argument
+    'host'"* before any configuration is consulted — so there is no code path on which
+    a default could apply. Setting it has no effect; naming the host on the command
+    line is the only way.
+
+    It is left in place rather than removed because the loader accepts it and removing
+    a key people may already have set is a separate decision. It is listed in
+    `tests/test_config_keys_are_read.py`, which fails if the set of unread keys grows.
 
 ## Requirements
 
