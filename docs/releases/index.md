@@ -23,10 +23,10 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.25.1](v2.25.1.md)** — surfaces that stated things that were not true. A microphone check suppressed
-exactly when it mattered, silence transcribed as a confident word, a diagnostic bundle
-that understated the learning corpus 430x, and a release gate that certified a platform
-on one architecture of a pair.
+**[YazSes 2.26.0](v2.26.0.md)** — when dictation stops, you find out. A microphone that hears you but yields nothing
+never tripped the guard built for exactly that; the device-change watcher cannot see a
+switch behind a PipeWire alias, so both now name the microphone actually in use; and
+`gitvoice` truncated a branch name before aiming a destructive command at what was left.
 Install it with:
 
 ```sh
@@ -36,6 +36,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.26.0](v2.26.0.md) — a mic that hears you but yields nothing now trips the guard; `default` is named as the route it is; `gitvoice` no longer truncates a branch name before deleting it.
 - [v2.25.1](v2.25.1.md) — nine fixes, one theme: commands that printed something confident and wrong — a mic check suppressed when it mattered, silence transcribed as a word, a corpus size 430x low.
 - [v2.25.0](v2.25.0.md) — confident answers that were wrong: an empty transcript reported as success; speaker flags that invented or ignored counts; a privacy guard that answered differently per Python.
 - [v2.24.0](v2.24.0.md) — two privacy controls that never ran; a report that leaked your account name; a doctor that called a stale daemon healthy.

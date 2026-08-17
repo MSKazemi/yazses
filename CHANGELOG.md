@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.26.0] — 2026-08-17
+
 ### Added — `audio status` and `doctor` name the microphone behind the `default` alias
 
 Saying *"that is a routing alias"* is true but not yet useful. On the screen someone
