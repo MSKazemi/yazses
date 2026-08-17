@@ -56,7 +56,8 @@ For stubborn terms, two stronger, related mechanisms exist:
 - **The `hotwords` feature** (`[hotwords]`, off by default) goes further than a
   soft prompt: it biases recognition toward your vocabulary with a hotword trie,
   so rare names and jargon actually *win* the decode rather than just being
-  hinted. Turn it on when a soft prompt isn't enough:
+  hinted. **Planned — not yet wired**, so `features enable` refuses it for now;
+  when it lands, turn it on where a soft prompt isn't enough:
 
   ```bash
   yazses features enable hotwords

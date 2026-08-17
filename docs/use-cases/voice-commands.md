@@ -92,12 +92,12 @@ Related capabilities worth knowing about:
 | Capability | Enable with | What it gives you |
 |---|---|---|
 | Chorded Shortcut Synthesis | `yazses features enable chords` | Speak a modifier chord instead of contorting your hand |
-| Voice Snippets | `yazses features enable snippets` | Expand a spoken trigger into boilerplate |
+| Voice Snippets | `yazses features enable snippets` *(planned — not yet wired)* | Expand a spoken trigger into boilerplate |
 | Voice Git Choreographer | `yazses features enable gitvoice` | Drive git by voice, with a spoken confirm before anything destructive |
 | Spoken Shell Pipeline Builder | `yazses features enable shellpipe` | Compose a shell pipeline by speaking it |
 | Terminal Command Safety Gate | `yazses features enable cmdsafety` | Catch destructive commands before they run |
 | Voice Window Management | `yazses features enable windowctl` | Move and switch windows by voice |
-| Voice Mouse Grid | `yazses features enable mousegrid` | Move the pointer and click by voice |
+| Voice Mouse Grid | `yazses features enable mousegrid` *(planned — not yet wired)* | Move the pointer and click by voice |
 | Voice Fuzzy File Open | `yazses features enable fileopen` | Open a file by speaking part of its name |
 
 Browse everything with `yazses features`, and see what any single capability does

@@ -78,7 +78,9 @@ A broken macro entry is skipped and logged — it never breaks the daemon.
 ## Voice Snippets
 
 For simple text expansions without a separate file, use `[snippets]` in
-`config.toml`:
+`config.toml`. **Planned — designed and tested, not yet wired**, so `features enable`
+refuses it for now ([#164](https://github.com/MSKazemi/yazses/issues/164) is where it
+gets wired):
 
 ```bash
 yazses features enable snippets

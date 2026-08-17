@@ -6,6 +6,31 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — eight pages told you to enable features that cannot be enabled
+
+`system/features.py` states it plainly: a capability with `wired = False` is *"designed
+but not yet wired into any runtime path: enabling it would write a config key nothing
+reads. `features enable` refuses these."* `yazses features` labels them **planned —
+designed, not yet wired**.
+
+The documentation did not carry that distinction. Twenty lines across eight pages
+spelled out `yazses features enable <slug>` for unwired capabilities, in ordinary
+"Capability | Enable with | For" tables beside features that work, with nothing to say
+the command would be refused.
+
+The accessibility page was the worst of them — six unwired slugs (`hesitation`,
+`breath`, `involuntary`, `voicehealth`, `autostop`, `mousegrid`) offered to the readers
+least able to route around a dead end.
+
+Every one is now marked *planned — not yet wired*, next to the command or in the
+sentence directly above it where a fenced block cannot carry an inline note. The
+capabilities stay listed: that is how someone finds one to wire, which is what
+[#164](https://github.com/MSKazemi/yazses/issues/164) asks for. Handing over a command
+that cannot work is the part that had to go.
+
+A guard follows `_UNWIRED` rather than a copied list, so wiring a feature retires the
+marker requirement by itself, and a new unwired capability inherits it the day it lands.
+
 ### Fixed — the remote how-to promised a `default_host` that cannot work
 
 It showed `[remote] default_host` as *"host to use when none is given"*, in a block

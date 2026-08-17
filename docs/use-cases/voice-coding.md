@@ -23,7 +23,8 @@ def get_user_name(user_id):
 
 The engine has no way to know that "open paren" is a symbol rather than a word,
 or that "get user name" is one snake_case identifier rather than three words.
-Code mode is what supplies that missing intent.
+Code mode is what supplies that missing intent. **Planned — designed and tested,
+not yet wired**, so `features enable` refuses it for now.
 
 ```sh
 yazses features enable code
@@ -40,7 +41,8 @@ yazses features info code   # exact behaviour and an example
 
 ## Maths and LaTeX
 
-If you write papers rather than programs, spoken maths is injected as LaTeX:
+If you write papers rather than programs, spoken maths is injected as LaTeX.
+**Planned — not yet wired**, so `features enable` refuses it for now:
 
 ```sh
 yazses features enable math
@@ -97,7 +99,7 @@ capabilities extend this for development work:
 | Voice Jump-to-Symbol | `yazses features enable jump` | Jump to a symbol by name |
 | Voice Fuzzy File Open | `yazses features enable fileopen` | Open a file by speaking part of its name |
 | Spoken Shell Pipeline Builder | `yazses features enable shellpipe` | Compose a shell pipeline by voice |
-| Spoken Regex Builder | `yazses features enable spokenregex` | Describe a regex in words |
+| Spoken Regex Builder | `yazses features enable spokenregex` *(planned — not yet wired)* | Describe a regex in words |
 | Auto-Pairing & Wrap | `yazses features enable autopair` | Balance brackets and quotes |
 | Voice Case Transform | `yazses features enable casetransform` | Re-case an identifier by voice |
 

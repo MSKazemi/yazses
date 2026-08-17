@@ -129,7 +129,8 @@ switch, rather than forcing the whole utterance through one language setting.
 ## Per-application language switching
 
 If you write in one language in your email client and another in your editor,
-switching by hand every time is friction that makes dictation not worth using:
+switching by hand every time is friction that makes dictation not worth using.
+**Planned — not yet wired**, so `features enable` refuses it for now:
 
 ```sh
 yazses features enable langroute
@@ -145,8 +146,8 @@ Two distinct capabilities, often confused:
 |---|---|
 | Speak language X, get text in language X | Set `[stt] language` |
 | Speak language X, get **English** text | `yazses features enable translate` |
-| Speak language X, get text composed in language Y | `yazses features enable compose` |
-| Two people, two languages, back and forth | `yazses features enable interpret` |
+| Speak language X, get text composed in language Y | `yazses features enable compose` *(planned — not yet wired)* |
+| Two people, two languages, back and forth | `yazses features enable interpret` *(planned — not yet wired)* |
 
 For an existing recording rather than live dictation, the same translation path is
 one flag:
@@ -192,7 +193,8 @@ the backend before changing the model.
 
 If you are dictating in a language you are still learning, there is an optional
 capability that gives you feedback on pronunciation rather than silently
-transcribing something you did not intend:
+transcribing something you did not intend. **Planned — not yet wired**, so
+`features enable` refuses it for now:
 
 ```sh
 yazses features enable pronunciation
