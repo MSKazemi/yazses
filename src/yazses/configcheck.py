@@ -21,6 +21,7 @@ covered the day they are added, with nothing to remember.
 from __future__ import annotations
 
 import dataclasses
+import math
 import types
 import typing
 from dataclasses import dataclass
@@ -114,14 +115,27 @@ def coerce_value(value, tp):
     if inner is float:
         if isinstance(value, bool):
             return False, None, "should be a number, got true/false"
+        note = None
         if isinstance(value, (int, float)):
-            return True, float(value), None
-        if isinstance(value, str):
+            out = float(value)
+        elif isinstance(value, str):
             try:
-                return True, float(value.strip()), f'should be a bare number, not "{value}"'
+                out = float(value.strip())
+                note = f'should be a bare number, not "{value}"'
             except ValueError:
-                pass
-        return False, None, f"should be a number, got {_name(value)}"
+                return False, None, f"should be a number, got {_name(value)}"
+        else:
+            return False, None, f"should be a number, got {_name(value)}"
+        # `nan` and `inf` are floats, so a type check waves them through -- and this
+        # module's whole promise is that a bad config yields a working daemon and a
+        # ConfigProblem, never a silent oddity. The one that bites is
+        # `[accessibility] vad_threshold`: the silence gate is `mean(|audio|) <
+        # threshold`, so `inf` discards every burst and dictation types nothing at
+        # all, while `nan` makes the comparison false forever and the gate stops
+        # gating. Both used to load cleanly with `doctor` reporting no problem.
+        if not math.isfinite(out):
+            return False, None, f"must be an ordinary number, got {value}"
+        return True, out, note
     if inner is str:
         if isinstance(value, str):
             return True, value, None

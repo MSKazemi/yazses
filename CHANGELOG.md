@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `vad_threshold = inf` loaded cleanly and stopped dictation completely
+
+Config loading is deliberately total (#52): a bad file yields a working daemon, the
+documented default, and a `ConfigProblem` that `doctor` shows under **Config
+validity**. `nan` and `inf` are floats, so the type check waved them straight
+through — no repair, no problem reported, value accepted.
+
+The one that bites is `[accessibility] vad_threshold`. The silence gate is
+`mean(|audio|) < threshold`, so:
+
+- `inf` discards **every** burst — you hold the key, speak, and nothing is ever
+  typed;
+- `nan` makes the comparison false forever, so the gate stops gating at all.
+
+Either way `yazses doctor` reported no config problem, because as far as the checker
+was concerned nothing was wrong. Non-finite numbers are now rejected for every float
+field, falling back to the documented default and reporting it like any other
+repair. `"0.004"` → `0.004` still repairs as before.
+
+Found by fuzzing the loader with fifteen adversarial files — binary, null bytes,
+unparseable TOML, 200 KB strings, deep nesting, RTL unicode. **None of them made it
+raise**, which is the invariant holding; these two were accepted *too* quietly.
+
+
 ### Fixed — `--max-speakers` invented speakers instead of capping them
 
 `--help` called it *"Upper bound on the auto-detected speaker count"*. On the shipped
