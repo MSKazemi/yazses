@@ -952,7 +952,7 @@ def _verdict_line(checks: list[_Check], cfg, platform) -> str:
     # tag told a running daemon to `yazses start`.
     daemon = next((c for c in checks if c[0] == "Daemon"), None)
     running = daemon is not None and daemon[2].startswith(_RUNNING_PREFIX)
-    stale = running and daemon[1] == "WARN"
+    stale = daemon is not None and running and daemon[1] == "WARN"
     # Resolve the hotkey for the "hold X to dictate" hint (sentinels → default).
     key = getattr(getattr(cfg, "hotkey", None), "key", "") or ""
     if key in ("", "auto"):

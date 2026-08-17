@@ -76,17 +76,20 @@ def is_loopback_endpoint(endpoint: str) -> bool:
     if host.lower() in {"localhost", "localhost.localdomain"}:
         return True
     try:
-        parsed = ipaddress.ip_address(host)
+        # A distinct name: `parsed` above is the split URL, and reusing it for an
+        # address made this privacy-critical function read as though one variable
+        # held two unrelated types.
+        addr = ipaddress.ip_address(host)
         # `::ffff:127.0.0.1` reaches 127.0.0.1 on this machine, and CPython only
         # started saying so in 3.13: on 3.11 and 3.12 `is_loopback` is False for
         # IPv4-mapped addresses. This project supports 3.11 through 3.14, so relying on that
         # made a privacy guard answer differently per interpreter -- an endpoint
         # accepted on one runner and refused on another, which CI caught only
         # because the matrix spans the change. Resolve the mapping ourselves.
-        mapped = getattr(parsed, "ipv4_mapped", None)
+        mapped = getattr(addr, "ipv4_mapped", None)
         if mapped is not None:
-            return mapped.is_loopback
-        return parsed.is_loopback
+            return bool(mapped.is_loopback)
+        return bool(addr.is_loopback)
     except ValueError:
         # A name we cannot classify without DNS. Not local as far as we know.
         return False
