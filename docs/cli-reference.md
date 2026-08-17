@@ -89,7 +89,7 @@ After a successful update, restart the daemon to load it:
 | `yazses start` | Start the daemon; restarts cleanly if one is already running (never a duplicate). |
 | `yazses restart` | Stop **all** daemons (including stray/detached ones) and start exactly one. |
 | `yazses stop` | Stop the running daemon. |
-| `yazses status` | Show state, hotkey, model, injection backend, uptime and decode latency (p50/p95) over IPC. |
+| `yazses status` | Show state, hotkey, model, injection backend, uptime, decode latency (p50/p95) and how many recent bursts produced text, over IPC. |
 | `yazses tray` | Show the top-bar tray icon + click-menu (pick/pin mic, re-calibrate, start/stop). |
 | `yazses features` | See capabilities and turn them on/off — no config-file editing. |
 | `yazses settings` | The same switchboard as a window — every capability as a checkbox. See [the Settings window](settings-gui.md). |
@@ -163,6 +163,24 @@ The sample count is always printed, and **below 20 samples the p95 is withheld**
 rather than shown — a p95 over six utterances is not a p95, and printing one invites
 reading it as one. The window is bounded (the last 200 utterances per model) so the
 numbers still move after you change model, which is exactly when you look at them.
+
+And it reports **how often dictation actually produced text**:
+
+```
+  typed:    18 of 20 recent bursts (90%)
+```
+
+A fast decode that types nothing is not usable at all, so this is the more basic of the
+two numbers. A burst counts as `typed` only if text reached the window: one that was
+discarded (silence, an empty transcription, no text target) or that raised does not,
+which means the figure cannot flatter itself by counting failures as successes.
+
+It is a **gauge, not a warning** — it shows on a healthy run too, because a number that
+only appears when something is wrong gives you no baseline to compare against, and you
+cannot tell 70% from 100% at the moment it matters. Like the latency window it is
+bounded and recent, so a change that started this morning is visible rather than
+averaged into months of history; and it stays silent below five bursts, because "0% of
+1" would be believed.
 
 This needs nothing turned on: the samples live in memory in the running daemon,
 are never written to disk, and do not involve any audio or transcript text. They
@@ -762,9 +780,31 @@ no error (every clip is discarded as silence). Two things fix this:
   substring, re-resolved on every recording, so it keeps working even if a hotplug
   renumbers devices.
 - **The mic-change guard** (on by default, `yazses features disable mic-guard` to turn
-  off) watches for the default input changing and for a run of silent clips. When it
-  sees trouble it **auto-heals** — switching capture back to the last mic that worked —
-  and shows a desktop notification with **Re-calibrate / Pin this mic / Ignore** buttons.
+  off) watches for the default input changing and for a run of bursts that produced no
+  text — whether they were discarded as silence *or* reached the model and decoded to
+  nothing, which from your side is the same event. When it sees trouble it
+  **auto-heals** — switching capture back to the last mic that worked — and shows a
+  desktop notification with **Re-calibrate / Pin this mic / Ignore** buttons.
+
+!!! warning "On Linux, the device-change half often cannot fire — pin instead"
+
+    The guard spots a switch by comparing the default device's **name** over time. On
+    ALSA and PipeWire the default is usually a routing *alias* called `default`, which
+    forwards to whichever device is current: the microphone behind it changes and the
+    name does not. So on a typical Linux desktop that half compares `default` with
+    `default` for ever.
+
+    The streak half is unaffected — it counts outcomes, not names — but it reacts after
+    the fact. **Pinning a real device is what makes a silent switch impossible rather
+    than merely detectable.**
+
+    `yazses audio status` and `yazses doctor` name the microphone actually behind the
+    alias, and its volume, so you can see what you are really recording:
+
+    ```
+    OS default:    default
+                   → Raptor Lake-P/U/H cAVS Digital Microphone  (volume 65%)
+    ```
 
 If dictation goes quiet after changing your audio setup, run `yazses audio status` (or
 `yazses status`) to see the live capture device and whether clips are being discarded.
@@ -999,10 +1039,27 @@ and most other ffmpeg-decodable media.
 | `--language <lang>` | `en` (default) or `translate` to render any-language audio into English. |
 | `--diarize` / `--no-diarize` | Tag who said what with local speaker models (needs the `diarization` extra). |
 | `--speakers <N>` | Force an exact speaker count (`0` = auto-detect). |
-| `--min-speakers <N>` / `--max-speakers <N>` | Bounds on the auto-detected speaker count. |
+| `--max-speakers <N>` | ⚠ On the shipped `sherpa` diarizer this forces an **exact** count, it does not cap one: `6` on a three-person recording manufactures six by splitting real speakers apart. `0` (default) auto-detects. |
+| `--min-speakers <N>` | ⚠ **Ignored** by the shipped diarizer — only the pyannote adapter reads it, and this build does not ship it. The command says so before transcribing rather than silently ignoring the floor. |
 | `--names "Alice,Bob"` | Comma list mapped to speakers in order of first appearance. |
 | `--rename speaker_0=Alice` | Explicit speaker→name map, repeatable. |
 | `--download-models` | Fetch the ~45 MB sherpa diarization models, then exit (no transcription). |
+
+**It tells you when the transcript is not trustworthy**, rather than reporting success
+over it:
+
+- **Nothing recognised** — music, silence, or speech in a language an English-only model
+  cannot read produce an empty file. The command says so and names the causes you can
+  act on, the useful one being the `.en` model, which you can neither see nor guess from
+  a blank file.
+- **Audio with no signal in it** — a muted microphone, an input held by another
+  application, or capture pointed at the wrong device. Speech models answer silence with
+  a *confident invented word* rather than with nothing (two seconds of digital silence
+  decodes to "You"), so an empty-transcript check cannot catch this. The check is on the
+  input instead: audio carrying no signal cannot contain speech. The transcript is still
+  written — you may want to see what was invented — but it is not presented as a result.
+- **A file that is not audio, or is missing** — reported as such, with the formats that
+  do work, instead of an ffmpeg command line.
 
 ```bash
 yazses transcribe talk.mp3                     # → talk.txt beside it
