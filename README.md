@@ -196,7 +196,7 @@ Release the key — YazSes transcribes and acts. On a modern laptop CPU that is 
 
 ## What you can say
 
-Hold the key and just **talk** — by default everything you say is typed at the cursor. YazSes also recognises a set of **voice commands** (a fast regex grammar; an optional ~0.5B SLM router catches phrasings the grammar misses) that map to editor/terminal **key sequences** instead of being typed:
+Hold the key and just **talk** — by default everything you say is typed at the cursor. YazSes also recognises a set of **voice commands** (a fast regex grammar; a ~0.5B SLM router for phrasings the grammar misses is designed but **not wired yet**) that map to editor/terminal **key sequences** instead of being typed:
 
 | Say something like… | What happens |
 |---|---|
@@ -219,17 +219,17 @@ You can also define multi-step **macros** and a personal **vocabulary** of mis-h
 
 ```
 Hold hotkey → record audio → VAD gate → faster-whisper (CPU) → clean + disfluency filter
-            → command grammar (Tier 1 regex, optional Tier 2 SLM router)
+            → command grammar (Tier 1 regex; Tier 2 SLM router designed, not wired)
             → dictate? type the text   ·   command? send the key sequence
 ```
 
-Everything runs on your CPU — no GPU, no network. Transcription uses **faster-whisper** (int8). A fast regex grammar classifies each utterance as dictation or a command; when its confidence is low, an optional ~0.5B SLM router takes a second look.
+Everything runs on your CPU — no GPU, no network. Transcription uses **faster-whisper** (int8). A fast regex grammar classifies each utterance as dictation or a command. A ~0.5B SLM router was designed to take a second look when confidence is low; the seam exists (`grammar.classify()` accepts it) but nothing constructs one, so **Tier 1 decides every utterance today**.
 
 Measured on a 13th-gen Core i7 laptop, int8 on CPU: **4.07 % WER** on LibriSpeech test-clean with the default `base.en`, a **1.56 s median** decode, and **0.29 ms** of total non-decode pipeline overhead — i.e. essentially all the latency is the speech model. Everything, including the method and the commands to reproduce it, is on the [benchmarks page](docs/benchmarks.md).
 
 **Models:**
 - **Speech-to-text:** faster-whisper — `tiny.en` (fast) / `base.en` / `small.en` (more accurate), int8 on CPU
-- **Command routing (optional):** Qwen2.5-0.5B SLM for Tier 2 intent classification — *not* required for dictation, fetched with `yazses model download`
+- **Command routing (not wired):** Qwen2.5-0.5B SLM for Tier 2 intent classification. `yazses model download` can fetch it, but **nothing loads it yet** — downloading it today gains you nothing. (The command is still the right way to pre-fetch a *speech* model behind a firewall.)
 - **Dictation cleanup (optional, off by default):** a small offline LLM can tidy grammar/punctuation; length- and token-preservation guards stop it rewriting meaning
 
 ---
@@ -256,7 +256,10 @@ Measured on a 13th-gen Core i7 laptop, int8 on CPU: **4.07 % WER** on LibriSpeec
 - **Macros & personal vocabulary** — define multi-step commands and teach YazSes your mis-heard words
 - **Dysfluency-Friendly Mode** — opt-in collapse of stutters/repeats (`b-b-because` → `because`) for stuttered or dysarthric speech
 - **Self-improving** — opt-in, encrypted on-device learning corpus; `yazses tune` proposes accuracy fixes from your own corrections (nothing leaves the machine)
-- **Editor context** — optional Neovim / VS Code LSP context improves accuracy on code identifiers
+- **Editor navigation** — `yazses jump "go to function parse_config"` resolves the symbol
+  through your editor's LSP (Neovim bridge; opt-in). *Feeding LSP symbols into the
+  transcription prompt is designed but **not wired** — the daemon builds its prompt from
+  your vocabulary and mined terms only, so it does not yet improve identifier accuracy.*
 - **Accessibility** — VAD calibration wizard, mic-level tuning, and EMG (muscle-sensor) trigger support for motor-disability use
 - **Voice-activity overlay** — optional sonar rings near the cursor while you speak
 
@@ -607,7 +610,7 @@ installed, or depended on by anything here.
 | Dysfluency-Friendly Mode · learning corpus + `yazses tune` | ✅ | ❌ |
 | On-device **LLM agent** (OS tools: git commit, media, notes, screenshots…) | ❌ (optional offline text *cleanup* only) | ✅ |
 | **Personal memory** (encrypted on-device vector store) | ❌ | ✅ |
-| Editor context (Neovim / VS Code) | ✅ LSP context, opt-in | ✅ 5-tier window detection + bridges |
+| Editor context (Neovim / VS Code) | ✅ LSP **navigation** (`yazses jump`), opt-in; LSP-into-prompt not wired | ✅ 5-tier window detection + bridges |
 | Screen-reader integration (AT-SPI / NVDA) | ❌ | ✅ |
 | Packaged & distributed (PyPI, snap, APT) | ✅ | ❌ |
 

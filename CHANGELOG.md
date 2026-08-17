@@ -6,6 +6,33 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the README described two capabilities that are not wired
+
+Both were written in the present tense, as things YazSes does.
+
+**The Tier 2 SLM router**, in four places: *"an optional ~0.5B SLM router catches
+phrasings the grammar misses"*, *"when its confidence is low, an optional ~0.5B SLM
+router takes a second look"*, in the pipeline diagram, and in the models list. Nothing
+in `src/` constructs `SLMRouter`; `grammar.classify()` accepts the parameter and both
+daemon call sites pass only `macro_table`. The repo's own orphan ledger already recorded
+it as *"a plumbed seam never filled"* — the README simply had not caught up.
+
+The concrete cost was in the models list, which invited `yazses model download` for the
+Qwen GGUF. Nothing loads it, so that download was pure disk and bandwidth. The command
+itself stays recommended for pre-fetching a *speech* model behind a firewall, which is
+what it is genuinely for.
+
+**LSP context improving dictation accuracy.** `_effective_initial_prompt` calls
+`compose_context_prompt(..., use_lsp=False)` — hardcoded, while `[context] use_lsp`
+defaults to `true` and is read by nothing. The prompt is built from your vocabulary and
+mined terms only.
+
+The correction is deliberately narrow, because **the neighbouring claim is true**:
+`yazses jump "go to function parse_config"` really does resolve symbols through the
+editor bridge (`cli.py` constructs `LspContextProvider` for exactly that). So the README
+now separates LSP *navigation*, which works, from LSP *into the transcription prompt*,
+which is designed and not wired.
+
 ### Fixed — "comment this line" was typed into your file instead of commenting it
 
 The README lists it as a spoken command. The pattern allowed exactly **one** trailing
