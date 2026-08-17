@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a bare JSON array over IPC got no reply and a traceback in the log
+
+`[1,2,3]`, `"hello"`, `42`, `null` and `true` are all valid JSON, and none of them
+has a `.get`. `Request.from_json` therefore left an `AttributeError` for that one
+class of malformed input, while `ipc/server.py` catches `(ValueError,
+UnicodeDecodeError)` to answer with a JSON-RPC parse error.
+
+So the caller got a closed socket and **no reply at all**, and the per-connection
+thread died printing a traceback into the daemon log — which reads like a crash to
+whoever later opens `yazses logs` about something real. Every other malformed input
+was answered properly.
+
+Both parsers now reject non-objects with `ValueError`, which is the contract the
+server was already written against. Fixed in the parser rather than by widening the
+server's `except`, so the guarantee holds for every caller — the client parses
+responses with the same expectation.
+
+The blast radius was bounded and worth stating: connections are handled one thread
+each, so the accept loop survived and the daemon stayed reachable.
+
+
 ### Fixed — the MCP server handed agents Python internals
 
 Calling `transcribe` without its argument returned this to the model on the other

@@ -138,3 +138,61 @@ def test_unreachable_socket_raises():
         assert client.is_reachable() is False
         with pytest.raises(IpcUnreachableError):
             client.call("status")
+
+
+# ---- valid JSON that is not an object ---------------------------------------
+
+
+@pytest.mark.parametrize("line", ["[1,2,3]", '"hello"', "42", "null", "true"])
+def test_a_non_object_request_is_a_value_error(line):
+    """`json.loads("[1,2,3]")` succeeds and the result has no `.get`.
+
+    That left an AttributeError escaping `from_json`, and `ipc/server.py` catches
+    `(ValueError, UnicodeDecodeError)` to answer with a JSON-RPC parse error — so
+    this one class of malformed input got no reply at all. The caller saw a closed
+    socket, and the per-connection thread died printing a traceback into the daemon
+    log, which reads like a crash to whoever later opens `yazses logs` about
+    something real.
+
+    Everything malformed must leave here as ValueError, which is the contract the
+    server is written against.
+    """
+    with pytest.raises(ValueError):
+        Request.from_json(line)
+
+
+@pytest.mark.parametrize("line", ["[1,2,3]", '"hello"', "42", "null"])
+def test_a_non_object_response_is_a_value_error(line):
+    """The client parses responses with the same expectation."""
+    with pytest.raises(ValueError):
+        Response.from_json(line)
+
+
+def test_the_server_answers_a_bare_array_instead_of_dying():
+    """End to end over a real socket: the promise is a parse error, not silence."""
+    import json
+    import socket
+    import tempfile
+    from pathlib import Path
+
+    from yazses.ipc.server import JsonRpcServer
+
+    with tempfile.TemporaryDirectory() as tmp:
+        sock_path = Path(tmp) / "ipc.sock"
+        server = JsonRpcServer(sock_path)
+        server.register("status", lambda req: {"ok": True})
+        server.serve_in_thread()
+        try:
+            conn = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            conn.settimeout(5.0)
+            conn.connect(str(sock_path))
+            conn.sendall(b"[1,2,3]\n")
+            reply = conn.recv(65536).decode("utf-8").strip()
+            conn.close()
+        finally:
+            server.shutdown()
+
+    assert reply, "the server closed the connection without answering"
+    payload = json.loads(reply)
+    assert "error" in payload, payload
+    assert "Parse error" in payload["error"]["message"], payload

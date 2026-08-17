@@ -46,6 +46,15 @@ class Request:
     @classmethod
     def from_json(cls, line: str) -> Request:
         data = json.loads(line)
+        # A bare array, string, number or null is valid JSON and has no `.get`, so
+        # this used to leave the method with an AttributeError. The server catches
+        # (ValueError, UnicodeDecodeError) to answer with a JSON-RPC parse error, so
+        # AttributeError escaped instead: the caller got a closed socket and no
+        # reply, and the per-connection thread died printing a traceback into the
+        # daemon log -- which reads like a crash to anyone later diagnosing a real
+        # fault. Everything malformed leaves here as ValueError.
+        if not isinstance(data, dict):
+            raise ValueError(f"Request must be a JSON object, got {type(data).__name__}")
         if data.get("jsonrpc") != JSONRPC_VERSION:
             raise ValueError(f"Unexpected jsonrpc version: {data.get('jsonrpc')!r}")
         method = data.get("method")
@@ -87,6 +96,8 @@ class Response:
     @classmethod
     def from_json(cls, line: str) -> Response:
         data = json.loads(line)
+        if not isinstance(data, dict):
+            raise ValueError(f"Response must be a JSON object, got {type(data).__name__}")
         if data.get("jsonrpc") != JSONRPC_VERSION:
             raise ValueError(f"Unexpected jsonrpc version: {data.get('jsonrpc')!r}")
         err = data.get("error")
