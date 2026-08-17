@@ -61,6 +61,12 @@ is the safety design: **destructive operations wait for a spoken confirmation**,
 and the undo is always spoken back to you. Say *"force push"* and it does not
 immediately force-push — it asks, and it tells you how to reverse it.
 
+Say a branch name the way it is written: *"create branch feature slash login"*
+becomes `git checkout -b feature/login`, and the capitalisation you speak is kept,
+because git refs are case-sensitive. A phrase the grammar does not recognise is
+**refused rather than partly understood** — it prints what it does understand
+instead of running a command against a name it only half heard.
+
 ## Terminal safety
 
 Dictating into a shell is the highest-risk place a misrecognition can land. The

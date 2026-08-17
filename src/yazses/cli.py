@@ -3093,6 +3093,7 @@ def shellpipe(
     rich_help_panel=_DICTATION,
     epilog=_examples(
         "yazses gitvoice \"commit with message fix the parser\"   -> git commit -m 'fix the parser'",
+        'yazses gitvoice "create branch feature slash login"     -> git checkout -b feature/login',
         'yazses gitvoice "force push" --run                     refuses: destructive, needs --yes',
         'yazses gitvoice "force push" --run --yes                -> actually runs it',
     ),
