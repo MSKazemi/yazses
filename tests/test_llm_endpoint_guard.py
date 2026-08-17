@@ -149,12 +149,19 @@ def test_numeric_and_homoglyph_encodings_are_not_loopback(endpoint):
     assert is_loopback_endpoint(endpoint) is False
 
 
-def test_the_ipv4_mapped_form_is_loopback_because_it_reaches_this_machine():
+def test_the_ipv4_mapped_form_is_loopback_on_every_supported_python():
     """`::ffff:127.0.0.1` is genuinely local and must NOT be refused.
 
-    Verified rather than assumed when this was written: Python reports
-    `is_loopback` True for it, and an actual connection attempt is *refused*
-    rather than routed away — it reaches 127.0.0.1 on this machine. Listing it
-    with the bypasses above would be wrong, and would break a working IPv6 setup.
+    Verified rather than assumed: an actual connection attempt to it is *refused*
+    rather than routed away, so it reaches 127.0.0.1 on this machine. Listing it
+    with the bypasses above would break a working IPv6 setup.
+
+    It is also the reason `is_loopback_endpoint` resolves `ipv4_mapped` itself
+    instead of trusting `IPv6Address.is_loopback`. CPython only started counting
+    IPv4-mapped addresses as loopback in **3.12**; on 3.11 it answers False. This
+    project's matrix spans 3.11 to 3.14, so leaning on the stdlib made a privacy
+    guard give two different answers depending on the interpreter — the same
+    config accepted on one machine and refused on another. Caught by Windows 3.11
+    going red while Windows 3.12 passed, which is the narrowest possible signal.
     """
     assert is_loopback_endpoint("http://[::ffff:127.0.0.1]:11434") is True
