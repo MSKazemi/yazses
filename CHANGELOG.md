@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the release gate certified a platform on one architecture of a pair
+
+`release-complete.yml` counts `deb > 1 && dmg > 1 && exe > 1` in its wait loop, and
+says why: *"at least one .dmg" let it print "All platforms published" for a release
+carrying no Intel bundle — which is exactly what happened for v2.20.0 and v2.21.0.*
+
+The wait was hardened. The check it delegates the **verdict** to was not.
+`check_release_assets` took the first asset matching each suffix, so the published
+summary table and `--core-only` both accepted a half-built release. `--core-only` is
+what decides whether an incomplete release keeps the **Latest** label, so a release
+carrying only an arm64 `.dmg` was never demoted and Intel users were sent to a
+download that did not exist.
+
+Run against the real releases after the fix:
+
+| Release | macOS | Windows |
+|---|---|---|
+| v2.20.0 | ❌ only `YazSes-2.20.0.dmg` | ❌ only `-windows-x64.exe` |
+| v2.21.0 | ❌ only `-macos-arm64.dmg` | ❌ only `-windows-x64.exe` |
+| v2.25.0 | ✅ both | ✅ both |
+
+Both architectures are now required, and the detail column names the assets it found
+rather than implying them — the evidence for a ✅ is now visible in the report.
+
 ## [2.25.0] — 2026-08-17
 
 ### Fixed — `doctor` told a running daemon to start

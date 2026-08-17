@@ -138,8 +138,20 @@ def check_release_assets(version: str) -> dict[str, tuple[bool | None, str]]:
     names = [a["name"] for a in data.get("assets", [])]
     out = {}
     for key, suffix in (("deb", ".deb"), ("dmg", ".dmg"), ("exe", ".exe")):
-        hit = next((n for n in names if n.endswith(suffix)), None)
-        out[key] = (hit is not None, hit or f"no {suffix} attached")
+        # TWO of each -- one per architecture. Taking the first match called a
+        # platform published on one of a pair, which is exactly what let v2.20.0
+        # and v2.21.0 certify "All platforms published" while carrying no Intel
+        # bundle. release-complete.yml's wait loop was hardened to `> 1` at the
+        # time; this, the check it delegates the *verdict* to, was not -- so the
+        # summary table and `--core-only` both still accepted a half-built
+        # release, and --core-only is what decides whether it keeps "Latest".
+        hits = sorted(n for n in names if n.endswith(suffix))
+        if not hits:
+            out[key] = (False, f"no {suffix} attached")
+        elif len(hits) == 1:
+            out[key] = (False, f"only {hits[0]} — one architecture of a pair")
+        else:
+            out[key] = (True, ", ".join(hits))
     return out
 
 

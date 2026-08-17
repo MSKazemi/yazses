@@ -85,7 +85,10 @@ def test_all_three_assets_present(crc, responses):
                     {
                         "assets": [
                             {"name": "yazses_2.18.2_amd64.deb"},
-                            {"name": "YazSes-2.18.2.dmg"},
+                            {"name": "yazses_2.18.2_arm64.deb"},
+                            {"name": "YazSes-2.18.2-macos-arm64.dmg"},
+                            {"name": "YazSes-2.18.2-macos-x86_64.dmg"},
+                            {"name": "YazSes-2.18.2-windows-arm64.exe"},
                             {"name": "YazSes-2.18.2-windows-x64.exe"},
                         ]
                     }
@@ -106,7 +109,9 @@ def test_missing_deb_is_reported_alone(crc, responses):
                 _body(
                     {
                         "assets": [
-                            {"name": "YazSes-2.18.1.dmg"},
+                            {"name": "YazSes-2.18.1-macos-arm64.dmg"},
+                            {"name": "YazSes-2.18.1-macos-x86_64.dmg"},
+                            {"name": "YazSes-2.18.1-windows-arm64.exe"},
                             {"name": "YazSes-2.18.1-windows-x64.exe"},
                         ]
                     }
@@ -258,9 +263,12 @@ def test_core_only_returns_exactly_the_channels_ci_builds(crc, responses):
                 _body(
                     {
                         "assets": [
-                            {"name": "a.deb"},
-                            {"name": "b.dmg"},
-                            {"name": "c.exe"},
+                            {"name": "a1.deb"},
+                            {"name": "a2.deb"},
+                            {"name": "b1.dmg"},
+                            {"name": "b2.dmg"},
+                            {"name": "c1.exe"},
+                            {"name": "c2.exe"},
                         ]
                     }
                 ),
@@ -371,7 +379,8 @@ def test_unknown_is_reported_separately_from_missing(crc, responses, capsys, mon
         {
             "api.github.com": (
                 200,
-                _body({"assets": [{"name": "a.deb"}, {"name": "b.dmg"}, {"name": "c.exe"}]}),
+                _body({"assets": [{"name": "a1.deb"}, {"name": "a2.deb"}, {"name": "b1.dmg"},
+                                  {"name": "b2.dmg"}, {"name": "c1.exe"}, {"name": "c2.exe"}]}),
             )
         },
         default=(0, b"unreachable"),
@@ -387,7 +396,9 @@ def test_unknown_is_reported_separately_from_missing(crc, responses, capsys, mon
 
 def test_a_check_that_raises_does_not_hide_the_others(crc, responses, monkeypatch):
     """One broken channel must not take the whole report down with it."""
-    responses({"api.github.com": (200, _body({"assets": [{"name": "a.deb"}]}))})
+    responses(
+        {"api.github.com": (200, _body({"assets": [{"name": "a1.deb"}, {"name": "a2.deb"}]}))}
+    )
 
     def boom(_version):
         raise RuntimeError("upstream exploded")
@@ -400,3 +411,45 @@ def test_a_check_that_raises_does_not_hide_the_others(crc, responses, monkeypatc
     assert "RuntimeError" in pypi.detail
     # The asset checks still reported.
     assert next(r for r in results if r.key == "deb").ok is True
+
+
+def test_one_architecture_of_a_pair_is_not_a_published_platform(crc, responses):
+    """The exact gap release-complete.yml's wait loop was hardened against.
+
+    That workflow counts `deb > 1 && dmg > 1 && exe > 1` and explains why: "at
+    least one .dmg" is what let v2.20.0 and v2.21.0 print "All platforms
+    published" while the cross-architecture legs failed silently. But the wait is
+    only a wait — the *verdict* comes from this script, which took the first
+    matching asset and called the platform done.
+
+    That mattered twice over, because `--core-only` is what decides whether an
+    incomplete release keeps the "Latest" label: a release carrying only an arm64
+    .dmg passed it, so it was never demoted and Intel users were sent to a
+    download that did not exist.
+    """
+    responses(
+        {
+            "api.github.com": (
+                200,
+                _body(
+                    {
+                        "assets": [
+                            {"name": "yazses_2.25.0_amd64.deb"},
+                            {"name": "yazses_2.25.0_arm64.deb"},
+                            {"name": "YazSes-2.25.0-macos-arm64.dmg"},
+                            {"name": "YazSes-2.25.0-windows-arm64.exe"},
+                            {"name": "YazSes-2.25.0-windows-x64.exe"},
+                        ]
+                    }
+                ),
+            )
+        }
+    )
+    got = crc.check_release_assets("2.25.0")
+    assert got["deb"][0] is True, "both .deb architectures are attached"
+    assert got["exe"][0] is True, "both .exe architectures are attached"
+    assert got["dmg"][0] is False, (
+        "only the arm64 .dmg is attached — Intel users have no download, and this "
+        f"reported the macOS platform as published: {got['dmg']}"
+    )
+    assert "arm64" in got["dmg"][1], "the detail must name what was actually found"
