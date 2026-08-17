@@ -6,6 +6,23 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the second clipboard path is documented, and its platform limit
+
+"My dictation went to the clipboard instead of being typed" has **two** causes with
+confusingly similar names, and the troubleshooting page covered only one.
+`[injection] target_guard` handles *no text field*; `[injection]
+fallback_to_clipboard` handles *there was a field and the typing backend failed*.
+
+The second had no prose anywhere — only a row in the generated settings table — even
+though turning it off is a real remedy: a typing timeout can fire after part of the
+text is already typed, the fallback then pastes the whole thing again, and a streaming
+commit deletes a span computed from the first copy. Anyone who has met doubled text
+wants the primary backend to fail loudly instead.
+
+⚠ And it is **Linux only**. The macOS and Windows injectors have no clipboard fallback
+at all, so the key is inert there in both directions: turning it off changes nothing,
+and leaving it at its `true` default does not give you the safety net the name implies.
+
 ### Fixed — the README described two capabilities that are not wired
 
 Both were written in the present tense, as things YazSes does.

@@ -90,6 +90,31 @@ Two ordinary causes, both worth ruling out:
 
 Nothing detects this for you; the clipboard fallback is what makes it recoverable.
 
+## Cause 4 — the typing backend failed, so it pasted instead
+
+This is a *different* clipboard path from Cause 1, with a confusingly similar name.
+`[injection] target_guard` decides what to do when there is **no text field**;
+`[injection] fallback_to_clipboard` (default `true`) decides what to do when there is
+one and the **typing backend fails at runtime** — it pastes rather than losing the
+words.
+
+Turning it off is a remedy rather than a preference. A typing timeout can fire *after*
+part of the text has already been typed; the fallback then pastes the whole thing a
+second time, and a streaming commit deletes a span computed from the first copy. If you
+have met doubled or mangled text, you want the primary backend to fail loudly:
+
+```toml
+[injection]
+fallback_to_clipboard = false
+```
+
+!!! warning "Linux only"
+
+    This is read on the Linux injection path. The macOS and Windows injectors have no
+    clipboard fallback at all, so on those platforms the key is inert in both
+    directions: turning it off changes nothing, and leaving it at the default does not
+    give you the safety net the name implies.
+
 ## The Wayland case
 
 On Wayland, one application cannot inspect or focus another's window — that is the
