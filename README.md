@@ -446,7 +446,9 @@ sample_rate = 16000
 max_record_seconds = 90
 
 [injection]
-backend = "auto"            # auto | xdotool | ydotool | wtype | clipboard
+backend = "auto"            # auto | type | ydotool | wtype | clipboard
+                            # ("xdotool" is not a token — on X11 `auto` already
+                            #  uses xdotool; asking for it on Wayland gets ydotool)
 
 [accessibility]
 vad_threshold = 0.0008      # lower for quiet speech, raise if room noise triggers (yazses mic-level --set)

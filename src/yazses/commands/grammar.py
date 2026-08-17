@@ -68,7 +68,15 @@ _add(r'^undo\s+(\d+)\s+times?$', IntentType.EDIT, "undo_n", ["n"])
 _add(r'^save(?:\s+file)?(?:\s+now)?$', IntentType.EDIT, "save", [])
 _add(r'^copy(?:\s+(?:that|this|line|selection))?$', IntentType.EDIT, "copy", [])
 _add(r'^paste(?:\s+here)?$', IntentType.EDIT, "paste", [])
-_add(r'^comment(?:\s+(?:this|line|selection|out))?$', IntentType.EDIT, "comment", [])
+# Multi-word forms first: "comment this line" is what people actually say, and the
+# README documented it, but the pattern only ever allowed ONE trailing word — so the
+# phrase fell through to DICTATE and the words were typed into the file. Safe to widen
+# because the pattern is anchored at both ends: only these exact utterances match, and
+# ordinary prose containing "comment" is untouched.
+_add(
+    r'^comment(?:\s+(?:this\s+line|the\s+line|this\s+selection|this|line|selection|out))?$',
+    IntentType.EDIT, "comment", [],
+)
 _add(r'^select\s+(\d+)\s+lines?$', IntentType.EDIT, "select_lines", ["n"])
 _add(r'^select\s+(?:to\s+)?end$', IntentType.EDIT, "select_to_end", [])
 _add(r'^select\s+all$', IntentType.EDIT, "select_all", [])

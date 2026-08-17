@@ -16,7 +16,9 @@ channels = 1
 max_record_seconds = 90
 
 [injection]
-backend = "auto"           # auto | xdotool | ydotool | wtype | clipboard
+backend = "auto"           # auto | type | ydotool | wtype | clipboard
+                           # "xdotool" is not a recognised value: on X11 `auto`
+                           # already selects xdotool, and on Wayland it is ignored.
 fallback_to_clipboard = true
 
 [general]

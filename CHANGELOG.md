@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — "comment this line" was typed into your file instead of commenting it
+
+The README lists it as a spoken command. The pattern allowed exactly **one** trailing
+word — `^comment(?:\s+(?:this|line|selection|out))?$` — so `"comment this"` worked and
+`"comment this line"`, the phrase people actually say and the one the README printed,
+fell through to DICTATE and got typed into the buffer.
+
+Widened to accept `this line`, `the line` and `this selection` as well. Safe because
+the pattern is anchored at **both** ends, which is this project's rule for spoken
+grammars: only those exact utterances match, and prose like *"this line is a comment"*
+still classifies as dictation — checked, not assumed.
+
+### Fixed — `xdotool` was documented as an injection backend and is not one
+
+`backend = "auto"  # auto | xdotool | ydotool | wtype | clipboard` in the README and in
+`examples/config.example.toml`. `get_injector` handles `clipboard` and, on Wayland,
+`wtype`; everything else falls through to the automatic path. So `xdotool` is not a
+token: on X11 it appears to work only because `auto` already selects xdotool there, and
+on Wayland asking for it silently gets you ydotool.
+
+Corrected to the set the daemon itself names (`auto | type | ydotool | wtype |
+clipboard`), with a note on why `xdotool` is absent — it is the kind of value someone
+sets deliberately after reading a troubleshooting thread.
+
 ### Fixed — the README told Linux users to hold the wrong key
 
 `| Linux | ``Space`` |` in the README's first table, and *"Hold the hotkey (Space on
