@@ -160,10 +160,23 @@ def collect(*, config_file: Path, log_file: Path, data_dir: Path,
     report["log_tail"] = _log_tail(log_file, log_lines)
 
     # The learning corpus holds real transcripts and audio. Size only; never opened.
+    #
+    # Sized through the same helper the store prunes against, because the audio
+    # clips are almost all of it: this counted `corpus.db` alone and reported 3.0 MB
+    # for a corpus `yazses corpus status` measured at 1294.9 MB. That number lands in
+    # bug reports, and it is the one a user checks against `[learning] max_corpus_mb`.
+    #
+    # Mebibytes, matching what the cap actually enforces (`max_mb * 1024 * 1024`) and
+    # what `yazses corpus status` prints. Dividing by 1e6 here instead made the two
+    # surfaces disagree -- 1357.8 against 1294.9 for one corpus -- which reads as a
+    # bug in one of them, and leaves the reported number not comparable to the cap it
+    # exists to be compared against.
+    from yazses.learning.store import corpus_disk_bytes
+
     corpus = data_dir / "corpus.db"
     report["corpus"] = {
         "present": corpus.exists(),
-        "size_mb": round(corpus.stat().st_size / 1e6, 1) if corpus.exists() else 0,
+        "size_mb": round(corpus_disk_bytes(data_dir) / 1_048_576, 1) if corpus.exists() else 0,
         "note": "contents deliberately not included",
     }
     return report

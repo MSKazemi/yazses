@@ -6,6 +6,33 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses report` understated the learning corpus 430x
+
+Two surfaces, one corpus, measured on a real machine:
+
+```
+yazses report          corpus: 3.0 MB
+yazses corpus status   size:   1294.9 MB
+```
+
+`report` sized `corpus.db` and nothing else. The encrypted audio clips beside it are
+almost all of a real corpus — 3.0 MB of database against 1291.9 MB of audio here.
+
+That number is the one attached to bug reports, so a maintainer reading *3 MB* rules
+the corpus out of a disk-space problem it is in fact causing. It is also what a user
+checks against `[learning] max_corpus_mb` (default 500): reading the report, someone
+2.5x over the cap concludes they are comfortably under it.
+
+Both now go through one helper, the same stat calls the store already prunes against,
+so they cannot drift again. Nothing is opened or decrypted — this is filesystem
+metadata, as before.
+
+Reported in **mebibytes**, which is what the cap enforces (`max_mb * 1024 * 1024`) and
+what `corpus status` prints. The first fix divided by 1e6 and made the two surfaces
+disagree — 1357.8 against 1294.9 for one corpus — which reads as a bug in one of them
+and leaves the number not comparable to the cap it exists to be compared against.
+(Both label mebibytes as "MB"; that imprecision is pre-existing and left alone.)
+
 ### Fixed — silence transcribed to a confident word, reported as a transcript
 
 Two seconds of digital silence through `yazses transcribe` produces this:

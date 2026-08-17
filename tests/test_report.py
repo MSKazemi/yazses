@@ -206,3 +206,49 @@ def test_an_unreadable_account_never_breaks_the_report(monkeypatch):
 
     monkeypatch.setattr("getpass.getuser", _boom)
     assert report_mod._account_pattern() is None
+
+
+def test_the_corpus_size_counts_the_audio_clips(tmp_path):
+    """`report` sized `corpus.db` alone, and the clips are almost all of it.
+
+    Measured on a real machine: the database was 3.0 MB and the corpus was
+    1294.9 MB. `yazses report` said 3.0. `yazses corpus status` said 1294.9. The
+    same corpus, 430x apart, and the wrong number is the one that gets attached
+    to bug reports — so a maintainer reading "3 MB" rules the corpus out of a
+    disk-space problem it is in fact causing.
+
+    It is also the number a user checks against `[learning] max_corpus_mb`
+    (default 500), which prunes on the total. Reading the report, someone 2.5x
+    over the cap concludes they are comfortably under it.
+
+    Still never opens anything: this is filesystem metadata, the same stat calls
+    the store's own pruning uses.
+    """
+    from yazses.system import report as report_mod
+
+    data_dir = tmp_path / "data"
+    (data_dir / "clips").mkdir(parents=True)
+    (data_dir / "corpus.db").write_bytes(b"x" * 3_000_000)
+    for i in range(4):
+        (data_dir / "clips" / f"{i}.wav.enc").write_bytes(b"y" * 2_000_000)
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+    log = tmp_path / "yazses.log"
+    log.write_text("")
+    data = report_mod.collect(
+        config_file=cfg, log_file=log, data_dir=data_dir, status=None
+    )
+    size = data["corpus"]["size_mb"]
+    expected = 11_000_000 / 1_048_576  # the cap enforces mebibytes; so must this
+    assert abs(size - expected) < 0.2, (
+        f"expected the database plus its clips ({expected:.1f}); got {size} — "
+        "clips are almost all of a real corpus"
+    )
+
+    # The reported number exists to be compared against `[learning] max_corpus_mb`,
+    # so it must be in the unit the prune enforces. Dividing by 1e6 made `report` and
+    # `corpus status` disagree on one corpus, which reads as a bug in one of them.
+    from yazses.learning.store import corpus_disk_bytes
+
+    assert size == round(corpus_disk_bytes(data_dir) / 1_048_576, 1)

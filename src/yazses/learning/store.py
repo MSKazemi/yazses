@@ -113,6 +113,29 @@ def _decode_wav(data: bytes) -> tuple[np.ndarray, int]:
     return pcm, sample_rate
 
 
+def corpus_disk_bytes(data_dir) -> int:
+    """Bytes the corpus occupies: the database **plus its audio clips**.
+
+    The clips are almost all of it -- measured on a real machine, a 3.0 MB
+    database sat beside 1291.9 MB of encrypted audio. Anything reporting or
+    capping "the corpus" has to count both, which is why this is a module-level
+    function rather than a method: `yazses report` sized `corpus.db` alone and
+    said 3.0 MB for a corpus `yazses corpus status` measured at 1294.9 MB, and a
+    report that understates the corpus 430x is read by whoever is diagnosing the
+    disk it filled.
+
+    Filesystem metadata only. Nothing here opens or decrypts a clip.
+    """
+    from pathlib import Path
+
+    data_dir = Path(data_dir)
+    db = data_dir / "corpus.db"
+    total = db.stat().st_size if db.exists() else 0
+    for clip in (data_dir / "clips").glob("*.wav.enc"):
+        total += clip.stat().st_size
+    return total
+
+
 class CorpusStore:
     """CRUD over the encrypted event corpus."""
 
@@ -318,10 +341,7 @@ class CorpusStore:
         return len(rows)
 
     def _disk_size(self) -> int:
-        total = self._db_path.stat().st_size if self._db_path.exists() else 0
-        for clip in self._clips.glob("*.wav.enc"):
-            total += clip.stat().st_size
-        return total
+        return corpus_disk_bytes(self._db_path.parent)
 
     def _row_to_record(self, r: sqlite3.Row) -> EventRecord:
         return EventRecord(
