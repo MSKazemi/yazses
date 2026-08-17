@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.25.1] — 2026-08-17
+
 ### Fixed — a missing file was reported as a format problem
 
 Asking the MCP server to transcribe a path that does not exist answered:

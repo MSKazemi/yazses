@@ -23,10 +23,10 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.25.0](v2.25.0.md)** — confident answers that were wrong: `yazses transcribe` reported success over an
-empty transcript, `--max-speakers` invented speakers instead of capping them, and an
-undecodable file showed you the ffmpeg command line. Plus a privacy guard that answered
-differently depending on your Python, and a `doctor` that named the wrong command.
+**[YazSes 2.25.1](v2.25.1.md)** — surfaces that stated things that were not true. A microphone check suppressed
+exactly when it mattered, silence transcribed as a confident word, a diagnostic bundle
+that understated the learning corpus 430x, and a release gate that certified a platform
+on one architecture of a pair.
 Install it with:
 
 ```sh
@@ -36,6 +36,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.25.1](v2.25.1.md) — nine fixes, one theme: commands that printed something confident and wrong — a mic check suppressed when it mattered, silence transcribed as a word, a corpus size 430x low.
 - [v2.25.0](v2.25.0.md) — confident answers that were wrong: an empty transcript reported as success; speaker flags that invented or ignored counts; a privacy guard that answered differently per Python.
 - [v2.24.0](v2.24.0.md) — two privacy controls that never ran; a report that leaked your account name; a doctor that called a stale daemon healthy.
 - [v2.23.0](v2.23.0.md) — the overlay ignored your desktop's reduce-motion setting; the mic guard's question could only be answered with a pointer.
