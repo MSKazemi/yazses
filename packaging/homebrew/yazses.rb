@@ -19,8 +19,8 @@
 # worse than no cask: Homebrew refuses the download, so the first thing a new
 # user sees is a failure that looks like the project is broken.
 cask "yazses" do
-  version "2.24.0"
-  sha256 "9c813227b351a81afc92d1d78d9a43899d4a78bc8c78749bb6ffca437dbf086a"
+  version "2.25.0"
+  sha256 "706d718d07a2c2963c84b9e5fe135a983257c31bdc330656b7909c7fc9054469"
 
   # arm64 explicitly in the filename since ADR-017: the .dmg used to be named as
   # though it were for everybody, which is a large part of why an Apple-silicon-only
