@@ -75,6 +75,7 @@ from yazses.stt.latency import LatencyWindow
 from yazses.stt.streaming import StreamingEngine
 from yazses.styleguard.loader import build_style_rules
 from yazses.styleguard.rules import apply_style
+from yazses.system.outcomes import OutcomeWindow
 from yazses.system.relaunch import Mode, command_for
 from yazses.tts.factory import build_tts
 
@@ -229,6 +230,7 @@ class Daemon:
         # (#296). Bounded and in-memory: a diagnostic must not depend on the
         # opt-in learning corpus, and it must not write anything to disk.
         self._latency = LatencyWindow()
+        self._outcomes = OutcomeWindow()
         # Staged dictation (#294): when on, a burst lands here for review instead
         # of typing straight into the focused app. Off by default.
         self._staged = StagedBuffer()
@@ -1859,6 +1861,12 @@ class Daemon:
                 except Exception:
                     pass
         finally:
+            # Every burst passes through here exactly once, whatever became of it, so
+            # this is the one place the outcome can be counted without threading a
+            # return value through each early return. The per-burst result was always
+            # in the log and never summarised -- the same gap #296 closed for decode
+            # latency, and the more basic number of the two.
+            self._outcomes.record(event.get("discard_reason") or "typed")
             # Non-silent capture that produced a transcript means the mic is working:
             # reset the silent streak and remember this device as the auto-heal target.
             if event.get("raw_text") and not event.get("discard_reason"):
@@ -3387,6 +3395,7 @@ class Daemon:
                 # the slow tail you wait through. The count travels with it so a
                 # p95 over six utterances cannot be read as a p95.
                 "decode_latency": self._latency.as_dict(),
+                "outcomes": self._outcomes.as_dict(),
                 # Staged dictation (#294): what is pending review, if anything.
                 "staged": self.staged_state(),
                 # Toasts the daemon could not show itself (no libnotify — Windows and

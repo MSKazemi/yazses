@@ -6,6 +6,34 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `yazses status` reports how often dictation actually produced text
+
+```
+  latency:  base.en p50 1332 ms (n=4, need 20 for p95)
+  typed:    6 of 14 recent bursts (43%)
+```
+
+`stt/latency.py` was added because decode time *"has always been measured and logged
+but was never summarised, so the one number that predicts whether dictation feels
+usable was only available by reading a log by eye."* Exactly the same was true of the
+more basic number — whether a burst produced any text at all — and a fast decode that
+types nothing is not usable at all.
+
+This exists because that reading-by-eye had to be done. On a real machine the outcome
+went from **21 typed of 30 bursts to 6 of 14** over about six hours — the failure rate
+doubling while its owner was actively trying to dictate, with the per-burst result in
+the log the whole time and nothing adding it up.
+
+A bounded window rather than a lifetime rate: a lifetime average is dominated by
+history and moves too slowly to show a change that started this morning, which is the
+case worth catching. It reports on a healthy run too, because a number that only
+appears when things are bad gives you no baseline — you cannot tell 70% from 100% when
+it matters. Silent below five bursts, since "0% of 1" would be believed.
+
+Any outcome string is counted, including one this version has never heard of: an
+outcome nobody counted is how a failure mode stays invisible. The line is absent
+against an older daemon that does not send the field.
+
 ## [2.26.0] — 2026-08-17
 
 ### Added — `audio status` and `doctor` name the microphone behind the `default` alias

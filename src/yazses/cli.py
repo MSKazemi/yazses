@@ -14,6 +14,7 @@ from yazses import branding
 from yazses.hotkeys.names import SETTABLE_HOTKEYS, SUPPORTED_HOTKEYS, canonical
 from yazses.ipc.client import IpcUnreachableError
 from yazses.platform import get_paths, get_platform
+from yazses.system.outcomes import describe_outcomes
 from yazses.system.relaunch import Mode, command_for
 
 # `yazses.system.updater` is imported inside `update()` rather than here: it pulls
@@ -2624,6 +2625,11 @@ def status(
     # command that errors against a running daemon is worse than a missing line.
     for line in render_status_lines(info.get("decode_latency")):
         typer.echo(line)
+    # How often dictation actually produced text. Absent until there is enough to
+    # mean something, and absent on an older daemon that does not send the field.
+    outcome_line = describe_outcomes(info.get("outcomes"))
+    if outcome_line:
+        typer.echo(outcome_line)
     if info.get("silent_streak"):
         typer.echo(
             f"  ⚠ mic:    {info['silent_streak']} silent clips in a row — "
