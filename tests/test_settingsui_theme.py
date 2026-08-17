@@ -16,6 +16,8 @@ separated from its painting.
 
 from __future__ import annotations
 
+import random
+
 import pytest
 
 from yazses.settingsui.theme import (
@@ -136,3 +138,70 @@ def test_no_hardcoded_grey_remains_in_the_settings_window():
         "both light and dark backgrounds"
     )
     assert "muted_style_for" in source, "the theme helper is imported but never used"
+
+
+# Palettes people actually run, rather than synthetic pairs. Solarized earns its place
+# twice over: both variants have *theme text* that already fails AA (4.13 and 4.75
+# against a 4.5 bar, so light fails outright and dark has almost no room), which is the
+# documented leave-it-alone branch reached by a real theme instead of a contrived one.
+REAL_THEMES = {
+    "adwaita-dark": ((0xFF, 0xFF, 0xFF), (0x24, 0x24, 0x24)),
+    "solarized-light": ((0x65, 0x7B, 0x83), (0xFD, 0xF6, 0xE3)),
+    "solarized-dark": ((0x83, 0x94, 0x96), (0x00, 0x2B, 0x36)),
+    "nord": ((0xD8, 0xDE, 0xE9), (0x2E, 0x34, 0x40)),
+    "dracula": ((0xF8, 0xF8, 0xF2), (0x28, 0x2A, 0x36)),
+}
+
+
+@pytest.mark.parametrize("fg, bg", list(REAL_THEMES.values()), ids=list(REAL_THEMES))
+def test_real_desktop_themes_are_never_made_worse(fg, bg):
+    """Either the muted colour clears AA, or the theme's own text never did.
+
+    The second half is the whole reason this is not a simple assertion: fading text
+    that already fails would make it worse, so those are returned unchanged and the
+    failure belongs to the theme.
+    """
+    base = contrast_ratio(fg, bg)
+    got = contrast_ratio(muted(fg, bg), bg)
+    if base >= AA_NORMAL:
+        assert got >= AA_NORMAL, f"muted text scores {got:.2f} on a theme scoring {base:.2f}"
+    else:
+        assert muted(fg, bg) == fg, "a theme that already fails AA must be left alone"
+
+
+def test_no_palette_at_all_produces_failing_muted_text():
+    """The parametrised cases prove six palettes work; this proves none can break it.
+
+    A fixed list of themes cannot find the combination nobody thought of, and the
+    input here is arbitrary — Qt hands over whatever the user's desktop is set to.
+    Seeded, so a failure is reproducible rather than a Heisenbug in CI.
+    """
+    rng = random.Random(0)
+
+    def pair():
+        # Modelled on how themes are actually built -- one light end, one dark end,
+        # either way round -- with a quarter left fully arbitrary for breadth. Uniform
+        # random RGB pairs are mid-grey mush no desktop ships: sampling that way, only
+        # 362 of 3000 cleared AA at all, so the sweep spent 88% of its work on the
+        # branch that returns early.
+        if rng.random() < 0.25:
+            return (tuple(rng.randrange(256) for _ in range(3)),
+                    tuple(rng.randrange(256) for _ in range(3)))
+        dark = tuple(rng.randrange(0, 90) for _ in range(3))
+        light = tuple(rng.randrange(165, 256) for _ in range(3))
+        return (dark, light) if rng.random() < 0.5 else (light, dark)
+
+    checked = 0
+    for _ in range(3000):
+        fg, bg = pair()
+        if contrast_ratio(fg, bg) < AA_NORMAL:
+            continue  # documented: returned unchanged, the theme's own problem
+        checked += 1
+        got = contrast_ratio(muted(fg, bg), bg)
+        assert got >= AA_NORMAL - 1e-9, (
+            f"fg={fg} bg={bg} produced muted text at {got:.3f}:1"
+        )
+    assert checked > 500, (
+        f"only {checked} palettes cleared AA to begin with — the sweep is not "
+        "exercising the branch it exists to check"
+    )
