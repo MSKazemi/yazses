@@ -180,6 +180,7 @@ class SettingsWindow:
         outer.addWidget(intro)
 
         outer.addLayout(self._build_hotkey_row(model.hotkey))
+        outer.addWidget(self._build_speech_rows(model))
         outer.addWidget(self._build_audio_rows(model))
         outer.addLayout(self._build_filter_box())
 
@@ -292,6 +293,85 @@ class SettingsWindow:
         self._hotkey_baseline = current
         line.addWidget(box, 1)
         return line
+
+    def _build_speech_rows(self, model: SettingsModel):
+        """Model, language and injection backend — what YazSes hears and how it types.
+
+        These are the three highest-leverage settings in the product and were, until
+        now, reachable only by hand-editing TOML: the window offered 147 capability
+        toggles and could not change which model transcribed you or what language it
+        expected.
+
+        The model and language boxes are deliberately *not* independent. An `.en`
+        checkpoint has no language tokens, so pairing it with another language yields
+        fluent English nonsense rather than an error — the controller refuses the
+        pair, and this only has to report that refusal.
+        """
+        from PySide6.QtWidgets import QComboBox, QFormLayout, QGroupBox, QLabel
+
+        from yazses.settingsui.controls import (
+            INJECTION_BACKENDS,
+            language_choices,
+            model_choices,
+        )
+        from yazses.stt.download import WHISPER_MODELS
+
+        box = QGroupBox("Speech")
+        form = QFormLayout(box)
+
+        models = model_choices(WHISPER_MODELS, current=model.stt_model)
+        model_box = QComboBox()
+        model_box.addItems(models)
+        if model.stt_model in models:
+            model_box.setCurrentIndex(models.index(model.stt_model))
+        model_box.setAccessibleName("Transcription model")
+        model_box.setToolTip(
+            "Which Whisper checkpoint transcribes your speech.\n"
+            "Bigger is more accurate and slower; base.en is the shipped balance.\n"
+            "A name ending in .en is English-only and cannot decode any other "
+            "language.\n"
+            "Same list as `yazses models`. Takes effect after the restart."
+        )
+        self._model_box = model_box
+        self._model_baseline = model.stt_model
+        form.addRow(QLabel("Model:"), model_box)
+
+        languages = language_choices(current=model.language)
+        language_box = QComboBox()
+        for label, value in languages:
+            language_box.addItem(label, value)
+        for index, (_label, value) in enumerate(languages):
+            if value == model.language:
+                language_box.setCurrentIndex(index)
+                break
+        language_box.setAccessibleName("Spoken language")
+        language_box.setToolTip(
+            "The language you dictate in.\n"
+            "Auto-detect decides per utterance — useful when you switch languages, "
+            "slightly slower and occasionally wrong on short bursts.\n"
+            "Anything other than English needs a multilingual model (one without "
+            "the .en suffix)."
+        )
+        self._language_box = language_box
+        self._language_baseline = model.language
+        form.addRow(QLabel("Language:"), language_box)
+
+        backend_box = QComboBox()
+        backend_box.addItems(INJECTION_BACKENDS)
+        if model.injection_backend in INJECTION_BACKENDS:
+            backend_box.setCurrentIndex(INJECTION_BACKENDS.index(model.injection_backend))
+        backend_box.setAccessibleName("Injection backend")
+        backend_box.setToolTip(
+            "How finished text reaches the focused window.\n"
+            "auto = type it (works everywhere, including terminals).\n"
+            "clipboard = paste it — faster for long text, but a no-op in terminals.\n"
+            "Change this only if text arrives garbled or not at all."
+        )
+        self._backend_box = backend_box
+        self._backend_baseline = model.injection_backend
+        form.addRow(QLabel("Text injection:"), backend_box)
+
+        return box
 
     def _build_audio_rows(self, model: SettingsModel):
         """Microphone and silence threshold — the other two value settings.
@@ -678,6 +758,7 @@ class SettingsWindow:
         report = self._controller.apply(self._pending)
         hotkey_changed, hotkey_error = self._apply_hotkey()
         audio_changed, audio_errors = self._apply_audio()
+        speech_changed, speech_errors = self._apply_speech()
 
         # Re-sync every checkbox with what actually landed: a row that failed
         # keeps its staged position (so Apply can be retried) but must not be
@@ -692,7 +773,12 @@ class SettingsWindow:
             summary = f"Hold-to-talk key set to {self._hotkey_baseline}. {summary}".strip()
         self._hint.setText(summary)
 
-        errors = [*report.errors, *([hotkey_error] if hotkey_error else []), *audio_errors]
+        errors = [
+            *report.errors,
+            *([hotkey_error] if hotkey_error else []),
+            *audio_errors,
+            *speech_errors,
+        ]
         if errors:
             self._warn("Some settings were not saved", "\n".join(errors))
 
@@ -706,7 +792,7 @@ class SettingsWindow:
         # The hotkey counts: a changed key that has not been rebound is the most
         # confusing of all — the old key stops being advertised and the new one
         # does nothing yet.
-        if report.applied or hotkey_changed or audio_changed:
+        if report.applied or hotkey_changed or audio_changed or speech_changed:
             self._offer_restart(summary)
 
     def _apply_audio(self) -> tuple[bool, list[str]]:
@@ -741,6 +827,75 @@ class SettingsWindow:
                     changed = True
                 else:
                     errors.append(result.error or "Could not save the threshold.")
+
+        return changed, errors
+
+    def _apply_speech(self) -> tuple[bool, list[str]]:
+        """Save the model, language and injection backend if they moved.
+
+        Separate from `_apply_audio` for the same reason the hotkey is: these are
+        not the microphone, they fail for their own reasons, and folding their
+        errors into a report about audio devices would misdescribe both.
+
+        **The model and the language are judged as a pair, and both are passed
+        explicitly.** Widening the model and moving off English in one Apply is the
+        single most likely thing a non-English user does here. Validating each
+        against whatever is *stored* would refuse it: the language would be checked
+        against the English-only model it is in the middle of replacing. Relying on
+        the model's write landing first and being read back would work, but only by
+        accident of ordering and a synchronous writer — so each setter is told the
+        counterpart the user actually chose.
+
+        A refused value is deliberately left showing in its box rather than being
+        restored: the user's intent is still on screen next to the error that
+        explains it, so the fix is one more change rather than a re-selection.
+        """
+        changed = False
+        errors: list[str] = []
+
+        # What the user has on screen right now, regardless of which boxes moved.
+        chosen_model = self._model_box.currentText().strip() if self._model_box else ""
+        chosen_language = self._language_box.currentData() if self._language_box else ""
+        if chosen_language is None:
+            chosen_language = ""
+
+        for attr, baseline_attr, setter, what, use_data in (
+            (
+                "_model_box",
+                "_model_baseline",
+                lambda value: self._controller.set_stt_model(value, language=chosen_language),
+                "model",
+                False,
+            ),
+            (
+                "_language_box",
+                "_language_baseline",
+                lambda value: self._controller.set_language(value, model=chosen_model),
+                "language",
+                True,
+            ),
+            (
+                "_backend_box",
+                "_backend_baseline",
+                self._controller.set_injection_backend,
+                "text injection backend",
+                False,
+            ),
+        ):
+            widget = getattr(self, attr, None)
+            if widget is None:  # pragma: no cover - the rows are always built
+                continue
+            chosen = widget.currentData() if use_data else widget.currentText().strip()
+            if chosen is None:
+                continue
+            if chosen == getattr(self, baseline_attr):
+                continue
+            result = setter(chosen)
+            if result.ok:
+                setattr(self, baseline_attr, chosen)
+                changed = True
+            else:
+                errors.append(result.error or f"Could not save the {what}.")
 
         return changed, errors
 

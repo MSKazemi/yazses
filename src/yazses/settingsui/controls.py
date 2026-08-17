@@ -20,7 +20,7 @@ types, so a threshold stays a number rather than becoming the string "0.004".
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 
 # A VAD threshold outside this range is not a setting, it is a broken microphone
@@ -29,6 +29,68 @@ VAD_MIN = 0.0001
 VAD_MAX = 0.2
 # Slider widgets are integral; this is the resolution the float is quantised to.
 VAD_SLIDER_STEPS = 1000
+
+
+#: How a finished transcript reaches the focused window. Mirrors `[injection]
+#: backend` — an unrecognised value falls through to `auto` at runtime, so the
+#: window refuses one rather than showing a setting that reads back as the user's
+#: while doing something else.
+INJECTION_BACKENDS: tuple[str, ...] = ("auto", "type", "clipboard", "wtype")
+
+#: Label → `[stt] language` value. Whisper accepts far more than this; the list is
+#: the common ones plus whatever the config already holds, because a dropdown of
+#: ninety-nine codes is a worse way to find "de" than typing it.
+#:
+#: "" is a real value, not a blank: it auto-detects per utterance.
+LANGUAGE_CHOICES: tuple[tuple[str, str], ...] = (
+    ("Auto-detect (per utterance)", ""),
+    ("English", "en"),
+    ("Persian / فارسی", "fa"),
+    ("German", "de"),
+    ("French", "fr"),
+    ("Spanish", "es"),
+    ("Italian", "it"),
+    ("Dutch", "nl"),
+    ("Portuguese", "pt"),
+    ("Russian", "ru"),
+    ("Turkish", "tr"),
+    ("Arabic", "ar"),
+    ("Hindi", "hi"),
+    ("Chinese", "zh"),
+    ("Japanese", "ja"),
+    ("Korean", "ko"),
+)
+
+
+def model_choices(known: Iterable[str], current: str = "") -> list[str]:
+    """The model dropdown: the known checkpoints, plus whatever is configured.
+
+    *known* is an iterable of names, which a ``{name: repo}`` registry satisfies by
+    iterating its keys — that is exactly how `WHISPER_MODELS` is passed, and typing
+    it as a sequence claimed an ordering this never relies on.
+
+    A hub id (``org/repo``) or a filesystem path is a legitimate model that will
+    never appear in the known set, so a hand-edited config must not have its
+    choice silently replaced by the first entry in a list — the same rule the
+    hotkey picker follows.
+
+    Sorted so the ``.en`` and multilingual pairs sit together rather than in the
+    mapping's insertion order.
+    """
+    names = sorted({n for n in known if n})
+    chosen = (current or "").strip()
+    if chosen and chosen not in names:
+        return [chosen, *names]
+    return names
+
+
+def language_choices(current: str = "") -> list[tuple[str, str]]:
+    """The language dropdown, keeping a configured code that is not in the list."""
+    rows = list(LANGUAGE_CHOICES)
+    chosen = (current or "").strip()
+    if chosen and all(chosen != value for _, value in rows):
+        rows.insert(1, (f"{chosen} (from your config)", chosen))
+    return rows
 
 
 @dataclass(frozen=True)

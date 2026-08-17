@@ -251,6 +251,103 @@ class SettingsController:
             return ToggleResult(ok=False, error=f"Could not save the threshold: {exc}")
         return ToggleResult(ok=True)
 
+    def set_stt_model(self, name: str, language: str | None = None) -> ToggleResult:
+        """Choose the transcription model, refusing a pair that cannot work.
+
+        The refusal is the point. Picking an English-only checkpoint while
+        ``[stt] language`` names another language does not fail at runtime — Whisper
+        transliterates, so the user gets fluent English nonsense and no error. The
+        daemon logs it, but a log line loses to a settings window that simply will
+        not let the pair be saved.
+
+        A name outside the known set is accepted: a Hugging Face id or a local path
+        is a legitimate model, and `is_whisper_model` answers False for both.
+
+        *language* names the language to judge the model against. Pass it when the
+        caller already knows the user's intent — the settings window applies the
+        model and the language in one click, and validating against the *stored*
+        language would judge the new model against the value it is about to
+        replace. Omit it to read the config, which is right for any caller acting
+        on the model alone.
+        """
+        from yazses.stt.download import language_model_problem
+
+        cleaned = (name or "").strip()
+        if not cleaned:
+            return ToggleResult(ok=False, error="Pick a model — an empty name has no default here.")
+
+        if language is None:
+            try:
+                cfg = self._load_config()
+            except Exception as exc:  # pragma: no cover - load_config is total
+                return ToggleResult(ok=False, error=f"Could not read the config: {exc}")
+            language = getattr(getattr(cfg, "stt", None), "language", "") or ""
+
+        problem = language_model_problem(cleaned, language)
+        if problem:
+            return ToggleResult(ok=False, error=problem)
+
+        try:
+            self._writer("stt", "model", cleaned, True)
+        except Exception as exc:  # noqa: BLE001 - surfaced, never raised at Qt
+            return ToggleResult(ok=False, error=f"Could not save the model: {exc}")
+        return ToggleResult(ok=True)
+
+    def set_language(self, code: str, model: str | None = None) -> ToggleResult:
+        """Set the spoken language, checked against the model that will decode it.
+
+        The empty string is a real choice — auto-detect per utterance — and not an
+        unset field, so it is written rather than rejected.
+
+        *model* is the counterpart to `set_stt_model`'s *language*: pass the model
+        the user has actually selected so that switching both at once is judged as
+        the pair they intend, rather than against whichever half happened to be
+        written first.
+        """
+        from yazses.stt.download import language_model_problem
+
+        cleaned = (code or "").strip()
+        if model is None:
+            try:
+                cfg = self._load_config()
+            except Exception as exc:  # pragma: no cover - load_config is total
+                return ToggleResult(ok=False, error=f"Could not read the config: {exc}")
+            model = getattr(getattr(cfg, "stt", None), "model", "") or "base.en"
+
+        problem = language_model_problem(model, cleaned)
+        if problem:
+            return ToggleResult(ok=False, error=problem)
+
+        try:
+            self._writer("stt", "language", cleaned, True)
+        except Exception as exc:  # noqa: BLE001 - surfaced, never raised at Qt
+            return ToggleResult(ok=False, error=f"Could not save the language: {exc}")
+        return ToggleResult(ok=True)
+
+    def set_injection_backend(self, backend: str) -> ToggleResult:
+        """Choose how text is delivered to the focused window.
+
+        Refused rather than clamped when unknown: an unrecognised backend falls
+        through to `auto` at runtime, so accepting it would show the user a setting
+        that reads back as theirs while doing something else entirely.
+        """
+        from yazses.settingsui.controls import INJECTION_BACKENDS
+
+        cleaned = (backend or "").strip().lower()
+        if cleaned not in INJECTION_BACKENDS:
+            return ToggleResult(
+                ok=False,
+                error=(
+                    f"{backend!r} is not an injection backend. Choose one of: "
+                    f"{', '.join(INJECTION_BACKENDS)}."
+                ),
+            )
+        try:
+            self._writer("injection", "backend", cleaned, True)
+        except Exception as exc:  # noqa: BLE001 - surfaced, never raised at Qt
+            return ToggleResult(ok=False, error=f"Could not save the injection backend: {exc}")
+        return ToggleResult(ok=True)
+
     def set_enabled(self, slug: str, desired: bool, *, confirmed: bool = False) -> ToggleResult:
         """Put one feature into the *desired* state, mirroring `yazses features`.
 

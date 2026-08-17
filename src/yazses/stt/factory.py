@@ -80,6 +80,7 @@ def _build_raw_engine(stt: "SttConfig") -> "SttEngine":
 
 
 def _build_faster_whisper(stt: "SttConfig", fallback_from: str = "") -> "SttEngine":
+    from yazses.stt.download import language_model_problem
     from yazses.stt.faster_whisper import FasterWhisperEngine
 
     model = (getattr(stt, "model", "") or "base.en").strip() or "base.en"
@@ -98,13 +99,13 @@ def _build_faster_whisper(stt: "SttConfig", fallback_from: str = "") -> "SttEngi
     # decode German. Silently forcing English would hand the user fluent-looking
     # nonsense (Whisper transliterates rather than erroring), which is the worst
     # possible failure mode, so say exactly what is wrong and what to change.
-    if language and language.lower() != "en" and model.lower().endswith(".en"):
-        log.warning(
-            "[stt] language = %r needs a multilingual model, but [stt] model = %r "
-            "is English-only — speech will be mis-transcribed as English. Fix: set "
-            "model = %r (drop the .en suffix).",
-            language, model, model[: -len(".en")] or "small",
-        )
+    #
+    # The rule itself lives in `stt/download.py` because the settings window has
+    # to apply it too — before writing, where it can still be refused rather than
+    # merely logged. Two copies of this condition would drift.
+    problem = language_model_problem(model, language)
+    if problem:
+        log.warning("[stt] %s", problem)
     return FasterWhisperEngine(
         model_name=model,
         device=getattr(stt, "device", "cpu"),

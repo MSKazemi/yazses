@@ -544,3 +544,74 @@ def test_an_idle_daemon_is_not_reported_as_a_quiet_microphone(qapp):
     win._apply_level({"audio_level": 0.0, "vad_threshold": 0.01, "state": "idle"})
     assert "below" not in win._meter_label.text().lower()
     assert "hold" in win._meter_label.text().lower()
+
+
+# ---- the Speech group (model / language / injection backend) ---------------
+#
+# Added because the window could set 147 capability toggles and not the three
+# settings that decide what YazSes hears: which checkpoint transcribes you, what
+# language it expects, and how the text is delivered. These build the real widgets
+# and drive the real apply path, because the pure controller tests cannot show
+# that the boxes are wired to it.
+def test_the_speech_group_exposes_model_language_and_backend(qapp):
+    win = _window(qapp, _Recorder())
+    assert win._model_box.count() > 5, "the model list should come from the registry"
+    assert win._language_box.count() > 5
+    assert win._backend_box.count() >= 4
+
+
+def test_the_boxes_open_on_what_is_configured(qapp):
+    """A picker that opens on a default writes it the moment anything else moves."""
+    win = _window(qapp, _Recorder())
+    cfg = Config()
+    assert win._model_box.currentText() == cfg.stt.model
+    assert win._language_box.currentData() == cfg.stt.language
+    assert win._backend_box.currentText() == cfg.injection.backend
+
+
+def test_changing_the_model_writes_it_on_apply(qapp):
+    rec = _Recorder()
+    win = _window(qapp, rec)
+    win._model_box.setCurrentText("small")
+    win._apply_speech()
+    assert ("stt", "model", "small", True) in rec.writes
+
+
+def test_changing_the_language_writes_the_code_not_the_label(qapp):
+    """The dropdown shows "German"; `[stt] language` must receive "de"."""
+    rec = _Recorder()
+    win = _window(qapp, rec)
+    win._model_box.setCurrentText("small")  # multilingual, so the pair is legal
+    index = win._language_box.findData("de")
+    assert index >= 0
+    win._language_box.setCurrentIndex(index)
+    win._apply_speech()
+    assert ("stt", "language", "de", True) in rec.writes
+
+
+def test_an_impossible_model_language_pair_is_refused_at_the_window(qapp):
+    """base.en cannot decode German; the user must be told, not silently misheard."""
+    rec = _Recorder()
+    win = _window(qapp, rec)
+    index = win._language_box.findData("de")
+    win._language_box.setCurrentIndex(index)
+    changed, errors = win._apply_speech()
+    assert any("English-only" in e for e in errors), errors
+    assert not any(w[:2] == ("stt", "language") for w in rec.writes)
+
+
+def test_widening_the_model_and_switching_language_together_succeeds(qapp):
+    """Order matters: judging the new language against the old model would refuse."""
+    rec = _Recorder()
+    win = _window(qapp, rec)
+    win._model_box.setCurrentText("small")
+    win._language_box.setCurrentIndex(win._language_box.findData("de"))
+    changed, errors = win._apply_speech()
+    assert changed and not errors, errors
+
+
+def test_an_unchanged_box_writes_nothing(qapp):
+    rec = _Recorder()
+    win = _window(qapp, rec)
+    win._apply_speech()
+    assert not any(w[:2] in {("stt", "model"), ("stt", "language")} for w in rec.writes)

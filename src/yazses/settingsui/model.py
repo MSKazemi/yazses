@@ -77,6 +77,15 @@ class SettingsModel:
     # `[accessibility] vad_threshold` — the level below which audio is discarded
     # as silence. The number behind every "Silent audio -- discarding" report.
     vad_threshold: float = 0.01
+    # `[stt] model` — the single biggest lever on both accuracy and latency, and
+    # until now editable only by hand-editing TOML.
+    stt_model: str = "base.en"
+    # `[stt] language` — "" auto-detects per utterance. Constrained by the model:
+    # an `.en` checkpoint cannot decode anything else, so the two are validated
+    # together rather than independently.
+    language: str = ""
+    # `[injection] backend` — how the finished text reaches the focused window.
+    injection_backend: str = "auto"
 
     def rows(self) -> tuple[SettingRow, ...]:
         return tuple(row for group in self.groups for row in group.rows)
@@ -104,6 +113,9 @@ def build_settings_model(cfg: Config) -> SettingsModel:
         hotkey=cfg.hotkey.key,
         microphone=cfg.audio.device,
         vad_threshold=cfg.accessibility.vad_threshold,
+        stt_model=cfg.stt.model,
+        language=cfg.stt.language,
+        injection_backend=cfg.injection.backend,
     )
 
 
