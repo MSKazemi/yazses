@@ -88,3 +88,35 @@ def test_an_unknown_outcome_is_counted_rather_than_dropped():
     d = w.as_dict()
     assert d["total"] == 2
     assert d["counts"]["some_future_reason"] == 1
+
+
+def test_a_pipeline_error_is_not_counted_as_typed():
+    """The gap in the first version of this metric, found by auditing my own commit.
+
+    `discard_reason` is set on the ten paths that decide not to type. It is *not*
+    set when something raises — an injection that fails, a backend that goes away
+    — because that lands in the pipeline's `except` handler, which records
+    `last_error` instead.
+
+    So `discard_reason or "typed"` called those bursts successes: nothing reached
+    the window, and the gauge said it had. A health metric that counts failures as
+    successes is worse than no metric, because it is consulted precisely when
+    something is wrong.
+
+    `event["injected"]` cannot stand in for this: it is set *before* dispatch, so
+    it records the intention to type rather than the result.
+    """
+    from yazses.system.outcomes import classify_outcome
+
+    assert classify_outcome(None, pipeline_failed=False) == "typed"
+    assert classify_outcome("", pipeline_failed=False) == "typed"
+    assert classify_outcome(None, pipeline_failed=True) == "error"
+    assert classify_outcome("", pipeline_failed=True) == "error"
+
+
+def test_a_real_discard_reason_survives_a_later_error():
+    """The reason it was dropped is more specific than "something raised"."""
+    from yazses.system.outcomes import classify_outcome
+
+    assert classify_outcome("empty", pipeline_failed=True) == "empty"
+    assert classify_outcome("no_target", pipeline_failed=False) == "no_target"

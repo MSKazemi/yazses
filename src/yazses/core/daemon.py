@@ -75,7 +75,7 @@ from yazses.stt.latency import LatencyWindow
 from yazses.stt.streaming import StreamingEngine
 from yazses.styleguard.loader import build_style_rules
 from yazses.styleguard.rules import apply_style
-from yazses.system.outcomes import OutcomeWindow
+from yazses.system.outcomes import OutcomeWindow, classify_outcome
 from yazses.system.relaunch import Mode, command_for
 from yazses.tts.factory import build_tts
 
@@ -1136,6 +1136,9 @@ class Daemon:
         event: dict = {"ts": time.time(), "model": self._config.stt.model}
         clip: np.ndarray | None = None
         sample_rate = self._config.audio.sample_rate
+        # Set by the pipeline's `except` handler. Declared here because the `finally`
+        # reads it on every burst, including the ones that never raise.
+        pipeline_failed = False
 
         try:
             audio = self._recorder.stop()
@@ -1852,6 +1855,9 @@ class Daemon:
                 self._maybe_read_back(text)
 
         except Exception as exc:
+            # Recorded for the outcome gauge: nothing reached the window, and
+            # `discard_reason` is not set on this path.
+            pipeline_failed = True
             log.warning("Pipeline error: %s", exc)
             with self._lock:
                 self._state.last_error = str(exc)
@@ -1866,7 +1872,11 @@ class Daemon:
             # return value through each early return. The per-burst result was always
             # in the log and never summarised -- the same gap #296 closed for decode
             # latency, and the more basic number of the two.
-            self._outcomes.record(event.get("discard_reason") or "typed")
+            self._outcomes.record(
+                classify_outcome(
+                    event.get("discard_reason"), pipeline_failed=pipeline_failed
+                )
+            )
             # Non-silent capture that produced a transcript means the mic is working:
             # reset the silent streak and remember this device as the auto-heal target.
             if event.get("raw_text") and not event.get("discard_reason"):

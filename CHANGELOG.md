@@ -34,6 +34,15 @@ Any outcome string is counted, including one this version has never heard of: an
 outcome nobody counted is how a failure mode stays invisible. The line is absent
 against an older daemon that does not send the field.
 
+A burst that **raised** — an injection that failed, a backend that went away — is
+counted as `error` rather than as success. `discard_reason` is set on the ten paths
+that *decide* not to type, but not on the one where something throws, because that
+lands in the pipeline's `except` handler and records `last_error` instead. Counting
+those as typed would make the gauge report failures as successes, which is worse than
+having no gauge: it is consulted exactly when something is wrong. (`event["injected"]`
+cannot stand in for it — that is set *before* dispatch, so it records the intention to
+type rather than the result.)
+
 ## [2.26.0] — 2026-08-17
 
 ### Added — `audio status` and `doctor` name the microphone behind the `default` alias

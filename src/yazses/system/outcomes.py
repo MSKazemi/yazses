@@ -73,3 +73,24 @@ def describe_outcomes(data: dict | None) -> str | None:
     typed = int(data.get("typed") or 0)
     pct = round(100 * typed / total)
     return f"  typed:    {typed} of {total} recent bursts ({pct}%)"
+
+
+def classify_outcome(discard_reason: str | None, *, pipeline_failed: bool) -> str:
+    """What became of one burst: a discard reason, ``error``, or ``typed``. Pure.
+
+    ``discard_reason`` is set on every path that *decides* not to type. It is not
+    set when something raises -- an injection that fails, a backend that went away
+    -- because that lands in the pipeline's ``except`` handler, which records
+    ``last_error`` instead. Counting those as ``typed`` made the gauge report
+    failures as successes, which is worse than having no gauge: it is consulted
+    exactly when something is wrong.
+
+    ``event["injected"]`` cannot stand in for this. It is set *before* dispatch, so
+    it records the intention to type rather than the result.
+
+    A real discard reason wins over ``error``, because "the transcript was empty" is
+    more useful than "something raised afterwards".
+    """
+    if discard_reason:
+        return str(discard_reason)
+    return "error" if pipeline_failed else TYPED
