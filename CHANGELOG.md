@@ -6,6 +6,33 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the MCP server handed agents Python internals
+
+Calling `transcribe` without its argument returned this to the model on the other
+end:
+
+```
+TypeError: transcribe_tool.<locals>._run() missing 1 required positional
+argument: 'path'
+```
+
+An internal closure name and a traceback string, from which the caller has to guess
+which field it left out. The arguments are now bound against the tool's signature
+*before* it runs, and a mismatch is answered from the JSON Schema `tools/list`
+already publishes: *"transcribe: missing a required argument: 'path'. Required:
+path. Accepts: path, diarize."*
+
+`tools/call` with no `name` said *"No tool named None"*, which reads as though
+`None` were a name that had been tried rather than a field that was omitted. It now
+says which field is missing and what the server offers.
+
+Found by fuzzing the server over a real pipe with fifteen malformed requests. The
+protocol handling itself came back clean — correct `-32700`, `-32600` and `-32601`
+codes, notifications correctly unanswered, a 200 KB payload and 200-deep nesting
+survived, no crash and no traceback on stderr. Only the human-readable half was
+wrong, which is the half an agent reads.
+
+
 ### Fixed — `vad_threshold = inf` loaded cleanly and stopped dictation completely
 
 Config loading is deliberately total (#52): a bad file yields a working daemon, the

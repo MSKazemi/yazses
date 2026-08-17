@@ -110,3 +110,80 @@ def test_a_malformed_request_is_reported_not_raised() -> None:
 def test_the_id_is_echoed_so_a_client_can_match_replies() -> None:
     reply = handle(_req("tools/list", rid="abc"), TOOLS)
     assert reply["id"] == "abc"
+
+
+# ---- a bad call is answered from the schema, not by Python -------------------
+
+
+def _call(tools, **params):
+    return handle({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": params}, tools)
+
+
+class _Tool:
+    name = "transcribe"
+    description = "Transcribe a file."
+    schema = {
+        "type": "object",
+        "properties": {"path": {"type": "string"}, "diarize": {"type": "boolean"}},
+        "required": ["path"],
+    }
+
+    @staticmethod
+    def run(path, diarize=False):
+        return f"transcribed {path}"
+
+
+def test_a_missing_argument_is_explained_from_the_schema():
+    """The model on the other end used to be handed a Python traceback string:
+
+        TypeError: transcribe_tool.<locals>._run() missing 1 required
+        positional argument: 'path'
+
+    An internal closure name, from which it has to guess the field it omitted.
+    The schema that `tools/list` already publishes says exactly what is required,
+    so the error answers from that.
+    """
+    reply = _call([_Tool()], name="transcribe")
+    text = reply["result"]["content"][0]["text"]
+
+    assert reply["result"]["isError"] is True
+    assert "path" in text, text
+    assert "Required: path" in text
+    assert "Accepts: path, diarize" in text
+    assert "<locals>" not in text and "TypeError" not in text, (
+        f"Python internals reached the caller: {text}"
+    )
+
+
+def test_a_missing_tool_name_says_which_field_is_missing():
+    """"No tool named None" reads as though None were a name that was tried."""
+    reply = _call([_Tool()], arguments={})
+    text = reply["result"]["content"][0]["text"]
+    assert reply["result"]["isError"] is True
+    assert "needs a 'name'" in text, text
+    assert "None" not in text, f"Python's None leaked into the message: {text}"
+
+
+def test_an_unknown_tool_still_lists_what_is_offered():
+    reply = _call([_Tool()], name="nope", arguments={})
+    text = reply["result"]["content"][0]["text"]
+    assert "No tool named 'nope'" in text and "transcribe" in text
+
+
+def test_a_good_call_still_runs():
+    """The binding check must not cost the ordinary path anything."""
+    reply = _call([_Tool()], name="transcribe", arguments={"path": "/tmp/a.wav"})
+    assert not reply["result"].get("isError")
+    assert "transcribed /tmp/a.wav" in reply["result"]["content"][0]["text"]
+
+
+def test_an_error_inside_the_tool_is_still_reported_as_a_result():
+    """A failing tool must not end a long-lived stdio session."""
+    class _Boom(_Tool):
+        @staticmethod
+        def run(path, diarize=False):
+            raise RuntimeError("decode failed")
+
+    reply = _call([_Boom()], name="transcribe", arguments={"path": "/tmp/a.wav"})
+    assert reply["result"]["isError"] is True
+    assert "decode failed" in reply["result"]["content"][0]["text"]

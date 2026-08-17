@@ -19,6 +19,7 @@ Getting those the wrong way round makes a missing file look like a broken server
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -93,14 +94,44 @@ def handle(request: dict[str, Any], tools: tuple[ToolSpec, ...]) -> dict[str, An
     if method == "tools/call":
         params = request.get("params") or {}
         name = params.get("name")
+        offered = ", ".join(t.name for t in tools) or "none"
+        if name is None:
+            # Distinguished from a wrong name: "No tool named None" reads as though
+            # None were a name that was tried, and tells the caller nothing about
+            # the field it omitted.
+            return _ok(rid, _text(
+                f"tools/call needs a 'name'. This server offers: {offered}.",
+                is_error=True,
+            ))
         chosen = next((t for t in tools if t.name == name), None)
         if chosen is None:
-            offered = ", ".join(t.name for t in tools) or "none"
             return _ok(rid, _text(
                 f"No tool named {name!r}. This server offers: {offered}.", is_error=True
             ))
+
+        arguments = params.get("arguments") or {}
+        # Bind before calling, so a wrong argument list is answered from the tool's
+        # own schema instead of by Python. Calling straight through reported
+        #
+        #   TypeError: transcribe_tool.<locals>._run() missing 1 required
+        #   positional argument: 'path'
+        #
+        # to the model on the other end -- an internal closure name and a traceback
+        # string, from which it has to guess the parameter it left out. The schema
+        # is already published by tools/list; this answers from the same source.
         try:
-            outcome = chosen.run(**(params.get("arguments") or {}))
+            inspect.signature(chosen.run).bind(**arguments)
+        except TypeError as exc:
+            schema = chosen.schema or {}
+            required = ", ".join(schema.get("required") or []) or "none"
+            accepts = ", ".join(schema.get("properties") or {}) or "none"
+            return _ok(rid, _text(
+                f"{chosen.name}: {exc}. Required: {required}. Accepts: {accepts}.",
+                is_error=True,
+            ))
+
+        try:
+            outcome = chosen.run(**arguments)
         except Exception as exc:  # noqa: BLE001 - a failed tool is a result, not a crash
             # Never propagate: this is a long-lived stdio process and the client
             # cannot restart it mid-session, so one bad argument must not end it.
