@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
   <metadata>
     <id>yazses</id>
-    <version>2.25.1</version>
+    <version>2.26.0</version>
     <packageSourceUrl>https://github.com/MSKazemi/yazses/tree/main/packaging/chocolatey</packageSourceUrl>
     <owners>MSKazemi</owners>
     <title>YazSes (Install)</title>
