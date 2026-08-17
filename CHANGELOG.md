@@ -6,6 +6,32 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the mic-level check was suppressed exactly when it mattered
+
+On a real machine, `yazses doctor --mic` printed:
+
+```
+[OK] Mic level: ambient 0.0010 under vad_threshold 0.0005
+```
+
+0.0010 is not under 0.0005. The warning was conditioned on `not stats.is_silent`, and
+`is_silent` is measured against a **fixed** floor (`miclevel._MIN_THRESHOLD`, 0.002)
+that has nothing to do with the user's gate. So for any `vad_threshold` below 0.002
+the warning was suppressed across the whole band between the two — which is exactly
+the band where the gate sits under the room's noise floor — and the OK branch then
+asserted "under" for a value that was over.
+
+That is the condition this check exists to find, and it has a consequence worth
+naming: when the gate is below the room, ordinary silence passes it and reaches the
+model, which answers near-silence with a confident invented word. The same
+hallucination behind the two `transcribe` and `verify` fixes above, on the path where
+the text is typed into whatever you had focused.
+
+Now compared against the user's gate and nothing else, with the consequence and the
+fix in the message. A dead microphone is excluded (`mean_abs > 0`), because nothing
+captured at all is the Microphone check's business and a gate of `0` would otherwise
+blame the gate for a mic that recorded nothing.
+
 ### Fixed — `yazses verify` reported a word count instead of the word
 
 Run in a quiet room with nobody speaking:

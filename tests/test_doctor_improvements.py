@@ -160,3 +160,67 @@ def test_config_summary_warns_when_file_absent_and_shows_primed_prompt(tmp_path)
     assert by_name["Config file"][0] == "WARN"
     assert "absent" in by_name["Config file"][1].lower()
     assert "primed" in by_name["STT prompt"][1].lower()
+
+
+def test_mic_level_warns_when_the_gate_sits_under_a_quiet_room(monkeypatch):
+    """The case the check exists for, and the one it could not report.
+
+    Measured on a real machine: ambient 0.0010 against `vad_threshold` 0.0005.
+    The gate sits below the room's noise floor, so ordinary silence passes it and
+    reaches the model, which answers near-silence with a confident invented word.
+    `yazses doctor --mic` printed:
+
+        [OK] Mic level: ambient 0.0010 under vad_threshold 0.0005
+
+    0.0010 is not under 0.0005. The warning was conditioned on
+    `not stats.is_silent`, and `is_silent` is computed against a **fixed** floor
+    (`miclevel._MIN_THRESHOLD`, 0.002) that has nothing to do with the user's
+    threshold — so for any threshold below that floor the warning is suppressed
+    across exactly the band where the gate is under the room, and the OK branch
+    then asserts "under" for a value that is over.
+    """
+    from yazses.system.miclevel import _MIN_THRESHOLD
+
+    cfg = load_config(None)
+    cfg.accessibility.vad_threshold = 0.0005
+    ambient = 0.0010
+    assert ambient < _MIN_THRESHOLD, "fixture must sit in the suppressed band"
+
+    stats = doctor.LevelStats(  # type: ignore[attr-defined]
+        duration_s=0.1, mean_abs=ambient, peak=0.004,
+        recommended_threshold=0.002, is_silent=True,
+    )
+    monkeypatch.setattr(doctor, "_sample_mic", lambda cfg, seconds: stats)
+    name, status, detail = doctor._mic_level_check(cfg, seconds=0.1)
+    assert status == "WARN", (
+        f"the gate is below the room's noise floor and this reported {status}: {detail}"
+    )
+    assert "under" not in detail, f"a value that is over was described as under: {detail}"
+
+
+def test_mic_level_ok_line_states_a_true_relation(monkeypatch):
+    """The OK branch asserted "under" without ever checking it."""
+    cfg = load_config(None)
+    cfg.accessibility.vad_threshold = 0.02
+    stats = doctor.LevelStats(  # type: ignore[attr-defined]
+        duration_s=0.1, mean_abs=0.001, peak=0.005,
+        recommended_threshold=0.0021, is_silent=True,
+    )
+    monkeypatch.setattr(doctor, "_sample_mic", lambda cfg, seconds: stats)
+    _n, status, detail = doctor._mic_level_check(cfg, seconds=0.1)
+    assert status == "OK"
+    assert "0.0010" in detail and "0.02" in detail
+    assert "under" in detail, "genuinely under: the word is correct here"
+
+
+def test_a_dead_microphone_is_not_blamed_on_the_gate(monkeypatch):
+    """Nothing captured at all is the Microphone check's business, not this one."""
+    cfg = load_config(None)
+    cfg.accessibility.vad_threshold = 0.0
+    stats = doctor.LevelStats(  # type: ignore[attr-defined]
+        duration_s=0.1, mean_abs=0.0, peak=0.0,
+        recommended_threshold=0.002, is_silent=True,
+    )
+    monkeypatch.setattr(doctor, "_sample_mic", lambda cfg, seconds: stats)
+    _n, status, _d = doctor._mic_level_check(cfg, seconds=0.1)
+    assert status == "OK", "a silent capture must not be reported as room noise"

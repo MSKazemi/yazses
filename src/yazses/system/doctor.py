@@ -430,11 +430,23 @@ def _mic_level_check(cfg, seconds: float = 2.0) -> _Check:
     except Exception as exc:
         return ("Mic level", "WARN", f"could not sample microphone ({exc})")
     thr = cfg.accessibility.vad_threshold
-    if not stats.is_silent and stats.mean_abs >= thr:
+    # Compared against the user's gate and nothing else. This was also conditioned on
+    # `not stats.is_silent`, and `is_silent` is measured against a FIXED floor
+    # (miclevel._MIN_THRESHOLD, 0.002) unrelated to that gate -- so for any threshold
+    # below the floor the warning was suppressed across exactly the band where the
+    # gate sits under the room's noise, which is the case this check exists for.
+    # Measured on a real machine: ambient 0.0010, vad_threshold 0.0005, reported
+    # "[OK] ambient 0.0010 under vad_threshold 0.0005".
+    #
+    # `mean_abs > 0` keeps a dead microphone out of it: nothing captured at all is
+    # the Microphone check's business, and with a gate of 0 this would otherwise
+    # blame the gate for a mic that recorded nothing.
+    if stats.mean_abs > 0 and stats.mean_abs >= thr:
         return (
             "Mic level", "WARN",
-            f"ambient {stats.mean_abs:.4f} >= vad_threshold {thr} — room noise may "
-            "trigger spurious transcripts; raise it or run `yazses mic-level`",
+            f"ambient {stats.mean_abs:.4f} >= vad_threshold {thr} — the gate sits at "
+            "or below the room's noise floor, so silence passes it and is transcribed "
+            "as invented words; raise it or run `yazses mic-level --set`",
         )
     return (
         "Mic level", "OK",
