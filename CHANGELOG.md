@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `doctor` told a running daemon to start
+
+Its closing line contradicted its own warning three lines above:
+
+```
+[WARN] Daemon: running (PID 4054, state idle) — ... run `yazses restart` ...
+▲ Good to go (3 optional warnings above) — run `yazses start`, then hold ...
+```
+
+The verdict decided whether a daemon was running by reading the check's **tag**
+(`== "OK"`), which was sound only while a running daemon was always OK. v2.24.0
+introduced a running-but-`WARN` state for a stale daemon and did not update this
+line, so a demonstrably running daemon read as stopped and the last thing you are
+told to do — the line people act on — named the wrong command.
+
+The verdict now reads the daemon check's own detail rather than re-asking the OS, so
+the bottom line cannot disagree with what was printed above it, and a stale daemon
+gets `yazses restart`. Producer and consumer share one constant, with a test that
+fails if a running branch hardcodes its prefix again.
+
+Found by running `yazses doctor` on a machine whose daemon predated the upgrade —
+a state that cannot be manufactured in a fixture, and the regression was mine.
+
 ### Added — `yazses transcribe --format json` has a documented shape
 
 The research guide told people to use it because it is "structured, for import into

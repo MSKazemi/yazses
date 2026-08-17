@@ -189,6 +189,12 @@ def _stale_daemon_note(daemon_version: str) -> str:
     return ""
 
 
+# The verdict line decides "is it already running?" from the daemon check's own
+# detail rather than re-asking the OS, so the bottom line can never contradict the
+# lines printed above it. Both sides go through this constant so they cannot drift.
+_RUNNING_PREFIX = "running"
+
+
 def _daemon_check(platform) -> _Check:
     """Report whether the daemon is running, with live state when IPC answers."""
     lifecycle = platform.lifecycle
@@ -206,11 +212,11 @@ def _daemon_check(platform) -> _Check:
 
         stale = _stale_daemon_note(str(info.get("version") or ""))
         if stale:
-            return ("Daemon", "WARN", f"running (PID {pid}{suffix}) — {stale}")
-        return ("Daemon", "OK", f"running (PID {pid}{suffix})")
+            return ("Daemon", "WARN", f"{_RUNNING_PREFIX} (PID {pid}{suffix}) — {stale}")
+        return ("Daemon", "OK", f"{_RUNNING_PREFIX} (PID {pid}{suffix})")
     except Exception:
         # Running but IPC not yet ready (still loading the model) or unreachable.
-        return ("Daemon", "OK", f"running (PID {pid}; IPC not ready)")
+        return ("Daemon", "OK", f"{_RUNNING_PREFIX} (PID {pid}; IPC not ready)")
 
 
 def _model_check(model: str, hf_cache: Path) -> _Check:
@@ -915,7 +921,11 @@ def _verdict_line(checks: list[_Check], cfg, platform) -> str:
     """
     fails = sum(1 for c in checks if c[1] == "FAIL")
     warns = sum(1 for c in checks if c[1] == "WARN")
-    running = any(c[0] == "Daemon" and c[1] == "OK" for c in checks)
+    # NOT `tag == "OK"`: a stale daemon is running *and* WARN, and reading the
+    # tag told a running daemon to `yazses start`.
+    daemon = next((c for c in checks if c[0] == "Daemon"), None)
+    running = daemon is not None and daemon[2].startswith(_RUNNING_PREFIX)
+    stale = running and daemon[1] == "WARN"
     # Resolve the hotkey for the "hold X to dictate" hint (sentinels → default).
     key = getattr(getattr(cfg, "hotkey", None), "key", "") or ""
     if key in ("", "auto"):
@@ -929,7 +939,12 @@ def _verdict_line(checks: list[_Check], cfg, platform) -> str:
             f"{'them' if n != 1 else 'it'}, then re-run `yazses doctor`.",
             "bred", "bold",
         )
-    start_hint = "you're all set — " + dictate_hint if running else f"run `yazses start`, then {dictate_hint}"
+    if not running:
+        start_hint = f"run `yazses start`, then {dictate_hint}"
+    elif stale:
+        start_hint = f"run `yazses restart` to pick up the upgrade, then {dictate_hint}"
+    else:
+        start_hint = "you're all set — " + dictate_hint
     if warns:
         n = warns
         return _c(
