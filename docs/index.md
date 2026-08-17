@@ -242,7 +242,7 @@ yazses enroll     # calibrate your microphone (~30 s)
 yazses start      # start the dictation daemon
 ```
 
-Hold the hotkey (Space on Linux, Right Option on macOS, Right Ctrl on Windows), speak, release — the text appears in the focused app within about a second.
+Hold the hotkey (Right Alt on Linux, Right Option on macOS, Right Ctrl on Windows), speak, release — the text appears in the focused app within about a second.
 
 ## What it does
 

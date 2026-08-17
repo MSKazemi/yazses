@@ -7,7 +7,7 @@ device = "cpu"
 compute_type = "int8"
 
 [hotkey]
-key = "space"
+key = "auto"
 hold_threshold_ms = 500
 
 [audio]

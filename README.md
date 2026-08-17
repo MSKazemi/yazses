@@ -182,7 +182,7 @@ yazses verify               # speak once and prove the whole pipeline works
 
 | OS | Hold this key | Say… |
 |---|---|---|
-| Linux | `Space` | *"the quick brown fox"* (types it) · *"go to line 42"* · *"run the tests"* |
+| Linux | `Right Alt` | *"the quick brown fox"* (types it) · *"go to line 42"* · *"run the tests"* |
 | macOS | `Right Option` | *"delete the last word"* · *"save file"* · *"new function parse config"* |
 | Windows | `Right Ctrl` | *"undo that"* · *"select all"* · *"comment this line"* |
 
@@ -435,7 +435,9 @@ model = "small.en"          # tiny.en (fast) | base.en | small.en (accurate); CP
 initial_prompt = ""         # vocabulary/context primed into Whisper
 
 [hotkey]
-key = "space"               # hold-to-talk key (yazses hotkey set <key>)
+key = "auto"                # hold-to-talk key; "auto" = Right Alt on Linux,
+                            # Right Option on macOS, Right Ctrl on Windows
+                            # (yazses hotkey set <key>)
 command_key = ""            # optional dedicated key that forces command mode
 hold_threshold_ms = 500     # how long to hold before recording starts
 
@@ -518,13 +520,14 @@ brew install --cask yazses
 # pipx (Python ≥ 3.11) — works on Apple Silicon and Intel
 pipx install yazses
 
-# App bundle (.dmg) — unsigned developer preview, Apple Silicon only
+# App bundle (.dmg) — unsigned developer preview; separate Apple Silicon and Intel builds
 # https://github.com/MSKazemi/yazses/releases/latest
 ```
 
-> **On an Intel Mac, use pipx.** The `.dmg` is built host-arch on GitHub's arm64
-> `macos-latest` runner and carries no `x86_64` slice, so it cannot launch on Intel;
-> the cask declares `arch: :arm64` and refuses rather than installing a broken app.
+> **On an Intel Mac, take the `-macos-x86_64.dmg` or use pipx — not Homebrew.** Since
+> v2.22.0 the `.dmg` is built as a per-architecture matrix, so releases carry both
+> `…-macos-arm64.dmg` and `…-macos-x86_64.dmg`. The **cask** is still Apple Silicon
+> only: it declares `arch: :arm64` and refuses rather than installing a broken app.
 > Details in [docs/macos-install.md](docs/macos-install.md).
 
 ### Windows

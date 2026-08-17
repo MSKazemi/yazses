@@ -6,6 +6,38 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the README told Linux users to hold the wrong key
+
+`| Linux | ``Space`` |` in the README's first table, and *"Hold the hotkey (Space on
+Linux…)"* on the docs home page. The Linux default is **Right Alt**: `[hotkey] key`
+defaults to `auto`, which resolves to `platform.default_hotkey`, which is `right_alt`,
+and first-run seeding never writes a hotkey.
+
+This is the first thing a new Linux user does. They hold Space, nothing happens, and
+the reasonable conclusion is that YazSes does not work. `cli.py` even records why a
+modifier was chosen — *"so it doesn't collide with normal typing the way `space`
+can"* — so the docs recommended the key the code had deliberately rejected.
+
+Corrected in four places: both prose claims, the README's settings snippet
+(`key = "space"` → `key = "auto"`, with what `auto` resolves to per platform), and
+`examples/config.example.toml`, which is a file people copy.
+
+### Fixed — Intel Mac users were sent away from a build that exists
+
+The README said the `.dmg` is *"Apple Silicon only"* and *"On an Intel Mac, use
+pipx"*; `docs/macos-install.md` went further, explaining that an Intel `.dmg` "would
+need a second CI job" that had not been paid for.
+
+**That job exists.** Since v2.22.0 the bundle is built as a per-architecture matrix
+(`macos-15-intel` alongside `macos-latest`), and v2.26.0 carries both
+`YazSes-2.26.0-macos-arm64.dmg` and `YazSes-2.26.0-macos-x86_64.dmg`. Intel users were
+being routed away from a native app that had been shipping for four releases.
+
+The Homebrew half of the claim is **kept**, because it is still true: the cask declares
+`depends_on arch: :arm64` and refuses on Intel. The Intel CI leg is
+`continue-on-error`, so the pages now say a release can ship without it and PyPI is the
+fallback when that happens.
+
 ### Fixed — eight pages told you to enable features that cannot be enabled
 
 `system/features.py` states it plainly: a capability with `wired = False` is *"designed
