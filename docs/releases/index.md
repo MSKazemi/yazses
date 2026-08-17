@@ -23,11 +23,10 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.24.0](v2.24.0.md)** — the settings that were documented and read by
-nothing: the learning corpus ignored its own retention and size limits (measured at
-1292 MB against a 500 MB cap), `yazses report` leaked your account name into a bundle
-meant for public issues, and the privacy statement described an editor-context data
-flow that never existed. Plus a `doctor` that called a stale daemon healthy.
+**[YazSes 2.25.0](v2.25.0.md)** — confident answers that were wrong: `yazses transcribe` reported success over an
+empty transcript, `--max-speakers` invented speakers instead of capping them, and an
+undecodable file showed you the ffmpeg command line. Plus a privacy guard that answered
+differently depending on your Python, and a `doctor` that named the wrong command.
 Install it with:
 
 ```sh
@@ -37,6 +36,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.25.0](v2.25.0.md) — confident answers that were wrong: an empty transcript reported as success; speaker flags that invented or ignored counts; a privacy guard that answered differently per Python.
 - [v2.24.0](v2.24.0.md) — two privacy controls that never ran; a report that leaked your account name; a doctor that called a stale daemon healthy.
 - [v2.23.0](v2.23.0.md) — the overlay ignored your desktop's reduce-motion setting; the mic guard's question could only be answered with a pointer.
 - [v2.22.0](v2.22.0.md) — the Intel `.dmg` and ARM64 `.exe` exist for the first time; five launch paths that could not work in a bundle; the macOS download halves.

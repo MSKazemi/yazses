@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.25.0] — 2026-08-17
+
 ### Fixed — `doctor` told a running daemon to start
 
 Its closing line contradicted its own warning three lines above:
