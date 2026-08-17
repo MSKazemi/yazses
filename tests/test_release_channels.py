@@ -416,11 +416,14 @@ def test_a_check_that_raises_does_not_hide_the_others(crc, responses, monkeypatc
 def test_one_architecture_of_a_pair_is_not_a_published_platform(crc, responses):
     """The exact gap release-complete.yml's wait loop was hardened against.
 
-    That workflow counts `deb > 1 && dmg > 1 && exe > 1` and explains why: "at
-    least one .dmg" is what let v2.20.0 and v2.21.0 print "All platforms
-    published" while the cross-architecture legs failed silently. But the wait is
-    only a wait — the *verdict* comes from this script, which took the first
-    matching asset and called the platform done.
+    That workflow used to count `deb > 1 && dmg > 1 && exe > 1` in bash, with a
+    comment explaining why: "at least one .dmg" is what let v2.20.0 and v2.21.0
+    print "All platforms published" while the cross-architecture legs failed
+    silently. But the wait was only a wait — the *verdict* came from this script,
+    which took the first matching asset and called the platform done, so the gate
+    waited for a stricter condition than the one it went on to certify. The
+    workflow now polls this script instead of counting separately, so there is one
+    implementation; this test is what keeps it strict.
 
     That mattered twice over, because `--core-only` is what decides whether an
     incomplete release keeps the "Latest" label: a release carrying only an arm64
@@ -453,3 +456,41 @@ def test_one_architecture_of_a_pair_is_not_a_published_platform(crc, responses):
         f"reported the macOS platform as published: {got['dmg']}"
     )
     assert "arm64" in got["dmg"][1], "the detail must name what was actually found"
+
+
+def test_ci_only_covers_the_container_image_and_core_only_does_not(crc, responses):
+    """The two subsets answer different questions and must not be conflated.
+
+    `--ci-only` answers "has CI finished?", so it includes the container image
+    this same tag push publishes — omitting it is how the v2.25.0 report named
+    Docker missing while it was still in flight. `--core-only` answers "is the
+    release broken for a user on that OS?", which is what may demote a release to
+    pre-release, and a missing image is a gap in reach rather than a broken
+    download.
+    """
+    assert "docker" in crc.CI_PUBLISHED
+    assert "docker" not in crc.CORE
+    assert crc.CORE < crc.CI_PUBLISHED, "ci-only must be a superset of core"
+
+    responses(
+        {
+            "api.github.com": (
+                200,
+                _body(
+                    {
+                        "assets": [
+                            {"name": "a1.deb"}, {"name": "a2.deb"},
+                            {"name": "b1.dmg"}, {"name": "b2.dmg"},
+                            {"name": "c1.exe"}, {"name": "c2.exe"},
+                        ]
+                    }
+                ),
+            ),
+            "pypi.org": (200, b"{}"),
+            "ghcr.io": (200, b'{"tags": ["2.18.2"]}'),
+        }
+    )
+    core_keys = {r.key for r in crc.run("2.18.2", core_only=True)}
+    ci_keys = {r.key for r in crc.run("2.18.2", core_only=False, ci_only=True)}
+    assert "docker" not in core_keys, f"--core-only must not gate on the image: {core_keys}"
+    assert "docker" in ci_keys, f"--ci-only must wait for the image: {ci_keys}"

@@ -76,6 +76,19 @@ def _verdict(status: int, published: bool) -> bool | None:
 # the build over, but not a reason to relabel what did ship.
 CORE = {"deb", "dmg", "exe", "pypi"}
 
+# Everything this tag push publishes on its own, CORE plus the container image.
+# Distinct from CORE on purpose: this set answers "has CI finished?", which is a
+# question about *waiting*, while CORE answers "is the release broken for a user
+# on that OS?", which is what may demote a release. Docker belongs in the first
+# and not the second -- a missing image is a gap in reach, not a broken download.
+#
+# It exists so the wait and the verdict share one implementation. They did not
+# before: release-complete.yml counted assets in bash and hardened that count to
+# two-per-platform, while the script it then asked for the verdict still accepted
+# one of a pair. Two implementations of "is this published" is what let those
+# drift, so there is now one.
+CI_PUBLISHED = CORE | {"docker"}
+
 
 @dataclass
 class Result:
@@ -317,16 +330,19 @@ CHECKS = [
 ASSET_LABELS = {"deb": "Linux .deb", "dmg": "macOS .dmg", "exe": "Windows .exe"}
 
 
-def run(version: str, core_only: bool) -> list[Result]:
+def run(version: str, core_only: bool, ci_only: bool = False) -> list[Result]:
     results: list[Result] = []
     for key, (ok, detail) in check_release_assets(version).items():
         results.append(Result(key, ASSET_LABELS[key], ok, detail, core=True))
 
-    if core_only:
-        core = [r for r in results if r.key in CORE]
+    if core_only or ci_only:
+        subset = [r for r in results if r.key in CORE]
         ok, detail = check_pypi(version)
-        core.append(Result("pypi", "PyPI", ok, detail, core=True))
-        return core
+        subset.append(Result("pypi", "PyPI", ok, detail, core=True))
+        if ci_only:
+            ok, detail = check_docker(version)
+            subset.append(Result("docker", "Docker (GHCR)", ok, detail))
+        return subset
 
     # Every check is an independent network round-trip against a different host,
     # so run them concurrently -- serially this took ~200s, which is too slow to
@@ -356,10 +372,17 @@ def main() -> int:
         help="only the channels CI produces (deb/dmg/exe/PyPI) -- used to decide "
         "whether a release is broken for users, as opposed to merely unpublished",
     )
+    ap.add_argument(
+        "--ci-only",
+        action="store_true",
+        help="only the channels this tag push publishes itself (CORE plus the "
+        "container image) -- used to wait for CI to finish before reporting, so "
+        "an in-flight channel is never named as missing",
+    )
     ap.add_argument("--format", choices=("markdown", "json"), default="markdown")
     args = ap.parse_args()
 
-    results = run(args.version, args.core_only)
+    results = run(args.version, args.core_only, args.ci_only)
     # `is False` and `is None` are different answers and are reported separately.
     # Rolling them together is what made one dropped connection to the AUR read as
     # an unpublished package -- and "publish it again" is the wrong repair for a

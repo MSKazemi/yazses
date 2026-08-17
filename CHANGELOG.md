@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the release gate named a channel missing while it was still building
+
+The v2.25.0 report listed Docker/GHCR as absent. Re-checking minutes later showed
+`tags=2.25.0`: the image was in flight, published by the same tag push, and the gate
+waited for four of the five channels CI produces.
+
+The report exists to be a standing, itemised statement of what is missing. A channel
+that publishes two minutes later was never missing, and a report that cries wolf on
+its own build gets discounted along with everything true in it.
+
+The wait now polls `--ci-only` — CORE plus the container image — instead of counting
+assets in bash. That also removes the second implementation of "is this published",
+which is what caused the defect above: the bash was hardened to two bundles per
+platform and the script it then asked for a verdict was not, so the gate waited on a
+stricter condition than the one it certified. Snap stays excluded, because it uploads
+here but reaches `stable` only after store review and can never be waited on.
+
+`--core-only` is deliberately unchanged: it answers *is this release broken for a user
+on that OS*, which is what may demote a release to pre-release, and a missing image is
+a gap in reach rather than a broken download.
+
 ### Fixed — the release gate certified a platform on one architecture of a pair
 
 `release-complete.yml` counts `deb > 1 && dmg > 1 && exe > 1` in its wait loop, and
