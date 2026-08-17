@@ -6,6 +6,7 @@ hermetic and run only on POSIX. Pure protocol tests run everywhere.
 
 from __future__ import annotations
 
+import socket
 import sys
 import time
 from pathlib import Path
@@ -168,10 +169,13 @@ def test_a_non_object_response_is_a_value_error(line):
         Response.from_json(line)
 
 
+@pytest.mark.skipif(
+    not hasattr(socket, "AF_UNIX"),
+    reason="JsonRpcServer is the POSIX socket transport; Windows uses a named pipe",
+)
 def test_the_server_answers_a_bare_array_instead_of_dying():
     """End to end over a real socket: the promise is a parse error, not silence."""
     import json
-    import socket
     import tempfile
     from pathlib import Path
 

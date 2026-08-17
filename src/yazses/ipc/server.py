@@ -2,8 +2,10 @@
 
 Each connection is short-lived: client connects, sends one request line,
 reads one response line, disconnects. The server runs on a background thread
-inside the daemon. macOS reuses this transport; Windows will subclass for a
-named pipe in Phase 2.
+inside the daemon. macOS reuses this transport; Windows does not -- it has its
+own `NamedPipeIpcServer`, which mirrors the request handling here rather than
+subclassing it, so a change to either belongs in both. The parsing itself is
+shared: both call `Request.from_json` and catch the same exceptions.
 """
 
 from __future__ import annotations
