@@ -6,8 +6,8 @@ $ErrorActionPreference = 'Stop'
 $packageArgs = @{
   packageName    = 'yazses'
   fileType       = 'exe'
-  url64bit       = 'https://github.com/MSKazemi/yazses/releases/download/v2.23.0/YazSes-2.23.0-windows-x64.exe'
-  checksum64     = 'af2751481951a88202edb75852e7826886dec2a63fe4cad919eec9d0ab01fa70'
+  url64bit       = 'https://github.com/MSKazemi/yazses/releases/download/v2.24.0/YazSes-2.24.0-windows-x64.exe'
+  checksum64     = '795d6a48668a4bdfcc7f4ed3f4358b8b096745a20825be524911e6764bcc8351'
   checksumType64 = 'sha256'
   # Inno Setup: /VERYSILENT so unattended installs do not stall on the wizard.
   silentArgs     = '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-'
