@@ -7,7 +7,9 @@ description: Say a trigger phrase to expand canned boilerplate or a stored templ
 
 If you type the same boilerplate over and over — a signature, a standard reply, a
 code stub — you can bind it to a spoken **trigger phrase**. Say the trigger and
-YazSes types the expansion. Two features do this; both are **off by default**.
+YazSes types the expansion. Two features do this; both are **off by default**, and
+one of them is **not wired yet** — which is a different thing, so it is called out
+where it matters below.
 
 - **Say-Macro (`macros`)** — the fuller mechanism: triggers live in a dedicated
   `macros.toml`, support `text` and `snippet` expansions, and can place the caret
@@ -15,6 +17,9 @@ YazSes types the expansion. Two features do this; both are **off by default**.
   and `${author}`.
 - **Voice Snippets (`snippets`)** — a lightweight inline expander: trigger →
   template pairs configured directly in `config.toml` under `[snippets]`.
+  **Planned — designed and tested, not yet wired**, so `features enable` refuses it
+  and the `[snippets]` block below has no effect yet. Say-Macro is the one that works
+  today.
 
 Both match on **whole-utterance exact match**, so a trigger appearing inside
 ordinary prose never fires mid-dictation.
