@@ -27,7 +27,16 @@ def _release_date(ver: str) -> str:
     every regen the way `datetime.today()` would (the man page must stay
     byte-identical across CI runs until the code actually changes)."""
     text = CHANGELOG.read_text(encoding="utf-8")
-    m = re.search(rf"^## \[{re.escape(ver)}\] - (\d{{4}}-\d{{2}}-\d{{2}})", text, re.M)
+    # Any dash the changelog might use between the version and the date. It was
+    # `- ` alone, and every release from 2.25.0 writes an em dash -- so the lookup
+    # silently stopped resolving and the stamp fell back to "unreleased", which the
+    # header test permits, so nothing noticed. A formatting choice should not be
+    # able to quietly disable the thing this function exists to do.
+    m = re.search(
+        rf"^## \[{re.escape(ver)}\]\s*[-\u2013\u2014]\s*(\d{{4}}-\d{{2}}-\d{{2}})",
+        text,
+        re.M,
+    )
     return m.group(1) if m else "unreleased"
 
 

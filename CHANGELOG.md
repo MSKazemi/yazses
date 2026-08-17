@@ -6,6 +6,23 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the man page's release date stopped resolving at 2.25.0
+
+`scripts/gen-man.py` stamps `.TH` with the version's date from the changelog, rather
+than `datetime.today()`, so the page stays byte-identical across CI runs until the
+commands actually change. It matched `## [X.Y.Z] - YYYY-MM-DD` with an ASCII hyphen.
+
+Every release from 2.25.0 writes an **em dash**. So the lookup stopped resolving, the
+stamp fell back to `unreleased`, and the header test permits exactly that string — so
+nothing noticed. 2.24.0, the last heading written with a hyphen, was the last one that
+worked.
+
+The pattern now accepts a hyphen, an en dash or an em dash: a formatting choice should
+not be able to quietly disable the thing the function exists to do. `man/yazses.1` is
+regenerated — its stamp had been showing **2.24.0**, three releases behind, since the
+body-only sync check deliberately excludes `.TH` so that a version bump cannot redden
+CI.
+
 ### Added — `yazses status` reports how often dictation actually produced text
 
 ```

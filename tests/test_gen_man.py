@@ -75,3 +75,44 @@ def test_man_page_is_pure_ascii(gen):
         f"non-ASCII in the man page: {offenders} — add them to _GROFF_CHARS "
         "in scripts/gen-man.py"
     )
+
+
+def test_the_release_date_survives_an_em_dash_heading(gen, tmp_path, monkeypatch):
+    """`_release_date` silently stopped finding dates when the heading style changed.
+
+    It matched `## [X.Y.Z] - YYYY-MM-DD` with an ASCII hyphen. Every release from
+    2.25.0 writes `## [X.Y.Z] — YYYY-MM-DD` with an em dash, so the lookup failed
+    and the stamp fell back to "unreleased" — which the header test permits, so
+    nothing noticed. 2.24.0, the last heading with a hyphen, is the last one that
+    resolved.
+
+    The function exists to give the page a stable, real date instead of
+    `datetime.today()`. Falling back for a formatting reason defeats that quietly.
+    """
+    changelog = tmp_path / "CHANGELOG.md"
+    changelog.write_text(
+        "# Changelog\n\n"
+        "## [9.9.9] — 2026-01-02\n\n"
+        "## [9.9.8] - 2026-01-01\n\n"
+        "## [9.9.7] – 2025-12-31\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(gen, "CHANGELOG", changelog)
+
+    assert gen._release_date("9.9.9") == "2026-01-02", "em dash (the current style)"
+    assert gen._release_date("9.9.8") == "2026-01-01", "ascii hyphen (the old style)"
+    assert gen._release_date("9.9.7") == "2025-12-31", "en dash, for good measure"
+    assert gen._release_date("0.0.0") == "unreleased", "genuinely absent stays absent"
+
+
+def test_the_real_changelog_resolves_the_current_version(gen):
+    """The regression this guards is only visible against the real file."""
+    import tomllib
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    ver = tomllib.loads((root / "pyproject.toml").read_text())["project"]["version"]
+    assert gen._release_date(ver) != "unreleased", (
+        f"no date found for {ver} in CHANGELOG.md — the heading style and the "
+        "generator's pattern have drifted apart again"
+    )
