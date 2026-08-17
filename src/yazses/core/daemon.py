@@ -1326,6 +1326,19 @@ class Daemon:
             if not text:
                 event["discard_reason"] = "empty"
                 log.info("Empty transcription -- discarding.")
+                # Decoding to nothing is the same failure as hearing nothing: the key
+                # was held, speech happened, no text appears. It used to differ only
+                # in that this path said nothing at all -- so a microphone capturing
+                # audible but unintelligible audio (too quiet, wrong device, badly
+                # attenuated) discarded for ever with `silent_streak` stuck at 0,
+                # while the guard built for exactly that symptom saw a healthy mic.
+                # Measured on a real machine: four consecutive empty transcriptions
+                # at levels 0.0022-0.0069, against 0.0199 for that machine's last
+                # successful capture, and not one word said about it.
+                self._note_silent_discard()
+                # Same reasoning as the silent branch: nothing will be typed, and
+                # without a screen that is indistinguishable from a slow decode.
+                self._earcon.play("error")
                 if stream_injector is not None:
                     stream_injector.cancel()
                 return

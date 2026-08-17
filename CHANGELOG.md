@@ -6,6 +6,33 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a mic that hears you but yields nothing never tripped the guard
+
+The mic-change guard counts *silent* discards: audio below `vad_threshold`. A run of
+them auto-heals capture back to the last-good device and notifies *"Heard nothing 3× in
+a row — your mic may have changed."*
+
+An **empty transcription** — audio that clears the gate, reaches the model, and decodes
+to nothing — logged one line and returned. It did not count toward the streak, did not
+notify, did not auto-heal, and played no earcon. So a microphone capturing audible but
+unintelligible audio (too quiet, wrong device, badly attenuated) discarded for ever
+with `silent_streak` stuck at `0`, while the guard built for exactly that symptom saw a
+perfectly healthy microphone.
+
+Observed live rather than reasoned about: four consecutive empty transcriptions at
+levels **0.0022–0.0069**, on a machine whose last successful capture measured
+**0.0199**. Nothing was typed and nothing was said, four times.
+
+From the user's side the two failures are the same event — hold the key, speak, no text
+appears — and the notification's advice (`yazses mic-level --set`, `yazses audio
+devices`) is the right advice for both. The empty path now calls the same handler, so a
+streak of them heals and notifies exactly as a silent streak does, and plays the error
+earcon for the reason the silent branch already documents: nothing will be typed, and
+without a screen that is indistinguishable from a slow decode.
+
+A single empty transcription still says nothing — the threshold (3 consecutive, reset by
+any success) is unchanged, so holding the key without speaking costs nothing.
+
 ### Fixed — `gitvoice` truncated a branch name and aimed a destructive command at it
 
 ```

@@ -101,3 +101,48 @@ def test_status_exposes_audio_health(mocker):
     assert status["last_good_device"] == "USB PnP Audio Device"
     assert status["input_device"] == "USB PnP Audio Device"
     assert status["silent_streak"] == 0
+
+
+def _empty_discard_branch() -> str:
+    """The lines of `_on_hold_end` that handle a transcript that came back empty."""
+    import inspect
+
+    source = inspect.getsource(Daemon._on_hold_end)
+    start = source.index('discard_reason"] = "empty"')
+    end = source.index("return", start)
+    return source[start:end]
+
+
+def test_an_empty_transcription_counts_toward_the_mic_streak():
+    """Decoding to nothing is the same failure as hearing nothing, and was not counted.
+
+    The silent-audio path calls `_note_silent_discard()`, which drives the streak,
+    the auto-heal and the "your mic may have changed" notification. The
+    empty-transcription path logged a line and returned — so a microphone that
+    captures audible but unintelligible audio (too quiet, wrong device, badly
+    attenuated) discards for ever with `silent_streak` stuck at 0 and nothing ever
+    said.
+
+    Observed live: four consecutive empty transcriptions at levels 0.0022–0.0069,
+    against 0.0199 on the same machine's last successful capture. YazSes reported
+    nothing, because from the guard's point of view the microphone was fine.
+
+    From the user's side the two are indistinguishable — you hold the key, speak,
+    and no text appears — and the remedy the notification offers is the same one.
+    """
+    assert "_note_silent_discard" in _empty_discard_branch(), (
+        "an empty transcription does not count toward the silent streak, so a mic "
+        "that yields nothing intelligible never triggers the guard built for it"
+    )
+
+
+def test_an_empty_transcription_plays_the_error_earcon():
+    """The silent path's own reasoning, applied to the identical outcome.
+
+    It plays the error cue because "nothing was heard, so nothing will be typed" and
+    without a screen that is indistinguishable from a slow transcription. A
+    transcript that decoded to nothing types nothing either, and was silent.
+    """
+    assert 'play("error")' in _empty_discard_branch(), (
+        "the user gets no cue that nothing is coming"
+    )
