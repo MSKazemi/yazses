@@ -96,3 +96,56 @@ def test_a_routing_alias_is_not_a_microphone_name():
     assert is_routing_alias("USB PnP Audio Device") is False
     assert is_routing_alias("") is False
     assert is_routing_alias(None) is False
+
+
+WPCTL_SAMPLE = """\
+ ├─ Sources:
+ │      59. Raptor Lake-P/U/H cAVS Headphones Stereo Microphone [vol: 1.00]
+ │  *   60. Raptor Lake-P/U/H cAVS Digital Microphone [vol: 0.65]
+ │  
+ ├─ Source endpoints:
+ │  
+ └─ Streams:
+"""
+
+
+def test_the_default_source_behind_the_alias_is_read_from_wpctl():
+    """`default` is unhelpful on the one screen you open when dictation stops.
+
+    Taken verbatim from a machine where every dictation decoded to nothing: the
+    alias pointed at the internal digital mic array at 65% gain, while a second
+    source sat at 100%. Nothing in YazSes could say that, so the diagnosis had to
+    be done by hand outside the tool.
+
+    Shelling out to `wpctl` matches how this project already gets `notify-send`,
+    `xdotool` and `wl-copy` -- a tool that is present on the system, used
+    best-effort, never required.
+    """
+    from yazses.audio.devices import parse_wpctl_default_source
+
+    got = parse_wpctl_default_source(WPCTL_SAMPLE)
+    assert got == ("Raptor Lake-P/U/H cAVS Digital Microphone", 0.65), got
+
+
+def test_no_starred_source_is_not_a_guess():
+    """With nothing marked default, saying which one it is would be invention."""
+    from yazses.audio.devices import parse_wpctl_default_source
+
+    without_star = WPCTL_SAMPLE.replace("*", " ")
+    assert parse_wpctl_default_source(without_star) is None
+    assert parse_wpctl_default_source("") is None
+    assert parse_wpctl_default_source("wpctl: command not found") is None
+
+
+def test_a_source_named_like_a_sink_is_not_picked_up():
+    """Only the Sources block counts — Sinks carry the same shape and a star."""
+    from yazses.audio.devices import parse_wpctl_default_source
+
+    text = (
+        " ├─ Sinks:\n"
+        " │  *   41. Built-in Audio Speaker [vol: 0.80]\n"
+        " │  \n"
+        " ├─ Sources:\n"
+        " │  *   60. Real Microphone [vol: 0.65]\n"
+    )
+    assert parse_wpctl_default_source(text) == ("Real Microphone", 0.65)

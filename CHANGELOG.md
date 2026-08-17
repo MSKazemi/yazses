@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `audio status` names the microphone behind the `default` alias
+
+Saying *"that is a routing alias"* is true but not yet useful. On the screen someone
+opens when dictation has stopped, the question is **which microphone is it using**:
+
+```
+OS default:    default
+               → Raptor Lake-P/U/H cAVS Digital Microphone  (volume 65%)
+               ⚠ that is a routing alias, not a microphone — …
+```
+
+That line is the diagnosis, and until now it could only be obtained by leaving YazSes
+and reading `wpctl status` by hand — which is exactly how the machine that prompted
+this was found to be routed to its internal microphone array at 65% gain, with a second
+source sitting at 100%.
+
+Resolved through `wpctl`, the way this project already reaches `notify-send`,
+`xdotool` and `wl-copy`: used when present, absent without complaint, never required,
+and never raising into the caller. The parsing is pure and tested against real output,
+reads only the `Sources:` block (`Sinks:` has the same row shape and its own starred
+default, and reporting a speaker as the microphone would be worse than silence), and
+returns nothing at all when no source is marked default — which source is current is
+then genuinely unknown, and guessing is how a diagnostic starts lying.
+
 ### Fixed — `audio status` hid that "default" is a route, not a microphone
 
 ```

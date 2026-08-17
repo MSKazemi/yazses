@@ -2369,7 +2369,11 @@ def audio_use(
 )
 def audio_status() -> None:
     """Show the pinned mic, the OS default, and (if running) live capture health."""
-    from yazses.audio.devices import current_default_input_name, is_routing_alias
+    from yazses.audio.devices import (
+        current_default_input_name,
+        default_source_behind_alias,
+        is_routing_alias,
+    )
     from yazses.config import load_config
 
     platform = get_platform()
@@ -2386,6 +2390,13 @@ def audio_status() -> None:
         # saying here, because this is the page someone opens when dictation
         # stopped working and they are trying to find out what it is listening to.
         if not pinned and is_routing_alias(default_name):
+            # Naming the alias is not enough on the screen someone opens when
+            # dictation stopped: they need to know *which* microphone it currently
+            # points at. Best-effort via wpctl, absent without complaint.
+            behind = default_source_behind_alias()
+            if behind:
+                name, vol = behind
+                typer.echo(f"               → {name}  (volume {vol * 100:.0f}%)")
             typer.echo(
                 "               ⚠ that is a routing alias, not a microphone — the "
                 "device behind it\n"

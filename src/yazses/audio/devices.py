@@ -169,3 +169,51 @@ def is_routing_alias(name: str | None) -> bool:
     The streak-based half of the guard is unaffected: it counts outcomes, not names.
     """
     return (name or "").strip().lower() in _ROUTING_ALIASES
+
+
+def parse_wpctl_default_source(text: str):
+    """``(name, volume)`` of the starred source in ``wpctl status`` output, or None.
+
+    Pure, so the parsing is tested without PipeWire. Only the ``Sources:`` block is
+    considered -- ``Sinks:`` has the same row shape and its own starred default, and
+    reporting a speaker as the microphone would be worse than saying nothing.
+
+    Returns None when nothing is marked default: which source is current is then
+    genuinely unknown, and guessing is how a diagnostic starts lying.
+    """
+    import re
+
+    in_sources = False
+    for line in (text or "").splitlines():
+        stripped = line.strip(" \u2502\u251c\u2514\u2500")
+        if stripped.endswith(":"):
+            in_sources = stripped.rstrip(":").strip().lower() == "sources"
+            continue
+        if not in_sources or "*" not in line:
+            continue
+        m = re.search(r"\*\s*\d+\.\s*(.+?)\s*\[vol:\s*([0-9.]+)", line)
+        if m:
+            return (m.group(1).strip(), float(m.group(2)))
+    return None
+
+
+def default_source_behind_alias(run=None):
+    """Best-effort ``(name, volume)`` of the device the OS default alias points at.
+
+    ``default`` names a route, not a microphone (see :func:`is_routing_alias`), so on
+    a PipeWire desktop this is the only way to say *which* microphone is being used.
+    Shells out to ``wpctl``, the way this project already reaches ``notify-send`` and
+    ``wl-copy``: used when present, absent without complaint, never required and
+    never raising into a caller.
+    """
+    import subprocess
+
+    def _default_run():
+        return subprocess.run(
+            ["wpctl", "status"], capture_output=True, text=True, timeout=3
+        ).stdout
+
+    try:
+        return parse_wpctl_default_source((run or _default_run)())
+    except Exception:  # pragma: no cover - depends on the host having wpctl
+        return None
