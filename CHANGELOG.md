@@ -6,7 +6,7 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Added — `audio status` names the microphone behind the `default` alias
+### Added — `audio status` and `doctor` name the microphone behind the `default` alias
 
 Saying *"that is a routing alias"* is true but not yet useful. On the screen someone
 opens when dictation has stopped, the question is **which microphone is it using**:
@@ -29,6 +29,17 @@ reads only the `Sources:` block (`Sinks:` has the same row shape and its own sta
 default, and reporting a speaker as the microphone would be worse than silence), and
 returns nothing at all when no source is marked default — which source is current is
 then genuinely unknown, and guessing is how a diagnostic starts lying.
+
+`doctor` carries the same line, and had the same gap — it is the surface the
+documentation points at first, and it reported the bare alias:
+
+```
+[OK] Microphone: OS default: default → Raptor Lake-P/U/H cAVS Digital Microphone
+     (volume 65%) (pin with `yazses audio use <name>`)
+```
+
+Both suppress the arrow when the default is already a real device, since resolving a
+name to itself is noise.
 
 ### Fixed — `audio status` hid that "default" is a route, not a microphone
 

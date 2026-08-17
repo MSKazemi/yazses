@@ -224,3 +224,43 @@ def test_a_dead_microphone_is_not_blamed_on_the_gate(monkeypatch):
     monkeypatch.setattr(doctor, "_sample_mic", lambda cfg, seconds: stats)
     _n, status, _d = doctor._mic_level_check(cfg, seconds=0.1)
     assert status == "OK", "a silent capture must not be reported as room noise"
+
+
+def test_doctor_names_the_microphone_behind_the_alias(monkeypatch):
+    """`OS default: default` is the least useful true thing doctor can say.
+
+    `doctor` is the surface the documentation points at first, and on a PipeWire
+    desktop it reported the routing alias verbatim — the same gap `audio status`
+    had. On the machine that prompted this, the alias pointed at an internal
+    microphone array at 65% gain while a second source sat at 100%, and every
+    dictation for an hour decoded to nothing.
+    """
+    monkeypatch.setattr(
+        "yazses.audio.devices.current_default_input_name", lambda: "default"
+    )
+    monkeypatch.setattr(
+        "yazses.audio.devices.default_source_behind_alias",
+        lambda: ("Raptor Lake-P/U/H cAVS Digital Microphone", 0.65),
+    )
+    detail = next(
+        d for n, _s, d in doctor._config_summary(load_config(None), Path("/nonexistent.toml"))
+        if n == "Microphone"
+    )
+    assert "Digital Microphone" in detail, detail
+    assert "65%" in detail, f"the gain is half the diagnosis: {detail}"
+
+
+def test_doctor_says_nothing_extra_when_the_default_is_a_real_device(monkeypatch):
+    """No alias, nothing to resolve — the line must not grow a redundant arrow."""
+    monkeypatch.setattr(
+        "yazses.audio.devices.current_default_input_name", lambda: "USB PnP Audio Device"
+    )
+    monkeypatch.setattr(
+        "yazses.audio.devices.default_source_behind_alias",
+        lambda: ("something else entirely", 1.0),
+    )
+    detail = next(
+        d for n, _s, d in doctor._config_summary(load_config(None), Path("/nonexistent.toml"))
+        if n == "Microphone"
+    )
+    assert "→" not in detail and "something else" not in detail, detail

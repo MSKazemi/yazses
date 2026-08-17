@@ -376,14 +376,29 @@ def _config_summary(cfg, config_file: Path) -> list[_Check]:
         out.append(("Microphone", "OK", f"pinned: {pinned!r}"))
     else:
         try:
-            from yazses.audio.devices import current_default_input_name
+            from yazses.audio import devices as _devices
 
-            default = current_default_input_name()
+            default = _devices.current_default_input_name()
         except Exception:
             default = None
+        # `default` names a route, not a microphone, so on a PipeWire desktop the
+        # line above is the least useful true thing this command can say -- and this
+        # is the surface the documentation points at first. Resolve it when we can:
+        # on the machine that prompted this the alias pointed at an internal array at
+        # 65% gain while another source sat at 100%, and every dictation for an hour
+        # decoded to nothing with no way to see why from inside YazSes.
+        behind = ""
+        try:
+            if _devices.is_routing_alias(default):
+                found = _devices.default_source_behind_alias()
+                if found:
+                    behind = f" → {found[0]} (volume {found[1] * 100:.0f}%)"
+        except Exception:  # pragma: no cover - best-effort, never breaks doctor
+            behind = ""
         out.append((
             "Microphone", "OK",
-            f"OS default: {default or 'unknown'} (pin with `yazses audio use <name>`)",
+            f"OS default: {default or 'unknown'}{behind} "
+            "(pin with `yazses audio use <name>`)",
         ))
     guard = getattr(cfg.injection, "target_guard", "off")
     if guard != "off":
