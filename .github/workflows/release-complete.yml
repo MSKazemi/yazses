@@ -60,7 +60,12 @@ jobs:
       - name: Check gh can reach the repository
         run: |
           set -euo pipefail
-          gh repo view --json name -q .name
+          # REST, not GraphQL: `gh repo view --json` is a GraphQL call, while the
+          # `gh release` calls this step clears are REST. On the v2.27.0 tag the
+          # GraphQL endpoint returned 503 while REST was healthy, so the preflight
+          # failed a release that would have completed. Check the transport you
+          # actually use.
+          gh api "repos/${{ github.repository }}" --jq .name
 
       - name: Wait for every channel this tag push publishes
         # Deliberately generous: the Windows build is the long pole, PyPI needs a

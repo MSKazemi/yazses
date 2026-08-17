@@ -72,7 +72,15 @@ jobs:
           # every `gh release` call below does accept `--repo` and was always fine.
           # v2.19.0 was the first tag push to reach it; the earlier green runs were
           # all workflow_dispatch from before this step existed.
-          gh repo view "$GH_REPO" --json name -q .name
+          #
+          # It is `gh api` and not `gh repo view` for the same reason, one layer
+          # down: `--json` makes `gh repo view` a **GraphQL** call, while every
+          # `gh release` call below is REST. A GraphQL outage therefore failed the
+          # release while the API it actually depends on was healthy -- which is
+          # exactly what happened on the v2.27.0 tag, HTTP 503 from the GraphQL
+          # endpoint alone. A preflight must exercise the same transport as the
+          # work it clears, or it reports on something else.
+          gh api "repos/$GH_REPO" --jq .name
 
       - name: Wait for platform builds to attach their assets
         # release.yml creates the Release as soon as the .deb is built, but the
