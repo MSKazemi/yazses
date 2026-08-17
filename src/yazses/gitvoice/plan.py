@@ -55,20 +55,33 @@ def build_git_argv(text: str):
 
     # Below, the utterance is matched as spoken (IGNORECASE) so the captured ref/path
     # keeps its case — see the docstring.
-    m = re.search(r"\b(?:create|new)\s+branch\s+([\w./-]+)", raw, re.IGNORECASE)
+    #
+    # "feature slash login" is how `feature/login` is spoken, and `feature/…` is the
+    # most common branch convention there is. The capture class stops at the space, so
+    # the name was silently truncated to its first segment and a DESTRUCTIVE command
+    # was emitted against a different ref than the one named:
+    #
+    #   "delete branch feature slash login"  ->  git branch -D feature
+    #
+    # Applied only here, after the commit-message branch has already returned, so a
+    # message containing the word is untouched.
+    ref_src = re.sub(r"\s+slash\s+", "/", raw)
+
+    m = re.search(r"\b(?:create|new)\s+branch\s+([\w./-]+)\s*$", ref_src, re.IGNORECASE)
     if m:
         return ["git", "checkout", "-b", m.group(1)]
-    m = re.search(r"\bdelete\s+branch\s+([\w./-]+)", raw, re.IGNORECASE)
+    m = re.search(r"\bdelete\s+branch\s+([\w./-]+)\s*$", ref_src, re.IGNORECASE)
     if m:
         return ["git", "branch", "-D", m.group(1)]
-    m = re.search(r"\bdiscard\s+(?:changes|edits)\s+(?:in|to|on)\s+([\w./-]+)", raw, re.IGNORECASE)
+    m = re.search(r"\bdiscard\s+(?:changes|edits)\s+(?:in|to|on)\s+([\w./-]+)\s*$",
+                  ref_src, re.IGNORECASE)
     if m:
         return ["git", "checkout", "--", m.group(1)]
-    m = re.search(r"\b(?:checkout|switch\s+to|switch)\s+(?:branch\s+)?([\w./-]+)", raw,
-                  re.IGNORECASE)
+    m = re.search(r"\b(?:checkout|switch\s+to|switch)\s+(?:branch\s+)?([\w./-]+)\s*$",
+                  ref_src, re.IGNORECASE)
     if m:
         return ["git", "checkout", m.group(1)]
-    m = re.search(r"\bmerge\s+([\w./-]+)", raw, re.IGNORECASE)
+    m = re.search(r"\bmerge\s+([\w./-]+)\s*$", ref_src, re.IGNORECASE)
     if m:
         return ["git", "merge", m.group(1)]
     return None

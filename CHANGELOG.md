@@ -6,6 +6,31 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `gitvoice` truncated a branch name and aimed a destructive command at it
+
+```
+"delete branch feature slash login"       ->  git branch -D feature
+"delete branch my slash deep slash name"  ->  git branch -D my
+"create branch feature slash login"       ->  git checkout -b feature
+```
+
+`feature/login` spoken is *"feature slash login"*, and `feature/…` is the most common
+branch convention there is. The ref patterns capture `[\w./-]+`, which stops at the
+space, and `re.search` is unanchored — so everything after the first segment was
+discarded and a **destructive command was emitted against a different ref than the one
+named**, with nothing to show that anything had been dropped.
+
+Two fixes. A spoken `slash` now makes the `/` it sounds like, so the common case
+produces the branch the user said. And the ref patterns are anchored at **both** ends,
+which is this project's own documented rule for spoken grammars — *"a suffix match
+swallows 'click undo' instead of typing it"*. Anything the grammar does not model now
+refuses and prints the hint listing what it understands, rather than emitting a
+partially-understood command.
+
+Case is still preserved on the captured ref, per the module's existing reasoning about
+case-sensitive refs and paths: `delete branch Feature slash Login` gives
+`Feature/Login`.
+
 ## [2.25.1] — 2026-08-17
 
 ### Fixed — a missing file was reported as a format problem
