@@ -8,6 +8,7 @@ flac/wav all decode and resample with **no new dependency** (research §3). A sy
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 import subprocess
 
@@ -23,6 +24,18 @@ def load_audio(path, sample_rate: int = 16000):
     decoder can read it (neither PyAV nor a system ffmpeg).
     """
     path = str(path)
+    # The docstring promised this and nothing checked, so a path that does not exist
+    # fell through to the decode-failure branch and was reported as "probably not an
+    # audio or video file, or it is truncated" -- every cause wrong, and each one
+    # sends the reader to inspect the file's contents rather than its name. Only
+    # reachable programmatically (the CLI rejects a missing path at argument
+    # parsing); found through the MCP server, where an agent hits it directly.
+    #
+    # `is_file` rather than `exists`: a directory is present, and calling it missing
+    # would just be a different wrong cause. It falls through to the decoder, which
+    # reports that it cannot be read.
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"No such file: {path}")
     try:
         audio = _decode_pyav(path, sample_rate)
         return np.asarray(audio, dtype="float32"), sample_rate

@@ -127,3 +127,41 @@ def test_a_quiet_but_real_recording_still_carries_signal():
     assert carries_no_signal(sparse) is False, (
         "sparse speech in a long file averages to nearly zero — this must use peak"
     )
+
+
+def test_a_missing_file_says_so_rather_than_blaming_the_format():
+    """`load_audio` documents `FileNotFoundError` for a missing path and never raised it.
+
+    Found through the MCP server, where a nonexistent path is reachable (the CLI
+    rejects it at argument parsing, so only programmatic callers get here). An
+    agent asking to transcribe a path that does not exist was told:
+
+        RuntimeError: Could not decode '/nonexistent.wav' as audio. Neither PyAV
+        nor ffmpeg could read it, so it is probably not an audio or video file,
+        or it is truncated.
+
+    The real error, visible in the log one line above, was
+    `[Errno 2] No such file or directory`. Every cause offered is wrong, and each
+    one sends the reader to check the file's contents instead of its name.
+    """
+    import pytest
+
+    from yazses.recimport.audio_io import load_audio
+
+    with pytest.raises(FileNotFoundError) as exc:
+        load_audio("/definitely/not/here/clip.wav")
+    assert "clip.wav" in str(exc.value)
+
+
+def test_a_directory_is_not_reported_as_a_missing_file(tmp_path):
+    """Present but not a file: saying "no such file" would be its own wrong cause."""
+    import pytest
+
+    from yazses.recimport.audio_io import load_audio
+
+    with pytest.raises(Exception) as exc:
+        load_audio(str(tmp_path))
+    assert not isinstance(exc.value, FileNotFoundError), (
+        "a directory exists; reporting it as missing sends the reader after the "
+        "wrong thing"
+    )

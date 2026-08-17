@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a missing file was reported as a format problem
+
+Asking the MCP server to transcribe a path that does not exist answered:
+
+```
+RuntimeError: Could not decode '/nonexistent.wav' as audio. Neither PyAV nor ffmpeg
+could read it, so it is probably not an audio or video file, or it is truncated.
+```
+
+The real error, one line above in the log, was `[Errno 2] No such file or directory`.
+Every cause offered is wrong, and each one sends the reader to inspect the file's
+contents instead of its name.
+
+`load_audio`'s docstring already promised `FileNotFoundError` for a missing path and
+nothing checked for one — the second time this function has been found not honouring
+its own documented contract, after the ffmpeg fallback. The path is only reachable
+programmatically, since the CLI rejects a missing file at argument parsing, which is
+why it took an agent-facing surface to surface it.
+
+A directory is deliberately left to the decoder: it exists, so calling it missing would
+be a different wrong cause.
+
 ### Fixed — two status lines that read as faults
 
 **`yazses meeting list` called an undiarized meeting "0 speaker(s)".** On a real
