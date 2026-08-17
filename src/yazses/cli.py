@@ -2369,7 +2369,7 @@ def audio_use(
 )
 def audio_status() -> None:
     """Show the pinned mic, the OS default, and (if running) live capture health."""
-    from yazses.audio.devices import current_default_input_name
+    from yazses.audio.devices import current_default_input_name, is_routing_alias
     from yazses.config import load_config
 
     platform = get_platform()
@@ -2377,7 +2377,22 @@ def audio_status() -> None:
     pinned = (cfg.audio.device or "").strip()
     typer.echo(f"Pinned mic:    {pinned or '(none — follows OS default)'}")
     try:
-        typer.echo(f"OS default:    {current_default_input_name() or '(unknown)'}")
+        default_name = current_default_input_name()
+        typer.echo(f"OS default:    {default_name or '(unknown)'}")
+        # `default`/`pipewire` name a route, not a microphone. The device-change
+        # watcher spots a switch by comparing this name over time, so against an
+        # alias it compares "default" with "default" for ever and never fires --
+        # the mic behind it can change with nothing on screen changing. Worth
+        # saying here, because this is the page someone opens when dictation
+        # stopped working and they are trying to find out what it is listening to.
+        if not pinned and is_routing_alias(default_name):
+            typer.echo(
+                "               ⚠ that is a routing alias, not a microphone — the "
+                "device behind it\n"
+                "                 can change without this name changing. Pin a real "
+                "one to be sure:\n"
+                "                 yazses audio use <name>   (see `yazses audio devices`)"
+            )
     except Exception:  # pragma: no cover - hardware/backend dependent
         typer.echo("OS default:    (unavailable)")
     if not platform.lifecycle.is_running():

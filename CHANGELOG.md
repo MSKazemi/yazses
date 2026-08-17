@@ -6,6 +6,32 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `audio status` hid that "default" is a route, not a microphone
+
+```
+OS default:    default
+```
+
+On ALSA and PipeWire, `default` is a virtual entry that forwards to whichever device
+is current — PortAudio reports it at its own index, in the same list as
+`sof-hda-dsp: - (hw:0,0)`. Whatever microphone it points at, the name it reports is
+`default`.
+
+That is a limitation with teeth, because the device-change watcher spots a switch by
+**comparing that name over time**. Against an alias it compares `default` with
+`default` for ever, so on the most common Linux audio stack the proactive half of the
+mic guard cannot fire: the microphone behind the alias changes and nothing on screen
+changes with it.
+
+Reading through the alias needs a PipeWire or PulseAudio client library, which is not a
+dependency worth taking on for one diagnostic. So the limitation is named where someone
+looks when dictation has stopped working and they are trying to find out what it is
+listening to, along with the remedy that does work — pinning a real device with
+`yazses audio use <name>`.
+
+The streak-based half of the guard is unaffected: it counts outcomes, not device names,
+and now counts empty transcriptions too (above).
+
 ### Fixed — a mic that hears you but yields nothing never tripped the guard
 
 The mic-change guard counts *silent* discards: audio below `vad_threshold`. A run of

@@ -66,3 +66,33 @@ def test_monitor_swallows_poll_errors():
 
     mon = DeviceMonitor(poll_fn=boom, is_idle=lambda: True, on_change=lambda p, c: None)
     assert mon.poll_once() is False  # error is contained, no raise
+
+
+def test_a_routing_alias_is_not_a_microphone_name():
+    """`default` names a route, not a device, and that breaks change detection.
+
+    On this machine PortAudio reports the default input as index 10, name
+    `default` — an entry in the device list alongside the physical
+    `sof-hda-dsp: - (hw:0,0)`. On ALSA/PipeWire it is a virtual route: whatever
+    microphone it points at, the name it reports is always `default`.
+
+    `DeviceMonitor` detects a change by comparing that name over time, so on the
+    most common Linux audio stack it compares `default` with `default` for ever
+    and the proactive half of the mic guard cannot fire. Seeing through the alias
+    needs a PipeWire or PulseAudio client library, which this project does not
+    take on; naming the limitation where a user looks is what is available.
+
+    The streak-based half is unaffected — it counts outcomes, not device names.
+    """
+    from yazses.audio.devices import is_routing_alias
+
+    assert is_routing_alias("default") is True
+    assert is_routing_alias("pipewire") is True
+    assert is_routing_alias("sysdefault") is True
+    assert is_routing_alias("pulse") is True
+    assert is_routing_alias("Default") is True, "PortAudio casing varies"
+
+    assert is_routing_alias("sof-hda-dsp: - (hw:0,0)") is False
+    assert is_routing_alias("USB PnP Audio Device") is False
+    assert is_routing_alias("") is False
+    assert is_routing_alias(None) is False

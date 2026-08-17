@@ -148,3 +148,24 @@ def reinit_portaudio() -> None:
         sd._initialize()
     except Exception as exc:  # pragma: no cover - hardware/backend dependent
         log.debug("PortAudio reinit failed: %s", exc)
+
+
+#: Names PortAudio reports for a *route* rather than a microphone. On ALSA and
+#: PipeWire these are virtual entries that forward to whichever device is current,
+#: so the name stays the same when the hardware behind it changes.
+_ROUTING_ALIASES = frozenset({"default", "pipewire", "pulse", "sysdefault"})
+
+
+def is_routing_alias(name: str | None) -> bool:
+    """True when *name* is a route rather than a microphone.
+
+    This is why the device-change watcher cannot see a switch on a typical Linux
+    desktop: it detects a change by comparing this name over time, and against an
+    alias it compares ``default`` with ``default`` for ever. Reading through the
+    alias needs a PipeWire or PulseAudio client library, which is a dependency this
+    project does not take on for one diagnostic — so the limitation is named where
+    a user looks instead of being silently absent.
+
+    The streak-based half of the guard is unaffected: it counts outcomes, not names.
+    """
+    return (name or "").strip().lower() in _ROUTING_ALIASES
