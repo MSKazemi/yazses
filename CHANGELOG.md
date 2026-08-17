@@ -6,6 +6,24 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — two status lines that read as faults
+
+**`yazses meeting list` called an undiarized meeting "0 speaker(s)".** On a real
+machine that line described an 8081-second meeting with a 1.7 MB transcript, which
+reads as a failed recording. All three stored meetings are `diarized: false` — speaker
+labelling was never attempted, which is a different statement from "nobody spoke". It
+now says `not diarized`.
+
+Written as `diarized is False` rather than a falsy test: an older `meeting.json`
+without the key says nothing either way, and guessing would assert something the file
+does not contain. Both rendering sites — `meeting status` and `meeting list` — now go
+through one helper instead of repeating the format.
+
+**`yazses status` printed `uptime: 48176.17s`.** Thirteen hours, in seconds, to two
+decimal places that were never measured. It now reads `13h 24m`. The value matters
+most when it is large, because a long uptime is how you notice a daemon still running
+the build it started with.
+
 ### Fixed — `yazses tune` looked like a hang for as long as it took
 
 Run against a real corpus (3683 events, 3280 of them with audio), `tune` printed:

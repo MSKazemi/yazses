@@ -312,9 +312,46 @@ def meeting_status() -> None:
             return
         typer.echo("Recent meetings:")
         for m in recent:
-            spk = m.get("num_speakers", "?")
             note = " +notes" if m.get("has_notes") else ""
-            typer.echo(f"  {m.get('id')}  {spk} speaker(s){note}  {m.get('dir', '')}")
+            typer.echo(
+                f"  {m.get('id')}  {_speaker_summary(m)}{note}  {m.get('dir', '')}"
+            )
+
+
+def _format_uptime(seconds) -> str:
+    """Seconds as something a person reads at a glance.
+
+    `uptime: 48176.17s` is how this printed a daemon that had been up thirteen
+    hours -- nobody converts that in their head, and two decimal places on half a
+    day is precision that was never measured. The value matters most when it is
+    large: a long uptime is how you notice a daemon that predates the upgrade.
+    """
+    if seconds is None:
+        return "unknown"
+    total = int(float(seconds))
+    if total < 60:
+        return f"{total}s"
+    if total < 3600:
+        return f"{total // 60}m {total % 60}s"
+    return f"{total // 3600}h {(total % 3600) // 60}m"
+
+
+def _speaker_summary(m: dict) -> str:
+    """How many speakers a meeting has, or that it was never labelled.
+
+    "0 speaker(s)" reads as a failed transcription, and on an undiarized meeting
+    it is answering a question nobody asked: speaker labelling was not attempted,
+    which is a different statement from "nobody spoke". Measured on a real
+    machine, an 8081-second meeting with a 1.7 MB transcript listed as
+    `0 speaker(s)`.
+
+    `is False` rather than a falsy test on purpose -- an older `meeting.json`
+    without the key says nothing either way, and guessing would assert something
+    the file does not contain.
+    """
+    if m.get("diarized") is False:
+        return "not diarized"
+    return f"{m.get('num_speakers', '?')} speaker(s)"
 
 
 @meeting_app.command("list")
@@ -340,9 +377,8 @@ def meeting_list(
         typer.echo("No meetings found.")
         return
     for m in meetings:
-        spk = m.get("num_speakers", "?")
         note = " +notes" if m.get("has_notes") else ""
-        typer.echo(f"{m.get('id')}  {spk} speaker(s){note}  {m.get('dir', '')}")
+        typer.echo(f"{m.get('id')}  {_speaker_summary(m)}{note}  {m.get('dir', '')}")
 
 
 @meeting_app.command("relabel")
@@ -2556,7 +2592,7 @@ def status(
     typer.echo(f"  backend:  {info.get('injection_backend')}")
     if info.get("input_device"):
         typer.echo(f"  mic:      {info.get('input_device')}")
-    typer.echo(f"  uptime:   {info.get('uptime_s')}s")
+    typer.echo(f"  uptime:   {_format_uptime(info.get('uptime_s'))}")
     # Decode latency, per model, over a bounded recent window (#296). Absent on a
     # daemon that has not decoded anything yet, and on an older daemon — a status
     # command that errors against a running daemon is worse than a missing line.
