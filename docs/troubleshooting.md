@@ -10,7 +10,7 @@ description: Fixes for the most common YazSes problems — hotkey not firing, no
 Before reading further, let YazSes tell you which part is broken:
 
 ```sh
-yazses verify     # records you, then runs capture → silence gate → transcription
+yazses verify     # records you, then runs capture → silence gate → transcription → cleaning
 ```
 
 It reports each link in the chain and stops at the first failure, so you get the one thing

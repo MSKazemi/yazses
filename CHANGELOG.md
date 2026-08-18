@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses verify` certified a chain the daemon discards
+
+Found by running the command in a quiet room with nobody speaking. Ambient noise cleared
+the silence gate, the model answered near-silence, and the report ended with
+**"✓ Dictation works end to end on this machine."**
+
+The daemon does not type what the model returns — it types what survives `clean_text`,
+and a burst that cleans to nothing is discarded before injection. `verify` tested the
+**raw** string, so `[BLANK_AUDIO]`, the commonest thing Whisper emits for silence, is
+non-empty, printed as `heard "[BLANK_AUDIO]"`, and passed:
+
+| | daemon | `yazses verify` (before) |
+|---|---|---|
+| model returns `[BLANK_AUDIO]` | cleans to `""`, discards, types nothing | ✓ works end to end |
+
+A muted microphone passed the one check whose entire job is to name the broken link,
+while the module's own docstring claimed it "runs the real chain end to end". It ran the
+chain minus the step that decides whether anything gets typed.
+
+`verify` now applies the cleaner, injects the cleaned string rather than the raw one, and
+when cleaning empties a transcript it says the model heard silence and points at the
+microphone — not at `[stt] model`, which would send you to download a larger model to
+fix a muted input device.
+
 ## [2.28.0] — 2026-08-18
 
 ### Fixed — an actionable notification outlived the process that raised it, forever
