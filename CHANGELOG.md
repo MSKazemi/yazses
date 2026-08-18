@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — spoken separators in branch names (`dash`, `hyphen`, `underscore`, `dot`)
+
+`feature/login` and `fix-tray-crash` are both ordinary branch conventions, and neither
+can be *dictated* — nothing turns the silence between two words into a `/` or a `-`, so
+the speaker says the separator. Only `slash` was understood:
+
+    create branch feature slash login   ->  git checkout -b feature/login   ✓
+    create branch feature dash login    ->  Could not parse a git command.  ✗
+
+which put the hyphenated half of real branch names out of reach in a voice-first
+product. The refusal even advertised `'create branch …'` — the form it had just
+rejected.
+
+The substitution also existed twice, once in `ref_src_for_push` and once beside the
+branch verbs, and both copies handled only `slash`. Both now call one `despeak_ref`, and
+the tests cross every separator against every ref-reading verb, so a separator only one
+path honours fails in CI rather than in a terminal.
+
+Applied only where a ref is read: `commit with message fix the dash in the title` keeps
+its word.
+
 ### Fixed — `yazses tune` proposed priming Whisper with its own hallucinations
 
 Run against a real 1,617-event corpus, the top vocabulary proposal — the one `--apply`

@@ -1005,7 +1005,19 @@ a plausible wrong command.
 you happen to be standing on. Say the remote too (`push to upstream develop`) and it
 is used; say only a branch and `origin` is assumed, which fails loudly on a repo
 whose remote is called something else rather than quietly pushing the wrong ref.
-`feature slash login` becomes `feature/login`, here as everywhere else.
+**Say the punctuation in a branch name.** `feature/login` and `fix-tray-crash` are
+both ordinary conventions and neither can be dictated — nothing turns the silence
+between two words into a `/` or a `-` — so you say the separator:
+
+| You say | You get |
+|---|---|
+| `create branch feature slash login` | `git checkout -b feature/login` |
+| `create branch fix dash tray dash crash` | `git checkout -b fix-tray-crash` |
+| `push to feature hyphen login` | `git push origin feature-login` |
+
+`slash`, `dash`, `hyphen`, `underscore` and `dot` all work, on every command that
+reads a branch name. They apply **only** where a ref is read: `commit with message fix
+the dash in the title` keeps its word.
 
 **Destructive commands are never run without `--yes`, even with `--run`.**
 Force-push, hard reset, `branch -D` and discarding uncommitted changes all

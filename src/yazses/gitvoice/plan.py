@@ -25,14 +25,49 @@ _KNOWN_REMOTES = ("origin", "upstream", "fork")
 _DEFAULT_REMOTE = "origin"
 
 
+#: How a branch name's punctuation is spoken. `feature/login` and `fix-tray-crash` are
+#: both ordinary conventions and neither can be *dictated*: no speech model produces a
+#: bare "/" or "-" from silence between words, so the user says the separator. Only
+#: "slash" was understood, which left the hyphenated half of real branch names
+#: unreachable by voice -- in a voice-first product.
+#:
+#: No entry is currently a prefix of another, so the order does not decide anything
+#: today. It is written longest-first anyway because adding one that is (say "score"
+#: beside "underscore") would otherwise change the meaning of existing utterances
+#: depending on where it landed in the tuple.
+_SPOKEN_SEPARATORS = (
+    ("underscore", "_"),
+    ("hyphen", "-"),
+    ("slash", "/"),
+    ("dash", "-"),
+    ("dot", "."),
+)
+
+
+def despeak_ref(raw: str) -> str:
+    """Turn spoken separators into the punctuation they name. Pure.
+
+    Applied only where a *ref* is read, never to a commit message -- "commit with message
+    fix the dash in the title" must keep its word. Both ref-reading paths go through this
+    one function rather than each carrying its own substitution, which is how they came
+    to disagree: the push path and the branch path had separate copies and only ever
+    handled "slash".
+    """
+    text = raw
+    for word, symbol in _SPOKEN_SEPARATORS:
+        text = re.sub(rf"\s+{word}\s+", symbol, text, flags=re.IGNORECASE)
+    return text
+
+
 def ref_src_for_push(raw: str) -> str:
     """The push utterance with the force words removed, refs de-spoken.
 
     "force" must go before the ref is read, or "push force" yields a branch called
-    ``force``. ``slash`` becomes ``/`` for the same reason it does further down:
-    ``feature/login`` is the commonest branch convention and it is spoken that way.
+    ``force``. Spoken separators are resolved by :func:`despeak_ref` for the same reason
+    they are further down: `feature/login` and `fix-tray-crash` are how branches are
+    named, and both are spoken rather than typed.
     """
-    text = re.sub(r"\s+slash\s+", "/", raw)
+    text = despeak_ref(raw)
     # `-{0,2}\bforce\b` rather than `\b--?force\b`: there is no word boundary before
     # a leading dash, so the latter stripped only the word and left `--` behind — which
     # `[\w./-]+` happily accepted as a branch name, rendering `git push --force origin --`.
@@ -129,7 +164,7 @@ def build_git_argv(text: str):
     #
     # Applied only here, after the commit-message branch has already returned, so a
     # message containing the word is untouched.
-    ref_src = re.sub(r"\s+slash\s+", "/", raw)
+    ref_src = despeak_ref(raw)
 
     m = re.search(r"\b(?:create|new)\s+branch\s+([\w./-]+)\s*$", ref_src, re.IGNORECASE)
     if m:
