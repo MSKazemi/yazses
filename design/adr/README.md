@@ -208,6 +208,6 @@ The v2 programme: interaction layer, cognitive layer, and everything after.
 | [adr-v2-129-killer-features-10x](adr-v2-129-killer-features-10x.md) | Killer Features 10x: gaze deixis, sotto-voce channel, activation-source seam, pluggable STT | Accepted |
 | [adr-v2-130-out-of-band-recovery-for-the-update-path](adr-v2-130-out-of-band-recovery-for-the-update-path.md) | A repair to the update path needs a delivery route that does not depend on the update path | Accepted |
 | [adr-v2-131-cloud-escalation-scope](adr-v2-131-cloud-escalation-scope.md) | What cloud escalation could ever cover, once the privacy rules are applied | Accepted |
-| [adr-v2-132-assisted-bug-reporting](adr-v2-132-assisted-bug-reporting.md) | Assisted bug reporting: what a "send this as an issue" button may do | Proposed |
+| [adr-v2-132-assisted-bug-reporting](adr-v2-132-assisted-bug-reporting.md) | Assisted bug reporting: what a "send this as an issue" button may do | ** |
 
 <!-- END GENERATED ADR INDEX -->

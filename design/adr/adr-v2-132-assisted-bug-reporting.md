@@ -1,7 +1,13 @@
 # ADR-v2-132 — Assisted bug reporting: what a "send this as an issue" button may do
 
-**Status:** Proposed (2026-08-17) — **drafted in response to an inbox request; no code
-written, nothing decided.** Requested as: *"improve the error detection of yazses and
+**Status:** **(b) accepted and implemented (2026-08-18); (a) superseded; (c) still
+undecided and still needs its own ADR.** Superseded the original "nothing decided" status
+below. (b) was implementable without a decision from the decider *because it adds no
+egress path* — the browser makes the request, not YazSes — so accepting it commits nothing
+that ADR-011 or ADR-019 would have to be reopened to undo. **(c) remains open and is the
+only part that is a decision**; see the open questions, where question 3 is now answered.
+Originally drafted (2026-08-17) in response to an inbox request: *"improve the error
+detection of yazses and
 create notification for error it detects for the user and say what user should do, also
 capabilities of the automatic error report — can you do it with github issues, user just
 accepts and allows and it automatically sends error as bug"*
@@ -100,8 +106,40 @@ today.
 
 ## Open questions for the decider
 
-1. Is **(b)** enough, or is the one-click of (c) the point of the request?
-2. If (c) is ever wanted, it needs its own ADR: token storage, rate limiting, and an
-   explicit answer to "what stops a crash loop filing a hundred issues".
-3. Should the offer appear only on a *repeated* fault, the way the mic guard waits for a
-   streak? A prompt on every transient error is a prompt people learn to dismiss.
+1. **Still open.** Is **(b)** enough, or is the one-click of (c) the point of the request?
+   (b) is now built and can be used; nothing about it forecloses (c).
+2. **Still open.** If (c) is ever wanted, it needs its own ADR: token storage, rate
+   limiting, and an explicit answer to "what stops a crash loop filing a hundred issues".
+3. ~~Should the offer appear only on a *repeated* fault, the way the mic guard waits for a
+   streak?~~ **Answered by the implementation, with a better rule than repetition.**
+
+   The offer appears only when YazSes **could not identify the failure** —
+   `Diagnosis.slug` starting with `unknown-`. A recognised fault already carries the
+   command that fixes it, and an issue about a missing `ydotool` helps nobody, least of
+   all the person who now has two things to do instead of one. Repetition would have
+   gated on the wrong axis: a *recognised* fault repeated ten times still needs no issue,
+   and an *unrecognised* one is worth reporting the first time.
+
+   Dismissal-fatigue is handled separately and unconditionally, by
+   `system/diagnosis.py::should_notify`: any given diagnosis is shown at most once per
+   five minutes, keyed by slug, so a fault that recurs on every burst is explained once.
+   Two different faults never silence each other.
+
+## What was built for (b)
+
+- `system/diagnosis.py` — the classifier that makes a failure actionable, and the source
+  of the `unknown-` signal that gates the offer. Pure, total, and advice-only.
+- `system/report.py::summarise_for_issue` / `issue_url` — size-bounded body reusing
+  `collect`'s single redaction implementation, then a pre-filled form URL.
+- `core/daemon.py::_report_failure` / `_prepare_bug_report` — the toast, and the button.
+
+One consequence worth recording, because it looked at first like the ADR's own tripwire
+firing. ADR-019's guard rejected `from urllib.parse import urlencode` in `report.py`: its
+root list contains `urllib`, deliberately conservatively, even though `urllib.parse`
+cannot open a socket. The two available responses were both wrong — registering
+`report.py` in the egress inventory would state that a module which sends nothing sends
+something, and relaxing the guard would trade a real protection for a convenience in the
+one module whose first line is *"Nothing is ever sent anywhere"*. So the percent-encoder
+is written by hand there and pinned against `urllib.parse.quote` in the tests, which are
+outside the scanned tree. **The inventory is unchanged and
+`tests/test_egress_inventory.py` was not edited**, which is the condition this ADR set.

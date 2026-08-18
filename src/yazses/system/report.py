@@ -198,6 +198,157 @@ def _env(name: str) -> str:
     return os.environ.get(name, "")
 
 
+# GitHub's new-issue form. The body travels as a query parameter, so it is bounded
+# by URL length rather than by anything about the report: servers and browsers start
+# rejecting well before the theoretical limit, and a truncated URL produces an empty
+# form rather than a short one. 6 kB of body leaves room for the title and the rest.
+ISSUE_URL = "https://github.com/MSKazemi/yazses/issues/new"
+ISSUE_BODY_LIMIT = 6000
+
+
+def summarise_for_issue(
+    report: dict,
+    *,
+    diagnosis=None,
+    limit: int = ISSUE_BODY_LIMIT,
+    log_lines: int = 40,
+) -> str:
+    """A Markdown issue body from *report*, bounded so it survives a URL.
+
+    ADR-v2-132 option (b): **prepare, never send.** This produces text for a form the
+    *user* submits from their own browser and account, having read every word. YazSes
+    makes no request, so ADR-019's egress inventory is unchanged — if implementing this
+    ever required editing `tests/test_egress_inventory.py`, it would have gone wrong.
+
+    Redaction is not repeated here. Everything in *report* has already been through
+    `redact_text`/`redact_config` in `collect`, and a second implementation is how the
+    two drift — which is this repo's most frequent defect. The one thing added is the
+    diagnosis, whose text is written in this file and contains nothing about the user.
+
+    The log tail is the part that has to give: it is the largest field by far and the
+    *most recent* lines are the ones that matter, so it is cut from the front and the
+    cut is stated rather than silent. A body that quietly loses its ending would have
+    the user file a report they believe is complete.
+    """
+    tail = list(report.get("log_tail") or [])[-log_lines:]
+    body = _render_issue_body(report, diagnosis, tail, trimmed=False)
+    if len(body) <= limit:
+        return body
+
+    # Too long. Drop log lines from the *oldest* end until it fits, and say so — a
+    # body that quietly loses its ending would have the user file a report they
+    # believe is complete. Cutting mid-line is avoided for the same reason a
+    # truncated path looks like a real one.
+    while tail:
+        tail = tail[1:]
+        body = _render_issue_body(report, diagnosis, tail, trimmed=True)
+        if len(body) <= limit:
+            return body
+    # Nothing left to trim: the non-log sections alone exceed the limit, which means
+    # a pathological config-problem list. Cut hard rather than return an unusable URL.
+    return body[:limit]
+
+
+def _render_issue_body(report: dict, diagnosis, tail: list[str], *, trimmed: bool) -> str:
+    """Render the issue body for one specific log tail. Pure."""
+    system = report.get("system") or {}
+    daemon = report.get("daemon") or {}
+    lines: list[str] = []
+
+    if diagnosis is not None:
+        lines += [
+            "## What happened",
+            "",
+            f"**{getattr(diagnosis, 'title', '')}**",
+            "",
+            str(getattr(diagnosis, "what", "")),
+            "",
+            f"_Suggested fix shown to me:_ {getattr(diagnosis, 'fix', '')}",
+            "",
+            f"_Diagnosis id:_ `{getattr(diagnosis, 'slug', 'unknown')}`",
+            "",
+        ]
+
+    lines += [
+        "## What I expected instead",
+        "",
+        "<!-- please add: what you were doing, and what should have happened -->",
+        "",
+        "## Environment",
+        "",
+        f"- YazSes: {system.get('yazses', 'unknown')}",
+        f"- Platform: {system.get('platform', '?')} {system.get('release', '')}".rstrip(),
+        f"- Python: {system.get('python', '?')}",
+        f"- Session: {system.get('session_type') or '?'} / "
+        f"{system.get('desktop') or '?'}",
+        f"- Daemon state: {daemon.get('state', 'unreachable')}",
+        f"- Model: {daemon.get('model', '?')}",
+        "",
+    ]
+
+    problems = report.get("config_problems") or []
+    if problems:
+        lines += ["## Config problems", "", *(f"- {p}" for p in problems), ""]
+
+    if tail:
+        lines += ["## Recent log (metadata only — never transcripts)", "", "```"]
+        lines += tail
+        lines += ["```", ""]
+        if trimmed:
+            lines += ["_(older log lines were trimmed so this fits the issue form)_", ""]
+
+    lines += [
+        "---",
+        "",
+        "_Prepared by `yazses report`. Everything above was assembled on my machine "
+        "and is visible to me in this form before I submit it._",
+    ]
+    return "\n".join(lines)
+
+
+#: RFC 3986 unreserved set — the characters a query value may carry literally.
+_UNRESERVED = frozenset(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
+)
+
+
+def _percent_encode(value: str) -> str:
+    """Percent-encode *value* for a URL query, without importing `urllib`.
+
+    Hand-rolled for one specific reason, and it is not aesthetics. `ADR-019`'s egress
+    guard scans this package for network-shaped imports and is **deliberately**
+    conservative: `urllib.parse` cannot open a socket, but `urllib` is on its list, so
+    `from urllib.parse import urlencode` fails the build here. The designed remedy is
+    to register the module in the inventory — and doing that would be a lie. This file
+    neither fetches nor sends; its first line is *"Nothing is ever sent anywhere"*, and
+    ADR-v2-132 chose option (b) precisely so the inventory would not change.
+
+    Weakening the guard to permit `urllib.parse` would trade a real protection for a
+    convenience, in the one module where the protection is most load-bearing.
+
+    The encoding itself is pinned against `urllib.parse.quote` in the tests, which are
+    outside the scanned tree — so the stdlib still defines correctness, it just is not
+    imported here.
+    """
+    out: list[str] = []
+    for char in value:
+        if char in _UNRESERVED:
+            out.append(char)
+        else:
+            out.extend(f"%{byte:02X}" for byte in char.encode("utf-8"))
+    return "".join(out)
+
+
+def issue_url(title: str, body: str, *, base: str = ISSUE_URL) -> str:
+    """The pre-filled GitHub new-issue URL. Opens a form; submits nothing.
+
+    The user lands on GitHub's own page with the fields filled in, reads them, and
+    presses submit themselves — consent to a specific payload they have seen, rather
+    than to a category.
+    """
+    return f"{base}?title={_percent_encode(title)}&body={_percent_encode(body)}"
+
+
 def write(report: dict, out: Path) -> Bundle:
     """Write the report as JSON and describe it in one line."""
     out.parent.mkdir(parents=True, exist_ok=True)

@@ -285,6 +285,11 @@ class Daemon:
         self._meeting_controller: MeetingController | None = None
         self._meeting_recorder: AudioRecorder | None = None
         self._meeting_finalizing = False
+        # slug -> monotonic time it was last reported to the user, so a fault that
+        # recurs on every burst is explained once rather than every time. See
+        # `system/diagnosis.py::should_notify` for why the ceiling matters more than
+        # the repeats do.
+        self._diagnosed_at: dict[str, float] = {}
         # Audio-input resilience: count consecutive silent-discards and watch the OS
         # default input device so a mic that silently switches (e.g. a USB-C monitor
         # stealing capture) is auto-healed to the last-good device + notified, instead
@@ -1018,6 +1023,11 @@ class Daemon:
                 with self._lock:
                     self._state.last_error = f"Microphone unavailable: {exc}"
                     self._state.state = TrayState.IDLE
+                # The user is holding the key right now and nothing is happening.
+                # Before this, that produced a log line and a blue idle badge.
+                from yazses.system.diagnosis import CAPTURE
+
+                self._report_failure(exc, CAPTURE)
 
     # Evdev/ydotool keycodes for the hold-to-talk hotkeys (Linux input-event-codes;
     # ydotool uses the same numbers). Mirrors platform/linux/hotkey.py's keymap.
@@ -1861,6 +1871,13 @@ class Daemon:
             log.warning("Pipeline error: %s", exc)
             with self._lock:
                 self._state.last_error = str(exc)
+            # `INJECT` rather than `TRANSCRIBE` for the fallback wording: this block
+            # wraps decode *and* delivery, and of the two, "it heard you and the text
+            # went nowhere" is the one the user is looking at. A failure that is
+            # recognisable at all is recognised by its own markers regardless.
+            from yazses.system.diagnosis import INJECT
+
+            self._report_failure(exc, INJECT)
             if stream_injector is not None:
                 try:
                     stream_injector.cancel()
@@ -3152,6 +3169,12 @@ class Daemon:
                 recorder.start()
             except Exception as exc:
                 log.exception("Meeting start failed")
+                # The tray's Start meeting entry shows this reason itself, but the
+                # CLI caller and an auto-stop have no such surface — and a meeting
+                # that failed to start is exactly the failure someone walks away from.
+                from yazses.system.diagnosis import MEETING
+
+                self._report_failure(exc, MEETING)
                 return {"ok": False, "reason": f"could not start meeting: {exc}"}
             self._meeting_controller = controller
             self._meeting_recorder = recorder
@@ -3341,6 +3364,91 @@ class Daemon:
         if self._injector is None:
             return None
         return getattr(self._injector, "backend_name", None) or type(self._injector).__name__
+
+    def _report_failure(self, error: BaseException | str, where: str) -> object | None:
+        """Tell the user what broke and what to do about it. Never raises.
+
+        Every caller of this already logged the failure and set ``last_error``. Both
+        are invisible: the log needs `yazses logs`, and ``last_error`` reaches only
+        `yazses status` — the tray does not colour on it, so a microphone that will
+        not open leaves the badge **idle blue** while nothing is typed. This is the
+        only path on which the person holding the key finds out.
+
+        Rate-limited by diagnosis slug: a broken microphone fails on every burst, and
+        five identical toasts teach the user to dismiss YazSes notifications, which
+        costs more than the suppressed repeats. Returns the ``Diagnosis`` when one was
+        shown and None when it was suppressed, so callers (and tests) can tell the two
+        apart.
+
+        Wrapped whole, because it runs from the audio and hotkey threads on paths that
+        are *already* handling a failure — an exception here would replace a fixable
+        problem with an unfixable one.
+        """
+        try:
+            from yazses.system import notify as notify_mod
+            from yazses.system.diagnosis import diagnose, should_notify
+
+            found = diagnose(error, where=where)
+            with self._lock:
+                fresh = should_notify(found.slug, time.monotonic(), self._diagnosed_at)
+            if not fresh:
+                return None
+
+            # ADR-v2-132 asks whether the report offer should wait for a *repeated*
+            # fault. The better rule falls out of the diagnosis itself: offer it only
+            # when YazSes could not identify the failure. A recognised one already
+            # carries the command that fixes it, and an issue about a missing ydotool
+            # helps nobody -- least of all the person who now has two things to do.
+            actions = None
+            if found.slug.startswith("unknown-"):
+                actions = [notify_mod.NotifyAction("report", "Prepare a bug report")]
+
+            notify_mod.notify(
+                found.title,
+                found.body,
+                urgency="critical",
+                actions=actions,
+                on_action=lambda key, d=found: self._prepare_bug_report(d) if key == "report" else None,
+            )
+            return found
+        except Exception:  # noqa: BLE001 - never mask the failure being reported
+            log.debug("Could not report a failure to the user", exc_info=True)
+            return None
+
+    def _prepare_bug_report(self, diagnosis) -> bool:
+        """Open GitHub's issue form, pre-filled. Sends nothing. Never raises.
+
+        ADR-v2-132 option (b). **YazSes makes no request** — the browser does, to a page
+        the user then reads and submits from their own account. So this adds no entry to
+        ADR-019's egress inventory, and `tests/test_egress_inventory.py` should keep
+        passing untouched; if it ever needed editing for this, the implementation went
+        wrong.
+
+        The body is assembled by the same `report.collect` the `yazses report` command
+        uses, so redaction has one implementation rather than two. Returns whether a
+        browser was reached, so a silent failure is distinguishable from a silent
+        success — this runs from a toast, where there is nothing else to see.
+        """
+        try:
+            from yazses.system import report as report_mod
+            from yazses.system.browser import open_url
+
+            paths = self._platform.paths
+            gathered = report_mod.collect(
+                config_file=paths.config_file,
+                # `daemon.log`, the same name `yazses report` passes. Getting this
+                # wrong costs nothing visible: `_log_tail` answers "<no log file>"
+                # and the report is filed without the section that explains the bug.
+                log_file=paths.log_dir / "daemon.log",
+                data_dir=paths.data_dir,
+                status=self._handle_status(None),  # type: ignore[arg-type]
+            )
+            body = report_mod.summarise_for_issue(gathered, diagnosis=diagnosis)
+            title = getattr(diagnosis, "title", "YazSes problem report")
+            return bool(open_url(report_mod.issue_url(title, body)))
+        except Exception:  # noqa: BLE001 - a toast button must never take the daemon down
+            log.exception("Could not prepare a bug report")
+            return False
 
     def _queue_notification(self, title: str, body: str) -> None:
         """Hold a toast the daemon cannot show, for the tray to collect.

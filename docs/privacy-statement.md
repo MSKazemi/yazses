@@ -216,6 +216,15 @@ YazSes collects **no telemetry, no usage analytics, and no crash reports**, and 
 no automatic outbound connections. Update checks are a manual, explicit action
 (`yazses update`); YazSes does not phone home on its own.
 
+**"Prepare a bug report" is not an exception to this**, and it is worth being exact
+about why. When YazSes cannot identify a failure, its notification offers a button. That
+button assembles the same redacted bundle `yazses report` writes and **opens your
+browser** at GitHub's issue form with the text already filled in. You read it there,
+signed in as yourself, and press submit — or close the tab. YazSes never makes the
+request; your browser does, if you decide to. Nothing is transmitted by YazSes at any
+point, and the project's [egress inventory](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-019-egress-inventory-and-escalation.md)
+— which a test enforces on every build — is unchanged by this feature.
+
 ## Third-party dependencies
 
 YazSes builds on open-source libraries — faster-whisper, sounddevice, and (optionally)

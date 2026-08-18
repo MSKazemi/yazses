@@ -6,6 +6,54 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — when something breaks, YazSes now tells you, and says what to do
+
+The gap this closes is not detection. The daemon already caught these failures — it
+just told nobody. A microphone that will not open was caught, logged, and written to
+`last_error`, and then the state went back to `IDLE`, which the tray paints **idle
+blue**. So you held the key, spoke a sentence, nothing was typed, and every surface
+you could see reported a healthy daemon. A pipeline error did the same.
+
+`system/diagnosis.py` turns a caught failure into a title, a plain-English cause and
+a **concrete next step** — "Another program is using your microphone; close it, or
+pick a different one with `yazses audio devices`", not "Microphone unavailable".
+Wired into the three paths that were silent: capture, the transcribe/inject pipeline,
+and a failed meeting start.
+
+Three rules it holds to. **Every failure gets a diagnosis, including unrecognised
+ones** — a classifier that returned nothing for the unexpected case would go quiet
+exactly when a user most needs a message, and "unexpected" is the normal state of a
+bug. **A diagnosis is advice, never a decision** — nothing here changes what the
+daemon does, so a wrong guess costs a misleading sentence, not a working feature. And
+any given fault is announced **at most once every five minutes**: a broken microphone
+fails on every burst, and five identical toasts teach people to dismiss YazSes
+notifications, which costs more than the suppressed repeats.
+
+### Added — "Prepare a bug report", which prepares and does not report
+
+ADR-v2-132's option (b), now built. When YazSes **cannot identify** a failure, the
+notification offers a button that assembles the redacted diagnostic bundle and opens
+GitHub's issue form **pre-filled**. You read it, in GitHub's own UI, under your own
+account, and press submit yourself.
+
+**YazSes sends nothing.** The browser makes the request, so this adds no outbound path
+— ADR-019's egress inventory is unchanged and its guard was not edited, which is the
+condition the ADR set for accepting this option at all.
+
+That guard did fire once, on `from urllib.parse import urlencode`: its root list
+contains `urllib`, deliberately conservatively, even though `urllib.parse` cannot open
+a socket. Both obvious responses were wrong — registering `report.py` in the egress
+inventory would claim a module that sends nothing sends something, and relaxing the
+guard would trade a real protection for convenience in the one file whose first line
+is *"Nothing is ever sent anywhere"*. The percent-encoder is therefore written by hand
+and pinned against `urllib.parse.quote` in the tests, which sit outside the scanned
+tree.
+
+The offer is gated on YazSes not recognising the fault, rather than on the fault
+repeating (which is what the ADR had wondered about). A recognised failure already
+carries the command that fixes it, and an issue about a missing `ydotool` helps
+nobody — least of all the person who now has two things to do instead of one.
+
 ### Added — four more settings in the window, chosen for how each one fails
 
 The settings window covered 147 capability toggles and, until recently, three
