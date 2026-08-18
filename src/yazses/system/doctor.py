@@ -741,6 +741,33 @@ def _format_check(name: str, status: str, detail: str) -> str:
     return f"  {tag} {name}: {detail_out}"
 
 
+def microphone_detail(state: str, *, snap_pending: bool, no_portaudio: bool) -> str:
+    """What to print beside a failing microphone check. Pure.
+
+    Extracted so the branch can be tested without running the whole doctor, which is
+    how this file already treats every other decision it makes.
+
+    The ordering matters. Inside the snap, PortAudio ships with the package, so an
+    un-connected `audio-record` interface is the cause and must win. Outside it, a
+    missing PortAudio runtime is the commonest reason a fresh `pipx`/`uv tool` install
+    has no microphone — nothing pulls `libportaudio2` in, `sounddevice` raises on
+    import, and `check_microphone` reports the same `UNKNOWN` it reports for a machine
+    with no input hardware. Those two need opposite actions, and this row used to
+    render both as the bare word "unknown".
+
+    Naming the package unconditionally would be as wrong as never naming it: a machine
+    that has PortAudio and no microphone must not be sent to apt.
+    """
+    if snap_pending:
+        return "not granted — run: sudo snap connect yazses:audio-record"
+    if no_portaudio:
+        return (
+            "PortAudio is not installed, so no audio device can be opened — "
+            "run: sudo apt install libportaudio2  (pipx/uv installs do not pull it in)"
+        )
+    return state
+
+
 def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     platform = get_platform()
     perms = platform.permissions
@@ -808,11 +835,11 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     mic = perms.check_microphone()
     mic_detail = mic.value
     if mic not in (PermissionState.OK, PermissionState.NOT_APPLICABLE):
-        # In the snap, a mic FAIL is almost always the un-connected interface.
-        from yazses.system.setup import snap_mic_pending
+        from yazses.system.setup import portaudio_missing, snap_mic_pending
 
-        if snap_mic_pending():
-            mic_detail = "not granted — run: sudo snap connect yazses:audio-record"
+        mic_detail = microphone_detail(
+            mic.value, snap_pending=snap_mic_pending(), no_portaudio=portaudio_missing()
+        )
     checks.append((
         "Microphone",
         "OK" if mic in (PermissionState.OK, PermissionState.NOT_APPLICABLE) else "FAIL",

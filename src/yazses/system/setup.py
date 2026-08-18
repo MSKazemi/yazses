@@ -195,6 +195,25 @@ def snap_interface_pending(
     return getattr(r, "returncode", 0) != 0
 
 
+def portaudio_missing() -> bool:
+    """True when the PortAudio runtime is absent, so `sounddevice` cannot load.
+
+    This is failure class 1 at the top of this module, and it is the single most
+    likely reason a `pipx`/`uv tool` install has no microphone: nothing pulls
+    `libportaudio2` in, and `sounddevice` raises `OSError: PortAudio library not
+    found` on import.
+
+    Distinguished from "no input device" on purpose. Both surface as an unusable
+    microphone, and only one of them is fixed by an apt command — reporting the
+    symptom without the cause is what sent people to check their hardware.
+    """
+    try:
+        import sounddevice  # noqa: F401
+    except Exception:
+        return True
+    return False
+
+
 def snap_mic_pending(env: Mapping[str, str] | None = None, *, runner=subprocess.run) -> bool:
     """True in the snap when `audio-record` is not connected — no microphone."""
     return snap_interface_pending("audio-record", env, runner=runner)
