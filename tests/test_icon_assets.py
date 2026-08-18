@@ -315,3 +315,80 @@ def test_the_check_flag_covers_every_asset_the_writer_writes() -> None:
     source = (_REPO / "scripts" / "gen-icons.py").read_text(encoding="utf-8")
     assert source.count("wanted = wanted_assets()") == 1
     assert "wanted.items()" in source
+
+
+# ---------------------------------------------------------------------------
+# The tray-state images in the docs
+# ---------------------------------------------------------------------------
+#
+# `docs/tray-and-overlay.md` explains five badge colours. It used to picture two, and
+# said so itself: "🟡 Yellow (no text target) isn't pictured here" — which is the state
+# meaning "your words went to the clipboard", i.e. the one a reader most needs to
+# recognise and had never seen.
+#
+# They are rendered rather than captured, from `icon_spec` + `render_mark`, so a change
+# to the colour policy must not leave the documentation showing the old colours. That is
+# the same drift the .ico/.icns guards above exist for, on a surface a user reads.
+
+_TRAY_STATE_DIR = _REPO / "docs" / "assets"
+
+
+def _tray_state_generator():
+    pytest.importorskip("PIL", reason="Pillow is a dev/win32 dependency")
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "gen_tray_states", _REPO / "scripts" / "gen-tray-states.py"
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_every_documented_badge_state_has_an_image() -> None:
+    gen = _tray_state_generator()
+    assert len(gen.STATES) == 5, "the docs explain five colours"
+    for path in gen.wanted_assets():
+        assert path.is_file(), (
+            f"{path.relative_to(_REPO)} is missing — "
+            "run `uv run python scripts/gen-tray-states.py`"
+        )
+
+
+def test_the_badge_images_still_match_the_colour_policy() -> None:
+    """Compared as pixels, never as bytes: PNG output is not reproducible across
+    platforms, which has turned CI red on assets that were perfectly correct."""
+    import io
+
+    from PIL import Image
+
+    gen = _tray_state_generator()
+
+    def rgba(blob: bytes) -> bytes:
+        with Image.open(io.BytesIO(blob)) as im:
+            return im.convert("RGBA").tobytes()
+
+    for path, data in gen.wanted_assets().items():
+        assert rgba(path.read_bytes()) == rgba(data), (
+            f"{path.relative_to(_REPO)} no longer matches what icon_spec/render_mark "
+            "produce — run `uv run python scripts/gen-tray-states.py`"
+        )
+
+
+def test_the_five_states_are_five_distinct_colours() -> None:
+    """If two states rendered the same, the page would be teaching a distinction the
+    badge does not make."""
+    gen = _tray_state_generator()
+    from yazses.tray.menu import icon_spec
+
+    colours = {icon_spec(status)[0] for _stem, status, _why in gen.STATES}
+    assert len(colours) == 5, f"expected 5 distinct badge colours, got {sorted(colours)}"
+
+
+def test_the_docs_page_shows_every_state_image() -> None:
+    """An image nobody references is a file, not documentation."""
+    gen = _tray_state_generator()
+    page = (_REPO / "docs" / "tray-and-overlay.md").read_text(encoding="utf-8")
+    missing = [p.name for p in gen.wanted_assets() if p.name not in page]
+    assert not missing, f"generated but never shown on the tray page: {missing}"

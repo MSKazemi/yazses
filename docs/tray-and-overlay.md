@@ -16,23 +16,28 @@ YazSes is hold-to-talk and mostly invisible, so it gives you **two at-a-glance v
 
 The badge sits in your top bar (GNOME shown here) and changes colour as YazSes moves through its states. Click it for a menu to pick/pin your mic, re-calibrate, and restart/stop the daemon.
 
-| Colour | State | What it means |
-|:------:|-------|---------------|
-| 🔵 **Blue** | Normal / idle | Daemon is up and ready. Nothing is being recorded. |
-| 🟢 **Green** | Dictating into text | You're holding the hotkey and speaking; the words will be **typed into the focused text field**. |
-| 🟡 **Yellow** | No text target | You're dictating but **nothing editable is focused** — the words are **saved to the clipboard** instead of being typed into the wrong place. |
-| 🟣 **Purple** | Command mode | You're holding the **command key**, so speech is parsed as a **voice command** (e.g. *“undo that”*) rather than typed. |
-| 🔴 **Red** | Problem | An error or a run of silent captures (e.g. the mic went silent / switched away). Open the menu or run `yazses doctor`. |
+| | Colour | State | What it means |
+|:--:|:------:|-------|---------------|
+| ![Blue YazSes tray badge](assets/tray-state-idle.png){ width="40" } | 🔵 **Blue** | Normal / idle | Daemon is up and ready. Nothing is being recorded. |
+| ![Green YazSes tray badge](assets/tray-state-recording.png){ width="40" } | 🟢 **Green** | Dictating into text | You're holding the hotkey and speaking; the words will be **typed into the focused text field**. |
+| ![Yellow YazSes tray badge](assets/tray-state-no-text-target.png){ width="40" } | 🟡 **Yellow** | No text target | You're dictating but **nothing editable is focused** — the words are **saved to the clipboard** instead of being typed into the wrong place. Paste with <kbd>Ctrl</kbd>+<kbd>V</kbd>. |
+| ![Purple YazSes tray badge](assets/tray-state-command-mode.png){ width="40" } | 🟣 **Purple** | Command mode | You're holding the **command key**, so speech is parsed as a **voice command** (e.g. *“undo that”*) rather than typed. |
+| ![Red YazSes tray badge](assets/tray-state-error.png){ width="40" } | 🔴 **Red** | Problem | An error or a run of silent captures (e.g. the mic went silent / switched away). Open the menu or run `yazses doctor`. |
 
-### Blue — ready / idle
+The badges above are **rendered from the code that draws the real one** — the colour from
+`icon_spec`, the mark from the shared brand renderer — rather than photographed, so they
+are exactly what appears in your panel without the rest of your desktop around them.
+Yellow and purple were previously described but never shown, which are the two you are
+least likely to recognise and most need to. The live badge also carries a **level ring**
+while recording (below), which is drawn as it happens and is not part of these images.
+
+### Blue — ready / idle, in a real panel
 
 ![YazSes tray icon in blue: daemon running and idle](screenshots/tray-blue-idle.png)
 
-### Red — a problem needs attention
+### Red — a problem needs attention, in a real panel
 
 ![YazSes tray icon in red: an error or silent-mic streak](screenshots/tray-red-error.png)
-
-> 🟡 **Yellow (no text target)** isn't pictured here — it looks like the blue/green badge but yellow, and it means *“I heard you, but there was no text box to type into, so I put your words on the clipboard.”* Paste with <kbd>Ctrl</kbd>+<kbd>V</kbd>.
 
 ### The level ring — is the mic actually hearing me?
 

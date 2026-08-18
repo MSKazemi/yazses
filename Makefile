@@ -16,7 +16,7 @@ LOG_FILE := $(HOME)/.local/state/yazses/log/daemon.log
 # `campaign` and `hygiene` must be listed: `campaign/` is also a directory, so without
 # this make sees an up-to-date file target and silently does nothing.
 .PHONY: all install check test lint lint-fix types docs docs-serve man inbox \
-        feature-sizes research-watch adr-index icons \
+        feature-sizes research-watch adr-index icons tray-states \
         start stop restart status logs doctor overlay build clean help \
         hygiene campaign campaign-generate campaign-stats campaign-queue campaign-validate
 
@@ -126,6 +126,13 @@ icons:
 	@echo "▶  Redrawing every shipped icon from the brand mark…"
 	uv run python scripts/gen-icons.py
 
+# Re-render the five tray-badge states shown in docs/tray-and-overlay.md. Derived from
+# `icon_spec` + the shared brand renderer, never hand-drawn, so the page cannot end up
+# teaching a colour the badge no longer uses. A test fails when they drift.
+tray-states:
+	@echo "▶  Rendering the tray badge states for the docs…"
+	uv run python scripts/gen-tray-states.py
+
 # Rebuild design/adr/README.md's index from the ADR files. Fast and offline — it only
 # reads headings — so run it whenever an ADR is added, renamed or retitled. A test
 # fails when the committed index no longer matches the directory; the index had drifted
@@ -217,6 +224,7 @@ help:
 	@echo "    make man         regenerate man/yazses.1 from the CLI"
 	@echo "    make adr-index   regenerate design/adr/README.md from the ADR files"
 	@echo "    make icons       redraw every shipped icon from the brand mark"
+	@echo "    make tray-states redraw the tray badge states shown in the docs"
 	@echo ""
 	@echo "  Maintainer"
 	@echo "    make inbox       open threads waiting on YOUR reply (ARGS=--all for bots)"
