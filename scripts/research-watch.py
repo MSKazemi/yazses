@@ -238,7 +238,7 @@ def main() -> int:
     ap.add_argument(
         "--inbox", metavar="NOTE",
         help="append a one-line pointer to this note's INBOX when papers are found "
-             "(e.g. .mohsen.note.md). A digest nobody is prompted to read is a "
+             "(e.g. .note.md). A digest nobody is prompted to read is a "
              "digest nobody reads.",
     )
     args = ap.parse_args()

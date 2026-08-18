@@ -65,8 +65,8 @@ Thumbs.db
 CLAUDE.md
 # Maintainer's personal inbox/backlog for this project (single entry point for
 # ideas + tasks, driven by .claude/skills/note). Never published.
-.mohsen.note
-.mohsen.note.*
+.note
+.note.*
 GEMINI.md
 # AGENTS.md is deliberately NOT ignored: unlike CLAUDE.md it holds no private
 # config, it is the public agents.md contributor standard that coding agents read.
@@ -85,9 +85,11 @@ mcp.json
 # See design/README.md for the full contract.
 #
 # `.mohsen.*` is the owner's own scratch notes, dropped in the repo root while
-# working (`.mohsen.note` and friends): raw thinking — unordered task dumps,
-# half-formed feature ideas, reminders. Same tier, same reason. Globbed rather
-# than listed so a second note file does not have to remember to come back here.
+# working: raw thinking — unordered task dumps, half-formed feature ideas,
+# reminders. Same tier, same reason. Globbed rather than listed so a second note
+# file does not have to remember to come back here. It also still catches the
+# pre-rename `.mohsen.note*` backups the note tool leaves behind; the live note
+# itself is `.note`/`.note.*`, listed above.
 .mohsen.*
 strategy/
 notes/
