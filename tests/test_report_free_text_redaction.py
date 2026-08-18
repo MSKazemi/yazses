@@ -21,10 +21,9 @@ where user prose lives.
 
 from __future__ import annotations
 
-import getpass
-
 import pytest
 
+from yazses.system import report as report_mod
 from yazses.system.report import _REDACT_KEYS, redact_config
 
 
@@ -148,13 +147,49 @@ def test_no_list_or_dict_value_passes_through_verbatim(value):
     assert isinstance(out["some_section"]["templates"], str)
 
 
-def test_the_account_name_is_still_scrubbed_from_ordinary_strings():
-    """The pre-existing protection, unchanged — it just is no longer the only one."""
-    account = getpass.getuser()
-    if len(account) < 3:  # pragma: no cover - depends on the running account
-        pytest.skip("account name too short to be redacted by design")
-    out = redact_config({"general": {"note": f"configured by {account} last week"}})
-    assert account not in out["general"]["note"]
+def test_the_account_name_is_still_scrubbed_from_ordinary_strings(monkeypatch):
+    """The pre-existing protection, unchanged — it just is no longer the only one.
+
+    **This test read the host, and it cost a release.** It called `getpass.getuser()`
+    and asserted the result was redacted, guarding only against a name shorter than
+    three characters. On a GitHub runner the account is `runner`, which is six
+    characters *and* is in the module's own `_GENERIC_ACCOUNTS` — a machine called
+    "runner" is not identified by the word, so `report.py` deliberately does not
+    redact it. Green on this laptop, red on CI, and the failure blocked the `test` job
+    of the v2.28.0 release, taking `publish-pypi`, `build-deb` and `release-linux` with
+    it.
+
+    Fixed by not asking the host anything. A fixed, non-generic account is patched in,
+    so the assertion means the same thing on every machine — and it now actually runs
+    on CI, where the skip-guard version would have protected nothing.
+    """
+    import re
+
+    monkeypatch.setattr(
+        report_mod, "_ACCOUNT", re.compile(r"\bada\b", re.IGNORECASE)
+    )
+    out = redact_config({"general": {"note": "configured by ada last week"}})
+    assert "ada" not in out["general"]["note"]
+    assert "configured by" in out["general"]["note"], "only the name should go"
+
+
+def test_a_generic_account_name_is_deliberately_left_alone():
+    """The rule the broken version tripped over, pinned so it is visible.
+
+    `root`, `ubuntu`, `runner` and friends identify nobody, while blanking a common
+    word would shred the surrounding diagnostics. `report.py` says so; nothing tested
+    it, which is why a test could contradict it and look correct.
+    """
+    import getpass
+
+    monkeypatch = pytest.MonkeyPatch()
+    try:
+        monkeypatch.setattr(getpass, "getuser", lambda: "runner")
+        assert report_mod._account_pattern() is None
+        monkeypatch.setattr(getpass, "getuser", lambda: "ada")
+        assert report_mod._account_pattern() is not None
+    finally:
+        monkeypatch.undo()
 
 
 def test_a_real_config_round_trips_without_raising():
