@@ -71,7 +71,25 @@ watch a green icon type nothing.
 | Signal | Default | What happens |
 |---|---|---|
 | Consecutive silent discards | `silent_streak_threshold = 3` | capture heals back to the last-good device |
-| OS default input changed | polled every `device_poll_interval_s = 3.0` s | same |
+| OS default input changed | polled every `device_poll_interval_s = 3.0` s | same — **but see below** |
+
+!!! warning "The second trigger does not fire on most Linux desktops"
+
+    The watcher notices a switch by comparing the default input's **name** over time.
+    On PipeWire and PulseAudio the default is a routing alias literally called
+    `default`, and the name does not change when the device behind it does — so it
+    compares `default` with `default` for ever and sees nothing. Reading through the
+    alias needs a PipeWire or PulseAudio client library, which YazSes does not take on
+    as a dependency for one diagnostic.
+
+    **The first trigger is unaffected**, and it is the one that catches this in
+    practice: it counts *outcomes* — bursts that produced no text — not device names.
+    So a monitor that steals your microphone is still healed, after the silent streak
+    rather than at the moment of the switch.
+
+    **Pinning removes the question entirely**: `yazses audio use <name>` means nothing
+    can take capture away in the first place. `yazses audio status` and `yazses doctor`
+    name the microphone actually behind the alias, so you can see which one it is.
 
 Controlled by `[audio] auto_heal_device` (on by default). Each heal raises a
 desktop notification with **[Re-calibrate] / [Pin this mic] / [Ignore]**, because
