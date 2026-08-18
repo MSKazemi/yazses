@@ -145,24 +145,20 @@ def test_the_body_says_what_happened_then_what_to_do():
 # ---- the links ship inside a binary ---------------------------------------
 
 
-def test_every_doc_link_points_at_a_page_that_exists():
-    """These strings are compiled into the .exe; a 404 is found by the user alone.
+def test_the_rules_actually_carry_doc_links():
+    """That the links *resolve* is checked once for the whole package, in
+    `test_shipped_links_resolve.py` — it reads f-strings, which is how this module
+    builds every URL, and a second copy here would be the drift this repo keeps
+    paying for.
 
-    Not hypothetical — the first draft of this module linked three how-to pages that
-    have never existed (`no-text-appears`, `microphone-not-detected`,
-    `model-download-fails`). This test is why they were caught before the commit.
-
-    Note the site sets `use_directory_urls: false`, so a page is `<name>.html`, never
-    `<name>/` — the mistake that once nearly shipped a 404 into a release.
+    What is worth asserting locally is that there are links at all: the general guard
+    iterates whatever it finds, so a rule table that lost its links would leave it
+    passing over an empty set.
     """
     from yazses.system import diagnosis as mod
 
     links = {doc for *_rest, doc in mod._RULES if doc}
-    assert links, "the guard must not pass by iterating an empty set"
-    for link in links:
-        assert link.endswith(".html"), f"{link}: the site does not use directory URLs"
-        path = link.split("/yazses/", 1)[1].removesuffix(".html") + ".md"
-        assert (ROOT / "docs" / path).is_file(), f"{link} -> docs/{path} does not exist"
+    assert len(links) >= 3, f"only {len(links)} doc links in the rule table"
 
 
 # ---- the repeat policy -----------------------------------------------------
