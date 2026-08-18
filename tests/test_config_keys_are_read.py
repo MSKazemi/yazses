@@ -115,6 +115,45 @@ def _config_fields() -> list[tuple[str, str]]:
     ]
 
 
+def _without_comments(source: str) -> str:
+    """*source* with ``#`` comments removed, everything else untouched.
+
+    The match below is `[."']name` — an attribute access or a string key — which is
+    a good proxy for "this key is read". Its one flaw was that it ran over the raw
+    file, so **a comment mentioning a key made that key count as read**, which is
+    exactly the reachability this guard exists to detect.
+
+    Hit for real: a comment in `system/report.py` noting that the snippets table is
+    unwired was itself enough to register that field as wired. A comment cannot read
+    a config key.
+
+    Stripping only comments, rather than switching to an AST walk over attributes and
+    keywords. That was tried and is worse in both directions: `channels=1` passed to
+    `sd.InputStream` is an `ast.keyword` named `channels`, which would mark
+    `AudioConfig.channels` as read by an unrelated call — five fields flipped that way
+    on the first run.
+    """
+    import io
+    import tokenize
+
+    lines = source.splitlines()
+    try:
+        comments = [
+            tok.start for tok in tokenize.generate_tokens(io.StringIO(source).readline)
+            if tok.type == tokenize.COMMENT
+        ]
+    except (tokenize.TokenError, IndentationError):  # pragma: no cover - defensive
+        return source
+    # Blanked **in place**, keeping every other character where it was. Rebuilding
+    # from token strings instead (joined with newlines) tore `cfg.audio.device` into
+    # three lines, so `.device` no longer matched and forty genuinely-read keys were
+    # reported as unread. A comment always runs to end of line, so a slice is enough.
+    for row, col in comments:
+        if 1 <= row <= len(lines):
+            lines[row - 1] = lines[row - 1][:col]
+    return "\n".join(lines)
+
+
 def _unread() -> set[str]:
     """Fields never referenced as an attribute or key outside the config plumbing.
 
@@ -124,7 +163,7 @@ def _unread() -> set[str]:
     """
     src = ROOT / "src/yazses"
     code = "\n".join(
-        p.read_text(encoding="utf-8", errors="ignore")
+        _without_comments(p.read_text(encoding="utf-8", errors="ignore"))
         for p in src.rglob("*.py")
         if p.name not in ("config.py", "configcheck.py")
     )
@@ -163,3 +202,30 @@ def test_the_detector_finds_a_key_that_is_genuinely_read():
     unread = _unread()
     for live in ("AccessibilityConfig.vad_threshold", "SttConfig.model", "HotkeyConfig.key"):
         assert live not in unread, f"{live} is read by real code but was called unread"
+
+
+def test_a_comment_cannot_make_an_unread_key_look_wired():
+    """The flaw this guard had, and the reason it was worth fixing here.
+
+    The match ran over raw file text, so a comment naming a key registered it as
+    read — in a guard whose entire job is to notice keys nothing reads. Hit for
+    real: a comment in `system/report.py` saying the snippets table is *unwired*
+    was itself enough to mark that field as wired.
+    """
+    stripped = _without_comments(
+        "x = cfg.audio.device  # also mentions .max_record_seconds\n"
+    )
+    assert ".max_record_seconds" not in stripped
+    assert "cfg.audio.device" in stripped, "the attribute access must survive intact"
+
+
+def test_stripping_comments_does_not_damage_code_or_strings():
+    """Rebuilding from token strings tore `cfg.audio.device` into three lines, so
+    `.device` stopped matching and forty genuinely-read keys were reported unread.
+
+    A `#` inside a string literal is not a comment, and cutting there would remove
+    real references.
+    """
+    stripped = _without_comments('y = "a # not a comment"\nz = obj.real_attr\n')
+    assert 'a # not a comment' in stripped
+    assert "obj.real_attr" in stripped

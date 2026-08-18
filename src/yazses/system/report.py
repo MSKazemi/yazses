@@ -91,12 +91,66 @@ def redact_text(text: str) -> str:
     return text
 
 
+#: Config keys whose value is **the user's own prose**, not a setting. Their contents
+#: are replaced wholesale rather than filtered, because partial redaction here is worse
+#: than none: it leaves the field looking handled.
+#:
+#: `[stt] initial_prompt` is the case that showed it. It holds the personal dictionary —
+#: names, employers, project names, email addresses — and `yazses tune` proposes writing
+#: to it, so a tuned install has one. Filtered, a real value came back as:
+#:
+#:     "<redacted> Seyedkazemi Ardebili, <redacted>.seyedkazemi@gmail.com, KubeIntellect…"
+#:
+#: The account name matched and nothing else did, so the surname, the email domain, the
+#: employer and two project names travelled into a bug report **wearing a `<redacted>`
+#: marker** that invites the reader to believe the field was cleaned.
+#:
+#: `[learning] redact_patterns` is the subtler one: those are regexes the user wrote to
+#: scrub their *own* secrets from the corpus, so the patterns describe what they consider
+#: secret. Publishing the rule is a smaller leak than publishing the data, not no leak.
+#: Only the **string-valued** prose keys are named here. The collection-valued ones —
+#: `[learning] redact_patterns`, `[snippets] entries`, `[profiles.app]` — are already
+#: covered by the generic "summarise every list and dict" rule below, so naming them
+#: too was redundant. It was also actively wrong: `tests/test_config_keys_are_read.py`
+#: keeps a ledger of config keys **no code reads**, and naming the snippets table
+#: here made that unwired field register as wired. A redaction rule must not make a
+#: feature look implemented.
+_FREE_TEXT_KEYS = frozenset({
+    "initial_prompt",       # [stt] — the personal dictionary
+    "llm_system_prompt",    # [filters.disfluency] — may be rewritten by hand
+})
+
+
+def _summarise(value: object) -> str:
+    """Describe a value's shape without its content.
+
+    "Configured, and this big" is the diagnostic half — it distinguishes an empty
+    vocabulary from a 400-term one, which is a real difference when reading a bug
+    report — and none of it identifies anyone.
+    """
+    if isinstance(value, dict):
+        return f"{_REDACTED} ({len(value)} entr{'y' if len(value) == 1 else 'ies'})"
+    if isinstance(value, (list, tuple)):
+        return f"{_REDACTED} ({len(value)} item{'' if len(value) == 1 else 's'})"
+    text = str(value)
+    return f"{_REDACTED} ({len(text)} chars)" if text else ""
+
+
 def redact_config(raw: dict) -> dict:
     """Keep the shape of the config, drop values that identify the machine or the user.
 
     Whether a setting is *set* is what explains a bug; what it is set to rarely is. The
     exception is booleans and numbers, which are the settings that actually change
     behaviour and cannot identify anyone.
+
+    Two rules beyond the key-name filter, both closing holes that were invisible:
+
+    * **Free-text keys are replaced, not filtered** (see `_FREE_TEXT_KEYS`).
+    * **Every list and dict is summarised by size.** They used to pass through
+      *verbatim* — the `else` branch below returned them untouched — and they are
+      precisely where user prose lives: a snippet table, a per-app profile map, a list
+      of redaction patterns. No configuration list is diagnostic for its contents; the
+      count answers what a reader actually needs.
     """
     out: dict = {}
     for section, values in raw.items():
@@ -105,12 +159,16 @@ def redact_config(raw: dict) -> dict:
             continue
         clean: dict[str, object] = {}
         for key, value in values.items():
-            if isinstance(value, (bool, int, float)):
+            if isinstance(value, bool | int | float):
                 clean[key] = value
+            elif str(key) in _FREE_TEXT_KEYS:
+                clean[key] = _summarise(value)
             elif _REDACT_KEYS.search(str(key)) and value not in ("", None):
                 clean[key] = _REDACTED
             elif isinstance(value, str):
                 clean[key] = redact_text(value)
+            elif isinstance(value, dict | list | tuple):
+                clean[key] = _summarise(value)
             else:
                 clean[key] = value
         out[section] = clean

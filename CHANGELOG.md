@@ -6,6 +6,35 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a bug report could carry your personal dictionary
+
+`yazses report` promises *"your dictated text is never in it"*, and the log honours
+that by recording word counts rather than words. The **config** section did not.
+
+Found by auditing a real bundle, which was clean — but only because that machine
+has no `[stt]` section, and `yazses tune` proposes writing one. Given a realistic
+value, the old redaction returned:
+
+```
+"<redacted> Seyedkazemi Ardebili, <redacted>.seyedkazemi@gmail.com, KubeIntellect…"
+```
+
+The account name matched and nothing else did. The surname, the email domain, the
+employer and two project names travelled into the report **wearing a `<redacted>`
+marker** — which is worse than no redaction at all, because it invites the reader to
+conclude the field was cleaned. Partial redaction of free text is a false negative
+with a badge on.
+
+Two rules close it. Known prose keys (`[stt] initial_prompt`,
+`[filters.disfluency] llm_system_prompt`) are replaced wholesale rather than
+filtered. And **every list and dict value is summarised by size**: those passed
+through *verbatim* before, and they are exactly where user prose lives — the snippet
+table, the per-app profile map, and `[learning] redact_patterns`, which is the
+subtlest of the three since those regexes describe what the user considers secret.
+
+The size is kept, because an empty vocabulary and a 400-term one are a real
+difference to whoever reads the report, and a count identifies nobody.
+
 ### Added — `yazses tune --limit N`, and an estimate instead of "a while"
 
 `tune` had two speeds: re-transcribe the whole corpus, or skip the pass entirely
