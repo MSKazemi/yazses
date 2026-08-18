@@ -65,7 +65,7 @@ key. Source and issues are on [GitHub](https://github.com/MSKazemi/yazses).
 ## What hardware do I need?
 
 No GPU. YazSes runs on CPU with **4 GB RAM minimum** (8 GB comfortable) and any
-USB or built-in microphone. The default model is `small.en`.
+USB or built-in microphone. The default model is `base.en` (141 MB).
 
 ## How is YazSes different from Talon Voice?
 
@@ -119,7 +119,7 @@ agentic version was prototyped in the archived Rust branch but is not shipped.)
 
 ## What languages does YazSes support?
 
-The default model is English (`small.en`). Other Whisper models can be configured,
+The default model is English (`base.en`). Other Whisper models can be configured,
 but multilingual support is not the out-of-the-box default today.
 
 ## Is there an Android app?
