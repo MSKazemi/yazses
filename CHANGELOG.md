@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the tray supervisor threw away every reason the tray died
+
+Both places that launch the tray passed `stderr=subprocess.DEVNULL`. The tray is a
+separate process, so everything it printed on the way down was discarded — a real
+daemon log showed four relaunches in one evening, three inside ninety seconds, with no
+indication of the cause anywhere.
+
+The give-up branch documented the omission without noticing it: *"tray died 5 times;
+not relaunching again. Start it manually with `yazses tray` to see the error it
+prints."* That advice exists only because the error was thrown away, and it asks the
+user to reproduce by hand a failure the daemon had already watched happen five times.
+
+It matters past the terminal too: the daemon log is what `yazses report` attaches to an
+issue, so "the tray keeps dying" was reportable only without evidence.
+
+The tray's stderr is now captured (truncated per launch, so it answers why the tray that
+just died died, not the previous six) and logged with each relaunch and with the give-up
+message. If the capture file cannot be opened the launch falls back to `DEVNULL` — a
+tray that starts without diagnostics beats diagnostics that stop the tray starting.
+
 ### Fixed — Apply restarted the daemon while it was still downloading the packages
 
 `_on_apply` starts the optional-dependency install on a background thread ("this can

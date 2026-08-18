@@ -62,6 +62,21 @@ correct when the tray was started by hand, or outlived a daemon restart, which a
 PID would get wrong in both directions. Before this, a crashed icon simply stayed
 gone while dictation carried on unobserved.
 
+**It also records why.** The tray is a separate process, and both launch sites used
+to send its output to `/dev/null` — so a log could show four relaunches in an evening
+with nothing about the cause, and the give-up message could only suggest running
+`yazses tray` by hand to reproduce a failure that had already happened. What the tray
+printed on the way down is now captured and logged with each relaunch:
+
+```
+Tray supervisor: tray is not running — relaunching
+  it said:
+    qt.qpa.plugin: Could not load the Qt platform plugin "xcb"
+```
+
+That reaches `yazses logs` and the bundle `yazses report` writes, so "the tray keeps
+dying" arrives with its own evidence.
+
 ## The microphone changed under you
 
 The failure this is built for: a USB-C monitor, a headset, or a meeting app takes

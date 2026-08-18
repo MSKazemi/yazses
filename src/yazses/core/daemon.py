@@ -455,7 +455,7 @@ class Daemon:
                 command_for(Mode.TRAY),
                 start_new_session=True,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stderr=self._open_tray_stderr(),
             )
             log.info("Launched system-tray indicator (pid %d).", self._tray_proc.pid)
         except Exception:
@@ -478,6 +478,39 @@ class Daemon:
         )
         self._tray_supervisor.start()
 
+    def _tray_stderr_path(self):
+        """Where a tray process's stderr is parked until someone asks why it died."""
+        return self._platform.paths.data_dir / "tray-stderr.log"
+
+    def _open_tray_stderr(self):
+        """A write handle for the next tray's stderr, or DEVNULL if that is impossible.
+
+        Truncated per launch: this answers "why did the tray that just died die?", and a
+        growing file would answer it with the previous six failures as well. Falls back
+        to DEVNULL rather than raising -- a tray that cannot be launched at all is a
+        worse outcome than a tray whose error is unreadable, which is the status quo.
+        """
+        try:
+            path = self._tray_stderr_path()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            return path.open("w", encoding="utf-8", errors="replace")
+        except Exception:  # noqa: BLE001 - diagnostics must never block the tray
+            return subprocess.DEVNULL
+
+    def _last_tray_error(self) -> str:
+        """What the tray printed before it died, formatted for one log call."""
+        from yazses.tray.supervisor import describe_exit
+
+        try:
+            text = self._tray_stderr_path().read_text(encoding="utf-8", errors="replace")
+        except Exception:  # noqa: BLE001 - no file is the normal case
+            return ""
+        summary = describe_exit(text)
+        if not summary:
+            return ""
+        indented = summary.replace("\n", "\n    ")
+        return f"\n  it said:\n    {indented}"
+
     def _supervise_tray(self) -> None:
         from yazses.system.single_instance import holder_pid
         from yazses.tray.supervisor import DEFAULT_INTERVAL_S, decide
@@ -490,16 +523,23 @@ class Daemon:
                     alive=holder_pid(lock) is not None, relaunches_so_far=relaunches
                 )
                 if decision.give_up:
-                    log.warning("Tray supervisor: %s", decision.reason)
+                    # Say why, not just that. The reason text tells the user to run
+                    # `yazses tray` to see the error -- advice that only ever existed
+                    # because the error was being discarded.
+                    log.warning(
+                        "Tray supervisor: %s%s", decision.reason, self._last_tray_error()
+                    )
                     return
                 if not decision.relaunch:
                     continue
-                log.info("Tray supervisor: %s", decision.reason)
+                log.info(
+                    "Tray supervisor: %s%s", decision.reason, self._last_tray_error()
+                )
                 proc = subprocess.Popen(
                     command_for(Mode.TRAY),
                     start_new_session=True,
                     stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
+                    stderr=self._open_tray_stderr(),
                 )
                 self._tray_proc = proc
                 relaunches += 1
