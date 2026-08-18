@@ -17,7 +17,7 @@ wins.
 
 | Tool | Runs offline | Voice commands | Linux | macOS / Windows | Cost | Open source |
 |---|---|---|---|---|---|---|
-| **YazSes** | **Yes** (on-device faster-whisper) | **Yes** (regex grammar + optional SLM router) | **Yes** (X11 & Wayland) | **Yes** | **Free** | **Yes (Apache-2.0)** |
+| **YazSes** | **Yes** (on-device faster-whisper) | **Yes** (regex grammar) | **Yes** (X11 & Wayland) | **Yes** | **Free** | **Yes (Apache-2.0)** |
 | **Handy** | Yes (whisper.cpp) | No | Yes | Yes | Free | Yes (MIT) |
 | **OpenWhispr** | Yes (Whisper/Parakeet; cloud optional) | Spoken instructions | Yes | Yes | Free | Yes (MIT) |
 | **FluidVoice** | Yes (Parakeet) | Yes (Command Mode) | Announced | macOS (Windows community port) | Free | Yes (GPLv3) |
@@ -44,7 +44,7 @@ wins.
   faster-whisper (int8). No GPU, no network, no account — nothing you say leaves
   the machine.
 - **Dictation *and* voice commands.** Speak to type, or use a fast regex command
-  grammar (with an optional ~0.5B SLM router for low-confidence phrases) that maps
+  grammar that maps
   *"undo that"*, *"save file"*, *"go to line 42"* to real key sequences.
 - **Hold-to-talk.** Natural push-to-talk that types into whatever app has focus —
   editor, browser, terminal, chat.
@@ -228,6 +228,8 @@ lowest possible resource footprint, or you like configuring behaviour in code.
 Whisper-class accuracy rather than VOSK, macOS/Windows support (nerd-dictation is
 Linux-only), or the packaged extras — voice commands, macros, personal
 vocabulary, file transcription, meeting capture.
+
+→ [The detailed comparison, with a step-by-step migration guide](compare/yazses-vs-nerd-dictation.md)
 
 ### YazSes vs Vocalinux
 

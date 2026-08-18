@@ -151,7 +151,7 @@ Key छोड़ें — YazSes transcribe करके action करता �
 
 ## What you can say
 
-Hold the key and just **talk** — by default everything you say is typed at the cursor. YazSes also recognises a set of **voice commands** (a fast regex grammar; an optional ~0.5B SLM router catches phrasings the grammar misses) that map to editor/terminal **key sequences** instead of being typed:
+Hold the key and just **talk** — by default everything you say is typed at the cursor. YazSes also recognises a set of **voice commands** (a fast regex grammar) that map to editor/terminal **key sequences** instead of being typed:
 
 | Say something like… | What happens |
 |---|---|
@@ -174,11 +174,11 @@ You can also define multi-step **macros** and a personal **vocabulary** of mis-h
 
 ```
 Hold hotkey → record audio → VAD gate → faster-whisper (CPU) → clean + disfluency filter
-            → command grammar (Tier 1 regex, optional Tier 2 SLM router)
+            → command grammar (Tier 1 regex)
             → dictate? type the text   ·   command? send the key sequence
 ```
 
-Everything runs on your CPU — no GPU, no network. Transcription uses **faster-whisper** (int8). A fast regex grammar classifies each utterance as dictation or a command; when its confidence is low, an optional ~0.5B SLM router takes a second look.
+Everything runs on your CPU — no GPU, no network. Transcription uses **faster-whisper** (int8). A fast regex grammar classifies each utterance as dictation or a command.
 
 Measured on a 13th-gen Core i7 laptop, int8 on CPU: **4.07 % WER** on LibriSpeech test-clean with the default `base.en`, a **1.56 s median** decode, and **0.29 ms** of total non-decode pipeline overhead — i.e. essentially all the latency is the speech model. Everything, including the method and the commands to reproduce it, is on the [benchmarks page](../benchmarks.md).
 
@@ -207,7 +207,7 @@ Measured on a 13th-gen Core i7 laptop, int8 on CPU: **4.07 % WER** on LibriSpeec
 - **Hold-to-talk dictation** — type into any focused app on Linux, macOS, or Windows
 - **Meeting Mode** — hands-free whole-meeting capture → speaker-labelled transcript, plus optional local-LLM minutes (summary, decisions, action items); audio is deleted after transcription unless you keep it
 - **Offline file transcription** — `yazses transcribe <file>` turns any audio/video into txt/md/srt/vtt/json, with optional *who-said-what* speaker tags
-- **Voice commands** — editor/terminal actions (undo, save, go-to-line, run tests, rename…) via regex grammar + an optional SLM router
+- **Voice commands** — editor/terminal actions (undo, save, go-to-line, run tests, rename…) via regex grammar
 - **Macros & personal vocabulary** — define multi-step commands and teach YazSes your mis-heard words
 - **Dysfluency-Friendly Mode** — opt-in collapse of stutters/repeats (`b-b-because` → `because`) for stuttered or dysarthric speech
 - **Self-improving** — opt-in, encrypted on-device learning corpus; `yazses tune` proposes accuracy fixes from your own corrections (nothing leaves the machine)
@@ -280,7 +280,7 @@ Choose **YazSes** when you specifically want dictation *and* voice commands that
 
 **Is there a good offline voice-dictation tool for Linux?** Yes — YazSes runs natively on Linux (X11 and Wayland), transcribes locally on the CPU, and needs no cloud service or API key. It installs via an APT script or `pipx`.
 
-**YazSes vs Talon?** Both are cross-platform and work offline. YazSes focuses on plug-and-play dictation plus a practical command grammar (with an optional small SLM router). Talon offers far more advanced, scriptable voice control. They can be used side by side.
+**YazSes vs Talon?** Both are cross-platform and work offline. YazSes focuses on plug-and-play dictation plus a practical command grammar . Talon offers far more advanced, scriptable voice control. They can be used side by side.
 
 **Does it work without internet?** Yes. Transcription runs locally with faster-whisper, and no audio or text is sent anywhere by default. YazSes works fully offline and on air-gapped machines.
 
@@ -501,7 +501,7 @@ installed, or depended on by anything here.
 | What it is | The shipping app — dictation, file transcription, Meeting Mode, voice commands, macros | An early-stage rewrite exploring deeper **human–computer interaction**: an on-device *agent* (LLM tool-use, personal memory, editor awareness) |
 | Status | ✅ **Active — current product** (v2.28.0, installed & maintained) | ⏸️ **Paused / archived** — not shipped, not installable |
 | Offline STT | ✅ faster-whisper (CPU int8) | ✅ Whisper + Moonshine v2 (~9 ms) |
-| Voice commands | ✅ regex grammar (+ optional SLM router) → key sequences | ✅ via LLM tool-calls |
+| Voice commands | ✅ regex grammar → key sequences | ✅ via LLM tool-calls |
 | Voice macros · Mid-Thought Undo · Punch-In · Prosody Ink · Ghost Ahead | ✅ | ❌ |
 | Dysfluency-Friendly Mode · learning corpus + `yazses tune` | ✅ | ❌ |
 | On-device **LLM agent** (OS tools: git commit, media, notes, screenshots…) | ❌ (optional offline text *cleanup* only) | ✅ |

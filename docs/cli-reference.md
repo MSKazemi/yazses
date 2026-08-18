@@ -548,7 +548,14 @@ yazses enroll-voice    # record a sample → save your speaker voiceprint
 
 ### `yazses model`
 
-Manage the optional Tier 2 SLM intent-routing models.
+Manage the Tier 2 SLM intent-routing models.
+
+!!! warning "Tier 2 is designed, not wired"
+
+    Nothing loads an SLM router today — `grammar.classify()` accepts one and no
+    code constructs it, so Tier 1 decides every utterance and downloading a GGUF
+    gains you nothing. The command is still the right way to pre-fetch a *speech*
+    model behind a firewall.
 
 | Command | Description |
 |---|---|
@@ -1231,8 +1238,9 @@ so "Save file." works the same as "save". Spelled-out numbers ("delete the last
     it is the only one gated this way.
 
 Don't see a command you want? Tell us — the grammar is easily extended.
-Natural-language commands beyond this fixed list require the optional Tier 2 SLM
-router (`[commands] slm_model_path`), which is off by default.
+Natural-language commands beyond this fixed list would need the Tier 2 SLM router,
+which is designed but **not wired** — there is no switch that turns it on today, and
+`[commands] slm_model_path` is read by nothing.
 
 ### Voice punctuation (opt-in)
 

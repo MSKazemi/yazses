@@ -143,8 +143,8 @@ works in your editor and in your browser without you re-learning phrasing.
   YazSes aims at dictation-first with commands as a built-in extra — see the
   [comparison](../comparison.md).
 - **Command phrasing is finite.** Tier 1 recognises the patterns it was written
-  for. The optional SLM router widens that, and macros let you add your own, but
-  there is no open-ended natural-language understanding.
+  for. Macros let you add your own, but there is no open-ended natural-language
+  understanding — and the SLM router that would widen this is designed, not wired.
 - **Some capabilities in the table are `optional` rather than `recommended`**, and
   a few desktop-control ones need X11. `yazses features` always states the tier.
 

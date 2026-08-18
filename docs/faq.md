@@ -70,7 +70,7 @@ USB or built-in microphone. The default model is `base.en` (141 MB).
 ## How is YazSes different from Talon Voice?
 
 Both are cross-platform and work offline. YazSes focuses on **plug-and-play
-dictation** plus a practical command grammar (with an optional small SLM router).
+dictation** plus a practical command grammar.
 Talon offers far more advanced, scriptable voice control. They can be used side by
 side. See the [full comparison](comparison.md).
 
@@ -101,8 +101,7 @@ leaves your laptop.
 
 ## Can YazSes run voice commands, not just dictation?
 
-Yes. A fast regex command grammar (with an optional ~0.5B SLM router for
-low-confidence phrases) maps spoken phrases like *"undo that"*, *"save file"*, or
+Yes. A fast regex command grammar maps spoken phrases like *"undo that"*, *"save file"*, or
 *"go to line 42"* to real key sequences in your editor or terminal.
 
 ## Does it support accessibility / hands-free use?

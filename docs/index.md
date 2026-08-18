@@ -160,7 +160,7 @@ focused app. **No cloud. No API key. No subscription. Nothing leaves your machin
 
     ---
 
-    A regex grammar (plus an optional ~0.5B SLM router) maps *"undo that"*,
+    A regex grammar maps *"undo that"*,
     *"save file"*, *"go to line 42"* to real key sequences.
 
     [:octicons-arrow-right-24: Command index](command-index.md)
@@ -248,7 +248,7 @@ Hold the hotkey (Right Alt on Linux, Right Option on macOS, Right Ctrl on Window
 
 - **Offline dictation** — type into any focused app with on-device faster-whisper (CPU, int8). No GPU needed.
 - **Transcribe recordings** — `yazses transcribe meeting.m4a` turns any audio/video file into text, fully offline. Add `--diarize` to tag who said what and `--format srt` for subtitles. See the [transcription guide](tutorials/transcribe-recordings.md).
-- **Voice commands** — a regex grammar (plus an optional ~0.5B SLM router) maps phrases to editor/terminal key sequences: *"undo that"*, *"save file"*, *"go to line 42"*, *"run the tests"*, *"rename this to user_id"*.
+- **Voice commands** — a regex grammar maps phrases to editor/terminal key sequences: *"undo that"*, *"save file"*, *"go to line 42"*, *"run the tests"*, *"rename this to user_id"*.
 - **Macros & personal vocabulary** — define multi-step commands and teach YazSes your mis-heard words.
 - **Dysfluency-Friendly Mode** — opt-in collapse of stutters/repeats for stuttered or dysarthric speech.
 - **Self-improving** — opt-in, encrypted on-device learning corpus; `yazses tune` proposes accuracy fixes from your own corrections.
@@ -284,8 +284,8 @@ YazSes is **not an LLM agent** — it dictates text and runs editor/terminal com
 
 ```
 Hold hotkey → record audio → VAD gate → faster-whisper (CPU)
-            → clean + disfluency filter → command grammar (Tier 1 regex,
-              optional Tier 2 SLM router) → dictate? type it · command? send keys
+            → clean + disfluency filter → command grammar (Tier 1 regex)
+            → dictate? type it · command? send keys
 ```
 
 Two at-a-glance signals show you what YazSes is doing: a top-bar **"Y" tray icon** whose colour is a live state indicator (🔵 idle · 🟢 dictating · 🟡 no text target → clipboard · 🟣 command mode · 🔴 problem) and an optional **sonar overlay** that pulses near your cursor while it's listening. See [Tray icon & overlay](tray-and-overlay.md) for what each colour means.

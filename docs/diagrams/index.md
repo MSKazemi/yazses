@@ -34,7 +34,7 @@ flowchart TB
     AUD["2 · Audio — recorder → VAD → padding"]
     STT["3 · STT — faster-whisper (int8) · streaming · disfluency"]
     PP["4 · Post-process — cleaner · voice-punct · spacing · LLM cleanup"]
-    CMD["5 · Commands — Tier1 grammar · Tier2 SLM router · LSP"]
+    CMD["5 · Commands — Tier1 grammar · LSP (Tier2 SLM router: designed, not wired)"]
     DIS{"6 · dispatch()"}
     HK --> AUD --> STT --> PP --> CMD --> DIS
   end
