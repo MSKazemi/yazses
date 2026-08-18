@@ -350,7 +350,7 @@ class SettingsWindow:
             "Bigger is more accurate and slower; base.en is the shipped balance.\n"
             "A name ending in .en is English-only and cannot decode any other "
             "language.\n"
-            "Same list as `yazses models`. Takes effect after the restart."
+            "Same list as `yazses model list`. Takes effect after the restart."
         )
         self._model_box = model_box
         self._model_baseline = model.stt_model

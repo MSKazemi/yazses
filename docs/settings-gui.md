@@ -231,7 +231,7 @@ are the reason they belong in a window rather than a text editor — each one fa
 in a way that does not look like the setting that caused it.
 
 **Model** is the biggest single lever on both accuracy and latency. The list is the
-same one `yazses models` prints, plus whatever your config already holds — a Hugging
+same one `yazses model list` prints, plus whatever your config already holds — a Hugging
 Face id or a local path is a legitimate model, and it is never silently replaced.
 
 **Language** is what you dictate in. *Auto-detect* decides per utterance, which is

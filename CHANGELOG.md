@@ -6,6 +6,31 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the Settings window told you to run a command that does not exist
+
+The model dropdown's tooltip said *"Same list as `yazses models`"*, and
+`docs/settings-gui.md` repeated it. The command is **`yazses model list`**;
+`yazses models` exits 2 with *"No such command"*. Two surfaces, one invented name,
+and every test passed — because nothing compared the strings we ship against the
+CLI we ship.
+
+There is now a guard for that direction. `test_cli_reference_covers_every_command`
+already asked whether each shipped command is *documented*; this asks whether each
+command we *name* exists. The second failure is worse: an undocumented command is a
+gap, while advice naming a command that does not exist is a dead end handed to
+someone who is already stuck. It is the third instance in three days of the same
+shape — strings that are only wrong at the moment a user acts on them, after doc
+links to pages that never existed and a bundle reading the wrong log filename.
+
+The guard keys on **backticked** invocations. A first version matched `yazses`
+anywhere and returned thirty-odd false positives — `cd yazses`,
+`pipx install yazses`, `sudo snap refresh yazses`, the repo's own name in a clone
+URL — against one real defect, which is a guard nobody keeps. A backtick is the mark
+that means "type this". `docs/releases/` and `docs/research/` are excluded for
+reasons about what those pages are: release notes describe what a past version
+shipped, and research pages pose open questions where naming something that does not
+exist yet is the point.
+
 ### Fixed — two defects in yesterday's error reporting, found by auditing a real machine
 
 A nine-hour session on a live daemon, audited rather than reasoned about, and both
