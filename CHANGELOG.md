@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — two defects in yesterday's error reporting, found by auditing a real machine
+
+A nine-hour session on a live daemon, audited rather than reasoned about, and both
+findings are in code added the same day.
+
+**The classifier missed the only failure actually happening.** The single warning
+that machine produced all day — five times — was `Error querying device -1`, and it
+fell straight through to the generic *"an unexpected error stopped that from
+working"*. PortAudio index −1 is the default device, so this is the default failing
+to resolve, which on PipeWire/ALSA happens while it is being switched. It now says
+so, and says that pinning a microphone with `yazses audio use <name>` stops a change
+of default from interrupting dictation. The rule set had been written from
+plausible-looking error text; the observed strings now have their own test, keyed to
+where each was seen.
+
+**The issue-body limit bounded the wrong quantity.** The body travels as a URL query
+parameter, and percent-encoding expands it — ~1.27x for a log line, ~1.45x for a
+Markdown heading, 3x for punctuation-dense text, and 9x for non-Latin script, where
+each UTF-8 byte becomes three characters. A 6000-character body, comfortably "within
+the limit", produced a **12,972-character URL** on a real report from this machine.
+Past roughly 8 kB the user lands on an *empty* issue form, so the failure is total
+rather than partial. The trimming loop now measures the encoded length, and the tests
+assert on the whole URL across three alphabets rather than on the raw body.
+
 ### Fixed — the Snap Store showed a different logo from every other surface
 
 The icon in the Snap Store listing, and in the app grid of every snap install, was

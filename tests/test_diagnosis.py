@@ -370,11 +370,15 @@ def test_the_issue_body_is_bounded_so_the_url_survives():
     So the failure of an unbounded body is total rather than partial — the user clicks
     the button and lands on a blank issue.
     """
-    from yazses.system.report import ISSUE_BODY_LIMIT, summarise_for_issue
+    from yazses.system.report import ISSUE_URL_LIMIT, issue_url, summarise_for_issue
 
     huge = {"system": {}, "daemon": {}, "log_tail": [f"line {i} " + "x" * 200 for i in range(500)]}
     body = summarise_for_issue(huge, log_lines=500)
-    assert len(body) <= ISSUE_BODY_LIMIT
+    # The whole URL, because that is the thing with the limit. Bounding the raw body
+    # instead is the bug this replaced: percent-encoding expands text 1.27x for a log
+    # line and up to 3x for punctuation, so a 6000-character body measured "within the
+    # limit" produced a 12,972-character URL on a real report from this machine.
+    assert len(issue_url("YazSes could not reach your default microphone", body)) <= ISSUE_URL_LIMIT
 
 
 def test_trimming_is_stated_rather_than_silent():
@@ -450,3 +454,89 @@ def test_the_issue_url_survives_a_body_with_url_metacharacters():
     assert url.count("?") == 1, "only the query separator may be a literal ?"
     assert url.count("&") == 1, "only the field separator may be a literal &"
     assert "#" not in url, "an unencoded # truncates the URL at the fragment"
+
+
+# ---- strings the product actually emits, not ones I imagined ---------------
+#
+# The rule set was written from plausible-looking error text. Then a nine-hour
+# session on a real machine was audited, and the **only** warning it had produced —
+# five times — was `Error querying device -1`, which fell straight through to the
+# generic wording. The classifier had a rule for every failure except the one that
+# was happening.
+#
+# So the cases below are transcribed from real logs and real `raise` sites in this
+# repo, and a new rule is expected to keep them classified. Imagined strings are
+# fine as extra coverage; these are the ones that must not regress.
+
+#: (observed message, expected slug). Provenance is in the comment on each.
+_OBSERVED = [
+    # ~/.local/state/yazses/log/daemon.log, 2026-08-18, x5 — the whole day's warnings.
+    ("Microphone open failed (attempt 1/3): Error querying device -1",
+     "mic-default-unresolved"),
+    # audio/recorder.py::start, the message raised once every attempt has failed —
+    # this is the one that reaches the daemon and therefore the user.
+    ("Could not open microphone after 3 attempts: Error querying device -1",
+     "mic-default-unresolved"),
+    # core/daemon.py::_on_hold_start wraps it again before reporting.
+    ("Microphone unavailable: Could not open microphone after 3 attempts: "
+     "Error querying device -1", "mic-default-unresolved"),
+]
+
+
+@pytest.mark.parametrize("message,slug", _OBSERVED)
+def test_messages_this_product_really_emits_are_classified(message, slug):
+    assert diagnose(message, where=CAPTURE).slug == slug
+
+
+def test_the_recorder_still_raises_the_message_this_rule_matches():
+    """The rule matches a string built somewhere else; pin the two together.
+
+    Rewording `AudioRecorder.start`'s failure would silently demote the most common
+    real microphone fault back to the generic wording, with nothing failing.
+    """
+    source = (ROOT / "src/yazses/audio/recorder.py").read_text(encoding="utf-8")
+    assert "Could not open microphone after" in source
+    # And the daemon must still wrap it on the path that reports to the user.
+    daemon = (ROOT / "src/yazses/core/daemon.py").read_text(encoding="utf-8")
+    assert "Microphone unavailable:" in daemon
+
+
+@pytest.mark.parametrize(
+    "filler",
+    [
+        "plain ascii words that encode almost one to one",
+        "punctuation: heavy, (text) [with] {braces} & symbols! 100% ~of~ it",
+        "بسیار خوب متن فارسی که هر نویسه سه بایت است",
+    ],
+)
+def test_the_url_fits_whatever_the_log_happens_to_contain(filler):
+    """The expansion ratio is a property of the *content*, not a constant.
+
+    ASCII prose encodes ~1.0x, Markdown punctuation ~1.45x, and non-Latin text 9x —
+    each UTF-8 byte becomes three characters. A budget tuned on one of them and
+    applied to another is how the limit gets silently exceeded, which produces an
+    empty issue form rather than a short one.
+    """
+    from yazses.system.report import ISSUE_URL_LIMIT, issue_url, summarise_for_issue
+
+    report = {
+        "system": {"yazses": "2.27.0"},
+        "daemon": {"state": "idle"},
+        "log_tail": [f"{i} {filler}" for i in range(400)],
+    }
+    body = summarise_for_issue(report, log_lines=400)
+    assert len(issue_url("A problem with YazSes", body)) <= ISSUE_URL_LIMIT
+
+
+def test_a_body_that_cannot_be_trimmed_by_lines_is_still_bounded():
+    """The non-log sections alone can exceed the budget — a pathological config.
+
+    With no log lines left to drop, the fallback cut must still measure the encoded
+    length, or it returns something that looks trimmed and still will not open.
+    """
+    from yazses.system.report import ISSUE_URL_LIMIT, issue_url, summarise_for_issue
+
+    body = summarise_for_issue(
+        {"system": {}, "daemon": {}, "log_tail": [], "config_problems": ["é! " * 3000]}
+    )
+    assert len(issue_url("t", body)) <= ISSUE_URL_LIMIT

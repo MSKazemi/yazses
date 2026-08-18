@@ -198,12 +198,26 @@ def _env(name: str) -> str:
     return os.environ.get(name, "")
 
 
-# GitHub's new-issue form. The body travels as a query parameter, so it is bounded
-# by URL length rather than by anything about the report: servers and browsers start
-# rejecting well before the theoretical limit, and a truncated URL produces an empty
-# form rather than a short one. 6 kB of body leaves room for the title and the rest.
+# GitHub's new-issue form. The body travels as a query parameter, so the constraint
+# is the length of the *encoded URL* — and a URL that is too long produces an empty
+# form rather than a truncated one, so the failure is total.
 ISSUE_URL = "https://github.com/MSKazemi/yazses/issues/new"
-ISSUE_BODY_LIMIT = 6000
+
+#: Practical ceiling for the whole URL. Browsers and proxies start rejecting well
+#: below the theoretical limit; 8 kB is the number every implementation clears.
+ISSUE_URL_LIMIT = 8000
+
+#: Budget for the **percent-encoded** body, leaving room for the base URL, the
+#: parameter names and an encoded title.
+#:
+#: Measured rather than assumed, and the measurement is the point. This was first
+#: written as a limit on the *raw* body, which is the wrong quantity: percent-encoding
+#: expands text by ~1.27x for a typical log line, ~1.45x for a Markdown heading, and 3x
+#: for punctuation-dense text, because a space, a colon and a newline each become three
+#: characters — and 9x for non-Latin script, where every UTF-8 byte becomes three. A
+#: 6000-character body, comfortably "within the limit", produced a **12,972-character
+#: URL** on a real report from this machine. The trimming loop measures what travels.
+ISSUE_BODY_LIMIT = 6800
 
 
 def summarise_for_issue(
@@ -232,21 +246,33 @@ def summarise_for_issue(
     """
     tail = list(report.get("log_tail") or [])[-log_lines:]
     body = _render_issue_body(report, diagnosis, tail, trimmed=False)
-    if len(body) <= limit:
+    if _encoded_len(body) <= limit:
         return body
 
     # Too long. Drop log lines from the *oldest* end until it fits, and say so — a
     # body that quietly loses its ending would have the user file a report they
     # believe is complete. Cutting mid-line is avoided for the same reason a
     # truncated path looks like a real one.
+    #
+    # Measured **encoded**, because that is what travels: see ISSUE_BODY_LIMIT.
     while tail:
         tail = tail[1:]
         body = _render_issue_body(report, diagnosis, tail, trimmed=True)
-        if len(body) <= limit:
+        if _encoded_len(body) <= limit:
             return body
-    # Nothing left to trim: the non-log sections alone exceed the limit, which means
-    # a pathological config-problem list. Cut hard rather than return an unusable URL.
-    return body[:limit]
+
+    # Nothing left to trim: the non-log sections alone exceed the budget, which means
+    # a pathological config-problem list. Cut hard rather than return an unusable URL
+    # — and cut against the encoded length, or the result looks trimmed and still
+    # will not open.
+    while body and _encoded_len(body) > limit:
+        body = body[: max(1, int(len(body) * limit / _encoded_len(body)) - 1)]
+    return body
+
+
+def _encoded_len(text: str) -> int:
+    """How many characters *text* occupies once it is in the URL."""
+    return len(_percent_encode(text))
 
 
 def _render_issue_body(report: dict, diagnosis, tail: list[str], *, trimmed: bool) -> str:

@@ -103,6 +103,24 @@ _RULES: tuple[tuple[str, tuple[str, ...], str, str, str, str | None], ...] = (
         f"{_DOCS}/troubleshooting.html",
     ),
     (
+        # Harvested from a real machine's log rather than imagined: this is the *only*
+        # warning a nine-hour session produced, five times, and the classifier written
+        # the day before fell through to the generic wording for it. PortAudio index
+        # -1 is "the default device", so this is the default failing to resolve — which
+        # on PipeWire/ALSA happens while the default is being reconfigured (a Bluetooth
+        # headset connecting, a monitor waking). `AudioRecorder.start` retries three
+        # times, and on this machine it has always recovered.
+        "mic-default-unresolved",
+        ("error querying device",),
+        "YazSes could not reach your default microphone",
+        "The system's default input could not be read — usually because it was being "
+        "switched at that moment.",
+        "It retries, and this normally passes on its own. If it keeps happening, pin "
+        "the microphone you want with `yazses audio use <name>` so a change of default "
+        "cannot interrupt dictation.",
+        f"{_DOCS}/known-good-microphones.html",
+    ),
+    (
         "mic-missing",
         ("invalid device",),
         "YazSes cannot find the microphone it was told to use",
