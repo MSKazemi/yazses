@@ -3410,6 +3410,16 @@ class Daemon:
                 # Confidence Ink (ADR-v2-001): feature state + last-burst count.
                 "confidence_enabled": self._config.confidence.enabled,
                 "low_confidence_last": self._last_low_confidence_words,
+                # Meeting Mode (ADR-v2-127), for the tray's Start/Stop entries. `state`
+                # already says "meeting" while capturing, but two things it cannot say
+                # are whether the feature is even on and whether the post-pass is still
+                # running -- and both are states in which a click must be refused with a
+                # reason rather than silently doing nothing. Finalizing is invisible
+                # otherwise: capture has ended, the state is back to IDLE, and the
+                # transcript is still being written.
+                "meeting_enabled": self._config.meeting.enabled,
+                "meeting_active": self._meeting_controller is not None,
+                "meeting_finalizing": self._meeting_finalizing,
                 # Decode latency over a bounded recent window, per model (#296).
                 # Percentiles, not a mean: decode time is right-skewed and it is
                 # the slow tail you wait through. The count travels with it so a

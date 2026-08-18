@@ -26,6 +26,8 @@ from yazses.tray.menu import (
     ABOUT_LABEL,
     DOCS_LABEL,
     HELP_LABEL,
+    MEETING_START_LABEL,
+    MEETING_STOP_LABEL,
     REPORT_BUG_LABEL,
     SETTINGS_LABEL,
     TROUBLESHOOTING_LABEL,
@@ -83,6 +85,13 @@ class MacosTray:
                 self_inner.menu = [
                     SETTINGS_LABEL,
                     None,
+                    # Meeting Mode. Both entries always present: a rumps menu is built
+                    # once here and cannot be re-derived per open the way the Qt tray's
+                    # is, so the daemon's own refusal is what tells the user which of
+                    # the two applied.
+                    MEETING_START_LABEL,
+                    MEETING_STOP_LABEL,
+                    None,
                     "Pause hotkey",
                     [HELP_LABEL, [DOCS_LABEL, TROUBLESHOOTING_LABEL, REPORT_BUG_LABEL]],
                     ABOUT_LABEL,
@@ -97,6 +106,14 @@ class MacosTray:
                     rumps.notification(
                         "YazSes", "", "Could not open Settings — is `yazses` on PATH?"
                     )
+
+            @rumps.clicked(MEETING_START_LABEL)
+            def _on_meeting_start(self_inner, _sender) -> None:
+                _run_meeting("meeting_start")
+
+            @rumps.clicked(MEETING_STOP_LABEL)
+            def _on_meeting_stop(self_inner, _sender) -> None:
+                _run_meeting("meeting_stop")
 
             @rumps.clicked("Pause hotkey")
             def _on_pause(self_inner, _sender) -> None:
@@ -175,6 +192,29 @@ class MacosTray:
             rumps.quit_application()
         except Exception:
             log.exception("Tray stop raised")
+
+
+def _run_meeting(action: str) -> None:
+    """Start or stop a meeting off the UI thread, reporting the daemon's answer.
+
+    Module-level for the same reason as ``_launch_settings``: importable and testable
+    without rumps, which cannot be imported on a Linux CI runner.
+
+    Threaded because starting a meeting builds the recorder and may construct a
+    diarizer; a menu-bar app blocked on that is a beachball.
+    """
+    def _work() -> None:
+        from yazses.tray.meeting import run_meeting_action
+
+        title, body = run_meeting_action(action)
+        try:
+            import rumps  # type: ignore[import-not-found]
+
+            rumps.notification("YazSes", title, body)
+        except Exception:
+            log.debug("tray notification failed", exc_info=True)
+
+    threading.Thread(target=_work, name="tray-meeting", daemon=True).start()
 
 
 def _open(url: str) -> bool:

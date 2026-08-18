@@ -79,6 +79,19 @@ that most often go wrong — the wrong microphone, and a daemon that needs a res
 
 - **Re-calibrate** — re-measures the room and writes a fitting silence threshold, for when
   dictation starts getting discarded as silence.
+- **Start meeting** / **Stop meeting** — begin and end a
+  [Meeting Mode](meeting-notes-offline.md) recording without a terminal. Meeting Mode is the one thing YazSes does that has no key to
+  hold: it runs hands-free for the whole meeting, so the icon is the only place to start it
+  from once the call has begun. Starting reports the meeting id; stopping reports that the
+  transcript is being written, which continues for a while after the click.
+
+  Both entries are always shown, and on Linux the one that cannot apply is greyed out with
+  the reason attached — *Meeting Mode is off*, *a meeting is already running*, *still
+  finishing the last meeting*. Meeting Mode is off by default, so that is the state most
+  people see first; turn it on in **Settings…** (or `yazses features enable meeting`) and
+  restart. On macOS and Windows the menu is built once when the tray starts and cannot grey
+  entries out as state changes, so both stay clickable there and YazSes answers with the same
+  reason when a click can't apply.
 - **Settings…** — opens the graphical settings window (the same thing as `yazses settings`),
   where features, the hotkey, the microphone and the silence threshold are all editable without
   hand-writing TOML.

@@ -66,6 +66,14 @@ class TrayModel:
     # "speak now" and "you are speaking into a muted mic".
     audio_level: float = 0.0
     vad_threshold: float = 0.0
+    # Meeting Mode, for the tray's Start/Stop entries. `state` covers the capturing
+    # half; these cover the two it cannot express — the feature being off, and the
+    # post-pass still running after capture ended. None means "this daemon did not say",
+    # which `meeting_entries` reads as "assume it works" rather than greying the entry
+    # out on an older daemon where it does.
+    meeting_enabled: bool | None = None
+    meeting_active: bool = False
+    meeting_finalizing: bool = False
 
 
 @dataclass(frozen=True)

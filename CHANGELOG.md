@@ -6,6 +6,32 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Meeting Mode can be started and stopped from the tray icon
+
+Meeting Mode is the one thing YazSes does with no key to hold. It runs hands-free for up
+to an hour, and the only way to begin or end one was `yazses meeting start` in a terminal
+— which is exactly what nobody has open once a call has started. **Start meeting** and
+**Stop meeting** are now in the tray click-menu on Linux, macOS and Windows.
+
+The refusal is the half worth describing. Meeting Mode ships off by default, so the state
+most people meet first is one where the entry cannot work, and a menu row that fails
+silently teaches nothing. On Linux — whose menu is rebuilt on every open — the
+inapplicable entry is greyed out with the reason attached: *Meeting Mode is off, turn it
+on in Settings*, *a meeting is already running*, *still finishing the last meeting*. The
+rumps and pystray menus are built once at startup and cannot re-derive themselves, so
+both entries stay clickable there and the daemon's own answer carries the reason.
+
+Two states drive this that nothing published before. The daemon's `state` says `meeting`
+while capturing, but it cannot say whether the feature is enabled at all, and — the one
+that actually bites — it returns to `idle` the moment capture stops while diarization and
+the notes are still being written. Without `meeting_finalizing`, the menu would cheerfully
+offer a new meeting on top of a post-pass that had not finished writing the last one.
+
+The decision of what a click may do stays in one pure function shared by all three trays,
+and the daemon remains the authority: a click always makes the call and always shows the
+answer that comes back, warnings included — including the one saying a transcript will
+come back with no speaker names because the diarization models are missing.
+
 ### Fixed — the Windows Settings window could not open, and explained itself where nobody could see
 
 Reported from a Windows install: the tray's **Settings…** and **About** entries "do not

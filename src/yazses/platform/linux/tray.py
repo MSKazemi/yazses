@@ -301,6 +301,7 @@ class LinuxTray:
             REPORT_BUG_LABEL,
             UPDATE_LABEL,
             build_menu_model,
+            meeting_entries,
         )
 
         menu.clear()
@@ -341,6 +342,19 @@ class LinuxTray:
             act.triggered.connect(lambda _checked, d=item.device: self._on_pick_device(d))
         mic_menu.addSeparator()
         mic_menu.addAction("Re-calibrate mic level").triggered.connect(self._on_recalibrate)
+
+        # Meeting Mode. This menu rebuilds on every open, so the inapplicable action is
+        # greyed out with its reason as the tooltip rather than failing on click —
+        # something the rumps and pystray menus, built once at startup, cannot do.
+        menu.addSeparator()
+        for entry in meeting_entries(status):
+            act = menu.addAction(entry.label)
+            act.setEnabled(entry.enabled)
+            if entry.reason:
+                act.setToolTip(entry.reason)
+            act.triggered.connect(
+                lambda _checked=False, a=entry.action: self._on_meeting(a)
+            )
 
         menu.addSeparator()
         menu.addAction("Restart daemon").triggered.connect(self._on_restart)
@@ -389,6 +403,25 @@ class LinuxTray:
             self._notify("YazSes", "Re-calibrating — speak normally for a few seconds…")
         else:
             self._notify("YazSes", res.get("reason", "Could not re-calibrate right now."))
+
+    def _on_meeting(self, action: str) -> None:
+        """Start or stop a meeting, reporting whatever the daemon actually answered.
+
+        A meeting has no other visible signal at the moment it begins — no window, no
+        typed text, and the badge only turns green once audio arrives — so a click that
+        said nothing would be indistinguishable from one that did nothing.
+        """
+        from yazses.tray.meeting import START, describe
+
+        if self._controller is None:
+            return
+        res = (
+            self._controller.start_meeting() if action == START
+            else self._controller.stop_meeting()
+        )
+        # The controller does the call (its IPC client is already open); the wording
+        # comes from the shared describer, so the same click reads the same on every OS.
+        self._notify(*describe(action, res))
 
     def _on_restart(self) -> None:
         if self._controller is not None:

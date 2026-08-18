@@ -190,6 +190,13 @@ def run() -> None:
                         # auto-healed. Declaring the field without reading it here would
                         # just move the wrong answer one layer down.
                         input_device=info.get("input_device"),
+                        # Meeting Mode's Start/Stop entries. `.get` with no default
+                        # rather than `bool(...)` for the first one: None means an
+                        # older daemon that never sent the key, and that is a
+                        # different answer from "the feature is off".
+                        meeting_enabled=info.get("meeting_enabled"),
+                        meeting_active=bool(info.get("meeting_active")),
+                        meeting_finalizing=bool(info.get("meeting_finalizing")),
                     )
                 )
                 # Toasts the daemon could not show itself (no libnotify — Windows,

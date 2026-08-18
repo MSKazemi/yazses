@@ -17,6 +17,8 @@ from yazses.tray.about import about_title, balloon_body, help_links
 from yazses.tray.menu import (
     ABOUT_LABEL,
     HELP_LABEL,
+    MEETING_START_LABEL,
+    MEETING_STOP_LABEL,
     SETTINGS_LABEL,
     UPDATE_LABEL,
     icon_spec,
@@ -119,6 +121,21 @@ class WindowsTray:
 
             threading.Thread(target=_work, name="tray-update-check", daemon=True).start()
 
+        def _meeting_clicked(action: str):
+            def _handler(icon, _item) -> None:  # noqa: ANN001
+                # Off the UI thread: starting a meeting builds the recorder and may
+                # construct a diarizer, and a pystray menu blocked on that is a frozen
+                # icon. The daemon's own answer — including a refusal — comes back as
+                # the notification.
+                def _work() -> None:
+                    from yazses.tray.meeting import run_meeting_action
+
+                    _notify(icon, *run_meeting_action(action))
+
+                threading.Thread(target=_work, name="tray-meeting", daemon=True).start()
+
+            return _handler
+
         # The same Help/About/update entries the Linux and macOS trays have. "Help" used
         # to be a disabled placeholder here — a menu item that did nothing when clicked.
         help_menu = pystray.Menu(
@@ -129,6 +146,13 @@ class WindowsTray:
             pystray.Menu.SEPARATOR,
             # The same entry the Linux and macOS trays have (#63).
             pystray.MenuItem(SETTINGS_LABEL, _settings_clicked),
+            pystray.Menu.SEPARATOR,
+            # Meeting Mode. Both entries are always present and always clickable: a
+            # pystray menu is built once here and cannot be re-derived per open the way
+            # the Qt tray's is, so the daemon's refusal ("a meeting is already running")
+            # is what tells the user which of the two applied.
+            pystray.MenuItem(MEETING_START_LABEL, _meeting_clicked("meeting_start")),
+            pystray.MenuItem(MEETING_STOP_LABEL, _meeting_clicked("meeting_stop")),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Pause hotkey", None, enabled=False),
             pystray.MenuItem(HELP_LABEL, help_menu),

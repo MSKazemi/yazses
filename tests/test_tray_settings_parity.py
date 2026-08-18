@@ -37,6 +37,8 @@ SHARED_LABELS = [
     menu_mod.TROUBLESHOOTING_LABEL,
     menu_mod.REPORT_BUG_LABEL,
     menu_mod.UPDATE_LABEL,
+    menu_mod.MEETING_START_LABEL,
+    menu_mod.MEETING_STOP_LABEL,
 ]
 
 # entry -> the names a tray may use to render it. The Help sub-links are driven by
@@ -48,6 +50,11 @@ SHARED_ENTRIES = {
     "Help": ("HELP_LABEL",),
     "Help links": ("help_links", "DOCS_LABEL"),
     "Check for updates…": ("UPDATE_LABEL",),
+    # Meeting Mode is the one capability with no key to hold, so the tray is the
+    # only surface that can start or end one without a terminal. The Qt tray derives
+    # both entries from `meeting_entries`; the static menus import the constants.
+    "Start meeting": ("MEETING_START_LABEL", "meeting_entries"),
+    "Stop meeting": ("MEETING_STOP_LABEL", "meeting_entries"),
 }
 
 # entry -> the names that prove a click actually does something.
@@ -58,6 +65,11 @@ ENTRY_HANDLERS = {
     "Check for updates…": (
         "check_and_describe", "check_updates", "_on_check_updates", "_update_clicked",
     ),
+    # One name each, because Start and Stop must not collapse onto a single handler:
+    # a tray that wired both to "start" would look right in every source-text check
+    # while making it impossible to end a meeting from the icon.
+    "Start meeting": ("_on_meeting_start", "_meeting_clicked", "start_meeting"),
+    "Stop meeting": ("_on_meeting_stop", "_meeting_clicked", "stop_meeting"),
 }
 
 

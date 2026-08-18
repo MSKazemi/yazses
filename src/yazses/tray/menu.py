@@ -37,6 +37,11 @@ DOCS_LABEL = "Documentation"
 TROUBLESHOOTING_LABEL = "Troubleshooting"
 REPORT_BUG_LABEL = "Report a bug…"
 UPDATE_LABEL = "Check for updates…"
+# Meeting Mode's two live actions. Meeting Mode is the one capability with no key to
+# hold — it runs hands-free for an hour — so until now the only way to begin or end one
+# was a terminal, which is exactly what you do not have open in a meeting.
+MEETING_START_LABEL = "Start meeting"
+MEETING_STOP_LABEL = "Stop meeting"
 # Actively capturing/handling your dictation → green. Everything else that is not a
 # problem → blue (normal). Meeting Mode also captures audio, so it is green too.
 _RECORDING_STATES = frozenset(
@@ -111,6 +116,95 @@ def build_menu_model(
         devices=items,
         settings_label=SETTINGS_LABEL,
     )
+
+
+@dataclass(frozen=True)
+class MeetingEntry:
+    """One Meeting Mode menu entry, and whether clicking it can do anything.
+
+    ``reason`` is never None when ``enabled`` is False. A greyed-out entry with no
+    explanation is worse than no entry at all: the user is left deciding between "this
+    is broken" and "I am not allowed", and the answer is usually neither.
+    """
+
+    label: str
+    action: str          # the IPC method a click invokes
+    enabled: bool
+    reason: str | None = None
+
+
+# The daemon's own guard in `_handle_meeting_start`: a meeting may only begin from a
+# resting state, because starting one mid-dictation would take the microphone away from
+# a burst in progress.
+_MEETING_START_STATES = frozenset({"idle", "paused"})
+
+
+def meeting_entries(status: dict) -> list[MeetingEntry]:
+    """The Start/Stop meeting entries for *status*. Pure.
+
+    Both entries are always returned, in a fixed order, because two of the three trays
+    build their menu once at startup and cannot swap a label later. So the shape has to
+    be the same every tick, and it is the *enabled* flag that moves.
+
+    **The daemon decides; this predicts.** Every rule below mirrors one the daemon
+    enforces in `_handle_meeting_start`, and a prediction that disagrees with it is a
+    bug in this function, not a licence for the tray to act. That is why a click still
+    sends the IPC call and still shows whatever ``reason`` comes back: this layer exists
+    to grey out a doomed click and say why, not to become a second authority on when a
+    meeting may run.
+    """
+    state = str(status.get("state") or "idle")
+    active = bool(status.get("meeting_active")) or state == "meeting"
+    finalizing = bool(status.get("meeting_finalizing"))
+    # Absent on an older daemon that predates the field. Treating that as "off" would
+    # grey the entry out on a daemon where Meeting Mode works perfectly well, so the
+    # benefit of the doubt goes to enabled and the daemon refuses if it is wrong.
+    enabled_raw = status.get("meeting_enabled")
+    feature_on = True if enabled_raw is None else bool(enabled_raw)
+    # `ready` is likewise absent from a bare model-derived status; only an explicit
+    # False means "still loading".
+    loading = status.get("ready") is False
+
+    def _blocked() -> str | None:
+        """A reason that stops *both* actions, or None."""
+        if not feature_on:
+            return (
+                "Meeting Mode is off — turn it on in Settings, then restart YazSes."
+            )
+        if loading:
+            return "YazSes is still starting up."
+        if finalizing:
+            return "Still finishing the last meeting — transcribing and writing it up."
+        return None
+
+    blocked = _blocked()
+    if blocked is not None:
+        return [
+            MeetingEntry(MEETING_START_LABEL, "meeting_start", False, blocked),
+            MeetingEntry(MEETING_STOP_LABEL, "meeting_stop", False, blocked),
+        ]
+
+    if active:
+        return [
+            MeetingEntry(
+                MEETING_START_LABEL, "meeting_start", False,
+                "A meeting is already running.",
+            ),
+            MeetingEntry(MEETING_STOP_LABEL, "meeting_stop", True),
+        ]
+
+    start_reason = (
+        None if state in _MEETING_START_STATES
+        else f"YazSes is busy ({state}) — try again in a moment."
+    )
+    return [
+        MeetingEntry(
+            MEETING_START_LABEL, "meeting_start", start_reason is None, start_reason
+        ),
+        MeetingEntry(
+            MEETING_STOP_LABEL, "meeting_stop", False, "No meeting is running."
+        ),
+    ]
 
 
 def _silent_streak_limit(status: dict) -> int:
@@ -232,6 +326,13 @@ def status_from_model(model: TrayModel) -> dict:
         # backend that cannot draw a ring simply ignores them.
         "audio_level": model.audio_level,
         "vad_threshold": model.vad_threshold,
+        # Meeting Mode's Start/Stop entries read these. Same reasoning as the two
+        # above: they belong in the one shared bridge, so a tray cannot end up with a
+        # menu entry that is permanently greyed out because its own hand-built dict
+        # forgot a key.
+        "meeting_enabled": model.meeting_enabled,
+        "meeting_active": model.meeting_active,
+        "meeting_finalizing": model.meeting_finalizing,
     }
 
 

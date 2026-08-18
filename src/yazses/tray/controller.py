@@ -140,6 +140,27 @@ class TrayController:
         """Ask the daemon to shut down."""
         return self._call("shutdown")
 
+    # ---- Meeting Mode (live, over IPC) ------------------------------------
+    def start_meeting(self) -> dict:
+        """Begin a hands-free meeting recording.
+
+        Returns the daemon's own answer, including its ``reason`` when it refuses and
+        its ``warning`` when speaker labels are requested but the diarization models are
+        missing. Both are passed through untouched: the tray guesses at what is possible
+        so it can grey out a doomed click, but only the daemon knows, and paraphrasing
+        its refusal here is how the two come to disagree.
+        """
+        return self._call("meeting_start")
+
+    def stop_meeting(self) -> dict:
+        """End the running meeting and kick off its transcription post-pass.
+
+        Returns as soon as capture has stopped — the diarization and note-writing run on
+        a daemon thread afterwards, which is why ``meeting_finalizing`` exists and why
+        the menu stays greyed out for a while after this returns ok.
+        """
+        return self._call("meeting_stop")
+
     # ---- help / about / updates -------------------------------------------
     def open_url(self, url: str) -> bool:
         """Open a docs/issues URL in the browser. Returns whether it was handed off."""
