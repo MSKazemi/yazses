@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — "speaker labels unavailable" recommended a 45 MB download that fixes nothing
+
+`yazses meeting status` computed *why* speaker labels were unavailable — correctly
+distinguishing "the Python package is missing" from "the model files are missing" —
+and then printed the same remedy for both: `yazses transcribe --download-models`.
+With the extra missing, that fetches ~45 MB, changes nothing (the absent thing is an
+importable module), and returns the identical message. The daemon's `meeting start`
+warning named both remedies unconditionally, which is better but still asks for a
+step that cannot be acted on yet.
+
+Both now go through one `diarization_advice()`, which names **the next action, not
+the whole path**: with the extra missing, `yazses features enable meeting` is the one
+command, and the message says the models follow. Mentioning a second step the user
+cannot take yet is how the wrong one gets attempted first.
+
+Two cases it now handles that neither surface did: a `pyannote` backend is never told
+to "run" a download, because its pipeline is a *gated* repo and a missing cache may
+mean the terms were never accepted — that is only knowable by trying; and
+`[meeting] diarize = true` with a backend that cannot diarize is reported as the
+config fault it is, rather than sending someone to install something that would change
+nothing.
+
 ### Fixed — the Settings window told you to run a command that does not exist
 
 The model dropdown's tooltip said *"Same list as `yazses models`"*, and

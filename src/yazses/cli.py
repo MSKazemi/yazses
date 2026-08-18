@@ -303,10 +303,19 @@ def meeting_status() -> None:
         typer.echo("Finalizing the last meeting (transcribing + diarizing)…")
     else:
         diar = result.get("diarization")
-        if diar and diar.get("requested") and not diar.get("ready"):
-            what = "extra not installed" if not diar.get("extra_installed") else "models missing"
-            typer.echo(f"Speaker labels: unavailable ({what}) — "
-                       "run `yazses transcribe --download-models`.")
+        if diar:
+            # One implementation of "why not, and what to do", shared with the
+            # daemon's `meeting start` warning. This used to recompute the cause
+            # correctly and then recommend `--download-models` whichever it was —
+            # a ~45 MB download that fixes nothing when the missing piece is a
+            # Python package.
+            from yazses.recimport.factory import diarization_advice
+
+            # The advice opens with "Speaker labels are on but…", so it is printed
+            # as-is; prefixing it produced "Speaker labels: unavailable — Speaker
+            # labels are on but…".
+            if advice := diarization_advice(diar):
+                typer.echo(advice)
         recent = result.get("recent", [])
         if not recent:
             typer.echo("No meetings yet. Start one with: yazses meeting start")

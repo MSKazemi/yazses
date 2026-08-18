@@ -3188,13 +3188,14 @@ class Daemon:
             from yazses.recimport.factory import diarization_status
 
             diar = diarization_status(cfg)
-            if not diar["ready"]:
-                miss = "the diarization extra" if not diar["extra_installed"] else "the speaker models"
-                resp["warning"] = (
-                    f"Speaker labels are on but {miss} are missing — this meeting's "
-                    "transcript will not be attributed. Install with `yazses features "
-                    "enable meeting` and fetch models via `yazses transcribe --download-models`."
-                )
+            # Same advice `yazses meeting status` prints, from one implementation.
+            # This used to name both remedies unconditionally, which asks the user to
+            # do a step they cannot act on yet — and the CLI's copy named only the
+            # wrong one. Two surfaces phrasing one fault differently is the shape.
+            from yazses.recimport.factory import diarization_advice
+
+            if advice := diarization_advice(diar):
+                resp["warning"] = advice
         return resp
 
     def _handle_meeting_status(self, _request: Request) -> dict[str, object]:
