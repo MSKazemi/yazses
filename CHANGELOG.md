@@ -6,6 +6,60 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — an actionable notification outlived the process that raised it, forever
+
+A toast offering **[Prepare a bug report]** runs `notify-send --wait`, which blocks
+until someone clicks it, and `--urgency critical` means it never expires on its own.
+That wait ran on a **daemon** thread, and its 120-second cap lived inside that thread —
+so it only ever fired in a process that stayed alive long enough to reach it. In the
+long-lived daemon it did; in every short-lived process it could not. A CLI command,
+`yazses verify`, or one `pytest` run exits in seconds, the daemon thread is abandoned
+without unwinding, its `except TimeoutExpired` never runs, nobody calls `kill()`, and
+the pop-up is reparented to `systemd --user` and stays on the desktop until the session
+ends. A machine running the suite on a loop accumulated 33 of them in 75 minutes, each
+describing an injection failure that had never happened.
+
+In-flight toasts are now tracked and killed at interpreter exit, so one dies with
+whatever raised it; a toast started as the interpreter goes down is not started at all,
+rather than spawned into the gap after the shutdown hook stopped looking.
+
+Separately, the four daemon-level tests that drive a deliberately failing injection or
+capture were popping *real* pop-ups on the developer's screen. None of them was written
+wrong — three predate `_report_failure` entirely, and adding it dropped a `notify()`
+into `except` blocks they had been exercising all along, so the side effect arrived
+without a single test changing. The suite is now hermetic against the notifier at the
+source, the way it already is against the user's real log file.
+
+### Added — one guard for every link YazSes shows you
+
+A URL in a shipped string is compiled into the `.exe`, the `.dmg`, the snap and the
+`.deb`. If it 404s, the person who finds out is the user, alone, at the moment they
+were already stuck.
+
+Three instances of that shape landed in three days — a diagnosis module linking three
+how-to pages that have never existed, a bundle reading `yazses.log` where the file is
+`daemon.log`, and a tooltip naming `yazses models` where the command is
+`yazses model list`. Each got a guard afterwards, one per module. This is the general
+one: every docs link in a user-visible string must resolve to a real page, must end
+`.html` (the site sets `use_directory_urls: false`, so `<name>/` is a 404), and any
+link to a repo *named* yazses must be under `MSKazemi`.
+
+It reads **f-strings**, which is how the diagnosis module builds every URL. Without
+that the guard was vacuous for the very file it was written to generalise: an
+`ast.Constant` scan sees only the fragment `"/page.html"`, which carries no site
+prefix and matches nothing. Docstrings are excluded — they are developer-facing, and
+holding them to a user-visible standard produces noise rather than findings.
+
+### Fixed — a flaky test that could fail the whole gate at random
+
+`test_notifier_available_uses_which` failed once in a full run, then passed alone and
+on the next run. The file captured the real `notifier_available` at **import time**, on
+the stated assumption that imports happen before the autouse fixture that stubs it —
+and the failure was `assert False is True`, exactly what that stub returns. The
+mechanism was not pinned down, so the assumption was removed rather than reasoned
+about: the module is now executed into a private namespace that no patch of the
+installed one can reach.
+
 ### Fixed — `gitvoice` threw away the branch you named, on `push` alone
 
 Every ref-taking rule in the spoken-git grammar captures its ref — except `push`.

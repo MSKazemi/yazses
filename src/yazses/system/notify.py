@@ -13,6 +13,7 @@ the daemon. macOS/Windows backends are a future extension; this is the Linux pat
 """
 from __future__ import annotations
 
+import atexit
 import logging
 import shutil
 import subprocess
@@ -27,6 +28,47 @@ _APP_NAME = "YazSes"
 # Actionable notifications block on --wait until clicked or dismissed. Cap it so a
 # forgotten toast can't pin a daemon thread forever.
 _ACTION_TIMEOUT_S = 120.0
+
+# Every actionable toast currently blocked on --wait. Tracked because the cap above
+# is enforced *inside* the worker thread, and a thread is not where a process's last
+# word is spoken: the thread is a daemon thread, so when the interpreter exits it is
+# abandoned without unwinding, its `except TimeoutExpired` never runs, and nothing
+# ever kills `notify-send`. In the long-lived daemon the cap fires and that is
+# invisible; in every short-lived process -- a CLI command, `yazses verify`, a test
+# run -- the process is gone in seconds and the toast is orphaned onto the user's
+# desktop for good. One test suite leaked four per run, forever.
+#
+# `--urgency critical` is what makes it permanent rather than merely untidy: a
+# critical notification never expires on its own (freedesktop spec), so `--wait`
+# has nothing to wait for once no one is left to click it.
+_inflight: set[subprocess.Popen] = set()
+_inflight_lock = threading.Lock()
+_shutting_down = False
+
+
+def _kill_inflight() -> None:
+    """Kill every toast still waiting for a click. Runs at interpreter exit.
+
+    Registered with `atexit`, which runs on the main thread *before* daemon threads
+    are torn down -- so this is the one place that still gets to speak for them.
+    Never raises: it runs during shutdown, where an exception is both useless and
+    ugly, and a toast we failed to kill is not worth a traceback on the way out.
+    """
+    global _shutting_down
+    with _inflight_lock:
+        _shutting_down = True
+        procs = list(_inflight)
+        _inflight.clear()
+    for proc in procs:
+        try:
+            if proc.poll() is None:
+                proc.kill()
+                proc.wait(timeout=1.0)
+        except Exception:  # pragma: no cover - shutdown is not a place to fail
+            pass
+
+
+atexit.register(_kill_inflight)
 
 
 @dataclass(frozen=True)
@@ -130,6 +172,7 @@ def notify(
     actions: list[NotifyAction] | None = None,
     on_action: Callable[[str], None] | None = None,
     runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+    spawner: Callable[..., subprocess.Popen] = subprocess.Popen,
     available: bool | None = None,
     actions_supported: bool | None = None,
     spawn: bool = True,
@@ -142,8 +185,11 @@ def notify(
     informational toast is shown (its ``body`` should already spell out the fix). When
     ``notify-send`` is missing, the message is logged only.
 
-    ``available``/``actions_supported`` override the capability probes (for tests);
-    ``spawn=False`` runs the actionable path inline instead of on a thread (for tests).
+    ``runner`` spawns the plain toast and the capability probe (both return promptly);
+    ``spawner`` starts the actionable one, whose lifetime we must own -- see
+    ``_kill_inflight``. ``available``/``actions_supported`` override the capability
+    probes (for tests); ``spawn=False`` runs the actionable path inline instead of on
+    a thread (for tests).
     """
     avail = notifier_available() if available is None else available
     if not avail:
@@ -173,12 +219,34 @@ def notify(
         argv = build_notify_argv(
             title, body, urgency=urgency, icon=icon, actions=actions, wait=True
         )
+        # Spawn and register under one lock, so a toast started as the interpreter is
+        # going down is either killed by `_kill_inflight` or never started at all --
+        # never spawned into the gap just after it stopped looking.
         try:
-            proc = runner(argv, capture_output=True, text=True, timeout=_ACTION_TIMEOUT_S)
+            with _inflight_lock:
+                if _shutting_down:
+                    return
+                proc = spawner(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                _inflight.add(proc)
+        except Exception as exc:
+            log.debug("actionable notify-send failed to start: %s", exc)
+            return
+
+        try:
+            stdout, _ = proc.communicate(timeout=_ACTION_TIMEOUT_S)
         except Exception as exc:
             log.debug("actionable notify-send failed: %s", exc)
+            try:
+                proc.kill()
+                proc.communicate(timeout=1.0)
+            except Exception:
+                log.debug("could not kill a timed-out notify-send", exc_info=True)
             return
-        key = parse_action_result(getattr(proc, "stdout", ""), actions)
+        finally:
+            with _inflight_lock:
+                _inflight.discard(proc)
+
+        key = parse_action_result(stdout, actions)
         if key and on_action is not None:
             try:
                 on_action(key)
