@@ -3259,18 +3259,19 @@ def case(
     without hand-editing it.
 
     With --style, recases the whole TEXT. Without it, detects a spoken style command
-    ('make this snake case: …') and recases the remainder. Reads the TEXT argument,
+    ('make this snake case …') and recases the remainder. The colon is optional --
+    it cannot be dictated. Reads the TEXT argument,
     or standard input when omitted.
     """
     import sys as _sys
 
-    from yazses.casetransform.transform import detect_style_command, transform_case
+    from yazses.casetransform.transform import split_style_command, transform_case
 
     src = text if text is not None else _sys.stdin.read()
     chosen = style
     payload = src
     if chosen is None:
-        chosen = detect_style_command(src)
+        chosen, payload = split_style_command(src)
         if chosen is None:
             typer.echo(
                 "No --style given and no spoken style command detected. "
@@ -3278,9 +3279,7 @@ def case(
                 err=True,
             )
             raise typer.Exit(1)
-        # strip a leading "make this … case:" command so only the payload is recased
-        if ":" in src:
-            payload = src.split(":", 1)[1]
+
     typer.echo(transform_case(payload.strip(), chosen))
 
 

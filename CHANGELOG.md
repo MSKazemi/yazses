@@ -6,6 +6,24 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses case` required a colon you cannot dictate
+
+The documented spoken form is *"make this snake case: …"*, and the CLI stripped the
+directive with `if ":" in src: payload = src.split(":", 1)[1]`. Said aloud there is no
+colon, so the directive was recased along with the text — and the command answered
+confidently rather than refusing:
+
+    make this snake case: hello world  ->  hello_world                       ✓
+    make this snake case hello world   ->  make_this_snake_case_hello_world  ✗
+
+A plausible wrong answer, which is precisely the failure `gitvoice` avoids by design.
+
+The directive is now located by its style phrase and the remainder taken as the payload,
+so the colon is optional. Trailing forms work too (*"hello world in snake case"*), and
+the payload is sliced from the original string rather than the lower-cased copy used for
+matching, so `make this snake case MyThing` still yields `my_thing` instead of losing its
+word boundaries first.
+
 ### Added — spoken separators in branch names (`dash`, `hyphen`, `underscore`, `dot`)
 
 `feature/login` and `fix-tray-crash` are both ordinary branch conventions, and neither
