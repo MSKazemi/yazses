@@ -6,6 +6,48 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — four more settings in the window, chosen for how each one fails
+
+The settings window covered 147 capability toggles and, until recently, three
+values. `[stt] model`, `[stt] language` and `[injection] backend` arrived last
+week; this adds **compute type, vocabulary, the no-text-target guard and
+pre-speech padding**. All four were editable only by hand-writing TOML.
+
+They were picked for their failure modes rather than their popularity:
+
+**Compute type** is the accuracy/speed lever below model size, and an unsupported
+value produces the worst error message in the product. It raises inside the model
+load, and that is re-raised as `ModelUnavailableError` — so the user is told their
+*model* is unavailable and handed three ways to download a model they already have.
+Nothing anywhere mentions quantisation. The list is now asked of ctranslate2 for the
+configured device, so it can only offer what this machine can actually load. That
+also means a value shown because it is already in the config is still refused when
+selected — displaying a value must not make it settable.
+
+**Vocabulary** (`[stt] initial_prompt`) is what `yazses tune` proposes additions to;
+accepting one previously meant editing TOML. Newlines are collapsed, because a
+literal newline makes the file unparseable and the loader's repair falls the whole
+`[stt]` section back to defaults — so pasting a two-line vocabulary would silently
+reset the model and the language with it.
+
+**Nowhere to type** (`[injection] target_guard`) is the setting behind the tray's
+yellow badge, and the daemon compares it against `"off"` and treats everything else
+as on — so an unrecognised value silently means "clipboard" while reading back as
+whatever was typed. Refused rather than accepted.
+
+**Pre-speech padding** is the fix for a symptom nobody connects to a setting: the
+first word of every burst going missing.
+
+The Apply loop had to stop assuming every row is a combo box — a `QLineEdit` has no
+`currentText()` and a `QSpinBox` has no `currentData()` — so each row now carries its
+own reader. Wiring one to the wrong widget type raises inside a Qt slot, where the
+traceback goes nowhere a user can see, so the window tests drive all four through a
+real Apply rather than trusting the unit tests next door.
+
+The settings-window documentation had also fallen behind the previous three
+additions, and still described "the three settings that are values rather than
+switches". It now lists all ten.
+
 ### Added — Meeting Mode can be started and stopped from the tray icon
 
 Meeting Mode is the one thing YazSes does with no key to hold. It runs hands-free for up

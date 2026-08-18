@@ -295,24 +295,44 @@ class SettingsWindow:
         return line
 
     def _build_speech_rows(self, model: SettingsModel):
-        """Model, language and injection backend — what YazSes hears and how it types.
+        """What YazSes hears, how it decodes, and how the text gets out.
 
-        These are the three highest-leverage settings in the product and were, until
-        now, reachable only by hand-editing TOML: the window offered 147 capability
-        toggles and could not change which model transcribed you or what language it
-        expected.
+        These are the highest-leverage settings in the product and were, until
+        recently, reachable only by hand-editing TOML: the window offered 147
+        capability toggles and could not change which model transcribed you or what
+        language it expected.
 
-        The model and language boxes are deliberately *not* independent. An `.en`
-        checkpoint has no language tokens, so pairing it with another language yields
-        fluent English nonsense rather than an error — the controller refuses the
-        pair, and this only has to report that refusal.
+        Three of them exist here mainly for the way they can be *wrong*, which is the
+        argument for a window over a text editor:
+
+        * **model + language are not independent.** An `.en` checkpoint has no
+          language tokens, so pairing it with another language yields fluent English
+          nonsense rather than an error. The controller refuses the pair.
+        * **compute type is a property of the machine.** An unsupported value raises
+          inside the model load and is reported as *"model unavailable"*, naming the
+          wrong cause entirely. The list comes from ctranslate2's own answer for this
+          CPU, so an unloadable value cannot be picked.
+        * **pre-speech padding is the fix for a symptom nobody connects to a
+          setting** — the first word of each burst going missing.
         """
-        from PySide6.QtWidgets import QComboBox, QFormLayout, QGroupBox, QLabel
+        from PySide6.QtWidgets import (
+            QComboBox,
+            QFormLayout,
+            QGroupBox,
+            QLabel,
+            QLineEdit,
+            QSpinBox,
+        )
 
         from yazses.settingsui.controls import (
             INJECTION_BACKENDS,
+            PADDING_MAX_MS,
+            PADDING_MIN_MS,
+            clamp_padding_ms,
+            compute_type_choices,
             language_choices,
             model_choices,
+            target_guard_choices,
         )
         from yazses.stt.download import WHISPER_MODELS
 
@@ -356,6 +376,39 @@ class SettingsWindow:
         self._language_baseline = model.language
         form.addRow(QLabel("Language:"), language_box)
 
+        computes = compute_type_choices(model.stt_device, current=model.compute_type)
+        compute_box = QComboBox()
+        compute_box.addItems(computes)
+        if model.compute_type in computes:
+            compute_box.setCurrentIndex(computes.index(model.compute_type))
+        compute_box.setAccessibleName("Compute type")
+        compute_box.setToolTip(
+            "How the model's weights are quantised — the accuracy/speed lever "
+            "below model size.\n"
+            "int8 is the shipped default: fastest on CPU, and the difference on "
+            "clean speech is small.\n"
+            "float32 is the most accurate and roughly 2-4x slower.\n"
+            f"This list is what ctranslate2 reports for {model.stt_device!r} on this "
+            "machine, so it cannot offer one that fails to load."
+        )
+        self._compute_box = compute_box
+        self._compute_baseline = model.compute_type
+        form.addRow(QLabel("Compute type:"), compute_box)
+
+        prompt_edit = QLineEdit(model.initial_prompt)
+        prompt_edit.setPlaceholderText("Names, jargon and spellings to expect — e.g. YazSes, Kubernetes, Seyedkazemi")
+        prompt_edit.setAccessibleName("Vocabulary")
+        prompt_edit.setToolTip(
+            "Words primed into the decoder so it spells them your way.\n"
+            "Most useful for proper nouns and domain jargon it keeps getting "
+            "wrong — write them as you would say them, separated by commas.\n"
+            "`yazses tune` proposes additions here from what you actually dictate.\n"
+            "Ignored by the Parakeet engine, which has no prompt input."
+        )
+        self._prompt_edit = prompt_edit
+        self._prompt_baseline = model.initial_prompt
+        form.addRow(QLabel("Vocabulary:"), prompt_edit)
+
         backend_box = QComboBox()
         backend_box.addItems(INJECTION_BACKENDS)
         if model.injection_backend in INJECTION_BACKENDS:
@@ -370,6 +423,42 @@ class SettingsWindow:
         self._backend_box = backend_box
         self._backend_baseline = model.injection_backend
         form.addRow(QLabel("Text injection:"), backend_box)
+
+        guards = target_guard_choices(current=model.target_guard)
+        guard_box = QComboBox()
+        for label, value in guards:
+            guard_box.addItem(label, value)
+        for index, (_label, value) in enumerate(guards):
+            if value == model.target_guard:
+                guard_box.setCurrentIndex(index)
+                break
+        guard_box.setAccessibleName("No text field focused")
+        guard_box.setToolTip(
+            "What to do when you dictate with no editable field focused, so the "
+            "words would go nowhere or land in the wrong place.\n"
+            "This is the state the tray icon shows in yellow.\n"
+            "The guard only acts when YazSes is confident there is no target, so "
+            "it does not interfere with normal dictation."
+        )
+        self._guard_box = guard_box
+        self._guard_baseline = model.target_guard
+        form.addRow(QLabel("Nowhere to type:"), guard_box)
+
+        padding = QSpinBox()
+        padding.setRange(PADDING_MIN_MS, PADDING_MAX_MS)
+        padding.setSingleStep(50)
+        padding.setSuffix(" ms")
+        padding.setValue(clamp_padding_ms(model.pre_speech_padding_ms))
+        padding.setAccessibleName("Pre-speech padding")
+        padding.setToolTip(
+            "Silence prepended before the audio is decoded.\n"
+            "Raise this if the first word of a burst keeps getting cut off — "
+            "Whisper needs a moment of lead-in before it starts hearing.\n"
+            "Costs nothing but a few milliseconds of decode per burst."
+        )
+        self._padding_spin = padding
+        self._padding_baseline = clamp_padding_ms(model.pre_speech_padding_ms)
+        form.addRow(QLabel("Pre-speech padding:"), padding)
 
         return box
 
@@ -859,33 +948,76 @@ class SettingsWindow:
         if chosen_language is None:
             chosen_language = ""
 
-        for attr, baseline_attr, setter, what, use_data in (
+        # How to read each widget. A combo box answers with its text or its hidden
+        # data, a line edit and a spin box with neither — so the reader travels with
+        # the row instead of a `use_data` flag that only ever described combo boxes.
+        def _text(widget):
+            return widget.currentText().strip()
+
+        def _data(widget):
+            return widget.currentData()
+
+        def _line(widget):
+            return widget.text()
+
+        def _number(widget):
+            return int(widget.value())
+
+        for attr, baseline_attr, setter, what, read in (
             (
                 "_model_box",
                 "_model_baseline",
                 lambda value: self._controller.set_stt_model(value, language=chosen_language),
                 "model",
-                False,
+                _text,
             ),
             (
                 "_language_box",
                 "_language_baseline",
                 lambda value: self._controller.set_language(value, model=chosen_model),
                 "language",
-                True,
+                _data,
+            ),
+            (
+                "_compute_box",
+                "_compute_baseline",
+                self._controller.set_compute_type,
+                "compute type",
+                _text,
+            ),
+            (
+                "_prompt_edit",
+                "_prompt_baseline",
+                self._controller.set_initial_prompt,
+                "vocabulary",
+                _line,
             ),
             (
                 "_backend_box",
                 "_backend_baseline",
                 self._controller.set_injection_backend,
                 "text injection backend",
-                False,
+                _text,
+            ),
+            (
+                "_guard_box",
+                "_guard_baseline",
+                self._controller.set_target_guard,
+                "no-text-target guard",
+                _data,
+            ),
+            (
+                "_padding_spin",
+                "_padding_baseline",
+                self._controller.set_pre_speech_padding,
+                "pre-speech padding",
+                _number,
             ),
         ):
             widget = getattr(self, attr, None)
             if widget is None:  # pragma: no cover - the rows are always built
                 continue
-            chosen = widget.currentData() if use_data else widget.currentText().strip()
+            chosen = read(widget)
             if chosen is None:
                 continue
             if chosen == getattr(self, baseline_attr):

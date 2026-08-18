@@ -86,6 +86,25 @@ class SettingsModel:
     language: str = ""
     # `[injection] backend` — how the finished text reaches the focused window.
     injection_backend: str = "auto"
+    # `[stt] device`, needed only to ask ctranslate2 which quantisations are
+    # available *here*. Not itself editable in the window: changing cpu→cuda without
+    # a CUDA build is a config that cannot start, and the window has no way to check.
+    stt_device: str = "cpu"
+    # `[stt] compute_type` — the accuracy/speed lever below model size. An
+    # unsupported value surfaces as "model unavailable" at next start, blaming the
+    # wrong thing entirely, so the window offers only what this machine reports.
+    compute_type: str = "int8"
+    # `[stt] initial_prompt` — vocabulary primed into the decoder so it spells your
+    # names and jargon. `yazses tune` proposes additions to this from the corpus;
+    # until now, accepting one meant hand-editing TOML.
+    initial_prompt: str = ""
+    # `[injection] target_guard` — what happens when you dictate with no editable
+    # field focused. The tray already has a colour for this state; this is the
+    # setting behind it.
+    target_guard: str = "clipboard"
+    # `[accessibility] pre_speech_padding_ms` — silence prepended before decode so
+    # faster-whisper does not clip the first word.
+    pre_speech_padding_ms: int = 300
 
     def rows(self) -> tuple[SettingRow, ...]:
         return tuple(row for group in self.groups for row in group.rows)
@@ -116,6 +135,11 @@ def build_settings_model(cfg: Config) -> SettingsModel:
         stt_model=cfg.stt.model,
         language=cfg.stt.language,
         injection_backend=cfg.injection.backend,
+        stt_device=cfg.stt.device,
+        compute_type=cfg.stt.compute_type,
+        initial_prompt=cfg.stt.initial_prompt,
+        target_guard=cfg.injection.target_guard,
+        pre_speech_padding_ms=cfg.accessibility.pre_speech_padding_ms,
     )
 
 

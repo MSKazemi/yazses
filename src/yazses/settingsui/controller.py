@@ -348,6 +348,126 @@ class SettingsController:
             return ToggleResult(ok=False, error=f"Could not save the injection backend: {exc}")
         return ToggleResult(ok=True)
 
+    def set_compute_type(self, name: str, device: str | None = None) -> ToggleResult:
+        """Choose the quantisation, refusing one this machine cannot run.
+
+        The refusal is the reason this is worth exposing at all. An unsupported
+        compute type raises inside `WhisperModel(...)`, which `stt/faster_whisper.py`
+        catches and re-raises as `ModelUnavailableError` — so the user is told their
+        *model* is unavailable and given three ways to download a model they already
+        have. Nothing mentions quantisation. Refusing at write time replaces a
+        misdiagnosis at next start with an accurate message now.
+
+        *device* names the device to check against; omitted, it is read from the
+        config, since a machine's supported set differs between cpu and cuda.
+        """
+        from yazses.settingsui.controls import compute_type_choices
+
+        cleaned = (name or "").strip()
+        if not cleaned:
+            return ToggleResult(
+                ok=False, error="Pick a compute type — an empty value has no default here."
+            )
+
+        if device is None:
+            try:
+                cfg = self._load_config()
+            except Exception as exc:  # pragma: no cover - load_config is total
+                return ToggleResult(ok=False, error=f"Could not read the config: {exc}")
+            device = getattr(getattr(cfg, "stt", None), "device", "") or "cpu"
+
+        # `compute_type_choices` keeps a configured-but-unsupported value in the list
+        # so the box can show it; that must not make it *settable*, or the refusal
+        # would pass anything already in the file. So the supported set is recomputed
+        # from an empty `current`.
+        supported = compute_type_choices(device, current="")
+        if cleaned not in supported:
+            return ToggleResult(
+                ok=False,
+                error=(
+                    f"{name!r} is not a compute type this machine can run on "
+                    f"{device!r}. Available here: {', '.join(supported)}."
+                ),
+            )
+
+        try:
+            self._writer("stt", "compute_type", cleaned, True)
+        except Exception as exc:  # noqa: BLE001 - surfaced, never raised at Qt
+            return ToggleResult(ok=False, error=f"Could not save the compute type: {exc}")
+        return ToggleResult(ok=True)
+
+    def set_initial_prompt(self, text: str) -> ToggleResult:
+        """Set the vocabulary primed into the decoder.
+
+        Free text, and deliberately not validated for content: it is a hint to
+        Whisper, and there is no wrong string. The empty string is a real choice —
+        no priming — and is written rather than rejected.
+
+        Newlines *are* stripped. The value is a single TOML string, and a literal
+        newline would produce a file the loader rejects; `configcheck` would then
+        repair the whole section to defaults, silently discarding settings the user
+        never touched.
+        """
+        cleaned = " ".join((text or "").split())
+        try:
+            self._writer("stt", "initial_prompt", cleaned, True)
+        except Exception as exc:  # noqa: BLE001 - surfaced, never raised at Qt
+            return ToggleResult(ok=False, error=f"Could not save the vocabulary: {exc}")
+        return ToggleResult(ok=True)
+
+    def set_target_guard(self, mode: str) -> ToggleResult:
+        """Choose what happens when you dictate with nowhere to type.
+
+        Refused rather than clamped when unknown, for the same reason as the
+        injection backend: the daemon compares this against ``"off"`` and treats
+        everything else as on, so an unrecognised value would silently mean
+        "clipboard" while reading back as whatever the user typed.
+        """
+        from yazses.settingsui.controls import TARGET_GUARDS
+
+        cleaned = (mode or "").strip().lower()
+        valid = [value for _label, value in TARGET_GUARDS]
+        if cleaned not in valid:
+            return ToggleResult(
+                ok=False,
+                error=(
+                    f"{mode!r} is not a no-text-target mode. Choose one of: "
+                    f"{', '.join(valid)}."
+                ),
+            )
+        try:
+            self._writer("injection", "target_guard", cleaned, True)
+        except Exception as exc:  # noqa: BLE001 - surfaced, never raised at Qt
+            return ToggleResult(ok=False, error=f"Could not save the guard: {exc}")
+        return ToggleResult(ok=True)
+
+    def set_pre_speech_padding(self, value) -> ToggleResult:
+        """Set the silence prepended before decode, clamped to a useful range.
+
+        Clamped rather than refused, exactly like the VAD threshold: a spin box
+        cannot produce an out-of-range number, so a refusal would only ever be API
+        misuse — and dropping the edit silently is worse than pinning it.
+
+        A non-numeric value *is* refused, because writing a string into an int key
+        makes the config loader repair the section, discarding neighbouring settings
+        the user never touched.
+        """
+        from yazses.settingsui.controls import clamp_padding_ms
+
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return ToggleResult(
+                ok=False,
+                error=f"{value!r} is not a number — the padding is milliseconds, e.g. 300.",
+            )
+
+        try:
+            self._writer("accessibility", "pre_speech_padding_ms", clamp_padding_ms(number), False)
+        except Exception as exc:  # noqa: BLE001 - surfaced, never raised at Qt
+            return ToggleResult(ok=False, error=f"Could not save the padding: {exc}")
+        return ToggleResult(ok=True)
+
     def set_enabled(self, slug: str, desired: bool, *, confirmed: bool = False) -> ToggleResult:
         """Put one feature into the *desired* state, mirroring `yazses features`.
 

@@ -174,9 +174,21 @@ flow must never do.
 
 ## What it does not cover
 
-The window is the feature switchboard, plus the three settings that are **values
-rather than switches** — the hold-to-talk key, the microphone and the silence
-threshold (all below).
+The window is the feature switchboard, plus the settings that are **values rather
+than switches**:
+
+| Setting | What it decides | Section below |
+|---|---|---|
+| Hold-to-talk key | which key you hold to dictate | [Changing the hold-to-talk key](#changing-the-hold-to-talk-key) |
+| Model | which Whisper checkpoint transcribes you | [Speech and text output](#speech-and-text-output) |
+| Language | the language you dictate in | [Speech and text output](#speech-and-text-output) |
+| Compute type | the accuracy/speed trade below model size | [Speech and text output](#speech-and-text-output) |
+| Vocabulary | names and jargon primed into the decoder | [Speech and text output](#speech-and-text-output) |
+| Text injection | how finished text reaches the window | [Speech and text output](#speech-and-text-output) |
+| Nowhere to type | what happens with no text field focused | [Speech and text output](#speech-and-text-output) |
+| Pre-speech padding | silence added so the first word isn't clipped | [Speech and text output](#speech-and-text-output) |
+| Microphone | which input device is captured | [Microphone and silence threshold](#microphone-and-silence-threshold) |
+| Silence threshold | the level below which audio is discarded | [Microphone and silence threshold](#microphone-and-silence-threshold) |
 
 Everything else lives in [`config.toml`](configuration.md), which the window never
 reformats or reorders, because it writes through a comment-preserving TOML editor.
@@ -210,6 +222,63 @@ Two keys it will refuse, before writing anything:
 
 The change lands on **Apply** and takes effect after the restart the window then
 offers, because the key is bound when the daemon starts.
+
+## Speech and text output
+
+The **Speech** group holds what YazSes hears, how it decodes it, and how the text
+gets out. Several of these refuse a value rather than saving it, and the refusals
+are the reason they belong in a window rather than a text editor — each one fails
+in a way that does not look like the setting that caused it.
+
+**Model** is the biggest single lever on both accuracy and latency. The list is the
+same one `yazses models` prints, plus whatever your config already holds — a Hugging
+Face id or a local path is a legitimate model, and it is never silently replaced.
+
+**Language** is what you dictate in. *Auto-detect* decides per utterance, which is
+useful when you switch languages and slightly slower.
+
+Model and language are **judged as a pair**. A checkpoint ending in `.en` is
+English-only and has no language tokens, so pairing it with another language does
+not fail — Whisper transliterates and hands back fluent English nonsense with no
+error anywhere. The window will not save that pair, and names the multilingual model
+to switch to. Change both in one click and it judges the pair you chose, not the one
+you are replacing.
+
+**Compute type** is how the model's weights are quantised — the accuracy/speed lever
+below model size. `int8` is the shipped default and the fastest on CPU; `float32` is
+the most accurate and several times slower.
+
+The list is what **your machine** reports, not a fixed set: the supported
+quantisations depend on the CPU, and a CUDA build reports different ones again. This
+matters because an unsupported value does not produce a clear error — it raises
+inside the model load and is reported as *"model unavailable"*, sending you off to
+re-download a model you already have, with nothing anywhere mentioning quantisation.
+
+**Vocabulary** is a short list of words primed into the decoder so it spells them
+your way — proper nouns and domain jargon it keeps getting wrong. Write them as you
+would say them, separated by commas. [`yazses tune`](cli-reference.md#yazses-tune)
+proposes additions here from what you actually dictate. (The Parakeet engine has no
+prompt input and ignores this.)
+
+**Text injection** is how finished text reaches the focused window. Change it only
+if text arrives garbled or not at all.
+
+**Nowhere to type** is what happens when you dictate with no editable field focused,
+so the words would land in the wrong place or nowhere at all — the state the
+[tray icon shows in yellow](tray-and-overlay.md). The default copies the text to the
+clipboard and tells you, so a burst is never simply lost. The guard only acts when
+YazSes is *confident* there is no target, so it does not interfere with normal
+dictation.
+
+**Pre-speech padding** is silence prepended before the audio is decoded. Raise it if
+the first word of each burst keeps getting cut off: Whisper needs a moment of lead-in
+before it starts hearing, and without it the opening word is the one that goes
+missing. It costs a few milliseconds of decode per burst and nothing else.
+
+All of these land on **Apply** and take effect after the restart the window then
+offers. If one is refused, the others still save and the refused value stays on
+screen next to the message explaining it — so the fix is one more change rather than
+filling the form in again.
 
 ## Microphone and silence threshold
 

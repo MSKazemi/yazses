@@ -37,6 +37,82 @@ VAD_SLIDER_STEPS = 1000
 #: while doing something else.
 INJECTION_BACKENDS: tuple[str, ...] = ("auto", "type", "clipboard", "wtype")
 
+#: `[injection] target_guard` — what happens when you dictate with no editable
+#: field focused. Label → value, because "clipboard" does not say what it does.
+TARGET_GUARDS: tuple[tuple[str, str], ...] = (
+    ("Copy it to the clipboard and tell me", "clipboard"),
+    ("Type it anyway, but warn me", "warn"),
+    ("No guard — always type", "off"),
+)
+
+#: Fallback compute types when ctranslate2 cannot be asked (see
+#: `compute_type_choices`). Deliberately the conservative CPU set: these four are
+#: what a CPU build reports, and offering float16 on a machine that cannot do it
+#: is how you get a settings window that writes a config the daemon rejects.
+_FALLBACK_COMPUTE_TYPES: tuple[str, ...] = ("int8", "int8_float32", "int16", "float32")
+
+#: The pre-speech padding range, in ms. Below the floor the first word is clipped,
+#: which is the fault this setting exists to fix; above the ceiling every burst
+#: carries most of a second of silence into the decoder for nothing.
+PADDING_MIN_MS = 0
+PADDING_MAX_MS = 2000
+
+
+def compute_type_choices(device: str = "cpu", current: str = "") -> list[str]:
+    """The quantisations *this machine* can actually run, plus what is configured.
+
+    Asked of ctranslate2 rather than hardcoded, because the answer is a property of
+    the CPU: an AVX-512 machine reports a different set from an older one, and a CUDA
+    build reports a different set again. A fixed list would offer values that load
+    fine on the developer's box and fail on the user's.
+
+    The failure it prevents is worth naming. An unsupported compute type raises out of
+    `WhisperModel(...)`, which `stt/faster_whisper.py` catches and re-raises as
+    `ModelUnavailableError` — a message about the *model* being unavailable, listing
+    three ways to obtain a model the user already has. The cause is a quantisation
+    string, and nothing anywhere says so.
+
+    Never raises: ctranslate2 is a compiled extension, and `get_supported_compute_types`
+    probes the device, which is exactly the call that fails on a broken CUDA install.
+    The settings window has to open there — every other setting still works.
+    """
+    try:
+        import ctranslate2
+
+        supported = set(ctranslate2.get_supported_compute_types(device or "cpu"))
+    except Exception:
+        supported = set(_FALLBACK_COMPUTE_TYPES)
+    names = sorted(n for n in supported if n)
+    chosen = (current or "").strip()
+    # Same rule as `model_choices`: a hand-configured value is never silently
+    # replaced by the first entry in a list, even when this build cannot offer it.
+    if chosen and chosen not in names:
+        return [chosen, *names]
+    return names
+
+
+def target_guard_choices(current: str = "") -> list[tuple[str, str]]:
+    """The no-text-target dropdown, keeping a configured value that is not listed."""
+    rows = list(TARGET_GUARDS)
+    chosen = (current or "").strip()
+    if chosen and all(chosen != value for _, value in rows):
+        rows.insert(0, (f"{chosen} (from your config)", chosen))
+    return rows
+
+
+def clamp_padding_ms(value) -> int:
+    """Keep the pre-speech padding inside the range where it means something.
+
+    Clamped rather than refused, like the VAD threshold: a spin box cannot produce
+    an out-of-range value, so a refusal here would only ever be API misuse, and
+    silently dropping the edit is worse than pinning it to the edge.
+    """
+    try:
+        number = int(round(float(value)))
+    except (TypeError, ValueError):
+        return PADDING_MIN_MS
+    return min(PADDING_MAX_MS, max(PADDING_MIN_MS, number))
+
 #: Label → `[stt] language` value. Whisper accepts far more than this; the list is
 #: the common ones plus whatever the config already holds, because a dropdown of
 #: ninety-nine codes is a worse way to find "de" than typing it.
