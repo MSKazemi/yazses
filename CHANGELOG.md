@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.28.0] — 2026-08-18
+
 ### Fixed — an actionable notification outlived the process that raised it, forever
 
 A toast offering **[Prepare a bug report]** runs `notify-send --wait`, which blocks
@@ -59,6 +61,22 @@ and the failure was `assert False is True`, exactly what that stub returns. The
 mechanism was not pinned down, so the assumption was removed rather than reasoned
 about: the module is now executed into a private namespace that no patch of the
 installed one can reach.
+
+### Fixed — the clipboard list and the spoken ordinals pointed opposite ways
+
+`yazses cliphistory list` prints a newest-first numbered list — `1. DDD … 4. AAA` —
+while `recall "the first one"` returned `AAA`, i.e. #4, and `"the last one"` returned
+`DDD`, i.e. #1.
+
+The resolver is **not** changed, and that is the point: *"the first thing I copied"*
+meaning the oldest is the right reading of that sentence and is tested as such, while
+the help documents *"the second one"* as entry #2, which is positional. Both readings
+are correct English and they point opposite ways — the ambiguity is in the language.
+
+What was fixable is the surface that implied a contradiction and never stated the
+rule. The list now names its ends (`1. DDD ← most recent`, `4. AAA ← oldest`), a
+single entry gets no label because it is both, and `recall --help` says which words
+mean which end.
 
 ### Fixed — `gitvoice` threw away the branch you named, on `push` alone
 
