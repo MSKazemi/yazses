@@ -1920,15 +1920,28 @@ def cliphistory_list() -> None:
     if not items:
         typer.echo("Clipboard history is empty. Add one with: yazses cliphistory add <text>")
         return
+    # The ends are labelled because the numbering alone sets a trap. This list is
+    # newest-first, so #1 is the most recent -- but `recall "the first thing I copied"`
+    # deliberately means the OLDEST, which is the right reading of that sentence and is
+    # tested as such. A bare "1. …" invites "the first one" and returns the other end.
+    # Naming the ends costs two words and removes the ambiguity at the only place the
+    # user meets it.
+    last = len(items)
     for i, it in enumerate(items, start=1):
-        typer.echo(f"  {i}. {it}")
+        if i == 1 and last > 1:
+            typer.echo(f"  {i}. {it}   ← most recent")
+        elif i == last and last > 1:
+            typer.echo(f"  {i}. {it}   ← oldest")
+        else:
+            typer.echo(f"  {i}. {it}")
 
 
 @cliphistory_app.command(
     "recall",
     epilog=_examples(
         'yazses cliphistory recall "the last url"     print the newest URL entry',
-        'yazses cliphistory recall "the second one"    print entry #2',
+        'yazses cliphistory recall "the second one"    print entry #2 (list order)',
+        'yazses cliphistory recall "the first thing I copied"   the OLDEST entry',
     ),
 )
 def cliphistory_recall(
@@ -1936,8 +1949,14 @@ def cliphistory_recall(
 ) -> None:
     """Print the history entry a spoken reference points to — offline.
 
-    Understands url/link, email, ordinals (last/second/…), first/oldest, and 'number N';
-    defaults to the most recent entry. Exits non-zero if nothing matches.
+    Understands url/link, email, ordinals, and 'number N'; defaults to the most
+    recent entry. Exits non-zero if nothing matches.
+
+    Which end is which, because the two natural readings point opposite ways:
+    'last', 'latest', 'most recent' mean the NEWEST entry (#1 in `list`), while
+    'first' and 'oldest' mean the OLDEST -- 'the first thing I copied' is the right
+    reading of that sentence. Numbered ordinals ('second', 'third', 'number 3')
+    follow the `list` numbering, which is newest-first.
     """
     from yazses.cliphistory.history import resolve_reference
     from yazses.cliphistory.store import load_items
