@@ -246,6 +246,10 @@ class SettingsWindow:
         # error rather than documentation.
         self._restart_pending = False
         self._install_thread: Any = None
+        #: Summary held back when Apply started an install: the restart is
+        #: offered from `_on_install_finished` instead, never before the
+        #: packages it is meant to activate exist.
+        self._restart_when_installed: str | None = None
         self._install_worker: Any = None
         apply_btn.clicked.connect(self._on_apply)
         buttons.addWidget(apply_btn)
@@ -882,7 +886,23 @@ class SettingsWindow:
         # confusing of all — the old key stops being advertised and the new one
         # does nothing yet.
         if report.applied or hotkey_changed or audio_changed or speech_changed:
-            self._offer_restart(summary)
+            # ...but not while `_install_missing` above is still downloading. The
+            # restart exists to make the new config take effect, and a daemon that
+            # restarts before its packages land starts with the capability switched
+            # ON in config and its import still failing -- the user is told it
+            # applied, and it does not work. Worse, `_run_restart` is a synchronous
+            # `subprocess.run(..., timeout=90)` on the UI thread, so accepting the
+            # prompt freezes the window for up to a minute and a half *while pip is
+            # streaming progress into it*; a frozen window is what a desktop offers
+            # to force-close, which is how "applying a feature closes the window"
+            # happens without anything in this code closing anything.
+            if self._install_thread is not None:
+                self._restart_when_installed = summary
+                self._hint.setText(
+                    f"{self._hint.text()} A restart will be offered once it finishes."
+                )
+            else:
+                self._offer_restart(summary)
 
     def _apply_audio(self) -> tuple[bool, list[str]]:
         """Save the microphone and threshold if they moved. Returns (changed, errors).
@@ -1204,6 +1224,14 @@ class SettingsWindow:
                 "\n".join(f.slug + ": " + (f.error or "install failed")
                            for f in summary.failed),
             )
+
+        # Apply deferred the restart because this install was in flight. Offer it
+        # now -- including when packages failed, since the rest of the change did
+        # land and still needs a restart to take effect; `describe_summary` has
+        # already said what failed.
+        pending, self._restart_when_installed = self._restart_when_installed, None
+        if pending is not None:
+            self._offer_restart(pending)
 
     def _summarise(self, report: ApplyReport) -> str:
         parts: list[str] = []

@@ -6,6 +6,24 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — Apply restarted the daemon while it was still downloading the packages
+
+`_on_apply` starts the optional-dependency install on a background thread ("this can
+take a few minutes") and then, without waiting for it, offers the restart. Enabling a
+capability with heavy extras — `stt-parakeet`, `gaze` — therefore restarted the daemon
+*before its packages existed*, so it came back up with the capability switched **on** in
+config and its import still failing. The window said it applied.
+
+`_run_restart` is also a synchronous `subprocess.run(..., timeout=90)` on the **UI
+thread**, so accepting that prompt froze the window for up to a minute and a half while
+the install thread streamed progress into it — and a frozen window is what a desktop
+offers to force-close.
+
+The restart is now held until the install finishes, and offered from
+`_on_install_finished` — including when packages failed, since the rest of the change
+did land and still needs a restart. A change that downloads nothing still restarts
+immediately, as before.
+
 ### Fixed — `yazses verify` certified a chain the daemon discards
 
 Found by running the command in a quiet room with nobody speaking. Ambient noise cleared
