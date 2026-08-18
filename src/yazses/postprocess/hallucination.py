@@ -85,3 +85,20 @@ def should_drop(text, config) -> bool:
     if getattr(config, "drop_loops", True) and is_repetition_loop(text):
         return True
     return False
+
+
+def ghost_words() -> frozenset[str]:
+    """Every word that appears in a known ghost phrase.
+
+    Exposed for the learning loop. `yazses tune` mines terms that a correction
+    contained and the live transcript did not, and proposes priming them into
+    Whisper's ``initial_prompt``. Whisper's own silence hallucinations are exactly
+    that shape — a clip decodes to "Thanks for watching", the user's re-dictation
+    does not contain those words, and the miner reads them as vocabulary the model
+    keeps failing to hear.
+
+    Priming them is the one thing an ``initial_prompt`` must never do: it biases the
+    decoder *toward* the phrase this module exists to delete. Observed on a real
+    corpus, where the top proposal opened with `for you thanks watching`.
+    """
+    return frozenset(word for phrase in _GHOST_PHRASES for word in phrase.split())

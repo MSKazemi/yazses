@@ -6,6 +6,39 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses tune` proposed priming Whisper with its own hallucinations
+
+Run against a real 1,617-event corpus, the top vocabulary proposal — the one `--apply`
+offers to write into `[stt] initial_prompt` — was:
+
+    for you thanks watching these cube assess within aspects can needed yasas grom
+    two both and referees finished one etc why
+
+Two defects in twenty-one terms.
+
+**Stopwords.** Eleven are function words. `initial_prompt` is a bounded budget (the
+decoder sees only the last ~224 tokens) and Whisper already knows "for" and "and", so
+each one displaced a term that would have helped. The miner's rule — *in the correction,
+absent from the live transcript* — catches them because rephrasing changes which function
+words appear, not because the model cannot hear them.
+
+**Hallucination feedback, the serious one.** `for`, `you`, `thanks`, `watching` are the
+words of *"Thank you for watching"* — the silence hallucination YazSes ships a guard to
+delete. The loop: a clip decodes to the ghost phrase, the user re-dictates, the
+re-dictation lacks those words, the miner reads them as vocabulary the model keeps
+missing, and priming them biases the decoder **toward** the phrase. The product would
+have been tuning itself into the failure it guards against.
+
+Mined terms are now filtered against a stopword list and against `ghost_words()`, derived
+from `_GHOST_PHRASES` itself rather than copied — a copy drifts, and the two disagreeing
+silently is this bug one layer up. On the same corpus the proposal went from 21 terms to
+the 8 real ones.
+
+Not fixed, and worth knowing: `yasas` and `grom` survive. They are mis-hearings of
+"YazSes" and "from" that arrived through the re-transcribed text, so the ground truth
+itself is wrong — a limitation of re-transcription as an oracle, not something a word
+list can settle.
+
 ### Fixed — the tray supervisor threw away every reason the tray died
 
 Both places that launch the tray passed `stderr=subprocess.DEVNULL`. The tray is a

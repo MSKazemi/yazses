@@ -413,6 +413,46 @@ def _better_text(e: EventRecord) -> str:
     return ""
 
 
+#: Function words that are never worth priming. Whisper's language model already knows
+#: them perfectly; `initial_prompt` is a *bounded* budget (the decoder sees only the last
+#: ~224 tokens), so every stopword in it displaces a term that would actually have helped.
+#:
+#: Mined from a real corpus, the top proposal was:
+#:     for you thanks watching these cube assess within aspects can needed yasas grom
+#:     two both and referees finished one etc why
+#: Eleven of those twenty-one are function words. The miner's rule -- "in the correction,
+#: absent from the live transcript" -- catches them because ordinary rephrasing changes
+#: which function words appear, not because the model cannot hear them.
+#:
+#: Only words longer than two characters are listed: the caller already drops the rest.
+_VOCAB_STOPWORDS = frozenset("""
+    the and for you are was were his her she him they them their there here that this
+    these those with from have has had been being not but all any can could would should
+    will shall may might must one two three both each other some such only own same than
+    too very just now then when where why how what who whom which while about into over
+    under again more most many much few own our your its out off down between through
+    during before after above below because until against among upon also does did
+    within without done
+    got get make made take took come came goes went say said see saw know knew think
+    thought want wanted need needed like well back even still way things thing lot etc
+""".split())
+
+
+def _worth_priming(token: str) -> bool:
+    """Is this a term whose spelling Whisper genuinely needs priming for?
+
+    Two rejections, and the second matters more than the first. A stopword wastes prompt
+    budget. A word drawn from Whisper's own silence hallucination *actively harms*: the
+    live clip decoded to "Thanks for watching", the re-dictation did not contain those
+    words, so the miner reads them as vocabulary the model keeps missing -- and priming
+    them biases the decoder toward the exact phrase `postprocess/hallucination.py`
+    exists to delete.
+    """
+    from yazses.postprocess.hallucination import ghost_words
+
+    return token not in _VOCAB_STOPWORDS and token not in ghost_words()
+
+
 def _propose_vocabulary(events: list[EventRecord], config: Config) -> Proposal | None:
     # Words present in the corrected/re-transcribed text but missing from what
     # the live model produced — i.e. terms it consistently fails to hear.
@@ -424,7 +464,12 @@ def _propose_vocabulary(events: list[EventRecord], config: Config) -> Proposal |
             continue
         raw_tokens = set(_tokens(e.raw_text))
         for tok in _tokens(better):
-            if tok not in raw_tokens and tok not in existing and len(tok) > 2:
+            if (
+                tok not in raw_tokens
+                and tok not in existing
+                and len(tok) > 2
+                and _worth_priming(tok)
+            ):
                 missed[tok] += 1
     terms = [w for w, n in missed.most_common() if n >= _VOCAB_MIN_OCCURRENCES]
     if not terms:
