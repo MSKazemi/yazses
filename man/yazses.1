@@ -557,6 +557,9 @@ Review and apply proposals interactively.
 .TP
 \fB\-\-retranscribe, \-\-no\-retranscribe\fR
 Re-transcribe captured audio with a larger model to find errors.
+.TP
+\fB\-\-limit\fR
+Re-transcribe only the N most recent clips (0 = all). A full corpus can take an hour; this is the middle ground between that and --no-retranscribe.
 .RE
 .SS "yazses update"
 Check for a newer YazSes and update it (snap / uv / pipx / pip / Windows).

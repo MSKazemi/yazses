@@ -4110,6 +4110,7 @@ def punch_in(
     epilog=_examples(
         "yazses tune                     dry-run: print proposed config changes",
         "yazses tune --apply             review and write approved changes",
+        "yazses tune --limit 200         only the 200 most recent clips (much faster)",
         "yazses tune --no-retranscribe   skip the slower re-transcription pass",
     ),
 )
@@ -4118,6 +4119,12 @@ def tune(
     retranscribe: bool = typer.Option(
         True, "--retranscribe/--no-retranscribe",
         help="Re-transcribe captured audio with a larger model to find errors.",
+    ),
+    limit: int = typer.Option(
+        0, "--limit", min=0,
+        help="Re-transcribe only the N most recent clips (0 = all). "
+             "A full corpus can take an hour; this is the middle ground between "
+             "that and --no-retranscribe.",
     ),
 ) -> None:
     """Analyze the learning corpus and propose accuracy improvements.
@@ -4166,6 +4173,9 @@ def tune(
             transcribe_fn=transcribe_fn,
             echo=typer.echo,
             confirm=typer.confirm,
+            # 0 means "all", which `retranscribe` spells as None. Passing 0 through
+            # would mean "re-transcribe nothing" and look like a silent no-op.
+            limit=limit or None,
         )
     finally:
         store.close()

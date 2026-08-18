@@ -107,9 +107,22 @@ def retranscribe(
     by a wide margin -- thousands of clips through a larger model on CPU -- and it
     used to report nothing until it finished, so a real corpus looked like a hang.
     The candidates are known from metadata alone, so the total costs nothing.
+
+    ``limit`` bounds the run to the **most recent** N clips, and the direction is the
+    whole point. `store.events()` is `ORDER BY id`, i.e. oldest first, so taking the
+    first N would hand back the least relevant half of the corpus: tuning exists to
+    improve what dictation does *now*, and the recent clips are the ones recorded with
+    the model, microphone, threshold and vocabulary currently in use. A month-old clip
+    from a since-replaced setup proposes fixes for a problem the user no longer has.
+
+    That direction is probably why this parameter sat unused. It was written and never
+    called by anything, so a caller wiring it as-is would have shipped a switch that
+    quietly returns the wrong half.
     """
     candidates = [r for r in store.events() if r.has_audio and not r.retx_text]
-    total = len(candidates) if limit is None else min(limit, len(candidates))
+    if limit is not None and limit >= 0:
+        candidates = candidates[-limit:] if limit else []
+    total = len(candidates)
     if progress is not None:
         progress(0, total)
     updated = 0

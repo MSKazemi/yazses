@@ -567,6 +567,7 @@ Analyze the learning corpus and propose accuracy improvements.
 
 - `--apply` — Review and apply proposals interactively.
 - `--retranscribe`, `--no-retranscribe` — Re-transcribe captured audio with a larger model to find errors.
+- `--limit` — Re-transcribe only the N most recent clips (0 = all). A full corpus can take an hour; this is the middle ground between that and --no-retranscribe.
 
 ## `yazses update`
 

@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `yazses tune --limit N`, and an estimate instead of "a while"
+
+`tune` had two speeds: re-transcribe the whole corpus, or skip the pass entirely
+with `--no-retranscribe` — which drops the step that finds the actual
+mis-transcriptions. On a real corpus that is ~1,600 clips through `small.en` on CPU;
+a run left going for ten minutes had not finished.
+
+`retranscribe(limit=)` had existed the whole time, **called by nothing, and
+referenced by no test**. Wiring it as written would have shipped the wrong feature:
+`store.events()` is `ORDER BY id`, so a limit took the **oldest** clips — the least
+relevant half, recorded with a model, microphone, threshold and vocabulary the user
+may since have changed. It now takes the most recent N, which is the half that
+reflects what dictation does today.
+
+The progress line also carries a time estimate once a rate can be measured. "A large
+corpus can take a while" is honest and useless: an hour is a decision — run it
+overnight, or use `--limit` — and "a while" is not. The estimate is deliberately
+coarse (rounded to five minutes above the hour), because the rate wanders with clip
+length and "~52 min" would claim a precision the measurement does not have; it stays
+silent rather than guessing before the first clips are done, and on the final tick.
+
 ### Fixed — "speaker labels unavailable" recommended a 45 MB download that fixes nothing
 
 `yazses meeting status` computed *why* speaker labels were unavailable — correctly

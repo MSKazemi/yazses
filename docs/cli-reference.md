@@ -1431,11 +1431,19 @@ corroborated proposals are listed first. Dry-run by default — changes nothing.
 **Options:** `--apply` (review each proposal interactively and write approved ones
 to `config.toml`, comments preserved) · `--retranscribe` / `--no-retranscribe`
 (re-transcribe captured audio with a larger model to find errors; on by default —
-skip for a faster run that uses only flagged/edited signals).
+skip for a faster run that uses only flagged/edited signals) · `--limit N`
+(re-transcribe only the **N most recent** clips).
+
+Re-transcription is the slow step by a wide margin — a full corpus of ~1,600 clips
+takes about an hour on CPU — so it reports its progress and, once it can measure a
+rate, how long is left. `--limit` is the middle ground between that and skipping the
+pass altogether: the recent clips are the ones recorded with the model, microphone
+and threshold you use *now*, which is what tuning is trying to improve.
 
 ```bash
 yazses tune                     # dry-run: print proposed config changes
 yazses tune --apply             # review and write approved changes
+yazses tune --limit 200         # only the 200 most recent clips (much faster)
 yazses tune --no-retranscribe   # skip the slower re-transcription pass
 ```
 
