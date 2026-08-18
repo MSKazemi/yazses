@@ -955,10 +955,17 @@ uploaded.
 - **`braille`** translates to Unicode Braille; `--grade 1` is uncontracted.
 - **`case`** recases text to a naming convention (`snake`, `kebab`, `camel`, `pascal`,
   `title`, `sentence`, `upper`, `lower`, `constant`); with no `--style` it detects a
-  spoken `make this … case:` command and recases the remainder.
-- **`screenplay`** formats each line as Fountain: `scene: interior/exterior <place>,
-  <time>` → `INT./EXT. …`, `<Name> (character) <dialogue>` → a character cue,
-  `transition: cut to` → `CUT TO:`; other lines become smart-quoted action lines.
+  spoken `make this … case` command and recases the remainder (the colon is optional).
+- **`screenplay`** formats each line as Fountain: `scene interior/exterior <place>
+  <time>` → `INT./EXT. …`, `<Name> character <dialogue>` → a character cue,
+  `transition cut to` → `CUT TO:`; other lines become smart-quoted action lines.
+
+    **Every separator here is optional**, because a colon, a comma and a pair of
+    parentheses are three things you cannot dictate — and this command is for drafting
+    by voice. `scene: interior coffee shop, day` and `scene interior coffee shop day`
+    give the same result. The parenthesised `(character)` form stays exact; the spoken
+    one is only read as a cue when the name is short and does not begin with a
+    determiner, so `the character walks in` stays an action line.
 - **`findreplace`** parses `replace every/first X with Y` (add `case-sensitive`) and
   applies it to `--in`/stdin; exits non-zero if the command can't be parsed.
 - **`chords`** parses a spoken chord (modifiers + a named/F/char key + an optional

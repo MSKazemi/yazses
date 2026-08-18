@@ -3299,7 +3299,8 @@ def screenplay(
     Use it when: you're drafting a script by voice and want scene headings,
     character cues, transitions, and smart-quoted dialogue formatted for you.
 
-    Recognises 'scene: interior/exterior <place>, <time>' → 'INT./EXT. …',
+    Recognises 'scene interior/exterior <place> <time>' → 'INT./EXT. …',
+    (the colon and comma are optional — neither can be dictated),
     '<Name> (character) <dialogue>' → a character cue, and 'transition: cut to'
     → 'CUT TO:'; anything else becomes a smart-quoted action line. Each input line
     is formatted independently. Reads the TEXT argument, or standard input when omitted.

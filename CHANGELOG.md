@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — none of `yazses screenplay`'s documented forms worked when spoken
+
+The command exists, in its own words, for "drafting a script by voice". All three forms
+it recognises required punctuation no speech model emits — a colon, a comma, and a pair
+of parentheses:
+
+    scene: interior coffee shop, day     Alice (character) hello     transition: cut to
+
+Said aloud, none matched, and `to_fountain` falls through to "anything else becomes an
+action line" — so the raw words went into the screenplay, silently:
+
+    "scene interior coffee shop day"  ->  scene interior coffee shop day
+
+Every separator is now optional. `scene` and `transition` are anchored on a distinctive
+keyword, so dropping the colon costs nothing. `(character)` needed more care: bare
+"character" is an ordinary word, so the parenthesis-free form is read as a cue only when
+the preceding text looks like a name — at most three words, not opening with a
+determiner. `the character walks in` stays an action line, and the parenthesised form
+stays exact.
+
+This was the third instance of one shape in a single audit, after the `gitvoice` branch
+separators and `yazses case`'s mandatory colon: the voice path requiring a character the
+voice cannot produce.
+
 ### Fixed — `yazses case` required a colon you cannot dictate
 
 The documented spoken form is *"make this snake case: …"*, and the CLI stripped the
