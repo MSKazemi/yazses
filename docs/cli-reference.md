@@ -993,6 +993,13 @@ Reads the `TEXT` argument, or standard input when omitted, and **exits non-zero
 if it cannot parse the utterance** — so a misheard command produces an error, not
 a plausible wrong command.
 
+**A branch you name reaches the command.** `push to main` renders
+`git push origin main`, not a bare `git push` — which would push whichever branch
+you happen to be standing on. Say the remote too (`push to upstream develop`) and it
+is used; say only a branch and `origin` is assumed, which fails loudly on a repo
+whose remote is called something else rather than quietly pushing the wrong ref.
+`feature slash login` becomes `feature/login`, here as everywhere else.
+
 **Destructive commands are never run without `--yes`, even with `--run`.**
 Force-push, hard reset, `branch -D` and discarding uncommitted changes all
 require it. Misrecognition is a fact of dictation, so the one class of command

@@ -6,6 +6,35 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `gitvoice` threw away the branch you named, on `push` alone
+
+Every ref-taking rule in the spoken-git grammar captures its ref — except `push`.
+`push to main` rendered a bare `git push`, which pushes the **current** branch to its
+upstream, so naming a branch while standing on a different one pushed the other one.
+`force push to main` did it destructively. The module's own comment already describes
+this class of defect for `delete branch feature slash login`; it was still live in the
+command where it costs the most.
+
+`push to main` now renders `git push origin main`, an explicit remote is honoured
+(`push to upstream develop`), a bare `push` stays bare, and `feature slash login`
+becomes `feature/login` here as everywhere else. Assuming `origin` when only a branch
+is named is deliberate: on a repo whose remote is called something else it stops with
+*"'origin' does not appear to be a git repository"* and nothing happens — a visible
+wrong guess beats an invisible right-looking one.
+
+The confirm gate and undo hint still recognise the longer argv, which is checked, since
+a safety gate that stopped matching once the command gained a ref would be worse than
+the bug.
+
+### Fixed — `shellpipe` searched for the word "for"
+
+The stage grammar listed `search for` but not `grep for`, so the most natural phrasing
+put the connective **into the pattern**: "grep for error" rendered `grep 'for error'`,
+which matches nothing, and "find lines matching error" rendered
+`grep 'lines matching error'`. Only the stilted "grep error" worked. Connecting words
+are now part of the grammar — and "grep forbidden" still searches for `forbidden`,
+because the connective must be followed by whitespace to count.
+
 ### Fixed — a bug report could carry your personal dictionary
 
 `yazses report` promises *"your dictated text is never in it"*, and the log honours
