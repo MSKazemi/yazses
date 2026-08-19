@@ -57,7 +57,36 @@ LOCAL_IPC = {
     "ipc/client.py": "AF_UNIX stream socket to the daemon's socket path",
     "ipc/server.py": "AF_UNIX stream socket, bound to the daemon's socket path",
 }
+#: Reaches the network by SPAWNING A PROGRAM, not by importing a network primitive.
+#: The import scan cannot see these, which is how the most consequential transport in
+#: the product stayed invisible to a guard written to enumerate exactly that.
+#:
+#: `remote/forwarder.py` is deliberately NOT a third SEND. The remote path is one logical
+#: route -- dictated text -> loopback TCP (`local_proxy`) -> this SSH tunnel -> the agent
+#: on the far host -- and counting it twice would overstate the exposure the project
+#: publishes. What it does correct is the wording: `local_proxy` connects to 127.0.0.1
+#: and nowhere else; this is the half that makes loopback reach the host the user named.
+SHELL_OUT = {
+    "remote/forwarder.py": (
+        "spawns `ssh` to open the reverse tunnel carrying `remote/local_proxy.py`'s "
+        "loopback traffic to the host named on the command line — the transport half of "
+        "that SEND, not a separate one"
+    ),
+    "gitvoice/plan.py": (
+        "builds a `git` argv from a dictated command; `cli.py` runs it only under "
+        "`--run` (and `--yes` when destructive), so `git push` can reach the user's own "
+        "remote. Carries repository content at explicit request, never dictation"
+    ),
+}
+
 ALLOWED = {**FETCH, **SEND, **LOCAL_IPC}
+
+#: Programs that can open an outbound connection when spawned. Conservative for the same
+#: reason as `_NETWORK_ROOTS`: a false positive costs a line in the table above.
+_NETWORK_TOOLS = frozenset(
+    {"ssh", "scp", "sftp", "rsync", "curl", "wget", "nc", "ncat", "netcat", "ftp",
+     "telnet", "git"}
+)
 
 #: Import paths that can open an outbound connection. Deliberately conservative: a false
 #: positive costs one line in the table above, a false negative costs the promise.
@@ -91,6 +120,34 @@ def _modules_with_network_imports() -> dict[str, list[str]]:
             # and a red `main`, while Linux and macOS stayed green. The key is a
             # stable identifier shared with a markdown table, so it must not vary
             # by the OS that happens to run the suite.
+            found[path.relative_to(SRC).as_posix()] = sorted(hits)
+    return found
+
+
+def _modules_shelling_out_to_network_tools() -> dict[str, list[str]]:
+    """Every `yazses` module that names a network-capable program and uses subprocess.
+
+    Keyed and spelled exactly like the import scan, for the same OS-portability reason.
+    """
+    found: dict[str, list[str]] = {}
+    for path in sorted(SRC.rglob("*.py")):
+        if "__pycache__" in path.parts:
+            continue
+        text = path.read_text(encoding="utf-8")
+        if not any(m in text for m in ("subprocess", "Popen", "shutil.which")):
+            continue
+        try:
+            tree = ast.parse(text)
+        except SyntaxError:  # pragma: no cover - fails elsewhere, loudly
+            continue
+        hits = {
+            node.value
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and node.value in _NETWORK_TOOLS
+        }
+        if hits:
             found[path.relative_to(SRC).as_posix()] = sorted(hits)
     return found
 
@@ -207,3 +264,56 @@ def test_the_ipc_sockets_stay_local_only(module: str):
         f"{module} mentions AF_INET. A network-family IPC socket makes the daemon "
         f"reachable from another machine; that is an ADR-019 change, not a refactor."
     )
+
+
+def test_the_shell_out_scan_finds_something():
+    """Guard the guard, second detector: an empty result must not read as clean."""
+    assert _modules_shelling_out_to_network_tools(), (
+        "the shell-out scan found nothing, which cannot be right — `remote/forwarder.py` "
+        "spawns ssh. The detector is broken, not the codebase"
+    )
+
+
+def test_no_undeclared_module_can_spawn_a_network_tool():
+    """The blind spot this closes.
+
+    The import scan enumerates modules that `import socket` or `import urllib`. It cannot
+    see `subprocess.Popen(["ssh", ...])`, and that is how the reverse tunnel — the
+    transport that actually carries dictated text off this machine — sat outside an
+    inventory written to enumerate exactly that. The documented limitation was
+    "a dependency making its own call"; spawning a program was not mentioned.
+    """
+    found = _modules_shelling_out_to_network_tools()
+    undeclared = {m: tools for m, tools in found.items() if m not in SHELL_OUT}
+    assert not undeclared, (
+        f"these modules spawn a network-capable program and are not declared: "
+        f"{undeclared}\n\nAdd them to SHELL_OUT here and to the ADR-019 table. If the "
+        f"program carries anything the user said, ADR-019's escalation rules apply."
+    )
+
+
+def test_the_shell_out_inventory_has_no_stale_entries():
+    found = set(_modules_shelling_out_to_network_tools())
+    stale = sorted(set(SHELL_OUT) - found)
+    assert not stale, f"declared but no longer spawning a network tool: {stale}"
+
+
+def test_the_ssh_tunnel_is_not_counted_as_a_third_send_path():
+    """It is the transport half of an existing SEND, and the count is a public claim.
+
+    `local_proxy` connects to 127.0.0.1 and nowhere else; the tunnel is what makes that
+    loopback reach the host the user named. One logical route, declared in two places
+    because two files implement it — counting it twice would overstate the exposure.
+    """
+    assert "remote/forwarder.py" in SHELL_OUT
+    assert "remote/forwarder.py" not in SEND
+    assert len(SEND) == 2
+
+
+def test_the_git_path_is_declared_as_carrying_repository_content():
+    """`yazses gitvoice "push" --run` reaches a remote. It carries the user's repository
+    at their explicit request, never dictation — a distinction worth keeping in writing,
+    because "it only runs git" is exactly the reasoning that would wave through a later
+    change that piped a transcript into it."""
+    assert "dictation" in SHELL_OUT["gitvoice/plan.py"]
+    assert "gitvoice/plan.py" not in SEND

@@ -37,9 +37,35 @@ Every module in `src/yazses/` that contains an outbound network primitive
 | `tts/download.py` | `github.com` releases | ← Kokoro voice model | user enables read-back |
 | `system/updater.py` | `pypi.org`, GitHub API | ↔ a version string | `yazses update`, or the opt-in watcher |
 | `postprocess/llm_cleanup.py` | `[filters.disfluency] llm_endpoint` | **→ dictated text** | LLM cleanup enabled |
-| `remote/local_proxy.py` | an SSH host the user names | **→ dictated text** | `yazses remote <host>` |
+| `remote/local_proxy.py` | `127.0.0.1` (the tunnel's local end) | **→ dictated text** | `yazses remote <host>` |
 
 Plus the STT engine's own first-run model fetch, which is `faster-whisper`'s, not ours.
+
+## Reached by spawning a program, not by importing a socket
+
+The scan above enumerates modules that import a network primitive. It cannot see
+`subprocess.Popen(["ssh", ...])` — and that is how the transport which actually carries
+dictated text off the machine sat outside an inventory written to enumerate exactly that.
+The limitation this document recorded was *"a dependency making its own call"*; spawning a
+program was not mentioned. A second scan now covers it.
+
+| Module | Program | What crosses the wire | Trigger |
+|---|---|---|---|
+| `remote/forwarder.py` | `ssh` | **→ dictated text**, as the tunnel for `local_proxy` | `yazses remote <host>` |
+| `gitvoice/plan.py` | `git` | ← → repository content | `yazses gitvoice … --run` |
+
+`remote/forwarder.py` is deliberately **not** counted as a third path that can send what
+you said. The remote route is one logical thing — dictation → loopback TCP → this tunnel →
+the agent on the far host — and counting the two files separately would overstate the
+exposure. What it does correct is the row above it: `local_proxy` connects to `127.0.0.1`
+and nowhere else, and this is the half that makes that loopback reach the named host. The
+table used to name the remote host as `local_proxy`'s destination, which described the
+route rather than the module.
+
+`gitvoice/plan.py` builds the argv; `cli.py` runs it only under `--run`, and only with
+`--yes` when the command is destructive. It carries the user's repository at their explicit
+request and never carries dictation — a distinction kept in writing because "it only runs
+git" is the reasoning that would wave through a later change piping a transcript into it.
 
 Two more modules import `socket` and **cannot reach the network at all**, because
 `AF_UNIX` is a filesystem object rather than an address:

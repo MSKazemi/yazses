@@ -6,6 +6,31 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the egress inventory could not see the SSH tunnel that carries your dictation
+
+ADR-019 promises a complete list of every way data can leave the machine, and
+`tests/test_egress_inventory.py` enforces it by scanning for **imports** of network
+primitives. It cannot see `subprocess.Popen(["ssh", ...])` — and that is how
+`remote/forwarder.py`, the reverse tunnel that actually carries dictated text off the
+machine, sat outside an inventory written to enumerate exactly that. The limitation the
+guard documented was *"a dependency making its own call"*; spawning a program was not
+mentioned.
+
+A second scan now covers programs. Two modules are declared: `remote/forwarder.py` (spawns
+`ssh`) and `gitvoice/plan.py` (builds a `git` argv that `cli.py` runs only under `--run`,
+and only with `--yes` when destructive — repository content at explicit request, never
+dictation).
+
+**The tunnel is deliberately not counted as a third send path.** The remote route is one
+logical thing — dictation → loopback TCP → the tunnel → the agent on the far host — and
+counting the two files separately would overstate the exposure the project publishes. What
+it does correct is the ADR's own table, which named the remote host as
+`remote/local_proxy.py`'s destination: that module connects to `127.0.0.1` and nowhere
+else, and the tunnel is the half that makes loopback reach the named host. The table
+described the route rather than the module.
+
+The public claim — two code paths can send what you said — is unchanged and still asserted.
+
 ### Added — the overlay's envelope follower is pinned as adaptive
 
 Two indicators read the same `audio_level`: the tray's level ring and the overlay's rings.
