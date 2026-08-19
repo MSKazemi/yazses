@@ -6,6 +6,24 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — nothing but DEBUG may carry what the user said
+
+Two promises were made in prose and enforced by nothing: `yazses logs` is *"metadata only"*,
+and desktop notifications describe what happened rather than what was said. Both held —
+measured on a real 5,465-line log against 1,262 recorded transcripts, searching for a
+distinctive four-word window of each, **zero** hits; of 30 notification call sites, **zero**
+carry transcript text.
+
+But `yazses report` bundles that log tail for a public issue, and at `log_level = "DEBUG"` it
+would have carried dictated text (fixed alongside this). That is what a promise kept by care
+rather than by a check eventually costs, so both are mechanical now.
+
+`len(text)` and `len(text.split())` stay allowed — counts are the whole point of the INFO
+line — and `log.debug` may still carry the text, deliberately and as documented. Anything
+else that passes a transcript variable *whole* to a shareable log level or to a notification
+fails the build. The reviewed-exception list ships empty, and a test asserts it stays that
+way.
+
 ### Fixed — `yazses report` promised "never transcripts" and would have included them at DEBUG
 
 The bundle is designed to be attached to a public GitHub issue, and `system/report.py`'s
