@@ -692,16 +692,26 @@ def _install_consistency_checks() -> list[_Check]:
             out.append((
                 "systemd unit", "FAIL",
                 f"ExecStart={exec_path} does not exist — the service crash-loops "
-                "(status 203/EXEC) and `yazses start`/`restart` start nothing. "
-                "Point the unit at your real binary or reinstall.",
+                "(status 203/EXEC) and `yazses start`/`restart` start nothing.\n"
+                "     Repair it with:  yazses autostart enable   "
+                "(rewrites the unit to point at the install you run it from)",
             ))
         else:
             daemon = shutil.which("yazses-daemon")
             if daemon and str(Path(daemon).resolve()) != str(Path(exec_path).resolve()):
+                # Both branches used to name the fault and no remedy, on the page
+                # someone opens when the daemon is running the wrong build.
+                # `install_autostart` already rewrites a stale unit -- via
+                # `autostart.needs_rewrite` -- and `yazses autostart enable` is the only
+                # command that reaches it. Naming WHICH install it will point at matters
+                # here specifically: this warning fires because there are two, and the
+                # unit follows whichever one runs the command, not whichever is on PATH.
                 out.append((
                     "systemd unit", "WARN",
                     f"ExecStart={exec_path} differs from the yazses-daemon on PATH "
-                    f"({daemon}) — the service may run a different or older build",
+                    f"({daemon}) — the service may run a different or older build.\n"
+                    "     Point it at the one you want:  yazses autostart enable   "
+                    "(run it from that install)",
                 ))
             else:
                 out.append(("systemd unit", "OK", f"ExecStart={exec_path}"))

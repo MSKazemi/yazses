@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `doctor` reported a broken login service and no way to fix it
+
+Two branches, on the page someone opens when the daemon is running the wrong build:
+
+    [FAIL] systemd unit: ExecStart=… does not exist — the service crash-loops
+           (status 203/EXEC) … Point the unit at your real binary or reinstall.
+
+    [WARN] systemd unit: ExecStart=… differs from the yazses-daemon on PATH (…)
+           — the service may run a different or older build
+
+The first offers "reinstall", which is drastic and unnecessary. The second offers nothing.
+A repair already existed: `LinuxLifecycle.install_autostart` regenerates the unit whenever
+`autostart.needs_rewrite` says the recorded path has moved — precisely both situations — and
+`yazses autostart enable` is the only command that reaches it. Both messages now name it.
+
+The warning also names **which** install the unit will follow, because
+`resolve_daemon_command` prefers the console script beside the running interpreter — and
+this warning only fires when there is more than one install, so bare advice to "run `yazses
+autostart enable`" would be a coin flip on exactly the machine that produced it.
+
 ### Added — nothing a stock install turns on may swallow ordinary dictation
 
 `system/firstrun.py` seeds a config for every new user, and several capabilities it enables
