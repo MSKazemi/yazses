@@ -206,15 +206,40 @@ Or cut it off at the source and keep dictating:
 sudo ip link set <your-interface> down    # or just pull the Wi-Fi
 ```
 
-The one time YazSes *does* need the network is the **first** run, to download the speech
-model from Hugging Face. After that it never needs it again. `yazses update` is the only
-other outbound action, and only when you run it yourself.
+The one time YazSes needs the network in its **default** configuration is the **first**
+run, to download the speech model from Hugging Face. After that, dictation never needs it
+again.
+
+That default is most of the product but it is not all of it, and the distinction is worth
+stating exactly rather than rounding off. **Every optional feature that runs a model of its
+own downloads that model once, when you enable it** — a different speech engine, speaker
+diarization, read-back, gaze targeting, offline LLM cleanup. Each of those features is off
+until you turn it on; each fetch is a one-time download of weights; and **none of them
+sends anything** — not audio, not a transcript, not an identifier.
+
+One deserves naming on its own. The optional `pyannote` diarization backend uses a *gated*
+model, so that download carries your Hugging Face token — the host requires it to check you
+accepted the licence. It is still a download and it still carries nothing you said, but it
+is the only fetch in the product that tells anyone **who** is asking, which is not the same
+disclosure as an anonymous one.
+
+`yazses update` is the only other outbound action, and only when you run it yourself —
+unless you set `[general] update_check = true`, which is off by default and, when on,
+fetches a version string in the background and nothing else.
+
+All of it is enumerated — module, destination, direction and trigger — in the project's
+[egress inventory](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-019-egress-inventory-and-escalation.md), and a test fails the build when any module gains a
+connection that is not on that list.
 
 ## Telemetry, analytics, and updates
 
-YazSes collects **no telemetry, no usage analytics, and no crash reports**, and makes
-no automatic outbound connections. Update checks are a manual, explicit action
-(`yazses update`); YazSes does not phone home on its own.
+YazSes collects **no telemetry, no usage analytics, and no crash reports**, and makes no
+automatic outbound connections in its default configuration. Update checks are a manual,
+explicit action (`yazses update`); YazSes does not phone home on its own. The one thing
+that can become automatic is the release watcher, `[general] update_check`, which is off by
+default and which — when you switch it on — reads a version string and announces a new
+release once. It carries nothing about you or your machine, and a firewall makes it a
+silent no-op rather than a delay.
 
 **"Prepare a bug report" is not an exception to this**, and it is worth being exact
 about why. When YazSes cannot identify a failure, its notification offers a button. That

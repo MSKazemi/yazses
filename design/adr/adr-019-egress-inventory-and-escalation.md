@@ -39,7 +39,8 @@ Every module in `src/yazses/` that contains an outbound network primitive
 | `postprocess/llm_cleanup.py` | `[filters.disfluency] llm_endpoint` | **→ dictated text** | LLM cleanup enabled |
 | `remote/local_proxy.py` | `127.0.0.1` (the tunnel's local end) | **→ dictated text** | `yazses remote <host>` |
 
-Plus the STT engine's own first-run model fetch, which is `faster-whisper`'s, not ours.
+Model weights are fetched by the libraries themselves rather than by any module above;
+they have their own section and their own scan below.
 
 ## Reached by spawning a program, not by importing a socket
 
@@ -101,6 +102,48 @@ something the user said**, and both are already constrained:
 **This is the sentence the project can defend:** *two code paths can send your words
 anywhere, one is confined to your own machine, and the other goes only where you
 explicitly told it to.*
+
+## Reached by asking a dependency to load a model by name
+
+The third mechanism, found the same way as the second: by asking what the existing scans
+still cannot see. `WhisperModel("base.en")`, `onnx_asr.load_model(...)`,
+`EncoderClassifier.from_hparams(...)` and `Pipeline.from_pretrained(...)` each take a
+*repository id* and let the library resolve it against `huggingface.co`. No module in this
+repository imports `requests`; the fetch happens anyway.
+
+This document already recorded the limitation — *"a dependency making its own network
+calls is not caught — `faster-whisper` fetching a model is the obvious case"* — and then
+named only the obvious one. Three more were already in the tree. **A stated limitation is
+not a guard**, which is the same lesson the section above it records about `ssh`, and this
+is its third instance. A third scan now covers it.
+
+| Module | Loader | What crosses the wire | Trigger |
+|---|---|---|---|
+| `stt/faster_whisper.py` | `WhisperModel(...)` | ← Whisper weights, **local cache tried first** | first run, or a new `[stt] model` |
+| `stt/parakeet.py` | `onnx_asr.load_model(...)` | ← Parakeet weights | `[stt] engine = parakeet` |
+| `voiceprint/ecapa.py` | `EncoderClassifier.from_hparams(...)` | ← ECAPA weights (~20 MB) | a voiceprint is enrolled or matched |
+| `recimport/pyannote_backend.py` | `Pipeline.from_pretrained(...)` | ← gated pipeline, **→ the user's HF token** | `diarization-pyannote` backend |
+| `voiceprint/resemblyzer_backend.py` | `VoiceEncoder(...)` | nothing — weights ship inside the wheel | `voiceprint-resemblyzer` backend |
+
+Two rows deserve their own sentence.
+
+`recimport/pyannote_backend.py` is **the only fetch here that identifies who is asking.**
+The pipeline is gated, so the request carries the user's Hugging Face token. Every other
+row is an anonymous public `GET` that says nothing about the person making it; this one
+tells a third party which account is running a diarization, on a machine whose headline
+claim is that nothing leaves it. It stays Class A — the token authenticates a download and
+carries no user content — but it is not interchangeable with the rows above it, and
+`test_the_one_credentialed_fetch_is_singled_out` fails if a second one appears.
+
+`voiceprint/resemblyzer_backend.py` reaches nothing at all. It is listed because the scan
+cannot distinguish a bundled load from a fetch, and this inventory's standing rule is that
+a false positive costs one table row while a false negative costs the promise.
+
+`stt/faster_whisper.py` is the one row where the local cache is tried first
+(`local_files_only=True`), and that is not a tidiness detail: a hub round-trip on a
+blackholed network never returns. Measured on a fully cached machine, **1.9 s with
+`HF_HUB_OFFLINE=1` against >180 s and still hanging without it.** The other loaders have
+no equivalent guard yet.
 
 ## Decision
 
@@ -167,8 +210,12 @@ a small tax, paid by exactly the change that should be reviewed most carefully.
 it. ADR-v2-126 remains deferred; this ADR generalises its rules and enumerates the present
 state so that the deferral is a decision rather than an absence.
 
-**Known limitation, stated plainly.** The guard detects outbound *primitives* by static
-import analysis. A dependency making its own network calls is not caught — `faster-whisper`
-fetching a model is the obvious case. That gap is the reason the `--network none` Docker
-check exists in the docs: the test guards our code, and the container check guards the
-whole process.
+**Known limitation, stated plainly.** Three scans now run: outbound *primitives* by static
+import analysis, network-capable *programs* by the string names passed to `subprocess`, and
+*model loaders* by the call names a dependency exposes. Each was added after the previous
+set was found to have a blind spot, and the pattern is worth naming: **every one of them
+enumerates a mechanism, so every one of them is blind to a mechanism nobody has thought of
+yet.** The loader scan matches on call *names* — a dependency that fetches from a
+differently-named entry point is not caught. That residual gap is the reason the
+`--network none` Docker check exists in the docs: the tests guard our code, and the
+container check guards the whole process.

@@ -79,6 +79,43 @@ SHELL_OUT = {
     ),
 }
 
+#: Reaches the network by ASKING A DEPENDENCY TO LOAD A MODEL BY NAME, not by importing a
+#: socket and not by spawning a program. The third mechanism, found the same way as the
+#: second: by asking what the two existing scans still cannot see.
+#:
+#: `WhisperModel("base.en")`, `onnx_asr.load_model(...)`, `EncoderClassifier.from_hparams(...)`
+#: and `Pipeline.from_pretrained(...)` all take a *repository id*, and the library resolves
+#: it against huggingface.co. Nothing in this repository imports `requests`; the fetch is
+#: real regardless. ADR-019 named `faster-whisper` in prose as "the obvious case" — these are
+#: the three that were not obvious, and one of them sends a credential.
+DEPENDENCY_FETCH = {
+    "stt/faster_whisper.py": (
+        "faster-whisper resolves the model id against huggingface.co. Tries the local "
+        "cache first (`local_files_only=True`) and only downloads on a miss"
+    ),
+    "stt/parakeet.py": "onnx-asr resolves the Parakeet model id against huggingface.co",
+    "voiceprint/ecapa.py": (
+        "speechbrain fetches `speechbrain/spkrec-ecapa-voxceleb` (~20 MB) from "
+        "huggingface.co when a voiceprint is enrolled or matched"
+    ),
+    "recimport/pyannote_backend.py": (
+        "pyannote fetches a gated pipeline from huggingface.co **carrying the user's HF "
+        "token** — the only fetch here that identifies who is asking"
+    ),
+    "voiceprint/resemblyzer_backend.py": (
+        "resemblyzer's `VoiceEncoder()` loads weights shipped inside its own wheel. "
+        "Declared anyway: the scan cannot tell a bundled load from a fetch, and this "
+        "file's rule is that a false positive costs one line and a false negative costs "
+        "the promise"
+    ),
+}
+
+#: Loader calls that take a model *name* and may resolve it over the network. Same
+#: conservatism as `_NETWORK_ROOTS`: over-matching costs a row above.
+_DEPENDENCY_LOADERS = frozenset(
+    {"WhisperModel", "load_model", "from_hparams", "from_pretrained", "VoiceEncoder"}
+)
+
 ALLOWED = {**FETCH, **SEND, **LOCAL_IPC}
 
 #: Programs that can open an outbound connection when spawned. Conservative for the same
@@ -317,3 +354,122 @@ def test_the_git_path_is_declared_as_carrying_repository_content():
     change that piped a transcript into it."""
     assert "dictation" in SHELL_OUT["gitvoice/plan.py"]
     assert "gitvoice/plan.py" not in SEND
+
+
+def _modules_fetching_through_a_dependency() -> dict[str, list[str]]:
+    """Every `yazses` module that asks a dependency to load a model by name.
+
+    Keyed and spelled exactly like the other two scans, for the same OS-portability
+    reason recorded in `test_module_keys_are_posix_on_every_os`.
+    """
+    found: dict[str, list[str]] = {}
+    for path in sorted(SRC.rglob("*.py")):
+        if "__pycache__" in path.parts:
+            continue
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except SyntaxError:  # pragma: no cover - fails elsewhere, loudly
+            continue
+        hits = set()
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            name = (
+                func.attr if isinstance(func, ast.Attribute)
+                else func.id if isinstance(func, ast.Name)
+                else None
+            )
+            if name in _DEPENDENCY_LOADERS:
+                hits.add(name)
+        if hits:
+            found[path.relative_to(SRC).as_posix()] = sorted(hits)
+    return found
+
+
+def test_the_dependency_fetch_scan_finds_something():
+    """Guard the guard, third detector: an empty result must not read as clean.
+
+    The product cannot run without loading a speech model, so a scan that finds no
+    loader at all has stopped working — it has not discovered that YazSes stopped
+    downloading anything.
+    """
+    assert _modules_fetching_through_a_dependency(), (
+        "the dependency-loader scan found nothing at all, which cannot be right — "
+        "the detector is broken, not the codebase"
+    )
+
+
+def test_no_undeclared_module_can_fetch_through_a_dependency():
+    """The gap ADR-019 wrote down and then only half-closed.
+
+    The ADR states the limitation plainly — *"a dependency making its own network calls
+    is not caught — `faster-whisper` fetching a model is the obvious case"* — and stops
+    at naming the obvious one. Three more were already in the tree: Parakeet, ECAPA and
+    pyannote. A stated limitation is not a guard; this is the guard.
+    """
+    found = _modules_fetching_through_a_dependency()
+    undeclared = {m: calls for m, calls in found.items() if m not in DEPENDENCY_FETCH}
+    assert not undeclared, (
+        "these modules ask a dependency to load a model by name and are not in the "
+        f"ADR-019 inventory: {undeclared}\n\n"
+        "Add them to DEPENDENCY_FETCH here and to the table in "
+        "design/adr/adr-019-egress-inventory-and-escalation.md. If the load carries a "
+        "credential, say so in both places — an anonymous model GET and an "
+        "authenticated one are different disclosures."
+    )
+
+
+def test_the_dependency_fetch_inventory_has_no_stale_entries():
+    """Same reason as the import inventory: an entry for a module that no longer loads a
+    model overstates the exposure and teaches the next reader to skim."""
+    found = set(_modules_fetching_through_a_dependency())
+    stale = sorted(set(DEPENDENCY_FETCH) - found)
+    assert not stale, (
+        f"these are listed as dependency fetches but no longer call a model loader: "
+        f"{stale}. Remove them from the table and from here."
+    )
+
+
+@pytest.mark.parametrize("module", sorted(DEPENDENCY_FETCH))
+def test_every_dependency_fetch_is_documented_in_the_adr(module: str):
+    """The ADR table and this file must not drift apart — the reason the ADR exists is
+    that an auditor can read one table instead of grepping."""
+    adr = (SRC.parent.parent / "design/adr/adr-019-egress-inventory-and-escalation.md")
+    assert module in adr.read_text(encoding="utf-8"), (
+        f"{module} fetches a model through a dependency but is not named in ADR-019"
+    )
+
+
+def test_the_one_credentialed_fetch_is_singled_out():
+    """An anonymous model download and an authenticated one are different disclosures.
+
+    Every other fetch here is a public GET that says nothing about who is asking. The
+    pyannote pipeline is gated, so the request carries the user's Hugging Face token —
+    which identifies the account to a third party, on a machine whose headline claim is
+    that nothing leaves it. That difference has to survive in writing, or the next
+    reader files it under "downloads a model, like the others".
+    """
+    assert "token" in DEPENDENCY_FETCH["recimport/pyannote_backend.py"]
+    source = (SRC / "recimport/pyannote_backend.py").read_text(encoding="utf-8")
+    assert "token=" in source, (
+        "pyannote_backend no longer passes a token — if the fetch became anonymous, "
+        "say so here and in ADR-019 rather than deleting this test"
+    )
+    credentialed = [m for m, why in DEPENDENCY_FETCH.items() if "token" in why]
+    assert credentialed == ["recimport/pyannote_backend.py"], (
+        f"a second credentialed fetch appeared: {credentialed}. That is an ADR-019 "
+        f"change, not a refactor."
+    )
+
+
+def test_a_dependency_fetch_is_not_counted_as_a_send_path():
+    """These pull weights down; none of them pushes anything up.
+
+    Worth asserting rather than assuming, because the public claim is a *count* — "two
+    code paths can send your words anywhere" — and the cheapest way to break it is to
+    add a fifth inventory whose entries quietly also transmit.
+    """
+    for module in DEPENDENCY_FETCH:
+        assert module not in SEND
+    assert len(SEND) == 2

@@ -8,6 +8,31 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- The privacy statement said the network is needed exactly once. *"The one time YazSes
+  does need the network is the **first** run, to download the speech model… `yazses update`
+  is the only other outbound action"* — true of the default configuration, and false the
+  moment you enable anything. ADR-019's own inventory already listed five modules that
+  download when a feature is switched on. Anyone who turned on read-back, diarization or
+  gaze and watched a connection open would have caught the project's privacy page in a
+  falsifiable sentence, which costs far more than the accurate version does: nothing you
+  *said* ever leaves, and that claim is untouched. The page now scopes the first-run
+  sentence to the default configuration, says that each optional feature fetches its own
+  model once, and gives the gated `pyannote` backend a sentence of its own — it is the one
+  fetch that carries your Hugging Face token, and so the only one that says **who** is
+  asking. The release watcher is no longer described as manual-only either: it is opt-in,
+  but when it is on it is genuinely automatic.
+
+- The egress inventory could not see a model download. Its two scans find outbound
+  *primitives* by import (`socket`, `requests`, …) and network-capable *programs* by the
+  strings handed to `subprocess`. Neither can see `WhisperModel("base.en")` —
+  a repository id that a library resolves against huggingface.co with no network import
+  anywhere in this codebase. ADR-019 had recorded the gap in prose and named
+  `faster-whisper` as "the obvious case"; three more were already in the tree — Parakeet,
+  ECAPA and pyannote, the last of which sends a credential. A third scan now enumerates
+  them, the ADR carries the table, and a new loader that is not declared fails the build.
+  This is the third mechanism found by asking what the previous guard still could not see,
+  which is now written down as the pattern rather than the incident.
+
 - `verify` said the microphone cleared the silence gate without ever saying by how much.
   Four consecutive runs in a quiet room, against a `0.0040` gate, reported `[OK] Signal`
   at levels of `0.0052`–`0.0060` and then `[OK] Transcription` on three fully invented
