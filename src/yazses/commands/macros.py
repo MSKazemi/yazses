@@ -128,9 +128,30 @@ def load_macros(path: Path | str | None) -> MacroTable:
         log.error("could not parse macros file %s: %s", p, exc)
         return MacroTable(macros)
 
-    for entry in data.get("macro", []):
+    # `[[macro]]` is an array of tables, but nothing stops a file writing `macro = "x"`
+    # or `[macro]`. TOML then hands back a string or a dict, and iterating either used to
+    # reach `entry.get`, which raises out of `Daemon.__init__` -- so a typo in a file
+    # `configcheck` never sees stopped the daemon starting. This function's own docstring
+    # says a broken macro must not break the daemon; these are the two gaps in that.
+    entries = data.get("macro", [])
+    if not isinstance(entries, list):
+        log.error(
+            "macros file %s: `macro` should be a list of [[macro]] tables, got %s; "
+            "ignoring the file", p, type(entries).__name__,
+        )
+        return MacroTable(macros)
+
+    for entry in entries:
+        if not isinstance(entry, dict):
+            log.warning("skipping macro entry that is not a table: %r", entry)
+            continue
         trigger = entry.get("trigger", "")
         mtype = entry.get("type", "")
+        # A non-string trigger reached `normalize`, which strips it. Checked here rather
+        # than there so `normalize` stays a pure text function with one job.
+        if not isinstance(trigger, str) or not isinstance(mtype, str):
+            log.warning("skipping macro entry with a non-string trigger/type: %r", entry)
+            continue
         if not trigger or mtype not in _VALID_TYPES:
             log.warning("skipping invalid macro entry: %r", entry)
             continue

@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a typo in `macros.toml` stopped the daemon starting
+
+`Daemon.__init__` calls `build_macro_table`, and `load_macros`'s own docstring is explicit:
+*"A single bad entry is skipped (logged), never raised — a broken macro must not break the
+daemon."* It handled an unparseable file and an entry missing its fields. Two shapes got
+through:
+
+    macro = "a string"          ->  AttributeError: 'str' object has no attribute 'get'
+    [[macro]]
+    trigger = 42                ->  AttributeError: 'int' object has no attribute 'strip'
+
+Both raise out of the constructor, so the daemon does not start. `macros.toml` is a separate
+file, so `configcheck` — which exists so that no config can stop the daemon starting — never
+sees it and nothing else could catch this.
+
+This was an oversight rather than a decision, and the sibling proves it: `build_style_rules`
+is called from the same constructor, for the same kind of user-authored side file, and
+already rejects a non-list `rule`, skips a non-table entry, and wraps the load in `except
+Exception` with the comment *"a style sheet must never block startup"*. The macros loader now
+does the same, and one bad entry still leaves the good ones loaded.
+
 ### Fixed — an invalid redaction pattern stopped the daemon starting
 
 `[learning] redact_patterns` is a list of regexes scrubbed from text before it reaches the
