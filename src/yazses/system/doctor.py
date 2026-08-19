@@ -302,7 +302,7 @@ def _config_validity(config_file: Path) -> list[_Check]:
     except Exception as exc:  # noqa: BLE001 — doctor must survive anything
         return [("Config validity", "WARN", f"could not be checked ({exc})")]
     if not problems:
-        return [("Config validity", "OK", "every setting has the expected type")]
+        return [("Config validity", "OK", "every setting is a usable value")]
 
     out: list[_Check] = []
     defaulted = [p for p in problems if not p.repaired]

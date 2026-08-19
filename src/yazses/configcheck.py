@@ -148,6 +148,41 @@ def coerce_value(value, tp):
     return True, value, None
 
 
+def _default_of(field):
+    """The field's shipped default, or ``None`` if it only has a factory."""
+    if field.default is not dataclasses.MISSING:
+        return field.default
+    return None
+
+
+def negative_is_impossible(field) -> bool:
+    """Does a negative value make this setting meaningless? Derived, not listed.
+
+    Every numeric setting in YazSes is one of two things. Most are magnitudes -- a
+    duration, a size, a count, an RMS threshold -- where a negative is not a wrong
+    value but an impossible one. A few are genuinely signed: `[hallucination]
+    logprob_threshold`, `[reask] threshold` and `[whispermode] tilt_min` are all
+    log-probabilities or signed measures and ship negative defaults.
+
+    Rather than hand-maintaining a list of which is which -- a list that would be
+    correct on the day it was written and wrong after the next feature -- the shipped
+    default decides: a setting whose own default is >= 0 is a magnitude. A new signed
+    setting brings its own permission with it.
+
+    This matters because `configcheck` validated *types* only, and `doctor` reports its
+    result as **"Config validity: every setting has the expected type"**. A negative
+    `vad_threshold` is type-correct and catastrophic: `is_silent` is
+    ``mean(abs(audio)) < threshold``, which against a negative threshold is never true,
+    so nothing is ever discarded as silence and every burst -- including the ones where
+    nobody spoke -- reaches the model to hallucinate on. The user is told their config
+    is valid.
+    """
+    default = _default_of(field)
+    if isinstance(default, bool) or not isinstance(default, (int, float)):
+        return False
+    return default >= 0
+
+
 def build_section(cls, raw, section: str, problems: list[ConfigProblem]):
     """Build dataclass ``cls`` from ``raw``, repairing or dropping anything invalid.
 
@@ -176,6 +211,14 @@ def build_section(cls, raw, section: str, problems: list[ConfigProblem]):
             kwargs[key] = build_section(inner, value, f"{section}.{key}", problems)
             continue
         ok, coerced, note = coerce_value(value, tp)
+        if (
+            ok
+            and not isinstance(coerced, bool)
+            and isinstance(coerced, (int, float))
+            and coerced < 0
+            and negative_is_impossible(fields[key])
+        ):
+            ok, note = False, f"cannot be negative (got {coerced})"
         if ok:
             if note:
                 problems.append(

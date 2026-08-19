@@ -6,6 +6,31 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a negative `vad_threshold` was type-correct, catastrophic, and reported valid
+
+`configcheck` validated **types**, and `doctor` reported the result as *"Config validity:
+every setting has the expected type"*. So this loaded with **zero problems**:
+
+    [accessibility]
+    vad_threshold = -5.0
+    pre_speech_padding_ms = -900
+
+`is_silent_calibrated` is `mean(abs(audio)) < vad_threshold`, which against a negative
+threshold is **never true** — so nothing is ever discarded as silence, and every burst,
+including the ones where nobody spoke, reaches the model to hallucinate on. The user who
+ran `doctor` to ask whether their config was good was told it was.
+
+A numeric setting can no longer be negative unless it is genuinely signed. Which is
+which is **derived from the shipped default**, not from a hand-maintained list: a setting
+whose own default is >= 0 is a magnitude (a duration, a size, a count, an RMS threshold),
+while `[hallucination] logprob_threshold`, `[reask] threshold` and `[whispermode]
+tilt_min` ship negative defaults because they are log-probabilities and signed measures,
+and keep accepting negatives. A new signed setting brings its own permission with it.
+
+Rejected values fall back to the default and are reported like every other config
+problem, so `doctor` and the daemon's startup listing both show them. The validity check
+now says "every setting is a usable value", which is what it verifies.
+
 ### Fixed — `yazses doctor` printed two different checks both called "Microphone"
 
     [OK] Microphone: ok
