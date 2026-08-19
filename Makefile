@@ -96,6 +96,8 @@ docs:
 	uv run python scripts/gen-docs.py
 	@echo "▶  Regenerating architecture figures…"
 	uv run python scripts/gen-arch-figures.py
+	@echo "▶  Regenerating man/yazses.1…"
+	uv run python scripts/gen-man.py
 
 docs-serve:
 	@echo "▶  Serving the docs site at http://127.0.0.1:8000 …"

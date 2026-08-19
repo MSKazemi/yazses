@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the Arch package would have shipped a man page stamped with the previous version
+
+`man/yazses.1` carries the version and date in its `.TH` header, and the sync test
+deliberately ignores that line — enforcing byte-equality would turn every version bump into
+a red CI run until someone remembered `make man`, which is a landmine rather than a safety
+net. That reasoning is right; its consequence went unexamined.
+
+The stamp was then refreshed by nothing automatic. `make docs` regenerated the reference
+pages and the architecture figures but not the man page, no workflow ran `make man`, and the
+project rule that covers it — *"CLI change → `make man`"* — is tied to CLI changes, which a
+version bump is not. The file sat at `yazses 2.28.0` in a tree preparing 2.29.0, with a green
+suite, correctly.
+
+`gen_man.body`'s own note said the shipped page *"always carries the right version
+regardless"* because `build-deb.sh` regenerates it. True — for the `.deb`. Two packaging
+paths install this file, and `packaging/arch/PKGBUILD` installs the **committed** one
+unchanged, so the AUR package ships whatever stamp is in git.
+
+`make docs` now regenerates the page too, so any "refresh the reference material" step
+carries the stamp with it. Deliberately **not** added: a test that the committed stamp equals
+the package version — that would redden CI on a bump, which is exactly the failure the
+existing design avoids. The new test asserts the mechanism, which cannot fail on a bump.
+
 ### Fixed — `doctor` reported a broken login service and no way to fix it
 
 Two branches, on the page someone opens when the daemon is running the wrong build:

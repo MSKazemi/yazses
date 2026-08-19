@@ -126,9 +126,18 @@ def body(text: str) -> str:
     would therefore turn every version bump into a red CI run until someone
     remembered ``make man`` — a landmine, not a safety net. The sync test
     compares *this* instead, so it still catches real CLI drift (a command,
-    flag, or help string that changed) and ignores the stamp. The shipped page
-    always carries the right version regardless: ``scripts/build-deb.sh``
-    regenerates it at package build time.
+    flag, or help string that changed) and ignores the stamp.
+
+    That leaves the stamp refreshed by nothing automatic, and "always carries the
+    right version regardless" was true of one channel out of two. ``build-deb.sh``
+    does regenerate at package build time; ``packaging/arch/PKGBUILD`` installs the
+    **committed** file unchanged, so the AUR package ships whatever stamp is in git.
+    A version bump alone never triggered `make man` -- the rule is tied to CLI
+    changes -- and the page sat at 2.28.0 in a tree preparing 2.29.0.
+
+    So `make docs` regenerates this too. Any "refresh the reference material" step
+    now carries the stamp with it, and CI stays exactly as forgiving as it was: the
+    sync test still ignores `.TH`, so a bump on its own cannot redden anything.
     """
     return "\n".join(
         line for line in text.splitlines() if not line.startswith(".TH ")
