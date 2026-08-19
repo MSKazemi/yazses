@@ -8,6 +8,15 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- The macOS `.app` could not name its own version. PyInstaller bundles no `.dist-info`
+  unless the spec asks for it, so inside the frozen bundle every reader of
+  `importlib.metadata.version("yazses")` met `PackageNotFoundError` — `--version`, the
+  About box, the updater, the diagnostic report, and `doctor`, which printed
+  `[WARN] Version: yazses version metadata not found`. The Windows spec has collected
+  metadata, and had a test pinning it, since the installer smoke test caught the same
+  failure there; the macOS spec had neither. It now collects it, and the macOS packaging
+  guards carry the matching check so the two platforms cannot drift apart again.
+
 - An unsupported `[stt] compute_type` was reported as a missing speech model. The value's
   valid range is a property of your processor, and ctranslate2 rejects a bad one from
   inside the model constructor — which the loader wrapped as "the model is not on this

@@ -17,6 +17,8 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
+from PyInstaller.utils.hooks import copy_metadata
+
 REPO = Path(SPECPATH).resolve().parents[1]
 ENTRY = str(REPO / "src" / "yazses" / "__main__.py")
 ICON = REPO / "assets" / "yazses.icns"
@@ -46,7 +48,17 @@ a = Analysis(
     [ENTRY],
     pathex=[str(REPO / "src")],
     binaries=[],
-    datas=[],
+    # The package's .dist-info. PyInstaller bundles no metadata unless asked, and
+    # importlib.metadata.version("yazses") is what --version, the About box, doctor,
+    # the updater and the diagnostic report all read. Without it every one of them
+    # sees PackageNotFoundError inside the .app.
+    #
+    # The Windows spec has carried this line, and a test pinning it, since the
+    # installer smoke test caught it there. The macOS spec never got either -- so
+    # `doctor` in the shipped .app reported "yazses version metadata not found",
+    # which is exactly what the first person to run the macOS build on real
+    # hardware pasted into #182.
+    datas=copy_metadata("yazses"),
     hiddenimports=[
         # PyObjC sub-modules that PyInstaller's static analysis sometimes misses.
         "Quartz",

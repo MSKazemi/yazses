@@ -212,3 +212,24 @@ def test_only_one_publishable_cask(cask_text: str) -> None:
             f"{stale} no longer looks like an abandoned artefact -- if it became "
             "real, update this test and packaging/README.md"
         )
+
+
+# ---- Version metadata ----------------------------------------------------
+
+
+def test_spec_bundles_package_metadata(spec_text: str) -> None:
+    """The .app shipped with no .dist-info, so it could not name its own version.
+
+    PyInstaller bundles no package metadata unless the spec asks for it, and
+    ``importlib.metadata.version("yazses")`` backs ``--version``, the About box,
+    ``doctor``, the updater and the diagnostic report. Inside the frozen bundle
+    every one of them met ``PackageNotFoundError``.
+
+    The Windows spec has had this line -- and ``test_packaging_windows.py``'s
+    identical guard -- since the installer smoke test caught it there. macOS got
+    neither, which is a guard existing on one platform and not its twin. It
+    surfaced when the first human to run the macOS build on real hardware pasted
+    ``[WARN] Version: yazses version metadata not found`` into #182.
+    """
+    assert "copy_metadata" in spec_text
+    assert 'copy_metadata("yazses")' in spec_text
