@@ -35,6 +35,20 @@ def _ordered_speakers(utterances):
     return order
 
 
+def unmatched_renames(utterances, renames) -> list:
+    """Rename keys that name no speaker in this recording, sorted. Pure.
+
+    A mistyped or out-of-range speaker id -- `speaker_5` on a two-speaker file, or
+    `Speaker_0` with the wrong case -- otherwise renames nobody and reports nothing, so
+    the transcript comes back saying "Speaker 1" and the user is left to work out why.
+    """
+    known = set(_ordered_speakers(utterances))
+    return sorted(
+        spk for spk, name in (renames or {}).items()
+        if name and str(name).strip() and spk not in known
+    )
+
+
 def resolve_names(
     utterances,
     *,
@@ -64,9 +78,14 @@ def resolve_names(
             if name and name.strip():
                 result[spk] = name.strip()
 
-    # (1b) explicit renames win
+    # (1b) explicit renames win -- but only for speakers that are actually in the
+    # recording. The returned map is documented as {canonical_speaker_id: display_name},
+    # and a `--rename speaker_5=Bob` on a two-speaker file used to add `speaker_5` to it:
+    # a key naming nobody, which no renderer ever looks up. The rename simply did nothing
+    # and said nothing. `unmatched_renames` lets the caller say so.
+    known = set(order)
     for spk, name in renames.items():
-        if name and name.strip():
+        if name and name.strip() and spk in known:
             result[spk] = name.strip()
 
     # (2) voiceprint auto-naming for still-unnamed clusters

@@ -4422,6 +4422,21 @@ def transcribe(
             "Note: diarization was unavailable (install the `diarization` extra and run "
             "`yazses transcribe --download-models`); wrote a plain transcript.", err=True)
 
+    # A --rename naming a speaker who is not in the recording renamed nobody. Silently
+    # doing nothing leaves the user reading "Speaker 1" and guessing why, so name the
+    # keys that matched nothing and list the ones that exist.
+    if rename_map:
+        from yazses.recimport.naming import unmatched_renames
+
+        stray = unmatched_renames(result.utterances, rename_map)
+        if stray:
+            present = sorted({u.speaker for u in result.utterances if u.speaker})
+            typer.echo(
+                f"Note: --rename {', '.join(stray)} matched no speaker in this recording"
+                + (f"; it has {', '.join(present)}." if present else "."),
+                err=True,
+            )
+
     text = render_transcript(result, fmt)
     out_path = Path(out) if out else Path(audio_file).with_suffix("." + fmt)
     out_path.write_text(text, encoding="utf-8")

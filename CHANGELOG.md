@@ -6,6 +6,21 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `transcribe --rename` for a speaker who isn't there did nothing, silently
+
+`resolve_names` returns a map documented as `{canonical_speaker_id: display_name}`, and it
+copied every rename into it without checking the speaker exists. A mistyped or
+out-of-range id — `--rename speaker_5=Bob` on a two-speaker file, or `Speaker_0` with the
+wrong case — added a key naming nobody, which no renderer looks up.
+
+The rename did nothing and reported nothing, so the transcript came back saying
+"Speaker 1" and the user was left to work out whether diarization had failed, the syntax
+was wrong, or they had miscounted the speakers.
+
+The map now contains only speakers that are in the recording, and `yazses transcribe` says
+which `--rename` keys matched nothing — listing the ids the recording *does* have, which
+is the thing the user needs and cannot otherwise discover without re-running.
+
 ### Fixed — diarized transcripts attributed words to the wrong speaker
 
 `_nearest_speaker` filled an unmatched word from the nearest turn by the distance between
