@@ -6,6 +6,38 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses verify` certified a microphone that was hearing nobody
+
+Run for real in a quiet room with nobody speaking:
+
+    [OK] Signal: level 0.0044 clears the gate (0.0005)
+    [OK] Transcription: heard "You"
+    ✓ Dictation works end to end on this machine.
+
+Room noise cleared the gate, the model answered near-silence with a confident invented
+word, and the one command whose job is to find the broken link declared success. `verify`
+is the only check in the project that produces evidence rather than inference, so a false
+pass there is the most expensive one it has.
+
+**The known artefacts were never checked.** `clean_text` strips `[BLANK_AUDIO]`, but
+Whisper's other silence artefacts are ordinary English and survive it. The repo already
+recognises them — `postprocess/hallucination.py` carries the outro list and the
+repetition-loop detector — and `verify` never asked. A clip of pure room noise decoding to
+"Thanks for watching" printed as a passing step. Both are now consulted, whole-transcript
+only, which is that module's own premise; an outro phrase *inside* real speech is untouched.
+
+**The verdict claimed more than the run proved.** `verify` can show the chain ran; only you
+can say the words are the ones you spoke. It now says exactly that, and names the two
+commands to run when the transcript is not what you said.
+
+**Deliberately unchanged:** "You" still passes. It is the commonest thing the model returns
+for silence *and* an ordinary word someone may have said, and no automated check separates
+them. The asymmetry runs the other way here than on the daemon's hot path — a `verify` that
+wrongly passes costs one confusing session, while one that wrongly fails sends someone to
+re-calibrate a microphone that was fine. So the checks stop at the artefacts with no
+legitimate reading, and the judgement that needs a human is handed to the human with the
+evidence beside it.
+
 ### Fixed — `doctor` claimed voice window focus works while the feature was off
 
 The half of the previous fix that was missing. Gating the daemon on `[windowctl] enabled`

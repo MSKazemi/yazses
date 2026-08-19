@@ -2206,7 +2206,18 @@ def verify(
         typer.echo(f"  [{'OK' if step.ok else 'FAIL'}] {step.name}: {step.detail}")
     typer.echo("")
     if result.ok:
-        typer.echo("✓ Dictation works end to end on this machine.")
+        # The verdict used to be unconditional, and it is the line people read. verify
+        # proves the chain RAN; only the user can say the words are the ones they spoke.
+        # Recording silence in a quiet room still clears the gate on room noise and gets
+        # a confident invented word back, so an unqualified tick certified a mic that
+        # was never hearing anyone.
+        heard = next((s for s in result.steps if s.name == "Transcription"), None)
+        typer.echo("✓ The whole chain ran: captured, heard, cleaned"
+                   + (", typed." if do_type else "."))
+        if heard is not None:
+            typer.echo(f"  It {heard.detail} — if that is not what you said, the mic is "
+                       "the problem, not the pipeline:")
+            typer.echo("      yazses mic-level --set   ·   yazses audio status")
         _maybe_point_at_project(platform.paths.data_dir, succeeded=True)
         return
     failure = result.failure

@@ -124,6 +124,35 @@ def verify(
             "unmuted and is the one being captured: `yazses audio status`.",
         )
         return result
+    # `clean_text` strips `[BLANK_AUDIO]`, but the model's other silence artefacts are
+    # ordinary English and survive it. `postprocess/hallucination.py` already recognises
+    # them and verify never asked: a clip of pure room noise decoding to "Thanks for
+    # watching" printed as a passing Transcription step under "Dictation works end to end".
+    #
+    # Only whole-transcript matches against the outro list are used, which is that
+    # module's own premise -- nobody dictates "please subscribe" as an entire utterance.
+    # Nothing here is a general "does this look invented?" test, and it must not become
+    # one: see the note below on why that call belongs to the user.
+    from yazses.postprocess.hallucination import is_ghost_phrase, is_repetition_loop
+
+    if is_ghost_phrase(cleaned):
+        result.add(
+            "Transcription", False,
+            f'the model returned "{" ".join(cleaned.split())[:40]}" -- a phrase Whisper '
+            "invents for silence, not something anyone dictates. The level cleared the "
+            "gate, so something is being captured, but not your voice. Check the mic is "
+            "unmuted and is the one being used: `yazses audio status`.",
+        )
+        return result
+    if is_repetition_loop(cleaned):
+        result.add(
+            "Transcription", False,
+            f'the model looped on one phrase ("{" ".join(cleaned.split())[:40]}"), which '
+            "is a decode failure rather than speech. Try a larger `[stt] model`, or check "
+            "the recording is not near-silence: `yazses mic-level`.",
+        )
+        return result
+
     text = cleaned
     # Show the words, not a count of them. A count cannot be checked against what
     # you said, so it cannot contradict anything: run in a quiet room with nobody
@@ -134,6 +163,13 @@ def verify(
     #
     # Whether a word is invented cannot be decided reliably. Whether it is what you
     # said can -- by you, instantly, if it is on the screen.
+    #
+    # And that is exactly why the checks above stop at the KNOWN artefacts. "You" is the
+    # commonest thing this model returns for silence, and it is also an ordinary English
+    # word somebody may well have said -- adding it to the ghost list would fail a real
+    # dictation. The asymmetry runs the other way here than in the daemon: a verify that
+    # wrongly passes costs one confusing session, a verify that wrongly fails sends
+    # someone to re-calibrate a microphone that was fine.
     spoken = " ".join(text.split())
     n = len(text.split())
     shown = spoken if len(spoken) <= 60 else spoken[:59].rstrip() + "\u2026"
