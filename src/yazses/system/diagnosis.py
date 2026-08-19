@@ -171,6 +171,20 @@ _RULES: tuple[tuple[str, tuple[str, ...], str, str, str, str | None], ...] = (
         f"{_DOCS}/known-good-microphones.html",
     ),
     (
+        # The numeric alias, for the same reason `mic-busy` needed one for -9985: a
+        # `PortAudioError` can arrive carrying only the code. -9996 is "Invalid device",
+        # read from the installed library. Without this it fell into
+        # "audio-backend-missing" and was answered with "install libportaudio2".
+        "mic-missing",
+        ("-9996",),
+        "YazSes cannot find the microphone it was told to use",
+        "The pinned input device is not on this machine right now — unplugged, "
+        "or renamed.",
+        "Run `yazses audio use <name>` to pin a different one, or "
+        "`yazses audio use \"\"` to follow the system default again.",
+        f"{_DOCS}/known-good-microphones.html",
+    ),
+    (
         "mic-missing",
         ("invalid device",),
         "YazSes cannot find the microphone it was told to use",
@@ -199,10 +213,34 @@ _RULES: tuple[tuple[str, tuple[str, ...], str, str, str, str | None], ...] = (
         f"{_DOCS}/known-good-microphones.html",
     ),
     (
+        # `[audio] sample_rate` is a documented, editable key, and a device that does not
+        # support the value produces this. Before the rule below was narrowed it landed in
+        # "audio-backend-missing" and told the user to `apt install libportaudio2` -- a
+        # library that is demonstrably present, because it is the thing that raised.
+        "sample-rate-unsupported",
+        ("invalid sample rate",),
+        "Your microphone does not support the sample rate YazSes asked for",
+        "`[audio] sample_rate` is set to a value this device cannot do.",
+        "Remove the `sample_rate` line to use the default 16000, which every device "
+        "supports and the speech model expects. `yazses audio devices` lists what is "
+        "available.",
+        f"{_DOCS}/configuration.html",
+    ),
+    (
+        # "portaudio" as a marker matched EVERY PortAudio failure, because the library
+        # puts its own name in the exception class -- so this rule fired precisely when
+        # its own diagnosis was impossible. If PortAudio could not be loaded it could not
+        # raise a `PortAudioError`; you would get an `OSError: PortAudio library not
+        # found`, which is what sounddevice actually raises and what this now matches.
+        #
+        # Four codes were landing here with advice that could not help: invalid sample
+        # rate (-9997, now its own rule), unanticipated host error (-9999), internal
+        # error (-9986) and incompatible stream host API (-9973). Those three fall
+        # through to the stage wording, which says less but says nothing false.
         "audio-backend-missing",
-        ("portaudio",),
+        ("portaudio library not found",),
         "YazSes cannot reach your sound system",
-        "The audio backend PortAudio could not be loaded or found no devices.",
+        "The audio backend PortAudio could not be loaded.",
         "On Linux install it with `sudo apt install libportaudio2`, then run "
         "`yazses doctor`.",
         f"{_DOCS}/known-good-microphones.html",

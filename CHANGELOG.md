@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — an audio rule fired precisely when its own diagnosis was impossible
+
+`audio-backend-missing` matched the marker `"portaudio"` and answered *"The audio backend
+PortAudio could not be loaded… install it with `sudo apt install libportaudio2`."* PortAudio
+puts its own name in the exception class, so that marker caught **every** `PortAudioError` —
+and a `PortAudioError` can only be raised by a PortAudio that loaded. The advice was to
+install a library that is demonstrably present, because it is the thing that raised.
+
+Four codes were landing there, verified against the installed library: `-9997` invalid
+sample rate, `-9999` unanticipated host error, `-9986` internal error, `-9973` incompatible
+stream host API.
+
+**`-9997` gets its own rule.** `[audio] sample_rate` is a documented, editable key, so an
+unsupported value is a realistic edit rather than an exotic failure — someone setting 44100
+or 48000 on a device that will not do it. It now names the setting and the value to go back
+to. The other three fall through to the stage wording, which says less and says nothing
+false.
+
+`-9996` ("Invalid device") gets the numeric alias `mic-missing` always needed, for the same
+reason `mic-busy` has one for `-9985`: a `PortAudioError` can arrive carrying only the code.
+An existing test pinned that code to *"PortAudio could not be loaded"* — its claim about the
+mechanism was right, only the example was wrong, and it now asserts the correct rule.
+
 ### Added — nothing but DEBUG may carry what the user said
 
 Two promises were made in prose and enforced by nothing: `yazses logs` is *"metadata only"*,

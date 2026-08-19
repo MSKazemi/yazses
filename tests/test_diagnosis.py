@@ -109,7 +109,12 @@ def test_the_class_name_is_matched_too_not_only_the_message():
     class PortAudioError(Exception):
         pass
 
-    assert diagnose(PortAudioError("-9996"), where=CAPTURE).slug == "audio-backend-missing"
+    # -9996 is PortAudio's "Invalid device", so the right answer is `mic-missing`. This
+    # asserted `audio-backend-missing`, which was the over-broad `("portaudio",)` marker
+    # catching every PortAudio failure -- and telling the user to install a library that
+    # had just raised. The mechanism this test is about is unchanged; only the example
+    # was wrong. See tests/test_diagnosis_portaudio_scope.py.
+    assert diagnose(PortAudioError("-9996"), where=CAPTURE).slug == "mic-missing"
 
 
 def test_a_recognised_failure_is_recognised_wherever_it_is_caught():
