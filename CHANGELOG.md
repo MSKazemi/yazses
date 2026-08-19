@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — every documented `config.toml` example is now loaded by the real loader
+
+A documented snippet is copy-pasted, not read. If it names a key that does not exist, or
+gives a value of the wrong type, `configcheck` does exactly what it was built to do — drops
+the key, repairs what it can, carries on — so the user gets a config that loads cleanly and
+a setting that never applies. Nothing errors, and the doc is what taught them to write it.
+
+The suite checked the config loader, and it checked that the docs build. Nothing put the two
+together. All **62** examples pass today, so this ships as a guard rather than a fix: the
+value is that the next one cannot be wrong silently.
+
+Two exclusions, both narrow and both asserted. Blockquoted blocks have their `> ` callout
+prefixes stripped — otherwise the Windows install example fails to parse and the natural
+"fix" is to skip blockquotes entirely, silently dropping coverage. And one block in
+`docs/troubleshooting.md` deliberately shows a wrong value beside a right one; blocks whose
+comment says "wrong" are skipped, and the *count* of skipped blocks is pinned, because an
+exemption that can grow silently is a hole rather than an exemption.
+
+Also audited clean this pass: all 85 backticked `[section] key` references in the docs name
+real settings; `[mcp]` and `[profiles]` have no `enabled` key because they are activated by
+running a command or adding table entries rather than by a switch, which is why they are
+absent from the feature registry.
+
 ### Added — the command-safety gate's ordering is now asserted, not assumed
 
 `cmdsafety` judges the command *text*, so it only works if it sees the text **as it will be
