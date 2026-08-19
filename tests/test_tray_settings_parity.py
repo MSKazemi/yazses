@@ -249,3 +249,27 @@ def test_the_help_links_point_at_pages_that_exist():
             assert page.endswith(".html"), f"{label} is not a built page URL: {url}"
             source = ROOT / "docs" / page.replace(".html", ".md")
             assert source.is_file(), f"{label} links to {url}, but {source} does not exist"
+
+
+def test_the_recording_state_set_is_shared_not_copied() -> None:
+    """`tray/app.py` and `tray/menu.py` must decide "is this a burst?" from one set.
+
+    They each held an identical four-element copy. The two answer the same question for
+    different purposes -- `menu.py` picks the icon colour for a state, `app.py` decides
+    whether to poll at 0.15 s instead of 1 s during it -- so a state added to one and not
+    the other yields an icon that is the right colour and a second behind, or the wrong
+    colour polled quickly. Nothing would report either.
+
+    Found by a machine sweep for literal collections duplicated across modules, the same
+    sweep that found `learning`'s redaction set covering four of six stored text fields.
+    """
+    from yazses.tray import app as tray_app
+    from yazses.tray import menu as tray_menu
+
+    assert tray_app._RECORDING_STATES is tray_menu._RECORDING_STATES, (
+        "tray/app.py has its own copy again — import it from tray/menu.py instead"
+    )
+    # Named explicitly so silently emptying the set cannot make this vacuous.
+    assert tray_menu._RECORDING_STATES == frozenset(
+        {"recording", "transcribing", "injecting", "meeting"}
+    )

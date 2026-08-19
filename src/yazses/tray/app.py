@@ -21,6 +21,7 @@ from dataclasses import dataclass
 
 from yazses.ipc.client import IpcCallError, IpcUnreachableError
 from yazses.platform import TrayModel, TrayState, get_platform
+from yazses.tray.menu import _RECORDING_STATES
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +30,11 @@ _POLL_INTERVAL_S = 1.0
 # Poll faster while recording so the icon reflects the burst (green ↔ yellow when there's
 # no text target) during a short hold, instead of lagging a full second behind.
 _FAST_POLL_INTERVAL_S = 0.15
-_RECORDING_STATES = frozenset({"recording", "transcribing", "injecting", "meeting"})
+# Imported, not restated. This file and `tray/menu.py` each held an identical
+# four-element copy, and the two decide the same thing: `menu.py` picks the icon
+# colour for a state, this file decides whether to poll faster during it. A state
+# added to one and not the other gives an icon that is the right colour and a
+# second behind, or vice versa -- a divergence nothing would report.
 _DAEMON_BOOT_TIMEOUT_S = 30.0
 # How long the daemon may be away, after we have already talked to it, before the icon
 # stops claiming everything is fine. `yazses restart` takes the socket down for a second
