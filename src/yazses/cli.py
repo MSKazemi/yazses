@@ -858,16 +858,59 @@ def start(
         _ensure_autostart(platform)
 
 
+def _finalizing_meeting(platform) -> bool:
+    """True when the daemon is mid post-pass for a meeting that has just stopped.
+
+    Stopping the daemon here destroys work that cannot be redone. `_handle_meeting_stop`
+    runs diarization and the notes inline after setting `meeting_finalizing`, the SIGTERM
+    handler does not wait for it, and `yazses restart` sends SIGKILL one second later. The
+    rolling `live.jsonl` survives, but the accurate batch diarization and the minutes do
+    not -- and there is no `yazses meeting recover` to redo them.
+
+    The daemon has published `meeting_finalizing` since Meeting Mode reached the tray. The
+    tray reads it, to grey out "Start meeting"; nothing on the stop path did, so the one
+    surface that can prevent the loss was the one not asking. Best-effort by design: an
+    unreachable or older daemon answers False and the command proceeds, because refusing
+    to stop a daemon you cannot query would be worse than the loss it guards against.
+    """
+    try:
+        client = platform.ipc_client_factory(platform.paths.ipc_socket)
+        if not client.is_reachable():
+            return False
+        return bool(client.call("status").get("meeting_finalizing"))
+    except Exception:
+        return False
+
+
+def _refuse_while_finalizing(platform, action: str, force: bool) -> None:
+    """Stop the caller when a meeting post-pass is running, unless --force."""
+    if force or not _finalizing_meeting(platform):
+        return
+    typer.echo(
+        f"A meeting is still being written up — diarization and the notes are running.\n"
+        f"{action} now loses them: the live transcript survives, the speaker labels and "
+        f"minutes do not.\n"
+        f"Wait for `yazses meeting status` to report it done, or re-run with --force.",
+        err=True,
+    )
+    raise typer.Exit(1)
+
+
 @app.command(
     rich_help_panel=_DAEMON,
     epilog=_examples("yazses restart    stop every daemon and start exactly one"),
 )
-def restart() -> None:
+def restart(
+    force: bool = typer.Option(
+        False, "--force", help="Restart even while a meeting is still being written up."
+    ),
+) -> None:
     """Restart the daemon — kills any stray/duplicate daemons and starts exactly one.
 
     Use this if dictation is being typed twice (a sign of duplicate daemons).
     """
     platform = get_platform()
+    _refuse_while_finalizing(platform, "Restarting", force)
     _warn_unmet_prereqs()
     _restart_daemon(platform)
     outcome, info = _wait_until_ready(platform)
@@ -2659,13 +2702,18 @@ def hotkey_command(
     rich_help_panel=_DAEMON,
     epilog=_examples("yazses stop    stop the running daemon (dictation off until you start again)"),
 )
-def stop() -> None:
+def stop(
+    force: bool = typer.Option(
+        False, "--force", help="Stop even while a meeting is still being written up."
+    ),
+) -> None:
     """Stop the running daemon.
 
     Dictation stays off until you `yazses start` again. To pick up a config or
     version change instead, use `yazses restart` (stop + start in one step).
     """
     platform = get_platform()
+    _refuse_while_finalizing(platform, "Stopping", force)
     pid = platform.lifecycle.read_pid()
     if pid is None or not platform.lifecycle.is_running():
         typer.echo("YazSes is not running — nothing to stop.")

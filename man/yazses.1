@@ -403,6 +403,11 @@ How much log tail to include.
 .RE
 .SS "yazses restart"
 Restart the daemon \(em kills any stray/duplicate daemons and starts exactly one.
+.RS
+.TP
+\fB\-\-force\fR
+Restart even while a meeting is still being written up.
+.RE
 .SS "yazses say"
 Speak text aloud with the built-in offline voice.
 .br
@@ -491,6 +496,11 @@ Output status as JSON for scripts and status bars.
 .RE
 .SS "yazses stop"
 Stop the running daemon.
+.RS
+.TP
+\fB\-\-force\fR
+Stop even while a meeting is still being written up.
+.RE
 .SS "yazses table"
 Turn spoken rows into delimited (CSV) lines \(em fully offline.
 .br

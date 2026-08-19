@@ -426,6 +426,8 @@ Collect a diagnostic report locally — nothing is uploaded.
 
 Restart the daemon — kills any stray/duplicate daemons and starts exactly one.
 
+- `--force` — Restart even while a meeting is still being written up.
+
 ## `yazses say`
 
 Speak text aloud with the built-in offline voice.
@@ -526,6 +528,8 @@ Show daemon status. Queries the daemon over IPC when reachable.
 ## `yazses stop`
 
 Stop the running daemon.
+
+- `--force` — Stop even while a meeting is still being written up.
 
 ## `yazses table`
 

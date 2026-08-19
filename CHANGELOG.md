@@ -6,6 +6,32 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses restart` destroyed a meeting's write-up, and the daemon was already saying so
+
+Stopping a meeting starts a post-pass: batch diarization over the whole recording, then the
+minutes. `_handle_meeting_stop` sets `meeting_finalizing` and runs that work inline. The
+SIGTERM handler does not wait for it, and `yazses restart` sends SIGTERM, sleeps **one
+second**, then SIGKILLs any survivor.
+
+So stopping the daemon in that window kills the write-up. The rolling `live.jsonl` survives
+— the store flags such folders recoverable — but the accurate speaker labels and the minutes
+do not, and there is no `yazses meeting recover` to redo them.
+
+The collision is likely rather than theoretical: `yazses features enable <name>` ends with
+*"Apply it: yazses restart"*, so the product itself asks for a restart, routinely, with no
+idea whether a meeting is being written up.
+
+**The signal already existed.** The daemon has published `meeting_finalizing` since Meeting
+Mode reached the tray, precisely because after a stop the state returns to IDLE while
+diarization and the notes still run. The tray reads it; nothing on the stop path did — so
+the one surface that could prevent the loss was the one not asking.
+
+`yazses stop` and `yazses restart` now refuse while a write-up is running and name `--force`,
+following the same pattern as `corpus destroy --i-mean-it`. Best-effort by design: an
+unreachable, erroring or older daemon answers "not finalizing" and the command proceeds,
+because refusing to stop a daemon you cannot query would be worse than the loss this guards
+against.
+
 ### Added — a source-order assertion must search for something that occurs once
 
 Several guards assert that one thing happens before another by comparing positions in
