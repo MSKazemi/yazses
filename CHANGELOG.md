@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — two state-file loaders promised tolerance and each missed one exception
+
+Both docstrings already commit to it — `load_calibration` returns *"None if
+absent/unreadable"*, `load_state` returns *"zeros if absent/unreadable"* — and both handled a
+missing file, an empty one, unparseable JSON and bad bytes. Both were defeated by the same
+input: **valid JSON that is not an object.**
+
+    gaze_calibration.json  containing  "a string"  ->  TypeError
+    wordgoal.json          containing  "a string"  ->  AttributeError
+
+`yazses wordgoal status` answered with a traceback. The gaze one was caught by a blanket
+`except Exception` in `_build_gaze_targeter`, so it degraded correctly — by accident, and
+only because that caller happened to be defensive. Relying on that is how the other three
+files in this class (`macros.toml`, `redact_patterns`, `vocabulary.txt`) became daemon
+failures.
+
+Each `except` tuple now lists the exception its own docstring already promised to absorb.
+Nothing else changed: the pre-existing repairs — a calibration of the wrong dimensions is
+still refused, a negative word count is still clamped — are pinned so the widened handler did
+not swallow them.
+
 ### Fixed — one non-UTF-8 byte in `vocabulary.txt` broke every dictation burst
 
 The daemon reads the personal dictionary on **every** burst, to build Whisper's

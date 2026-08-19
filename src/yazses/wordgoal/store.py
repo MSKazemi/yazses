@@ -23,7 +23,10 @@ def load_state(path) -> dict:
     try:
         data = json.loads(p.read_text(encoding="utf-8"))
         return {"count": max(0, int(data.get("count", 0))), "goal": max(0, int(data.get("goal", 0)))}
-    except (ValueError, OSError, TypeError):
+    except (ValueError, OSError, TypeError, AttributeError):
+        # AttributeError: valid JSON that is not an object has no `.get`. The docstring
+        # promises zeros for anything unreadable, and a string where a table belongs is
+        # unreadable -- `yazses wordgoal status` used to answer it with a traceback.
         return {"count": 0, "goal": 0}
 
 

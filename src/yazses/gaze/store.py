@@ -35,7 +35,10 @@ def load_calibration(data_dir: Path) -> CalibrationMap | None:
     try:
         raw = json.loads(path.read_text())
         A = np.array(raw["A"], dtype="float64")
-    except (OSError, ValueError, KeyError):
+    except (OSError, ValueError, KeyError, TypeError):
+        # TypeError: the file may hold valid JSON that is not an object -- `"a string"["A"]`
+        # raises "string indices must be integers". The docstring already promises None for
+        # anything unreadable; a well-formed document of the wrong shape is unreadable too.
         return None
     if A.shape != (2, 3):
         return None
