@@ -121,6 +121,40 @@ _FREE_TEXT_KEYS = frozenset({
 })
 
 
+#: Values that come from a small, **published** set of names, keyed by
+#: ``(section, key)``. The key-name filter above blanks them by substring -- ``key``
+#: matches both ``[hotkey] key`` and ``command_key`` -- and blanking them protects
+#: nothing: `doctor`, `status`, `quickstart`, `hotkey show` and the tray tooltip all
+#: print the very same value unredacted, and the twelve names are in the CLI's own
+#: `--help`.
+#:
+#: What it cost was a diagnosis. The bundle already carries `daemon.hotkey`, the key the
+#: running daemon is actually listening on, so a report from a machine whose daemon
+#: never re-read a changed config held **both halves** of that comparison and blanked
+#: one of them -- the single failure ("the hotkey does nothing") that a support reader
+#: cannot otherwise tell from a broken keyboard.
+#:
+#: Two properties keep this from becoming a hole. It is keyed by section, so a future
+#: ``[api] key`` is still redacted; and it is gated on the value being *in* the set, so
+#: an unrecognised value -- precisely the case where nobody knows what it is -- falls
+#: through to redaction rather than out of it.
+_FIXED_SET_VALUES: dict[tuple[str, str], frozenset[str]] = {}
+
+
+def _load_fixed_set_values() -> dict[tuple[str, str], frozenset[str]]:
+    """Built lazily so `report` keeps importing without the hotkey layer present."""
+    if not _FIXED_SET_VALUES:
+        from yazses.hotkeys.names import SETTABLE_HOTKEYS
+
+        names = frozenset(SETTABLE_HOTKEYS)
+        _FIXED_SET_VALUES[("hotkey", "key")] = names
+        # `""` is deliberately absent: an unset command key already skips the redaction
+        # branch below on its `value not in ("", None)` guard and comes out as `""`.
+        # Adding it here would read like a guard and guard nothing.
+        _FIXED_SET_VALUES[("hotkey", "command_key")] = names
+    return _FIXED_SET_VALUES
+
+
 def _summarise(value: object) -> str:
     """Describe a value's shape without its content.
 
@@ -163,6 +197,8 @@ def redact_config(raw: dict) -> dict:
                 clean[key] = value
             elif str(key) in _FREE_TEXT_KEYS:
                 clean[key] = _summarise(value)
+            elif str(value) in _load_fixed_set_values().get((str(section), str(key)), ()):
+                clean[key] = value
             elif _REDACT_KEYS.search(str(key)) and value not in ("", None):
                 clean[key] = _REDACTED
             elif isinstance(value, str):

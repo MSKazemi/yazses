@@ -462,6 +462,13 @@ included, and the learning corpus is reported by size and never opened.
 **Nothing is uploaded, ever.** The file is written, its path printed, and it is yours to
 read before deciding whether to attach it to an issue.
 
+Settings whose values come from a small published set are kept in full — your hold-to-talk
+key and command key are twelve fixed names that `yazses hotkey show` already prints, and
+hiding them would remove the one comparison that matters: the bundle also records the key
+the *running* daemon is listening on, and the two disagreeing is what explains a hotkey
+that suddenly does nothing after a config change without a restart. Anything that is a
+path, address, token or free text is still replaced.
+
 **Options:** `--output/-o` (where to write it), `--print` (print instead of writing),
 `--log-lines` (how much log tail to include, default 200).
 

@@ -8,6 +8,20 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `yazses report` blanked the one setting its bug reports most needed. The bundle already
+  records `daemon.hotkey`, the key the running daemon is actually bound to, so a report
+  from a drifted machine carried **both halves** of the comparison that explains *"the
+  hotkey does nothing"* — and redacted one of them. The cause was a substring match: the
+  redaction filter looks for `key` in a setting's name to catch API keys and secrets, and
+  `[hotkey] key` and `command_key` both contain it. Nothing was protected, either — the
+  same twelve fixed names are printed unredacted by `doctor`, `status`, `quickstart`,
+  `hotkey show` and the tray tooltip, and listed in `yazses hotkey set --help`. Values from
+  a small published set are now kept, via an allowlist keyed by **(section, key)** and
+  gated on the value being in that set — so a future `[api] key` is still redacted even if
+  it happens to read `space`, and an unrecognised value, precisely the case where nobody
+  knows what it is, falls through to redaction rather than out of it. Paths, addresses,
+  tokens and free text are unchanged.
+
 - `doctor` warned about a dead hotkey and then closed by telling you to hold it. The
   `Hotkey` row was taught to compare the configured key against the running daemon's; the
   **summary line** — the last thing read, and the only one carrying a command — still built
