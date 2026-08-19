@@ -233,3 +233,33 @@ def test_spec_bundles_package_metadata(spec_text: str) -> None:
     """
     assert "copy_metadata" in spec_text
     assert 'copy_metadata("yazses")' in spec_text
+
+
+# ---- Brand icon ----------------------------------------------------------
+
+
+def test_spec_fails_loudly_when_the_brand_icon_is_missing(spec_text: str) -> None:
+    """The silent fallback shipped a generic icon once already, on both platforms.
+
+    ``icon=str(ICON) if ICON.exists() else None`` turns a missing
+    ``assets/yazses.icns`` into a perfectly successful build carrying PyInstaller's
+    default artwork in Finder, the Dock and Get Info. A build that cannot brand
+    itself must fail, not shrug.
+
+    The spec has done the right thing since that was found. Nothing pinned it here,
+    though `test_packaging_windows.py` pinned the identical rule for `.ico` -- and a
+    guard that exists for one platform and not its twin is precisely how
+    ``copy_metadata`` stayed missing from this spec through every release.
+    """
+    code = "\n".join(
+        ln for ln in spec_text.splitlines() if not ln.lstrip().startswith("#")
+    )
+    assert "if ICON.exists() else None" not in code
+    assert "raise SystemExit" in code
+    assert "scripts/gen-icons.py" in spec_text
+
+
+def test_spec_points_at_an_icon_that_exists(spec_text: str) -> None:
+    assert 'ICON = REPO / "assets" / "yazses.icns"' in spec_text
+    assert (REPO / "assets" / "yazses.icns").is_file()
+    assert spec_text.count("icon=str(ICON),") == 1  # one .app bundle
