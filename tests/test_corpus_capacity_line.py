@@ -24,16 +24,33 @@ bind at a fraction of the retention window, so naming only one would mislead.
 
 ## The 95% line is a display choice, and is labelled as one
 
-`prune` evicts while `disk_size > max_bytes`, so a corpus held at the cap always measures a
-hair *under* it — "500.0 of 500 MB" would otherwise read as headroom. Nothing in the store
-consults `_NEARLY_FULL`; it decides only what the CLI calls full.
+Nothing in the store consults `_NEARLY_FULL`; it decides only what the CLI warns about.
+
+## Correction, 2026-08-20 — the warning described eviction it does not do
+
+Both the sentence above and the shipped warning said `prune` evicts on *every* write, so a
+corpus at the cap "always measures a hair under it". It does not. `prune` runs at writer
+start and then every `PRUNE_EVERY_EVENTS` captures, so between sweeps the corpus reads
+**above** the cap and stays there. Found on the same machine, four days later:
+
+      size:      514.2 MB of 500 MB
+      ⚠          full — the oldest events are evicted on every capture to hold it here.
+
+Eviction was working — it had last run at daemon start, evicting 12 events, and the log
+says so. But a user told the size is pinned at the cap on every write has exactly one
+conclusion available from a number *above* the cap, and it is the wrong one. Three files
+had to be read to establish that nothing was broken.
+
+The warning now names the real cadence and says the size can sit above the cap between
+sweeps, and the cadence constant moved to `store.py` beside `prune()` so the message and
+the loop cannot drift apart.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from yazses.learning.store import capacity_line
+from yazses.learning.store import PRUNE_EVERY_EVENTS, capacity_line
 
 MB = 1_048_576
 
@@ -43,8 +60,38 @@ def test_a_corpus_on_its_cap_says_so() -> None:
     text, warning = capacity_line(500 * MB, 500, 30)
     assert "500 MB" in text
     assert warning is not None
-    assert "full" in warning
+    assert "at the cap" in warning
     assert "evicted" in warning
+
+
+def test_the_warning_does_not_claim_eviction_on_every_capture() -> None:
+    """The false sentence, pinned so it cannot come back."""
+    _text, warning = capacity_line(514 * MB, 500, 30)
+    assert "every capture" not in warning
+    assert "hold it here" not in warning
+
+
+def test_the_warning_names_the_real_cadence() -> None:
+    _text, warning = capacity_line(514 * MB, 500, 30)
+    assert str(PRUNE_EVERY_EVENTS) in warning
+    assert "when the daemon starts" in warning
+
+
+def test_the_warning_explains_a_size_above_the_cap() -> None:
+    """The live reading that started this: 514.2 of 500, with eviction working.
+
+    Without this sentence the only available conclusion is that prune is broken."""
+    text, warning = capacity_line(514 * MB, 500, 30)
+    assert "514.0 MB of 500 MB" == text
+    assert "above" in warning
+
+
+def test_the_message_and_the_writer_share_one_cadence() -> None:
+    """The message names a number the writer counts to. Two definitions would drift, and
+    the drift would be invisible: both halves would still read as correct on their own."""
+    from yazses.learning import capture
+
+    assert capture.PRUNE_EVERY_EVENTS is PRUNE_EVERY_EVENTS
 
 
 def test_the_warning_names_both_limits_and_the_knob() -> None:

@@ -8,6 +8,19 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `yazses corpus status` described eviction it does not do, and the description made
+  working behaviour look broken. Its warning read *"full — the oldest events are evicted on
+  every capture to hold it here"*, but eviction runs in sweeps: when the daemon starts, then
+  every 200 captures. So the reported size sits **above** the cap between sweeps — measured
+  on a real machine at `514.2 MB of 500 MB`, with eviction working correctly and the log
+  recording its last run at daemon start. Told the size is pinned to the cap on every write,
+  the only conclusion available from a number above it is that the limit has failed. The
+  warning now names the real cadence and says the size can read above the cap; the cadence
+  constant moved next to `prune()` so the sentence and the loop cannot drift apart. The same
+  point is now in the privacy statement, because `retention_days` is a privacy control and
+  "applied in sweeps" is a different promise from "applied immediately" — `corpus forget`
+  and `corpus destroy` remain immediate.
+
 - `mic-level` printed the threshold from `config.toml` under the label **current**, on the
   one command whose whole subject is that number — and it is the command the product sends
   you to when dictation silently stops. The daemon reads `vad_threshold` once, at start, and

@@ -1551,6 +1551,10 @@ yazses corpus forget -m 10           # delete the last 10 minutes of events
 yazses corpus destroy --i-mean-it    # irreversibly wipe the whole corpus
 ```
 
+`status` reports the size against `[learning] max_corpus_mb`. Eviction runs in sweeps —
+when the daemon starts, then every 200 captures — so a size **above** the cap is normal
+between sweeps and does not mean eviction has failed. `forget` and `destroy` are immediate.
+
 ---
 
 ## Feature configuration snapshots

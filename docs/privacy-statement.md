@@ -61,6 +61,13 @@ You stay in control of the corpus:
 | Inspect what is stored | `yazses corpus status` |
 | Erase everything | `yazses corpus destroy` (or delete `corpus.db`) |
 
+`retention_days` and `max_corpus_mb` are applied in sweeps — when the daemon starts, and
+then every 200 captures — rather than on every write. So an event older than
+`retention_days` can still be on disk until the next sweep, and `yazses corpus status` can
+report a size above `max_corpus_mb`. Both are limits the corpus is pulled back to, not
+ceilings it is prevented from crossing. If you need something gone *now*, use
+`yazses corpus forget -m N` or `yazses corpus destroy`, which act immediately.
+
 The `recall` and `scratch` note features read from this same local corpus and never
 leave the machine.
 

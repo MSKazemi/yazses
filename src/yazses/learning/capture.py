@@ -19,7 +19,7 @@ import numpy as np
 
 from yazses.config import LearningConfig
 from yazses.learning.crypto import Cipher, load_or_create_key
-from yazses.learning.store import CorpusStore
+from yazses.learning.store import PRUNE_EVERY_EVENTS, CorpusStore
 
 log = logging.getLogger(__name__)
 
@@ -29,11 +29,6 @@ log = logging.getLogger(__name__)
 # `set_retx`) bypassed it entirely. See CorpusStore.__init__.
 
 
-#: How many captured events between size/retention sweeps. A prune walks the clip
-#: directory and deletes rows, so doing it per event would put disk work behind every
-#: dictation; doing it only at start would let a daemon left running for weeks grow
-#: without limit. 200 events is a few hours of heavy use.
-_PRUNE_EVERY_EVENTS = 200
 
 
 class CorpusWriter:
@@ -130,7 +125,7 @@ class CorpusWriter:
                 with self._lock:
                     self._store.add_event(event, audio, sample_rate)
                 self._since_prune += 1
-                if self._since_prune >= _PRUNE_EVERY_EVENTS:
+                if self._since_prune >= PRUNE_EVERY_EVENTS:
                     self._since_prune = 0
                     self._prune()
             except Exception:

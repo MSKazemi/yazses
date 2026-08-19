@@ -116,10 +116,26 @@ def _decode_wav(data: bytes) -> tuple[np.ndarray, int]:
     return pcm, sample_rate
 
 
-#: Fraction of the cap above which `yazses corpus status` calls the corpus full. This is a
-#: DISPLAY threshold, not a measurement: `prune()` evicts while `_disk_size() > max_bytes`,
-#: so a corpus held at the cap reads a hair under it and "500.0 / 500 MB" would otherwise
-#: look like headroom. Nothing in the store consults this.
+#: How many captured events between size/retention sweeps. A prune walks the clip
+#: directory and deletes rows, so doing it per event would put disk work behind every
+#: dictation; doing it only at start would let a daemon left running for weeks grow
+#: without limit. 200 events is a few hours of heavy use.
+#:
+#: It lives here, beside `prune()`, rather than in the writer that counts to it, because
+#: `capacity_line` has to name it: the cadence is what makes the reported size exceed the
+#: cap, and a message that explains the number cannot be written without it.
+PRUNE_EVERY_EVENTS = 200
+
+#: Fraction of the cap above which `yazses corpus status` warns. This is a DISPLAY
+#: threshold, not a measurement -- nothing in the store consults it.
+#:
+#: ⚠ its original rationale was backwards. It said a corpus held at the cap "reads a hair
+#: under it", on the reasoning that `prune()` evicts while `_disk_size() > max_bytes`. But
+#: prune runs at writer start and then every `PRUNE_EVERY_EVENTS` captures, not on every
+#: write, so between sweeps the corpus reads *above* the cap and stays there. Measured on a
+#: real machine: 514.2 MB against a 500 MB cap, with eviction working correctly and having
+#: last run at daemon start. The threshold is still right -- it is the explanation that was
+#: wrong, and the explanation is what a reader uses to decide whether to file a bug.
 _NEARLY_FULL = 0.95
 
 
@@ -127,9 +143,16 @@ def capacity_line(size_bytes: int, max_mb: int, retention_days: int) -> tuple[st
     """``(size text, warning or None)`` for one corpus, against the limits that bind it.
 
     `yazses corpus status` printed ``size: 500.0 MB`` and nothing else -- a number with
-    nothing to compare it to. On a corpus sitting exactly on its cap that is the one fact
-    the line fails to convey: `prune()` is evicting the oldest events on every write to
-    hold it there, and `yazses tune` learns from what survives.
+    nothing to compare it to. On a corpus sitting on its cap that is the one fact the line
+    fails to convey: the oldest events are being evicted, and `yazses tune` learns from
+    what survives.
+
+    The warning then described that eviction as happening "on every capture", which it does
+    not: it runs at writer start and every `PRUNE_EVERY_EVENTS` captures. The difference is
+    visible to the user, because it is why the reported size can sit *above* the cap --
+    ``514.2 MB of 500 MB``, on the machine this was found on. Told the size is held at the
+    cap on every write, the only conclusion available from a number above it is that
+    eviction is broken. It was not; the sentence was.
 
     Both limits are named because either can be the binding one and they are not
     interchangeable -- age eviction drops what is stale, size eviction drops what is
@@ -149,7 +172,9 @@ def capacity_line(size_bytes: int, max_mb: int, retention_days: int) -> tuple[st
         else f"{max_mb} MB (no age limit)"
     )
     return text, (
-        f"full — the oldest events are evicted on every capture to hold it here. "
+        f"at the cap — the oldest events are evicted when the daemon starts and then "
+        f"every {PRUNE_EVERY_EVENTS} captures, so between sweeps it reads above "
+        f"{max_mb} MB rather than being held exactly at it. "
         f"Keeps {keeps}; raise `[learning] max_corpus_mb` to keep more."
     )
 
