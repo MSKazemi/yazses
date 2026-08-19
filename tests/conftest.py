@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -80,4 +81,81 @@ def _no_test_may_log_into_the_users_real_log():
         "this test left a file handler on the root logger, so everything logged "
         f"after it goes into {[getattr(h, 'baseFilename', '?') for h in leaked]} — "
         "mock `_configure_logging`, or point the platform's log_dir at tmp_path"
+    )
+
+
+def _resolve_watched_host_files() -> dict[str, Path]:
+    """The real files to watch — resolved **once, at import**, and never again.
+
+    Two traps, both of which this guard fell into before it worked:
+
+    - It must not call `get_paths()`. That is `lru_cache`d, so an observer calling it
+      would warm the cache with the real path before any fixture could redirect it,
+      and the guard would *cause* the very leak it looks for.
+    - It must not re-resolve per test. `PlatformDirs` reads `XDG_CONFIG_HOME` at call
+      time, so a fixture that redirects it makes the before- and after-snapshots point
+      at **different files** — which the naive version dutifully reported as "you
+      modified the real config", on tests that had modified nothing.
+
+    Resolving at import, before any test or fixture runs, is the only reading that is
+    both real and stable.
+    """
+    from platformdirs import PlatformDirs
+
+    dirs = PlatformDirs(appname="yazses", appauthor=False, ensure_exists=False)
+    return {
+        "config file": Path(dirs.user_config_dir) / "config.toml",
+        "pid file": Path(dirs.user_data_dir) / "daemon.pid",
+    }
+
+
+_WATCHED_HOST_FILES = _resolve_watched_host_files()
+
+
+def _host_state() -> dict[str, tuple]:
+    """`(exists, mtime_ns, size)` for the two real files the suite was caught writing."""
+    watched = _WATCHED_HOST_FILES
+    state = {}
+    for label, path in watched.items():
+        try:
+            st = path.stat()
+            state[label] = (True, st.st_mtime_ns, st.st_size)
+        except OSError:
+            state[label] = (False, 0, 0)
+    return state
+
+
+@pytest.fixture(autouse=True)
+def _no_test_may_write_the_users_real_config():
+    """A test must not reach out of the sandbox and edit the machine it runs on.
+
+    Two did, and both were invisible from inside the suite:
+
+    - `features enable timeline --no-install` through `CliRunner` wrote
+      `[timeline] enabled = true` into the developer's own `config.toml`. The test
+      *has* a `scratch` fixture setting `XDG_CONFIG_HOME`, and it does not work:
+      `get_platform()`/`get_paths()` are `lru_cache(maxsize=1)`, so whichever test
+      resolved them first fixes the real path for the whole session. Run that file
+      alone and it is clean; run it after anything else and it edits your config.
+      Order-dependence is why nobody saw it.
+    - `Daemon._shutdown()` called the real `lifecycle.clear_pid()` and **deleted**
+      `~/.local/share/yazses/daemon.pid` out from under a running daemon.
+
+    Same family as the log-handler leak above, and found the same way — by reading
+    the developer's own machine afterwards rather than by any assertion failing.
+
+    Only these two paths are watched. The data directory as a whole is deliberately
+    **not**: a daemon running while the suite runs writes the corpus and the
+    update-check file, and a guard that fails because the owner dictated something
+    would be turned off within a day.
+    """
+    before = _host_state()
+    yield
+    after = _host_state()
+    changed = [k for k in before if before[k] != after[k]]
+    assert not changed, (
+        f"this test modified the real {' and '.join(changed)} on this machine. "
+        "Point the platform paths at tmp_path and clear the `get_platform`/`get_paths` "
+        "lru_caches (setting XDG_CONFIG_HOME alone does nothing once they are warm), "
+        "or mock the lifecycle backend."
     )

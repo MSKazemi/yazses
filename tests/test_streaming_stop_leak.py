@@ -81,6 +81,12 @@ def _daemon(mocker):
         accessibility=AccessibilityConfig(vad_threshold=0.01),
     )
     d = Daemon(config=cfg, platform=get_platform())
+    # `_shutdown()` runs the real lifecycle backend otherwise, and its `clear_pid()`
+    # deletes `~/.local/share/yazses/daemon.pid` -- the running daemon's own pid file,
+    # on the machine the suite is running on. `system/pid.py` reads the single-instance
+    # lock first on Linux, so nothing broke visibly; on a platform without that
+    # primitive `yazses status` would report "not running" for a live daemon.
+    mocker.patch.object(d._platform.lifecycle, "clear_pid")
     d._engine = mocker.MagicMock()
     d._injector = mocker.MagicMock()
     d._stream_engine = mocker.MagicMock()

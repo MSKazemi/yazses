@@ -41,8 +41,22 @@ from yazses.system.features import feature_status, find_feature
 
 @pytest.fixture
 def scratch(tmp_path, monkeypatch):
+    """A config directory these tests may write to — which needs *both* lines.
+
+    `XDG_CONFIG_HOME` alone does nothing: `get_platform()`/`get_paths()` are
+    `lru_cache(maxsize=1)`, so whichever test resolved them first pins the real
+    path for the entire session. This file passed either way; the difference was
+    that `features enable timeline` wrote `[timeline] enabled = true` into the
+    developer's own `~/.config/yazses/config.toml`, silently, and only when the
+    file ran after something that had already warmed the cache. Run it alone and
+    it was clean — which is why it survived every review.
+    """
+    from yazses.platform.factory import reset_platform_cache
+
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-    return tmp_path
+    reset_platform_cache()
+    yield tmp_path
+    reset_platform_cache()  # the next test must not inherit this tmp_path
 
 
 def _core_slugs() -> list[str]:
