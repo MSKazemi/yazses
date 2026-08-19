@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — subtitles were emitted as single lines of up to 80 characters
+
+Measured on a real 162-second recording through `yazses transcribe --format srt`: 22 cues,
+reading rate fine everywhere (max 16.7 chars/second), and **18 of 22 lines wider than 42
+characters**, up to 80.
+
+`merge_word_timestamps` caps a segment at `max_chars=80` and its docstring calls that a
+*line*, but the writers emitted the whole segment as one. Every subtitle standard assumes
+about half that — EBU-TT-D, the BBC guidelines and Netflix's timed-text spec all sit at
+37–42 characters over at most two lines, because that is what fits the video width at
+default caption size. Going over does not fail loudly: the player wraps it itself, wherever
+it likes, or lets it run off frame. The output looked correct in a text editor and wrong in
+a video.
+
+Captions are now wrapped to two lines of 42. The wrap happens in the writers, not in
+segmentation, and 42 × 2 fits the existing 80-character budget exactly — so every cue
+boundary and every timestamp is unchanged. Verified against the real recording before and
+after: 22 cues either way, identical timestamps, identical words.
+
+The split is balanced rather than greedy (a full line above a two-word line reads badly),
+and text that cannot fit two lines gets more lines rather than being truncated — a caption
+that loses words is worse than one that is too tall.
+
 ### Fixed — `yazses audio status` told you to pin a name that cannot be pinned
 
 `audio status` resolves the OS default's routing alias through wpctl and prints the real

@@ -50,13 +50,75 @@ def merge_word_timestamps(words, max_gap: float = 0.8, max_chars: int = 80):
     return segments
 
 
+#: Maximum characters per *rendered line*. `merge_word_timestamps` already caps a segment
+#: at 80 characters, but the writers emitted that as ONE line -- on a real 162-second
+#: recording, 18 of 22 cues were a single line of up to 80 characters.
+#:
+#: Every player and every subtitle standard assumes roughly half that: EBU-TT-D, the BBC
+#: guidelines and Netflix's timed-text spec all sit at 37-42 characters over at most two
+#: lines, because that is what fits the video width at default caption size. A longer line
+#: does not fail loudly -- the player wraps it itself, wherever it likes, or lets it run off
+#: the frame.
+#:
+#: 42 and 2 lines happen to fit the existing 80-character segment budget exactly, so the
+#: segmentation (and therefore every timestamp) is untouched by this.
+CAPTION_LINE_CHARS = 42
+CAPTION_MAX_LINES = 2
+
+
+def wrap_caption(text: str, width: int = CAPTION_LINE_CHARS,
+                 max_lines: int = CAPTION_MAX_LINES) -> str:
+    """Break one caption into at most ``max_lines`` lines of ``width``. Pure.
+
+    The split is balanced rather than greedy: greedy filling produces a full line above a
+    two-word line, which reads worse and draws the eye to the wrong place. Balanced means
+    choosing the word boundary nearest the middle that still fits.
+
+    Text that cannot fit is wrapped onto further lines rather than truncated. A caption
+    that loses words is worse than one that is too tall, and callers already cap the
+    segment length -- overflow here means that cap changed, not that the text is expendable.
+    """
+    words = (text or "").split()
+    if not words:
+        return ""
+    if len(" ".join(words)) <= width:
+        return " ".join(words)
+
+    # Balanced two-line split: the boundary closest to the middle where both sides fit.
+    if max_lines >= 2:
+        total = len(" ".join(words))
+        best = None
+        for i in range(1, len(words)):
+            head, tail = " ".join(words[:i]), " ".join(words[i:])
+            if len(head) <= width and len(tail) <= width:
+                skew = abs(len(head) - total / 2)
+                if best is None or skew < best[0]:
+                    best = (skew, head, tail)
+        if best is not None:
+            return f"{best[1]}\n{best[2]}"
+
+    # Nothing fits in two lines -- greedy fill, keeping every word.
+    lines: list[str] = []
+    cur = ""
+    for word in words:
+        candidate = f"{cur} {word}".strip()
+        if cur and len(candidate) > width:
+            lines.append(cur)
+            cur = word
+        else:
+            cur = candidate
+    if cur:
+        lines.append(cur)
+    return "\n".join(lines)
+
+
 def write_srt(segments) -> str:
     """Render ``(start, end, text)`` segments as an SRT document. Pure."""
     blocks = []
     for i, (start, end, text) in enumerate(segments or (), 1):
         blocks.append(
             f"{i}\n{format_timestamp(start, 'srt')} --> {format_timestamp(end, 'srt')}\n"
-            f"{text.strip()}"
+            f"{wrap_caption(text)}"
         )
     return ("\n\n".join(blocks) + "\n") if blocks else ""
 
@@ -66,6 +128,6 @@ def write_vtt(segments) -> str:
     blocks = ["WEBVTT"]
     for start, end, text in segments or ():
         blocks.append(
-            f"{format_timestamp(start, 'vtt')} --> {format_timestamp(end, 'vtt')}\n{text.strip()}"
+            f"{format_timestamp(start, 'vtt')} --> {format_timestamp(end, 'vtt')}\n{wrap_caption(text)}"
         )
     return "\n\n".join(blocks) + "\n"
