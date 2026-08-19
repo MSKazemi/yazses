@@ -6,6 +6,33 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses reflow` cut "Firstly" into "ly", and never stripped a filler
+
+Two defects in the command whose stated purpose is turning "a long rambling monologue"
+into an outline.
+
+`_BULLET_MARKERS` lists "first" before "firstly" and "second" before "secondly", and the
+strip loop broke on the first match — so the rest of the longer word stayed in the
+bullet:
+
+    "Firstly we fix the tray."   ->  "- ly we fix the tray"
+    "Secondly we ship it."       ->  "- ly we ship it"
+
+Three of the commonest spoken outline markers each produced nonsense in the text the user
+keeps. Matching is now longest-first — the same rule `yazses case` needs for
+"snake"/"snake case" and `gitvoice` for its separators.
+
+Second, only ordering words were ever stripped, so the single commonest thing in a
+rambling monologue survived into the outline: *"Um we should fix the tray"*, *"So
+basically the icon dies"*. Leading fillers are now stripped too, sourced from
+`DisfluencyConfig.filler_words` — the list the dictation filter already uses — rather
+than a second copy that would drift from it. Only the sentence-initial extras ("so",
+"well", "right", "basically") are local, because mid-sentence those are ordinary words
+and must stay.
+
+Stripping repeats, because speech stacks markers: *"so um basically I need to update the
+docs"* opens with three and now yields `- [ ] I need to update the docs`.
+
 ### Fixed — none of `yazses screenplay`'s documented forms worked when spoken
 
 The command exists, in its own words, for "drafting a script by voice". All three forms

@@ -943,9 +943,13 @@ uploaded.
 | `yazses cite` | `--bib <file>` (req), `--style <latex\|plain\|apa>` | `yazses cite "vaswani 2017" --bib refs.bib` → `\cite{vaswani2017}` |
 | `yazses slotfill` | `--slot NAME:after=… \| NAME:choices=…` (repeatable) | `yazses slotfill "priority high" --slot priority:after=priority` → `{"priority": "high"}` |
 
-- **`reflow`** splits on sentence boundaries, strips a leading discourse marker
-  (`first`, `then`, `finally`, …), and turns action phrases (`I need to`, `to do`,
-  `follow up`) into `- [ ]` checkboxes.
+- **`reflow`** splits on sentence boundaries, strips leading discourse markers
+  (`first`, `then`, `finally`, …) **and leading fillers** (`um`, `so basically`,
+  `you know`, `well`, … — the same list the dictation disfluency filter uses), and turns
+  action phrases (`I need to`, `to do`, `follow up`) into `- [ ]` checkboxes. Speech
+  stacks them, so stripping repeats: `so um basically I need to update the docs` gives
+  `- [ ] I need to update the docs`. Only *leading* fillers count — `we ship it so people
+  can use it` keeps its `so`.
 - **`table`** splits cells on commas/semicolons or the word `and`; rows split on
   `next row` or newlines; a leading `row:`/`entry:`/`record:` marker is stripped.
 - **`shellpipe`** recognises stages like `list files`, `filter for X`,
