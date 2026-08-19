@@ -439,6 +439,20 @@ yazses verify --type       # also inject the result, testing the last link too
 ✓ Dictation works end to end on this machine.
 ```
 
+The `Signal` line also says when your voice only *just* cleared the gate. That is the one
+regime where the transcription step can pass on a sentence you never said, so the level is
+reported as a multiple rather than left for you to divide:
+
+```text
+  [OK] Signal: level 0.0052 clears the gate (0.0040) — but only just (1.3x). Speech
+       normally sits well clear of it; noise this close is what the model answers with
+       a confident invented sentence. If the transcript below is not what you said,
+       raise the gate with `yazses mic-level --set` before suspecting the microphone.
+```
+
+`verify` will not guess whether the words were invented — [it cannot, and you can, instantly,
+because they are on the screen](troubleshooting.md#yazses-typed-a-sentence-i-never-said).
+
 ### `yazses report`
 
 Collects a diagnostic bundle **locally** — versions, daemon state, your settings with paths

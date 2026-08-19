@@ -50,6 +50,53 @@ class VerifyResult:
         self.steps.append(Step(name, ok, detail))
 
 
+#: How far above the silence gate a level has to sit before it is unremarkable.
+#: Measured on 172 real bursts from a live daemon log: the **quietest** burst that
+#: produced any text at all was 0.0081 against a 0.0040 gate, i.e. 2.0x, while the
+#: bursts that decoded to nothing had a median of 0.0071. At exactly 2x, a margin note
+#: would have covered 26 of the 41 empty bursts and **none** of the 131 real ones.
+_CLEAR_MARGIN = 2.0
+
+
+def signal_detail(level: float, threshold: float) -> str:
+    """The Signal line — and, when the level barely cleared, how barely.
+
+    The module already refuses to judge whether a *transcript* was invented (see the
+    long note further down: that call belongs to the user). This is the other half of
+    the same problem and it is a **measurement**, not a judgement: nothing reported how
+    close the level was to the gate, and near-silence is precisely the regime where the
+    model answers with a confident, entirely ordinary English sentence.
+
+    That is not hypothetical. Four consecutive runs in a quiet room, gate 0.0040:
+
+        level 0.0052 -> "I thought I was going to say the same thing before."
+        level 0.0054 -> "I just want you to know that it's your fault."
+        level 0.0060 -> "Okay. It's going to be fine."
+        level 0.0052 -> ". . . . . . ." (caught -- the only one `clean_text` could catch)
+
+    Three of the four printed as a passing Transcription step. None of them is a ghost
+    phrase, a repetition loop, or blank; nothing downstream can tell them from speech,
+    and it should not try. What it *can* say is that the microphone was barely above the
+    gate the whole time — which is the fact that makes the sentence interpretable, and
+    the one the user needs to act on the right thing.
+
+    A disabled gate (`vad_threshold = 0`) needs no special case: the comparison is a
+    multiplication, so every non-negative level clears `0 * _CLEAR_MARGIN` and gets the
+    plain line. Written the other way round -- dividing first, then comparing -- the same
+    input raises. Worth saying, because the note *reports* a ratio, which makes dividing
+    first look like the obvious spelling.
+    """
+    base = f"level {level:.4f} clears the gate ({threshold:.4f})"
+    if level >= threshold * _CLEAR_MARGIN:
+        return base
+    return (
+        f"{base} — but only just ({level / threshold:.1f}x). Speech normally sits well "
+        f"clear of it; noise this close is what the model answers with a confident "
+        f"invented sentence. If the transcript below is not what you said, raise the "
+        f"gate with `yazses mic-level --set` before suspecting the microphone."
+    )
+
+
 def verify(
     *,
     record: Callable[[], object],
@@ -93,7 +140,7 @@ def verify(
             f"would be discarded. Fix with `yazses mic-level --set`.",
         )
         return result
-    result.add("Signal", True, f"level {level:.4f} clears the gate ({threshold:.4f})")
+    result.add("Signal", True, signal_detail(level, threshold))
 
     try:
         text = transcribe(audio)

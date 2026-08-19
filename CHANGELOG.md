@@ -8,6 +8,19 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `verify` said the microphone cleared the silence gate without ever saying by how much.
+  Four consecutive runs in a quiet room, against a `0.0040` gate, reported `[OK] Signal`
+  at levels of `0.0052`–`0.0060` and then `[OK] Transcription` on three fully invented
+  English sentences — "I just want you to know that it's your fault." among them. Only the
+  fourth was caught, and only because it decoded to a row of dots that the cleaner empties.
+  Nothing downstream can tell an invented sentence from a real one and `verify` deliberately
+  does not try; that call is yours, and it needs one fact it was not being given. The Signal
+  line now says when the level barely cleared, names the multiple, and points at
+  `yazses mic-level --set`. The threshold comes from the daemon's own log rather than taste:
+  across 172 recorded bursts the quietest one that produced any text sat at 2.0x the gate, so
+  at 2.0x the note would have covered 26 of the 41 bursts that decoded to nothing and none of
+  the 131 that did not.
+
 - `doctor` printed `[OK]` on a hotkey that did nothing. The daemon reads `[hotkey] key`
   once, when it starts, and never again — so `yazses hotkey set` without a `yazses restart`
   leaves you holding the key you just configured while the daemon still listens for the old

@@ -128,6 +128,38 @@ Two settings are worth checking first, because both change how dictation feels w
 - **`[streaming] enabled = true`** runs a transcription pass every 300 ms during the hold, on top of the final one. On a CPU-only machine that competes with the transcription that actually produces your text. It is off by default for this reason.
 - **`[accessibility] vad_threshold`** decides what counts as silence. Too high and quiet speech is dropped with `Silent audio -- discarding`; too low and room noise is transcribed. It is specific to your microphone and room — run `yazses mic-level --set` rather than copying a value from someone else.
 
+## YazSes typed a sentence I never said
+
+Speech models do not return "I heard nothing". Given near-silence they return their best
+guess at what a person would have said, and that guess is ordinary, fluent English — not
+gibberish you could spot. YazSes filters the recognisable cases (a blank marker, a caption
+artefact, a phrase repeating in a loop) but an invented sentence is indistinguishable from
+a real one to everything except you.
+
+What makes it happen is a silence gate set *below* your room, so the noise floor is treated
+as speech and sent to be transcribed. Check it:
+
+```sh
+yazses verify
+```
+
+If the `Signal` line ends with **"but only just"** and a multiple close to `1`, that is the
+cause. Your voice should sit several times above the gate; noise sits just over it.
+
+```sh
+yazses mic-level --set   # measure this room, write the threshold
+yazses restart
+```
+
+Then run `yazses verify` again in a quiet room without speaking. A correctly set gate
+reports silence and transcribes nothing, which is the outcome you want — an empty result is
+the model being *given* nothing, and it is the only reliable way to stop it inventing.
+
+Raising the gate too far has the opposite failure and it is the visible one: quiet speech is
+dropped with `Silent audio -- discarding` in `yazses logs`. That is why the automatic tuner
+only ever lowers the gate — a mic that hears too little tells you so, and a mic that hears
+too much does not.
+
 ## Dictation stops after connecting a USB-C monitor or headset
 
 Some monitors, docks, and headsets register an audio input and become the operating system's default microphone. When that input is silent or very quiet, YazSes can keep running but stop writing dictated text because each recording is discarded as silence.
