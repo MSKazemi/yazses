@@ -6,6 +6,34 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a recorded meeting of room noise was stored as a transcript reading ". . ."
+
+Found in a real meeting folder. An 11.6-second capture finalized as:
+
+    meeting.json    {"duration_s": 11.6, "num_speakers": 0, "status": "done"}
+    transcript.md   ". . ."
+    transcript.json {"text": ". . .", "utterances": [{"text": ". . ."}]}
+
+`status: "done"`, listed by `yazses meeting list` like any other meeting.
+
+**The rule existed and was applied on one path only.** The daemon injects what survives
+`clean_text`, never what the model returned — that is why a dictated `[BLANK_AUDIO]` is
+discarded rather than typed. `clean_text` appeared nowhere in `recimport/` or `meeting/`, so
+both file paths stored Whisper's artefacts as transcript content. It now runs at the single
+point both callers share, `recimport.pipeline.transcribe_file`, which `meeting.finalize`
+wraps. Utterances that clean to nothing are dropped rather than emptied, so a caller
+counting them sees the truth.
+
+**Why the existing signal did not catch it.** `transcribe_file` already computes
+`carries_no_signal(audio)`, and its docstring is right that a hallucinated transcript cannot
+be detected from the output. But it measures the input's **peak**, deliberately — an hour of
+sparse interview must not be called silent — and a quiet room is not digital silence. The
+two checks answer different questions: that one asks *was anything recorded at all*, this
+one asks *did any of it survive cleaning*.
+
+`words` are deliberately untouched: they are timing data feeding alignment and subtitle
+spans, and an index into them is not this function's to invalidate.
+
 ## [2.29.0] — 2026-08-19
 
 ### Fixed — `yazses corpus status` showed a size with nothing to compare it against
