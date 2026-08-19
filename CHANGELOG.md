@@ -6,6 +6,33 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a misspelled `off` left the no-text-target guard on, and nothing said so
+
+`configcheck` repairs what it can and reports every decision as a `ConfigProblem`, which
+`yazses doctor` renders as *"Config validity: every setting is a usable value"*. Coercion
+only checked **types**, and these are `str` fields, so a typo was stored verbatim and
+reported nothing:
+
+    [injection] backend      = "clipbaord"
+    [injection] target_guard = "of"
+
+What happened next depended on the key and was invisible either way. No branch matches
+`clipbaord`, so the auto path runs while you believe you forced the clipboard. And the
+daemon tests `target_guard != "off"` — so a misspelled `off` leaves the no-text-target
+guard **enabled**, which is the opposite of what was asked. Getting a feature you switched
+off is a different class of wrong from getting a fallback you did not choose, and that is
+what decided this was worth fixing.
+
+Settings whose documented values are a closed set are now validated, falling back to the
+default and reporting the problem in the same shape as every other repair. Only genuinely
+closed sets are listed: `[stt] compute_type` is a property of the CPU, `[stt] language` is
+open, and a model name is whatever is downloadable — guessing at those would reject valid
+configs, which is the worse failure.
+
+The Settings window had its own copy of both lists and now derives from the same table.
+Two copies of a closed set disagree the first time one is extended, at which point the
+window offers a value the loader throws away, or refuses one it accepts.
+
 ### Fixed — the Arch package would have shipped a man page stamped with the previous version
 
 `man/yazses.1` carries the version and date in its `.TH` header, and the sync test

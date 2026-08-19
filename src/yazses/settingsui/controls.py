@@ -23,6 +23,8 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 
+from yazses.configcheck import enum_values
+
 # A VAD threshold outside this range is not a setting, it is a broken microphone
 # gate: 0 accepts silence as speech, and anything above ~0.2 rejects a shout.
 VAD_MIN = 0.0001
@@ -35,10 +37,16 @@ VAD_SLIDER_STEPS = 1000
 #: backend` — an unrecognised value falls through to `auto` at runtime, so the
 #: window refuses one rather than showing a setting that reads back as the user's
 #: while doing something else.
-INJECTION_BACKENDS: tuple[str, ...] = ("auto", "type", "clipboard", "wtype")
+#: Taken from `configcheck`, not restated here. The loader now rejects a value outside
+#: this set, and two copies of a closed set disagree the first time one is extended --
+#: at which point the window would offer a value the loader throws away, or refuse one it
+#: accepts.
+INJECTION_BACKENDS: tuple[str, ...] = enum_values("injection", "backend") or ()
 
 #: `[injection] target_guard` — what happens when you dictate with no editable
 #: field focused. Label → value, because "clipboard" does not say what it does.
+#: Labels are the window's own; the *values* come from the same table the loader
+#: validates against, and a test pins them equal.
 TARGET_GUARDS: tuple[tuple[str, str], ...] = (
     ("Copy it to the clipboard and tell me", "clipboard"),
     ("Type it anyway, but warn me", "warn"),

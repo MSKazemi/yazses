@@ -183,6 +183,38 @@ def negative_is_impossible(field) -> bool:
     return default >= 0
 
 
+#: Settings whose documented values are a closed set, keyed by ``section.key``.
+#:
+#: Type coercion accepts any string for a `str` field, so a typo was stored verbatim,
+#: reported nothing, and `yazses doctor` said "Config validity: every setting is a usable
+#: value". What happened next depended on the key and was invisible either way:
+#:
+#:   [injection] backend = "clipbaord"   -> no branch matches, the auto path runs, and
+#:                                          the user believes they forced the clipboard
+#:   [injection] target_guard = "of"     -> the daemon tests `!= "off"`, so the guard
+#:                                          stays ON for someone switching it off
+#:
+#: The second is the one that decided this was worth fixing: a misspelled "off" leaves a
+#: feature enabled, which is the opposite of what was asked and produces no error.
+#:
+#: Only closed sets belong here. `[stt] compute_type` is a property of the CPU,
+#: `[stt] language` is open, and a model name is whatever is downloadable -- guessing at
+#: those would reject valid configs, which is worse than accepting an invalid one.
+_ENUMS: dict[str, tuple[str, ...]] = {
+    "injection.backend": ("auto", "type", "clipboard", "wtype"),
+    "injection.target_guard": ("clipboard", "warn", "off"),
+}
+
+
+def enum_values(section: str, key: str) -> tuple[str, ...] | None:
+    """The closed set of values for ``section.key``, or None if it is not closed.
+
+    Public so the settings window builds its choices from the same table the loader
+    validates against -- two lists would disagree the first time one was extended.
+    """
+    return _ENUMS.get(f"{section}.{key}")
+
+
 def build_section(cls, raw, section: str, problems: list[ConfigProblem]):
     """Build dataclass ``cls`` from ``raw``, repairing or dropping anything invalid.
 
@@ -219,6 +251,13 @@ def build_section(cls, raw, section: str, problems: list[ConfigProblem]):
             and negative_is_impossible(fields[key])
         ):
             ok, note = False, f"cannot be negative (got {coerced})"
+        allowed = enum_values(section, key)
+        if ok and allowed and isinstance(coerced, str):
+            if coerced.strip().lower() not in allowed:
+                ok = False
+                note = (
+                    f"is not one of {', '.join(allowed)} (got {coerced!r})"
+                )
         if ok:
             if note:
                 problems.append(
