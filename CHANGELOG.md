@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — autopair appended a stray apostrophe to "it's"
+
+`balance_delimiters` tracked `'` in the same stack as brackets, so every apostrophe read
+as an *opening single quote* and got a closer appended:
+
+    "it's fine"            ->  "it's fine'"
+    "the user's file"      ->  "the user's file'"
+    "I can't see O'Brien"  ->  unchanged, because the two happened to pair up
+
+That last case is the awkward one: the behaviour depended on whether the utterance held an
+**odd or even** number of contractions, so it looked intermittent rather than broken — and
+contractions are among the commonest words in English. `autopair` is wired into the
+dictation path and off by default, so it affected anyone who turned it on, on most
+sentences they spoke.
+
+A quotation never opens directly after a letter or digit — there is a space or a line
+start first — while an apostrophe always follows one. Closing is unchanged: once a `'` has
+opened, the next one closes it, so `he said 'hi'` still balances, as do `"`, `` ` `` and all
+three bracket pairs.
+
 ### Fixed — "undo that sentence" deleted the whole burst when it ended in a full stop
 
 `_trailing_count` found the last sentence terminator with `rfind` over the whole string,
