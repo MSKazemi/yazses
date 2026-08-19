@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses audio use` could write a config.toml that does not parse
+
+`set_config_key` had **two** renderings of a value and only one escaped anything. The
+inferred path escaped backslashes and quotes; the explicit `quote=True` branch
+interpolated raw — and that is the branch `yazses audio use` and the settings window
+take. A microphone named `My "Best" Mic` produced:
+
+    device = "My "Best" Mic"
+
+That is not a contained failure. An unparseable `config.toml` makes `configcheck` fall
+back to *"could not be read; using defaults throughout"*, so **every** setting the user
+had is silently reset by an unrelated one-word command. Neither renderer handled a
+newline, which is illegal inside a TOML basic string and does the same thing, and a
+backslash was quietly corrupted — `path\to\thing` round-tripped with a real tab in it,
+because `\t` was read back as an escape.
+
+Both paths now go through one `quote_toml_string`, which escapes the full TOML basic
+string set and emits `\uXXXX` for control characters. The settings window still
+collapses newlines in `[stt] initial_prompt` before calling — defence in depth — but it
+is no longer the only thing standing between a pasted two-line prompt and a wiped
+`[stt]` section.
+
 ### Fixed — a negative `vad_threshold` was type-correct, catastrophic, and reported valid
 
 `configcheck` validated **types**, and `doctor` reported the result as *"Config validity:
