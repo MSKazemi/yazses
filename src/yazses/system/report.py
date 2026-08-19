@@ -240,6 +240,23 @@ def collect(*, config_file: Path, log_file: Path, data_dir: Path,
     return report
 
 
+#: Lines at this level carry dictated text. `core/daemon.py` says so where it writes them:
+#: "INFO: metadata only (length); DEBUG: the actual text." The default is INFO, which is why
+#: a normal log holds no transcripts -- verified across 1422 of them against a real 5465-line
+#: log, with zero hits.
+#:
+#: But `[general] log_level = "DEBUG"` is a supported setting, and it is exactly what someone
+#: turns on to investigate the problem they are about to report. This bundle is designed to
+#: be attached to a public issue, and this module's own docstring promises the tail "records
+#: levels, durations and word *counts*, never transcripts" -- true at INFO, false at DEBUG.
+#:
+#: So they are dropped rather than warned about. A bundle that is safe to share only if the
+#: reader noticed a warning is not safe to share; the point of this file is that it is safe
+#: BY CONSTRUCTION. The count of dropped lines is reported, so nothing is hidden and anyone
+#: who wants them can attach the log deliberately.
+_CONTENT_LEVEL = "DEBUG"
+
+
 def _log_tail(log_file: Path, lines: int) -> list[str]:
     if not log_file.exists():
         return ["<no log file>"]
@@ -247,7 +264,16 @@ def _log_tail(log_file: Path, lines: int) -> list[str]:
         content = log_file.read_text(errors="replace").splitlines()
     except OSError as exc:
         return [f"<unreadable: {exc}>"]
-    return [redact_text(line) for line in content[-lines:]]
+    tail = content[-lines:]
+    kept = [line for line in tail if f" {_CONTENT_LEVEL} " not in line]
+    dropped = len(tail) - len(kept)
+    out = [redact_text(line) for line in kept]
+    if dropped:
+        out.append(
+            f"<{dropped} DEBUG line(s) omitted: they can contain dictated text, and this "
+            f"bundle is meant to be shareable. Attach the log yourself if you need them.>"
+        )
+    return out
 
 
 def _env(name: str) -> str:

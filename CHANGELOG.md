@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses report` promised "never transcripts" and would have included them at DEBUG
+
+The bundle is designed to be attached to a public GitHub issue, and `system/report.py`'s
+docstring says the log tail *"records levels, durations and word counts, never transcripts."*
+That is true at the default log level and false one setting away from it. `core/daemon.py`
+states the split where it writes them:
+
+    # INFO: metadata only (length); DEBUG: the actual text.
+
+`[general] log_level = "DEBUG"` is supported, and it is exactly what someone turns on to
+investigate the problem they are about to report. The tail took every line verbatim.
+
+**Verified rather than assumed:** searching this machine's real 5,465-line log for a
+distinctive four-word window of each of 1,262 recorded transcripts found **zero** hits. The
+default level really does keep dictation out — the defect is the reachable exception, not the
+normal case.
+
+DEBUG lines are **dropped rather than warned about**. A bundle that is safe to share only if
+the reader noticed a warning is not safe to share; the value of that file is that its output
+is safe *by construction*, which is the same reason the corpus is reported by size and never
+opened. The number of omitted lines is stated, so nothing is hidden and anyone who needs them
+can attach the log deliberately.
+
 ### Fixed — an unplugged pinned microphone was told to pin a microphone
 
 PortAudio renders the failing device number into its message (`Error querying device 9999`).
