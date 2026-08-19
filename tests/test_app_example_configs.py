@@ -181,6 +181,58 @@ def test_a_todo_beside_real_evidence_is_still_accepted(tmp_path: Path):
     assert check_app_profile.records_evidence(honest.read_text(encoding="utf-8"))
 
 
+def test_a_true_marker_about_the_wrong_subject_still_passes(tmp_path: Path):
+    """The guard's known limit, pinned deliberately so nobody "fixes" it into a worse one.
+
+    PR #309 satisfied the evidence check with *"Verified: this file parses with Python's
+    tomllib"* while its own header said injection into the app was never run. The marker
+    is truthful; it just answers a question the guard was never worried about. So this
+    file passes, and that is **accepted**, not an oversight.
+
+    It is accepted because every prose rule that would catch it was measured against the
+    directory first and is worse:
+
+    - requiring the conventional ``dictated:``/``arrived:`` pair -- **only 5 of the 14
+      app profiles carry both**, so it turns `main` red on nine contributors' files;
+    - blacklisting negative phrases ("not verified", "unmeasured") -- **8 of the 14 carry
+      an honest caveat of their own**, so it spares them only by an accident of wording
+      and **punishes candour**: the most forthright submission is rejected for saying so
+      while a silent omission sails through.
+
+    Whether a profile was really run is a human review call. If that ever changes, it
+    changes structurally -- a machine-checkable observed pair plus normalising the nine
+    merged files -- not by adding another word to a keyword list. Deleting this test is
+    the signal that the decision was revisited.
+    """
+    parses = tmp_path / "config.parses.toml"
+    parses.write_text(
+        "# examples/config.parses.toml\n"
+        "# A YazSes setup for dictating into Parses.\n"
+        "#\n"
+        "# Verified: this file parses with Python's tomllib.\n"
+        "# Injection into the app itself has not been tried.\n\n"
+        '[hotkey]\nkey = "right_ctrl"\n',
+        encoding="utf-8",
+    )
+    assert not load_config_checked(parses).problems, "fixture should be schema-clean"
+    assert check_app_profile.records_evidence(parses.read_text(encoding="utf-8")), (
+        "the fixture no longer reproduces the #309 shape -- if a marker about a parse is "
+        "now rejected, the guard changed and this decision needs re-reading, not deleting"
+    )
+
+
+def test_the_evidence_guard_does_not_claim_to_know_the_profile_was_run(tmp_path: Path):
+    """The docstring said "Does this profile say what was observed" -- it cannot know that.
+
+    An overclaiming docstring is how the limit above gets mistaken for a bug and
+    "fixed" by whoever reads the function next. Pinned to the words that matter.
+    """
+    doc = check_app_profile.records_evidence.__doc__ or ""
+    assert "schema" in doc.lower()
+    assert "human review" in doc.lower()
+    assert "#309" in doc
+
+
 def test_the_problem_check_can_actually_fail(tmp_path: Path):
     """Red-green guard for the assertion above.
 

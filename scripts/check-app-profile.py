@@ -55,11 +55,30 @@ _UNRESOLVED = ("todo", "fixme", "xxx:")
 
 
 def records_evidence(text: str) -> bool:
-    """Does this profile say what was observed, in its prose?
+    """Does a settled comment carry one of `EVIDENCE_MARKERS`? That, and no more.
+
+    ⚠ Read the question literally. This is a **schema** check on the prose, not a
+    judgement that the profile was ever run — whether it was is a **human review**
+    call and always has been. Two distinct ways a file passes without having been used:
+
+    - a fabricated marker, which nothing textual can detect; and
+    - a *truthful* marker about the wrong subject. PR #309 passed on
+      "Verified: this file parses with Python's tomllib" while the same header said
+      plainly that injection into the app was never run. The word is honest; it just
+      answers a question the guard was never worried about.
+
+    The second one has no prose fix, and that is the finding, not a gap left open.
+    Requiring the conventional `dictated:`/`arrived:` pair was measured against the
+    directory: **only 5 of 14 merged profiles carry both**, so it would reject nine
+    contributors' files. Every negative-phrase blacklist is worse still — 8 of 14
+    carry an honest caveat of their own ("the speech half is unverified"), so such a
+    rule **punishes candour**: the most forthright submission is rejected for saying
+    so while a silent omission sails through. A guard with that incentive is worse
+    than no guard.
 
     Comments only: the prose is the evidence, a config key named `verified` is not.
-    A marker word is cheap to add and this cannot detect a fabricated one — it makes
-    the requirement mechanical rather than remembered, which is all it claims.
+    A marker word is cheap to add — this makes the requirement mechanical rather than
+    remembered, which is all it claims.
 
     Lines still carrying a TODO are skipped rather than the whole file being rejected,
     because a profile that says "TODO: not tested on Wayland" is doing exactly what
