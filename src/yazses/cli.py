@@ -496,6 +496,13 @@ def meeting_enroll(
         )
         raise typer.Exit(1)
     cipher = Cipher(load_or_create_key(paths.data_dir))
+    # Replacing an enrollment is allowed -- better audio gives a better voiceprint -- but
+    # it destroys biometric data the user deliberately enrolled, and a second person with
+    # the same name is indistinguishable from a re-enrollment from in here. Say which
+    # happened rather than letting it look like a fresh one.
+    from yazses.meeting.participants import existing_participant
+
+    replacing = existing_participant(name, cfg.meeting)
     try:
         path = enroll_participant(
             d, speaker, name, embedder=embedder, cipher=cipher, config=cfg.meeting,
@@ -504,6 +511,8 @@ def meeting_enroll(
     except (FileNotFoundError, ValueError) as exc:
         typer.echo(f"Could not enroll {name}: {exc}", err=True)
         raise typer.Exit(1)
+    if replacing:
+        typer.echo(f"Replaced the existing voiceprint for {name} ({replacing}).")
     typer.echo(f"Enrolled {name} (from {speaker}). Future meetings will auto-name them.")
     typer.echo(f"  Voiceprint: {path}  (encrypted, on-device — ADR-011/012)")
 

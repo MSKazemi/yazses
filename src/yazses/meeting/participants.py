@@ -57,6 +57,24 @@ def _cluster_audio(audio, assigned, speaker_id, sample_rate: int) -> np.ndarray:
     return np.concatenate(parts) if parts else np.array([], dtype="float32")
 
 
+def participant_path(name: str, config=None) -> Path:
+    """Where ``name``'s enrolled voiceprint lives. Pure given the config."""
+    return participants_dir(config) / (_safe_stem(name) + _SUFFIX)
+
+
+def existing_participant(name: str, config=None) -> Path | None:
+    """The already-enrolled profile this name would replace, or ``None``.
+
+    Enrolling the same name twice is legitimate -- a longer or cleaner recording gives a
+    better voiceprint -- so this does not block anything. But it overwrites biometric data
+    the user deliberately enrolled, and doing that without a word is the wrong kind of
+    quiet: a second Alice silently destroys the first, and nothing distinguishes the two
+    cases from inside YazSes.
+    """
+    path = participant_path(name, config)
+    return path if path.exists() else None
+
+
 def enroll_participant(
     meeting_dir: str | Path,
     speaker_id: str,
@@ -88,7 +106,7 @@ def enroll_participant(
     if clip.size == 0:
         raise ValueError(f"no audio found for speaker {speaker_id!r} in {meeting_dir.name}")
     embedding = embedder.embed(clip, sample_rate)
-    path = participants_dir(config) / (_safe_stem(name) + _SUFFIX)
+    path = participant_path(name, config)
     save_voiceprint(embedding, path, cipher)
     log.info("Enrolled participant %r from %s.", name, meeting_dir.name)
     return path

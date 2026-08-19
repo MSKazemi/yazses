@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — re-enrolling a meeting participant destroyed the first voiceprint in silence
+
+`enroll_participant` writes to a path derived from the display name, with no existence
+check, so:
+
+    yazses meeting enroll <a> speaker_0 --name Alice
+    yazses meeting enroll <b> speaker_1 --name Alice
+
+replaced the first Alice's biometric voiceprint and printed the same success message
+either way.
+
+Replacing is legitimate — a longer or cleaner recording gives a better embedding — so it
+is not blocked. Doing it silently is the problem: from inside YazSes a *second person
+named Alice* and a *re-enrollment of the same Alice* look identical, and only one of those
+is what the user meant. The data is biometric and was enrolled deliberately under an
+explicit-consent policy (ADR-011/012), which is precisely the kind not to overwrite
+without a word.
+
+`yazses meeting enroll` now says when it replaced an existing voiceprint, and names the
+file it replaced.
+
 ### Fixed — one brace in a summary threw away the whole meeting minutes
 
 `_extract_json` pulls the JSON object out of an LLM reply by counting braces, and counted
