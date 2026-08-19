@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — approving one `tune` proposal changed two settings
+
+`set_toml_key` substituted the key **anywhere in the file**, with no section scope and no
+`count`. Both `[stt]` and `[meeting]` carry a key called `model`, so approving `yazses
+tune`'s top proposal — *"Upgrade the STT model"* — also rewrote the meeting transcription
+model:
+
+    [stt]
+    model = "base.en"   ->  "small.en"    approved
+    [meeting]
+    model = "tiny.en"   ->  "small.en"    not approved, not mentioned
+
+That is the top proposal on a real corpus, so it is the most likely `--apply` to be run.
+
+There were two config writers, and each was missing what the other had. `set_toml_key`
+rendered arrays correctly and could not scope a section; `configedit.set_config_key`
+scoped the section and rendered a list as a quoted Python repr —
+`filler_words = "['um', 'uh']"` — which parses as a *string*, so `configcheck` reports
+"should be a list" and falls back to the default, discarding an approved change. Nothing
+passed it a list today, so that half was latent.
+
+There is now one writer and it does both.
+
 ### Fixed — `mic-level --set` could report success and change nothing
 
 `update_threshold_in_config` replaced a `vad_threshold` assignment **anywhere in the

@@ -593,37 +593,20 @@ def toml_literal(value: object) -> str:
 def set_toml_key(path: Path, section: str, key: str, value: object) -> str:
     """Set ``[section] key = value`` in a TOML file, preserving comments.
 
-    Replaces an existing assignment of ``key`` if present; otherwise inserts it
-    under ``[section]`` (creating the section, or the whole file, as needed).
-    Returns a short description of what changed.
+    Delegates to :func:`yazses.system.configedit.set_config_key`, which bounds its edit
+    to the named section. This used to be a second implementation that substituted the
+    key ANYWHERE in the file, with no section scope and no ``count`` -- so approving
+    `tune`'s top proposal, "Upgrade the STT model" (`[stt] model`), also rewrote
+    ``[meeting] model``, because both sections carry a key called ``model``. The user
+    approved one change and got two, in a feature they were not looking at.
+
+    Two writers, and each had what the other lacked: this one rendered arrays correctly
+    and could not scope a section; the other scoped the section and rendered a list as a
+    quoted Python repr. Now there is one, and it does both.
     """
-    literal = toml_literal(value)
-    line = f"{key} = {literal}"
-    header = f"[{section}]"
+    from yazses.system.configedit import set_config_key
 
-    if not path.exists():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(f"{header}\n{line}\n")
-        return f"created {path} with [{section}] {key}"
-
-    text = path.read_text()
-    new_text, n = re.subn(
-        rf"(?m)^[ \t]*{re.escape(key)}[ \t]*=.*$", line, text
-    )
-    if n:
-        path.write_text(new_text)
-        return f"updated {key}"
-
-    if re.search(rf"(?m)^\[{re.escape(section)}\]\s*$", text):
-        new_text = re.sub(
-            rf"(?m)^(\[{re.escape(section)}\]\s*)$", r"\1\n" + line, text, count=1
-        )
-    else:
-        sep = "" if text.endswith("\n") or not text else "\n"
-        new_text = f"{text}{sep}\n{header}\n{line}\n"
-    path.write_text(new_text)
-    return f"added [{section}] {key}"
-
+    return set_config_key(path, section, key, value)
 
 def apply_proposal(proposal: Proposal, config_path: Path, few_shots_path: Path) -> str:
     """Apply an approved proposal to disk and return a description."""

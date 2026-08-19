@@ -60,6 +60,12 @@ def _render_toml_value(value) -> str:
         return "true" if value else "false"
     if isinstance(value, (int, float)):
         return str(value)
+    if isinstance(value, (list, tuple)):
+        # A TOML array, not `str(list)`. Without this a list value was rendered as the
+        # quoted Python repr -- `filler_words = "['um', 'uh']"` -- which parses as a
+        # STRING, so `configcheck` reports "should be a list" and falls back to the
+        # default, discarding the change the user had just approved.
+        return "[" + ", ".join(_render_toml_value(v) for v in value) + "]"
     return quote_toml_string(value)
 
 
