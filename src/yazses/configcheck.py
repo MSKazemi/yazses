@@ -200,6 +200,17 @@ def negative_is_impossible(field) -> bool:
 #: Only closed sets belong here. `[stt] compute_type` is a property of the CPU,
 #: `[stt] language` is open, and a model name is whatever is downloadable -- guessing at
 #: those would reject valid configs, which is worse than accepting an invalid one.
+#:
+#: Eight further settings ARE closed sets and are deliberately absent, because each one
+#: already fails safe and says so: `[gaze] backend`, `[gaze] zones`, `[stt] engine`,
+#: `[emg] mode`, `[cocktail] mode`, `[meeting] vad_backend`, `[voiceprint] backend`,
+#: `[polyglot] lid`. An unrecognised value there disables the feature or falls back to the
+#: always-available implementation, with a log line naming what happened -- the opposite
+#: of `target_guard`, where a misspelling turned a guard ON. Adding them would be eight
+#: more chances to reject a value that works, for settings whose failure is already
+#: visible. `tests/test_config_enums_are_validated.py` pins that fail-safe behaviour, so
+#: if one of them starts falling back to something ENABLED, the exclusion stops being
+#: justified and a test says so.
 _ENUMS: dict[str, tuple[str, ...]] = {
     "injection.backend": ("auto", "type", "clipboard", "wtype"),
     "injection.target_guard": ("clipboard", "warn", "off"),

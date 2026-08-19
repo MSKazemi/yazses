@@ -6,6 +6,24 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — the enum table records why it is small, and the exclusions are pinned
+
+The closed-set validation added alongside this covers `[injection] backend` and
+`[injection] target_guard`. **Eight further settings are closed sets and are deliberately
+absent**: `[gaze] backend`, `[gaze] zones`, `[stt] engine`, `[emg] mode`, `[cocktail] mode`,
+`[meeting] vad_backend`, `[voiceprint] backend`, `[polyglot] lid`.
+
+Each already fails safe and says so. An unrecognised gaze backend disables gaze; an
+unrecognised meeting VAD backend falls back to the always-available calibrated gate; an
+unrecognised STT engine falls back to faster-whisper "with an honest log line saying exactly
+what happened". That is the opposite of `target_guard`, where a misspelling turned a guard
+*on*. Adding them would be eight more chances to reject a value that works, for settings
+whose failure is already visible.
+
+That reasoning now lives next to the table, and the fail-safe behaviour is pinned — so if
+one of them starts falling back to something *enabled*, the exclusion stops being justified
+and a test says so.
+
 ### Fixed — a misspelled `off` left the no-text-target guard on, and nothing said so
 
 `configcheck` repairs what it can and reports every decision as a `ConfigProblem`, which

@@ -135,3 +135,81 @@ def test_an_unknown_key_is_still_reported_separately(tmp_path) -> None:
     """The pre-existing behaviour, so the new branch has not swallowed it."""
     result = _load(tmp_path, '[injection]\nnot_a_setting = "x"\n')
     assert any("not a known setting" in str(p) for p in result.problems)
+
+
+# --- why the table is small -------------------------------------------------
+#
+# Eight further settings are closed sets and are deliberately NOT validated. Each already
+# fails safe: an unrecognised value disables the feature or falls back to the
+# always-available implementation, and logs what happened. That is the opposite of
+# `target_guard`, where a misspelling turned a guard ON. These pin that property, so if
+# one of them starts falling back to something ENABLED, the exclusion stops being
+# justified and this file says so.
+
+
+def test_an_unknown_gaze_backend_disables_gaze_rather_than_picking_one(monkeypatch) -> None:
+    """Fail-safe: the camera stays off.
+
+    The backends are stubbed so construction SUCCEEDS. Without that this proves nothing:
+    `build_gaze` catches a construction failure and returns None, so on any machine
+    without the `gaze` extra the assertion passes whatever the unknown-name branch does.
+    A first version of this test did exactly that and survived a sabotage that made the
+    unknown branch return a working backend.
+    """
+    import sys
+    import types
+
+    from yazses.config import Config
+    from yazses.gaze.factory import build_gaze
+
+    for name, cls in (("mediapipe_backend", "MediapipeGazeBackend"), ("l2cs", "L2csGazeBackend")):
+        module = types.ModuleType(f"yazses.gaze.{name}")
+        setattr(module, cls, lambda _config: "A WORKING BACKEND")
+        monkeypatch.setitem(sys.modules, f"yazses.gaze.{name}", module)
+
+    cfg = Config()
+    cfg.gaze.enabled = True
+    cfg.gaze.backend = "mediapipe"
+    assert build_gaze(cfg.gaze) == "A WORKING BACKEND", (
+        "the stub did not take effect — this test would prove nothing"
+    )
+
+    cfg.gaze.backend = "medipipe"
+    assert build_gaze(cfg.gaze) is None, (
+        "an unrecognised gaze backend now enables a webcam; it belongs in _ENUMS"
+    )
+
+
+def test_an_unknown_meeting_vad_backend_still_returns_a_working_gate() -> None:
+    """Fail-safe the other way: meetings must not stop detecting speech over a typo."""
+    from yazses.config import Config
+    from yazses.meeting.vad import build_is_silent
+
+    cfg = Config().meeting
+    cfg.vad_backend = "silaro"
+    assert callable(build_is_silent(cfg, 0.01))
+
+
+def test_an_unknown_stt_engine_falls_back_and_says_so() -> None:
+    """Asserted on the source: constructing an engine downloads a model.
+
+    The factory's own docstring promises a fallback "with an honest log line saying
+    exactly what happened", which is why this key is not in the table.
+    """
+    import inspect
+
+    from yazses.stt import factory
+
+    source = inspect.getsource(factory)
+    assert "falling back to faster-whisper" in source
+
+
+def test_the_excluded_sets_are_recorded_where_the_table_is() -> None:
+    """So the next person does not redo this sweep, or add them carelessly."""
+    import inspect
+
+    from yazses import configcheck
+
+    note = inspect.getsource(configcheck)
+    for key in ("[gaze] backend", "[stt] engine", "[meeting] vad_backend"):
+        assert key in note, f"{key} is no longer recorded as a deliberate exclusion"
