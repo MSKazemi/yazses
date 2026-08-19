@@ -246,6 +246,22 @@ dependency closure, so `cocktail` reads as `~3.1 GB` rather than as the one pack
 you type. Blank means nothing to download, which is true of most capabilities. See
 [Install only what you need](how-to/install-only-what-you-need.md).
 
+Three states, not two:
+
+| Badge | Meaning |
+|---|---|
+| `● ON` | On, and this build acts on it. |
+| `○ off` | Off. |
+| `◌ set` | Your config turns it on, but **nothing in this build reads it** — it is doing nothing. Clear the key with `yazses features disable <name>`. |
+
+`◌` only appears if you have one. It is not reachable from `yazses features enable`,
+which refuses a capability that is *planned — designed, not yet wired*; it comes from
+a config seeded by a version that predates that refusal, and it stayed invisible
+because both facts (your setting, and whether anything reads it) were printed side by
+side without ever being compared. Such a capability is **not** counted in a group's
+`(n/m on)` tally, because it is not doing anything — but it *does* still show under
+`--on`, which asks what your config turns on rather than what is running.
+
 ![yazses features — capabilities grouped by category, each with its on/off state, toggle name, and advice tier](screenshots/yazses-features.png)
 
 **Options (on the list view):**

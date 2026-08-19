@@ -51,6 +51,10 @@ class SettingRow:
     default_enabled: bool | None = None
     # False = designed but not yet wired into any runtime path.
     wired: bool = True
+    # True = the config turns it on and nothing reads it. `enabled` above is
+    # deliberately False in that case -- the box reflects what is happening, not
+    # what the file says -- so this carries the fact the help text needs.
+    inert: bool = False
 
 
 @dataclass(frozen=True)
@@ -148,7 +152,9 @@ def _row(f: Feature, defaults: dict[str, bool]) -> SettingRow:
         slug=f.slug,
         label=f.name,
         tier_label=f.tier_label,
-        enabled=f.on,
+        # `f.on` alone ticked a greyed-out box for a capability nothing reads,
+        # on any config seeded before `_UNWIRED` existed.
+        enabled=f.on and f.wired,
         toggleable=f.toggleable and f.wired,
         experimental=f.tier == EXPERIMENTAL,
         why=f.why,
@@ -159,4 +165,5 @@ def _row(f: Feature, defaults: dict[str, bool]) -> SettingRow:
         packages=tuple(f.pip_packages),
         default_enabled=defaults.get(f.slug),
         wired=f.wired,
+        inert=f.inert,
     )

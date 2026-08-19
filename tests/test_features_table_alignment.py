@@ -23,7 +23,12 @@ from yazses.cli import app
 from yazses.system.features import _registry
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
-_ROW = re.compile(r"│  [●○]")
+# Every badge `_echo_feature_table` can emit. `◌` (set in the config, unwired)
+# was added in v2.30 and was *not* in this class, so those rows escaped the
+# alignment check entirely -- a guard that quietly stops covering a row is
+# worse than one that fails, because the table stays green while going ragged.
+_BADGES = "●○◌"
+_ROW = re.compile(f"│  [{_BADGES}]")
 _TIERS = ("core", "recommended", "optional", "experimental", "planned")
 
 
@@ -74,4 +79,27 @@ def test_the_longest_slug_is_actually_exercised():
     assert longest > 16, (
         f"longest slug is {longest} chars, within the old fixed width — this suite "
         "no longer exercises the overflow it exists to catch"
+    )
+
+
+def test_the_row_regex_covers_every_badge_the_list_can_emit():
+    """Pins the class above against the renderer, not against memory.
+
+    A fourth badge added to `_echo_feature_table` without touching `_BADGES` would
+    not fail anything -- its rows would simply stop being checked for alignment.
+    """
+    import re as _re
+    from pathlib import Path as _Path
+
+    src = _Path(__file__).resolve().parents[1] / "src" / "yazses" / "cli.py"
+    body = src.read_text()
+    start = body.index("def _echo_capabilities")
+    end = body.index("def _echo_feature_card", start)
+    marks = _re.findall(r"^\s*mark = (.+)$", body[start:end], _re.M)
+    assert marks, "no `mark = ` assignment in the table renderer — the badge moved"
+    emitted = {ch for expr in marks for ch in expr if ord(ch) > 0x2000}
+    assert emitted, "the badge expression yielded no glyphs"
+    assert emitted <= set(_BADGES), (
+        f"{emitted - set(_BADGES)} rendered by the list but absent from _BADGES, "
+        "so those rows are not alignment-checked"
     )

@@ -92,6 +92,17 @@ class Feature:
     def toggleable(self) -> bool:
         return bool(self.on_writes)
 
+    @property
+    def inert(self) -> bool:
+        """The config turns this on and nothing in this build reads it.
+
+        `features enable` refuses an unwired capability, so this state is not
+        reachable today -- but a config seeded by a version before `_UNWIRED`
+        existed can still carry the key, and it then reads as a working feature
+        on every surface that prints `on` without consulting `wired`.
+        """
+        return self.on and not self.wired
+
 
 @dataclass(frozen=True)
 class _Def:

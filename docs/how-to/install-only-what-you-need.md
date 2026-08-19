@@ -33,6 +33,11 @@ A blank cell means there is nothing to download. Most capabilities are blank:
 `reflow`, `undo`, `commands` and the rest are pure logic that ships in the base
 install.
 
+If a row reads `◌ set` rather than `● ON` or `○ off`, your config turns that
+capability on and nothing in this build reads it — it costs you nothing and does
+nothing. `yazses features disable <name>` clears the key. See
+[`yazses features`](../cli-reference.md#yazses-features).
+
 !!! note "Two numbers, two questions"
 
     The catalogue quotes the **full** size, because it is a price list read by anyone.

@@ -179,6 +179,12 @@ def _packages(row) -> str:
 def _default(row) -> str:
     if not row.toggleable:
         if not getattr(row, "wired", True):
+            if getattr(row, "inert", False):
+                return (
+                    "Designed but not wired into this build yet — and your config "
+                    "turns it on anyway, which does nothing. Clear the stale key "
+                    f"with `yazses features disable {row.slug}`."
+                )
             return (
                 "Designed but not wired into this build yet — the switch would "
                 "write a config key nothing reads, so it is shown, not offered."

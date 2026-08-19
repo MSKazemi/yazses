@@ -1269,7 +1269,7 @@ def _echo_capabilities(
         shown = [f for f in feats if _keep(f)]
         if not shown:
             continue
-        on_n = sum(1 for f in shown if f.on)
+        on_n = sum(1 for f in shown if f.on and not f.inert)
         typer.echo(f"┌─ {cat}  ({on_n}/{len(shown)} on)")
         if blurb:
             typer.echo(f"│  {blurb}")
@@ -1278,7 +1278,7 @@ def _echo_capabilities(
             f"{'DOWNLOAD':<{_SIZE_W}} ADVICE"
         )
         for f in shown:
-            mark = "● ON " if f.on else "○ off"
+            mark = "◌ set" if f.inert else ("● ON " if f.on else "○ off")
             slug = f.slug if f.toggleable else "—"
             size = _catalogue_size(f)
             typer.echo(
@@ -1291,6 +1291,14 @@ def _echo_capabilities(
     if total == 0:
         typer.echo("  No capabilities match that filter.")
         return
+    if any(f.inert for f in all_shown):
+        # Only when one is actually on screen: a third glyph in the legend is
+        # noise on the overwhelming majority of machines, whose configs are clean.
+        typer.echo(
+            "\n  ◌ = your config turns it on but nothing in this build reads it,"
+            " so it does nothing."
+            "\n      Clear a stale key with `yazses features disable <name>`."
+        )
     typer.echo(
         f"\n  {total} shown.  ●/○ = on/off.  Apply changes with `yazses restart`."
         "\n  DOWNLOAD = what enabling fetches on a fresh install; blank = nothing"
@@ -1305,7 +1313,7 @@ def _echo_capabilities(
 def _echo_feature_card(feat, *, full: bool) -> None:
     """Print one capability. `full` adds the enable/disable/apply block (single view);
     the compact form (used by the catalog) is name + description + example only."""
-    state = "● ON " if feat.on else "○ off"
+    state = "◌ set" if feat.inert else ("● ON " if feat.on else "○ off")
     slug = feat.slug if feat.toggleable else "core"
     typer.echo(f"{state} {feat.name}  [{slug}]  ({feat.tier_label})")
     if feat.why:
@@ -1322,6 +1330,13 @@ def _echo_feature_card(feat, *, full: bool) -> None:
                 "enabled yet.\n  It stays listed so contributors can pick it up; "
                 "see the matching design/adr/ entry."
             )
+            if feat.on:
+                # Printed directly under a line that said "● ON" until this pass.
+                typer.echo(
+                    "  Your config turns it on anyway — nothing reads that key, so"
+                    " it is doing nothing."
+                    f"\n  Clear it:  yazses features disable {feat.slug}"
+                )
         elif feat.toggleable:
             # What it will cost, before it is spent (ADR-018). `speechbrain` alone
             # resolves to torch plus the NVIDIA CUDA stack, and until this line

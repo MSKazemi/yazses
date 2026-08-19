@@ -8,6 +8,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A capability the config turns on that **no code reads** was shown as working, on every
+  surface that could show it. `yazses features` badged it `● ON`, counted it in the group's
+  `(n/m on)` tally, and `yazses features info` printed `● ON` four lines above *"it cannot be
+  enabled yet"*; the Settings window rendered a **ticked, greyed-out** checkbox for it. Both
+  facts — your setting and whether anything reads it — sat on the same object one field apart
+  and were never compared. This is not reachable from `features enable`, which refuses an
+  unwired capability; it is inherited, because eight *planned — designed, not yet wired*
+  capabilities carry a `recommended` tier, and first-run seeding wrote every recommended slug
+  into `config.toml` before the refusal existed. A new third badge, `◌ set`, says what is
+  actually true, the group tally counts only capabilities that do something, and both the card
+  and the Settings help name `yazses features disable <name>` to clear the key. `--on` still
+  lists them on purpose — that view asks what your config turns on, and it is where you would
+  look for a stale key. The table-alignment guard was extended to the new badge in the same
+  change: its row pattern matched `●` and `○` only, so `◌` rows would have gone unchecked
+  while the suite stayed green.
+
 - `yazses tune` understated its own runtime by 3–4×. `--limit`'s help and the CLI reference
   both said a full corpus *"can take about an hour"*; measured on a real corpus, 50 clips took
   510 s wall clock with `small.en` on a laptop CPU — 9.6 s each — and a corpus sitting on the
