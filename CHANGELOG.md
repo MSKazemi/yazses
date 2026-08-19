@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a destructive-command pattern that could never fire
+
+`assess_command` lower-cases a dictated command before matching, and `_DANGEROUS`
+contained a pattern with a literal uppercase flag:
+
+    (r"\bchmod\s+-R\s+0*777\b", "recursive world-writable")
+
+Against lower-cased input that can never match, so `chmod -R 777 /` was classified
+`safe` — and here `safe` does not mean "reported as low risk", it means the command is
+typed straight through with **no confirmation**. A guard entry that cannot fire is worse
+than an absent one, because it reads as coverage.
+
+The same run found a second gap inside the guard's own declared category: `rm
+--recursive --force /data` is the identical command to `rm -rf /data`, and both `rm`
+patterns read only the short flag cluster, so it too was `safe`.
+
+Both fixed, plus two structural guards: no pattern may contain a literal uppercase letter
+(the mechanism), and every pattern must match its own worked example (the coverage), so a
+new entry cannot be added and quietly do nothing.
+
 ### Fixed — `redact_patterns` scrubbed four of the six stored text fields
 
 `[learning] redact_patterns` is documented as *"Regexes scrubbed from text before
