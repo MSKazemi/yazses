@@ -6,20 +6,61 @@ spelled correctly. Managed with ``yazses vocab add/list/remove``.
 """
 from __future__ import annotations
 
+import logging
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 
 def vocab_path(config_dir) -> Path:
     return Path(config_dir) / "vocabulary.txt"
 
 
-def load_vocab(path) -> list[str]:
-    """Return the dictionary words (order preserved), or [] if absent."""
+def load_vocab(path, *, strict: bool = False) -> list[str]:
+    """Return the dictionary words (order preserved), or [] if absent.
+
+    Tolerant by default, because `core/daemon.py::_on_hold_end` reads this file on EVERY
+    burst. It used to decode strictly, so a single non-UTF-8 byte -- one word pasted from
+    an editor in another encoding -- raised `UnicodeDecodeError` inside the burst's `try`
+    and every dictation failed with a generic "could not type that", naming nothing. A
+    directory at that path raised `IsADirectoryError` the same way.
+
+    Losing one mojibake term costs a word that would not have matched anyway. Losing every
+    burst costs the product. So a bad byte is replaced, an unreadable file yields nothing,
+    and both are logged with the path.
+
+    ``strict=True`` raises instead, and is what the writers below use: `add_vocab` and
+    `remove_vocab` rewrite the WHOLE file from this list, so a tolerant read there would
+    persist the replacement characters into the user's dictionary. Refusing to rewrite a
+    file we could not read exactly is the only safe half of that pair.
+    """
     p = Path(path)
     if not p.exists():
         return []
+    # Decode strictly FIRST even when tolerant, so the fallback is detectable. Reading
+    # straight through with `errors="replace"` never raises, so a warning hung off an
+    # `except UnicodeDecodeError` there can never fire -- the file would be silently
+    # mangled with nothing said, which is the failure this function is meant to end.
+    try:
+        raw = p.read_bytes()
+    except OSError as exc:
+        if strict:
+            raise
+        log.warning("could not read vocabulary file %s (%s); continuing without it", p, exc)
+        return []
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        if strict:
+            raise
+        text = raw.decode("utf-8", errors="replace")
+        log.warning(
+            "vocabulary file %s is not valid UTF-8; unreadable bytes were replaced. "
+            "Dictation continues -- fix the file, or re-add the affected words with "
+            "`yazses vocab add`.", p,
+        )
     out: list[str] = []
-    for line in p.read_text(encoding="utf-8").splitlines():
+    for line in text.splitlines():
         w = line.strip()
         if w:
             out.append(w)
@@ -29,7 +70,7 @@ def load_vocab(path) -> list[str]:
 def add_vocab(path, words) -> list[str]:
     """Append *words* (case-insensitively de-duplicated), return the full list."""
     p = Path(path)
-    existing = load_vocab(p)
+    existing = load_vocab(p, strict=True)
     seen = {w.lower() for w in existing}
     for w in words:
         w = w.strip()
@@ -44,7 +85,7 @@ def add_vocab(path, words) -> list[str]:
 def remove_vocab(path, word) -> list[str]:
     """Remove *word* (case-insensitive), return the remaining list."""
     p = Path(path)
-    remaining = [w for w in load_vocab(p) if w.lower() != word.strip().lower()]
+    remaining = [w for w in load_vocab(p, strict=True) if w.lower() != word.strip().lower()]
     p.write_text("\n".join(remaining) + ("\n" if remaining else ""), encoding="utf-8")
     return remaining
 

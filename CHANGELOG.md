@@ -6,6 +6,23 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — one non-UTF-8 byte in `vocabulary.txt` broke every dictation burst
+
+The daemon reads the personal dictionary on **every** burst, to build Whisper's
+`initial_prompt`. `load_vocab` decoded strictly, so a single bad byte — one word pasted from
+an editor in another encoding — raised `UnicodeDecodeError` inside the burst's `try`. A
+directory at that path raised `IsADirectoryError` the same way.
+
+Every dictation then failed with a generic "could not type that", the toast named nothing,
+and the log said `UnicodeDecodeError` without mentioning the vocabulary file. The daemon
+survived; the product did not work.
+
+**Tolerant to read, strict to write.** Losing one mojibake term costs a word that would never
+have matched anyway; losing every burst costs the product — so reading replaces the bad bytes
+and logs the path. Writing must not: `add_vocab` and `remove_vocab` rewrite the *whole* file
+from that list, so a tolerant read there would persist the replacement characters into the
+user's dictionary — a silent corruption caused by trying to help. They refuse instead.
+
 ### Fixed — a typo in `macros.toml` stopped the daemon starting
 
 `Daemon.__init__` calls `build_macro_table`, and `load_macros`'s own docstring is explicit:
