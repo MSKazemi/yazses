@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — diarized transcripts attributed words to the wrong speaker
+
+`_nearest_speaker` filled an unmatched word from the nearest turn by the distance between
+**midpoints**, and compared that to `fill_nearest_max` — whose name and docstring both
+promise "within N **seconds**" of the turn. Those agree only when turns are short. Meeting
+turns are not, and two wrong answers followed on ordinary input:
+
+* **The same gap, opposite outcomes.** A word 0.1 s after a 100-second turn was *dropped*
+  (its midpoint is 50 s away), while the identical 0.1 s gap after a 0.5-second turn was
+  assigned. Whether a word got a speaker depended on how long that speaker had been
+  talking.
+* **The wrong speaker.** A word 0.2 s after speaker A's turn and 0.8 s before speaker B's
+  was given to **B**, because B's turn is short and its midpoint close. Putting words in
+  the wrong person's mouth is the one error a diarized transcript must not make quietly —
+  it reads as fact.
+
+Distance is now the real gap to the turn, zero when they touch. Both existing guards are
+unchanged: the `fill_nearest_max` cap still refuses a distant turn, and a word shorter
+than `backchannel_max` is still left unassigned rather than stolen by a neighbour. Ties
+break to the earliest-starting turn, matching how the overlap branch already breaks its
+own.
+
+Affects `yazses transcribe --diarize` and Meeting Mode, which share these cores.
+
 ### Fixed — self-repair deleted a word out of ordinary speech
 
 `_EDIT_TERMS` includes a bare `i mean`, and the rule **drops the word before the editing
