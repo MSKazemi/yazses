@@ -6,6 +6,34 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `windowctl` ignored its own toggle, and still advertised commands it cannot run
+
+**`features disable windowctl` was a no-op.** Nothing read `[windowctl] enabled`.
+`core/daemon.py` called `_try_window_focus` unconditionally in command mode, so voice
+window focus ran for every user — including everyone who never enabled it — against both
+the catalogue's own *"Off by default"* and the project rule that new features ship off. It
+also cost a startup xdotool probe to users who had not asked for the feature.
+
+`_build_window_backend` now returns `None` when the feature is off. That is the whole gate:
+`_try_window_focus` already returns False on a `None` backend, so a disabled feature routes
+down the path Wayland already takes and "focus the browser" is dictated as text rather than
+consumed.
+
+**The dead layout verbs were still being advertised.** An earlier fix removed *"move window
+left half"* / *"workspace 3"* from the description, because their grammar is wired to
+nothing and `WindowBackend` has no method that could ever carry them out. But a feature's
+`example` and `use_case` live in two other dicts in `features.py`, and the guard added at
+the time scanned only `name` and `why` — so `yazses features info windowctl` contradicted
+itself on one screen:
+
+    ... Rearranging windows by voice is designed but not connected yet.
+    Use when:  When you want to arrange windows and switch workspaces ...
+    Example:   Say 'move window left half' or 'workspace 3' ...
+
+Both now describe focusing, which is what runs, and the guard reads every field the user is
+shown — plus a second assertion that fails if a new display field is added without being
+brought into scope. `docs/v2-features.md` carried the same claim and is corrected.
+
 ### Fixed — two pure spoken-text modules that were wrong in the same shape
 
 Both are in `features._UNWIRED`, so neither reaches a user today. They are fixed now

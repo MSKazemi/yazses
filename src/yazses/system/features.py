@@ -712,7 +712,11 @@ def _registry() -> list[_Def]:
         # protocol has only list_windows() and focus() — so there is no method that
         # could carry out a WmAction even once it were wired. Enabling the feature
         # succeeded and the examples did nothing, which is worse than not offering
-        # it. Guarded by tests/test_windowctl_promises.py.
+        # it. Guarded by tests/test_windowctl_promises.py -- which now reads the
+        # `example` and `use_case` dicts too. It scanned only name+why, and both of
+        # those live far away in `_EXAMPLES`/`_USE_CASES`, so "move window left half"
+        # and "workspace 3" survived the correction in the two lines printed directly
+        # underneath it by `yazses features info`.
         _Def("windowctl", "Voice Window Focus", "[windowctl] — focus a window by name", OPTIONAL,
              "Say 'focus the browser' or 'switch to my editor' to raise a window by "
              "name. X11 only (Wayland does not let one app focus another). "
@@ -1184,7 +1188,7 @@ _EXAMPLES: dict[str, str] = {
     "cite": "Say 'cite Vaswani 2017' to insert a citation from your .bib.",
     "langroute": "Switch languages mid-session and the right model loads automatically.",
     "hotwords": "Add 'Kubernetes' to vocab and it stops being mis-heard.",
-    "windowctl": "Say 'move window left half' or 'workspace 3' to arrange your desktop.",
+    "windowctl": "Say 'focus the browser' and the browser window is raised.",
     "rewrite": "Select a paragraph, hold the command key, say 'make this shorter'.",
     "markup": "Say 'bullet list: apples; oranges; pears' to type a Markdown list.",
     "findreplace": "Say 'replace every utilise with use' to edit the whole document.",
@@ -1349,7 +1353,7 @@ _USE_CASES: dict[str, str] = {
     "cite": "When writing a paper by voice and you want citations pulled from your local BibTeX library.",
     "langroute": "When you switch spoken languages during a session and don't want to toggle models by hand.",
     "hotwords": "When rare names or jargon keep getting mis-transcribed despite a vocabulary prompt.",
-    "windowctl": "When you want to arrange windows and switch workspaces without touching the mouse.",
+    "windowctl": "When you want to raise a window by name without reaching for the mouse or Alt-Tab.",
     "rewrite": "When you edit prose all day and want an offline alternative to the cloud voice-editing tools.",
     "markup": "When dictating notes that need real lists or tables, not a flat paragraph.",
     "findreplace": "When you need to change a word across the whole document, not just the last utterance.",

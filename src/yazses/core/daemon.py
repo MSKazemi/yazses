@@ -732,7 +732,7 @@ class Daemon:
 
         # Voice window focus (#39). None on Wayland (which forbids cross-client
         # focus) and without xdotool; the spoken command then stays dictation.
-        self._window_backend = self._build_window_backend()
+        self._window_backend = self._build_window_backend(cfg)
 
         # Optional non-keyboard activation sources (EMG squeeze via [emg]).
         self._extra_activations = self._build_activation_sources(cfg)
@@ -2862,8 +2862,22 @@ class Daemon:
         log.info("Punch-In: corrected %d chars.", len(last))
         return {"ok": True, "applied": True, "old": last, "new": corrected, "candidates": cand_view}
 
-    def _build_window_backend(self):
-        """X11 window backend for voice focus, or None (logged) when impossible."""
+    def _build_window_backend(self, cfg):
+        """X11 window backend for voice focus, or None (logged) when impossible.
+
+        `[windowctl] enabled` is checked HERE rather than at the call site, and that
+        is the whole gate: `_try_window_focus` already returns False on a None
+        backend, so a disabled feature leaves "focus the browser" to be dictated as
+        text -- the same path Wayland takes, which is already the tested one.
+
+        It had no gate at all. The daemon called `_try_window_focus` unconditionally
+        in command mode, so voice focus ran whether or not the feature was enabled:
+        `yazses features disable windowctl` was a no-op, and the catalogue's "Off by
+        default" was false. It also cost every user an xdotool probe at startup for a
+        feature they had not asked for.
+        """
+        if not getattr(cfg.windowctl, "enabled", False):
+            return None
         try:
             import os
 
