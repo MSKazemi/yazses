@@ -106,7 +106,12 @@ def read_live_lines(meeting_dir: str | Path) -> list[dict]:
     if not p.exists():
         return []
     out: list[dict] = []
-    for line in p.read_text(encoding="utf-8").splitlines():
+    # errors="replace", because this file exists precisely for the case where the daemon
+    # died mid-write -- and a write cut in the middle of a multi-byte character makes
+    # strict decoding raise UnicodeDecodeError for the WHOLE file. Every complete line
+    # before the tear was readable and was being thrown away with it. The torn line
+    # itself is then dropped by the json guard below, as a truncated line already was.
+    for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
         line = line.strip()
         if not line:
             continue

@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a crashed meeting's recovery transcript was unreadable, and unmentioned
+
+`session.py` streams every finalized live line to `live.jsonl` throughout a meeting, and
+`append_live_line` says why: *"so a daemon crash mid-meeting still leaves a partial
+transcript on disk"*. Both ends of that were broken.
+
+**The reader could not read it.** `read_live_lines` decoded with strict UTF-8, outside its
+`try`. A write cut in the middle of a multi-byte character — exactly how the file gets
+damaged, since the premise is that the process died mid-write — raised `UnicodeDecodeError`
+for the **whole file**, discarding every complete line before the tear along with it. It
+now decodes with `errors="replace"`, and the torn line is dropped by the JSON guard that
+already handled truncated lines.
+
+**Nothing mentioned it.** `read_live_lines` had no caller anywhere in `src/`, and
+`yazses meeting list` — the only place `recoverable` would be seen — computed the flag and
+printed the meeting without it. So an hour-long meeting cut short by a crash left its
+partial transcript on disk with nothing in the product acknowledging it existed. The
+listing now flags it and says how many lines are recoverable, and from where.
+
+Whether a dedicated `meeting recover` command should exist is a larger question left open;
+this makes the data findable, which it was not.
+
 ### Fixed — `srt`/`vtt` merged two speakers into one caption and dropped their names
 
 `_render_subtitles` threw the speaker away and segmented on silence and line length

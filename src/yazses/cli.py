@@ -389,6 +389,17 @@ def meeting_list(
     for m in meetings:
         note = " +notes" if m.get("has_notes") else ""
         typer.echo(f"{m.get('id')}  {_speaker_summary(m)}{note}  {m.get('dir', '')}")
+        # `list_meetings` has always set `recoverable` on a meeting that never finalized
+        # but left a live.jsonl, and this listing -- the only place it would be seen --
+        # dropped it. The daemon streams that file all through a meeting for exactly this
+        # case, so an hour-long meeting cut short by a crash had its partial transcript
+        # sitting on disk with nothing in the product acknowledging it existed.
+        if m.get("recoverable"):
+            lines = store.read_live_lines(m.get("dir", ""))
+            typer.echo(
+                f"    ⚠ did not finish — {len(lines)} line(s) of live transcript "
+                f"recoverable from {m.get('dir', '')}/live.jsonl"
+            )
 
 
 @meeting_app.command("relabel")
