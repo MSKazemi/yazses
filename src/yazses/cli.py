@@ -2777,6 +2777,16 @@ def status(
     typer.echo(f"  hotkey:   {info.get('hotkey')}")
     typer.echo(f"  model:    {info.get('model')}")
     typer.echo(f"  backend:  {info.get('injection_backend')}")
+    # Whether dictation is leaving this machine. The daemon has published
+    # `remote_connected` all along and nothing read it -- not `status`, not the tray -- so
+    # after the first burst of a remote session no surface said so. `state` cannot stand
+    # in: it is REMOTE_ACTIVE only until the next hold, which ends at IDLE.
+    #
+    # ADR-011 promises nothing leaves the machine and ADR-019 enumerates the two
+    # exceptions; this is one of them, running. It is worth a line even though the user
+    # started it themselves, because a session survives a reboot of their attention.
+    if info.get("remote_connected"):
+        typer.echo("  remote:   ON — dictation is being sent to the host you connected to")
     if info.get("input_device"):
         typer.echo(f"  mic:      {info.get('input_device')}")
     typer.echo(f"  uptime:   {_format_uptime(info.get('uptime_s'))}")

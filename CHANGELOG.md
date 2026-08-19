@@ -6,6 +6,24 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — no surface said your dictation was being sent to another machine
+
+`yazses remote <host>` opens an SSH tunnel and routes every transcript to an agent on the far
+end. That is one of exactly two paths ADR-019 lists as able to transmit what you said, and
+the project's central claim is that nothing leaves this machine.
+
+The daemon has published `remote_connected` since that feature shipped. **Nothing read it** —
+not `yazses status`, not the tray, not `doctor`. Found by mapping all 36 status keys to their
+consumers: seven had none, and this was the one that mattered.
+
+`state` cannot stand in for it. The daemon sets `REMOTE_ACTIVE` when the tunnel comes up, but
+a burst moves through `RECORDING` → `TRANSCRIBING` and `_on_hold_end` finishes at `IDLE` — so
+`state` says "remote" only until the *next* thing you dictate, after which status reads
+exactly like a local session for the rest of the connection.
+
+`yazses status` now says so. The tray is deliberately left alone: its five colours have
+documented meanings and adding a sixth is a design change rather than a fix.
+
 ### Fixed — `yazses restart` destroyed a meeting's write-up, and the daemon was already saying so
 
 Stopping a meeting starts a post-pass: batch diarization over the whole recording, then the
