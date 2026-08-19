@@ -6,6 +6,17 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- An unsupported `[stt] compute_type` was reported as a missing speech model. The value's
+  valid range is a property of your processor, and ctranslate2 rejects a bad one from
+  inside the model constructor — which the loader wrapped as "the model is not on this
+  machine, and it could not be downloaded", then offered three ways to download a file
+  already in the cache. The daemon's desktop notification said the same. It now names
+  `[stt] compute_type`, lists the types this machine actually supports, and points at the
+  default `int8`; it also stops attempting a pointless download first, which on a
+  firewalled machine buried the real cause under a network error.
+
 ### Fixed — an audio rule fired precisely when its own diagnosis was impossible
 
 `audio-backend-missing` matched the marker `"portaudio"` and answered *"The audio backend

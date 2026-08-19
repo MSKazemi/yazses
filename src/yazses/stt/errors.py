@@ -44,6 +44,69 @@ def looks_like_a_blocked_network(cause: BaseException | str) -> bool:
     return any(marker in text for marker in _NETWORK_MARKERS)
 
 
+#: ctranslate2 refuses an unsupported compute type from inside `WhisperModel(...)`
+#: with: "Requested float16 compute type, but the target device or backend do not
+#: support efficient float16 computation." The wording is stable across the types
+#: and does not occur in any download failure.
+_COMPUTE_TYPE_MARKER = "compute type"
+
+
+def looks_like_an_unsupported_compute_type(cause: BaseException | str) -> bool:
+    """True when *cause* is the CPU refusing `[stt] compute_type`.
+
+    The supported set is a property of the machine, so this is a configuration
+    failure and not an availability one — the model file is present and correct.
+    """
+    return _COMPUTE_TYPE_MARKER in str(cause).lower()
+
+
+def compute_type_unsupported_message(
+    model: str, compute_type: str, device: str, cause: BaseException | str
+) -> str:
+    """The full, actionable text for a compute type this machine cannot do."""
+    lines = [
+        f"YazSes cannot use the compute type {compute_type!r} on this {device}.",
+        "",
+        f"  Cause: {cause}",
+        "",
+        f"The speech model {model!r} is fine and already here — this is the "
+        "`[stt] compute_type` setting, and which values work is a property of "
+        "your processor.",
+        "",
+    ]
+    supported = supported_compute_types(device)
+    if supported:
+        lines.append("  This machine supports: " + ", ".join(supported))
+    lines += [
+        "  Fix it by removing the `compute_type` line from `[stt]` in your "
+        "config.toml,",
+        "  which restores the default `int8` that every CPU supports. Then: "
+        "yazses restart",
+        "  (`yazses doctor` prints the path to that file, and the Settings "
+        "window refuses",
+        "   to set a type this machine cannot run.)",
+        "",
+        "Dictation stays unavailable until the setting is one this machine can "
+        "run. Everything that does not transcribe keeps working.",
+    ]
+    return "\n".join(lines)
+
+
+def supported_compute_types(device: str) -> list[str]:
+    """What *device* actually supports, asked of ctranslate2 rather than assumed.
+
+    Returns `[]` when the question cannot be answered — a message that lists
+    nothing is worse than one that lists something wrong only if it also stops
+    naming the fix, and it does not.
+    """
+    try:
+        import ctranslate2  # type: ignore[import-untyped]
+
+        return sorted(ctranslate2.get_supported_compute_types(device))
+    except Exception:  # noqa: BLE001 - a hint must never become a second failure
+        return []
+
+
 def model_unavailable_message(model: str, cause: BaseException | str) -> str:
     """The full, actionable text for a model that is absent and unfetchable."""
     url = whisper_model_url(model)
@@ -94,3 +157,53 @@ class ModelUnavailableError(RuntimeError):
         self.model = model
         self.cause = cause
         super().__init__(model_unavailable_message(model, cause))
+
+    def notification(self) -> tuple[str, str]:
+        """Title and body for the desktop toast the daemon pops on this failure.
+
+        It lives here rather than in `core/daemon.py` because the daemon used to
+        compose its own text, so the toast and the log line stated different
+        causes the moment a subclass disagreed with the base.
+        """
+        return (
+            "YazSes cannot start dictation",
+            f"The speech model {self.model!r} is missing and could not be "
+            f"downloaded. Run: yazses model download {self.model}",
+        )
+
+
+class ComputeTypeUnsupportedError(ModelUnavailableError):
+    """`[stt] compute_type` names something this processor cannot do.
+
+    A subclass on purpose. `core/daemon.py` catches `ModelUnavailableError` to hold
+    the process in ERROR state with IPC alive instead of dying with a traceback
+    (#310), and dictation genuinely is unavailable here too — so the handling is
+    right and only the explanation was wrong. Raising an unrelated type would have
+    walked straight back into the traceback that issue was filed about.
+
+    What it replaces: ctranslate2 rejects the value from inside `WhisperModel(...)`,
+    faster-whisper's loader wrapped every exception as "the model is not on this
+    machine, and it could not be downloaded", and the user was then given three
+    ways to download a file already sitting in the cache. `settingsui/controller.py`
+    validates compute_type against `ctranslate2.get_supported_compute_types(device)`
+    precisely because of this, noting it "is reported as a missing *model*" — that
+    guard covers the Settings window, and a hand-edited config had none.
+    """
+
+    def __init__(
+        self, model: str, compute_type: str, device: str, cause: BaseException | str
+    ) -> None:
+        self.model = model
+        self.compute_type = compute_type
+        self.device = device
+        self.cause = cause
+        RuntimeError.__init__(
+            self, compute_type_unsupported_message(model, compute_type, device, cause)
+        )
+
+    def notification(self) -> tuple[str, str]:
+        return (
+            "YazSes cannot start dictation",
+            f"[stt] compute_type = {self.compute_type!r} is not supported on this "
+            "machine. Remove it to use the default int8, then: yazses restart",
+        )

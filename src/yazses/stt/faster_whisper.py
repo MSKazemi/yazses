@@ -39,7 +39,22 @@ def _load_model(model_name: str, device: str, compute_type: str,
             model_name, device=device, compute_type=compute_type,
             local_files_only=True, **extra,
         )
-    except Exception:
+    except Exception as exc:
+        # Distinguish "the file is not here" from "this CPU will not run it". Both
+        # arrive as an exception out of the same constructor, and only the first is
+        # worth a download: an unsupported `compute_type` fails identically after
+        # the fetch, so treating it as a cache miss spent the user's bandwidth to
+        # reach the same error by a longer route — and on a firewalled machine the
+        # download failed first and buried the real cause under a network one.
+        from yazses.stt.errors import (
+            ComputeTypeUnsupportedError,
+            looks_like_an_unsupported_compute_type,
+        )
+
+        if looks_like_an_unsupported_compute_type(exc):
+            raise ComputeTypeUnsupportedError(
+                model_name, compute_type, device, exc
+            ) from exc
         # Not in the cache (or the cache is unusable) — this is the first run, or a
         # newly configured model. Fetch it, which is what the user is waiting for.
         log.info("Model '%s' is not in the local cache; downloading it once.", model_name)
@@ -52,8 +67,16 @@ def _load_model(model_name: str, device: str, compute_type: str,
         # air-gapped box (#310). Raising the raw huggingface_hub error here
         # killed the daemon with a traceback the user could do nothing with;
         # ModelUnavailableError carries the three ways to get the model instead.
-        from yazses.stt.errors import ModelUnavailableError
+        from yazses.stt.errors import (
+            ComputeTypeUnsupportedError,
+            ModelUnavailableError,
+            looks_like_an_unsupported_compute_type,
+        )
 
+        if looks_like_an_unsupported_compute_type(exc):
+            raise ComputeTypeUnsupportedError(
+                model_name, compute_type, device, exc
+            ) from exc
         raise ModelUnavailableError(model_name, exc) from exc
 
 

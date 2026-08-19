@@ -408,11 +408,12 @@ class Daemon:
         try:
             from yazses.system import notify as notify_mod
 
-            notify_mod.notify(
-                "YazSes cannot start dictation",
-                f"The speech model {exc.model!r} is missing and could not be "
-                f"downloaded. Run: yazses model download {exc.model}",
-            )
+            # Asked of the exception rather than composed here: this text used to
+            # say "missing and could not be downloaded" unconditionally, so the
+            # toast contradicted the log line above it for any cause that was not
+            # a missing model.
+            title, body = exc.notification()
+            notify_mod.notify(title, body)
         except Exception:  # noqa: BLE001 — a toast must not mask the real error
             log.debug("Could not send the model-unavailable notification", exc_info=True)
         self._stop_event.wait()

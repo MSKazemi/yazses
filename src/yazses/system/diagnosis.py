@@ -291,6 +291,26 @@ _RULES: tuple[tuple[str, tuple[str, ...], str, str, str, str | None], ...] = (
         None,
     ),
     (
+        # `stt/errors.py` now raises a distinct `ComputeTypeUnsupportedError` for this,
+        # but `diagnose()` is fed whatever was caught — including the raw ctranslate2
+        # ValueError from any loader that does not go through that path. Its message
+        # names the model, so without this it landed on `model-missing` below and was
+        # answered with "run `yazses doctor` -- it reports whether the model is present
+        # and downloadable". The model is present; downloading it again changes nothing.
+        #
+        # Marker taken from ctranslate2's own wording, stable across the types:
+        # "Requested float16 compute type, but the target device or backend do not
+        # support efficient float16 computation."
+        "compute-type-unsupported",
+        ("compute type",),
+        "This machine cannot run that compute type",
+        "`[stt] compute_type` is set to something your processor does not support. "
+        "The speech model itself is present and fine.",
+        "Remove the `compute_type` line from `[stt]` in your config.toml to use the "
+        "default `int8`, which every CPU supports, then run `yazses restart`.",
+        f"{_DOCS}/configuration.html",
+    ),
+    (
         "model-missing",
         ("model",),
         "YazSes could not load the speech model",
