@@ -138,14 +138,36 @@ _RULES: tuple[tuple[str, tuple[str, ...], str, str, str, str | None], ...] = (
         # on PipeWire/ALSA happens while the default is being reconfigured (a Bluetooth
         # headset connecting, a monitor waking). `AudioRecorder.start` retries three
         # times, and on this machine it has always recovered.
+        # `-1` specifically, not any index. PortAudio renders the failing device number
+        # into the message, so a bare "error querying device" also matched a PINNED mic
+        # that had been unplugged -- and answered it with "it retries, this normally
+        # passes on its own. If it keeps happening, pin the microphone you want", which
+        # the user has already done and which will never pass on its own. A numbered
+        # device now falls through to `mic-missing` below, whose advice is to re-pin or
+        # clear the pin.
         "mic-default-unresolved",
-        ("error querying device",),
+        ("error querying device -1",),
         "YazSes could not reach your default microphone",
         "The system's default input could not be read — usually because it was being "
         "switched at that moment.",
         "It retries, and this normally passes on its own. If it keeps happening, pin "
         "the microphone you want with `yazses audio use <name>` so a change of default "
         "cannot interrupt dictation.",
+        f"{_DOCS}/known-good-microphones.html",
+    ),
+    (
+        # The numbered counterpart of the rule above, and it works because the table is
+        # ordered: `-1` matches that one first, and any other index lands here. Same
+        # advice as the text form ("invalid device"), because it is the same fault --
+        # PortAudio just phrases it by number when the device index is the thing it
+        # could not query.
+        "mic-missing",
+        ("error querying device",),
+        "YazSes cannot find the microphone it was told to use",
+        "The pinned input device is not on this machine right now — unplugged, "
+        "or renamed.",
+        "Run `yazses audio use <name>` to pin a different one, or "
+        "`yazses audio use \"\"` to follow the system default again.",
         f"{_DOCS}/known-good-microphones.html",
     ),
     (

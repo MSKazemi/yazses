@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — an unplugged pinned microphone was told to pin a microphone
+
+PortAudio renders the failing device number into its message (`Error querying device 9999`).
+The `mic-default-unresolved` rule matched a bare `"error querying device"`, so it caught
+**every** index and answered all of them with advice written for one:
+
+    YazSes could not reach your default microphone
+    It retries, and this normally passes on its own. If it keeps happening, pin the
+    microphone you want with `yazses audio use <name>`…
+
+For a pinned device that has been unplugged, every sentence of that is wrong: it does not
+retry into success, it will not pass on its own, and the user has already pinned the
+microphone they want — that pin is the thing that broke. The rule's own comment says what it
+was written for (*"PortAudio index -1 is 'the default device'"*); the marker just did not say
+`-1`.
+
+The table takes the first rule whose markers all appear, so `-1` keeps its own diagnosis and
+any other index falls through to `mic-missing` — the same advice as its text form, because it
+is the same fault phrased by number.
+
 ### Fixed — running out of memory was answered with "try once more"
 
 `system/diagnosis.py` turns a caught failure into something the user can act on, and states
