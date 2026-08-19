@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a failure notification stayed on screen forever, with nothing to click
+
+Both notification call sites sent **every** failure at `urgency="critical"`, and the
+freedesktop spec exempts that level from expiry on purpose: a critical alert must not be
+missed, so the server keeps it until the user acts. Applied to a dictation burst that
+failed to inject — transient, already finished, nothing to decide — that produced a
+pop-up which outranked everything else on the desktop and waited for a click it had no
+button to receive. It is the visible half of the orphaned-`notify-send` defect fixed in
+2.28.0: that one leaked the process, this one leaves the pop-up.
+
+The level now follows whether the toast is **answerable**. A recognised fault already
+carries the command that fixes it, so it goes out at `normal` urgency with a timeout and
+clears itself like any other notification. Only the unrecognised one — the toast offering
+**[Prepare a bug report]** — stays `critical` and persistent, because it is asking a
+question and `--wait` needs it to survive until you answer.
+
+The urgency is the load-bearing half: GNOME Shell applies its own timing and largely
+ignores a requested duration, while KDE and dunst honour it, so both are sent. A guard
+fails the build if either call site hardcodes an urgency again instead of going through
+`notify.toast_policy()` — one literal in one place is how the two paths drift apart.
+
 ### Fixed — the hallucination guard missed a loop that ends mid-phrase
 
 `is_repetition_loop` required the repeated unit to tile the text **exactly**

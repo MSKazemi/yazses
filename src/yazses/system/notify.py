@@ -79,6 +79,38 @@ class NotifyAction:
     label: str
 
 
+# How long an informational toast stays up. Only meaningful at non-critical urgency:
+# the spec exempts `critical` from expiry entirely, so a server that honours the level
+# will keep a critical toast on screen no matter what timeout accompanies it.
+_INFO_EXPIRE_MS = 10_000
+
+
+def toast_policy(actionable: bool) -> tuple[str, int | None]:
+    """Return the ``(urgency, expire_ms)`` a toast should carry. Pure.
+
+    Both daemon call sites used to send **every** failure at ``critical``, and a critical
+    notification never expires on its own — the freedesktop spec exempts that level from
+    the timeout precisely so an alert cannot be missed. The consequence on a real desktop:
+    a dictation burst that failed to inject — transient, already over, nothing to answer —
+    left a pop-up that outranked everything else on screen and stayed until it was clicked.
+    Once the toast has no button, there is nothing to click *for*; it is a status report
+    demanding to be dismissed like an alarm.
+
+    So the level now follows whether the toast is **answerable**:
+
+    - **actionable** → ``critical`` and no expiry. It asks a question, and `--wait` needs
+      it to survive until the user answers; a prompt that vanishes mid-read is worse than
+      a persistent one.
+    - **informational** → ``normal`` with a timeout, so it behaves like every other
+      notification on the system and clears itself.
+
+    ⓘ The urgency is the load-bearing half. GNOME Shell applies its own timing to normal
+    notifications and largely ignores the requested duration, while KDE and dunst honour
+    it — passing both means the toast clears on all three rather than only the last two.
+    """
+    return ("critical", None) if actionable else ("normal", _INFO_EXPIRE_MS)
+
+
 def build_notify_argv(
     title: str,
     body: str,
@@ -88,11 +120,14 @@ def build_notify_argv(
     icon: str | None = _DEFAULT_ICON,
     actions: list[NotifyAction] | None = None,
     wait: bool = False,
+    expire_ms: int | None = None,
 ) -> list[str]:
     """Assemble the ``notify-send`` argv. Pure — no process is spawned."""
     argv = ["notify-send", "--app-name", app_name, "--urgency", urgency]
     if icon:
         argv += ["--icon", icon]
+    if expire_ms is not None:
+        argv += ["--expire-time", str(expire_ms)]
     if wait:
         argv.append("--wait")
     for action in actions or []:
@@ -176,6 +211,7 @@ def notify(
     available: bool | None = None,
     actions_supported: bool | None = None,
     spawn: bool = True,
+    expire_ms: int | None = None,
 ) -> None:
     """Show a desktop notification; never raises.
 
@@ -208,7 +244,9 @@ def notify(
     )
 
     if not use_actions:
-        argv = build_notify_argv(title, body, urgency=urgency, icon=icon)
+        # Only the un-actionable toast takes a timeout: the actionable one is waiting for
+        # an answer, and a prompt that expires mid-read has thrown the question away.
+        argv = build_notify_argv(title, body, urgency=urgency, icon=icon, expire_ms=expire_ms)
         try:
             runner(argv, timeout=10.0)
         except Exception as exc:  # never let a toast break the caller

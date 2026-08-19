@@ -2016,10 +2016,12 @@ class Daemon:
         try:
             from yazses.system import notify as notify_mod
 
+            urgency, expire_ms = notify_mod.toast_policy(bool(actions))
             notify_mod.notify(
                 title,
                 body,
-                urgency="critical",
+                urgency=urgency,
+                expire_ms=expire_ms,
                 actions=self._mic_actions() if actions else None,
                 on_action=self._on_mic_action if actions else None,
             )
@@ -3455,10 +3457,15 @@ class Daemon:
                 if key == "report":
                     self._prepare_bug_report(diagnosis)
 
+            # A recognised fault carries no button, so there is nothing to answer and no
+            # reason for it to outlive its own relevance -- it clears itself. Only the
+            # unrecognised one, which offers to prepare a report, stays until you decide.
+            urgency, expire_ms = notify_mod.toast_policy(bool(actions))
             notify_mod.notify(
                 found.title,
                 found.body,
-                urgency="critical",
+                urgency=urgency,
+                expire_ms=expire_ms,
                 actions=actions,
                 on_action=_on_action,
             )
