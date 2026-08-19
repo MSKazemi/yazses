@@ -244,7 +244,7 @@ def test_doctor_names_the_microphone_behind_the_alias(monkeypatch):
     )
     detail = next(
         d for n, _s, d in doctor._config_summary(load_config(None), Path("/nonexistent.toml"))
-        if n == "Microphone"
+        if n == "Input device"
     )
     assert "Digital Microphone" in detail, detail
     assert "65%" in detail, f"the gain is half the diagnosis: {detail}"
@@ -261,6 +261,6 @@ def test_doctor_says_nothing_extra_when_the_default_is_a_real_device(monkeypatch
     )
     detail = next(
         d for n, _s, d in doctor._config_summary(load_config(None), Path("/nonexistent.toml"))
-        if n == "Microphone"
+        if n == "Input device"
     )
     assert "→" not in detail and "something else" not in detail, detail

@@ -6,6 +6,18 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses doctor` printed two different checks both called "Microphone"
+
+    [OK] Microphone: ok
+    ...
+    [OK] Microphone: OS default: default → Raptor Lake-P/U/H cAVS Digital Microphone
+
+Two questions under one name: *can a microphone be reached at all* (permission/hardware)
+and *which device will be used* (config summary). `doctor` output is what people paste
+into issues, so "Microphone failed" was unanswerable without asking which one.
+
+The config-summary row is now **Input device**, in both its pinned and unpinned branches.
+
 ### Fixed — `yazses reflow` cut "Firstly" into "ly", and never stripped a filler
 
 Two defects in the command whose stated purpose is turning "a long rambling monologue"

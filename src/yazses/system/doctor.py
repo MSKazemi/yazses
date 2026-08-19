@@ -373,7 +373,7 @@ def _config_summary(cfg, config_file: Path) -> list[_Check]:
     ))
     pinned = (getattr(cfg.audio, "device", "") or "").strip()
     if pinned:
-        out.append(("Microphone", "OK", f"pinned: {pinned!r}"))
+        out.append(("Input device", "OK", f"pinned: {pinned!r}"))
     else:
         try:
             from yazses.audio import devices as _devices
@@ -396,7 +396,7 @@ def _config_summary(cfg, config_file: Path) -> list[_Check]:
         except Exception:  # pragma: no cover - best-effort, never breaks doctor
             behind = ""
         out.append((
-            "Microphone", "OK",
+            "Input device", "OK",
             f"OS default: {default or 'unknown'}{behind} "
             "(pin with `yazses audio use <name>`)",
         ))
