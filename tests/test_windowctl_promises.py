@@ -186,3 +186,59 @@ def test_the_gate_is_not_simply_always_off() -> None:
         got = Daemon._build_window_backend(object(), cfg)
     assert m.called, "the feature is enabled and the backend was never even built"
     assert got == "BACKEND"
+
+
+def test_doctor_does_not_claim_a_disabled_feature_works() -> None:
+    """The half-fix this pass nearly shipped.
+
+    Gating the daemon on `[windowctl] enabled` made `yazses doctor` wrong in the same
+    breath: it reported
+
+        [OK] Voice window focus: xdotool (X11) — "focus the browser" works
+
+    from the presence of xdotool alone. That was true only while voice focus ran
+    unconditionally. Doctor is exactly where someone looks after it did not work, so a
+    confident OK there is worse than no line at all.
+    """
+    from yazses.system.doctor import _window_focus_check
+
+    cfg = Config()
+    assert cfg.windowctl.enabled is False
+    name, status, detail = _window_focus_check(False, True, cfg)
+    assert status != "OK", f"doctor says {detail!r} for a disabled feature"
+    assert "features enable windowctl" in detail, (
+        "a user told the feature is off needs the command that turns it on"
+    )
+
+
+def test_doctor_still_confirms_it_when_the_feature_is_on() -> None:
+    """The opposite failure: a check that never says OK proves nothing."""
+    import shutil
+
+    from yazses.system.doctor import _window_focus_check
+
+    if not shutil.which("xdotool"):
+        import pytest
+
+        pytest.skip("xdotool absent — the OK branch is unreachable on this host")
+    cfg = Config()
+    cfg.windowctl.enabled = True
+    _name, status, _detail = _window_focus_check(False, True, cfg)
+    assert status == "OK"
+
+
+def test_wayland_is_reported_before_the_toggle() -> None:
+    """Order matters: enabling the feature on Wayland would not help.
+
+    Sending someone to run a command that cannot work on their session is worse than
+    telling them the platform said no.
+    """
+    from yazses.system.doctor import _window_focus_check
+
+    cfg = Config()
+    for enabled in (False, True):
+        cfg.windowctl.enabled = enabled
+        _name, status, detail = _window_focus_check(True, False, cfg)
+        assert status == "SKIP"
+        assert "wayland" in detail.lower()
+        assert "features enable" not in detail

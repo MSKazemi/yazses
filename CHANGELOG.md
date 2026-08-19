@@ -6,6 +6,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `doctor` claimed voice window focus works while the feature was off
+
+The half of the previous fix that was missing. Gating the daemon on `[windowctl] enabled`
+made `yazses doctor` wrong in the same breath:
+
+    [OK] Voice window focus: xdotool (X11) — "focus the browser" works
+
+That line came from the presence of `xdotool` alone, and was only ever true while voice
+focus ran unconditionally. Doctor is exactly where someone looks *after* it did not work, so
+a confident OK there is worse than no line at all.
+
+It now reports the feature as off, with the command that enables it. The Wayland limitation
+is still reported first even when the feature is off, because enabling it there would not
+help — sending someone to run a command that cannot work on their session is worse than
+telling them the platform said no.
+
 ### Fixed — the advice for a silent-clip streak led to a dead end
 
 Found on a running daemon. `yazses status` reported:
