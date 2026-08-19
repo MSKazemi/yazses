@@ -1187,7 +1187,7 @@ clustering**, not pitch. Off by default — enable with `yazses features enable 
 |---|---|
 | `yazses meeting start` | Start recording hands-free (no key to hold). Requires `[meeting] enabled = true`. |
 | `yazses meeting stop` | Stop; run the diarization post-pass and write the speaker-labelled transcript (and notes if enabled). |
-| `yazses meeting status` | Show the running meeting (elapsed + live transcript), or recent meetings. |
+| `yazses meeting status` | Show the running meeting (elapsed + live transcript), or recent meetings. Says so plainly when Meeting Mode is off. |
 | `yazses meeting list` | List stored meetings on this machine (no daemon required). |
 | `yazses meeting relabel <id>` | Fix speaker labels and re-render: `--merge SPEAKER_2=speaker_1` folds clusters, `--rename speaker_1=Alice` names one (both repeatable); `--format`/`-f` picks the re-render format (default `md`). |
 | `yazses meeting notes <id>` | Generate minutes (summary, decisions, action items) from a stored transcript. Needs `[meeting] notes = true` and a local `notes_model` GGUF; runs locally (slow on CPU). |
@@ -1204,6 +1204,11 @@ yazses meeting relabel <id> --rename speaker_1=Alice --merge speaker_2=speaker_1
 yazses meeting notes <id>          # local-LLM minutes (needs notes_model)
 yazses meeting enroll <id> --speaker speaker_1 --name Alice   # name them for good
 ```
+
+`meeting status` reports whether the feature is **on** before anything else. With
+`[meeting] enabled = false` — the default — nothing is recorded, so it says that and names
+the command that turns it on, rather than reporting on speaker labels for a feature that
+will never produce a transcript. Meetings recorded earlier are still listed, as history.
 
 `meeting enroll` is the one that carries across meetings: `relabel` fixes the labels
 on *one* transcript, while `enroll` saves that speaker's voiceprint so the next

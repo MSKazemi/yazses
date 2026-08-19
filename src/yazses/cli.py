@@ -302,6 +302,25 @@ def meeting_status() -> None:
     elif result.get("finalizing"):
         typer.echo("Finalizing the last meeting (transcribing + diarizing)…")
     else:
+        # `.get(..., True)` and not `.get(...)`: an older daemon does not send this key,
+        # and reporting "off" from a key that is absent would be a claim invented from a
+        # missing fact. Unknown behaves exactly as before.
+        if not result.get("enabled", True):
+            # Nothing below is actionable while the feature is off. The diarization
+            # advice would open "Speaker labels are on but…" -- on a machine where
+            # nothing is on -- and prescribe the very command printed here, so it would
+            # be a second, contradictory sentence about the same fix.
+            typer.echo("Meeting Mode is off — nothing will be recorded.")
+            typer.echo("Turn it on with:  yazses features enable meeting")
+            recent = result.get("recent", [])
+            if recent:
+                typer.echo("\nMeetings recorded earlier:")
+                for m in recent:
+                    note = " +notes" if m.get("has_notes") else ""
+                    typer.echo(
+                        f"  {m.get('id')}  {_speaker_summary(m)}{note}  {m.get('dir', '')}"
+                    )
+            return
         diar = result.get("diarization")
         if diar:
             # One implementation of "why not, and what to do", shared with the

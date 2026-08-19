@@ -3258,8 +3258,15 @@ class Daemon:
         with self._lock:
             controller = self._meeting_controller
             finalizing = self._meeting_finalizing
+        # `enabled` is the fact that decides what every other key in this payload
+        # means. It is already published on the general `status` payload, because the
+        # tray needed it for exactly this reason -- the feature is off by default and
+        # no state value can express that -- and it was missing here, on the handler
+        # whose whole job is to report Meeting Mode.
+        enabled = self._config.meeting.enabled
         if controller is not None:
-            return {"ok": True, "active": True, "finalizing": finalizing, **controller.status()}
+            return {"ok": True, "enabled": enabled, "active": True,
+                    "finalizing": finalizing, **controller.status()}
         try:
             from yazses.meeting import store
 
@@ -3269,7 +3276,7 @@ class Daemon:
         from yazses.recimport.factory import diarization_status
 
         diar = diarization_status(self._config.meeting)
-        return {"ok": True, "active": False, "finalizing": finalizing,
+        return {"ok": True, "enabled": enabled, "active": False, "finalizing": finalizing,
                 "recent": recent, "diarization": diar}
 
     def _handle_meeting_stop(self, _request: Request | None) -> dict[str, object]:

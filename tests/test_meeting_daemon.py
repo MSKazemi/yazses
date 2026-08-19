@@ -71,6 +71,20 @@ def test_status_lists_when_idle(tmp_path):
     assert status["recent"] == []
 
 
+def test_status_publishes_whether_the_feature_is_enabled(tmp_path):
+    """The fact that decides what every other key in the payload means.
+
+    It was already on the general `status` payload for the tray, and missing from the
+    handler whose whole job is Meeting Mode -- so `yazses meeting status` could not say
+    the feature was off, and printed a speaker-label complaint instead.
+    """
+    d = _daemon(tmp_path)
+    d._config.meeting.enabled = False
+    assert d._handle_meeting_status(None)["enabled"] is False
+    d._config.meeting.enabled = True
+    assert d._handle_meeting_status(None)["enabled"] is True
+
+
 def test_diarization_status_reports_missing_models(tmp_path):
     from yazses.config import MeetingConfig
     from yazses.recimport.factory import diarization_status

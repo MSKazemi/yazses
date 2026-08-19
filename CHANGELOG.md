@@ -8,6 +8,20 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `yazses meeting status` never said whether Meeting Mode was on. With the feature off —
+  which is the default — the entire output was a complaint that *"Speaker labels are on but
+  the diarization extra is not installed"* followed by a list of past meetings. Nothing was
+  on: `enabled` defaults to `false` while `diarize` defaults to `true`, so the speaker-label
+  advice fired on a machine that will never record anything, and a meeting list under it
+  read as a working feature missing one extra. The reader's conclusion is *install the
+  extra*, when the fact that decides everything else is that nothing is running. The daemon
+  already published `meeting_enabled` on its general `status` payload — the tray needed it
+  for exactly this reason — and the handler whose whole job is Meeting Mode did not send it.
+  It does now, and `status` leads with the feature state, names `yazses features enable
+  meeting`, and lists earlier meetings as history rather than as current. A daemon that
+  predates the change is treated as *unknown* and behaves exactly as before, because
+  claiming "off" from a missing key would be a fact invented from an absent one.
+
 - `yazses corpus status` described eviction it does not do, and the description made
   working behaviour look broken. Its warning read *"full — the oldest events are evicted on
   every capture to hold it here"*, but eviction runs in sweeps: when the daemon starts, then
