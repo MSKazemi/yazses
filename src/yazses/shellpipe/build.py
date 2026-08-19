@@ -66,7 +66,23 @@ def render_pipeline(stages):
 
 
 def dryrun_wrap(pipeline: str) -> str:
-    """Swap a mutating leading tool for its dry-run form. Pure (text only)."""
+    """(orphan) Rewrite a mutating pipeline into its safer dry-run form.
+
+    Nothing in `src/` calls this. It was written for a run path that does not exist:
+    `yazses shellpipe` renders the pipeline and NEVER executes anything, and there is no
+    spoken "run it" grammar anywhere -- the capability catalog claimed there was until
+    this was found, which is how the gap stayed invisible.
+
+    Kept rather than deleted, because it is the right helper for that path if it is ever
+    built: turning `rm -rf build` into `rm -i -rf build` is the kind of decision worth
+    having made in advance, when nobody is in a hurry. `tests/test_orphan_modules.py`
+    tracks whole MODULES, and `shellpipe/build.py` is reachable through its two other
+    functions, so a function-level orphan like this one is invisible to it.
+
+    Swaps a mutating leading tool for its dry-run form. Pure (text only).
+
+    If you wire it, delete this note and the test that pins it.
+    """
     if not pipeline:
         return pipeline or ""
     for tool, safe in _DRYRUN.items():

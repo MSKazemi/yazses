@@ -6,6 +6,31 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `shellpipe` advertised a "run it" step that does not exist
+
+The capability catalog said *"renders 'ls | grep error | wc -l' as text; nothing runs until
+you say 'run it'"*. There is no "run it" grammar anywhere in the product, `shellpipe` is a
+CLI command the daemon never sees, and its own docstring says *"it NEVER executes
+anything"*.
+
+The wording mattered more than it looks, because it reads as a **safety** claim: "nothing
+runs *until*" implies something eventually does, under a confirmation. A user who believes
+there is a confirm step is a user who might speak a pipeline expecting a gate to catch it.
+There is no gate because there is no execution — which is safer, and worth saying plainly.
+The description now says that, and a test asserts against the *code* that no execution path
+exists, so adding one fails rather than silently making the sentence true again.
+
+Third instance of one shape in this sweep, after `windowctl` (layout verbs its backend
+cannot perform) and `wordgoal` (spoken progress with no grammar behind it): a description
+written alongside a design outlives the part of the design that shipped.
+
+`shellpipe/build.py::dryrun_wrap` — which turns `rm -rf build` into `rm -i -rf build` — is
+the other half of that missing path and is called by nothing. It is kept rather than
+deleted, because making that decision in advance is the valuable part, and now says so in
+its own docstring. `tests/test_orphan_modules.py` tracks whole *modules* and this one is
+reachable through its two other functions, so a function-level orphan was invisible to it;
+it is pinned by a test instead.
+
 ### Fixed — the egress inventory could not see the SSH tunnel that carries your dictation
 
 ADR-019 promises a complete list of every way data can leave the machine, and

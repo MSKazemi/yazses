@@ -648,7 +648,8 @@ def _registry() -> list[_Def]:
              lambda c: c.jump.enabled, jmp_on, jmp_off),
         _Def("shellpipe", "Spoken Shell Pipeline Builder", "[shellpipe] — build pipelines, preview first", OPTIONAL,
              "Speak stages ('list files, pipe to grep error, pipe to word count') → renders 'ls | "
-             "grep error | wc -l' as text; nothing runs until you say 'run it'. Off by default.",
+             "grep error | wc -l' as text for you to review and run yourself. It never executes "
+             "anything. Off by default.",
              lambda c: c.shellpipe.enabled, shp_on, shp_off),
         _Def("corrdict", "Self-Learning Correction Dictionary", "[corrdict] — auto-fix your recurring errors", RECOMMENDED,
              "Learns the ASR errors you keep fixing (e.g. 'yaz says' → 'YazSes') and applies them "

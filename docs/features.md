@@ -781,7 +781,7 @@ YazSes ships **147 capabilities**. All but the core are **off by default** — t
 ### Spoken Shell Pipeline Builder
 
 - **Toggle:** `shellpipe`  ·  **Tier:** optional  ·  **Config:** `[shellpipe] — build pipelines, preview first`
-- **What it does:** Speak stages ('list files, pipe to grep error, pipe to word count') → renders 'ls | grep error | wc -l' as text; nothing runs until you say 'run it'. Off by default.
+- **What it does:** Speak stages ('list files, pipe to grep error, pipe to word count') → renders 'ls | grep error | wc -l' as text for you to review and run yourself. It never executes anything. Off by default.
 - **Use when:** When you want to build a shell pipeline by voice and see it as text before anything runs.
 - **Example:** Speak 'list files pipe to grep error' to build a previewed pipeline.
 - **Activate:** `yazses features enable shellpipe` then `yazses restart`
