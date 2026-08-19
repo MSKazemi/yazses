@@ -250,7 +250,11 @@ def test_proposal_status_reports_three_states():
     p.holdout_support, p.holdout_size = 0, 4
     assert "unverified" in p.status.lower()
     p.holdout_support, p.holdout_size = 3, 4
-    assert "validated" in p.status.lower() and "3/4" in p.status
+    # Was `"validated" in status and "3/4" in status`. The verdict word is gone: it was
+    # awarded on support > 0, so 1-of-238 read the same as 238-of-238. The state is
+    # still three-way, and the rate is what now distinguishes strong from weak.
+    # See tests/test_proposal_status_states_the_rate.py.
+    assert "corroborated by 3 of 4" in p.status and "75%" in p.status
 
 
 def test_analyze_validated_small_corpus_marks_unvalidated():
@@ -273,7 +277,7 @@ def test_analyze_validated_marks_validated_when_corroborated():
     vocab = next(p for p in proposals if p.kind == "vocabulary")
     assert vocab.holdout_size == 3
     assert vocab.holdout_support == 3
-    assert "validated (3/3" in vocab.status
+    assert "corroborated by 3 of 3" in vocab.status and "100%" in vocab.status
 
 
 def test_analyze_validated_marks_unverified_when_holdout_disagrees():

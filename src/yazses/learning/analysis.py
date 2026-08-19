@@ -45,13 +45,39 @@ class Proposal:
 
     @property
     def status(self) -> str:
-        """Human-readable validation verdict for display in `yazses tune`."""
+        """How well held-out data corroborates this proposal, for `yazses tune`.
+
+        This used to answer with a verdict -- "validated" whenever support was **> 0**.
+        On a real corpus the model-upgrade proposal came back as
+
+            validated (9/238 held-out)
+
+        while a vocabulary proposal built from 44 events read "unverified". Nine out of
+        238 is under four percent, and one out of 238 would have earned the same word.
+        The label was doing work the number should do, and it does it in the direction
+        that matters least: "validated" invites applying a config change.
+
+        So the verdict is gone and the rate is stated instead. A reader can tell 4% from
+        80% without being told which one counts, and no threshold had to be invented to
+        separate them -- picking one would have been a guess dressed as a standard.
+
+        The zero case keeps its plain words: no corroboration at all is a real
+        distinction, not a small number.
+        """
         if self.holdout_support is None:
             return "unvalidated (corpus too small to hold out)"
         if self.holdout_size == 0:
             return "unvalidated (no distinct held-out data)"
         if self.holdout_support > 0:
-            return f"validated ({self.holdout_support}/{self.holdout_size} held-out)"
+            share = 100.0 * self.holdout_support / self.holdout_size
+            # "1 of 238 (0%)" reads as a contradiction, and a reader is entitled to
+            # assume a displayed zero means zero. Support is non-zero here by the
+            # branch, so the rate is floored rather than rounded through it.
+            pct = f"{round(share)}%" if round(share) >= 1 else "<1%"
+            return (
+                f"corroborated by {self.holdout_support} of {self.holdout_size} "
+                f"held-out events ({pct})"
+            )
         return "unverified — no held-out corroboration"
 
 

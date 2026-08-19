@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — `yazses tune` called a proposal "validated" on four percent corroboration
+
+Run against a real 1619-event corpus:
+
+    [1] Upgrade the STT model   (evidence: 189 event(s); validated (9/238 held-out))
+    [2] Add vocabulary          (evidence: 44 event(s); unverified — no held-out ...)
+
+Nine out of 238 is under four percent. The bar for the word was `holdout_support > 0`, so
+**one** corroborating event out of 238 would have earned it too — sitting next to a 44-event
+proposal labelled "unverified", which reads as the weaker of the two. The label was doing
+work the number should do, in the direction that matters most: these proposals write to
+`config.toml`, and "validated" invites applying one.
+
+The verdict is replaced by the rate — *"corroborated by 9 of 238 held-out events (4%)"*.
+No threshold was invented: a reader tells 4% from 84% without being told which counts, and
+any minimum would have been a guess dressed as a standard. Zero corroboration keeps its
+plain words, because *no* support is a real distinction rather than a small number, and a
+share that rounds to zero displays as `<1%` — a shown `0%` beside a non-zero count reads as
+a bug.
+
+Also audited clean in the same pass: the vocabulary proposal **appends** to any existing
+`[stt] initial_prompt` rather than replacing it, so applying it cannot discard vocabulary
+you added by hand.
+
 ### Fixed — a recorded meeting of room noise was stored as a transcript reading ". . ."
 
 Found in a real meeting folder. An 11.6-second capture finalized as:
