@@ -59,7 +59,16 @@ def test_approaching_the_gate_is_visible_rather_than_all_or_nothing():
 
 
 def test_a_shout_does_not_peg_the_ring_at_the_gate():
-    assert level_ring(_rec(0.05)).fraction == 1.0
+    """The tail still ends somewhere — but 0.05 is not where.
+
+    This used to assert `_rec(0.05).fraction == 1.0`, i.e. that 5x the gate is a shout.
+    Measured over 1617 real recorded bursts the p90 level is 0.0786, so 0.05 is ordinary
+    speech, and pegging there is what made the ring read full on 44% of bursts at the
+    default threshold. The scale is logarithmic now; see
+    tests/test_tray_level_ring_scale.py for the measurement.
+    """
+    assert level_ring(_rec(0.05)).fraction < 1.0
+    assert level_ring(_rec(0.01 * 200)).fraction == 1.0
 
 
 def test_the_ring_is_monotonic_in_level():

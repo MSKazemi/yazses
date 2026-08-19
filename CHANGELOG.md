@@ -6,6 +6,34 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the tray's input-level ring read full for ordinary speech
+
+The ring exists because the five badge colours all say what YazSes is *doing* and none says
+whether the microphone is hearing anything — which come apart exactly when it matters. It
+mapped the level linearly with full scale at **4× the gate**, and its comment claimed that
+would "compress the tail so ordinary speech fills a useful amount of ring". Measured against
+**1617 real recorded bursts**, it did the opposite:
+
+    threshold 0.01  (the default)   ring fully pegged on  44% of bursts
+    threshold 0.004                                       81%
+    threshold 0.0005                                      97%
+
+A meter that reads full for half of normal speech carries about one bit.
+
+Raising 4× to a larger constant is not the fix, because the ratio is not scale-free across
+users: a well-calibrated gate puts speech at 2–4×, while a gate set too low puts the *same
+voice* at 40×. Any fixed linear span is wrong for somebody.
+
+The scale is now logarithmic over a 100× (40 dB) span — the ordinary range of an audio
+level meter, not a tuned number. Over the same bursts that is **0% pegged** at the default
+threshold and 0% at 0.004, and the spread of readings stays near-constant at every
+threshold, which is the property the linear map lacked. A gate set 40× below the voice still
+reads near full, and should: that is a real fault the ring is entitled to show.
+
+An existing test asserted that 5× the gate "is a shout" and must peg. The p90 of real burst
+levels is 0.0786 against a 0.01 default gate, so that level is ordinary speech; the test now
+uses a genuinely loud level and records why.
+
 ### Added — every documented `config.toml` example is now loaded by the real loader
 
 A documented snippet is copy-pasted, not read. If it names a key that does not exist, or

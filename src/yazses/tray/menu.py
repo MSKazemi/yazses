@@ -7,6 +7,7 @@ so they unit-test directly.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -379,6 +380,11 @@ class LevelRing:
         return _GATE_AT
 
 
+#: Dynamic range shown above the gate, as a multiple of it. 100x is 40 dB, the
+#: conventional span of an audio level meter.
+_RING_RANGE = 100.0
+
+
 def level_ring(status: dict) -> LevelRing:
     """The level ring for *status*. Pure.
 
@@ -405,8 +411,22 @@ def level_ring(status: dict) -> LevelRing:
         # a user can see themselves approaching it rather than only that they failed.
         fraction = _GATE_AT * ratio
     else:
-        # Above it: compress the tail so ordinary speech fills a useful amount of
-        # ring and a shout does not simply peg. 4x the threshold reaches full.
-        over = min((ratio - 1.0) / 3.0, 1.0)
+        # Above it: logarithmic, like every other level meter, because the ratio is not
+        # scale-free across users. A well-calibrated gate sits just under the voice
+        # (ratio ~2-4); a gate set too low puts the same voice at 40x. Any fixed linear
+        # span is therefore wrong for somebody.
+        #
+        # It was linear with full scale at 4x the threshold, and "ordinary speech fills
+        # a useful amount of ring" did not survive contact with real speech: measured
+        # over 1617 recorded bursts, the ring pegged on 44% of them at the DEFAULT
+        # threshold and 97% at a threshold set low. A meter that reads full for half of
+        # normal speech carries about one bit.
+        #
+        # _RING_RANGE is 100x, the conventional 40 dB meter span. Over the same bursts
+        # that is 0% pegged at the default gate and 0% at 0.004, while the spread of
+        # readings stays near-constant across every threshold -- which is the property
+        # the linear map lacked. A gate set 40x below the voice still reads near full,
+        # and should: that is a real fault the ring is entitled to show.
+        over = min(math.log(ratio) / math.log(_RING_RANGE), 1.0)
         fraction = _GATE_AT + (1.0 - _GATE_AT) * over
     return LevelRing(max(_RING_MIN, min(1.0, fraction)), ratio > 1.0, True)
