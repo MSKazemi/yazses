@@ -17,8 +17,36 @@ _EDIT_TERMS = (
     r"scratch that,?\s+i mean",
 )
 _PATTERN = re.compile(
-    r"\b(\S+)\s+(?:" + "|".join(_EDIT_TERMS) + r")\s+(\S+)", re.IGNORECASE
+    r"\b(\S+)\s+(" + "|".join(_EDIT_TERMS) + r")\s+(\S+)", re.IGNORECASE
 )
+
+#: Words that make "<X> I mean" an ordinary English construction rather than a repair.
+#: A bare "i mean" is one of the commonest phrases in the language, and this rule DELETES
+#: the word before it, so an unguarded match silently removes real speech:
+#:
+#:     "that is not what I mean at all"  ->  "that is not at all"
+#:     "do you know what I mean"         ->  "do you at all" (etc.)
+#:
+#: Applied only to the bare term. The explicit markers -- "no I mean", "make that",
+#: "or rather" -- are unambiguous corrections and stay unrestricted, which is why the
+#: shipped example ("email Sarah no I mean Sara") is unaffected.
+_NOT_A_REPARANDUM = frozenset(
+    "what know that which you we they i whatever how".split()
+)
+_BARE_I_MEAN = "i mean"
+
+
+def _repair_one(m: re.Match) -> str:
+    """The reparans, or the span untouched when this is ordinary English.
+
+    A missed repair leaves the words as spoken and the user sees them. A false one
+    deletes a word silently, in a dictation product, and may never be noticed -- so the
+    ambiguous case resolves toward leaving the text alone.
+    """
+    reparandum, term, reparans = m.group(1), m.group(2), m.group(3)
+    if term.strip().lower() == _BARE_I_MEAN and reparandum.lower() in _NOT_A_REPARANDUM:
+        return m.group(0)
+    return reparans
 
 
 def apply_self_repair(text: str) -> str:
@@ -32,7 +60,7 @@ def apply_self_repair(text: str) -> str:
     # Replace one (leftmost) repair per pass and loop, so chained repairs resolve left-to-right
     # ("A no I mean B no I mean C" → "C") without an ambiguous editing term mis-splitting them.
     for _ in range(16):  # bounded: far more than any real chain of repairs
-        new = _PATTERN.sub(r"\2", out, count=1)
+        new = _PATTERN.sub(_repair_one, out, count=1)
         if new == out:
             return new
         out = new

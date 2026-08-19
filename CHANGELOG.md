@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — self-repair deleted a word out of ordinary speech
+
+`_EDIT_TERMS` includes a bare `i mean`, and the rule **drops the word before the editing
+term**. "I mean" is one of the commonest phrases in English, so:
+
+    that is not what I mean at all    ->  that is not at all
+    this is exactly what I mean       ->  (the preceding word deleted)
+
+Real dictation, a word removed silently. This is the same shape as a defect this project
+has already had once in the disfluency filter's self-correction triggers; the lesson had
+not reached `selfrepair`.
+
+Only the **bare** term is now guarded, and only by the word in front of it: "what",
+"know", "how" and the pronouns, which make `<X> I mean` an ordinary construction rather
+than a correction. The explicit markers — "no I mean", "make that", "or rather", "no make
+it" — stay unrestricted, so the feature's advertised example (`email Sarah no I mean Sara`
+→ `email Sara`) and chained repairs are untouched, and `meet at three I mean four` still
+repairs.
+
+The asymmetry decides the ambiguous case, as it does for the ITN email guard: a missed
+repair leaves the words as spoken and the user reads them; a false one deletes a word
+silently.
+
 ### Fixed — dictating "look at the dot com boom" produced "look@the.com boom"
 
 `_EMAIL_RE` matches `<words> at <words with a spoken dot>`, and its comment justifies the
