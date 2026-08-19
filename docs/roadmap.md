@@ -7,7 +7,7 @@ description: Where YazSes is going — the vision of keyboard-optional, fully pr
 
 YazSes is a fully-offline, hold-to-talk voice dictation daemon for Linux,
 macOS, and Windows — no cloud, no account, nothing leaves your machine.
-**The current stable release is v2.28.0**, published on PyPI, GitHub
+**The current stable release is v2.29.0**, published on PyPI, GitHub
 Releases, Snap, and the APT repository.
 
 This page is two things at once: an honest status report, and a statement of

@@ -23,12 +23,11 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.28.0](v2.28.0.md)** — it now tells you what broke, and stops lying about the
-rest. A failed capture or injection is named on screen along with the command that
-addresses it, and where YazSes cannot identify the fault it offers to prepare a bug
-report — which prepares, and sends nothing. Plus a notification that never went away, a
-bug report that could carry your personal dictionary, and spoken git and shell commands
-that use the words you actually said.
+**[YazSes 2.29.0](v2.29.0.md)** — forty-three things that were quietly wrong. Sixty-two
+commits, one feature, and the rest corrections that share a shape: they produced no error,
+they produced a confident wrong answer. Diagnostics that certified a microphone hearing
+nobody; text transforms that cut "Firstly" to "ly" and turned "an FBI agent" into "a FBI
+agent"; commands that reported success and changed nothing.
 Install it with:
 
 ```sh
@@ -38,6 +37,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.29.0](v2.29.0.md) — 43 corrections found mostly by running the product: `verify` certified a mic hearing nobody, `reflow` cut "Firstly" to "ly", `redact_patterns` scrubbed four of six fields, and a destructive-command guard could never fire.
 - [v2.28.0](v2.28.0.md) — when something breaks, YazSes now says what and what to do, and can prepare a bug report without sending one; a critical toast that outlived the process that raised it; a report that could carry your personal dictionary.
 - [v2.27.0](v2.27.0.md) — the docs described a YazSes that does not exist: the wrong Linux hotkey, a hidden Intel Mac build, eight pages offering features that cannot be enabled; plus a status line that says whether dictation is working.
 - [v2.26.0](v2.26.0.md) — a mic that hears you but yields nothing now trips the guard; `default` is named as the route it is; `gitvoice` no longer truncates a branch name before deleting it.

@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.29.0] — 2026-08-19
+
 ### Fixed — `yazses corpus status` showed a size with nothing to compare it against
 
 On a real corpus:
@@ -36,7 +38,6 @@ paths, no identifiers — the corpus is reported by size and never opened, as AD
 requires. And its corpus size is the real on-disk figure (clips included), matching what
 `corpus status` prints.
 
-## [2.29.0] — 2026-08-19
 
 ### Fixed — `yazses verify` certified a microphone that was hearing nobody
 
