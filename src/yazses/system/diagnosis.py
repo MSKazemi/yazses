@@ -85,6 +85,34 @@ _DOCS = "https://mskazemi.com/yazses"
 # sometimes only in one of them (`PortAudioError` carries a numeric message).
 _RULES: tuple[tuple[str, tuple[str, ...], str, str, str, str | None], ...] = (
     (
+        # "Try once more" is the generic decode advice, and for this failure it is advice
+        # that cannot work: the next attempt allocates the same model and fails the same
+        # way. The fix is a smaller model, which is a setting the project already exposes
+        # and documents -- so this is exactly the case the module's own rule is about,
+        # "say the next command, not the category".
+        #
+        # Matched on the class name as well as the text: a bare `MemoryError()` carries no
+        # message at all, and `ct2` reports allocation failures with wording of its own.
+        "out-of-memory",
+        ("memoryerror",),
+        "YazSes ran out of memory decoding that",
+        "The speech model is too large for the memory available on this machine.",
+        "Pick a smaller one — `yazses features` lists the models, and "
+        "`[stt] model = \"base.en\"` is the usual step down from `small`/`medium`. "
+        "Trying again will fail the same way.",
+        f"{_DOCS}/configuration.html",
+    ),
+    (
+        "out-of-memory",
+        ("cannot allocate memory",),
+        "YazSes ran out of memory decoding that",
+        "The speech model is too large for the memory available on this machine.",
+        "Pick a smaller one — `yazses features` lists the models, and "
+        "`[stt] model = \"base.en\"` is the usual step down from `small`/`medium`. "
+        "Trying again will fail the same way.",
+        f"{_DOCS}/configuration.html",
+    ),
+    (
         "mic-busy",
         ("device unavailable",),
         "YazSes could not open your microphone",

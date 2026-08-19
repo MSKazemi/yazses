@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — running out of memory was answered with "try once more"
+
+`system/diagnosis.py` turns a caught failure into something the user can act on, and states
+its own rule: *"Say the next command, not the category."* A decode failure it did not
+recognise fell through to the stage wording — *"The speech model failed while decoding what
+you said. Try once more."*
+
+For a `MemoryError` that is not merely vague, it is wrong: the next attempt allocates the
+same model and fails the same way, so "try once more" spends the user's time proving it. The
+fix is a setting the project already exposes and documents — a smaller `[stt] model`. On CPU,
+`medium` and `large-v3` are exactly the choices a user makes optimistically and a low-memory
+machine refuses.
+
+Matched on the class name as well as the text, because a bare `MemoryError()` carries **no
+message at all** — a text-only rule would never fire on the commonest form. `ctranslate2`
+reports allocation failures in its own words, so "cannot allocate memory" is matched too.
+
+Still advice, never a decision: nothing about what the daemon does changed, and ordinary
+decode failures keep the generic wording — a rule that swallowed every decode error would
+tell everyone to shrink their model, which is wrong for almost all of them.
+
 ### Fixed — two state-file loaders promised tolerance and each missed one exception
 
 Both docstrings already commit to it — `load_calibration` returns *"None if
