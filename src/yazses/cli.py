@@ -551,6 +551,53 @@ def _resolved_hotkey(platform) -> str:
         return platform.default_hotkey
 
 
+def _live_hotkey(platform) -> str:
+    """The key the running daemon is *actually* listening on, or ``""``.
+
+    The daemon binds its hotkey once, at start, and never re-reads the file. So
+    `yazses hotkey set` without a `yazses restart` leaves the configured key and the
+    live key disagreeing, and every surface that reads only the config then tells the
+    user to hold a key that does nothing — the one failure a new user cannot diagnose,
+    because the tools they are told to run all agree with each other and not with the
+    machine.
+
+    Best-effort by design, and it must stay that way: no daemon, an older daemon, a
+    socket that will not answer — all mean "no second opinion", never an error. A
+    diagnostic that fails because a diagnosis was unavailable is worse than one that
+    quietly says less.
+    """
+    try:
+        client = platform.ipc_client_factory(platform.paths.ipc_socket)
+        if not client.is_reachable():
+            return ""
+        return str(client.call("status").get("hotkey") or "")
+    except Exception:
+        return ""
+
+
+def _hotkey_drift_note(platform) -> str:
+    """The one-line warning when config and daemon disagree, else ``""``.
+
+    The rule lives in `system/doctor.py` and is shared rather than restated: `doctor`,
+    `hotkey show` and `quickstart` are three surfaces answering the same question, and
+    three copies of a comparison is how two of them end up saying different things.
+    """
+    from yazses.system.doctor import hotkey_drift_note
+
+    try:
+        from yazses.config import load_config
+
+        configured = (load_config(platform.paths.config_file).hotkey.key or "auto").strip()
+    except Exception:
+        return ""
+    return hotkey_drift_note(
+        configured,
+        _live_hotkey(platform),
+        default=getattr(platform, "default_hotkey", ""),
+    ) or ""
+
+
+
 def _installed_version() -> str:
     """The package version, or a marker — never an exception.
 
@@ -2603,6 +2650,13 @@ def hotkey_show() -> None:
         typer.echo(f"Command key:       {cmd}  (force command mode)")
     else:
         typer.echo("Command key:       (none) — commands auto-detected on the dictation key")
+    # This command's whole job is to answer "which key do I hold?", and until now it
+    # answered from the file while the daemon answered from memory. On a machine mid-drift
+    # it printed the two keys with their labels swapped -- naming the key that actually
+    # dictates as the command key -- which is worse than saying nothing.
+    drift = _hotkey_drift_note(platform)
+    if drift:
+        typer.secho(f"\n⚠ {drift}", fg=typer.colors.YELLOW)
     typer.echo(f"Choices: {', '.join(SETTABLE_HOTKEYS)}")
 
 
@@ -2872,11 +2926,22 @@ def quickstart() -> None:
         )
 
     # Step 3 — actually dictate.
-    _say_step(
-        "Dictate",
-        f"Hold  {hotkey}  , speak, then release. Your words type into the focused window.",
-        "Change the key with:  yazses hotkey set <key>",
-    )
+    #
+    # The key printed here is the one that *works right now*, not the one in the file.
+    # This is the first screen a new user reads, and its instruction is a single
+    # imperative: hold this key. If the daemon is bound to a different key -- which is
+    # what `yazses hotkey set` without a restart leaves behind -- then following the
+    # instruction does nothing at all, and there is no error anywhere to explain why.
+    live = _live_hotkey(platform)
+    drift = _hotkey_drift_note(platform)
+    press = live or hotkey
+    body = [
+        f"Hold  {press}  , speak, then release. Your words type into the focused window.",
+    ]
+    if drift:
+        body.append(f"⚠ {drift}")
+    body.append("Change the key with:  yazses hotkey set <key>")
+    _say_step("Dictate", *body)
 
     typer.secho("Handy next steps", bold=True)
     typer.echo("  yazses test              type a test phrase (no speaking) to confirm typing works")

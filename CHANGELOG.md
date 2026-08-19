@@ -8,6 +8,18 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `hotkey show` and `quickstart` told you to hold a key that does nothing. `doctor` was
+  taught to compare the configured hotkey against the one the running daemon is bound to;
+  it was not the only surface reading the wrong source. Measured mid-drift on a real
+  machine — config `right_alt`, daemon bound to `right_ctrl` — `yazses hotkey show`
+  printed both keys with their labels **swapped**, naming the key that actually dictates
+  as the command key, and `yazses quickstart` step 3 said *"Hold right_alt, speak"*, which
+  produces silence and no error. `quickstart` is the first screen a new user meets and its
+  step 3 is a single imperative, so it now names the key that **works right now** and says
+  why the file disagrees; `hotkey show` warns without changing what it reports, since its
+  job is to report the configuration. Both consult the daemon best-effort: no daemon, an
+  older daemon or an unanswerable socket means one line less, never an error.
+
 - The privacy statement said the network is needed exactly once. *"The one time YazSes
   does need the network is the **first** run, to download the speech model… `yazses update`
   is the only other outbound action"* — true of the default configuration, and false the

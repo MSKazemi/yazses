@@ -762,6 +762,27 @@ yazses hotkey command off         # remove the command key
 yazses restart                    # apply
 ```
 
+!!! warning "`yazses restart` is not optional, and the CLI now says so"
+
+    The daemon reads `[hotkey] key` **once, when it starts**, and never again. Changing
+    the key without restarting leaves the file and the running process disagreeing, and
+    holding the key you just set does nothing at all — with no error anywhere, because
+    nothing failed.
+
+    `yazses hotkey show` and `yazses quickstart` both ask the running daemon what it is
+    actually listening on and warn when the two disagree; `quickstart` goes further and
+    tells you to hold the key that **works right now**, not the one in the file.
+    `yazses doctor` turns its `Hotkey` row to `[WARN]` for the same reason.
+
+    ```text
+    Hold-to-talk key:  right_alt  (dictation)
+    Command key:       right_ctrl  (force command mode)
+
+    ⚠ config says 'right_alt' but the running daemon is listening on 'right_ctrl' —
+      holding right_alt will do nothing. A hotkey change does not reach a daemon that
+      is already running. Fix: yazses restart
+    ```
+
 **Dedicated command key (force command mode).** By default one key does both
 jobs: you hold the dictation key, speak, and YazSes **auto-detects** whether your
 phrase was a command ("save", "undo") or text. Binding a **second** key removes the
