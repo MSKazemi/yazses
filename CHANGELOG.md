@@ -6,6 +6,23 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses acronyms expand` corrupted a document when run twice
+
+`expand_document` writes an acronym's first use as `Full Name (ACR)`. It did not notice
+when the text already said that, so it expanded the `ACR` inside its own parentheses, and
+each further run nested one level deeper:
+
+    once   The Application Programming Interface (API) is stable.
+    twice  The Application Programming Interface (Application Programming Interface (API)) is stable.
+
+Running the command again after editing a document is the ordinary thing to do, and
+nothing warned.
+
+The repair was already in the module: `AcronymState.observe` is documented as *"Learn
+'Full Name (ACR)' definitions already present in text (marks them expanded)"* — written
+for exactly this and never called. It is called now, so the rule for "already expanded"
+stays in one place instead of becoming a second, subtly different check.
+
 ### Fixed — a failure notification stayed on screen forever, with nothing to click
 
 Both notification call sites sent **every** failure at `urgency="critical"`, and the

@@ -54,6 +54,14 @@ def expand_document(text: str, definitions: dict) -> str:
     state = AcronymState()
     for acr, full in (definitions or {}).items():
         state.define(acr, full)
+    # Anything already written as "Full Name (ACR)" counts as expanded. `observe` exists
+    # for exactly this and was not being called, so expansion was not idempotent: running
+    # `yazses acronyms expand` on an already-expanded document re-expanded the acronym
+    # inside its own parentheses, and each further run nested one level deeper --
+    #   "Application Programming Interface (Application Programming Interface (API))"
+    # Running the command twice is the ordinary thing to do after editing, and nothing
+    # warned.
+    state.observe(text or "")
     return _ACR.sub(lambda m: state.resolve(m.group(0)), text or "")
 
 
