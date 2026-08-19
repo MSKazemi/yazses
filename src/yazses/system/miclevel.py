@@ -8,6 +8,7 @@ floor, so silence is still rejected.
 """
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -41,6 +42,43 @@ class LevelStats:
     # and reported "recommended: 0.002" with no caveat, which is BELOW the room
     # level that produced it.
     clamped: bool = False
+
+
+def live_threshold_note(configured: float, running: float | None) -> str | None:
+    """Is the running daemon gating at a different level than the config names?
+
+    The daemon reads `vad_threshold` once, at start, and never re-reads the file --
+    the same staleness that lets `yazses hotkey set` leave a machine holding a key
+    nobody is listening for. It matters more here than on any other cached value,
+    because this command exists **to set that number**: it prints it under the label
+    *current*, and on a drifted machine "current" is a claim about a process that is
+    not using it.
+
+    Measured on the author's own machine, 2026-08-20: the file said `0.004` while the
+    daemon's log recorded every discard against `0.0005`. Someone diagnosing
+    *"Silent audio -- discarding"* would have read `0.004`, judged the gate sane, and
+    been looking at a gate eight times lower.
+
+    `isclose` rather than `!=` on purpose. Both numbers are floats that have been
+    through a TOML parse and a JSON round trip, and a last-bit difference between two
+    spellings of the same setting is not drift -- it is noise, and a warning nobody
+    can act on is worse than none. Real drift is never subtle: it is a value someone
+    typed instead of another value someone typed.
+
+    Returns None when there is nothing to say: no daemon running, IPC silent, or the
+    two agree.
+    """
+    if running is None:
+        return None
+    if math.isclose(configured, running, rel_tol=1e-6, abs_tol=0.0):
+        return None
+    direction = "lower" if running < configured else "higher"
+    return (
+        f"the running daemon is gating at {running:.4f}, not {configured:.4f} — "
+        f"a {direction} gate than this file says. A threshold change does not reach a "
+        f"daemon that is already running, so the number above describes the file and "
+        f"not what is discarding your speech. Fix: yazses restart"
+    )
 
 
 def analyze(audio: np.ndarray, sample_rate: int) -> LevelStats:

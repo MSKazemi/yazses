@@ -575,6 +575,22 @@ def _live_hotkey(platform) -> str:
         return ""
 
 
+def _live_vad_threshold(platform) -> float | None:
+    """The gate the running daemon is *actually* applying, or ``None``.
+
+    Best-effort and silent, like `_live_hotkey`: a calibration command must still
+    work with no daemon running, which is the ordinary case during first setup.
+    """
+    try:
+        client = platform.ipc_client_factory(platform.paths.ipc_socket)
+        if not client.is_reachable():
+            return None
+        value = client.call("status").get("vad_threshold")
+        return float(value) if value is not None else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def _hotkey_drift_note(platform) -> str:
     """The one-line warning when config and daemon disagree, else ``""``.
 
@@ -3113,7 +3129,12 @@ def _calibrate_mic(*, seconds: float = 4.0, set_threshold: bool = False) -> bool
     recommended VAD threshold. Shared by `yazses mic-level` and `yazses setup`'s
     "connect to voice" step. Returns False when no speech was detected."""
     from yazses.config import load_config
-    from yazses.system.miclevel import analyze, record, update_threshold_in_config
+    from yazses.system.miclevel import (
+        analyze,
+        live_threshold_note,
+        record,
+        update_threshold_in_config,
+    )
 
     platform = get_platform()
     cfg = load_config(platform.paths.config_file)
@@ -3124,7 +3145,10 @@ def _calibrate_mic(*, seconds: float = 4.0, set_threshold: bool = False) -> bool
 
     typer.echo(f"  mean level:            {stats.mean_abs:.4f}")
     typer.echo(f"  peak level:            {stats.peak:.4f}")
-    typer.echo(f"  current vad_threshold: {cfg.accessibility.vad_threshold}")
+    typer.echo(f"  vad_threshold in config: {cfg.accessibility.vad_threshold}")
+    drift = live_threshold_note(cfg.accessibility.vad_threshold, _live_vad_threshold(platform))
+    if drift:
+        typer.secho(f"  ⚠ {drift}", fg=typer.colors.YELLOW)
 
     if stats.is_silent:
         typer.echo("No speech detected -- check the microphone and try again.")

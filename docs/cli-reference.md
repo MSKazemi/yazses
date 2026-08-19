@@ -499,8 +499,13 @@ yazses autostart disable   # stop launching it at login
 ### `yazses mic-level`
 
 Records a few seconds while you speak, reports your average mic level vs the
-current `vad_threshold`, and recommends a threshold. Use it when dictation logs
-`Silent audio -- discarding`.
+`vad_threshold` in `config.toml`, and recommends a threshold. Use it when dictation
+logs `Silent audio -- discarding`.
+
+If a daemon is running and is gating at a *different* threshold — which is what any
+change without a `yazses restart` leaves behind, since the daemon reads the value once
+at start — the command says so and names both numbers. Without that, the number it
+prints describes the file rather than the process actually discarding your speech.
 
 **Options:** `--set` (write the recommended threshold to `config.toml` in place,
 comments preserved) · `--seconds` / `-s N` (record for `N` seconds instead of 4).

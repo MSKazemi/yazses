@@ -43,15 +43,30 @@ Real output from the machine above, recorded in a quiet room **without speaking*
 Recording 4s -- speak normally now...
   mean level:            0.0101
   peak level:            0.0866
-  current vad_threshold: 0.0005
+  vad_threshold in config: 0.0005
   recommended:           0.0051
 ```
 
 Read it as three facts:
 
 - **mean level** — what the microphone actually heard.
-- **current vad_threshold** — the line your speech has to clear.
+- **vad_threshold in config** — the line your speech has to clear.
 - **recommended** — half the measured mean, which is what `--set` would write.
+
+!!! warning "If a daemon is running, it may be gating somewhere else"
+
+    That line is read from `config.toml`. The daemon reads the threshold once, when it
+    starts, and never re-reads the file — so after any change without a `yazses restart`
+    the two disagree, and the one throwing your speech away is the daemon's. `mic-level`
+    now asks the running daemon and prints a warning when they differ:
+
+    ```
+    ⚠ the running daemon is gating at 0.0005, not 0.0040 — a lower gate than this
+      file says. … Fix: yazses restart
+    ```
+
+    If you see it, restart first and measure again. Editing the file changes nothing
+    about the process that is currently discarding your audio.
 
 !!! warning "Speak during the four seconds"
 

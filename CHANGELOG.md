@@ -8,6 +8,20 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `mic-level` printed the threshold from `config.toml` under the label **current**, on the
+  one command whose whole subject is that number — and it is the command the product sends
+  you to when dictation silently stops. The daemon reads `vad_threshold` once, at start, and
+  never re-reads the file, so any change without a `yazses restart` leaves the two
+  disagreeing. Measured live on a real machine: the file said `0.004` while the daemon's log
+  recorded every discard against `0.0005`, so someone diagnosing *"Silent audio —
+  discarding"* would have read the file's number, judged the gate sane, and been looking at
+  a gate eight times lower than the one throwing their speech away. The line is now labelled
+  `vad_threshold in config`, and when a running daemon is gating elsewhere the command names
+  both numbers, which direction it drifted, and `yazses restart`. It stays silent with no
+  daemon — calibrating before one exists is the ordinary first-setup case — and compares
+  with `isclose` rather than `!=`, because both numbers have been through a TOML parse and a
+  JSON round trip and a last-bit difference is noise, not drift.
+
 - `yazses report` blanked the one setting its bug reports most needed. The bundle already
   records `daemon.hotkey`, the key the running daemon is actually bound to, so a report
   from a drifted machine carried **both halves** of the comparison that explains *"the
