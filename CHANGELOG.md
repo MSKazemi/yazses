@@ -6,6 +6,31 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — dictating "look at the dot com boom" produced "look@the.com boom"
+
+`_EMAIL_RE` matches `<words> at <words with a spoken dot>`, and its comment justifies the
+single guard it had: *"the domain MUST contain a spoken 'dot' so a plain 'at' in ordinary
+speech ('meet at noon') never matches."* That does stop "meet at noon", and nothing about
+the far commoner shape — an ordinary sentence containing *"at &lt;word&gt; dot &lt;word&gt;"*:
+
+    look at the dot com boom          ->  look@the.com boom
+    point at the dot on the screen    ->  point@the.on the screen
+    meet me at the dot matrix printer ->  meet me@the.matrix printer
+
+Eight of eight realistic sentences were rewritten into email addresses mid-prose.
+
+Two further conditions now apply, both satisfied by every spoken address and rarely by
+English: the domain's **last** label must be a real TLD, and its **first** must not be an
+article. Either alone is insufficient — "look at the dot com boom" ends in a genuine TLD,
+and "at company dot headquarters" opens with a real label — so both are checked.
+
+When the check fails the words are left exactly as spoken. A missed address costs one
+hand-typed line; a false one silently corrupts a sentence the user dictated and may never
+re-read.
+
+Real addresses are unaffected: `john dot doe at gmail dot com`, `me at company dot co dot
+uk` and `first dot last at university dot edu` all still convert.
+
 ### Fixed — `yazses acronyms expand` corrupted a document when run twice
 
 `expand_document` writes an acronym's first use as `Full Name (ACR)`. It did not notice
