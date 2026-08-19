@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — enabling `[translit]` transliterated every English sentence into Persian
+
+`detect_scheme`'s docstring promised *"so English passes through"*, and it returned the
+scheme for **any** all-ASCII text — which is every English sentence. The caller
+transliterates whenever it is truthy, so:
+
+    "hello how are you"        ->  "ههللو هوو اره یو"
+    "send me the file please"  ->  "سهند مه تهه فیله پلهاسه"
+    "the quick brown fox"      ->  "تهه قویcک بروون فوx"
+
+The gate never gated. Enabling the feature did not degrade English dictation, it destroyed
+it — and the stray Latin `c` and `x` show the output was not even well-formed Persian.
+
+Detection now does what it always claimed: a sentence containing a very common English
+word is left alone. A Finglish sentence whose romanization collides with one ("to
+khoobi?", where Persian *to* is "you") stays in Latin script — the right direction, since
+a missed transliteration leaves readable text while a false one produces nonsense the user
+cannot read back.
+
+`[translit] enabled` is off by default, so this affected whoever turned it on.
+
 ### Fixed — the grammar fixer turned "an FBI agent" into "a FBI agent"
 
 `fix_articles` decided purely on whether the following word's first *letter* is a vowel.
