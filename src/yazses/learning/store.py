@@ -8,6 +8,7 @@ captured, is written as an encrypted 16-bit-PCM WAV at ``clips/<id>.wav.enc``.
 from __future__ import annotations
 
 import io
+import re
 import sqlite3
 import time
 import wave
@@ -27,6 +28,8 @@ _TEXT_FIELDS = (
     "correction_text",
     "retx_text",
 )
+
+_REDACTION = "[REDACTED]"
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS events (
@@ -139,7 +142,20 @@ def corpus_disk_bytes(data_dir) -> int:
 class CorpusStore:
     """CRUD over the encrypted event corpus."""
 
-    def __init__(self, data_dir: Path, cipher: Cipher) -> None:
+    def __init__(
+        self, data_dir: Path, cipher: Cipher, redact_patterns: tuple[str, ...] = ()
+    ) -> None:
+        # Redaction lives here, at `_enc`, rather than in the caller that builds an
+        # event. `_enc` is the ONE place text becomes a stored blob, so "encrypted" and
+        # "redacted" are the same set by construction and cannot drift apart.
+        #
+        # They had drifted. `CorpusWriter` redacted a four-field tuple before enqueuing,
+        # but `mark_wrong`, `update_correction_for` and `set_retx` write straight to the
+        # store -- so `correction_text` and `retx_text` were stored unredacted. The
+        # second one matters most: `retx_text` is a re-transcription of the SAME audio,
+        # so a pattern the user added to keep a card number or a password out of the
+        # corpus scrubbed it from `raw_text` and then `yazses tune` wrote it back in.
+        self._redactors = [re.compile(pat) for pat in redact_patterns]
         self._dir = data_dir
         self._clips = data_dir / "clips"
         self._clips.mkdir(parents=True, exist_ok=True)
@@ -324,7 +340,14 @@ class CorpusStore:
     # ---- internals --------------------------------------------------------
 
     def _enc(self, text: str) -> bytes:
-        return self._cipher.encrypt_str(text or "")
+        return self._cipher.encrypt_str(self.redact(text))
+
+    def redact(self, text: str) -> str:
+        """Apply the configured redaction patterns. Pure w.r.t. the store."""
+        out = text or ""
+        for pat in self._redactors:
+            out = pat.sub(_REDACTION, out)
+        return out
 
     def _dec(self, blob: bytes | None) -> str:
         return self._cipher.decrypt_str(blob) if blob else ""

@@ -23,9 +23,10 @@ from yazses.learning.store import CorpusStore
 
 log = logging.getLogger(__name__)
 
-_REDACTION = "[REDACTED]"
-# Text fields that pass through redaction before storage.
-_REDACTABLE = ("raw_text", "cleaned_text", "filtered_text", "final_text")
+# Redaction itself lives in `learning/store.py`, applied at `_enc` -- the one place text
+# becomes a stored blob. It used to live here, over a four-field tuple, and the three
+# store methods that write text directly (`mark_wrong`, `update_correction_for`,
+# `set_retx`) bypassed it entirely. See CorpusStore.__init__.
 
 
 #: How many captured events between size/retention sweeps. A prune walks the clip
@@ -161,22 +162,34 @@ class CorpusWriter:
     # ---- internals --------------------------------------------------------
 
     def _redact(self, event: dict) -> dict:
+        """Scrub every text field before it is even queued.
+
+        The store redacts again at `_enc`, which is the authority -- this exists so a
+        secret does not sit in an in-memory queue while the writer thread catches up.
+        Every string value is scrubbed rather than a hand-listed subset: the subset is
+        what let `correction_text` and `retx_text` through, and a list of "which fields
+        are text" that lives apart from the schema is a list that goes stale.
+        """
         if not self._patterns:
             return event
         out = dict(event)
-        for field in _REDACTABLE:
-            val = out.get(field)
+        for field, val in event.items():
             if isinstance(val, str) and val:
                 for pat in self._patterns:
-                    val = pat.sub(_REDACTION, val)
+                    val = pat.sub("[REDACTED]", val)
                 out[field] = val
         return out
 
 
-def open_store(data_dir: Path) -> CorpusStore:
-    """Open the corpus store directly (for CLI read/maintenance commands)."""
+def open_store(data_dir: Path, redact_patterns: tuple[str, ...] = ()) -> CorpusStore:
+    """Open the corpus store directly (for CLI read/maintenance commands).
+
+    ``redact_patterns`` matters on this path too: `yazses tune --retranscribe` writes
+    `retx_text` through a store opened here, and that text is a re-transcription of the
+    same audio the patterns were added to scrub.
+    """
     cipher = Cipher(load_or_create_key(data_dir))
-    return CorpusStore(data_dir, cipher)
+    return CorpusStore(data_dir, cipher, redact_patterns)
 
 
 def build_writer(data_dir: Path, cfg: LearningConfig) -> CorpusWriter | None:
@@ -184,7 +197,7 @@ def build_writer(data_dir: Path, cfg: LearningConfig) -> CorpusWriter | None:
     if not cfg.enabled:
         return None
     cipher = Cipher(load_or_create_key(data_dir))
-    store = CorpusStore(data_dir, cipher)
+    store = CorpusStore(data_dir, cipher, tuple(cfg.redact_patterns))
     log.info("Learning corpus enabled at %s (audio=%s)", data_dir, cfg.capture_audio)
     return CorpusWriter(
         store,

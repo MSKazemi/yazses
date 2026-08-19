@@ -6,6 +6,31 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `redact_patterns` scrubbed four of the six stored text fields
+
+`[learning] redact_patterns` is documented as *"Regexes scrubbed from text before
+storage"*. It was applied by `CorpusWriter` over a hand-written four-field tuple, but the
+store persists **six**, and three of its methods write text without going near the
+writer: `mark_wrong`, `update_correction_for` and `set_retx`.
+
+So `correction_text` and `retx_text` were stored unscrubbed. `retx_text` is the one that
+matters — it is a **re-transcription of the same audio** the patterns were added to
+protect, so a user who scrubbed a card number or a password out of `raw_text` had
+`yazses tune --retranscribe` write it straight back into the corpus.
+
+The corpus is encrypted at rest and machine-bound, so this was never an exposure off the
+machine (ADR-011 holds). It was a failure of the narrower promise `redact_patterns`
+makes: that certain content is never stored at all.
+
+Redaction now lives at `CorpusStore._enc`, the single point where text becomes a stored
+blob, so "encrypted" and "redacted" are the same set **by construction** rather than by
+two lists agreeing. The writer still scrubs before enqueuing so a secret does not sit in
+an in-memory queue, but it now scrubs every string value rather than a listed subset —
+the subset being exactly what failed. `yazses tune` passes the patterns when it opens the
+store.
+
+Existing corpora are not rewritten; rows already stored keep whatever they hold.
+
 ### Fixed — `yazses audio use` could write a config.toml that does not parse
 
 `set_config_key` had **two** renderings of a value and only one escaped anything. The

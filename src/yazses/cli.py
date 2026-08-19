@@ -4167,7 +4167,9 @@ def tune(
         raise typer.Exit(1)
 
     cfg = load_config(platform.paths.config_file)
-    store = open_store(data_dir)
+    # The patterns matter here specifically: --retranscribe writes `retx_text`, a fresh
+    # transcription of the same audio the user added them to scrub.
+    store = open_store(data_dir, tuple(cfg.learning.redact_patterns))
 
     transcribe_fn = None
     if retranscribe:
