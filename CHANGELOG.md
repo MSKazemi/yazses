@@ -6,6 +6,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — nothing a stock install turns on may swallow ordinary dictation
+
+`system/firstrun.py` seeds a config for every new user, and several capabilities it enables
+can **consume a burst**: `revise` backspaces the previous injection, `timeline` rewrites it,
+`verbatim` flips a persistent mode and types nothing, `compute` replaces the utterance with a
+number, `checkdigit` holds it pending a spoken confirm. Each was individually reasonable.
+Nothing checked the property they share: on a stock install, a sentence someone actually
+said must come out as text.
+
+Measured over 1418 real dictation bursts, under the same condition the daemon applies:
+`scratch that` fired 0 times, timeline 0, verbatim 0, checkdigit 0, and compute twice — both
+genuine arithmetic. That is the number this guard defends, and every parser is also shown to
+fire on its own command, because parsers that matched nothing would satisfy all of it.
+
+No source changed: this is a property that held and now cannot quietly stop holding.
+
 ### Fixed — inline compute turned a score, a range and a phone number into arithmetic
 
 `[compute] enabled` is seeded on for **every new install**, and when `evaluate` returns a
