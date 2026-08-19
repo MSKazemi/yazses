@@ -8,6 +8,17 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `yazses tune` understated its own runtime by 3–4×. `--limit`'s help and the CLI reference
+  both said a full corpus *"can take about an hour"*; measured on a real corpus, 50 clips took
+  510 s wall clock with `small.en` on a laptop CPU — 9.6 s each — and a corpus sitting on the
+  product's own default `max_corpus_mb = 500` holds ~1,460 clips, so a full run is close to
+  four hours. The number is the entire reason to print it: the code's own comment says *"an
+  hour is a decision (run it overnight, use `--limit`), while 'a while' is not"* — and an hour
+  is something you wait for while four is something you schedule. Both surfaces now quote a
+  per-clip rate with the hardware named, which can be true on every machine in a way a total
+  cannot, and note that clip *count* predicts runtime rather than audio duration, since every
+  clip is padded to 30 s before the encoder sees it.
+
 - `yazses meeting status` never said whether Meeting Mode was on. With the feature off —
   which is the default — the entire output was a complaint that *"Speaker labels are on but
   the diarization extra is not installed"* followed by a list of past meetings. Nothing was

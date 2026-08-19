@@ -96,10 +96,18 @@ def run_tune(
                 )
             elif done == total or done % 25 == 0:
                 # "A while" is honest and useless: on a real corpus this runs for
-                # about an hour, and an hour is a decision ("run it overnight", "use
+                # hours, and a number is a decision ("run it overnight", "use
                 # --limit"), while "a while" is not. The rate is only knowable once
                 # some clips are done, so the estimate appears with the first count
                 # rather than being guessed up front.
+                #
+                # ⚠ "about an hour" is what this comment and `--limit`'s help both
+                # said, and it was wrong by 3-4x. Measured 2026-08-20: 50 clips in
+                # 510 s wall clock with small.en on a laptop CPU -- 9.6 s each, and
+                # a corpus sitting on the product's own default 500 MB cap holds
+                # ~1460, i.e. **~3.9 h**. The understatement mattered precisely
+                # because the number is the decision: an hour is something you wait
+                # for, four hours is something you schedule.
                 echo(f"  {done}/{total} clip(s)…{_eta(done, total, started, now)}")
 
         n = retranscribe(store, transcribe_fn, limit=limit, progress=_progress)

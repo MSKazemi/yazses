@@ -1527,9 +1527,13 @@ to `config.toml`, comments preserved) · `--retranscribe` / `--no-retranscribe`
 skip for a faster run that uses only flagged/edited signals) · `--limit N`
 (re-transcribe only the **N most recent** clips).
 
-Re-transcription is the slow step by a wide margin — a full corpus of ~1,600 clips
-takes about an hour on CPU — so it reports its progress and, once it can measure a
-rate, how long is left. `--limit` is the middle ground between that and skipping the
+Re-transcription is the slow step by a wide margin. Budget roughly **10 seconds per
+clip** on a laptop CPU — measured at 9.6 s with `small.en` — so a corpus sitting on the
+default `max_corpus_mb = 500`, about 1,500 clips, is a **multi-hour** run rather than an
+hour. Clip *count* is the right predictor, not total audio: every clip is padded to 30 s
+before the encoder sees it, so the cost per clip barely varies with its length. The
+command reports its progress and, once it can measure a rate on your machine, how long is
+left. `--limit` is the middle ground between that and skipping the
 pass altogether: the recent clips are the ones recorded with the model, microphone
 and threshold you use *now*, which is what tuning is trying to improve.
 
