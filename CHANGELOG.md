@@ -6,6 +6,32 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses audio status` told you to pin a name that cannot be pinned
+
+`audio status` resolves the OS default's routing alias through wpctl and prints the real
+device, then — directly underneath — *"Pin a real one to be sure: `yazses audio use
+<name>`"*. That reads as "type the name above", and it does not work:
+
+    resolve_input_device("Raptor Lake-P/U/H cAVS Digital Microphone", devices) -> None
+
+The friendly name comes from the sound server's graph; `audio use` matches against
+PortAudio's capture list, which offers `sof-hda-dsp: - (hw:0,0)`, `sysdefault`, `pipewire`
+and `default` — no entry naming a microphone, and most of them routes.
+
+**The outcome was silent rather than an error.** `audio use` warns on an unmatched name and
+then pins it anyway, deliberately, so a device can be pinned before it is plugged in. On its
+own that is right; combined with advice to type an unmatchable name it is the worst case —
+the pin is accepted, never resolves, capture quietly falls back to the alias, and you
+believe you fixed the exact thing pinning exists to prevent.
+
+The advice is now derived from whether the name resolves, and a name that is itself a route
+is never offered (an alias behind an alias reproduces the same failure one layer down). A
+machine whose every input is a route says so instead of pointing at an empty list.
+
+**Not fixed:** that the hardware names are useless is what PortAudio reports for ALSA.
+Mapping a wpctl node to a PortAudio index needs a PipeWire client library, which the code
+already records as a dependency this project does not take on for one diagnostic.
+
 ### Changed — `yazses tune` called a proposal "validated" on four percent corroboration
 
 Run against a real 1619-event corpus:

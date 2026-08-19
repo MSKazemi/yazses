@@ -171,6 +171,48 @@ def is_routing_alias(name: str | None) -> bool:
     return (name or "").strip().lower() in _ROUTING_ALIASES
 
 
+def alias_pin_advice(behind_name, devices) -> str:
+    """How to actually pin the microphone hiding behind a routing alias. Pure.
+
+    `yazses audio status` resolves the alias through wpctl and prints the real device --
+    "Raptor Lake-P/U/H cAVS Digital Microphone" -- directly above "Pin a real one to be
+    sure: yazses audio use <name>". That reads as an instruction to type the name it just
+    showed you, and on this machine that name **cannot be pinned**: it comes from the
+    sound server's graph, while `audio use` matches against PortAudio's capture list,
+    which offers only `sof-hda-dsp: - (hw:0,0)`, `pipewire`, `sysdefault` and `default`.
+
+    `audio use` warns on a name it cannot match and then pins it anyway -- deliberately,
+    so a hotplugged device can be pinned before it appears. The combination is the
+    problem: the pin is accepted, never resolves, capture silently falls back to the
+    alias, and the user believes they fixed the exact thing the pin exists to prevent.
+
+    So the advice is derived from whether the name resolves, rather than assumed.
+
+    ``devices`` is the PortAudio input list; ``behind_name`` may be None when wpctl is
+    absent, which is ordinary rather than an error.
+    """
+    selectable = [d.name for d in devices if not is_routing_alias(d.name)]
+    if behind_name:
+        # A name that resolves is not automatically worth pinning: on a PipeWire box
+        # `default` can sit behind `pipewire`, which is another alias. Offering it would
+        # reproduce the very failure this advice exists to prevent, one layer down.
+        if is_routing_alias(behind_name):
+            return "Pin one of the hardware names from `yazses audio devices`."
+        if resolve_input_device(behind_name, devices) is not None:
+            return f'Pin it with:  yazses audio use "{behind_name}"'
+        return (
+            "That name comes from the sound server, not from the capture list, so "
+            "`yazses audio use` cannot select it.\n                 Pin a hardware name "
+            "from `yazses audio devices` instead."
+        )
+    if not selectable:
+        return (
+            "Every input this machine offers is a routing alias, so there is nothing to "
+            "pin — capture will follow whatever the OS points at."
+        )
+    return "Pin one of the names from `yazses audio devices`."
+
+
 def parse_wpctl_default_source(text: str):
     """``(name, volume)`` of the starred source in ``wpctl status`` output, or None.
 

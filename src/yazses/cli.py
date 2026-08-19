@@ -2454,16 +2454,27 @@ def audio_status() -> None:
             # dictation stopped: they need to know *which* microphone it currently
             # points at. Best-effort via wpctl, absent without complaint.
             behind = default_source_behind_alias()
+            behind_name = None
             if behind:
-                name, vol = behind
-                typer.echo(f"               → {name}  (volume {vol * 100:.0f}%)")
+                behind_name, vol = behind
+                typer.echo(f"               → {behind_name}  (volume {vol * 100:.0f}%)")
             typer.echo(
                 "               ⚠ that is a routing alias, not a microphone — the "
                 "device behind it\n"
-                "                 can change without this name changing. Pin a real "
-                "one to be sure:\n"
-                "                 yazses audio use <name>   (see `yazses audio devices`)"
+                "                 can change without this name changing."
             )
+            # The advice used to be a fixed "yazses audio use <name>", printed directly
+            # under the resolved device name -- which reads as "type that name", and on a
+            # PipeWire desktop that name is not in the capture list at all. `audio use`
+            # warns and pins it anyway (for hotplug), so the pin never resolves and
+            # capture quietly follows the alias again. Derived from the name now.
+            from yazses.audio.devices import alias_pin_advice, list_input_devices
+
+            try:
+                advice = alias_pin_advice(behind_name, list_input_devices())
+            except Exception:  # pragma: no cover - hardware/backend dependent
+                advice = "Pin one of the names from `yazses audio devices`."
+            typer.echo(f"                 {advice}")
     except Exception:  # pragma: no cover - hardware/backend dependent
         typer.echo("OS default:    (unavailable)")
     if not platform.lifecycle.is_running():
