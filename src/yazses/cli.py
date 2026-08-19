@@ -4569,9 +4569,20 @@ def corpus_status() -> None:
     def _fmt(ts):
         return _dt.datetime.fromtimestamp(ts).isoformat(timespec="seconds") if ts else "-"
 
+    # The size used to print bare, with nothing to compare it against -- so a corpus
+    # sitting exactly on its cap, evicting the oldest events on every capture, looked
+    # identical to one with room to spare.
+    from yazses.config import load_config
+    from yazses.learning.store import capacity_line
+
+    lc = load_config(platform.paths.config_file).learning
+    size_text, warning = capacity_line(s.size_bytes, lc.max_corpus_mb, lc.retention_days)
+
     typer.echo(f"  location:  {data_dir}")
     typer.echo(f"  events:    {s.count} ({s.discarded} discarded, {s.wrong} flagged wrong)")
-    typer.echo(f"  size:      {s.size_bytes / 1_048_576:.1f} MB")
+    typer.echo(f"  size:      {size_text}")
+    if warning:
+        typer.echo(f"  ⚠          {warning}")
     typer.echo(f"  range:     {_fmt(s.oldest_ts)} → {_fmt(s.newest_ts)}")
 
 

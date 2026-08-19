@@ -6,6 +6,38 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses corpus status` showed a size with nothing to compare it against
+
+On a real corpus:
+
+      events:    1619 (200 discarded, 0 flagged wrong)
+      size:      500.0 MB
+
+500.0 MB is exactly `[learning] max_corpus_mb`. The corpus was sitting *on* its cap and
+`Store.prune()` was evicting the oldest events on every capture to hold it there — the one
+fact the line failed to convey. It read identically to a corpus with room to spare.
+
+That matters beyond tidiness: `yazses tune` learns from what survives, so a silently
+evicting corpus quietly changes what the product can learn about you — and the date range
+gives no hint, because a corpus starting twelve days ago looks the same whether capture was
+enabled twelve days ago or the cap deleted everything before it.
+
+The size is now shown against the cap, with a warning naming **both** limits when it is
+full. Both, because `prune()` applies age first and then size, either can be the binding
+one, and they discard different things: age eviction drops what is stale, size eviction
+drops what is oldest regardless of how recent that is.
+
+The 95%-of-cap line is a display choice and is labelled as one — `prune` evicts while
+`disk_size > max_bytes`, so a corpus held at the cap always measures a hair under it and
+"500.0 of 500 MB" would otherwise read as headroom.
+
+Also audited clean this pass: `yazses report`. Its bundle carries no dictated text, no
+paths, no identifiers — the corpus is reported by size and never opened, as ADR-011
+requires. And its corpus size is the real on-disk figure (clips included), matching what
+`corpus status` prints.
+
+## [2.29.0] — 2026-08-19
+
 ### Fixed — `yazses verify` certified a microphone that was hearing nobody
 
 Run for real in a quiet room with nobody speaking:

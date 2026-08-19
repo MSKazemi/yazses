@@ -116,6 +116,44 @@ def _decode_wav(data: bytes) -> tuple[np.ndarray, int]:
     return pcm, sample_rate
 
 
+#: Fraction of the cap above which `yazses corpus status` calls the corpus full. This is a
+#: DISPLAY threshold, not a measurement: `prune()` evicts while `_disk_size() > max_bytes`,
+#: so a corpus held at the cap reads a hair under it and "500.0 / 500 MB" would otherwise
+#: look like headroom. Nothing in the store consults this.
+_NEARLY_FULL = 0.95
+
+
+def capacity_line(size_bytes: int, max_mb: int, retention_days: int) -> tuple[str, str | None]:
+    """``(size text, warning or None)`` for one corpus, against the limits that bind it.
+
+    `yazses corpus status` printed ``size: 500.0 MB`` and nothing else -- a number with
+    nothing to compare it to. On a corpus sitting exactly on its cap that is the one fact
+    the line fails to convey: `prune()` is evicting the oldest events on every write to
+    hold it there, and `yazses tune` learns from what survives.
+
+    Both limits are named because either can be the binding one and they are not
+    interchangeable -- age eviction drops what is stale, size eviction drops what is
+    oldest regardless of how recent that is.
+
+    Pure: no store, no config object, no filesystem, so both a CLI and a check can call it.
+    """
+    mb = size_bytes / 1_048_576
+    if max_mb <= 0:
+        return f"{mb:.1f} MB (no size cap)", None
+    text = f"{mb:.1f} MB of {max_mb} MB"
+    if mb < max_mb * _NEARLY_FULL:
+        return text, None
+    keeps = (
+        f"{retention_days} days or {max_mb} MB, whichever binds first"
+        if retention_days > 0
+        else f"{max_mb} MB (no age limit)"
+    )
+    return text, (
+        f"full — the oldest events are evicted on every capture to hold it here. "
+        f"Keeps {keeps}; raise `[learning] max_corpus_mb` to keep more."
+    )
+
+
 def corpus_disk_bytes(data_dir) -> int:
     """Bytes the corpus occupies: the database **plus its audio clips**.
 
