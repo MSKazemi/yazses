@@ -196,6 +196,33 @@ def build_writer(data_dir: Path, cfg: LearningConfig) -> CorpusWriter | None:
     """Construct a writer when learning is enabled, else ``None`` (dormant)."""
     if not cfg.enabled:
         return None
+    # Fail CLOSED on a redaction pattern that will not compile. `CorpusStore.__init__`
+    # compiles them, so an invalid one used to raise `re.PatternError` out of daemon
+    # startup -- the daemon did not start at all, which `configcheck` exists to prevent
+    # ("no config file can stop the daemon starting").
+    #
+    # Dropping the bad pattern and capturing anyway would be worse than either: a pattern
+    # the user wrote to scrub secrets would be silently skipped, and the text it was
+    # meant to remove would be stored. So capture stays dormant until it is fixed, which
+    # honours both promises at once. `configcheck` reports the pattern, so `yazses doctor`
+    # names it under Config validity.
+    import re as _re
+
+    bad = []
+    for pat in cfg.redact_patterns:
+        try:
+            _re.compile(str(pat))
+        except _re.error as exc:
+            bad.append(f"{pat!r} ({exc})")
+    if bad:
+        log.error(
+            "Learning capture is OFF: [learning] redact_patterns contains a pattern that "
+            "is not a valid regular expression -- %s. Nothing is being captured, because "
+            "a redaction you asked for must not be silently skipped. Fix the pattern and "
+            "restart.",
+            "; ".join(bad),
+        )
+        return None
     cipher = Cipher(load_or_create_key(data_dir))
     store = CorpusStore(data_dir, cipher, tuple(cfg.redact_patterns))
     log.info("Learning corpus enabled at %s (audio=%s)", data_dir, cfg.capture_audio)

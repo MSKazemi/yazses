@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import dataclasses
 import math
+import re
 import types
 import typing
 from dataclasses import dataclass
@@ -217,6 +218,30 @@ _ENUMS: dict[str, tuple[str, ...]] = {
 }
 
 
+#: Settings whose entries must be valid regular expressions. Type coercion accepts any
+#: string, so `redact_patterns = ["[unclosed"]` was stored, reported nothing, and then
+#: raised `re.PatternError` inside `CorpusStore.__init__` -- during daemon startup, which
+#: `configcheck` exists to make impossible ("no config file can stop the daemon starting").
+#:
+#: Reported here, and `learning/capture.py` fails CLOSED on the same input: a redaction
+#: pattern the user wrote to scrub secrets must never be silently skipped, so capture is
+#: disabled rather than run unredacted.
+_REGEX_LISTS: frozenset[str] = frozenset({"learning.redact_patterns"})
+
+
+def invalid_regexes(section: str, key: str, value) -> list[str]:
+    """The entries of ``value`` that are not valid regular expressions. Pure."""
+    if f"{section}.{key}" not in _REGEX_LISTS or not isinstance(value, (list, tuple)):
+        return []
+    bad = []
+    for item in value:
+        try:
+            re.compile(str(item))
+        except re.error:
+            bad.append(str(item))
+    return bad
+
+
 def enum_values(section: str, key: str) -> tuple[str, ...] | None:
     """The closed set of values for ``section.key``, or None if it is not closed.
 
@@ -262,6 +287,15 @@ def build_section(cls, raw, section: str, problems: list[ConfigProblem]):
             and negative_is_impossible(fields[key])
         ):
             ok, note = False, f"cannot be negative (got {coerced})"
+        if ok and (bad := invalid_regexes(section, key, coerced)):
+            problems.append(
+                ConfigProblem(
+                    section, key,
+                    f"is not a valid regular expression: {', '.join(repr(b) for b in bad)}"
+                    f"; capture stays off until it is fixed",
+                    False,
+                )
+            )
         allowed = enum_values(section, key)
         if ok and allowed and isinstance(coerced, str):
             if coerced.strip().lower() not in allowed:

@@ -6,6 +6,31 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — an invalid redaction pattern stopped the daemon starting
+
+`[learning] redact_patterns` is a list of regexes scrubbed from text before it reaches the
+encrypted corpus. `CorpusStore.__init__` compiles them and `Daemon.__init__` calls
+`build_writer` unguarded, while type coercion accepts any string for a `list[str]`. So:
+
+    [learning]
+    enabled = true
+    redact_patterns = ["[unclosed", "\d{4}"]
+
+loaded with **zero** `ConfigProblem`s and then raised `re.PatternError` out of daemon
+startup. The daemon did not start at all — which is exactly what `configcheck` exists to
+prevent: loading is total, *"no config file can stop the daemon starting"*.
+
+**Capture is now disabled rather than the pattern dropped.** Dropping it and capturing anyway
+is the obvious repair and it is the wrong one: a pattern written to scrub secrets would be
+silently skipped, and the text it was meant to remove would be written to the corpus — worse
+than either the crash or the dormancy. So `build_writer` fails **closed**, the log says why,
+and `configcheck` reports the pattern so `yazses doctor` names it under Config validity. Both
+promises hold at once: the daemon starts, and nothing the user asked to scrub is stored
+unscrubbed.
+
+The two halves are independent on purpose — `configcheck` reports, `capture` decides — so a
+caller that builds a `LearningConfig` in code is protected by the same check.
+
 ### Fixed — no surface said your dictation was being sent to another machine
 
 `yazses remote <host>` opens an SSH tunnel and routes every transcript to an agent on the far
