@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `srt`/`vtt` merged two speakers into one caption and dropped their names
+
+`_render_subtitles` threw the speaker away and segmented on silence and line length
+alone, so a diarized recording produced:
+
+    00:00:00,000 --> 00:00:04,000
+    hello there hi          ← Alice's words and Bob's, together, unattributed
+
+Two faults, and the second is the serious one. The missing label is a loss; the **merge**
+makes the caption assert something untrue — that one person said all of it — and a
+subtitle file is read by people who were not in the room and cannot tell.
+
+`render.py`'s own docstring names this exact failure as the thing to avoid ("never
+silently dropped — WhisperX's documented bug"). The promise was kept for `txt`, `md` and
+`json`, and broken for the two formats most likely to be handed to someone else.
+
+Captions are now segmented per contiguous speaker run, so one can never straddle a speaker
+change, and each carries the display name when the recording is diarized. Undiarized
+output is unchanged — there is no speaker to name.
+
 ### Fixed — `transcribe --rename` for a speaker who isn't there did nothing, silently
 
 `resolve_names` returns a map documented as `{canonical_speaker_id: display_name}`, and it
