@@ -79,6 +79,20 @@ def record(
     return np.asarray(buf, dtype=np.float32).flatten()
 
 
+def _section_span(text: str, section: str):
+    """``(start, end)`` character offsets of *section*'s body, or ``(None, None)``. Pure.
+
+    The body runs from just after the ``[section]`` header to the next header or the end
+    of the file, so an edit inside it cannot reach a neighbouring section's keys.
+    """
+    header = re.search(rf"(?m)^\[{re.escape(section)}\]\s*$", text)
+    if not header:
+        return None, None
+    nxt = re.search(r"(?m)^\[[^\]]+\]\s*$", text[header.end():])
+    end = header.end() + nxt.start() if nxt else len(text)
+    return header.end(), end
+
+
 def update_threshold_in_config(path: Path, threshold: float) -> str:
     """Set ``[accessibility] vad_threshold`` in a TOML file, preserving comments.
 
@@ -92,13 +106,23 @@ def update_threshold_in_config(path: Path, threshold: float) -> str:
         return f"created {path} with {line}"
 
     text = path.read_text()
-    # Replace an existing vad_threshold assignment anywhere in the file.
-    new_text, n = re.subn(
-        r"(?m)^[ \t]*vad_threshold[ \t]*=.*$", line, text
-    )
-    if n:
-        path.write_text(new_text)
-        return f"updated {line}"
+    # Replace an existing assignment, but only one that is actually INSIDE
+    # [accessibility]. This used to substitute `vad_threshold` anywhere in the file, so a
+    # key a user had put under the wrong section was rewritten instead -- and the function
+    # reported "updated" while the setting that matters kept its old value. `configcheck`
+    # already prints "[audio] vad_threshold: is not a known setting; ignored" about that
+    # very line, so the mistake was visible to the system and edited anyway.
+    #
+    # `yazses mic-level --set` is what the docs recommend when words are being dropped, so
+    # the failure lands exactly where the user is already stuck: told it worked, dictation
+    # still failing.
+    start, end = _section_span(text, "accessibility")
+    if start is not None:
+        block = text[start:end]
+        new_block, n = re.subn(r"(?m)^[ \t]*vad_threshold[ \t]*=.*$", line, block)
+        if n:
+            path.write_text(text[:start] + new_block + text[end:])
+            return f"updated {line}"
 
     # No existing key: insert under [accessibility] if present, else append it.
     if re.search(r"(?m)^\[accessibility\]\s*$", text):

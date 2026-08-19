@@ -6,6 +6,31 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `mic-level --set` could report success and change nothing
+
+`update_threshold_in_config` replaced a `vad_threshold` assignment **anywhere in the
+file**. A key a user had put under the wrong section was rewritten instead of the real
+one, and the command reported `updated vad_threshold = …` while
+`[accessibility] vad_threshold` kept its previous value:
+
+    [audio]
+    vad_threshold = 0.09          ← rewritten, and dead: configcheck ignores it
+    [accessibility]
+    pre_speech_padding_ms = 300   ← the real setting, never touched
+
+`configcheck` already prints *"[audio] vad_threshold: is not a known setting; ignored"*
+about that line, so the mistake was visible to the system and edited anyway.
+
+It lands where it hurts most: `yazses mic-level --set` is what the documentation
+recommends when words are being dropped, so the user is already stuck, runs the suggested
+fix, is told it worked, and dictation still fails. The adaptive retuner writes through the
+same function.
+
+The replacement is now scoped to the `[accessibility]` section; a key found elsewhere is
+left alone and the real one is added. This also removes the latent version of the bug:
+`[meeting]` already has `vad_backend` and `silero_threshold`, and a `[meeting]
+vad_threshold` would have been clobbered by every `mic-level --set`.
+
 ### Fixed — the adaptive silence gate could lower itself for no benefit
 
 `AdaptiveThreshold.suggest` promises *"a threshold that would have let the rejected bursts
