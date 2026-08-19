@@ -115,4 +115,9 @@ def test_resolve_daemon_command_prefers_this_install() -> None:
 
     source = inspect.getsource(autostart.resolve_daemon_command)
     assert "sys.executable" in source
-    assert source.index("sibling") < source.index('shutil.which("yazses-daemon")')
+    # Statement-shaped needles: bare "sibling" occurs three times in that function, so
+    # `.index` would measure whichever came first. See
+    # tests/test_repo_hygiene_source_order_needles.py -- this was its first catch.
+    assert source.index("if sibling.exists():") < source.index(
+        'shutil.which("yazses-daemon")'
+    )

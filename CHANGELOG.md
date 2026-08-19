@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — a source-order assertion must search for something that occurs once
+
+Several guards assert that one thing happens before another by comparing positions in
+`inspect.getsource(...)`. `str.index` returns the **first** match, so if the needle also
+appears in an import line, a comment or a docstring, the comparison measures that instead
+and the guard passes regardless of the order it claims to check.
+
+Three such guards were written and caught in a single day, each only by sabotaging the
+source and watching the test stay green: a needle that also appeared in the function's own
+import block (twice, in two different files), and one that matched an explanatory comment
+written beside the change it was checking.
+
+The rule is mechanical now, in the same spirit as the existing empty-glob guard. Every
+source-order needle in the suite is resolved against the source it actually searches and
+required to occur exactly once — unless the call passes an explicit `start` offset, which is
+a deliberate "the next one after here".
+
+Its first catch was one of the guards added earlier the same day: a bare `"sibling"` that
+occurs three times in the function it searched. Coverage is dynamic, because the ambiguity
+depends on the *target's* source rather than the test's, and a floor on the number of
+resolved sites keeps a broken scan from reading as a clean bill of health.
+
 ### Changed — the enum table records why it is small, and the exclusions are pinned
 
 The closed-set validation added alongside this covers `[injection] backend` and
