@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — one brace in a summary threw away the whole meeting minutes
+
+`_extract_json` pulls the JSON object out of an LLM reply by counting braces, and counted
+them without tracking string context. The first `}` inside any *value* closed the object
+early, `json.loads` failed on the fragment, and `{}` came back:
+
+    {"summary": "the config needs a } here"}   ->  {}
+    {"summary": "use { to open a block"}       ->  {}
+
+Minutes of a technical meeting are exactly where a brace turns up in prose — a config
+snippet, a code fragment, a bit of JSON read aloud — and the loss is silent, because
+`_parse_minutes` turns `{}` into empty `Minutes`. Every field went, not just the summary:
+decisions and action items with it, and `yazses meeting notes` wrote a blank page and
+reported nothing.
+
+The scanner now tracks string context and backslash escapes. Fenced replies, surrounding
+prose and nested objects still work, and genuinely unparseable output still yields `{}`
+rather than a guess.
+
+This is the default path: the grammar-constrained alternative (`[meeting] notes_grammar`)
+is optional.
+
 ### Fixed — a crashed meeting's recovery transcript was unreadable, and unmentioned
 
 `session.py` streams every finalized live line to `live.jsonl` throughout a meeting, and
