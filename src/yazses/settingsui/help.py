@@ -105,6 +105,30 @@ def accessible_description(row) -> str:
     return help_text(row).replace("\n", ". ")
 
 
+#: What "Restore defaults" does NOT touch, named row by row.
+#:
+#: The sentence used to read "your hotkey, microphone, vocabulary and any hand-edited
+#: settings are left alone". That was true when the window held only switches plus a
+#: hotkey and a microphone. The window now carries **nine** value rows, and seven of them
+#: -- speech model, language, compute type, prompt, injection backend, target guard, onset
+#: padding -- went unnamed, described only as "hand-edited". They are not hand-edited: they
+#: are edited in this window, directly above the button.
+#:
+#: It matters because those seven are the settings most likely to have broken dictation in
+#: the first place. Someone who set `compute_type` to something their CPU cannot do,
+#: clicks Restore defaults, clicks Apply and restarts is still broken, with no way to know
+#: the reset never covered it.
+#:
+#: `tests/test_reset_scope_names_every_value_row.py` derives the row list from a real
+#: window, so a value row added later cannot quietly fall out of this sentence again.
+RESET_SCOPE = (
+    "This restores the capability switches only — the settings above them (hotkey, "
+    "microphone, speech model, language, compute type, initial prompt, injection "
+    "backend, text-target guard, onset padding) and your vocabulary keep their "
+    "current values."
+)
+
+
 def reset_message(diff: Sequence[tuple[str, bool]], labels: Mapping[str, str]) -> str:
     """The confirmation body for "Restore defaults" — names every row it touches.
 
@@ -120,10 +144,7 @@ def reset_message(diff: Sequence[tuple[str, bool]], labels: Mapping[str, str]) -
         lines.append(f"Turn ON ({len(turning_on)}):  " + ", ".join(sorted(turning_on)))
     if turning_off:
         lines.append(f"Turn OFF ({len(turning_off)}):  " + ", ".join(sorted(turning_off)))
-    lines.append(
-        "\nNothing is written until you click Apply, and your hotkey, microphone, "
-        "vocabulary and any hand-edited settings are left alone."
-    )
+    lines.append("\nNothing is written until you click Apply. " + RESET_SCOPE)
     return "\n".join(lines)
 
 

@@ -6,6 +6,33 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — "Restore defaults" left seven Settings rows untouched without naming them
+
+The reset confirmation ended with *"your hotkey, microphone, vocabulary and any hand-edited
+settings are left alone"*. That was accurate when the window held switches plus a hotkey and
+a microphone. It now carries **nine** value rows, and seven — speech model, language, compute
+type, initial prompt, injection backend, text-target guard, onset padding — went unnamed,
+covered only by "any hand-edited settings".
+
+They are not hand-edited: they are edited *in this window*, on the rows directly above the
+button.
+
+It matters because those seven are the settings most likely to have broken dictation in the
+first place — a `compute_type` the CPU cannot do is reported as a missing *model*, a
+`language` mismatched to an `.en` checkpoint transliterates into fluent nonsense with no
+error, an injection backend of `clipboard` is a no-op in a terminal. Someone in that state
+resets, applies, restarts, and is still broken with nothing saying the reset never covered
+it.
+
+All nine are named now, and `tests/test_reset_scope_names_every_value_row.py` derives the
+row list from a real window — so a value row added later fails until it is named, which is
+exactly how the seven fell out.
+
+Also audited clean this pass: the Settings window renders all 147 capabilities with a label
+and a tooltip, and every one of the 63 non-toggleable rows is genuinely disabled in Qt, with
+a tooltip explaining that toggling it "would write a config key nothing reads, so it is
+shown, not offered".
+
 ### Fixed — subtitles were emitted as single lines of up to 80 characters
 
 Measured on a real 162-second recording through `yazses transcribe --format srt`: 22 cues,
