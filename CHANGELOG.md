@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — "undo that sentence" deleted the whole burst when it ended in a full stop
+
+`_trailing_count` found the last sentence terminator with `rfind` over the whole string,
+then refused it when it sat in the final position — which is exactly where a completed
+sentence puts one. The fallback then deleted everything:
+
+    "One. Two three."   ->  15 backspaces, the whole burst gone
+    "One. Two three"    ->  11 backspaces, leaving "One."       (correct)
+
+So the feature worked only on a burst whose final sentence had **no** terminator, and
+dictation ends sentences with one — from voice punctuation or from Whisper's own. The
+common case was the broken one, and the failure removes text the user did not ask to
+remove.
+
+The search now ignores the burst's own final terminator, so the boundary found is the one
+*between* sentences.
+
+`test_undo_word_and_sentence` used `"Hello world. Bye now"` — no trailing period — so it
+pinned the intended semantics exactly and never exercised the shape that failed. It passes
+unchanged.
+
 ### Fixed — approving one `tune` proposal changed two settings
 
 `set_toml_key` substituted the key **anywhere in the file**, with no section scope and no
