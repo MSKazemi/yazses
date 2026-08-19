@@ -2072,19 +2072,17 @@ class Daemon:
 
         if not self._config.audio.silent_streak_notify:
             return
-        if healed:
-            body = (
-                f"Heard nothing on '{active}' {streak}× in a row.\n"
-                f"Switched capture back to '{last_good}' (last worked).\n"
-                "Not right? Pin a mic:  yazses audio use <name>"
-            )
-            self._notify_mic("🔇 Mic recovered", body)
-        else:
-            body = (
-                f"Heard nothing {streak}× in a row — your mic may have changed.\n"
-                "Fix it:  yazses mic-level --set   ·   yazses audio devices"
-            )
-            self._notify_mic("🔇 Dictation isn't hearing you", body)
+        # One implementation for every surface. `yazses audio status` used to phrase
+        # this fault differently and name no command at all, so the advice `yazses
+        # status` sends you to was a dead end.
+        from yazses.audio.device_monitor import silent_streak_advice
+
+        headline, remedies = silent_streak_advice(
+            streak, active=active, last_good=last_good, healed=healed
+        )
+        body = "\n".join([headline, *remedies])
+        title = "🔇 Mic recovered" if healed else "🔇 Dictation isn't hearing you"
+        self._notify_mic(title, body)
 
     def _note_good_capture(self) -> None:
         """A clip produced usable audio — reset the streak, remember the device."""

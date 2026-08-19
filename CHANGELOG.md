@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the advice for a silent-clip streak led to a dead end
+
+Found on a running daemon. `yazses status` reported:
+
+    ⚠ mic:    2 silent clips in a row — run `yazses audio status`
+
+and `yazses audio status` answered *"⚠ silent clips in a row: 2 — mic may have changed."*
+and nothing else. A diagnosis with no remedy, at the end of a hop the product told you to
+take. The one surface that named a command was the desktop toast, which fires once, at
+`silent_streak_threshold` (default 3) — a streak the CLI already displays from 1.
+
+Three surfaces, three phrasings of one fault. Both now come from one pure function
+(`audio/device_monitor.py::silent_streak_advice`), the way the meeting/diarization advice
+was already consolidated so the daemon and the CLI cannot drift.
+
+**The cause was also asserted rather than known.** A silent discard is by definition
+`mean(|audio|) < vad_threshold`, which has exactly three causes: nothing was said, the gate
+sits above your voice, or capture is not receiving that microphone. *"Your mic may have
+changed"* is only the third — and on a typical Linux desktop it is the one YazSes can least
+confirm, because the OS default is a routing alias whose name does not change when the
+device behind it does. `yazses audio status` printed that warning two lines above the guess.
+All three are named now, with the command for each.
+
 ### Fixed — `windowctl` ignored its own toggle, and still advertised commands it cannot run
 
 **`features disable windowctl` was a no-op.** Nothing read `[windowctl] enabled`.

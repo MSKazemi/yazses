@@ -47,6 +47,51 @@ class SilentStreakTracker:
         return threshold > 0 and self._streak >= threshold
 
 
+def silent_streak_advice(
+    streak: int,
+    *,
+    active: str | None = None,
+    last_good: str | None = None,
+    healed: bool = False,
+) -> tuple[str, list[str]]:
+    """One ``(headline, remedies)`` for a run of silent clips, for every surface.
+
+    There were three phrasings of this fault and they disagreed. `yazses status` said
+    *"run `yazses audio status`"*; `yazses audio status` then said *"mic may have
+    changed"* and stopped, offering **no remedy at all** -- so following the product's
+    own advice chain reached a dead end. Only the desktop toast named a command, and it
+    fires once, at a streak the CLI does not wait for.
+
+    It also asserted a cause it cannot know. A silent discard is by definition
+    ``mean(|audio|) < vad_threshold``, which has exactly three causes:
+
+      1. nothing was said (the key was held early, or released late),
+      2. the gate sits above this voice -- `mic-level --set` measures and moves it,
+      3. capture is not receiving this microphone -- it is muted, or the wrong device.
+
+    "Your mic may have changed" is only the third, and on a typical Linux desktop it is
+    the one YazSes can least confirm: the OS default is a routing alias whose name does
+    not change when the device behind it does (`devices.is_routing_alias`). `yazses audio
+    status` printed that warning two lines above the guess. All three are named now, in
+    the order a user can act on them, and the caller decides how many lines it can show.
+
+    Pure: no config, no IPC, no hardware -- so both the toast and the CLI can call it.
+    """
+    if healed and last_good:
+        headline = f"Heard nothing on {active or 'the current mic'} {streak}x in a row."
+        return headline, [
+            f"Switched capture back to '{last_good}' (the last one that worked).",
+            "Not right?  yazses audio use <name>",
+        ]
+    headline = f"Heard nothing {streak}x in a row."
+    return headline, [
+        "Nothing was said, or the silence gate is above your voice, or capture is not "
+        "getting this mic.",
+        "Check the gate:   yazses mic-level --set",
+        "Check the mic:    yazses audio devices   then   yazses audio use <name>",
+    ]
+
+
 def device_changed(prev: str | None, cur: str | None) -> bool:
     """True when the default input device meaningfully changed.
 

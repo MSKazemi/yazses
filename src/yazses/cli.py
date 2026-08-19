@@ -2468,7 +2468,14 @@ def audio_status() -> None:
     typer.echo(f"Last-good mic: {info.get('last_good_device') or '(none yet)'}")
     streak = info.get("silent_streak") or 0
     if streak:
-        typer.echo(f"⚠ silent clips in a row: {streak} — mic may have changed.")
+        from yazses.audio.device_monitor import silent_streak_advice
+
+        # The count is already the line's subject, so only the remedies are borrowed
+        # -- the headline would repeat it.
+        _headline, remedies = silent_streak_advice(streak)
+        typer.echo(f"⚠ silent clips in a row: {streak}")
+        for line in remedies:
+            typer.echo(f"               {line}")
 
 
 hotkey_app = typer.Typer(
