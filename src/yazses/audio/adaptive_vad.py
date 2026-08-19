@@ -78,6 +78,18 @@ class AdaptiveThreshold:
         proposed = max(loudest * self.safety_factor, self.min_threshold)
         if proposed >= current:
             return None  # no actual improvement to offer
+        if proposed > loudest:
+            # The floor raised the proposal above the bursts it was meant to rescue, so
+            # they would still be discarded at it. That is not "a threshold that would
+            # have let the rejected bursts through" -- it is a lower gate bought for
+            # nothing, and a lower gate admits room noise, which the model answers with
+            # invented text.
+            #
+            # It is reached exactly in the case this class is careful to exclude
+            # elsewhere: a muted or dead microphone, whose bursts sit at the digital
+            # noise floor. Levels around 0.00002 against a floor of 0.0005 proposed
+            # 0.0005 -- twenty-five times above the audio it claimed to admit.
+            return None
         return proposed
 
     def reset(self) -> None:

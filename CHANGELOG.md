@@ -6,6 +6,25 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the adaptive silence gate could lower itself for no benefit
+
+`AdaptiveThreshold.suggest` promises *"a threshold that would have let the rejected bursts
+through"*. It computed `max(loudest * safety_factor, min_threshold)` and returned it
+whenever it was below the current gate — without checking that the floor had not raised it
+back above the audio it was meant to rescue.
+
+With a muted or dead microphone the bursts sit at the digital noise floor. Levels around
+0.00002 against a floor of 0.0005 proposed **0.0005** — twenty-five times above the audio
+it claimed to admit, so those bursts would still be discarded at the new gate.
+
+The change bought nothing and cost something: a lower silence gate admits more room noise,
+and near-silence reaching the model is answered with invented text.
+
+This is exactly the case the class is careful about everywhere else — its own docstring
+warns that the same symptom comes from a muted microphone, "where lowering the gate fixes
+nothing and only makes the next failure noisier" — and the floor let it through anyway. A
+proposal that would not admit the loudest rejected burst is now refused.
+
 ### Fixed — an acronym and a Title-Case word produced identical braille
 
 `_encode_word` emitted one capital indicator whenever the first letter was upper case. In
