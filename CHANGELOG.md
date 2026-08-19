@@ -6,6 +6,23 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — an LLM rewrite could change a number and pass the guard meant to catch it
+
+`_tokens_preserved` checked that each meaning-critical token still appeared in the output
+with a plain substring test. That is right for a word and wrong for a number:
+`"100" in "1000"` is True, so
+
+    "transfer 100 dollars"  ->  "Transfer 1000 dollars."   accepted
+    "upgrade to v2.1"       ->  "Upgrade to v2.10."        accepted
+
+An amount changed by an order of magnitude, in dictated text, waved through by the one
+check whose purpose is that such tokens survive.
+
+A token carrying a digit must now match on a word boundary. Anything else keeps the
+lenient test deliberately — "API" surviving as "APIs" is ordinary reformatting, and
+tightening that would reject rewrites the feature exists to make. A trailing sentence
+period, currency prefix and percent suffix all still pass.
+
 ### Fixed — autopair appended a stray apostrophe to "it's"
 
 `balance_delimiters` tracked `'` in the same stack as brackets, so every apostrophe read
