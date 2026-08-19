@@ -1301,9 +1301,20 @@ def features_enable(
     platform = get_platform()
     cfg = load_config(platform.paths.config_file)
     feat = find_feature(cfg, name)
-    if feat is None or not feat.toggleable:
+    if feat is None:
         typer.echo(
             f"Unknown feature {name!r}. Toggle names: {', '.join(toggleable_slugs())}",
+            err=True,
+        )
+        raise typer.Exit(1)
+    if not feat.toggleable:
+        # Was folded into the "Unknown feature" branch above, which is false: the
+        # capability exists, `yazses features` lists it and `features info` describes
+        # it. Only `enable`/`disable` claimed it did not exist -- and answered with a
+        # dump of every other name, which is no help to someone who typed a real one.
+        typer.echo(
+            f"{feat.name} is always on and cannot be toggled — it is what YazSes does. "
+            f"See `yazses features info {feat.slug}`.",
             err=True,
         )
         raise typer.Exit(1)
@@ -1432,9 +1443,20 @@ def features_disable(
     platform = get_platform()
     cfg = load_config(platform.paths.config_file)
     feat = find_feature(cfg, name)
-    if feat is None or not feat.toggleable:
+    if feat is None:
         typer.echo(
             f"Unknown feature {name!r}. Toggle names: {', '.join(toggleable_slugs())}",
+            err=True,
+        )
+        raise typer.Exit(1)
+    if not feat.toggleable:
+        # Was folded into the "Unknown feature" branch above, which is false: the
+        # capability exists, `yazses features` lists it and `features info` describes
+        # it. Only `enable`/`disable` claimed it did not exist -- and answered with a
+        # dump of every other name, which is no help to someone who typed a real one.
+        typer.echo(
+            f"{feat.name} is always on and cannot be toggled — it is what YazSes does. "
+            f"See `yazses features info {feat.slug}`.",
             err=True,
         )
         raise typer.Exit(1)

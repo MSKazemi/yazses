@@ -6,6 +6,34 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `features enable dictation` said the capability does not exist
+
+Found by sweeping `features enable` across all 147 catalog entries against a scratch
+config. 67 were refused and 66 refusals were correct and well-worded — experimental ones
+name the `--force` escape, unwired ones explain that enabling would change nothing. One was
+not:
+
+    $ yazses features enable dictation
+    Unknown feature 'dictation'. Toggle names: … (147 names)
+
+`dictation` is the **core** capability. `yazses features` lists it, `features info
+dictation` describes it, and `feature_status()` returns it. Only `enable` and `disable`
+claimed it did not exist — and answered with a dump of every other name, which is no help
+to someone who typed a real one.
+
+One condition was doing two jobs (`if feat is None or not feat.toggleable`). "Does not
+exist" and "exists but is not a switch" are different facts with different remedies, and
+the second is the one a user can act on: there is nothing to fix, the capability is already
+on. A genuinely unknown name still says so, and that direction has its own test.
+
+Also swept clean in the same pass: all 147 entries render under `features info`; enabling
+each of the 80 toggleable ones produces **zero** config problems on reload, so the
+comment-preserving TOML writer is sound across every section it touches; the JSON-RPC IPC
+server survives 16 kinds of malformed request with a bounded read, a timeout and no crash;
+and `system/updater.py` detects this machine's install method correctly and verifies an
+upgrade out-of-process, which is the only way to see a version that changed under a running
+interpreter.
+
 ### Fixed — `shellpipe` advertised a "run it" step that does not exist
 
 The capability catalog said *"renders 'ls | grep error | wc -l' as text; nothing runs until
