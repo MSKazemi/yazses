@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — every voice command was a silent no-op in remote mode
+
+`RemoteInjectorProxy` is the injector the daemon uses while forwarding to an SSH host, and
+two of its three methods were stubs:
+
+    def inject_backspaces(self, count): pass  # Not forwarded in v0.3.0
+    def inject_key_sequence(self, keys): pass  # Not forwarded in v0.3.0
+
+`commands/dispatch.py` routes everything that is **not** DICTATE through
+`inject_key_sequence`, so "save", "copy", "paste" and "undo" reached that `pass` and
+stopped. Dictation kept working, which is what made it invisible: the user says "save",
+is watching the *remote* screen, and nothing happens and nothing is said.
+
+It was never a missing capability — `remote/inject.py`, the injector on the remote host,
+has implemented both all along. The agent's JSON-RPC dispatch simply had no method for
+them, so there was no way to ask. It now accepts `keys` and `backspaces`, and the proxy
+sends them.
+
+An older agent answers `Method not found`, which the client already logs and survives, so
+a new local YazSes against an old remote degrades to the previous behaviour rather than
+failing. Empty sequences never reach the wire.
+
 ### Fixed — re-enrolling a meeting participant destroyed the first voiceprint in silence
 
 `enroll_participant` writes to a path derived from the display name, with no existence
