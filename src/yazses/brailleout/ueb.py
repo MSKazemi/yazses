@@ -19,6 +19,12 @@ _PUNCT = {
 }
 _DIGITS = {d: _LETTERS[l] for d, l in zip("1234567890", "abcdefghij")}
 _CAPITAL = "⠠"
+#: UEB's *capitals word indicator*: dot-6 twice, marking the whole word as capitalised.
+#: A single ``⠠`` capitalises only the letter after it, so an all-caps word emitted with
+#: one indicator reads back as Title Case -- "ABC" and "Abc" produced the SAME cells, and
+#: a reader on a refreshable display or an embossed page has no way to tell. Acronyms are
+#: common in dictation, and this is output nobody sighted proofreads.
+_CAPITAL_WORD = _CAPITAL * 2
 _NUMBER = "⠼"
 
 # UEB strong/alphabetic wordsigns — standalone whole words only.
@@ -40,7 +46,15 @@ _MAX_GROUP = max(len(k) for k in _GROUPSIGNS)
 
 def _encode_word(word: str, grade: int) -> str:
     lower = word.lower()
-    prefix = _CAPITAL if word[:1].isupper() else ""
+    # A single capital letter takes one indicator; a word in capitals takes the capitals
+    # WORD indicator. `word.isupper()` is False for a one-letter word only if that letter
+    # is not a capital, so "I" and "A" correctly fall through to the single form.
+    if word.isupper() and len(word) > 1:
+        prefix = _CAPITAL_WORD
+    elif word[:1].isupper():
+        prefix = _CAPITAL
+    else:
+        prefix = ""
     if grade >= 2 and lower in _WORDSIGNS:
         return prefix + _WORDSIGNS[lower]
     out = [prefix]

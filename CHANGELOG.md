@@ -6,6 +6,25 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — an acronym and a Title-Case word produced identical braille
+
+`_encode_word` emitted one capital indicator whenever the first letter was upper case. In
+UEB a single `⠠` capitalises **only the letter after it**; a word in capitals takes the
+*capitals word indicator*, `⠠⠠`. So:
+
+    "ABC"  ->  ⠠⠁⠃⠉
+    "Abc"  ->  ⠠⠁⠃⠉      identical
+
+A reader got "Abc" either way, on a refreshable display or an embossed page, with no way
+to tell which was written. Acronyms are common in dictated text — "API", "NASA", "PDF" —
+and this is output nobody sighted proofreads, which is why it stayed wrong.
+
+"I" and "A" keep the single indicator: they are one letter, not a word in capitals.
+
+Not fixed: a mixed-case word ("McDonald") still takes one leading indicator where UEB
+marks each capital individually. That needs per-letter handling rather than a prefix, and
+unlike the all-caps case it is visibly under-marked rather than silently ambiguous.
+
 ### Fixed — `yazses tune` offered to delete the word "this" from every dictation
 
 `_propose_disfluency` counts words that appeared in a wrong transcript and not in the
