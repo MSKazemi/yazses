@@ -6,6 +6,24 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the overlay's envelope follower is pinned as adaptive
+
+Two indicators read the same `audio_level`: the tray's level ring and the overlay's rings.
+The ring mapped it against a fixed multiple of the gate and read full on 44% of real bursts
+at the default threshold; the overlay normalises against an adaptive peak and does not.
+
+Measured on a real 162-second recording, chunked the way the daemon chunks it (2537
+readings): median intensity 0.35 at a 0.01 threshold and 0.42 at 0.0005 — **a 20× change in
+the gate barely moves the output**, with 0% pegged at either. That is the property worth
+protecting: brightness tracks *loud for this speaker* rather than an absolute level, so a
+badly-set gate degrades the rings gently instead of pinning them.
+
+The two components needed different answers to the same problem, and the file says so: the
+ring must put the gate at a **fixed point on its circumference** — "past the notch" has to
+mean the same thing on every microphone — so it cannot normalise adaptively, and got a
+logarithmic absolute scale instead. Recorded so the two are not later "unified" into one
+broken shape.
+
 ### Fixed — the tray's input-level ring read full for ordinary speech
 
 The ring exists because the five badge colours all say what YazSes is *doing* and none says
