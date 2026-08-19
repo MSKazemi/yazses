@@ -8,6 +8,19 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `doctor` warned about a dead hotkey and then closed by telling you to hold it. The
+  `Hotkey` row was taught to compare the configured key against the running daemon's; the
+  **summary line** — the last thing read, and the only one carrying a command — still built
+  its *"hold X to dictate"* hint from the config file. On a drifted machine the run ended
+  `▲ Good to go (3 optional warnings above) — you're all set — hold right_alt to dictate.`
+  one line below the warning explaining that `right_alt` does nothing. It also filed the
+  drift under *optional*, alongside a missing accessibility package: one is cosmetic and the
+  other means dictation does not work at all, and lumping them together is what teaches a
+  reader to skim past both. The summary now leads with `▲ Dictation will not work until you
+  restart` and puts `yazses restart` **before** the key in the sentence, since the
+  configured key is the right one to hold only after the restart. A machine with no drift
+  keeps its green line unchanged.
+
 - `hotkey show` and `quickstart` told you to hold a key that does nothing. `doctor` was
   taught to compare the configured hotkey against the one the running daemon is bound to;
   it was not the only surface reading the wrong source. Measured mid-drift on a real

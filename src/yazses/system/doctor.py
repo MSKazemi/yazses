@@ -1048,6 +1048,14 @@ def _verdict_line(checks: list[_Check], cfg, platform) -> str:
     daemon = next((c for c in checks if c[0] == "Daemon"), None)
     running = daemon is not None and daemon[2].startswith(_RUNNING_PREFIX)
     stale = daemon is not None and running and daemon[1] == "WARN"
+    # The `Hotkey` row is WARN for exactly one reason -- the running daemon is bound to a
+    # different key than the file configures (`hotkey_drift_note`). It matters here and
+    # not only there, because this line is the last thing read and the only one acted on:
+    # it used to close a run that had just explained the configured key does nothing with
+    # "you're all set -- hold <that key> to dictate". Naming the dead key is bad; naming
+    # it as the closing instruction, one line below the warning, is worse than silence.
+    hotkey_row = next((c for c in checks if c[0] == "Hotkey"), None)
+    drifted = hotkey_row is not None and hotkey_row[1] == "WARN"
     # Resolve the hotkey for the "hold X to dictate" hint (sentinels → default).
     key = getattr(getattr(cfg, "hotkey", None), "key", "") or ""
     if key in ("", "auto"):
@@ -1063,14 +1071,23 @@ def _verdict_line(checks: list[_Check], cfg, platform) -> str:
         )
     if not running:
         start_hint = f"run `yazses start`, then {dictate_hint}"
+    elif drifted:
+        # `dictate_hint` names the configured key, which is correct *after* the restart
+        # and only after it -- so the restart has to come first in the sentence.
+        start_hint = f"run `yazses restart` to bind the key you configured, then {dictate_hint}"
     elif stale:
         start_hint = f"run `yazses restart` to pick up the upgrade, then {dictate_hint}"
     else:
         start_hint = "you're all set — " + dictate_hint
     if warns:
         n = warns
-        return _c(
-            f"▲ Good to go ({n} optional warning{'s' if n != 1 else ''} above) — {start_hint}.",
-            "yellow", "bold",
+        # "Good to go (N optional warnings)" is right for a missing AT-SPI package and
+        # wrong for this: dictation does nothing at all until the daemon is restarted, so
+        # the summary must not file it under optional alongside the cosmetic ones.
+        lead = (
+            "▲ Dictation will not work until you restart"
+            if drifted
+            else f"▲ Good to go ({n} optional warning{'s' if n != 1 else ''} above)"
         )
+        return _c(f"{lead} — {start_hint}.", "yellow", "bold")
     return _c(f"✓ Everything looks good — {start_hint}.", "green", "bold")

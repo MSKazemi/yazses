@@ -94,3 +94,76 @@ def test_the_row_stays_green_with_no_daemon(tmp_path):
     """`doctor` runs with the daemon stopped more often than with it running."""
     status, _ = _summary(tmp_path, key="right_alt", live="")["Hotkey"]
     assert status == "OK"
+
+
+# ---- the verdict line, which is the part a user acts on ---------------------
+#
+# The row above was fixed first, and that was not enough. `doctor` prints one closing
+# line -- the summary, the last thing read, the only sentence carrying a command -- and
+# it kept building the "hold X to dictate" hint out of the config file. So a run could
+# WARN that the configured key does nothing and then close with
+#
+#     ▲ Good to go (3 optional warnings above) — you're all set — hold right_alt to dictate.
+#
+# naming the dead key as the closing instruction, one line below the warning, and filing
+# it under *optional* next to a missing AT-SPI package. Found the same way as the row
+# itself: by running the product with the drift still live on the maintainer's machine.
+
+import types
+
+
+def _verdict(*, key: str, live: str, running: bool = True) -> str:
+    """Build the real verdict line from the real rows."""
+    cfg = replace(Config(), hotkey=HotkeyConfig(key=key))
+    hotkey_status = "WARN" if doctor.hotkey_drift_note(key, live, default="right_alt") else "OK"
+    checks = [
+        ("Daemon", "OK", f"{doctor._RUNNING_PREFIX}(PID 1, state idle, model base.en)")
+        if running else ("Daemon", "WARN", "not running"),
+        ("Hotkey", hotkey_status, f"{key} (hold 500 ms)"),
+    ]
+    platform = types.SimpleNamespace(default_hotkey="right_alt")
+    return doctor._verdict_line(checks, cfg, platform)
+
+
+def test_the_verdict_does_not_close_by_naming_the_dead_key_as_the_instruction():
+    line = _verdict(key="right_alt", live="right_ctrl")
+    assert "you're all set" not in line, (
+        "dictation does nothing until the daemon is restarted — got: " + line
+    )
+    assert "yazses restart" in line
+    # The configured key is still named, because it *is* the key to hold -- after the
+    # restart. What must not happen is naming it as the thing to do *now*.
+    assert line.index("yazses restart") < line.index("hold right_alt"), (
+        "the restart has to come before the key in the sentence, or the reader acts on "
+        "the wrong half: " + line
+    )
+
+
+def test_the_verdict_does_not_file_a_dead_hotkey_under_optional():
+    """"Good to go (3 optional warnings)" is right for a missing AT-SPI package. It is
+    wrong for a keyboard shortcut that does nothing, and lumping them together is what
+    teaches a user to skim past both."""
+    line = _verdict(key="right_alt", live="right_ctrl")
+    assert "optional warning" not in line
+    assert "Dictation will not work until you restart" in line
+
+
+def test_a_machine_with_no_drift_is_still_told_it_is_fine():
+    """The warning has to be rare to be read. A correctly configured machine keeps its
+    green line, and a merely-cosmetic warning keeps the old wording."""
+    line = _verdict(key="right_ctrl", live="right_ctrl")
+    assert "Everything looks good" in line
+    assert "you're all set" in line, (
+        "the no-drift wording, asserted positively: checking only that the *green* half "
+        "is present passes just as well when every machine is told to restart — which is "
+        "exactly what a `drifted = True` mutation does, and what this test missed once"
+    )
+    assert "yazses restart" not in line
+    assert "hold right_ctrl to dictate" in line
+
+
+def test_a_stopped_daemon_is_told_to_start_not_to_restart():
+    """No daemon means no drift to detect -- and `restart` is the wrong verb for a
+    machine that has never started one."""
+    line = _verdict(key="right_alt", live="", running=False)
+    assert "yazses start" in line and "yazses restart" not in line

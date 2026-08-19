@@ -772,7 +772,10 @@ yazses restart                    # apply
     `yazses hotkey show` and `yazses quickstart` both ask the running daemon what it is
     actually listening on and warn when the two disagree; `quickstart` goes further and
     tells you to hold the key that **works right now**, not the one in the file.
-    `yazses doctor` turns its `Hotkey` row to `[WARN]` for the same reason.
+    `yazses doctor` turns its `Hotkey` row to `[WARN]` for the same reason, and its
+    closing summary — the line most people actually act on — says
+    *"Dictation will not work until you restart"* rather than filing it under the
+    optional warnings next to a missing accessibility package.
 
     ```text
     Hold-to-talk key:  right_alt  (dictation)
