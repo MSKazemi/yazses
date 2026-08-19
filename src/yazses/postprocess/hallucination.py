@@ -39,21 +39,37 @@ def is_repetition_loop(text: str, min_repeats: int = 3) -> bool:
     """True if the text is dominated by one short phrase repeated ``min_repeats``+ times.
 
     Catches Whisper's degenerate loops ("the the the the", or a clause echoed many times).
-    Requires the repeated unit to cover the whole normalized text. Pure.
+
+    The repeated unit must cover the whole normalized text, **except that the last repeat
+    may be cut short**. That allowance is the difference between catching real loops and
+    catching only tidy ones: the decoder stops at a segment or token boundary, so a real
+    loop usually ends part-way through a repeat. Taken from a live corpus, the text that
+    was actually typed was
+
+        each machete de shiramasun  x3  + "each"
+
+    -- thirteen words. The previous rule required the unit to tile exactly (``n % unit``),
+    and 13 is prime, so a textbook loop scored as ordinary speech and went to the injector.
+
+    The trailing remainder must be a **prefix of the unit**, which is what an interrupted
+    repeat looks like; anything else is a different phrase and the text is left alone.
+    Pure.
     """
     words = _norm(text).split()
     n = len(words)
     if n < min_repeats:
         return False
-    # try unit lengths 1..n//min_repeats; the unit must tile the entire sequence
     for unit in range(1, n // min_repeats + 1):
-        if n % unit != 0:
-            continue
-        reps = n // unit
-        if reps < min_repeats:  # pragma: no cover — unreachable: unit ≤ n//min_repeats ⇒ reps ≥ min_repeats
-            continue
         block = words[:unit]
-        if all(words[i * unit:(i + 1) * unit] == block for i in range(reps)):
+        reps = 0
+        while words[reps * unit:(reps + 1) * unit] == block:
+            reps += 1
+        if reps < min_repeats:
+            continue
+        tail = words[reps * unit:]
+        # An exact tiling (no tail) or a repeat interrupted mid-phrase both count. A tail
+        # that is not the start of the unit means the loop ended and speech resumed.
+        if tail == block[:len(tail)]:
             return True
     return False
 

@@ -6,6 +6,33 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the hallucination guard missed a loop that ends mid-phrase
+
+`is_repetition_loop` required the repeated unit to tile the text **exactly**
+(`if n % unit != 0: continue`). Real loops rarely oblige: the decoder stops at a segment
+or token boundary, so the last repeat is usually cut short. Taken from a live corpus,
+this was **typed into the editor**:
+
+    each machete de shiramasun ×3 + "each"
+
+Thirteen words, and thirteen is prime — no unit divides it, so a textbook degenerate loop
+scored as ordinary speech and reached the injector.
+
+The unit may now be interrupted on its last repeat, provided the remainder is a **prefix
+of the unit** — which is what a cut-off repeat looks like. A tail that is anything else
+means the loop ended and speech resumed, so `the the the cat sat on the mat` is still left
+alone, as is `very very very good`.
+
+`[hallucination] enabled` remains **false** by default; this changes what the guard
+detects when it is on, not whether it is on.
+
+Found by running `yazses transcribe` on a real 1.5-second clip from the corpus: it
+produced **nothing**, while the daemon's stored transcript for the same audio was that
+loop. Isolating the difference showed the pre-speech padding is what provokes it —
+`raw → ''`, `+300 ms of leading silence → "Each machine they should have us in it."`. The
+padding that stops the first word being clipped can also turn near-silence into fabricated
+text, and the guard built to catch the result was missing its commonest shape.
+
 ### Fixed — a destructive-command pattern that could never fire
 
 `assess_command` lower-cases a dictated command before matching, and `_DANGEROUS`
