@@ -195,11 +195,44 @@ def _stale_daemon_note(daemon_version: str) -> str:
 _RUNNING_PREFIX = "running"
 
 
-def _daemon_check(platform) -> _Check:
-    """Report whether the daemon is running, with live state when IPC answers."""
+def hotkey_drift_note(configured: str, running: str | None, *, default: str) -> str | None:
+    """Is the running daemon listening on a different key than the config names?
+
+    The daemon binds its hotkey once, at start, and never re-reads the file. So
+    `yazses hotkey set <k>` without a `yazses restart` leaves the machine in a state
+    no other check notices: you hold the new key, nothing happens, and doctor prints
+    `[OK]` on the key from the file. Both facts were already here -- the configured
+    key on one row and the daemon's own `status` payload two rows above -- and nothing
+    compared them.
+
+    `auto` must be resolved before comparing, or every machine using the platform
+    default reports drift against itself.
+
+    Returns None when there is nothing to say: no daemon running, IPC silent, or the
+    keys agree.
+    """
+    if not running:
+        return None
+    resolved = default if configured == "auto" else configured
+    if resolved == running:
+        return None
+    return (
+        f"config says {resolved!r} but the running daemon is listening on {running!r} — "
+        f"holding {resolved} will do nothing. A hotkey change does not reach a daemon "
+        f"that is already running. Fix: yazses restart"
+    )
+
+
+def _daemon_check(platform) -> tuple[_Check, dict]:
+    """Report whether the daemon is running, with live state when IPC answers.
+
+    Returns the `status` payload alongside the row so later checks can compare what
+    the daemon is *actually* doing against what the config file says. Handing it back
+    rather than calling `status` a second time keeps doctor to one IPC round trip.
+    """
     lifecycle = platform.lifecycle
     if not lifecycle.is_running():
-        return ("Daemon", "WARN", "not running — start with `yazses start`")
+        return ("Daemon", "WARN", "not running — start with `yazses start`"), {}
     pid = lifecycle.read_pid()
     try:
         client = platform.ipc_client_factory(platform.paths.ipc_socket)
@@ -212,11 +245,11 @@ def _daemon_check(platform) -> _Check:
 
         stale = _stale_daemon_note(str(info.get("version") or ""))
         if stale:
-            return ("Daemon", "WARN", f"{_RUNNING_PREFIX} (PID {pid}{suffix}) — {stale}")
-        return ("Daemon", "OK", f"{_RUNNING_PREFIX} (PID {pid}{suffix})")
+            return ("Daemon", "WARN", f"{_RUNNING_PREFIX} (PID {pid}{suffix}) — {stale}"), info
+        return ("Daemon", "OK", f"{_RUNNING_PREFIX} (PID {pid}{suffix})"), info
     except Exception:
         # Running but IPC not yet ready (still loading the model) or unreachable.
-        return ("Daemon", "OK", f"{_RUNNING_PREFIX} (PID {pid}; IPC not ready)")
+        return ("Daemon", "OK", f"{_RUNNING_PREFIX} (PID {pid}; IPC not ready)"), {}
 
 
 def _model_check(model: str, hf_cache: Path) -> _Check:
@@ -355,7 +388,9 @@ def _llm_endpoint_check(cfg) -> list[_Check]:
     )]
 
 
-def _config_summary(cfg, config_file: Path) -> list[_Check]:
+def _config_summary(
+    cfg, config_file: Path, *, live_hotkey: str = "", platform_default: str = ""
+) -> list[_Check]:
     """Surface the active config file, resolved hotkey, and STT prompt status."""
     out: list[_Check] = []
     if config_file.exists():
@@ -367,9 +402,13 @@ def _config_summary(cfg, config_file: Path) -> list[_Check]:
         ))
     out.extend(_config_validity(config_file))
     out.extend(_llm_endpoint_check(cfg))
+    drift = hotkey_drift_note(
+        cfg.hotkey.key, live_hotkey or None, default=platform_default or cfg.hotkey.key
+    )
     out.append((
-        "Hotkey", "OK",
-        f"{cfg.hotkey.key} (hold {cfg.hotkey.hold_threshold_ms} ms)",
+        "Hotkey", "WARN" if drift else "OK",
+        f"{cfg.hotkey.key} (hold {cfg.hotkey.hold_threshold_ms} ms)"
+        + (f" — {drift}" if drift else ""),
     ))
     pinned = (getattr(cfg.audio, "device", "") or "").strip()
     if pinned:
@@ -823,7 +862,8 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     else:
         checks.append(("Platform", "OK", platform.name))
     checks.append(_version_check())
-    checks.append(_daemon_check(platform))
+    daemon_row, daemon_info = _daemon_check(platform)
+    checks.append(daemon_row)
     autostart = _autostart_check(platform)
     if autostart is not None:
         checks.append(autostart)
@@ -921,7 +961,12 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
 
     # Active config file, hotkey, and STT prompt summary.
     if cfg is not None:
-        checks.extend(_config_summary(cfg, paths.config_file))
+        checks.extend(_config_summary(
+            cfg,
+            paths.config_file,
+            live_hotkey=str(daemon_info.get("hotkey") or ""),
+            platform_default=getattr(platform, "default_hotkey", ""),
+        ))
 
     # EMG serial port (when configured)
     try:

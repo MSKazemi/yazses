@@ -39,7 +39,7 @@ def _fake_platform(*, running: bool, pid=4242, status_info=None, raise_ipc=False
 
 
 def test_daemon_check_warns_when_not_running():
-    name, status, detail = doctor._daemon_check(_fake_platform(running=False))
+    (name, status, detail), _info = doctor._daemon_check(_fake_platform(running=False))
     assert status == "WARN"
     assert "not running" in detail.lower()
     assert "yazses start" in detail.lower()
@@ -58,16 +58,21 @@ def test_daemon_check_reports_state_via_ipc():
             "version": doctor._pkg_version("yazses"),
         },
     )
-    name, status, detail = doctor._daemon_check(plat)
+    (name, status, detail), _info = doctor._daemon_check(plat)
     assert status == "OK"
     assert "1234" in detail
     assert "idle" in detail
     assert "small.en" in detail
+    # The payload comes back with the row so later checks can compare the daemon's
+    # live values against the config file without a second IPC round trip. Dropping
+    # it is how `doctor` came to print `[OK]` on a hotkey nobody was listening for
+    # (tests/test_doctor_hotkey_drift.py).
+    assert _info.get("state") == "idle"
 
 
 def test_daemon_check_ok_when_ipc_unreachable():
     plat = _fake_platform(running=True, pid=99, raise_ipc=True)
-    name, status, detail = doctor._daemon_check(plat)
+    (name, status, detail), _info = doctor._daemon_check(plat)
     assert status == "OK"
     assert "99" in detail
 

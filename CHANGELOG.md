@@ -8,6 +8,16 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `doctor` printed `[OK]` on a hotkey that did nothing. The daemon reads `[hotkey] key`
+  once, when it starts, and never again — so `yazses hotkey set` without a `yazses restart`
+  leaves you holding the key you just configured while the daemon still listens for the old
+  one. `doctor` had both facts in front of it: the configured key on its `Hotkey` row, and
+  the daemon's own resolved key inside the `status` payload it already reads the PID, state
+  and model from. It never compared them, so the one command a user runs to ask *is
+  everything fine* answered yes for the single failure they cannot otherwise diagnose. The
+  row now turns `[WARN]`, names both keys, and gives the fix. `auto` is resolved to the
+  platform default first, so a correctly configured machine stays green.
+
 - The macOS `.app` could not name its own version. PyInstaller bundles no `.dist-info`
   unless the spec asks for it, so inside the frozen bundle every reader of
   `importlib.metadata.version("yazses")` met `PackageNotFoundError` — `--version`, the
