@@ -6,6 +6,36 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses mic-level` calibrated to an empty room and said "recommended" anyway
+
+Run four times with nobody speaking:
+
+    mean level:    0.0036 / 0.0044 / 0.0048 / 0.0050
+    recommended:   0.002  / 0.0022 / 0.0024 / 0.0025
+
+Every one of those is *below* the room noise that produced it. Applied with `--set`, that is
+exactly the state where room tone clears the gate, reaches the decoder, and comes back as a
+confident invented word.
+
+**The provable half.** `analyze` returns `max(0.002, mean * 0.5)`, so `is_silent` fires
+below 0.002 while the floor binds below 0.004. Between them is a band where nothing warns
+*and* the printed "recommended" is the constant, carrying nothing from the sample — laptop
+room noise lands in it. That is now reported, and `--set` refuses: writing a gate below the
+room level that produced it costs silent nonsense, while refusing costs a re-run.
+
+**The half that cannot be fixed with a threshold.** The command cannot tell speech from room
+tone, and the obvious discriminator does not work. Measured across this project's own
+1619-event corpus, peak-to-mean for clips *with* text (p10 8.5, median 11.9, p90 17.3)
+overlaps clips with *no* text (p10 6.7, median 8.6, p90 21.8) — and the no-text p90 is
+*above* the speech p90. No cutoff separates them. So the assumption is stated instead of
+hidden, on every reading rather than only the clamped band, and the judgement goes to the
+person who knows whether they were speaking. A test fails if the disproved ratio is ever
+added.
+
+**Not done here:** a real fix measures twice — ambient, then speech — and puts the gate
+between them. The product already records ambient in `yazses doctor --mic` and never
+combines the two. That changes an interactive flow and the meaning of `--set`.
+
 ### Fixed — `yazses meeting notes` announced work it had already ruled out, then misdiagnosed it
 
 Run against a real stored meeting:

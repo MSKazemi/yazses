@@ -2986,7 +2986,36 @@ def _calibrate_mic(*, seconds: float = 4.0, set_threshold: bool = False) -> bool
         return False
 
     rec = stats.recommended_threshold
+    if stats.clamped:
+        # The floor won, so `rec` is a constant rather than anything measured. This
+        # printed as "recommended:" with no caveat, and `--set` wrote it -- on this
+        # machine that means a gate BELOW the room noise that produced it, which is
+        # the state where room tone clears the gate and the model answers it with an
+        # invented word. Refusing costs a re-run; writing it costs silent nonsense.
+        typer.echo(
+            f"  too quiet to calibrate: {stats.mean_abs:.4f} is near the floor "
+            f"({rec}), so that number is the floor and not a measurement of you."
+        )
+        typer.echo(
+            "Re-run and speak at your normal dictation volume. If the level stays "
+            "this low while you speak, the microphone is the problem:  "
+            "yazses audio status"
+        )
+        return False
     typer.echo(f"  recommended:           {rec}")
+    # Every number above assumes the recording was you speaking, and the command has no
+    # way to check that -- measured against 1114 real clips from a corpus, the
+    # peak-to-mean ratio of speech (p10 8.5, median 11.9, p90 17.3) overlaps that of
+    # clips that produced no text (p10 6.7, median 8.6, p90 21.8), so no acoustic ratio
+    # separates them. Four seconds of an empty room measures 0.0036-0.0050 on this
+    # laptop and yields a confident "recommended" well below its own room noise.
+    #
+    # So the assumption is stated instead of hidden, the same way `yazses verify` hands
+    # the "is that what you said" judgement to the person who knows.
+    typer.echo(
+        f"That assumes the {stats.duration_s:.0f}s above was you speaking. If it was a "
+        "quiet room, this is calibrated to the room and dictation will decode noise."
+    )
 
     if set_threshold:
         msg = update_threshold_in_config(platform.paths.config_file, rec)

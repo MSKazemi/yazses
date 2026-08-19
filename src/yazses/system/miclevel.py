@@ -31,15 +31,27 @@ class LevelStats:
     peak: float
     recommended_threshold: float
     is_silent: bool          # true if essentially no signal was captured
+    # True when the floor won, i.e. `mean_abs * _HEADROOM < _MIN_THRESHOLD`. The
+    # "recommendation" is then the constant, carrying nothing from the sample.
+    #
+    # There is a band -- mean between _MIN_THRESHOLD and _MIN_THRESHOLD/_HEADROOM,
+    # here 0.002 to 0.004 -- where `is_silent` is False, so nothing warns, and the
+    # clamp has bound, so the number is not a measurement. Ambient room noise on a
+    # laptop lands in it: recording four seconds of an empty room measured 0.0036
+    # and reported "recommended: 0.002" with no caveat, which is BELOW the room
+    # level that produced it.
+    clamped: bool = False
 
 
 def analyze(audio: np.ndarray, sample_rate: int) -> LevelStats:
     """Compute level statistics and a recommended VAD threshold for a sample."""
     if audio.size == 0:
-        return LevelStats(0.0, 0.0, 0.0, _MIN_THRESHOLD, is_silent=True)
+        return LevelStats(0.0, 0.0, 0.0, _MIN_THRESHOLD, is_silent=True, clamped=True)
     mean_abs = float(np.abs(audio).mean())
     peak = float(np.abs(audio).max())
-    recommended = max(_MIN_THRESHOLD, round(mean_abs * _HEADROOM, 4))
+    from_sample = round(mean_abs * _HEADROOM, 4)
+    recommended = max(_MIN_THRESHOLD, from_sample)
+    clamped = from_sample < _MIN_THRESHOLD
     # Below the floor there is no usable signal to calibrate against.
     is_silent = mean_abs < _MIN_THRESHOLD
     return LevelStats(
@@ -48,6 +60,7 @@ def analyze(audio: np.ndarray, sample_rate: int) -> LevelStats:
         peak=peak,
         recommended_threshold=recommended,
         is_silent=is_silent,
+        clamped=clamped,
     )
 
 
