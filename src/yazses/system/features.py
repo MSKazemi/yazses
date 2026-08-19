@@ -616,7 +616,12 @@ def _registry() -> list[_Def]:
              "Balances brackets/quotes in dictated code and wraps a selection ('wrap this in "
              "parens'). Off by default.",
              lambda c: c.autopair.enabled, apr_on, apr_off),
-        _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut by voice", RECOMMENDED,
+                # OPTIONAL, not RECOMMENDED. The recommended tier is what `firstrun` writes into
+        # a fresh config, and nothing reads `[chords] enabled` -- `yazses chords` is a CLI
+        # command that renders a chord and never consults it. Seeding it made every new
+        # install carry a key that does nothing while `yazses features` listed the
+        # capability as ON, and contradicted this entry's own "Off by default".
+_Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut by voice", OPTIONAL,
              "Say any shortcut and it's pressed — 'press control shift P', 'escape twice', 'hit "
              "F5' — no macro registration needed. Off by default.",
              lambda c: c.chords.enabled, chd_on, chd_off),

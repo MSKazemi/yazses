@@ -212,16 +212,21 @@ def test_restore_defaults_stages_the_drift_and_writes_nothing_yet(qapp):
     # each direction and check only what those two did.
     win._on_restore_defaults()
     from_clean = dict(win._pending.items())
-    assert from_clean.get("chords") is True, "a recommended feature resets ON"
+    # The exemplar is DERIVED, not named. This used to hardcode "chords", which stopped
+    # being recommended the moment that tier was corrected (nothing reads its config key,
+    # so seeding it did nothing) -- and the test then failed for a reason that had nothing
+    # to do with Restore defaults. Any staged-on row proves the same thing.
+    recommended = next(slug for slug, want in from_clean.items() if want is True)
+    assert from_clean[recommended] is True, "a recommended feature resets ON"
 
     win2 = _window(qapp, rec)
-    win2._checkboxes["streaming"].setChecked(True)   # optional, ships off
-    win2._checkboxes["chords"].setChecked(True)      # recommended, already staged on
+    win2._checkboxes["streaming"].setChecked(True)      # optional, ships off
+    win2._checkboxes[recommended].setChecked(True)      # recommended, already staged on
     win2._on_restore_defaults()
 
     assert rec.writes == [], "Restore defaults must stage, never write"
     assert win2._checkboxes["streaming"].isChecked() is False
-    assert win2._checkboxes["chords"].isChecked() is True
+    assert win2._checkboxes[recommended].isChecked() is True
     assert dict(win2._pending.items()) == from_clean
     assert "staged" in win2._hint.text()
 

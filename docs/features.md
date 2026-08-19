@@ -772,7 +772,7 @@ YazSes ships **147 capabilities**. All but the core are **off by default** — t
 
 ### Chorded Shortcut Synthesis
 
-- **Toggle:** `chords`  ·  **Tier:** recommended  ·  **Config:** `[chords] — any keyboard shortcut by voice`
+- **Toggle:** `chords`  ·  **Tier:** optional  ·  **Config:** `[chords] — any keyboard shortcut by voice`
 - **What it does:** Say any shortcut and it's pressed — 'press control shift P', 'escape twice', 'hit F5' — no macro registration needed. Off by default.
 - **Use when:** When you want to fire arbitrary keyboard shortcuts hands-free without registering each as a macro.
 - **Example:** Say 'press control shift P' and the command palette opens.

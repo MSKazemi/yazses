@@ -6,6 +6,35 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a fresh install seeded a config key that nothing reads
+
+`system/firstrun.py` seeds `config.toml` on the first daemon start, enabling the DEFAULT_ON
+and RECOMMENDED tiers so a new user gets the intended experience without configuring
+anything. It writes 14 keys. Thirteen are read by running code. One was not:
+
+    [chords]
+    enabled = true
+
+`yazses chords "press control shift P"` is a CLI command that renders `ctrl+shift+p` and
+never consults that key; no daemon code reads it, and there is no spoken grammar behind the
+catalog's promise that *"Say any shortcut and it's pressed"*. So **every new install**
+carried a setting that did nothing while `yazses features` listed the capability as ON —
+and the entry's own text said *"Off by default"*, which the RECOMMENDED tier contradicted.
+
+`chords` is now OPTIONAL, which makes both sentences true at once and changes no
+functionality: the CLI works whether or not the key is present.
+
+The guard matters more than the tier. One wrong tier is a one-word fix; what let it reach
+every user is that nothing connected the seed to the question *"is this key read
+anywhere?"*, and the tier of a new capability is easy to set optimistically. That answer is
+now computed from the code on every test run.
+
+Deliberately narrow: this checks the keys **first-run writes**, not every toggle in the
+registry. The wider question — further features whose `enabled` key nothing reads — is a
+design decision about wiring versus re-describing and is not settled here. What justifies
+acting on this one alone is that those are toggles a user may choose to flip, while this one
+was flipped *for* them, by default, on every fresh install.
+
 ### Fixed — `features enable dictation` said the capability does not exist
 
 Found by sweeping `features enable` across all 147 catalog entries against a scratch
