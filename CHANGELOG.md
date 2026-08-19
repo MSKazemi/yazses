@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the command-safety gate's ordering is now asserted, not assumed
+
+`cmdsafety` judges the command *text*, so it only works if it sees the text **as it will be
+typed** — after every transform that can turn spoken words into shell syntax. The daemon
+does that today, and nothing checked it.
+
+Verified against this project's own learning corpus first: **1422 real transcripts** of
+ordinary dictation through `clean_text` and `assess_command` fired the gate **0 times**,
+while it fires on all six destructive patterns it claims to catch. A guard is judged on how
+rarely it interrupts, and on real speech it never did.
+
+Dictating a command produces words, not symbols — "rm dash r f slash" — which is not
+runnable, so the gate correctly stays quiet, and neither `apply_voice_punctuation` (which
+handles punctuation) nor `apply_symbols` (emoji and Unicode marks) converts it. But
+`code/spoken.py::spoken_symbols` *does* emit `/`, `|` and `-`. It is unwired today; wiring it
+after the gate would make a dictated destructive command runnable text typed into a shell
+with the guard never having seen it. The new test fails the day that module leaves
+`_UNWIRED`, so the ordering is extended rather than rediscovered.
+
+Also pinned: the disfluency filter altered 84 of those 1422 transcripts and every removal
+was an adjacent stutter (`"do not do not push"` → `"do not push"`) — no content lost across
+a whole corpus of real speech.
+
 ### Fixed — `yazses mic-level` calibrated to an empty room and said "recommended" anyway
 
 Run four times with nobody speaking:
