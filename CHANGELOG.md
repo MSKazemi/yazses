@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — inline compute replaced whole sentences with a number
+
+`evaluate` is documented as turning **a whole-utterance arithmetic expression** into its
+answer, and did not check that. After mapping the operator words it stripped every
+character that was not a digit or an operator, so any sentence carrying two numbers and
+one operator word collapsed to an expression:
+
+    "I ran 5 miles over 2 days"    ->  "2.5"
+    "chapter 3 minus chapter 1"    ->  "2"
+    "we met 2 times in 3 days"     ->  "6"
+
+Six of eight ordinary sentences. "over" and "times" are common English words, and unlike
+the other text transforms this one does not mangle the utterance — it **discards** it and
+types a number instead.
+
+Anything left after the lead-in words and the operator words have been consumed now means
+the utterance was prose, and prose is returned untouched. Every real calculation still
+works, including percentages and the spoken "percent".
+
+`[compute] enabled` is off by default, so it affected whoever turned it on.
+
 ### Fixed — an LLM rewrite could change a number and pass the guard meant to catch it
 
 `_tokens_preserved` checked that each meaning-critical token still appeared in the output
