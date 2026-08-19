@@ -77,7 +77,9 @@ def compute_type_choices(device: str = "cpu", current: str = "") -> list[str]:
     The settings window has to open there — every other setting still works.
     """
     try:
-        import ctranslate2
+        # ctranslate2 ships no py.typed marker, so mypy cannot see into it. The
+        # call below is guarded by the surrounding try/except anyway.
+        import ctranslate2  # type: ignore[import-untyped]
 
         supported = set(ctranslate2.get_supported_compute_types(device or "cpu"))
     except Exception:

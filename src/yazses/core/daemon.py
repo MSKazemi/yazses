@@ -3444,12 +3444,23 @@ class Daemon:
             if found.slug.startswith("unknown-"):
                 actions = [notify_mod.NotifyAction("report", "Prepare a bug report")]
 
+            # A named function, not a lambda with a default argument: `notify` declares
+            # `on_action: Callable[[str], None] | None`, and the two-parameter lambda
+            # neither matched that signature nor gave mypy a type to infer. `found` is
+            # closed over rather than bound as a default -- there is exactly one call
+            # here and it happens before the loop variable can change.
+            diagnosis = found
+
+            def _on_action(key: str) -> None:
+                if key == "report":
+                    self._prepare_bug_report(diagnosis)
+
             notify_mod.notify(
                 found.title,
                 found.body,
                 urgency="critical",
                 actions=actions,
-                on_action=lambda key, d=found: self._prepare_bug_report(d) if key == "report" else None,
+                on_action=_on_action,
             )
             return found
         except Exception:  # noqa: BLE001 - never mask the failure being reported
