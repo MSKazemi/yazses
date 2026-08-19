@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the grammar fixer turned "an FBI agent" into "a FBI agent"
+
+`fix_articles` decided purely on whether the following word's first *letter* is a vowel.
+An initialism's article depends on how it is **said**: "FBI" is spelled out — "an
+eff-bee-eye" — so it takes "an". Nine of ten correct initialisms were rewritten wrong:
+
+    an FBI agent  ->  a FBI agent
+    an MRI scan   ->  a MRI scan
+    an SSD drive  ->  a SSD drive
+    an XML file   ->  a XML file
+
+A grammar corrector introducing grammar errors into text that was already right.
+
+The article before an all-caps token is now left alone. No rule keyed on spelling can
+separate the two kinds: "FBI" is spelled out and takes "an", "NATO" is said as a word and
+takes "a", and nothing in the string distinguishes them. A missed correction costs
+nothing; a false one corrupts.
+
+Ordinary words are unaffected, including the hard cases the module exists for — "an hour",
+"a user", "a university", "an honest man" — and a merely capitalised word like "Apple" is
+still corrected, since the check is all-caps rather than capitalisation.
+
 ### Fixed — inline compute replaced whole sentences with a number
 
 `evaluate` is documented as turning **a whole-utterance arithmetic expression** into its
