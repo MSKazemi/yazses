@@ -443,7 +443,11 @@ def meeting_notes(
     """
     from yazses.config import load_config
     from yazses.meeting import store
-    from yazses.meeting.notes import generate_minutes, render_minutes_md
+    from yazses.meeting.notes import (
+        generate_minutes,
+        notes_unavailable_reason,
+        render_minutes_md,
+    )
 
     cfg = load_config(get_platform().paths.config_file)
     d = _meeting_dir(meeting_id)
@@ -451,12 +455,21 @@ def meeting_notes(
         typer.echo(f"No transcript for meeting {meeting_id} in {d}.", err=True)
         raise typer.Exit(1)
     view = store.load_result_view(d)
+    # Checked BEFORE the announcement. This printed "Generating minutes locally… (this
+    # can take a few minutes)" and then, immediately, that notes were off — promising
+    # work that had already been ruled out. The precondition costs nothing to ask.
+    if (reason := notes_unavailable_reason(cfg.meeting, utterances=view.utterances)):
+        typer.echo(reason, err=True)
+        raise typer.Exit(1)
     typer.echo("Generating minutes locally… (this can take a few minutes)")
     minutes = generate_minutes(view.utterances, cfg.meeting, speaker_names=view.speaker_names)
     if minutes is None:
+        # Everything checkable up front passed, so this is the model itself: it loaded and
+        # returned nothing usable for any window. Saying "notes are off" here would send
+        # the user to a setting that is already correct.
         typer.echo(
-            "Notes are off or no local model is set. Enable `[meeting] notes` and set "
-            "`[meeting] notes_model` to a local GGUF.", err=True,
+            "The local model produced no usable minutes for this transcript. See "
+            "`yazses logs` for the per-window failures.", err=True,
         )
         raise typer.Exit(1)
     out = d / "notes.md"

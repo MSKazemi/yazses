@@ -236,6 +236,69 @@ def _merge_partials(partials) -> Minutes:
     return Minutes(summary=summary, decisions=decisions, action_items=actions)
 
 
+def notes_unavailable_reason(
+    config,
+    *,
+    utterances=None,
+    model_exists=None,
+    have_llama=None,
+) -> str | None:
+    """Why minutes cannot be generated, or None when they can. Pure by injection.
+
+    `generate_minutes` returns ``None`` for FIVE different reasons and `yazses meeting
+    notes` reported every one of them as::
+
+        Notes are off or no local model is set. Enable `[meeting] notes` and set
+        `[meeting] notes_model` to a local GGUF.
+
+    For at least one of those states that advice is simply wrong: a meeting whose
+    transcript holds no utterances produces no minutes no matter what is configured, and
+    the message sends the user to change settings that were already correct. "Off or no
+    model" also asks them to check two things when the command knows which.
+
+    The checks are ordered by what the user would have to do first: an empty transcript
+    cannot be fixed by configuration at all, a missing dependency cannot be fixed by a
+    config key, and a path that does not exist cannot be fixed by setting the path again.
+
+    ``model_exists`` and ``have_llama`` are injected so this is testable without a 4 GB
+    GGUF or the `notes` extra; both default to a real probe. `find_spec` is used rather
+    than an import because importing llama_cpp costs seconds and loads native code, which
+    is far too much for a question asked before any work starts.
+    """
+    if utterances is not None and not utterances:
+        return (
+            "This meeting's transcript has no utterances, so there is nothing to "
+            "summarise. Nothing is wrong with your notes settings."
+        )
+    if not getattr(config, "notes", False):
+        return (
+            "Meeting notes are off. Turn them on with `[meeting] notes = true`, and set "
+            "`[meeting] notes_model` to a local GGUF."
+        )
+    model_path = str(getattr(config, "notes_model", "") or "")
+    if not model_path:
+        return (
+            "`[meeting] notes` is on but `[meeting] notes_model` is empty — point it at a "
+            "local GGUF file."
+        )
+    if have_llama is None:
+        import importlib.util
+
+        have_llama = importlib.util.find_spec("llama_cpp") is not None
+    if not have_llama:
+        return (
+            "The local notes model needs llama-cpp-python, which is not installed. "
+            "Install it with `uv sync --extra notes`."
+        )
+    if model_exists is None:
+        from pathlib import Path
+
+        model_exists = Path(model_path).is_file()
+    if not model_exists:
+        return f"`[meeting] notes_model` points at {model_path!r}, which is not a file."
+    return None
+
+
 def _build_llm(config):
     """Build a local-LLM callable from ``[meeting] notes_model``, or ``None`` if dormant."""
     if not getattr(config, "notes", False):

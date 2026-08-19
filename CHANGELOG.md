@@ -6,6 +6,37 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses meeting notes` announced work it had already ruled out, then misdiagnosed it
+
+Run against a real stored meeting:
+
+    $ yazses meeting notes 20260803-095635
+    Generating minutes locally… (this can take a few minutes)
+    Notes are off or no local model is set. Enable `[meeting] notes` and set
+    `[meeting] notes_model` to a local GGUF.
+
+Two faults in three lines.
+
+**The promise came before the check.** `generate_minutes` returns `None` immediately when
+notes are off, so "this can take a few minutes" was printed for work that was never going
+to start. The precondition costs nothing to ask and is now asked first.
+
+**One message covered five states, and for one of them it was wrong advice.**
+`generate_minutes` returns `None` when the transcript has no utterances, when `[meeting]
+notes` is off, when `notes_model` is unset, when llama-cpp-python is missing, when the model
+path is not a file, and when every window fails to parse. For an empty transcript, "notes
+are off" is simply false — no configuration produces minutes from no utterances, and the
+message sent the user to change settings that were already correct. Each state now names
+itself, ordered by what has to be fixed first: an empty transcript cannot be fixed by
+configuration at all, a missing dependency cannot be fixed by a config key, and a path that
+does not exist cannot be fixed by setting the path again.
+
+Once the preconditions pass, a `None` result now says the model produced nothing usable and
+points at `yazses logs`, rather than blaming a setting that is already right.
+
+The dependency probe uses `find_spec` rather than importing `llama_cpp`, which costs seconds
+and loads native code — far too much for a question asked before any work begins.
+
 ### Fixed — "Restore defaults" left seven Settings rows untouched without naming them
 
 The reset confirmation ended with *"your hotkey, microphone, vocabulary and any hand-edited
