@@ -6,6 +6,36 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — two pure spoken-text modules that were wrong in the same shape
+
+Both are in `features._UNWIRED`, so neither reaches a user today. They are fixed now
+because whoever wires them would inherit the defect, and in both cases the rule was
+*written down* and enforced by nothing.
+
+**`code/spoken.py` — "fat arrow" was dictated as `fat ->`.** The substitution table is
+grouped by meaning and carries the comment *"Longest phrases first"*, but `("arrow", "->")`
+sat above `("fat arrow", "=>")`, so the shorter phrase matched inside the longer one. The
+order is now derived (`_ORDERED`, longest-first) rather than hand-maintained: a word-bounded
+phrase can only be shadowed by a longer one, so a phrase added in the wrong place cannot
+reintroduce it. The authored list stays grouped for reading, and a property test over the
+whole table fails on a bad addition rather than only on today's known pair.
+
+**`condense/extract.py` — the summariser preferred the least informative sentence.** Score
+was mean content-word frequency divided by the sentence's own length, so a one-word
+interjection scored the full frequency of that word over one word and beat everything:
+
+    "... Ship it. The release needs the changelog updated and the tags pushed ..."
+        ->  "We should ship the release today. Ship it."
+
+Ramble is exactly what this feature consumes, and it is full of "Right.", "Okay.", "Sure."
+The divisor now has a floor of 2 — one content word is not a measurement.
+
+The floor is deliberately no higher. Sweeping it showed no value is simply better: at 3 the
+summariser starts discarding legitimate short sentences ("Fix the wheel."), and it takes 4–5
+to out-rank a two-word echo. 2 is the largest value that removes a failure with no
+legitimate counterpart. Both ends are pinned by tests so raising it fails rather than
+quietly dropping real content.
+
 ### Fixed — a macro with two `${cursor}` markers typed one of them
 
 `expand` positions the caret at the **first** `${cursor}`, as documented, by splitting the
