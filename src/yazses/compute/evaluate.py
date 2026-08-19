@@ -42,6 +42,41 @@ def _format(value) -> str:
     return str(value)
 
 
+def _is_a_hyphenated_token(expr: str) -> bool:
+    """True when the only operator is a hyphen with nothing spaced around it. Pure.
+
+    The letters guard in `evaluate` stops prose, but a string of digits and hyphens has
+    no letters in it, and a hyphen between two numbers is far more often a range, a
+    score, a phone number or a span of years than a subtraction. Measured on a real
+    corpus this fired once in 1422 bursts -- on `2-2`, which is at least as likely to be
+    a score as arithmetic -- and the same rule admitted:
+
+        10-15      ->  -5        a range
+        2024-2025  ->  -1        a span of years
+        9-11       ->  -2
+        555-1234   ->  -679      a phone number
+        3-1        ->  2         a score
+
+    Each of those REPLACES the whole utterance, and `[compute] enabled` is seeded on for
+    every new install, so this is the default experience rather than an opt-in risk.
+
+    Dictated subtraction does not look like this. "seven minus three" becomes `7 - 3`
+    because the word substitution leaves the spaces it found, and someone typing an
+    expression writes `7 - 3` too. So a hyphen with whitespace on either side still
+    computes; a bare `N-N` does not.
+
+    Restricted to `-` on purpose: `+`, `*` and `/` do not appear in dates, scores, phone
+    numbers or version strings, so `2+2*3` is left alone. And the rule only applies when
+    the hyphen is the ONLY operator -- `2+2-3` is unambiguously arithmetic.
+
+    A missed computation costs the user typing the answer; a false one silently replaces
+    what they said with a wrong number, which they may never re-read.
+    """
+    if re.search(r"[+*/]", expr):
+        return False
+    return re.search(r"(?<=\d)-(?=\d)", expr) is not None and " - " not in expr
+
+
 def evaluate(text: str):
     """Evaluate a spoken arithmetic/percentage expression to a string answer, or ``None``. Pure."""
     t = (text or "").lower()
@@ -69,6 +104,8 @@ def evaluate(text: str):
         return None
     expr = re.sub(r"[^0-9+\-*/().% ]", "", t).strip()
     if not re.search(r"\d", expr) or not re.search(r"[-+*/]", expr):
+        return None
+    if _is_a_hyphenated_token(expr):
         return None
     try:
         value = _safe_eval(ast.parse(expr, mode="eval"))

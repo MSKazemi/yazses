@@ -6,6 +6,36 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — inline compute turned a score, a range and a phone number into arithmetic
+
+`[compute] enabled` is seeded on for **every new install**, and when `evaluate` returns a
+value the daemon replaces the whole utterance with it — the text you spoke is discarded, not
+adjusted. So this was the default experience, not an opt-in risk.
+
+An earlier fix stopped it collapsing prose (`"I ran 5 miles over 2 days"` → `"2.5"`) by
+refusing anything with letters left after the operator words are consumed. A string of
+digits and hyphens has no letters:
+
+    10-15      ->  -5        a range
+    2024-2025  ->  -1        a span of years
+    9-11       ->  -2
+    555-1234   ->  -679      a phone number
+    3-1        ->  2         a score
+    2-2        ->  0         found in a real corpus
+
+Dictated subtraction does not look hyphenated: "seven minus three" becomes `7 - 3`, because
+the word substitution leaves the spaces it found. So a **spaced** hyphen still computes and
+a bare `N-N` does not. `+`, `*` and `/` are untouched — they do not appear in dates, scores,
+phone numbers or version strings — and the rule only applies when the hyphen is the *only*
+operator, so `2+2-3` is unaffected.
+
+Measured over 1422 real transcripts, compute fired 3 times before and 2 after; both
+survivors are arithmetic.
+
+`2026-08-19` was already rejected, but only because `08` is not a valid Python integer
+literal. `2026-8-19` would have evaluated to `1999`. Both spellings are now refused by the
+rule rather than by luck.
+
 ### Fixed — a fresh install seeded a config key that nothing reads
 
 `system/firstrun.py` seeds `config.toml` on the first daemon start, enabling the DEFAULT_ON
