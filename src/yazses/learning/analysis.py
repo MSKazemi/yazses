@@ -490,6 +490,29 @@ def _propose_vocabulary(events: list[EventRecord], config: Config) -> Proposal |
     )
 
 
+def _could_be_a_filler(word: str) -> bool:
+    """Is this a word a person might actually be filtering out as a filler? Pure.
+
+    Correcting a dictation removes ordinary words all the time -- "send **this** to Bob"
+    corrected to "send **that** to Bob" makes "this" look like a removed word. Twice, and
+    it was proposed as a filler; applying that makes the disfluency filter DELETE the word
+    "this" from every future dictation. Taken from a real corpus, the proposal was
+    `okay, this, one`.
+
+    That is the most destructive thing `yazses tune --apply` can write, so it is the one
+    proposal that should not be discoverable by frequency alone.
+
+    An ordinary function word is refused **unless** it is one a filler is plausibly drawn
+    from -- "well" is both, and blocking it outright would stop a genuine filler being
+    found. The two lists it consults already exist and are used elsewhere, so nothing new
+    is introduced here to drift.
+    """
+    from yazses.stt.filters.disfluency import PLAUSIBLE_FILLERS
+
+    low = word.lower()
+    return low not in _VOCAB_STOPWORDS or low in PLAUSIBLE_FILLERS
+
+
 def _propose_disfluency(events: list[EventRecord], config: Config) -> Proposal | None:
     # Words the user's correction removed from a wrong event — candidate fillers.
     existing = {w.lower() for w in config.filters.disfluency.filler_words}
@@ -503,7 +526,10 @@ def _propose_disfluency(events: list[EventRecord], config: Config) -> Proposal |
         for tok in _tokens(e.raw_text):
             if tok not in corrected and tok not in existing:
                 removed[tok] += 1
-    candidates = [w for w, n in removed.most_common() if n >= _FILLER_MIN_OCCURRENCES]
+    candidates = [
+        w for w, n in removed.most_common()
+        if n >= _FILLER_MIN_OCCURRENCES and _could_be_a_filler(w)
+    ]
     if not candidates:
         return None
     new_list = list(config.filters.disfluency.filler_words) + candidates

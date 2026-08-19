@@ -6,6 +6,23 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses tune` offered to delete the word "this" from every dictation
+
+`_propose_disfluency` counts words that appeared in a wrong transcript and not in the
+user's correction, and proposes the frequent ones as filler words. It had no notion of
+what can plausibly *be* a filler — and correcting a dictation removes ordinary words all
+the time. "send **this** to Bob" corrected to "send **that** to Bob" makes "this" a
+removed word; twice, and it is proposed. Applying it writes `this` into
+`[filters.disfluency] filler_words`, and the filter then strips that word from everything
+the user says.
+
+On a real corpus the proposal was `okay, this, one`. It is now `okay`.
+
+An ordinary function word is refused unless it is one a filler is plausibly drawn from —
+"well" is both, and blocking it outright would stop a genuine filler being discovered. A
+strict allow-list would be worse than the bug, since the point is to find a *personal*
+verbal tic; the rule blocks the dangerous class while leaving discovery possible.
+
 ### Fixed — every voice command was a silent no-op in remote mode
 
 `RemoteInjectorProxy` is the injector the daemon uses while forwarding to an SSH host, and
