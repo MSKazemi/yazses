@@ -6,6 +6,25 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a macro with two `${cursor}` markers typed one of them
+
+`expand` positions the caret at the **first** `${cursor}`, as documented, by splitting the
+template there and measuring the tail. Any further markers stayed in that tail and went
+straight to the injector:
+
+    template  "a${cursor}b${cursor}c"
+    typed     "ab${cursor}c"
+
+`${cursor}` is not a variable name, so `_resolve_vars` leaves it alone by design (unknown
+tokens are kept literal), and nothing else removed it. A user who wrote two markers — easy
+to do while editing a template — got the marker text in their document.
+
+The extras are now stripped before the tail is measured, so the caret still lands where
+the first marker was, now measured against the text actually injected. Unknown variables
+are still left literal, which is deliberate and different: a stray `${...}` may be
+something the user meant to type, while a second cursor marker is a directive already
+honoured once.
+
 ### Fixed — enabling `[translit]` transliterated every English sentence into Persian
 
 `detect_scheme`'s docstring promised *"so English passes through"*, and it returned the
