@@ -38,12 +38,112 @@ class _Platform:
         self.paths = _Paths()
 
 
-def _patch(monkeypatch, plat):
+def _patch(monkeypatch, plat, *, model="base.en", downloaded=True):
     monkeypatch.setattr(cli, "get_platform", lambda: plat)
     monkeypatch.setattr(cli, "_resolved_hotkey", lambda p: "right_ctrl")
+    # Pinned, not left to the machine. Both are real reads -- the config file and the
+    # Hugging Face cache -- so without this the page takes a different branch on a
+    # developer's laptop than in CI, and whichever branch the host happens to have is
+    # the only one the suite ever sees.
+    monkeypatch.setattr(cli, "_configured_model", lambda p: model)
+    monkeypatch.setattr(cli, "_model_is_downloaded", lambda m: downloaded)
 
 
 # ---- quickstart ------------------------------------------------------------
+
+
+# ---- the speech model, which the docstring always promised and never read ----
+#
+# `quickstart`'s own docstring says it looks at "prerequisites, whether the daemon is
+# running, the speech model, your hotkey". Three of those four were read. The model was
+# not: step 2 printed "first run can take 10-30s" whatever the state of the disk, which
+# is the *load* time for a checkpoint that is already there and no description at all of
+# the case that goes wrong.
+#
+# That case is #310 -- the first bug from a real user -- where a firewall blocked the
+# automatic fetch and `yazses start` simply sat there.
+
+
+def test_quickstart_confirms_the_model_when_it_is_already_downloaded(monkeypatch):
+    _patch(monkeypatch, _Platform(running=False), model="base.en", downloaded=True)
+    out = runner.invoke(cli.app, ["quickstart"]).output
+    assert "base.en" in out and "already downloaded" in out
+    assert "model download" not in out, "nothing to download — do not send them anywhere"
+
+
+def test_quickstart_sends_you_to_fetch_the_model_before_start_when_it_is_missing(
+    monkeypatch,
+):
+    _patch(monkeypatch, _Platform(running=False), model="small.en", downloaded=False)
+    result = runner.invoke(cli.app, ["quickstart"])
+    assert result.exit_code == 0
+    out = result.output
+    assert "yazses model download small.en" in out, (
+        "the one step that needs the network has to be named as a command the user runs, "
+        "so a blocked network fails somewhere it can be reported"
+    )
+    assert out.index("yazses model download") < out.index("Then: yazses start"), (
+        "the download has to come before the start, or it is not a step"
+    )
+    assert "already downloaded" not in out
+
+
+def test_quickstart_says_nothing_about_the_model_once_the_daemon_is_running(monkeypatch):
+    """A running daemon has already loaded it; re-litigating that is noise."""
+    _patch(monkeypatch, _Platform(running=True), model="base.en", downloaded=False)
+    out = runner.invoke(cli.app, ["quickstart"]).output
+    assert "model download" not in out
+    assert "already running" in out
+
+
+def test_quickstart_is_silent_rather_than_wrong_when_the_model_cannot_be_read(
+    monkeypatch,
+):
+    """A cosmetic check must never invent a scary claim on a machine it cannot read.
+
+    Drives the real failure -- config loading blowing up, and the cache lookup blowing
+    up -- rather than replacing the helpers, so their own guards are what is tested.
+    """
+    import yazses.config as config
+    import yazses.stt.download as dl
+
+    def _boom(*a, **k):
+        raise RuntimeError("unreadable")
+
+    monkeypatch.setattr(config, "load_config", _boom)
+    monkeypatch.setattr(dl, "is_cached", _boom)
+    monkeypatch.setattr(cli, "get_platform", lambda: _Platform(running=False))
+    monkeypatch.setattr(cli, "_resolved_hotkey", lambda p: "right_ctrl")
+
+    assert cli._configured_model(_Platform(running=False)) == ""
+    assert cli._model_is_downloaded("base.en") is True  # never cry wolf
+
+    result = runner.invoke(cli.app, ["quickstart"])
+    assert result.exit_code == 0, result.output
+    assert "not downloaded" not in result.output
+
+
+def test_quickstart_and_doctor_never_disagree_about_the_model(monkeypatch):
+    """Two screens answering "is the model here?" from two predicates is two answers.
+
+    They both go through `stt.download.is_cached`, so this drives that one function and
+    asserts the pair moves together: doctor WARNs exactly when quickstart sends the user
+    to download.
+    """
+    from pathlib import Path as _Path
+
+    import yazses.stt.download as dl
+    from yazses.system import doctor
+
+    for cached in (True, False):
+        monkeypatch.setattr(dl, "is_cached", lambda name, cache_dir=None: cached)
+        quickstart_says_ready = cli._model_is_downloaded("base.en")
+        doctor_status = doctor._model_check("base.en", _Path("/nonexistent-cache"))[1]
+        assert quickstart_says_ready is cached
+        assert (doctor_status == "WARN") is (not quickstart_says_ready), (
+            f"cached={cached}: doctor says {doctor_status} while quickstart says "
+            f"ready={quickstart_says_ready}"
+        )
 
 
 def test_quickstart_shows_three_steps_and_hotkey(monkeypatch):

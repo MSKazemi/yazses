@@ -654,6 +654,35 @@ def _resolved_hotkey(platform) -> str:
         return platform.default_hotkey
 
 
+def _configured_model(platform) -> str:
+    """The STT checkpoint the daemon will load, or ``""`` if it cannot be read."""
+    try:
+        from yazses.config import load_config
+
+        return load_config(platform.paths.config_file).stt.model or ""
+    except Exception:
+        return ""
+
+
+def _model_is_downloaded(model: str) -> bool:
+    """Whether *model* needs the network before the first dictation.
+
+    Goes through ``stt.download.is_cached``, which is also what `doctor` and
+    `model list` answer with -- a second opinion here is a second answer, and the
+    two screens would disagree in front of the user on the machine where it matters.
+    ``is_cached`` already resolves a local directory path, so this is the whole
+    predicate, not half of it.
+    """
+    if not model:
+        return True  # nothing configured to check; say nothing rather than guess
+    try:
+        from yazses.stt.download import is_cached
+
+        return is_cached(model)
+    except Exception:
+        return True  # never turn a cosmetic check into a scary claim
+
+
 def _live_hotkey(platform) -> str:
     """The key the running daemon is *actually* listening on, or ``""``.
 
@@ -3066,14 +3095,37 @@ def quickstart() -> None:
         _say_step("Check prerequisites", "Run:  yazses doctor")
 
     # Step 2 — start the daemon.
+    #
+    # The model state is checked here because this screen's own docstring promises it
+    # ("prerequisites, whether the daemon is running, the speech model, your hotkey")
+    # and, until this was added, three of those four were read and the model was not.
+    # It printed "first run can take 10-30s" unconditionally -- which is the *load*
+    # time for a checkpoint already on disk, and says nothing at all about the case
+    # that goes wrong: a checkpoint that is not there yet.
+    #
+    # That case is #310, the first bug reported by a real user: a firewall blocked the
+    # automatic fetch, so `yazses start` sat there with nothing to read. Naming the
+    # download as its own step moves the failure to a command whose entire job is to
+    # download, where it can be reported.
     if running:
         _say_step("Start YazSes — already running ✓", "Check it with:  yazses status")
     else:
-        _say_step(
-            "Start YazSes",
-            "Run:  yazses start",
-            "It loads the speech model once (first run can take 10–30s), then waits for your hotkey.",
-        )
+        model = _configured_model(platform)
+        if _model_is_downloaded(model):
+            body = ["Run:  yazses start"]
+            if model:
+                body.append(f"The speech model ({model}) is already downloaded ✓")
+            body.append("It loads the model, then waits for your hotkey.")
+            _say_step("Start YazSes", *body)
+        else:
+            _say_step(
+                "Get the speech model, then start YazSes",
+                f"⚠ {model} is not downloaded yet — this is the one step that needs the network.",
+                f"Run:  yazses model download {model}",
+                "Then: yazses start",
+                "(`yazses start` fetches it on its own too, but if the network blocks it",
+                " that happens mid-start with nothing to read. Downloading it here reports why.)",
+            )
 
     # Step 3 — actually dictate.
     #

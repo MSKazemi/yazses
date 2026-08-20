@@ -8,6 +8,39 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `yazses quickstart` promised to check the speech model and never did.
+  Its docstring — which is also `yazses quickstart --help` — says it looks at
+  "prerequisites, whether the daemon is running, the speech model, your hotkey".
+  Three of those four were read. The model was not: step 2 printed *"It loads the speech
+  model once (first run can take 10–30s)"* whatever the state of the disk.
+
+  That sentence describes the *load* time for a checkpoint already downloaded, and says
+  nothing about the case that goes wrong. On a machine where the model is missing, the
+  first thing YazSes tells a new user to run is a command that will silently spend a
+  ~141 MB download before it does anything — and behind a firewall, does not finish at
+  all. That is [#310](https://github.com/MSKazemi/yazses/issues/310), the first bug ever
+  reported by a real user.
+
+  `docs/models.md` already had the answer and had it well: *"You do not have to leave it
+  to chance. Fetch it as its own step."* The first screen a newcomer reads is the one
+  place that advice never reached.
+
+  Step 2 is now tri-state. Model present: it says so and names it. Model missing: the
+  download becomes its own numbered step, before `yazses start`, because a blocked
+  network should fail inside a command whose entire job is to download and can report
+  why. Daemon already running: nothing about models at all — it has loaded one.
+
+  Both surfaces answer from `stt.download.is_cached`, the same predicate `doctor` and
+  `model list` use, and a test drives that one function and asserts `doctor` WARNs
+  exactly when quickstart sends the user to download. A second opinion here would be a
+  second answer, on the machine where it matters least to be inconsistent.
+
+  Neither helper can cry wolf: an unreadable config or an unreadable cache reports the
+  model as present, since a cosmetic check inventing a scary claim is worse than a
+  cosmetic check staying quiet. The existing quickstart tests also stopped reading the
+  host — they were taking whichever branch the developer's own Hugging Face cache
+  happened to produce.
+
 - The Flatpak build installed no launcher, no icon, and not even its own store listing.
   `packaging/flatpak/com.mskazemi.YazSes.metainfo.xml` declares
   `<component type="desktop-application">` and

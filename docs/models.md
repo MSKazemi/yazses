@@ -70,6 +70,10 @@ yazses model list                  # every model, and which are already here
 yazses model download base.en      # fetch one deliberately, with progress
 ```
 
+`yazses quickstart` checks this for you and puts the download in front of
+`yazses start` when the model is not yet on disk, so you do not have to know to
+come here first.
+
 If the machine cannot reach `huggingface.co` at all, copy the model in by hand.
 `yazses model list` prints the cache directory; download the repo on any machine
 that does have access and place it there:
