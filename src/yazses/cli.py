@@ -2440,10 +2440,25 @@ def verify(
         )
         return engine.transcribe(audio)
 
+    def _holds_no_speech(audio) -> bool | None:
+        """Whether the recording holds no speech at all. Never raises; None = unknown.
+
+        The detector ships inside faster-whisper (a bundled 1.2 MB ONNX asset), so this
+        downloads nothing and sends nothing. An import or runtime failure must not break
+        a diagnostic command — it means the question cannot be answered, which `verify`
+        already handles by leaving its behaviour exactly as it was.
+        """
+        try:
+            from yazses.recimport.audio_io import holds_no_speech
+
+            return holds_no_speech(audio, cfg.audio.sample_rate)
+        except Exception:  # noqa: BLE001 — a diagnostic must not fail while diagnosing
+            return None
+
     injector = platform.injector_factory().inject if do_type else None
     result = run_verify(
         record=_record, level_of=_level, threshold=threshold,
-        transcribe=_transcribe, inject=injector,
+        transcribe=_transcribe, inject=injector, holds_no_speech=_holds_no_speech,
     )
 
     for step in result.steps:

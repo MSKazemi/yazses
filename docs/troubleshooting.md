@@ -151,9 +151,11 @@ yazses mic-level --set   # measure this room, write the threshold
 yazses restart
 ```
 
-Then run `yazses verify` again in a quiet room without speaking. A correctly set gate
-reports silence and transcribes nothing, which is the outcome you want — an empty result is
-the model being *given* nothing, and it is the only reliable way to stop it inventing.
+Then run `yazses verify` again in a quiet room without speaking. The outcome you want is
+`verify` **failing** at either `Signal` or `Speech` — the model being *given* nothing is the
+only reliable way to stop it inventing. `Speech` is the one that fires when room noise
+clears the gate: it runs a speech detector on what was actually recorded, so a quiet room
+is named as a quiet room rather than transcribed into a confident word.
 
 Raising the gate too far has the opposite failure and it is the visible one: quiet speech is
 dropped with `Silent audio -- discarding` in `yazses logs`. That is why the automatic tuner

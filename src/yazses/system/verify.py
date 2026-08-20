@@ -14,7 +14,9 @@ discards. It is the
 only check in the project that produces evidence rather than inference, so it is also the
 only honest answer to "is it definitely going to work when I press the key?".
 
-Backends are injected, so the whole flow is testable without a microphone or a desktop.
+Backends are injected, so the whole flow is testable without a microphone or a desktop —
+including the speech detector, which is why a machine with no Silero asset degrades to
+today's behaviour instead of failing.
 """
 from __future__ import annotations
 
@@ -104,6 +106,7 @@ def verify(
     threshold: float,
     transcribe: Callable[[object], str],
     inject: Callable[[str], None] | None = None,
+    holds_no_speech: Callable[[object], bool | None] | None = None,
 ) -> VerifyResult:
     """Run capture → gate → transcribe → inject, stopping at the first broken link.
 
@@ -141,6 +144,31 @@ def verify(
         )
         return result
     result.add("Signal", True, signal_detail(level, threshold))
+
+    # Ask the audio, not the transcript. The long note further down explains why this
+    # module refuses to judge whether a *word* was invented, and that stands: "You" is
+    # the commonest thing the model returns for silence and also an ordinary English
+    # word. But that dilemma only exists on the output side. On the input side the
+    # question has an answer, and `recimport/audio_io.holds_no_speech` already gives it
+    # — a bundled Silero detector, nothing downloaded, nothing sent (ADR-011).
+    #
+    # Without this, the two commands contradicted each other on the same room, the same
+    # minute, the same microphone: `yazses verify` printed `[OK] heard "You"` under
+    # "The whole chain ran", while `yazses transcribe` on a clip of that room said "no
+    # speech was recognised". The one that certified the pipeline is the one people are
+    # sent to when dictation has stopped working.
+    #
+    # Only an explicit True acts. `None` means the detector could not run, and inventing
+    # a verdict there would be the failure this exists to prevent, one layer up.
+    if holds_no_speech is not None and holds_no_speech(audio) is True:
+        result.add(
+            "Speech", False,
+            "the level cleared the gate but a speech detector found no speech anywhere "
+            "in the recording — so whatever the model returns next is invented, not "
+            "heard. Something is being captured; it is not your voice. Check the mic is "
+            "unmuted and is the one being used: `yazses audio status`.",
+        )
+        return result
 
     try:
         text = transcribe(audio)

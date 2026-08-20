@@ -466,8 +466,23 @@ reported as a multiple rather than left for you to divide:
        raise the gate with `yazses mic-level --set` before suspecting the microphone.
 ```
 
-`verify` will not guess whether the words were invented — [it cannot, and you can, instantly,
-because they are on the screen](troubleshooting.md#yazses-typed-a-sentence-i-never-said).
+`verify` will not guess whether the *words* were invented — [it cannot, and you can,
+instantly, because they are on the screen](troubleshooting.md#yazses-typed-a-sentence-i-never-said).
+It does ask a question that **can** be answered, about the recording rather than the
+transcript: a speech detector runs on the captured audio, and when it finds no speech
+anywhere, `verify` stops there instead of decoding near-silence into a confident word:
+
+```text
+  [OK] Signal: level 0.0059 clears the gate (0.0040) — but only just (1.5x)…
+  [FAIL] Speech: the level cleared the gate but a speech detector found no speech
+         anywhere in the recording — so whatever the model returns next is invented,
+         not heard. Something is being captured; it is not your voice.
+```
+
+That is a room with nobody speaking. Before this, the same recording printed
+`[OK] Transcription: heard "You"` and a tick. The detector ships inside `faster-whisper`,
+so it downloads nothing and sends nothing; where it cannot run, `verify` behaves exactly
+as it did.
 
 ### `yazses report`
 

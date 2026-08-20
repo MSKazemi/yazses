@@ -8,6 +8,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `yazses verify` certified a microphone that was hearing nobody. Run in a quiet room with
+  nobody speaking, on this machine: `[OK] Signal: level 0.0059 clears the gate … but only just
+  (1.5x)`, `[OK] Transcription: heard "You"`, `✓ The whole chain ran`. "You" is the commonest
+  thing Whisper returns for silence, and `verify` is the project's only check that produces
+  evidence rather than inference — a false pass there is the most expensive false pass it has.
+
+  The existing decision **not** to treat "You" as a ghost phrase is untouched and remains right:
+  it is also an ordinary English word, no rule on the *output* separates the two cases, and a
+  `verify` that wrongly fails sends someone to re-calibrate a microphone that was fine. But that
+  dilemma only exists on the output side. On the input side the question has an answer, and this
+  project already computes it — `recimport.audio_io.holds_no_speech` runs the Silero detector
+  that `faster-whisper` bundles, and `yazses transcribe` has asked it since it was written.
+  `verify` did not, so on the same room, the same minute and the same microphone, `transcribe`
+  reported "no speech was recognised" while `verify` certified the pipeline.
+
+  `verify` now asks too, after the gate check and before decoding: no speech in the recording is
+  reported as the broken link, with the same remedy the other silence paths give. Only an
+  explicit *yes, there is no speech* acts — where the detector cannot run it answers "unknown"
+  and behaviour is exactly as before, which is also why every existing caller is unaffected.
+  Confirmed both directions on real audio: the silent room now exits 1, and a LibriSpeech clip
+  of real speech passes untouched.
+
 - Three model loaders could hang forever on a machine that already had the model. Measured on
   this project's own laptop, twice: a **fully cached** `base.en` loaded in **1.9 s** with
   `HF_HUB_OFFLINE=1` and **had not finished after 180 s** without it, at 3 s of user CPU — blocked
