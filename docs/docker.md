@@ -96,6 +96,12 @@ See the [CLI reference](cli-reference.md#yazses-transcribe) for the full set.
   docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/data" \
       ghcr.io/mskazemi/yazses transcribe /data/talk.wav
   ```
+
+  With that flag your uid has no entry in the image's `/etc/passwd` -- it only has an
+  account for uid 1000. `transcribe` never cared, but `yazses setup` used to exit with a
+  `KeyError` traceback there and `yazses quickstart` used to print *"Prerequisites --
+  already set up ✓"* without having checked anything. Both are fixed on `main`; on an
+  older image, run those two commands outside the container.
 - **`/data` is the convention**, not a requirement — mount wherever you like and
   give the container that path.
 - **Size: ~1.5 GB.** Most of it is PyTorch-free but still substantial ML wheels

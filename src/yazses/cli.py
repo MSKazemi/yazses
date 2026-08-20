@@ -3126,14 +3126,21 @@ def quickstart() -> None:
 
     # Step 1 — prerequisites (Linux needs system packages + input-group).
     if _sys.platform == "linux":
-        needs_setup = False
+        # Three outcomes, not two. `build_plan` is defensive here because this is the
+        # first screen a new user meets and it must not traceback -- but "we could not
+        # find out" is not the same fact as "everything is fine", and collapsing the
+        # two printed a ✓ that had checked nothing. `None` keeps them apart, and the
+        # unknown case borrows the wording the non-Linux branch already uses.
+        needs_setup: bool | None = None
         try:
             from yazses.system import setup as _setup
 
             needs_setup = not _setup.build_plan().is_noop
         except Exception:
-            needs_setup = False
-        if needs_setup:
+            needs_setup = None
+        if needs_setup is None:
+            _say_step("Check prerequisites", "Run:  yazses doctor")
+        elif needs_setup:
             _say_step(
                 "Install the prerequisites",
                 "Run:  yazses setup",

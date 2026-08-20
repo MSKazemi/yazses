@@ -148,8 +148,40 @@ def build_plan(
 
 
 def _current_user() -> str:
+    """The login name to provision for. **Total** -- it never raises.
+
+    The last resort used to be `pwd.getpwuid(os.getuid()).pw_name`, which raises
+    `KeyError` when the running uid has no `/etc/passwd` entry. That is not an exotic
+    case: it is what an OCI container started with `--user 4242:4242` looks like, and
+    what Kubernetes produces whenever `runAsUser` is set to an arbitrary uid. YazSes
+    ships a Docker image, so the path is reachable by design rather than by accident.
+
+    It mattered because `build_plan` is the *first* thing two commands do:
+
+    * `yazses setup` called it unguarded and exited with a raw `KeyError` traceback --
+      on the one command whose entire job is to fix a machine's prerequisites;
+    * `yazses quickstart` caught the exception and fell back to `needs_setup = False`,
+      printing **"Prerequisites -- already set up ✓"**. That is a false statement on the
+      first screen a new user ever sees, and it is worst exactly where it is wrong:
+      inside a fresh container almost nothing *is* set up.
+
+    Falling back to the numeric uid is honest rather than merely quiet. Group
+    membership is stored by name, so `_user_in_input_group("4242")` answers `False`,
+    which is the true answer for a uid the system has no account for.
+    """
     import pwd
-    return os.environ.get("SUDO_USER") or os.environ.get("USER") or pwd.getpwuid(os.getuid()).pw_name
+    named = (
+        os.environ.get("SUDO_USER")
+        or os.environ.get("USER")
+        or os.environ.get("LOGNAME")
+    )
+    if named:
+        return named
+    uid = os.getuid()
+    try:
+        return pwd.getpwuid(uid).pw_name
+    except (KeyError, OSError):
+        return str(uid)
 
 
 def input_group_pending_relogin(user: str | None = None) -> bool:

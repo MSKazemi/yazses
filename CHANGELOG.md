@@ -8,6 +8,31 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`yazses setup` crashed, and `yazses quickstart` lied, for any uid without an
+  `/etc/passwd` entry.** `setup._current_user()` ended at
+  `pwd.getpwuid(os.getuid()).pw_name` with no fallback, so it raised `KeyError` whenever
+  the running uid had no account. `build_plan()` is the first thing both commands do.
+
+  This is not an exotic machine — it is `docker run --user 4242:4242`, and it is what
+  Kubernetes produces whenever `runAsUser` is an arbitrary uid. `docs/docker.md` *tells
+  people to do it*: the image has an account for uid 1000 only, so the documented
+  `--user "$(id -u):$(id -g)"` flag produces a passwd-less uid on every host whose uid is
+  not 1000. `transcribe` was unaffected; the two commands that read the machine were not.
+
+  The two failed differently, which is why it went unnoticed. `yazses setup` did not
+  guard the call and exited with a raw traceback — on the one command whose entire job is
+  to fix a machine's prerequisites. `yazses quickstart` guarded it with
+  `except Exception: needs_setup = False` and printed **"Prerequisites — already set up
+  ✓"**: a swallowed probe rendered as a positive claim, on the first screen a new user
+  ever sees, and wrong exactly where it mattered — inside a fresh container almost
+  nothing is set up.
+
+  `_current_user()` is now total, falling back through `LOGNAME` to the numeric uid.
+  Numeric is *answerable*, not merely non-raising: group membership is stored by name, so
+  a uid with no account is correctly reported as not being in the `input` group, and
+  `setup` offers to fix it. `quickstart` now distinguishes three states rather than two —
+  a probe that fails prints "Check prerequisites — run `yazses doctor`" instead of a tick.
+
 - **The feature catalogue priced a 600 MB speech engine at 4 MB.** `yazses features`
   showed `stt-parakeet` as a `~4.0 MB` download — the `onnx-asr` wheel — while the
   engine's own docstring, `docs/models.md` and `yazses features info` all said it fetches
