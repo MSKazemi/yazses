@@ -8,6 +8,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A microphone that failed to open cost 300 ms of speech, and only the retry was ever
+  written down. `AudioRecorder.start` retries a transient open failure, and the retry works:
+  measured on a real machine's log over 2026-08-18→20, **12 opens failed across 149 bursts
+  (8%) and every one recovered on the second attempt** — only `attempt 1/3` ever appears.
+
+  What nobody asked is what the recovery cost. By the time `start()` runs the key is already
+  down, the tray is already green and the earcon has already told an eyes-free user to speak,
+  so the pause is not idle time — it is speech, and it cannot be recovered afterwards, because
+  the stream that would have buffered it is the stream that failed to open. The pause was a
+  flat 300 ms: many times longer than the fault it was waiting out.
+
+  The delays are now front-loaded — 50 ms, then 550 ms — so the common failure costs **50 ms
+  instead of 300 ms**, while the cumulative wait before the final attempt stays at the previous
+  600 ms, so nothing that used to recover now fails instead. The warning names the cost rather
+  than reading as a hiccup that was handled, and `_OPEN_ATTEMPTS` is derived from the schedule
+  so the two cannot drift. `system/diagnosis.py` had recorded the recovery ("it has always
+  recovered") without the follow-up question; the old tests pinned how many times the retry
+  slept and never what it slept for, which is why the number could be six times too large with
+  nothing failing.
+
 - `yazses meeting list` printed four meetings as four bare timestamps, and their lengths were
   on disk the whole time. Measured on a real machine: the four `meeting.json` files held
   `duration_s` of **11.6, 26.6, 56.7 and 8081.4** seconds — one two-hour meeting among three

@@ -10,8 +10,23 @@ log = logging.getLogger(__name__)
 # Opening the mic can fail transiently when the audio server (PipeWire/Pulse)
 # is briefly busy — e.g. another stream is being torn down. Retrying after a
 # short pause recovers automatically instead of requiring a daemon restart.
-_OPEN_ATTEMPTS = 3
-_OPEN_RETRY_DELAY_S = 0.3
+#
+# The pause is not free, and that is the part this used to get wrong. By the
+# time `start()` is called the key is already down, the tray is already green
+# and the earcon has already told an eyes-free user to speak. Whatever they say
+# during the pause is gone: there is no buffer to recover it from, because the
+# stream that would fill one is the stream that failed to open.
+#
+# Measured on a real machine (`daemon.log`, 2026-08-18→20): 12 failed opens in
+# 149 bursts (8%), and *every one* recovered on the second attempt — only
+# "attempt 1/3" ever appears. The server was busy for far less than the flat
+# 300 ms this waited, so the wait was many times longer than the fault it was
+# waiting out. The delays are front-loaded instead: the first retry is quick,
+# and the second is sized so the cumulative budget stays at the previous 600 ms
+# — nothing that used to recover on the third attempt now fails instead.
+_OPEN_RETRY_DELAYS_S: tuple[float, ...] = (0.05, 0.55)
+# Derived, so a change to one can never leave the other behind.
+_OPEN_ATTEMPTS = len(_OPEN_RETRY_DELAYS_S) + 1
 
 
 class AudioRecorder:
@@ -84,12 +99,24 @@ class AudioRecorder:
                 stream.start()
             except Exception as exc:  # PortAudioError and friends
                 last_exc = exc
-                log.warning(
-                    "Microphone open failed (attempt %d/%d): %s",
-                    attempt, _OPEN_ATTEMPTS, exc,
+                pause = (
+                    _OPEN_RETRY_DELAYS_S[attempt - 1]
+                    if attempt <= len(_OPEN_RETRY_DELAYS_S)
+                    else 0.0
                 )
-                if attempt < _OPEN_ATTEMPTS:
-                    time.sleep(_OPEN_RETRY_DELAY_S)
+                # Name the cost. "Microphone open failed … (attempt 1/3)" alone reads
+                # as a hiccup that was recovered, which is how 12 real occurrences went
+                # unexamined: the retry was documented, the dropped speech never was.
+                log.warning(
+                    "Microphone open failed (attempt %d/%d): %s%s",
+                    attempt,
+                    _OPEN_ATTEMPTS,
+                    exc,
+                    f" — retrying in {round(pause * 1000)} ms; anything said during "
+                    "that pause is not captured." if pause else "",
+                )
+                if pause:
+                    time.sleep(pause)
                 continue
             self._stream = stream
             self.current_device_name = self._opened_device_name(device_index)
