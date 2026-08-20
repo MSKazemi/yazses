@@ -1414,8 +1414,9 @@ def _echo_capabilities(
         )
     typer.echo(
         f"\n  {total} shown.  ●/○ = on/off.  Apply changes with `yazses restart`."
-        "\n  DOWNLOAD = what enabling fetches on a fresh install; blank = nothing"
-        " to download."
+        "\n  DOWNLOAD = what a fresh install fetches in total — packages when you"
+        "\n      enable it, plus any model files the first time it runs;"
+        " blank = nothing."
         "\n  Tip: `yazses features enable dysfluency` (use the TOGGLE NAME column)."
         "\n  Filter:  --on · --tier rec · --category access"
         "\n  Describe ALL capabilities (use case + example): `yazses features info`."

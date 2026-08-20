@@ -241,9 +241,11 @@ editing. Bare `yazses features` lists **every** capability **grouped by category
 showing whether each is on/off, its toggle name, what enabling it downloads, and an
 advice tier.
 
-The **DOWNLOAD** column is what the capability fetches on a fresh install — the whole
+The **DOWNLOAD** column is what a fresh install fetches in total — the whole
 dependency closure, so `cocktail` reads as `~3.1 GB` rather than as the one package
-you type. Blank means nothing to download, which is true of most capabilities. See
+you type, **plus** any model files the capability downloads the first time it runs,
+so `read-back` reads as `~352 MB` rather than as its 12 MB of packages. Blank means
+nothing to download, which is true of most capabilities. See
 [Install only what you need](how-to/install-only-what-you-need.md).
 
 Three states, not two:

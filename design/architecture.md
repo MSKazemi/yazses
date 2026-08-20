@@ -228,7 +228,7 @@ a guard that silently stops protecting on a whole display server is worse than n
 | `earcon/tones.py` | Non-speech motif grammar + numpy synth (pure) |
 | `earcon/play.py` | Playback seam — never blocks the hot path, never raises, drops a concurrent cue rather than queueing a late one |
 | `settingsui/theme.py` | Secondary-text colour computed from the desktop palette to stay above WCAG AA 4.5:1; Qt-free maths |
-| `system/depsize.py` | What enabling a feature will download — *marginal* against what is installed, from a committed table of resolved closures (ADR-018) |
+| `system/depsize.py` | What enabling a feature will download — *marginal* against what is installed, from a committed table of resolved closures, plus the model files it fetches on first run (ADR-018) |
 
 ### `src/yazses/platform/`
 

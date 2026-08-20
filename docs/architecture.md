@@ -504,9 +504,15 @@ feature whose packages you already have reports as free rather than as its full
 weight. The table holds fully **resolved dependency closures**, not wheel sizes,
 because the two differ by orders of magnitude where it matters: `speechbrain` is a
 few MB of its own and 3.1 GB resolved, since it pulls PyTorch and the NVIDIA CUDA
-stack that a CPU-only tool never uses. Sizes come from a committed file rather than a
-live query so the catalogue renders offline and instantly (ADR-011), and an unknown
-size prints nothing rather than a guess. See
+stack that a CPU-only tool never uses. Model files are added on top of the pip
+figure, because the generator resolves packages and a model is not one: the
+catalogue priced `read-back` at 12 MB while `tts/download.py` said in its own
+docstring that the voice it fetches is 340 MB, and the loud-download warning could
+never fire on it. `_MODEL_FETCHERS` holds the two together and
+`tests/test_feature_size_counts_model_files.py` derives both sides from the tree, so
+a new `download.py` cannot ship unpriced. Sizes come from a committed file rather
+than a live query so the catalogue renders offline and instantly (ADR-011), and an
+unknown size prints nothing rather than a guess. See
 [ADR-018](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-018-feature-packs-and-the-plugin-question.md),
 which also records why **third-party plug-ins are declined**: a plug-in would sit on
 the dictation hot path with the microphone, the transcript and the injector.
