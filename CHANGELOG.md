@@ -6,6 +6,38 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- A setting or `--flag` named in a **shipped message** is now checked to exist, as one
+  named in the docs already was. Three families of advice are guarded here — a command,
+  a flag, a `[section] key` — and only the command guard covered both places advice
+  lives. Its own docstring says why the shipped half is the half that matters:
+
+  > an undocumented command is a gap, while advice naming a command that does not exist
+  > is a dead end handed to someone who is already stuck.
+
+  That reasoning is about *advice*, not about commands. A page is read while things are
+  working; a runtime message is read when they are not. `yazses doctor`, the mic-change
+  notification, the settings window and the "could not type that" toast all tell people
+  what to set, and none of those strings had ever been compared against the config the
+  daemon loads or the options the command accepts. Following a bad one produces no error
+  at all — `configcheck` drops an unknown key deliberately, so the setting silently does
+  nothing and the file still loads.
+
+  **It finds nothing today** — zero across 101 backticked settings and 57 flagged
+  invocations, out of 16,406 shipped string literals — which is the reason to pin it now
+  rather than after it drifts, exactly as its two docs-side twins were pinned at zero.
+
+  The predicates are imported from those twins rather than re-implemented, so a future
+  change to either teaches this guard in the same commit; re-writing them is what
+  produced the asymmetry in the first place. Both scans carry a corpus floor, because a
+  guard whose input can quietly empty passes on everything.
+
+  The extraction rule was measured, not assumed: requiring backticks gives 101 mentions
+  and no false positives, while a bare `[section] word` gives 203 and reads ordinary
+  English as settings (`[endpoint] is`, `[personalize] on`) along with `pyproject.toml`'s
+  `[project] authors`, which belongs to a different file's schema entirely.
+
 ### Fixed
 
 - `yazses audio use` confirmed pins it had not checked meant anything.
