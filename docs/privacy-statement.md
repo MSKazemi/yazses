@@ -30,11 +30,20 @@ required). The model weights are downloaded once to `~/.local/share/yazses/`
 (Linux), `~/Library/Application Support/yazses/` (macOS), or `%APPDATA%\yazses\`
 (Windows) and run offline thereafter. The resulting transcript is held in memory
 only long enough to inject the text (and, if commands are enabled, to check whether
-you spoke a command). It is not written to any log file and is not transmitted
-anywhere.
+you spoke a command). At the default log level it is not written to any file, and it
+is never transmitted anywhere.
 
 The diagnostic log (`yazses logs`) records **metadata only** — timing and state,
-never your dictated text.
+never your dictated text — at the default `[general] log_level = "INFO"`.
+
+!!! warning "`log_level = "DEBUG"` is the one exception"
+    Setting `[general] log_level = "DEBUG"` in `config.toml` also writes each transcript
+    into `daemon.log`, which is what makes a hard-to-reproduce dictation bug diagnosable.
+    Nothing is uploaded either way — but that file then holds what you dictated, so treat
+    it as you would the text itself. `yazses report` knows this and **omits every DEBUG
+    line** from the bundle it builds for a bug report, stating how many it dropped. To
+    clear it: set the level back to `"INFO"` and delete the file at
+    `yazses logs --path`.
 
 ## The learning corpus (opt-in, off by default)
 

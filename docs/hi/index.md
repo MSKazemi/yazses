@@ -314,7 +314,7 @@ More in the **[full FAQ](https://mskazemi.com/yazses/faq.html)** and a side-by-s
 | `yazses inject TEXT` | Type arbitrary text into the focused window — test injection without speaking |
 | `yazses say TEXT` | Speak text aloud (offline TTS) |
 | `yazses test` | End-to-end self-test: focuses a window and types `YazSes OK` |
-| `yazses logs` | Show the daemon diagnostic log (metadata only — no dictated text is stored) |
+| `yazses logs` | Show the daemon diagnostic log (metadata only — dictated text is stored only when `log_level = "DEBUG"`) |
 | `yazses mark-wrong` | Flag the last dictation as a misrecognition (feeds the learning corpus) |
 | `yazses tune` | Analyse the learning corpus and propose accuracy improvements; `--apply` to write changes |
 | `yazses corpus` | Manage the local learning corpus (`status`, `forget`, `destroy`) |

@@ -404,6 +404,9 @@ yazses status      # state, hotkey, model, backend
 yazses logs        # recent diagnostic log (metadata only)
 ```
 
+The log holds timing and state, never what you dictated — unless you set
+`[general] log_level = "DEBUG"`, which also records each transcript.
+
 ## 6. Tune the silence threshold
 
 If dictation does nothing and `yazses logs` shows `Silent audio -- discarding`,

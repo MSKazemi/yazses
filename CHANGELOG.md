@@ -40,6 +40,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The privacy statement said the diagnostic log never holds your dictated text. One
+  supported setting away, it does.** `[general] log_level = "DEBUG"` writes each
+  transcript into `daemon.log` — which is exactly what `docs/cli-reference.md` tells you
+  to turn on to investigate a dictation problem, and that page was the only one that said
+  so. `docs/privacy-statement.md` stated flatly that the transcript *"is not written to
+  any log file"* and that the log records *"metadata only … never your dictated text"*.
+  `docs/install-linux.md`, `docs/command-index.md`, both localized indexes and the
+  `yazses logs` help string carried the same unconditioned promise.
+
+  Nothing is uploaded either way and none of this changes what the daemon writes — the
+  default is still metadata only, and `yazses report` has dropped every DEBUG line from
+  its bundle since `18e0d7a`. What changes is that the pages now say which of the two
+  they are describing, and how to clear the file if you turned `DEBUG` on.
+
+  Measured through the real `Daemon._configure_logging` into a temp directory, emitting
+  from the real call site: at `"INFO"` the sentence is absent from `daemon.log`; at
+  `"DEBUG"` it is there in full. The new guard is page-level (the caveat lands in a
+  different place on each page) and tied to the code — it scans `src/` for `.debug(…)`
+  calls that pass user text, so if that ever stops being true the guard retires instead
+  of forcing a caveat that would then be false.
+
 - `yazses audio use` confirmed pins it had not checked meant anything.
   It called the resolver only to ask *did anything match?*, then echoed back the string
   the user had typed. Two kinds of name were accepted without a word, and neither can

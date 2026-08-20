@@ -3472,7 +3472,7 @@ def logs(
     lines: int = typer.Option(40, "--lines", "-n", help="Number of recent lines to show."),
     path_only: bool = typer.Option(False, "--path", help="Print the log file path and exit."),
 ) -> None:
-    """Show the daemon's diagnostic log (metadata only -- no dictated text)."""
+    """Show the daemon's diagnostic log (metadata only unless log_level is DEBUG)."""
     platform = get_platform()
     log_file = platform.paths.log_dir / "daemon.log"
     if path_only:

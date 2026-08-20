@@ -382,7 +382,7 @@ debugging. This is the entry point `yazses start` supervises in the background.
 | `yazses report` | Write a redacted diagnostic file you can attach to an issue. Nothing is uploaded. |
 | `yazses autostart` | Start YazSes automatically at login, so it survives a reboot. |
 | `yazses mic-level` | Measure your mic speech level and recommend (or set) the VAD threshold. |
-| `yazses logs` | Show the daemon's diagnostic log (metadata only — no dictated text). |
+| `yazses logs` | Show the daemon's diagnostic log (metadata only unless `log_level` is `DEBUG`). |
 | `yazses setup` | Provision all Linux runtime requirements so dictation works out of the box. |
 | `yazses enroll` | Accessibility enrollment wizard: calibrate VAD thresholds to your voice. |
 | `yazses enroll-voice` | Record an encrypted speaker voiceprint (for Cocktail Filter + Voiceprint Mind). |
@@ -549,7 +549,9 @@ yazses mic-level -s 6     # record for 6 seconds instead of 4
 
 ### `yazses logs`
 
-Print the diagnostic log — **metadata only**, never your dictated text.
+Print the diagnostic log — **metadata only**, never your dictated text, at the
+default `[general] log_level = "INFO"`. See [Diagnostic log format](#diagnostic-log-format)
+for what `DEBUG` adds.
 
 **Options:** `--lines` / `-n N` (show the last `N` lines; default 40) · `--path`
 (print the log file path and exit — `~/.local/state/yazses/log/daemon.log`).

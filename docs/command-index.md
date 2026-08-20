@@ -269,7 +269,7 @@ Jump to a symbol or line in the active editor.
 
 ## `yazses logs`
 
-Show the daemon's diagnostic log (metadata only -- no dictated text).
+Show the daemon's diagnostic log (metadata only unless log_level is DEBUG).
 
 - `--lines`, `-n` — Number of recent lines to show.
 - `--path` — Print the log file path and exit.
