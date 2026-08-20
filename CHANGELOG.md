@@ -40,6 +40,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`yazses corpus forget` deleted the row and left the transcript in the file.** Its own
+  help says what it is for — *"e.g. after dictating something private"* — and the privacy
+  statement names it as the answer to *"if you need something gone now"*. A plain SQLite
+  `DELETE` marks the page free and leaves the bytes in place. Measured on a corpus built in
+  a temp directory: forget one event, find its exact encrypted blob at a byte offset in the
+  freed page, decrypt it, and read the sentence back.
+
+  Encryption is not the protection here, because the key is not elsewhere. `corpus.key` is
+  machine-bound and lives beside `corpus.db` by design (ADR-012) — right for a local
+  corpus, but it means residue in a freed page is readable by exactly the person the user
+  ran `forget` to protect themselves from.
+
+  `PRAGMA secure_delete = ON` now zeroes freed content on every delete path — `forget`,
+  retention eviction, the size sweep, and anything added later. Fixing it at the connection
+  rather than at the one call site with a test matters: retention is described in the code
+  as *"a privacy control (ADR-012)"* and would have kept leaking. `forget` also compacts the
+  database, which clears residue left by earlier versions — the pragma zeroes content as it
+  is deleted, not content already deleted.
+
+  The privacy statement now also says what this does **not** cover: the filesystem may keep
+  the blocks of an unlinked clip or a deleted journal, which is below SQLite and below this
+  project.
+
 - **`[learning] max_corpus_mb` emptied a text-only corpus instead of trimming it.** The
   size sweep deleted the oldest event and re-measured, in a loop, until the corpus fitted
   under the cap. `DELETE` does not shrink a SQLite file — the pages go on its free list and

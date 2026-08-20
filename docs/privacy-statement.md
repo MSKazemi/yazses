@@ -80,6 +80,17 @@ ceilings it is prevented from crossing. If you need something gone *now*, use
 A sweep will not empty the corpus to satisfy the size limit: it trims the oldest events
 as far as reclaiming disk actually helps and then stops, leaving the rest in place.
 
+Deleting an event — by `forget`, by retention, or by the size sweep — zeroes its stored
+bytes rather than only unlinking the row, so the transcript is not left readable in a
+freed page of `corpus.db`. That matters because the key is deliberately *not* kept
+elsewhere: `corpus.key` is machine-bound and sits beside the database, so anything left
+in the file is readable by anyone who has the machine. `forget` additionally compacts
+the database, which clears residue left by earlier versions.
+
+What that does not cover is the filesystem underneath: the blocks of an unlinked audio
+clip, or of a deleted journal, may survive on the disk until they are overwritten. If
+that matters for your threat model, full-disk encryption is the control for it.
+
 The `recall` and `scratch` note features read from this same local corpus and never
 leave the machine.
 

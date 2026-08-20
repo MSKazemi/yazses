@@ -1647,6 +1647,10 @@ corpus trimmed as far as it goes rather than emptied. If `status` keeps reportin
 above the cap after a sweep, that is what happened; `yazses logs` says so, and raising
 `max_corpus_mb` or running `yazses corpus destroy` are the two ways out.
 
+Every deletion path zeroes the bytes it frees, so a deleted transcript is not left
+readable inside `corpus.db`; `forget` also compacts the file, clearing anything earlier
+versions left behind.
+
 ---
 
 ## Feature configuration snapshots

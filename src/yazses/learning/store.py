@@ -244,6 +244,15 @@ class CorpusStore:
         # lock (see learning/capture.py).
         self._conn = sqlite3.connect(str(self._db_path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
+        # A plain DELETE only marks the page free; the bytes stay in the file until
+        # something happens to reuse them. `yazses corpus forget` is documented as what to
+        # run "after dictating something private", and the encrypted transcript of the
+        # event it deleted was still carveable out of `corpus.db` afterwards -- with
+        # `corpus.key` sitting in the same directory. Measured: forget one event, find its
+        # exact blob at a byte offset in the freed page, decrypt it, read the sentence
+        # back. This zeroes freed content on every delete path -- forget, retention, the
+        # size trim -- rather than at one call site that could be added to later.
+        self._conn.execute("PRAGMA secure_delete = ON")
         self._conn.executescript(_SCHEMA)
         self._conn.commit()
 
@@ -387,7 +396,12 @@ class CorpusStore:
     def forget(self, minutes: float) -> int:
         """Delete events captured within the last ``minutes``. Returns count removed."""
         cutoff = time.time() - minutes * 60.0
-        return self._delete_where("ts >= ?", (cutoff,))
+        removed = self._delete_where("ts >= ?", (cutoff,))
+        if removed:
+            # Also reclaim what earlier deletes left behind: this is the one command
+            # whose whole promise is that the thing is gone "now".
+            self._conn.execute("VACUUM")
+        return removed
 
     def prune(self, retention_days: int, max_mb: int) -> int:
         """Evict events older than ``retention_days``, then trim to ``max_mb``.
