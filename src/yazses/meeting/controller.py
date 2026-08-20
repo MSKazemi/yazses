@@ -175,6 +175,13 @@ class MeetingController:
             fmt=getattr(self._config, "output_format", "md"), notes_md=notes_md,
         )
         speakers = sorted(set(result.transcript.speaker_names.values()))
+        # What the audio turned out to hold. `transcribe_file` has always answered
+        # this and only `yazses transcribe` ever read it, so a meeting recorded
+        # against a muted microphone finalized as `status: "done"` like any other.
+        capture = store.capture_state(
+            getattr(result.transcript, "silent_input", False),
+            getattr(result.transcript, "no_speech", False),
+        )
         store.write_meta(self._session.dir, {
             "id": self.meeting_id,
             "duration_s": round(self._session.duration_s(), 1),
@@ -182,6 +189,7 @@ class MeetingController:
             "num_speakers": len(result.transcript.speaker_names),
             "speakers": speakers,
             "has_notes": notes_md is not None,
+            "capture": capture,
             "status": "done",
         })
         return {
@@ -191,5 +199,6 @@ class MeetingController:
             "num_speakers": len(result.transcript.speaker_names),
             "speakers": speakers,
             "has_notes": notes_md is not None,
+            "capture": capture,
             "files": {k: str(v) for k, v in written.items()},
         }

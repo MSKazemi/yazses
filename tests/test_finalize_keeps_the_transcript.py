@@ -27,9 +27,14 @@ even that.
 
 from __future__ import annotations
 
+import functools
+import pathlib
+
 import pytest
 
 from yazses.meeting.finalize import finalize_meeting
+
+SPEECH = pathlib.Path(__file__).resolve().parent.parent / "data/librispeech-sample/jfk.wav"
 
 
 class _Cfg:
@@ -57,10 +62,24 @@ class _Engine:
         return "hello"
 
 
-def _audio():
-    import numpy as np
+@functools.lru_cache(maxsize=1)
+def _speech():
+    from yazses.recimport.audio_io import load_audio
 
-    return np.zeros(16000, dtype="float32")
+    audio, _sr = load_audio(SPEECH)
+    return audio
+
+
+def _audio():
+    """Real speech, not `np.zeros(...)`.
+
+    This file is about the notes step failing, so the recording has to be one the
+    notes step is actually run on. Digital silence no longer is: `finalize_meeting`
+    now refuses to summarise a recording that holds no speech, so a zeros fixture
+    made these tests pass for the wrong reason -- no minutes because none were ever
+    attempted, rather than none because the attempt was caught.
+    """
+    return _speech()
 
 
 def test_the_transcript_survives_a_notes_explosion(monkeypatch) -> None:

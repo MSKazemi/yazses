@@ -419,6 +419,13 @@ def meeting_list(
                 f"    ⚠ did not finish — {len(lines)} line(s) of live transcript "
                 f"recoverable from {m.get('dir', '')}/live.jsonl"
             )
+        # A meeting whose audio held nothing. Listed here because `meeting stop`
+        # returns before the post-pass runs, so this listing is the first surface
+        # that can know -- and by default the audio is gone by now, leaving the
+        # transcript as the only thing left to distrust.
+        warning = store.capture_warning(m)
+        if warning:
+            typer.echo(f"    {warning}")
 
 
 @meeting_app.command("relabel")
@@ -454,6 +461,9 @@ def meeting_relabel(
 @meeting_app.command("notes")
 def meeting_notes(
     meeting_id: str = typer.Argument(..., help="Meeting id to (re)generate notes for."),
+    force: bool = typer.Option(
+        False, "--force", help="Write notes even for a recording that holds no speech."
+    ),
 ) -> None:
     """Generate meeting minutes (summary, decisions, action items) from the transcript.
 
@@ -473,6 +483,23 @@ def meeting_notes(
     if not (d / "transcript.json").exists():
         typer.echo(f"No transcript for meeting {meeting_id} in {d}.", err=True)
         raise typer.Exit(1)
+    # A transcript produced from a recording with no speech in it is Whisper
+    # answering noise, and minutes are the one output nobody can tell apart from a
+    # real write-up afterwards. `finalize` already skips the notes pass for these;
+    # this is the same rule on the path that regenerates them by hand. Overridable,
+    # because a speech detector can be wrong about a very quiet talker and the
+    # transcript is right there to judge.
+    capture_note = store.capture_warning(store.read_meta(d))
+    if capture_note and not force:
+        typer.echo(f"{capture_note}\n", err=True)
+        typer.echo(
+            "Refusing to write minutes from it — a summary of invented words reads "
+            "exactly like a real one. Read the transcript first; pass --force if it "
+            "does hold speech.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
     view = store.load_result_view(d)
     # Checked BEFORE the announcement. This printed "Generating minutes locally… (this
     # can take a few minutes)" and then, immediately, that notes were off — promising

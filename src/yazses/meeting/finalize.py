@@ -63,7 +63,19 @@ def finalize_meeting(
     )
 
     minutes = None
-    if getattr(config, "notes", False):
+    # Minutes are a local LLM reading the transcript back. When the recording held
+    # no speech, that transcript is Whisper's answer to noise -- four seconds of room
+    # hiss decodes to the word "You" -- and the notes pass would turn invented words
+    # into confident bullet points, which is the one output nobody can tell apart
+    # from a real write-up afterwards. The transcript is still written: it is the
+    # evidence, and by default the audio is deleted once this returns.
+    unusable = getattr(result, "silent_input", False) or getattr(result, "no_speech", False)
+    if unusable:
+        log.warning(
+            "Meeting audio holds no speech (%s); skipping the notes pass.",
+            "no signal" if getattr(result, "silent_input", False) else "no speech detected",
+        )
+    if getattr(config, "notes", False) and not unusable:
         from yazses.meeting.notes import generate_minutes
 
         # The transcript is the expensive, irreplaceable half: an hour of audio decoded

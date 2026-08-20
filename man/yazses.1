@@ -288,6 +288,11 @@ Print meetings as a JSON array (machine-readable; empty list is []).
 .TP
 \fByazses meeting notes\fR \fIMEETING_ID\fR
 Generate meeting minutes (summary, decisions, action items) from the transcript.
+.RS
+.TP
+\fB\-\-force\fR
+Write notes even for a recording that holds no speech.
+.RE
 .TP
 \fByazses meeting relabel\fR \fIMEETING_ID\fR
 Fix speaker labels \(em merge two clusters and/or rename them \(em and re-render.

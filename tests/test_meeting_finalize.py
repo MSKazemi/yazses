@@ -2,14 +2,17 @@
 from __future__ import annotations
 
 import dataclasses
+import functools
 import json
-
-import numpy as np
+import pathlib
 
 from yazses.config import MeetingConfig
 from yazses.meeting.finalize import finalize_meeting
 from yazses.postprocess.prosody import Word
+from yazses.recimport.audio_io import load_audio
 from yazses.recimport.diarizer import DiarTurn
+
+SPEECH = pathlib.Path(__file__).resolve().parent.parent / "data/librispeech-sample/jfk.wav"
 
 WORDS = [
     Word("hello", 0.0, 0.4, 0.9),
@@ -34,7 +37,21 @@ def _cfg(**kw):
 
 
 def _audio():
-    return np.zeros(16000, dtype="float32")
+    """Real speech, not `np.zeros(...)`.
+
+    Digital silence paired with a transcript is a state that cannot occur, and since
+    the no-speech detector landed it is one `finalize_meeting` refuses to write notes
+    from -- correctly, so these tests were asserting on a recording the shipped code
+    would never summarise. The committed LibriSpeech clip is the honest fixture: the
+    fake engine still supplies the words, but the audio backing them holds speech.
+    """
+    return _speech()
+
+
+@functools.lru_cache(maxsize=1)
+def _speech():
+    audio, _sr = load_audio(SPEECH)
+    return audio
 
 
 def test_finalize_diarizes_and_skips_notes_by_default():

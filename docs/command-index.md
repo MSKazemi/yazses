@@ -307,6 +307,7 @@ List stored meetings on this machine (no daemon required).
 Generate meeting minutes (summary, decisions, action items) from the transcript.
 
 - **Arguments:** `meeting_id`
+- `--force` — Write notes even for a recording that holds no speech.
 
 ### `yazses meeting relabel`
 

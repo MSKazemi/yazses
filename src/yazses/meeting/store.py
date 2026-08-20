@@ -24,6 +24,51 @@ _EXT = {"md": "transcript.md", "txt": "transcript.txt", "srt": "transcript.srt",
         "vtt": "transcript.vtt", "json": _CANONICAL}
 
 
+# What the recording itself turned out to hold. `ok` is written explicitly rather
+# than left absent, so a meeting from before this field existed ("" / missing) is
+# distinguishable from one that was checked and passed.
+CAPTURE_OK = "ok"
+CAPTURE_NO_SIGNAL = "no_signal"
+CAPTURE_NO_SPEECH = "no_speech"
+
+
+def capture_state(silent_input: bool, no_speech: bool) -> str:
+    """The recording's verdict, from the two flags ``transcribe_file`` returns. Pure."""
+    if silent_input:
+        return CAPTURE_NO_SIGNAL
+    if no_speech:
+        return CAPTURE_NO_SPEECH
+    return CAPTURE_OK
+
+
+def capture_warning(meta: dict) -> str | None:
+    """One line for a meeting whose audio held nothing worth transcribing, else None.
+
+    A meeting is unattended and long, which is what makes this worth a field of its
+    own. `yazses transcribe` can print a note to stderr and be read; a meeting
+    finalizes hours later into `status: "done"`, and by default its audio is deleted
+    the moment the post-pass returns (`[meeting] retain_audio`). Without this the
+    only evidence left is a transcript of words nobody said.
+
+    The two states are kept apart because the remedies are: a dead capture is a
+    device problem, an empty room is not.
+    """
+    state = meta.get("capture")
+    if state == CAPTURE_NO_SIGNAL:
+        return (
+            "⚠ the recording carried no signal — any text in this meeting was invented, "
+            "not heard. The microphone was muted, held by another application, or the "
+            "wrong device was recorded (`yazses audio devices`)."
+        )
+    if state == CAPTURE_NO_SPEECH:
+        return (
+            "⚠ sound was recorded but a speech detector found none in it — any text in "
+            "this meeting was invented, not heard. Nobody spoke, the room was captured "
+            "instead of the call, or the speech was too faint to detect."
+        )
+    return None
+
+
 def meetings_dir(config) -> Path:
     """Directory holding per-meeting folders (``[meeting] output_dir`` or the data dir)."""
     override = getattr(config, "output_dir", "") or ""

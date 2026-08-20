@@ -208,6 +208,40 @@ a crash and never absent during a run. `yazses start` restarts cleanly instead o
 spawning a duplicate — duplicates present as **every word typed twice**, which is
 easy to misread as a hotkey problem.
 
+## A recording that holds no speech
+
+A speech model answers non-speech audio with words rather than with nothing: four
+seconds of faint room hiss decodes to **"You"**. So an empty recording does not
+produce an empty transcript — it produces a short, confident, completely invented
+one, and no check on the *output* can tell it from a real short utterance.
+
+Both file paths measure the **input** instead, and they ask two separate questions:
+
+| Verdict | What it means | Where to look |
+|---|---|---|
+| no signal | nothing was captured at all (peak below `1e-4`) | the microphone was muted, another app held the device, or the wrong device was recorded — `yazses audio devices` |
+| no speech | sound was captured and a speech detector found none in it | the file holds music or room noise, the wrong source was recorded, or the speech is too faint to detect |
+
+The detector is Silero, which `faster-whisper` already ships as a bundled ONNX
+asset — nothing is downloaded and nothing leaves the machine.
+
+- `yazses transcribe` prints the matching note and still writes the transcript. The
+  text is the evidence; deleting it would only hide the problem.
+- A **meeting** records the verdict in its `meeting.json` and `yazses meeting list`
+  says so on the meeting's line. This matters more than on `transcribe`: a meeting is
+  unattended, and its audio is deleted when the post-pass finishes unless
+  `[meeting] retain_audio = true`.
+- **Minutes are refused** for such a meeting, at finalize and again if you run
+  `yazses meeting notes <id>` by hand. A summary of invented words reads exactly like
+  a real one, which makes it the one output nobody can audit afterwards. Pass
+  `--force` if you have read the transcript and it does hold speech — a detector can
+  be wrong about a very quiet talker.
+
+It is a detector, not a filter: it runs beside the decode and changes nothing about
+how real speech is transcribed. Filtering the audio through it first would also stop
+the hallucination, and it re-segments the audio — measured on six LibriSpeech clips,
+that changed two transcripts, one of them for the worse.
+
 ---
 
 ## What does not heal itself

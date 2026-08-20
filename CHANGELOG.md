@@ -8,6 +8,34 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A meeting recorded against a muted microphone, or of a room where nobody spoke, was written
+  up as a finished meeting — and summarised. `recimport.pipeline.transcribe_file` has always
+  answered whether the audio held anything (`silent_input`, and now `no_speech`), and
+  `meeting.finalize` wraps that same pipeline and **dropped both flags**: only `yazses transcribe`
+  ever read them. So the recording that makes the CLI print a warning produced a meeting with
+  `status: "done"`, a transcript of the words a speech model answers noise with, and — worst —
+  `notes.md`, those words turned into confident bullet points by a local LLM. That is the one
+  output nobody can audit afterwards, because by default the audio is deleted the moment the
+  post-pass returns (`[meeting] retain_audio`). `meeting.json` now records a `capture` verdict
+  (`ok` / `no_signal` / `no_speech`, written explicitly so a meeting from before this field is
+  distinguishable from one that was checked), `yazses meeting list` says so on the meeting's line
+  with the remedy that matches — a dead capture is a device problem, an empty room is not — and
+  the notes pass is **refused**, at finalize and again on the `yazses meeting notes <id>` path
+  that would otherwise walk straight around it. `--force` is there because a speech detector can
+  be wrong about a very quiet talker and the transcript is right in front of you.
+
+  Two things deliberately not done: `retain_audio` is **not** forced on for a flagged meeting —
+  keeping audio the user asked to delete is a privacy decision, not a diagnostic one (ADR-011),
+  and the flag is only known after the audio has served its purpose; and the transcript body is
+  untouched, because `relabel` re-renders it from `transcript.json`, which does not carry these
+  flags, so a banner written at finalize would silently vanish on the first relabel.
+  Half of this gap was recorded in `tests/test_recimport_cleans_utterances.py` on 2026-08-19 and
+  left open; `tests/test_meeting_capture_quality.py` closes it, and `docs/reliability.md` gains
+  the section that explains why an empty recording produces a confident transcript rather than an
+  empty one. Two existing finalize tests fed `np.zeros(...)` and expected minutes — a pairing the
+  shipped code now refuses, and one that could not occur in the first place; they use the committed
+  LibriSpeech clip, so the audio backing their fake transcript actually holds speech.
+
 - `yazses transcribe` wrote a word nobody said, and said nothing about it. Four seconds of
   faint room hiss produced a sidecar file containing **`You`** — Whisper's stock answer to
   non-speech audio — with no warning of any kind. The guard that exists could not see it:
