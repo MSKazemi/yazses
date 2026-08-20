@@ -26,7 +26,8 @@ from pathlib import Path
 # value is replaced, not the key: knowing that a socket is configured is diagnostic, and
 # knowing where it points is nobody's business.
 _REDACT_KEYS = re.compile(
-    r"(path|dir|file|socket|host|address|port|token|key|secret|user|email|model_path)",
+    r"(path|dir|file|socket|host|address|endpoint|port|token|key|secret|user|email"
+    r"|model_path)",
     re.IGNORECASE,
 )
 _REDACTED = "<redacted>"
@@ -118,7 +119,30 @@ def redact_text(text: str) -> str:
 _FREE_TEXT_KEYS = frozenset({
     "initial_prompt",       # [stt] — the personal dictionary
     "llm_system_prompt",    # [filters.disfluency] — may be rewritten by hand
+    "author",               # [macros] — config.py: "value substituted for ${author}"
+    "device_name",          # [bridge] — a paired phone is usually named after its owner
 })
+
+
+#: Every *other* string-valued config field is kept verbatim, because that is what
+#: makes a bundle worth reading: a backend name, a language code, a log level.
+#:
+#: The list of which fields those are lives in
+#: `tests/test_report_classifies_every_config_string.py`, not here, and deliberately.
+#: Naming them in `src/` would make `scripts/config_status.py` count them as *read* --
+#: it decides that by looking for the key name in the source -- and seven of them
+#: (`vad_source`, `lsp_editor`, `evdev_device`, `lora_base_model`, `embed_model`,
+#: `partial_marker`, `delimiter`) are on the ledger of keys **no code reads**. A
+#: redaction rule must not make a feature look implemented. That is the same trap the
+#: note above `_FREE_TEXT_KEYS` describes, and it caught this change too.
+#:
+#: The obligation is a build-time one anyway, not a runtime one: nothing here needs the
+#: safe list, since falling through *is* keeping the value. What the guard adds is that
+#: the three-way classification is **total** over the config dataclasses, so a new
+#: string field fails the build until someone decides whether it is an identifier, the
+#: user's prose, or a published setting. A guard that lists what was wrong on the day it
+#: was written says nothing about the next field; one that demands a decision for every
+#: field does.
 
 
 #: Values that come from a small, **published** set of names, keyed by

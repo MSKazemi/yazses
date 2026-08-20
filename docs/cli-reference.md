@@ -488,8 +488,8 @@ as it did.
 
 ### `yazses report`
 
-Collects a diagnostic bundle **locally** — versions, daemon state, your settings with paths
-and identifiers replaced, and the tail of the metadata-only log. Your dictated text is never
+Collects a diagnostic bundle **locally** — versions, daemon state, your settings with paths,
+identifiers and anything you typed yourself replaced, and the tail of the metadata-only log. Your dictated text is never
 included, and the learning corpus is reported by size and never opened.
 
 **Nothing is uploaded, ever.** The file is written, its path printed, and it is yours to
@@ -501,6 +501,15 @@ hiding them would remove the one comparison that matters: the bundle also record
 the *running* daemon is listening on, and the two disagreeing is what explains a hotkey
 that suddenly does nothing after a config change without a restart. Anything that is a
 path, address, token or free text is still replaced.
+
+Every string a config file can hold is classified as one of those three — an identifier,
+your own prose, or a value from a published set — and a new setting fails the build until
+someone decides which it is. Before that, the decision was a key-name regex plus a list of
+the fields anyone had thought of, and `[macros] author` — whose comment in the source reads
+*"value substituted for `${author}`"* — was not on it. It came out as
+`<redacted> Seyedkazemi Ardebili`: the account name matched, the surname did not, and the
+marker made the field look handled. `[filters.disfluency] llm_endpoint` was the other one;
+`host`, `address` and `port` were all filtered and "endpoint" was simply never spelled.
 
 **Options:** `--output/-o` (where to write it), `--print` (print instead of writing),
 `--log-lines` (how much log tail to include, default 200).

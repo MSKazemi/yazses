@@ -2546,9 +2546,10 @@ def report(
 ) -> None:
     """Collect a diagnostic report locally — nothing is uploaded.
 
-    Includes versions, the daemon's state, your settings with paths and identifiers
-    removed, and the tail of the metadata-only log. Your dictated text and the learning
-    corpus are never included. Read it, then attach it to an issue yourself if you want to.
+    Includes versions, the daemon's state, your settings with paths, identifiers and
+    anything you typed yourself removed, and the tail of the metadata-only log. Your
+    dictated text and the learning corpus are never included. Read it, then attach it to
+    an issue yourself if you want to.
     """
     from yazses.system import report as report_mod
 
