@@ -8,7 +8,7 @@ a Linux dev machine) doesn't fail just from the package import.
 
 from __future__ import annotations
 
-from yazses.platform.base import Platform
+from yazses.platform.base import MACOS_PLATFORM_NAME, Platform
 from yazses.platform.macos.paths import build_paths
 
 
@@ -22,7 +22,7 @@ def build_platform() -> Platform:
 
     paths = build_paths()
     return Platform(
-        name="darwin",
+        name=MACOS_PLATFORM_NAME,
         default_hotkey="right_option",
         paths=paths,
         permissions=MacosPermissions(),

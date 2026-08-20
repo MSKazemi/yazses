@@ -8,6 +8,21 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A whole `doctor` row was unreachable on the only OS it exists for. The **Elevated
+  windows** check — the one that explains why dictation works everywhere except Task
+  Manager — was gated on `platform_name != "windows"`. `Platform.name` is a `sys.platform`
+  string, so the Windows bundle reports `"win32"`: the comparison was false on Windows and
+  the row never rendered, while `docs/capability-matrix.md` told the reader *"`yazses
+  doctor` reports which case you are in"*. Nothing caught it because the unit test invented
+  the same string it was testing against, `_elevation_check("windows")`, and passed. The
+  three names now live in `platform/base.py` and every bundle sets `Platform(name=...)`
+  from them, so a reader cannot drift from the bundle that declares it; BSD still reports
+  the real `sys.platform` ("freebsd14"), which is why family checks there are a prefix
+  match and never an equality test. `tests/test_doctor_platform_names.py` parses `doctor.py`
+  and fails on any platform-name comparison against a bare literal, or against a value no
+  `build_platform()` declares — and asserts the set of names the bundles publish is exactly
+  the set `get_platform()` dispatches on. `docs/windows-install.md` now shows the row.
+
 - macOS Accessibility advice had nothing to say to the person it was written for. `doctor`
   answered a denied keyboard-capture check with *"Grant Accessibility access in System
   Settings → Privacy & Security → Accessibility → enable YazSes"* — which is exactly the

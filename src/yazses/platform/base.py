@@ -12,6 +12,22 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
+#: The value each bundle puts in `Platform.name`. These are `sys.platform`
+#: strings, not friendly words, and anything that branches on `Platform.name`
+#: must compare against one of them -- a comparison written against `"windows"`
+#: or `"macos"` matches nothing and silently disables whatever it guards. That
+#: is exactly how the "Elevated windows" row in `yazses doctor` came to be
+#: unreachable on the only OS it exists for, while `docs/capability-matrix.md`
+#: told the reader doctor would report it. They live here, next to `Platform`,
+#: so the bundle and its readers cannot drift apart in the first place.
+#:
+#: BSD declares `sys.platform` itself ("freebsd14", "openbsd7"), so a check for
+#: that family is a prefix match against `platform.bsd.BSD_PREFIXES`, never an
+#: equality test.
+LINUX_PLATFORM_NAME = "linux"
+MACOS_PLATFORM_NAME = "darwin"
+WINDOWS_PLATFORM_NAME = "win32"
+
 
 class UnsupportedPlatformError(RuntimeError):
     """Raised when the current sys.platform has no YazSes backend."""

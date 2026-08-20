@@ -226,6 +226,19 @@ bug. The daemon logs `SendInput sent 0/N events (lastError=5)` when this
 happens. Run YazSes elevated too if you need to dictate into elevated
 windows; otherwise leave it unelevated, which is the safer default.
 
+To see which side of that boundary you are on, run `yazses doctor` and look
+for the **Elevated windows** row:
+
+```
+  [OK] Elevated windows: not elevated (the safer default) - Windows will
+       silently block dictation into windows that run as administrator ...
+```
+
+It is informational, never a failure — unelevated is the correct default. (The
+row is Windows-only. It was absent from `doctor` in every release up to and
+including v2.29.0 — the check was keyed to a platform name Windows never
+reports, so it could not render on the one OS it exists for.)
+
 **"Dictation stopped working part-way through the day."** If the daemon crashes,
 Windows will not restart it on its own — the autostart entry only fires at login,
 and there is no Windows Service supervising it. The **tray** is the safety net: it

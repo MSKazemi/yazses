@@ -15,6 +15,7 @@ from importlib.metadata import version as _pkg_version
 from pathlib import Path
 
 from yazses.platform import PermissionState, get_platform
+from yazses.platform.base import LINUX_PLATFORM_NAME, WINDOWS_PLATFORM_NAME
 from yazses.system import streams
 from yazses.system.miclevel import LevelStats
 from yazses.system.snap import in_strict_snap, keyboard_capture_advice
@@ -543,7 +544,7 @@ def _keyboard_capture_check(perms, platform_name: str) -> _Check:
             '`sg input -c "yazses restart"` already has access — this line only reflects '
             "the shell running doctor."
         )
-    elif platform_name == "linux" and state is PermissionState.DENIED:
+    elif platform_name == LINUX_PLATFORM_NAME and state is PermissionState.DENIED:
         detail = (
             f"{state.value} — run:\n"
             "    sudo usermod -aG input $USER\n"
@@ -622,8 +623,17 @@ def _elevation_check(platform_name: str) -> _Check | None:
     Informational, never a FAIL — running unelevated is the correct default and
     the *more* secure choice. The point is that the consequence is stated rather
     than discovered as "dictation randomly doesn't work in Task Manager".
+
+    ⚠ The name compared here is the one the Windows bundle actually declares —
+    ``sys.platform``, i.e. ``"win32"``. It read ``"windows"``, a string no
+    backend has ever produced, so this row could not appear on the only OS it
+    exists for; the test that covered it invented the same string and stayed
+    green. `docs/capability-matrix.md` meanwhile told the reader that
+    ``yazses doctor`` reports which elevation case they are in. See
+    `tests/test_doctor_platform_names.py`, which fails on any literal compared
+    here that no `build_platform()` declares.
     """
-    if platform_name != "windows":
+    if platform_name != WINDOWS_PLATFORM_NAME:
         return None
     try:
         from yazses.platform.windows.permissions import elevation_detail, is_elevated

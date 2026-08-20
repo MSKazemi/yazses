@@ -400,9 +400,13 @@ def test_doctor_elevation_check_is_windows_only():
 
 def test_doctor_elevation_check_is_informational_not_a_failure():
     """Running unelevated is correct and more secure -- it must not read FAIL."""
+    from yazses.platform.base import WINDOWS_PLATFORM_NAME
     from yazses.system.doctor import _elevation_check
 
-    check = _elevation_check("windows")
+    # Not the literal "windows": that is a name no backend declares, and passing
+    # it here is what kept this test green while the row was unreachable on the
+    # real OS. See tests/test_doctor_platform_names.py.
+    check = _elevation_check(WINDOWS_PLATFORM_NAME)
     assert check is not None
     name, status, detail = check
     assert name == "Elevated windows"

@@ -7,7 +7,7 @@ dev machine) does not fail just from the package import.
 
 from __future__ import annotations
 
-from yazses.platform.base import Platform
+from yazses.platform.base import WINDOWS_PLATFORM_NAME, Platform
 from yazses.platform.windows.paths import build_paths
 
 
@@ -24,7 +24,7 @@ def build_platform() -> Platform:
 
     paths = build_paths()
     return Platform(
-        name="win32",
+        name=WINDOWS_PLATFORM_NAME,
         default_hotkey="right_ctrl",
         paths=paths,
         permissions=WindowsPermissions(),

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import os
 
-from yazses.platform.base import Platform
+from yazses.platform.base import LINUX_PLATFORM_NAME, Platform
 from yazses.platform.linux.paths import build_paths
 
 log = logging.getLogger(__name__)
@@ -51,7 +51,7 @@ def build_platform() -> Platform:
 
     paths = build_paths()
     return Platform(
-        name="linux",
+        name=LINUX_PLATFORM_NAME,
         default_hotkey="right_alt",
         paths=paths,
         permissions=LinuxPermissions(),
