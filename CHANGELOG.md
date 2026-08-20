@@ -8,6 +8,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- The Flathub listing's **Help** button pointed at a page that 404s.
+  `packaging/flatpak/com.mskazemi.YazSes.metainfo.xml` *is* the listing — GNOME Software
+  and KDE Discover render it, and flathub.org indexes it — and its
+  `<url type="help">` was written as `…/yazses/troubleshooting/`. The site sets
+  `use_directory_urls: false`, so the page is `troubleshooting.html` and the directory
+  form is a 404, served to someone who pressed Help because they were already stuck.
+
+  `test_shipped_links_resolve.py` had both rules — the page must exist, and it must not
+  use the directory form — and applied them only to Python strings, as though a link had
+  to be *printed by the program* to be clicked. `test_flatpak_metainfo.py` reads that same
+  file and checks its `<url>` fields, but only that none is a placeholder; it verifies
+  every screenshot resolves to a real file while its own docstring says "a listing whose
+  images 404 is worse than one with none".
+
+  Both rules now run over every tracked file, so the snap listing, `pyproject.toml` (the
+  PyPI sidebar), `CITATION.cff`, the AppStream metainfo, the install scripts and the docs
+  are covered. Three exclusions are reasoned and tested rather than assumed: `…/yazses/apt`
+  is the APT repository directory that `install-apt.sh` fetches `KEY.gpg` from, not a page;
+  `sitemap.xml` and the feeds are generated assets, classified by extension so a new one
+  needs no edit here; and a sentence-final period is not part of a URL, which `llms.txt`
+  and the Flathub submission notes would both otherwise have failed on.
+
 - The Configuration Reference gave a reader no way to tell a working setting from a
   dead one. 63 of its 447 keys are accepted by the loader, validated by `configcheck`
   and given a documented default while **no code reads them** — and they were rendered

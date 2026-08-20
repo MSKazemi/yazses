@@ -19,12 +19,29 @@ docstring with "report results on …/issues." — a sentence-final period that 
 as part of the URL. That text is developer-facing and never reaches a user, so holding
 it to a user-visible standard would be noise, and a guard that produces noise gets
 deleted.
+
+## The other half: links the program never prints
+
+The rules above were applied only to Python strings, and a link does not have to be
+printed by the program to be clicked. `packaging/flatpak/…metainfo.xml` **is** the
+Flathub listing — GNOME Software and KDE Discover render it — and its
+`<url type="help">` is the Help button. It was written in the directory form and would
+have 404'd for every person who pressed it. `test_flatpak_metainfo.py` reads that file
+and checks its `<url>` fields, but only that none is a placeholder; it verifies that
+every *screenshot* resolves to a real file while saying in its own docstring that "a
+listing whose images 404 is worse than one with none".
+
+So the same two rules now run over every tracked file, not just `src/`: the snap
+listing, `pyproject.toml` (which is the PyPI sidebar), `CITATION.cff`, the AppStream
+metainfo, the install scripts and the docs themselves. `tests/` is excluded because a
+link checker's own fixtures are deliberately malformed.
 """
 
 from __future__ import annotations
 
 import ast
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -205,3 +222,191 @@ def test_the_guard_would_notice_a_broken_link() -> None:
         "this test assumes the page from the original defect still does not exist"
     )
     assert (DOCS / "troubleshooting.md").is_file()
+
+
+# --- the same two rules, over every tracked file ------------------------------
+
+#: `mskazemi.com/yazses/apt` is not a page. It is the APT repository published to the
+#: `gh-pages` branch, and `install-apt.sh` fetches `$BASE/KEY.gpg` from it — a directory
+#: of real files, where `use_directory_urls` has no meaning. Exempting the prefix rather
+#: than the two files that name it, so a third caller is covered on the day it is written.
+_NOT_A_PAGE = ("apt",)
+
+#: A link checker's fixtures are wrong on purpose.
+_SKIP_TREES = ("tests",)
+
+#: Trailing characters a sentence contributes, not the URL. `llms.txt` ends a line with
+#: "…/mobile/index.html." and `SUBMISSION.md` with "…/yazses/." — both would otherwise
+#: read as a page named `index.html.`. This is the same reason the scan above drops
+#: docstrings, met again in prose instead of in Python.
+_SENTENCE_TAIL = ".,;:!?)]}\"'"
+
+
+def _tracked_text_files() -> list[Path]:
+    """Every tracked file this guard reads, from git rather than a glob.
+
+    `git ls-files` so a file that is present but untracked — a scratch copy, a local
+    draft — cannot fail the build, and so a file that is tracked cannot be missed by a
+    pattern nobody remembered to update.
+    """
+    listing = subprocess.run(
+        ["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True
+    ).stdout.split()
+    out: list[Path] = []
+    for name in listing:
+        if name.split("/", 1)[0] in _SKIP_TREES:
+            continue
+        path = ROOT / name
+        if path.suffix.lower() in {".png", ".jpg", ".gif", ".ico", ".icns", ".pdf", ".woff2"}:
+            continue
+        if path.is_file():
+            out.append(path)
+    return out
+
+
+def _site_links() -> list[tuple[Path, str, str]]:
+    """`(path, url, tail)` for every docs-site URL in a tracked file.
+
+    Everything is collected, including the bare site root — `snap/snapcraft.yaml`'s
+    `website:` field is exactly that, and a collector that filtered it out would have
+    reported the snap listing as a file carrying no links at all.
+    """
+    found: list[tuple[Path, str, str]] = []
+    for path in _tracked_text_files():
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        for raw in _DOCS_URL.findall(text):
+            url = raw.rstrip(_SENTENCE_TAIL)
+            found.append((path, url, url[len(SITE):].split("#")[0].split("?")[0]))
+    return found
+
+
+def _is_a_page_reference(tail: str) -> bool:
+    """True when *tail* names a documentation page rather than the root or an asset.
+
+    Three things on this site are not pages and must not be held to the `.html` rule:
+    the root itself, the `apt/` repository directory, and generated assets that mkdocs
+    publishes with their own extensions — `sitemap.xml`, `feed_rss_created.xml`,
+    `feed_json_created.json`. Keying off "has a non-.html extension" rather than listing
+    the asset names, because the plugin set decides those and this file would not hear
+    about a new one.
+    """
+    if not tail or tail.split("/")[0] in _NOT_A_PAGE:
+        return False
+    last = tail.rstrip("/").split("/")[-1]
+    return "." not in last or last.endswith(".html")
+
+
+@pytest.fixture(scope="module")
+def site_links() -> list[tuple[Path, str, str]]:
+    return _site_links()
+
+
+def test_the_repo_wide_scan_reaches_the_files_it_is_for(site_links) -> None:
+    """A guard over an empty set passes on everything.
+
+    Named files rather than a count alone: the point of widening the scan is that these
+    four surfaces were unreached, so each is asserted to be reachable by name.
+    """
+    assert len(site_links) > 50, f"only {len(site_links)} site links found repo-wide"
+    reached = {p.relative_to(ROOT).as_posix() for p, _u, _t in site_links}
+    for surface in (
+        "packaging/flatpak/com.mskazemi.YazSes.metainfo.xml",
+        "snap/snapcraft.yaml",
+        "pyproject.toml",
+        "CITATION.cff",
+    ):
+        assert surface in reached, f"{surface} carries a site URL the scan did not see"
+
+
+def test_no_tracked_file_uses_the_directory_form(site_links) -> None:
+    """The defect: the Flathub listing's Help button pointed at `troubleshooting/`.
+
+    `use_directory_urls: false`, so the page is `troubleshooting.html` and the directory
+    form is a 404 — served to whoever pressed Help in GNOME Software, which is the
+    moment they were already stuck. `test_flatpak_metainfo.py` reads that same file and
+    checks its `<url>` fields, but only that none of them is a placeholder.
+    """
+    bad = sorted({
+        f"{path.relative_to(ROOT)}: {url}"
+        for path, url, tail in site_links
+        if _is_a_page_reference(tail) and not tail.endswith(".html")
+    })
+    assert not bad, (
+        "these must end in .html — the site does not use directory URLs:\n  "
+        + "\n  ".join(bad)
+    )
+
+
+def test_every_tracked_site_link_resolves_to_a_page_that_exists(site_links) -> None:
+    """`.html` is necessary, not sufficient — the page behind it has to be there."""
+    bad = sorted({
+        f"{path.relative_to(ROOT)}: {url} -> docs/{tail.removesuffix('.html')}.md missing"
+        for path, url, tail in site_links
+        if tail.endswith(".html")
+        and not (DOCS / (tail.removesuffix(".html") + ".md")).is_file()
+    })
+    assert not bad, "tracked links that 404:\n  " + "\n  ".join(bad)
+
+
+def test_what_counts_as_a_page_is_narrow_in_both_directions() -> None:
+    """The classifier is where this guard can go wrong, so it is pinned directly.
+
+    Too wide and it demands `.html` of `sitemap.xml`; too narrow and it excuses
+    `troubleshooting/`, which is the defect it exists for.
+    """
+    for tail, is_page in (
+        ("troubleshooting/", True),          # the defect
+        ("how-to/air-gapped.html", True),
+        ("mobile", True),                    # extensionless: still a page reference
+        ("", False),                         # the site root
+        ("apt", False),                      # the APT repository directory
+        ("apt/KEY.gpg", False),
+        ("sitemap.xml", False),              # generated asset
+        ("feed_rss_created.xml", False),
+        ("feed_json_created.json", False),
+    ):
+        assert _is_a_page_reference(tail) is is_page, tail
+
+
+def test_a_sentence_final_period_is_not_part_of_the_url(site_links) -> None:
+    """`llms.txt` ends a line with "…/mobile/index.html." — the page is not named
+    `index.html.`.
+
+    Asserted through the collector, not against the regex. The first version of this
+    test called `_DOCS_URL.findall` and `rstrip` inline, so removing the strip from
+    `_site_links` left it perfectly green — it was checking a copy of the logic instead
+    of the logic. Worse, the failure it missed is **silent**: a tail of `index.html.`
+    has a dot in its last segment and does not end in `.html`, so
+    `_is_a_page_reference` files it as an asset and the link stops being checked at all.
+    """
+    dirty = sorted({
+        f"{path.relative_to(ROOT)}: {url}"
+        for path, url, _tail in site_links
+        if url.rstrip(_SENTENCE_TAIL) != url
+    })
+    assert not dirty, "sentence punctuation left on a URL:\n  " + "\n  ".join(dirty)
+
+    # …and the corpus really does contain such prose, or the check above proves nothing.
+    corpus = "\n".join(
+        p.read_text(encoding="utf-8", errors="ignore") for p in _tracked_text_files()
+    )
+    assert re.search(re.escape(SITE) + r"[A-Za-z0-9._/-]*[.,)]", corpus), (
+        "no sentence-final punctuation after a site URL anywhere in the tree — "
+        "this guard has nothing to protect and its mutation cannot be observed"
+    )
+
+
+def test_the_repo_wide_rule_can_actually_fail() -> None:
+    """Proves the match fires, rather than passing because the tree is already clean."""
+    good, bad = SITE + "troubleshooting.html", SITE + "troubleshooting/"
+    assert _DOCS_URL.findall(f"see {good} and {bad}") == [good, bad]
+
+    def fails_the_rule(url: str) -> bool:
+        tail = url[len(SITE):]
+        return _is_a_page_reference(tail) and not tail.endswith(".html")
+
+    assert fails_the_rule(bad), "the directory form must be caught"
+    assert not fails_the_rule(good), "the correct form must not be"
