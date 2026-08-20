@@ -116,6 +116,11 @@ class AudioConfig:
 
 @dataclass
 class InjectionConfig:
+    # How text reaches the focused app. "auto" (default) probes the session:
+    # xdotool on X11, ydotool on Wayland (types, so it works in terminals too).
+    # "type"/"ydotool" force typing, "clipboard" forces copy+Ctrl+V (instant, but a
+    # no-op in terminals where Ctrl+V is literal), "wtype" is Wayland-only and is
+    # ignored on X11. `yazses doctor` names the one that will actually be used.
     backend: str = "auto"
     fallback_to_clipboard: bool = True
     # Successive hold-to-talk bursts within this window are treated as one

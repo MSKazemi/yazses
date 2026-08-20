@@ -429,6 +429,17 @@ yazses doctor          # run this first if dictation isn't working
 yazses doctor --mic    # also sample the mic and compare it to the VAD gate
 ```
 
+!!! note "The `Injection` line names the backend that will actually be used"
+    It reads `[injection] backend` rather than only probing the session, so a machine
+    configured with `backend = "clipboard"` reports clipboard — not the tool that `auto`
+    would have picked. Before v2.30 the check looked only at the session type and the
+    installed tools, so it could report `xdotool (X11)` while the daemon was pasting.
+
+    A setting that **cannot** be honoured here gets its own `Injection setting` warning
+    instead of quietly doing nothing — `backend = "wtype"` on an X11 session is the case
+    that prompted it, since `wtype` speaks the Wayland virtual-keyboard protocol and has
+    no effect anywhere else.
+
 ### `yazses verify`
 
 `doctor` proves the **prerequisites** — a mic exists, `xdotool` is installed, the model is

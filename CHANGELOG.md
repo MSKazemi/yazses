@@ -8,6 +8,33 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`yazses doctor` named an injector it had not consulted the config about.**
+  `_injection_readiness` took `(is_wayland, is_x11)` and derived its answer from the
+  session type and which tools were on PATH, printing `Injection: xdotool (X11)` as
+  though naming the backend in use. `inject.auto.get_injector` reads `[injection]
+  backend`, so the two answered different questions. Measured on the development
+  machine before the fix:
+
+  ```
+  backend=auto       daemon uses -> XdotoolInjector      doctor says -> xdotool (X11)
+  backend=clipboard  daemon uses -> ClipboardInjector    doctor says -> xdotool (X11)
+  backend=wtype      daemon uses -> XdotoolInjector      doctor says -> xdotool (X11)
+  ```
+
+  Three disagreements, all silent: `clipboard` short-circuits in `get_injector` before
+  any probe runs; `wtype` is Wayland-only and on X11 the setting simply did nothing, with
+  nothing saying so; and on Wayland `wtype` *beats* a running ydotoold in `get_injector`
+  while the check reported ydotool. `doctor` now takes the configured backend, names the
+  one that will be built, and raises a separate `Injection setting` warning when the
+  setting cannot be honoured rather than ignoring it quietly.
+
+  The guard added the pass before could not catch this: it fails a function that calls
+  `injector_factory()` without applying the config, and `doctor` never calls it — it is a
+  second, independent derivation, which is precisely what nothing was comparing.
+  `tests/test_doctor_names_the_injector_in_use.py` now holds them equal across every
+  session type and backend: wherever `doctor` reports `OK`, `get_injector` must return
+  the backend it named.
+
 - **The uninstall page left two directories behind, and sent Windows users to a third
   that YazSes never reads.** `Paths` declares **five** directory roots; on Linux and macOS
   they follow the platform conventions and therefore sit in four different places.

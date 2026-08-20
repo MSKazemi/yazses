@@ -59,11 +59,70 @@ def _binary_runs(cmd: list[str]) -> bool:
     return r.returncode == 0
 
 
-def _injection_readiness(is_wayland: bool, is_x11: bool) -> list[_Check]:
-    """Report whether keystroke injection will actually work, with the fix."""
+def _injection_readiness(
+    is_wayland: bool, is_x11: bool, configured: str = "auto"
+) -> list[_Check]:
+    """Report whether keystroke injection will actually work, with the fix.
+
+    *configured* is ``[injection] backend``. It has to be here, because this check used
+    to answer a different question from the one its output reads as: it probed the
+    session and the installed tools, and printed ``Injection: xdotool (X11)`` as though
+    naming the backend in use. `inject.auto.get_injector` consults the setting, so on a
+    machine with ``backend = "clipboard"`` the daemon typed through `ClipboardInjector`
+    while `doctor` -- the command whose whole job is to tell you what your system is
+    doing -- named xdotool. Two of the three disagreements were silent in both
+    directions:
+
+    * ``clipboard`` short-circuits before any probe, so every environment verdict below
+      it was irrelevant;
+    * ``wtype`` on X11 cannot be honoured at all (it speaks the Wayland
+      virtual-keyboard protocol), and nothing said so -- the setting simply did nothing;
+    * ``wtype`` on Wayland *wins over* a running ydotoold in `get_injector`, while this
+      check reported ydotool.
+
+    A setting that cannot be honoured gets its own ``Injection setting`` line rather than
+    a second ``Injection`` one, so exactly one line names the backend actually in use and
+    `tests/test_doctor_names_the_injector_in_use.py` can hold the two derivations equal.
+    """
     from yazses.inject.auto import ydotool_ready, ydotool_socket_path
 
+    configured = (configured or "auto").strip().lower()
     out: list[_Check] = []
+
+    if configured == "clipboard":
+        # get_injector returns ClipboardInjector before it looks at anything else, so
+        # the session probes below would describe a backend that is not going to run.
+        if shutil.which("wl-copy") or shutil.which("xclip") or shutil.which("xsel"):
+            out.append(("Injection", "OK",
+                        "clipboard paste — forced by `[injection] backend = clipboard`; "
+                        "a no-op in terminals, where Ctrl+V is literal"))
+        else:
+            out.append(("Injection", "FAIL",
+                        "`[injection] backend = clipboard` but no clipboard tool "
+                        "(wl-copy/xclip/xsel) is installed — run `yazses setup`"))
+        return out
+
+    if configured == "wtype" and not is_wayland:
+        out.append(("Injection setting", "WARN",
+                    "`[injection] backend = wtype` needs Wayland — this is not a Wayland "
+                    "session, so the setting is ignored and the backend below is used"))
+    elif configured == "wtype" and not shutil.which("wtype"):
+        out.append(("Injection setting", "WARN",
+                    "`[injection] backend = wtype` but wtype is not installed — "
+                    "falling back to the backend below"))
+
+    if is_wayland and configured == "wtype" and shutil.which("wtype"):
+        # get_injector honours this ahead of ydotool, running ydotoold or not.
+        desktop = os.environ.get("XDG_CURRENT_DESKTOP", "").lower()
+        if any(d in desktop for d in _UINPUT_ONLY_DESKTOPS):
+            out.append(("Injection", "FAIL",
+                        "wtype does not work on GNOME/KDE Wayland — unset "
+                        "`[injection] backend` or run `yazses setup` for ydotool"))
+        else:
+            out.append(("Injection", "OK",
+                        "wtype — forced by `[injection] backend = wtype`"))
+        return out
+
     if is_wayland:
         desktop = os.environ.get("XDG_CURRENT_DESKTOP", "").lower()
         gnome_like = any(d in desktop for d in _UINPUT_ONLY_DESKTOPS)
@@ -1047,7 +1106,8 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
         checks.append(_tool("xclip",   required=False))
         checks.append(_tool("wl-copy", required=False))
 
-        checks.extend(_injection_readiness(is_wayland, is_x11))
+        configured = getattr(getattr(cfg, "injection", None), "backend", "auto")
+        checks.extend(_injection_readiness(is_wayland, is_x11, configured))
 
         # Whether "focus the browser" can work here. Wayland cannot, by design.
         window_focus = _window_focus_check(is_wayland, is_x11, cfg)
