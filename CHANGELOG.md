@@ -8,6 +8,33 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Three model loaders could hang forever on a machine that already had the model. Measured on
+  this project's own laptop, twice: a **fully cached** `base.en` loaded in **1.9 s** with
+  `HF_HUB_OFFLINE=1` and **had not finished after 180 s** without it, at 3 s of user CPU — blocked
+  on I/O, not working. A hub round-trip to revalidate a snapshot has no timeout, and a network that
+  neither answers nor refuses (a captive portal, a blackholed rule, hub rate-limiting) turns "load a
+  file that is on disk" into a wait with no error and nothing to read.
+
+  `stt/faster_whisper.py` was fixed for this once already, because it accepts
+  `local_files_only=True`. The three others accept nothing of the kind: speechbrain's
+  `from_hparams` (the ECAPA speaker encoder, on the path of `yazses meeting enroll` and of any
+  transcript that names a speaker), `onnx_asr.load_model` (the ~600 MB Parakeet checkpoint) and
+  pyannote's `from_pretrained`. They share the layer underneath — all four fetch through
+  `huggingface_hub` — so the switch now sits there instead, in `system/hfcache.py`. A cached model
+  loads with no request at all; a missing one is downloaded exactly as before, because trading a
+  hang for a broken first run would be no improvement.
+
+  Two details are load-bearing. The flag is set in the environment **and**, when
+  `huggingface_hub` is already imported, on its in-process constant — that constant is read from
+  the environment at import time, so the variable alone is a silent no-op for a package that
+  imported the hub earlier. And a user who has set `HF_HUB_OFFLINE` themselves never gets a
+  fallback download: `docs/how-to/air-gapped.md` tells people to verify a cached model that way,
+  and a quiet fetch would make the check answer a different question.
+
+  What let three loaders go unguarded is that nothing compared "modules that fetch a pretrained
+  model" against "modules that load cache-first". Those two sets are now one test, so a fourth
+  loader fails the build rather than reintroducing the hang.
+
 - The guard on `ROADMAP.md`'s test-count floor cried wolf on ordinary `-k` runs. It decided
   "is this the whole suite?" by counting collected tests against a fixed 1000 — a threshold set
   when the suite was around 4300 and never revisited. At 7000+ tests an everyday subset clears it

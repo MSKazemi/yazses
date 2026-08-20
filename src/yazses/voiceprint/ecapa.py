@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from yazses.system.hfcache import load_cache_first
 from yazses.voiceprint.embedding import Embedding
 
 
@@ -20,9 +21,15 @@ class EcapaEmbedder:
         from speechbrain.inference.speaker import EncoderClassifier
 
         self._torch = __import__("torch")
-        self._model = EncoderClassifier.from_hparams(
-            source="speechbrain/spkrec-ecapa-voxceleb",
-            run_opts={"device": "cpu"},
+        # Cache-first: speechbrain has no `local_files_only`, and this fires on
+        # `yazses meeting enroll` and on any transcript that names a speaker from a
+        # voiceprint. See `system/hfcache.py` for why a hub round-trip can hang forever.
+        self._model = load_cache_first(
+            lambda: EncoderClassifier.from_hparams(
+                source="speechbrain/spkrec-ecapa-voxceleb",
+                run_opts={"device": "cpu"},
+            ),
+            what="the ECAPA speaker encoder",
         )
 
     @property

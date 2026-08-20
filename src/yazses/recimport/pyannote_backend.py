@@ -60,6 +60,7 @@ import os
 import numpy as np
 
 from yazses.recimport.diarizer import DiarTurn
+from yazses.system.hfcache import load_cache_first
 
 log = logging.getLogger(__name__)
 
@@ -120,7 +121,13 @@ class PyannoteDiarizer:
         # TypeError rather than a silently ignored argument. A faked pipeline
         # cannot catch that — see
         # test_pyannote_adapter_call_binds_against_the_real_signature.
-        pipeline = Pipeline.from_pretrained(PIPELINE_ID, token=_auth_token())
+        # Cache-first (see `system/hfcache.py`). It matters most here: this is the one
+        # fetch in the project that carries a credential, so the request it avoids is
+        # the request that says which account is diarizing (ADR-019).
+        pipeline = load_cache_first(
+            lambda: Pipeline.from_pretrained(PIPELINE_ID, token=_auth_token()),
+            what=f"the diarization pipeline '{PIPELINE_ID}'",
+        )
         if pipeline is None:
             # from_pretrained returns None (rather than raising) when the repo is
             # gated and the token is missing or has not accepted the conditions.

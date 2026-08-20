@@ -140,20 +140,45 @@ class ParakeetEngine:
         # — that is expected here rather than a missing dependency.
         import onnx_asr  # type: ignore[import-not-found]
 
-        if self._quantization:
-            try:
-                return onnx_asr.load_model(
-                    self._model_name, quantization=self._quantization
-                )
-            except Exception as exc:
-                # Not every checkpoint publishes quantized weights; precision is
-                # a preference, not a reason to lose the engine.
+        from yazses.system.hfcache import load_cache_first
+
+        def _open():
+            """Preferred precision if the checkpoint publishes it, else default."""
+            if self._quantization:
+                try:
+                    return onnx_asr.load_model(
+                        self._model_name, quantization=self._quantization
+                    )
+                except Exception as exc:
+                    # Not every checkpoint publishes quantized weights; precision is
+                    # a preference, not a reason to lose the engine.
+                    reason = exc
+                else:
+                    reason = None
+            model = onnx_asr.load_model(self._model_name)
+            if self._quantization and reason is not None:
+                # Warned only once the default-precision load has *succeeded*. The
+                # whole of `_open` runs twice when the model is not yet cached (once
+                # against the cache, once online), and on that first pass the int8
+                # attempt fails because the hub is blocked, not because the weights
+                # are missing -- warning there would state something untrue about a
+                # checkpoint that is about to load in int8 perfectly well.
                 log.warning(
                     "Parakeet %s weights unavailable for '%s' (%s) — "
-                    "loading default precision",
-                    self._quantization, self._model_name, exc,
+                    "loaded default precision",
+                    self._quantization, self._model_name, reason,
                 )
-        return onnx_asr.load_model(self._model_name)
+            return model
+
+        # Cache-first, because `onnx_asr.load_model` exposes no offline switch and the
+        # checkpoint is ~600 MB: once it is on disk, loading it must not depend on the
+        # hub answering. The *whole* precision decision is wrapped, not each load --
+        # wrapping them separately made a missing int8 checkpoint trigger a download
+        # attempt for weights that do not exist before falling back.
+        # See `system/hfcache.py`.
+        return load_cache_first(
+            _open, what=f"the Parakeet model '{self._model_name}'"
+        )
 
     def _recognize(self, waveform: np.ndarray):
         try:

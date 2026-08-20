@@ -81,6 +81,49 @@ def test_quantization_failure_falls_back_to_default_precision(monkeypatch, caplo
     assert loads[1][1] == {}
 
 
+def test_an_uncached_model_is_not_accused_of_lacking_int8_weights(monkeypatch, caplog):
+    """The cache probe must not produce a warning about the checkpoint's contents.
+
+    `_load` runs the whole precision decision twice when the model is not yet on disk —
+    once against the local cache, once online (see `system/hfcache.py`). On that first
+    pass the int8 attempt fails because the hub is blocked, and the earlier code warned
+    "int8 weights unavailable" about a checkpoint that then loaded in int8 perfectly
+    well. A log line that is false on every first run is worse than no log line.
+    """
+    adapter = _FakeAdapter()
+    loads: list[tuple[str, dict]] = []
+    fake = types.ModuleType("onnx_asr")
+    offline_attempts = []
+
+    def load_model(name, **kwargs):
+        import os
+
+        loads.append((name, kwargs))
+        if os.environ.get("HF_HUB_OFFLINE") == "1":
+            # Nothing cached yet: every request is refused while offline.
+            offline_attempts.append(kwargs)
+            raise OSError("offline mode is enabled")
+        return adapter
+
+    fake.load_model = load_model
+    monkeypatch.setitem(sys.modules, "onnx_asr", fake)
+    monkeypatch.delenv("HF_HUB_OFFLINE", raising=False)
+    monkeypatch.delenv("TRANSFORMERS_OFFLINE", raising=False)
+
+    from yazses.stt.parakeet import ParakeetEngine
+
+    with caplog.at_level(logging.WARNING, logger="yazses.stt.parakeet"):
+        ParakeetEngine(SttConfig(engine="parakeet"))
+
+    assert offline_attempts, "the cache was never tried first"
+    assert loads[-1][1] == {"quantization": "int8"}, (
+        "the online retry must still get the preferred precision"
+    )
+    assert not [r for r in caplog.records if "int8 weights unavailable" in r.message], (
+        "the cache probe's failure was reported as a missing quantized checkpoint"
+    )
+
+
 def test_empty_audio_short_circuits(monkeypatch):
     eng, adapter, _loads = _engine(monkeypatch)
     assert eng.transcribe(np.array([], dtype=np.float32)) == ""

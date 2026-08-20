@@ -97,9 +97,12 @@ pip install --no-index --find-links yazses-wheels yazses
 
 ## Step 4 — prove it does not phone home
 
-Do not take this page's word for it. The model loader asks for a cached snapshot
-first (`local_files_only=True`) and only falls back to downloading if that fails, so
-setting the hub offline is a real test rather than a placebo:
+Do not take this page's word for it. Every model loader asks for a cached snapshot
+first and only falls back to downloading if that fails, so setting the hub offline is a
+real test rather than a placebo. Note that `HF_HUB_OFFLINE=1` also *disables* that
+fallback: with it set, a model that is not already on disk fails instead of being fetched,
+which is the behaviour an air-gapped machine wants and the reason this check means
+something.
 
 ```bash
 HF_HUB_OFFLINE=1 python3 -c "

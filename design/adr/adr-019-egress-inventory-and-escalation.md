@@ -139,11 +139,21 @@ carries no user content — but it is not interchangeable with the rows above it
 cannot distinguish a bundled load from a fetch, and this inventory's standing rule is that
 a false positive costs one table row while a false negative costs the promise.
 
-`stt/faster_whisper.py` is the one row where the local cache is tried first
+`stt/faster_whisper.py` was the first row where the local cache is tried first
 (`local_files_only=True`), and that is not a tidiness detail: a hub round-trip on a
 blackholed network never returns. Measured on a fully cached machine, **1.9 s with
-`HF_HUB_OFFLINE=1` against >180 s and still hanging without it.** The other loaders have
-no equivalent guard yet.
+`HF_HUB_OFFLINE=1` against >180 s and still hanging without it.**
+
+**Every model loader now does this** (2026-08-20). The other three take no such argument —
+speechbrain's `from_hparams`, `onnx_asr.load_model` and pyannote's `from_pretrained` expose
+no offline switch — so `system/hfcache.py` sets one a layer down, in `huggingface_hub`
+itself, which all four fetch through. A cached model loads with no request at all, and a
+missing one is downloaded exactly as before. `test_model_cache_first.py` holds the pairing
+this inventory exists to hold: the set of modules that fetch a pretrained model must equal
+the set that load cache-first, so a **fourth** loader fails the build rather than quietly
+reintroducing the hang. It is also why the credentialed row above is now the request most
+likely never to be made — a diarization on a machine that has already downloaded the
+pipeline sends no token, because it sends nothing.
 
 ## Decision
 
