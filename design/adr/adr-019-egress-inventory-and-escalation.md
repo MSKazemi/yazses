@@ -75,6 +75,8 @@ Two more modules import `socket` and **cannot reach the network at all**, becaus
 |---|---|
 | `ipc/client.py` | `AF_UNIX` stream socket to the daemon's socket path |
 | `ipc/server.py` | `AF_UNIX` stream socket, bound to that path |
+| `remote/agent.py` | `asyncio.start_server` bound to **127.0.0.1** — the far end of the user's own SSH tunnel |
+| `platform/emg/ble_backend.py` | `asyncio` driving a Bluetooth LE sensor; a radio, not an IP network |
 
 They are **recorded rather than excluded from the scan**, deliberately. "It's only IPC"
 is exactly the reasoning that would wave through an `AF_INET` socket added to the same
@@ -84,9 +86,12 @@ review. (These two were found *by* the guard, not by the audit that preceded it.
 
 ### The two classes, which is the useful part
 
-**Class A — fetch.** Six of the seven only pull *in*: model weights and a version number.
+**Class A — fetch.** Five of the seven only pull *in*: model weights and a version number.
 No user content is transmitted. They go to fixed, hard-coded hosts, they run once, and
-they are triggered by the user turning something on.
+they are triggered by the user turning something on. (This said "six of the seven" until
+2026-08-20 — the inventory table above has always had five fetches and two sends. The
+count was written by hand and never recomputed, which is the same failure the enforced
+inventory exists to prevent, one level up.)
 
 **Class B — send.** **Exactly two code paths in the entire product can transmit
 something the user said**, and both are already constrained:
@@ -99,9 +104,39 @@ something the user said**, and both are already constrained:
 - `remote/local_proxy.py` sends to a host the user typed on the command line, over their
   own SSH tunnel. The destination is not merely consented to; it is the entire command.
 
+**Class C — handoff.** One path hands a URL to the desktop's browser rather than opening
+a connection itself, and one of its callers puts a payload in that URL: the pre-filled
+issue report reaches github.com when the page opens. It carries no dictated text — the
+body is `report.collect`'s redacted output — but it is a transmission, and counting it as
+"not ours because the browser makes the request" is the reasoning this ADR exists to
+refuse. See *Reached by handing a URL to another program* above.
+
 **This is the sentence the project can defend:** *two code paths can send your words
 anywhere, one is confined to your own machine, and the other goes only where you
 explicitly told it to.*
+
+## Reached by handing a URL to another program
+
+The fourth mechanism, and the last one the scans could not see. We open no connection —
+the desktop's browser does — but we choose the destination, the moment, and in one case
+the payload.
+
+| Module | Program | What crosses the wire | Trigger |
+|---|---|---|---|
+| `system/browser.py` | the default browser | a fixed docs/release URL, **or** a pre-filled issue report | a tray menu item, or the "Report this" toast button |
+
+Every caller but one passes a constant URL. The exception is
+`core/daemon.py::_open_issue_report`, which calls `report.issue_url(title, body)`: the
+diagnostic report is percent-encoded into the query string, so **it reaches github.com
+when the page opens, not when the user presses submit**. Pressing submit files the issue;
+declining leaves no issue, not no transmission.
+
+That is acceptable and stays acceptable for one reason: the body is `report.collect`'s
+output, the same redaction `yazses report` performs — versions, daemon state, config with
+paths and identifiers removed, a metadata-only log tail. No dictated text, and the
+learning corpus is reported by size and never opened. The docstring on `issue_url` says
+so in those terms, and `test_the_issue_url_says_when_the_report_actually_travels` fails if
+it goes back to implying the content waits for the submit button.
 
 ## Reached by asking a dependency to load a model by name
 
@@ -123,6 +158,8 @@ is its third instance. A third scan now covers it.
 | `stt/parakeet.py` | `onnx_asr.load_model(...)` | ← Parakeet weights | `[stt] engine = parakeet` |
 | `voiceprint/ecapa.py` | `EncoderClassifier.from_hparams(...)` | ← ECAPA weights (~20 MB) | a voiceprint is enrolled or matched |
 | `recimport/pyannote_backend.py` | `Pipeline.from_pretrained(...)` | ← gated pipeline, **→ the user's HF token** | `diarization-pyannote` backend |
+| `stt/download.py` | `download_model(...)` | ← Whisper weights, fetched **on purpose** with progress | `yazses model download` (issue #310) |
+| `cli.py` | `download_stt_model(...)` | ← the same, from the CLI | `yazses model download` |
 | `voiceprint/resemblyzer_backend.py` | `VoiceEncoder(...)` | nothing — weights ship inside the wheel | `voiceprint-resemblyzer` backend |
 
 Two rows deserve their own sentence.

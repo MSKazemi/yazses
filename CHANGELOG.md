@@ -8,6 +8,34 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- The egress guard that enforces "nothing leaves your machine" could not see five
+  modules. ADR-019's inventory is *enforced* rather than written down — a module that
+  gains an outbound primitive fails the build until it is declared — but the detector's
+  own vocabulary was two hand-written literals, and asking the opposite question ("is
+  every network-capable import in the tree on that list?") found that it was not.
+
+  `_NETWORK_ROOTS` had no `asyncio` and no `webbrowser`, so `remote/agent.py`
+  (`asyncio.start_server`), `platform/emg/ble_backend.py` and `system/browser.py` were
+  invisible. `_DEPENDENCY_LOADERS` had no `download_model`, so `stt/download.py` — the
+  module whose entire job is fetching a checkpoint, written for issue #310 — and its CLI
+  caller were invisible too. `tests/test_model_cache_first.py` already knew
+  `snapshot_download`: two guards over one mechanism kept separate vocabularies, and a
+  file fell between them.
+
+  All five are legitimate and all five are now declared, with proofs rather than
+  descriptions: `remote/agent.py`'s bind is pinned to `127.0.0.1` (it accepts text and
+  types it into the focused window — `host="0.0.0.0"` is a one-word diff that would put
+  that on the LAN), and the BLE backend is asserted to open no socket.
+
+  The most useful find is a fourth *mechanism*: handing a URL to the browser.
+  `report.issue_url` builds a pre-filled GitHub issue, and its docstring said "submits
+  nothing" — true of the issue, misleading about the report, which is percent-encoded in
+  the query string and so reaches github.com **when the page opens**, not when the user
+  presses submit. The body was and remains `report.collect`'s redacted output, so no
+  dictation is involved; the timing is what a reader deserved to be told. ADR-019 gains
+  the section, the class, and a correction: it claimed "six of the seven only pull in"
+  when the table has always held five fetches and two sends.
+
 - `doctor` described one of the five things that reach Whisper's `initial_prompt`, and
   drew the wrong conclusion from it. Measured on a real machine: `yazses vocab list`
   printed **24 words** while, in the same minute, `yazses doctor` printed *"STT prompt: app

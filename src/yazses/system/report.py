@@ -486,11 +486,19 @@ def _percent_encode(value: str) -> str:
 
 
 def issue_url(title: str, body: str, *, base: str = ISSUE_URL) -> str:
-    """The pre-filled GitHub new-issue URL. Opens a form; submits nothing.
+    """The pre-filled GitHub new-issue URL. Opens a form; files no issue.
 
     The user lands on GitHub's own page with the fields filled in, reads them, and
     presses submit themselves — consent to a specific payload they have seen, rather
     than to a category.
+
+    Be precise about what that consent covers, because the earlier wording ("submits
+    nothing") invited the wrong reading. *Title and body are in the query string of the
+    GET that opens the page*, so they reach github.com **when the page opens**, before
+    the user has read a line of it. Pressing submit creates the issue; declining leaves
+    no issue, not no transmission. The payload is `report.collect`'s redacted output
+    either way — no dictated text, no paths, no identifiers — and this is declared in
+    the ADR-019 inventory as a handoff for exactly this reason.
     """
     return f"{base}?title={_percent_encode(title)}&body={_percent_encode(body)}"
 

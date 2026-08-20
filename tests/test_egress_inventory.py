@@ -57,6 +57,38 @@ LOCAL_IPC = {
     "ipc/client.py": "AF_UNIX stream socket to the daemon's socket path",
     "ipc/server.py": "AF_UNIX stream socket, bound to the daemon's socket path",
 }
+
+#: Local by construction, but not by AF_UNIX — so they cannot join `LOCAL_IPC`, whose
+#: whole assertion is the address family. Each is pinned by its own proof below, because
+#: "it's local" is a claim about one line of code and needs a test that reads that line.
+LOCAL_BOUND = {
+    "remote/agent.py": (
+        "`asyncio.start_server` bound to 127.0.0.1 — the far end of the SSH tunnel, "
+        "reachable only through it. `host='0.0.0.0'` here would put a text-injection "
+        "port on the LAN, and it is a one-word diff"
+    ),
+    "platform/emg/ble_backend.py": (
+        "imports `asyncio` to drive a Bluetooth LE muscle sensor; a radio is not an IP "
+        "network and no socket is opened. Declared rather than excluded, for the reason "
+        "given above `_NETWORK_ROOTS`"
+    ),
+}
+
+#: Reaches the network by HANDING A URL TO ANOTHER PROGRAM. The fourth mechanism, found
+#: the same way as the second and third: by asking what the existing scans still cannot
+#: see. We open no connection — the user's browser does — but we choose the destination
+#: and the moment, and one caller chooses a payload.
+HANDOFF = {
+    "system/browser.py": (
+        "`webbrowser.open(url)` hands a URL to the desktop's browser. Every caller but "
+        "one passes a fixed documentation or release URL. The exception is "
+        "`core/daemon.py::_open_issue_report`, which builds a pre-filled GitHub issue "
+        "URL: the diagnostic report travels to github.com percent-encoded in the query "
+        "string **when the page opens**, not when the user presses submit. The body is "
+        "`report.collect`'s redacted output — the same redaction `yazses report` uses, "
+        "so no dictation is in it — but it is a real transmission and belongs here"
+    ),
+}
 #: Reaches the network by SPAWNING A PROGRAM, not by importing a network primitive.
 #: The import scan cannot see these, which is how the most consequential transport in
 #: the product stayed invisible to a guard written to enumerate exactly that.
@@ -102,6 +134,12 @@ DEPENDENCY_FETCH = {
         "pyannote fetches a gated pipeline from huggingface.co **carrying the user's HF "
         "token** — the only fetch here that identifies who is asking"
     ),
+    "stt/download.py": (
+        "calls `faster_whisper.utils.download_model` to fetch a Whisper checkpoint on "
+        "purpose, with progress — the deliberate version of what `stt/faster_whisper.py` "
+        "used to do implicitly on the daemon's startup path (issue #310)"
+    ),
+    "cli.py": "invokes `download_stt_model` for `yazses model download`",
     "voiceprint/resemblyzer_backend.py": (
         "resemblyzer's `VoiceEncoder()` loads weights shipped inside its own wheel. "
         "Declared anyway: the scan cannot tell a bundled load from a fetch, and this "
@@ -112,11 +150,17 @@ DEPENDENCY_FETCH = {
 
 #: Loader calls that take a model *name* and may resolve it over the network. Same
 #: conservatism as `_NETWORK_ROOTS`: over-matching costs a row above.
+#: `download_model`, `snapshot_download` and `hf_hub_download` were missing, so the one
+#: module whose entire job is to fetch a checkpoint -- `stt/download.py`, written for
+#: issue #310 -- was the one this scan could not see. `test_model_cache_first.py` already
+#: knew `snapshot_download`: two guards over the same mechanism kept separate vocabularies,
+#: and the file fell between them.
 _DEPENDENCY_LOADERS = frozenset(
-    {"WhisperModel", "load_model", "from_hparams", "from_pretrained", "VoiceEncoder"}
+    {"WhisperModel", "load_model", "from_hparams", "from_pretrained", "VoiceEncoder",
+     "download_model", "snapshot_download", "hf_hub_download"}
 )
 
-ALLOWED = {**FETCH, **SEND, **LOCAL_IPC}
+ALLOWED = {**FETCH, **SEND, **LOCAL_IPC, **LOCAL_BOUND, **HANDOFF}
 
 #: Programs that can open an outbound connection when spawned. Conservative for the same
 #: reason as `_NETWORK_ROOTS`: a false positive costs a line in the table above.
@@ -127,7 +171,16 @@ _NETWORK_TOOLS = frozenset(
 
 #: Import paths that can open an outbound connection. Deliberately conservative: a false
 #: positive costs one line in the table above, a false negative costs the promise.
-_NETWORK_ROOTS = {"urllib", "http", "socket", "requests", "httpx", "aiohttp", "ftplib", "smtplib"}
+#:
+#: `asyncio` and `webbrowser` were added after a sweep asked the opposite question — not
+#: "is every declared module still here" but "is every network-capable import in the tree
+#: on this list". Three modules were invisible to the scan because neither name was:
+#: `remote/agent.py` (`asyncio.start_server`), `platform/emg/ble_backend.py`, and
+#: `system/browser.py` — the last of which is the one that actually carries a payload.
+#: Both names have overwhelmingly non-network uses, and that is fine: over-matching costs
+#: a row below and under-matching costs the promise this whole file exists to keep.
+_NETWORK_ROOTS = {"urllib", "http", "socket", "requests", "httpx", "aiohttp", "ftplib",
+                  "smtplib", "asyncio", "webbrowser"}
 
 
 def _modules_with_network_imports() -> dict[str, list[str]]:
@@ -300,6 +353,60 @@ def test_the_ipc_sockets_stay_local_only(module: str):
     assert "AF_INET" not in source, (
         f"{module} mentions AF_INET. A network-family IPC socket makes the daemon "
         f"reachable from another machine; that is an ADR-019 change, not a refactor."
+    )
+
+
+def test_the_remote_agent_listens_only_on_loopback():
+    """The one-word diff that would expose a text-injection port to the network.
+
+    `yazses-agent` accepts text and types it into whatever has focus. Bound to
+    127.0.0.1 it is reachable only through the user's own SSH tunnel; bound to 0.0.0.0
+    it is reachable from the LAN. Nothing else in the tree would notice the change --
+    the import scan could not even see this module until `asyncio` was added to
+    `_NETWORK_ROOTS`.
+    """
+    source = (SRC / "remote/agent.py").read_text(encoding="utf-8")
+    assert 'host="127.0.0.1"' in source, "the agent no longer pins its bind to loopback"
+    for wildcard in ('"0.0.0.0"', '"::"', "host=None"):
+        assert wildcard not in source, (
+            f"remote/agent.py binds {wildcard} — that is an ADR-019 change, not a refactor"
+        )
+
+
+def test_the_ble_backend_opens_no_socket():
+    """`asyncio` here drives a radio, not an address. If that stops being true, say so."""
+    source = (SRC / "platform/emg/ble_backend.py").read_text(encoding="utf-8")
+    for primitive in ("start_server", "open_connection", "AF_INET", "import socket"):
+        assert primitive not in source, (
+            f"platform/emg/ble_backend.py now uses {primitive} — it is no longer "
+            f"local-by-construction and needs a real inventory row"
+        )
+
+
+@pytest.mark.parametrize("module", sorted(HANDOFF))
+def test_a_handoff_opens_no_connection_of_its_own(module: str):
+    """The distinction the category rests on: we choose a URL, we do not fetch it."""
+    source = (SRC / module).read_text(encoding="utf-8")
+    for primitive in ("urlopen", "requests.", "httpx.", "socket."):
+        assert primitive not in source, (
+            f"{module} is declared as a handoff but calls {primitive} itself"
+        )
+
+
+def test_the_issue_url_says_when_the_report_actually_travels():
+    """`issue_url`'s docstring said "submits nothing", which invited the wrong reading.
+
+    True of the *issue*: GitHub's form is not submitted. Not true of the *report*, which
+    is in the query string of the GET that opens the page — so it reaches github.com at
+    the click, before the user has read a word of it. The payload is redacted either way;
+    the timing is what a reader deserves to be told.
+    """
+    source = (SRC / "system/report.py").read_text(encoding="utf-8")
+    start = source.index("def issue_url(")
+    doc = source[start:start + 1200]
+    assert "before" in doc or "when the page opens" in doc, (
+        "issue_url's docstring must say the body reaches GitHub when the page opens, "
+        "not when the user submits"
     )
 
 
