@@ -19,8 +19,10 @@ a checksum. Flatpak's AppStream metainfo is release *history* and is excluded; s
 """
 from __future__ import annotations
 
+import importlib.util
 import json
 import re
+import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -175,3 +177,120 @@ def test_dead_v1_manifests_are_still_marked_as_dead() -> None:
         assert "never" in head or "abandoned" in head or "dead" in head, (
             f"{name} is a dead v1 manifest but no longer says so at the top"
         )
+
+
+# --- a manifest's URLs must name the version the manifest declares --------------
+
+
+#: `\b` will not do: the char before the digit in `v2.19.0` is `v`, a word character,
+#: so `\bv?\d+\.\d+\.\d+\b` never matches the v-prefixed form — which is precisely the
+#: form a GitHub release URL uses. The probe is self-tested below for that reason.
+_SEMVER_IN_TEXT = re.compile(r"(?<![\d.])v?(\d+\.\d+\.\d+)(?![\d.])")
+
+#: Single-file manifests: one copy, rewritten in place at each release. The winget
+#: tree is deliberately absent — its manifests live in per-version directories, so an
+#: old directory naming an old version is the format working as intended, not drift.
+_SINGLE_FILE_MANIFESTS = {
+    "chocolatey/yazses.nuspec": _chocolatey_version,
+    "scoop/yazses.json": _scoop_version,
+    "homebrew/yazses.rb": _homebrew_version,
+    "arch/PKGBUILD": _arch_version,
+}
+
+
+def test_the_version_probe_matches_both_spellings() -> None:
+    """The regex is the risk here, and it has been wrong twice in this repo.
+
+    A word-boundary before the digits silently skips every `v`-prefixed URL, so the
+    sweep would report a clean tree while looking at nothing.
+    """
+    assert _SEMVER_IN_TEXT.findall("releases/tag/v2.19.0") == ["2.19.0"]
+    assert _SEMVER_IN_TEXT.findall('"version": "2.29.0"') == ["2.29.0"]
+    assert _SEMVER_IN_TEXT.findall("core24 and python 3.11") == []
+
+
+@pytest.mark.parametrize("name", sorted(_SINGLE_FILE_MANIFESTS))
+def test_no_url_in_a_manifest_names_a_version_the_manifest_is_not(name: str) -> None:
+    """A release moves a manifest's version *and* every URL that carries one.
+
+    `render_nuspec` rewrote only `<version>`, so `<releaseNotes>` sat at v2.19.0 while
+    the package shipped 2.29.0 — the *Release Notes* link on the chocolatey.org package
+    page, and what `choco info yazses` prints, pointing ten versions back.
+
+    `test_every_manifest_declares_the_same_version` could not see it: it compares each
+    manifest's declared version against the others, and this one is a second version
+    *inside* a manifest that declares the right one.
+
+    Only URL-bearing lines are read. A version in prose can legitimately name an older
+    release — `packaging/arch/PKGBUILD` explains that Qt moved out of the base install
+    in v2.18.0, and that sentence stays true forever.
+    """
+    path = PKG / name
+    declared = _SINGLE_FILE_MANIFESTS[name]()
+    stale = [
+        f"line {i}: {found} in {line.strip()[:100]}"
+        for i, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+        if "http" in line
+        for found in _SEMVER_IN_TEXT.findall(line)
+        if found != declared
+    ]
+    assert not stale, (
+        f"packaging/{name} declares {declared} but a URL names another version:\n  "
+        + "\n  ".join(stale)
+        + "\n\nRegenerate with: uv run python scripts/refresh-package-manifests.py "
+        "--version <x.y.z>"
+    )
+
+
+def test_the_sweep_has_something_to_inspect() -> None:
+    """A guard over an empty set passes on everything.
+
+    Not "every manifest carries a literal version in a URL" — two of them deliberately
+    do not, and that is the *stronger* form: `homebrew/yazses.rb` writes
+    `releases/download/v#{version}/…` and `arch/PKGBUILD` writes `${pkgver}`, so their
+    URLs cannot drift from their declared version at all. The nuspec and the scoop
+    manifest interpolate nothing, which is why one of them could and did.
+
+    So what must hold is that the sweep sees at least one literal — otherwise it is
+    reading nothing and would stay green through any drift.
+    """
+    literal = {
+        name
+        for name in _SINGLE_FILE_MANIFESTS
+        for line in (PKG / name).read_text(encoding="utf-8").splitlines()
+        if "http" in line and _SEMVER_IN_TEXT.findall(line)
+    }
+    assert literal, "no manifest carries a literal version in a URL — the sweep is vacuous"
+    assert "chocolatey/yazses.nuspec" in literal, (
+        "the nuspec is the manifest this guard was written for; if it no longer carries "
+        "a literal version in a URL, say so here rather than leaving the check hollow"
+    )
+
+
+def test_the_generator_moves_the_release_notes_link_as_well_as_the_version() -> None:
+    """Pinned on the generator, not only on its output.
+
+    Fixing the committed nuspec by hand would leave the next release re-introducing the
+    same staleness, and `--check` would not notice: it compares the file to what this
+    same generator produces, so a generator that stopped rewriting the link would agree
+    with a file that had not been rewritten.
+    """
+    spec = importlib.util.spec_from_file_location(
+        "refresh_package_manifests", ROOT / "scripts" / "refresh-package-manifests.py"
+    )
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    # Registered before exec: the module defines `@dataclass`es, and dataclasses
+    # resolves annotations through `sys.modules[cls.__module__]`, which is `None`
+    # for a module that was created from a spec but never registered.
+    sys.modules[spec.name] = mod
+    try:
+        spec.loader.exec_module(mod)
+    finally:
+        sys.modules.pop(spec.name, None)
+
+    before = (PKG / "chocolatey" / "yazses.nuspec").read_text(encoding="utf-8")
+    after = mod.render_nuspec("9.9.9", before)
+    assert "<version>9.9.9</version>" in after
+    assert "releases/tag/v9.9.9</releaseNotes>" in after
+    assert "v2.19.0" not in after

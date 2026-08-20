@@ -54,6 +54,9 @@ SRCINFO = ROOT / "packaging" / "arch" / ".SRCINFO"
 # at the previous release after every tag: the nuspec packed a nupkg filename that
 # did not exist, and Flathub advertised the wrong release notes.
 NUSPEC = ROOT / "packaging" / "chocolatey" / "yazses.nuspec"
+#: The release page a manifest points a reader at. One spelling, so a manifest that
+#: gains a notes link cannot invent a second form of the same URL.
+RELEASE_TAG_URL = "https://github.com/MSKazemi/yazses/releases/tag/v{version}"
 CHOCO_INSTALL = ROOT / "packaging" / "chocolatey" / "tools" / "chocolateyinstall.ps1"
 METAINFO = ROOT / "packaging" / "flatpak" / "com.mskazemi.YazSes.metainfo.xml"
 LOCALE_NAME = "MSKazemi.YazSes.locale.en-US.yaml"
@@ -197,8 +200,27 @@ def _version_key(name: str) -> tuple:
 
 
 def render_nuspec(version: str, previous: str) -> str:
-    return re.sub(
+    """Rewrite the declared version **and** the release-notes link.
+
+    Only `<version>` was rewritten, so `<releaseNotes>` stayed at whatever release it
+    was last edited by hand — v2.19.0 by the time v2.29.0 shipped, ten versions of
+    changes behind. chocolatey.org renders that as the package page's *Release Notes*
+    link, and `choco info yazses` prints it.
+
+    This is the failure the constants above already name: *"Chocolatey and Flatpak were
+    refreshed by neither this script nor CI … Flathub advertised the wrong release
+    notes."* `render_metainfo` was given the fix and says so in its own docstring; the
+    nuspec got it for its version and not for its notes, in the same file, in the same
+    change. Two URLs a release must move, one of them moved.
+    """
+    out = re.sub(
         r"(?s)(<version>).*?(</version>)", rf"\g<1>{version}\g<2>", previous, count=1
+    )
+    return re.sub(
+        r"(?s)(<releaseNotes>).*?(</releaseNotes>)",
+        rf"\g<1>{RELEASE_TAG_URL.format(version=version)}\g<2>",
+        out,
+        count=1,
     )
 
 

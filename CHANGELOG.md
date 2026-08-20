@@ -8,6 +8,32 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Chocolatey's package page linked release notes ten versions out of date.
+  `packaging/chocolatey/yazses.nuspec` declared `2.29.0` while its `<releaseNotes>`
+  pointed at `releases/tag/v2.19.0` — the *Release Notes* link chocolatey.org renders
+  on the package page, and what `choco info yazses` prints.
+
+  `scripts/refresh-package-manifests.py::render_nuspec` rewrote `<version>` and nothing
+  else, so the notes link only ever moved when someone edited it by hand. The script's
+  own constants already name this failure — *"Chocolatey and Flatpak were refreshed by
+  neither this script nor CI … Flathub advertised the wrong release notes"* — and
+  `render_metainfo` was given the fix, with a docstring saying why. The nuspec got it
+  for its version and not for its notes, in the same file, in the same change.
+
+  `test_every_manifest_declares_the_same_version` could not see it: it compares each
+  manifest's declared version against the others, and this was a second version *inside*
+  a manifest that declared the right one. Every URL-bearing line in a single-file
+  manifest is now required to name that manifest's own version, and the generator is
+  pinned separately from its output — `--check` compares the file to what the same
+  generator produces, so a generator that stopped rewriting the link would agree with a
+  file that had not been rewritten.
+
+  The winget tree is deliberately out of scope: its manifests live in per-version
+  directories, where an old directory naming an old version is the format working. So
+  are `homebrew/yazses.rb` and `arch/PKGBUILD`, which interpolate `v#{version}` and
+  `${pkgver}` and therefore cannot drift at all — the two manifests that interpolate
+  nothing are the two that could, and one did.
+
 - The Flathub listing's **Help** button pointed at a page that 404s.
   `packaging/flatpak/com.mskazemi.YazSes.metainfo.xml` *is* the listing — GNOME Software
   and KDE Discover render it, and flathub.org indexes it — and its
