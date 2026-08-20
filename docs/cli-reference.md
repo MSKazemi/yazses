@@ -1207,6 +1207,7 @@ clustering**, not pitch. Off by default — enable with `yazses features enable 
 | `yazses meeting list` | List stored meetings on this machine (no daemon required). |
 | `yazses meeting relabel <id>` | Fix speaker labels and re-render: `--merge SPEAKER_2=speaker_1` folds clusters, `--rename speaker_1=Alice` names one (both repeatable); `--format`/`-f` picks the re-render format (default `md`). |
 | `yazses meeting notes <id>` | Generate minutes (summary, decisions, action items) from a stored transcript. Needs `[meeting] notes = true` and a local `notes_model` GGUF; runs locally (slow on CPU). |
+| `yazses meeting recover <id>` | Re-run the post-pass on a meeting whose finalize never completed. The recording is deleted only *after* a successful post-pass, so a crash leaves the whole meeting on disk; this transcribes, diarizes and names it and writes the same outputs. Never deletes the recording; refuses a meeting that already finished. |
 | `yazses meeting enroll <id> --speaker <cluster> --name <name>` | Enroll one speaker from a stored meeting as a named voiceprint, so they are auto-named next time. Both flags are required. Needs the recording to still exist — i.e. the meeting ran with `[meeting] retain_audio = true`. |
 
 ```bash
@@ -1219,12 +1220,34 @@ yazses meeting list --json         # machine-readable array
 yazses meeting relabel <id> --rename speaker_1=Alice --merge speaker_2=speaker_1
 yazses meeting notes <id>          # local-LLM minutes (needs notes_model)
 yazses meeting enroll <id> --speaker speaker_1 --name Alice   # name them for good
+yazses meeting recover 20260812-140310   # a meeting that crashed: re-run the post-pass
 ```
 
 `meeting status` reports whether the feature is **on** before anything else. With
 `[meeting] enabled = false` — the default — nothing is recorded, so it says that and names
 the command that turns it on, rather than reporting on speaker labels for a feature that
 will never produce a transcript. Meetings recorded earlier are still listed, as history.
+
+`meeting recover` exists because the recording outlives a failure. `audio.wav` is deleted
+only once the post-pass that consumes it has succeeded, so a crash, a `kill`, a machine that
+slept, or an out-of-memory notes model all leave the whole meeting on disk. `meeting list`
+marks those `unfinished` and prints the exact `recover` command for them:
+
+```
+20260812-140310  unfinished  ~/.local/share/yazses/meetings/20260812-140310
+    ⚠ did not finish — the whole recording was kept. `yazses meeting recover 20260812-140310` re-runs the post-pass on it.
+    …and 41 line(s) of live transcript are readable in ~/.local/share/yazses/meetings/20260812-140310/live.jsonl
+```
+
+The `live.jsonl` is the rolling transcript the live decode happened to catch — readable
+immediately, never diarized. The recording is the accurate source, and `recover` is the only
+thing that turns it back into a meeting. It never deletes the recording (on a retry it is the
+only copy) and it refuses a meeting that already finished rather than overwriting a good
+transcript.
+
+One difference from the live path: `recover` does not apply enrolled voiceprints, so speakers
+come back as `speaker_1`, `speaker_2` — naming them needs the daemon's cipher and embedder. Run
+`yazses meeting relabel <id> --rename speaker_1=Alice` afterwards.
 
 `meeting enroll` is the one that carries across meetings: `relabel` fixes the labels
 on *one* transcript, while `enroll` saves that speaker's voiceprint so the next

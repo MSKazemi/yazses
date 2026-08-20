@@ -20,6 +20,10 @@ from yazses.recimport.render import render_transcript
 _META = "meeting.json"
 _CANONICAL = "transcript.json"
 _LIVE = "live.jsonl"
+_AUDIO = "audio.wav"
+# A `wave` file opened for writing has its 44-byte canonical header on disk before
+# a single frame is appended, so "the file exists" is not "there is a recording".
+_WAV_HEADER_BYTES = 44
 _EXT = {"md": "transcript.md", "txt": "transcript.txt", "srt": "transcript.srt",
         "vtt": "transcript.vtt", "json": _CANONICAL}
 
@@ -69,6 +73,49 @@ def capture_warning(meta: dict) -> str | None:
     return None
 
 
+def has_recording(wav: Path | str) -> bool:
+    """True when the file holds recorded frames, not just a header. Never raises.
+
+    Public because the listing and ``recover``'s refusal must answer this question the
+    same way. They did not: the refusal carried its own literal 44, so a drift in either
+    would have produced a meeting the listing offers to recover and the command declines
+    (or worse, the reverse).
+    """
+    wav = Path(wav)
+    try:
+        return wav.exists() and wav.stat().st_size > _WAV_HEADER_BYTES
+    except OSError:  # pragma: no cover - a racing delete or an unreadable mount
+        return False
+
+
+def recovery_advice(meta: dict, live_lines: int = 0) -> list[str]:
+    """Indented lines saying what survives an unfinished meeting. Pure.
+
+    Ordered by which artefact is worth reaching for: the recording re-runs the real
+    post-pass (diarization, naming, minutes), the live transcript is what the rolling
+    decode happened to catch. Returning both when both exist matters -- the audio is
+    the better route, but a user who wants to read something *now* should not have to
+    discover the other file by listing the directory.
+    """
+    if not meta.get("recoverable"):
+        return []
+    lines: list[str] = []
+    if meta.get("audio_path"):
+        lines.append(
+            "⚠ did not finish — the whole recording was kept. "
+            f"`yazses meeting recover {meta.get('id', '')}` re-runs the post-pass on it."
+        )
+    if live_lines:
+        lines.append(
+            f"{'…and ' if lines else '⚠ did not finish — '}{live_lines} line(s) of live "
+            f"transcript are readable in {meta.get('dir', '')}/{_LIVE}"
+        )
+    if not lines:
+        # Recoverable was set, so something is there; say so rather than print nothing.
+        lines.append(f"⚠ did not finish — see {meta.get('dir', '')}")
+    return [f"    {line}" for line in lines]
+
+
 def meetings_dir(config) -> Path:
     """Directory holding per-meeting folders (``[meeting] output_dir`` or the data dir)."""
     override = getattr(config, "output_dir", "") or ""
@@ -114,10 +161,22 @@ def list_meetings(config) -> list[dict]:
         meta = read_meta(d)
         meta.setdefault("id", d.name)
         meta["dir"] = str(d)
-        # A meeting that never reached a clean finalize but left a live.jsonl can be
-        # recovered from that partial transcript.
-        if meta.get("status") != "done" and (d / _LIVE).exists():
-            meta["recoverable"] = True
+        # A meeting that never reached a clean finalize leaves one or both of two
+        # artefacts, and they are not equally good. `live.jsonl` is the rolling
+        # low-quality transcript streamed during capture. `audio.wav` is the whole
+        # recording -- the daemon deletes it only *after* the post-pass succeeds, and
+        # its own failure log says the file "has been KEPT ... so it can be retried".
+        # That promise was made to the log and to nothing else: this listing checked
+        # only for the live file, so a crash before the first utterance was decoded
+        # (or `[meeting] live_transcript = false`) printed the meeting as if it had
+        # finished, with the entire recording sitting in the same folder.
+        if meta.get("status") != "done":
+            wav = d / _AUDIO
+            if has_recording(wav):
+                meta["recoverable"] = True
+                meta["audio_path"] = str(wav)
+            elif (d / _LIVE).exists():
+                meta["recoverable"] = True
         out.append(meta)
     out.sort(key=lambda m: m.get("id", ""), reverse=True)
     return out

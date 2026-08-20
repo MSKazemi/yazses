@@ -242,6 +242,28 @@ how real speech is transcribed. Filtering the audio through it first would also 
 the hallucination, and it re-segments the audio — measured on six LibriSpeech clips,
 that changed two transcripts, one of them for the worse.
 
+## A meeting that never finished
+
+The recording is deleted only **after** the post-pass that consumes it has succeeded.
+So a crash, a `kill`, a machine that slept, or a notes model that ran out of memory
+all leave the whole meeting on disk as `audio.wav` in its meeting folder.
+
+`yazses meeting list` marks such a meeting `unfinished` and says which artefacts
+survive:
+
+```
+20260812-140310  unfinished  ~/.local/share/yazses/meetings/20260812-140310
+    ⚠ did not finish — the whole recording was kept. `yazses meeting recover 20260812-140310` re-runs the post-pass on it.
+    …and 41 line(s) of live transcript are readable in ~/.local/share/yazses/meetings/20260812-140310/live.jsonl
+```
+
+The two are not equally good. `live.jsonl` is the rolling transcript the live decode
+happened to produce during capture — useful to read immediately, but never diarized
+and never cleaned. The recording is the accurate source: `yazses meeting recover <id>`
+transcribes, diarizes and names it exactly as `meeting stop` would have, and writes the
+same files. It **never deletes the recording** — on a retry that file is the only copy —
+and it refuses a meeting that already finished rather than overwriting a good transcript.
+
 ---
 
 ## What does not heal itself

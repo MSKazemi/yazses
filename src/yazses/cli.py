@@ -366,7 +366,7 @@ def _format_uptime(seconds) -> str:
 
 
 def _speaker_summary(m: dict) -> str:
-    """How many speakers a meeting has, or that it was never labelled.
+    """How many speakers a meeting has, that it was never labelled, or that it never finished.
 
     "0 speaker(s)" reads as a failed transcription, and on an undiarized meeting
     it is answering a question nobody asked: speaker labelling was not attempted,
@@ -377,7 +377,15 @@ def _speaker_summary(m: dict) -> str:
     `is False` rather than a falsy test on purpose -- an older `meeting.json`
     without the key says nothing either way, and guessing would assert something
     the file does not contain.
+
+    A meeting that never finalized has no `meeting.json` at all -- it is written
+    once, at the end -- so every key here is absent and the fallback rendered it
+    as `? speaker(s)`, which reads as "we counted and could not tell" rather than
+    "this meeting never finished". The recovery line below says what happened;
+    this must not contradict it.
     """
+    if m.get("recoverable"):
+        return "unfinished"
     if m.get("diarized") is False:
         return "not diarized"
     return f"{m.get('num_speakers', '?')} speaker(s)"
@@ -413,12 +421,14 @@ def meeting_list(
         # dropped it. The daemon streams that file all through a meeting for exactly this
         # case, so an hour-long meeting cut short by a crash had its partial transcript
         # sitting on disk with nothing in the product acknowledging it existed.
+        #
+        # The recording itself is the better artefact and was missed for longer: it is
+        # deleted only after the post-pass succeeds, so a crash always leaves it, and
+        # `yazses meeting recover` turns it back into a real transcript.
         if m.get("recoverable"):
             lines = store.read_live_lines(m.get("dir", ""))
-            typer.echo(
-                f"    ⚠ did not finish — {len(lines)} line(s) of live transcript "
-                f"recoverable from {m.get('dir', '')}/live.jsonl"
-            )
+            for advice in store.recovery_advice(m, len(lines)):
+                typer.echo(advice)
         # A meeting whose audio held nothing. Listed here because `meeting stop`
         # returns before the post-pass runs, so this listing is the first surface
         # that can know -- and by default the audio is gone by now, leaving the
@@ -456,6 +466,38 @@ def meeting_relabel(
     typer.echo(f"Re-rendered {meeting_id}:")
     for name, path in written.items():
         typer.echo(f"  {name}: {path}")
+
+
+@meeting_app.command("recover")
+def meeting_recover(
+    meeting_id: str = typer.Argument(..., help="Meeting id (see `yazses meeting list`)."),
+) -> None:
+    """Re-run the post-pass on a meeting whose finalize never completed.
+
+    The recording is deleted only after a successful post-pass, so a crash, a kill or an
+    out-of-memory notes model leaves the whole meeting on disk. This transcribes it,
+    diarizes it, and writes the same outputs. Heavy: expect it to take a while
+    on CPU. The recording is never deleted here.
+
+    One difference from the live path, stated rather than discovered: enrolled
+    voiceprints are not applied, so speakers come back as `speaker_N`. Naming them needs
+    the daemon's cipher and embedder; use `yazses meeting relabel <id>` afterwards.
+    """
+    from yazses.config import load_config
+    from yazses.meeting import store
+    from yazses.meeting.recover import recover_meeting, recovery_refusal
+
+    cfg = load_config(get_platform().paths.config_file)
+    d = _meeting_dir(meeting_id)
+    if (reason := recovery_refusal(d, store.read_meta(d))):
+        typer.echo(reason, err=True)
+        raise typer.Exit(1)
+    typer.echo(f"Recovering {meeting_id} from {d / 'audio.wav'}… (this can take a while)")
+    info = recover_meeting(d, cfg.meeting)
+    for name, path in info["files"].items():
+        typer.echo(f"Wrote {path}  ({name})")
+    if (warning := store.capture_warning(info)):
+        typer.echo(f"\n{warning}", err=True)
 
 
 @meeting_app.command("notes")

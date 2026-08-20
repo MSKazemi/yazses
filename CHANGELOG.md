@@ -8,6 +8,34 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A meeting whose post-pass never finished kept its entire recording, and nothing offered it
+  back. The daemon deletes `audio.wav` only **after** the batch pass that consumes it has
+  succeeded — its failure branch logs that the file "has been KEPT … so it can be retried" — so a
+  crash, a `kill`, a machine that slept or an out-of-memory notes model all leave the whole
+  meeting on disk. That promise was made to the log and to nothing else. `yazses meeting list`
+  flagged a meeting recoverable only when a `live.jsonl` existed, which is the *rolling* transcript
+  the live decode happens to produce; a crash before the first utterance was decoded, or
+  `[meeting] live_transcript = false`, leaves no such file, so the meeting printed as though it had
+  finished — `? speaker(s)`, no warning — with the recording unmentioned beside it. And there was
+  no retry: the audio was reachable only by finding the WAV by hand.
+
+  The listing now flags a kept recording, says so as `unfinished` rather than guessing a speaker
+  count, and names both surviving artefacts in the order they are worth reaching for. New
+  **`yazses meeting recover <id>`** re-runs the transcription, diarization and naming on the kept
+  recording and writes the same outputs `meeting stop` would have, marking the result
+  `recovered: true`. It never deletes the recording — on a retry that file is the only copy, and a
+  second failure must leave you no worse off than the first — and it refuses a meeting that already
+  finished rather than overwriting a good transcript.
+
+  One hazard is pinned by a test in two ways, because it would be silent and total: recovery must
+  not go through `MeetingController`, since `MeetingSession.__init__` opens `audio.wav` with
+  `wave.open(..., "wb")` and would truncate the recording it is recovering on its first line.
+
+  One predicate, `store.has_recording`, answers "is there a recording here" for both the listing
+  and the refusal — an empty 44-byte WAV header, which `WavFileSink` writes at session start, is
+  not one. The refusal briefly carried its own copy of that number, which would have let the
+  listing offer a recovery the command then declines.
+
 - A meeting recorded against a muted microphone, or of a room where nobody spoke, was written
   up as a finished meeting — and summarised. `recimport.pipeline.transcribe_file` has always
   answered whether the audio held anything (`silent_input`, and now `no_speech`), and

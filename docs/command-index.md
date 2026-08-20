@@ -309,6 +309,12 @@ Generate meeting minutes (summary, decisions, action items) from the transcript.
 - **Arguments:** `meeting_id`
 - `--force` — Write notes even for a recording that holds no speech.
 
+### `yazses meeting recover`
+
+Re-run the post-pass on a meeting whose finalize never completed.
+
+- **Arguments:** `meeting_id`
+
 ### `yazses meeting relabel`
 
 Fix speaker labels — merge two clusters and/or rename them — and re-render.
