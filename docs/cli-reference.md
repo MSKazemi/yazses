@@ -867,7 +867,12 @@ no error (every clip is discarded as silence). Two things fix this:
 
 - **Pin your real mic** with `yazses audio use <name>`. The name is a case-insensitive
   substring, re-resolved on every recording, so it keeps working even if a hotplug
-  renumbers devices.
+  renumbers devices. It prints the device the name resolved to — a loose substring is
+  only useful if you can see what it caught. If several devices answer to the name it
+  refuses and lists them, because the pin would otherwise select whichever the sound
+  system happens to enumerate first, which is the thing pinning exists to rule out. And
+  if the name is a route (`default`, `pipewire`, `sysdefault`) it says so: the device
+  behind a route can change without the name changing, so such a pin holds nothing.
 - **The mic-change guard** (on by default, `yazses features disable mic-guard` to turn
   off) watches for the default input changing and for a run of bursts that produced no
   text — whether they were discarded as silence *or* reached the model and decoded to

@@ -3,6 +3,7 @@ from yazses.audio.devices import (
     InputDevice,
     default_input_name,
     list_input_devices,
+    match_input_devices,
     resolve_input_device,
 )
 
@@ -76,3 +77,44 @@ def test_resolve_blank_or_no_match_is_none():
     assert resolve_input_device("", _devs()) is None
     assert resolve_input_device("   ", _devs()) is None
     assert resolve_input_device("bluetooth headset", _devs()) is None
+
+
+# ---- how many devices answer to a name, not just whether any does ------------
+#
+# `resolve_input_device` returns the *first* match, which is all the daemon needs and
+# hides the case that matters at the moment of pinning: a name that several devices
+# answer to resolves by PortAudio enumeration order. That order is what a hotplug or a
+# reboot reshuffles -- the exact thing pinning exists to defeat.
+
+_AMBIGUOUS = [
+    InputDevice(0, "sof-hda-dsp: - (hw:0,0)", 2),
+    InputDevice(4, "sof-hda-dsp: - (hw:0,6)", 2),
+    InputDevice(5, "sof-hda-dsp: - (hw:0,7)", 2),
+    InputDevice(10, "default", 64, is_default=True),
+]
+
+
+def test_a_shared_prefix_matches_every_device_that_carries_it():
+    """Real names off this laptop: three capture endpoints, one indistinguishable name."""
+    assert [d.index for d in match_input_devices("sof-hda-dsp", _AMBIGUOUS)] == [0, 4, 5]
+
+
+def test_naming_one_of_them_in_full_is_unambiguous():
+    got = match_input_devices("sof-hda-dsp: - (hw:0,6)", _AMBIGUOUS)
+    assert [d.index for d in got] == [4]
+
+
+def test_an_exact_name_is_not_ambiguous_with_the_substrings_it_sits_inside():
+    devs = [InputDevice(11, "default", 32), InputDevice(7, "sysdefault", 128)]
+    assert [d.index for d in match_input_devices("default", devs)] == [11]
+
+
+def test_the_matcher_and_the_resolver_cannot_disagree():
+    """They are one predicate now; this fails if anyone re-implements either half."""
+    corpus = ["sof-hda-dsp", "hw:0,7", "default", "USB", "", "   ", "nothing like this"]
+    for devs in (_AMBIGUOUS, _devs(), []):
+        for name in corpus:
+            matches = match_input_devices(name, devs)
+            expected = matches[0].index if matches else None
+            assert resolve_input_device(name, devs) == expected, (name, devs)
+

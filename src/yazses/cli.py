@@ -2701,7 +2701,7 @@ def audio_use(
     The name is a case-insensitive substring, resolved fresh on every recording, so it
     survives a hotplug that renumbers devices. Run `yazses audio devices` to see names.
     """
-    from yazses.audio.devices import list_input_devices, resolve_input_device
+    from yazses.audio.devices import is_routing_alias, list_input_devices, match_input_devices
     from yazses.system.configedit import set_config_key
 
     platform = get_platform()
@@ -2714,16 +2714,52 @@ def audio_use(
         typer.echo("Give a microphone name (or --clear). See `yazses audio devices`.")
         raise typer.Exit(2)
     try:
-        match = resolve_input_device(name, list_input_devices())
+        matches = match_input_devices(name, list_input_devices())
     except Exception:  # pragma: no cover - hardware/backend dependent
-        match = None
-    if match is None:
+        matches = []
+
+    # More than one device answers to this name, and the pin would resolve to whichever
+    # PortAudio enumerates first. That order is not stable across a hotplug or a reboot --
+    # it is the exact thing pinning exists to defeat -- so the pin would look like a
+    # guarantee and not be one. Refuse while the user is still at the prompt: their intent
+    # is genuinely underdetermined, and this machine's own capture list makes it easy to
+    # hit (three entries share the prefix `sof-hda-dsp: -`).
+    if len(matches) > 1:
+        typer.echo(f"{name!r} matches {len(matches)} input devices:")
+        for dev in matches:
+            typer.echo(f"    {dev.name}")
+        typer.echo("")
+        typer.echo("Pinning it would select whichever the sound system happens to list")
+        typer.echo("first, which can change on a reboot. Name one of them exactly:")
+        typer.echo(f'    yazses audio use "{matches[0].name}"')
+        raise typer.Exit(2)
+
+    if not matches:
         typer.echo(
             f"No input device matches {name!r}. Run `yazses audio devices` to see names."
         )
         typer.echo("Pinning it anyway — it will apply if that device appears later.")
+
     set_config_key(platform.paths.config_file, "audio", "device", name)
-    typer.echo(f"Pinned input microphone to {name!r}.")
+    # Echo the device, not the string that was typed. A substring pin is meant to be
+    # loose, and the only confirmation that it caught the intended microphone is naming
+    # the one it resolved to.
+    if matches:
+        typer.echo(f"Pinned input microphone to {name!r} → {matches[0].name}")
+    else:
+        typer.echo(f"Pinned input microphone to {name!r}.")
+
+    # Pinning a route pins nothing. `default`/`pipewire`/`sysdefault` forward to whatever
+    # the sound server currently points at, so the device behind the name can change with
+    # the name unchanged -- the failure this command exists to prevent. `audio status`
+    # already refuses to *advise* an alias; accepting one here without a word left the two
+    # halves of the same guarantee disagreeing.
+    if matches and is_routing_alias(matches[0].name):
+        typer.echo(
+            f"⚠ {matches[0].name!r} is a route, not a microphone — the device behind it can\n"
+            "  change without this name changing, so this pin cannot hold capture in place.\n"
+            "  Pin a hardware name from `yazses audio devices` to be sure."
+        )
     typer.echo("Apply it:  yazses restart")
 
 

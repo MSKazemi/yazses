@@ -114,6 +114,28 @@ def current_default_input_name() -> str | None:
     return str(name) if name else None
 
 
+def match_input_devices(name: str, devices: list[InputDevice]) -> list[InputDevice]:
+    """Every device ``name`` selects, in the order :func:`resolve_input_device` sees them.
+
+    Split out from the resolver so that "which device is this?" and "is that the only
+    one?" are answered by the same code. The daemon only ever needs the first match, but
+    `yazses audio use` has to be able to say *how many* there are: a name matching more
+    than one device resolves by PortAudio enumeration order, which is precisely what a
+    hotplug or a reboot reshuffles — so an ambiguous pin keeps the failure mode that
+    pinning exists to remove, while looking like it fixed it.
+
+    Case-insensitive, exact matches first. An exact match is never ambiguous with the
+    substrings it happens to sit inside (``default`` inside ``sysdefault``).
+    """
+    needle = (name or "").strip().lower()
+    if not needle:
+        return []
+    exact = [d for d in devices if d.name.lower() == needle]
+    if exact:
+        return exact
+    return [d for d in devices if needle in d.name.lower()]
+
+
 def resolve_input_device(name: str, devices: list[InputDevice]) -> int | None:
     """Resolve a pinned device ``name`` to a PortAudio index against ``devices``.
 
@@ -121,16 +143,8 @@ def resolve_input_device(name: str, devices: list[InputDevice]) -> int | None:
     substring match (in device order). Returns ``None`` when ``name`` is blank or
     nothing matches — the caller then falls back to the OS default device.
     """
-    needle = (name or "").strip().lower()
-    if not needle:
-        return None
-    for dev in devices:  # exact match first
-        if dev.name.lower() == needle:
-            return dev.index
-    for dev in devices:  # then substring
-        if needle in dev.name.lower():
-            return dev.index
-    return None
+    matches = match_input_devices(name, devices)
+    return matches[0].index if matches else None
 
 
 def reinit_portaudio() -> None:

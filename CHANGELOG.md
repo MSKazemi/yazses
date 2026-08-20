@@ -8,6 +8,37 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `yazses audio use` confirmed pins it had not checked meant anything.
+  It called the resolver only to ask *did anything match?*, then echoed back the string
+  the user had typed. Two kinds of name were accepted without a word, and neither can
+  deliver what pinning promises.
+
+  **A name several devices answer to.** `resolve_input_device` returns "the first
+  substring match, in device order" — PortAudio's enumeration order, which is exactly
+  what a hotplug or a reboot reshuffles. So an ambiguous pin keeps the failure mode
+  pinning exists to remove while looking like it fixed it. This is easy to hit rather
+  than theoretical: on the maintainer's laptop the capture list is three entries all
+  named `sof-hda-dsp: - (hw:0,N)`, so the obvious thing to type matches all three.
+  `yazses audio use sof-hda-dsp` now lists the candidates and exits 2 without writing
+  anything — the user is at a prompt and their intent is genuinely underdetermined.
+
+  **A name that is a route.** `default`, `pipewire` and `sysdefault` forward to whatever
+  the sound server currently points at, so the device behind them can change with the
+  name unchanged. `audio status` already refuses to *advise* an alias — the helper that
+  does it carries a long comment about why — while `audio use` accepted one silently, so
+  the two halves of the same guarantee disagreed. It is still pinned (it is not
+  destructive, merely not a guarantee) and now says plainly that it cannot hold capture
+  in place.
+
+  A successful pin also names the device it resolved to instead of the string typed. A
+  substring pin is meant to be loose; seeing what it caught is the only confirmation
+  there is.
+
+  The count and the resolution now come from one function, `match_input_devices`, with
+  `resolve_input_device` returning the first of its results — so "which device is this?"
+  and "is it the only one?" cannot drift apart. Pinning a device that is not plugged in
+  yet still works: that case is deliberate and is covered by its own test.
+
 - `yazses quickstart` promised to check the speech model and never did.
   Its docstring — which is also `yazses quickstart --help` — says it looks at
   "prerequisites, whether the daemon is running, the speech model, your hotkey".
