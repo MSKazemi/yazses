@@ -112,3 +112,44 @@ def carries_no_signal(audio, floor: float = SIGNAL_FLOOR) -> bool:
     if audio is None or getattr(audio, "size", 0) == 0:
         return True
     return float(np.abs(audio).max()) < floor
+
+
+def holds_no_speech(audio, sample_rate: int = 16000) -> bool | None:
+    """True when a speech detector finds no speech anywhere. None when unavailable.
+
+    The companion to :func:`carries_no_signal`, and the case that one deliberately
+    cannot answer. A peak test asks *"was anything recorded at all"*, so it catches
+    a muted input and nothing else -- a quiet room is thirty times its floor. But
+    the hallucination it exists to flag does not need digital silence: four seconds
+    of faint room hiss (peak 0.0036) decodes to the single confident word **"You"**,
+    written to the sidecar with no warning attached. Measured here 2026-08-20.
+
+    So this asks the other question -- *"is any of it speech"* -- with a detector
+    rather than a threshold, because no amplitude separates a quiet talker from a
+    noisy empty room. It is Silero, which ``faster-whisper`` already ships as a
+    bundled 1.2 MB ONNX asset: nothing is downloaded and nothing leaves the machine
+    (ADR-011).
+
+    Deliberately a **detector, not a filter**. Passing ``vad_filter=True`` into the
+    decode would also stop the hallucination, and it re-segments the audio: measured
+    on six LibriSpeech clips it changed the transcript of two, one of them for the
+    worse ("There were the only persons" -> "that were the only persons"). Real
+    speech must decode exactly as it does today; only the *warning* changes.
+
+    Returns ``None`` when the detector cannot run, so the caller keeps today's
+    behaviour rather than inventing a verdict. Costs ~0.06 s on a 19 s file and
+    ~14 s on an hour -- a rounding error against decoding the same hour.
+    """
+    if audio is None or getattr(audio, "size", 0) == 0:
+        return True
+    if sample_rate != 16000:
+        # Silero is a 16 kHz model and the callers all decode to 16 kHz. Anything
+        # else is a caller bug, and guessing on resampled audio would be worse
+        # than declining to answer.
+        return None
+    try:
+        from faster_whisper.vad import VadOptions, get_speech_timestamps
+
+        return not get_speech_timestamps(audio, VadOptions())
+    except Exception:  # pragma: no cover - depends on the installed faster-whisper
+        return None

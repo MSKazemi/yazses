@@ -26,6 +26,7 @@ class TranscriptResult:
     diarized: bool
     speaker_names: dict       # canonical speaker id -> display name
     silent_input: bool = False  # the audio carried no signal; any text is hallucinated
+    no_speech: bool = False     # signal, but a speech detector found none; same for the text
 
 
 def _build_engine(config):
@@ -68,9 +69,16 @@ def transcribe_file(
     # Measured before decoding, on the audio itself. Whisper answers silence with a
     # confident hallucination rather than nothing, so this cannot be inferred from the
     # transcript afterwards.
-    from yazses.recimport.audio_io import carries_no_signal
+    from yazses.recimport.audio_io import carries_no_signal, holds_no_speech
 
     silent_input = carries_no_signal(audio)
+    # A separate question with a separate remedy. `silent_input` means nothing was
+    # captured -- a muted mic, the wrong device. `no_speech` means something was
+    # captured and none of it is speech: music, room noise, a recording of the wrong
+    # thing. Both produce invented words, and telling a user to check their input
+    # device when the file is a song sends them to the wrong place. Only asked when
+    # the peak test already passed, so the cheap answer wins where it applies.
+    no_speech = False if silent_input else holds_no_speech(audio, sample_rate) is True
     text, words = engine.transcribe_words(audio, sample_rate, task=task)
     words = [w for w in words if (getattr(w, "text", "") or "").strip()]
     if progress:
@@ -129,4 +137,5 @@ def transcribe_file(
         diarized=diarized,
         speaker_names=speaker_names,
         silent_input=silent_input,
+        no_speech=no_speech,
     )

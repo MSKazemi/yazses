@@ -4770,12 +4770,29 @@ def transcribe(
             err=True,
         )
 
+    # Sound was recorded and none of it is speech. The peak test above cannot see
+    # this -- a quiet room sits far above its floor -- yet it hallucinates just the
+    # same: four seconds of faint hiss decodes to the single word "You". Kept apart
+    # from the note above because the remedy is different: nothing here is wrong
+    # with the input device, the file simply does not hold speech.
+    elif result.no_speech:
+        typer.echo(
+            f"Note: sound was recorded but a speech detector found no speech in it, so "
+            f"the text in {out_path.name} was invented rather than heard -- speech "
+            "models answer non-speech audio with confident words rather than nothing. "
+            "Common causes: the file holds music or room noise, the recording captured "
+            "the wrong source, or the speech is too faint to detect. Play the file back "
+            "to check before trusting the transcript.",
+            err=True,
+        )
+
     # `transcribe` is where most people meet this project working for the first time --
     # it is the one path that needs no microphone, no hotkey and no re-login, so it is
     # also what the container and Codespace trials run. An empty transcript is not the
     # moment to ask them for a star.
     _maybe_point_at_project(
-        paths.data_dir, succeeded=bool(result.utterances) and not result.silent_input
+        paths.data_dir,
+        succeeded=bool(result.utterances) and not result.silent_input and not result.no_speech,
     )
 
 

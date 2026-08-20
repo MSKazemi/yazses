@@ -8,6 +8,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `yazses transcribe` wrote a word nobody said, and said nothing about it. Four seconds of
+  faint room hiss produced a sidecar file containing **`You`** — Whisper's stock answer to
+  non-speech audio — with no warning of any kind. The guard that exists could not see it:
+  `carries_no_signal()` tests the **peak** amplitude, deliberately, so that an hour of sparse
+  interview is not called silent, and its floor is `1e-4`. The hiss peaked at `0.0036`, thirty-six
+  times the floor and entirely ordinary for a real room. A peak answers *"was anything recorded"*;
+  nothing about amplitude answers *"is any of it speech"*, and that is the question the
+  hallucination turns on — a quiet talker and a noisy empty room occupy the same range. The
+  pipeline now also asks the second question, with a detector: Silero, which `faster-whisper`
+  already ships as a bundled 1.2 MB ONNX asset, so nothing is downloaded and nothing leaves the
+  machine. `TranscriptResult` gains `no_speech`, and `transcribe` prints a note that keeps the
+  remedy separate from the muted-microphone one — the file may simply hold music or room noise,
+  in which case `yazses audio devices` is the wrong place to send anyone. An invented transcript
+  also no longer counts as a success for the "star this project" nudge.
+
+  It is a **detector, not a filter**, on purpose. Passing `vad_filter=True` into the decode would
+  also stop the hallucination, and it re-segments the audio: measured on six LibriSpeech
+  `test-clean` clips it left four transcripts identical and changed two, one of them for the worse
+  (*"There were the only persons on the road"* → *"that were the only persons on the road"*). Real
+  speech decodes exactly as it did; only what gets printed changed.
+  `tests/test_no_speech_is_not_a_transcript.py` pins both halves, including that a genuine
+  recording earns no note at all. Known gap, recorded rather than quietly widened:
+  `meeting.finalize` wraps the same pipeline and drops `silent_input` — it drops `no_speech` too.
+
 - An idle daemon burned CPU re-reading a string that cannot change. The IPC status payload
   carried `"version": _running_version()`, and that calls `importlib.metadata.version("yazses")`,
   which walks `sys.path` for a `.dist-info` on **every call** — **2.1 ms** measured. Status is
