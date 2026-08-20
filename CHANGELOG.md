@@ -40,6 +40,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`[learning] max_corpus_mb` emptied a text-only corpus instead of trimming it.** The
+  size sweep deleted the oldest event and re-measured, in a loop, until the corpus fitted
+  under the cap. `DELETE` does not shrink a SQLite file — the pages go on its free list and
+  the file stays exactly as large. With audio captured, the clips are unlinked alongside
+  the rows, the directory shrinks and the loop converged; that is the only case the
+  existing test covered, because it is the only case that existed when it was written.
+
+  `[learning] capture_audio = false` is the other case, and the privacy statement offers it
+  in the table of things you stay in control of — *"store text but not audio"*. With no
+  clips, every deletion freed zero bytes and the loop ran until there was nothing left to
+  delete. Measured on a 2.95 MB text-only corpus against a 1 MB cap: 1500 events in, 1500
+  deletions, **0 events left, still 2.95 MB on disk**, 32.8 s spent. Every captured event
+  destroyed, no disk reclaimed, and nothing said about it.
+
+  The sweep now reclaims the freed pages, so what it measures is the size the file actually
+  is, and stops as soon as a round frees nothing rather than continuing to delete. Sitting
+  a little over the cap is the right failure for a disk limit: emptying the corpus to
+  satisfy it costs the user everything the limit was protecting. It also drops the oldest
+  events in proportional batches rather than one row per commit — the same corpus now keeps
+  311 events at 0.62 MB, in 0.1 s.
+
 - **The privacy statement said the diagnostic log never holds your dictated text. One
   supported setting away, it does.** `[general] log_level = "DEBUG"` writes each
   transcript into `daemon.log` — which is exactly what `docs/cli-reference.md` tells you

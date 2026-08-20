@@ -77,6 +77,9 @@ report a size above `max_corpus_mb`. Both are limits the corpus is pulled back t
 ceilings it is prevented from crossing. If you need something gone *now*, use
 `yazses corpus forget -m N` or `yazses corpus destroy`, which act immediately.
 
+A sweep will not empty the corpus to satisfy the size limit: it trims the oldest events
+as far as reclaiming disk actually helps and then stops, leaving the rest in place.
+
 The `recall` and `scratch` note features read from this same local corpus and never
 leave the machine.
 

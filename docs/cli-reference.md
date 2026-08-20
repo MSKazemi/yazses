@@ -1641,6 +1641,12 @@ yazses corpus destroy --i-mean-it    # irreversibly wipe the whole corpus
 when the daemon starts, then every 200 captures — so a size **above** the cap is normal
 between sweeps and does not mean eviction has failed. `forget` and `destroy` are immediate.
 
+A sweep drops the oldest events, reclaims the freed database pages, and stops as soon as
+a round frees nothing — so a cap set below what the database can shrink to leaves the
+corpus trimmed as far as it goes rather than emptied. If `status` keeps reporting a size
+above the cap after a sweep, that is what happened; `yazses logs` says so, and raising
+`max_corpus_mb` or running `yazses corpus destroy` are the two ways out.
+
 ---
 
 ## Feature configuration snapshots

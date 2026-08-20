@@ -8,6 +8,7 @@ captured, is written as an encrypted 16-bit-PCM WAV at ``clips/<id>.wav.enc``.
 from __future__ import annotations
 
 import io
+import logging
 import re
 import sqlite3
 import time
@@ -18,6 +19,8 @@ from pathlib import Path
 import numpy as np
 
 from yazses.learning.crypto import Cipher
+
+log = logging.getLogger(__name__)
 
 # Text fields encrypted at rest. Order matters only for readability.
 _TEXT_FIELDS = (
@@ -115,6 +118,18 @@ def _decode_wav(data: bytes) -> tuple[np.ndarray, int]:
     pcm = np.frombuffer(frames, dtype="<i2").astype(np.float32) / 32767.0
     return pcm, sample_rate
 
+
+#: Bounds on one size trim.
+#:
+#: `_MAX_TRIM_SHARE` is the anti-wipe invariant made explicit: no single round may take
+#: the whole corpus, so a cap smaller than the database's own floor degrades into
+#: "trimmed as far as it goes" instead of "deleted everything and still over".
+#: `_TRIM_MARGIN` overshoots the proportional estimate slightly, because a row's share of
+#: the file is not its share of the rows once clips are in the mix. `_MAX_TRIM_ROUNDS`
+#: bounds the work when neither converges.
+_MAX_TRIM_ROUNDS = 8
+_MAX_TRIM_SHARE = 0.9
+_TRIM_MARGIN = 1.2
 
 #: How many captured events between size/retention sweeps. A prune walks the clip
 #: directory and deletes rows, so doing it per event would put disk work behind every
@@ -375,19 +390,79 @@ class CorpusStore:
         return self._delete_where("ts >= ?", (cutoff,))
 
     def prune(self, retention_days: int, max_mb: int) -> int:
-        """Evict events older than ``retention_days``, then trim to ``max_mb``."""
+        """Evict events older than ``retention_days``, then trim to ``max_mb``.
+
+        The size trim drops the oldest events, reclaims the freed database pages, and
+        **stops as soon as a round frees nothing** rather than continuing to delete.
+        Both halves of that matter, and neither is a refinement:
+
+        ``DELETE`` does not shrink a SQLite file — the pages go on its free list and the
+        file stays exactly as large. When the events carry audio the clips are unlinked
+        alongside, so the directory does shrink and the old loop converged. With
+        ``[learning] capture_audio = false``, a documented setting the privacy statement
+        offers as *"store text but not audio"*, there are no clips: the loop deleted every
+        event one at a time, ended with an **empty corpus still over the cap**, and freed
+        no disk at all. Measured on a 2.95 MB text-only corpus against a 1 MB cap: 1500
+        events in, 1500 deletions, 0 left, 2.95 MB on disk.
+
+        So the file is vacuumed after each round, which is what makes the measurement
+        honest, and the loop exits when the reclaimed size stops falling. Sitting a little
+        over the cap is the right failure: a size limit is a disk-space control, and
+        destroying the corpus to satisfy it costs the user everything the limit was
+        protecting.
+        """
         removed = 0
         if retention_days > 0:
             cutoff = time.time() - retention_days * 86400.0
             removed += self._delete_where("ts < ?", (cutoff,))
-        # Size trim: drop the oldest events until under the cap.
+        if max_mb <= 0:
+            return removed
+
         max_bytes = max_mb * 1024 * 1024
-        while max_mb > 0 and self._disk_size() > max_bytes:
-            row = self._conn.execute("SELECT MIN(id) AS m FROM events").fetchone()
-            if row is None or row["m"] is None:
+        size = self._disk_size()
+        for _ in range(_MAX_TRIM_ROUNDS):
+            if size <= max_bytes:
                 break
-            removed += self._delete_where("id = ?", (int(row["m"]),))
+            ids = self._oldest_ids(self._trim_batch(size, max_bytes))
+            if not ids:
+                break
+            removed += self._delete_where(
+                f"id IN ({','.join('?' * len(ids))})", tuple(ids)
+            )
+            # Reclaim the freed pages, or the next measurement is of a file that no
+            # longer reflects what is in it.
+            self._conn.execute("VACUUM")
+            freed = self._disk_size()
+            if freed >= size:
+                log.warning(
+                    "Corpus trim freed nothing at %.1f MB against a %d MB cap; stopping "
+                    "with %d events rather than deleting more.",
+                    freed / 1024 / 1024, max_mb, self.stats().count,
+                )
+                break
+            size = freed
         return removed
+
+    def _trim_batch(self, size: int, max_bytes: int) -> int:
+        """How many of the oldest events to drop this round.
+
+        Proportional to the overshoot, with a margin, so an ordinary trim finishes in one
+        or two rounds. The one-row-at-a-time loop this replaces did a SELECT, a DELETE, a
+        commit and a full directory walk per event — 32 s to clear 1500 rows.
+        """
+        total = self.stats().count
+        if total <= 0 or size <= 0:
+            return 0
+        share = min(_MAX_TRIM_SHARE, (size - max_bytes) / size * _TRIM_MARGIN)
+        return max(1, int(total * share))
+
+    def _oldest_ids(self, limit: int) -> list[int]:
+        if limit <= 0:
+            return []
+        rows = self._conn.execute(
+            "SELECT id FROM events ORDER BY id LIMIT ?", (limit,)
+        ).fetchall()
+        return [int(r["id"]) for r in rows]
 
     def destroy(self) -> None:
         """Irreversibly remove the database and all audio clips."""
