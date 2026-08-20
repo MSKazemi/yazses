@@ -12,10 +12,6 @@ Two confirmed by reading the code that should have used them:
 * `[tray] poll_interval_s` — documented with default `1.0`; `tray/app.py` polls on
   a module-level `_FAST_POLL_INTERVAL_S = 0.15`.
 
-Every one of the 63 below appears in `docs/configuration.md`, in the same
-`Key | Type | Default` tables as the keys that work, with nothing to tell them
-apart. `sample_rate` is read and `channels` is the row beneath it.
-
 **A ledger, not a gate**, following `test_orphan_modules.py` and for the same
 reason it gives: listing the known set means the suite passes today and fails the
 moment a 64th appears, or when one is finally wired and its entry goes stale.
@@ -24,154 +20,43 @@ belong to features honestly registered as not-yet-wired, where an unread key is
 the expected state rather than a defect; the point is that the pile stops growing
 silently.
 
-Whether the documentation should mark them is a separate question, and a real one:
-today a reader cannot tell which knobs do anything.
+The detector and the ledger now live in `scripts/config_status.py`, because they had
+a second reader all along and did not know it. This docstring used to end *"whether
+the documentation should mark them is a separate question, and a real one: today a
+reader cannot tell which knobs do anything."* It was real: `docs/configuration.md`
+listed all 447 keys in one `Key | Type | Default` table with `sample_rate` read and
+`channels` — the row directly beneath it — not, and nothing to separate them. The
+generator now reads the same ledger and renders a Status column from it, so the page
+cannot describe a different set of inert keys than this test gates on.
 """
 from __future__ import annotations
 
-import ast
+import importlib.util
 import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-#: Keys accepted and validated by the loader that no code outside the config
-#: plumbing reads. Sorted; regenerate by running this module's `_unread()`.
-KNOWN_UNREAD = {
-    "AccessibilityConfig.confirm_timeout_s",
-    "AccessibilityConfig.vad_source",
-    "AcousticProfilesConfig.min_stable",
-    "ActivationConfig.confirm_threshold",
-    "ActivationConfig.reject_floor",
-    "AgentConfig.allowlist",
-    "AudioConfig.channels",
-    "AudioguardConfig.cooldown_frames",
-    "BrailleoutConfig.grade",
-    "BreathConfig.min_gap_s",
-    "BreathConfig.onset_threshold",
-    "BridgeConfig.pair_token",
-    "CiteConfig.bib_path",
-    "CliphistoryConfig.capacity",
-    "CodecConfig.max_delay_ms",
-    "CommandsConfig.lsp_editor",
-    "CommandsConfig.lsp_enabled",
-    "CommandsConfig.rewrite_timeout_s",
-    "CommandsConfig.slm_confidence_threshold",
-    "CondenseConfig.max_sentences",
-    "ConfidenceConfig.mark_in_overlay",
-    "ContextConfig.use_lsp",
-    "ContinuumConfig.semantic_capture",
-    "CorrdictConfig.min_support",
-    "EmgConfig.command_map",
-    "EndpointConfig.falling_window_ms",
-    "EndpointConfig.prefix_stable_ms",
-    "EndpointConfig.speculative_finalize",
-    "HesitationConfig.commit_ms",
-    "HesitationConfig.hold_extra_ms",
-    "HotkeyConfig.evdev_device",
-    "HotwordsConfig.boost",
-    "LipreadConfig.mouth_threshold",
-    "MouthswitchConfig.dwell_s",
-    "PersonalizeConfig.lora",
-    "PersonalizeConfig.lora_base_model",
-    "PersonalizeConfig.lora_min_events",
-    "PersonalizeConfig.lora_min_improvement",
-    "PhoneticConfig.max_distance",
-    "PilotConfig.confirm_ambiguous",
-    "PronunciationConfig.good_threshold",
-    "ProsodyConfig.experimental_pitch_question",
-    "ProsodypunctConfig.comma_pause_ms",
-    "ProsodypunctConfig.sentence_pause_ms",
-    "RagConfig.embed_model",
-    "RagConfig.store_path",
-    "RagConfig.top_k",
-    "RecimportConfig.batched",
-    "RemoteConfig.default_host",
-    "SembrConfig.max_len",
-    "SignConfig.pause_frames",
-    "SnippetsConfig.entries",
-    "SpatialvadConfig.mic_distance_m",
-    "SpatialvadConfig.target_angle",
-    "SpatialvadConfig.tolerance_deg",
-    "StagedConfig.show_in_overlay",
-    "StreamingConfig.partial_marker",
-    "TablecsvConfig.delimiter",
-    "TrayConfig.poll_interval_s",
-    "VocaljoystickConfig.click_pitch",
-    "VocaljoystickConfig.max_speed",
-    "VoiceprintConfig.profile_min_similarity",
-    "WakewordConfig.keyword",
-}
+
+def _load(name: str):
+    """Load a `scripts/` module by path — `scripts/` is not a package."""
+    spec = importlib.util.spec_from_file_location(name, ROOT / "scripts" / f"{name}.py")
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
-def _config_fields() -> list[tuple[str, str]]:
-    tree = ast.parse((ROOT / "src/yazses/config.py").read_text(encoding="utf-8"))
-    return [
-        (node.name, st.target.id)
-        for node in tree.body
-        if isinstance(node, ast.ClassDef)
-        for st in node.body
-        if isinstance(st, ast.AnnAssign) and isinstance(st.target, ast.Name)
-    ]
+_status = _load("config_status")
+KNOWN_UNREAD = _status.KNOWN_UNREAD
+_unread = _status.unread_fields
+_without_comments = _status.without_comments
+
+REFERENCE = ROOT / "docs" / "configuration.md"
+INERT_MARK = "⚠️ inert"
 
 
-def _without_comments(source: str) -> str:
-    """*source* with ``#`` comments removed, everything else untouched.
-
-    The match below is `[."']name` — an attribute access or a string key — which is
-    a good proxy for "this key is read". Its one flaw was that it ran over the raw
-    file, so **a comment mentioning a key made that key count as read**, which is
-    exactly the reachability this guard exists to detect.
-
-    Hit for real: a comment in `system/report.py` noting that the snippets table is
-    unwired was itself enough to register that field as wired. A comment cannot read
-    a config key.
-
-    Stripping only comments, rather than switching to an AST walk over attributes and
-    keywords. That was tried and is worse in both directions: `channels=1` passed to
-    `sd.InputStream` is an `ast.keyword` named `channels`, which would mark
-    `AudioConfig.channels` as read by an unrelated call — five fields flipped that way
-    on the first run.
-    """
-    import io
-    import tokenize
-
-    lines = source.splitlines()
-    try:
-        comments = [
-            tok.start for tok in tokenize.generate_tokens(io.StringIO(source).readline)
-            if tok.type == tokenize.COMMENT
-        ]
-    except (tokenize.TokenError, IndentationError):  # pragma: no cover - defensive
-        return source
-    # Blanked **in place**, keeping every other character where it was. Rebuilding
-    # from token strings instead (joined with newlines) tore `cfg.audio.device` into
-    # three lines, so `.device` no longer matched and forty genuinely-read keys were
-    # reported as unread. A comment always runs to end of line, so a slice is enough.
-    for row, col in comments:
-        if 1 <= row <= len(lines):
-            lines[row - 1] = lines[row - 1][:col]
-    return "\n".join(lines)
-
-
-def _unread() -> set[str]:
-    """Fields never referenced as an attribute or key outside the config plumbing.
-
-    `config.py` and `configcheck.py` are excluded because both walk the dataclass
-    annotations generically — every field is "used" there by construction, which
-    is exactly the reachability that hides an unread key.
-    """
-    src = ROOT / "src/yazses"
-    code = "\n".join(
-        _without_comments(p.read_text(encoding="utf-8", errors="ignore"))
-        for p in src.rglob("*.py")
-        if p.name not in ("config.py", "configcheck.py")
-    )
-    return {
-        f"{cls}.{name}"
-        for cls, name in _config_fields()
-        if not re.search(r"[.\"']" + re.escape(name) + r"\b", code)
-    }
+# --- the pile itself ----------------------------------------------------------
 
 
 def test_no_new_config_key_joins_the_unread_pile():
@@ -229,3 +114,199 @@ def test_stripping_comments_does_not_damage_code_or_strings():
     stripped = _without_comments('y = "a # not a comment"\nz = obj.real_attr\n')
     assert 'a # not a comment' in stripped
     assert "obj.real_attr" in stripped
+
+
+# --- the ledger reaches the page the user actually edits ----------------------
+#
+# ⚠ `test_gen_docs.py::test_generated_doc_is_in_sync` cannot cover any of this. It
+# compares the committed page against what the generator produces *now*, so dropping
+# the Status column from the generator keeps it perfectly green — both sides change
+# together. Only an assertion against the rendered page can notice.
+
+
+def _reference_rows() -> dict[str, str]:
+    """`section.key` → its Status cell, read out of the committed reference page."""
+    rows: dict[str, str] = {}
+    section = ""
+    for line in REFERENCE.read_text(encoding="utf-8").splitlines():
+        if m := re.fullmatch(r"## `\[([a-z][a-z0-9_.]*)\]`", line.strip()):
+            section = m.group(1)
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if section and len(cells) == 4 and (m := re.fullmatch(r"`([a-z][a-z0-9_.]*)`", cells[0])):
+            rows[f"{section}.{m.group(1)}"] = cells[3]
+    return rows
+
+
+def test_the_reference_page_is_actually_being_parsed():
+    """A guard over an empty set passes on everything — this repo's most repeated
+    self-inflicted wound, and the reason the parse is asserted before it is used."""
+    rows = _reference_rows()
+    assert len(rows) > 400, f"only parsed {len(rows)} key rows out of the reference"
+    assert rows["stt.model"] == "", "a read key must carry an empty Status cell"
+    assert rows["audio.channels"] == INERT_MARK
+
+
+def test_the_reference_marks_exactly_the_keys_the_ledger_knows_are_inert():
+    """The defect this closes: `sample_rate` is read, `channels` is the next row down
+    and is not, and the page rendered them identically.
+
+    Asserted in both directions. A missing mark leaves a reader turning a knob that
+    does nothing; a spurious one tells them a working setting is dead, which is worse
+    — they would stop using it.
+    """
+    import sys
+
+    sys.path.insert(0, str(ROOT / "src"))
+    from yazses.config import Config
+
+    expected = _status.inert_dotted_keys(Config())
+    marked = {k for k, status in _reference_rows().items() if INERT_MARK in status}
+
+    assert not (expected - marked), (
+        "inert keys the reference does not mark:\n  " + "\n  ".join(sorted(expected - marked))
+    )
+    assert not (marked - expected), (
+        "keys the reference calls inert that the ledger says are read:\n  "
+        + "\n  ".join(sorted(marked - expected))
+    )
+
+
+def test_every_ledger_entry_survives_the_translation_to_section_names():
+    """The ledger is keyed by class, the page by TOML section. A mapping that resolved
+    nothing would mark nothing and both directions of the test above would still pass,
+    because an empty set is a subset of everything."""
+    import sys
+
+    sys.path.insert(0, str(ROOT / "src"))
+    from yazses.config import Config
+
+    dotted = _status.inert_dotted_keys(Config())
+    assert len(dotted) == len(KNOWN_UNREAD), (
+        f"{len(KNOWN_UNREAD)} ledger entries resolved to only {len(dotted)} section keys"
+    )
+
+
+def test_the_page_says_what_inert_means_and_counts_it_from_the_ledger():
+    """A marker no one has defined is decoration. The legend must define it, and its
+    count must be the ledger's — a hand-typed number is the drift this whole change
+    is about (ADR-019 carried a hand-written 'seven' that had been five for months).
+    """
+    text = REFERENCE.read_text(encoding="utf-8")
+    assert f"**{len(KNOWN_UNREAD)} of these" in text, "the legend's count is not the ledger's"
+    assert "no code reads them" in text
+    assert "changes nothing" in text
+
+
+# --- the other copyable surface ----------------------------------------------
+
+
+def test_no_example_config_offers_a_knob_that_does_nothing():
+    """`examples/` is what people copy, and `build-deb.sh` ships
+    `config.example.toml` into `/usr/share/yazses/`.
+
+    `test_app_example_configs.py` already rejects a key that does not **exist** —
+    `load_config_checked` reports it as a dropped unknown. An inert key passes that
+    check perfectly: it exists, it validates, it has a default. `[audio] channels`
+    sat in the hand-written example on the line after `sample_rate`, and copying it
+    taught a reader that stereo capture was a setting. It is not.
+    """
+    import re
+    import sys
+
+    sys.path.insert(0, str(ROOT / "src"))
+    from yazses.config import Config
+
+    inert = _status.inert_dotted_keys(Config())
+    offenders: list[str] = []
+    examples = sorted((ROOT / "examples").glob("*.toml"))
+    assert examples, "no example configs found — an empty sweep proves nothing"
+
+    for path in examples:
+        text = path.read_text(encoding="utf-8")
+        section = ""
+        for raw in text.splitlines():
+            line = raw.split("#", 1)[0].strip()
+            if m := re.fullmatch(r"\[([a-z][a-z0-9_.]*)\]", line):
+                section = m.group(1)
+                continue
+            if not section or not (m := re.match(r"([a-z][a-z0-9_]*)\s*=", line)):
+                continue
+            key = m.group(1)
+            if f"{section}.{key}" in inert and not _discloses(text, key):
+                offenders.append(f"{path.name}: [{section}] {key}")
+
+    assert not offenders, (
+        "example configs offering settings nothing reads:\n  "
+        + "\n  ".join(offenders)
+        + "\n\nRemove the line, wire the key, or say `inert` next to its name in a "
+        "comment. A copied setting that does nothing is worse than an absent one — "
+        "the reader believes they configured something."
+    )
+
+
+_DISCLOSURE_WINDOW = 200
+
+
+def _discloses(text: str, key: str) -> bool:
+    """True when the file names *key* within `_DISCLOSURE_WINDOW` chars of "inert".
+
+    Deletion is not always the right fix. `config.vscode.toml` sets
+    `lsp_enabled = false` under a header that spends five lines saying the key is
+    INERT in this build and why — that file is *more* honest than one where the key
+    is simply absent, because a VS Code user who has read about the LSP bridge is
+    told directly that it does nothing yet.
+
+    Proximity rather than a file-wide search for the word: one disclosure paragraph
+    would otherwise excuse every inert key anywhere else in the same file, which is
+    the blanket exemption this guard exists to prevent.
+    """
+    lowered = text.lower()
+    for mark in re.finditer(r"inert", lowered):
+        window = lowered[
+            max(0, mark.start() - _DISCLOSURE_WINDOW) : mark.end() + _DISCLOSURE_WINDOW
+        ]
+        if re.search(r"\b" + re.escape(key) + r"\b", window):
+            return True
+    return False
+
+
+def test_a_disclosed_inert_key_is_accepted_and_an_undisclosed_one_is_not():
+    """The exemption has to be narrow or it is not an exemption.
+
+    Both directions, plus the distance rule — a disclosure about one key must not
+    cover a different key far away in the same file.
+    """
+    assert _discloses("# [commands] lsp_enabled is INERT in this build\n", "lsp_enabled")
+    assert not _discloses("# lsp_enabled turns on the bridge\n", "lsp_enabled")
+    assert not _discloses(
+        "# channels is INERT\n" + "# filler\n" * 60 + "# note about max_speed\n",
+        "max_speed",
+    ), "a disclosure must not reach across the whole file"
+
+
+def test_the_example_sweep_can_actually_fail(tmp_path: Path):
+    """Proves the parse finds keys at all. The sweep passed trivially at one point
+    because `channels` had already been removed everywhere — a green that meant
+    nothing until it was shown it could go red."""
+    import re as _re
+    import sys
+
+    sys.path.insert(0, str(ROOT / "src"))
+    from yazses.config import Config
+
+    inert = _status.inert_dotted_keys(Config())
+    assert "audio.channels" in inert, "the fixture below relies on this being inert"
+
+    bad = tmp_path / "config.bad.toml"
+    bad.write_text("[audio]\nchannels = 2\n", encoding="utf-8")
+
+    section, found = "", []
+    for raw in bad.read_text(encoding="utf-8").splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if m := _re.fullmatch(r"\[([a-z][a-z0-9_.]*)\]", line):
+            section = m.group(1)
+        elif section and (m := _re.match(r"([a-z][a-z0-9_]*)\s*=", line)):
+            if f"{section}.{m.group(1)}" in inert:
+                found.append(m.group(1))
+    assert found == ["channels"]

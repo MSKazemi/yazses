@@ -43,7 +43,6 @@ hold_threshold_ms = 400
 
 [audio]
 sample_rate = 16000
-channels = 1
 max_record_seconds = 120   # longer: document dictation runs in paragraphs
 
 [injection]

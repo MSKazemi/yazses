@@ -13,1156 +13,1160 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 
 **Match the Type column exactly.** In TOML only `str` values take quotes; `int`, `float` and `bool` must be bare. Writing `vad_threshold = "0.004"` instead of `vad_threshold = 0.004` loads without complaint and then fails at runtime, because the value stays a string where a number is expected. See [Troubleshooting](troubleshooting.md#dictation-stopped-working-right-after-i-edited-configtoml).
 
+**63 of these 447 keys are inert**, and they are marked ⚠️ inert in the Status column. The loader accepts them, `configcheck` validates them and they have a documented default — but no code reads them, so setting one loads without complaint and changes nothing. Most belong to capabilities that are registered but not yet wired; see [`yazses features`](cli-reference.md) for what is actually switchable. Both numbers here are counted at generation time, and the list of inert keys is the same one the test suite gates on, so neither can quietly fall out of date.
+
+This has bitten before: `[injection] fallback_to_clipboard` was documented in seventeen places and defaulted to `true` while nothing read it, so anyone who turned it off was silently overruled.
+
 ## `[stt]`
 
-| Key | Type | Default |
-|---|---|---|
-| `engine` | str | `"faster-whisper"` |
-| `model` | str | `"base.en"` |
-| `language` | str | `"en"` |
-| `device` | str | `"cpu"` |
-| `compute_type` | str | `"int8"` |
-| `initial_prompt` | str | `""` |
-| `vocab_correction` | bool | `false` |
-| `cpu_threads` | int | `0` |
-| `chinese_script` | str | `""` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `engine` | str | `"faster-whisper"` |  |
+| `model` | str | `"base.en"` |  |
+| `language` | str | `"en"` |  |
+| `device` | str | `"cpu"` |  |
+| `compute_type` | str | `"int8"` |  |
+| `initial_prompt` | str | `""` |  |
+| `vocab_correction` | bool | `false` |  |
+| `cpu_threads` | int | `0` |  |
+| `chinese_script` | str | `""` |  |
 
 ## `[hotkey]`
 
-| Key | Type | Default |
-|---|---|---|
-| `key` | str | `"auto"` |
-| `hold_threshold_ms` | int | `500` |
-| `source` | str | `"default"` |
-| `evdev_device` | str | `""` |
-| `command_key` | str | `""` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `key` | str | `"auto"` |  |
+| `hold_threshold_ms` | int | `500` |  |
+| `source` | str | `"default"` |  |
+| `evdev_device` | str | `""` | ⚠️ inert |
+| `command_key` | str | `""` |  |
 
 ## `[audio]`
 
-| Key | Type | Default |
-|---|---|---|
-| `sample_rate` | int | `16000` |
-| `channels` | int | `1` |
-| `max_record_seconds` | int | `300` |
-| `device` | str | `""` |
-| `device_change_notify` | bool | `true` |
-| `silent_streak_notify` | bool | `true` |
-| `silent_streak_threshold` | int | `3` |
-| `auto_heal_device` | bool | `true` |
-| `device_poll_interval_s` | float | `3.0` |
-| `voice_answer` | bool | `false` |
-| `voice_answer_window_s` | float | `45.0` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `sample_rate` | int | `16000` |  |
+| `channels` | int | `1` | ⚠️ inert |
+| `max_record_seconds` | int | `300` |  |
+| `device` | str | `""` |  |
+| `device_change_notify` | bool | `true` |  |
+| `silent_streak_notify` | bool | `true` |  |
+| `silent_streak_threshold` | int | `3` |  |
+| `auto_heal_device` | bool | `true` |  |
+| `device_poll_interval_s` | float | `3.0` |  |
+| `voice_answer` | bool | `false` |  |
+| `voice_answer_window_s` | float | `45.0` |  |
 
 ## `[injection]`
 
-| Key | Type | Default |
-|---|---|---|
-| `backend` | str | `"auto"` |
-| `fallback_to_clipboard` | bool | `true` |
-| `continuation_window_ms` | int | `30000` |
-| `target_guard` | str | `"clipboard"` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `backend` | str | `"auto"` |  |
+| `fallback_to_clipboard` | bool | `true` |  |
+| `continuation_window_ms` | int | `30000` |  |
+| `target_guard` | str | `"clipboard"` |  |
 
 ## `[general]`
 
-| Key | Type | Default |
-|---|---|---|
-| `log_level` | str | `"INFO"` |
-| `update_check` | bool | `false` |
-| `update_check_interval_hours` | int | `24` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `log_level` | str | `"INFO"` |  |
+| `update_check` | bool | `false` |  |
+| `update_check_interval_hours` | int | `24` |  |
 
 ## `[streaming]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `partial_interval_ms` | int | `300` |
-| `partial_marker` | str | `""` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `partial_interval_ms` | int | `300` |  |
+| `partial_marker` | str | `""` | ⚠️ inert |
 
 ## `[filters]`
 
-| Key | Type | Default |
-|---|---|---|
-| **`[filters.disfluency]`** | | |
-| `disfluency.enabled` | bool | `true` |
-| `disfluency.filler_words` | list | `['um', 'uh', 'er', 'ah', 'hmm', 'you know', 'i mean', 'okay so', 'so um', 'so uh']` |
-| `disfluency.self_correction_triggers` | list | `['no wait', 'delete that', 'scratch that', 'never mind', 'forget that', 'strike that']` |
-| `disfluency.collapse_repetitions` | bool | `false` |
-| `disfluency.collapse_prolongations` | bool | `false` |
-| `disfluency.prolongation_min_run` | int | `3` |
-| `disfluency.repetition_max_fragment_len` | int | `2` |
-| `disfluency.llm_enabled` | bool | `false` |
-| `disfluency.llm_endpoint` | str | `"http://localhost:11434"` |
-| `disfluency.llm_allow_remote_endpoint` | bool | `false` |
-| `disfluency.llm_model` | str | `""` |
-| `disfluency.llm_system_prompt` | str | `"Reformat only. Do not add facts and do not remove information. Preserve every proper noun, number, code identifier, and URL exactly as given. Fix capitalization, punctuation, and paragraph breaks; do not change word choices. Output ONLY the reformatted text with no preamble, no explanation, and no markdown fences."` |
-| `disfluency.llm_max_tokens` | int | `256` |
-| `disfluency.llm_timeout_ms` | int | `2000` |
-| `disfluency.llm_min_length_ratio` | float | `0.5` |
-| `disfluency.llm_max_length_ratio` | float | `2.0` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| **`[filters.disfluency]`** | | | |
+| `disfluency.enabled` | bool | `true` |  |
+| `disfluency.filler_words` | list | `['um', 'uh', 'er', 'ah', 'hmm', 'you know', 'i mean', 'okay so', 'so um', 'so uh']` |  |
+| `disfluency.self_correction_triggers` | list | `['no wait', 'delete that', 'scratch that', 'never mind', 'forget that', 'strike that']` |  |
+| `disfluency.collapse_repetitions` | bool | `false` |  |
+| `disfluency.collapse_prolongations` | bool | `false` |  |
+| `disfluency.prolongation_min_run` | int | `3` |  |
+| `disfluency.repetition_max_fragment_len` | int | `2` |  |
+| `disfluency.llm_enabled` | bool | `false` |  |
+| `disfluency.llm_endpoint` | str | `"http://localhost:11434"` |  |
+| `disfluency.llm_allow_remote_endpoint` | bool | `false` |  |
+| `disfluency.llm_model` | str | `""` |  |
+| `disfluency.llm_system_prompt` | str | `"Reformat only. Do not add facts and do not remove information. Preserve every proper noun, number, code identifier, and URL exactly as given. Fix capitalization, punctuation, and paragraph breaks; do not change word choices. Output ONLY the reformatted text with no preamble, no explanation, and no markdown fences."` |  |
+| `disfluency.llm_max_tokens` | int | `256` |  |
+| `disfluency.llm_timeout_ms` | int | `2000` |  |
+| `disfluency.llm_min_length_ratio` | float | `0.5` |  |
+| `disfluency.llm_max_length_ratio` | float | `2.0` |  |
 
 ## `[accessibility]`
 
-| Key | Type | Default |
-|---|---|---|
-| `min_silence_ms` | int | `500` |
-| `pre_speech_padding_ms` | int | `300` |
-| `vad_source` | str | `"default"` |
-| `vad_threshold` | float | `0.01` |
-| `dysfluency_friendly` | bool | `false` |
-| `read_back` | str | `"off"` |
-| `confirm_timeout_s` | float | `6.0` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `min_silence_ms` | int | `500` |  |
+| `pre_speech_padding_ms` | int | `300` |  |
+| `vad_source` | str | `"default"` | ⚠️ inert |
+| `vad_threshold` | float | `0.01` |  |
+| `dysfluency_friendly` | bool | `false` |  |
+| `read_back` | str | `"off"` |  |
+| `confirm_timeout_s` | float | `6.0` | ⚠️ inert |
 
 ## `[commands]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `true` |
-| `profile` | str | `"auto"` |
-| `custom` | list | `[]` |
-| `slm_model_path` | str | `""` |
-| `slm_confidence_threshold` | float | `0.75` |
-| `lsp_enabled` | bool | `false` |
-| `lsp_editor` | str | `"auto"` |
-| `voice_punctuation` | bool | `false` |
-| `rewrite` | bool | `false` |
-| `rewrite_timeout_s` | float | `20.0` |
-| `symbols` | bool | `false` |
-| `self_repair` | bool | `false` |
-| `spoken_edit` | bool | `false` |
-| `spoken_edit_destructive` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `true` |  |
+| `profile` | str | `"auto"` |  |
+| `custom` | list | `[]` |  |
+| `slm_model_path` | str | `""` |  |
+| `slm_confidence_threshold` | float | `0.75` | ⚠️ inert |
+| `lsp_enabled` | bool | `false` | ⚠️ inert |
+| `lsp_editor` | str | `"auto"` | ⚠️ inert |
+| `voice_punctuation` | bool | `false` |  |
+| `rewrite` | bool | `false` |  |
+| `rewrite_timeout_s` | float | `20.0` | ⚠️ inert |
+| `symbols` | bool | `false` |  |
+| `self_repair` | bool | `false` |  |
+| `spoken_edit` | bool | `false` |  |
+| `spoken_edit_destructive` | bool | `false` |  |
 
 ## `[macros]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `path` | str | `"macros.toml"` |
-| `author` | str | `""` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `path` | str | `"macros.toml"` |  |
+| `author` | str | `""` |  |
 
 ## `[revise]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `true` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `true` |  |
 
 ## `[punch_in]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `min_score` | float | `0.5` |
-| `max_candidates` | int | `3` |
-| `record_seconds` | float | `4.0` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `min_score` | float | `0.5` |  |
+| `max_candidates` | int | `3` |  |
+| `record_seconds` | float | `4.0` |  |
 
 ## `[endpoint]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `min_silence_s` | float | `0.3` |
-| `stable_updates` | int | `2` |
-| `prewarm` | bool | `true` |
-| `speculative_finalize` | bool | `false` |
-| `debounce_ms` | int | `500` |
-| `prefix_stable_ms` | int | `400` |
-| `falling_window_ms` | int | `250` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `min_silence_s` | float | `0.3` |  |
+| `stable_updates` | int | `2` |  |
+| `prewarm` | bool | `true` |  |
+| `speculative_finalize` | bool | `false` | ⚠️ inert |
+| `debounce_ms` | int | `500` |  |
+| `prefix_stable_ms` | int | `400` | ⚠️ inert |
+| `falling_window_ms` | int | `250` | ⚠️ inert |
 
 ## `[prosody]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `format` | str | `"none"` |
-| `pause_paragraph_ms` | int | `700` |
-| `pause_sentence_ms` | int | `0` |
-| `emphasis_enabled` | bool | `true` |
-| `emphasis_sensitivity` | float | `0.65` |
-| `experimental_pitch_question` | bool | `false` |
-| `max_latency_ms` | int | `150` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `format` | str | `"none"` |  |
+| `pause_paragraph_ms` | int | `700` |  |
+| `pause_sentence_ms` | int | `0` |  |
+| `emphasis_enabled` | bool | `true` |  |
+| `emphasis_sensitivity` | float | `0.65` |  |
+| `experimental_pitch_question` | bool | `false` | ⚠️ inert |
+| `max_latency_ms` | int | `150` |  |
 
 ## `[remote]`
 
-| Key | Type | Default |
-|---|---|---|
-| `default_host` | str | `""` |
-| `ssh_port` | int | `22` |
-| `agent_port` | int | `9875` |
-| `key_file` | str | `""` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `default_host` | str | `""` | ⚠️ inert |
+| `ssh_port` | int | `22` |  |
+| `agent_port` | int | `9875` |  |
+| `key_file` | str | `""` |  |
 
 ## `[emg]`
 
-| Key | Type | Default |
-|---|---|---|
-| `device_port` | str | `""` |
-| `baud_rate` | int | `115200` |
-| `ble_address` | str | `""` |
-| `mode` | str | `"command"` |
-| `command_map` | dict | `{}` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `device_port` | str | `""` |  |
+| `baud_rate` | int | `115200` |  |
+| `ble_address` | str | `""` |  |
+| `mode` | str | `"command"` |  |
+| `command_map` | dict | `{}` | ⚠️ inert |
 
 ## `[learning]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `capture_audio` | bool | `true` |
-| `retention_days` | int | `30` |
-| `max_corpus_mb` | int | `500` |
-| `tune_model` | str | `"small.en"` |
-| `redact_patterns` | list | `[]` |
-| `anonymize_audio` | bool | `false` |
-| `anonymize_strength` | float | `1.08` |
-| `capture_edits` | bool | `false` |
-| `edit_capture_delay_s` | float | `8.0` |
-| `editor_socket` | str | `""` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `capture_audio` | bool | `true` |  |
+| `retention_days` | int | `30` |  |
+| `max_corpus_mb` | int | `500` |  |
+| `tune_model` | str | `"small.en"` |  |
+| `redact_patterns` | list | `[]` |  |
+| `anonymize_audio` | bool | `false` |  |
+| `anonymize_strength` | float | `1.08` |  |
+| `capture_edits` | bool | `false` |  |
+| `edit_capture_delay_s` | float | `8.0` |  |
+| `editor_socket` | str | `""` |  |
 
 ## `[overlay]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `true` |
-| `style` | str | `"sonar"` |
-| `position` | str | `"cursor"` |
-| `react_to_voice` | bool | `true` |
-| `accent` | str | `"#00e5ff"` |
-| `size_px` | int | `220` |
-| `fps` | int | `60` |
-| `cursor_offset_px` | int | `28` |
-| `reduced_motion` | str | `"auto"` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `true` |  |
+| `style` | str | `"sonar"` |  |
+| `position` | str | `"cursor"` |  |
+| `react_to_voice` | bool | `true` |  |
+| `accent` | str | `"#00e5ff"` |  |
+| `size_px` | int | `220` |  |
+| `fps` | int | `60` |  |
+| `cursor_offset_px` | int | `28` |  |
+| `reduced_motion` | str | `"auto"` |  |
 
 ## `[tray]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `true` |
-| `poll_interval_s` | float | `1.0` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `true` |  |
+| `poll_interval_s` | float | `1.0` | ⚠️ inert |
 
 ## `[tts]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `engine` | str | `"kokoro"` |
-| `voice` | str | `"default"` |
-| `model_path` | str | `""` |
-| `voices_path` | str | `""` |
-| `sample_rate` | int | `24000` |
-| `speed` | float | `1.0` |
-| `max_readback_chars` | int | `600` |
-| `clone_voice` | bool | `false` |
-| `clone_backend` | str | `"openvoice"` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `engine` | str | `"kokoro"` |  |
+| `voice` | str | `"default"` |  |
+| `model_path` | str | `""` |  |
+| `voices_path` | str | `""` |  |
+| `sample_rate` | int | `24000` |  |
+| `speed` | float | `1.0` |  |
+| `max_readback_chars` | int | `600` |  |
+| `clone_voice` | bool | `false` |  |
+| `clone_backend` | str | `"openvoice"` |  |
 
 ## `[voiceprint]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `backend` | str | `"ecapa"` |
-| `enroll_seconds` | float | `25.0` |
-| `multi_profile` | bool | `false` |
-| `profile_min_similarity` | float | `0.5` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `backend` | str | `"ecapa"` |  |
+| `enroll_seconds` | float | `25.0` |  |
+| `multi_profile` | bool | `false` |  |
+| `profile_min_similarity` | float | `0.5` | ⚠️ inert |
 
 ## `[gaze]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `backend` | str | `"mediapipe"` |
-| `model_path` | str | `""` |
-| `zones` | str | `"grid3x3"` |
-| `camera_index` | int | `0` |
-| `calibration_points` | int | `9` |
-| `confidence_min` | float | `0.5` |
-| `route_dictation` | bool | `false` |
-| `confirm_destructive` | bool | `true` |
-| `deixis` | bool | `true` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `backend` | str | `"mediapipe"` |  |
+| `model_path` | str | `""` |  |
+| `zones` | str | `"grid3x3"` |  |
+| `camera_index` | int | `0` |  |
+| `calibration_points` | int | `9` |  |
+| `confidence_min` | float | `0.5` |  |
+| `route_dictation` | bool | `false` |  |
+| `confirm_destructive` | bool | `true` |  |
+| `deixis` | bool | `true` |  |
 
 ## `[cocktail]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `mode` | str | `"gate"` |
-| `target_threshold` | float | `0.5` |
-| `window_ms` | int | `500` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `mode` | str | `"gate"` |  |
+| `target_threshold` | float | `0.5` |  |
+| `window_ms` | int | `500` |  |
 
 ## `[personalize]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `bias_from_corpus` | bool | `true` |
-| `max_prompt_terms` | int | `64` |
-| `lora` | bool | `false` |
-| `lora_base_model` | str | `"small.en"` |
-| `lora_min_events` | int | `200` |
-| `lora_min_improvement` | float | `0.03` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `bias_from_corpus` | bool | `true` |  |
+| `max_prompt_terms` | int | `64` |  |
+| `lora` | bool | `false` | ⚠️ inert |
+| `lora_base_model` | str | `"small.en"` | ⚠️ inert |
+| `lora_min_events` | int | `200` | ⚠️ inert |
+| `lora_min_improvement` | float | `0.03` | ⚠️ inert |
 
 ## `[polyglot]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `pair` | str | `""` |
-| `adapter_path` | str | `""` |
-| `lid` | str | `"segment"` |
-| `mer_gate` | float | `0.0` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `pair` | str | `""` |  |
+| `adapter_path` | str | `""` |  |
+| `lid` | str | `"segment"` |  |
+| `mer_gate` | float | `0.0` |  |
 
 ## `[confidence]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `threshold` | float | `0.55` |
-| `mark_in_overlay` | bool | `true` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `threshold` | float | `0.55` |  |
+| `mark_in_overlay` | bool | `true` | ⚠️ inert |
 
 ## `[staged]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `spoken_commit` | bool | `false` |
-| `show_in_overlay` | bool | `true` |
-| `max_chunks` | int | `200` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `spoken_commit` | bool | `false` |  |
+| `show_in_overlay` | bool | `true` | ⚠️ inert |
+| `max_chunks` | int | `200` |  |
 
 ## `[context]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `use_window_title` | bool | `true` |
-| `use_selection` | bool | `true` |
-| `use_clipboard` | bool | `false` |
-| `use_lsp` | bool | `true` |
-| `max_terms` | int | `48` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `use_window_title` | bool | `true` |  |
+| `use_selection` | bool | `true` |  |
+| `use_clipboard` | bool | `false` |  |
+| `use_lsp` | bool | `true` | ⚠️ inert |
+| `max_terms` | int | `48` |  |
 
 ## `[recall]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `scratch` | bool | `false` |
-| `max_hits` | int | `5` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `scratch` | bool | `false` |  |
+| `max_hits` | int | `5` |  |
 
 ## `[agent]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `allowlist` | list | `[]` |
-| `confirm` | str | `"writes"` |
-| `slm_model_path` | str | `""` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `allowlist` | list | `[]` | ⚠️ inert |
+| `confirm` | str | `"writes"` |  |
+| `slm_model_path` | str | `""` |  |
 
 ## `[pilot]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `backend` | str | `"atspi"` |
-| `match_threshold` | float | `0.5` |
-| `confirm_ambiguous` | bool | `true` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `backend` | str | `"atspi"` |  |
+| `match_threshold` | float | `0.5` |  |
+| `confirm_ambiguous` | bool | `true` | ⚠️ inert |
 
 ## `[modality]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `preset` | str | `"balanced"` |
-| `priority` | list | `['voice', 'emg', 'gaze', 'keyboard']` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `preset` | str | `"balanced"` |  |
+| `priority` | list | `['voice', 'emg', 'gaze', 'keyboard']` |  |
 
 ## `[activation]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `confirm_threshold` | float | `0.9` |
-| `reject_floor` | float | `0.5` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `confirm_threshold` | float | `0.9` | ⚠️ inert |
+| `reject_floor` | float | `0.5` | ⚠️ inert |
 
 ## `[continuum]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `whisper_mode` | bool | `false` |
-| `whisper_threshold_factor` | float | `0.4` |
-| `semantic_capture` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `whisper_mode` | bool | `false` |  |
+| `whisper_threshold_factor` | float | `0.4` |  |
+| `semantic_capture` | bool | `false` | ⚠️ inert |
 
 ## `[bridge]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `listen_port` | int | `9876` |
-| `pair_token` | str | `""` |
-| `device_name` | str | `""` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `listen_port` | int | `9876` |  |
+| `pair_token` | str | `""` | ⚠️ inert |
+| `device_name` | str | `""` |  |
 
 ## `[translate]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `target` | str | `"en"` |
-| `backend` | str | `"whisper"` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `target` | str | `"en"` |  |
+| `backend` | str | `"whisper"` |  |
 
 ## `[affect]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `mode` | str | `"conservative"` |
-| `min_confidence` | float | `0.6` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `mode` | str | `"conservative"` |  |
+| `min_confidence` | float | `0.6` |  |
 
 ## `[denoise]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `backend` | str | `"spectral"` |
-| `strength` | float | `1.0` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `backend` | str | `"spectral"` |  |
+| `strength` | float | `1.0` |  |
 
 ## `[predict]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `model_path` | str | `""` |
-| `max_tokens` | int | `12` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `model_path` | str | `""` |  |
+| `max_tokens` | int | `12` |  |
 
 ## `[voiceguard]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `match_threshold` | float | `0.5` |
-| `spoof_threshold` | float | `0.5` |
-| `fail_open` | bool | `true` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `match_threshold` | float | `0.5` |  |
+| `spoof_threshold` | float | `0.5` |  |
+| `fail_open` | bool | `true` |  |
 
 ## `[scribe]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `backend` | str | `"sortformer"` |
-| `max_speakers` | int | `6` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `backend` | str | `"sortformer"` |  |
+| `max_speakers` | int | `6` |  |
 
 ## `[rag]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `top_k` | int | `4` |
-| `min_score` | float | `0.2` |
-| `embed_model` | str | `"embeddinggemma"` |
-| `store_path` | str | `""` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `top_k` | int | `4` | ⚠️ inert |
+| `min_score` | float | `0.2` |  |
+| `embed_model` | str | `"embeddinggemma"` | ⚠️ inert |
+| `store_path` | str | `""` | ⚠️ inert |
 
 ## `[codec]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `backend` | str | `"kyutai"` |
-| `max_delay_ms` | int | `500` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `backend` | str | `"kyutai"` |  |
+| `max_delay_ms` | int | `500` | ⚠️ inert |
 
 ## `[hallucination]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `drop_ghost_phrases` | bool | `true` |
-| `drop_loops` | bool | `true` |
-| `no_speech_threshold` | float | `0.6` |
-| `logprob_threshold` | float | `-1.0` |
-| `compression_ratio_threshold` | float | `2.4` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `drop_ghost_phrases` | bool | `true` |  |
+| `drop_loops` | bool | `true` |  |
+| `no_speech_threshold` | float | `0.6` |  |
+| `logprob_threshold` | float | `-1.0` |  |
+| `compression_ratio_threshold` | float | `2.4` |  |
 
 ## `[snippets]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `entries` | dict | `{}` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `entries` | dict | `{}` | ⚠️ inert |
 
 ## `[phonetic]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `max_distance` | float | `0.34` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `max_distance` | float | `0.34` | ⚠️ inert |
 
 ## `[autostop]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `mode` | str | `"silence"` |
-| `silence_timeout_ms` | int | `800` |
-| `max_duration_ms` | int | `30000` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `mode` | str | `"silence"` |  |
+| `silence_timeout_ms` | int | `800` |  |
+| `max_duration_ms` | int | `30000` |  |
 
 ## `[mousegrid]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `cols` | int | `3` |
-| `rows` | int | `3` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `cols` | int | `3` |  |
+| `rows` | int | `3` |  |
 
 ## `[code]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[math]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[wakeword]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `keyword` | str | `"hey yaz"` |
-| `threshold` | float | `0.5` |
-| `cooldown_ms` | int | `2000` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `keyword` | str | `"hey yaz"` | ⚠️ inert |
+| `threshold` | float | `0.5` |  |
+| `cooldown_ms` | int | `2000` |  |
 
 ## `[voicehealth]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `threshold` | float | `0.6` |
-| `min_samples` | int | `20` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `threshold` | float | `0.6` |  |
+| `min_samples` | int | `20` |  |
 
 ## `[coach]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[smartpaste]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[scrub]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[reflow]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[acoustic_profiles]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `min_stable` | int | `3` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `min_stable` | int | `3` | ⚠️ inert |
 
 ## `[sentiment]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[pronunciation]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `good_threshold` | float | `0.7` |
-| `poor_threshold` | float | `0.4` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `good_threshold` | float | `0.7` | ⚠️ inert |
+| `poor_threshold` | float | `0.4` |  |
 
 ## `[gesture]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[interpret]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `pair` | str | `"en-es"` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `pair` | str | `"en-es"` |  |
 
 ## `[itn]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[redaction]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `mode` | str | `"mask"` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `mode` | str | `"mask"` |  |
 
 ## `[fieldaware]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[compose]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `source` | str | `""` |
-| `target` | str | `"en"` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `source` | str | `""` |  |
+| `target` | str | `"en"` |  |
 
 ## `[gec]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[screengrounded]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `max_terms` | int | `32` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `max_terms` | int | `32` |  |
 
 ## `[headpointer]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[lipread]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `mouth_threshold` | float | `0.35` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `mouth_threshold` | float | `0.35` | ⚠️ inert |
 
 ## `[sign]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `pause_frames` | int | `8` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `pause_frames` | int | `8` | ⚠️ inert |
 
 ## `[convert]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[temporal]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[spreadsheet]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[cliphistory]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `capacity` | int | `20` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `capacity` | int | `20` | ⚠️ inert |
 
 ## `[audioguard]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `cooldown_frames` | int | `30` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `cooldown_frames` | int | `30` | ⚠️ inert |
 
 ## `[condense]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `max_sentences` | int | `2` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `max_sentences` | int | `2` | ⚠️ inert |
 
 ## `[slotfill]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[cmdspotter]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `threshold` | float | `0.75` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `threshold` | float | `0.75` |  |
 
 ## `[cmdsafety]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `confirm_words` | list | `[]` |
-| `cancel_words` | list | `[]` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `confirm_words` | list | `[]` |  |
+| `cancel_words` | list | `[]` |  |
 
 ## `[spokenregex]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[markup]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `flavor` | str | `"markdown"` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `flavor` | str | `"markdown"` |  |
 
 ## `[findreplace]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[hotwords]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `boost` | float | `2.0` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `boost` | float | `2.0` | ⚠️ inert |
 
 ## `[windowctl]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[cite]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `bib_path` | str | `""` |
-| `style` | str | `"latex"` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `bib_path` | str | `""` | ⚠️ inert |
+| `style` | str | `"latex"` |  |
 
 ## `[langroute]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `min_confidence` | float | `0.5` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `min_confidence` | float | `0.5` |  |
 
 ## `[latency]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `high_load` | float | `85.0` |
-| `low_load` | float | `40.0` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `high_load` | float | `85.0` |  |
+| `low_load` | float | `40.0` |  |
 
 ## `[diarize]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[spelling]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[gitvoice]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[reask]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `threshold` | float | `-1.0` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `threshold` | float | `-1.0` |  |
 
 ## `[verbatim]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[corrdict]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `min_support` | int | `3` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `min_support` | int | `3` | ⚠️ inert |
 
 ## `[fileopen]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `threshold` | float | `0.4` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `threshold` | float | `0.4` |  |
 
 ## `[jump]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[shellpipe]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[mcp]`
 
-| Key | Type | Default |
-|---|---|---|
-| `ask_human` | bool | `false` |
-| `ask_human_per_hour` | int | `3` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `ask_human` | bool | `false` |  |
+| `ask_human_per_hour` | int | `3` |  |
 
 ## `[recimport]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `diarize` | bool | `false` |
-| `backend` | str | `"sherpa"` |
-| `max_speakers` | int | `0` |
-| `min_speakers` | int | `0` |
-| `cluster_threshold` | float | `0.5` |
-| `output_format` | str | `"txt"` |
-| `model` | str | `""` |
-| `language` | str | `"en"` |
-| `batched` | bool | `true` |
-| `name_from_voiceprints` | bool | `true` |
-| `min_speaker_seconds` | float | `3.0` |
-| `name_threshold` | float | `0.5` |
-| `model_dir` | str | `""` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `diarize` | bool | `false` |  |
+| `backend` | str | `"sherpa"` |  |
+| `max_speakers` | int | `0` |  |
+| `min_speakers` | int | `0` |  |
+| `cluster_threshold` | float | `0.5` |  |
+| `output_format` | str | `"txt"` |  |
+| `model` | str | `""` |  |
+| `language` | str | `"en"` |  |
+| `batched` | bool | `true` | ⚠️ inert |
+| `name_from_voiceprints` | bool | `true` |  |
+| `min_speaker_seconds` | float | `3.0` |  |
+| `name_threshold` | float | `0.5` |  |
+| `model_dir` | str | `""` |  |
 
 ## `[meeting]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `output_dir` | str | `""` |
-| `retain_audio` | bool | `false` |
-| `live_transcript` | bool | `true` |
-| `diarize` | bool | `true` |
-| `backend` | str | `"sherpa"` |
-| `max_speakers` | int | `0` |
-| `min_speakers` | int | `0` |
-| `cluster_threshold` | float | `0.5` |
-| `model` | str | `""` |
-| `language` | str | `"en"` |
-| `vad_backend` | str | `"calibrated"` |
-| `silero_threshold` | float | `0.5` |
-| `name_from_voiceprints` | bool | `true` |
-| `participants_dir` | str | `""` |
-| `min_speaker_seconds` | float | `3.0` |
-| `name_threshold` | float | `0.5` |
-| `model_dir` | str | `""` |
-| `output_format` | str | `"md"` |
-| `max_minutes` | int | `180` |
-| `notes` | bool | `false` |
-| `notes_model` | str | `""` |
-| `notes_grammar` | bool | `true` |
-| `notes_window_turns` | int | `40` |
-| `notes_max_tokens` | int | `1024` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `output_dir` | str | `""` |  |
+| `retain_audio` | bool | `false` |  |
+| `live_transcript` | bool | `true` |  |
+| `diarize` | bool | `true` |  |
+| `backend` | str | `"sherpa"` |  |
+| `max_speakers` | int | `0` |  |
+| `min_speakers` | int | `0` |  |
+| `cluster_threshold` | float | `0.5` |  |
+| `model` | str | `""` |  |
+| `language` | str | `"en"` |  |
+| `vad_backend` | str | `"calibrated"` |  |
+| `silero_threshold` | float | `0.5` |  |
+| `name_from_voiceprints` | bool | `true` |  |
+| `participants_dir` | str | `""` |  |
+| `min_speaker_seconds` | float | `3.0` |  |
+| `name_threshold` | float | `0.5` |  |
+| `model_dir` | str | `""` |  |
+| `output_format` | str | `"md"` |  |
+| `max_minutes` | int | `180` |  |
+| `notes` | bool | `false` |  |
+| `notes_model` | str | `""` |  |
+| `notes_grammar` | bool | `true` |  |
+| `notes_window_turns` | int | `40` |  |
+| `notes_max_tokens` | int | `1024` |  |
 
 ## `[crowdproof]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `threshold` | float | `0.5` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `threshold` | float | `0.5` |  |
 
 ## `[chords]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[compute]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[casetransform]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[autopair]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[timeline]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[bookmarks]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[tablecsv]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `delimiter` | str | `","` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `delimiter` | str | `","` | ⚠️ inert |
 
 ## `[wordgoal]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `goal` | int | `0` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `goal` | int | `0` |  |
 
 ## `[voicetimer]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[focusprofile]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[vocaljoystick]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `max_speed` | float | `20.0` |
-| `click_pitch` | float | `250.0` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `max_speed` | float | `20.0` | ⚠️ inert |
+| `click_pitch` | float | `250.0` | ⚠️ inert |
 
 ## `[earcon]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[spatialvad]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `target_angle` | float | `0.0` |
-| `tolerance_deg` | float | `35.0` |
-| `mic_distance_m` | float | `0.14` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `target_angle` | float | `0.0` | ⚠️ inert |
+| `tolerance_deg` | float | `35.0` | ⚠️ inert |
+| `mic_distance_m` | float | `0.14` | ⚠️ inert |
 
 ## `[prosodypunct]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `sentence_pause_ms` | float | `700.0` |
-| `comma_pause_ms` | float | `250.0` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `sentence_pause_ms` | float | `700.0` | ⚠️ inert |
+| `comma_pause_ms` | float | `250.0` | ⚠️ inert |
 
 ## `[hesitation]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `commit_ms` | float | `800.0` |
-| `hold_extra_ms` | float | `1200.0` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `commit_ms` | float | `800.0` | ⚠️ inert |
+| `hold_extra_ms` | float | `1200.0` | ⚠️ inert |
 
 ## `[contour]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[breath]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `min_gap_s` | float | `1.0` |
-| `onset_threshold` | float | `0.6` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `min_gap_s` | float | `1.0` | ⚠️ inert |
+| `onset_threshold` | float | `0.6` | ⚠️ inert |
 
 ## `[whispermode]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `voicing_max` | float | `0.3` |
-| `tilt_min` | float | `-1.0` |
-| `gain_db` | float | `6.0` |
-| `vad_scale` | float | `0.5` |
-| `command_channel` | bool | `true` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `voicing_max` | float | `0.3` |  |
+| `tilt_min` | float | `-1.0` |  |
+| `gain_db` | float | `6.0` |  |
+| `vad_scale` | float | `0.5` |  |
+| `command_channel` | bool | `true` |  |
 
 ## `[mouthswitch]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `dwell_s` | float | `1.2` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `dwell_s` | float | `1.2` | ⚠️ inert |
 
 ## `[involuntary]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[morsevox]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `dot_max_ms` | float | `200.0` |
-| `letter_gap_ms` | float | `600.0` |
-| `word_gap_ms` | float | `1400.0` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `dot_max_ms` | float | `200.0` |  |
+| `letter_gap_ms` | float | `600.0` |  |
+| `word_gap_ms` | float | `1400.0` |  |
 
 ## `[checkdigit]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `schemes` | list | `['luhn', 'isbn13', 'isbn10']` |
-| `min_digits` | int | `12` |
-| `suggest_fix` | bool | `true` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `schemes` | list | `['luhn', 'isbn13', 'isbn10']` |  |
+| `min_digits` | int | `12` |  |
+| `suggest_fix` | bool | `true` |  |
 
 ## `[sembr]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `max_len` | int | `0` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `max_len` | int | `0` | ⚠️ inert |
 
 ## `[acronyms]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[styleguard]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `path` | str | `"style-rules.toml"` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `path` | str | `"style-rules.toml"` |  |
 
 ## `[suggestmode]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[screenplay]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[srscap]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[diagramvox]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `flavor` | str | `"mermaid"` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `flavor` | str | `"mermaid"` |  |
 
 ## `[proofback]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[hatselect]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[translit]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `scheme` | str | `"finglish"` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `scheme` | str | `"finglish"` |  |
 
 ## `[brailleout]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `grade` | int | `2` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `grade` | int | `2` | ⚠️ inert |
 
 ## `[outline]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `format` | str | `"markdown"` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `format` | str | `"markdown"` |  |
 
 ## `[diacritize]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[safeglyph]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[wordfind]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `max_candidates` | int | `5` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `max_candidates` | int | `5` |  |
 
 ## `[loadguard]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `threshold` | float | `0.7` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `threshold` | float | `0.7` |  |
 
 ## `[echo]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
 
 ## `[srpace]`
 
-| Key | Type | Default |
-|---|---|---|
-| `enabled` | bool | `false` |
-| `wpm` | float | `180.0` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `enabled` | bool | `false` |  |
+| `wpm` | float | `180.0` |  |
 
 ## `[profiles]`
 
-| Key | Type | Default |
-|---|---|---|
-| `app` | dict | `{}` |
+| Key | Type | Default | Status |
+|---|---|---|---|
+| `app` | dict | `{}` |  |
 

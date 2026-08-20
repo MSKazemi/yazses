@@ -35,7 +35,6 @@ hold_threshold_ms = 400
 
 [audio]
 sample_rate = 16000
-channels = 1
 max_record_seconds = 45    # a command line, not a paragraph
 
 [injection]

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import dataclasses
 import io
+import sys
 from pathlib import Path
 
 import click
@@ -24,6 +25,9 @@ import typer
 from yazses import branding
 from yazses.config import Config
 from yazses.system.features import grouped_features
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from config_status import inert_dotted_keys  # noqa: E402  (sibling script, not a package)
 
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
@@ -174,8 +178,16 @@ def _section_rows(inst) -> list[tuple[str, str, str, str]]:
     return rows
 
 
+#: Rendered in the Status column of every inert key, and searched for by
+#: `tests/test_config_keys_are_read.py` in the committed page. A generated file is
+#: only ever compared against its own generator, so `test_gen_docs.py` would stay
+#: green if this marking were dropped entirely — the page itself has to be asserted on.
+INERT_MARK = "⚠️ inert"
+
+
 def gen_configuration() -> str:
     cfg = Config()
+    inert = inert_dotted_keys(cfg)
     out = io.StringIO()
     out.write(_front("Configuration Reference",
                      "Every config.toml section and key, with type and default."))
@@ -194,16 +206,37 @@ def gen_configuration() -> str:
         "runtime, because the value stays a string where a number is expected. See "
         "[Troubleshooting](troubleshooting.md#dictation-stopped-working-right-after-i-edited-configtoml).\n\n"
     )
+    rows_by_section = {
+        fld.name: _section_rows(getattr(cfg, fld.name))
+        for fld in dataclasses.fields(cfg)
+    }
+    n_keys = sum(
+        1 for rows in rows_by_section.values() for _, _, _, m in rows if m != "nested"
+    )
+    out.write(
+        f"**{len(inert)} of these {n_keys} keys are inert**, and they are marked "
+        f"{INERT_MARK} in the Status column. The loader accepts them, `configcheck` "
+        "validates them and they have a documented default — but no code reads them, "
+        "so setting one loads without complaint and changes nothing. Most belong to "
+        "capabilities that are registered but not yet wired; see "
+        "[`yazses features`](cli-reference.md) for what is actually switchable. "
+        "Both numbers here are counted at generation time, and the list of inert keys "
+        "is the same one the test suite gates on, so neither can quietly fall out of "
+        "date.\n\n"
+        "This has bitten before: `[injection] fallback_to_clipboard` was documented in "
+        "seventeen places and defaulted to `true` while nothing read it, so anyone who "
+        "turned it off was silently overruled.\n\n"
+    )
     for fld in dataclasses.fields(cfg):
         section = fld.name
-        inst = getattr(cfg, section)
         out.write(f"## `[{section}]`\n\n")
-        out.write("| Key | Type | Default |\n|---|---|---|\n")
-        for key, tp, default, marker in _section_rows(inst):
+        out.write("| Key | Type | Default | Status |\n|---|---|---|---|\n")
+        for key, tp, default, marker in rows_by_section[section]:
             if marker == "nested":
-                out.write(f"| **`[{section}.{key}]`** | | |\n")
+                out.write(f"| **`[{section}.{key}]`** | | | |\n")
             else:
-                out.write(f"| `{key}` | {tp} | {default} |\n")
+                status = INERT_MARK if f"{section}.{key}" in inert else ""
+                out.write(f"| `{key}` | {tp} | {default} | {status} |\n")
         out.write("\n")
     return out.getvalue()
 

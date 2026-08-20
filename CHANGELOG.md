@@ -8,6 +8,41 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- The Configuration Reference gave a reader no way to tell a working setting from a
+  dead one. 63 of its 447 keys are accepted by the loader, validated by `configcheck`
+  and given a documented default while **no code reads them** — and they were rendered
+  in the same `Key | Type | Default` rows as the keys that work. `[audio] sample_rate`
+  is read; `[audio] channels` is the row directly beneath it and is not.
+
+  The set was already known: `tests/test_config_keys_are_read.py` has gated it since
+  the `[injection] fallback_to_clipboard` incident, where a key documented in seventeen
+  places and defaulted to `true` was read by nothing, so anyone who turned it off was
+  silently overruled. That test's own docstring left the rest open — *"whether the
+  documentation should mark them is a separate question, and a real one: today a reader
+  cannot tell which knobs do anything."*
+
+  It is answered by moving the detector and the ledger into `scripts/config_status.py`,
+  which the test and `scripts/gen-docs.py` now both read. The reference grows a **Status**
+  column marking each inert key, and its legend counts them at generation time, so the
+  prose cannot drift from the list the suite gates on — the failure that had left ADR-019
+  claiming "seven" outbound calls when five of them had been the real number for months.
+
+  The marking needs its own assertion against the rendered page: `test_gen_docs.py`
+  compares the committed file to what the generator produces *now*, so dropping the
+  column would keep it perfectly green.
+
+- Sixteen example configs offered `[audio] channels`, a setting nothing reads. `examples/`
+  is what people copy and `build-deb.sh` ships `config.example.toml` into
+  `/usr/share/yazses/`. The existing guard rejects a key that does not *exist* — an
+  unknown key is dropped and reported — but an inert one passes: it exists, it validates,
+  it has a default. Removed, and the sweep now covers `examples/*.toml`.
+
+  Disclosure counts as a fix, not only deletion. `config.vscode.toml` keeps
+  `lsp_enabled = false` under a header explaining the key is inert in this build and why;
+  that file is more honest than one where the key is merely absent, because a reader who
+  has heard of the LSP bridge is told directly that it does nothing yet. The exemption
+  is proximity-scoped so one paragraph cannot excuse an unrelated key elsewhere.
+
 - The egress guard that enforces "nothing leaves your machine" could not see five
   modules. ADR-019's inventory is *enforced* rather than written down — a module that
   gains an outbound primitive fails the build until it is declared — but the detector's
