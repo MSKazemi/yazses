@@ -19,6 +19,7 @@ still names four.
 
 from __future__ import annotations
 
+import ast
 import inspect
 from pathlib import Path
 from types import SimpleNamespace
@@ -221,13 +222,38 @@ def test_the_app_name_is_primed_even_with_an_empty_dictionary(tmp_path):
     assert "YazSes" in (Daemon._effective_initial_prompt(fake) or "")
 
 
+def _vocab_command_sources() -> dict[str, str]:
+    """Every ``yazses vocab`` subcommand's source, decorators included.
+
+    Sliced by AST rather than by hand. The first version of this guard indexed between
+    two literal `@vocab_app.command(` occurrences and so covered add/list/remove and
+    silently skipped `import` and `export` -- where a sixth "Run `yazses restart` to
+    apply" was sitting the whole time. A guard that names the region it checks is a
+    guard that stops checking the moment a command is added after it.
+    """
+    src = Path("src/yazses/cli.py").read_text(encoding="utf-8")
+    lines = src.splitlines(keepends=True)
+    out: dict[str, str] = {}
+    for node in ast.walk(ast.parse(src)):
+        if not isinstance(node, ast.FunctionDef) or not node.name.startswith("vocab_"):
+            continue
+        first = min([node.lineno] + [d.lineno for d in node.decorator_list])
+        out[node.name] = "".join(lines[first - 1:node.end_lineno])
+    return out
+
+
+def test_the_guard_can_see_every_vocab_subcommand():
+    """If this shrinks, the guard below is checking less than it claims."""
+    found = set(_vocab_command_sources())
+    assert {"vocab_add", "vocab_list", "vocab_remove", "vocab_import", "vocab_export"} <= found
+
+
 def test_no_vocabulary_surface_still_demands_a_restart():
-    """Five places said so; a sixth must not quietly reappear."""
-    cli = Path("src/yazses/cli.py").read_text(encoding="utf-8")
-    start = cli.index('@vocab_app.command(')
-    end = cli.index('@vocab_app.command(', cli.index('"remove"'))
-    vocab_region = cli[start:end]
-    assert "yazses restart" not in vocab_region
+    """Six places said so — the sixth only after the first guard was widened."""
+    for name, body in _vocab_command_sources().items():
+        assert "yazses restart" not in body, (
+            f"{name} still asks for a restart the daemon does not need"
+        )
 
     for doc in ("docs/how-to/personal-vocabulary.md", "docs/cli-reference.md"):
         text = Path(doc).read_text(encoding="utf-8")

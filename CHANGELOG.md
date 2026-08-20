@@ -26,11 +26,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   needed. `_effective_initial_prompt` runs inside `_on_hold_end` — once per burst — and
   `load_vocab` is uncached, so a word added now is primed on the next dictation. Proven
   against a single daemon object: add a word between two calls and the second call has it.
-  The product asked for a daemon stop/start, and the model reload behind it, in **five**
-  places (`vocab add`'s help, epilog and printed line, `vocab remove`'s help and epilog)
-  plus twice in the docs. All seven now say what actually happens, `vocab remove` confirms
-  it too, and `docs/how-to/personal-vocabulary.md` gains the "confirm it is in use" step
-  that the broken `doctor` row should have been all along.
+  The product asked for a daemon stop/start, and the model reload behind it, in **six**
+  places (`vocab add`'s help, epilog and printed line, `vocab remove`'s help and epilog,
+  and `vocab import`'s printed line) plus twice in the docs. All eight now say what
+  actually happens, `vocab remove` confirms it too, and `docs/how-to/personal-vocabulary.md`
+  gains the "confirm it is in use" step that the broken `doctor` row should have been all
+  along.
 
 - A microphone that failed to open cost 300 ms of speech, and only the retry was ever
   written down. `AudioRecorder.start` retries a transient open failure, and the retry works:

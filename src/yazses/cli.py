@@ -1922,7 +1922,7 @@ def vocab_import(
         )
     else:
         typer.echo(f"Replaced the dictionary with {len(full)} word(s).")
-    typer.echo("Run `yazses restart` to apply.")
+    typer.echo("In effect from your next dictation — no restart needed.")
 
 
 acronyms_app = typer.Typer(
