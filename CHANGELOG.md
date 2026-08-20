@@ -8,6 +8,24 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- macOS Accessibility advice had nothing to say to the person it was written for. `doctor`
+  answered a denied keyboard-capture check with *"Grant Accessibility access in System
+  Settings → Privacy & Security → Accessibility → enable YazSes"* — which is exactly the
+  instruction someone reads it **after** having followed. Reported on #182/#241 by the first
+  human ever to run the macOS build (an M2 on macOS 26.6.1): Accessibility visibly enabled,
+  three install routes tried, denied every time. Both missing facts were already in this
+  project and simply never put where a blocked user lands: `docs/macos-install.md` states
+  that macOS treats an unsigned app as a new identity when its hash changes — so a stale
+  grant still renders as an enabled toggle — and `AXIsProcessTrustedWithOptions` is
+  process-scoped, so the executable being asked about is worth naming. The message now says
+  both and offers `tccutil reset Accessibility com.yazses.app`, **with** the bundle id and a
+  note explaining why: the bare form clears the Accessibility grant for every application on
+  the Mac. A test asserts the unscoped form never appears, and another pins the bundle id
+  against `packaging/macos/yazses.spec`, since a reset naming the wrong bundle silently does
+  nothing. Deliberately makes no claim about how macOS attributes trust between a launching
+  shell and a bundle — that needs a Mac to verify, and there is none; naming the binary lets
+  a reader see a mismatch without being told a mechanism that might be wrong.
+
 - The microphone guard could fire and leave no record. `_note_silent_discard` logged only
   inside its auto-heal branch, which needs a *different* last-good device — so on a machine
   whose microphone has not changed, the one thing it wrote was a desktop notification, and

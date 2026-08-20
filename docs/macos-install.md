@@ -160,6 +160,27 @@ The `.app` ships a CLI alongside the tray:
 new identities each time their hash changes. After every YazSes update you
 may need to re-enable the toggle. Signing (planned) will fix this.
 
+**"Accessibility is enabled and YazSes still says it is denied."** Same cause,
+worse symptom: the grant is bound to an identity the binary no longer has, so the
+old entry keeps rendering as an enabled toggle while the check answers *denied*.
+Turning it off and on again does not always clear it, because the stale row is not
+the one the toggle edits. Remove YazSes from the list, add it back, and relaunch —
+or reset the decision for this app only:
+
+```sh
+tccutil reset Accessibility com.yazses.app
+```
+
+Keep the bundle id. Without it, `tccutil` clears the Accessibility grant for
+**every** application on the Mac, not just this one.
+
+**Which YazSes is being asked about?** The Accessibility answer is about the
+program that is running, not about every copy on the disk — so a grant given to
+`/Applications/YazSes.app` is not automatically the thing being checked when you
+run a `yazses` binary from somewhere else. `doctor` now prints the executable it
+asked about; if that path is not the one you granted access to, that mismatch is
+the thing to fix first.
+
 **"The hotkey doesn't fire."** Check Accessibility is granted. Also check
 that no other tool is intercepting Right Option (e.g., Karabiner-Elements,
 some IME apps). Try a different hotkey by editing `config.toml`.
