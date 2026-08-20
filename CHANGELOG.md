@@ -8,6 +8,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The guard that checks YazSes only advises commands it has could not see most of
+  the advice, and stopped at the command name.** It required a backtick, which is right
+  for 200 markdown pages — prose would otherwise parse as command lines — and wrong for
+  `src/`, where the advice a user actually reads is a `typer.echo` string. 337 of those
+  carry no backticks, including four of the five places that print `yazses mic-level
+  --set`. In `src/` the sweep now reads string literals via `ast`, so a command line in
+  code (a `subprocess` argv, a fixture) is still not mistaken for advice.
+
+  It also stopped at the second word, and a command name that resolves is not the whole
+  promise: `yazses mic-level --set` is one string, and if the flag is renamed the command
+  still dispatches, Typer exits 2 with "No such option", and the user meets that at the
+  moment they were already following instructions out of a problem. Flags are now checked
+  against the real parameters of the command that precedes them — 229 advice strings
+  carry one, against 72 visible before. All resolve; the sweep found no defect and is
+  pinned before the first rename does.
+
 - **`yazses features enable <capability>` installed version floors below the ones
   `pyproject.toml` declares — 11 of 17 packages.** `[project.optional-dependencies]`
   says what `pip install yazses[gaze]` resolves; `system/features.py::_FEATURE_DEPS`
