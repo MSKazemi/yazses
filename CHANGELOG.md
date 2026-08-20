@@ -8,6 +8,20 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- The microphone guard could fire and leave no record. `_note_silent_discard` logged only
+  inside its auto-heal branch, which needs a *different* last-good device — so on a machine
+  whose microphone has not changed, the one thing it wrote was a desktop notification, and
+  `system/notify.py` logs at INFO only when `notify-send` is **unavailable**. A delivered
+  toast leaves nothing behind. The guard was therefore silent in precisely the case it exists
+  for: a working microphone capturing audio the recogniser cannot use. Found on a real
+  machine reporting 15 of 50 recent bursts producing no text, with 50 `Empty transcription --
+  discarding.` lines in the log and nothing anywhere saying whether the guard had ever run.
+  It now writes one line per streak naming the burst count, the device and the threshold, and
+  whether it healed — before the `silent_streak_notify` opt-out, since that setting is the one
+  case where a log line is the only record that can exist. This is where it matters: `yazses
+  logs` is what the product tells you to read when dictation stops, and `yazses report`
+  bundles that same tail into a bug report.
+
 - A capability the config turns on that **no code reads** was shown as working, on every
   surface that could show it. `yazses features` badged it `● ON`, counted it in the group's
   `(n/m on)` tally, and `yazses features info` printed `● ON` four lines above *"it cannot be

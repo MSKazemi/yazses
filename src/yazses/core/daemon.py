@@ -2069,7 +2069,26 @@ class Daemon:
             with self._lock:
                 self._state.input_device = last_good
             healed = True
-            log.info("Auto-healed capture: '%s' -> '%s' (last-good).", active, last_good)
+
+        # The guard's only other output is a desktop toast, and a delivered toast
+        # leaves nothing behind: `notify.py` logs at INFO *only* when notify-send is
+        # unavailable, so on a working desktop this fired silently unless it also had
+        # somewhere to heal to -- and it has somewhere only if the microphone has
+        # actually changed, which is the rarer half of what the guard catches.
+        # `yazses logs` is where the product sends someone whose dictation stopped,
+        # and `yazses report` bundles that tail into a bug report; both showed the run
+        # of discards with no sign the daemon had noticed. Logged before the notify
+        # opt-out below, because `silent_streak_notify = false` is exactly the case
+        # where a log line is the only record that can exist.
+        log.info(
+            "No text from %d burst(s) in a row (device %r, threshold %d) -- %s.",
+            streak,
+            active,
+            threshold,
+            f"auto-healed capture to '{last_good}' (last-good)"
+            if healed
+            else "no different last-good device to switch to",
+        )
 
         if not self._config.audio.silent_streak_notify:
             return

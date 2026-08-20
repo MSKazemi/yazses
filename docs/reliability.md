@@ -111,6 +111,24 @@ desktop notification with **[Re-calibrate] / [Pin this mic] / [Ignore]**, becaus
 a silent fix is only half useful — you need to know the device moved. Pin one for
 good with `yazses audio use <name>`.
 
+**Healing needs somewhere to heal to.** The first trigger fires on outcomes, so it
+also catches the case where the microphone never moved and is simply capturing
+audio the recogniser cannot use — too quiet, muted at the mixer, a gate set above
+your voice. There is no other device to switch to then, so the guard notifies and
+changes nothing. Either way it now writes one line to the diagnostic log:
+
+```
+No text from 3 burst(s) in a row (device 'default', threshold 3) -- no different
+last-good device to switch to.
+```
+
+That line is the record. A desktop notification is delivered and gone — if you were
+away from the machine, had notifications silenced, or are on a headless or SSH
+session, it never reached you at all, and until v2.30 nothing else was written down.
+`yazses logs` is where to look, and `yazses report` carries the same tail into a bug
+report. It is logged even with `[audio] silent_streak_notify = false`, which is
+exactly the setting where the log is the only record that can exist.
+
 ### Answering that toast without a pointer
 
 Those are buttons, and until now they were *only* buttons — so the daemon asked you
