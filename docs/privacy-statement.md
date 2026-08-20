@@ -67,8 +67,16 @@ You stay in control of the corpus:
 | Turn capture off again | `yazses features disable learning` |
 | Store text but not audio | Set `capture_audio = false` under `[learning]` |
 | Auto-expire old events | `retention_days` / `max_corpus_mb` under `[learning]` |
+| Scrub patterns from stored text | `redact_patterns` under `[learning]` |
 | Inspect what is stored | `yazses corpus status` |
 | Erase everything | `yazses corpus destroy` (or delete `corpus.db`) |
+
+`redact_patterns` are regular expressions removed from every transcript column before it is
+encrypted — but a redaction cannot reach into a waveform. With `capture_audio` on (the
+default), the clip still holds you *saying* the thing the pattern removes. If that matters,
+set `capture_audio = false`; `yazses doctor` warns when patterns are set and the audio is
+being kept anyway. An invalid pattern stops capture entirely rather than being skipped, so
+a redaction you asked for is never silently dropped.
 
 `retention_days` and `max_corpus_mb` are applied in sweeps — when the daemon starts, and
 then every 200 captures — rather than on every write. So an event older than

@@ -394,6 +394,44 @@ def _llm_endpoint_check(cfg) -> list[_Check]:
     )]
 
 
+def _corpus_redaction_check(cfg) -> list[_Check]:
+    """`[learning] redact_patterns` scrubs the text. The clip keeps the sound.
+
+    The two settings sit one field apart in the same section and nothing compared them.
+    `CorpusStore.redact` runs at `_enc`, the one place text becomes a stored blob, so every
+    transcript column is covered — and `capture_audio` (default **true**) writes the source
+    audio beside it. Someone who added a pattern to keep a card number out of the corpus
+    still has themselves reading it aloud in `clips/<id>.wav.enc`.
+
+    Nothing here is broken: no redaction can reach into a waveform, and the clip is what
+    `yazses tune --retranscribe` needs to produce ground truth at all. The defect is that
+    the promise and its limit were never stated in the same place, and this is the surface
+    someone checks when they want to know what is stored.
+
+    Silent unless both learning is on and a pattern is actually set, so doctor does not
+    grow a row for a dormant feature or for someone who never asked for redaction.
+    """
+    learning = getattr(cfg, "learning", None)
+    if learning is None or not getattr(learning, "enabled", False):
+        return []
+    patterns = [p for p in getattr(learning, "redact_patterns", []) or [] if str(p).strip()]
+    if not patterns:
+        return []
+    n = len(patterns)
+    word = "pattern" if n == 1 else "patterns"
+    if not getattr(learning, "capture_audio", True):
+        return [(
+            "Corpus redaction", "OK",
+            f"{n} {word}; audio is not captured, so nothing holds what they scrub",
+        )]
+    return [(
+        "Corpus redaction", "WARN",
+        f"{n} {word} scrub the stored text, but capture_audio = true keeps the recording "
+        "of you saying it. Set [learning] capture_audio = false if the words matter as "
+        "much as the transcript.",
+    )]
+
+
 def _config_summary(
     cfg, config_file: Path, *, live_hotkey: str = "", platform_default: str = ""
 ) -> list[_Check]:
@@ -408,6 +446,7 @@ def _config_summary(
         ))
     out.extend(_config_validity(config_file))
     out.extend(_llm_endpoint_check(cfg))
+    out.extend(_corpus_redaction_check(cfg))
     drift = hotkey_drift_note(
         cfg.hotkey.key, live_hotkey or None, default=platform_default or cfg.hotkey.key
     )

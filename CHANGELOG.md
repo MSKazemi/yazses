@@ -8,6 +8,21 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`yazses doctor` now reads `[learning] redact_patterns` and `capture_audio` together.**
+  They sit one field apart in the same section and nothing in the tree compared them.
+  Redaction runs at `_enc`, the single place text becomes a stored blob, so every transcript
+  column really is covered — and `capture_audio` defaults to **true**, which writes the
+  source audio beside the row. Someone who added a pattern to keep a card number out of the
+  corpus has it scrubbed from six text columns and themselves reading it aloud in
+  `clips/<id>.wav.enc`.
+
+  Nothing is broken and nothing changed in what is captured: no redaction can reach into a
+  waveform, and the clip is exactly what `yazses tune --retranscribe` needs to produce
+  ground truth. What was missing is that the promise and its limit were never stated in the
+  same place. Doctor is where someone looks to find out what is stored, so the two settings
+  are now read there together — and stay silent unless learning is on *and* a pattern is
+  actually set. The privacy statement says the same thing beside the setting.
+
 - A setting or `--flag` named in a **shipped message** is now checked to exist, as one
   named in the docs already was. Three families of advice are guarded here — a command,
   a flag, a `[section] key` — and only the command guard covered both places advice
