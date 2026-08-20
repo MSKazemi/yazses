@@ -628,7 +628,8 @@ yazses model download qwen2.5-0.5b  # download an SLM for intent routing
 
 Words STT keeps mis-hearing (names, jargon, acronyms) are primed into Whisper's
 `initial_prompt` so they're spelled right. Stored at
-`~/.config/yazses/vocabulary.txt`; run `yazses restart` after changing it.
+`~/.config/yazses/vocabulary.txt`. No restart is needed — the daemon re-reads it on
+every burst. `yazses doctor` shows what actually reaches the recogniser.
 
 | Command | Description |
 |---|---|
@@ -643,7 +644,7 @@ yazses vocab add YazSes               # add one word/name
 yazses vocab add Kubernetes kubectl   # add several at once
 yazses vocab list                     # show the dictionary
 yazses vocab remove kubectl           # drop a word
-yazses restart                        # apply so STT spells them right
+yazses vocab list                     # check what is in the dictionary
 ```
 
 ### `yazses acronyms` — acronym glossary

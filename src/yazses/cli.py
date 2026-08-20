@@ -1782,13 +1782,13 @@ app.add_typer(vocab_app, rich_help_panel=_SETUP)
     epilog=_examples(
         "yazses vocab add YazSes             add one word/name",
         "yazses vocab add Kubernetes kubectl  add several at once",
-        "yazses restart                      apply so STT spells them right",
+        "yazses vocab list                   check what is in the dictionary",
     ),
 )
 def vocab_add(
     words: list[str] = typer.Argument(..., help="One or more words/names to add."),
 ) -> None:
-    """Add words to the dictionary so YazSes spells them right (then `yazses restart`).
+    """Add words to the dictionary so YazSes spells them right — no restart needed.
 
     Good for names, jargon, and acronyms that Whisper keeps mis-hearing. The
     words are primed into the STT prompt; they bias recognition, not force it.
@@ -1799,7 +1799,7 @@ def vocab_add(
     path = vocab_path(platform.paths.config_file.parent)
     full = add_vocab(path, words)
     typer.echo(f"Added {', '.join(words)}. Dictionary now has {len(full)} word(s).")
-    typer.echo("Apply it: yazses restart")
+    typer.echo("In effect from your next dictation — no restart needed.")
 
 
 @vocab_app.command(
@@ -1821,15 +1821,16 @@ def vocab_list() -> None:
 
 @vocab_app.command(
     "remove",
-    epilog=_examples("yazses vocab remove kubectl    drop a word, then yazses restart"),
+    epilog=_examples("yazses vocab remove kubectl    drop a word; no restart needed"),
 )
 def vocab_remove(word: str = typer.Argument(..., help="The word to remove.")) -> None:
-    """Remove a word from your personal dictionary (then `yazses restart`)."""
+    """Remove a word from your personal dictionary — no restart needed."""
     from yazses.system.vocabulary import remove_vocab, vocab_path
 
     platform = get_platform()
     remaining = remove_vocab(vocab_path(platform.paths.config_file.parent), word)
     typer.echo(f"Removed {word!r}. Dictionary now has {len(remaining)} word(s).")
+    typer.echo("In effect from your next dictation — no restart needed.")
 
 
 @vocab_app.command(

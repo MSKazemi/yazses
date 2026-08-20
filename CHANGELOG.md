@@ -8,6 +8,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `doctor` described one of the five things that reach Whisper's `initial_prompt`, and
+  drew the wrong conclusion from it. Measured on a real machine: `yazses vocab list`
+  printed **24 words** while, in the same minute, `yazses doctor` printed *"STT prompt: app
+  name only (set `[stt] initial_prompt` to add vocabulary)"*. The daemon merges the
+  configured prompt, the personal dictionary, `YAZSES_VOCABULARY`, corpus-mined terms and
+  context-primed terms; the row read the first and reported it as the whole.
+
+  That is worse than an incomplete row: it told someone who had already added vocabulary,
+  by the route the product documents, to go and add vocabulary — so the honest reading was
+  that `yazses vocab add` had done nothing. `system/vocabulary.py::prompt_summary` now names
+  every source, and a guard pins the describing surface to the composing one so a sixth
+  source cannot be merged while the diagnostic still names five. (Writing that guard is how
+  the fifth, context priming, was found — it was missing from the first draft.)
+
+- `yazses vocab add` ended with *"Apply it: yazses restart"*, and no restart was ever
+  needed. `_effective_initial_prompt` runs inside `_on_hold_end` — once per burst — and
+  `load_vocab` is uncached, so a word added now is primed on the next dictation. Proven
+  against a single daemon object: add a word between two calls and the second call has it.
+  The product asked for a daemon stop/start, and the model reload behind it, in **five**
+  places (`vocab add`'s help, epilog and printed line, `vocab remove`'s help and epilog)
+  plus twice in the docs. All seven now say what actually happens, `vocab remove` confirms
+  it too, and `docs/how-to/personal-vocabulary.md` gains the "confirm it is in use" step
+  that the broken `doctor` row should have been all along.
+
 - A microphone that failed to open cost 300 ms of speech, and only the retry was ever
   written down. `AudioRecorder.start` retries a transient open failure, and the retry works:
   measured on a real machine's log over 2026-08-18→20, **12 opens failed across 149 bursts

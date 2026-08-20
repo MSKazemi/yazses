@@ -24,19 +24,45 @@ The dictionary lives in a plain text file, one word or phrase per line, at:
 ```bash
 yazses vocab add YazSes                  # add one name
 yazses vocab add Kubernetes kubectl      # add several at once
-yazses restart                           # apply so STT spells them right
+yazses vocab list                        # check what is in the dictionary
 ```
 
 Adding is case-insensitively de-duplicated, so re-adding a word is harmless.
-After adding, `yazses restart` reloads the daemon with the updated prompt.
+No restart is needed: the daemon re-reads `vocabulary.txt` on every burst, so a word
+added now is in effect on your next dictation.
 
 ## List and remove
 
 ```bash
 yazses vocab list                # show every word in the dictionary
 yazses vocab remove kubectl      # drop a word
-yazses restart                   # apply the removal
+yazses doctor                    # confirm what reaches the recogniser
 ```
+
+## Confirm the words are actually in use
+
+`yazses vocab list` shows what is in the file. To see what reaches the recogniser,
+ask `doctor`:
+
+```console
+$ yazses doctor
+...
+  [OK] STT prompt: app name + 24 from `yazses vocab` (YazSes, NovaFabric, KubeIntellect, +21 more)
+```
+
+That row names every source that is folded into the prompt, so you can tell them
+apart at a glance:
+
+| The row says | What it means |
+|---|---|
+| `app name only` | Nothing of yours is primed yet — only the coined name `YazSes`. |
+| `N from \`yazses vocab\`` | Your personal dictionary, this many words. |
+| `[stt] initial_prompt '…'` | The prompt set directly in `config.toml`. |
+| `N from YAZSES_VOCABULARY` | Terms passed in through the environment variable. |
+| `terms mined from your corpus` | `[personalize]` is on and adding your frequent phrases. |
+
+You do not need to restart to change the dictionary — the daemon re-reads
+`vocabulary.txt` on every burst.
 
 ## How it works — and its limits
 

@@ -67,6 +67,62 @@ def load_vocab(path, *, strict: bool = False) -> list[str]:
     return out
 
 
+# How many dictionary words to name before saying "and N more". Enough to
+# recognise your own list at a glance, short enough for one `doctor` row.
+_PREVIEW_TERMS = 3
+
+
+def prompt_summary(
+    configured: str,
+    words,
+    env_terms=(),
+    *,
+    mined: bool = False,
+    context: bool = False,
+) -> str:
+    """One line naming everything that really reaches Whisper's ``initial_prompt``.
+
+    ``doctor`` used to build this row from ``[stt] initial_prompt`` alone and print
+    *"app name only (set [stt] initial_prompt to add vocabulary)"* — on a machine whose
+    ``vocabulary.txt`` held 24 words that the daemon was merging on every burst. The row
+    was not merely incomplete: it advised adding vocabulary to someone who had already
+    added it, by the route the product itself recommends, and so read as proof that
+    ``yazses vocab add`` had done nothing.
+
+    ``core/daemon.py::_effective_initial_prompt`` is the composition; this is the
+    description of it, and the two are pinned together by
+    ``test_doctor_names_every_prompt_source``. Kept here rather than in ``stt/`` so a
+    diagnostic can import it without pulling a speech engine in behind it.
+
+    ``mined`` and ``context`` are passed as *gates*, not terms. Mining reads the
+    encrypted corpus and context priming reads the focused window, the selection and the
+    clipboard — far too much work for a status row, and both are transient by design, so
+    naming any particular term would be a lie by the time it was printed. Whether they
+    contribute at all is decidable from config, and that is the part worth reporting.
+    """
+    parts: list[str] = []
+    text = (configured or "").strip()
+    if text:
+        preview = text if len(text) <= 40 else text[:37] + "..."
+        parts.append(f"[stt] initial_prompt {preview!r}")
+    terms = [w for w in words if str(w).strip()]
+    if terms:
+        shown = ", ".join(str(w).strip() for w in terms[:_PREVIEW_TERMS])
+        extra = len(terms) - _PREVIEW_TERMS
+        more = f", +{extra} more" if extra > 0 else ""
+        parts.append(f"{len(terms)} from `yazses vocab` ({shown}{more})")
+    env = [t for t in env_terms if str(t).strip()]
+    if env:
+        parts.append(f"{len(env)} from YAZSES_VOCABULARY")
+    if mined:
+        parts.append("terms mined from your corpus ([personalize] on)")
+    if context:
+        parts.append("salient terms from the active window ([context] on)")
+    if not parts:
+        return "app name only — add words with `yazses vocab add <word>`"
+    return "app name + " + "; ".join(parts)
+
+
 def add_vocab(path, words) -> list[str]:
     """Append *words* (case-insensitively de-duplicated), return the full list."""
     p = Path(path)

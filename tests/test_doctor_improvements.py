@@ -164,7 +164,9 @@ def test_config_summary_warns_when_file_absent_and_shows_primed_prompt(tmp_path)
     by_name = {n: (s, d) for n, s, d in checks}
     assert by_name["Config file"][0] == "WARN"
     assert "absent" in by_name["Config file"][1].lower()
-    assert "primed" in by_name["STT prompt"][1].lower()
+    # Assert the prompt itself reaches the row, not the label that introduces it --
+    # the wording changed when the row learned to name every source it merges.
+    assert "kubernetes terraform helm" in by_name["STT prompt"][1]
 
 
 def test_mic_level_warns_when_the_gate_sits_under_a_quiet_room(monkeypatch):

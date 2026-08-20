@@ -600,7 +600,7 @@ Manage your personal dictionary (words STT mis-hears).
 
 ### `yazses vocab add`
 
-Add words to the dictionary so YazSes spells them right (then `yazses restart`).
+Add words to the dictionary so YazSes spells them right — no restart needed.
 
 - **Arguments:** `words`
 
@@ -624,7 +624,7 @@ Show the words in your personal dictionary.
 
 ### `yazses vocab remove`
 
-Remove a word from your personal dictionary (then `yazses restart`).
+Remove a word from your personal dictionary — no restart needed.
 
 - **Arguments:** `word`
 

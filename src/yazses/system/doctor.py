@@ -458,15 +458,25 @@ def _config_summary(
             else f"{guard} (best-effort; apt install python3-pyatspi gir1.2-atspi-2.0 for precision)"
         )
         out.append(("Text-target guard", "OK", detail))
-    prompt = (cfg.stt.initial_prompt or "").strip()
-    if prompt:
-        preview = prompt if len(prompt) <= 40 else prompt[:37] + "..."
-        out.append(("STT prompt", "OK", f"primed: {preview!r}"))
-    else:
-        out.append((
-            "STT prompt", "OK",
-            "app name only (set [stt] initial_prompt to add vocabulary)",
-        ))
+    # Every source `core/daemon.py::_effective_initial_prompt` merges, not just the
+    # config key -- this row read "app name only" on a machine with 24 words in its
+    # personal dictionary, all of them in use on every burst.
+    from yazses.system.vocabulary import load_vocab, prompt_summary, vocab_path
+
+    words = load_vocab(vocab_path(config_file.parent))
+    env_terms = [
+        t.strip() for t in os.environ.get("YAZSES_VOCABULARY", "").split(",") if t.strip()
+    ]
+    mined = bool(
+        cfg.personalize.enabled and cfg.personalize.bias_from_corpus and cfg.learning.enabled
+    )
+    out.append((
+        "STT prompt", "OK",
+        prompt_summary(
+            cfg.stt.initial_prompt, words, env_terms,
+            mined=mined, context=bool(cfg.context.enabled),
+        ),
+    ))
     return out
 
 
