@@ -212,6 +212,14 @@ voiceprint-resemblyzer = [
 parakeet = [
     "onnx-asr[cpu,hub]>=0.12",
 ]
+# Moonshine STT (#74, `[stt] engine = "moonshine"`, `yazses features enable
+# stt-moonshine`). onnxruntime + tokenizers only — no torch, no numpy ceiling.
+# Declared here because `system/features.py` installs it on enable, and a package
+# that only that map knows about is a package no extra, no `all`, and no
+# dependency-budget rule can see.
+moonshine = [
+    "useful-moonshine-onnx>=20251121",
+]
 # Wave O — Diarized Recording Import (ADR-v2-125). sherpa-onnx bundles ONNX Runtime
 # (no torch, no GPU, no HF token); imported lazily only when `[recimport] diarize`.
 # Audio decoding needs no extra (PyAV rides in with faster-whisper).

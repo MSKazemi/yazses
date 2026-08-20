@@ -82,6 +82,7 @@ EXTRA_MODULES: dict[str, tuple[str, ...]] = {
     "emg": ("serial",),
     "gaze": ("mediapipe", "cv2"),
     "lsp": ("pygls", "pynvim"),
+    "moonshine": ("moonshine_onnx",),
     "notes": ("llama_cpp",),
     "overlay": ("PySide6",),
     "parakeet": ("onnx_asr",),

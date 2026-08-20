@@ -66,10 +66,31 @@ def test_install_packages_noop_when_empty():
 
 
 def test_gaze_feature_declares_its_deps():
+    """Gaze names both of its distributions and probes both of its import names.
+
+    Deliberately says nothing about the version floors. This test used to assert the
+    literal strings `mediapipe>=0.10` and `opencv-python>=4.10`, which made it the
+    third place one pin was written down -- and the one that *held the stale floor in
+    place*, since correcting the map to match the `gaze` extra failed it. Floors are
+    compared against pyproject, once, in
+    `test_feature_pins_match_the_extras.py`.
+    """
+    import re
+    import tomllib
+    from pathlib import Path
+
     gaze = next(d for d in _registry() if d.slug == "gaze")
     assert gaze.check_modules == ("cv2", "mediapipe")
-    assert "mediapipe>=0.10" in gaze.pip_packages
-    assert "opencv-python>=4.10" in gaze.pip_packages
+
+    def dist(req: str) -> str:
+        name = re.split(r"[<>=!~\[;]", req, maxsplit=1)[0].strip()
+        return re.sub(r"[-_.]+", "-", name).lower()
+
+    root = Path(__file__).resolve().parent.parent
+    extra = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+    assert {dist(r) for r in gaze.pip_packages} == {
+        dist(r) for r in extra["project"]["optional-dependencies"]["gaze"]
+    }
 
 
 def test_heavy_features_all_declare_deps():

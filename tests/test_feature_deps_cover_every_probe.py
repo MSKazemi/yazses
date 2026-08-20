@@ -112,9 +112,15 @@ def test_the_deps_map_is_not_empty():
 
 
 def test_the_denoise_pin_matches_the_extra_it_tells_you_to_install():
-    """The warning says "install the `denoise` extra"; `features enable denoise`
+    """The row this was written for. The same property over *every* row lives in
+    `test_feature_pins_match_the_extras.py` -- 11 of 17 had drifted below their
+    extra by the time it was written, so one row is kept here only as the case
+    that motivated it, not as the coverage.
+
+    The warning says "install the `denoise` extra"; `features enable denoise`
     installs `_FEATURE_DEPS`. Two routes to the same package — if they drift, one
-    of them installs a version the other does not accept."""
+    of them installs a version the other does not accept.
+    """
     data = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     extra = data["project"]["optional-dependencies"]["denoise"]
     assert list(_FEATURE_DEPS["denoise"][1]) == extra

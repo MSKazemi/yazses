@@ -999,12 +999,12 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
 # install). Only features whose deps are declared pip extras appear here; the
 # many pure-logic features install nothing. Keep in sync with pyproject extras.
 _FEATURE_DEPS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
-    "gaze": (("cv2", "mediapipe"), ("mediapipe>=0.10", "opencv-python>=4.10")),
-    "overlay": (("PySide6",), ("PySide6>=6.8",)),
+    "gaze": (("cv2", "mediapipe"), ("mediapipe>=0.10.35", "opencv-python>=5.0")),
+    "overlay": (("PySide6",), ("PySide6>=6.11.1",)),
     # Same Qt dependency as the overlay. Registered separately because PySide6 is
     # no longer a base dependency (it is the `desktop` extra), so enabling the tray
     # on a headless-installed copy has to be able to fetch it too.
-    "tray": (("PySide6",), ("PySide6>=6.8",)),
+    "tray": (("PySide6",), ("PySide6>=6.11.1",)),
     "chinese-script": (("opencc",), ("opencc-python-reimplemented>=0.1.7",)),
     # Its absence is the reason this map now has a guard. `features enable denoise`
     # wrote `[denoise] enabled = true`, installed nothing, and the daemon then warned
@@ -1013,18 +1013,18 @@ _FEATURE_DEPS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     # matches the `denoise` extra in pyproject.toml, which is what the warning tells
     # the user to install.
     "denoise": (("noisereduce",), ("noisereduce>=3.0.3",)),
-    "prosody": (("parselmouth",), ("praat-parselmouth>=0.4.6",)),
-    "voicehealth": (("parselmouth",), ("praat-parselmouth>=0.4.6",)),
+    "prosody": (("parselmouth",), ("praat-parselmouth>=0.4.7",)),
+    "voicehealth": (("parselmouth",), ("praat-parselmouth>=0.4.7",)),
     "read-back": (("kokoro_onnx", "onnxruntime", "soundfile"),
-                  ("kokoro-onnx>=0.4.9", "onnxruntime>=1.20", "soundfile>=0.13")),
+                  ("kokoro-onnx>=0.5.0", "onnxruntime>=1.27.0", "soundfile>=0.14.0")),
     "readback_clone": (("kokoro_onnx", "onnxruntime", "soundfile"),
-                       ("kokoro-onnx>=0.4.9", "onnxruntime>=1.20", "soundfile>=0.13")),
-    "llm-cleanup": (("llama_cpp",), ("llama-cpp-python>=0.3.23",)),
-    "agent": (("mcp",), ("mcp>=1.9",)),
+                       ("kokoro-onnx>=0.5.0", "onnxruntime>=1.27.0", "soundfile>=0.14.0")),
+    "llm-cleanup": (("llama_cpp",), ("llama-cpp-python>=0.3.33",)),
+    "agent": (("mcp",), ("mcp>=1.28.1",)),
     "cocktail": (("speechbrain",), ("speechbrain>=1.1",)),
     "multiprofile": (("speechbrain",), ("speechbrain>=1.1",)),
     "voiceguard": (("speechbrain",), ("speechbrain>=1.1",)),
-    "diarize": (("sherpa_onnx",), ("sherpa-onnx>=1.10",)),
+    "diarize": (("sherpa_onnx",), ("sherpa-onnx>=1.13.4",)),
     # [cpu] pins onnxruntime; [hub] adds huggingface-hub so load_model can
     # actually download the Parakeet checkpoint on first use.
     "stt-parakeet": (("onnx_asr",), ("onnx-asr[cpu,hub]>=0.12",)),

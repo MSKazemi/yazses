@@ -8,6 +8,42 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`yazses features enable <capability>` installed version floors below the ones
+  `pyproject.toml` declares — 11 of 17 packages.** `[project.optional-dependencies]`
+  says what `pip install yazses[gaze]` resolves; `system/features.py::_FEATURE_DEPS`
+  holds the requirement strings actually handed to `uv pip install` when a user turns a
+  capability on. Nothing compared them, and every difference ran the same way: the
+  installer that users actually run asked for less. `opencv-python>=4.10` against the
+  extra's `>=5.0`, `mcp>=1.9` against `>=1.28.1`, `PySide6>=6.8` against `>=6.11.1`, and
+  `sherpa-onnx>=1.10` for `diarize` while `recimport` and `meeting` — the same package,
+  three lines apart in the same map — said `>=1.13.4`.
+
+  A floor is not a request for a version, it is a statement about what already counts as
+  satisfied, so this is invisible on a clean machine and bites on a machine that already
+  carries an older copy — opencv, onnxruntime and Qt being exactly the packages another
+  project leaves behind. There, nothing upgrades, `missing_modules` reports the
+  dependency present because the name imports, and the capability is switched on over a
+  version the project says is too old. Every pin now equals its extra character for
+  character, including the `[cpu,hub]` markers a version compare would wave through.
+
+- **`useful-moonshine-onnx` was declared by no extra at all**, only by that map and the
+  dev group, so the Moonshine STT engine was reachable through `features enable
+  stt-moonshine` and through no packaging path. It now has a `moonshine` extra,
+  registered in the dependency-budget map so a base install is checked for it like every
+  other optional module.
+
+  The guard is total over both facts and derives them rather than restating a pin a third
+  time. The same property was already enforced one layer over — `install.sh` is held to
+  the `desktop` extra on the stated grounds that "a comment is not a mechanism" — while
+  `features enable`, which runs whenever anyone turns a capability on, had a mechanism
+  for exactly one row.
+
+  One of the stale floors was being *held* stale: `test_gaze_feature_declares_its_deps`
+  asserted the literal strings `mediapipe>=0.10` and `opencv-python>=4.10`, so raising
+  the map to match the `gaze` extra failed the suite. It now compares distribution
+  names and leaves floors to the guard that owns them — a pin written down in three
+  places has two places that can contradict it.
+
 - **`yazses features disable read-back` reported the capability off while the daemon kept
   building a TTS engine for it.** `enable` writes two keys — `[tts] enabled = true` and
   `[accessibility] read_back = "final"` — and `disable` wrote only the second. The

@@ -6650,6 +6650,9 @@ lsp = [
     { name = "pygls" },
     { name = "pynvim" },
 ]
+moonshine = [
+    { name = "useful-moonshine-onnx" },
+]
 notes = [
     { name = "llama-cpp-python" },
 ]
@@ -6766,8 +6769,9 @@ requires-dist = [
     { name = "speechbrain", marker = "extra == 'all'", specifier = ">=1.1" },
     { name = "speechbrain", marker = "extra == 'voiceprint'", specifier = ">=1.1" },
     { name = "typer", specifier = ">=0.26.8" },
+    { name = "useful-moonshine-onnx", marker = "extra == 'moonshine'", specifier = ">=20251121" },
 ]
-provides-extras = ["slm", "lsp", "emg", "ble", "overlay", "desktop", "prosody", "chinese", "tts", "emg-band", "denoise", "voiceprint", "voiceprint-resemblyzer", "parakeet", "diarization", "diarization-pyannote", "notes", "silero", "agent", "gaze", "all"]
+provides-extras = ["slm", "lsp", "emg", "ble", "overlay", "desktop", "prosody", "chinese", "tts", "emg-band", "denoise", "voiceprint", "voiceprint-resemblyzer", "parakeet", "moonshine", "diarization", "diarization-pyannote", "notes", "silero", "agent", "gaze", "all"]
 
 [package.metadata.requires-dev]
 benchmark = [
