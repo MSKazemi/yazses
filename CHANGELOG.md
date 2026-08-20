@@ -6,6 +6,44 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The uninstall page left two directories behind, and sent Windows users to a third
+  that YazSes never reads.** `Paths` declares **five** directory roots; on Linux and macOS
+  they follow the platform conventions and therefore sit in four different places.
+  `docs/uninstall.md` — a page whose own description promises *"complete, honest"* removal —
+  named two of them, and its final *"Check it is gone"* step printed `data: removed` after
+  looking at the same two. On the development machine that left **3.6 MB in `~/.cache/yazses`**
+  and **1.5 MB of daemon logs in `~/.local/state/yazses/log/`** untouched. The cache is the
+  worse half: `commands/model_manager.py` puts a **2.2 GB** GGUF there. The log is the more
+  sensitive one — at `log_level = "DEBUG"` it holds every transcript, which the privacy
+  statement warns about while pointing at a directory the log is not in.
+
+  Two claims were wrong rather than incomplete. `docs/privacy-statement.md` said
+  *"Everything YazSes persists lives in one directory"* — it does not — and that the Whisper
+  weights download into the data directory; all six on the development machine were in the
+  Hugging Face cache, exactly where `docs/uninstall.md` had always correctly said they were.
+  Both are corrected, and the three other roots now have their own section.
+
+- **`%APPDATA%\yazses\config.toml` is a file YazSes never reads.** `platform/windows/paths.py`
+  opens by warning that the layout is `CSIDL_LOCAL_APPDATA`, *"despite the `%APPDATA%`
+  shorthand often used for it"* — and then ten surfaces used that shorthand, including a
+  comment twenty lines below the warning and one of the two doc generators (its sibling
+  `gen-example-config.py` had it right). A Windows user who followed the README got no error
+  and no effect. Fixed in the generators, the README, four docs pages, two translations and
+  the source comment; `tests/test_documented_paths_match_the_code.py` now fails the build on
+  any surface that names the roaming path, deriving *"Local, not Roaming"* from the
+  `PlatformDirs` call itself rather than from a substring search that the module's own
+  warning trips.
+
+- **`uninstall_autostart` meant two different things on two platforms.** macOS deletes its
+  launchd plist; Linux ran `systemctl --user disable`, which only drops the symlink, and left
+  `~/.config/systemd/user/yazses.service` on disk for ever — so the documented uninstall
+  finished with a file YazSes had written still there, and `systemctl --user list-unit-files`
+  still listing a program that was gone. Linux now removes the unit and reloads the daemon,
+  matching macOS. Nothing is lost: `install_autostart` regenerates the unit from the running
+  interpreter's own console script.
+
 ### Added
 
 - **The three commands that exist to test the injector all tested a different one.**

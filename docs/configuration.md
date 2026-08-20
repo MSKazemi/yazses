@@ -7,7 +7,7 @@ description: Every config.toml section and key, with type and default.
 
 # Configuration Reference
 
-YazSes reads its settings from `~/.config/yazses/config.toml` on Linux (`~/Library/Application Support/yazses/` on macOS, `%APPDATA%\yazses\` on Windows). **Every section has defaults**, so a missing config file is valid and every v2 feature is dormant (`enabled = false`) until you opt in.
+YazSes reads its settings from `~/.config/yazses/config.toml` on Linux (`~/Library/Application Support/yazses/` on macOS, `%LOCALAPPDATA%\yazses\` on Windows). **Every section has defaults**, so a missing config file is valid and every v2 feature is dormant (`enabled = false`) until you opt in.
 
 Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes the right keys and preserves your comments. This table is the full surface for when you do want to edit by hand.
 

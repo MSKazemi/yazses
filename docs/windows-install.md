@@ -84,7 +84,7 @@ release, and the transcribed text appears in whatever window is focused.
 > AltGr — it's used to type `@`, `€`, `{`, `}`, `[`, `]`, `\`, `~`, etc.
 > Hijacking it for dictation would break normal typing. Right Ctrl is rarely
 > used for typing, so it's the safer default. You can change this in
-> `%APPDATA%\yazses\config.toml`:
+> `%LOCALAPPDATA%\yazses\config.toml`:
 >
 > ```toml
 > [hotkey]

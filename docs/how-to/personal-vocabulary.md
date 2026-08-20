@@ -17,7 +17,7 @@ The dictionary lives in a plain text file, one word or phrase per line, at:
 ```
 
 (On macOS it is under `~/Library/Application Support/yazses/`, on Windows under
-`%APPDATA%\yazses\`.)
+`%LOCALAPPDATA%\yazses\`.)
 
 ## Add words
 

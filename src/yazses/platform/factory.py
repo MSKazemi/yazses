@@ -59,7 +59,8 @@ def get_paths() -> Paths:
     """Directory layout, resolvable on **any** OS.
 
     Where a backend exists this is exactly `get_platform().paths`, so macOS keeps
-    `~/Library/Application Support` and Windows keeps `%APPDATA%`. Where one does
+    `~/Library/Application Support` and Windows keeps `%LOCALAPPDATA%` (Local, not
+    Roaming -- see `platform/windows/paths.py`). Where one does
     not, it falls back to `platformdirs` directly — which has a sensible answer
     for every OS it runs on.
 

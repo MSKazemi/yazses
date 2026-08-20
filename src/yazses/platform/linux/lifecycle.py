@@ -90,12 +90,33 @@ class LinuxLifecycle:
             )
 
     def uninstall_autostart(self) -> None:
+        """Disable autostart **and remove the unit file this class wrote.**
+
+        `systemctl --user disable` only drops the symlink in `.wants/`; the unit text
+        itself stays at `~/.config/systemd/user/yazses.service` for ever. That file is
+        written by `install_autostart` above, so leaving it behind means the documented
+        uninstall -- which removes `~/.config/yazses` and `~/.local/share/yazses` -- ends
+        with a file YazSes created still on disk, and `systemctl --user list-unit-files`
+        still listing a program that is gone. The macOS backend has always deleted its
+        launchd plist here; the same Protocol method meant two different things.
+
+        Removing it is safe because nothing is lost: `install_autostart` regenerates the
+        unit from the running interpreter's own console script, and `needs_rewrite`
+        already rewrites a stale one, so re-enabling does not depend on this file
+        surviving.
+        """
         if not shutil.which("systemctl"):
             return
         subprocess.run(
             ["systemctl", "--user", "disable", "--now", "yazses.service"],
             check=False,
         )
+        removed = self._service_file.exists()
+        self._service_file.unlink(missing_ok=True)
+        if removed:
+            # Without this systemd keeps the vanished unit in its cache and reports it
+            # as "not-found" rather than forgetting it.
+            subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
 
     def is_autostart_installed(self) -> bool:
         if not shutil.which("systemctl"):

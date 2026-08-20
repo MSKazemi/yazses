@@ -125,7 +125,7 @@ yazses --version
 ## Your settings, models and vocabulary are not affected
 
 None of the commands above touch your data. Configuration lives in
-`~/.config/yazses/` (`%APPDATA%\yazses\` on Windows), models and the learning corpus
+`~/.config/yazses/` (`%LOCALAPPDATA%\yazses\` on Windows), models and the learning corpus
 in `~/.local/share/yazses/` — all outside the installed package. A reinstall replaces
 code only.
 

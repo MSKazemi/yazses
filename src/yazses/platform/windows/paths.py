@@ -20,7 +20,8 @@ _APP = "yazses"
 
 def build_paths() -> Paths:
     # appauthor=False so platformdirs doesn't insert a vendor segment ("MSKazemi")
-    # into the path; users get %APPDATA%\yazses\ directly.
+    # into the path; users get %LOCALAPPDATA%\yazses\ directly (see the module
+    # docstring for why it is Local rather than Roaming).
     dirs = PlatformDirs(appname=_APP, appauthor=False, ensure_exists=False)
     return Paths(
         config_dir=Path(dirs.user_config_dir),

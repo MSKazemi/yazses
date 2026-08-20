@@ -178,7 +178,7 @@ def gen_man() -> str:
     out.write(
         "\\fI~/.config/yazses/config.toml\\fR on Linux "
         "(\\fI~/Library/Application Support/yazses/\\fR on macOS, "
-        "\\fI%APPDATA%\\\\yazses\\\\\\fR on Windows).\n"
+        "\\fI%LOCALAPPDATA%\\\\yazses\\\\\\fR on Windows).\n"
     )
     out.write(".SH SEE ALSO\n")
     out.write(f"Full documentation: \\fI{branding.WEBSITE}\\fR\n")

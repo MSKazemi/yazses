@@ -26,9 +26,11 @@ learning corpus (below) with audio capture enabled.
 
 Transcription runs entirely on your device using
 [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (CPU, int8; no GPU
-required). The model weights are downloaded once to `~/.local/share/yazses/`
-(Linux), `~/Library/Application Support/yazses/` (macOS), or `%APPDATA%\yazses\`
-(Windows) and run offline thereafter. The resulting transcript is held in memory
+required). The model weights are downloaded once into the shared Hugging Face cache —
+`~/.cache/huggingface/hub/` on Linux and macOS, `%LOCALAPPDATA%\huggingface\hub\` on
+Windows — and run offline thereafter. That cache is shared with any other Hugging Face
+tool you have, which is why it survives uninstalling YazSes and has
+[its own step](uninstall.md#4-remove-the-speech-models) on the uninstall page. The resulting transcript is held in memory
 only long enough to inject the text (and, if commands are enabled, to check whether
 you spoke a command). At the default log level it is not written to any file, and it
 is never transmitted anywhere.
@@ -125,9 +127,14 @@ people may need their consent where you are — YazSes does not and cannot judge
 
 ## What is written to your data directory
 
-Everything YazSes persists lives in one directory — `~/.local/share/yazses/` on Linux,
-`~/Library/Application Support/yazses/` on macOS, `%APPDATA%\yazses\` on Windows — and
+Most of what YazSes persists lives in one directory — `~/.local/share/yazses/` on Linux,
+`~/Library/Application Support/yazses/` on macOS, `%LOCALAPPDATA%\yazses\` on Windows — and
 nothing in it is uploaded anywhere.
+
+**Most, not all**, and the difference matters if you are deleting things: YazSes follows
+the platform's directory conventions, so on Linux and macOS it writes under **four** roots,
+not one. The other three are listed [below](#the-other-directories); the
+[uninstall page](uninstall.md#3-remove-your-data) removes all of them.
 
 | Path | Holds | Encrypted |
 |---|---|---|
@@ -149,6 +156,28 @@ transcript whose whole purpose is to be opened and edited. They are ordinary fil
 your user's permissions. If you want them at rest under a key, that is what full-disk
 encryption is for.
 
+## The other directories
+
+| What | Linux | macOS | Holds |
+|---|---|---|---|
+| Settings | `~/.config/yazses/` | `~/Library/Application Support/yazses/` | `config.toml`, `vocabulary.txt` |
+| Model cache | `~/.cache/yazses/` | `~/Library/Caches/yazses/` | downloaded model files — the gaze landmarker, and any GGUF the optional intent router uses (up to 2.2 GB) |
+| Diagnostic log | `~/.local/state/yazses/log/` | `~/Library/Logs/yazses/` | `daemon.log` and its rotations |
+
+On Windows all four are nested inside `%LOCALAPPDATA%\yazses\`, so there is only one
+folder to think about.
+
+Two of these are worth a second look. The **model cache** holds no content of yours, but
+it is the largest thing YazSes leaves behind and it is not where people look. The
+**diagnostic log** holds metadata only at the default log level — but `log_level =
+"DEBUG"` puts every transcript in it, as the warning above says, and it does not live in
+the data directory that the rest of this page is about.
+
+If you use the YazSes VS Code extension, it also writes `vscode-context.json` into the
+model-cache directory so the `yazses jump` command can read your cursor position. YazSes
+itself only reads that file; the extension is what creates it, and removing the cache
+directory removes it.
+
 ## Configuration file
 
 YazSes reads a TOML configuration file at startup:
@@ -157,7 +186,7 @@ YazSes reads a TOML configuration file at startup:
 |---|---|
 | Linux | `~/.config/yazses/config.toml` |
 | macOS | `~/Library/Application Support/yazses/config.toml` |
-| Windows | `%APPDATA%\yazses\config.toml` |
+| Windows | `%LOCALAPPDATA%\yazses\config.toml` |
 
 It holds your preferences (hotkey, microphone device, model selection, optional EMG
 port, feature toggles, and so on). It is read locally and never transmitted anywhere.

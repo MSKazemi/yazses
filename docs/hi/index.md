@@ -331,7 +331,7 @@ Config file location:
 |---|---|
 | Linux | `~/.config/yazses/config.toml` |
 | macOS | `~/Library/Application Support/yazses/config.toml` |
-| Windows | `%APPDATA%\yazses\config.toml` |
+| Windows | `%LOCALAPPDATA%\yazses\config.toml` |
 
 Prefer `yazses features` / `yazses hotkey` / `yazses vocab` to edit config safely (they preserve comments). Essential settings:
 
