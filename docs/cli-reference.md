@@ -538,6 +538,17 @@ the fields anyone had thought of, and `[macros] author` — whose comment in the
 marker made the field look handled. `[filters.disfluency] llm_endpoint` was the other one;
 `host`, `address` and `port` were all filtered and "endpoint" was simply never spelled.
 
+The daemon's live status is filtered by those same three rules, and used not to be. It is
+the part of the bundle that describes what YazSes is doing right now — its state, model,
+uptime, microphone, recent outcome counts — and one of its fields is the staged buffer,
+which is the text you have dictated and not yet committed, verbatim. Staged mode exists so
+you can read text before it is typed, so that field holds a sentence exactly when you are
+in the middle of one. It is now reported by length rather than content; the word and burst
+counts beside it are kept, because "the buffer has 22 words stuck in it" is the diagnostic
+part. The rest of the status keeps its values with your home directory and account name
+replaced — which microphone is in use, or which path an error names, is usually the whole
+answer to a bug, so those are redacted rather than blanked.
+
 **Options:** `--output/-o` (where to write it), `--print` (print instead of writing),
 `--log-lines` (how much log tail to include, default 200).
 

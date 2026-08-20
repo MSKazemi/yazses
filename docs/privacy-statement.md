@@ -43,7 +43,9 @@ never your dictated text — at the default `[general] log_level = "INFO"`.
     into `daemon.log`, which is what makes a hard-to-reproduce dictation bug diagnosable.
     Nothing is uploaded either way — but that file then holds what you dictated, so treat
     it as you would the text itself. `yazses report` knows this and **omits every DEBUG
-    line** from the bundle it builds for a bug report, stating how many it dropped. To
+    line** from the bundle it builds for a bug report, stating how many it dropped. The
+    same bundle also reports the daemon's **staged buffer** — text you have dictated but
+    not yet committed — by length rather than content, for the same reason. To
     clear it: set the level back to `"INFO"` and delete the file at
     `yazses logs --path`.
 

@@ -10,8 +10,14 @@ anywhere.
 What goes in is decided by the same rule: everything that helps explain a failure, nothing
 that reveals what was dictated. The daemon's log is already metadata-only by design (it
 records levels, durations and word *counts*, never transcripts), the config is filtered for
-anything path- or identity-shaped, and the corpus — which does hold text and audio — is
-summarised by size and never opened.
+anything path- or identity-shaped, the daemon's live status is filtered by the same rules
+(it carries the staged buffer, which is dictated text verbatim), and the corpus — which
+does hold text and audio — is summarised by size and never opened.
+
+Each of those four is filtered *here*, on the way in, rather than at whichever surface
+consumes the bundle. Redacting per-consumer is how the halves drift, and the daemon status
+is the proof: it was the one part with no filter at all, and it was the part holding a
+transcript.
 """
 from __future__ import annotations
 
@@ -235,6 +241,71 @@ def redact_config(raw: dict) -> dict:
     return out
 
 
+#: Daemon-status fields that carry **what the user said**, as opposed to what the daemon
+#: is doing. Same rule as `_FREE_TEXT_KEYS` one layer up, and the same reason for
+#: replacing rather than filtering: a partially-scrubbed transcript looks handled.
+#:
+#: `staged.preview` is the case that showed it, and it is not an edge case — staged mode
+#: exists so you can *review* text before it is typed, so the field is populated exactly
+#: when a person is mid-sentence. It is the pending buffer verbatim, up to 240 characters.
+#: Through a real bundle:
+#:
+#:     "preview": "My bank card is 4539 1488 0343 6467 and the PIN is 8812. Tell Sarah…"
+#:
+#: while `yazses report --help` says, in the same breath as inviting the user to attach
+#: the file to an issue: *"Your dictated text and the learning corpus are never
+#: included."*
+_STATUS_PROSE_KEYS = frozenset({
+    "preview",  # [staged] the pending buffer, as it would be typed
+})
+
+
+def redact_status(status: dict) -> dict:
+    """Clean the daemon's status payload for the bundle. Recursive.
+
+    The config half of this file has been hardened four times; the daemon half went in
+    **verbatim** — `report["daemon"] = status`, no filter of any kind — and it is the
+    same kind of data from the same machine. `summarise_for_issue` even states the
+    invariant that was not true: *"Everything in report has already been through
+    `redact_text`/`redact_config` in `collect`."*
+
+    So the rules are deliberately the config rules, not a second scheme:
+
+    * numbers and booleans pass — they are the fields that explain a failure and cannot
+      identify anyone;
+    * prose is replaced by its shape (see `_STATUS_PROSE_KEYS`);
+    * nested dicts recurse, because `staged`, `outcomes` and `decode_latency` are all
+      dicts whose *numbers* are the diagnostic part and summarising them wholesale would
+      throw away the reason to collect a report at all;
+    * lists are summarised by size — `notifications` is a list of queued toast bodies,
+      and a toast quotes whatever it is reporting on;
+    * every remaining string goes through `redact_text`.
+
+    That last rule is what makes this more than a `preview` patch. `last_error` is an
+    exception message, and exception messages are mostly paths (`FileNotFoundError:
+    /home/<you>/…`); `input_device` and `last_good_device` are microphone names, and a
+    Bluetooth microphone is usually named after its owner. Both are kept rather than
+    blanked — which mic is in use is the first question any audio bug asks — on exactly
+    the trade this module already makes for the log tail: redact the account, keep the
+    diagnosis.
+    """
+    out: dict = {}
+    for key, value in status.items():
+        if isinstance(value, bool | int | float):
+            out[key] = value
+        elif str(key) in _STATUS_PROSE_KEYS:
+            out[key] = _summarise(value)
+        elif isinstance(value, dict):
+            out[key] = redact_status(value)
+        elif isinstance(value, list | tuple):
+            out[key] = _summarise(value)
+        elif isinstance(value, str):
+            out[key] = redact_text(value)
+        else:
+            out[key] = value
+    return out
+
+
 def collect(*, config_file: Path, log_file: Path, data_dir: Path,
             status: dict | None, log_lines: int = 200) -> dict:
     """Gather the report as a plain dict, so it can be inspected before it is written."""
@@ -258,7 +329,9 @@ def collect(*, config_file: Path, log_file: Path, data_dir: Path,
     except Exception:  # noqa: BLE001
         report["system"]["yazses"] = "unknown"
 
-    report["daemon"] = status if status is not None else {"reachable": False}
+    report["daemon"] = (
+        redact_status(status) if status is not None else {"reachable": False}
+    )
 
     if config_file.exists():
         try:

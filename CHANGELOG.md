@@ -8,6 +8,24 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`yazses report` put dictated text in the bundle it tells you to attach to an issue.**
+  The command's own help promises *"your settings with paths, identifiers and anything you
+  typed yourself removed"* and *"your dictated text and the learning corpus are never
+  included"*. The config, the log tail and the corpus were all filtered to make that true.
+  The daemon's live status was inserted with no filter at all — and it carries the staged
+  buffer, which is the text you have dictated and not yet committed, verbatim up to 240
+  characters. Staged mode exists so you can review text *before* it is typed, so that field
+  holds a real sentence precisely when you are in the middle of one, which is when you hit
+  the bug you are reporting.
+
+  The daemon block now goes through the same rules as the rest of the bundle: your own
+  words are replaced by their length, queued notification text is reported by count, and
+  every remaining string has your home directory and account name removed. Diagnostics are
+  kept, not blanked — the microphone name, the failing path in an error message and the
+  word counts beside the buffer all survive, because they are usually the answer. A
+  build-time guard now reads the daemon's status fields out of its own source and fails
+  until each new one is classified as either your words or a fact about the machine.
+
 - **`yazses status` scored commands you spoke on purpose as dictation failures.** The
   gauge that answers "how often did dictation produce text" divided typed bursts by
   *every* burst, including ones held on the dedicated command key — which never types
