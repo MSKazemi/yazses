@@ -28,6 +28,8 @@ somewhere else is a new test, not a silent pass.
 
 from __future__ import annotations
 
+import ast
+import inspect
 import json
 import re
 import tomllib
@@ -37,10 +39,32 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 
-#: Below this many collected tests, treat the run as a subset (`-k`, one file) and
-#: skip the suite-wide floor check. Deliberately a fixed number, not a fraction of
-#: the claimed floor -- see `test_the_test_count_floor_is_still_true`.
-_FULL_RUN_MIN = 1000
+def _is_full_run(config) -> bool:
+    """Whether this invocation collected the whole suite, asked of pytest directly.
+
+    This used to be "did we collect at least 1000 tests", which answers a different
+    question and gets the answer wrong in both directions as the suite grows. At 7000+
+    tests an ordinary `-k "docs"` clears 1000 and then fails the floor -- a red that
+    means nothing, in a test whose own docstring says a guard that cries wolf during
+    development gets deleted.
+
+    Every option below *removes* tests from the run. Naming a file or a node id is a
+    subset; naming a directory (or nothing, so `testpaths` applies) is not. Nothing here
+    is derived from the claimed floor, which was the earlier version's point and still
+    holds: scaling the threshold off the floor would make an absurd floor *skip* the
+    check instead of failing it.
+    """
+    opt = config.option
+    if getattr(opt, "keyword", "") or getattr(opt, "markexpr", ""):
+        return False
+    if getattr(opt, "deselect", None) or getattr(opt, "ignore", None):
+        return False
+    if getattr(opt, "lf", False) or getattr(opt, "failedfirst", False):
+        return False
+    targets = list(getattr(opt, "file_or_dir", []) or [])
+    # A node id (`file.py::test_x`) needs no stripping -- it is not a directory with
+    # the suffix on or off, so splitting it would be a distinction without a verdict.
+    return all(Path(t).is_dir() for t in targets)
 
 
 def current_version() -> str:
@@ -182,8 +206,9 @@ def test_the_test_count_floor_is_still_true(request):
 
     The count comes from the **live session**, not a subprocess, so this costs
     nothing and cannot recurse. That makes it meaningless on a partial run (`-k`,
-    one file), so it skips below a threshold rather than failing people who ran a
-    subset -- a test that cries wolf during ordinary development gets deleted.
+    one file), which `_is_full_run` detects from pytest's own options rather than
+    from how many tests happened to be collected -- a test that cries wolf during
+    ordinary development gets deleted.
     """
     collected = getattr(request.session, "testscollected", 0) or len(
         getattr(request.session, "items", [])
@@ -201,11 +226,12 @@ def test_the_test_count_floor_is_still_true(request):
     # the one case that matters: set the floor absurdly high and `collected` falls
     # below the scaled threshold, so the test *skips* instead of reporting the
     # claim it exists to check. Caught by red-green -- a floor of 9000 against 4348
-    # collected passed silently. A fixed threshold decouples them; a real suite
-    # below it would be an emergency worth failing on anyway.
-    if collected < _FULL_RUN_MIN:
+    # collected passed silently. Asking pytest what was filtered keeps the two
+    # decoupled and is exact, so a full run is recognised as one whatever the floor
+    # says, and a genuinely shrunken suite fails rather than skips.
+    if not _is_full_run(request.config):
         pytest.skip(
-            f"partial run ({collected} tests collected) -- the floor is only "
+            f"filtered run ({collected} tests collected) -- the floor is only "
             f"meaningful for the whole suite"
         )
     assert collected >= floor, (
@@ -284,3 +310,76 @@ def test_the_index_guard_notices_an_unlinked_page() -> None:
     """
     assert _unlisted_releases("- [v1.0.0](v1.0.0.md)", {"v1.0.0"}) == set()
     assert _unlisted_releases("- [v1.0.0](v1.0.0.md)", {"v1.0.0", "v1.1.0"}) == {"v1.1.0"}
+
+class _Opt:
+    """The pytest options `_is_full_run` reads, all defaulted to "not filtered"."""
+
+    keyword = ""
+    markexpr = ""
+    deselect = None
+    ignore = None
+    lf = False
+    failedfirst = False
+
+    def __init__(self, **kw):
+        self.file_or_dir = kw.pop("file_or_dir", ["tests"])
+        for k, v in kw.items():
+            setattr(self, k, v)
+
+
+class _Config:
+    def __init__(self, **kw):
+        self.option = _Opt(**kw)
+
+
+def test_a_whole_suite_run_is_recognised(tmp_path):
+    """`make check` runs `pytest tests/ -q`, and bare `pytest` uses `testpaths`."""
+    assert _is_full_run(_Config(file_or_dir=["tests"])) is True
+    assert _is_full_run(_Config(file_or_dir=[])) is True
+
+
+@pytest.mark.parametrize("kw", [
+    {"keyword": "docs"},
+    {"markexpr": "slow"},
+    {"deselect": ["tests/test_x.py::test_y"]},
+    {"ignore": ["tests/test_x.py"]},
+    {"lf": True},
+    {"failedfirst": True},
+])
+def test_every_way_of_removing_tests_counts_as_filtered(kw):
+    """Each of these drops tests from the run, so the suite-wide floor says nothing.
+
+    The regression this replaces: `-k "docs"` collected 1108 tests, cleared a fixed
+    1000-test threshold, and then failed the 4300 floor.
+    """
+    assert _is_full_run(_Config(**kw)) is False
+
+
+def test_naming_a_file_or_a_node_is_a_subset():
+    assert _is_full_run(_Config(file_or_dir=["tests/test_docs_frontmatter.py"])) is False
+    assert _is_full_run(_Config(file_or_dir=["tests/test_docs_frontmatter.py::test_x"])) is False
+
+
+def test_a_directory_among_several_targets_is_still_whole():
+    """Naming two directories is not a subset of either; naming one file is."""
+    assert _is_full_run(_Config(file_or_dir=["tests", "tests"])) is True
+    assert _is_full_run(_Config(file_or_dir=["tests", "tests/test_docs_frontmatter.py"])) is False
+
+
+def test_the_verdict_cannot_consult_the_claimed_floor():
+    """The earlier version's real point, kept.
+
+    An absurd floor must make the check *fail*, not skip -- which requires that "is
+    this the whole suite" be decided without reference to the floor. Asserted
+    structurally rather than by grepping prose: the predicate takes `config` and
+    nothing else, and its body reads no file, so there is no path by which the
+    claimed number could reach it.
+    """
+    assert list(inspect.signature(_is_full_run).parameters) == ["config"]
+    body = ast.parse(inspect.getsource(_is_full_run)).body[0].body
+    reads = {
+        getattr(n.func, "attr", getattr(n.func, "id", ""))
+        for n in ast.walk(ast.Module(body=body[1:], type_ignores=[]))
+        if isinstance(n, ast.Call)
+    }
+    assert not reads & {"read_text", "open", "search", "match"}, reads

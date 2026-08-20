@@ -8,6 +8,20 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- The guard on `ROADMAP.md`'s test-count floor cried wolf on ordinary `-k` runs. It decided
+  "is this the whole suite?" by counting collected tests against a fixed 1000 — a threshold set
+  when the suite was around 4300 and never revisited. At 7000+ tests an everyday subset clears it
+  (`-k "docs"` collects 1108) and then fails the `4300+` floor, which reports a shrunken suite that
+  does not exist. The test's own docstring says a guard that cries wolf during development gets
+  deleted, so this was on its way to being the thing it warns about.
+
+  The question is now asked of pytest rather than inferred from a count: `-k`, `-m`, `--deselect`,
+  `--ignore`, `--lf`/`--ff` and naming a file or a node id each mean tests were removed, and
+  nothing else does. The verdict stays independent of the claimed floor for the reason the
+  previous author wrote down — scaling a threshold off the floor makes an absurdly *raised* floor
+  **skip** the check instead of failing it, which is the one case the guard exists for. A run with
+  the floor set to 99000 now fails with the real count rather than passing quietly.
+
 - A meeting whose post-pass never finished kept its entire recording, and nothing offered it
   back. The daemon deletes `audio.wav` only **after** the batch pass that consumes it has
   succeeded — its failure branch logs that the file "has been KEPT … so it can be retried" — so a
