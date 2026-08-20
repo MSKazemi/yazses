@@ -189,9 +189,16 @@ _LOADERS = {
     "src/yazses/voiceprint/ecapa.py": "from_hparams",
     "src/yazses/stt/parakeet.py": "load_model",
     "src/yazses/recimport/pyannote_backend.py": "from_pretrained",
+    # Added 2026-08-20. `MoonshineOnnxModel` is a *class* call, not a named loader, so
+    # every check below looked straight past it: the second STT engine fetched its
+    # weights from the hub and neither this guard nor the download-size table knew it
+    # existed. `tests/test_feature_size_counts_model_files.py` now holds the two
+    # classifications equal so one cannot gain a module without the other.
+    "src/yazses/stt/moonshine.py": "MoonshineOnnxModel",
 }
 # Attribute names that fetch a pretrained model through huggingface_hub.
-_FETCHING_CALLS = {"from_hparams", "from_pretrained", "load_model", "snapshot_download"}
+_FETCHING_CALLS = {"from_hparams", "from_pretrained", "load_model", "snapshot_download",
+                   "MoonshineOnnxModel"}
 def _modules_calling_a_loader() -> dict[str, set[str]]:
     found: dict[str, set[str]] = {}
     for path in SRC.rglob("*.py"):

@@ -77,16 +77,21 @@ before it fetches anything.
 | Feature | Download | Packages |
 |---|---:|---:|
 | `cocktail`, `multiprofile`, `voiceguard` (speaker voiceprint) | **~3.1 GB** | 37 |
+| `stt-parakeet` | ~604 MB | 1 |
+| `read-back`, `readback_clone` (Kokoro TTS) | ~352 MB | 23 |
 | `overlay`, `tray` (Qt) | ~256 MB | 4 |
-| `gaze` (mediapipe + OpenCV) | ~219 MB | 12 |
-| `stt-moonshine` | ~113 MB | 18 |
-| `llm-cleanup` (llama.cpp) | ~72 MB | 4 |
-| `read-back`, `readback_clone` (Kokoro TTS) | ~25 MB | 23 |
-| `diarize`, `meeting`, `recimport` (sherpa-onnx) | ~18 MB | 2 |
+| `gaze` (mediapipe + OpenCV) | ~223 MB | 12 |
+| `stt-moonshine` | ~113 MB+ | 18 |
+| `llm-cleanup` (llama.cpp) | ~75 MB | 4 |
+| `diarize`, `meeting`, `recimport` (sherpa-onnx) | ~62 MB | 2 |
 | `prosody`, `voicehealth` | ~11 MB | 1 |
-| `agent` (MCP) | ~4 MB | 20 |
-| `stt-parakeet` | ~4 MB | 1 |
+| `agent` (MCP) | ~4.4 MB | 20 |
 | `chinese-script` | ~0.5 MB | 1 |
+
+A trailing **`+`** means the packages are measured but the model files are not: the
+feature fetches weights whose size is not established here, so the figure is a floor.
+Every number is `yazses features`' own, so the page and the command cannot drift —
+`tests/test_install_cost_page_matches_the_tool.py` fails the build if they do.
 
 !!! warning "The voiceprint features cost 3.1 GB, and it is worth knowing why"
 

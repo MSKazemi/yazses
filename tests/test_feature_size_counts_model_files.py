@@ -14,6 +14,19 @@ generated table, and the guard cannot be a list of the features that were wrong 
 day it was written -- that list says nothing about the fifth downloader. Both sides are
 derived from the tree instead: every ``download.py`` under ``src/yazses`` must be priced,
 and where the module states its own size in its docstring, the price must be that size.
+
+**2026-08-20 -- the same defect came back through this file's own blind spot.**
+Deriving from ``download.py`` was still a hand-picked region: it is a *filename*, not the
+behaviour. The two alternative STT engines fetch their weights through their own library
+at first use, so neither owns a ``download.py``, and `yazses features` advertised
+``stt-parakeet`` at **~4.0 MB** -- the `onnx-asr` wheel -- while `docs/models.md` said
+"~600 MB model" in a table two files away. Exactly the read-back shape, 150x this time.
+
+The complete classification already existed in
+`tests/test_model_cache_first.py::_LOADERS`, which names ``stt/parakeet.py``. Two lists
+of model fetchers, in two test files, and nothing compared them. So the derivation below
+now covers both routes -- a ``download.py``, or a call to a hub loader entry point -- and
+`test_the_two_lists_of_model_fetchers_agree` holds this file and that one to the same set.
 """
 from __future__ import annotations
 
@@ -23,7 +36,7 @@ import re
 
 import pytest
 
-from yazses.system import depsize
+from yazses.system import depsize, features
 from yazses.system.depsize import _MODEL_FETCHERS
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -52,6 +65,145 @@ def _stated_mb(path: pathlib.Path) -> float | None:
     return max(found) if found else None
 
 
+#: Entry points that pull a pretrained model down from the Hugging Face hub. Shared
+#: with `tests/test_model_cache_first.py`, which asks a different question about the
+#: same set of modules -- do they load cache-first -- and used to disagree about who
+#: was in it. `MoonshineOnnxModel` is a class call rather than a named loader, which
+#: is precisely why the cache-first guard had not noticed that `stt/moonshine.py`
+#: fetched a model at all.
+HUB_LOADERS = frozenset(
+    {"from_hparams", "from_pretrained", "load_model", "snapshot_download",
+     "MoonshineOnnxModel"}
+)
+
+#: Four hub fetchers exist today, alongside four `download.py` modules.
+_MIN_HUB_FETCHERS = 4
+
+
+def hub_fetching_modules() -> dict[str, set[str]]:
+    """Every module under ``src/yazses`` that fetches a model from the hub.
+
+    Keyed like `_MODEL_FETCHERS` (``yazses/...``), valued by which entry points it
+    calls. Derived from the syntax tree rather than from a list, because a list of the
+    fetchers that existed when it was written is the defect this file is about.
+    """
+    found: dict[str, set[str]] = {}
+    for path in sorted((SRC / "yazses").rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        hits = {
+            name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            for name in (getattr(node.func, "attr", None) or getattr(node.func, "id", None),)
+            if name in HUB_LOADERS
+        }
+        if hits:
+            found[str(path.relative_to(SRC))] = hits
+    return found
+
+
+def model_fetching_modules() -> set[str]:
+    """Both routes to a model file: a `download.py`, or a hub loader call."""
+    return set(_download_modules()) | set(hub_fetching_modules())
+
+
+# --- the classification is complete -------------------------------------------
+
+
+def test_there_are_hub_fetchers_to_check():
+    """A guard that iterates is green on an empty collection.
+
+    The count alone cannot carry this. `_MIN_HUB_FETCHERS` is *itself* the assertion, so
+    a walk that stopped finding anything is repaired by lowering the number -- the check
+    can never fail in a way that survives someone editing it. Naming the modules is not
+    circular: they are found by walking the tree, and a module that drops out of the walk
+    fails here whatever the floor says.
+    """
+    found = hub_fetching_modules()
+    assert len(found) >= _MIN_HUB_FETCHERS, found
+    for known in ("yazses/stt/parakeet.py", "yazses/stt/moonshine.py",
+                  "yazses/voiceprint/ecapa.py"):
+        assert known in found, f"{known} fetches a model but the AST walk missed it: {found}"
+
+
+def test_a_model_fetcher_is_reported_as_one():
+    """`fetches_a_model` is what the label, the note and the threshold all branch on.
+
+    Mutating it to a flat `False` left every test green: each caller was checked only on
+    features that fetch nothing, so the answer they all agree on was the uninteresting
+    one. Pin both sides of the predicate.
+    """
+    assert depsize.fetches_a_model("stt-parakeet")
+    assert depsize.fetches_a_model("stt-moonshine")  # size unknown still counts
+    assert depsize.fetches_a_model("cocktail")
+    assert not depsize.fetches_a_model("chinese-script")
+    assert not depsize.fetches_a_model("overlay")
+
+
+def test_an_unquantified_model_is_flagged_not_hidden():
+    """A number we cannot compute must not read as a number we did compute.
+
+    `stt-moonshine` fetches weights of an unestablished size, so its wheel total is a
+    floor and is shown as `~N MB+`; the note says so in words, and the threshold treats
+    it as large, because the one thing that cannot be done with an unweighable download
+    is weigh it.
+    """
+    label = depsize.catalogue_size_label("stt-moonshine", has_pip_deps=True)
+    assert label.endswith("+"), label
+    assert "model" in depsize.download_note("stt-moonshine", ["moonshine_onnx"])
+    assert depsize.is_a_large_download("stt-moonshine", ["moonshine_onnx"])
+    # ...and a feature with no model keeps a plain, unqualified figure.
+    assert not depsize.catalogue_size_label("overlay", has_pip_deps=True).endswith("+")
+
+
+def test_every_priced_model_reaches_a_real_feature():
+    """A price attached to no feature is a price nobody is ever shown.
+
+    Dropping `stt-moonshine` from its slug tuple left the table looking complete while
+    the catalogue quietly went back to quoting the wheel alone.
+    """
+    known = {d.slug for d in features._registry()}
+    for rel, (_, slugs) in _MODEL_FETCHERS.items():
+        for slug in slugs:
+            assert slug in known, f"{rel} is priced against unknown feature {slug!r}"
+
+
+def test_every_model_fetching_module_is_priced():
+    """Not just every `download.py` -- every module that ends up with model bytes.
+
+    `stt/parakeet.py` is the case that forced this: it fetched ~600 MB through
+    `onnx_asr.load_model` and was priced at its 4 MB wheel, because the previous
+    version of this guard only knew about files called `download.py`.
+    """
+    unpriced = sorted(model_fetching_modules() - set(_MODEL_FETCHERS))
+    assert not unpriced, (
+        f"these fetch model files and `depsize._MODEL_FETCHERS` does not price them: "
+        f"{unpriced}. Give each a size, or `None` if no figure is established -- but "
+        "not silence, which is how a 600 MB engine advertised 4 MB."
+    )
+
+
+def test_the_two_lists_of_model_fetchers_agree():
+    """This file and `test_model_cache_first.py` must class the same modules.
+
+    They ask different questions -- *is it priced* and *does it load cache-first* --
+    of one set, and each kept its own copy of that set. `stt/parakeet.py` was in the
+    cache-first list and absent from the price list; `stt/moonshine.py` was in neither.
+    """
+    from tests.test_model_cache_first import _LOADERS
+
+    cache_first = {rel[len("src/"):] for rel in _LOADERS}
+    hub = set(hub_fetching_modules())
+    # faster-whisper is deliberately outside the cache-first list (it takes
+    # `local_files_only=` directly), and it calls none of HUB_LOADERS, so the sets
+    # are comparable as they stand.
+    assert hub == cache_first, (
+        "the model-fetcher classifications have diverged — "
+        f"priced-here only: {sorted(hub - cache_first)}; "
+        f"cache-first only: {sorted(cache_first - hub)}"
+    )
+
+
 # --- the two sides must be the same set ---------------------------------------
 
 
@@ -69,7 +221,9 @@ def test_every_downloader_in_the_tree_is_priced():
 
 
 def test_nothing_is_priced_that_does_not_exist():
-    stale = sorted(set(_MODEL_FETCHERS) - set(_download_modules()))
+    """Compared against the filesystem, not against `download.py` -- half the priced
+    modules are ordinary engine modules that fetch their weights at first use."""
+    stale = sorted(rel for rel in _MODEL_FETCHERS if not (SRC / rel).is_file())
     assert not stale, f"priced modules that are gone: {stale}"
 
 
@@ -82,7 +236,11 @@ def test_the_price_matches_what_the_module_says_about_itself(rel):
     priced, _ = _MODEL_FETCHERS[rel]
     stated = _stated_mb(SRC / rel)
     if stated is None:
-        assert priced == 0.0, (
+        # `None` = fetches a model, no figure established anywhere; `0.0` = fetches
+        # none. Both are honest answers to a silent docstring. What is not allowed is
+        # a number here that the module does not corroborate, since the whole point of
+        # this comparison is that two committed figures must agree.
+        assert priced in (0.0, None), (
             f"{rel} is priced at {priced} MB but says nothing about its own size -- "
             "state it in the docstring so the two can be checked against each other"
         )
@@ -127,8 +285,15 @@ def test_the_column_is_not_just_the_wheels():
 
 
 def test_a_feature_with_no_model_is_unchanged():
-    """The fix must not inflate the 130-odd capabilities that fetch no model."""
-    for slug in ("cocktail", "chinese-script", "overlay"):
+    """The fix must not inflate the 130-odd capabilities that fetch no model.
+
+    `cocktail` used to be one of the examples here, and that was this file asserting
+    the defect: it needs an enrolled voiceprint, so it pulls the ~20 MB ECAPA encoder
+    down through `voiceprint/ecapa.py`. A test naming it as fetching nothing is why
+    the omission read as intentional.
+    """
+    assert not depsize.fetches_a_model("chinese-script")
+    for slug in ("chinese-script", "overlay", "commands"):
         assert depsize.catalogue_size_label(slug, has_pip_deps=True) == depsize.format_mb(
             depsize.full_download_mb(slug)
         )

@@ -8,6 +8,34 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The feature catalogue priced a 600 MB speech engine at 4 MB.** `yazses features`
+  showed `stt-parakeet` as a `~4.0 MB` download — the `onnx-asr` wheel — while the
+  engine's own docstring, `docs/models.md` and `yazses features info` all said it fetches
+  a ~600 MB model on first use. `docs/install-cost.md` published the same `~4 MB`, on a
+  page that opens by promising measured numbers, listing the second-largest download
+  YazSes can make beside its smallest.
+
+  This is the 2026-08-18 defect returning through the guard that was supposed to prevent
+  it. That guard keyed on files **named** `download.py`, which is a filename rather than
+  a behaviour: the two alternative STT engines fetch their weights through their own
+  library (`onnx_asr.load_model`, `MoonshineOnnxModel(...)`) and own no such file. The
+  complete list already existed one test file away, in `test_model_cache_first.py`, and
+  nothing compared the two.
+
+  Now the classification is derived by walking the tree for hub-fetching calls, the two
+  lists are held equal, and every priced module is checked against the size its own
+  docstring states. Corrected: `stt-parakeet` `~4.0 MB` → `~604 MB`, `read-back` `~25 MB`
+  → `~352 MB`, `diarize`/`meeting`/`recimport` `~18 MB` → `~62 MB`, `cocktail` now counts
+  its ECAPA encoder, and `stt-moonshine` reads `~113 MB+` — a trailing `+` marking a
+  figure that is a floor because the model files are not sized. `docs/install-cost.md` is
+  now checked against the tool row by row.
+
+- **The second STT engine fetched from Hugging Face without trying the cache first.**
+  `stt/moonshine.py` built `MoonshineOnnxModel` directly, so it skipped `load_cache_first`
+  and paid the hub revalidation round-trip that has no timeout (ADR-019). It was missed
+  for the same reason as the size: the guard looked for named loader functions, and this
+  one is a class call.
+
 - **`yazses doctor` named an injector it had not consulted the config about.**
   `_injection_readiness` took `(is_wayland, is_x11)` and derived its answer from the
   session type and which tools were on PATH, printing `Injection: xdotool (X11)` as

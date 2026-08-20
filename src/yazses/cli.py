@@ -1417,6 +1417,8 @@ def _echo_capabilities(
         "\n  DOWNLOAD = what a fresh install fetches in total — packages when you"
         "\n      enable it, plus any model files the first time it runs;"
         " blank = nothing."
+        "\n      A trailing + means the model files are not sized here, so the"
+        "\n      figure is a floor, not the total."
         "\n  Tip: `yazses features enable dysfluency` (use the TOGGLE NAME column)."
         "\n  Filter:  --on · --tier rec · --category access"
         "\n  Describe ALL capabilities (use case + example): `yazses features info`."

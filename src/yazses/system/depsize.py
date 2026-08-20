@@ -52,14 +52,46 @@ LOUD_DOWNLOAD_MB = 250.0
 #: `stt/download.py` maps to no slug on purpose: it fetches the base Whisper
 #: checkpoint, which is not a capability anyone toggles and whose size is whatever
 #: `[stt] model` names.
-_MODEL_FETCHERS: dict[str, tuple[float, tuple[str, ...]]] = {
+#:
+#: The first version of this map was keyed on files **named** `download.py`, and that
+#: was the defect rather than an implementation detail of it. The two alternative STT
+#: engines fetch their weights through their own library at first use --
+#: `onnx_asr.load_model` and `MoonshineOnnxModel(...)` -- so neither owns a
+#: `download.py`, and both were priced at their wheel alone: `stt-parakeet` advertised
+#: **~4.0 MB** in `yazses features` while `docs/models.md` said "~600 MB model" two
+#: tables away. The repo already held the complete classification, in
+#: `tests/test_model_cache_first.py::_LOADERS` -- which names `stt/parakeet.py` -- and
+#: nothing compared the two lists. `tests/test_feature_size_counts_model_files.py`
+#: now does.
+#:
+#: A ``None`` size means *this fetches a model and we have not established how big*.
+#: It is deliberately distinct from ``0.0``: unknown must never be added to a total
+#: (that would invent a number), but it must still be said out loud, because saying
+#: "113 MB" about something that then downloads a speech model is the failure this
+#: whole module exists to prevent.
+_MODEL_FETCHERS: dict[str, tuple[float | None, tuple[str, ...]]] = {
     "yazses/tts/download.py": (340.0, ("read-back", "readback_clone")),
     "yazses/recimport/download.py": (45.0, ("recimport", "meeting", "diarize")),
     "yazses/gaze/download.py": (3.7, ("gaze",)),
     "yazses/stt/download.py": (0.0, ()),
+    # Sourced from `docs/models.md`, which has said "~600 MB model" since the engine
+    # shipped; the guard holds the two equal so they cannot drift apart again.
+    "yazses/stt/parakeet.py": (600.0, ("stt-parakeet",)),
+    # `moonshine/base` through `moonshine_onnx`. No figure for it exists anywhere in
+    # this repo and one is not being invented here -- see the ``None`` note above.
+    "yazses/stt/moonshine.py": (None, ("stt-moonshine",)),
+    # speechbrain ECAPA, fetched by `from_hparams` when a voiceprint is enrolled.
+    # `cocktail` is the only toggle that needs one. The figure is the module's own
+    # ("Apache-2.0, ~20 MB, CPU-runnable"), which the guard holds it to.
+    "yazses/voiceprint/ecapa.py": (20.0, ("cocktail",)),
+    # pyannote maps to no slug for the same reason as `stt/download.py`: it is chosen
+    # by `[recimport] backend = "pyannote"`, a config value rather than a capability,
+    # and `system/backends.py` classes the adapter as not shipped in this build. The
+    # sherpa models that the shipped path does fetch are priced above.
+    "yazses/recimport/pyannote_backend.py": (None, ()),
 }
 
-_MODEL_MB: dict[str, float] = {
+_MODEL_MB: dict[str, float | None] = {
     slug: mb for mb, slugs in _MODEL_FETCHERS.values() for slug in slugs
 }
 
@@ -134,7 +166,18 @@ def model_download_mb(slug: str) -> float:
     disk is a per-machine fact that only the feature's own downloader knows, and
     over-quoting is the safe direction (see `marginal_download_mb`).
     """
-    return _MODEL_MB.get(slug, 0.0)
+    return _MODEL_MB.get(slug) or 0.0
+
+
+def fetches_a_model(slug: str) -> bool:
+    """Whether *slug* downloads model files at all, size established or not.
+
+    Separate from `model_download_mb` because the two answer different questions and
+    only one of them can be added up. A feature whose model size is unknown returns
+    ``0.0`` there -- inventing a number would be worse than any silence -- and ``True``
+    here, which is what lets every caller still say that a download is coming.
+    """
+    return slug in _MODEL_MB and _MODEL_MB[slug] != 0.0
 
 
 def first_use_mb(slug: str) -> float | None:
@@ -195,9 +238,13 @@ def catalogue_size_label(slug: str, has_pip_deps: bool) -> str:
     """
     mb = (full_download_mb(slug) or 0.0) if has_pip_deps else 0.0
     mb += model_download_mb(slug)
+    # A model whose size is not established still has to appear, or the column reads
+    # as the whole price of the row when it is only the wheel. `+` rather than a
+    # guessed number: the reader can see there is more without being told how much.
+    unquantified = fetches_a_model(slug) and not model_download_mb(slug)
     if not mb:
-        return ""
-    return format_mb(mb)
+        return "~?" if unquantified else ""
+    return format_mb(mb) + ("+" if unquantified else "")
 
 
 def download_note(slug: str, missing: list[str] | tuple[str, ...] | None) -> str:
@@ -226,6 +273,9 @@ def download_note(slug: str, missing: list[str] | tuple[str, ...] | None) -> str
     if model:
         lead = "plus" if parts else "downloads"
         parts.append(f"{lead} {format_mb(model)} of model files on first use")
+    elif fetches_a_model(slug):
+        lead = "plus" if parts else "downloads"
+        parts.append(f"{lead} a speech model on first use (size depends on the model)")
     return ", ".join(parts)
 
 
@@ -235,6 +285,16 @@ def is_a_large_download(slug: str, missing: list[str] | tuple[str, ...] | None) 
     Judged on packages **and** model files together, since the disk does not
     distinguish them. `read-back` is the case that forced it: 12 MB of packages and
     340 MB of voice, quietly under the threshold on the only number anyone checked.
+
+    A feature whose model size is *unknown* is always loud. That is a policy choice and
+    it is the defensible one: the alternative is to weigh an unweighable download as
+    zero, which is how `stt-parakeet` came to advertise 4.0 MB.
     """
     mb = marginal_download_mb(slug, missing) or 0.0
+    if fetches_a_model(slug) and not model_download_mb(slug):
+        # An unquantified model download is exactly the risk this threshold exists for
+        # -- "I asked for a small feature and it filled my disk" -- and the one thing
+        # that cannot be done about it is to weigh it. Over-quoting is the safe
+        # direction, as `marginal_download_mb` argues for the same reason.
+        return True
     return (mb + model_download_mb(slug)) >= LOUD_DOWNLOAD_MB

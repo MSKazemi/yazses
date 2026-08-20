@@ -115,10 +115,25 @@ class MoonshineEngine:
     # ---- internals -------------------------------------------------------
 
     def _load(self):
+        """Load the ONNX model, preferring the local Hugging Face cache.
+
+        `MoonshineOnnxModel` fetches its weights from the hub and, like
+        `onnx_asr.load_model`, takes no offline switch -- so without this a fully
+        cached model still waits on a hub revalidation round-trip that has **no
+        timeout** (`system/hfcache.py` records 1.9 s cached against >180 s not).
+        `stt/parakeet.py` has always done this; the constructor form is why the guard
+        in `tests/test_model_cache_first.py` did not notice that its sibling did not,
+        since that check looked for named loader calls and this is a class call.
+        """
         if self._model is None:
             import moonshine_onnx  # lazy: optional dep (`features enable stt-moonshine`)
 
-            self._model = moonshine_onnx.MoonshineOnnxModel(model_name=self._model_name)
+            from yazses.system.hfcache import load_cache_first
+
+            self._model = load_cache_first(
+                lambda: moonshine_onnx.MoonshineOnnxModel(model_name=self._model_name),
+                what=f"the Moonshine model {self._model_name!r}",
+            )
             log.info("Moonshine model %r loaded.", self._model_name)
         return self._model
 
