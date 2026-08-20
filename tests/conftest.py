@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path
 
 import numpy as np
@@ -112,6 +113,73 @@ def _resolve_watched_host_files() -> dict[str, Path]:
 _WATCHED_HOST_FILES = _resolve_watched_host_files()
 
 
+def _read_pid_file() -> int | None:
+    """The pid inside the real pid file, or None. Never raises."""
+    try:
+        return int(_WATCHED_HOST_FILES["pid file"].read_text().strip())
+    except (OSError, ValueError, KeyError):
+        return None
+
+
+#: Which daemon owned the pid file when the session began, resolved once at import for
+#: the same reason the paths are. Used to tell "a test deleted this" from "the daemon
+#: that owned it exited while the suite ran".
+_DAEMON_PID_AT_IMPORT = _read_pid_file()
+
+
+def _alive(pid: int | None) -> bool:
+    """Is *pid* a live process? Signal 0 checks without delivering anything."""
+    if not pid or pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True  # exists, owned by someone else
+    except OSError:
+        return False
+    return True
+
+
+def _pid_file_change_is_the_real_daemon(before: tuple, after: tuple) -> bool:
+    """Did the machine's own daemon move the pid file, rather than a test?
+
+    The incident this guard was written for is precise: ``Daemon._shutdown()`` called
+    the real ``lifecycle.clear_pid()`` and deleted the pid file **out from under a
+    running daemon**. The liveness of the owning process is exactly what separates
+    that from the ordinary thing that happened on 2026-08-21 — the owner stopped his
+    daemon nine seconds after dictating, mid-suite, and the test that happened to be
+    running was reported as having "modified the real pid file".
+
+    That false positive is not cosmetic. This fixture asserts in *teardown*, so pytest
+    renders it as an ERROR rather than a FAILED, on an arbitrary innocent test that
+    passes in isolation — and the docstring below already refuses to watch the data
+    directory for exactly this reason: "a guard that fails because the owner dictated
+    something would be turned off within a day". A guard protecting against a real past
+    incident cannot afford to cry wolf.
+
+    Benign in exactly two shapes, and nothing else:
+
+    * the file is **gone** and the daemon that owned it at session start is dead — a
+      clean exit takes its pid file with it;
+    * the file is **present** and names a live process that is not this one — the owner
+      started or restarted a daemon while the suite ran.
+
+    A test writing the file writes ``os.getpid()``, which is this process, so it still
+    fails. Residual hole, named rather than hidden: a test that deletes an already
+    stale pid file (no daemon running at all) reads as benign. It touches the host and
+    ought not to, but it cannot harm a daemon, which is what this guard is for.
+    """
+    existed_before, exists_after = before[0], after[0]
+    if existed_before and not exists_after:
+        return _DAEMON_PID_AT_IMPORT is not None and not _alive(_DAEMON_PID_AT_IMPORT)
+    if exists_after:
+        pid = _read_pid_file()
+        return pid is not None and pid != os.getpid() and _alive(pid)
+    return False
+
+
 def _host_state() -> dict[str, tuple]:
     """`(exists, mtime_ns, size)` for the two real files the suite was caught writing."""
     watched = _WATCHED_HOST_FILES
@@ -153,6 +221,10 @@ def _no_test_may_write_the_users_real_config():
     yield
     after = _host_state()
     changed = [k for k in before if before[k] != after[k]]
+    if "pid file" in changed and _pid_file_change_is_the_real_daemon(
+        before["pid file"], after["pid file"]
+    ):
+        changed.remove("pid file")
     assert not changed, (
         f"this test modified the real {' and '.join(changed)} on this machine. "
         "Point the platform paths at tmp_path and clear the `get_platform`/`get_paths` "
