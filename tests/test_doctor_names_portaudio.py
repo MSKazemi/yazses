@@ -54,7 +54,9 @@ def test_portaudio_missing_is_true_when_the_import_fails(monkeypatch) -> None:
 
 def test_a_failing_mic_with_no_portaudio_names_the_package() -> None:
     """The defect: this used to render as the bare word 'unknown'."""
-    detail = doctor_mod.microphone_detail("unknown", snap_pending=False, no_portaudio=True)
+    detail = doctor_mod.microphone_detail(
+        "unknown", snap_pending=False, no_portaudio=True, platform_name="linux"
+    )
     assert "libportaudio2" in detail
     assert "apt install" in detail
 
@@ -66,7 +68,9 @@ def test_a_failing_mic_with_portaudio_present_does_not_blame_it() -> None:
     naming the package unconditionally would be as wrong as never naming it, just
     louder.
     """
-    detail = doctor_mod.microphone_detail("unknown", snap_pending=False, no_portaudio=False)
+    detail = doctor_mod.microphone_detail(
+        "unknown", snap_pending=False, no_portaudio=False, platform_name="linux"
+    )
     assert "libportaudio2" not in detail
     assert detail == "unknown"
 
@@ -74,7 +78,9 @@ def test_a_failing_mic_with_portaudio_present_does_not_blame_it() -> None:
 def test_the_snap_message_still_wins() -> None:
     """Inside the snap, PortAudio ships with the package, so the cause is the
     un-connected interface and that answer must not be displaced."""
-    detail = doctor_mod.microphone_detail("unknown", snap_pending=True, no_portaudio=True)
+    detail = doctor_mod.microphone_detail(
+        "unknown", snap_pending=True, no_portaudio=True, platform_name="linux"
+    )
     assert "snap connect" in detail
     assert "libportaudio2" not in detail
 

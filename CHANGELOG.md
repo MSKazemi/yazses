@@ -8,6 +8,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A microphone the OS was refusing got no remedy on any platform, and on Windows the right
+  remedy was attached to a row that can never fail. `PermissionsBackend` carried exactly one
+  message, `how_to_grant()`, and `doctor` prints it on the **keyboard** row only — so a macOS
+  microphone denied by TCC rendered as the bare word `denied` (the one message that existed
+  names *Accessibility*, a different service whose toggle is probably already on), and
+  `WindowsPermissions.how_to_grant()` — almost entirely microphone text, down to
+  `ms-settings:privacy-microphone` — could not be printed at all, because
+  `check_keyboard_capture()` on Windows always answers OK. There is now a
+  `how_to_grant_microphone()` on the protocol and on all three backends: macOS names the
+  **Microphone** pane, the never-asked case (`AVCaptureDevice` reports NotDetermined until
+  something records, so the prompt has not appeared yet — hold the hotkey once), and a
+  bundle-scoped `tccutil reset Microphone com.yazses.app`; Windows names the pane, the
+  separate *"Let desktop apps access your microphone"* switch, and the no-device case; Linux
+  says plainly that there is no per-app gate here and names the commands that show what the OS
+  can see. Separately, `doctor` told **every** operating system to run
+  `sudo apt install libportaudio2` when `sounddevice` could not import — including the two
+  with no apt, and where the wheel *bundles* PortAudio, so the real cause is a partial install
+  and the fix is a reinstall. `portaudio_advice()` now answers per OS (Debian, Fedora/Arch,
+  FreeBSD ports, and a wheel reinstall on macOS/Windows) and a test fails the build if any
+  platform is handed a package manager it does not have.
+
 - A whole `doctor` row was unreachable on the only OS it exists for. The **Elevated
   windows** check — the one that explains why dictation works everywhere except Task
   Manager — was gated on `platform_name != "windows"`. `Platform.name` is a `sys.platform`

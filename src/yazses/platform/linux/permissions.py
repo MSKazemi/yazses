@@ -41,3 +41,23 @@ class LinuxPermissions:
             "    sudo usermod -aG input $USER\n"
             "Then log out and back in (or reboot) for the change to take effect."
         )
+
+    def how_to_grant_microphone(self) -> str:
+        """Linux has no per-app microphone gate, so this is never a *permission*.
+
+        `check_microphone` answers UNKNOWN for two different machines: one with no
+        input device at all, and one where PortAudio could not even load. Doctor
+        handles the second case separately (it names the package), so what is left
+        here is genuinely "the OS can see no input", and the useful answer is which
+        commands show what it *can* see rather than a settings pane that does not
+        exist.
+        """
+        return (
+            "Linux does not gate the microphone per application, so this is not a\n"
+            "permission to grant -- no input device was found. Check in this order:\n"
+            "  yazses audio devices    # what YazSes can see (pinned mic marked)\n"
+            "  yazses doctor --mic     # record a short clip and report its level\n"
+            "  pactl list short sources   # or: wpctl status\n"
+            "If the device is listed but silent, it is muted or its input volume is\n"
+            "at zero in the desktop sound settings."
+        )

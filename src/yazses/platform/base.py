@@ -214,7 +214,21 @@ class PermissionsBackend(Protocol):
         """May trigger an OS prompt. No-op on platforms without a prompt."""
 
     def how_to_grant(self) -> str:
-        """Actionable user-facing message describing how to grant permissions."""
+        """Actionable user-facing message describing how to grant permissions.
+
+        This one answers a denied **keyboard capture**. It is the only remedy the
+        protocol had, and `doctor` prints it on the keyboard row alone -- which
+        left the microphone row with nothing to say on any OS, and on Windows put
+        genuinely useful microphone advice behind a check that always answers OK.
+        """
+
+    def how_to_grant_microphone(self) -> str:
+        """The same, for a microphone the OS is refusing or cannot see.
+
+        Separate from :meth:`how_to_grant` because the two are different panes,
+        different commands and, on macOS, different TCC services -- a reader sent
+        to Accessibility for a microphone problem is sent to the wrong place.
+        """
 
 
 @runtime_checkable

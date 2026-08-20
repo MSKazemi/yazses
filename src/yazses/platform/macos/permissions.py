@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 
 #: `CFBundleIdentifier` from `packaging/macos/yazses.spec`. Passed to `tccutil`
 #: so a reset is scoped to YazSes -- the bare form clears every application's
-#: Accessibility grant, which is a far worse outcome than the problem.
+#: grant for that service, which is a far worse outcome than the problem.
 _BUNDLE_ID = "com.yazses.app"
 
 
@@ -117,4 +117,43 @@ class MacosPermissions:
             f"  tccutil reset Accessibility {_BUNDLE_ID}\n"
             "(the bundle id matters -- drop it and that command clears the grant\n"
             "for every app on the Mac, not only this one)"
+        )
+
+    def how_to_grant_microphone(self) -> str:
+        """A denied microphone is a *different* TCC service from Accessibility.
+
+        `doctor` had one remedy for both rows and printed it only on the keyboard
+        one, so a Mac whose microphone is refused rendered as the bare word
+        `denied`: no pane, no command, nothing to act on. Sending that reader to
+        Privacy & Security -> Accessibility -- the only advice this class had --
+        would have been worse than silence, because the toggle there is already on.
+
+        Two macOS-specific facts a blocked reader needs, and neither is guessable:
+
+        * **"denied" here can mean "never asked".** `AVCaptureDevice` reports
+          `NotDetermined` until something actually opens the microphone, and macOS
+          only shows its one-time prompt at that moment. `check_microphone` maps
+          that to UNKNOWN rather than DENIED, so the honest instruction is to hold
+          the hotkey once and answer the prompt -- not to hunt through Settings.
+        * **The grant is attached to a code identity, not a name.** These builds
+          are unsigned, so a new binary is a new identity and the old approval
+          stops applying while the entry still looks enabled -- the same trap
+          `how_to_grant` documents for Accessibility, and the reason a reset is
+          offered rather than "toggle it off and on".
+        """
+        return (
+            "Allow the microphone in System Settings:\n"
+            "  System Settings -> Privacy & Security -> Microphone -> enable YazSes.\n"
+            "Or open the pane directly:\n"
+            "  open 'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'\n"
+            "Never seen a microphone prompt? macOS only asks the first time an app\n"
+            "actually records: hold the hotkey once and answer it.\n"
+            "Listed and enabled but still refused? These builds are unsigned, so\n"
+            "macOS sees a new identity whenever the binary changes and the old\n"
+            "approval stops applying. Reset just this app's microphone decision:\n"
+            f"  tccutil reset Microphone {_BUNDLE_ID}\n"
+            "(the bundle id matters -- drop it and that command clears the\n"
+            "microphone grant for every app on the Mac, not only this one)\n"
+            "This is the Microphone service, not Accessibility -- they are granted\n"
+            "separately and one being on says nothing about the other."
         )

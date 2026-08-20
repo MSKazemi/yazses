@@ -218,6 +218,19 @@ those remappers.
 unsigned apps as new identities each time their hash changes. After every
 update you may need to re-allow.
 
+**"`doctor` says the microphone is denied."** Allow it in *Settings → Privacy &
+Security → Microphone*, and check **"Let desktop apps access your microphone"** is
+on as well — that second switch is separate and gates YazSes even when the first
+one is on. The pane opens directly with:
+
+```
+start ms-settings:privacy-microphone
+```
+
+If it is already allowed, Windows is reporting no input device at all: check it is
+plugged in and enabled in Sound settings, then run `yazses audio devices`. The
+**Microphone** row of `yazses doctor` prints this fix itself.
+
 **"Dictation works everywhere except in one app."** If that app runs as
 administrator (Task Manager, an elevated PowerShell, some installers and
 enterprise tools), Windows blocks input sent to it from a non-elevated

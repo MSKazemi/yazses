@@ -187,7 +187,25 @@ some IME apps). Try a different hotkey by editing `config.toml`.
 
 **"Microphone is silent."** Confirm in
 *System Settings → Privacy & Security → Microphone* that YazSes is enabled.
-Run `--cli doctor` to see what YazSes is detecting.
+Run `--cli doctor` to see what YazSes is detecting — the **Microphone** row now
+carries the fix, not just the word `denied`.
+
+**"Microphone says denied and I never saw a prompt."** macOS only asks the first
+time an app actually records, so before your first dictation there is nothing in
+the Microphone list to enable. Hold the hotkey once and answer the prompt.
+
+**"Microphone is enabled in Settings and YazSes still says denied."** Same trap as
+Accessibility above: these builds are unsigned, so macOS treats a changed binary as
+a new identity and the old approval stops applying while the entry still looks on.
+Reset this app's microphone decision and relaunch:
+
+```sh
+tccutil reset Microphone com.yazses.app
+```
+
+Keep the bundle id. Without it, `tccutil reset Microphone` clears the microphone
+grant for **every** app on the Mac. Microphone and Accessibility are separate
+services — one being granted says nothing about the other.
 
 **"Antivirus flags YazSes."** These builds are unsigned, which trips conservative AV
 heuristics. Build from source (`scripts/build-macos.sh`) if you prefer.

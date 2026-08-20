@@ -15,7 +15,12 @@ from importlib.metadata import version as _pkg_version
 from pathlib import Path
 
 from yazses.platform import PermissionState, get_platform
-from yazses.platform.base import LINUX_PLATFORM_NAME, WINDOWS_PLATFORM_NAME
+from yazses.platform.base import (
+    LINUX_PLATFORM_NAME,
+    MACOS_PLATFORM_NAME,
+    WINDOWS_PLATFORM_NAME,
+)
+from yazses.platform.bsd import BSD_PREFIXES
 from yazses.system import streams
 from yazses.system.miclevel import LevelStats
 from yazses.system.snap import in_strict_snap, keyboard_capture_advice
@@ -813,30 +818,80 @@ def _format_check(name: str, status: str, detail: str) -> str:
     return f"  {tag} {name}: {detail_out}"
 
 
-def microphone_detail(state: str, *, snap_pending: bool, no_portaudio: bool) -> str:
+def portaudio_advice(platform_name: str) -> str:
+    """How to get the PortAudio runtime back, on the OS actually running. Pure.
+
+    This line said `sudo apt install libportaudio2` on every operating system,
+    including the two where there is no apt. It is only *true* on Debian-family
+    Linux, and there it is the single commonest reason a fresh `pipx`/`uv tool`
+    install has no microphone — nothing pulls `libportaudio2` in.
+
+    Elsewhere the cause is different, not just the package manager: the
+    `sounddevice` wheels for macOS and Windows **bundle** PortAudio (the module
+    falls back to `_sounddevice_data/portaudio-binaries` when the system library
+    is absent), so an import failure there means a broken or partial install
+    rather than a missing system package. Reinstalling the wheel is the fix that
+    matches the cause; Homebrew is offered only as the source-install fallback.
+    """
+    if platform_name == MACOS_PLATFORM_NAME:
+        return (
+            "PortAudio could not be loaded, so no audio device can be opened. The "
+            "sounddevice wheel bundles it on macOS, so this usually means a partial "
+            "install — run: pip install --force-reinstall sounddevice  "
+            "(built from source instead? then: brew install portaudio)"
+        )
+    if platform_name == WINDOWS_PLATFORM_NAME:
+        return (
+            "PortAudio could not be loaded, so no audio device can be opened. The "
+            "sounddevice wheel bundles it on Windows, so this means a broken or "
+            "partial install — run: pip install --force-reinstall sounddevice"
+        )
+    if platform_name.startswith(BSD_PREFIXES):
+        return (
+            "PortAudio is not installed, so no audio device can be opened — "
+            "run: sudo pkg install portaudio  (or build audio/portaudio from ports)"
+        )
+    return (
+        "PortAudio is not installed, so no audio device can be opened — "
+        "run: sudo apt install libportaudio2  (pipx/uv installs do not pull it in; "
+        "on Fedora it is portaudio, on Arch portaudio)"
+    )
+
+
+def microphone_detail(
+    state: str,
+    *,
+    snap_pending: bool,
+    no_portaudio: bool,
+    platform_name: str,
+    advice: str = "",
+) -> str:
     """What to print beside a failing microphone check. Pure.
 
     Extracted so the branch can be tested without running the whole doctor, which is
     how this file already treats every other decision it makes.
 
     The ordering matters. Inside the snap, PortAudio ships with the package, so an
-    un-connected `audio-record` interface is the cause and must win. Outside it, a
-    missing PortAudio runtime is the commonest reason a fresh `pipx`/`uv tool` install
-    has no microphone — nothing pulls `libportaudio2` in, `sounddevice` raises on
-    import, and `check_microphone` reports the same `UNKNOWN` it reports for a machine
-    with no input hardware. Those two need opposite actions, and this row used to
-    render both as the bare word "unknown".
+    un-connected `audio-record` interface is the cause and must win. Then a PortAudio
+    runtime that cannot load, because `check_microphone` reports the same `UNKNOWN`
+    for that as for a machine with no input hardware and the two need opposite
+    actions. Only then the OS's own remedy.
 
-    Naming the package unconditionally would be as wrong as never naming it: a machine
-    that has PortAudio and no microphone must not be sent to apt.
+    `advice` is `PermissionsBackend.how_to_grant_microphone()`. It arrives as an
+    argument rather than being fetched here so the whole decision stays pure and
+    testable per-OS from a Linux box — and it exists at all because this row used to
+    end at the bare word "denied" on every platform, while Windows kept perfectly
+    good microphone advice on a check that always answers OK.
+
+    Naming a package unconditionally would be as wrong as never naming it: a machine
+    that has PortAudio and no microphone must not be sent to a package manager.
     """
     if snap_pending:
         return "not granted — run: sudo snap connect yazses:audio-record"
     if no_portaudio:
-        return (
-            "PortAudio is not installed, so no audio device can be opened — "
-            "run: sudo apt install libportaudio2  (pipx/uv installs do not pull it in)"
-        )
+        return portaudio_advice(platform_name)
+    if advice:
+        return f"{state} — {advice}"
     return state
 
 
@@ -911,7 +966,11 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
         from yazses.system.setup import portaudio_missing, snap_mic_pending
 
         mic_detail = microphone_detail(
-            mic.value, snap_pending=snap_mic_pending(), no_portaudio=portaudio_missing()
+            mic.value,
+            snap_pending=snap_mic_pending(),
+            no_portaudio=portaudio_missing(),
+            platform_name=platform.name,
+            advice=perms.how_to_grant_microphone(),
         )
     checks.append((
         "Microphone",
