@@ -50,9 +50,9 @@ def test_nothing_to_say_before_there_is_evidence():
     support is worse than no number, because it will be believed.
     """
     w = OutcomeWindow()
-    assert describe_outcomes(w.as_dict()) is None
+    assert describe_outcomes(w.as_dict()) == []
     w.record("empty")
-    assert describe_outcomes(w.as_dict()) is None
+    assert describe_outcomes(w.as_dict()) == []
 
 
 def test_it_reports_once_there_is_enough_to_mean_something():
@@ -61,8 +61,8 @@ def test_it_reports_once_there_is_enough_to_mean_something():
         w.record("typed")
     for _ in range(7):
         w.record("empty")
-    line = describe_outcomes(w.as_dict())
-    assert line is not None
+    line = "\n".join(describe_outcomes(w.as_dict()))
+    assert line
     assert "6" in line and "13" in line, line
     assert "46%" in line, f"expected the rate, got {line!r}"
 
@@ -72,8 +72,8 @@ def test_a_healthy_run_still_reports():
     w = OutcomeWindow()
     for _ in range(20):
         w.record("typed")
-    line = describe_outcomes(w.as_dict())
-    assert line is not None and "100%" in line, line
+    line = "\n".join(describe_outcomes(w.as_dict()))
+    assert line and "100%" in line, line
 
 
 def test_the_default_window_covers_a_working_session_not_a_lifetime():

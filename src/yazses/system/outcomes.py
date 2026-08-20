@@ -39,40 +39,100 @@ MIN_SAMPLES = 5
 TYPED = "typed"
 
 
+#: Holding the command key is not an attempt to dictate, so those bursts are counted
+#: apart from the dictation rate. Both directions of the conflation were real:
+#:
+#: * a command that matched **types nothing by design** and set no discard reason, so
+#:   it scored as a success and *flattered* the rate;
+#: * a command that matched nothing scored as a failure, and on the machine that found
+#:   this (2026-08-20) four of six recent bursts were unrecognised commands, so
+#:   `yazses status` read `typed: 0 of 6 recent bursts (0%)` while dictation was
+#:   healthy — beside a microphone warning, which is the worst possible pairing.
+#:
+#: The documented promise is "how often **dictation** actually produced text", and it
+#: enumerates what counts against it as "silence, an empty transcription, no text
+#: target" — every one a dictation-path failure. The daemon already stamped
+#: `event["command_mode"]`; the gauge one module away simply never asked.
+COMMAND_UNRECOGNISED = {"command_unmatched", "command_no_text_target"}
+
+
 class OutcomeWindow:
     """Recent per-burst outcomes. Not thread-safe; the daemon records under its lock."""
 
     def __init__(self, window: int = DEFAULT_WINDOW) -> None:
         self._outcomes: deque[str] = deque(maxlen=window)
+        self._commands: deque[str] = deque(maxlen=window)
 
-    def record(self, outcome: str) -> None:
+    def record(self, outcome: str, *, command: bool = False) -> None:
         """Note one finished burst. Any string is accepted and counted.
 
         A future discard reason must show up in the totals rather than being
         dropped for not being on a list — an outcome nobody counted is exactly how
         a failure mode stays invisible.
+
+        ``command`` says the dedicated command key was held, which makes the burst an
+        instruction rather than an attempt to dictate. It is counted either way; the
+        two are just never averaged together.
         """
-        self._outcomes.append(str(outcome or "unknown"))
+        value = str(outcome or "unknown")
+        (self._commands if command else self._outcomes).append(value)
 
     def as_dict(self) -> dict:
-        counts = Counter(self._outcomes)
+        counts = Counter(self._outcomes) + Counter(self._commands)
+        commands = Counter(self._commands)
         return {
-            "total": len(self._outcomes),
+            # `total`/`typed`/`counts` keep their old meaning — every burst, however
+            # it was started. A status bar reading them must not change behaviour
+            # because a field was added beside them.
+            "total": len(self._outcomes) + len(self._commands),
             "typed": counts.get(TYPED, 0),
             "counts": dict(counts),
+            "dictation_total": len(self._outcomes),
+            "dictation_typed": Counter(self._outcomes).get(TYPED, 0),
+            "command_total": len(self._commands),
+            "command_unrecognised": sum(
+                n for reason, n in commands.items() if reason in COMMAND_UNRECOGNISED
+            ),
         }
 
 
-def describe_outcomes(data: dict | None) -> str | None:
-    """One line for `yazses status`, or None when there is not enough to say. Pure."""
+def describe_outcomes(data: dict | None) -> list[str]:
+    """Lines for `yazses status`; empty when there is not enough to say. Pure.
+
+    Returns a list because a machine that both dictates and uses the command key has
+    two independent things to report, and averaging them produces a number that
+    describes neither.
+    """
     if not data:
-        return None
-    total = int(data.get("total") or 0)
-    if total < MIN_SAMPLES:
-        return None
-    typed = int(data.get("typed") or 0)
-    pct = round(100 * typed / total)
-    return f"  typed:    {typed} of {total} recent bursts ({pct}%)"
+        return []
+
+    lines: list[str] = []
+    if "dictation_total" in data:
+        total = int(data.get("dictation_total") or 0)
+        typed = int(data.get("dictation_typed") or 0)
+        label = "recent dictation bursts"
+    else:
+        # An older daemon sends only the combined totals. It cannot tell the two kinds
+        # apart, so neither can this: report what it sent, and do not call the result
+        # a dictation rate, which would be a claim the payload cannot support.
+        total = int(data.get("total") or 0)
+        typed = int(data.get("typed") or 0)
+        label = "recent bursts"
+
+    if total >= MIN_SAMPLES:
+        pct = round(100 * typed / total)
+        lines.append(f"  typed:    {typed} of {total} {label} ({pct}%)")
+
+    commands = int(data.get("command_total") or 0)
+    if commands:
+        # Reported whatever the dictation count is: below MIN_SAMPLES the rate above
+        # is withheld, and that is exactly when a run of unrecognised commands would
+        # otherwise leave no trace on the surface at all.
+        unrecognised = int(data.get("command_unrecognised") or 0)
+        lines.append(
+            f"  commands: {commands} recent command burst(s), {unrecognised} unrecognised"
+        )
+    return lines
 
 
 def classify_outcome(discard_reason: str | None, *, pipeline_failed: bool) -> str:

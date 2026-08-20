@@ -174,13 +174,22 @@ numbers still move after you change model, which is exactly when you look at the
 And it reports **how often dictation actually produced text**:
 
 ```
-  typed:    18 of 20 recent bursts (90%)
+  typed:    18 of 20 recent dictation bursts (90%)
+  commands: 4 recent command burst(s), 1 unrecognised
 ```
 
 A fast decode that types nothing is not usable at all, so this is the more basic of the
 two numbers. A burst counts as `typed` only if text reached the window: one that was
 discarded (silence, an empty transcription, no text target) or that raised does not,
 which means the figure cannot flatter itself by counting failures as successes.
+
+**Bursts held on the command key are counted separately**, and the second line only
+appears on a machine that uses one. Command mode never types literal text — an
+unrecognised phrase is ignored by design — so averaging the two produces a number that
+describes neither: a command that matched would flatter the dictation rate, and one
+that did not would read as a dictation failure. On the machine this split was written
+for, four of six recent bursts were commands and the combined line said `0%` while
+dictation was working, directly above a microphone warning.
 
 It is a **gauge, not a warning** — it shows on a healthy run too, because a number that
 only appears when something is wrong gives you no baseline to compare against, and you

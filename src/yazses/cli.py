@@ -3081,8 +3081,7 @@ def status(
         typer.echo(line)
     # How often dictation actually produced text. Absent until there is enough to
     # mean something, and absent on an older daemon that does not send the field.
-    outcome_line = describe_outcomes(info.get("outcomes"))
-    if outcome_line:
+    for outcome_line in describe_outcomes(info.get("outcomes")):
         typer.echo(outcome_line)
     if info.get("silent_streak"):
         typer.echo(

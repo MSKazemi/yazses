@@ -8,6 +8,25 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`yazses status` scored commands you spoke on purpose as dictation failures.** The
+  gauge that answers "how often did dictation produce text" divided typed bursts by
+  *every* burst, including ones held on the dedicated command key — which never types
+  literal text, because an unrecognised phrase is ignored by design.
+
+  Found running the daemon: `typed: 0 of 6 recent bursts (0%)` printed directly above a
+  microphone warning, on a machine whose `--json` payload read
+  `{"empty": 1, "command_unmatched": 4, "silent": 1}`. Four of the six were deliberate
+  command presses; dictation was healthy.
+
+  The conflation ran both ways, and the other direction could have hidden a real fault:
+  a command that *matched* dispatches a key sequence, sets no discard reason, and so
+  scored as `typed` — commands could hold the rate at 100% while dictation typed
+  nothing. Command bursts are now counted and reported on their own line, so neither
+  kind is averaged into the other and neither disappears. `total`, `typed` and `counts`
+  in `--json` keep their old meaning for anything already reading them, and a new CLI
+  talking to an older daemon falls back to the combined line rather than labelling it a
+  dictation rate the payload cannot support.
+
 - **`yazses status` under-reported uptime by however long the machine had been
   asleep.** Measured on a laptop: `ps` reported the daemon up 9 h 25 m with
   `NRestarts=0`, `yazses status` reported 5 h 29 m, and the difference was exactly

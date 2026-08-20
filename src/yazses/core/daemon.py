@@ -1946,10 +1946,17 @@ class Daemon:
             # return value through each early return. The per-burst result was always
             # in the log and never summarised -- the same gap #296 closed for decode
             # latency, and the more basic number of the two.
+            # `command_mode` is stamped on the event at classification time. Without
+            # it the gauge averaged instructions and dictation together, which broke
+            # in both directions: a matched command types nothing by design and
+            # scored as a success, an unmatched one scored as a failure. Measured
+            # here, four unrecognised commands in six bursts read as `typed: 0 of 6
+            # (0%)` on a machine whose dictation was working.
             self._outcomes.record(
                 classify_outcome(
                     event.get("discard_reason"), pipeline_failed=pipeline_failed
-                )
+                ),
+                command=bool(event.get("command_mode")),
             )
             # Non-silent capture that produced a transcript means the mic is working:
             # reset the silent streak and remember this device as the auto-heal target.
