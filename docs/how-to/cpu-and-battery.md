@@ -72,15 +72,25 @@ YazSes is event-driven: between bursts it holds the model in memory and does no
 work. There is no background transcription and no polling of your microphone. The
 idle cost is the resident model, which is the "Peak RSS" column above.
 
-Two components do poll, both cheaply and both switchable:
+Three components do poll, all switchable:
 
-| Setting | What it polls | Turn it off with |
-|---|---|---|
-| `[audio] device_poll_interval_s` (default `3.0`) | the OS default input device, **only while idle** | set to `0` |
-| `[tray] enabled` (default `true`) | the daemon's status, for the icon colour | `yazses features disable tray` |
+| Setting | What it polls | Idle rate | Turn it off with |
+|---|---|---|---|
+| `[audio] device_poll_interval_s` (default `3.0`) | the OS default input device, **only while idle** | 0.33 Hz | set to `0` |
+| `[tray] enabled` (default `true`) | the daemon's status, for the icon colour | 1 Hz | `yazses features disable tray` |
+| `[overlay] enabled` (default `true`) | the daemon's status, for the voice-activity ring | 4 Hz | `yazses features disable overlay` |
 
-The tray polls faster (about every 0.15 s) *while you are recording*, so the colour
-tracks a short hold. That is bounded by how long you hold the key.
+Both status pollers speed up *while you are recording* — the tray to about 6.7 Hz
+and the overlay to 20 Hz — so the colour and the ring track a short hold. That part
+is bounded by how long you hold the key; the idle rates above are not.
+
+Which is why what the status call *does* matters more than how often it is asked.
+It is a read of fields the daemon already has in memory — with one exception, now
+fixed: it also looked up the installed package version, and that walks `sys.path`
+for a `.dist-info` on every call (2.1 ms measured). Both status pollers are on by
+default, so a stock idle install spent roughly 40 s of CPU an hour re-reading a
+string that cannot change while the process lives. It is now looked up once per
+process, which is all it can ever change on.
 
 ## Features worth turning off on battery
 

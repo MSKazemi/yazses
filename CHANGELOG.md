@@ -8,6 +8,35 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- An idle daemon burned CPU re-reading a string that cannot change. The IPC status payload
+  carried `"version": _running_version()`, and that calls `importlib.metadata.version("yazses")`,
+  which walks `sys.path` for a `.dist-info` on **every call** — **2.1 ms** measured. Status is
+  not a one-shot: the voice-activity overlay polls it 4x a second while idle and 20x while
+  recording, the tray 1x and 6.7x, and **both are on by default**. So a stock idle install spent
+  roughly **40 s of CPU an hour** producing a value fixed at import — inside `self._lock`, the
+  same mutex `_on_hold_start` takes when the hotkey goes down. Measured on a real session: an
+  11-hour daemon reported 1 h 6 min of CPU. The lookup is now memoised, which is the same fact
+  the field's own comment already states — *"a daemon keeps running the build it started with"*.
+  (The measured session's 1 h 6 min is the whole cgroup — daemon, tray and overlay together;
+  this one field accounts for about 7 min of it. The rest is the pollers themselves, which is a
+  separate question.)
+  The repository had even written the cost down: `tests/test_cli_startup_cost.py` guards against
+  *importing* `importlib.metadata` because it is "the single most expensive import in the tree",
+  one file away from a call site paying a comparable cost five times a second.
+  `tests/test_status_poll_cost.py` pins it: the lookup happens once across 200 polls, a failed
+  lookup is still `""` and still cached, and `_handle_status` may not inline a metadata lookup
+  of its own.
+
+### Changed
+
+- `docs/how-to/cpu-and-battery.md` described **two** background pollers when there are three,
+  and the one it omitted is both the fastest and on by default: the overlay's status poll at
+  4 Hz idle / 20 Hz recording. The table now lists all three with their idle rates and the
+  command that switches each off, and the page no longer implies the status call is free. The
+  numbers are pinned to the code — `tests/test_status_poll_cost.py` reads the poll intervals out
+  of `overlay/poller.py` and `tray/app.py` and the defaults out of the config dataclasses, so a
+  changed interval or a flipped default fails the build instead of quietly making the page wrong.
+
 - `yazses features enable denoise` turned the feature on and installed nothing, and the card
   that describes it said the opposite of what the code does. `denoise` is a registered,
   toggleable feature but was absent from `_FEATURE_DEPS`, the map that tells `enable` which pip

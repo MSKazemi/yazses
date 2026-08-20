@@ -8,6 +8,7 @@ lifecycle. All platform-specific concerns are reached through
 
 from __future__ import annotations
 
+import functools
 import logging
 import os
 import signal
@@ -82,12 +83,23 @@ from yazses.tts.factory import build_tts
 log = logging.getLogger(__name__)
 
 
+@functools.cache
 def _running_version() -> str:
     """The version of the yazses package this daemon imported. Never raises.
 
     Deferred rather than module-level: `importlib.metadata` is the single most
     expensive import in the tree (52 ms, measured), and CLI start-up cost is
     guarded by `tests/test_cli_startup_cost.py`.
+
+    Cached because this is not a one-shot: `_handle_status` reads it on **every**
+    IPC status call, and the pollers are relentless -- the overlay asks 4x a second
+    while idle and 20x while recording, the tray 1x and 6.7x. The lookup is not
+    free: `importlib.metadata.version` walks `sys.path` for a `.dist-info` on each
+    call and cost **2.1 ms** measured here, so an idle daemon with the overlay on
+    spent ~30 s of CPU an hour re-reading a string that cannot change -- inside
+    `self._lock`, the same mutex `_on_hold_start` takes when the key goes down.
+    A process runs the build it imported; that is the very fact this field exists
+    to report, so one lookup is all there can be to do.
     """
     try:
         from importlib.metadata import version
