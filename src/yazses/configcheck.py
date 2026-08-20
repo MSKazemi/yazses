@@ -212,9 +212,43 @@ def negative_is_impossible(field) -> bool:
 #: visible. `tests/test_config_enums_are_validated.py` pins that fail-safe behaviour, so
 #: if one of them starts falling back to something ENABLED, the exclusion stops being
 #: justified and a test says so.
+#: Settings whose value must come from a closed set.
+#:
+#: `doctor` reports this table's verdict as **"Config validity: every setting is a usable
+#: value"**, and for a long time the table held two entries while `config.py` documented
+#: twenty-three more closed sets in trailing `# a | b | c` comments -- none of them
+#: checked. A typo in one of those was accepted in silence, and what happened next was
+#: decided by whichever consumer eventually read it. Measured, three different answers:
+#:
+#: * `recimport.render.render_transcript` **raises** `ValueError`, so a meeting's
+#:   post-pass fails outright (the canonical `transcript.json` is written first and the
+#:   recording is retained, so nothing is lost -- but the meeting cannot finalize until
+#:   the config is corrected);
+#: * `gaze/factory.py` and `voiceprint/factory.py` log one line and **disable the
+#:   feature**, which is the insidious one: the message goes to a daemon log nobody
+#:   reads, `yazses features` still shows the capability as ON, and it simply never runs;
+#: * `stt/factory.py` falls back to the default and says so, naming the valid values --
+#:   the behaviour the other two should have had.
+#:
+#: Entries are added only once the consumer has been read and the set confirmed against
+#: it, because validating against a *wrong* list rejects a working config, which is worse
+#: than the silence being fixed. `commands.lsp_editor` is the worked example of why:
+#: nothing in `src/` consumes it, and its comment (`auto | neovim | vscode`) and the
+#: architecture reference (`neovim` | `none`) disagree, so there is no set to enforce.
+#: `tests/test_config_enums_are_complete.py` holds the remainder in view.
 _ENUMS: dict[str, tuple[str, ...]] = {
     "injection.backend": ("auto", "type", "clipboard", "wtype"),
     "injection.target_guard": ("clipboard", "warn", "off"),
+    # Held equal to `recimport.render.VALID_FORMATS` by the test -- that constant is the
+    # authority, and this is the pair whose consumer raises.
+    "recimport.output_format": ("txt", "md", "srt", "vtt", "json"),
+    "meeting.output_format": ("txt", "md", "srt", "vtt", "json"),
+    # `none` is not a branch in either factory; it falls through to the same "unknown ->
+    # disabled" path, which is what it means. Kept because both are documented values.
+    "gaze.backend": ("mediapipe", "l2cs", "none"),
+    "voiceprint.backend": ("ecapa", "resemblyzer"),
+    # `""` is accepted by `build_engine` as "use the default" and must stay valid.
+    "stt.engine": ("", "faster-whisper", "parakeet", "moonshine"),
 }
 
 
@@ -300,9 +334,13 @@ def build_section(cls, raw, section: str, problems: list[ConfigProblem]):
         if ok and allowed and isinstance(coerced, str):
             if coerced.strip().lower() not in allowed:
                 ok = False
-                note = (
-                    f"is not one of {', '.join(allowed)} (got {coerced!r})"
+                # `""` is a real member of some sets ("use the default"), but naming
+                # it in the message renders as a stray leading comma. Say what the
+                # empty value *means* instead of printing nothing.
+                shown = [v for v in allowed if v] + (
+                    ["or leave it empty"] if "" in allowed else []
                 )
+                note = f"is not one of {', '.join(shown)} (got {coerced!r})"
         if ok:
             if note:
                 problems.append(

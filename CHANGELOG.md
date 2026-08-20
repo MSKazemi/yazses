@@ -8,6 +8,37 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A typo in a config setting was accepted in silence, and what happened next depended
+  on which module eventually read it.** `configcheck` validates values against a closed
+  set, and `yazses doctor` reports its verdict as *"Config validity: every setting is a
+  usable value"* — but the table held **two** entries while `config.py` documented
+  twenty-three more closed sets in trailing `# a | b | c` comments. Measured through the
+  real loader:
+
+  ```
+  [gaze] backend          = "mediapip"    accepted -> gaze silently never runs
+  [voiceprint] backend    = "ecapa-tdnn"  accepted -> voiceprint silently disabled
+  [meeting] output_format = "markdown"    accepted -> the post-pass later raises
+  [stt] engine            = "whisper"     accepted -> warned, fell back to the default
+  [injection] backend     = "xdotol"      caught   (the one entry that existed)
+  ```
+
+  The silent-disable cases are the worst of the three: the log line goes to a daemon log
+  nobody reads, `yazses features` still shows the capability as ON, and it simply never
+  runs. `[meeting] output_format` is the loudest — `render_transcript` raises on an
+  unknown format, so a meeting cannot finalize until the config is corrected. Nothing is
+  lost there: the canonical `transcript.json` is written before the human format and the
+  recording is retained on a failed post-pass.
+
+  Five settings are now validated — the two `output_format` fields (held equal to
+  `render.VALID_FORMATS`, the constant that decides whether the post-pass raises),
+  `[gaze] backend`, `[voiceprint] backend` and `[stt] engine`. Each was added only after
+  reading the consumer, because enforcing a *wrong* set rejects a working config, which is
+  worse than the silence it replaces. The remaining eighteen are recorded as a ratcheted
+  backlog that a build gate can shrink but not grow, and `[commands] lsp_editor` is marked
+  permanently unenforceable: nothing consumes it, and its comment and the architecture
+  reference disagree about what its values are.
+
 - **`yazses setup` crashed, and `yazses quickstart` lied, for any uid without an
   `/etc/passwd` entry.** `setup._current_user()` ended at
   `pwd.getpwuid(os.getuid()).pw_name` with no fallback, so it raised `KeyError` whenever
