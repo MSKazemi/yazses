@@ -8,6 +8,32 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A phrase YazSes heard, recognised and deliberately did not type counted as a
+  microphone failure.** The mic guard watches for a run of bursts that produce no text,
+  which is the direct "dictation stopped writing" symptom. Its reset asked a narrower
+  question than the guard does: a burst cleared the run only if it produced a transcript
+  **and** was not discarded for any reason at all. Most discard reasons are set *after* a
+  transcript exists and decide only where the text goes — a phrase spoken under the
+  command key that matched no command, an edit refused because nothing editable was
+  focused. Those bursts were neither a success nor a failure, so they left the run
+  standing instead of clearing it.
+
+  Found running the daemon: `yazses status` reported `2 silent clips in a row — run
+  'yazses audio status'` across an hour whose log holds three bursts transcribed at
+  levels 0.0057–0.0118 under the command key. The microphone was working, and had proved
+  it three times. The cost is not the wrong line: at `silent_streak_threshold` the next
+  discard pops a toast saying the microphone stopped working, and with
+  `auto_heal_device` on the daemon switches the capture device on evidence an hour stale
+  and already contradicted.
+
+  A burst now clears the run whenever it proves capture worked, whether or not the text
+  was typed. `silent`, `empty`, `cocktail_gated`, `hallucination` and `post_filter` are
+  deliberately excluded — each is evidence *about* the audio rather than about where
+  text went, and the hallucination guard in particular fires exactly when non-speech
+  decoded to fabricated words. A new discard reason defaults to *not* proof, so the
+  guard stays sensitive, and a test reads the reasons out of `core/daemon.py` itself and
+  fails the build on one that has been classified in neither direction.
+
 - **The guard that checks YazSes only advises commands it has could not see most of
   the advice, and stopped at the command name.** It required a backtick, which is right
   for 200 markdown pages — prose would otherwise parse as command lines — and wrong for

@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     from yazses.voiceprint.base import SpeakerEmbedder
 
 from yazses.audio.adaptive_vad import AdaptiveThreshold
-from yazses.audio.device_monitor import DeviceMonitor, SilentStreakTracker
+from yazses.audio.device_monitor import DeviceMonitor, SilentStreakTracker, capture_proved
 from yazses.audio.mic_prompt import MicPrompt
 from yazses.audio.padding import PreSpeechRingBuffer
 from yazses.audio.recorder import AudioRecorder
@@ -1947,7 +1947,15 @@ class Daemon:
             )
             # Non-silent capture that produced a transcript means the mic is working:
             # reset the silent streak and remember this device as the auto-heal target.
-            if event.get("raw_text") and not event.get("discard_reason"):
+            #
+            # The test is `capture_proved`, not "was it typed". Most discard reasons are
+            # set *after* a transcript exists and decide only where the text goes -- an
+            # unmatched command, no editable target -- and those prove the microphone
+            # works just as well as typing does. Requiring no discard reason at all meant
+            # a command-key burst was neither a success nor a discard, so it left the
+            # streak standing: measured here, "2 silent clips in a row" spanning an hour
+            # that contained three good captures.
+            if event.get("raw_text") and capture_proved(event.get("discard_reason")):
                 self._note_good_capture()
             if self._corpus is not None and (
                 event.get("raw_text") or event.get("discard_reason")

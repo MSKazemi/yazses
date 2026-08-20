@@ -47,6 +47,66 @@ class SilentStreakTracker:
         return threshold > 0 and self._streak >= threshold
 
 
+#: Discard reasons that *prove capture worked* rather than casting doubt on it.
+#:
+#: Every one of these is set **after** a transcript exists: the key was held, the
+#: microphone delivered audio, the recogniser turned it into words, and a policy one
+#: layer further on decided those words should not be typed here. That is a question
+#: about where text goes, not about whether the microphone works — so a run of them
+#: must not read as a run of silent clips.
+#:
+#: Found running the product (2026-08-20). Three bursts were transcribed at levels
+#: 0.0057–0.0118 while the command key was held, matched no command, and were correctly
+#: not typed. Because the streak's reset required a burst with *no* discard reason, none
+#: of the three counted as proof, and `yazses status` went on reporting "2 silent clips
+#: in a row — run `yazses audio status`" across an hour that contained three successful
+#: captures. At `silent_streak_threshold` the next discard would have popped a toast and,
+#: with `auto_heal_device` on, moved the capture device on that evidence.
+#:
+#: Deliberately **not** here: ``silent`` and ``empty`` (the two that mean no usable audio
+#: arrived), ``cocktail_gated`` (dropped before any decode), and ``hallucination`` /
+#: ``post_filter``. The last two produce a transcript but are themselves evidence *about*
+#: the audio — the hallucination guard exists because non-speech decodes to fabricated
+#: words — so treating them as proof would blind the streak to the symptom it watches for.
+CAPTURE_PROVING_DISCARDS = frozenset({
+    "command_unmatched",
+    "command_no_text_target",
+    "timeline_no_text_target",
+    "revise_no_text_target",
+    "no_target",
+    "window_focus_no_match",
+    "deixis_no_target",
+})
+
+
+#: The other half: discard reasons that are *not* proof the microphone is working.
+#:
+#: Declared rather than implied so the classification is reviewable, and so
+#: ``test_every_discard_reason_is_classified`` can read the reasons out of
+#: ``core/daemon.py`` itself and fail the build on one that belongs to neither set. The
+#: set that must not be hand-written is the *source* set; these two are the judgement.
+CAPTURE_DOUBTING_DISCARDS = frozenset({
+    "silent",           # mean(|audio|) below the gate — nothing usable arrived
+    "empty",            # audio decoded to no words at all
+    "cocktail_gated",   # dropped before any decode; there is no transcript to trust
+    "hallucination",    # words fabricated from non-speech — evidence *against* the audio
+    "post_filter",      # the transcript was disfluency only; same doubt as above
+})
+
+
+def capture_proved(discard_reason: str | None) -> bool:
+    """Did this burst prove the microphone is working? Pure.
+
+    ``None`` means the text was typed — the strongest proof there is. Anything else
+    must be named in :data:`CAPTURE_PROVING_DISCARDS` to count, so a discard reason
+    added later defaults to *not* proof and leaves the guard sensitive rather than
+    silently widening what resets it.
+    """
+    if discard_reason is None or not str(discard_reason):
+        return True
+    return str(discard_reason) in CAPTURE_PROVING_DISCARDS
+
+
 def silent_streak_advice(
     streak: int,
     *,

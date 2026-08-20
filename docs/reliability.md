@@ -111,6 +111,23 @@ desktop notification with **[Re-calibrate] / [Pin this mic] / [Ignore]**, becaus
 a silent fix is only half useful — you need to know the device moved. Pin one for
 good with `yazses audio use <name>`.
 
+**What breaks a run.** "Consecutive" means consecutive *failures to capture usable
+audio*, and the streak clears the moment one burst proves the microphone works. Typing
+is the obvious proof, but it is not the only one: a phrase you spoke under the command
+key that matched no command, or a correction refused because nothing editable was
+focused, was still heard, recorded and recognised — so it clears the run too. Only the
+outcomes that say something about the audio itself keep a run alive: nothing above the
+silence gate, a decode that produced no words, a transcript the hallucination guard
+judged fabricated from non-speech, or one the disfluency filter emptied.
+
+!!! bug "Fixed in v2.30"
+
+    Before this, a burst that was transcribed and then deliberately not typed counted
+    as neither — it left the streak standing instead of clearing it. On a machine using
+    the command key that produced `2 silent clips in a row` spanning an hour that
+    contained three good captures, and the next real discard would have healed the
+    capture device on that evidence.
+
 **Healing needs somewhere to heal to.** The first trigger fires on outcomes, so it
 also catches the case where the microphone never moved and is simply capturing
 audio the recogniser cannot use — too quiet, muted at the mixer, a gate set above
