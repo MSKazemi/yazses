@@ -1238,6 +1238,21 @@ yazses meeting enroll <id> --speaker speaker_1 --name Alice   # name them for go
 yazses meeting recover 20260812-140310   # a meeting that crashed: re-run the post-pass
 ```
 
+Each stored meeting lists as `id · length · speakers · directory`, and the length is the
+column that tells them apart — a real meeting sits among the accidental starts that a
+hands-free capture inevitably collects:
+
+```text
+20260819-033515  11s     not diarized  …/20260819-033515
+20260814-065156  26s     not diarized  …/20260814-065156
+20260803-095635  2h 14m  not diarized  …/20260803-095635
+20260710-212029  56s     not diarized  …/20260710-212029
+```
+
+`not diarized` means speaker labelling was never attempted, which is a different statement
+from "nobody spoke". A meeting whose post-pass never finished shows `unfinished` instead,
+with the recovery command beneath it.
+
 `meeting status` reports whether the feature is **on** before anything else. With
 `[meeting] enabled = false` — the default — nothing is recorded, so it says that and names
 the command that turns it on, rather than reporting on speaker labels for a feature that

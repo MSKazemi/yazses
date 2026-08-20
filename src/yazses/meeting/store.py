@@ -45,6 +45,39 @@ def capture_state(silent_input: bool, no_speech: bool) -> str:
     return CAPTURE_OK
 
 
+def duration_summary(meta: dict) -> str:
+    """How long the meeting ran, read at a glance. ``""`` when it was never recorded.
+
+    Every ``meeting.json`` has carried ``duration_s`` since Meeting Mode shipped and no
+    surface ever printed it. Measured on a real machine: four meetings listed as four
+    bare timestamps, holding **11.6 s, 26.6 s, 56.7 s and 8081.4 s** — one real meeting
+    and three accidental starts, indistinguishable without opening four files. Telling
+    them apart is what a person opens this list to do, and the fact was already there.
+
+    Empty rather than ``"unknown"`` when the key is missing: a meeting that never
+    finalized has no ``meeting.json`` at all, and its row already says ``unfinished``.
+    A second word for the same fact is noise. ``0s`` is *not* that case and is shown —
+    a meeting that recorded nothing is worth seeing.
+
+    Thresholds match ``cli._format_uptime``; ``test_the_two_formatters_agree`` pins that,
+    since two formatters for one idea are how surfaces drift apart.
+    """
+    raw = meta.get("duration_s")
+    if raw is None:
+        return ""
+    try:
+        total = int(float(raw))
+    except (TypeError, ValueError):
+        return ""
+    if total < 0:
+        return ""
+    if total < 60:
+        return f"{total}s"
+    if total < 3600:
+        return f"{total // 60}m {total % 60}s"
+    return f"{total // 3600}h {(total % 3600) // 60}m"
+
+
 def capture_warning(meta: dict) -> str | None:
     """One line for a meeting whose audio held nothing worth transcribing, else None.
 

@@ -8,6 +8,23 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `yazses meeting list` printed four meetings as four bare timestamps, and their lengths were
+  on disk the whole time. Measured on a real machine: the four `meeting.json` files held
+  `duration_s` of **11.6, 26.6, 56.7 and 8081.4** seconds — one two-hour meeting among three
+  accidental starts — and the listing showed none of it, so telling them apart, which is what a
+  person opens the list to do, meant opening four files.
+
+  Why it stayed missing is the more useful half. The row was **three copies of one f-string**
+  (`meeting status` has two branches, `meeting list` has one), so adding a column meant
+  remembering three places. `_speaker_summary`, added by an earlier fix, even cites the
+  8081-second meeting in its own docstring: that pass corrected the speaker column and left the
+  duration sitting beside it.
+
+  There is now one renderer, `_meeting_row`, and a test that fails if a second one appears —
+  the duplication is the defect, and the missing column was its symptom. Length is formatted as
+  `2h 14m` / `56s`, and a meeting that never finalized gains no second word for a fact its row
+  already carries: it says `unfinished`, not `unfinished unknown`.
+
 - `yazses verify` certified a microphone that was hearing nobody. Run in a quiet room with
   nobody speaking, on this machine: `[OK] Signal: level 0.0059 clears the gate … but only just
   (1.5x)`, `[OK] Transcription: heard "You"`, `✓ The whole chain ran`. "You" is the commonest

@@ -316,9 +316,8 @@ def meeting_status() -> None:
             if recent:
                 typer.echo("\nMeetings recorded earlier:")
                 for m in recent:
-                    note = " +notes" if m.get("has_notes") else ""
                     typer.echo(
-                        f"  {m.get('id')}  {_speaker_summary(m)}{note}  {m.get('dir', '')}"
+                        f"  {_meeting_row(m)}"
                     )
             return
         diar = result.get("diarization")
@@ -341,9 +340,8 @@ def meeting_status() -> None:
             return
         typer.echo("Recent meetings:")
         for m in recent:
-            note = " +notes" if m.get("has_notes") else ""
             typer.echo(
-                f"  {m.get('id')}  {_speaker_summary(m)}{note}  {m.get('dir', '')}"
+                f"  {_meeting_row(m)}"
             )
 
 
@@ -391,6 +389,24 @@ def _speaker_summary(m: dict) -> str:
     return f"{m.get('num_speakers', '?')} speaker(s)"
 
 
+def _meeting_row(m: dict) -> str:
+    """One line describing a stored meeting. The single renderer for all three lists.
+
+    There were three copies of this f-string — `meeting status` has two branches and
+    `meeting list` has one — and that is why `duration_s` was missing from all of them:
+    adding a column meant remembering three places, so nobody did. The columns are
+    ordered by what tells meetings apart fastest: when, how long, who, what came out.
+    """
+    from yazses.meeting import store
+
+    parts = [str(m.get("id", ""))]
+    if length := store.duration_summary(m):
+        parts.append(length)
+    parts.append(_speaker_summary(m) + (" +notes" if m.get("has_notes") else ""))
+    parts.append(str(m.get("dir", "")))
+    return "  ".join(parts)
+
+
 @meeting_app.command("list")
 def meeting_list(
     as_json: bool = typer.Option(
@@ -414,8 +430,7 @@ def meeting_list(
         typer.echo("No meetings found.")
         return
     for m in meetings:
-        note = " +notes" if m.get("has_notes") else ""
-        typer.echo(f"{m.get('id')}  {_speaker_summary(m)}{note}  {m.get('dir', '')}")
+        typer.echo(_meeting_row(m))
         # `list_meetings` has always set `recoverable` on a meeting that never finalized
         # but left a live.jsonl, and this listing -- the only place it would be seen --
         # dropped it. The daemon streams that file all through a meeting for exactly this
