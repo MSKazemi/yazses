@@ -30,6 +30,16 @@ would have rendered with no images in GNOME Software and KDE Discover. Fixed 202
 now guarded by `tests/test_flatpak_metainfo.py`, so the listing cannot silently lose its
 images again.
 
+**And a fourth, of exactly the same shape, found 2026-08-19:** the manifest installed **no
+`.desktop` file, no icon, and not even the metainfo itself**. The metainfo declares
+`<launchable type="desktop-id">com.mskazemi.YazSes.desktop</launchable>` and that filename
+existed nowhere in the repository. The app would have installed with no app-grid entry and
+no icon, and the linter rejects a desktop-application whose launchable resolves to nothing.
+
+Both blockers hid behind the same false comfort: **item 5 below validates the XML file, so
+it passes on a metainfo the build never installs, and it cannot see a desktop file that was
+never written.** The guards now read the manifest and assert what lands in `/app`.
+
 ---
 
 ## 2. Pre-flight — verify before opening the PR
@@ -40,7 +50,8 @@ images again.
 | 2 | Listing metadata complete | `uv run python -m pytest tests/test_flatpak_metainfo.py` | ✅ 15 passing |
 | 3 | Screenshots resolve | every URL in the metainfo points at a file on `main` | ✅ guarded by test |
 | 4 | Release entry current | newest `<release>` matches `pyproject.toml` | ✅ guarded by test |
-| 5 | AppStream validates | `flatpak run org.freedesktop.appstream-glib validate com.mskazemi.YazSes.metainfo.xml` | ⬜ run on a machine with flatpak |
+| 5 | AppStream validates | `appstreamcli validate com.mskazemi.YazSes.metainfo.xml` | ✅ passes (pedantic: 1) — **but see the note below: this reads the file, not the build** |
+| 5b | The build installs the launcher, the icon and the metainfo | `uv run python -m pytest tests/test_flatpak_metainfo.py` | ✅ guarded by test |
 | 6 | Manifest actually builds | `flatpak-builder --user --install --force-clean build com.mskazemi.YazSes.yml` | ⬜ **must pass before submitting** |
 | 7 | Hold-to-talk works **inside the sandbox** | see the shot list below — this is also the video | ⬜ owner |
 | 8 | Demo video recorded and uploaded | §4 | ⬜ **owner — the blocker** |
@@ -56,8 +67,15 @@ no amount of local non-Flatpak testing would reveal.
 **Base branch must be `new-pr`.** Not `master`. A PR against the wrong base is closed
 without review.
 
-Repository: `flathub/flathub` · Branch name: `com.mskazemi.YazSes` · One file added:
-`com.mskazemi.YazSes.json` or `.yml` (the manifest from this directory).
+Repository: `flathub/flathub` · Branch name: `com.mskazemi.YazSes` · **Four files added,
+flat, exactly as they sit in this directory** — `com.mskazemi.YazSes.yml`,
+`com.mskazemi.YazSes.metainfo.xml`, `com.mskazemi.YazSes.desktop` and
+`com.mskazemi.YazSes.svg`, plus the generated `python3-yazses.json`.
+
+Not the manifest alone: its `path:` sources are resolved relative to the manifest, so a
+repository holding only the `.yml` fails the build on the first `install` command. The
+`.svg` is a byte copy of `contrib/icons/yazses.svg` for that reason — a Flathub repository
+is flat and cannot reach up into `contrib/`.
 
 ### Body — paste verbatim, then fill the two bracketed spots
 

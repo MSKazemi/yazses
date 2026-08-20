@@ -8,6 +8,35 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- The Flatpak build installed no launcher, no icon, and not even its own store listing.
+  `packaging/flatpak/com.mskazemi.YazSes.metainfo.xml` declares
+  `<component type="desktop-application">` and
+  `<launchable type="desktop-id">com.mskazemi.YazSes.desktop</launchable>`, and
+  `com.mskazemi.YazSes.yml` had three modules — portaudio, setuptools, and the generated
+  wheel set — none of which installed a `.desktop` file, a hicolor icon, or the metainfo
+  into `/app/share/metainfo/`. Searching the whole repository for the desktop-id matched
+  exactly one file: the metainfo naming it.
+
+  Installed like that, the app has no entry in any app grid, no icon in GNOME Software or
+  KDE Discover, and Flathub's linter rejects a desktop-application whose launchable
+  resolves to nothing — the same class of blocker that closed flathub#9765, where the
+  metainfo turned out to have no `<screenshots>` block.
+
+  Nothing reported it because every existing check reads the XML. `appstreamcli validate`
+  passes — it did here, on this machine, before the fix — and so does pre-flight item 5
+  in `SUBMISSION.md`, which is that command. Validating a file says nothing about whether
+  the build ships it. The guards added now read the *manifest* and ask what lands in
+  `/app`: the launchable's desktop file must exist and be installed, an icon named after
+  the app ID must land under `hicolor/`, the metainfo must be installed, every `path:`
+  source must be committed beside the manifest, and the desktop entry's `Exec` must name
+  the command the manifest actually exports.
+
+  The icon is the scalable `contrib/icons/yazses.svg`, copied flat beside the manifest
+  because a Flathub repository cannot reach into `contrib/`. That is a second copy of the
+  brand mark, so the drift guard that named `snap/gui/yazses.svg` was replaced by a sweep
+  over every tracked SVG outside `docs/` — the old one covered the only copy that existed
+  and would have said nothing about this one.
+
 - Chocolatey's package page linked release notes ten versions out of date.
   `packaging/chocolatey/yazses.nuspec` declared `2.29.0` while its `<releaseNotes>`
   pointed at `releases/tag/v2.19.0` — the *Release Notes* link chocolatey.org renders

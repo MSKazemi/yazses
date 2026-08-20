@@ -16,6 +16,8 @@ entire problem disappears.
 |---|---|
 | `com.mskazemi.YazSes.yml` | The build manifest |
 | `com.mskazemi.YazSes.metainfo.xml` | The store listing — description, categories, limitations |
+| `com.mskazemi.YazSes.desktop` | The launcher the metainfo's `<launchable>` names. Without it the app has no app-grid entry and Flathub's linter rejects the listing |
+| `com.mskazemi.YazSes.svg` | The app icon, installed as `hicolor/scalable/apps/<app-id>.svg`. A byte copy of `contrib/icons/yazses.svg` — a Flathub repository is flat and cannot reach into `contrib/`; guarded against drift by `tests/test_icon_assets.py` |
 | `python3-yazses.json` | Generated dependency modules — 45 pinned wheels with hashes. Committed; regenerate via the Flatpak workflow, never by hand |
 | `SUBMISSION.md` | The resubmission pack: why flathub#9765 closed, the filled-in PR body, and the demo-video shot list |
 
@@ -69,6 +71,11 @@ not in a footnote. Do not ship a build that cannot type and describe it as if it
    ```sh
    flatpak run org.freedesktop.appstream-glib validate com.mskazemi.YazSes.metainfo.xml
    ```
+
+   ⚠️ This reads the XML file and nothing else. It passed for months on a build that
+   installed neither the metainfo nor the desktop file the metainfo promises, which is a
+   listing with no icon and no app-grid entry. What the build actually puts in `/app` is
+   guarded by `tests/test_flatpak_metainfo.py`; run both.
 
 5. Submit a pull request to [flathub/flathub](https://github.com/flathub/flathub) **against
    the `new-pr` base branch**, using **their template verbatim** — see

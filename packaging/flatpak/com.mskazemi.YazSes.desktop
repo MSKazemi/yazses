@@ -1,0 +1,21 @@
+# The launcher the metainfo's <launchable> promises. Flathub requires the basename to
+# be the app ID exactly, and flatpak's export step rewrites Exec into
+# `flatpak run --command=yazses com.mskazemi.YazSes settings`, so it is written here as
+# the plain command.
+#
+# It opens the settings window rather than starting dictation: an activation from an app
+# grid has no terminal, and hold-to-talk is a background daemon with nothing to show. A
+# launcher that appears to do nothing is worse than a launcher that opens the one window
+# where the hotkey, the microphone and every capability can be set.
+[Desktop Entry]
+Type=Application
+Name=YazSes
+GenericName=Voice dictation
+Comment=Offline voice dictation — hold a key, speak, and your words are typed
+Exec=yazses settings
+Icon=com.mskazemi.YazSes
+Terminal=false
+Categories=Utility;Accessibility;
+Keywords=voice;dictation;speech;transcription;accessibility;microphone;
+StartupNotify=true
+StartupWMClass=yazses

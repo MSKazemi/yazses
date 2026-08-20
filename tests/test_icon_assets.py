@@ -14,6 +14,7 @@ they guard the assets on every CI leg whether or not Pillow is installed.
 from __future__ import annotations
 
 import struct
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -298,12 +299,41 @@ class TestLinuxIconsMatchTheMark:
             "the .app, the .deb and the tray. Run `uv run python scripts/gen-icons.py`"
         )
 
-    def test_the_snap_svg_is_the_canonical_svg(self) -> None:
+    def test_every_packaging_copy_of_the_svg_is_the_canonical_svg(self) -> None:
         """It sat beside the PNG carrying the old design, which is how the next
-        person regenerates the wrong thing by hand."""
-        assert _SNAP_SVG.read_text(encoding="utf-8") == _CANONICAL_SVG.read_text(
-            encoding="utf-8"
-        ), "snap/gui/yazses.svg has drifted from contrib/icons/yazses.svg"
+        person regenerates the wrong thing by hand.
+
+        Swept rather than listed. Naming `snap/gui/yazses.svg` here covered the one copy
+        that existed and would have said nothing about the next one -- and there is now a
+        next one, `packaging/flatpak/com.mskazemi.YazSes.svg`, because a Flathub
+        repository is flat and cannot reach into `contrib/`. Every packaging tree that
+        needs the mark takes a copy; only the sweep notices when one arrives.
+
+        `docs/` is excluded on a rule, not per file: its SVGs are page furniture --
+        diagrams, the social preview, a simplified favicon -- while an SVG anywhere else
+        is an app icon a store renders.
+        """
+        tracked = subprocess.run(
+            ["git", "ls-files", "*.svg"],
+            cwd=_REPO,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.split()
+        copies = [
+            f
+            for f in tracked
+            if not f.startswith("docs/") and f != "contrib/icons/yazses.svg"
+        ]
+        assert copies, "the sweep found nothing to check -- it would pass on anything"
+        canonical = _CANONICAL_SVG.read_text(encoding="utf-8")
+        drifted = [
+            f for f in copies if (_REPO / f).read_text(encoding="utf-8") != canonical
+        ]
+        assert not drifted, (
+            f"{drifted} drifted from contrib/icons/yazses.svg -- the product would show "
+            "a different logo per channel, which nothing else reports"
+        )
 
 
 def test_the_check_flag_covers_every_asset_the_writer_writes() -> None:
