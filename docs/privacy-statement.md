@@ -91,8 +91,55 @@ What that does not cover is the filesystem underneath: the blocks of an unlinked
 clip, or of a deleted journal, may survive on the disk until they are overwritten. If
 that matters for your threat model, full-disk encryption is the control for it.
 
-The `recall` and `scratch` note features read from this same local corpus and never
-leave the machine.
+Spoken Recall (*"what did I say about X"*) queries this same encrypted corpus. Ambient
+Scratch does **not**: a spoken note-to-self is appended to `scratch.jsonl` as plain
+JSON, because a note you dictated in order to read it back later is a note, not a
+capture. Neither leaves the machine, and both are off by default.
+
+## Meeting Mode (opt-in, off by default)
+
+`yazses meeting` records a whole meeting rather than a hold-to-talk burst, so it captures
+**other people's voices as well as your own**. It is disabled by default and does nothing
+until you set `[meeting] enabled = true` and start a meeting explicitly.
+
+Everything it produces stays in `meetings/<id>/` under your data directory, in plain text:
+the transcript, the live rolling transcript kept for crash recovery, and — if you turned
+notes on — the generated minutes. The recording itself is deleted after the post-pass
+unless you set `[meeting] retain_audio = true`; it is kept until then so that a crash
+during transcription cannot lose the meeting. Nothing is uploaded, and transcription and
+minutes both run on-device.
+
+Naming speakers is separate and explicit. Diarization alone labels people *Speaker 1*,
+*Speaker 2*; a name appears only if you pass one, or if you have deliberately enrolled that
+person with `yazses meeting enroll`. An enrolled participant is stored as an encrypted
+voiceprint under `participants/` and never auto-created from a recording. Recording other
+people may need their consent where you are — YazSes does not and cannot judge that for you.
+
+## What is written to your data directory
+
+Everything YazSes persists lives in one directory — `~/.local/share/yazses/` on Linux,
+`~/Library/Application Support/yazses/` on macOS, `%APPDATA%\yazses\` on Windows — and
+nothing in it is uploaded anywhere.
+
+| Path | Holds | Encrypted |
+|---|---|---|
+| `corpus.db` | the learning corpus: metadata in the clear, every transcript column encrypted | transcripts yes |
+| `clips/` | source audio for corpus events, when `capture_audio` is on | yes |
+| `corpus.key` | the machine-bound key for both of the above, mode `0600` | n/a — it *is* the key |
+| `scratch.jsonl` | spoken notes-to-self (Ambient Scratch, off by default) | **no — plain JSON** |
+| `few_shots.toml` | utterances you approved in `yazses tune` as command-router examples | **no — plain text** |
+| `meetings/` | meeting transcripts, live transcripts, minutes, and retained recordings | **no — plain text** |
+| `participants/` | voiceprints of people you enrolled by name for meetings | yes |
+| `voiceprint.enc` | your own enrolled voiceprint | yes |
+| `diarization/`, `tts/` | downloaded model files — no content of yours | n/a |
+| `daemon.lock`, `tray.lock`, `tray-stderr.log` | single-instance locks and the tray's stderr | n/a |
+| `yazses-report.json` | the last `yazses report` bundle you generated, already redacted | n/a |
+
+The three marked **no** are the ones worth knowing about, and each is deliberate: a note you
+dictated in order to read it back, examples you explicitly approved, and a meeting
+transcript whose whole purpose is to be opened and edited. They are ordinary files with
+your user's permissions. If you want them at rest under a key, that is what full-disk
+encryption is for.
 
 ## Configuration file
 

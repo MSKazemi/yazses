@@ -40,6 +40,32 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The privacy statement said your spoken notes-to-self were in the encrypted corpus. They
+  are a plain text file.** The sentence sat inside the section explaining that the corpus is
+  machine-bound AES-256-GCM with only coarse metadata in the clear: *"The `recall` and
+  `scratch` note features read from this same local corpus."* Half right. Spoken Recall does
+  query the encrypted corpus; Ambient Scratch appends each note to `scratch.jsonl` as plain
+  JSON, and `recall/scratch.py` says so in its own docstring — *"Notes are plain local files
+  under the user's data dir."*
+
+  Auditing the rest of the directory found the same gap by omission. `src/` writes thirteen
+  things under the data directory and the page named four. **Meeting Mode was not on the
+  page at all** — the one capability that records other people's voices, keeps its
+  transcripts and minutes in plain text, can retain the recording, and stores enrolled
+  participants as voiceprints. Neither was `few_shots.toml`, which `yazses tune --apply`
+  fills with decrypted utterances taken out of the corpus.
+
+  The page now has a Meeting Mode section — including that recording other people may need
+  their consent, which YazSes cannot judge for you — and a table accounting for every path
+  in the data directory and whether it is encrypted. Three are not, and each is deliberate:
+  a note dictated in order to be read back, examples you approved yourself, and a meeting
+  transcript whose purpose is to be opened.
+
+  The guard derives the set from the source rather than restating it, so a feature that
+  starts writing somewhere new fails on the commit that adds it, when someone still knows
+  what it holds. There is no allow-list for "not really user content": a lock file and a
+  model cache are one table row each, which costs a line and removes a judgement call.
+
 - **`yazses corpus forget` deleted the row and left the transcript in the file.** Its own
   help says what it is for — *"e.g. after dictating something private"* — and the privacy
   statement names it as the answer to *"if you need something gone now"*. A plain SQLite
