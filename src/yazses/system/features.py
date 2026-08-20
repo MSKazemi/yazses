@@ -399,7 +399,13 @@ def _registry() -> list[_Def]:
              "model on first use.",
              lambda c: c.tts.enabled and c.accessibility.read_back != "off",
              (("tts", "enabled", "true", False), ("accessibility", "read_back", "final", True)),
-             (("accessibility", "read_back", "off", True),)),
+             # `[tts] enabled` is cleared here too. Disabling used to write only
+             # `read_back = "off"`, so the catalogue reported the feature off while
+             # `[tts] enabled` stayed true -- and `build_tts` returns a live backend for
+             # that, which on a machine with the `tts` extra loads Kokoro and, per
+             # `tts/download.py`, fetches ~340 MB the first time. This is the only
+             # feature that writes the key, so nothing else depends on it staying on.
+             (("tts", "enabled", "false", False), ("accessibility", "read_back", "off", True))),
         _Def("personalize", "Voiceprint Mind (personalize)", "[personalize] — vocab bias", OPTIONAL,
              "Biases STT toward terms you use often. Local only.",
              lambda c: c.personalize.enabled, pe_on, pe_off),

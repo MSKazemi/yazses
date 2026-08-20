@@ -8,6 +8,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`yazses features disable read-back` reported the capability off while the daemon kept
+  building a TTS engine for it.** `enable` writes two keys — `[tts] enabled = true` and
+  `[accessibility] read_back = "final"` — and `disable` wrote only the second. The
+  catalogue then showed it off, because its status reads both and one had flipped, while
+  `build_tts` branches on `[tts] enabled` alone and kept returning a live backend. With
+  the `tts` extra installed that loads Kokoro and, per `tts/download.py`, fetches **~340
+  MB** the first time — for a capability the user had switched off. `disable` now clears
+  both keys; `read-back` is the only feature that writes `[tts] enabled`, so nothing else
+  depended on it staying on.
+
+  It was the only asymmetric row of 147. Two properties now hold every feature to its
+  registry entry: the keys `disable` writes must be the keys `enable` writes, and each
+  list must actually move the capability's own status predicate — the second because
+  `enable → disable == disable` is mere idempotence, which a `disable` that wrote `true`
+  would satisfy trivially.
+
 - **A typo in a config setting was accepted in silence, and what happened next depended
   on which module eventually read it.** `configcheck` validates values against a closed
   set, and `yazses doctor` reports its verdict as *"Config validity: every setting is a
