@@ -772,8 +772,9 @@ class DenoiseConfig:
     """v2.1 Wave D — Real-time noise-suppression front-end (ADR-v2-015).
 
     Denoise/dereverb before STT so noisy rooms and quiet speech work. Identity
-    passthrough when off; the DeepFilterNet backend is opt-in behind the ``denoise``
-    extra. OFF by default.
+    passthrough when off. The installable backend is ``spectral`` (the default),
+    which the ``denoise`` extra supplies as ``noisereduce``; ``deepfilternet`` is
+    accepted as a name but nothing can supply it (#69). OFF by default.
     """
     enabled: bool = False
     # `spectral` is the only backend that can be installed: deepfilternet

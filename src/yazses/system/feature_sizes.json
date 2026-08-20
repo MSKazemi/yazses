@@ -16,6 +16,11 @@
       "packages": 37,
       "unpriced": []
     },
+    "denoise": {
+      "download_mb": 61.1,
+      "packages": 11,
+      "unpriced": []
+    },
     "diarize": {
       "download_mb": 17.5,
       "packages": 2,
@@ -27,7 +32,7 @@
       "unpriced": []
     },
     "llm-cleanup": {
-      "download_mb": 71.7,
+      "download_mb": 75.0,
       "packages": 4,
       "unpriced": []
     },
@@ -42,7 +47,7 @@
       "unpriced": []
     },
     "overlay": {
-      "download_mb": 255.9,
+      "download_mb": 256.1,
       "packages": 4,
       "unpriced": []
     },
@@ -52,13 +57,13 @@
       "unpriced": []
     },
     "read-back": {
-      "download_mb": 24.8,
-      "packages": 23,
+      "download_mb": 11.9,
+      "packages": 7,
       "unpriced": []
     },
     "readback_clone": {
-      "download_mb": 24.8,
-      "packages": 23,
+      "download_mb": 11.9,
+      "packages": 7,
       "unpriced": []
     },
     "recimport": {
@@ -77,7 +82,7 @@
       "unpriced": []
     },
     "tray": {
-      "download_mb": 255.9,
+      "download_mb": 256.1,
       "packages": 4,
       "unpriced": []
     },

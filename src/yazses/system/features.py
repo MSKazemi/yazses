@@ -931,9 +931,12 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
         _Def("denoise", "Noise Suppression", "[denoise] — clean mic before STT",
              EXPERIMENTAL,
              "Removes background noise/echo before transcription so dictation works in "
-             "noisy rooms. The DeepFilterNet backend is NOT implemented in this build "
-             "yet, so enabling this currently passes audio through unchanged (it logs "
-             "why). Off by default.",
+             "noisy rooms. Enabling installs noisereduce and uses the spectral backend "
+             "(the default): steady broadband noise -- fans, air conditioning, road hum "
+             "-- not a second speaker, which is the Cocktail Filter's job. The "
+             "deepfilternet backend still parses but can never be installed (it caps "
+             "numpy<2.0 against this project's numpy>=2.4.6) and passes audio through. "
+             "Off by default.",
              lambda c: c.denoise.enabled, dn_on, dn_off),
         _Def("predict", "Predictive Completion", "[predict] — voice autosuggest", OPTIONAL,
              "A tiny local model suggests the rest of your sentence; accept by voice. "
@@ -997,6 +1000,13 @@ _FEATURE_DEPS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     # on a headless-installed copy has to be able to fetch it too.
     "tray": (("PySide6",), ("PySide6>=6.8",)),
     "chinese-script": (("opencc",), ("opencc-python-reimplemented>=0.1.7",)),
+    # Its absence is the reason this map now has a guard. `features enable denoise`
+    # wrote `[denoise] enabled = true`, installed nothing, and the daemon then warned
+    # once at startup and passed audio through untouched for the rest of the install --
+    # found on this machine, line 2 of a 574 KB daemon.log from 2026-08-17. The pin
+    # matches the `denoise` extra in pyproject.toml, which is what the warning tells
+    # the user to install.
+    "denoise": (("noisereduce",), ("noisereduce>=3.0.3",)),
     "prosody": (("parselmouth",), ("praat-parselmouth>=0.4.6",)),
     "voicehealth": (("parselmouth",), ("praat-parselmouth>=0.4.6",)),
     "read-back": (("kokoro_onnx", "onnxruntime", "soundfile"),

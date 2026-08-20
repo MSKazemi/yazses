@@ -374,9 +374,10 @@ YazSes ships **147 capabilities**. All but the core are **off by default** — t
 ### Noise Suppression
 
 - **Toggle:** `denoise`  ·  **Tier:** experimental — not advised yet  ·  **Config:** `[denoise] — clean mic before STT`
-- **What it does:** Removes background noise/echo before transcription so dictation works in noisy rooms. The DeepFilterNet backend is NOT implemented in this build yet, so enabling this currently passes audio through unchanged (it logs why). Off by default.
+- **What it does:** Removes background noise/echo before transcription so dictation works in noisy rooms. Enabling installs noisereduce and uses the spectral backend (the default): steady broadband noise -- fans, air conditioning, road hum -- not a second speaker, which is the Cocktail Filter's job. The deepfilternet backend still parses but can never be installed (it caps numpy<2.0 against this project's numpy>=2.4.6) and passes audio through. Off by default.
 - **Use when:** When you're dictating in a noisy room and background sound is hurting accuracy.
 - **Example:** yazses features enable denoise — background noise is filtered pre-STT.
+- **Download:** ~61 MB
 - **Activate:** `yazses features enable denoise` then `yazses restart`
 
 ## Formatting & structure
@@ -407,7 +408,7 @@ YazSes ships **147 capabilities**. All but the core are **off by default** — t
 - **What it does:** Reformats dictation with a small offline LLM. Needs a model file.
 - **Use when:** When rambly dictation needs polishing into clean prose and you have an offline LLM available.
 - **Example:** yazses features enable llm-cleanup — offline LLM tidies dictation.
-- **Download:** ~72 MB
+- **Download:** ~75 MB
 - **Activate:** `yazses features enable llm-cleanup` then `yazses restart`
 
 ### BrailleOut
@@ -945,7 +946,7 @@ YazSes ships **147 capabilities**. All but the core are **off by default** — t
 - **What it does:** Speaks the transcript back to you (accessibility). Downloads a TTS model on first use.
 - **Use when:** When you can't or won't look at the screen and need to hear what was transcribed.
 - **Example:** yazses features enable read-back — then it speaks the transcript back.
-- **Download:** ~25 MB
+- **Download:** ~12 MB
 - **Activate:** `yazses features enable read-back` then `yazses restart`
 
 ### LoadGuard
@@ -1066,7 +1067,7 @@ YazSes ships **147 capabilities**. All but the core are **off by default** — t
 - **What it does:** Read the transcript back in a clone of your own voice from a short enrollment. Permissive OpenVoice V2 default; embedding stays in the encrypted corpus. Needs the tts extra and downloads a voice-clone model on first use. Off by default.
 - **Use when:** When you want read-back spoken in a clone of your own voice, not a generic TTS voice.
 - **Example:** Enroll once; read-back then uses a clone of your own voice.
-- **Download:** ~25 MB
+- **Download:** ~12 MB
 - **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
 
 ### Vocal-Strain Guard

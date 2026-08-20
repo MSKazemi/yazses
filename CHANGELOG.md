@@ -8,6 +8,24 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `yazses features enable denoise` turned the feature on and installed nothing, and the card
+  that describes it said the opposite of what the code does. `denoise` is a registered,
+  toggleable feature but was absent from `_FEATURE_DEPS`, the map that tells `enable` which pip
+  packages a feature needs — so the command wrote `[denoise] enabled = true`, reported success,
+  and left `noisereduce` uninstalled. The daemon then logged one warning at startup
+  (*"the 'spectral' backend needs noisereduce ... audio is passed through unprocessed"*) and
+  passed audio through untouched for the rest of the install; found on this machine as line 2 of
+  a 574 KB `daemon.log`. `yazses features info denoise` compounded it by claiming *"the
+  DeepFilterNet backend is NOT implemented in this build yet, so enabling this currently passes
+  audio through unchanged"* — false since `denoise/spectral.py` shipped, and `DenoiseConfig`
+  defaults to `spectral`, not `deepfilternet`. The map now pins `noisereduce>=3.0.3` to match the
+  `denoise` extra in `pyproject.toml` (the extra the warning itself tells the user to install),
+  and the card names the spectral backend and scopes the passthrough claim to DeepFilterNet,
+  which caps `numpy<2.0` and cannot be installed here. `tests/test_feature_deps_cover_every_probe.py`
+  generalises it: every `probe_backend(..., requires=…, extra=…)` call in `src/` must have some
+  feature in `_FEATURE_DEPS` that installs the module it requires, so a backend that names an
+  extra can no longer be reachable through an `enable` that does not fetch it.
+
 - Half the public v2 features page described capabilities this build refuses to enable, and
   six of them named a pip extra that does not exist. `docs/v2-features.md` opens with *"Manage
   all of them with `yazses features enable <name>`"* — and that command exits 1 with *"designed
