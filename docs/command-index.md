@@ -561,7 +561,7 @@ Transcribe an audio file to text — fully offline, on your machine.
 - `--max-speakers` — Force exactly this many speakers on the shipped diarizer (same as --speakers). 0 = auto-detect.
 - `--names` — Comma list mapped to speakers in order of first appearance: 'Alice,Bob,Carol'.
 - `--rename` — Explicit speaker→name map, repeatable: --rename speaker_0=Alice --rename speaker_1=Bob.
-- `--language` — 'en' (default) or 'translate' to render any-language audio into English text.
+- `--language` — Spoken language as a Whisper code -- 'en' (default), 'fa', 'de'; '' auto-detects; 'translate' renders any-language audio into English text. A non-English code needs a multilingual model (drop the .en suffix).
 - `--model` — STT model override, e.g. base.en (fast) or small.en (more accurate). Default: your config model.
 - `--out`, `-o` — Output file path (default: sidecar <audio_file>.<format>).
 - `--download-models` — Download the ~45 MB sherpa diarization models, then exit (no transcription).

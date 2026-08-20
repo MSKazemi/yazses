@@ -9,12 +9,15 @@ fakes makes the whole flow unit-testable with no model download (research §; sp
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from yazses.postprocess.cleaner import clean_text
 from yazses.recimport.align import Utterance, assign_words_to_turns, merge_utterances
 from yazses.recimport.factory import build_diarizer
 from yazses.recimport.naming import resolve_names
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -30,9 +33,31 @@ class TranscriptResult:
 
 
 def _build_engine(config):
+    """The Whisper engine for a file transcription, decoding in the asked-for language.
+
+    Not `stt.factory.build_engine`: this path needs `transcribe_words`, which is a
+    faster-whisper method rather than part of the `SttEngine` protocol. What it *did*
+    inherit from that shortcut was the factory's language threading, and losing it was
+    silent — `language` reaches the decoder only through this constructor and defaults
+    to `"en"`, so `--language fa` set `task=None` here, changed nothing else, and had
+    Persian audio transcribed as English.
+
+    `"translate"` is this field's other value (ADR-v2-014, X→English) and is not a
+    language: it must auto-detect the source, which is what `""` means downstream.
+    """
+    from yazses.stt.download import language_model_problem
     from yazses.stt.faster_whisper import FasterWhisperEngine
 
-    return FasterWhisperEngine(model_name=(getattr(config, "model", "") or "small.en"))
+    model = getattr(config, "model", "") or "small.en"
+    wish = (getattr(config, "language", "en") or "").strip()
+    language = "" if wish == "translate" else wish
+    # An `.en` checkpoint carries no language tokens, so it answers foreign speech with
+    # fluent English nonsense rather than an error. Same rule as the daemon's factory,
+    # from the same function, because two copies of it would drift.
+    problem = language_model_problem(model, language)
+    if problem:
+        log.warning("[transcribe] %s", problem)
+    return FasterWhisperEngine(model_name=model, language=language)
 
 
 def _cleaned(u):

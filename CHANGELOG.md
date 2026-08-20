@@ -8,6 +8,33 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`[stt] language` reached the decoder in one place and was dropped in four.**
+  `FasterWhisperEngine.__init__` takes `language: str = "en"` and pins it on every decode, so
+  a construction site that omits the argument does not get auto-detection — it gets **English**,
+  silently, for a user who configured something else. `stt/factory.py` threaded it; nothing
+  else did.
+
+  `yazses verify` built the concrete class directly, so it ignored `[stt] engine` **and**
+  `[stt] language`: a Parakeet user was certified on faster-whisper, and a Persian user was
+  verified in English and then told *"the model returned nothing… try a larger one with
+  `[stt] model`"* — the wrong knob, from the one command whose claim is that it runs the
+  chain the daemon runs. It now calls `build_engine(cfg.stt)`, exactly as the daemon does.
+
+  `yazses tune --retranscribe` re-transcribes the corpus to build **ground truth**; decoded in
+  the wrong language, every proposal drawn from it was drawn from noise.
+
+  `recimport/pipeline.py` — so `yazses transcribe` and `yazses meeting`'s post-pass — read
+  `language` only to decide `task = "translate"`. `--language fa` set nothing else and had
+  Persian audio transcribed as English with no error. The flag now takes any Whisper code,
+  `""` auto-detects, `translate` still means X→English, and a non-English code on an `.en`
+  checkpoint warns through the same `language_model_problem` rule the daemon uses instead of
+  returning fluent nonsense. Defaults are unchanged: only values that previously did nothing
+  behave differently.
+
+  `tests/test_language_reaches_every_decoder.py` walks the tree for every
+  `FasterWhisperEngine(...)` and fails the build on one that omits `language=`, and pins that
+  `verify` builds through the factory while the daemon still does.
+
 - **`yazses report` printed your name.** The bundle's promise is *"your settings with paths
   and identifiers removed"*, and the notification's **Prepare a bug report** button prefills a
   public GitHub issue form with it. What decided whether a value was an identifier was a

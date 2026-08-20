@@ -548,7 +548,7 @@ Comma list mapped to speakers in order of first appearance: 'Alice,Bob,Carol'.
 Explicit speaker\(->name map, repeatable: --rename speaker_0=Alice --rename speaker_1=Bob.
 .TP
 \fB\-\-language\fR
-\&'en' (default) or 'translate' to render any-language audio into English text.
+Spoken language as a Whisper code -- 'en' (default), 'fa', 'de'; '' auto-detects; 'translate' renders any-language audio into English text. A non-English code needs a multilingual model (drop the .en suffix).
 .TP
 \fB\-\-model\fR
 STT model override, e.g. base.en (fast) or small.en (more accurate). Default: your config model.

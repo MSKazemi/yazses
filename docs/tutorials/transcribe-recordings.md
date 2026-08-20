@@ -56,6 +56,10 @@ To transcribe non-English audio and get **English** text back:
 yazses transcribe note.fr.m4a --language translate
 ```
 
+To keep the original language instead, name it — `--language fr`. That needs a
+multilingual model (`small`, not `small.en`); an `.en` checkpoint has no language tokens
+and would transliterate French into English-looking nonsense, so YazSes warns instead.
+
 ## 4. Tag who said what (diarization)
 
 Speaker tagging is opt-in and needs a small one-time setup, because it uses a
@@ -156,6 +160,7 @@ responsible for having permission to record and transcribe other people.
 | Accurate transcript | `yazses transcribe talk.mp3 --model small.en` |
 | Subtitles | `yazses transcribe talk.mp3 --format srt` |
 | Non-English → English | `yazses transcribe talk.mp3 --language translate` |
+| Non-English, kept as-is | `yazses transcribe talk.mp3 --language fr --model small` |
 | Tag speakers | `yazses transcribe mtg.m4a --diarize` |
 | Name speakers | `yazses transcribe mtg.m4a --diarize --names "Alice,Bob"` |
 | Force speaker count | `yazses transcribe mtg.m4a --diarize --speakers 3` |

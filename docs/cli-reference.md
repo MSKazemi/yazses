@@ -1173,7 +1173,7 @@ and most other ffmpeg-decodable media.
 | `--format` / `-f <fmt>` | Output format: `txt` (default) `\| md \| srt \| vtt \| json`. `srt`/`vtt` add timestamps; `json` is lossless (per-word timestamps + speaker). |
 | `--out` / `-o <path>` | Write to an explicit path instead of the sidecar default. |
 | `--model <name>` | Override the STT model for this run (e.g. `small.en` = more accurate, slower). Defaults to your `[stt]` model. |
-| `--language <lang>` | `en` (default) or `translate` to render any-language audio into English. |
+| `--language <lang>` | Spoken language as a Whisper code — `en` (default), `fa`, `de`; empty auto-detects; `translate` renders any-language audio into English. A non-English code needs a multilingual model (drop the `.en` suffix). |
 | `--diarize` / `--no-diarize` | Tag who said what with local speaker models (needs the `diarization` extra). |
 | `--speakers <N>` | Force an exact speaker count (`0` = auto-detect). |
 | `--max-speakers <N>` | ⚠ On the shipped `sherpa` diarizer this forces an **exact** count, it does not cap one: `6` on a three-person recording manufactures six by splitting real speakers apart. `0` (default) auto-detects. |
@@ -1203,6 +1203,7 @@ yazses transcribe talk.mp3                     # → talk.txt beside it
 yazses transcribe talk.mp3 -o notes.txt        # choose the output path
 yazses transcribe lecture.mp3 --format srt     # subtitle file with timestamps
 yazses transcribe talk.mp3 --model small.en    # more accurate, slower
+yazses transcribe talk.fr.m4a --language fr          # transcribe French as French
 yazses transcribe talk.fr.m4a --language translate   # any language → English
 yazses transcribe mtg.m4a --diarize            # tag speakers: 'Speaker 1: …'
 yazses transcribe mtg.m4a --diarize --speakers 3           # exact speaker count

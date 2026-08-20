@@ -2479,12 +2479,17 @@ def verify(
         return float(miclevel.analyze(audio, cfg.audio.sample_rate).mean_abs)
 
     def _transcribe(audio) -> str:
-        from yazses.stt.faster_whisper import FasterWhisperEngine
+        # Through the factory, not straight to `FasterWhisperEngine`. This command's
+        # whole claim is that it runs *the chain the daemon runs*, and the daemon builds
+        # its engine here (`core/daemon.py`: `build_engine(cfg.stt)`). Constructing the
+        # concrete class instead silently dropped two settings: `[stt] engine`, so a
+        # Parakeet user was certified on faster-whisper, and `[stt] language`, which
+        # only reaches the decoder through the constructor and defaults to `"en"` — so
+        # a Persian install was verified in English and told "the model returned
+        # nothing… try a larger one", which is the wrong knob.
+        from yazses.stt.factory import build_engine
 
-        engine = FasterWhisperEngine(
-            model_name=cfg.stt.model, device=cfg.stt.device, compute_type=cfg.stt.compute_type
-        )
-        return engine.transcribe(audio)
+        return build_engine(cfg.stt).transcribe(audio)
 
     def _holds_no_speech(audio) -> bool | None:
         """Whether the recording holds no speech at all. Never raises; None = unknown.
@@ -4666,6 +4671,11 @@ def tune(
             model_name=cfg.learning.tune_model,
             device=cfg.stt.device,
             compute_type=cfg.stt.compute_type,
+            # `[stt] language` reaches the decoder only through this argument, and it
+            # defaults to "en". Without it, a re-transcription meant to be *ground
+            # truth* was decoded in the wrong language, and every proposal `tune` drew
+            # from it — vocabulary, thresholds, the model itself — was drawn from noise.
+            language=cfg.stt.language,
         )
         transcribe_fn = engine.transcribe
 
@@ -4766,7 +4776,9 @@ def transcribe(
         help="Explicit speaker→name map, repeatable: --rename speaker_0=Alice --rename speaker_1=Bob."),
     language: Optional[str] = typer.Option(
         None, "--language",
-        help="'en' (default) or 'translate' to render any-language audio into English text."),
+        help="Spoken language as a Whisper code -- 'en' (default), 'fa', 'de'; '' auto-detects; "
+             "'translate' renders any-language audio into English text. A non-English code "
+             "needs a multilingual model (drop the .en suffix)."),
     model: Optional[str] = typer.Option(
         None, "--model",
         help="STT model override, e.g. base.en (fast) or small.en (more accurate). Default: your config model."),
@@ -4862,15 +4874,14 @@ def transcribe(
             "pyannote backend honours a lower bound, and it is not shipped in this "
             "build. Use --speakers to force an exact count.", err=True)
 
-    # Build the STT engine from the configured [stt] settings.
-    from yazses.stt.faster_whisper import FasterWhisperEngine
+    # Built by the pipeline's own builder rather than here, so this path cannot drift
+    # from the one `yazses meeting` uses. It also carries `--language` into the decoder,
+    # which this call site did not: the flag set `task` for "translate" and was
+    # otherwise inert, so `--language fa` transcribed Persian audio as English.
+    from yazses.recimport.pipeline import _build_engine
 
     typer.echo(f"Loading model '{eff.model or cfg.stt.model}'…", err=True)
-    engine = FasterWhisperEngine(
-        model_name=eff.model or cfg.stt.model,
-        device=cfg.stt.device,
-        compute_type=cfg.stt.compute_type,
-    )
+    engine = _build_engine(dataclasses.replace(eff, model=eff.model or cfg.stt.model))
 
     # Speaker naming: parse explicit maps; load the enrolled voiceprint (→ "You").
     name_list = [n.strip() for n in names.split(",")] if names else None

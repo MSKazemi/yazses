@@ -1279,7 +1279,8 @@ class RecimportConfig:
     cluster_threshold: float = 0.5     # sherpa fast-clustering threshold (auto-count mode)
     output_format: str = "txt"         # txt | md | srt | vtt | json
     model: str = ""                    # "" => inherit the [stt] model
-    language: str = "en"               # "en" fast path, or "translate" (X→English)
+    language: str = "en"               # Whisper code ("en", "fa", …); "" auto-detects;
+                                       # "translate" renders any language into English
     batched: bool = True               # BatchedInferencePipeline on long files
     name_from_voiceprints: bool = True # match enrolled voiceprints (needs enrollment)
     min_speaker_seconds: float = 3.0   # min aggregated cluster speech to attempt naming
@@ -1313,7 +1314,8 @@ class MeetingConfig:
     min_speakers: int = 0
     cluster_threshold: float = 0.5     # sherpa fast-clustering threshold (auto-count mode)
     model: str = ""                    # "" => inherit the [stt] model
-    language: str = "en"               # "en" fast path, or "translate" (X→English)
+    language: str = "en"               # Whisper code ("en", "fa", …); "" auto-detects;
+                                       # "translate" renders any language into English
     vad_backend: str = "calibrated"    # calibrated | silero (utterance segmentation)
     silero_threshold: float = 0.5      # silero speech-probability gate (needs the `silero` extra)
     name_from_voiceprints: bool = True # match enrolled voiceprints (needs enrollment)

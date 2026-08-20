@@ -153,8 +153,14 @@ For an existing recording rather than live dictation, the same translation path 
 one flag:
 
 ```sh
+yazses transcribe interview.fr.m4a --language fr          # French in, French out
 yazses transcribe interview.fr.m4a --language translate   # any language → English
 ```
+
+`--language` takes any Whisper code, and it now reaches the decoder: until v2.30 only
+`translate` did anything, so `--language fr` set nothing and the file was transcribed as
+English. A non-English code needs a multilingual model — drop the `.en` suffix from
+`[stt] model`, and YazSes says so rather than handing you fluent nonsense.
 
 ## Non-Latin scripts
 
