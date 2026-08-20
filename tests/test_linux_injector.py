@@ -58,12 +58,31 @@ def test_the_env_bridge_is_read(monkeypatch):
 
 
 def test_the_daemon_bridges_the_setting():
-    """The wiring itself: an honoured flag nobody sets is the original bug again."""
-    import inspect
+    """The wiring itself: an honoured flag nobody sets is the original bug again.
 
+    The export moved out of `Daemon._build_pipeline` and into
+    `inject.auto.apply_injection_config`, because the three CLI commands that build an
+    injector had to apply the same bridge and were not applying any. So this now checks
+    the two halves it became: the daemon calls the bridge, and the bridge exports the
+    variable. Checking only the first would pass on a bridge that exports nothing.
+    """
+    import inspect
+    import os
+
+    from yazses.config import InjectionConfig
     from yazses.core.daemon import Daemon
+    from yazses.inject.auto import apply_injection_config
 
     source = inspect.getsource(Daemon._build_pipeline)
-    assert "YAZSES_INJECT_FALLBACK" in source, (
-        "the daemon never exports the setting, so LinuxInjector still cannot see it"
+    assert "apply_injection_config" in source, (
+        "the daemon never applies the bridge, so LinuxInjector still cannot see it"
     )
+    before = os.environ.get("YAZSES_INJECT_FALLBACK")
+    try:
+        apply_injection_config(InjectionConfig(fallback_to_clipboard=False))
+        assert os.environ["YAZSES_INJECT_FALLBACK"] == "0"
+    finally:
+        if before is None:
+            os.environ.pop("YAZSES_INJECT_FALLBACK", None)
+        else:
+            os.environ["YAZSES_INJECT_FALLBACK"] = before

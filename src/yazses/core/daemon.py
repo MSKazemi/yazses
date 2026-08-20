@@ -649,17 +649,15 @@ class Daemon:
         self._engine = build_engine(cfg.stt)
 
         # [injection] backend selects the Linux injector (type | ydotool |
-        # clipboard | wtype | auto). Bridged through the env var that
-        # inject.auto.get_injector already honours, so no platform factory
-        # signatures change; non-Linux platforms simply ignore it.
-        backend = (self._config.injection.backend or "auto").strip().lower()
-        if backend and backend != "auto":
-            os.environ["YAZSES_INJECTOR"] = backend
-        # Same bridge for [injection] fallback_to_clipboard, which was documented,
-        # defaulted to true, and read by nothing -- so turning it off did nothing.
-        os.environ["YAZSES_INJECT_FALLBACK"] = (
-            "1" if self._config.injection.fallback_to_clipboard else "0"
-        )
+        # clipboard | wtype | auto), and fallback_to_clipboard the runtime fallback.
+        # Both are bridged through the env vars inject.auto.get_injector honours, so
+        # no platform factory signature changes; non-Linux platforms ignore them.
+        # The bridge lives in inject/auto.py because the three CLI commands whose job
+        # is to *test the injector* have to apply the same one -- they did not, and
+        # tested `auto` while the daemon used what the user configured.
+        from yazses.inject.auto import apply_injection_config
+
+        apply_injection_config(self._config.injection)
         self._injector = self._platform.injector_factory()
         log.info("Injection backend: %s", self._injection_backend_name())
 
@@ -3455,9 +3453,11 @@ class Daemon:
         selected primary via ``backend_name`` — prefer it so status/doctor report
         the real backend (ClipboardInjector, YdotoolInjector, …) rather than the
         opaque wrapper class."""
+        from yazses.inject.auto import describe_injector
+
         if self._injector is None:
             return None
-        return getattr(self._injector, "backend_name", None) or type(self._injector).__name__
+        return describe_injector(self._injector)
 
     def _report_failure(self, error: BaseException | str, where: str) -> object | None:
         """Tell the user what broke and what to do about it. Never raises.

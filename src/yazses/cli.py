@@ -2506,6 +2506,12 @@ def verify(
         except Exception:  # noqa: BLE001 — a diagnostic must not fail while diagnosing
             return None
 
+    # The same bridge the daemon applies. Without it `--type` proved a backend the
+    # daemon does not use -- and this command's whole claim is that it runs the
+    # daemon's chain.
+    from yazses.inject.auto import apply_injection_config
+
+    apply_injection_config(cfg.injection)
     injector = platform.injector_factory().inject if do_type else None
     result = run_verify(
         record=_record, level_of=_level, threshold=threshold,
@@ -3500,9 +3506,17 @@ def logs(
 )
 def inject(text: str = typer.Argument(..., help="Text to inject into the focused app.")) -> None:
     """Type text into the focused window without recording (tests the injector)."""
+    from yazses.config import load_config
+    from yazses.inject.auto import apply_injection_config, describe_injector
+
     platform = get_platform()
+    # Configured backend, not `auto`: a command that exists to test the injector must
+    # test the one that will run. And the name printed is the concrete backend, not
+    # the selector wrapping it -- "LinuxInjector" is true on every Linux box and tells
+    # nobody anything, least of all whether it matches `yazses status`.
+    apply_injection_config(load_config(platform.paths.config_file).injection)
     injector = platform.injector_factory()
-    typer.echo(f"Backend: {type(injector).__name__}")
+    typer.echo(f"Backend: {describe_injector(injector)}")
     injector.inject(text)
     typer.echo(f"Injected: {text!r}")
 
@@ -5143,8 +5157,12 @@ def test() -> None:
         except IpcCallError as exc:
             typer.echo(f"Daemon inject failed ({exc}); falling back to local.")
 
+    from yazses.config import load_config
+    from yazses.inject.auto import apply_injection_config, describe_injector
+
+    apply_injection_config(load_config(platform.paths.config_file).injection)
     injector = platform.injector_factory()
-    typer.echo(f"Local injector: {type(injector).__name__}")
+    typer.echo(f"Local injector: {describe_injector(injector)}")
     injector.inject("YazSes OK")
     typer.echo("Done. If you saw 'YazSes OK' appear, injection works.")
 

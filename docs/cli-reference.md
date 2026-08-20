@@ -978,6 +978,19 @@ injection backend.
 yazses inject "hello world"    # type it into the focused window
 ```
 
+It uses the backend your config selects, and prints the concrete one it chose:
+
+```console
+$ yazses inject "hello world"
+Backend: XdotoolInjector
+```
+
+Until v2.30 it — along with `yazses test` and `yazses verify --type` — always built
+`auto`, whatever `[injection] backend` said, and printed the selector class
+(`LinuxInjector`) rather than the backend behind it. All three are commands whose job is
+to test the injector, so all three could pass on a backend the daemon would not use.
+`yazses status` names the same thing, and the two can now be compared.
+
 ### Choosing the injection backend
 
 On Wayland the default (`auto`) **types** via ydotool, which works in every app —
@@ -990,9 +1003,10 @@ overwrites the clipboard), set the backend:
 backend = "clipboard"   # "auto" (default) | "type" | "clipboard" | "wtype"
 ```
 
-Or per-run without editing config: `YAZSES_INJECTOR=clipboard`. Run
-`yazses restart` after changing it. `yazses status` shows the backend actually in
-use.
+Or per-run without editing config: `YAZSES_INJECTOR=clipboard` — an exported override
+wins over `backend = "auto"` and is left alone. Run `yazses restart` after changing the
+config. `yazses status`, `yazses inject` and `yazses verify --type` all report and use
+the backend actually in use.
 
 ### `yazses say`
 

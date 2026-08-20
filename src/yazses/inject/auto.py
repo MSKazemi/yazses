@@ -73,3 +73,43 @@ def get_injector(prefer: str = "auto") -> BaseInjector:
         if shutil.which("xdotool"):
             return XdotoolInjector()
     return ClipboardInjector()
+
+
+def apply_injection_config(injection: object) -> None:
+    """Bridge ``[injection]`` into the environment `get_injector` reads.
+
+    The two settings reach the backend through environment variables rather than a
+    factory argument, because `platform.injector_factory` is a zero-argument protocol
+    and every OS implements it. That is a reasonable design and it had one consequence
+    nobody wired: **only the daemon set them**.
+
+    So `yazses inject`, `yazses test` and `yazses verify --type` -- all three of them
+    commands whose stated job is to *test the injector* -- built one with `auto`
+    whatever the config said. A user who set ``backend = "clipboard"`` because typing
+    does not reach their app had the three commands that would have shown that pick
+    ydotool instead, and the one that certifies the pipeline (`verify --type`) certified
+    a backend the daemon does not use.
+
+    Idempotent, and only ever sets: an explicit ``auto`` must not clobber a
+    ``YAZSES_INJECTOR`` the user exported into the shell, which is the documented way
+    to override for one run.
+    """
+    backend = (getattr(injection, "backend", "") or "auto").strip().lower()
+    if backend and backend != "auto":
+        os.environ["YAZSES_INJECTOR"] = backend
+    os.environ["YAZSES_INJECT_FALLBACK"] = (
+        "1" if getattr(injection, "fallback_to_clipboard", True) else "0"
+    )
+
+
+def describe_injector(injector: object) -> str:
+    """The concrete backend in use, not the wrapper that chose it.
+
+    `LinuxInjector` is a selector: on this machine it wraps `XdotoolInjector`, and
+    `type(...).__name__` says "LinuxInjector" -- true, useless, and identical on a box
+    where the answer is `ClipboardInjector`. The daemon already preferred
+    ``backend_name`` for exactly this reason (`status`, `doctor`); the CLI printed the
+    wrapper, so `yazses inject` reported a backend that told the user nothing and could
+    not be compared with what `yazses status` reported for the same machine.
+    """
+    return getattr(injector, "backend_name", None) or type(injector).__name__

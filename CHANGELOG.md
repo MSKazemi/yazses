@@ -8,6 +8,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **The three commands that exist to test the injector all tested a different one.**
+  `platform.injector_factory` takes no arguments, so `[injection] backend` and
+  `fallback_to_clipboard` reach the backend through environment variables that
+  `inject.auto.get_injector` reads — and **only `core/daemon.py` set them**. `yazses inject`
+  (*"tests the injector"*), `yazses test` and `yazses verify --type` each built `auto`.
+
+  On a machine with `backend = "clipboard"` configured, `auto` selects `XdotoolInjector` —
+  so a user who switched to clipboard-paste *because typing does not reach their app* had all
+  three diagnostics prove the backend they had rejected, and `verify --type` certify one the
+  daemon does not run.
+
+  Two of them then misreported what they had built: `type(injector).__name__` is
+  `LinuxInjector`, the selector, on every Linux machine whatever it chose. The daemon already
+  preferred `backend_name` so `status` and `doctor` name the concrete backend; the CLI printed
+  the wrapper, so its answer could not be compared with theirs. `yazses inject` now prints
+  `Backend: XdotoolInjector`.
+
+  Both halves moved into `inject/auto.py` (`apply_injection_config`, `describe_injector`) and
+  `tests/test_injector_config_reaches_every_caller.py` fails the build on a function that
+  builds an injector without applying the bridge, or that prints the wrapper class. An
+  exported `YAZSES_INJECTOR` still wins over `backend = "auto"` — that is the documented
+  one-run override, and the bridge leaves it alone.
+
 - **`[stt] language` reached the decoder in one place and was dropped in four.**
   `FasterWhisperEngine.__init__` takes `language: str = "en"` and pins it on every decode, so
   a construction site that omits the argument does not get auto-detection — it gets **English**,
