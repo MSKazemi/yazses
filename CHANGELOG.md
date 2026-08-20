@@ -8,6 +8,23 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Half the public v2 features page described capabilities this build refuses to enable, and
+  six of them named a pip extra that does not exist. `docs/v2-features.md` opens with *"Manage
+  all of them with `yazses features enable <name>`"* — and that command exits 1 with *"designed
+  but not yet wired into this build"* for every slug in `_UNWIRED`, which is **61 of the page's
+  122 rows**. Nothing on the page said so. Six rows went further and told the reader to install
+  the `affect`, `predict`, `scribe`, `rag`, `codec` or `voiceguard` extra; none of those exist
+  in `pyproject.toml`, so the documented install route failed as well. A seventh named
+  DeepFilterNet as the content of the `denoise` extra, which actually ships `noisereduce` —
+  DeepFilterNet caps `numpy<2.0` against this project's `numpy>=2.4.6` and cannot be installed
+  here at all, a fact `system/backends.py` already documented one file away. Unwired rows now
+  carry a ◌ with a legend that shows the refusal verbatim, the false extras are named as
+  not-existing rather than as an install step, and
+  `tests/test_docs_features_page_is_honest.py` makes both mechanical: a row whose toggle is
+  unwired must carry the mark, a wired row must not, the counts stated in the legend must match
+  the table, and every extra named anywhere in `docs/*.md` must be declared in `pyproject.toml`.
+  Wiring a feature and un-marking its row now happen together or the build goes red.
+
 - A microphone the OS was refusing got no remedy on any platform, and on Windows the right
   remedy was attached to a row that can never fail. `PermissionsBackend` carried exactly one
   message, `how_to_grant()`, and `doctor` prints it on the **keyboard** row only — so a macOS
