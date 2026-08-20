@@ -8,6 +8,21 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`yazses status` under-reported uptime by however long the machine had been
+  asleep.** Measured on a laptop: `ps` reported the daemon up 9 h 25 m with
+  `NRestarts=0`, `yazses status` reported 5 h 29 m, and the difference was exactly
+  `CLOCK_BOOTTIME - CLOCK_MONOTONIC` — 3 h 55 m 43 s with the lid shut. `time.monotonic()`
+  stops ticking across a suspend on Linux.
+
+  Uptime exists to reveal a daemon that predates an upgrade — a daemon runs the build it
+  started with until restarted — so the error landed on precisely the device class where
+  a process is most likely to be stale, and it grew with every night's sleep. The daemon
+  now stamps and reads its start time with a clock that counts suspended time, probing
+  for `CLOCK_BOOTTIME` rather than assuming a per-OS rule. Interval measurements are
+  untouched: a decode, a hold and a meeting's elapsed time all still use
+  `time.monotonic()`, which is the correct clock for a duration that only happens while
+  the machine is awake.
+
 - **A phrase YazSes heard, recognised and deliberately did not type counted as a
   microphone failure.** The mic guard watches for a run of bursts that produce no text,
   which is the direct "dictation stopped writing" symptom. Its reset asked a narrower

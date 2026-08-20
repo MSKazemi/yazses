@@ -142,6 +142,13 @@ yazses status         # is it running? show state, model, and hotkey
 yazses status --json  # output state, pid, model, and ready as JSON
 ```
 
+**Uptime counts time the machine spent asleep.** It answers "how long has *this
+process* existed", which is how you notice a daemon still running the build it started
+with — a daemon keeps that build until it is restarted, so a long uptime next to a
+freshly upgraded CLI means the two disagree. Measuring it with a clock that stops
+during suspend made it read low on exactly the machines most likely to be stale: a
+laptop that sleeps eight hours a night under-reported by eight hours a day.
+
 It also reports **decode latency on your machine**, per model:
 
 ```

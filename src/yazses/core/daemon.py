@@ -78,6 +78,7 @@ from yazses.styleguard.loader import build_style_rules
 from yazses.styleguard.rules import apply_style
 from yazses.system.outcomes import OutcomeWindow, classify_outcome
 from yazses.system.relaunch import Mode, command_for
+from yazses.system.uptime import monotonic_including_suspend
 from yazses.tts.factory import build_tts
 
 log = logging.getLogger(__name__)
@@ -352,7 +353,12 @@ class Daemon:
         lifecycle = self._platform.lifecycle
         lifecycle.write_pid()
         with self._lock:
-            self._state.started_at = time.monotonic()
+            # Not `time.monotonic()`: that clock stops while the machine is suspended,
+            # so a laptop daemon reported an uptime short by however long the lid was
+            # shut -- measured here at 5 h 29 m against a real 9 h 25 m. Uptime's job is
+            # to reveal a daemon that predates an upgrade, which is exactly what that
+            # under-report hides. `_handle_status` must read the same clock.
+            self._state.started_at = monotonic_including_suspend()
             self._state.state = TrayState.LOADING
         try:
             # Start IPC FIRST so the tray and CLI see honest state immediately,
@@ -3595,7 +3601,13 @@ class Daemon:
 
     def _handle_status(self, _request: Request) -> dict[str, object]:
         with self._lock:
-            uptime = (time.monotonic() - self._state.started_at) if self._state.started_at else 0.0
+            # Same clock as the stamp in `run()` -- mixing the two yields a
+            # difference that is neither.
+            uptime = (
+                (monotonic_including_suspend() - self._state.started_at)
+                if self._state.started_at
+                else 0.0
+            )
             return {
                 "state": self._state.state.value,
                 "ready": self._state.ready,
