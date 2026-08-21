@@ -347,6 +347,7 @@ nav:
   - Reference:
       - Features: features.md
       - Comparison & alternatives: comparison.md
+      - YazSes vs nerd-dictation: compare/yazses-vs-nerd-dictation.md
       - Benchmarks: benchmarks.md
       - FAQ: faq.md
       - v2 features (preview): v2-features.md

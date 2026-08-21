@@ -129,4 +129,5 @@ yazses features info code  # what one capability does, with an example
 - [Change the hotkey](../how-to/change-hotkey.md)
 - [Troubleshooting](../troubleshooting.md) — no text appearing, mic issues
 - [Comparison with Dragon, Talon, nerd-dictation and others](../comparison.md)
+- [YazSes vs nerd-dictation](../compare/yazses-vs-nerd-dictation.md) — with a migration guide
 - [Accessibility & RSI use](accessibility-rsi-hands-free.md)
