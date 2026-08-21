@@ -107,6 +107,12 @@ Read this part before you install anything.
   them once with `relabel`, or enroll a voiceprint so they are recognised next time. Note
   that `meeting enroll` reads the stored recording, so it only works for a meeting captured
   with `[meeting] retain_audio = true` — by default the audio is already gone.
+- **A name is one person, whatever its capitalisation.** Enrolling `amara` when `Amara` is
+  already enrolled *replaces* Amara rather than creating a second participant, and the name
+  keeps the spelling it was first enrolled with. There is no way to hold both: a voiceprint
+  is a file named after the person, and on macOS and Windows the filesystem itself treats
+  those two names as one file. YazSes behaves the same way everywhere rather than making
+  who-you-get depend on which computer you are sitting at.
 - **Accuracy is CPU Whisper accuracy.** On a good mic in a quiet room this is strong. In a
   large echoey room with six people talking over each other, a cloud service with per-channel
   audio will beat it. That is the trade you are making for privacy.

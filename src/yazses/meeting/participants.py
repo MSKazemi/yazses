@@ -37,8 +37,8 @@ def participants_dir(config=None) -> Path:
     return get_platform().paths.data_dir / "participants"
 
 
-def _safe_stem(name: str) -> str:
-    """Filesystem-safe stem for a display name (preserves it where possible)."""
+def participant_stem(name: str) -> str:
+    """Filesystem-safe stem for a display name (preserves it where possible). Pure."""
     cleaned = "".join(c for c in name.strip() if c not in '/\\\0').strip()
     return cleaned or "participant"
 
@@ -58,8 +58,42 @@ def _cluster_audio(audio, assigned, speaker_id, sample_rate: int) -> np.ndarray:
 
 
 def participant_path(name: str, config=None) -> Path:
-    """Where ``name``'s enrolled voiceprint lives. Pure given the config."""
-    return participants_dir(config) / (_safe_stem(name) + _SUFFIX)
+    """Where ``name``'s enrolled voiceprint lives, resolved against what is enrolled.
+
+    A name is one participant regardless of case: asking for ``alice`` when ``Alice`` is
+    already enrolled returns *Alice's* profile, and enrolling under it replaces her.
+
+    This is not a preference, it is the only behaviour that can be the same everywhere.
+    The display name is stored nowhere but the filename, so the file *is* the identity —
+    and on a case-insensitive filesystem (macOS APFS, NTFS) ``Alice.vp`` and ``alice.vp``
+    are one file whatever this function returns. Deriving the path from the name alone
+    made ``existing_participant`` truthfully warn that ``alice`` would replace ``Alice``
+    while these two paths compared unequal, so the warning and the write disagreed —
+    and on Linux the same two names were two people. Which one you got was a property of
+    the filesystem, not of YazSes.
+
+    Resolving here keeps the identity uniform: at most one of a set of case-variants can
+    be enrolled on any platform, and it keeps the case it was enrolled with. An exact
+    stem match still wins, so a machine that already holds both variants (only reachable
+    on a case-sensitive filesystem) keeps returning each of them for its own name.
+
+    Reads the directory, so it is *not* pure — ``participant_stem`` is the pure half.
+    """
+    d = participants_dir(config)
+    stem = participant_stem(name)
+    if d.is_dir():
+        folded = stem.casefold()
+        fallback: Path | None = None
+        # sorted() so a directory holding several case-variants resolves the same way
+        # every time rather than in whatever order the filesystem hands them over.
+        for existing in sorted(d.glob("*" + _SUFFIX)):
+            if existing.stem == stem:
+                return existing
+            if fallback is None and existing.stem.casefold() == folded:
+                fallback = existing
+        if fallback is not None:
+            return fallback
+    return d / (stem + _SUFFIX)
 
 
 def existing_participant(name: str, config=None) -> Path | None:
