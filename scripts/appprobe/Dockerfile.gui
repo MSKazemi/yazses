@@ -57,3 +57,16 @@ RUN wget -qO /tmp/zed.tar.gz "https://zed.dev/api/releases/stable/latest/zed-lin
 ENV ZED_ALLOW_ROOT=true ZED_ALLOW_EMULATED_GPU=1
 
 WORKDIR /work
+
+# Logseq, as the AppImage case — the packaging that has no apt repository and
+# is therefore the one a probe container is usually said not to be able to
+# install. It can: `--appimage-extract` unpacks the squashfs without FUSE,
+# which a container does not have. Run the extracted `AppRun`, not the
+# AppImage, or it looks for /dev/fuse and exits.
+ARG LOGSEQ_VERSION=2.0.1
+RUN wget -qO /tmp/logseq.AppImage \
+      "https://github.com/logseq/logseq/releases/download/${LOGSEQ_VERSION}/Logseq-linux-x86_64-${LOGSEQ_VERSION}.AppImage" \
+    && chmod +x /tmp/logseq.AppImage \
+    && (cd /opt && /tmp/logseq.AppImage --appimage-extract >/dev/null) \
+    && mv /opt/squashfs-root /opt/logseq \
+    && rm /tmp/logseq.AppImage

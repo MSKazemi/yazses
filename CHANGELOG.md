@@ -6,6 +6,35 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — a measured Logseq app profile, and an AppImage probe to measure it with
+
+`examples/config.logseq.toml`, opened by [@mercael91](https://github.com/mercael91)
+([#309](https://github.com/MSKazemi/yazses/pull/309), closes
+[#229](https://github.com/MSKazemi/yazses/issues/229)).
+
+Logseq was the one app on the wanted list that neither the contributor nor the maintainer
+could measure: it ships only as an AppImage, so it is in no apt repository, and mounting one
+needs FUSE, which a container does not have. `scripts/appprobe/README.md` recorded that as a
+limit of the harness. It is not one — `--appimage-extract` unpacks the squashfs with no FUSE
+at all, and `Dockerfile.gui` now runs the extracted `AppRun`. The same recipe fits any other
+AppImage-only app.
+
+Measured against Logseq 2.0.1, driving the real xdotool XTEST injector at a block on the
+journal page: `kubectl get pods --namespace prod` arrived **exact** — no auto-capitalisation,
+both hyphens intact. A second run for the markup an outliner rewrites as you type,
+`see /etc/hosts and [[my note]] ok`, also arrived exact: neither the `/` command menu nor the
+`[[` page-reference popup ate the rest of the line.
+
+One finding is specific to an outliner and is why the profile sets
+`[injection] target_guard = "clipboard"`: clicking the empty page *below* the last bullet
+focuses nothing, so a hold taken then has nowhere to put the words. Two probe runs differing
+only in where they clicked gave `EXACT` on the bullet and `NOTHING` on the blank space under
+it. In a text editor a click anywhere in the pane would have focused the editor.
+
+`probe-gui.sh` gained `PROBE_CLICK_Y_PCT` (the vertical half of the click, which that finding
+required) and `PROBE_TEXT` (a second, app-specific string; the default stays what every row in
+the results table was measured with).
+
 ### Fixed — subtitles were emitted as single lines of up to 80 characters
 
 Measured on a real 162-second recording through `yazses transcribe --format srt`: 22 cues,

@@ -1,20 +1,44 @@
 # examples/config.logseq.toml
 # A YazSes setup for dictating into Logseq.
 #
-# Verified: this file parses with Python's tomllib and loads with zero
-# ConfigProblems under the project's own two checks
-# (tests/test_app_example_configs.py), which are the only things we could run
-# from the machine that prepared it.
+# Measured against Logseq 2.0.1 (the official x86_64 AppImage) on an isolated
+# X display, by driving the real xdotool XTEST injector — the same path the
+# daemon uses — at a block on today's journal page and reading the block back:
 #
-# NOT verified: real injection into Logseq. Logseq is an AppImage and was not
-# available in our environment, so the two measurements that caught LibreOffice
-# are unmeasured here:
-#   * does `--namespace` keep BOTH hyphens, or become an en dash?
-#   * does a lowercase word at the start of a line stay lowercase?
-# The settings below follow examples/config.toml and the review guidance on
-# this PR; expect to adjust injection after your first live dictation.
+#     sent:     kubectl get pods --namespace prod
+#     arrived:  kubectl get pods --namespace prod      (exact)
+#
+# `kubectl` was not auto-capitalised and `--namespace` kept both hyphens, which
+# is the failure LibreOffice Writer shows. A second run for the markup Logseq
+# rewrites as you type came back exact too:
+#
+#     sent:     see /etc/hosts and [[my note]] ok
+#     arrived:  see /etc/hosts and [[my note]] ok      (exact)
+#
+# So neither the `/` command menu nor the `[[` page-reference popup mangles a
+# dictated line or swallows the rest of it, and no popup was left on screen.
+# Reproduce both with `scripts/appprobe/probe-gui.sh` — the AppImage recipe is
+# in that directory's README.
+#
+# NOT measured: the speech half. This drives the injector, not a microphone, so
+# nothing here says how well Logseq's own key bindings coexist with holding
+# right_ctrl. If one collides for you, `yazses hotkey set <key>` changes it.
 #
 # Copy to ~/.config/yazses/config.toml and edit as needed.
+
+# ONE WAY THIS LOOKS BROKEN WHEN IT IS NOT, and it is specific to an outliner.
+#
+# Logseq is blocks, not a page of text: clicking the empty page BELOW the last
+# bullet focuses nothing. Measured — the identical probe run twice, differing
+# only in where it clicked, gave `EXACT` on the bullet and `NOTHING` on the
+# blank space under it, with the characters simply gone. In VS Code or Obsidian
+# a click anywhere in the editor pane would have focused the editor.
+#
+# That is why `target_guard` matters more here than in a text editor: a hold
+# taken while no block is in edit mode has nowhere to put the words. With the
+# setting below they go to the clipboard and a toast says so, instead of
+# vanishing. (Whether the guard detects this *particular* Logseq state, rather
+# than the dictation simply landing nowhere, was not measured.)
 
 [stt]
 model = "base.en"          # base.en balances accuracy and CPU latency for prose
@@ -28,18 +52,18 @@ hold_threshold_ms = 400
 [audio]
 sample_rate = 16000
 channels = 1
-max_record_seconds = 60
+max_record_seconds = 60    # a Logseq block is a bullet, not an essay
 
 [injection]
-backend = "type"           # Electron accepts synthetic keystrokes; verify for Logseq
+backend = "type"           # measured EXACT into a block; Electron accepts XTEST
 fallback_to_clipboard = true
-target_guard = "clipboard" # a burst aimed at a dialog is saved, not lost
+target_guard = "clipboard" # see above — with no block focused, words go nowhere
 
 [commands]
-# Logseq is a note-taking app, so spoken punctuation may be worth having here —
-# unlike the code editors, where "period" and "comma" are ordinary words. Try
-# both and say which you kept.
-voice_punctuation = false
+# Preference, not a measurement: Logseq is prose in bullets, so spoken
+# punctuation is usually wanted, as in examples/config.obsidian.toml. Turn it
+# off if you dictate shell commands into your journal more often than sentences.
+voice_punctuation = true
 
 [general]
 log_level = "INFO"
