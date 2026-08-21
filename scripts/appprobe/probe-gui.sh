@@ -77,10 +77,21 @@ xdotool windowactivate --sync "$WIN" 2>/dev/null; sleep 3
 for k in ${PROBE_PRE_KEYS:-Escape Escape}; do xdotool key "$k"; sleep 1; done
 
 eval "$(xdotool getwindowgeometry --shell "$WIN")"
-xdotool mousemove $((X + WIDTH * CLICK_PCT / 100)) $((Y + HEIGHT / 2)) click 1
+# The vertical half of the click. Horizontal is the argument because a side
+# panel is the usual wrong target; vertical is an env var because only an
+# outliner needs it. Logseq puts its one empty block near the top and ignores a
+# click on the page below it, so a centre click focuses nothing and the probe
+# reports NOTHING — an app that received no keystrokes and an app that was
+# never asked to receive one look identical in the output.
+xdotool mousemove $((X + WIDTH * CLICK_PCT / 100)) \
+                  $((Y + HEIGHT * ${PROBE_CLICK_Y_PCT:-50} / 100)) click 1
 sleep 2
 
-TEXT='kubectl get pods --namespace prod'
+# The default is the string every entry in the README table was measured with;
+# do not change it, or the results stop being comparable. PROBE_TEXT is for a
+# SECOND, app-specific run — an outliner rewrites `/` and `[[` as you type, and
+# a command that never contains either says nothing about that.
+TEXT="${PROBE_TEXT:-kubectl get pods --namespace prod}"
 xdotool type --delay 20 "$TEXT"
 sleep 3
 xdotool key ctrl+a; sleep 1; xdotool key ctrl+c; sleep 2

@@ -32,6 +32,7 @@ asserted.
 | kitty, Alacritty, Konsole, tmux, Neovim, Emacs, xterm, Sublime Text | **EXACT** — byte for byte |
 | GNOME Terminal | **EXACT** — byte for byte (needs a session bus, see below) |
 | VS Code, Firefox, Thunderbird, Obsidian, Zed | **EXACT** — byte for byte (`probe-gui.sh`) |
+| Logseq | **EXACT** — byte for byte, including `/` and `[[` (`probe-gui.sh`, AppImage) |
 | LibreOffice Writer | **PARTIAL** — see below |
 
 LibreOffice Writer turned `kubectl get pods --namespace prod` into
@@ -121,6 +122,47 @@ conclusion that was published in this file**:
 The general lesson, which is worth more than the table: **a negative result from
 a harness is a claim about the harness until you have looked at the screen.**
 
+## AppImage apps — Logseq
+
+An AppImage is usually where this harness is said to stop: there is no apt
+repository to install from, and mounting one needs FUSE, which a container does
+not have. Neither is actually a blocker — `--appimage-extract` unpacks the
+squashfs with no FUSE at all, and `Dockerfile.gui` runs the extracted `AppRun`.
+The same recipe should fit any other AppImage-only app.
+
+```bash
+docker run --rm --shm-size=2g -e PROBE_CLICK_Y_PCT=30 $P yazses-appprobe-gui \
+    bash /work/probe-gui.sh logseq 60 20 /opt/logseq/AppRun --no-sandbox --disable-gpu
+```
+
+```
+RESULT|logseq|EXACT|kubectl get pods --namespace prod
+```
+
+Logseq 2.0.1 opens straight onto today's journal — no first-run modal, unlike
+VS Code — but it is an **outliner**, and that changes where you have to click:
+
+- **`PROBE_CLICK_Y_PCT` exists because of this app.** Clicking the empty page
+  *below* the last bullet focuses nothing, so the default centre click typed
+  into a window that was fully drawn and perfectly responsive, and the probe
+  reported `NOTHING`. Two runs differing only in the vertical click position
+  gave `EXACT` at 30% and `NOTHING` at 50%. The horizontal one is an argument
+  because a side panel is the usual wrong target; this one is an env var
+  because only an outliner needs it.
+- **`PROBE_TEXT` overrides the typed string** for a second, app-specific run.
+  The default is what every row in the table above was measured with and should
+  stay that way, but a notes app rewrites `/` and `[[` as you type and the
+  default string contains neither:
+
+  ```bash
+  docker run --rm --shm-size=2g -e PROBE_CLICK_Y_PCT=30 \
+      -e PROBE_TEXT='see /etc/hosts and [[my note]] ok' $P yazses-appprobe-gui \
+      bash /work/probe-gui.sh logseq-markup 60 20 /opt/logseq/AppRun --no-sandbox --disable-gpu
+  ```
+
+  Also `EXACT`: neither the slash command menu nor the page-reference popup ate
+  the rest of the line, and neither was left on screen.
+
 ## GNOME Terminal
 
 It is a thin client for `gnome-terminal-server`, which needs a session D-Bus
@@ -148,7 +190,7 @@ output.
 | GTK with a session bus — GNOME Terminal | works, byte for byte, under `dbus-run-session` in a UTF-8 locale |
 | **Java/Swing** — JetBrains | starts, but stops at a licence agreement. Clicking through a EULA automatically is not something this script should do. |
 | **Apps behind a login** — Slack, Discord | the message composer is the interesting part and it is behind an account. Only the login field is reachable, and a config asserting the untested half would be worse than no config. |
-| **AppImage-only apps** — Logseq | not in any apt repository. Adding one to `Dockerfile.gui` is a good contribution. |
+| AppImage-only apps — Logseq | **no longer a limit.** `--appimage-extract` needs no FUSE and no apt repository; see the Logseq section above. Another AppImage app is still a good contribution. |
 
 Two remaining traps:
 

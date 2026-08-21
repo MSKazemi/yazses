@@ -1,0 +1,69 @@
+# examples/config.logseq.toml
+# A YazSes setup for dictating into Logseq.
+#
+# Measured against Logseq 2.0.1 (the official x86_64 AppImage) on an isolated
+# X display, by driving the real xdotool XTEST injector — the same path the
+# daemon uses — at a block on today's journal page and reading the block back:
+#
+#     sent:     kubectl get pods --namespace prod
+#     arrived:  kubectl get pods --namespace prod      (exact)
+#
+# `kubectl` was not auto-capitalised and `--namespace` kept both hyphens, which
+# is the failure LibreOffice Writer shows. A second run for the markup Logseq
+# rewrites as you type came back exact too:
+#
+#     sent:     see /etc/hosts and [[my note]] ok
+#     arrived:  see /etc/hosts and [[my note]] ok      (exact)
+#
+# So neither the `/` command menu nor the `[[` page-reference popup mangles a
+# dictated line or swallows the rest of it, and no popup was left on screen.
+# Reproduce both with `scripts/appprobe/probe-gui.sh` — the AppImage recipe is
+# in that directory's README.
+#
+# NOT measured: the speech half. This drives the injector, not a microphone, so
+# nothing here says how well Logseq's own key bindings coexist with holding
+# right_ctrl. If one collides for you, `yazses hotkey set <key>` changes it.
+#
+# Copy to ~/.config/yazses/config.toml and edit as needed.
+
+# ONE WAY THIS LOOKS BROKEN WHEN IT IS NOT, and it is specific to an outliner.
+#
+# Logseq is blocks, not a page of text: clicking the empty page BELOW the last
+# bullet focuses nothing. Measured — the identical probe run twice, differing
+# only in where it clicked, gave `EXACT` on the bullet and `NOTHING` on the
+# blank space under it, with the characters simply gone. In VS Code or Obsidian
+# a click anywhere in the editor pane would have focused the editor.
+#
+# That is why `target_guard` matters more here than in a text editor: a hold
+# taken while no block is in edit mode has nowhere to put the words. With the
+# setting below they go to the clipboard and a toast says so, instead of
+# vanishing. (Whether the guard detects this *particular* Logseq state, rather
+# than the dictation simply landing nowhere, was not measured.)
+
+[stt]
+model = "base.en"          # base.en balances accuracy and CPU latency for prose
+device = "cpu"
+compute_type = "int8"
+
+[hotkey]
+key = "right_ctrl"         # hold-to-talk: you HOLD this key, it is not a chord
+hold_threshold_ms = 400
+
+[audio]
+sample_rate = 16000
+channels = 1
+max_record_seconds = 60    # a Logseq block is a bullet, not an essay
+
+[injection]
+backend = "type"           # measured EXACT into a block; Electron accepts XTEST
+fallback_to_clipboard = true
+target_guard = "clipboard" # see above — with no block focused, words go nowhere
+
+[commands]
+# Preference, not a measurement: Logseq is prose in bullets, so spoken
+# punctuation is usually wanted, as in examples/config.obsidian.toml. Turn it
+# off if you dictate shell commands into your journal more often than sentences.
+voice_punctuation = true
+
+[general]
+log_level = "INFO"

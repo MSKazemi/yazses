@@ -33,7 +33,9 @@ argument, and the record of it is the decision it altered.
 - [@Maqbool61](https://github.com/Maqbool61)
 - [@mercael91](https://github.com/mercael91) — went after the FreeBSD CI job nobody had looked
   at, which is how we learned the BSD backend had never once been executed
-  ([#306](https://github.com/MSKazemi/yazses/issues/306))
+  ([#306](https://github.com/MSKazemi/yazses/issues/306)); and brought the Logseq app
+  profile, the one that made the probe harness reach AppImage apps
+  ([#309](https://github.com/MSKazemi/yazses/pull/309))
 - [@Mr-Neutr0n](https://github.com/Mr-Neutr0n) — the VS Code app profile
   ([#43](https://github.com/MSKazemi/yazses/issues/43)), the project's first Electron editor
   and the one most people asked for
