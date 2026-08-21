@@ -37,6 +37,15 @@ _SYMBOLS = [
     ("dollar", "$"), ("single quote", "'"), ("double quote", '"'), ("backtick", "`"),
 ]
 
+# The authored list above is grouped by meaning, which is how it stays readable -- and is
+# exactly why it cannot also be the substitution order. `arrow` was written above
+# `fat arrow`, so `\barrow\b` matched first and "fat arrow" became "fat ->" instead of "=>".
+#
+# Ordering is therefore DERIVED, not maintained by hand: a word-bounded phrase can only be
+# shadowed by a longer one, so longest-first is correct by construction and a phrase added
+# in the wrong place cannot reintroduce the bug.
+_ORDERED: list[tuple[str, str]] = sorted(_SYMBOLS, key=lambda kv: -len(kv[0]))
+
 _STYLES = ("camel", "snake", "pascal", "constant", "kebab")
 
 
@@ -46,7 +55,7 @@ def spoken_symbols(text: str) -> str:
     Pure. Case-insensitive on the phrase; surrounding text is otherwise preserved.
     """
     out = text or ""
-    for phrase, sym in _SYMBOLS:
+    for phrase, sym in _ORDERED:
         # function replacement so literal backslashes/symbols aren't re-interpreted
         out = re.sub(rf"\b{re.escape(phrase)}\b", _literal(sym), out, flags=re.IGNORECASE)
     return out

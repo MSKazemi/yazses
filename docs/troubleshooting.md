@@ -10,7 +10,7 @@ description: Fixes for the most common YazSes problems — hotkey not firing, no
 Before reading further, let YazSes tell you which part is broken:
 
 ```sh
-yazses verify     # records you, then runs capture → silence gate → transcription
+yazses verify     # records you, then runs capture → silence gate → transcription → cleaning
 ```
 
 It reports each link in the chain and stops at the first failure, so you get the one thing
@@ -22,6 +22,34 @@ If you want to report a problem, `yazses report` writes a diagnostic file locall
 daemon state, settings with paths and identifiers removed, and the metadata-only log tail.
 Your dictated text is never in it, and **nothing is uploaded**; the file is yours to read
 before deciding to attach it to an issue.
+
+## YazSes usually tells you first
+
+Most failures now announce themselves as a desktop notification that names the cause and
+the command that fixes it — a microphone another program has taken, a missing `ydotool`, a
+full disk. So the first thing to do is read the message rather than start here.
+
+Two details worth knowing:
+
+- **The same problem is announced once every five minutes, not once per attempt.** A
+  microphone that will not open fails on every burst, and repeat toasts would only teach
+  you to dismiss them. The state is still in `yazses status` and the tray tooltip
+  throughout.
+- **When YazSes cannot work out what went wrong**, the notification carries a *Prepare a
+  bug report* button. It assembles the same redacted bundle `yazses report` writes and
+  opens GitHub's issue form with it **filled in** — you read it there, in your own
+  browser and account, and press submit yourself. **YazSes sends nothing**; the browser
+  makes the request. A failure YazSes *does* recognise gets no button, because it already
+  told you the fix.
+
+!!! tip "Some of this fixes itself — check before you debug"
+
+    A microphone that was stolen mid-session, a silence gate that drifted above
+    your voice, a crashed daemon and a crashed tray all recover on their own, and
+    each says so when it happens. If you are about to debug one of those, read
+    **[what recovers by itself, and what does not](reliability.md)** first — it
+    also lists the failures that are deliberately left for you, so you can tell
+    which kind you are looking at.
 
 ## It works, but not after I reboot
 

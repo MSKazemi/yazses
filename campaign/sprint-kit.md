@@ -26,7 +26,7 @@ none of them. Opening the pull request is the whole contract.
 >
 > Nothing to install beforehand — most tasks are done in the browser, and the ones that
 > need a machine will be matched to whatever you already have. If you want to set up
-> anyway: <https://github.com/MSKazemi/yazses/blob/main/CONTRIBUTING.md>. On Linux you
+> anyway: <https://github.com/MSKazemi/yazses/blob/main/.github/CONTRIBUTING.md>. On Linux you
 > need a C compiler (`build-essential`), on macOS and Windows you need nothing.
 >
 > If you use a coding agent, bring it. It's welcome — you stay the author.

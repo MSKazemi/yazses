@@ -47,3 +47,32 @@ def test_on_filter_shows_only_enabled() -> None:
     result = runner.invoke(app, ["features", "--on"])
     assert result.exit_code == 0
     assert "○ off" not in result.stdout
+
+
+def test_the_catalogue_prices_what_it_offers() -> None:
+    """A 3 GB feature must say so where it is chosen, not where it is paid for.
+
+    Before this, the only place a size appeared was `features enable`, at the
+    moment the download began.
+    """
+    result = runner.invoke(app, ["features"])
+    assert result.exit_code == 0
+    assert "DOWNLOAD" in result.stdout
+    # cocktail resolves to speechbrain -> torch -> the CUDA stack.
+    row = next(ln for ln in result.stdout.splitlines() if " cocktail " in ln)
+    assert "GB" in row, row
+
+
+def test_a_pure_logic_feature_is_not_priced() -> None:
+    """`reflow` downloads nothing; a size against it would be a lie."""
+    result = runner.invoke(app, ["features"])
+    row = next(ln for ln in result.stdout.splitlines() if " reflow " in ln)
+    assert "MB" not in row and "GB" not in row, row
+
+
+def test_the_size_column_width_matches_what_labels_are_sized_against() -> None:
+    """Two constants, two files: drift shifts every ADVICE cell right."""
+    from yazses import cli
+    from yazses.system import depsize
+
+    assert cli._SIZE_W == depsize.SIZE_COLUMN_WIDTH

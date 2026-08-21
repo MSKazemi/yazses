@@ -85,11 +85,17 @@ network port or listen on any external interface for this.
 
 ## Editor context (optional)
 
-When the LSP editor-context feature is enabled (`lsp_enabled = true` under
-`[commands]`; **off by default**), YazSes reads the active file path, language, and
-cursor line from your editor and uses them only as a prefix to the transcription
-prompt, so code identifiers from your current file are recognised. This context is
-never transmitted outside your device and is discarded after each transcription.
+**Correction (2026-08-17):** this section previously described the daemon reading
+your active file path, language and cursor line into every transcription prompt,
+controlled by `lsp_enabled`. **That never happened.** The daemon does not construct
+the editor bridge, and `lsp_enabled` is read by nothing — so no editor context has
+ever reached the transcription prompt. The statement overstated what YazSes
+collects, and the mitigation it offered protected against nothing.
+
+What is true: the editor bridge is contacted **only when you run a command that
+needs it** — `yazses jump` — which asks your editor for symbols and cursor position
+to move the caret, on demand, for that one invocation. Nothing is stored, and
+nothing leaves your device.
 
 ## On-device language models (optional)
 
@@ -210,6 +216,15 @@ YazSes collects **no telemetry, no usage analytics, and no crash reports**, and 
 no automatic outbound connections. Update checks are a manual, explicit action
 (`yazses update`); YazSes does not phone home on its own.
 
+**"Prepare a bug report" is not an exception to this**, and it is worth being exact
+about why. When YazSes cannot identify a failure, its notification offers a button. That
+button assembles the same redacted bundle `yazses report` writes and **opens your
+browser** at GitHub's issue form with the text already filled in. You read it there,
+signed in as yourself, and press submit — or close the tab. YazSes never makes the
+request; your browser does, if you decide to. Nothing is transmitted by YazSes at any
+point, and the project's [egress inventory](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-019-egress-inventory-and-escalation.md)
+— which a test enforces on every build — is unchanged by this feature.
+
 ## Third-party dependencies
 
 YazSes builds on open-source libraries — faster-whisper, sounddevice, and (optionally)
@@ -234,7 +249,7 @@ it drifts out of step with the lock file. Regenerate it yourself with
 |---|---|
 | Disable the learning corpus | Leave `[learning]` off (default), or `yazses features disable learning` |
 | Erase all captured data | `yazses corpus destroy` (or delete `corpus.db`) |
-| Disable editor context | Set `lsp_enabled = false` under `[commands]` (the default) |
+| Disable editor context | Nothing to disable — the daemon never reads your editor; only `yazses jump` contacts it, when you run it |
 | Disable the offline cleanup LLM | Set `llm_enabled = false` under `[filters.disfluency]` (the default) |
 | Inspect stored data | `yazses corpus status` |
 

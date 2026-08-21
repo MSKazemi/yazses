@@ -110,3 +110,59 @@ def test_opt_in_defaults_to_false() -> None:
     """If this ever flips, every existing install starts permitting remote sends
     without the user changing anything."""
     assert DisfluencyConfig().llm_allow_remote_endpoint is False
+
+
+# ---- encodings a more permissive host parser would open ---------------------
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "http://0x7f000001:11434",        # hex
+        "http://2130706433:11434",        # decimal
+        "http://017700000001:11434",      # octal
+        "http://127.0.0.1.evil.com",      # loopback as a subdomain label
+        "http://evil.com#127.0.0.1",      # fragment
+        "http://evil.com/?host=localhost",  # query
+        "http://ⓛocalhost:11434",         # circled latin small letter l
+        "http://lοcalhost:11434",         # greek omicron for o
+    ],
+)
+def test_numeric_and_homoglyph_encodings_are_not_loopback(endpoint):
+    """These are safe today only because `ipaddress.ip_address` refuses them.
+
+    `0x7f000001`, `2130706433` and `017700000001` all *mean* 127.0.0.1 to a C
+    resolver, and curl will happily connect to them. Python's parser rejects the lot,
+    so the guard falls through to "not loopback" and refuses — correct, but by a
+    property of the standard library rather than by an explicit decision here.
+
+    That makes them worth pinning: the obvious future kindness is to accept a
+    shorthand like `127.1` (which this guard also refuses, failing safe), and a
+    host parser permissive enough for that is permissive enough for these. The
+    homoglyphs are the same shape in the other alphabet — they render as
+    "localhost" and are not it.
+
+    A regression here does not raise or look wrong. It sends dictated text to
+    whoever owns the address, which is why this path already has a documented
+    history: it once POSTed transcripts to any host the config named.
+    """
+    assert is_loopback_endpoint(endpoint) is False
+
+
+def test_the_ipv4_mapped_form_is_loopback_on_every_supported_python():
+    """`::ffff:127.0.0.1` is genuinely local and must NOT be refused.
+
+    Verified rather than assumed: an actual connection attempt to it is *refused*
+    rather than routed away, so it reaches 127.0.0.1 on this machine. Listing it
+    with the bypasses above would break a working IPv6 setup.
+
+    It is also the reason `is_loopback_endpoint` resolves `ipv4_mapped` itself
+    instead of trusting `IPv6Address.is_loopback`. CPython only started counting
+    IPv4-mapped addresses as loopback in **3.13**; on 3.11 and 3.12 it answers False. This
+    project's matrix spans 3.11 to 3.14, so leaning on the stdlib made a privacy
+    guard give two different answers depending on the interpreter — the same
+    config accepted on one machine and refused on another. Caught by Windows 3.11
+    and macOS 3.11 and ubuntu 3.12 going red while ubuntu 3.13 and 3.14 passed --
+    which is also how the boundary was located: 3.12 red, 3.13 green.
+    """
+    assert is_loopback_endpoint("http://[::ffff:127.0.0.1]:11434") is True

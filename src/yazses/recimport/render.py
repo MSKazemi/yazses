@@ -54,8 +54,34 @@ def _render_md(result) -> str:
 
 
 def _render_subtitles(result, fmt: str) -> str:
-    triples = [(text, start, end) for (_spk, start, end, text) in result.assigned]
-    segments = merge_word_timestamps(triples)
+    """Captions, segmented **within** each speaker's run and labelled when diarized.
+
+    The words were segmented on silence and line length alone, with the speaker thrown
+    away, which did the very thing this module's docstring names as the bug to avoid:
+
+        00:00:00,000 --> 00:00:04,000
+        hello there hi              <- Alice's words and Bob's, in one caption, unlabelled
+
+    Two separate faults there. The missing label is a loss; the *merge* is worse, because
+    the caption then asserts something untrue — one person said all of it — and a caption
+    file is read by people who were not in the room.
+
+    Segments are built per contiguous speaker run, so a caption can never straddle a
+    speaker change, and each is prefixed with the display name when the recording is
+    diarized. An undiarized transcript is unchanged.
+    """
+    runs: list[tuple[str, list]] = []
+    for spk, start, end, text in result.assigned or ():
+        if runs and runs[-1][0] == spk:
+            runs[-1][1].append((text, start, end))
+        else:
+            runs.append((spk, [(text, start, end)]))
+
+    segments: list[tuple[float, float, str]] = []
+    for spk, triples in runs:
+        name = _display(result, spk) if result.diarized else ""
+        for seg_start, seg_end, text in merge_word_timestamps(triples):
+            segments.append((seg_start, seg_end, f"{name}: {text}" if name else text))
     return write_srt(segments) if fmt == "srt" else write_vtt(segments)
 
 

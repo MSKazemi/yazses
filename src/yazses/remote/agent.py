@@ -39,6 +39,22 @@ async def _handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWri
                 response = {"jsonrpc": "2.0", "result": {"ok": True}, "id": req_id}
             except Exception as exc:
                 response = {"jsonrpc": "2.0", "error": {"code": -32603, "message": str(exc)}, "id": req_id}
+        elif method == "keys":
+            # The remote injector has always implemented these; the protocol had no way
+            # to ask for them, so every voice COMMAND ("save", "copy", "undo") was a
+            # silent no-op in remote mode while dictation worked.
+            keys = params.get("keys") or []
+            try:
+                injector.inject_key_sequence([str(k) for k in keys])
+                response = {"jsonrpc": "2.0", "result": {"ok": True}, "id": req_id}
+            except Exception as exc:
+                response = {"jsonrpc": "2.0", "error": {"code": -32603, "message": str(exc)}, "id": req_id}
+        elif method == "backspaces":
+            try:
+                injector.inject_backspaces(int(params.get("count") or 0))
+                response = {"jsonrpc": "2.0", "result": {"ok": True}, "id": req_id}
+            except Exception as exc:
+                response = {"jsonrpc": "2.0", "error": {"code": -32603, "message": str(exc)}, "id": req_id}
         elif method == "ping":
             response = {"jsonrpc": "2.0", "result": {"pong": True}, "id": req_id}
         else:

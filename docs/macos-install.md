@@ -14,15 +14,16 @@ description: "Install YazSes on macOS for private, on-device dictation: pipx ins
 ## Requirements
 
 - macOS 11 (Big Sur) or later
-- **Apple Silicon (M1 or later) for the `.dmg`** — see the note below if you
-  are on an Intel Mac
+- **Either architecture** — releases carry an Apple Silicon `.dmg` and an Intel
+  one; only the *Homebrew cask* is Apple Silicon only (see the note below)
 - ~250 MB free disk for the app + the Whisper model on first download
 - A microphone
 
 ### Which Mac do I have?
 
-Apple menu → **About This Mac**. If *Chip* says **Apple M1/M2/M3/M4**, use the
-`.dmg`. If *Processor* says **Intel**, use the pipx route below.
+Apple menu → **About This Mac**. If *Chip* says **Apple M1/M2/M3/M4**, take the
+`…-macos-arm64.dmg`. If *Processor* says **Intel**, take the `…-macos-x86_64.dmg`
+(or use pipx — see below).
 
 Or from a terminal:
 
@@ -49,15 +50,20 @@ Upgrades then come with `brew upgrade --cask yazses`.
    in the Finder window.
 3. Eject the `.dmg`.
 
-### Intel Macs — install from PyPI
+### Intel Macs — take the x86_64 `.dmg`, or install from PyPI
 
-The `.dmg` is built on GitHub's `macos-latest` runner, which is an Apple
-Silicon image, and it is **not** a universal binary — it carries no `x86_64`
-slice and will not launch on an Intel Mac. The Homebrew cask declares
-`depends_on arch: :arm64`, so `brew install --cask yazses` refuses cleanly on
-Intel rather than installing something that cannot start.
+**Since v2.22.0 there is an Intel build.** The `.dmg` is produced as a
+per-architecture matrix, so every release carries both
+`YazSes-<version>-macos-arm64.dmg` and `YazSes-<version>-macos-x86_64.dmg`. Take the
+`x86_64` one.
 
-Install from PyPI instead, which is architecture independent:
+The **Homebrew cask** is still Apple Silicon only: it declares
+`depends_on arch: :arm64`, so `brew install --cask yazses` refuses cleanly on Intel
+rather than installing something that cannot start.
+
+⚠ The Intel leg is `continue-on-error` in CI, so a release *can* ship without it. If
+you do not see an `x86_64` asset on a given release, PyPI is architecture independent
+and always works:
 
 ```sh
 pipx install yazses
@@ -68,9 +74,9 @@ You get the same daemon and CLI; what you do not get is the `.app` bundle and
 its tray icon. Everything below about Accessibility and Microphone permissions
 still applies — grant them to your **terminal** app instead of to YazSes.app.
 
-> An Intel `.dmg` would need a second CI job on an Intel runner. GitHub now
-> offers those only as `-large`/`-intel` labels, which are billed even for
-> public repositories, so it is a spend decision rather than an oversight.
+> This page previously said an Intel `.dmg` "would need a second CI job" that had not
+> been paid for. That job exists now (`macos-15-intel` in the build matrix) and has
+> shipped Intel bundles since v2.22.0.
 
 ## First launch — Gatekeeper bypass
 

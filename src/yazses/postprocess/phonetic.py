@@ -4,6 +4,34 @@ Fix mis-heard proper nouns/commands by matching transcript tokens against a pers
 lexicon in *sound* space. Uses a compact, documented phonetic key (a deterministic
 consonant-skeleton reduction — not a claim to be Metaphone) + normalized edit distance.
 Pure and conservative; a stronger G2P backend is opt-in elsewhere.
+
+.. warning::
+
+   **`known` is not optional in practice, and the daemon does not pass it.**
+
+   A personal lexicon naturally contains ordinary English words -- "Git", "head" -- and a
+   token that merely *sounds* like one is rewritten to it. Measured against a real
+   24-entry vocabulary, six of eleven ordinary sentences were corrupted::
+
+       "get the file"          ->  "Git the file"
+       "go ahead and try it"   ->  "go head and try it"
+       "we had a great time"   ->  "we head a Git time"
+
+   Tuning ``max_distance`` cannot fix this, and that is worth stating because it is the
+   obvious thing to try. The scores collide exactly::
+
+       get    -> Git      0.000     <- must NOT be corrected
+       had    -> head     0.000     <- must NOT be corrected
+       githab -> GitHub   0.000     <- MUST be corrected
+
+   "get" and "Git" are phonetic twins; no threshold, minimum length or scoring tweak can
+   separate a real word that sounds like a lexicon entry from a misrecognition of it.
+   Only a set of correctly-spelled words can -- which is exactly what the ``known``
+   parameter is for, and `core/daemon.py` calls `correct_text(text, _vocab)` without it.
+
+   `[phonetic] enabled` is off by default, so this affects whoever turns it on. Wiring a
+   word list is a data decision (which list, how large, what licence) and is left open
+   rather than guessed at.
 """
 from __future__ import annotations
 

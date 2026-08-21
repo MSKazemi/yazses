@@ -135,7 +135,10 @@ class ParakeetEngine:
     # explicit, monkeypatchable, and defended in one place each.
 
     def _load(self):
-        import onnx_asr  # lazy: optional dep (`yazses features enable stt-parakeet`)
+        # lazy: optional dep (`yazses features enable stt-parakeet`). It ships no type
+        # stubs and is absent from a default install, so the checker cannot resolve it
+        # — that is expected here rather than a missing dependency.
+        import onnx_asr  # type: ignore[import-not-found]
 
         if self._quantization:
             try:

@@ -1,0 +1,538 @@
+"""Failures are explained to the person, not just to the log.
+
+The gap this closes is not detection — the daemon already catches these. It is that
+nothing tells the user. Measured on the build before this landed: a microphone that
+will not open is caught, logged, written to `last_error`, and then the state goes
+back to `IDLE`, which the tray paints **idle blue**. So you hold the key, speak a
+sentence, nothing is typed, and every surface you can see reports a healthy daemon.
+
+Two things are worth guarding separately. The classifier is pure and total — the
+interesting cases are the *unrecognised* error and the *repeat*, not the happy match.
+And the wiring is what makes it real: a diagnosis nothing calls is a nicely worded
+module.
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+import pytest
+
+from yazses.system.diagnosis import (
+    CAPTURE,
+    INJECT,
+    MEETING,
+    STARTUP,
+    TRANSCRIBE,
+    Diagnosis,
+    diagnose,
+    should_notify,
+)
+
+ROOT = Path(__file__).resolve().parent.parent
+
+
+# ---- the classifier is total ----------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "where", [CAPTURE, TRANSCRIBE, INJECT, MEETING, STARTUP, "", "something-new"]
+)
+def test_an_unrecognised_error_still_produces_advice(where):
+    """The case the module exists for.
+
+    A classifier that returned None for the unexpected error would go silent in
+    exactly the situation the user most needs a message — and "unexpected" is the
+    normal state of a bug report.
+    """
+    found = diagnose(RuntimeError("gzzt 0x8004"), where=where)
+    assert isinstance(found, Diagnosis)
+    assert found.title and found.what and found.fix
+    assert found.slug
+
+
+def test_every_diagnosis_names_something_to_do():
+    """A message with no next step is a nicer-sounding dead end.
+
+    Checked by demanding either a command or an imperative — the whole point of the
+    module is that "Microphone unavailable" is a label and not advice.
+    """
+    samples = [
+        "device unavailable",
+        "Invalid device",
+        "no default input device",
+        "Permission denied",
+        "PortAudioError",
+        "ydotool not found",
+        "xdotool: command not found",
+        "/dev/uinput: Permission denied",
+        "No space left on device",
+        "CUDA out of memory",
+        "model 'base.en' could not be opened",
+        "something nobody predicted",
+    ]
+    for text in samples:
+        found = diagnose(text, where=CAPTURE)
+        assert "`yazses" in found.fix or re.match(
+            r"(Close|Plug|Grant|Install|Free|Run|On Linux)", found.fix
+        ), f"{text!r} -> {found.fix!r}"
+
+
+@pytest.mark.parametrize(
+    "text,slug",
+    [
+        ("Error opening InputStream: Device unavailable", "mic-busy"),
+        ("[Errno -9985] Device unavailable", "mic-busy"),
+        ("Invalid device index", "mic-missing"),
+        ("No default input device available", "mic-missing"),
+        ("Permission denied accessing the audio device", "mic-permission"),
+        ("ydotoold is not running", "inject-tool-missing"),
+        ("xdotool: not found", "inject-tool-missing"),
+        ("cannot open /dev/uinput", "inject-permission"),
+        ("OSError: [Errno 28] No space left on device", "disk-full"),
+        ("RuntimeError: CUDA out of memory", "out-of-memory"),
+    ],
+)
+def test_the_known_failures_are_recognised(text, slug):
+    assert diagnose(text, where=CAPTURE).slug == slug
+
+
+def test_the_class_name_is_matched_too_not_only_the_message():
+    """Some libraries put every useful word in the type and nothing in the message.
+
+    `sounddevice.PortAudioError` can arrive carrying only an errno, so matching the
+    string alone would fall through to the generic wording for the one audio error
+    that is most specifically diagnosable.
+    """
+
+    class PortAudioError(Exception):
+        pass
+
+    assert diagnose(PortAudioError("-9996"), where=CAPTURE).slug == "audio-backend-missing"
+
+
+def test_a_recognised_failure_is_recognised_wherever_it_is_caught():
+    """`where` picks the fallback wording only.
+
+    The same missing ydotool produces the same advice on any code path, so a rule
+    that fired only in the "right" stage would go generic exactly when a caller was
+    added somewhere new.
+    """
+    for where in (CAPTURE, TRANSCRIBE, INJECT, MEETING, STARTUP):
+        assert diagnose("ydotool missing", where=where).slug == "inject-tool-missing"
+
+
+def test_the_generic_slug_carries_the_stage():
+    """Otherwise rate-limiting a failing mic would silence a failing injector too.
+
+    Two unrelated faults sharing one slug means the second is never reported.
+    """
+    assert diagnose("???", where=CAPTURE).slug != diagnose("???", where=INJECT).slug
+
+
+def test_diagnose_never_raises_on_junk():
+    for value in (None, "", 0, object()):
+        found = diagnose(value, where=CAPTURE)  # type: ignore[arg-type]
+        assert found.title
+
+
+def test_the_body_says_what_happened_then_what_to_do():
+    found = diagnose("device unavailable", where=CAPTURE)
+    assert found.body == f"{found.what}\n{found.fix}"
+
+
+# ---- the links ship inside a binary ---------------------------------------
+
+
+def test_the_rules_actually_carry_doc_links():
+    """That the links *resolve* is checked once for the whole package, in
+    `test_shipped_links_resolve.py` — it reads f-strings, which is how this module
+    builds every URL, and a second copy here would be the drift this repo keeps
+    paying for.
+
+    What is worth asserting locally is that there are links at all: the general guard
+    iterates whatever it finds, so a rule table that lost its links would leave it
+    passing over an empty set.
+    """
+    from yazses.system import diagnosis as mod
+
+    links = {doc for *_rest, doc in mod._RULES if doc}
+    assert len(links) >= 3, f"only {len(links)} doc links in the rule table"
+
+
+# ---- the repeat policy -----------------------------------------------------
+
+
+def test_the_same_failure_is_reported_once_then_held():
+    """A broken mic fails on every burst; five identical toasts train dismissal."""
+    seen: dict[str, float] = {}
+    assert should_notify("mic-busy", 100.0, seen) is True
+    assert should_notify("mic-busy", 120.0, seen) is False
+    assert should_notify("mic-busy", 200.0, seen) is False
+
+
+def test_it_speaks_again_once_the_silence_has_elapsed():
+    seen: dict[str, float] = {}
+    assert should_notify("mic-busy", 100.0, seen) is True
+    assert should_notify("mic-busy", 100.0 + 301.0, seen) is True
+
+
+def test_a_different_failure_is_never_silenced_by_an_earlier_one():
+    """The bug this ordering prevents: one fault masking a second, unrelated one."""
+    seen: dict[str, float] = {}
+    assert should_notify("mic-busy", 100.0, seen) is True
+    assert should_notify("inject-tool-missing", 101.0, seen) is True
+
+
+def test_the_window_is_configurable_so_the_policy_is_testable_without_waiting():
+    seen: dict[str, float] = {}
+    assert should_notify("x", 0.0, seen, silence_s=10.0) is True
+    assert should_notify("x", 5.0, seen, silence_s=10.0) is False
+    assert should_notify("x", 11.0, seen, silence_s=10.0) is True
+
+
+# ---- the wiring: a diagnosis nothing calls is just prose -------------------
+
+
+def _daemon():
+    from yazses.config import Config
+    from yazses.core.daemon import Daemon
+    from yazses.platform import get_platform
+
+    return Daemon(config=Config(), platform=get_platform())
+
+
+def test_the_daemon_reports_a_failure_to_the_user(mocker):
+    shown = mocker.patch("yazses.system.notify.notify")
+    daemon = _daemon()
+
+    found = daemon._report_failure(OSError("Device unavailable"), CAPTURE)
+
+    assert found is not None and found.slug == "mic-busy"
+    shown.assert_called_once()
+    title, body = shown.call_args.args
+    assert "microphone" in title.lower()
+    assert "yazses audio devices" in body
+
+
+def test_the_daemon_holds_a_repeat_of_the_same_failure(mocker):
+    shown = mocker.patch("yazses.system.notify.notify")
+    daemon = _daemon()
+
+    assert daemon._report_failure(OSError("Device unavailable"), CAPTURE) is not None
+    assert daemon._report_failure(OSError("Device unavailable"), CAPTURE) is None
+    assert shown.call_count == 1
+
+
+def test_reporting_a_failure_never_raises_into_the_failing_path(mocker):
+    """It runs from code that is already handling an error, on a background thread.
+
+    An exception here would replace a fixable problem with an unfixable one.
+    """
+    mocker.patch("yazses.system.notify.notify", side_effect=RuntimeError("no dbus"))
+    daemon = _daemon()
+    assert daemon._report_failure(OSError("Device unavailable"), CAPTURE) is None
+
+
+def test_a_failing_microphone_now_tells_the_user(mocker):
+    """The end-to-end case, driven through the real hold-to-talk path.
+
+    `_on_hold_start` caught the error, logged it, set `last_error`, and returned the
+    state to IDLE — which the tray paints blue. Nothing the user could see said a
+    word, which is the whole reason this module exists.
+    """
+    shown = mocker.patch("yazses.system.notify.notify")
+    daemon = _daemon()
+
+    class _DeadRecorder:
+        def start(self):
+            raise OSError("Error opening InputStream: Device unavailable")
+
+    daemon._recorder = _DeadRecorder()
+    daemon._on_hold_start(0)
+
+    assert "Microphone unavailable" in (daemon._state.last_error or "")
+    shown.assert_called_once()
+    assert "yazses audio devices" in shown.call_args.args[1]
+
+
+def test_the_tray_is_still_blue_when_that_happens(mocker):
+    """Recorded deliberately, because it is the finding that motivated the toast.
+
+    `_on_hold_start` returns the state to IDLE after a capture failure, and
+    `icon_spec` colours on state — not on `last_error`. So the badge says "ready"
+    while the microphone is unusable. Making the icon red for a per-burst failure
+    would leave it red long after the fault cleared, so the notification is the fix
+    and this test pins the reason rather than the behaviour.
+    """
+    from yazses.tray.menu import icon_spec
+
+    mocker.patch("yazses.system.notify.notify")
+    daemon = _daemon()
+
+    class _DeadRecorder:
+        def start(self):
+            raise OSError("Device unavailable")
+
+    daemon._recorder = _DeadRecorder()
+    daemon._on_hold_start(0)
+
+    colour, _tooltip = icon_spec({"state": daemon._state.state.value})
+    assert colour == "#1a73e8", "if this ever goes red, the toast can be reconsidered"
+
+
+def test_the_daemon_calls_the_reporter_from_every_stage_it_catches():
+    """A stage that catches an error and does not report it is invisible again.
+
+    Read from the source rather than exercised, because two of the three sites need
+    a live audio device or a meeting to reach. What is checked is that each `except`
+    that sets `last_error` or logs a stage failure is followed by a report — the
+    thing that silently regresses when a new failure path is added next to an old one.
+    """
+    source = (ROOT / "src/yazses/core/daemon.py").read_text(encoding="utf-8")
+    for marker in (
+        "self._report_failure(exc, CAPTURE)",
+        "self._report_failure(exc, INJECT)",
+        "self._report_failure(exc, MEETING)",
+    ):
+        assert marker in source, f"no stage reports via {marker}"
+
+
+# ---- the report offer (ADR-v2-132 option b: prepare, never send) -----------
+
+
+def test_the_report_button_appears_only_when_yazses_could_not_identify_the_fault(mocker):
+    """ADR-v2-132's third open question, answered from the diagnosis rather than a counter.
+
+    The ADR wondered whether to wait for a *repeated* fault. The better rule falls out
+    of the classifier: a recognised failure already carries the command that fixes it,
+    and an issue about a missing ydotool helps nobody — least of all the person who now
+    has two things to do instead of one.
+    """
+    shown = mocker.patch("yazses.system.notify.notify")
+    daemon = _daemon()
+
+    daemon._report_failure(OSError("ydotool is not installed"), INJECT)
+    assert shown.call_args.kwargs["actions"] is None, "a fixable fault needs no issue"
+
+    shown.reset_mock()
+    daemon._report_failure(RuntimeError("gzzt 0x8004"), INJECT)
+    actions = shown.call_args.kwargs["actions"]
+    assert actions and actions[0].label == "Prepare a bug report"
+
+
+def test_preparing_a_report_opens_a_form_and_sends_nothing(mocker):
+    """The whole basis of ADR-v2-132 (b): the browser makes the request, not YazSes.
+
+    That is why this adds no entry to ADR-019's egress inventory — and why
+    `tests/test_egress_inventory.py` must keep passing untouched.
+    """
+    opened = mocker.patch("yazses.system.browser.open_url", return_value=True)
+    daemon = _daemon()
+
+    assert daemon._prepare_bug_report(diagnose("gzzt", where=INJECT)) is True
+
+    url = opened.call_args.args[0]
+    assert url.startswith("https://github.com/MSKazemi/yazses/issues/new?")
+    assert "title=" in url and "body=" in url
+
+
+def test_preparing_a_report_never_raises_from_a_toast_button(mocker):
+    mocker.patch("yazses.system.report.collect", side_effect=OSError("no config dir"))
+    daemon = _daemon()
+    assert daemon._prepare_bug_report(diagnose("x", where=INJECT)) is False
+
+
+def test_the_issue_body_carries_the_diagnosis_and_the_environment():
+    from yazses.system.report import summarise_for_issue
+
+    body = summarise_for_issue(
+        {
+            "system": {"yazses": "2.27.0", "platform": "linux", "python": "3.12.0"},
+            "daemon": {"state": "idle", "model": "base.en"},
+            "log_tail": ["one", "two"],
+        },
+        diagnosis=diagnose("gzzt", where=INJECT),
+    )
+    assert "2.27.0" in body and "base.en" in body
+    assert "unknown-inject" in body, "the diagnosis id groups duplicate reports"
+    assert "What I expected instead" in body, "the user still has to say what broke"
+
+
+def test_the_issue_body_is_bounded_so_the_url_survives():
+    """A URL that exceeds what the browser accepts yields an EMPTY form, not a short one.
+
+    So the failure of an unbounded body is total rather than partial — the user clicks
+    the button and lands on a blank issue.
+    """
+    from yazses.system.report import ISSUE_URL_LIMIT, issue_url, summarise_for_issue
+
+    huge = {"system": {}, "daemon": {}, "log_tail": [f"line {i} " + "x" * 200 for i in range(500)]}
+    body = summarise_for_issue(huge, log_lines=500)
+    # The whole URL, because that is the thing with the limit. Bounding the raw body
+    # instead is the bug this replaced: percent-encoding expands text 1.27x for a log
+    # line and up to 3x for punctuation, so a 6000-character body measured "within the
+    # limit" produced a 12,972-character URL on a real report from this machine.
+    assert len(issue_url("YazSes could not reach your default microphone", body)) <= ISSUE_URL_LIMIT
+
+
+def test_trimming_is_stated_rather_than_silent():
+    """A body that quietly loses its ending has the user file a report they think is whole."""
+    from yazses.system.report import summarise_for_issue
+
+    huge = {"system": {}, "daemon": {}, "log_tail": [f"line {i} " + "x" * 200 for i in range(500)]}
+    body = summarise_for_issue(huge, log_lines=500)
+    assert "trimmed" in body
+
+
+def test_trimming_keeps_the_newest_lines_not_the_oldest():
+    """The recent lines are the ones that explain the failure."""
+    from yazses.system.report import summarise_for_issue
+
+    tail = [f"line-{i} " + "x" * 200 for i in range(200)]
+    body = summarise_for_issue(
+        {"system": {}, "daemon": {}, "log_tail": tail}, log_lines=200
+    )
+    assert "line-199" in body
+    assert "line-0 " not in body
+
+
+def test_the_issue_body_adds_no_second_redaction_implementation():
+    """Redaction has one implementation, in `collect`. Two would drift.
+
+    Guarded by source, because the failure is an *addition* — someone adding a
+    `redact_text` call here to be safe is how the two copies begin.
+    """
+    from pathlib import Path
+
+    source = Path("src/yazses/system/report.py").read_text(encoding="utf-8")
+    body_fn = source.split("def _render_issue_body")[1].split("\ndef ")[0]
+    assert "redact_text" not in body_fn
+    assert "redact_config" not in body_fn
+
+
+def test_the_url_encoder_matches_the_stdlib_it_is_not_allowed_to_import():
+    """`report.py` hand-rolls percent-encoding; the stdlib still defines correctness.
+
+    ADR-019's egress guard scans `src/yazses/` for network-shaped imports and lists
+    `urllib` among them — conservatively, since `urllib.parse` cannot open a socket.
+    Registering `report.py` in the egress inventory to satisfy it would be a lie, and
+    relaxing the guard would trade a real protection for a convenience in the one
+    module whose docstring is "Nothing is ever sent anywhere".
+
+    So the encoder is written by hand *there* and checked against `urllib.parse.quote`
+    *here* — this file is outside the scanned tree.
+    """
+    from urllib.parse import quote
+
+    from yazses.system.report import _percent_encode
+
+    samples = [
+        "hello world",
+        "a&b=c?d#e",
+        "YazSes — could not open your microphone",
+        "بسیار خوب",
+        "100% sure",
+        "```\nlog line\n```",
+        "~unreserved-._",
+        "",
+    ]
+    for text in samples:
+        assert _percent_encode(text) == quote(text, safe=""), text
+
+
+def test_the_issue_url_survives_a_body_with_url_metacharacters():
+    """A body is Markdown: it is full of `#`, `&` and `?`. Unencoded, the URL breaks."""
+    from yazses.system.report import issue_url
+
+    url = issue_url("t?1", "## head\n- a & b\n#anchor")
+    assert url.count("?") == 1, "only the query separator may be a literal ?"
+    assert url.count("&") == 1, "only the field separator may be a literal &"
+    assert "#" not in url, "an unencoded # truncates the URL at the fragment"
+
+
+# ---- strings the product actually emits, not ones I imagined ---------------
+#
+# The rule set was written from plausible-looking error text. Then a nine-hour
+# session on a real machine was audited, and the **only** warning it had produced —
+# five times — was `Error querying device -1`, which fell straight through to the
+# generic wording. The classifier had a rule for every failure except the one that
+# was happening.
+#
+# So the cases below are transcribed from real logs and real `raise` sites in this
+# repo, and a new rule is expected to keep them classified. Imagined strings are
+# fine as extra coverage; these are the ones that must not regress.
+
+#: (observed message, expected slug). Provenance is in the comment on each.
+_OBSERVED = [
+    # ~/.local/state/yazses/log/daemon.log, 2026-08-18, x5 — the whole day's warnings.
+    ("Microphone open failed (attempt 1/3): Error querying device -1",
+     "mic-default-unresolved"),
+    # audio/recorder.py::start, the message raised once every attempt has failed —
+    # this is the one that reaches the daemon and therefore the user.
+    ("Could not open microphone after 3 attempts: Error querying device -1",
+     "mic-default-unresolved"),
+    # core/daemon.py::_on_hold_start wraps it again before reporting.
+    ("Microphone unavailable: Could not open microphone after 3 attempts: "
+     "Error querying device -1", "mic-default-unresolved"),
+]
+
+
+@pytest.mark.parametrize("message,slug", _OBSERVED)
+def test_messages_this_product_really_emits_are_classified(message, slug):
+    assert diagnose(message, where=CAPTURE).slug == slug
+
+
+def test_the_recorder_still_raises_the_message_this_rule_matches():
+    """The rule matches a string built somewhere else; pin the two together.
+
+    Rewording `AudioRecorder.start`'s failure would silently demote the most common
+    real microphone fault back to the generic wording, with nothing failing.
+    """
+    source = (ROOT / "src/yazses/audio/recorder.py").read_text(encoding="utf-8")
+    assert "Could not open microphone after" in source
+    # And the daemon must still wrap it on the path that reports to the user.
+    daemon = (ROOT / "src/yazses/core/daemon.py").read_text(encoding="utf-8")
+    assert "Microphone unavailable:" in daemon
+
+
+@pytest.mark.parametrize(
+    "filler",
+    [
+        "plain ascii words that encode almost one to one",
+        "punctuation: heavy, (text) [with] {braces} & symbols! 100% ~of~ it",
+        "بسیار خوب متن فارسی که هر نویسه سه بایت است",
+    ],
+)
+def test_the_url_fits_whatever_the_log_happens_to_contain(filler):
+    """The expansion ratio is a property of the *content*, not a constant.
+
+    ASCII prose encodes ~1.0x, Markdown punctuation ~1.45x, and non-Latin text 9x —
+    each UTF-8 byte becomes three characters. A budget tuned on one of them and
+    applied to another is how the limit gets silently exceeded, which produces an
+    empty issue form rather than a short one.
+    """
+    from yazses.system.report import ISSUE_URL_LIMIT, issue_url, summarise_for_issue
+
+    report = {
+        "system": {"yazses": "2.27.0"},
+        "daemon": {"state": "idle"},
+        "log_tail": [f"{i} {filler}" for i in range(400)],
+    }
+    body = summarise_for_issue(report, log_lines=400)
+    assert len(issue_url("A problem with YazSes", body)) <= ISSUE_URL_LIMIT
+
+
+def test_a_body_that_cannot_be_trimmed_by_lines_is_still_bounded():
+    """The non-log sections alone can exceed the budget — a pathological config.
+
+    With no log lines left to drop, the fallback cut must still measure the encoded
+    length, or it returns something that looks trimmed and still will not open.
+    """
+    from yazses.system.report import ISSUE_URL_LIMIT, issue_url, summarise_for_issue
+
+    body = summarise_for_issue(
+        {"system": {}, "daemon": {}, "log_tail": [], "config_problems": ["é! " * 3000]}
+    )
+    assert len(issue_url("t", body)) <= ISSUE_URL_LIMIT

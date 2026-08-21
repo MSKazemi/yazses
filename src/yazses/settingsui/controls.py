@@ -20,7 +20,7 @@ types, so a threshold stays a number rather than becoming the string "0.004".
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 
 # A VAD threshold outside this range is not a setting, it is a broken microphone
@@ -29,6 +29,146 @@ VAD_MIN = 0.0001
 VAD_MAX = 0.2
 # Slider widgets are integral; this is the resolution the float is quantised to.
 VAD_SLIDER_STEPS = 1000
+
+
+#: How a finished transcript reaches the focused window. Mirrors `[injection]
+#: backend` — an unrecognised value falls through to `auto` at runtime, so the
+#: window refuses one rather than showing a setting that reads back as the user's
+#: while doing something else.
+INJECTION_BACKENDS: tuple[str, ...] = ("auto", "type", "clipboard", "wtype")
+
+#: `[injection] target_guard` — what happens when you dictate with no editable
+#: field focused. Label → value, because "clipboard" does not say what it does.
+TARGET_GUARDS: tuple[tuple[str, str], ...] = (
+    ("Copy it to the clipboard and tell me", "clipboard"),
+    ("Type it anyway, but warn me", "warn"),
+    ("No guard — always type", "off"),
+)
+
+#: Fallback compute types when ctranslate2 cannot be asked (see
+#: `compute_type_choices`). Deliberately the conservative CPU set: these four are
+#: what a CPU build reports, and offering float16 on a machine that cannot do it
+#: is how you get a settings window that writes a config the daemon rejects.
+_FALLBACK_COMPUTE_TYPES: tuple[str, ...] = ("int8", "int8_float32", "int16", "float32")
+
+#: The pre-speech padding range, in ms. Below the floor the first word is clipped,
+#: which is the fault this setting exists to fix; above the ceiling every burst
+#: carries most of a second of silence into the decoder for nothing.
+PADDING_MIN_MS = 0
+PADDING_MAX_MS = 2000
+
+
+def compute_type_choices(device: str = "cpu", current: str = "") -> list[str]:
+    """The quantisations *this machine* can actually run, plus what is configured.
+
+    Asked of ctranslate2 rather than hardcoded, because the answer is a property of
+    the CPU: an AVX-512 machine reports a different set from an older one, and a CUDA
+    build reports a different set again. A fixed list would offer values that load
+    fine on the developer's box and fail on the user's.
+
+    The failure it prevents is worth naming. An unsupported compute type raises out of
+    `WhisperModel(...)`, which `stt/faster_whisper.py` catches and re-raises as
+    `ModelUnavailableError` — a message about the *model* being unavailable, listing
+    three ways to obtain a model the user already has. The cause is a quantisation
+    string, and nothing anywhere says so.
+
+    Never raises: ctranslate2 is a compiled extension, and `get_supported_compute_types`
+    probes the device, which is exactly the call that fails on a broken CUDA install.
+    The settings window has to open there — every other setting still works.
+    """
+    try:
+        # ctranslate2 ships no py.typed marker, so mypy cannot see into it. The
+        # call below is guarded by the surrounding try/except anyway.
+        import ctranslate2  # type: ignore[import-untyped]
+
+        supported = set(ctranslate2.get_supported_compute_types(device or "cpu"))
+    except Exception:
+        supported = set(_FALLBACK_COMPUTE_TYPES)
+    names = sorted(n for n in supported if n)
+    chosen = (current or "").strip()
+    # Same rule as `model_choices`: a hand-configured value is never silently
+    # replaced by the first entry in a list, even when this build cannot offer it.
+    if chosen and chosen not in names:
+        return [chosen, *names]
+    return names
+
+
+def target_guard_choices(current: str = "") -> list[tuple[str, str]]:
+    """The no-text-target dropdown, keeping a configured value that is not listed."""
+    rows = list(TARGET_GUARDS)
+    chosen = (current or "").strip()
+    if chosen and all(chosen != value for _, value in rows):
+        rows.insert(0, (f"{chosen} (from your config)", chosen))
+    return rows
+
+
+def clamp_padding_ms(value) -> int:
+    """Keep the pre-speech padding inside the range where it means something.
+
+    Clamped rather than refused, like the VAD threshold: a spin box cannot produce
+    an out-of-range value, so a refusal here would only ever be API misuse, and
+    silently dropping the edit is worse than pinning it to the edge.
+    """
+    try:
+        number = int(round(float(value)))
+    except (TypeError, ValueError):
+        return PADDING_MIN_MS
+    return min(PADDING_MAX_MS, max(PADDING_MIN_MS, number))
+
+#: Label → `[stt] language` value. Whisper accepts far more than this; the list is
+#: the common ones plus whatever the config already holds, because a dropdown of
+#: ninety-nine codes is a worse way to find "de" than typing it.
+#:
+#: "" is a real value, not a blank: it auto-detects per utterance.
+LANGUAGE_CHOICES: tuple[tuple[str, str], ...] = (
+    ("Auto-detect (per utterance)", ""),
+    ("English", "en"),
+    ("Persian / فارسی", "fa"),
+    ("German", "de"),
+    ("French", "fr"),
+    ("Spanish", "es"),
+    ("Italian", "it"),
+    ("Dutch", "nl"),
+    ("Portuguese", "pt"),
+    ("Russian", "ru"),
+    ("Turkish", "tr"),
+    ("Arabic", "ar"),
+    ("Hindi", "hi"),
+    ("Chinese", "zh"),
+    ("Japanese", "ja"),
+    ("Korean", "ko"),
+)
+
+
+def model_choices(known: Iterable[str], current: str = "") -> list[str]:
+    """The model dropdown: the known checkpoints, plus whatever is configured.
+
+    *known* is an iterable of names, which a ``{name: repo}`` registry satisfies by
+    iterating its keys — that is exactly how `WHISPER_MODELS` is passed, and typing
+    it as a sequence claimed an ordering this never relies on.
+
+    A hub id (``org/repo``) or a filesystem path is a legitimate model that will
+    never appear in the known set, so a hand-edited config must not have its
+    choice silently replaced by the first entry in a list — the same rule the
+    hotkey picker follows.
+
+    Sorted so the ``.en`` and multilingual pairs sit together rather than in the
+    mapping's insertion order.
+    """
+    names = sorted({n for n in known if n})
+    chosen = (current or "").strip()
+    if chosen and chosen not in names:
+        return [chosen, *names]
+    return names
+
+
+def language_choices(current: str = "") -> list[tuple[str, str]]:
+    """The language dropdown, keeping a configured code that is not in the list."""
+    rows = list(LANGUAGE_CHOICES)
+    chosen = (current or "").strip()
+    if chosen and all(chosen != value for _, value in rows):
+        rows.insert(1, (f"{chosen} (from your config)", chosen))
+    return rows
 
 
 @dataclass(frozen=True)

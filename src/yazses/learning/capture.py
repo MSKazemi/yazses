@@ -23,9 +23,17 @@ from yazses.learning.store import CorpusStore
 
 log = logging.getLogger(__name__)
 
-_REDACTION = "[REDACTED]"
-# Text fields that pass through redaction before storage.
-_REDACTABLE = ("raw_text", "cleaned_text", "filtered_text", "final_text")
+# Redaction itself lives in `learning/store.py`, applied at `_enc` -- the one place text
+# becomes a stored blob. It used to live here, over a four-field tuple, and the three
+# store methods that write text directly (`mark_wrong`, `update_correction_for`,
+# `set_retx`) bypassed it entirely. See CorpusStore.__init__.
+
+
+#: How many captured events between size/retention sweeps. A prune walks the clip
+#: directory and deletes rows, so doing it per event would put disk work behind every
+#: dictation; doing it only at start would let a daemon left running for weeks grow
+#: without limit. 200 events is a few hours of heavy use.
+_PRUNE_EVERY_EVENTS = 200
 
 
 class CorpusWriter:
@@ -37,11 +45,18 @@ class CorpusWriter:
         redact_patterns: tuple[str, ...] = (),
         anonymize_audio: bool = False,
         anonymize_strength: float = 1.08,
+        retention_days: int = 0,
+        max_corpus_mb: int = 0,
     ) -> None:
         self._store = store
         self._patterns = [re.compile(p) for p in redact_patterns]
         self._anonymize_audio = anonymize_audio
         self._anonymize_strength = anonymize_strength
+        # Both default to 0 (= no limit) so a caller that does not pass them keeps
+        # the previous behaviour; `build_writer` passes what the config asks for.
+        self._retention_days = retention_days
+        self._max_corpus_mb = max_corpus_mb
+        self._since_prune = 0
         self._lock = threading.Lock()
         self._queue: queue.Queue = queue.Queue()
         self._thread = threading.Thread(
@@ -65,7 +80,42 @@ class CorpusWriter:
 
     # ---- consumer side (background thread) --------------------------------
 
+    def _prune(self) -> None:
+        """Apply the configured limits. Background thread only; never raises.
+
+        `CorpusStore.prune` has existed, with tests, since the corpus shipped, and
+        nothing in `src/` ever called it -- so `[learning] retention_days` and
+        `max_corpus_mb` were documented settings that did nothing. Measured on the
+        maintainer's own machine: 1292 MB against a 500 MB cap, spanning 38 days
+        against a 30-day retention. Retention is a privacy control (ADR-012), not
+        housekeeping, so silently not applying it is the more serious half.
+
+        It runs here rather than in `build_writer` because deleting several hundred
+        megabytes of clips is not something to do on the way to a working daemon.
+        """
+        if self._retention_days <= 0 and self._max_corpus_mb <= 0:
+            return
+        try:
+            # The lock lives here, not at the call sites: `threading.Lock` is not
+            # reentrant, so a caller that already held it would deadlock the writer
+            # thread outright -- and the two call sites had started to disagree.
+            with self._lock:
+                removed = self._store.prune(self._retention_days, self._max_corpus_mb)
+            if removed:
+                log.info(
+                    "Learning corpus: evicted %d event(s) to honour "
+                    "retention_days=%s / max_corpus_mb=%s",
+                    removed, self._retention_days, self._max_corpus_mb,
+                )
+        except Exception:
+            # A writer thread that dies takes capture with it, silently. Losing a
+            # prune is recoverable; losing the thread is not.
+            log.warning("Learning corpus prune failed", exc_info=True)
+
     def _run(self) -> None:
+        # Once at start: a daemon that is restarted often would otherwise only ever
+        # grow, and this is the moment the limits are cheapest to apply.
+        self._prune()
         while True:
             item = self._queue.get()
             try:
@@ -79,6 +129,10 @@ class CorpusWriter:
                     audio = anonymize_clip(audio, sample_rate, self._anonymize_strength)
                 with self._lock:
                     self._store.add_event(event, audio, sample_rate)
+                self._since_prune += 1
+                if self._since_prune >= _PRUNE_EVERY_EVENTS:
+                    self._since_prune = 0
+                    self._prune()
             except Exception:
                 log.warning("Corpus write failed", exc_info=True)
             finally:
@@ -108,22 +162,34 @@ class CorpusWriter:
     # ---- internals --------------------------------------------------------
 
     def _redact(self, event: dict) -> dict:
+        """Scrub every text field before it is even queued.
+
+        The store redacts again at `_enc`, which is the authority -- this exists so a
+        secret does not sit in an in-memory queue while the writer thread catches up.
+        Every string value is scrubbed rather than a hand-listed subset: the subset is
+        what let `correction_text` and `retx_text` through, and a list of "which fields
+        are text" that lives apart from the schema is a list that goes stale.
+        """
         if not self._patterns:
             return event
         out = dict(event)
-        for field in _REDACTABLE:
-            val = out.get(field)
+        for field, val in event.items():
             if isinstance(val, str) and val:
                 for pat in self._patterns:
-                    val = pat.sub(_REDACTION, val)
+                    val = pat.sub("[REDACTED]", val)
                 out[field] = val
         return out
 
 
-def open_store(data_dir: Path) -> CorpusStore:
-    """Open the corpus store directly (for CLI read/maintenance commands)."""
+def open_store(data_dir: Path, redact_patterns: tuple[str, ...] = ()) -> CorpusStore:
+    """Open the corpus store directly (for CLI read/maintenance commands).
+
+    ``redact_patterns`` matters on this path too: `yazses tune --retranscribe` writes
+    `retx_text` through a store opened here, and that text is a re-transcription of the
+    same audio the patterns were added to scrub.
+    """
     cipher = Cipher(load_or_create_key(data_dir))
-    return CorpusStore(data_dir, cipher)
+    return CorpusStore(data_dir, cipher, redact_patterns)
 
 
 def build_writer(data_dir: Path, cfg: LearningConfig) -> CorpusWriter | None:
@@ -131,11 +197,13 @@ def build_writer(data_dir: Path, cfg: LearningConfig) -> CorpusWriter | None:
     if not cfg.enabled:
         return None
     cipher = Cipher(load_or_create_key(data_dir))
-    store = CorpusStore(data_dir, cipher)
+    store = CorpusStore(data_dir, cipher, tuple(cfg.redact_patterns))
     log.info("Learning corpus enabled at %s (audio=%s)", data_dir, cfg.capture_audio)
     return CorpusWriter(
         store,
         tuple(cfg.redact_patterns),
         anonymize_audio=cfg.anonymize_audio,
         anonymize_strength=cfg.anonymize_strength,
+        retention_days=cfg.retention_days,
+        max_corpus_mb=cfg.max_corpus_mb,
     )

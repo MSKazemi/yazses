@@ -6,6 +6,3985 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — subtitles were emitted as single lines of up to 80 characters
+
+Measured on a real 162-second recording through `yazses transcribe --format srt`: 22 cues,
+reading rate fine everywhere (max 16.7 chars/second), and **18 of 22 lines wider than 42
+characters**, up to 80.
+
+`merge_word_timestamps` caps a segment at `max_chars=80` and its docstring calls that a
+*line*, but the writers emitted the whole segment as one. Every subtitle standard assumes
+about half that — EBU-TT-D, the BBC guidelines and Netflix's timed-text spec all sit at
+37–42 characters over at most two lines, because that is what fits the video width at
+default caption size. Going over does not fail loudly: the player wraps it itself, wherever
+it likes, or lets it run off frame. The output looked correct in a text editor and wrong in
+a video.
+
+Captions are now wrapped to two lines of 42. The wrap happens in the writers, not in
+segmentation, and 42 × 2 fits the existing 80-character budget exactly — so every cue
+boundary and every timestamp is unchanged. Verified against the real recording before and
+after: 22 cues either way, identical timestamps, identical words.
+
+The split is balanced rather than greedy (a full line above a two-word line reads badly),
+and text that cannot fit two lines gets more lines rather than being truncated — a caption
+that loses words is worse than one that is too tall.
+
+### Fixed — `yazses audio status` told you to pin a name that cannot be pinned
+
+`audio status` resolves the OS default's routing alias through wpctl and prints the real
+device, then — directly underneath — *"Pin a real one to be sure: `yazses audio use
+<name>`"*. That reads as "type the name above", and it does not work:
+
+    resolve_input_device("Raptor Lake-P/U/H cAVS Digital Microphone", devices) -> None
+
+The friendly name comes from the sound server's graph; `audio use` matches against
+PortAudio's capture list, which offers `sof-hda-dsp: - (hw:0,0)`, `sysdefault`, `pipewire`
+and `default` — no entry naming a microphone, and most of them routes.
+
+**The outcome was silent rather than an error.** `audio use` warns on an unmatched name and
+then pins it anyway, deliberately, so a device can be pinned before it is plugged in. On its
+own that is right; combined with advice to type an unmatchable name it is the worst case —
+the pin is accepted, never resolves, capture quietly falls back to the alias, and you
+believe you fixed the exact thing pinning exists to prevent.
+
+The advice is now derived from whether the name resolves, and a name that is itself a route
+is never offered (an alias behind an alias reproduces the same failure one layer down). A
+machine whose every input is a route says so instead of pointing at an empty list.
+
+**Not fixed:** that the hardware names are useless is what PortAudio reports for ALSA.
+Mapping a wpctl node to a PortAudio index needs a PipeWire client library, which the code
+already records as a dependency this project does not take on for one diagnostic.
+
+### Changed — `yazses tune` called a proposal "validated" on four percent corroboration
+
+Run against a real 1619-event corpus:
+
+    [1] Upgrade the STT model   (evidence: 189 event(s); validated (9/238 held-out))
+    [2] Add vocabulary          (evidence: 44 event(s); unverified — no held-out ...)
+
+Nine out of 238 is under four percent. The bar for the word was `holdout_support > 0`, so
+**one** corroborating event out of 238 would have earned it too — sitting next to a 44-event
+proposal labelled "unverified", which reads as the weaker of the two. The label was doing
+work the number should do, in the direction that matters most: these proposals write to
+`config.toml`, and "validated" invites applying one.
+
+The verdict is replaced by the rate — *"corroborated by 9 of 238 held-out events (4%)"*.
+No threshold was invented: a reader tells 4% from 84% without being told which counts, and
+any minimum would have been a guess dressed as a standard. Zero corroboration keeps its
+plain words, because *no* support is a real distinction rather than a small number, and a
+share that rounds to zero displays as `<1%` — a shown `0%` beside a non-zero count reads as
+a bug.
+
+Also audited clean in the same pass: the vocabulary proposal **appends** to any existing
+`[stt] initial_prompt` rather than replacing it, so applying it cannot discard vocabulary
+you added by hand.
+
+### Fixed — a recorded meeting of room noise was stored as a transcript reading ". . ."
+
+Found in a real meeting folder. An 11.6-second capture finalized as:
+
+    meeting.json    {"duration_s": 11.6, "num_speakers": 0, "status": "done"}
+    transcript.md   ". . ."
+    transcript.json {"text": ". . .", "utterances": [{"text": ". . ."}]}
+
+`status: "done"`, listed by `yazses meeting list` like any other meeting.
+
+**The rule existed and was applied on one path only.** The daemon injects what survives
+`clean_text`, never what the model returned — that is why a dictated `[BLANK_AUDIO]` is
+discarded rather than typed. `clean_text` appeared nowhere in `recimport/` or `meeting/`, so
+both file paths stored Whisper's artefacts as transcript content. It now runs at the single
+point both callers share, `recimport.pipeline.transcribe_file`, which `meeting.finalize`
+wraps. Utterances that clean to nothing are dropped rather than emptied, so a caller
+counting them sees the truth.
+
+**Why the existing signal did not catch it.** `transcribe_file` already computes
+`carries_no_signal(audio)`, and its docstring is right that a hallucinated transcript cannot
+be detected from the output. But it measures the input's **peak**, deliberately — an hour of
+sparse interview must not be called silent — and a quiet room is not digital silence. The
+two checks answer different questions: that one asks *was anything recorded at all*, this
+one asks *did any of it survive cleaning*.
+
+`words` are deliberately untouched: they are timing data feeding alignment and subtitle
+spans, and an index into them is not this function's to invalidate.
+
+## [2.29.0] — 2026-08-19
+
+### Fixed — `yazses corpus status` showed a size with nothing to compare it against
+
+On a real corpus:
+
+      events:    1619 (200 discarded, 0 flagged wrong)
+      size:      500.0 MB
+
+500.0 MB is exactly `[learning] max_corpus_mb`. The corpus was sitting *on* its cap and
+`Store.prune()` was evicting the oldest events on every capture to hold it there — the one
+fact the line failed to convey. It read identically to a corpus with room to spare.
+
+That matters beyond tidiness: `yazses tune` learns from what survives, so a silently
+evicting corpus quietly changes what the product can learn about you — and the date range
+gives no hint, because a corpus starting twelve days ago looks the same whether capture was
+enabled twelve days ago or the cap deleted everything before it.
+
+The size is now shown against the cap, with a warning naming **both** limits when it is
+full. Both, because `prune()` applies age first and then size, either can be the binding
+one, and they discard different things: age eviction drops what is stale, size eviction
+drops what is oldest regardless of how recent that is.
+
+The 95%-of-cap line is a display choice and is labelled as one — `prune` evicts while
+`disk_size > max_bytes`, so a corpus held at the cap always measures a hair under it and
+"500.0 of 500 MB" would otherwise read as headroom.
+
+Also audited clean this pass: `yazses report`. Its bundle carries no dictated text, no
+paths, no identifiers — the corpus is reported by size and never opened, as ADR-011
+requires. And its corpus size is the real on-disk figure (clips included), matching what
+`corpus status` prints.
+
+
+### Fixed — `yazses verify` certified a microphone that was hearing nobody
+
+Run for real in a quiet room with nobody speaking:
+
+    [OK] Signal: level 0.0044 clears the gate (0.0005)
+    [OK] Transcription: heard "You"
+    ✓ Dictation works end to end on this machine.
+
+Room noise cleared the gate, the model answered near-silence with a confident invented
+word, and the one command whose job is to find the broken link declared success. `verify`
+is the only check in the project that produces evidence rather than inference, so a false
+pass there is the most expensive one it has.
+
+**The known artefacts were never checked.** `clean_text` strips `[BLANK_AUDIO]`, but
+Whisper's other silence artefacts are ordinary English and survive it. The repo already
+recognises them — `postprocess/hallucination.py` carries the outro list and the
+repetition-loop detector — and `verify` never asked. A clip of pure room noise decoding to
+"Thanks for watching" printed as a passing step. Both are now consulted, whole-transcript
+only, which is that module's own premise; an outro phrase *inside* real speech is untouched.
+
+**The verdict claimed more than the run proved.** `verify` can show the chain ran; only you
+can say the words are the ones you spoke. It now says exactly that, and names the two
+commands to run when the transcript is not what you said.
+
+**Deliberately unchanged:** "You" still passes. It is the commonest thing the model returns
+for silence *and* an ordinary word someone may have said, and no automated check separates
+them. The asymmetry runs the other way here than on the daemon's hot path — a `verify` that
+wrongly passes costs one confusing session, while one that wrongly fails sends someone to
+re-calibrate a microphone that was fine. So the checks stop at the artefacts with no
+legitimate reading, and the judgement that needs a human is handed to the human with the
+evidence beside it.
+
+### Fixed — `doctor` claimed voice window focus works while the feature was off
+
+The half of the previous fix that was missing. Gating the daemon on `[windowctl] enabled`
+made `yazses doctor` wrong in the same breath:
+
+    [OK] Voice window focus: xdotool (X11) — "focus the browser" works
+
+That line came from the presence of `xdotool` alone, and was only ever true while voice
+focus ran unconditionally. Doctor is exactly where someone looks *after* it did not work, so
+a confident OK there is worse than no line at all.
+
+It now reports the feature as off, with the command that enables it. The Wayland limitation
+is still reported first even when the feature is off, because enabling it there would not
+help — sending someone to run a command that cannot work on their session is worse than
+telling them the platform said no.
+
+### Fixed — the advice for a silent-clip streak led to a dead end
+
+Found on a running daemon. `yazses status` reported:
+
+    ⚠ mic:    2 silent clips in a row — run `yazses audio status`
+
+and `yazses audio status` answered *"⚠ silent clips in a row: 2 — mic may have changed."*
+and nothing else. A diagnosis with no remedy, at the end of a hop the product told you to
+take. The one surface that named a command was the desktop toast, which fires once, at
+`silent_streak_threshold` (default 3) — a streak the CLI already displays from 1.
+
+Three surfaces, three phrasings of one fault. Both now come from one pure function
+(`audio/device_monitor.py::silent_streak_advice`), the way the meeting/diarization advice
+was already consolidated so the daemon and the CLI cannot drift.
+
+**The cause was also asserted rather than known.** A silent discard is by definition
+`mean(|audio|) < vad_threshold`, which has exactly three causes: nothing was said, the gate
+sits above your voice, or capture is not receiving that microphone. *"Your mic may have
+changed"* is only the third — and on a typical Linux desktop it is the one YazSes can least
+confirm, because the OS default is a routing alias whose name does not change when the
+device behind it does. `yazses audio status` printed that warning two lines above the guess.
+All three are named now, with the command for each.
+
+### Fixed — `windowctl` ignored its own toggle, and still advertised commands it cannot run
+
+**`features disable windowctl` was a no-op.** Nothing read `[windowctl] enabled`.
+`core/daemon.py` called `_try_window_focus` unconditionally in command mode, so voice
+window focus ran for every user — including everyone who never enabled it — against both
+the catalogue's own *"Off by default"* and the project rule that new features ship off. It
+also cost a startup xdotool probe to users who had not asked for the feature.
+
+`_build_window_backend` now returns `None` when the feature is off. That is the whole gate:
+`_try_window_focus` already returns False on a `None` backend, so a disabled feature routes
+down the path Wayland already takes and "focus the browser" is dictated as text rather than
+consumed.
+
+**The dead layout verbs were still being advertised.** An earlier fix removed *"move window
+left half"* / *"workspace 3"* from the description, because their grammar is wired to
+nothing and `WindowBackend` has no method that could ever carry them out. But a feature's
+`example` and `use_case` live in two other dicts in `features.py`, and the guard added at
+the time scanned only `name` and `why` — so `yazses features info windowctl` contradicted
+itself on one screen:
+
+    ... Rearranging windows by voice is designed but not connected yet.
+    Use when:  When you want to arrange windows and switch workspaces ...
+    Example:   Say 'move window left half' or 'workspace 3' ...
+
+Both now describe focusing, which is what runs, and the guard reads every field the user is
+shown — plus a second assertion that fails if a new display field is added without being
+brought into scope. `docs/v2-features.md` carried the same claim and is corrected.
+
+### Fixed — two pure spoken-text modules that were wrong in the same shape
+
+Both are in `features._UNWIRED`, so neither reaches a user today. They are fixed now
+because whoever wires them would inherit the defect, and in both cases the rule was
+*written down* and enforced by nothing.
+
+**`code/spoken.py` — "fat arrow" was dictated as `fat ->`.** The substitution table is
+grouped by meaning and carries the comment *"Longest phrases first"*, but `("arrow", "->")`
+sat above `("fat arrow", "=>")`, so the shorter phrase matched inside the longer one. The
+order is now derived (`_ORDERED`, longest-first) rather than hand-maintained: a word-bounded
+phrase can only be shadowed by a longer one, so a phrase added in the wrong place cannot
+reintroduce it. The authored list stays grouped for reading, and a property test over the
+whole table fails on a bad addition rather than only on today's known pair.
+
+**`condense/extract.py` — the summariser preferred the least informative sentence.** Score
+was mean content-word frequency divided by the sentence's own length, so a one-word
+interjection scored the full frequency of that word over one word and beat everything:
+
+    "... Ship it. The release needs the changelog updated and the tags pushed ..."
+        ->  "We should ship the release today. Ship it."
+
+Ramble is exactly what this feature consumes, and it is full of "Right.", "Okay.", "Sure."
+The divisor now has a floor of 2 — one content word is not a measurement.
+
+The floor is deliberately no higher. Sweeping it showed no value is simply better: at 3 the
+summariser starts discarding legitimate short sentences ("Fix the wheel."), and it takes 4–5
+to out-rank a two-word echo. 2 is the largest value that removes a failure with no
+legitimate counterpart. Both ends are pinned by tests so raising it fails rather than
+quietly dropping real content.
+
+### Fixed — a macro with two `${cursor}` markers typed one of them
+
+`expand` positions the caret at the **first** `${cursor}`, as documented, by splitting the
+template there and measuring the tail. Any further markers stayed in that tail and went
+straight to the injector:
+
+    template  "a${cursor}b${cursor}c"
+    typed     "ab${cursor}c"
+
+`${cursor}` is not a variable name, so `_resolve_vars` leaves it alone by design (unknown
+tokens are kept literal), and nothing else removed it. A user who wrote two markers — easy
+to do while editing a template — got the marker text in their document.
+
+The extras are now stripped before the tail is measured, so the caret still lands where
+the first marker was, now measured against the text actually injected. Unknown variables
+are still left literal, which is deliberate and different: a stray `${...}` may be
+something the user meant to type, while a second cursor marker is a directive already
+honoured once.
+
+### Fixed — enabling `[translit]` transliterated every English sentence into Persian
+
+`detect_scheme`'s docstring promised *"so English passes through"*, and it returned the
+scheme for **any** all-ASCII text — which is every English sentence. The caller
+transliterates whenever it is truthy, so:
+
+    "hello how are you"        ->  "ههللو هوو اره یو"
+    "send me the file please"  ->  "سهند مه تهه فیله پلهاسه"
+    "the quick brown fox"      ->  "تهه قویcک بروون فوx"
+
+The gate never gated. Enabling the feature did not degrade English dictation, it destroyed
+it — and the stray Latin `c` and `x` show the output was not even well-formed Persian.
+
+Detection now does what it always claimed: a sentence containing a very common English
+word is left alone. A Finglish sentence whose romanization collides with one ("to
+khoobi?", where Persian *to* is "you") stays in Latin script — the right direction, since
+a missed transliteration leaves readable text while a false one produces nonsense the user
+cannot read back.
+
+`[translit] enabled` is off by default, so this affected whoever turned it on.
+
+### Fixed — the grammar fixer turned "an FBI agent" into "a FBI agent"
+
+`fix_articles` decided purely on whether the following word's first *letter* is a vowel.
+An initialism's article depends on how it is **said**: "FBI" is spelled out — "an
+eff-bee-eye" — so it takes "an". Nine of ten correct initialisms were rewritten wrong:
+
+    an FBI agent  ->  a FBI agent
+    an MRI scan   ->  a MRI scan
+    an SSD drive  ->  a SSD drive
+    an XML file   ->  a XML file
+
+A grammar corrector introducing grammar errors into text that was already right.
+
+The article before an all-caps token is now left alone. No rule keyed on spelling can
+separate the two kinds: "FBI" is spelled out and takes "an", "NATO" is said as a word and
+takes "a", and nothing in the string distinguishes them. A missed correction costs
+nothing; a false one corrupts.
+
+Ordinary words are unaffected, including the hard cases the module exists for — "an hour",
+"a user", "a university", "an honest man" — and a merely capitalised word like "Apple" is
+still corrected, since the check is all-caps rather than capitalisation.
+
+### Fixed — inline compute replaced whole sentences with a number
+
+`evaluate` is documented as turning **a whole-utterance arithmetic expression** into its
+answer, and did not check that. After mapping the operator words it stripped every
+character that was not a digit or an operator, so any sentence carrying two numbers and
+one operator word collapsed to an expression:
+
+    "I ran 5 miles over 2 days"    ->  "2.5"
+    "chapter 3 minus chapter 1"    ->  "2"
+    "we met 2 times in 3 days"     ->  "6"
+
+Six of eight ordinary sentences. "over" and "times" are common English words, and unlike
+the other text transforms this one does not mangle the utterance — it **discards** it and
+types a number instead.
+
+Anything left after the lead-in words and the operator words have been consumed now means
+the utterance was prose, and prose is returned untouched. Every real calculation still
+works, including percentages and the spoken "percent".
+
+`[compute] enabled` is off by default, so it affected whoever turned it on.
+
+### Fixed — an LLM rewrite could change a number and pass the guard meant to catch it
+
+`_tokens_preserved` checked that each meaning-critical token still appeared in the output
+with a plain substring test. That is right for a word and wrong for a number:
+`"100" in "1000"` is True, so
+
+    "transfer 100 dollars"  ->  "Transfer 1000 dollars."   accepted
+    "upgrade to v2.1"       ->  "Upgrade to v2.10."        accepted
+
+An amount changed by an order of magnitude, in dictated text, waved through by the one
+check whose purpose is that such tokens survive.
+
+A token carrying a digit must now match on a word boundary. Anything else keeps the
+lenient test deliberately — "API" surviving as "APIs" is ordinary reformatting, and
+tightening that would reject rewrites the feature exists to make. A trailing sentence
+period, currency prefix and percent suffix all still pass.
+
+### Fixed — autopair appended a stray apostrophe to "it's"
+
+`balance_delimiters` tracked `'` in the same stack as brackets, so every apostrophe read
+as an *opening single quote* and got a closer appended:
+
+    "it's fine"            ->  "it's fine'"
+    "the user's file"      ->  "the user's file'"
+    "I can't see O'Brien"  ->  unchanged, because the two happened to pair up
+
+That last case is the awkward one: the behaviour depended on whether the utterance held an
+**odd or even** number of contractions, so it looked intermittent rather than broken — and
+contractions are among the commonest words in English. `autopair` is wired into the
+dictation path and off by default, so it affected anyone who turned it on, on most
+sentences they spoke.
+
+A quotation never opens directly after a letter or digit — there is a space or a line
+start first — while an apostrophe always follows one. Closing is unchanged: once a `'` has
+opened, the next one closes it, so `he said 'hi'` still balances, as do `"`, `` ` `` and all
+three bracket pairs.
+
+### Fixed — "undo that sentence" deleted the whole burst when it ended in a full stop
+
+`_trailing_count` found the last sentence terminator with `rfind` over the whole string,
+then refused it when it sat in the final position — which is exactly where a completed
+sentence puts one. The fallback then deleted everything:
+
+    "One. Two three."   ->  15 backspaces, the whole burst gone
+    "One. Two three"    ->  11 backspaces, leaving "One."       (correct)
+
+So the feature worked only on a burst whose final sentence had **no** terminator, and
+dictation ends sentences with one — from voice punctuation or from Whisper's own. The
+common case was the broken one, and the failure removes text the user did not ask to
+remove.
+
+The search now ignores the burst's own final terminator, so the boundary found is the one
+*between* sentences.
+
+`test_undo_word_and_sentence` used `"Hello world. Bye now"` — no trailing period — so it
+pinned the intended semantics exactly and never exercised the shape that failed. It passes
+unchanged.
+
+### Fixed — approving one `tune` proposal changed two settings
+
+`set_toml_key` substituted the key **anywhere in the file**, with no section scope and no
+`count`. Both `[stt]` and `[meeting]` carry a key called `model`, so approving `yazses
+tune`'s top proposal — *"Upgrade the STT model"* — also rewrote the meeting transcription
+model:
+
+    [stt]
+    model = "base.en"   ->  "small.en"    approved
+    [meeting]
+    model = "tiny.en"   ->  "small.en"    not approved, not mentioned
+
+That is the top proposal on a real corpus, so it is the most likely `--apply` to be run.
+
+There were two config writers, and each was missing what the other had. `set_toml_key`
+rendered arrays correctly and could not scope a section; `configedit.set_config_key`
+scoped the section and rendered a list as a quoted Python repr —
+`filler_words = "['um', 'uh']"` — which parses as a *string*, so `configcheck` reports
+"should be a list" and falls back to the default, discarding an approved change. Nothing
+passed it a list today, so that half was latent.
+
+There is now one writer and it does both.
+
+### Fixed — `mic-level --set` could report success and change nothing
+
+`update_threshold_in_config` replaced a `vad_threshold` assignment **anywhere in the
+file**. A key a user had put under the wrong section was rewritten instead of the real
+one, and the command reported `updated vad_threshold = …` while
+`[accessibility] vad_threshold` kept its previous value:
+
+    [audio]
+    vad_threshold = 0.09          ← rewritten, and dead: configcheck ignores it
+    [accessibility]
+    pre_speech_padding_ms = 300   ← the real setting, never touched
+
+`configcheck` already prints *"[audio] vad_threshold: is not a known setting; ignored"*
+about that line, so the mistake was visible to the system and edited anyway.
+
+It lands where it hurts most: `yazses mic-level --set` is what the documentation
+recommends when words are being dropped, so the user is already stuck, runs the suggested
+fix, is told it worked, and dictation still fails. The adaptive retuner writes through the
+same function.
+
+The replacement is now scoped to the `[accessibility]` section; a key found elsewhere is
+left alone and the real one is added. This also removes the latent version of the bug:
+`[meeting]` already has `vad_backend` and `silero_threshold`, and a `[meeting]
+vad_threshold` would have been clobbered by every `mic-level --set`.
+
+### Fixed — the adaptive silence gate could lower itself for no benefit
+
+`AdaptiveThreshold.suggest` promises *"a threshold that would have let the rejected bursts
+through"*. It computed `max(loudest * safety_factor, min_threshold)` and returned it
+whenever it was below the current gate — without checking that the floor had not raised it
+back above the audio it was meant to rescue.
+
+With a muted or dead microphone the bursts sit at the digital noise floor. Levels around
+0.00002 against a floor of 0.0005 proposed **0.0005** — twenty-five times above the audio
+it claimed to admit, so those bursts would still be discarded at the new gate.
+
+The change bought nothing and cost something: a lower silence gate admits more room noise,
+and near-silence reaching the model is answered with invented text.
+
+This is exactly the case the class is careful about everywhere else — its own docstring
+warns that the same symptom comes from a muted microphone, "where lowering the gate fixes
+nothing and only makes the next failure noisier" — and the floor let it through anyway. A
+proposal that would not admit the loudest rejected burst is now refused.
+
+### Fixed — an acronym and a Title-Case word produced identical braille
+
+`_encode_word` emitted one capital indicator whenever the first letter was upper case. In
+UEB a single `⠠` capitalises **only the letter after it**; a word in capitals takes the
+*capitals word indicator*, `⠠⠠`. So:
+
+    "ABC"  ->  ⠠⠁⠃⠉
+    "Abc"  ->  ⠠⠁⠃⠉      identical
+
+A reader got "Abc" either way, on a refreshable display or an embossed page, with no way
+to tell which was written. Acronyms are common in dictated text — "API", "NASA", "PDF" —
+and this is output nobody sighted proofreads, which is why it stayed wrong.
+
+"I" and "A" keep the single indicator: they are one letter, not a word in capitals.
+
+Not fixed: a mixed-case word ("McDonald") still takes one leading indicator where UEB
+marks each capital individually. That needs per-letter handling rather than a prefix, and
+unlike the all-caps case it is visibly under-marked rather than silently ambiguous.
+
+### Fixed — `yazses tune` offered to delete the word "this" from every dictation
+
+`_propose_disfluency` counts words that appeared in a wrong transcript and not in the
+user's correction, and proposes the frequent ones as filler words. It had no notion of
+what can plausibly *be* a filler — and correcting a dictation removes ordinary words all
+the time. "send **this** to Bob" corrected to "send **that** to Bob" makes "this" a
+removed word; twice, and it is proposed. Applying it writes `this` into
+`[filters.disfluency] filler_words`, and the filter then strips that word from everything
+the user says.
+
+On a real corpus the proposal was `okay, this, one`. It is now `okay`.
+
+An ordinary function word is refused unless it is one a filler is plausibly drawn from —
+"well" is both, and blocking it outright would stop a genuine filler being discovered. A
+strict allow-list would be worse than the bug, since the point is to find a *personal*
+verbal tic; the rule blocks the dangerous class while leaving discovery possible.
+
+### Fixed — every voice command was a silent no-op in remote mode
+
+`RemoteInjectorProxy` is the injector the daemon uses while forwarding to an SSH host, and
+two of its three methods were stubs:
+
+    def inject_backspaces(self, count): pass  # Not forwarded in v0.3.0
+    def inject_key_sequence(self, keys): pass  # Not forwarded in v0.3.0
+
+`commands/dispatch.py` routes everything that is **not** DICTATE through
+`inject_key_sequence`, so "save", "copy", "paste" and "undo" reached that `pass` and
+stopped. Dictation kept working, which is what made it invisible: the user says "save",
+is watching the *remote* screen, and nothing happens and nothing is said.
+
+It was never a missing capability — `remote/inject.py`, the injector on the remote host,
+has implemented both all along. The agent's JSON-RPC dispatch simply had no method for
+them, so there was no way to ask. It now accepts `keys` and `backspaces`, and the proxy
+sends them.
+
+An older agent answers `Method not found`, which the client already logs and survives, so
+a new local YazSes against an old remote degrades to the previous behaviour rather than
+failing. Empty sequences never reach the wire.
+
+### Fixed — re-enrolling a meeting participant destroyed the first voiceprint in silence
+
+`enroll_participant` writes to a path derived from the display name, with no existence
+check, so:
+
+    yazses meeting enroll <a> speaker_0 --name Alice
+    yazses meeting enroll <b> speaker_1 --name Alice
+
+replaced the first Alice's biometric voiceprint and printed the same success message
+either way.
+
+Replacing is legitimate — a longer or cleaner recording gives a better embedding — so it
+is not blocked. Doing it silently is the problem: from inside YazSes a *second person
+named Alice* and a *re-enrollment of the same Alice* look identical, and only one of those
+is what the user meant. The data is biometric and was enrolled deliberately under an
+explicit-consent policy (ADR-011/012), which is precisely the kind not to overwrite
+without a word.
+
+`yazses meeting enroll` now says when it replaced an existing voiceprint, and names the
+file it replaced.
+
+### Fixed — one brace in a summary threw away the whole meeting minutes
+
+`_extract_json` pulls the JSON object out of an LLM reply by counting braces, and counted
+them without tracking string context. The first `}` inside any *value* closed the object
+early, `json.loads` failed on the fragment, and `{}` came back:
+
+    {"summary": "the config needs a } here"}   ->  {}
+    {"summary": "use { to open a block"}       ->  {}
+
+Minutes of a technical meeting are exactly where a brace turns up in prose — a config
+snippet, a code fragment, a bit of JSON read aloud — and the loss is silent, because
+`_parse_minutes` turns `{}` into empty `Minutes`. Every field went, not just the summary:
+decisions and action items with it, and `yazses meeting notes` wrote a blank page and
+reported nothing.
+
+The scanner now tracks string context and backslash escapes. Fenced replies, surrounding
+prose and nested objects still work, and genuinely unparseable output still yields `{}`
+rather than a guess.
+
+This is the default path: the grammar-constrained alternative (`[meeting] notes_grammar`)
+is optional.
+
+### Fixed — a crashed meeting's recovery transcript was unreadable, and unmentioned
+
+`session.py` streams every finalized live line to `live.jsonl` throughout a meeting, and
+`append_live_line` says why: *"so a daemon crash mid-meeting still leaves a partial
+transcript on disk"*. Both ends of that were broken.
+
+**The reader could not read it.** `read_live_lines` decoded with strict UTF-8, outside its
+`try`. A write cut in the middle of a multi-byte character — exactly how the file gets
+damaged, since the premise is that the process died mid-write — raised `UnicodeDecodeError`
+for the **whole file**, discarding every complete line before the tear along with it. It
+now decodes with `errors="replace"`, and the torn line is dropped by the JSON guard that
+already handled truncated lines.
+
+**Nothing mentioned it.** `read_live_lines` had no caller anywhere in `src/`, and
+`yazses meeting list` — the only place `recoverable` would be seen — computed the flag and
+printed the meeting without it. So an hour-long meeting cut short by a crash left its
+partial transcript on disk with nothing in the product acknowledging it existed. The
+listing now flags it and says how many lines are recoverable, and from where.
+
+Whether a dedicated `meeting recover` command should exist is a larger question left open;
+this makes the data findable, which it was not.
+
+### Fixed — `srt`/`vtt` merged two speakers into one caption and dropped their names
+
+`_render_subtitles` threw the speaker away and segmented on silence and line length
+alone, so a diarized recording produced:
+
+    00:00:00,000 --> 00:00:04,000
+    hello there hi          ← Alice's words and Bob's, together, unattributed
+
+Two faults, and the second is the serious one. The missing label is a loss; the **merge**
+makes the caption assert something untrue — that one person said all of it — and a
+subtitle file is read by people who were not in the room and cannot tell.
+
+`render.py`'s own docstring names this exact failure as the thing to avoid ("never
+silently dropped — WhisperX's documented bug"). The promise was kept for `txt`, `md` and
+`json`, and broken for the two formats most likely to be handed to someone else.
+
+Captions are now segmented per contiguous speaker run, so one can never straddle a speaker
+change, and each carries the display name when the recording is diarized. Undiarized
+output is unchanged — there is no speaker to name.
+
+### Fixed — `transcribe --rename` for a speaker who isn't there did nothing, silently
+
+`resolve_names` returns a map documented as `{canonical_speaker_id: display_name}`, and it
+copied every rename into it without checking the speaker exists. A mistyped or
+out-of-range id — `--rename speaker_5=Bob` on a two-speaker file, or `Speaker_0` with the
+wrong case — added a key naming nobody, which no renderer looks up.
+
+The rename did nothing and reported nothing, so the transcript came back saying
+"Speaker 1" and the user was left to work out whether diarization had failed, the syntax
+was wrong, or they had miscounted the speakers.
+
+The map now contains only speakers that are in the recording, and `yazses transcribe` says
+which `--rename` keys matched nothing — listing the ids the recording *does* have, which
+is the thing the user needs and cannot otherwise discover without re-running.
+
+### Fixed — diarized transcripts attributed words to the wrong speaker
+
+`_nearest_speaker` filled an unmatched word from the nearest turn by the distance between
+**midpoints**, and compared that to `fill_nearest_max` — whose name and docstring both
+promise "within N **seconds**" of the turn. Those agree only when turns are short. Meeting
+turns are not, and two wrong answers followed on ordinary input:
+
+* **The same gap, opposite outcomes.** A word 0.1 s after a 100-second turn was *dropped*
+  (its midpoint is 50 s away), while the identical 0.1 s gap after a 0.5-second turn was
+  assigned. Whether a word got a speaker depended on how long that speaker had been
+  talking.
+* **The wrong speaker.** A word 0.2 s after speaker A's turn and 0.8 s before speaker B's
+  was given to **B**, because B's turn is short and its midpoint close. Putting words in
+  the wrong person's mouth is the one error a diarized transcript must not make quietly —
+  it reads as fact.
+
+Distance is now the real gap to the turn, zero when they touch. Both existing guards are
+unchanged: the `fill_nearest_max` cap still refuses a distant turn, and a word shorter
+than `backchannel_max` is still left unassigned rather than stolen by a neighbour. Ties
+break to the earliest-starting turn, matching how the overlap branch already breaks its
+own.
+
+Affects `yazses transcribe --diarize` and Meeting Mode, which share these cores.
+
+### Fixed — self-repair deleted a word out of ordinary speech
+
+`_EDIT_TERMS` includes a bare `i mean`, and the rule **drops the word before the editing
+term**. "I mean" is one of the commonest phrases in English, so:
+
+    that is not what I mean at all    ->  that is not at all
+    this is exactly what I mean       ->  (the preceding word deleted)
+
+Real dictation, a word removed silently. This is the same shape as a defect this project
+has already had once in the disfluency filter's self-correction triggers; the lesson had
+not reached `selfrepair`.
+
+Only the **bare** term is now guarded, and only by the word in front of it: "what",
+"know", "how" and the pronouns, which make `<X> I mean` an ordinary construction rather
+than a correction. The explicit markers — "no I mean", "make that", "or rather", "no make
+it" — stay unrestricted, so the feature's advertised example (`email Sarah no I mean Sara`
+→ `email Sara`) and chained repairs are untouched, and `meet at three I mean four` still
+repairs.
+
+The asymmetry decides the ambiguous case, as it does for the ITN email guard: a missed
+repair leaves the words as spoken and the user reads them; a false one deletes a word
+silently.
+
+### Fixed — dictating "look at the dot com boom" produced "look@the.com boom"
+
+`_EMAIL_RE` matches `<words> at <words with a spoken dot>`, and its comment justifies the
+single guard it had: *"the domain MUST contain a spoken 'dot' so a plain 'at' in ordinary
+speech ('meet at noon') never matches."* That does stop "meet at noon", and nothing about
+the far commoner shape — an ordinary sentence containing *"at &lt;word&gt; dot &lt;word&gt;"*:
+
+    look at the dot com boom          ->  look@the.com boom
+    point at the dot on the screen    ->  point@the.on the screen
+    meet me at the dot matrix printer ->  meet me@the.matrix printer
+
+Eight of eight realistic sentences were rewritten into email addresses mid-prose.
+
+Two further conditions now apply, both satisfied by every spoken address and rarely by
+English: the domain's **last** label must be a real TLD, and its **first** must not be an
+article. Either alone is insufficient — "look at the dot com boom" ends in a genuine TLD,
+and "at company dot headquarters" opens with a real label — so both are checked.
+
+When the check fails the words are left exactly as spoken. A missed address costs one
+hand-typed line; a false one silently corrupts a sentence the user dictated and may never
+re-read.
+
+Real addresses are unaffected: `john dot doe at gmail dot com`, `me at company dot co dot
+uk` and `first dot last at university dot edu` all still convert.
+
+### Fixed — `yazses acronyms expand` corrupted a document when run twice
+
+`expand_document` writes an acronym's first use as `Full Name (ACR)`. It did not notice
+when the text already said that, so it expanded the `ACR` inside its own parentheses, and
+each further run nested one level deeper:
+
+    once   The Application Programming Interface (API) is stable.
+    twice  The Application Programming Interface (Application Programming Interface (API)) is stable.
+
+Running the command again after editing a document is the ordinary thing to do, and
+nothing warned.
+
+The repair was already in the module: `AcronymState.observe` is documented as *"Learn
+'Full Name (ACR)' definitions already present in text (marks them expanded)"* — written
+for exactly this and never called. It is called now, so the rule for "already expanded"
+stays in one place instead of becoming a second, subtly different check.
+
+### Fixed — a failure notification stayed on screen forever, with nothing to click
+
+Both notification call sites sent **every** failure at `urgency="critical"`, and the
+freedesktop spec exempts that level from expiry on purpose: a critical alert must not be
+missed, so the server keeps it until the user acts. Applied to a dictation burst that
+failed to inject — transient, already finished, nothing to decide — that produced a
+pop-up which outranked everything else on the desktop and waited for a click it had no
+button to receive. It is the visible half of the orphaned-`notify-send` defect fixed in
+2.28.0: that one leaked the process, this one leaves the pop-up.
+
+The level now follows whether the toast is **answerable**. A recognised fault already
+carries the command that fixes it, so it goes out at `normal` urgency with a timeout and
+clears itself like any other notification. Only the unrecognised one — the toast offering
+**[Prepare a bug report]** — stays `critical` and persistent, because it is asking a
+question and `--wait` needs it to survive until you answer.
+
+The urgency is the load-bearing half: GNOME Shell applies its own timing and largely
+ignores a requested duration, while KDE and dunst honour it, so both are sent. A guard
+fails the build if either call site hardcodes an urgency again instead of going through
+`notify.toast_policy()` — one literal in one place is how the two paths drift apart.
+
+### Fixed — the hallucination guard missed a loop that ends mid-phrase
+
+`is_repetition_loop` required the repeated unit to tile the text **exactly**
+(`if n % unit != 0: continue`). Real loops rarely oblige: the decoder stops at a segment
+or token boundary, so the last repeat is usually cut short. Taken from a live corpus,
+this was **typed into the editor**:
+
+    each machete de shiramasun ×3 + "each"
+
+Thirteen words, and thirteen is prime — no unit divides it, so a textbook degenerate loop
+scored as ordinary speech and reached the injector.
+
+The unit may now be interrupted on its last repeat, provided the remainder is a **prefix
+of the unit** — which is what a cut-off repeat looks like. A tail that is anything else
+means the loop ended and speech resumed, so `the the the cat sat on the mat` is still left
+alone, as is `very very very good`.
+
+`[hallucination] enabled` remains **false** by default; this changes what the guard
+detects when it is on, not whether it is on.
+
+Found by running `yazses transcribe` on a real 1.5-second clip from the corpus: it
+produced **nothing**, while the daemon's stored transcript for the same audio was that
+loop. Isolating the difference showed the pre-speech padding is what provokes it —
+`raw → ''`, `+300 ms of leading silence → "Each machine they should have us in it."`. The
+padding that stops the first word being clipped can also turn near-silence into fabricated
+text, and the guard built to catch the result was missing its commonest shape.
+
+### Fixed — a destructive-command pattern that could never fire
+
+`assess_command` lower-cases a dictated command before matching, and `_DANGEROUS`
+contained a pattern with a literal uppercase flag:
+
+    (r"\bchmod\s+-R\s+0*777\b", "recursive world-writable")
+
+Against lower-cased input that can never match, so `chmod -R 777 /` was classified
+`safe` — and here `safe` does not mean "reported as low risk", it means the command is
+typed straight through with **no confirmation**. A guard entry that cannot fire is worse
+than an absent one, because it reads as coverage.
+
+The same run found a second gap inside the guard's own declared category: `rm
+--recursive --force /data` is the identical command to `rm -rf /data`, and both `rm`
+patterns read only the short flag cluster, so it too was `safe`.
+
+Both fixed, plus two structural guards: no pattern may contain a literal uppercase letter
+(the mechanism), and every pattern must match its own worked example (the coverage), so a
+new entry cannot be added and quietly do nothing.
+
+### Fixed — `redact_patterns` scrubbed four of the six stored text fields
+
+`[learning] redact_patterns` is documented as *"Regexes scrubbed from text before
+storage"*. It was applied by `CorpusWriter` over a hand-written four-field tuple, but the
+store persists **six**, and three of its methods write text without going near the
+writer: `mark_wrong`, `update_correction_for` and `set_retx`.
+
+So `correction_text` and `retx_text` were stored unscrubbed. `retx_text` is the one that
+matters — it is a **re-transcription of the same audio** the patterns were added to
+protect, so a user who scrubbed a card number or a password out of `raw_text` had
+`yazses tune --retranscribe` write it straight back into the corpus.
+
+The corpus is encrypted at rest and machine-bound, so this was never an exposure off the
+machine (ADR-011 holds). It was a failure of the narrower promise `redact_patterns`
+makes: that certain content is never stored at all.
+
+Redaction now lives at `CorpusStore._enc`, the single point where text becomes a stored
+blob, so "encrypted" and "redacted" are the same set **by construction** rather than by
+two lists agreeing. The writer still scrubs before enqueuing so a secret does not sit in
+an in-memory queue, but it now scrubs every string value rather than a listed subset —
+the subset being exactly what failed. `yazses tune` passes the patterns when it opens the
+store.
+
+Existing corpora are not rewritten; rows already stored keep whatever they hold.
+
+### Fixed — `yazses audio use` could write a config.toml that does not parse
+
+`set_config_key` had **two** renderings of a value and only one escaped anything. The
+inferred path escaped backslashes and quotes; the explicit `quote=True` branch
+interpolated raw — and that is the branch `yazses audio use` and the settings window
+take. A microphone named `My "Best" Mic` produced:
+
+    device = "My "Best" Mic"
+
+That is not a contained failure. An unparseable `config.toml` makes `configcheck` fall
+back to *"could not be read; using defaults throughout"*, so **every** setting the user
+had is silently reset by an unrelated one-word command. Neither renderer handled a
+newline, which is illegal inside a TOML basic string and does the same thing, and a
+backslash was quietly corrupted — `path\to\thing` round-tripped with a real tab in it,
+because `\t` was read back as an escape.
+
+Both paths now go through one `quote_toml_string`, which escapes the full TOML basic
+string set and emits `\uXXXX` for control characters. The settings window still
+collapses newlines in `[stt] initial_prompt` before calling — defence in depth — but it
+is no longer the only thing standing between a pasted two-line prompt and a wiped
+`[stt]` section.
+
+### Fixed — a negative `vad_threshold` was type-correct, catastrophic, and reported valid
+
+`configcheck` validated **types**, and `doctor` reported the result as *"Config validity:
+every setting has the expected type"*. So this loaded with **zero problems**:
+
+    [accessibility]
+    vad_threshold = -5.0
+    pre_speech_padding_ms = -900
+
+`is_silent_calibrated` is `mean(abs(audio)) < vad_threshold`, which against a negative
+threshold is **never true** — so nothing is ever discarded as silence, and every burst,
+including the ones where nobody spoke, reaches the model to hallucinate on. The user who
+ran `doctor` to ask whether their config was good was told it was.
+
+A numeric setting can no longer be negative unless it is genuinely signed. Which is
+which is **derived from the shipped default**, not from a hand-maintained list: a setting
+whose own default is >= 0 is a magnitude (a duration, a size, a count, an RMS threshold),
+while `[hallucination] logprob_threshold`, `[reask] threshold` and `[whispermode]
+tilt_min` ship negative defaults because they are log-probabilities and signed measures,
+and keep accepting negatives. A new signed setting brings its own permission with it.
+
+Rejected values fall back to the default and are reported like every other config
+problem, so `doctor` and the daemon's startup listing both show them. The validity check
+now says "every setting is a usable value", which is what it verifies.
+
+### Fixed — `yazses doctor` printed two different checks both called "Microphone"
+
+    [OK] Microphone: ok
+    ...
+    [OK] Microphone: OS default: default → Raptor Lake-P/U/H cAVS Digital Microphone
+
+Two questions under one name: *can a microphone be reached at all* (permission/hardware)
+and *which device will be used* (config summary). `doctor` output is what people paste
+into issues, so "Microphone failed" was unanswerable without asking which one.
+
+The config-summary row is now **Input device**, in both its pinned and unpinned branches.
+
+### Fixed — `yazses reflow` cut "Firstly" into "ly", and never stripped a filler
+
+Two defects in the command whose stated purpose is turning "a long rambling monologue"
+into an outline.
+
+`_BULLET_MARKERS` lists "first" before "firstly" and "second" before "secondly", and the
+strip loop broke on the first match — so the rest of the longer word stayed in the
+bullet:
+
+    "Firstly we fix the tray."   ->  "- ly we fix the tray"
+    "Secondly we ship it."       ->  "- ly we ship it"
+
+Three of the commonest spoken outline markers each produced nonsense in the text the user
+keeps. Matching is now longest-first — the same rule `yazses case` needs for
+"snake"/"snake case" and `gitvoice` for its separators.
+
+Second, only ordering words were ever stripped, so the single commonest thing in a
+rambling monologue survived into the outline: *"Um we should fix the tray"*, *"So
+basically the icon dies"*. Leading fillers are now stripped too, sourced from
+`DisfluencyConfig.filler_words` — the list the dictation filter already uses — rather
+than a second copy that would drift from it. Only the sentence-initial extras ("so",
+"well", "right", "basically") are local, because mid-sentence those are ordinary words
+and must stay.
+
+Stripping repeats, because speech stacks markers: *"so um basically I need to update the
+docs"* opens with three and now yields `- [ ] I need to update the docs`.
+
+### Fixed — none of `yazses screenplay`'s documented forms worked when spoken
+
+The command exists, in its own words, for "drafting a script by voice". All three forms
+it recognises required punctuation no speech model emits — a colon, a comma, and a pair
+of parentheses:
+
+    scene: interior coffee shop, day     Alice (character) hello     transition: cut to
+
+Said aloud, none matched, and `to_fountain` falls through to "anything else becomes an
+action line" — so the raw words went into the screenplay, silently:
+
+    "scene interior coffee shop day"  ->  scene interior coffee shop day
+
+Every separator is now optional. `scene` and `transition` are anchored on a distinctive
+keyword, so dropping the colon costs nothing. `(character)` needed more care: bare
+"character" is an ordinary word, so the parenthesis-free form is read as a cue only when
+the preceding text looks like a name — at most three words, not opening with a
+determiner. `the character walks in` stays an action line, and the parenthesised form
+stays exact.
+
+This was the third instance of one shape in a single audit, after the `gitvoice` branch
+separators and `yazses case`'s mandatory colon: the voice path requiring a character the
+voice cannot produce.
+
+### Fixed — `yazses case` required a colon you cannot dictate
+
+The documented spoken form is *"make this snake case: …"*, and the CLI stripped the
+directive with `if ":" in src: payload = src.split(":", 1)[1]`. Said aloud there is no
+colon, so the directive was recased along with the text — and the command answered
+confidently rather than refusing:
+
+    make this snake case: hello world  ->  hello_world                       ✓
+    make this snake case hello world   ->  make_this_snake_case_hello_world  ✗
+
+A plausible wrong answer, which is precisely the failure `gitvoice` avoids by design.
+
+The directive is now located by its style phrase and the remainder taken as the payload,
+so the colon is optional. Trailing forms work too (*"hello world in snake case"*), and
+the payload is sliced from the original string rather than the lower-cased copy used for
+matching, so `make this snake case MyThing` still yields `my_thing` instead of losing its
+word boundaries first.
+
+### Added — spoken separators in branch names (`dash`, `hyphen`, `underscore`, `dot`)
+
+`feature/login` and `fix-tray-crash` are both ordinary branch conventions, and neither
+can be *dictated* — nothing turns the silence between two words into a `/` or a `-`, so
+the speaker says the separator. Only `slash` was understood:
+
+    create branch feature slash login   ->  git checkout -b feature/login   ✓
+    create branch feature dash login    ->  Could not parse a git command.  ✗
+
+which put the hyphenated half of real branch names out of reach in a voice-first
+product. The refusal even advertised `'create branch …'` — the form it had just
+rejected.
+
+The substitution also existed twice, once in `ref_src_for_push` and once beside the
+branch verbs, and both copies handled only `slash`. Both now call one `despeak_ref`, and
+the tests cross every separator against every ref-reading verb, so a separator only one
+path honours fails in CI rather than in a terminal.
+
+Applied only where a ref is read: `commit with message fix the dash in the title` keeps
+its word.
+
+### Fixed — `yazses tune` proposed priming Whisper with its own hallucinations
+
+Run against a real 1,617-event corpus, the top vocabulary proposal — the one `--apply`
+offers to write into `[stt] initial_prompt` — was:
+
+    for you thanks watching these cube assess within aspects can needed yasas grom
+    two both and referees finished one etc why
+
+Two defects in twenty-one terms.
+
+**Stopwords.** Eleven are function words. `initial_prompt` is a bounded budget (the
+decoder sees only the last ~224 tokens) and Whisper already knows "for" and "and", so
+each one displaced a term that would have helped. The miner's rule — *in the correction,
+absent from the live transcript* — catches them because rephrasing changes which function
+words appear, not because the model cannot hear them.
+
+**Hallucination feedback, the serious one.** `for`, `you`, `thanks`, `watching` are the
+words of *"Thank you for watching"* — the silence hallucination YazSes ships a guard to
+delete. The loop: a clip decodes to the ghost phrase, the user re-dictates, the
+re-dictation lacks those words, the miner reads them as vocabulary the model keeps
+missing, and priming them biases the decoder **toward** the phrase. The product would
+have been tuning itself into the failure it guards against.
+
+Mined terms are now filtered against a stopword list and against `ghost_words()`, derived
+from `_GHOST_PHRASES` itself rather than copied — a copy drifts, and the two disagreeing
+silently is this bug one layer up. On the same corpus the proposal went from 21 terms to
+the 8 real ones.
+
+Not fixed, and worth knowing: `yasas` and `grom` survive. They are mis-hearings of
+"YazSes" and "from" that arrived through the re-transcribed text, so the ground truth
+itself is wrong — a limitation of re-transcription as an oracle, not something a word
+list can settle.
+
+### Fixed — the tray supervisor threw away every reason the tray died
+
+Both places that launch the tray passed `stderr=subprocess.DEVNULL`. The tray is a
+separate process, so everything it printed on the way down was discarded — a real
+daemon log showed four relaunches in one evening, three inside ninety seconds, with no
+indication of the cause anywhere.
+
+The give-up branch documented the omission without noticing it: *"tray died 5 times;
+not relaunching again. Start it manually with `yazses tray` to see the error it
+prints."* That advice exists only because the error was thrown away, and it asks the
+user to reproduce by hand a failure the daemon had already watched happen five times.
+
+It matters past the terminal too: the daemon log is what `yazses report` attaches to an
+issue, so "the tray keeps dying" was reportable only without evidence.
+
+The tray's stderr is now captured (truncated per launch, so it answers why the tray that
+just died died, not the previous six) and logged with each relaunch and with the give-up
+message. If the capture file cannot be opened the launch falls back to `DEVNULL` — a
+tray that starts without diagnostics beats diagnostics that stop the tray starting.
+
+### Fixed — Apply restarted the daemon while it was still downloading the packages
+
+`_on_apply` starts the optional-dependency install on a background thread ("this can
+take a few minutes") and then, without waiting for it, offers the restart. Enabling a
+capability with heavy extras — `stt-parakeet`, `gaze` — therefore restarted the daemon
+*before its packages existed*, so it came back up with the capability switched **on** in
+config and its import still failing. The window said it applied.
+
+`_run_restart` is also a synchronous `subprocess.run(..., timeout=90)` on the **UI
+thread**, so accepting that prompt froze the window for up to a minute and a half while
+the install thread streamed progress into it — and a frozen window is what a desktop
+offers to force-close.
+
+The restart is now held until the install finishes, and offered from
+`_on_install_finished` — including when packages failed, since the rest of the change
+did land and still needs a restart. A change that downloads nothing still restarts
+immediately, as before.
+
+### Fixed — `yazses verify` certified a chain the daemon discards
+
+Found by running the command in a quiet room with nobody speaking. Ambient noise cleared
+the silence gate, the model answered near-silence, and the report ended with
+**"✓ Dictation works end to end on this machine."**
+
+The daemon does not type what the model returns — it types what survives `clean_text`,
+and a burst that cleans to nothing is discarded before injection. `verify` tested the
+**raw** string, so `[BLANK_AUDIO]`, the commonest thing Whisper emits for silence, is
+non-empty, printed as `heard "[BLANK_AUDIO]"`, and passed:
+
+| | daemon | `yazses verify` (before) |
+|---|---|---|
+| model returns `[BLANK_AUDIO]` | cleans to `""`, discards, types nothing | ✓ works end to end |
+
+A muted microphone passed the one check whose entire job is to name the broken link,
+while the module's own docstring claimed it "runs the real chain end to end". It ran the
+chain minus the step that decides whether anything gets typed.
+
+`verify` now applies the cleaner, injects the cleaned string rather than the raw one, and
+when cleaning empties a transcript it says the model heard silence and points at the
+microphone — not at `[stt] model`, which would send you to download a larger model to
+fix a muted input device.
+
+## [2.28.0] — 2026-08-18
+
+### Fixed — an actionable notification outlived the process that raised it, forever
+
+A toast offering **[Prepare a bug report]** runs `notify-send --wait`, which blocks
+until someone clicks it, and `--urgency critical` means it never expires on its own.
+That wait ran on a **daemon** thread, and its 120-second cap lived inside that thread —
+so it only ever fired in a process that stayed alive long enough to reach it. In the
+long-lived daemon it did; in every short-lived process it could not. A CLI command,
+`yazses verify`, or one `pytest` run exits in seconds, the daemon thread is abandoned
+without unwinding, its `except TimeoutExpired` never runs, nobody calls `kill()`, and
+the pop-up is reparented to `systemd --user` and stays on the desktop until the session
+ends. A machine running the suite on a loop accumulated 33 of them in 75 minutes, each
+describing an injection failure that had never happened.
+
+In-flight toasts are now tracked and killed at interpreter exit, so one dies with
+whatever raised it; a toast started as the interpreter goes down is not started at all,
+rather than spawned into the gap after the shutdown hook stopped looking.
+
+Separately, the four daemon-level tests that drive a deliberately failing injection or
+capture were popping *real* pop-ups on the developer's screen. None of them was written
+wrong — three predate `_report_failure` entirely, and adding it dropped a `notify()`
+into `except` blocks they had been exercising all along, so the side effect arrived
+without a single test changing. The suite is now hermetic against the notifier at the
+source, the way it already is against the user's real log file.
+
+### Added — one guard for every link YazSes shows you
+
+A URL in a shipped string is compiled into the `.exe`, the `.dmg`, the snap and the
+`.deb`. If it 404s, the person who finds out is the user, alone, at the moment they
+were already stuck.
+
+Three instances of that shape landed in three days — a diagnosis module linking three
+how-to pages that have never existed, a bundle reading `yazses.log` where the file is
+`daemon.log`, and a tooltip naming `yazses models` where the command is
+`yazses model list`. Each got a guard afterwards, one per module. This is the general
+one: every docs link in a user-visible string must resolve to a real page, must end
+`.html` (the site sets `use_directory_urls: false`, so `<name>/` is a 404), and any
+link to a repo *named* yazses must be under `MSKazemi`.
+
+It reads **f-strings**, which is how the diagnosis module builds every URL. Without
+that the guard was vacuous for the very file it was written to generalise: an
+`ast.Constant` scan sees only the fragment `"/page.html"`, which carries no site
+prefix and matches nothing. Docstrings are excluded — they are developer-facing, and
+holding them to a user-visible standard produces noise rather than findings.
+
+### Fixed — a flaky test that could fail the whole gate at random
+
+`test_notifier_available_uses_which` failed once in a full run, then passed alone and
+on the next run. The file captured the real `notifier_available` at **import time**, on
+the stated assumption that imports happen before the autouse fixture that stubs it —
+and the failure was `assert False is True`, exactly what that stub returns. The
+mechanism was not pinned down, so the assumption was removed rather than reasoned
+about: the module is now executed into a private namespace that no patch of the
+installed one can reach.
+
+### Fixed — the clipboard list and the spoken ordinals pointed opposite ways
+
+`yazses cliphistory list` prints a newest-first numbered list — `1. DDD … 4. AAA` —
+while `recall "the first one"` returned `AAA`, i.e. #4, and `"the last one"` returned
+`DDD`, i.e. #1.
+
+The resolver is **not** changed, and that is the point: *"the first thing I copied"*
+meaning the oldest is the right reading of that sentence and is tested as such, while
+the help documents *"the second one"* as entry #2, which is positional. Both readings
+are correct English and they point opposite ways — the ambiguity is in the language.
+
+What was fixable is the surface that implied a contradiction and never stated the
+rule. The list now names its ends (`1. DDD ← most recent`, `4. AAA ← oldest`), a
+single entry gets no label because it is both, and `recall --help` says which words
+mean which end.
+
+### Fixed — `gitvoice` threw away the branch you named, on `push` alone
+
+Every ref-taking rule in the spoken-git grammar captures its ref — except `push`.
+`push to main` rendered a bare `git push`, which pushes the **current** branch to its
+upstream, so naming a branch while standing on a different one pushed the other one.
+`force push to main` did it destructively. The module's own comment already describes
+this class of defect for `delete branch feature slash login`; it was still live in the
+command where it costs the most.
+
+`push to main` now renders `git push origin main`, an explicit remote is honoured
+(`push to upstream develop`), a bare `push` stays bare, and `feature slash login`
+becomes `feature/login` here as everywhere else. Assuming `origin` when only a branch
+is named is deliberate: on a repo whose remote is called something else it stops with
+*"'origin' does not appear to be a git repository"* and nothing happens — a visible
+wrong guess beats an invisible right-looking one.
+
+The confirm gate and undo hint still recognise the longer argv, which is checked, since
+a safety gate that stopped matching once the command gained a ref would be worse than
+the bug.
+
+### Fixed — `shellpipe` searched for the word "for"
+
+The stage grammar listed `search for` but not `grep for`, so the most natural phrasing
+put the connective **into the pattern**: "grep for error" rendered `grep 'for error'`,
+which matches nothing, and "find lines matching error" rendered
+`grep 'lines matching error'`. Only the stilted "grep error" worked. Connecting words
+are now part of the grammar — and "grep forbidden" still searches for `forbidden`,
+because the connective must be followed by whitespace to count.
+
+### Fixed — a bug report could carry your personal dictionary
+
+`yazses report` promises *"your dictated text is never in it"*, and the log honours
+that by recording word counts rather than words. The **config** section did not.
+
+Found by auditing a real bundle, which was clean — but only because that machine
+has no `[stt]` section, and `yazses tune` proposes writing one. Given a realistic
+value, the old redaction returned:
+
+```
+"<redacted> Seyedkazemi Ardebili, <redacted>.seyedkazemi@gmail.com, KubeIntellect…"
+```
+
+The account name matched and nothing else did. The surname, the email domain, the
+employer and two project names travelled into the report **wearing a `<redacted>`
+marker** — which is worse than no redaction at all, because it invites the reader to
+conclude the field was cleaned. Partial redaction of free text is a false negative
+with a badge on.
+
+Two rules close it. Known prose keys (`[stt] initial_prompt`,
+`[filters.disfluency] llm_system_prompt`) are replaced wholesale rather than
+filtered. And **every list and dict value is summarised by size**: those passed
+through *verbatim* before, and they are exactly where user prose lives — the snippet
+table, the per-app profile map, and `[learning] redact_patterns`, which is the
+subtlest of the three since those regexes describe what the user considers secret.
+
+The size is kept, because an empty vocabulary and a 400-term one are a real
+difference to whoever reads the report, and a count identifies nobody.
+
+### Added — `yazses tune --limit N`, and an estimate instead of "a while"
+
+`tune` had two speeds: re-transcribe the whole corpus, or skip the pass entirely
+with `--no-retranscribe` — which drops the step that finds the actual
+mis-transcriptions. On a real corpus that is ~1,600 clips through `small.en` on CPU;
+a run left going for ten minutes had not finished.
+
+`retranscribe(limit=)` had existed the whole time, **called by nothing, and
+referenced by no test**. Wiring it as written would have shipped the wrong feature:
+`store.events()` is `ORDER BY id`, so a limit took the **oldest** clips — the least
+relevant half, recorded with a model, microphone, threshold and vocabulary the user
+may since have changed. It now takes the most recent N, which is the half that
+reflects what dictation does today.
+
+The progress line also carries a time estimate once a rate can be measured. "A large
+corpus can take a while" is honest and useless: an hour is a decision — run it
+overnight, or use `--limit` — and "a while" is not. The estimate is deliberately
+coarse (rounded to five minutes above the hour), because the rate wanders with clip
+length and "~52 min" would claim a precision the measurement does not have; it stays
+silent rather than guessing before the first clips are done, and on the final tick.
+
+### Fixed — "speaker labels unavailable" recommended a 45 MB download that fixes nothing
+
+`yazses meeting status` computed *why* speaker labels were unavailable — correctly
+distinguishing "the Python package is missing" from "the model files are missing" —
+and then printed the same remedy for both: `yazses transcribe --download-models`.
+With the extra missing, that fetches ~45 MB, changes nothing (the absent thing is an
+importable module), and returns the identical message. The daemon's `meeting start`
+warning named both remedies unconditionally, which is better but still asks for a
+step that cannot be acted on yet.
+
+Both now go through one `diarization_advice()`, which names **the next action, not
+the whole path**: with the extra missing, `yazses features enable meeting` is the one
+command, and the message says the models follow. Mentioning a second step the user
+cannot take yet is how the wrong one gets attempted first.
+
+Two cases it now handles that neither surface did: a `pyannote` backend is never told
+to "run" a download, because its pipeline is a *gated* repo and a missing cache may
+mean the terms were never accepted — that is only knowable by trying; and
+`[meeting] diarize = true` with a backend that cannot diarize is reported as the
+config fault it is, rather than sending someone to install something that would change
+nothing.
+
+### Fixed — the Settings window told you to run a command that does not exist
+
+The model dropdown's tooltip said *"Same list as `yazses models`"*, and
+`docs/settings-gui.md` repeated it. The command is **`yazses model list`**;
+`yazses models` exits 2 with *"No such command"*. Two surfaces, one invented name,
+and every test passed — because nothing compared the strings we ship against the
+CLI we ship.
+
+There is now a guard for that direction. `test_cli_reference_covers_every_command`
+already asked whether each shipped command is *documented*; this asks whether each
+command we *name* exists. The second failure is worse: an undocumented command is a
+gap, while advice naming a command that does not exist is a dead end handed to
+someone who is already stuck. It is the third instance in three days of the same
+shape — strings that are only wrong at the moment a user acts on them, after doc
+links to pages that never existed and a bundle reading the wrong log filename.
+
+The guard keys on **backticked** invocations. A first version matched `yazses`
+anywhere and returned thirty-odd false positives — `cd yazses`,
+`pipx install yazses`, `sudo snap refresh yazses`, the repo's own name in a clone
+URL — against one real defect, which is a guard nobody keeps. A backtick is the mark
+that means "type this". `docs/releases/` and `docs/research/` are excluded for
+reasons about what those pages are: release notes describe what a past version
+shipped, and research pages pose open questions where naming something that does not
+exist yet is the point.
+
+### Fixed — two defects in yesterday's error reporting, found by auditing a real machine
+
+A nine-hour session on a live daemon, audited rather than reasoned about, and both
+findings are in code added the same day.
+
+**The classifier missed the only failure actually happening.** The single warning
+that machine produced all day — five times — was `Error querying device -1`, and it
+fell straight through to the generic *"an unexpected error stopped that from
+working"*. PortAudio index −1 is the default device, so this is the default failing
+to resolve, which on PipeWire/ALSA happens while it is being switched. It now says
+so, and says that pinning a microphone with `yazses audio use <name>` stops a change
+of default from interrupting dictation. The rule set had been written from
+plausible-looking error text; the observed strings now have their own test, keyed to
+where each was seen.
+
+**The issue-body limit bounded the wrong quantity.** The body travels as a URL query
+parameter, and percent-encoding expands it — ~1.27x for a log line, ~1.45x for a
+Markdown heading, 3x for punctuation-dense text, and 9x for non-Latin script, where
+each UTF-8 byte becomes three characters. A 6000-character body, comfortably "within
+the limit", produced a **12,972-character URL** on a real report from this machine.
+Past roughly 8 kB the user lands on an *empty* issue form, so the failure is total
+rather than partial. The trimming loop now measures the encoded length, and the tests
+assert on the whole URL across three alphabets rather than on the raw body.
+
+### Fixed — the Snap Store showed a different logo from every other surface
+
+The icon in the Snap Store listing, and in the app grid of every snap install, was
+**not the YazSes mark**. It was a white square with a blue speech-bubble outline, a
+navy Y and a violet-to-cyan waveform — against the purple-gradient badge used by the
+website favicon, the Windows `.exe`, the macOS `.app`, the `.deb`, and both tray
+badges. Two logos, one product, and the wrong one on the primary Linux channel.
+
+The cause is structural rather than a mistake anyone made. `scripts/gen-icons.py` is
+documented as the one renderer for the mark, and it owned exactly two outputs: the
+`.ico` and the `.icns`. The Linux icons were shipped by `build-deb.sh` and
+`snapcraft.yaml` and regenerated by **nothing**, so whatever was drawn by hand in June
+stayed. Measured, the `.deb` PNGs had quietly drifted too — the right design from an
+older `render_mark`, differing on 0.6–5.9% of pixels once composited (max delta
+30/255): invisible in use, and never going to correct itself.
+
+The generator now owns every shipped raster icon, `snap/gui/yazses.svg` carries the
+canonical drawing rather than the superseded one, and `make icons` redraws the set. A
+test reads the size list out of `build-deb.sh`'s own shell loop and the `icon:` line
+out of `snapcraft.yaml`, so a channel that starts shipping a new icon fails the build
+until the generator learns about it — in either direction, including a size the `.deb`
+wants that the generator does not produce.
+
+`--check` now compares **decoded pixels rather than file bytes**. PNG output is not
+reproducible across platforms — zlib version and Pillow build change the compressed
+stream for pixel-identical input — which `tests/test_icon_assets.py` had already
+learned by turning the Windows and macOS CI legs red on assets that were correct.
+Byte comparison would have worked by accident while `--check` stayed a local command,
+and broken for whoever wired it into CI.
+
+⚠ If the speech-bubble drawing was the intended direction, the fix runs the other way
+and costs six surfaces instead of one — say so and it will be redone that way.
+
+### Added — when something breaks, YazSes now tells you, and says what to do
+
+The gap this closes is not detection. The daemon already caught these failures — it
+just told nobody. A microphone that will not open was caught, logged, and written to
+`last_error`, and then the state went back to `IDLE`, which the tray paints **idle
+blue**. So you held the key, spoke a sentence, nothing was typed, and every surface
+you could see reported a healthy daemon. A pipeline error did the same.
+
+`system/diagnosis.py` turns a caught failure into a title, a plain-English cause and
+a **concrete next step** — "Another program is using your microphone; close it, or
+pick a different one with `yazses audio devices`", not "Microphone unavailable".
+Wired into the three paths that were silent: capture, the transcribe/inject pipeline,
+and a failed meeting start.
+
+Three rules it holds to. **Every failure gets a diagnosis, including unrecognised
+ones** — a classifier that returned nothing for the unexpected case would go quiet
+exactly when a user most needs a message, and "unexpected" is the normal state of a
+bug. **A diagnosis is advice, never a decision** — nothing here changes what the
+daemon does, so a wrong guess costs a misleading sentence, not a working feature. And
+any given fault is announced **at most once every five minutes**: a broken microphone
+fails on every burst, and five identical toasts teach people to dismiss YazSes
+notifications, which costs more than the suppressed repeats.
+
+### Added — "Prepare a bug report", which prepares and does not report
+
+ADR-v2-132's option (b), now built. When YazSes **cannot identify** a failure, the
+notification offers a button that assembles the redacted diagnostic bundle and opens
+GitHub's issue form **pre-filled**. You read it, in GitHub's own UI, under your own
+account, and press submit yourself.
+
+**YazSes sends nothing.** The browser makes the request, so this adds no outbound path
+— ADR-019's egress inventory is unchanged and its guard was not edited, which is the
+condition the ADR set for accepting this option at all.
+
+That guard did fire once, on `from urllib.parse import urlencode`: its root list
+contains `urllib`, deliberately conservatively, even though `urllib.parse` cannot open
+a socket. Both obvious responses were wrong — registering `report.py` in the egress
+inventory would claim a module that sends nothing sends something, and relaxing the
+guard would trade a real protection for convenience in the one file whose first line
+is *"Nothing is ever sent anywhere"*. The percent-encoder is therefore written by hand
+and pinned against `urllib.parse.quote` in the tests, which sit outside the scanned
+tree.
+
+The offer is gated on YazSes not recognising the fault, rather than on the fault
+repeating (which is what the ADR had wondered about). A recognised failure already
+carries the command that fixes it, and an issue about a missing `ydotool` helps
+nobody — least of all the person who now has two things to do instead of one.
+
+### Added — four more settings in the window, chosen for how each one fails
+
+The settings window covered 147 capability toggles and, until recently, three
+values. `[stt] model`, `[stt] language` and `[injection] backend` arrived last
+week; this adds **compute type, vocabulary, the no-text-target guard and
+pre-speech padding**. All four were editable only by hand-writing TOML.
+
+They were picked for their failure modes rather than their popularity:
+
+**Compute type** is the accuracy/speed lever below model size, and an unsupported
+value produces the worst error message in the product. It raises inside the model
+load, and that is re-raised as `ModelUnavailableError` — so the user is told their
+*model* is unavailable and handed three ways to download a model they already have.
+Nothing anywhere mentions quantisation. The list is now asked of ctranslate2 for the
+configured device, so it can only offer what this machine can actually load. That
+also means a value shown because it is already in the config is still refused when
+selected — displaying a value must not make it settable.
+
+**Vocabulary** (`[stt] initial_prompt`) is what `yazses tune` proposes additions to;
+accepting one previously meant editing TOML. Newlines are collapsed, because a
+literal newline makes the file unparseable and the loader's repair falls the whole
+`[stt]` section back to defaults — so pasting a two-line vocabulary would silently
+reset the model and the language with it.
+
+**Nowhere to type** (`[injection] target_guard`) is the setting behind the tray's
+yellow badge, and the daemon compares it against `"off"` and treats everything else
+as on — so an unrecognised value silently means "clipboard" while reading back as
+whatever was typed. Refused rather than accepted.
+
+**Pre-speech padding** is the fix for a symptom nobody connects to a setting: the
+first word of every burst going missing.
+
+The Apply loop had to stop assuming every row is a combo box — a `QLineEdit` has no
+`currentText()` and a `QSpinBox` has no `currentData()` — so each row now carries its
+own reader. Wiring one to the wrong widget type raises inside a Qt slot, where the
+traceback goes nowhere a user can see, so the window tests drive all four through a
+real Apply rather than trusting the unit tests next door.
+
+The settings-window documentation had also fallen behind the previous three
+additions, and still described "the three settings that are values rather than
+switches". It now lists all ten.
+
+### Added — Meeting Mode can be started and stopped from the tray icon
+
+Meeting Mode is the one thing YazSes does with no key to hold. It runs hands-free for up
+to an hour, and the only way to begin or end one was `yazses meeting start` in a terminal
+— which is exactly what nobody has open once a call has started. **Start meeting** and
+**Stop meeting** are now in the tray click-menu on Linux, macOS and Windows.
+
+The refusal is the half worth describing. Meeting Mode ships off by default, so the state
+most people meet first is one where the entry cannot work, and a menu row that fails
+silently teaches nothing. On Linux — whose menu is rebuilt on every open — the
+inapplicable entry is greyed out with the reason attached: *Meeting Mode is off, turn it
+on in Settings*, *a meeting is already running*, *still finishing the last meeting*. The
+rumps and pystray menus are built once at startup and cannot re-derive themselves, so
+both entries stay clickable there and the daemon's own answer carries the reason.
+
+Two states drive this that nothing published before. The daemon's `state` says `meeting`
+while capturing, but it cannot say whether the feature is enabled at all, and — the one
+that actually bites — it returns to `idle` the moment capture stops while diarization and
+the notes are still being written. Without `meeting_finalizing`, the menu would cheerfully
+offer a new meeting on top of a post-pass that had not finished writing the last one.
+
+The decision of what a click may do stays in one pure function shared by all three trays,
+and the daemon remains the authority: a click always makes the call and always shows the
+answer that comes back, warnings included — including the one saying a transcript will
+come back with no speaker names because the diarization models are missing.
+
+### Fixed — the Windows Settings window could not open, and explained itself where nobody could see
+
+Reported from a Windows install: the tray's **Settings…** and **About** entries "do not
+work, do not show anything". Three faults line up to produce exactly that silence, and
+only the first is a missing feature.
+
+**The bundle shipped no Qt.** Qt moved out of the base dependencies and into the
+`desktop` extra. `snap/snapcraft.yaml` was updated in the same breath, and says so in a
+comment — *"it is now the `desktop` extra, so it MUST be listed"* — but both PyInstaller
+builds still ran a bare `uv sync --no-dev`. PySide6 was therefore missing from the
+environment PyInstaller analyses, and the shipped `.exe` contained no GUI at all.
+**macOS has the identical defect**: the `.dmg` cannot open Settings either, and nobody
+had reported it.
+
+**The explanation went to a stream that discards it.** The settings entry point handles
+a missing PySide6 correctly — it prints why and exits. But the tray launches it as a
+*windowed* process, which has no console, and the stream fixup then binds `stderr` to
+`os.devnull` precisely so that writes cannot raise. That function already **returns**
+whether output will be visible, and the caller discarded the answer. There is now a
+native message-box fallback, which needs no dependency — which matters, given the reason
+for the message is that a GUI toolkit is missing.
+
+**About overran the buffer Windows gives it.** With no dialog available, About is shown
+as a balloon, whose body is a 256-wide-character field; the About text is 347. It is now
+trimmed by dropping whole lines rather than cutting one — a half-printed URL still looks
+clickable — keeping the version at the top, since that is what About is opened for.
+
+The installer smoke test checked that three files exist and ran `--version` and `doctor`;
+it never opened the window. A new guard pins the invariant at the build scripts instead.
+
+## [2.27.0] — 2026-08-17
+
+### Fixed — four crashes waiting behind a type gate that said it was clean
+
+`make types` describes itself as *"advisory — currently clean; don't add errors"*.
+It was not clean. Seven errors stood in it, and because CI does not run mypy,
+nothing ever failed to say so.
+
+Four were real `AttributeError`s waiting on a code path, not checker pedantry:
+
+- **Rewrite crashed if it arrived during startup.** `_try_rewrite` guarded the LLM
+  cleaner for exactly this reason and then dereferenced the injector two lines
+  later without a guard. It now reports that injection is not ready, which is what
+  the neighbouring branch already did.
+- **Asking you a spoken question could crash the same way.** The recorder and the
+  STT engine are both None until startup finishes; the listener now returns an
+  empty answer, which its caller already handles as "no answer given".
+- **The tray reaped subprocesses through a controller that may not exist.** The
+  new None check sits outside the existing `except` on purpose: a missing
+  controller is a wiring bug and a raised exception is a transient `waitpid`
+  failure, and swallowing both in one handler made them look identical.
+- **The brand mark built its colour with a generator**, losing the
+  exactly-three-channels guarantee the RGBA paste depends on.
+
+The fifth is `onnx_asr` — a genuinely optional dependency with no stubs — and now
+carries an explicit ignore rather than sitting in the count. mypy: **7 → 0** across
+488 files.
+
+### Added — the second clipboard path is documented, and its platform limit
+
+"My dictation went to the clipboard instead of being typed" has **two** causes with
+confusingly similar names, and the troubleshooting page covered only one.
+`[injection] target_guard` handles *no text field*; `[injection]
+fallback_to_clipboard` handles *there was a field and the typing backend failed*.
+
+The second had no prose anywhere — only a row in the generated settings table — even
+though turning it off is a real remedy: a typing timeout can fire after part of the
+text is already typed, the fallback then pastes the whole thing again, and a streaming
+commit deletes a span computed from the first copy. Anyone who has met doubled text
+wants the primary backend to fail loudly instead.
+
+⚠ And it is **Linux only**. The macOS and Windows injectors have no clipboard fallback
+at all, so the key is inert there in both directions: turning it off changes nothing,
+and leaving it at its `true` default does not give you the safety net the name implies.
+
+### Fixed — the README described two capabilities that are not wired
+
+Both were written in the present tense, as things YazSes does.
+
+**The Tier 2 SLM router**, in four places: *"an optional ~0.5B SLM router catches
+phrasings the grammar misses"*, *"when its confidence is low, an optional ~0.5B SLM
+router takes a second look"*, in the pipeline diagram, and in the models list. Nothing
+in `src/` constructs `SLMRouter`; `grammar.classify()` accepts the parameter and both
+daemon call sites pass only `macro_table`. The repo's own orphan ledger already recorded
+it as *"a plumbed seam never filled"* — the README simply had not caught up.
+
+The concrete cost was in the models list, which invited `yazses model download` for the
+Qwen GGUF. Nothing loads it, so that download was pure disk and bandwidth. The command
+itself stays recommended for pre-fetching a *speech* model behind a firewall, which is
+what it is genuinely for.
+
+**LSP context improving dictation accuracy.** `_effective_initial_prompt` calls
+`compose_context_prompt(..., use_lsp=False)` — hardcoded, while `[context] use_lsp`
+defaults to `true` and is read by nothing. The prompt is built from your vocabulary and
+mined terms only.
+
+The correction is deliberately narrow, because **the neighbouring claim is true**:
+`yazses jump "go to function parse_config"` really does resolve symbols through the
+editor bridge (`cli.py` constructs `LspContextProvider` for exactly that). So the README
+now separates LSP *navigation*, which works, from LSP *into the transcription prompt*,
+which is designed and not wired.
+
+### Fixed — "comment this line" was typed into your file instead of commenting it
+
+The README lists it as a spoken command. The pattern allowed exactly **one** trailing
+word — `^comment(?:\s+(?:this|line|selection|out))?$` — so `"comment this"` worked and
+`"comment this line"`, the phrase people actually say and the one the README printed,
+fell through to DICTATE and got typed into the buffer.
+
+Widened to accept `this line`, `the line` and `this selection` as well. Safe because
+the pattern is anchored at **both** ends, which is this project's rule for spoken
+grammars: only those exact utterances match, and prose like *"this line is a comment"*
+still classifies as dictation — checked, not assumed.
+
+### Fixed — `xdotool` was documented as an injection backend and is not one
+
+`backend = "auto"  # auto | xdotool | ydotool | wtype | clipboard` in the README and in
+`examples/config.example.toml`. `get_injector` handles `clipboard` and, on Wayland,
+`wtype`; everything else falls through to the automatic path. So `xdotool` is not a
+token: on X11 it appears to work only because `auto` already selects xdotool there, and
+on Wayland asking for it silently gets you ydotool.
+
+Corrected to the set the daemon itself names (`auto | type | ydotool | wtype |
+clipboard`), with a note on why `xdotool` is absent — it is the kind of value someone
+sets deliberately after reading a troubleshooting thread.
+
+### Fixed — the README told Linux users to hold the wrong key
+
+`| Linux | ``Space`` |` in the README's first table, and *"Hold the hotkey (Space on
+Linux…)"* on the docs home page. The Linux default is **Right Alt**: `[hotkey] key`
+defaults to `auto`, which resolves to `platform.default_hotkey`, which is `right_alt`,
+and first-run seeding never writes a hotkey.
+
+This is the first thing a new Linux user does. They hold Space, nothing happens, and
+the reasonable conclusion is that YazSes does not work. `cli.py` even records why a
+modifier was chosen — *"so it doesn't collide with normal typing the way `space`
+can"* — so the docs recommended the key the code had deliberately rejected.
+
+Corrected in four places: both prose claims, the README's settings snippet
+(`key = "space"` → `key = "auto"`, with what `auto` resolves to per platform), and
+`examples/config.example.toml`, which is a file people copy.
+
+### Fixed — Intel Mac users were sent away from a build that exists
+
+The README said the `.dmg` is *"Apple Silicon only"* and *"On an Intel Mac, use
+pipx"*; `docs/macos-install.md` went further, explaining that an Intel `.dmg` "would
+need a second CI job" that had not been paid for.
+
+**That job exists.** Since v2.22.0 the bundle is built as a per-architecture matrix
+(`macos-15-intel` alongside `macos-latest`), and v2.26.0 carries both
+`YazSes-2.26.0-macos-arm64.dmg` and `YazSes-2.26.0-macos-x86_64.dmg`. Intel users were
+being routed away from a native app that had been shipping for four releases.
+
+The Homebrew half of the claim is **kept**, because it is still true: the cask declares
+`depends_on arch: :arm64` and refuses on Intel. The Intel CI leg is
+`continue-on-error`, so the pages now say a release can ship without it and PyPI is the
+fallback when that happens.
+
+### Fixed — eight pages told you to enable features that cannot be enabled
+
+`system/features.py` states it plainly: a capability with `wired = False` is *"designed
+but not yet wired into any runtime path: enabling it would write a config key nothing
+reads. `features enable` refuses these."* `yazses features` labels them **planned —
+designed, not yet wired**.
+
+The documentation did not carry that distinction. Twenty lines across eight pages
+spelled out `yazses features enable <slug>` for unwired capabilities, in ordinary
+"Capability | Enable with | For" tables beside features that work, with nothing to say
+the command would be refused.
+
+The accessibility page was the worst of them — six unwired slugs (`hesitation`,
+`breath`, `involuntary`, `voicehealth`, `autostop`, `mousegrid`) offered to the readers
+least able to route around a dead end.
+
+Every one is now marked *planned — not yet wired*, next to the command or in the
+sentence directly above it where a fenced block cannot carry an inline note. The
+capabilities stay listed: that is how someone finds one to wire, which is what
+[#164](https://github.com/MSKazemi/yazses/issues/164) asks for. Handing over a command
+that cannot work is the part that had to go.
+
+A guard follows `_UNWIRED` rather than a copied list, so wiring a feature retires the
+marker requirement by itself, and a new unwired capability inherits it the day it lands.
+
+### Fixed — the remote how-to promised a `default_host` that cannot work
+
+It showed `[remote] default_host` as *"host to use when none is given"*, in a block
+introduced as "the defaults the `remote` command uses when you omit flags".
+
+**The host cannot be omitted.** It is a required positional argument: `yazses remote`
+with no host exits with *"Missing argument 'host'"* before any configuration is read,
+so there is no code path on which a default could apply. `default_host` appears exactly
+once in the source — its own declaration — and nothing else reads it. Its three
+siblings in that block (`ssh_port`, `agent_port`, `key_file`) are all genuinely wired,
+which is what made the dead one easy to miss.
+
+The page now says so rather than teaching a setting that silently does nothing. The key
+is left in place: the loader accepts it, and removing a key people may already have set
+is a separate decision from documenting it honestly.
+
+Found by cross-referencing every how-to and tutorial against the ledger of config keys
+no code reads — one hit across all of them, which is the useful part of that answer.
+
+### Added — the silent-audio how-to now covers "Empty transcription"
+
+The troubleshooting page someone reaches for when dictation stops was written for one
+message — `Silent audio -- discarding`, the gate rejecting the burst. It routed
+everything else to *"nothing is being recorded"*, which is the wrong page for the
+opposite problem.
+
+`Empty transcription -- discarding` means the audio **passed** the gate, reached the
+model, and decoded to nothing. The gate is not the fault and moving it will not help.
+Measured on a machine in exactly that state: four bursts at levels 0.0022–0.0069
+against **0.0199** for its own last successful dictation — audible, and far too quiet
+to recognise.
+
+The new step names the real cause (which microphone, at what gain), shows how to see
+the device behind the `default` alias, and gives the two commands that fix it. It also
+records that a run of these now trips the mic-change guard, which previously counted
+only silent discards — so a microphone that heard you but yielded nothing was invisible
+to the thing built to notice.
+
+### Fixed — `--min-speakers` still advertised itself as a lower bound
+
+This cycle taught the run to say that `--min-speakers` is ignored by the diarizer this
+build ships. It did not change the flag's own `--help`, which still read *"Lower bound
+on the auto-detected speaker count."*
+
+So the false claim stayed at the source, and everything downstream inherited it: the
+generated command index repeated it verbatim, and the transcription tutorial went
+further and told people to *"use `--min-speakers` / `--max-speakers` to give a range
+instead of an exact number"* — which is wrong twice over, since `--max-speakers` forces
+an exact count rather than capping one.
+
+The help now says the flag is ignored, names why (only the unshipped pyannote adapter
+reads it) and points at `--speakers`, which does constrain the count. The command index
+and man page are regenerated from it, and the tutorial says plainly that there is no
+range option on the shipped diarizer.
+
+A warning at runtime does not undo a wrong `--help`: the help is what people read
+*before* running the command, which is when the decision is made.
+
+### Fixed — the tray left a zombie behind every time you opened Settings
+
+Observed in a live process tree, not a fixture:
+
+```
+yazses-tray    (1442790)
+└── yazses-settings (1802882)  Z, 4023s
+```
+
+A settings window that had been closed **67 minutes earlier** was still holding a PID
+as a zombie. The tray spawns it with `Popen` and deliberately does not wait — right,
+because blocking would freeze the icon for as long as the window is open — but nothing
+ever called `poll()` either. `subprocess` only reaps opportunistically when the *next*
+`Popen` is created, so opening Settings once and closing it leaks until the tray
+happens to spawn something else, and opening it repeatedly accumulates.
+
+The controller now remembers what it started and reaps finished children from the
+tray's existing per-tick update: one `poll()` per live child per tick, nothing when
+there are none, and it never raises into the icon.
+
+Found while investigating a separate report — *"selecting a feature in the GUI and
+applying it closes YazSes"* — which is not this, and is still open. The process tree
+that answers that question is what showed the zombie.
+
+### Fixed — the man page's release date stopped resolving at 2.25.0
+
+`scripts/gen-man.py` stamps `.TH` with the version's date from the changelog, rather
+than `datetime.today()`, so the page stays byte-identical across CI runs until the
+commands actually change. It matched `## [X.Y.Z] - YYYY-MM-DD` with an ASCII hyphen.
+
+Every release from 2.25.0 writes an **em dash**. So the lookup stopped resolving, the
+stamp fell back to `unreleased`, and the header test permits exactly that string — so
+nothing noticed. 2.24.0, the last heading written with a hyphen, was the last one that
+worked.
+
+The pattern now accepts a hyphen, an en dash or an em dash: a formatting choice should
+not be able to quietly disable the thing the function exists to do. `man/yazses.1` is
+regenerated — its stamp had been showing **2.24.0**, three releases behind, since the
+body-only sync check deliberately excludes `.TH` so that a version bump cannot redden
+CI.
+
+### Added — `yazses status` reports how often dictation actually produced text
+
+```
+  latency:  base.en p50 1332 ms (n=4, need 20 for p95)
+  typed:    6 of 14 recent bursts (43%)
+```
+
+`stt/latency.py` was added because decode time *"has always been measured and logged
+but was never summarised, so the one number that predicts whether dictation feels
+usable was only available by reading a log by eye."* Exactly the same was true of the
+more basic number — whether a burst produced any text at all — and a fast decode that
+types nothing is not usable at all.
+
+This exists because that reading-by-eye had to be done. On a real machine the outcome
+went from **21 typed of 30 bursts to 6 of 14** over about six hours — the failure rate
+doubling while its owner was actively trying to dictate, with the per-burst result in
+the log the whole time and nothing adding it up.
+
+A bounded window rather than a lifetime rate: a lifetime average is dominated by
+history and moves too slowly to show a change that started this morning, which is the
+case worth catching. It reports on a healthy run too, because a number that only
+appears when things are bad gives you no baseline — you cannot tell 70% from 100% when
+it matters. Silent below five bursts, since "0% of 1" would be believed.
+
+Any outcome string is counted, including one this version has never heard of: an
+outcome nobody counted is how a failure mode stays invisible. The line is absent
+against an older daemon that does not send the field.
+
+A burst that **raised** — an injection that failed, a backend that went away — is
+counted as `error` rather than as success. `discard_reason` is set on the ten paths
+that *decide* not to type, but not on the one where something throws, because that
+lands in the pipeline's `except` handler and records `last_error` instead. Counting
+those as typed would make the gauge report failures as successes, which is worse than
+having no gauge: it is consulted exactly when something is wrong. (`event["injected"]`
+cannot stand in for it — that is set *before* dispatch, so it records the intention to
+type rather than the result.)
+
+## [2.26.0] — 2026-08-17
+
+### Added — `audio status` and `doctor` name the microphone behind the `default` alias
+
+Saying *"that is a routing alias"* is true but not yet useful. On the screen someone
+opens when dictation has stopped, the question is **which microphone is it using**:
+
+```
+OS default:    default
+               → Raptor Lake-P/U/H cAVS Digital Microphone  (volume 65%)
+               ⚠ that is a routing alias, not a microphone — …
+```
+
+That line is the diagnosis, and until now it could only be obtained by leaving YazSes
+and reading `wpctl status` by hand — which is exactly how the machine that prompted
+this was found to be routed to its internal microphone array at 65% gain, with a second
+source sitting at 100%.
+
+Resolved through `wpctl`, the way this project already reaches `notify-send`,
+`xdotool` and `wl-copy`: used when present, absent without complaint, never required,
+and never raising into the caller. The parsing is pure and tested against real output,
+reads only the `Sources:` block (`Sinks:` has the same row shape and its own starred
+default, and reporting a speaker as the microphone would be worse than silence), and
+returns nothing at all when no source is marked default — which source is current is
+then genuinely unknown, and guessing is how a diagnostic starts lying.
+
+`doctor` carries the same line, and had the same gap — it is the surface the
+documentation points at first, and it reported the bare alias:
+
+```
+[OK] Microphone: OS default: default → Raptor Lake-P/U/H cAVS Digital Microphone
+     (volume 65%) (pin with `yazses audio use <name>`)
+```
+
+Both suppress the arrow when the default is already a real device, since resolving a
+name to itself is noise.
+
+### Fixed — `audio status` hid that "default" is a route, not a microphone
+
+```
+OS default:    default
+```
+
+On ALSA and PipeWire, `default` is a virtual entry that forwards to whichever device
+is current — PortAudio reports it at its own index, in the same list as
+`sof-hda-dsp: - (hw:0,0)`. Whatever microphone it points at, the name it reports is
+`default`.
+
+That is a limitation with teeth, because the device-change watcher spots a switch by
+**comparing that name over time**. Against an alias it compares `default` with
+`default` for ever, so on the most common Linux audio stack the proactive half of the
+mic guard cannot fire: the microphone behind the alias changes and nothing on screen
+changes with it.
+
+Reading through the alias needs a PipeWire or PulseAudio client library, which is not a
+dependency worth taking on for one diagnostic. So the limitation is named where someone
+looks when dictation has stopped working and they are trying to find out what it is
+listening to, along with the remedy that does work — pinning a real device with
+`yazses audio use <name>`.
+
+The streak-based half of the guard is unaffected: it counts outcomes, not device names,
+and now counts empty transcriptions too (above).
+
+### Fixed — a mic that hears you but yields nothing never tripped the guard
+
+The mic-change guard counts *silent* discards: audio below `vad_threshold`. A run of
+them auto-heals capture back to the last-good device and notifies *"Heard nothing 3× in
+a row — your mic may have changed."*
+
+An **empty transcription** — audio that clears the gate, reaches the model, and decodes
+to nothing — logged one line and returned. It did not count toward the streak, did not
+notify, did not auto-heal, and played no earcon. So a microphone capturing audible but
+unintelligible audio (too quiet, wrong device, badly attenuated) discarded for ever
+with `silent_streak` stuck at `0`, while the guard built for exactly that symptom saw a
+perfectly healthy microphone.
+
+Observed live rather than reasoned about: four consecutive empty transcriptions at
+levels **0.0022–0.0069**, on a machine whose last successful capture measured
+**0.0199**. Nothing was typed and nothing was said, four times.
+
+From the user's side the two failures are the same event — hold the key, speak, no text
+appears — and the notification's advice (`yazses mic-level --set`, `yazses audio
+devices`) is the right advice for both. The empty path now calls the same handler, so a
+streak of them heals and notifies exactly as a silent streak does, and plays the error
+earcon for the reason the silent branch already documents: nothing will be typed, and
+without a screen that is indistinguishable from a slow decode.
+
+A single empty transcription still says nothing — the threshold (3 consecutive, reset by
+any success) is unchanged, so holding the key without speaking costs nothing.
+
+### Fixed — `gitvoice` truncated a branch name and aimed a destructive command at it
+
+```
+"delete branch feature slash login"       ->  git branch -D feature
+"delete branch my slash deep slash name"  ->  git branch -D my
+"create branch feature slash login"       ->  git checkout -b feature
+```
+
+`feature/login` spoken is *"feature slash login"*, and `feature/…` is the most common
+branch convention there is. The ref patterns capture `[\w./-]+`, which stops at the
+space, and `re.search` is unanchored — so everything after the first segment was
+discarded and a **destructive command was emitted against a different ref than the one
+named**, with nothing to show that anything had been dropped.
+
+Two fixes. A spoken `slash` now makes the `/` it sounds like, so the common case
+produces the branch the user said. And the ref patterns are anchored at **both** ends,
+which is this project's own documented rule for spoken grammars — *"a suffix match
+swallows 'click undo' instead of typing it"*. Anything the grammar does not model now
+refuses and prints the hint listing what it understands, rather than emitting a
+partially-understood command.
+
+Case is still preserved on the captured ref, per the module's existing reasoning about
+case-sensitive refs and paths: `delete branch Feature slash Login` gives
+`Feature/Login`.
+
+## [2.25.1] — 2026-08-17
+
+### Fixed — a missing file was reported as a format problem
+
+Asking the MCP server to transcribe a path that does not exist answered:
+
+```
+RuntimeError: Could not decode '/nonexistent.wav' as audio. Neither PyAV nor ffmpeg
+could read it, so it is probably not an audio or video file, or it is truncated.
+```
+
+The real error, one line above in the log, was `[Errno 2] No such file or directory`.
+Every cause offered is wrong, and each one sends the reader to inspect the file's
+contents instead of its name.
+
+`load_audio`'s docstring already promised `FileNotFoundError` for a missing path and
+nothing checked for one — the second time this function has been found not honouring
+its own documented contract, after the ffmpeg fallback. The path is only reachable
+programmatically, since the CLI rejects a missing file at argument parsing, which is
+why it took an agent-facing surface to surface it.
+
+A directory is deliberately left to the decoder: it exists, so calling it missing would
+be a different wrong cause.
+
+### Fixed — two status lines that read as faults
+
+**`yazses meeting list` called an undiarized meeting "0 speaker(s)".** On a real
+machine that line described an 8081-second meeting with a 1.7 MB transcript, which
+reads as a failed recording. All three stored meetings are `diarized: false` — speaker
+labelling was never attempted, which is a different statement from "nobody spoke". It
+now says `not diarized`.
+
+Written as `diarized is False` rather than a falsy test: an older `meeting.json`
+without the key says nothing either way, and guessing would assert something the file
+does not contain. Both rendering sites — `meeting status` and `meeting list` — now go
+through one helper instead of repeating the format.
+
+**`yazses status` printed `uptime: 48176.17s`.** Thirteen hours, in seconds, to two
+decimal places that were never measured. It now reads `13h 24m`. The value matters
+most when it is large, because a long uptime is how you notice a daemon still running
+the build it started with.
+
+### Fixed — `yazses tune` looked like a hang for as long as it took
+
+Run against a real corpus (3683 events, 3280 of them with audio), `tune` printed:
+
+```
+Loading re-transcription model 'small.en'...
+```
+
+and then nothing at all. Still nothing eight minutes later, still going. The model was
+already cached, so that was the re-transcription itself — thousands of clips through a
+larger model on CPU, in silence. At the observed rate the run would have taken about
+two hours, and nothing on screen distinguished that from a crash.
+
+Nothing was broken. But the number of clips is known before any audio is touched — it
+is a metadata query — so there was no reason to withhold it. It now announces the
+total up front and reports movement every 25 clips:
+
+```
+Re-transcribing 3280 captured clip(s) with the tune model — the slow step; a large
+corpus can take a while.
+  25/3280 clip(s)…
+```
+
+`retranscribe()` gained an optional `progress(done, total)` callback, called once with
+`(0, total)` before the first clip. Its existing `limit` parameter — designed, tested
+and passed by nobody — still bounds the work for anyone who wants a shorter run.
+
+### Fixed — the mic-level check was suppressed exactly when it mattered
+
+On a real machine, `yazses doctor --mic` printed:
+
+```
+[OK] Mic level: ambient 0.0010 under vad_threshold 0.0005
+```
+
+0.0010 is not under 0.0005. The warning was conditioned on `not stats.is_silent`, and
+`is_silent` is measured against a **fixed** floor (`miclevel._MIN_THRESHOLD`, 0.002)
+that has nothing to do with the user's gate. So for any `vad_threshold` below 0.002
+the warning was suppressed across the whole band between the two — which is exactly
+the band where the gate sits under the room's noise floor — and the OK branch then
+asserted "under" for a value that was over.
+
+That is the condition this check exists to find, and it has a consequence worth
+naming: when the gate is below the room, ordinary silence passes it and reaches the
+model, which answers near-silence with a confident invented word. The same
+hallucination behind the two `transcribe` and `verify` fixes above, on the path where
+the text is typed into whatever you had focused.
+
+Now compared against the user's gate and nothing else, with the consequence and the
+fix in the message. A dead microphone is excluded (`mean_abs > 0`), because nothing
+captured at all is the Microphone check's business and a gate of `0` would otherwise
+blame the gate for a mic that recorded nothing.
+
+### Fixed — `yazses verify` reported a word count instead of the word
+
+Run in a quiet room with nobody speaking:
+
+```
+[OK] Signal: level 0.0013 clears the gate (0.0005)
+[OK] Transcription: produced 1 word(s)
+✓ Dictation works end to end on this machine.
+```
+
+The one word was Whisper's silence hallucination. Ambient noise cleared the gate, the
+model answered near-silence with a confident invented word, and the command whose
+entire purpose is to prove the chain honestly certified it.
+
+The case that matters is not a user who said nothing — it is a **muted or wrong
+microphone in a room with any noise in it**, which produces exactly this and is the
+situation `verify` exists for.
+
+Whether a word is invented cannot be decided reliably. Whether it is what you said
+can — by you, instantly, if it is on the screen. The line now reads `heard "You"`,
+truncated for a long dictation with the full word count kept. It costs nothing and it
+is the single most informative thing this command could print, because the person
+running it is the only one who knows what they said.
+
+### Fixed — `yazses report` understated the learning corpus 430x
+
+Two surfaces, one corpus, measured on a real machine:
+
+```
+yazses report          corpus: 3.0 MB
+yazses corpus status   size:   1294.9 MB
+```
+
+`report` sized `corpus.db` and nothing else. The encrypted audio clips beside it are
+almost all of a real corpus — 3.0 MB of database against 1291.9 MB of audio here.
+
+That number is the one attached to bug reports, so a maintainer reading *3 MB* rules
+the corpus out of a disk-space problem it is in fact causing. It is also what a user
+checks against `[learning] max_corpus_mb` (default 500): reading the report, someone
+2.5x over the cap concludes they are comfortably under it.
+
+Both now go through one helper, the same stat calls the store already prunes against,
+so they cannot drift again. Nothing is opened or decrypted — this is filesystem
+metadata, as before.
+
+Reported in **mebibytes**, which is what the cap enforces (`max_mb * 1024 * 1024`) and
+what `corpus status` prints. The first fix divided by 1e6 and made the two surfaces
+disagree — 1357.8 against 1294.9 for one corpus — which reads as a bug in one of them
+and leaves the number not comparable to the cap it exists to be compared against.
+(Both label mebibytes as "MB"; that imprecision is pre-existing and left alone.)
+
+### Fixed — silence transcribed to a confident word, reported as a transcript
+
+Two seconds of digital silence through `yazses transcribe` produces this:
+
+```
+Wrote out.txt
+$ cat out.txt
+You
+```
+
+A word, with a start and an end time, in the JSON output as an utterance. That is
+Whisper's well-known silence hallucination, and the empty-transcript note shipped
+alongside it cannot see it — the transcript is not empty.
+
+Nothing about the output separates an invented word from a real one, so the check has
+to be about the input, where the answer is unambiguous: **audio with no signal in it
+cannot contain speech.** A muted microphone, an input device held by another
+application, and capture pointed at the wrong device all produce exactly this, and all
+three are ordinary — they are why this project has a mic-change guard, a silent-streak
+tracker and an error earcon on the dictation path. The file path had none of it.
+
+`transcribe` now says the audio carries no signal, that the text was produced from
+silence and is not trustworthy, and names the three causes. The transcript is still
+written — you may want to see what was invented — but it is no longer presented as a
+result, and it no longer earns the "a star helps" pointer.
+
+Measured on the **peak**, not the mean. The daemon's silence gate averages, which is
+right for a hold-to-talk burst that is nearly all speech and wrong for a file: an hour
+of interview with sparse talking averages to almost nothing, so a mean-based gate would
+call a real recording silent.
+
+Every test in `test_cli_transcribe.py` had been decoding `np.zeros(16000)` into
+"hello there general" — a pairing that cannot occur, and one that hid this from all of
+them. The fixture now carries a noise floor.
+
+### Fixed — the release gate named a channel missing while it was still building
+
+The v2.25.0 report listed Docker/GHCR as absent. Re-checking minutes later showed
+`tags=2.25.0`: the image was in flight, published by the same tag push, and the gate
+waited for four of the five channels CI produces.
+
+The report exists to be a standing, itemised statement of what is missing. A channel
+that publishes two minutes later was never missing, and a report that cries wolf on
+its own build gets discounted along with everything true in it.
+
+The wait now polls `--ci-only` — CORE plus the container image — instead of counting
+assets in bash. That also removes the second implementation of "is this published",
+which is what caused the defect above: the bash was hardened to two bundles per
+platform and the script it then asked for a verdict was not, so the gate waited on a
+stricter condition than the one it certified. Snap stays excluded, because it uploads
+here but reaches `stable` only after store review and can never be waited on.
+
+`--core-only` is deliberately unchanged: it answers *is this release broken for a user
+on that OS*, which is what may demote a release to pre-release, and a missing image is
+a gap in reach rather than a broken download.
+
+### Fixed — the release gate certified a platform on one architecture of a pair
+
+`release-complete.yml` counts `deb > 1 && dmg > 1 && exe > 1` in its wait loop, and
+says why: *"at least one .dmg" let it print "All platforms published" for a release
+carrying no Intel bundle — which is exactly what happened for v2.20.0 and v2.21.0.*
+
+The wait was hardened. The check it delegates the **verdict** to was not.
+`check_release_assets` took the first asset matching each suffix, so the published
+summary table and `--core-only` both accepted a half-built release. `--core-only` is
+what decides whether an incomplete release keeps the **Latest** label, so a release
+carrying only an arm64 `.dmg` was never demoted and Intel users were sent to a
+download that did not exist.
+
+Run against the real releases after the fix:
+
+| Release | macOS | Windows |
+|---|---|---|
+| v2.20.0 | ❌ only `YazSes-2.20.0.dmg` | ❌ only `-windows-x64.exe` |
+| v2.21.0 | ❌ only `-macos-arm64.dmg` | ❌ only `-windows-x64.exe` |
+| v2.25.0 | ✅ both | ✅ both |
+
+Both architectures are now required, and the detail column names the assets it found
+rather than implying them — the evidence for a ✅ is now visible in the report.
+
+## [2.25.0] — 2026-08-17
+
+### Fixed — `doctor` told a running daemon to start
+
+Its closing line contradicted its own warning three lines above:
+
+```
+[WARN] Daemon: running (PID 4054, state idle) — ... run `yazses restart` ...
+▲ Good to go (3 optional warnings above) — run `yazses start`, then hold ...
+```
+
+The verdict decided whether a daemon was running by reading the check's **tag**
+(`== "OK"`), which was sound only while a running daemon was always OK. v2.24.0
+introduced a running-but-`WARN` state for a stale daemon and did not update this
+line, so a demonstrably running daemon read as stopped and the last thing you are
+told to do — the line people act on — named the wrong command.
+
+The verdict now reads the daemon check's own detail rather than re-asking the OS, so
+the bottom line cannot disagree with what was printed above it, and a stale daemon
+gets `yazses restart`. Producer and consumer share one constant, with a test that
+fails if a running branch hardcodes its prefix again.
+
+Found by running `yazses doctor` on a machine whose daemon predated the upgrade —
+a state that cannot be manufactured in a fixture, and the regression was mine.
+
+### Added — `yazses transcribe --format json` has a documented shape
+
+The research guide told people to use it because it is "structured, for import into
+other tools", and never said what the structure is — so anyone writing that import
+had to run the command and reverse-engineer the fields. The
+[interview guide](docs/use-cases/research-interview-transcription.md) now shows the
+real output, with a field table and the two things a parser needs and could not have
+guessed: `speaker` is a cluster id rather than a person and does not carry across
+files, and the empty shapes differ (undiarized output still has utterances with an
+empty `speaker`; nothing-recognised output has none at all).
+
+Nothing about the output changed. It was already more dependable than it was
+described.
+
+### Fixed — the loopback guard answered differently on Python 3.11 and 3.12
+
+`is_loopback_endpoint` trusted `IPv6Address.is_loopback`, and CPython only began
+counting IPv4-mapped addresses as loopback in **3.13**. On 3.11 and 3.12 the same endpoint —
+`http://[::ffff:127.0.0.1]:11434`, which genuinely reaches this machine — was
+refused.
+
+The project supports 3.11 through 3.14, so a privacy guard was giving two different
+answers depending on the interpreter: a config that worked on one machine was
+rejected on another, with a message about sending dictated text off-device. It now
+resolves the IPv4 mapping itself, so every supported Python agrees.
+
+The security direction was never wrong — the older interpreters were the stricter —
+but a guard whose answer depends on the interpreter cannot be reasoned about.
+
+
+### Fixed — a bare JSON array over IPC got no reply and a traceback in the log
+
+`[1,2,3]`, `"hello"`, `42`, `null` and `true` are all valid JSON, and none of them
+has a `.get`. `Request.from_json` therefore left an `AttributeError` for that one
+class of malformed input, while `ipc/server.py` catches `(ValueError,
+UnicodeDecodeError)` to answer with a JSON-RPC parse error.
+
+So the caller got a closed socket and **no reply at all**, and the per-connection
+thread died printing a traceback into the daemon log — which reads like a crash to
+whoever later opens `yazses logs` about something real. Every other malformed input
+was answered properly.
+
+Both parsers now reject non-objects with `ValueError`, which is the contract the
+server was already written against. Fixed in the parser rather than by widening the
+server's `except`, so the guarantee holds for every caller — the client parses
+responses with the same expectation.
+
+The blast radius was bounded and worth stating: connections are handled one thread
+each, so the accept loop survived and the daemon stayed reachable.
+
+
+### Fixed — the MCP server handed agents Python internals
+
+Calling `transcribe` without its argument returned this to the model on the other
+end:
+
+```
+TypeError: transcribe_tool.<locals>._run() missing 1 required positional
+argument: 'path'
+```
+
+An internal closure name and a traceback string, from which the caller has to guess
+which field it left out. The arguments are now bound against the tool's signature
+*before* it runs, and a mismatch is answered from the JSON Schema `tools/list`
+already publishes: *"transcribe: missing a required argument: 'path'. Required:
+path. Accepts: path, diarize."*
+
+`tools/call` with no `name` said *"No tool named None"*, which reads as though
+`None` were a name that had been tried rather than a field that was omitted. It now
+says which field is missing and what the server offers.
+
+Found by fuzzing the server over a real pipe with fifteen malformed requests. The
+protocol handling itself came back clean — correct `-32700`, `-32600` and `-32601`
+codes, notifications correctly unanswered, a 200 KB payload and 200-deep nesting
+survived, no crash and no traceback on stderr. Only the human-readable half was
+wrong, which is the half an agent reads.
+
+
+### Fixed — `vad_threshold = inf` loaded cleanly and stopped dictation completely
+
+Config loading is deliberately total (#52): a bad file yields a working daemon, the
+documented default, and a `ConfigProblem` that `doctor` shows under **Config
+validity**. `nan` and `inf` are floats, so the type check waved them straight
+through — no repair, no problem reported, value accepted.
+
+The one that bites is `[accessibility] vad_threshold`. The silence gate is
+`mean(|audio|) < threshold`, so:
+
+- `inf` discards **every** burst — you hold the key, speak, and nothing is ever
+  typed;
+- `nan` makes the comparison false forever, so the gate stops gating at all.
+
+Either way `yazses doctor` reported no config problem, because as far as the checker
+was concerned nothing was wrong. Non-finite numbers are now rejected for every float
+field, falling back to the documented default and reporting it like any other
+repair. `"0.004"` → `0.004` still repairs as before.
+
+Found by fuzzing the loader with fifteen adversarial files — binary, null bytes,
+unparseable TOML, 200 KB strings, deep nesting, RTL unicode. **None of them made it
+raise**, which is the invariant holding; these two were accepted *too* quietly.
+
+
+### Fixed — `--max-speakers` invented speakers instead of capping them
+
+`--help` called it *"Upper bound on the auto-detected speaker count"*. On the shipped
+`sherpa` diarizer it becomes `FastClusteringConfig(num_clusters=N)`, which is an
+**exact** cluster count — so `--max-speakers 6` on a three-person recording does not
+allow up to six, it manufactures six by splitting real speakers apart.
+
+Measured rather than reasoned about, against sherpa-onnx 1.13.5 on two
+well-separated synthetic speakers:
+
+| `num_clusters` | clusters produced |
+|---|---|
+| `-1` (auto) | 2 ✓ |
+| `2` | 2 ✓ |
+| `4` | **4** |
+| `6` | **6** |
+
+The help text, the command's own epilog (*"cap the count with …"*) and the config
+comments now say what it does. `0` still auto-detects and remains the default, so
+recordings and meetings are unaffected unless a bound was set deliberately.
+
+A real upper bound is not implemented — that needs a second clustering pass and the
+diarization models to verify end to end. The measurement above is recorded so
+whoever has them does not have to rediscover it.
+
+
+### Fixed — `--min-speakers` did nothing on the diarizer this build ships
+
+`yazses transcribe --help` describes it as *"Lower bound on the auto-detected speaker
+count"*. Only `recimport/pyannote_backend.py` reads `min_speakers`, and pyannote is
+one of the adapters this build does not ship — `system/backends.py` calls that class
+out separately from *"the optional dependency is missing"*, precisely so a factory
+never sends someone after an extra that cannot supply the backend.
+
+The default `sherpa` diarizer reads `max_speakers` alone. So a user asking for at
+least three speakers got no error, no effect, and a transcript that ignored the
+floor — discovered, if at all, by reading the result.
+
+It now says so before the transcription starts, names the backend actually in use,
+and points at `--speakers` as the flag that does constrain the count. Silent when no
+lower bound was asked for, and silent without `--diarize`, where speaker bounds are
+meaningless anyway.
+
+
+### Fixed — an undecodable file showed you the ffmpeg command line
+
+Pointing `yazses transcribe` at something that is not audio — a `.docx`, a truncated
+download, a renamed file — printed this:
+
+```
+Transcription failed: Command '['ffmpeg', '-nostdin', '-threads', '0', '-i',
+'/…/notes.docx', '-f', 'f32le', '-ac', '1', '-ar', '16000', '-']' returned
+non-zero exit status 183.
+```
+
+It names neither the problem nor anything you can do about it.
+
+`load_audio` already promised better. Its docstring says it *"raises `RuntimeError`
+if no decoder can read it (neither PyAV nor a system ffmpeg)"* — but the ffmpeg
+fallback was unguarded, so that promise held only when ffmpeg was **absent**. In the
+ordinary case, with ffmpeg installed and the file simply not being audio, a raw
+`subprocess.CalledProcessError` escaped instead. The function broke its own contract
+on its most likely failure.
+
+It now raises the documented error, says the file is probably not audio or is
+truncated, and lists formats that do work. The no-ffmpeg branch keeps its own advice
+— *install ffmpeg* — because that is the useful thing to say when that is the fault.
+
+
+### Fixed — `yazses transcribe` reported success over an empty transcript
+
+Audio with nothing recognisable in it — music, silence, or speech in a language an
+English-only model cannot read — produced an empty file, the message `Wrote
+transcript.txt`, and then the one-time *"if this was useful, a star helps"* pointer.
+Success, by every signal the command gives.
+
+That is the silent failure this project spends its earcons and guards avoiding, on
+the surface where most people meet YazSes working for the first time: `transcribe`
+is the one path needing no microphone, no hotkey and no re-login, so it is what the
+container and Codespace trials run.
+
+It now says the transcript is empty and names causes you can act on, the useful one
+being the English-only model — which you can neither see nor guess from a blank
+file. The pointer no longer treats an empty transcript as a success.
+
+The check reads `result.utterances`, not the rendered text: a VTT with no cues is
+still `WEBVTT`, so a check on the string would have stayed silent for exactly one of
+the five formats.
+
+
+## [2.24.0] - 2026-08-17
+
+### Fixed — the docs described two pipeline stages that do not exist
+
+`grammar.classify()` accepts an `slm_router` argument and **nothing constructs
+one**, so Tier 1 decides every utterance. The daemon never constructs
+`LspContextProvider`, so **no editor context has ever reached the transcription
+prompt**. `docs/architecture.md` described both as working parts of the pipeline,
+and four config keys were documented as knobs with no hint that nothing reads them.
+
+The repo already knew about half of it: `tests/test_orphan_modules.py` records
+`commands.slm_router` as *"a plumbed seam never filled"*. The ledger and the
+architecture page were both checked in, disagreeing.
+
+**The privacy statement is the part that mattered most.** It said that with
+`lsp_enabled = true` YazSes reads your active file path, language and cursor line
+into every transcription prompt, and offered turning it off as a mitigation. None of
+that happened — it overstated what is collected and offered protection against
+nothing. Corrected in place, with what is actually true: the editor bridge is
+contacted only when you run `yazses jump`, for that one invocation.
+
+`yazses jump` does **not** require `lsp_enabled = true` either, though the CLI
+reference said so — it contacts the editor directly however that key is set.
+
+Found by sweeping all 432 config fields for names never referenced outside
+`config.py`, then triaging the 32 hits by whether the owning feature ships.
+
+
+### Fixed — `[injection] fallback_to_clipboard` was documented and read by nothing
+
+`LinuxInjector` built its clipboard fallback unconditionally. The setting appears in
+**seventeen** places across the docs and the example configs people copy, defaults
+to `true`, and no code ever looked at it — so anyone who turned it off was silently
+overruled.
+
+Turning it off is a remedy, not a preference. `inject/xdotool.py` already records
+the failure it answers: a timeout can fire *after* xdotool has typed part of the
+text, `LinuxInjector` reads that as "the backend is broken", the clipboard paste
+types the text a second time, and the streaming commit then deletes a span computed
+from the first copy. Someone who has met that wants the primary backend to fail
+loudly instead — and asked for exactly that, in writing, to no effect.
+
+Bridged through an environment variable the way `[injection] backend` already is,
+for the reason that bridge gives in its own comment: no platform factory signature
+has to move, and non-Linux platforms ignore it.
+
+Found by sweeping every config field for ones never named outside `config.py`. Of
+432 fields, 32 are never referenced; most belong to capabilities honestly listed as
+*planned — not yet wired*, where that is expected rather than a defect.
+
+
+### Fixed — `[learning] retention_days` and `max_corpus_mb` did nothing
+
+`CorpusStore.prune()` has existed since the learning corpus shipped, with its own
+tests, and **nothing in `src/` ever called it**. Both settings were documented — *"auto-evict
+events older than this"*, *"cap corpus size; oldest events trimmed first"* — and
+neither was ever applied.
+
+Found by running `yazses corpus status` on a real machine: **1292 MB against the
+500 MB default cap, spanning 38 days against the 30-day default retention**, on a
+config that had changed neither.
+
+The disk cost is the lesser half. Retention is a privacy control (ADR-012): the
+promise is that captured audio and transcripts age out, and they were not ageing
+out. A privacy limit that silently does not apply is worse than one that was never
+offered, because the user has already decided they are protected by it.
+
+The writer now prunes on its background thread — once at start, then every 200
+events, so a daemon left running for weeks cannot grow without limit and no disk
+work lands on the dictation path. A failing prune is logged and swallowed: a dead
+writer thread stops capture silently, which is far worse than a corpus briefly over
+its cap.
+
+!!! warning "This evicts data the first time your daemon restarts"
+
+    If your corpus is over its limits, the first restart after upgrading will apply
+    them. Raise `max_corpus_mb` / `retention_days` **before** restarting if you want
+    to keep what is there. `yazses corpus status` shows the current size.
+
+
+### Fixed — `yazses report` leaked the account name in paths outside `$HOME`
+
+The bundle exists to be pasted into a public issue, and its own help promises
+"settings with paths and identifiers removed". It replaced the home directory
+everywhere, which is why `/home/<you>/…` correctly became `~/…` — and left the
+account name untouched wherever it appeared in a path that is *not* under `$HOME`:
+
+    /media/<you>/USB-STICK/note.wav      a file transcribed off a drive
+    /run/media/<you>/…                   the same, other distributions
+    /tmp/pytest-of-<you>/…               how this was noticed
+
+The first is the one that matters in ordinary use. Found by running
+`yazses report --print` on a real machine and counting: the account name appeared
+six times, zero of them under a home path.
+
+The account name is now redacted on word boundaries as well. Names shorter than
+three characters, and generic ones (`root`, `ubuntu`, `ci`, `runner`, `test` and
+friends) are deliberately left alone — such an account identifies nobody, and
+blanking a common short word would shred the surrounding log into unreadable
+diagnostics. Redaction that destroys the report defeats its purpose as surely as
+redaction that misses.
+
+
+### Fixed — the test suite was writing into the user's real diagnostic log
+
+`yazses logs` prints `~/.local/state/yazses/log/daemon.log`, and `yazses report`
+bundles a tail of it into bug reports. Running the test suite put **44 KB** of test
+output there per run: fake recorders, deliberately invalid backends, and injected
+`OSError`s with tracebacks pointing into `tests/`. Anyone reading that log to
+diagnose a real fault would find `Microphone unavailable` and `uv is gone` and have
+no way to know none of it happened to them.
+
+The mechanism is that `Daemon.run()` attaches a `RotatingFileHandler` to the **root**
+logger and never removes it, so a single test calling the real `run()` redirected
+every later test in the session into the file. Two such tests lived in the same
+file, and the second was only found after the first was fixed.
+
+Separately, `_configure_logging` was not idempotent: a second call added a second
+handler on the same file, so every line was written twice and the 1 MB rotation
+threshold arrived twice as fast — halving how much history a bug report can carry.
+It now returns early if the root logger already has that file.
+
+Guarded rather than fixed case by case: an autouse fixture fails any test that
+leaves a file handler on the root logger, and removes it so one careless test
+cannot take the rest of the session with it. Verified by measurement — a full run
+moved the real log 44 KB before, 0 bytes after.
+
+
+### Fixed — `doctor` said "Good to go" about a daemon running an older build
+
+Upgrading replaces the files on disk. It does not touch a process that is already
+running, so the daemon keeps executing the build it started with until `yazses
+restart`. `doctor` printed the **CLI's** version on one line and the daemon's
+**liveness** on the next, never compared them, and concluded the machine was
+healthy — so the surface you open to ask *is everything fine* answered yes while
+dictation ran last week's code.
+
+Found on the maintainer's own machine, not hypothesised: a daemon up 8.6 hours,
+hours older than the v2.23.0 tag `doctor` was reporting on the line above it.
+
+The daemon now reports its own version over IPC and `doctor` compares the two,
+naming both and the fix. A daemon that reports **no** version is treated as
+evidence rather than as an unknown — the field is new, so its absence means the
+process is older than the CLI reading it, which is exactly the common case.
+
+Same shape as the `uv tool upgrade` defect fixed in 2.20.0: the command succeeded,
+and nothing checked that anything had actually moved.
+
+
+### Fixed — the reduced-motion probe asked the wrong things on two platforms
+
+Both probes were written from memory and neither could be exercised on the machine
+that wrote them, which is the condition under which a wrong answer is invisible:
+the call fails, the probe returns "cannot tell", and that is indistinguishable from
+a desktop with no such setting. Reduced motion would simply never engage and
+nothing would look broken.
+
+**macOS** shelled out to `defaults read com.apple.universalaccess reduceMotion`, an
+undocumented preference key that is absent until the user has toggled the setting
+once. It now asks `NSWorkspace.accessibilityDisplayShouldReduceMotion` — the
+supported API, and pyobjc is already an unconditional dependency there — with the
+`defaults` read kept only as a fallback.
+
+**Linux** asked GNOME's `gsettings` and nothing else. It now asks the **XDG desktop
+portal** first, which two things depend on: desktops beyond GNOME implement a portal
+backend, and — the one that actually bites — **YazSes ships as a snap**, where a
+confined process reading `gsettings` may be answering about the sandbox rather than
+about the user's session. Verified against this machine's live portal, not inferred.
+
+**Windows**' `SPI_GETCLIENTAREAANIMATION` was checked against the Win32 reference
+and was already right. It is now a named constant with its inverted polarity written
+down — `pvParam` receives TRUE when animations are *enabled* — and pinned by a test,
+because an unexplained inverted boolean is where a later tidy-up introduces a bug.
+
+
+### Fixed — “never mind” meant three different things
+
+2.23.0 shipped `[audio] voice_answer` accepting “never mind” as a way to dismiss the
+mic toast, and the gate's own docstring claimed its vocabulary did not overlap the
+command-safety gate's. It did. “never mind” is one of `DEFAULT_CANCEL_WORDS`, where
+it means *discard the held command*, and it is a self-correction trigger for the
+disfluency filter besides.
+
+Because the mic gate deliberately runs second, saying it with both pending cancelled
+the held command and left the toast unanswered — the same words doing different
+things according to state the user cannot see, which is precisely what ADR-021's
+one-release-phrase rule exists to prevent.
+
+Removed from the mic answers, leaving “ignore”, “ignore that” and “dismiss”, which
+mean nothing else here. The claim is now enforced instead of asserted: a test fails
+if any mic answer is also a default confirm or cancel word, so adding a phrase to
+either list re-runs the check.
+
+
+### Fixed — `yazses features` went ragged as its own list grew
+
+The table's columns were fixed *minimum* widths, so any name or toggle longer than
+them pushed DOWNLOAD and ADVICE right for that row alone. With 147 capabilities, 10
+rows had drifted out of alignment — and `overlay-reduced-motion`, added in 2.23.0,
+made it 11. Nothing failed, because nothing was looking at it.
+
+Widths are now measured across every row the table will show, so the groups line up
+with each other too. The two columns are treated differently on purpose: **TOGGLE
+NAME grows to fit and is never truncated**, because it is copied into `yazses
+features enable <name>` and a clipped slug is a command that does not run; NAME is
+prose and is clipped with an ellipsis, since sizing to the longest display name
+would widen all 147 rows by nine columns to accommodate two.
+
+Guarded, including against the naive fix: one test pins that every row's ADVICE
+column starts at the same offset, a second that every slug appears intact, and a
+third that the registry still contains a slug longer than the old fixed width — the
+first two are vacuous on a table with nothing long in it.
+
+## [2.23.0] - 2026-08-16
+
+### Added — the mic guard's question can be answered out loud (`[audio] voice_answer`)
+
+The mic-change guard is the one part of the pipeline that *asks* rather than tells:
+when capture moves, or a run of clips comes back silent, it offers **Re-calibrate**,
+**Pin this mic** and **Ignore**. Those were buttons and only buttons, so the daemon
+interrupted you with a question about your microphone that could only be answered
+with a pointer — and the person seeing it is the one whose dictation has just
+stopped working, which is the worst possible moment to be sent to the mouse.
+
+ADR-022 counts this as one of exactly two daemon-initiated states with no voice-only
+exit. This is the half that needs no change to the command-safety gate: the three
+actions are already dispatched from a string key, so the spoken route reaches the
+same handler as the click and the two cannot drift apart.
+
+Two limits do most of the work, and both are about *not* firing. The whole utterance
+must be the answer — "please ignore the second paragraph" is prose and gets typed,
+the lesson `commands/revise.py` already learned by anchoring at both ends. And the
+words only count inside `voice_answer_window_s` (default 45 s) of the toast; an
+unbounded window would arm "ignore" as a control word for the rest of the session,
+and once it closes the word types normally rather than being swallowed.
+
+It runs after `[cmdsafety]` and `[checkdigit]` and before staged dictation, and both
+halves of that position are decisions: a held `rm -rf` keeps first claim on the
+utterance, and the staged buffer would otherwise swallow the answer as ordinary
+text. An AST guard pins the order.
+
+Off by default, like the other guards that consume a burst which would otherwise be
+typed. That leaves Spec 1's metric at 2 until it is switched on, which is worth
+saying plainly rather than claiming the baseline moved.
+
+### Added — the overlay can stop moving (`[overlay] reduced_motion`)
+
+The voice-activity overlay expands rings outward from near the pointer, sixty times
+a second, for as long as you hold the key. That is the pattern people with
+vestibular disorders and motion sensitivity ask software to stop doing, and every
+desktop already carries a setting where they have said so — GNOME's *Reduce
+Animation*, macOS's *Reduce motion*, Windows's *Animation effects*. YazSes read
+none of them. `docs/assets/extra.css` has honoured `prefers-reduced-motion` on the
+documentation site for months: the site respected the preference, the accessibility
+product it documents did not.
+
+`[overlay] reduced_motion` is `auto` | `on` | `off`, defaulting to `auto` — follow
+the desktop. A desktop YazSes cannot read resolves to full motion, which is exactly
+what the overlay did before, so nobody's overlay changes on the strength of a failed
+probe; KDE, Xfce and bare window managers set `on` explicitly.
+
+Reduced motion removes **motion, not information**. The overlay answers one question
+— am I being heard, and how loudly — and a user asking for less animation has not
+asked to stop being told. So the reduced form keeps the ring and drops the travel:
+one steady circle while recording, brightness following your voice in four discrete
+bands. Discrete because a brightness recomputed each frame from a live microphone
+shimmers, and a shimmer at 60 Hz is its own accessibility problem rather than a fix
+for one. It also shows the ring during silence, which the animated form does not —
+tolerable when rings are about to appear, not when none ever will.
+
+The desktop is asked once at overlay startup, never on the render tick, and the
+probe never raises: an indicator that failed to appear because a settings key could
+not be read would be a worse bug than the one this fixes.
+
+Both accessibility settings are listed by `yazses features` (`mic-voice-answer`,
+`overlay-reduced-motion`) rather than living only in prose. An opt-in accessibility
+capability nobody can find is one nobody switches on. Disabling `overlay-reduced-motion`
+restores `auto` rather than writing `off` — overriding a user whose desktop asked for
+less motion is a different opinion, not an off switch.
+
+### Added — an example config must say what was observed, not what should work
+
+`examples/config.<app>.toml` files are copied verbatim by newcomers, so a wrong one
+costs more than no one at all. Three checks already guarded them: valid TOML, every
+key resolving to a real field on a real section, and an opening comment. All three
+pass just as happily on a profile nobody ran — valid TOML, real keys, real values
+and a header can be written without the application ever being opened, and that is
+the failure the task issues warn about in as many words.
+
+The 14 app profiles in the tree already record what was seen, several with the
+dictated and arrived text side by side. Nothing enforced it. `check-app-profile.py`
+and the test suite now do, with `config.example.toml` (the generic template) and
+`config.terminal.toml` (a per-use-case example) exempt by name, because neither
+names an application to have been observed in.
+
+The check lives in the script rather than only in the suite, and that placement is
+the point. A fork PR from a first-time contributor arrives with every real workflow
+held at `action_required`, so the suite cannot see the file until a maintainer
+clears it; the script runs on the contributor's own machine, while they can still
+fix it. It cannot detect a fabricated marker word and does not claim to — it makes
+the requirement mechanical rather than remembered.
+
+A marker word inside an unresolved `TODO` does not count. The review on PR #309
+handed the contributor a starter file headed `TODO(you): replace this block with
+what you actually observed.` — and the word "observed" in that instruction satisfied
+the check on its own, so the likeliest next submission would have passed it by
+quoting the instruction to fill it in. TODO lines are skipped rather than the file
+being rejected for containing one, because a profile that says "TODO: not tested on
+Wayland" is doing exactly what these files are for; it is only the *evidence* a TODO
+cannot supply.
+
+### Fixed — ruff was told `_common` is a stranger, and its autofix acted on it
+
+`paper/benchmark/` is the reproducibility code `docs/benchmarks.md` points readers at,
+and it sits outside the `src tests scripts` the gate lints, so it had drifted to seven
+findings — two genuinely unused imports and five unsorted import blocks.
+
+The interesting half is why the autofix was not simply safe to apply. The nine benchmark
+scripts import a sibling helper as a bare `from _common import …`, because they run from
+that directory, and every one of them keeps it in its own block. Ruff had no way to know
+that and read it as third-party, so `--fix` folded `_common` in among `jiwer` and `numpy`
+— a correct-by-its-own-lights rewrite of a grouping the author chose. `known-first-party
+= ["_common"]` teaches it, after which the fix touches only what is actually wrong: one
+file that had been "broken" dropped out of the diff entirely.
+
+The lint *scope* is deliberately unchanged. `src tests scripts` is a recorded decision —
+`.devcontainer/setup.sh` once said `ruff check .` and exited 1 on a clean checkout — and
+widening it is not a cleanup.
+
+## [2.22.0] - 2026-08-16
+
+### Fixed — six ways YazSes starts itself, five of which could not work in a bundle
+
+The audit that followed the Windows Settings… bug, which was not a one-off. Every
+component that spawns another one — the daemon launching the tray and the overlay,
+the Settings window's Restart, the macOS and Linux lifecycle backends starting the
+daemon — used `[sys.executable, "-m", "yazses.x"]`.
+
+That is correct for a pip, pipx or uv install and silently wrong inside the shipped
+`.app` and `.exe`. There, `sys.executable` is the application, not an interpreter;
+the bundle dispatches on argv; and an unrecognised first argument falls through to
+the CLI, which exits 2 with no console to print to. So in a bundle the tray never
+appeared, the overlay never appeared, the crashed-tray supervisor's five relaunch
+attempts each did nothing, and Apply→Restart never restarted — with no error
+anywhere. They now go through one resolver that asks the bundle by its mode flag.
+
+Three further defects came out of writing it down:
+
+- **The macOS Settings button pointed at a file that does not exist.** The earlier
+  fix named a `yazses-cli` sibling on any frozen non-Windows build, and the macOS
+  `.app` ships exactly one executable. Its test asserted that behaviour, so the bug
+  was green. The sibling is now tested for rather than inferred from the platform.
+- **The overlay had no argv a bundle would accept at all** — `__main__.py` carried no
+  `--overlay` branch, so it was unreachable from a bundle by construction.
+- **`python -m yazses.cli --version` printed nothing and exited 0.** No
+  `if __name__ == "__main__"` block, so the module was imported and discarded. That
+  is the documented last-resort launch path, taken by exactly the installs with no
+  other way to report a failure. Both it and `yazses.settingsui.app` now have one.
+
+A console script **beside the running interpreter** is now preferred over PATH. This
+machine carries a pipx copy, a `uv tool` copy and a checkout venv at once, and the
+checkout's `yazses` shadows the installed one — so PATH-first meant a daemon from one
+install could launch the tray from another, disagreeing about config, version and
+socket.
+
+Settings goes through its own `yazses-settings` gui-script, so on Windows it is
+launched by `pythonw.exe` and opens no console behind the window.
+
+The frozen paths cannot be exercised where this was written — no bundle, no Windows,
+no macOS — so every input is injectable and the decision is tested rather than the
+spawn. Proof on a real bundle is still owed.
+
+### Added — the Settings window's threshold slider has a live level meter
+
+Hold your dictation key and speak: the bar shows whether you are clearing the
+silence line, and re-judges as you drag the slider, so you can see when you have
+moved it far enough. Without it the slider is a person guessing at a float.
+
+It was deferred on a reason that turned out to be wrong — "it needs an audio stream
+in the window". It does not. The daemon already publishes `audio_level` in its
+status reply; it is what the tray's level ring has been drawing for weeks. The
+window asks the same running process, which is also the only correct answer: a
+second capture stream would fight the one dictation uses.
+
+Running it against a live daemon caught the defect that mattered. `audio_level`
+only moves during a hold, so at rest the meter read 0.0 and announced *"below the
+line — audio this quiet is discarded as silence"*: a claim about the user's
+microphone made at a moment when nothing was listening. It now says so instead.
+
+### Changed — the macOS bundle is half the size it was
+
+143.9 MB → 70.4 MB for Apple Silicon, measured across two builds of the same commit.
+`uv sync` was installing the **dev group** — pytest, mypy, ruff, hypothesis, a
+moonshine ONNX model — into the environment PyInstaller then analyses, so a linter
+and a test runner were being shipped inside the application.
+
+The Intel bundle did not move (88.96 → 88.95 MB), which is the confirmation rather
+than an anomaly: that leg installs the project alone and never carried the dev group.
+Windows saved less than 3 MB — its spec already excluded most of it — and is changed
+for the same reason regardless.
+
+### Fixed — the Intel .dmg and the ARM64 .exe have not been built for two releases
+
+Both cross-architecture bundle legs were failing, and both workflows reported
+success: they are `continue-on-error`, which is right for a new cross-arch job and
+means the failure appears nowhere a person looks — not the run summary, the checks
+list, or the release page. v2.21.0 shipped neither file.
+
+macOS Intel died on `uv sync`: the lock pins onnxruntime 1.28.0, which upstream
+publishes for macOS arm64 only, and faster-whisper requires onnxruntime with no
+marker. That leg now resolves unlocked, where it backtracks to the last release
+with an Intel wheel. Pinning the project back below 1.24 would have cost every
+other platform two years of runtime for one architecture Apple has already
+scheduled for removal. `pipx install yazses` on Intel resolves the same way and was
+never affected — it was the bundle that was missing, not the path.
+
+Windows ARM64 died before compiling anything, asking `uv` for an interpreter it had
+no build of: `setup-uv` was pinned to `0.5.x` in these two workflows and `latest`
+in the other five. That pin predates Windows ARM64 Python entirely. With it lifted
+the leg produced a 160 MB `YazSes-2.21.0-windows-arm64.exe` on its first run — the
+first native Windows ARM installer this project has built.
+
+`test_platform_support_claims.py` now cross-checks both build matrices against
+`docs/platform-support.md`, so an advisory leg can never be written up as a shipped
+one, and a blocking leg can never be left understated.
+
+### Fixed — every Linux arm64 channel was documented as unavailable, and all of them work
+
+Measured against the Snap Store API, the published APT index and the `.deb` control
+fields rather than this repository's manifests. The snap has an arm64 build on
+`stable`, not edge-only. The `.deb` declares `Architecture: all` and contains no
+compiled code, so the `amd64` and `arm64` release assets are the same package with
+different names — the architecture in the filename is the build host's — and the
+APT repo has therefore served arm64 all along.
+
+arm64 users were being sent to a slower install path for something they already
+had. Documentation drift is usually an overclaim; this one cost people support that
+existed.
+
+### Fixed — the tray icon's mark was unreadable on two of its five states
+
+The "Y" was painted white on every state colour. Measured with the contrast maths
+already in the codebase, white scores **1.71:1 on yellow**, 3.06 on green and 4.23
+on red — against WCAG AA's 4.5. Three of five failed, and the worst by a distance
+is yellow, which is the badge meaning *"recording, but there is nowhere to type"*.
+
+That is the state a user most needs to notice, wearing the least readable mark of
+the set. An icon that says "your words are going nowhere" and cannot be read is not
+doing the one job it exists for.
+
+The glyph colour is now chosen by contrast, per badge — black on yellow, green, red
+and blue; white on purple. Yellow goes from **1.71:1 to 12.30:1**, measured on the
+rendered icon. Both Linux and Windows share the decision, so they cannot diverge.
+
+Black or white rather than a computed tint: at 16 px the mark is a few hundred
+pixels of stroke, and a mid-tone loses to the badge whatever the maths says.
+
+`settingsui/theme.py` has computed contrast since the Settings window's secondary
+text was found failing AA on both themes. This is the first time anything else has
+used it — the tray is where it was most needed and least applied.
+
+
+### Added — an agent can ask you a question out loud, and hear your answer
+
+ADR-020 decided that the genuinely novel thing YazSes can offer another agent is not
+transcription — it is **a human**. An agent stalled on a decision only a person can
+make has, until now, one route: put text on a screen and wait for someone to notice,
+read it, and type. Voice is the cheapest interrupt a working person can service,
+because it needs neither their eyes nor their hands.
+
+`ask_human(question, timeout_s)` is now the MCP server's second tool. It speaks the
+question, listens for the spoken answer, and hands it back to the calling agent.
+
+**Off by default**, and it stays that way until `[mcp] ask_human = true`. It is not
+even listed until then: a tool that is offered and always refuses teaches a model to
+stop calling it.
+
+The restraints are the feature, not decoration — ADR-020 says it "ships with these,
+or does not ship":
+
+- **A budget.** `[mcp] ask_human_per_hour` (default 3), shared across every caller
+  because it protects the person rather than each agent's fair share. Nothing a
+  caller does earns another slot; a refusal says when the next one frees.
+- **Never during a hold.** If you are mid-sentence the daemon knows, and the question
+  waits — without costing the agent a slot, since that would punish it for your timing.
+- **The caller is named** in what is spoken, so "who is asking" is never ambiguous.
+- **The answer goes back to the caller, never into the focused window.** This is why
+  it lives in the daemon rather than the MCP server: the daemon owns the microphone,
+  knows about the hold, and owns the injector that must not fire.
+- **A question that could not be asked costs nothing** — no speakers, a busy device,
+  or you walked away. An agent should not lose its hour to a question nobody heard.
+
+Silence is reported as silence rather than as an empty answer, because "they said
+nothing meaningful" and "they never answered" are different facts an agent will act
+on differently. A caller's timeout is capped at two minutes: an agent asking for an
+hour is holding the microphone hostage.
+
+
+### Added — the microphone and the silence threshold are in the settings window too
+
+The remaining two settings that are values rather than switches. `settingsui/controls.py`
+was written for exactly these three, tested, and called from nowhere; all of it is
+now wired.
+
+**Microphone** mirrors `yazses audio devices`, marks and all — ● the system default,
+★ the pinned one — with *Follow the system default* first, because that is the state
+most people should be in. If audio cannot be enumerated at all (no sound card, a busy
+device, a container) the dropdown is empty and the window still opens: refusing to
+show every other setting because a microphone is missing would be the worse failure.
+
+**Silence threshold** is a logarithmic slider with the exact value beside it. The
+range spans three orders of magnitude — ≈0.0005 for a quiet voice, ≈0.05 for a noisy
+room — so a linear slider would put every usable value in the leftmost few pixels,
+and a slider without a readout is a user guessing at a float.
+
+It writes an unquoted number, so the value stays a float rather than becoming the
+string `"0.004"` for the config loader to repair. And the untouched slider writes
+nothing: comparing the resulting floats made an idle Apply rewrite the key every
+time, because quantising 0.01 through 1000 integer steps returns 0.01001.
+
+### Added — the hold-to-talk key can be changed from the settings window
+
+The key you hold to dictate is the most personal setting YazSes has, and it could
+only be changed by typing a command or editing TOML. The settings window offered
+feature checkboxes and nothing else — even though the validation for a hotkey
+picker was already written, already tested, and had no caller.
+
+**Settings → Hold-to-talk key** is a dropdown, not a press-a-key capture: the
+backends bind eleven specific keys, and a capture box would happily accept F13 and
+leave you unable to dictate with nothing on screen connecting the two. It offers
+the same list as `yazses hotkey set`, refuses before writing, and applies on Apply
+with the usual restart prompt.
+
+It also refuses a key that is already the **command key**, comparing through the
+aliases — `right_option` and `right_alt` are one physical key under two names, so a
+string comparison waves that clash through and command mode then swallows every
+dictation burst.
+
+### Fixed — the command key could be set to the dictation key on a default install
+
+Two ways, both silent. The check compared `[hotkey] command_key` against the raw
+`[hotkey] key`, which on a fresh install is the sentinel `"auto"` — never equal to
+a real key name, so the clash was invisible on exactly the config every new install
+starts with. And it compared strings, so `right_option` against a dictation key of
+`right_alt` sailed through as different names for one physical key.
+
+### Fixed — `yazses hotkey set right_option` was refused by a key every backend binds
+
+Four copies of the accepted-keys list existed: a private `_KEY_MAP` in each of the
+three platform hotkey backends, and `_HOTKEYS` in `cli.py` carrying the comment
+*"mirror platform/linux/hotkey.py keymap"*. The mirror had drifted. Every backend
+binds `right_option` and `left_option` — macOS's names for the alt keys, present so
+one config file behaves the same on all three systems — and the CLI rejected both:
+
+```console
+$ yazses hotkey set right_option
+Unknown key 'right_option'. Choose one of: right_alt, left_alt, ...
+```
+
+So the config file accepted a key the command that writes it would not.
+
+The list now lives once in `yazses/hotkeys/names.py`, and a test reads every
+backend's `_KEY_MAP` to prove the offered set is bindable on all three — the
+direction that matters, since offering a key nothing can bind leaves someone unable
+to dictate with no explanation.
+
+### Fixed — the tray's **Settings…** could not open the settings window on the Windows installer
+
+Clicking **Settings…** in the tray produced a notification reading *"Could not open
+Settings — is `yazses` on PATH?"*, and nothing opened. Reported from a live Windows
+install.
+
+Every tray backend — Linux, macOS and Windows — launched the window with the literal
+`["yazses", "settings"]`, which assumes a console script on PATH. The PyInstaller
+bundle has no such thing: it ships `YazSesApp.exe` and `yazses-cli.exe` beside each
+other and puts neither on PATH. So the button was impossible on precisely the build
+whose users are least likely to have a terminal to fall back to — and the message,
+while accurate, asked the user to fix an assumption the application had no business
+making.
+
+`tray/launch.py::settings_command()` now resolves it once for all three backends: a
+frozen bundle uses the `yazses-cli` sitting next to the running binary, otherwise a
+console script on PATH, otherwise `[sys.executable, "-m", "yazses.cli", …]` — which
+works for any interpreter that can import the package. PATH is deliberately not
+consulted first when frozen: a machine can carry both the installer's app and an old
+`pip install`, and the stray one would silently open another version's settings.
+
+The same argv now backs the tray's **Restart**, which had the identical assumption.
+
+### Changed — every `yazses` command starts in about half the time
+
+`yazses status`, `yazses stop`, `--help`, and the completion that runs on every Tab
+all import `yazses.cli` first. Two things at module scope were charging them for
+work they never did: `yazses.system.updater` pulled in `urllib.request` and
+`http.client` — a whole network stack — for the benefit of `yazses update` alone,
+and `import yazses` resolved the installed version through `importlib.metadata`,
+which walks `sys.path` hunting for a `.dist-info` and was the single most expensive
+import in the tree.
+
+Both are now deferred to the point of use: the updater imports inside `update()`,
+and `__version__` resolves on first access (PEP 562) and is cached thereafter.
+Measured on the development machine, importing `yazses.cli` fell from **181 ms to
+110 ms — a 39% reduction**. Nothing changes about *what* the version says; only
+when it is read.
+
+`tests/test_cli_startup_cost.py` pins it by asking a fresh interpreter which
+modules an import actually pulled, rather than timing anything — a wall-clock
+assertion would be flaky on a loaded CI runner, while "was this imported" is exact.
+
+## [2.21.0] - 2026-08-15
+
+Sixty-nine commits had built up behind `v2.20.0` without reaching anyone. The
+theme, read back across them, is **things that were reported as working and were
+not**: a CI job that could only ever be red, eleven tests that were skipped in
+every job, three packaging guards that passed by iterating an empty list, a
+CLI-reference guard that checked 58 names and ignored 50, a crashed daemon that
+stayed dead on Windows and macOS while a tray watched and did nothing, and an
+"Update installed" message for upgrades that never happened.
+
+### Added — `yazses features` prices what it offers
+
+The catalogue listed 145 capabilities and told you what none of them cost. The size
+existed — `yazses features enable <name>` has printed it since ADR-018 — but only at
+the moment the download began, which is after the decision, not before it. Three
+capabilities (`cocktail`, `multiprofile`, `voiceguard`) resolve to ~3.1 GB each,
+because `speechbrain` pulls PyTorch and the CUDA stack behind a name that reads like
+a small audio filter.
+
+`yazses features` now carries a **DOWNLOAD** column. It quotes the whole dependency
+closure on a fresh install, which is the honest figure for a table anyone reads;
+`features enable` keeps quoting what is missing on *your* machine, which is the
+figure you actually pay. Blank means nothing to download — true of most capabilities,
+since they are pure logic that ships in the base install.
+
+The number is a lookup in a table that ships inside the package, so the listing stays
+offline and instant (ADR-011, ADR-018). A capability whose size is unknown shows
+nothing rather than a guess.
+
+New: **[Install only what you need](docs/how-to/install-only-what-you-need.md)** — how
+to read the column, what the advice tiers mean, and how to keep a dictation-only
+install small.
+
+### Security — the open `diskcache` advisory now has a published assessment, pinned by tests
+
+Dependabot has an open alert on `diskcache` ≤ 5.6.3 (unsafe pickle
+deserialization) with **no patched release upstream**, so it cannot be closed by
+bumping a version. It appears in every supply-chain scan run against this
+repository, and there was nowhere to read what it means here. An unanswered alert
+is not neutral: it is how the *next* finding gets waved through by someone who has
+learned the alerts are noise.
+
+It is not exploitable as shipped, and `.github/SECURITY.md` now gives the
+reasoning rather than asserting the conclusion. `diskcache` is not a dependency of
+YazSes; it arrives only under `llama-cpp-python`, which is opt-in (`slm`, `notes`
+and `all` extras, never `project.dependencies`), so a default install never
+downloads it. And the vulnerability requires a cache file to be unpickled —
+`llama_cpp` reads one only when a caller installs a cache via
+`Llama.set_cache(...)`, which YazSes never does.
+
+Both of those are load-bearing claims about this codebase, and this project has
+already shipped changelog entries describing code that was never on `main`. So
+`tests/test_dependency_advisories.py` pins them: the suite fails if
+`llama-cpp-python` becomes a base dependency, if anything starts touching a
+llama-cpp cache or importing `diskcache`, or if the assessment disappears from the
+policy while the guards remain. It also asserts the AST scanner can still match a
+real call — a security detector that silently stops matching reports "all clear"
+forever, which is the worst failure available to it.
+
+### Fixed — a CI job that could only ever be red, for weeks
+
+The `freebsd` leg had failed on **every** run, `main` included. Being advisory it
+blocked nothing; it simply made a red X in Tests look normal, which costs more
+than the coverage it was meant to add, because the next red X gets the same shrug.
+
+It was never a FreeBSD problem. `pip install -e .` resolves `faster-whisper` →
+`ctranslate2`, and PyPI has neither a FreeBSD wheel **nor an sdist** for it — pip
+reports `from versions: none`, so there was nothing to build from either. The job
+died on an unsatisfiable install before running a single test.
+
+The coverage it exists for never needed that stack: the claim under test is that
+FreeBSD really selects and builds the composed BSD backend, which needs
+`sys.platform` to genuinely be `freebsdN`, not a transcription engine. Measured in
+a clean venv, all 48 tests in `tests/test_platform_bsd_and_fallback.py` pass with
+numpy, platformdirs and typer alone. The job now installs `--no-deps` plus those
+and runs exactly that file; the suite-wide run is gone rather than tolerated,
+since most of it imports the transcription stack and would reinstate the permanent
+red. **CI is now green on every job for the first time.**
+
+`docs/platform-support.md` said "nobody has run YazSes on real BSD hardware" and
+that the job "has never got that far". Both were true when written and are not
+now, so the page has been corrected — including the part that has *not* changed:
+nobody has dictated a word on BSD, because the speech pipeline still cannot be
+installed there. The row stays ⚗️ for that reason, not for the platform layer.
+
+### Fixed — eleven tests behind an optional extra were skipped in every job
+
+`uv sync` installs base dependencies only, so any test guarded by an optional
+extra skipped in the main job — and until now, in *every* job. Fourteen tests were
+reporting green while executing nothing.
+
+This is the hole the GUI job was built to close, still open for four other extras,
+and that precedent is the argument: the settings-window tests had been skipped in
+CI for their entire life, and their first real execution immediately found two
+shipped defects. A test that is always skipped is not a test.
+
+The new `extras` job covers the extras whose cost is trivial. `chinese` is a
+single pure-Python package, and installing it takes `tests/test_han_script.py`
+from 30 passed / 11 skipped to **41 passed** — eleven assertions about Simplified
+vs Traditional output that had never run anywhere, on a code path a user in Taipei
+hits on every utterance, and one that has already produced a real user-visible bug
+in this project.
+
+Built like the GUI job, because the failure mode is identical: import the extra
+explicitly first, run with `-rs`, and fail the job on any `SKIPPED` line. Three
+tests stay uncovered — `notes`/`slm` compiles a C++ inference engine, and
+`diarization-pyannote` and `voiceprint-resemblyzer` each pull torch (~2 GB). That
+is a real gap, and it is named in the job rather than hidden behind a green tick.
+
+### Fixed — three packaging guards passed on an empty set, and now the rule is mechanical
+
+`for path in SOMEWHERE.glob("*"): assert <property>(path)` is green in two
+situations: every file satisfies the property, and **there are no files**. The
+output is identical, and the second is what a rename, a moved directory or a
+changed suffix produces — which is exactly when the guard was needed.
+
+Found three times in one day, which is what turned it from a bug into a rule:
+
+- Four checks globbed `README.*.md` at the repo root. The translations moved to
+  `docs/<lang>/index.md` and all four went quietly green while checking zero files.
+- `test_cli_reference_covers_every_command.py` read only the top level of the Click
+  tree, so ~50 subcommands behind 15 groups were never looked at.
+- The three fixed here: `test_the_winget_identifier_is_the_current_one` and
+  `test_no_packaging_file_still_names_the_retired_org` (which passed with
+  `packaging/` **absent entirely**), and
+  `test_the_repo_ships_a_locale_manifest_for_every_winget_version` — that last one
+  guards a defect that has already shipped once, a winget submission missing its
+  `defaultLocale`.
+
+Each was proved vacuous first, by pointing it at an empty directory and watching it
+pass, then fixed by binding the glob to a name and asserting it non-empty — the
+idiom the repo already used in `test_docs_current_version_claims.py`.
+
+`tests/test_repo_hygiene_vacuous_guards.py` now walks the suite's own AST and fails
+on the shape, so the fourth occurrence is caught by a machine rather than by
+someone happening to look. It carries its own detector test: a check for a silent
+failure that fails silently is the same bug one level up.
+
+### Fixed — the CLI-reference guard checked 58 command names and ignored the other 50
+
+`tests/test_cli_reference_covers_every_command.py` exists because three commands
+once shipped with no entry in `docs/cli-reference.md`. It walked
+`typer.main.get_command(app).commands` — the **top level only**. Fifteen of those
+58 names are groups carrying roughly fifty subcommands between them, and the guard
+never opened one: `yazses meeting` appearing anywhere in the document made the
+whole group look documented.
+
+Two had drifted through the hole. `yazses meeting enroll` — the command that names
+a speaker for good, as opposed to `relabel`, which fixes one transcript — and
+`yazses gaze status` were both in `docs/command-index.md` and both in the man page,
+and in neither case in the reference the docs site links as canonical.
+
+- The guard now walks the tree and asserts every invocable path, groups included.
+- It descends by asking for `.commands`, **not** by `isinstance(cmd, click.Group)`:
+  under Click 8.4, `typer.core.TyperGroup` does not subclass `click.Group`, so an
+  isinstance walk finds no subcommands at all and passes while checking nothing —
+  the same silent pass, reintroduced by the fix for it. A second test pins that the
+  walk really reaches the subcommands.
+- Both missing commands are documented, with examples and the constraint that
+  actually bites: `meeting enroll` needs the audio, which stop deletes unless
+  `[meeting] retain_audio = true`.
+
+### Fixed — a crashed daemon stayed dead on Windows and macOS, watched by a tray that did nothing
+
+Linux gets this for free: the systemd user unit carries `Restart=on-failure`, so a
+daemon that dies comes back. launchd's `KeepAlive` does the same on macOS *when the
+daemon is run as an agent*. The Windows autostart is an `HKCU\Run` value, which
+fires exactly once at login and never again — so a daemon that crashed at 10am
+stayed dead until the user logged out and back in.
+
+The tray was already watching. It polls `status`, it had already gone red, and it
+holds the lifecycle handle — it simply had no instruction to act. It now relaunches
+a daemon it sees has died, bounded by `MAX_DAEMON_RELAUNCHES` with a
+`RELAUNCH_COOLDOWN_S` gap, so a daemon that cannot start is not restarted forever in
+a loop. The bound matters more than the relaunch: a crash-loop that reads as
+"working" is worse than one that visibly stops.
+
+Also relays what the daemon could not show. `system/notify.py` shells out to
+`notify-send`, which exists only on Linux, so every self-healing event — the
+microphone auto-heal, a VAD retune, a silent-streak warning — was **log-only** on
+Windows and macOS. Those are precisely the events a user needs to see, because each
+one means YazSes quietly changed its own behaviour. The daemon now queues them onto
+its `status` reply and the tray shows them natively on whichever platform it is.
+
+### Added — an Intel macOS build, and `.dmg` filenames that name their architecture
+
+Implements [ADR-017](design/adr/adr-017-intel-mac-support-has-a-deadline.md). CI now
+builds `YazSes-<version>-macos-x86_64.dmg` on `macos-15-intel` alongside the Apple
+Silicon one, closing the gap [#264](https://github.com/MSKazemi/yazses/issues/264)
+described — at no cost, since GitHub-hosted runners are free for public repositories.
+
+**The rename matters as much as the new build.** The `.dmg` was called
+`YazSes-<version>.dmg`, which reads as though it were for everybody — and that is a
+large part of why an Apple-silicon-only bundle went unnoticed for months. Both bundles
+now carry their architecture, and `build-macos.sh` derives it from `uname -m` rather
+than taking a flag, because PyInstaller does not cross-compile: the build host *is* the
+target, and a flag is a second thing that can disagree with the runner label.
+
+The Intel leg is **advisory** (`continue-on-error`), exactly as the `windows-11-arm` leg
+is: `macos-15-intel` has never completed a build here, and a brand-new
+cross-architecture job must not be able to fail a release the primary build completed
+fine. The Homebrew cask still tracks arm64 only, and will until the Intel build has been
+green a few times — a cask whose hash is a guess is worse than no cask.
+
+Renaming an asset is the change that breaks a download link silently: the URL still
+resolves, to a 404, and a failed download is the first thing a new user sees. The cask,
+the manifest refresher and the release notes were all updated, and
+`tests/test_macos_artifact_naming.py` now pins the four places that have to agree about
+the name and never see each other.
+
+**The deadline is not ours.** `macos-15-intel` is the last x86_64 image GitHub Actions
+will offer, available until **August 2027**; `macos-13` was retired on 2025-12-04. When
+it goes, `pipx install yazses` is the Intel path that outlives it.
+
+### Fixed — secondary text in the Settings window failed WCAG AA on every theme
+
+The window styled its descriptions, hints and filter status with `color: gray` — a
+literal `#808080`, repeated in five places. Measured against Qt's own defaults that is
+**3.43:1** on the light window and **3.44:1** on the dark one, where normal text needs
+**4.5:1**. Not marginally, and not on an unusual theme: on both of the backgrounds most
+users actually have.
+
+It is now computed from the desktop's own palette — the theme's text colour blended
+toward its background only as far as contrast allows — so it reads as secondary and stays
+legible whether the desktop is light, dark or something else. If a theme's *own* text
+colour already falls below AA, the window leaves it unchanged rather than fading it
+further; that is the theme's problem and making it worse would not help.
+
+Measured cost: **0.33 ms** added across the five call sites at window construction, and
+nothing at idle — it runs once per widget, not per frame.
+
+For a project whose research pages argue that assistive technology is priced out of reach
+and skips Linux, unreadable secondary text in its own settings window was the wrong detail
+to get wrong. `tests/test_settingsui_theme.py` keeps the old value on record as a failing
+case, so the change cannot later be mistaken for a matter of taste.
+
+### Added — a dictated card number with a misheard digit no longer types
+
+`checkdigit` had a complete, tested implementation of Luhn, ISBN-10, ISBN-13 and Verhoeff
+plus single-digit fix suggestion — and no caller, so `yazses features enable checkdigit`
+refused it. It is now wired, as the first step of
+[ADR-021](design/adr/adr-021-invest-in-error-cost.md).
+
+With `yazses features enable checkdigit`, a dictated number that *fails its own checksum*
+is held and announced instead of typed, with the single-digit correction offered when
+exactly one candidate passes. Release it with the same spoken **"confirm"** the command
+safety gate uses — one release word, not one per guard.
+
+**The design constraint is how rarely it fires, not how much it catches.** A guard that
+stops a house number or a year teaches you to dismiss it, and a dismissed guard is worse
+than none: it costs attention and catches nothing. So it only examines an utterance that is
+a *bare* number (prose containing a number is prose), at least 12 digits, and failing
+**every** scheme whose length it fits — a 13-digit string is not an ISBN-10, so ISBN-10's
+opinion of it is noise. Anything satisfying an applicable checksum types with no comment.
+
+Why this one first: a misheard digit is the cheapest error to catch and among the most
+expensive to miss, because nothing downstream notices. It surfaces as a declined payment or
+a wrong record, not as a typo.
+
+### Added — the tray icon now shows whether your microphone is actually hearing you
+
+The badge has five colours and every one of them describes what YazSes is *doing*.
+None of them describes whether the microphone is picking anything up — and those two
+come apart exactly when it matters: a muted mic, a USB-C monitor that stole capture, a
+`vad_threshold` sitting above your voice. In all three the badge is green for
+"recording", you speak a whole sentence, and nothing is typed. That is the symptom
+behind [`silent-audio-discarding`](docs/how-to/silent-audio-discarding.md) and the
+silent-streak guard, and until now the icon looked identical throughout.
+
+While a burst is recording, the badge carries a **live input-level ring** with a notch
+marking the silence gate. Short of the notch, what you are saying will be discarded;
+past it, it will be transcribed. You find out *during* the sentence instead of after it.
+
+The design decision that makes it readable on any machine: **the gate is anchored at a
+fixed point on the ring** rather than the ring being a linear map of the raw level.
+`audio_level` is `mean(|samples|)`, whose useful range depends on the microphone, the
+room and the threshold — drawn linearly, a quiet setup would sit invisibly near zero and
+a loud one would peg. Anchored, "past the notch" means the same thing everywhere.
+
+No daemon change and no new IPC: `audio_level` and `vad_threshold` were already
+published for the voice-activity overlay, and simply were not reaching the tray.
+
+The ring is hidden whenever drawing it would say something untrue — when not recording
+(a ring on an idle badge implies YazSes is listening, which is the one thing this icon
+must never imply), when the threshold is missing or non-positive so the notch would have
+no meaning, and when the status is malformed. It never raises: it runs inside the icon
+paint path, where an exception loses the tray.
+
+### Added — `yazses features` says what a capability will download, before it downloads it
+
+Implements ADR-018's first decision. `yazses features info <slug>` now shows a **Cost**
+line, and `features enable` prints the size before fetching anything — loudly, with a
+Ctrl-C hint, when it is large.
+
+The case that motivated it, now measured: **the three speaker-voiceprint features
+(`cocktail`, `multiprofile`, `voiceguard`) download 3.1 GB across 37 packages.**
+`speechbrain` resolves to PyTorch *and the entire NVIDIA CUDA stack* — cuDNN, NCCL,
+cuSPARSE, cuSOLVER — none of which YazSes uses, because everything here runs on the CPU.
+That is **7× the size of YazSes itself**, and nothing told the user before the progress
+bar started. `[voiceprint] backend = "resemblyzer"` is the lighter alternative.
+
+The full table is in [what installing costs](docs/install-cost.md); the range runs from
+0.5 MB (`chinese-script`) to those 3.1 GB.
+
+Three properties, each ruling out an easier implementation:
+
+- **Marginal, not total.** The `tts`, `silero` and `parakeet` extras each name an
+  `onnxruntime` that a base install already has via `faster-whisper`. Measured: `read-back`
+  declares three packages and needs one; `stt-moonshine` declares one and needs **none**, so
+  enabling it is free and now says so. The figure is computed against what is missing *on
+  this machine*, which `deps.missing_modules` already answers.
+- **Resolved closures, not wheel sizes.** `speechbrain`'s own wheel is a few MB. Pricing the
+  wheel would tell a user a feature is cheap immediately before it fills their disk, so
+  `scripts/gen-feature-sizes.py` resolves each feature with `uv pip install --dry-run`
+  against a clean base environment and prices every distribution in the result.
+- **Offline and instant.** The catalogue lists 144 capabilities and must render with no
+  outbound connection (ADR-011). Sizes come from a committed table, never a live query — a
+  stale number is acceptable, a hang is not.
+
+A partially-installed feature is quoted as **"up to"** its full closure rather than
+apportioned, because apportioning would be a guess and this is the direction to be wrong in:
+told "up to 2.4 GB" and given 300 MB you are mildly surprised; told 300 MB and given 2.4 GB
+you were misled about the only thing you asked. An unknown size shows **nothing** rather than
+zero. A missing or corrupt table degrades the catalogue quietly instead of taking it down.
+
+### Decided — show what a feature costs before enabling it; no third-party plug-ins
+
+[ADR-018](design/adr/adr-018-feature-packs-and-the-plugin-question.md), answering "a user who
+only wants dictation should install only what dictation needs, and anything more should come
+as a plug-in".
+
+Measuring first changed the answer. **That architecture already exists** — 21 optional
+extras, lazy imports, on-demand install via `features enable`, models fetched on first use —
+**and it is near its floor.** A base install is 414 MB, of which 84% is four binary wheels
+that arrive with faster-whisper; YazSes' own code is 4 MB. The floor belongs to the speech
+engine's dependency tree, and the one packaging lever with real leverage (Qt, 648 MB) was
+already pulled in #259.
+
+So the decision is about the two things genuinely missing: **`yazses features` will show the
+marginal cost** of enabling a feature — marginal, because `tts`/`silero`/`parakeet` all
+declare an `onnxruntime` that a base install already has, and a naive total would quote 53 MB
+nobody downloads — and a **named `minimal` intent** with honest per-install-path figures.
+
+**Third-party plug-in loading is declined, and this reverses ADR-009.** A plug-in would sit
+on the dictation hot path with the microphone, the transcript and the injector — every word
+the user speaks, and the ability to type anything anywhere. ADR-009 accepted "plugins run in
+the daemon process and are trusted (no sandboxing)", and that was sound for the system it
+described: a **Rust** core where plugin support sits behind a `python-plugins` cargo feature,
+so a build without it *cannot* load foreign code. That core was never built. In the Python
+daemon that shipped there is no build-time gate, so any plugin mechanism is live for every
+install — including everyone who chose this tool for the promise in ADR-011. ADR-009 is
+annotated in place, and ADR-018 records what would change the decision: a real isolation
+boundary, which is the "v2 restricted sub-interpreters" ADR-009 deferred without costing.
+
+### Fixed — the Flathub listing had no screenshots, and nothing in the repo read that file
+
+[#45](https://github.com/MSKazemi/yazses/issues/45) records the closed Flathub submission
+([flathub#9765](https://github.com/flathub/flathub/pull/9765)) as blocked on one thing: a
+demo video. Reading `com.mskazemi.YazSes.metainfo.xml` turned up a second blocker nobody had
+noticed — it had **no `<screenshots>` block at all**. That file *is* the store listing;
+GNOME Software and KDE Discover render it and flathub.org indexes it as a page. Flathub's
+linter flags a desktop-application with none, and the listing would have shipped with no
+images. Four captioned screenshots added, and `tests/test_flatpak_metainfo.py` now guards
+listing completeness — including that every screenshot URL resolves to a file that exists in
+this repository and that its declared dimensions match the real image, which no linter checks.
+
+Two stale claims corrected while there: `packaging/flatpak/README.md` said
+`python3-yazses.json` was "**not committed yet**" and `.github/workflows/flatpak.yml` called
+that "the single reason the submission has never been made" — it has been committed all
+along, with 45 pinned wheels. New `packaging/flatpak/SUBMISSION.md` carries the resubmission
+pack: why the bot closed the first PR (a custom description instead of the template), the
+filled-in template body ready to paste, the `new-pr` base-branch requirement, and a shot list
+for the video.
+
+### Fixed — every release was fully attested and still scored 0/10 for signed releases
+
+`b3c4197` added build-provenance attestations to the `.deb`, `.dmg`, `.exe` and the PyPI
+wheel, `gh attestation verify` finds them, and [#116](https://github.com/MSKazemi/yazses/issues/116)
+recorded OpenSSF `Signed-Releases` as done on that basis. The live Scorecard API still
+reports **0/10 — "Project has not signed or included provenance with any releases."**
+
+The attestations are real; they live in GitHub's attestations API. Scorecard does not look
+there. Its `Signed-Releases` check reads the **filenames of the last five releases' assets**
+and counts `.asc`, `.sig`, `.sign`, `.minisig`, `.sigstore`, `.sigstore.json` and
+`.intoto.jsonl`. v2.20.0's assets are two `.deb`, a `.dmg`, an `.exe` and `SHA256SUMS.txt` —
+nothing a verifier can see. The signing was never the gap; publishing it was.
+
+All three release workflows now attach the attestation bundle from the attest step's
+`bundle-path` output as a `.intoto.jsonl` asset. That is worth doing beyond the score: it
+lets someone who downloaded an artifact and is now offline verify it against a file that came
+with it, instead of an API call they cannot make. `tests/test_release_provenance_assets.py`
+holds it structurally across all three workflows, since the previous failure was one of them
+silently diverging.
+
+### Changed — Intel Mac support has a published end date, and it is GitHub's, not ours
+
+[#264](https://github.com/MSKazemi/yazses/issues/264) asked whether to *pay* for an Intel
+macOS runner or declare Apple silicon only. Both premises were stale. GitHub Actions is free
+for standard runners on public repositories — this repo already runs `macos-latest` on every
+push and every tag — so an Intel leg costs runner minutes, not money. And `macos-13`, the
+Intel image the question assumes, was **retired on 4 December 2025**.
+
+The answer is neither option: build Intel now on `macos-15-intel`, advisory like the
+`windows-11-arm` leg, and write the deadline down. That label is the **last** x86_64 image
+Actions will offer, available until **August 2027**, with x86_64 macOS support ending in Fall
+2027. Recorded as [ADR-017](design/adr/adr-017-intel-mac-support-has-a-deadline.md), with the
+horizon now stated on the platform-support page so an Intel Mac owner can see that
+`pipx install yazses` is the path that outlives the bundle.
+
+### Added — the Command Safety Gate is wired: a misheard `rm -rf` now waits for "confirm"
+
+`cmdsafety` had a designed, unit-tested classifier, a config section, a registry
+entry and a feature-page description — and no caller, so `yazses features enable
+cmdsafety` refused it and the page said "not possible yet". It is the shape issue
+[#164](https://github.com/MSKazemi/yazses/issues/164) describes: the algorithm was
+never the missing part, the door was.
+
+Dictation into a shell fails differently from dictation into a document — the
+mistake *executes*. With `yazses features enable cmdsafety`, a destructive dictated
+command (`rm -rf`, `mkfs`, `dd of=`, `curl | sh`, `git push --force`, a fork bomb) is
+held and announced instead of typed, and runs only after you say **"confirm"**. Say
+anything else and the held command is discarded and your words are typed normally —
+there is no modal state to get stuck in, and the gate only ever fails in the
+direction of *not* running the command.
+
+**It judges the command text, not the focused window.** The feature was designed as a
+*terminal* gate, and the obvious implementation asks the focus detector what has
+focus. That answer is unavailable exactly where the guard matters most: focus
+detection needs AT-SPI or X11, so on Wayland without AT-SPI the window class is
+empty, and a guard that silently stops protecting on a whole display server is worse
+than none. The patterns are specific enough that prose almost never matches; a false
+positive costs one spoken word, and the reverse mistake cannot be undone.
+
+Control words must be the **whole** utterance — "cancel the meeting" is dictated
+text. Loose matching of ordinary English words is how a previous wiring attempt in
+this repo swallowed 4 of 6 test phrases, and `cmdsafety/spoken.py` anchors for the
+same reason `commands/revise.py` does. Emptying `confirm_words` falls back to the
+defaults rather than leaving a held command unreleasable. New guide:
+[Stop a misheard command from running](how-to/command-safety.md). Off by default.
+
+### Fixed — PyPI was told YazSes supports two Python versions; CI proves four
+
+A cross-platform support audit compared every claim the project makes about
+operating systems and interpreters against what the code does and what CI actually
+runs. The prose came out clean: `docs/platform-support.md` and
+`docs/capability-matrix.md` match the code row for row, and the "macOS 11 (Big Sur)
+or newer" floor turns out to be exactly the floor its dependencies impose —
+`ctranslate2` publishes `macosx_11_0` wheels for both `arm64` and `x86_64`, which
+also confirms that Intel Macs really can install via `pipx`.
+
+The drift was in the metadata nobody reads by eye. `pyproject.toml` claimed
+`Programming Language :: Python :: 3.11` and `3.12` only, while the test matrix has
+been running the full suite on **3.13 and 3.14** since they were added. PyPI renders
+those classifiers as the project's own answer to "does this run on my Python?", and
+distro packagers and dependency dashboards filter on them without ever seeing a CI
+matrix — so support that had been green for weeks was invisible to exactly the
+people who cannot check it another way. Both classifiers are added.
+
+`tests/test_platform_support_claims.py` now holds the invariant in **both**
+directions, so a matrix entry without a classifier, or a classifier with no matrix
+entry behind it, fails the suite. It also pins one deliberate omission:
+`Operating System :: POSIX :: BSD` stays absent. A BSD backend ships and is
+unit-tested, but `pip install yazses` cannot succeed there — `ctranslate2` has no
+BSD wheel and no sdist ([#306](https://github.com/MSKazemi/yazses/issues/306)) — and
+a classifier asserts that the install works. That claim becomes true when the
+install does, not when the list is tidied.
+
+### Fixed — `uv.lock` still recorded the project as 2.18.2 after two releases shipped
+
+Found while re-locking for the audit above. `uv.lock` carries its own
+`[[package]] name = "yazses"` version entry, and nothing regenerates it except an
+actual `uv lock`/`uv sync` — so v2.19.0 and v2.20.0 both shipped with the lock
+naming the version before them. `test_sbom.py` did not catch it: that guard
+compares the *dependency* graph against the lock, and both sides were consistent
+the entire time. The project's own version entry had no guard at all.
+
+This matters because `uv.lock` is committed precisely so a fresh clone can
+reproduce the environment a release was built and tested in, and it is the file a
+downstream packager or auditor reads to answer "what was in this release?" — a lock
+that misnames the thing being locked makes that record ambiguous.
+`test_packaging_metadata.py` now pins it to `pyproject.toml`.
+
+### Fixed — every Windows install was told to update itself with `pip`
+
+`yazses update` detected the install method from three path substrings and fell
+back to `pip` for everything else. There is no fourth branch, so **every** Windows
+install — the Inno `.exe`, Chocolatey, winget, Scoop — came out as a pip install
+and was told to run `pip install --upgrade yazses`. Inside the PyInstaller bundle
+there is no pip to run it; where a system pip exists elsewhere on the machine, that
+command installs an unrelated second copy into some other Python, prints success,
+and leaves the `.exe` the user actually launches sitting at the old version. An
+upgrade command that exits 0 without upgrading anything is worse than none.
+
+- **The Windows channels are now first-class install methods** —
+  `windows-installer`, `choco`, `winget`, `scoop`. Detection reads `sys.frozen`
+  (PyInstaller) and Chocolatey's package marker rather than guessing from a path,
+  and is injectable so the classification is tested on every OS.
+- **They are checked against the GitHub release, not PyPI.** The `.exe` is a
+  release asset; PyPI carries no `.exe` and has, in the past, lagged a tag
+  entirely — so asking PyPI about a Windows install could answer "up to date"
+  when it was not. Drafts and prereleases are refused: their tags exist before
+  the assets do.
+- **`windows-installer` has no upgrade command, and says so with steps.** The
+  upgrade is a downloaded `.exe` and there is nothing safe to shell out to, so the
+  CLI and the tray print the four steps to do it, plus the `winget` / `choco` /
+  `scoop` one-liners for people who installed through a package manager.
+- **The Chocolatey, Scoop and winget manifests were still pinned to 2.19.0** after
+  v2.20.0 shipped, so `choco upgrade` / `scoop update` / `winget upgrade` would
+  never have found the new release at all. Refreshed against the real v2.20.0
+  assets; `tests/test_platform_windows_hardening.py` was already red on this.
+
+### Fixed — a blocked update check read as a broken YazSes
+
+`yazses update` answered a failed lookup with "Could not determine the latest
+version" and exit 1. Behind a firewall or a corporate proxy — the same
+configuration that produced #310 — that is all the user got: no reason, no way
+forward, and the strong implication that YazSes itself was broken. It is not.
+Dictation is entirely local and a blocked update check changes nothing about it.
+
+The failure path now says that in the first line and then prints the steps that
+still work, per install method. Same in the tray, and after an upgrade command
+that failed.
+
+### Added — an opt-in check that tells you once when a new release lands (off by default)
+
+Nothing in YazSes ever announced a new version; you had to remember to run
+`yazses update`. `[general] update_check` adds a background watcher that notices a
+newer release and shows one desktop notification with the exact steps to install it.
+
+It **ships off**, and that is deliberate rather than cautious: this is the only
+thing in YazSes that opens an outbound connection on its own, and "nothing leaves
+the machine" is the product, not a preference. Enabled, it sends a plain "what is
+the latest version" GET to github.com or PyPI — no voice, no text, no config, no
+identifier — but that is still a choice the user makes. Turn it on with
+`yazses features enable update-check`.
+
+Three properties it holds when it is on: it runs on its own thread and swallows
+every failure, so a firewall makes it a silent no-op and never touches dictation;
+it announces a version once rather than once per check, and a newer release
+re-arms it; and the notification carries the update steps, so a Windows-installer
+user is not told "2.21.0 is available" with nothing to act on.
+
+### Fixed — the benchmarks page told readers to run a harness that was not in the repo
+
+`docs/benchmarks.md` is public and its whole claim is that "every number on this
+page … can be reproduced with the commands at the bottom". Those commands were
+`git clone`, `uv sync --group benchmark`, and `paper/benchmark/run_all.py`. All
+three failed: `.gitignore` excluded the entire `paper/` tree (confirmed — the path
+404s on GitHub), and the committed `pyproject.toml` had no `benchmark` dependency
+group, because the group only existed in a private copy of the file. A page whose
+credibility rests on reproducibility was not reproducible by anyone.
+
+`paper/benchmark/` is now published — 11 files, ~84 KB of pure Python, no data and
+no manuscript. `paper/data/` (688 MB of LibriSpeech), the manuscript sources, and
+the third-party PDFs used for reference checking stay private and are still
+ignored. The `benchmark` dependency group is in `pyproject.toml`, `uv.lock` and
+`sbom.cdx.json` are regenerated to match, and the LibriSpeech download snippet now
+creates `paper/data/` instead of `cd`-ing into a directory a fresh clone does not
+have.
+
+### Measured — streaming transcription is a loss on every model but `tiny.en`
+
+The benchmarks page reported *decode* time. It never reported the number a user
+actually experiences, and the one every commercial dictation product advertises:
+**after you stop speaking, how long until the text is there?** The streaming path
+had no published latency at all. Measuring it (`paper/benchmark/bench_streaming.py`,
+15 speaker-stratified LibriSpeech utterances fed at real time) contradicted the
+docs:
+
+- **Streaming makes the final text arrive later, not sooner.** `commit()` re-decodes
+  the whole utterance on release regardless, so the 300 ms rolling loop is competing
+  with the decode that actually produces your text. Speech-end → text goes 0.92 s →
+  1.22 s on `tiny.en`, and **1.42 s → 2.21 s on `base.en`**.
+- **On the default model it usually shows nothing at all.** In **9 of 15** `base.en`
+  utterances LocalAgreement confirmed no prefix before the key was released — median
+  visible-at-release **0 %**. A rolling window over a growing 10-second buffer takes
+  longer than the speech that fills it. `tiny.en` keeps up: a partial in 15/15
+  utterances, 72 % of the text on screen at release.
+
+So `yazses features enable streaming` on default settings was a straight downgrade,
+and nothing said so. `features enable` now prints the measured caveat when
+`[stt] model` is not `tiny.en` (`system/features.py::enable_caveat` — advice, not a
+refusal; the user may have a reason). `docs/benchmarks.md` gains a *speech end →
+text* section, and the claims in `docs/features.md` and
+`docs/how-to/cpu-and-battery.md` that streaming "buys perceived latency" are now
+qualified with the model it is true for. The `StreamingConfig` default-off comment
+previously justified itself only on injection-correctness grounds; it now carries
+the latency evidence too.
+
+### Added — the commercial dictation cluster in the comparison
+
+`docs/comparison.md` covered the open-source and offline tools but none of the
+products that rank for "best voice dictation software": Willow Voice, Voice In,
+Windows Voice Typing. Added, with a distinction worth stating precisely — Willow's
+**Private Mode is a retention control, not local processing**. Their privacy policy
+says Willow "uses cloud infrastructure to provide fast and accurate voice
+dictation", and describes Private Mode as processing audio "transiently to return a
+transcription" without retaining it or training on it. That is a real commitment,
+and it is a different guarantee from audio that never leaves the machine. Checked
+2026-08-15.
+
+### Changed — the repo root was 28 READMEs deep before anything else
+
+A visitor landing on the repository met `README.ar.md` through `README.zh-TW.md`
+before reaching `src/`, `docs/`, or any file that says what this is. The
+translations earned their place — 28 languages is the reach — but the root is the
+first screen a stranger reads, and it was spent on files each of which is useful
+to roughly one reader in twenty-eight.
+
+- **The 28 translations are now `docs/<lang>/index.md`.** They are published pages
+  rather than blobs: each carries `title`/`description`/`alternates` front matter,
+  `hooks/hreflang.py` turns `alternates` into reciprocal `hreflang` tags, and
+  mkdocs lists them under a `Languages` section. A `blob/main/README.xx.md` page
+  can carry no `hreflang` and no `canonical`, so this is the surface they were
+  always supposed to have. The badge block is dropped from each translation — its
+  links were root-relative and rendered broken on the site.
+- **The five community-health files moved to `.github/`.** GitHub surfaces
+  `CONTRIBUTING`, `CODE_OF_CONDUCT`, `SECURITY`, `GOVERNANCE` and `SUPPORT` from
+  there identically — same links in the issue and PR flows, same community
+  profile — for no root cost.
+- **Four guards globbed `README.*.md` at the repo root, and every one of them
+  passes on an empty set.** `scripts/check-translations.py`,
+  `gen-readme-translation.py`, `test_contributors_wall.py` and
+  `test_citation_metadata.py` would all have gone quietly green while checking
+  zero files after the move — the drift check, the contributor wall and the
+  citation identifier included. They read `docs/*/index.md` now and assert the
+  count is 28.
+- `campaign/tasks.json` listed `README.<lang>.md` in 224 `allowed_paths` entries;
+  a contributor task whose allowed path does not exist is a task nobody can do.
+
+**The old `blob/main/README.xx.md` URLs 404 from here on.** Nothing inside the
+repository still points at them, but anything posted to a regional community
+during the localization pushes does; the replacement is the site page, which
+carries the hreflang signal those links never could.
+
+### Added — the settings window explains every option, and can undo itself
+
+The switchboard listed ~200 capabilities as a checkbox, a name and a tier. That
+answers "is it on?" and nothing else: not what the capability does to your
+dictation, not when you would want it, and — the one a config file makes
+checkable — not what ticking the box actually writes. The material to answer all
+three already existed; `yazses features info` has printed it for a year. Only the
+window had no way to show it.
+
+- **A filter box.** `yazses features` has had `--on`/`--tier`/`--category` since
+  it was written; the window had none of it, so reaching a capability meant
+  scrolling past every other one — and a row you never reach cannot explain
+  itself, however good its help text is. It matches the name, the toggle name,
+  the category *and* the description, so `stutter` finds Dysfluency-Friendly;
+  `on:`/`off:`/`tier:rec` take the same words the CLI flags take. Visibility
+  only: a hidden row keeps its staged edit, and Apply and Restore defaults act on
+  every capability, not the visible ones.
+- **Every row explains itself, three ways.** A one-line summary under the label
+  (always visible, so a category is scannable), the full card on hover, and a
+  **?** button that opens that same card in a dialog. The button is there *as
+  well as* the tooltip, not instead of it: hover is unreachable by keyboard,
+  unavailable on touch, and never announced by a screen reader — which for this
+  project's users is not a detail. Rows also carry an accessible description, so
+  the help is spoken rather than merely displayed.
+- **The card names the config keys.** Alongside what it does, when to use it, an
+  example and any packages it installs, each row states the exact
+  `[section] key = value` writes ticking it performs — so the window stays
+  auditable against a `config.toml` you may also be editing by hand. A greyed row
+  explains *why* it is greyed, instead of just refusing to move.
+- **Restore defaults.** Puts every switch back to the state a fresh install ships
+  with. It stages rather than writes, and names every capability it would touch,
+  split into on and off, before anything happens — so a misclick costs nothing.
+  It never enables an experimental capability (those are by definition not the
+  advised set), it only writes the rows that actually differ rather than churning
+  all ~200 keys, and it leaves your hotkey, microphone, threshold and vocabulary
+  alone. It is a reset of the switchboard, not of your config file.
+- **`yazses features reset`** is the same operation in a terminal, with
+  `--dry-run`, `--yes` and `--no-install` — so a headless box, an SSH session, or
+  a distribution too old to load Qt is not cut off from it. Both surfaces read
+  one definition of "default" (`features.default_state()`), which is the same set
+  first-run seeds, so they cannot drift.
+
+All of the wording is pure and unit-tested (`settingsui/help.py`), because the
+window itself is skipped wherever PySide6 is absent — CI included.
+
+### Fixed — the settings window's tests had never run anywhere
+
+`tests/test_settingsui_window.py` is skipped without PySide6, which CI does not
+install (Qt is deliberately not a base dependency), so the Qt shell was verified
+by nothing. Running it for the first time turned up two defects it had been
+written to catch and then never executed:
+
+- **The tests hung on any machine with a daemon running.** They stubbed the
+  experimental dialog but not the restart one, and Apply asks the *host* whether
+  a daemon is up. On a developer's own machine — i.e. anyone actually using
+  YazSes — Apply opened a real modal dialog and the run blocked forever. Green in
+  CI purely because no daemon runs there.
+- **A partly-failed Apply reported itself as a clean save.** The restart outcome
+  overwrote Apply's summary, and that summary was the only place the window said
+  some rows had failed and were still staged. The two are now composed, not
+  replaced.
+
+### Fixed — "Update installed" was reported for upgrades that never happened
+
+Reported from a real install: the tray's **Check for updates…** offered 2.19.0 → 2.20.0,
+**Install now** said *"Update installed. Restart the daemon"*, the daemon was restarted,
+and it came back on 2.19.0. Every time.
+
+The upgrade really did run — and really did nothing. `uv tool upgrade yazses` prints
+`Nothing to upgrade` and **exits 0** when the tool was installed with an exact version pin
+(`uv tool install yazses==2.19.0`); the pip family behaves the same way for a constraint it
+cannot satisfy. Both the tray and `yazses update` treated exit 0 as proof, so the one piece
+of information that would have explained it — uv's own hint about the pin — was thrown away
+and replaced with a success message.
+
+An exit code is no longer taken as evidence. `updater.run_upgrade_checked()` runs the
+upgrade and then re-reads the installed version **out of process** (the caller is still
+running the code it started with, so its own import machinery cannot see the new one), and
+reports one of four outcomes: upgraded, command failed, version unreadable, or *finished but
+unchanged*. The last one names the version you are still on and how to get out of it —
+`uv tool install 'yazses[desktop]@latest'`, with the extras kept, because a bare
+`yazses@latest` installs base dependencies only and silently removes PySide6, the tray and
+the overlay along with it.
+
+`yazses update` now exits non-zero in that case rather than printing "Updated to 2.20.0"
+directly over the package manager's "Nothing to upgrade".
+
+**The way out is now reachable without the updater.** A repair to the update path cannot
+be delivered *through* the update path — whoever is stuck is, by definition, running the
+build that lacks the repair, and no amount of improving the client reaches them. So the
+recovery route is out of band: a new how-to page,
+[The update said it worked but the version did not change](https://mskazemi.com/yazses/how-to/update-did-nothing.html),
+carries the reinstall command per install method, and `pinned_install_hint()` now ends at
+that URL for **every** method rather than only `uv`. The others fell through to "run it in
+a terminal to see what it reported", which tells someone who has just run it nothing.
+
+Two more no-op-with-exit-0 cases are named where they were previously silent: a `pip`
+install held by a pin or a constraint file (`pip install --upgrade --force-reinstall
+'yazses[desktop]'`) and a **held snap**, which refuses to refresh and still exits 0
+(`sudo snap refresh --unhold yazses`). Both flags were checked against the tools
+themselves; methods whose reinstall command is *not* verified get the page instead of a
+guessed flag, since a guess that also does nothing repeats the original failure. The
+Windows installer channel is quoted no command at all — that upgrade is a download.
+
+`tests/test_updater.py` pins both halves: every install method's hint must name the
+recovery page, and that URL must resolve to a page that exists in `docs/` (including the
+`.html` suffix — `use_directory_urls: false`, so the trailing-slash form 404s). A stable
+URL compiled into a released client is quoted at the exact moment the user has already
+been misled once, and nothing downstream can correct it.
+
+## [2.20.0] - 2026-08-14
+
+### Fixed — a blocked model download killed the daemon instead of explaining (#310)
+
+Reported by [@AtmanActive](https://github.com/AtmanActive) on Windows 10 behind
+the [Fort](https://github.com/tnodir/fort) firewall: on first run the daemon
+tried to fetch the Whisper model, the firewall refused the socket
+(`WinError 10013`), and the process died with a raw `huggingface_hub` traceback —
+which the PyInstaller bundle renders as a modal *"Failed to execute script"*.
+Nothing on screen said what YazSes wanted, why, or what to do about it.
+
+`core/daemon.py::run()` wrapped `_build_pipeline()` in `try`/`finally` with no
+`except`, so **every** startup failure escaped to the top. Notably `stt/factory.py`
+already got this right for the Parakeet and Moonshine engines ("dictation must
+still come up"); the default engine had no such guard.
+
+Now: `stt/errors.py::ModelUnavailableError` carries ready-to-print guidance —
+the cause, a firewall hint when the cause reads like one, and the three ways to
+get the model (`yazses model download <name>`, unblock and restart, or fetch the
+repo by hand into the printed cache directory). The daemon holds itself in
+`ERROR` state with that text attached rather than exiting, so the tray turns red
+with the reason and `yazses status` can answer — exiting would have taken the
+tray down too, leaving a vanished window as the only symptom.
+
+### Added — `yazses model download` handles speech models, not just SLMs
+
+The model can now be fetched as a deliberate, watchable step instead of a side
+effect of the first dictation, which is the only workable route on a firewalled
+or air-gapped machine. `yazses model list` gained a speech-to-text section
+showing every model and whether it is already present, plus the cache path.
+
+New `stt/download.py` owns the name→repository mapping, mirrored from
+faster-whisper's private table and **kept honest by a test that fails on drift**.
+It is not derivable: `large` resolves to `large-v3`, `turbo` comes from a
+different organisation, and the distil models use another prefix — so a URL
+built from a template would have sent three of them to a 404.
+
+### Fixed — the documented model-cache path was wrong on Windows
+
+`docs/windows-install.md` said `%LOCALAPPDATA%\huggingface\hub`. huggingface_hub
+actually uses `~/.cache/huggingface/hub` on every platform, so anyone placing a
+model by hand was putting it where nothing would read it. `doctor` now asks
+huggingface_hub for the path rather than re-deriving it, which also makes it
+honour `HF_HUB_CACHE` and `XDG_CACHE_HOME` instead of only `HF_HOME`.
+
+### Fixed — Windows shipped without its icon, and the tray showed a blank disc
+
+Reported with screenshots: the desktop shortcut carried PyInstaller's generic
+default artwork, and the tray icon beside the clock was a plain flat blue circle
+with jagged edges. Two separate causes, both long-standing.
+
+- **`assets/yazses.ico` never existed.** `packaging/windows/yazses.spec` had
+  referenced it since the file was written, behind
+  `icon=str(ICON) if ICON.exists() else None` — so every build silently passed
+  `icon=None` and shipped the default icon to the desktop shortcut, the Start
+  menu, the taskbar and Add/Remove Programs. `packaging/macos/yazses.spec`
+  carried the identical dangling `assets/yazses.icns`. Both now **fail the build**
+  rather than degrading in silence, and the containers are generated and
+  committed. The installer brands itself too (`SetupIconFile`), so the downloaded
+  `.exe` is no longer a generic blob in Explorer.
+- **The tray glyph is now the YazSes mark** — a rounded badge with the white "Y",
+  matching Linux — instead of a bare disc. Pillow anti-aliases nothing, which is
+  where the jagged edge came from; the mark is supersampled and downsampled as
+  coverage, so it has neither jagged edges nor the dark halo the naive fix
+  introduces. Below 40 px the sound-wave bars are sub-pixel, so small frames
+  carry a simplified variant rather than a grey smear.
+- **The Windows tray now obeys the shared colour policy.** It had kept a private
+  seven-entry table that bypassed `tray/menu.py::icon_spec`, so Windows showed
+  different colours from Linux for the same state, had **no** command-mode purple
+  and **no** "no text field focused" yellow, and rendered five of the twelve tray
+  states — including Meeting Mode — as idle blue. Both trays now share one
+  `status_from_model` bridge.
+- **The tray tooltip's "Mic:" line was always wrong.** The daemon reported the
+  active input device, but `TrayModel` had no field for it, so every platform
+  showed `Mic: default` however the microphone was pinned.
+- New `scripts/gen-icons.py` renders both containers from one shared
+  `yazses.brandmark` renderer — the same code the tray glyph uses, so the
+  shortcut icon and the tray badge cannot drift apart.
+
+Also fixed while in the file: `build-windows.yml`'s installer smoke test still
+looked for `YazSes.exe`, renamed to `YazSesApp.exe` in 13d7a6d, so the payload
+check threw on every run and the matching uninstall assertion silently passed
+without ever checking anything.
+
+### Added — About, Help and Check for updates in the tray menu
+
+The tray menu ended at daemon control, so the three questions you have *at the
+icon* — what version am I running, where are the docs, is there a newer release —
+could only be answered in a terminal (`yazses about`, `yazses update`), which is
+exactly what a tray user does not have open. All three are now menu entries, on
+**Linux, macOS and Windows**:
+
+- **About YazSes** — version, tagline and clickable Website / Source / Issues
+  links, from the same `branding.contact_lines()` block `doctor` prints.
+- **Help ▸** — Documentation, Troubleshooting, Report a bug…, each opening the
+  page in your browser.
+- **Check for updates…** — asks PyPI or your snap channel, then offers
+  **Install now** when the upgrade can run without a password. A snap install is
+  shown `sudo snap refresh yazses` to run in a terminal instead: launched from a
+  tray click there is nowhere to type a password, so an Install button there
+  would hang invisibly. The check runs on a worker thread — a 5-second network
+  lookup on the UI loop would freeze the icon and the menu with it.
+
+Windows had shipped a `Help` entry wired to nothing (`enabled=False`); it is now
+real. The cross-OS parity test written for #63 was generalised from `Settings…`
+to every shared label, including the wiring check that would have caught that
+placeholder, and its macOS check now compares full `@rumps.clicked` label
+*paths* so submenu entries aren't misread as one label bound three times.
+
+### Fixed — every CLI command was unreachable on the Windows installer
+
+`yazses doctor` on Windows printed nothing and then died in a message box with
+`AttributeError: 'NoneType' object has no attribute 'isatty'`. Two defects,
+stacked:
+
+**The console shim could never win.** The bundle ships two binaries on purpose —
+a windowed one for the tray/daemon and `yazses-cli.exe` for the CLI — with a
+`yazses.cmd` shim putting the console one on `PATH`. But the windowed binary was
+named `YazSes.exe`, Windows resolves a bare `yazses` through `PATHEXT` (which
+lists `.EXE` before `.CMD`), and NTFS is case-insensitive. `YazSes.exe` therefore
+answered to `yazses` and shadowed the shim in the same directory. Every
+`yazses <command>` reached the *windowed* binary, which has no console — so
+`yazses doctor` and `yazses -h` printed nothing whatsoever. The shim shipped as
+dead code and the two-binary split it existed to enable never engaged for
+anyone. The windowed binary is now `YazSesApp.exe`; the installer deletes a
+leftover `YazSes.exe` on upgrade, or the orphan would keep shadowing the shim.
+
+**A missing stdout was fatal rather than degrading.** `sys.stdout` is `None` in a
+GUI-subsystem PyInstaller build, so `sys.stdout.isatty()` — used to decide
+colour — raised instead of answering "not a tty". New `system/streams.py`
+centralises that policy and is used everywhere the std streams are touched
+(`doctor`, `vocab export`, the upgrade nudge, `setup`'s calibration prompt).
+`system/wincon.py` adds the second line of defence: a CLI command that reaches
+the windowed binary anyway now borrows the launching terminal's console via
+`AttachConsole`, and falls back to `os.devnull` rather than leaving the streams
+`None`.
+
+Reported from a live Windows install; hold-to-talk dictation itself was working.
+
+## [2.19.0] - 2026-08-14
+
+### Added — About, Help and Check for updates in the tray menu
+
+The tray menu ended at daemon control, so the three questions you have *at the
+icon* — what version am I running, where are the docs, is there a newer release —
+could only be answered in a terminal (`yazses about`, `yazses update`), which is
+exactly what a tray user does not have open. All three are now menu entries, on
+**Linux, macOS and Windows**:
+
+- **About YazSes** — version, tagline and clickable Website / Source / Issues
+  links, from the same `branding.contact_lines()` block `doctor` prints.
+- **Help ▸** — Documentation, Troubleshooting, Report a bug…, each opening the
+  page in your browser.
+- **Check for updates…** — asks PyPI or your snap channel, then offers
+  **Install now** when the upgrade can run without a password. A snap install is
+  shown `sudo snap refresh yazses` to run in a terminal instead: launched from a
+  tray click there is nowhere to type a password, so an Install button there
+  would hang invisibly. The check runs on a worker thread — a 5-second network
+  lookup on the UI loop would freeze the icon and the menu with it.
+
+Windows had shipped a `Help` entry wired to nothing (`enabled=False`); it is now
+real. The cross-OS parity test written for #63 was generalised from `Settings…`
+to every shared label, including the wiring check that would have caught that
+placeholder, and its macOS check now compares full `@rumps.clicked` label
+*paths* so submenu entries aren't misread as one label bound three times.
+
+### Fixed — three shipped commands were missing from the CLI reference
+
+`docs/cli-reference.md` documented 55 of the 58 commands the CLI actually ships.
+`gitvoice`, `fileopen` and `jump` were absent — all three appeared in the
+generated `docs/command-index.md`, so the gap was only visible by diffing the
+generated index against the hand-written reference.
+
+The reference is hand-written on purpose (example-first, grouped like the CLI's
+own `--help` panels), and the cost of that choice is exactly this. It is now
+guarded: `tests/test_cli_reference_covers_every_command.py` asserts against the
+**live Click tree**, not against the generated index — a stale index would agree
+with a stale reference and both would pass.
+
+Also documented: the **Voice Undo/Redo timeline** (`[timeline]`, off by default).
+The voice-command reference had only the `undo` command, which sends Ctrl+Z; the
+timeline is a different mechanism that steps back over what YazSes itself
+injected ("undo two words", "undo the last sentence", "redo"). Reading the old
+page, a user would reasonably conclude "undo two words" sent Ctrl+Z twice.
+
+### Fixed — the roadmap's headline numbers were stale again
+
+`ROADMAP.md` claimed **141 capabilities (74 wired / 67 planned)** and **3049
+tests**; the registry and the suite say **144 (79 / 65)** and **4005**. The same
+counts in `docs/mobile/index.md` were stale *and* did not add up (68 + 72 ≠ 141).
+
+That file already carried a note that these numbers had gone stale once before,
+"each one understating what had actually shipped". They did it again, in the same
+direction. So the fix is not just the numbers: the two commands that re-derive
+them from `yazses.system.features` and from `pytest` now sit beside them, and the
+text says to re-derive rather than edit.
+
+### Fixed — the FreeBSD job timed out instead of installing YazSes
+
+Contributed by [@mercael91](https://github.com/mercael91)
+([#307](https://github.com/MSKazemi/yazses/pull/307)). The advisory `freebsd` job
+had never once run the suite, and because it is `continue-on-error` the workflow
+reported success every time — so `platform/bsd/` looked covered while being
+covered by nothing.
+
+PyPI ships no FreeBSD wheels, so every compiled dependency is a source build.
+`cryptography` needs a Rust toolchain and died on `metadata-generation-failed`;
+`numpy` compiled from its 20 MB sdist for 38 minutes and hit the 45-minute limit,
+which GitHub reports as *"cancelled"* rather than as a build being too slow. Both
+now come from `pkg` where the ports version satisfies the pin exactly
+(`py312-numpy` 2.4.6 against `numpy>=2.4.6`) and from `rust` where it does not
+(`py312-cryptography` is 48.0.1 against `cryptography>=50.0.0`). The job went
+from **45m04s timing out** to **5m29s with a readable error**.
+
+**It is still red, and that is now an honest result rather than a broken one.**
+`faster-whisper` needs `ctranslate2`, which publishes 35 wheels — macOS, manylinux,
+Windows — no source distribution, and has no FreeBSD port. `pip install -e .`
+therefore cannot succeed on FreeBSD as the dependency set stands, which is a fact
+about the platform rather than a CI defect. Tracked in
+[#306](https://github.com/MSKazemi/yazses/issues/306).
+
+### Fixed — the BSD row on the platform-support page claimed an install that fails
+
+Following directly from the above, and the more consequential half of it.
+[`docs/platform-support.md`](https://mskazemi.com/yazses/platform-support.html) listed
+FreeBSD and the other BSDs as **✅ `pipx` (PyPI)** — which that page's own legend
+defines as *"published and installable today"*. It is not: `pip install yazses` fails
+during dependency resolution, before any YazSes code is reached, because `ctranslate2`
+has neither a BSD wheel nor an sdist.
+
+Nobody had run the install, and the CI job that was supposed to prove it is
+`continue-on-error`, so it reported success every run while never getting past `pkg`.
+The row is now **❌ with the resolver error quoted**, and the claim that "a CI job now
+runs the suite in a real FreeBSD VM" is corrected to say it has never got that far.
+
+Choosing a different speech engine does not help — `faster-whisper` is a hard
+dependency rather than an extra, so the Whisper stack would have to move behind an
+extra first. `py312-onnxruntime` *is* in ports, so the Parakeet path is plausible; it
+is untested and is not claimed.
+
+### Added — the CLI demo now plays in the docs site (#23)
+
+`docs/watch-the-cli.md` embeds `docs/demo/yazses-cli.cast` in a real player. The
+cast has existed since August and was only ever *linked* — which meant reading
+the demo required installing `asciinema` first, so in practice nobody saw it.
+
+The player (asciinema-player 3.17.0, Apache-2.0) is **vendored into
+`docs/assets/asciinema/` and served from this site, not a CDN**. That is not
+incidental: a tool whose entire claim is that your voice never leaves your
+machine cannot have documentation that reports every reader's IP address to a
+third party. This site already had that bug once, with Google Fonts.
+
+The upstream issue also asks for an upload to asciinema.org. That needs an
+account, so it stays with the maintainer — and the self-hosted player is the
+better answer for this project anyway.
+
+### Added — Obsidian, Zed and GNOME Terminal configs, and two more harness claims withdrawn
+
+`examples/config.{obsidian,zed,gnome-terminal}.toml`, each measured the same
+way: inject into a live window, read back what arrived. All three are byte for
+byte exact. (#188, #219, #222)
+
+Every one of them had been recorded as impossible, and every one was a property
+of the container rather than of the application:
+
+- **GNOME Terminal** was *"no window, even with `dbus-launch`"*. The session bus
+  was never the problem — `gnome-terminal-server` refuses to start under a
+  non-UTF-8 locale, and a container defaults to `ANSI_X3.4-1968`. The base image
+  now sets `LANG=C.UTF-8`.
+- **Zed** exits with *"Failed to create surface"* without a Vulkan device, and
+  then stacks an "Unsupported GPU" notice on a "Trust this project?" prompt —
+  which **Escape cannot answer**, only Return. Hence `PROBE_PRE_KEYS`.
+- **Obsidian** opens on its vault picker, so there is genuinely nothing to type
+  into until a vault exists.
+
+Zed's saved file carries a trailing newline that the dictation did not contain.
+That is its ensure-final-newline-on-save, not mangling — checked with `od`,
+because a naive read-back reports it as a mismatch and it is not one.
+
+`probe.sh` gains `PROBE_WAIT` (the 7-second default is far too short for a
+D-Bus-activated app, and a slow start is indistinguishable from a dead one in
+the output). The known-limits table now separates apps that need an account
+(Slack, Discord — only the login field is reachable, and a config asserting the
+untested composer would be worse than none) from apps that are merely not
+packaged for apt (Logseq).
+
+### Added — Firefox and Thunderbird configs, and a wrong result withdrawn
+
+`examples/config.{firefox,thunderbird}.toml`, each written from a measurement,
+plus `probe-gui.sh` and `Dockerfile.gui` so the measurement can be repeated.
+Both deliver `kubectl get pods --namespace prod` byte for byte. (#225, #226)
+
+VS Code (#185) was measured here too and reached the same verdict independently,
+but the profile that ships is [@Mr-Neutr0n](https://github.com/Mr-Neutr0n)'s from
+[#305](https://github.com/MSKazemi/yazses/pull/305) — see the entry below. Two
+people finding the same first-run modal from opposite directions is the strongest
+evidence in this changelog that it is real.
+
+**This corrects a claim this project published.** `scripts/appprobe/README.md`
+said Electron *"opens a window and no keystroke ever lands"* and that Gecko
+produced *"no window at all"*. Both were wrong, and both were wrong about the
+harness rather than about the toolkit:
+
+- **VS Code was showing a first-run modal** — *"Sign in to use GitHub Copilot"* —
+  which swallowed every keystroke silently. Two Escapes before typing, and it
+  returns the text exactly. A screenshot showed this in seconds; ninety seconds
+  of extra waiting had not, because the wait was never the problem.
+- **`apt install firefox` on Ubuntu 24.04 installs a snap stub**, a script that
+  prints `snap install firefox` and exits. With no snapd in a container the
+  browser never starts. Taking the tarball from Mozilla instead, Firefox and
+  Thunderbird both work.
+
+The probe now reports `DIALOG_ONLY` with a screenshot when the only window on
+screen is too small to be the application, rather than `NO_WINDOW` — the two
+were indistinguishable in the output, and that is precisely how the wrong
+conclusion got recorded. **A negative result from a harness is a claim about the
+harness until you have looked at the screen.**
+
+`docs/how-to/app-profiles.md` gains a section on the same distinction for users:
+text that never arrives is usually a dialog in front of the window, or the wrong
+text field having focus — neither of which the "no text target" guard can catch,
+because in both cases a real text target does have focus.
 ### Added — a VS Code app profile, and a check on every app profile
 
 `examples/config.vscode.toml`, contributed by

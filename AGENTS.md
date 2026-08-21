@@ -1,7 +1,7 @@
 # AGENTS.md — project conventions for coding agents
 
 A short, machine-readable brief for AI coding assistants working in this repository.
-Humans should read [CONTRIBUTING.md](CONTRIBUTING.md) instead; this file exists so an
+Humans should read [CONTRIBUTING.md](.github/CONTRIBUTING.md) instead; this file exists so an
 agent-assisted contribution arrives correct on the first try.
 
 **This file is canonical for every tool** — Codex, Claude Code, Gemini CLI, Cursor,
@@ -57,6 +57,12 @@ uv run python -m pytest -k "pattern"
 
 1. **Nothing leaves the machine.** Do not add network calls, telemetry, analytics, crash
    reporting, or a cloud API dependency. Offline-first is the product, not a preference.
+   This is **enforced**: `tests/test_egress_inventory.py` fails the build when a module
+   under `src/yazses/` gains an outbound primitive without being registered and classified
+   in [ADR-019](design/adr/adr-019-egress-inventory-and-escalation.md). Seven paths exist
+   and exactly **two** can transmit what the user said. If your change needs an eighth,
+   read the ADR first — the escalation rules are written down, and three categories
+   (voiceprints, the learning corpus, third-party capture) may never leave at all.
 2. **New features ship off by default.** Add a config section in `src/yazses/config.py`
    with `enabled = False` (or an equivalent dormant default) so an existing install is
    unchanged until the user opts in.
@@ -74,6 +80,19 @@ uv run python -m pytest -k "pattern"
 7. **Tests come with the change**, in the same PR. New behaviour without a test is not done.
 8. **No attribution lines** in commit messages — no `Co-Authored-By` trailers and no
    "generated with" footers.
+9. **A guard is judged on how rarely it fires.** `cmdsafety`, `checkdigit` and the
+   no-text-target guard all interrupt the user. One that fires on a house number teaches
+   people to dismiss it, and a dismissed guard costs attention and catches nothing — so
+   hold only on a *specific, checkable* signal, never a heuristic, and make the release
+   one word. See [ADR-021](design/adr/adr-021-invest-in-error-cost.md).
+10. **Cite the landing page, not the file.** No PDF is committed (`.gitignore` and the
+    pre-commit hook both block it), and a `.pdf` URL is the wrong citation even though
+    linking is not redistribution: it skips the page carrying the version, licence and
+    DOI, and rots when the author reorganises their site.
+    `tests/test_citation_hygiene.py` enforces both.
+11. **Private tiers stay private.** Nothing under a private tree may be committed, and no
+    public file may reference a path inside one. The pre-commit hook guards the reference;
+    `tests/test_private_tiers_stay_private.py` guards the commit.
 
 ## Where things live
 
@@ -135,6 +154,14 @@ A change that affects users must update the matching surface in the same PR:
 - `docs/features.md` — for a new user-visible feature
 - `docs/configuration.md` — for a new config key
 - `README.md` — only for something a newcomer must know
+- `make docs` — regenerates `docs/features.md`, `docs/configuration.md`,
+  `docs/command-index.md` **and the architecture figures**; `make man` regenerates
+  `man/yazses.1`. Tests enforce all of them, so run these after any CLI, registry or
+  config change and commit the result.
+- `make feature-sizes` — only when a feature's *dependencies* change. It re-resolves every
+  feature's closure and is slow, which is why it is not part of `make docs`.
+- `design/architecture.md` — for a new module or a changed invariant. It is the
+  architecture reference, it ships in the repository, and it is published on the docs site.
 
 ## Pull requests
 

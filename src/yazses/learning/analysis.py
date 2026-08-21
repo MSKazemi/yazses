@@ -45,13 +45,39 @@ class Proposal:
 
     @property
     def status(self) -> str:
-        """Human-readable validation verdict for display in `yazses tune`."""
+        """How well held-out data corroborates this proposal, for `yazses tune`.
+
+        This used to answer with a verdict -- "validated" whenever support was **> 0**.
+        On a real corpus the model-upgrade proposal came back as
+
+            validated (9/238 held-out)
+
+        while a vocabulary proposal built from 44 events read "unverified". Nine out of
+        238 is under four percent, and one out of 238 would have earned the same word.
+        The label was doing work the number should do, and it does it in the direction
+        that matters least: "validated" invites applying a config change.
+
+        So the verdict is gone and the rate is stated instead. A reader can tell 4% from
+        80% without being told which one counts, and no threshold had to be invented to
+        separate them -- picking one would have been a guess dressed as a standard.
+
+        The zero case keeps its plain words: no corroboration at all is a real
+        distinction, not a small number.
+        """
         if self.holdout_support is None:
             return "unvalidated (corpus too small to hold out)"
         if self.holdout_size == 0:
             return "unvalidated (no distinct held-out data)"
         if self.holdout_support > 0:
-            return f"validated ({self.holdout_support}/{self.holdout_size} held-out)"
+            share = 100.0 * self.holdout_support / self.holdout_size
+            # "1 of 238 (0%)" reads as a contradiction, and a reader is entitled to
+            # assume a displayed zero means zero. Support is non-zero here by the
+            # branch, so the rate is floored rather than rounded through it.
+            pct = f"{round(share)}%" if round(share) >= 1 else "<1%"
+            return (
+                f"corroborated by {self.holdout_support} of {self.holdout_size} "
+                f"held-out events ({pct})"
+            )
         return "unverified — no held-out corroboration"
 
 
@@ -94,19 +120,41 @@ def retranscribe(
     store: CorpusStore,
     transcribe_fn: TranscribeFn,
     limit: int | None = None,
+    progress: "Callable[[int, int], None] | None" = None,
 ) -> int:
     """Re-run captured audio through a (larger) model, storing distance vs raw.
 
     ``transcribe_fn(audio, sample_rate) -> str`` is injected so tests need no
     real model. Only events that have audio and no prior re-transcription are
     processed. Returns the number of events updated.
+
+    ``progress(done, total)`` is called once with ``(0, total)`` before any audio
+    is touched and again after each clip. This is the slow step of `yazses tune`
+    by a wide margin -- thousands of clips through a larger model on CPU -- and it
+    used to report nothing until it finished, so a real corpus looked like a hang.
+    The candidates are known from metadata alone, so the total costs nothing.
+
+    ``limit`` bounds the run to the **most recent** N clips, and the direction is the
+    whole point. `store.events()` is `ORDER BY id`, i.e. oldest first, so taking the
+    first N would hand back the least relevant half of the corpus: tuning exists to
+    improve what dictation does *now*, and the recent clips are the ones recorded with
+    the model, microphone, threshold and vocabulary currently in use. A month-old clip
+    from a since-replaced setup proposes fixes for a problem the user no longer has.
+
+    That direction is probably why this parameter sat unused. It was written and never
+    called by anything, so a caller wiring it as-is would have shipped a switch that
+    quietly returns the wrong half.
     """
+    candidates = [r for r in store.events() if r.has_audio and not r.retx_text]
+    if limit is not None and limit >= 0:
+        candidates = candidates[-limit:] if limit else []
+    total = len(candidates)
+    if progress is not None:
+        progress(0, total)
     updated = 0
-    for rec in store.events():
+    for rec in candidates:
         if limit is not None and updated >= limit:
             break
-        if not rec.has_audio or rec.retx_text:
-            continue
         loaded = store.load_audio(rec.id)
         if loaded is None:
             continue
@@ -118,6 +166,8 @@ def retranscribe(
             continue
         store.set_retx(rec.id, text, word_distance(rec.raw_text, text))
         updated += 1
+        if progress is not None:
+            progress(updated, total)
     return updated
 
 
@@ -389,6 +439,46 @@ def _better_text(e: EventRecord) -> str:
     return ""
 
 
+#: Function words that are never worth priming. Whisper's language model already knows
+#: them perfectly; `initial_prompt` is a *bounded* budget (the decoder sees only the last
+#: ~224 tokens), so every stopword in it displaces a term that would actually have helped.
+#:
+#: Mined from a real corpus, the top proposal was:
+#:     for you thanks watching these cube assess within aspects can needed yasas grom
+#:     two both and referees finished one etc why
+#: Eleven of those twenty-one are function words. The miner's rule -- "in the correction,
+#: absent from the live transcript" -- catches them because ordinary rephrasing changes
+#: which function words appear, not because the model cannot hear them.
+#:
+#: Only words longer than two characters are listed: the caller already drops the rest.
+_VOCAB_STOPWORDS = frozenset("""
+    the and for you are was were his her she him they them their there here that this
+    these those with from have has had been being not but all any can could would should
+    will shall may might must one two three both each other some such only own same than
+    too very just now then when where why how what who whom which while about into over
+    under again more most many much few own our your its out off down between through
+    during before after above below because until against among upon also does did
+    within without done
+    got get make made take took come came goes went say said see saw know knew think
+    thought want wanted need needed like well back even still way things thing lot etc
+""".split())
+
+
+def _worth_priming(token: str) -> bool:
+    """Is this a term whose spelling Whisper genuinely needs priming for?
+
+    Two rejections, and the second matters more than the first. A stopword wastes prompt
+    budget. A word drawn from Whisper's own silence hallucination *actively harms*: the
+    live clip decoded to "Thanks for watching", the re-dictation did not contain those
+    words, so the miner reads them as vocabulary the model keeps missing -- and priming
+    them biases the decoder toward the exact phrase `postprocess/hallucination.py`
+    exists to delete.
+    """
+    from yazses.postprocess.hallucination import ghost_words
+
+    return token not in _VOCAB_STOPWORDS and token not in ghost_words()
+
+
 def _propose_vocabulary(events: list[EventRecord], config: Config) -> Proposal | None:
     # Words present in the corrected/re-transcribed text but missing from what
     # the live model produced — i.e. terms it consistently fails to hear.
@@ -400,7 +490,12 @@ def _propose_vocabulary(events: list[EventRecord], config: Config) -> Proposal |
             continue
         raw_tokens = set(_tokens(e.raw_text))
         for tok in _tokens(better):
-            if tok not in raw_tokens and tok not in existing and len(tok) > 2:
+            if (
+                tok not in raw_tokens
+                and tok not in existing
+                and len(tok) > 2
+                and _worth_priming(tok)
+            ):
                 missed[tok] += 1
     terms = [w for w, n in missed.most_common() if n >= _VOCAB_MIN_OCCURRENCES]
     if not terms:
@@ -421,6 +516,29 @@ def _propose_vocabulary(events: list[EventRecord], config: Config) -> Proposal |
     )
 
 
+def _could_be_a_filler(word: str) -> bool:
+    """Is this a word a person might actually be filtering out as a filler? Pure.
+
+    Correcting a dictation removes ordinary words all the time -- "send **this** to Bob"
+    corrected to "send **that** to Bob" makes "this" look like a removed word. Twice, and
+    it was proposed as a filler; applying that makes the disfluency filter DELETE the word
+    "this" from every future dictation. Taken from a real corpus, the proposal was
+    `okay, this, one`.
+
+    That is the most destructive thing `yazses tune --apply` can write, so it is the one
+    proposal that should not be discoverable by frequency alone.
+
+    An ordinary function word is refused **unless** it is one a filler is plausibly drawn
+    from -- "well" is both, and blocking it outright would stop a genuine filler being
+    found. The two lists it consults already exist and are used elsewhere, so nothing new
+    is introduced here to drift.
+    """
+    from yazses.stt.filters.disfluency import PLAUSIBLE_FILLERS
+
+    low = word.lower()
+    return low not in _VOCAB_STOPWORDS or low in PLAUSIBLE_FILLERS
+
+
 def _propose_disfluency(events: list[EventRecord], config: Config) -> Proposal | None:
     # Words the user's correction removed from a wrong event — candidate fillers.
     existing = {w.lower() for w in config.filters.disfluency.filler_words}
@@ -434,7 +552,10 @@ def _propose_disfluency(events: list[EventRecord], config: Config) -> Proposal |
         for tok in _tokens(e.raw_text):
             if tok not in corrected and tok not in existing:
                 removed[tok] += 1
-    candidates = [w for w, n in removed.most_common() if n >= _FILLER_MIN_OCCURRENCES]
+    candidates = [
+        w for w, n in removed.most_common()
+        if n >= _FILLER_MIN_OCCURRENCES and _could_be_a_filler(w)
+    ]
     if not candidates:
         return None
     new_list = list(config.filters.disfluency.filler_words) + candidates
@@ -498,37 +619,20 @@ def toml_literal(value: object) -> str:
 def set_toml_key(path: Path, section: str, key: str, value: object) -> str:
     """Set ``[section] key = value`` in a TOML file, preserving comments.
 
-    Replaces an existing assignment of ``key`` if present; otherwise inserts it
-    under ``[section]`` (creating the section, or the whole file, as needed).
-    Returns a short description of what changed.
+    Delegates to :func:`yazses.system.configedit.set_config_key`, which bounds its edit
+    to the named section. This used to be a second implementation that substituted the
+    key ANYWHERE in the file, with no section scope and no ``count`` -- so approving
+    `tune`'s top proposal, "Upgrade the STT model" (`[stt] model`), also rewrote
+    ``[meeting] model``, because both sections carry a key called ``model``. The user
+    approved one change and got two, in a feature they were not looking at.
+
+    Two writers, and each had what the other lacked: this one rendered arrays correctly
+    and could not scope a section; the other scoped the section and rendered a list as a
+    quoted Python repr. Now there is one, and it does both.
     """
-    literal = toml_literal(value)
-    line = f"{key} = {literal}"
-    header = f"[{section}]"
+    from yazses.system.configedit import set_config_key
 
-    if not path.exists():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(f"{header}\n{line}\n")
-        return f"created {path} with [{section}] {key}"
-
-    text = path.read_text()
-    new_text, n = re.subn(
-        rf"(?m)^[ \t]*{re.escape(key)}[ \t]*=.*$", line, text
-    )
-    if n:
-        path.write_text(new_text)
-        return f"updated {key}"
-
-    if re.search(rf"(?m)^\[{re.escape(section)}\]\s*$", text):
-        new_text = re.sub(
-            rf"(?m)^(\[{re.escape(section)}\]\s*)$", r"\1\n" + line, text, count=1
-        )
-    else:
-        sep = "" if text.endswith("\n") or not text else "\n"
-        new_text = f"{text}{sep}\n{header}\n{line}\n"
-    path.write_text(new_text)
-    return f"added [{section}] {key}"
-
+    return set_config_key(path, section, key, value)
 
 def apply_proposal(proposal: Proposal, config_path: Path, few_shots_path: Path) -> str:
     """Apply an approved proposal to disk and return a description."""

@@ -43,7 +43,18 @@ def _load_model(model_name: str, device: str, compute_type: str,
         # Not in the cache (or the cache is unusable) — this is the first run, or a
         # newly configured model. Fetch it, which is what the user is waiting for.
         log.info("Model '%s' is not in the local cache; downloading it once.", model_name)
+
+    try:
         return WhisperModel(model_name, device=device, compute_type=compute_type, **extra)
+    except Exception as exc:
+        # The download is the one step that depends on something outside this
+        # machine, so it is the one that fails on a firewalled, proxied or
+        # air-gapped box (#310). Raising the raw huggingface_hub error here
+        # killed the daemon with a traceback the user could do nothing with;
+        # ModelUnavailableError carries the three ways to get the model instead.
+        from yazses.stt.errors import ModelUnavailableError
+
+        raise ModelUnavailableError(model_name, exc) from exc
 
 
 class FasterWhisperEngine:

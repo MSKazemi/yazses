@@ -31,10 +31,31 @@ class RemoteInjectorProxy:
         asyncio.run(self._send_rpc("inject", {"text": text}))
 
     def inject_backspaces(self, count: int) -> None:
-        pass  # Not forwarded in v0.3.0
+        """Forward a backspace run to the agent.
+
+        These two were `pass  # Not forwarded in v0.3.0`, which made every voice COMMAND
+        a silent no-op in remote mode: `commands/dispatch.py` routes everything that is
+        not DICTATE through `inject_key_sequence`, so "save", "copy" and "undo" reached
+        this method and stopped. Dictation worked, so nothing looked broken -- the user
+        says "save", is watching the *remote* screen, and nothing happens or is said.
+
+        The remote injector on the other end has implemented both all along
+        (`remote/inject.py`); only the protocol had no way to ask.
+        """
+        if count <= 0:
+            return
+        asyncio.run(self._send_rpc("backspaces", {"count": int(count)}))
 
     def inject_key_sequence(self, keys: list[str]) -> None:
-        pass  # Not forwarded in v0.3.0
+        """Forward a key sequence to the agent. See :meth:`inject_backspaces`.
+
+        An older agent answers "Method not found", which `_send_rpc` already logs and
+        survives -- so a new client against an old remote degrades to today's behaviour
+        rather than failing.
+        """
+        if not keys:
+            return
+        asyncio.run(self._send_rpc("keys", {"keys": [str(k) for k in keys]}))
 
     async def _send_rpc(self, method: str, params: dict[str, Any]) -> Any:
         try:

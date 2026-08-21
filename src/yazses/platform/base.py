@@ -54,6 +54,26 @@ class TrayModel:
     target_ok: bool | None = None
     # True while the dedicated command key is held (command mode → purple icon).
     command_mode: bool = False
+    # The microphone actually in use. The daemon has always reported this over IPC,
+    # but `TrayModel` had nowhere to put it, so every platform's tooltip rendered a
+    # hardcoded "Mic: default" no matter which device was pinned or auto-healed to —
+    # wrong precisely when the user is trying to find out why nothing is heard.
+    input_device: str | None = None
+    # Live input level and the silence gate it is judged against, for the tray's
+    # level ring. Both are already published by the daemon for the overlay; the tray
+    # needs them because a green "recording" badge says nothing about whether the
+    # microphone is actually hearing anything, and that is the difference between
+    # "speak now" and "you are speaking into a muted mic".
+    audio_level: float = 0.0
+    vad_threshold: float = 0.0
+    # Meeting Mode, for the tray's Start/Stop entries. `state` covers the capturing
+    # half; these cover the two it cannot express — the feature being off, and the
+    # post-pass still running after capture ended. None means "this daemon did not say",
+    # which `meeting_entries` reads as "assume it works" rather than greying the entry
+    # out on an older daemon where it does.
+    meeting_enabled: bool | None = None
+    meeting_active: bool = False
+    meeting_finalizing: bool = False
 
 
 @dataclass(frozen=True)
@@ -190,6 +210,15 @@ class TrayBackend(Protocol):
     def set_state(self, model: TrayModel) -> None: ...
 
     def stop(self) -> None: ...
+
+    def notify(self, title: str, body: str) -> None:
+        """Show a desktop toast, if this backend can.
+
+        The daemon relays here only where the OS has no libnotify (Windows,
+        macOS) — see ``system.notify.set_fallback_sink``. Defaulted to a no-op so
+        a backend that cannot toast is silent rather than a crash, and so Linux,
+        which already went out through ``notify-send``, does not double-show.
+        """
 
 
 HotkeyFactory = Callable[[str, int, Callable[[int], None], Callable[[], None]], HotkeyBackend]

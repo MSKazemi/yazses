@@ -123,3 +123,66 @@ def test_tune_no_proposals(store, tmp_path):
     )
     assert applied == []
     assert any("No tuning proposals" in m for m in msgs)
+
+
+def test_tune_says_how_much_work_the_slow_step_is_before_starting(store, tmp_path):
+    """`yazses tune` printed one line and then nothing for as long as it took.
+
+    Run against a real corpus (3683 events, ~3055 with audio) it emitted
+    "Loading re-transcription model 'small.en'..." and produced no further output
+    for over eight minutes, at which point it was still going. The model was
+    already cached, so that was the re-transcription itself: thousands of clips
+    through a larger model on CPU, silently.
+
+    Nothing was wrong except that the user cannot tell that from a hang. The
+    count is known before the work starts -- it is a metadata query, no audio
+    loaded -- so there is no reason to withhold it.
+    """
+    audio = np.full(4000, 0.1, dtype=np.float32)
+    for t in ("hello wrold", "anuther won", "thurd mistak"):
+        store.add_event(_ev(raw_text=t), audio=audio)
+    msgs: list[str] = []
+
+    run_tune(
+        store, Config(), tmp_path / "config.toml", tmp_path / "few_shots.toml",
+        do_apply=False, do_retranscribe=True,
+        transcribe_fn=lambda a, sr: "totally different words here",
+        echo=_capture(msgs), confirm=lambda _q: True,
+    )
+    done_at = next(i for i, m in enumerate(msgs) if "Re-transcribed" in m)
+    announced = [
+        i for i, m in enumerate(msgs[:done_at])
+        if "3" in m and "transcrib" in m.lower()
+    ]
+    assert announced, (
+        "the number of clips is known up front and was never announced before the "
+        f"slow step, so a long run is indistinguishable from a hang: {msgs}"
+    )
+
+
+def test_retranscribe_reports_progress_as_it_goes():
+    """The count alone still leaves a silent hour; report movement too."""
+    from yazses.learning.analysis import retranscribe
+
+    class _Rec:
+        def __init__(self, i):
+            self.id = i
+            self.has_audio = True
+            self.retx_text = ""
+            self.raw_text = "x"
+
+    class _Store:
+        def events(self):
+            return [_Rec(i) for i in range(5)]
+
+        def load_audio(self, _i):
+            return (np.zeros(10, dtype=np.float32), 16000)
+
+        def set_retx(self, *_a):
+            pass
+
+    seen: list[tuple[int, int]] = []
+    n = retranscribe(_Store(), lambda a, sr: "y", progress=lambda d, t: seen.append((d, t)))
+    assert n == 5
+    assert seen[0] == (0, 5), f"the total must be known before the first clip: {seen}"
+    assert seen[-1] == (5, 5), f"progress must reach the end: {seen}"

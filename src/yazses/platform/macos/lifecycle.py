@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 from yazses.platform.base import Paths
+from yazses.system.relaunch import Mode, command_for
 
 _LABEL = "com.yazses.daemon"
 
@@ -61,7 +62,7 @@ class MacosLifecycle:
 
     def start_daemon_detached(self) -> None:
         subprocess.Popen(
-            [sys.executable, "-m", "yazses.main"],
+            command_for(Mode.DAEMON),
             start_new_session=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,

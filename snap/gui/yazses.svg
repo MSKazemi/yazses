@@ -1,49 +1,22 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="YazSes">
+  <!-- App icon: the same "Y over a sound-wave" mark the docs header and the CLI
+       banner use, on the brand gradient so it reads on any launcher background.
+       Colours are branding.BRAND_TOP / BRAND_BOTTOM. -->
   <defs>
-    <linearGradient id="bubble" x1="96" y1="120" x2="416" y2="340" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#1f63c8"/>
-      <stop offset="1" stop-color="#17b6d4"/>
-    </linearGradient>
-    <linearGradient id="wave" x1="246" y1="0" x2="372" y2="0" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#7c3aed"/>
-      <stop offset="0.55" stop-color="#3b6fe0"/>
-      <stop offset="1" stop-color="#17b6d4"/>
+    <linearGradient id="yz" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7C4DFF"/>
+      <stop offset="1" stop-color="#4527A0"/>
     </linearGradient>
   </defs>
-
-  <!-- rounded-square background -->
-  <rect x="0" y="0" width="512" height="512" rx="112" fill="#ffffff"/>
-
-  <!-- speech bubble outline with tail -->
-  <path d="M156 122
-           H356
-           a64 64 0 0 1 64 64
-           V270
-           a64 64 0 0 1 -64 64
-           H214
-           l-44 56
-           v-56
-           H156
-           a64 64 0 0 1 -64 -64
-           V186
-           a64 64 0 0 1 64 -64 Z"
-        fill="none" stroke="url(#bubble)" stroke-width="22"
-        stroke-linejoin="round"/>
-
-  <!-- Y (navy) -->
-  <g fill="none" stroke="#15366c" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M150 168 L185 212"/>
-    <path d="M220 168 L185 212"/>
-    <path d="M185 212 L185 288"/>
-  </g>
-
-  <!-- sound waveform (violet -> cyan) -->
-  <g fill="url(#wave)">
-    <rect x="246" y="198" width="15" height="60"  rx="7.5"/>
-    <rect x="277" y="166" width="15" height="124" rx="7.5"/>
-    <rect x="308" y="150" width="15" height="156" rx="7.5"/>
-    <rect x="339" y="180" width="15" height="96"  rx="7.5"/>
-    <rect x="370" y="200" width="15" height="56"  rx="7.5"/>
+  <rect width="48" height="48" rx="10" fill="url(#yz)"/>
+  <path d="M13 12 L24 26 L35 12" stroke="#ffffff" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M24 26 L24 34" stroke="#ffffff" stroke-width="4.4" stroke-linecap="round" fill="none"/>
+  <g stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" opacity="0.92" fill="none">
+    <path d="M8 38 L8 40"/>
+    <path d="M14 35 L14 43"/>
+    <path d="M20 37 L20 41"/>
+    <path d="M28 37 L28 41"/>
+    <path d="M34 35 L34 43"/>
+    <path d="M40 38 L40 40"/>
   </g>
 </svg>

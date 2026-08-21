@@ -60,13 +60,33 @@ jobs:
       - name: Check gh can reach the repository
         run: |
           set -euo pipefail
-          gh repo view --json name -q .name
+          # REST, not GraphQL: `gh repo view --json` is a GraphQL call, while the
+          # `gh release` calls this step clears are REST. On the v2.27.0 tag the
+          # GraphQL endpoint returned 503 while REST was healthy, so the preflight
+          # failed a release that would have completed. Check the transport you
+          # actually use.
+          gh api "repos/${{ github.repository }}" --jq .name
 
-      - name: Wait for every platform to publish
-        # Deliberately generous: the Windows build is the long pole and PyPI
-        # needs a moment to become queryable. Waiting costs nothing; declaring a
-        # release complete before its slowest platform finishes costs the point
-        # of the check.
+      - name: Wait for every channel this tag push publishes
+        # Deliberately generous: the Windows build is the long pole, PyPI needs a
+        # moment to become queryable, and the container image publishes from a
+        # separate workflow. Waiting costs nothing; declaring a release complete
+        # before its slowest platform finishes costs the point of the check, and
+        # naming a channel missing while it is still in flight costs the report
+        # its credibility -- which is what happened to Docker on v2.25.0.
+        #
+        # This polls `--ci-only`: CORE plus the container image, i.e. everything
+        # this tag push publishes on its own. Snap is excluded on purpose -- it
+        # uploads here but reaches `stable` only after store review, so it can
+        # never be waited on.
+        #
+        # It polls THE SAME SCRIPT that renders the verdict below, rather than
+        # counting assets in bash. Those were two implementations of "is this
+        # published" and they drifted exactly as you would expect: this loop was
+        # hardened to require two bundles per platform after v2.20.0 and v2.21.0
+        # shipped single-architecture, while the script it then asked for the
+        # verdict still accepted one of a pair -- so the gate waited for a
+        # stricter condition than the one it went on to certify.
         run: |
           set -euo pipefail
           VERSION="${TAG#v}"
@@ -74,21 +94,11 @@ jobs:
           deadline=$(( SECONDS + 3000 ))   # 50 minutes
 
           while (( SECONDS < deadline )); do
-            if ! names=$(gh release view "$TAG" --json assets -q '.assets[].name' 2>/dev/null); then
-              echo "release $TAG does not exist yet (${SECONDS}s)"
-              sleep 60
-              continue
-            fi
-            deb=$(grep -c '\.deb$' <<<"$names" || true)
-            dmg=$(grep -c '\.dmg$' <<<"$names" || true)
-            exe=$(grep -c '\.exe$' <<<"$names" || true)
-            pypi=$(curl -s -o /dev/null -w '%{http_code}' \
-              "https://pypi.org/pypi/yazses/$VERSION/json")
-            echo "deb=$deb dmg=$dmg exe=$exe pypi=$pypi (${SECONDS}s)"
-            if (( deb > 0 && dmg > 0 && exe > 0 )) && [[ "$pypi" == "200" ]]; then
-              echo "All platforms published."
+            if python3 scripts/check-release-channels.py --version "$VERSION" --ci-only; then
+              echo "Every channel CI publishes has this version."
               break
             fi
+            echo "still in flight (${SECONDS}s)"
             sleep 60
           done
 

@@ -1,11 +1,11 @@
-.TH YAZSES 1 "2026-08-13" "yazses 2.18.2" "User Commands"
+.TH YAZSES 1 "2026-08-18" "yazses 2.28.0" "User Commands"
 .SH NAME
-yazses \- Local, offline voice dictation \(em hold a key, speak, release.
+yazses \- Local, offline-by-default voice dictation \(em hold a key, speak, release.
 .SH SYNOPSIS
 .B yazses
 [\fICOMMAND\fR] [\fIARGS\fR]... [\fIOPTIONS\fR]
 .SH DESCRIPTION
-Local, offline voice dictation \(em hold a key, speak, release.
+Local, offline-by-default voice dictation \(em hold a key, speak, release.
 Hold a key anywhere on the desktop, speak, release it, and the transcribed text is injected into whatever application is focused. Runs fully offline after the initial model download.
 .SH COMMANDS
 The complete command tree. For grouped, example-rich help run \fByazses \-\-help\fR or \fByazses \fICOMMAND\fR \-\-help\fR.
@@ -166,6 +166,20 @@ Don't auto-install the feature's optional deps.
 .TP
 \fByazses features info\fR \fINAME\fR
 Describe a capability \(em what it does, a usage example, and how to toggle it.
+.TP
+\fByazses features reset\fR
+Restore every capability to the state a fresh install ships with.
+.RS
+.TP
+\fB\-\-yes, \-y\fR
+Skip the confirmation prompt.
+.TP
+\fB\-\-dry\-run\fR
+List what would change and write nothing.
+.TP
+\fB\-\-no\-install\fR
+Don't auto-install optional deps for what it turns on.
+.RE
 .SS "yazses fileopen"
 Open a file by voice: fuzzy matches your spoken query against files in a directory.
 .br
@@ -248,6 +262,8 @@ Flag the last dictation as a misrecognition (a learning signal).
 \fB\-\-correction, \-c\fR
 What you actually said (optional).
 .RE
+.SS "yazses mcp-server"
+Expose YazSes to another agent over MCP, on stdin/stdout (ADR-020).
 .SS "yazses meeting"
 Hands-free meeting recording with who-said-what speaker labels + notes.
 .TP
@@ -309,10 +325,10 @@ Write the recommended vad_threshold to config.
 Manage SLM intent-routing models (download / list).
 .TP
 \fByazses model download\fR \fIMODEL_ID\fR
-Download a GGUF model for Tier 2 SLM intent routing.
+Download a model: a speech-to-text checkpoint, or a GGUF for intent routing.
 .TP
 \fByazses model list\fR
-List available SLM models and their download status.
+List available models (speech-to-text and SLM) and their status.
 .SS "yazses outline"
 Build a nested outline incrementally and render it to Markdown/OPML \(em offline.
 .TP
@@ -502,10 +518,10 @@ Tag who said what with local speaker models (needs the diarization extra).
 Force an exact speaker count (0 = auto-detect).
 .TP
 \fB\-\-min\-speakers\fR
-Lower bound on the auto-detected speaker count.
+IGNORED by the shipped sherpa diarizer (only the unshipped pyannote adapter reads it) \(em the run warns and continues. Use --speakers to constrain the count.
 .TP
 \fB\-\-max\-speakers\fR
-Upper bound on the auto-detected speaker count.
+Force exactly this many speakers on the shipped diarizer (same as --speakers). 0 = auto-detect.
 .TP
 \fB\-\-names\fR
 Comma list mapped to speakers in order of first appearance: 'Alice,Bob,Carol'.
@@ -541,9 +557,12 @@ Review and apply proposals interactively.
 .TP
 \fB\-\-retranscribe, \-\-no\-retranscribe\fR
 Re-transcribe captured audio with a larger model to find errors.
+.TP
+\fB\-\-limit\fR
+Re-transcribe only the N most recent clips (0 = all). A full corpus can take an hour; this is the middle ground between that and --no-retranscribe.
 .RE
 .SS "yazses update"
-Check for a newer YazSes and update it (snap / uv tool / pipx / pip).
+Check for a newer YazSes and update it (snap / uv / pipx / pip / Windows).
 .RS
 .TP
 \fB\-\-check\fR

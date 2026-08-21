@@ -81,7 +81,8 @@ Two features help when the CPU is busy — both are **off by default**:
 
 - **Adaptive Latency Governor (`latency`)** — keeps dictation responsive when your
   CPU is loaded and lets it run faster when the machine is idle, by adapting decode
-  behaviour to current load (`[latency] high_load = 85.0`, `low_load = 40.0`):
+  behaviour to current load (`[latency] high_load = 85.0`, `low_load = 40.0`).
+  **Planned — not yet wired**, so `features enable` refuses it for now:
 
   ```bash
   yazses features enable latency

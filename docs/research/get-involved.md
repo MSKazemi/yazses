@@ -1,6 +1,6 @@
 ---
-title: Work with YazSes — student projects, research collaboration and industry pilots
-description: YazSes is an open research platform for voice-first human-computer interaction. Thesis- and course-sized projects with open issues, swappable interfaces for speech, gaze, diarization and EMG, an offline encrypted corpus that simplifies ethics review, and how to cite the project.
+title: "Work with YazSes: student and research collaboration"
+description: An open research platform for voice-first HCI — thesis-sized projects with open issues, swappable speech, gaze and EMG seams, and how to cite the project.
 ---
 
 # Work with YazSes: students, researchers, industry
@@ -100,7 +100,8 @@ conversation we want to have.
   produces speaker-labelled transcripts and minutes without audio ever
   reaching a third party.
 - **Scriptable deployment** — plain TOML config, a CLI for everything,
-  systemd/launchd/SCM lifecycle, and (coming) a container image for the
+  systemd/launchd lifecycle (Windows autostarts per-user; there is no Windows
+  Service backend yet), and (coming) a container image for the
   headless transcription pipeline ([#76](https://github.com/MSKazemi/yazses/issues/76)).
 - Pilots and integration questions: open a Discussion or contact the
   maintainer (see the repository profile). Honest expectations: this is an

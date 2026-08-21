@@ -49,11 +49,11 @@ Related capabilities worth knowing about:
 
 | Capability | Enable with | For |
 |---|---|---|
-| Hesitation-Hold Endpointing | `yazses features enable hesitation` | Not being cut off mid-sentence when you pause |
-| Breath-Paced Dictation | `yazses features enable breath` | Pacing around breath, not clock timeouts |
+| Hesitation-Hold Endpointing | `yazses features enable hesitation` *(planned — not yet wired)* | Not being cut off mid-sentence when you pause |
+| Breath-Paced Dictation | `yazses features enable breath` *(planned — not yet wired)* | Pacing around breath, not clock timeouts |
 | Whisper-Aware Mode | `yazses features enable whispermode` | Speaking quietly, or with limited volume |
-| Involuntary-Vocalization Excision | `yazses features enable involuntary` | Filtering involuntary sounds |
-| Vocal-Strain Guard | `yazses features enable voicehealth` | Warning before you overuse your voice |
+| Involuntary-Vocalization Excision | `yazses features enable involuntary` *(planned — not yet wired)* | Filtering involuntary sounds |
+| Vocal-Strain Guard | `yazses features enable voicehealth` *(planned — not yet wired)* | Warning before you overuse your voice |
 
 ## Calibrating to your voice
 
@@ -78,7 +78,7 @@ of the pipeline is unchanged:
 - **EMG muscle sensor.** A USB muscle sensor over serial can act as the
   hold-to-talk trigger, so a small muscle contraction starts and stops dictation.
   Configure it under `[emg]` with the serial device path.
-- **Hands-Free Auto-Stop** (`yazses features enable autostop`) ends the burst on
+- **Hands-Free Auto-Stop** (`yazses features enable autostop` *(planned — not yet wired)*) ends the burst on
   silence rather than on key release.
 - **Wake-word activation** exists but is marked experimental and is not
   recommended yet — it is listed honestly as such in `yazses features`.
@@ -99,7 +99,8 @@ reader, and Interruptible Proofreading.
 ## Driving the pointer by voice
 
 Where there is no accessibility tree to target, a numbered grid overlay lets you
-move and click by voice:
+move and click by voice. **Planned — designed and tested, not yet wired**, so
+`features enable` refuses it for now:
 
 ```sh
 yazses features enable mousegrid

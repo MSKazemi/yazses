@@ -12,6 +12,10 @@ it only cross-checks the files against each other, never the network, so it runs
 in the same fully-offline suite as everything else. Checking the declared version
 against the *actually released* asset needs the network and stays where it
 belongs: `scripts/refresh-package-manifests.py --check`, run at release time.
+
+Scope note: "manifest" here means a file that resolves a **download** — a URL and
+a checksum. Flatpak's AppStream metainfo is release *history* and is excluded; see
+`_all_versions`.
 """
 from __future__ import annotations
 
@@ -82,15 +86,41 @@ def _winget_versions() -> dict[str, str]:
 
 
 def _all_versions() -> dict[str, str]:
+    """The manifests that resolve a **download**: a URL plus a checksum.
+
+    `flatpak/metainfo.xml` is deliberately **not** here. Its `<releases>` block is
+    AppStream release *history* for a software centre — it carries no asset URL and
+    no checksum (its only URLs are homepage, bugtracker, vcs and help), and Flathub
+    builds from the manifest rather than from this file. So it cannot "fetch the
+    wrong asset", which is the whole failure this test exists to prevent.
+
+    Keeping it in this set made two guards contradict each other, and the v2.21.0
+    release is where they collided: `test_flatpak_metainfo` requires metainfo to
+    track `pyproject`, while these five legitimately lag it. `packaging/README.md`
+    states that lag as intended — *"between a release-prep bump and the assets being
+    published those two legitimately differ, so such a test would fail on every
+    release commit and get disabled."* Grouping them forced every checksummed
+    manifest to be bumped at the moment of the release commit, which is exactly the
+    ahead-of-release state that makes Homebrew and winget refuse the download.
+    """
     versions = {
         "arch/PKGBUILD": _arch_version(),
         "scoop/yazses.json": _scoop_version(),
         "chocolatey/yazses.nuspec": _chocolatey_version(),
         "homebrew/yazses.rb": _homebrew_version(),
-        "flatpak/metainfo.xml": _flatpak_version(),
     }
     versions.update(_winget_versions())
     return versions
+
+
+def test_the_release_history_may_lead_the_download_manifests() -> None:
+    """AppStream history tracks the version being released; checksums follow it.
+
+    Pinned because the natural-looking simplification — "everything in packaging/
+    agrees" — deadlocks the release it is meant to protect.
+    """
+    assert "flatpak/metainfo.xml" not in _all_versions()
+    assert SEMVER.match(_flatpak_version())
 
 
 def test_every_manifest_declares_the_same_version() -> None:

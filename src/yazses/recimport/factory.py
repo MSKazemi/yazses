@@ -60,6 +60,67 @@ def diarization_status(config) -> dict:
     }
 
 
+def diarization_advice(status: dict) -> str | None:
+    """Why speaker labels are unavailable, and **the one command that fixes it**.
+
+    Returns None when nothing is wrong — labels are ready, or were never requested.
+
+    This exists because `diarization_status` already distinguishes *"the Python
+    package is missing"* from *"the model files are missing"*, and both callers threw
+    that distinction away at the point of giving advice:
+
+    * `yazses meeting status` printed the cause correctly and then recommended
+      ``yazses transcribe --download-models`` **for both**. With the extra missing
+      that downloads ~45 MB and changes nothing, because the thing that is absent is
+      an importable module — so the user pays for a download and gets the identical
+      message back.
+    * the daemon's `meeting start` warning named both remedies unconditionally, which
+      is better but still asks someone to do a step they cannot yet act on.
+
+    So the rule is **name the next action, not the whole path**. When the extra is
+    missing, the models are irrelevant until it is installed; `features enable meeting`
+    is the one command, and it fetches nothing the user has to think about. Mentioning
+    a second step they cannot take yet is how the wrong one gets attempted first.
+
+    Deliberately one string returned to one caller rather than a dict of parts: two
+    surfaces phrasing the same fault differently is exactly what this replaces.
+    """
+    if not status.get("requested") or status.get("ready"):
+        return None
+
+    backend = status.get("backend", "sherpa")
+    if backend not in ("sherpa", "pyannote"):
+        # `[meeting] diarize` is on but `backend` names nothing that can diarize.
+        # No install fixes that; the config does.
+        return (
+            f"Speaker labels are on but the backend is {backend!r}, which cannot "
+            "produce them. Set `[meeting] backend` to \"sherpa\" (or \"pyannote\")."
+        )
+
+    if not status.get("extra_installed"):
+        return (
+            "Speaker labels are on but the diarization extra is not installed, so "
+            "transcripts will not be attributed. Install it with "
+            "`yazses features enable meeting` — the speaker models are fetched after."
+        )
+
+    if backend == "pyannote":
+        # Its pipeline is a *gated* download, so "not cached" may mean the terms were
+        # never accepted rather than that a fetch was never attempted. Saying "run
+        # this" would be a prediction; naming both possibilities is the true statement.
+        return (
+            "Speaker labels are on but the pyannote pipeline is not in your Hugging "
+            "Face cache, so transcripts will not be attributed. It downloads on first "
+            "use if you have accepted the model's conditions on huggingface.co."
+        )
+
+    return (
+        "Speaker labels are on but the speaker models are not downloaded, so "
+        "transcripts will not be attributed. Fetch them with "
+        "`yazses transcribe --download-models`."
+    )
+
+
 def _pyannote_model_cached() -> bool:
     """True when the gated pyannote pipeline is already in the Hugging Face cache.
 

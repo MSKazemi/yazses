@@ -18,6 +18,7 @@ import re
 from pathlib import Path
 
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 SNAPCRAFT = ROOT / "snap" / "snapcraft.yaml"
@@ -112,3 +113,88 @@ def test_artifact_name_is_arch_qualified() -> None:
         f"artifact name {upload.group(1)!r} is not arch-qualified — the two matrix "
         "jobs would collide"
     )
+
+
+def test_the_publish_step_cannot_hang_for_the_whole_job() -> None:
+    """A hung upload must fail loudly, not consume the job budget in silence.
+
+    v2.20.0 and v2.21.0 both built a good snap and then stalled in
+    `Publish to Snap Store` until the 60-minute job timeout killed it. GitHub
+    reports that outcome as **cancelled**, which reads like a human pressed stop —
+    so two releases went by with `latest/stable` sitting on 2.19.0 and nothing in
+    the run list looking like a failure.
+
+    This module already exists because a silent non-publish "hid a stuck-at-1.2.0
+    store for 9 releases" (snap.yml's own words). A hang is the same failure
+    wearing a different hat: the build is fine, the store never gets it, and the
+    signal is indistinguishable from noise. A step-level timeout shorter than the
+    job's turns it back into an error someone will see.
+    """
+    text = WORKFLOW.read_text(encoding="utf-8")
+    start = text.index("- name: Publish to Snap Store")
+    # The step ends where the next one begins, or at end of file.
+    nxt = text.find("\n      - name:", start + 1)
+    step = text[start:nxt if nxt != -1 else len(text)]
+
+    match = re.search(r"^\s*timeout-minutes:\s*(\d+)\s*$", step, re.M)
+    assert match, (
+        "the Snap Store publish step has no timeout-minutes, so a stalled upload "
+        "runs until the job's own limit and is reported as 'cancelled' rather than "
+        "as the failure it is"
+    )
+    step_limit = int(match.group(1))
+
+    job_match = re.search(r"^\s{4}timeout-minutes:\s*(\d+)\s*$", text, re.M)
+    assert job_match, "the snap job no longer declares a timeout"
+    assert step_limit < int(job_match.group(1)), (
+        f"the publish step's timeout ({step_limit}m) must be shorter than the job's "
+        f"({job_match.group(1)}m), or the job limit fires first and the outcome is "
+        f"'cancelled' again"
+    )
+
+
+def test_a_publish_timeout_explains_itself() -> None:
+    """A bare "timed out after 20 minutes" points at the wrong half of the problem.
+
+    Measured on run 31906962075: `snapcraft upload` transfers the file, the store
+    accepts the credentials, and then it answers `Status: processing` 971 times —
+    about once a second for nineteen unbroken minutes. The upload succeeds; the
+    store's review of the revision is what does not finish.
+
+    Without that said out loud, the next person reads a red publish step as broken
+    credentials and goes to re-export a login that is demonstrably working. This is
+    the same class of defect as the silent stall it replaced: the run reports
+    something true and useless.
+    """
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    steps = [s for job in workflow["jobs"].values() for s in job.get("steps", [])]
+
+    publish = [s for s in steps if s.get("id") == "publish"]
+    assert publish, "the publish step needs an `id` for a later step to condition on"
+
+    explainers = [
+        s for s in steps
+        if "steps.publish.outcome == 'failure'" in str(s.get("if", ""))
+    ]
+    assert explainers, (
+        "nothing explains a failed publish. A timeout here means the revision is "
+        "queued for store review, not that the pipeline is broken."
+    )
+
+    body = " ".join(str(s.get("run", "")) for s in explainers).lower()
+    for cue in ("processing", "review", "latest/stable"):
+        assert cue in body, f"the explanation never mentions {cue!r}"
+
+
+def test_the_explanation_does_not_turn_a_failed_publish_green() -> None:
+    """The job must still fail. Nothing reached `latest/stable`, and a green workflow
+    that published nothing is precisely the failure this area exists to prevent —
+    two releases went out that way before the timeout was added."""
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    for job in workflow["jobs"].values():
+        for step in job.get("steps", []):
+            if step.get("id") == "publish":
+                assert "continue-on-error" not in step, (
+                    "the publish step must not swallow its own failure — explaining a "
+                    "failure is not the same as tolerating it"
+                )

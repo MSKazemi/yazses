@@ -23,9 +23,12 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.17.0](v2.17.0.md)** — what real use found in a day: streaming dictation could
-delete text it had never typed, a fresh snap install never mentioned the interface its
-hotkey needs, and `yazses start` never survived a reboot. Install it with:
+**[YazSes 2.29.0](v2.29.0.md)** — forty-three things that were quietly wrong. Sixty-two
+commits, one feature, and the rest corrections that share a shape: they produced no error,
+they produced a confident wrong answer. Diagnostics that certified a microphone hearing
+nobody; text transforms that cut "Firstly" to "ly" and turned "an FBI agent" into "a FBI
+agent"; commands that reported success and changed nothing.
+Install it with:
 
 ```sh
 pipx install yazses          # any OS, Python ≥ 3.11
@@ -34,6 +37,21 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.29.0](v2.29.0.md) — 43 corrections found mostly by running the product: `verify` certified a mic hearing nobody, `reflow` cut "Firstly" to "ly", `redact_patterns` scrubbed four of six fields, and a destructive-command guard could never fire.
+- [v2.28.0](v2.28.0.md) — when something breaks, YazSes now says what and what to do, and can prepare a bug report without sending one; a critical toast that outlived the process that raised it; a report that could carry your personal dictionary.
+- [v2.27.0](v2.27.0.md) — the docs described a YazSes that does not exist: the wrong Linux hotkey, a hidden Intel Mac build, eight pages offering features that cannot be enabled; plus a status line that says whether dictation is working.
+- [v2.26.0](v2.26.0.md) — a mic that hears you but yields nothing now trips the guard; `default` is named as the route it is; `gitvoice` no longer truncates a branch name before deleting it.
+- [v2.25.1](v2.25.1.md) — nine fixes, one theme: commands that printed something confident and wrong — a mic check suppressed when it mattered, silence transcribed as a word, a corpus size 430x low.
+- [v2.25.0](v2.25.0.md) — confident answers that were wrong: an empty transcript reported as success; speaker flags that invented or ignored counts; a privacy guard that answered differently per Python.
+- [v2.24.0](v2.24.0.md) — two privacy controls that never ran; a report that leaked your account name; a doctor that called a stale daemon healthy.
+- [v2.23.0](v2.23.0.md) — the overlay ignored your desktop's reduce-motion setting; the mic guard's question could only be answered with a pointer.
+- [v2.22.0](v2.22.0.md) — the Intel `.dmg` and ARM64 `.exe` exist for the first time; five launch paths that could not work in a bundle; the macOS download halves.
+- [v2.21.0](v2.21.0.md) — guards that passed by checking nothing; a crashed daemon that stayed dead on Windows; `yazses features` prices what it offers.
+- [v2.20.0](v2.20.0.md) — the Windows release that works: model download explains itself, the CLI is reachable, the icon ships.
+- [v2.19.0](v2.19.0.md) — About / Help / Check for updates in the tray; three commands rejoin the CLI reference; AUR + Fedora packages.
+- [v2.18.2](v2.18.2.md) — cutting a release could not publish to PyPI; the manifest gate deadlocked on its own tag.
+- [v2.18.1](v2.18.1.md) — the resemblyzer and pyannote backends ship; pyannote's default-on telemetry disabled; eleven Windows defects.
+- [v2.18.0](v2.18.0.md) — Qt becomes the `desktop` extra: a headless install is ~650 MB lighter.
 - [v2.17.0](v2.17.0.md) — streaming no longer deletes text it never typed; snap names both interfaces; autostart on start.
 - [v2.16.0](v2.16.0.md) — the snap becomes whole: bundled feature libraries; honest refusal for what cannot fit.
 - [v2.15.1](v2.15.1.md) — `err` is a verb (contract 4.0.0 → 5.0.0); mypy 73 → 0.

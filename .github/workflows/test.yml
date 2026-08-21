@@ -120,6 +120,152 @@ jobs:
       - name: Run tests
         run: uv run pytest tests/ -v
 
+  gui:
+    # The windowed surfaces — settings window, tray, overlay — on the two OSes
+    # most users run them on.
+    #
+    # PySide6 is deliberately not a base dependency (648 MB of Qt), so `uv sync`
+    # never installs it and EVERY Qt test in the suite is skipped by the job
+    # above. The result was that the settings window's own tests had never
+    # executed anywhere, and running them for the first time found two defects
+    # they were written to catch: they hung forever on any machine with a daemon
+    # running, and a partly-failed Apply reported itself as a clean save. A test
+    # that is always skipped is not a test.
+    #
+    # Ubuntu + Windows only: macOS adds a third Qt build for the same code paths
+    # and the failures being caught are Qt/logic, not platform. Runs offscreen,
+    # so no display server is needed. `--no-skip-gui` does not exist — instead
+    # the run fails if PySide6 is missing, because a silent skip here would
+    # restore exactly the hole this job closes.
+    name: GUI (Qt) — ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libportaudio2 \
+            libegl1 libgl1 libxkbcommon0 libdbus-1-3 libfontconfig1 \
+            libxcb-cursor0 libxcb-xinerama0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+
+      - name: Install dependencies (with Qt)
+        run: uv sync --extra overlay
+
+      - name: PySide6 must actually be importable
+        # Without this the Qt tests skip and the job passes green having tested
+        # nothing — the precise failure mode this job exists to end.
+        run: uv run python -c "import PySide6; print(PySide6.__version__)"
+
+      - name: Run the windowed-surface tests
+        # One run, not two. `-rs` lists skip reasons in the same output the
+        # assertions produce, and `pipefail` keeps pytest's exit code from being
+        # swallowed by `tee` — without it a red suite would report success and
+        # only the skip check below would ever fail.
+        #
+        # `python -m pytest`, not `uv run pytest`: it puts the project on
+        # sys.path the way AGENTS.md/CLAUDE.md specify for this repo.
+        shell: bash
+        run: |
+          set -o pipefail
+          uv run python -m pytest -v -rs \
+            tests/test_settingsui_window.py \
+            tests/test_settingsui_help.py \
+            tests/test_settingsui_search.py \
+            tests/test_settingsui_model.py \
+            tests/test_settingsui_controller.py \
+            tests/test_settingsui_controls.py \
+            tests/test_settingsui_restart.py \
+            tests/test_settingsui_deps.py \
+            tests/test_settingsui_launch.py \
+            tests/test_gui_entry_points.py \
+            tests/test_tray_settings_parity.py \
+            tests/test_tray_about.py 2>&1 | tee gui-tests.txt
+
+      - name: No Qt test may be silently skipped
+        # A skip here means a guard stopped guarding — which is the whole reason
+        # this job exists, since the suite above was skipped in CI for its entire
+        # life and nobody could see it in a green run.
+        shell: bash
+        run: |
+          if grep -q "^SKIPPED" gui-tests.txt; then
+            echo "::error::A Qt test was skipped in the GUI job — it guards nothing here."
+            grep "^SKIPPED" gui-tests.txt
+            exit 1
+          fi
+          echo "No Qt test was skipped."
+
+  extras:
+    # The same hole the GUI job closed, still open for four other extras.
+    #
+    # `uv sync` installs base dependencies only, so every test guarded by an
+    # optional extra skips in the main job — and until this job existed, in
+    # *every* job. Fourteen tests were reporting green while executing nothing:
+    # eleven in `test_han_script.py` behind `chinese`, and one each behind
+    # `notes`, `diarization-pyannote` and `voiceprint-resemblyzer`. The Qt case
+    # proved what that costs: the settings-window tests had never run anywhere,
+    # and their first real execution immediately found two shipped defects.
+    #
+    # This covers the extras whose cost is trivial. `chinese` is a single
+    # pure-Python package (`opencc-python-reimplemented`), and installing it
+    # takes `test_han_script.py` from 30 passed / 11 skipped to 41 passed —
+    # eleven assertions about Simplified vs Traditional output that had never
+    # executed, on a code path a user in Taipei hits on every utterance.
+    #
+    # DELIBERATELY NOT COVERED, and named so the gap is visible rather than
+    # forgotten: `notes`/`slm` (llama-cpp-python compiles a C++ inference engine),
+    # `diarization-pyannote` and `voiceprint-resemblyzer` (both pull torch, ~2 GB).
+    # Those three tests stay skipped everywhere. That is a real gap — it is
+    # recorded here instead of being hidden behind a green tick.
+    #
+    # Linux only: these extras are pure Python or platform-independent, and the
+    # OS matrix in the main job already covers the code around them.
+    name: Optional extras
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+
+      - name: Install dependencies (with the light optional extras)
+        run: uv sync --extra chinese
+
+      - name: The extra must actually be importable
+        # Without this the guarded tests skip and the job passes green having
+        # tested nothing — the precise failure mode this job exists to end.
+        run: uv run python -c "import opencc; print('opencc ok')"
+
+      - name: Run the tests that only exist when the extra is installed
+        shell: bash
+        run: |
+          set -o pipefail
+          uv run python -m pytest -v -rs tests/test_han_script.py 2>&1 | tee extras-tests.txt
+
+      - name: No extra-guarded test may be silently skipped
+        shell: bash
+        run: |
+          if grep -q "^SKIPPED" extras-tests.txt; then
+            echo "::error::A test guarded by the 'chinese' extra was skipped — it guards nothing here."
+            grep "^SKIPPED" extras-tests.txt
+            exit 1
+          fi
+          echo "No extra-guarded test was skipped."
+
   freebsd:
     # Runs the suite on a REAL FreeBSD VM, not a simulated `sys.platform`.
     #
@@ -145,26 +291,78 @@ jobs:
         uses: vmactions/freebsd-vm@83b151f58c6047089f4c80eb5ba2039d158ce093 # v1.5.3
         with:
           usesh: true
-          # python311 = the floor this project supports; py311-sqlite3 is a separate
-          # port on FreeBSD and the learning corpus needs it. portaudio backs
-          # sounddevice, which dlopen's it at import time.
+          # Derived, not pinned. The first run of this job found two independent
+          # reasons the obvious spelling cannot work:
+          #   * `py311-pip` is not in the binary repo — 3.12 is the ports default
+          #     and pip is built only for the default flavour. `py311-sqlite3`
+          #     does exist, which makes the gap look arbitrary until you check.
+          #   * `lang/python311` configures `--without-ensurepip`, so even with the
+          #     right interpreter `python -m venv` cannot bootstrap pip itself.
+          # So: install the DEFAULT python, ask it which flavour prefix it is, and
+          # install pip/sqlite3 for exactly that. This survives the ports default
+          # moving 3.12 → 3.13, and it exercises the interpreter a FreeBSD user
+          # actually gets rather than one we pinned. portaudio backs sounddevice,
+          # which dlopen's it at import time.
+          #
+          # PyPI ships no FreeBSD wheels, so anything with a compiled extension is
+          # a source build here. Two of them are why this job could not finish, and
+          # both were measured rather than guessed:
+          #
+          #   * `cryptography` builds through maturin and needs `rust`. Without it
+          #     the job dies on `metadata-generation-failed` before a single test.
+          #     With it the build takes ~5 minutes. FreeBSD's own binary package
+          #     would be faster, but ports carries py312-cryptography 48.0.1
+          #     against our `cryptography>=50.0.0`, so pip rejects it and builds
+          #     anyway — re-check when ports catches up.
+          #   * `numpy` has no wheel either, and compiling it from the 20 MB sdist
+          #     ran for 38 minutes and hit `timeout-minutes` without finishing.
+          #     py312-numpy is 2.4.6, which satisfies our `numpy>=2.4.6` exactly,
+          #     so the binary port removes that build entirely. Same for
+          #     sounddevice (0.5.5 vs `>=0.5.5`).
+          #
+          # Install the compiled ones from pkg and let the `--system-site-packages`
+          # venv below find them, so pip never reaches for a source build.
           prepare: |
-            pkg install -y python311 py311-sqlite3 py311-pip portaudio
+            pkg install -y python3 portaudio rust
+            PYV=$(python3 -c 'import sys; print(f"{sys.version_info[0]}{sys.version_info[1]}")')
+            python3 -V
+            pkg install -y "py${PYV}-pip" "py${PYV}-sqlite3" \
+                           "py${PYV}-numpy" "py${PYV}-sounddevice"
           run: |
             set -e
-            python3.11 -V
-            # A venv, not --break-system-packages: FreeBSD's python311 port may
-            # ship a PEP 668 EXTERNALLY-MANAGED marker, and a venv is correct
-            # either way. `dev` is a PEP 735 dependency-group, NOT an extra, so
-            # `.[dev]` does not exist — the test deps are named explicitly.
-            python3.11 -m venv /tmp/venv
+            python3 -V
+            # `--without-pip --system-site-packages`: the port is built
+            # `--without-ensurepip`, so a plain venv cannot create pip at all.
+            # Borrowing the pkg-installed pip through system-site-packages is the
+            # FreeBSD idiom, and installs still land in the venv because
+            # VIRTUAL_ENV points here. `dev` is a PEP 735 dependency-group, NOT an
+            # extra, so `.[dev]` does not exist — the test deps are named explicitly.
+            python3 -m venv --without-pip --system-site-packages /tmp/venv
             . /tmp/venv/bin/activate
-            python -m pip install --upgrade pip
-            python -m pip install -e .
-            python -m pip install pytest pytest-mock hypothesis
-            # The platform-selection tests are the point of this job: they must
-            # run natively, where sys.platform really is freebsdN rather than
-            # monkeypatched.
+            # `--no-deps` is the whole reason this job can finish. A plain
+            # `pip install -e .` resolves `faster-whisper`, which needs
+            # `ctranslate2`, and PyPI has **neither a FreeBSD wheel nor an sdist**
+            # for it — pip reports `from versions: none`, so there is nothing to
+            # build from either. Every run of this job failed there, for weeks,
+            # before a single test executed. A check that can only ever be red
+            # teaches people to stop reading CI, which costs more than the
+            # coverage it was meant to add.
+            #
+            # The coverage this job actually exists for does not need any of that.
+            # `platform/bsd/` is composed from the Linux backend, and the claim
+            # under test is that FreeBSD really selects and builds it — that needs
+            # `sys.platform` to genuinely be `freebsdN`, not the transcription
+            # stack. Measured: the 48 tests below pass with numpy, platformdirs
+            # and typer alone.
+            python -m pip install -e . --no-deps
+            python -m pip install platformdirs typer pytest pytest-mock hypothesis
+            # The point of the job: platform selection, natively, where
+            # sys.platform really is freebsdN rather than monkeypatched. This
+            # also covers the OS-independent commands (reflow, table, shellpipe,
+            # transcribe) that must work on a platform with no backend at all.
             python -m pytest tests/test_platform_bsd_and_fallback.py -v
-            # Then the whole suite, to find out what else BSD breaks.
-            python -m pytest tests/ -q
+            # Deliberately NOT `pytest tests/` — most of the suite imports the
+            # transcription stack, which cannot be installed here at all. Running
+            # it would re-introduce the permanent red this job just stopped being.
+            # Widening the FreeBSD surface needs a FreeBSD build of ctranslate2
+            # upstream, not a change here.

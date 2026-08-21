@@ -20,6 +20,7 @@ from __future__ import annotations
 import ipaddress
 import json
 import logging
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -76,7 +77,20 @@ def is_loopback_endpoint(endpoint: str) -> bool:
     if host.lower() in {"localhost", "localhost.localdomain"}:
         return True
     try:
-        return ipaddress.ip_address(host).is_loopback
+        # A distinct name: `parsed` above is the split URL, and reusing it for an
+        # address made this privacy-critical function read as though one variable
+        # held two unrelated types.
+        addr = ipaddress.ip_address(host)
+        # `::ffff:127.0.0.1` reaches 127.0.0.1 on this machine, and CPython only
+        # started saying so in 3.13: on 3.11 and 3.12 `is_loopback` is False for
+        # IPv4-mapped addresses. This project supports 3.11 through 3.14, so relying on that
+        # made a privacy guard answer differently per interpreter -- an endpoint
+        # accepted on one runner and refused on another, which CI caught only
+        # because the matrix spans the change. Resolve the mapping ourselves.
+        mapped = getattr(addr, "ipv4_mapped", None)
+        if mapped is not None:
+            return bool(mapped.is_loopback)
+        return bool(addr.is_loopback)
     except ValueError:
         # A name we cannot classify without DNS. Not local as far as we know.
         return False
@@ -124,9 +138,33 @@ def _critical_tokens(text: str) -> list[str]:
     return out
 
 
+def _token_present(tok: str, output: str) -> bool:
+    """Is *tok* still in *output* -- exactly, if it carries a number. Pure.
+
+    A plain substring test is right for a word and wrong for a number. "API" surviving as
+    "APIs" is legitimate reformatting; "100" surviving as "1000" is the model changing an
+    amount by an order of magnitude, and ``"100" in "1000"`` is True, so it passed the very
+    guard meant to stop it:
+
+        "transfer 100 dollars"  ->  "Transfer 1000 dollars."   accepted
+        "upgrade to v2.1"       ->  "Upgrade to v2.10."        accepted
+
+    So a token containing a digit must match on a boundary; anything else keeps the
+    lenient test, because tightening it would reject ordinary rewrites that pluralise or
+    punctuate a word.
+    """
+    if any(c.isdigit() for c in tok):
+        # The lookahead must NOT exclude a following ".": a trailing sentence period is
+        # the commonest thing this cleanup adds, and excluding it rejected
+        # "deploy at 0900" -> "Deploy at 0900." -- a correct rewrite. The digit case it
+        # was meant to catch ("v2.1" -> "v2.10") is already covered by \w.
+        return re.search(rf"(?<![\w.]){re.escape(tok)}(?!\w)", output) is not None
+    return tok in output
+
+
 def _tokens_preserved(input_text: str, output: str) -> bool:
     """True if every critical token from the input appears in the output."""
-    return all(tok in output for tok in _critical_tokens(input_text))
+    return all(_token_present(tok, output) for tok in _critical_tokens(input_text))
 
 
 # ---------------------------------------------------------------------------

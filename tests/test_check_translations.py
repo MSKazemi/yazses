@@ -28,8 +28,9 @@ def _load():
 
 ct = _load()
 
-# The English source: it names the other locales but not itself.
-EN = """**Read this in other languages:** English · [Русский](README.ru.md)
+# The English source: it lives at the repo root and names the other locales, which
+# live under `docs/<locale>/`, but not itself.
+EN = """**Read this in other languages:** **English** · [Русский](docs/ru/index.md)
 
 Install it:
 
@@ -43,9 +44,14 @@ See https://github.com/MSKazemi/yazses for more.
 
 # A translation: same commands, translated prose, and a link *back* to English.
 # Tests that mutate a translation start from this, not from EN.
-TR = """**Читать на других языках:** [English](README.md) · Русский
+#
+# The switcher opens in English in every locale — it is navigation for a reader who
+# cannot yet read this page — and the link home is absolute, because a translation
+# at `docs/ru/index.md` renders on both GitHub and the docs site and only one of
+# those can reach a repo-root file relatively.
+TR = f"""**Read this in other languages:** [English](../index.md) · Русский
 
-Установите:
+Перевод [README.md]({ct.ENGLISH_README}).
 
 ```bash
 yazses doctor
@@ -55,15 +61,19 @@ yazses start
 Смотрите https://github.com/MSKazemi/yazses для подробностей.
 """
 
+#: A path that really exists, so the switcher-resolution check has a real tree to
+#: resolve against — `../index.md` and `../de/index.md` are files, not fixtures.
+RU = ROOT / "docs" / "ru" / "index.md"
+
 
 def _locale(**kw):
-    defaults = dict(path=ROOT / "README.ru.md", locale="ru", source_sha="abc1234",
+    defaults = dict(path=RU, locale="ru", source_sha="abc1234",
                     scope="full", status="active")
     return ct.Locale(**{**defaults, **kw})
 
 
-def _check(text, locale=None, existing=("README.md", "README.ru.md")):
-    return ct.check_locale(locale or _locale(), text, EN, existing_files=set(existing))
+def _check(text, locale=None, known=(RU,)):
+    return ct.check_locale(locale or _locale(), text, EN, known_locales=set(known))
 
 
 # ---- metadata parsing ------------------------------------------------------
@@ -115,12 +125,13 @@ def test_extra_command_invented_by_a_translation_is_reported():
 
 
 def test_missing_link_back_to_english_is_reported():
-    text = TR.replace("[English](README.md)", "English")
-    assert any("no markdown link back" in p for p in _check(text).problems)
+    text = TR.replace(ct.ENGLISH_README, "the English README")
+    assert any("no link back" in p for p in _check(text).problems)
 
 
 def test_dead_language_switcher_link_is_reported():
-    text = TR.replace("[English](README.md)", "[English](README.gone.md)") + "\n[English](README.md)\n"
+    """A switcher pointing at a language directory that does not exist."""
+    text = TR.replace("[English](../index.md)", "[English](../gone/index.md)")
     assert any("does not exist" in p for p in _check(text).problems)
 
 
@@ -140,7 +151,7 @@ def test_draft_without_a_visible_banner_is_reported():
 
 
 def test_draft_with_a_visible_banner_is_accepted():
-    text = TR.replace("Установите:", "> Это ЧЕРНОВИК (draft), ещё не проверен.\n\nУстановите:")
+    text = TR.replace("```bash", "> Это ЧЕРНОВИК (draft), ещё не проверен.\n\n```bash")
     assert _check(text, locale=_locale(status="draft")).ok
 
 
@@ -167,13 +178,13 @@ def test_third_party_url_is_ignored_entirely():
 def test_shipped_translations_have_no_drift():
     """The real files, checked the way CI checks them."""
     source = (ROOT / "README.md").read_text(encoding="utf-8")
-    existing = {p.name for p in ROOT.glob("*.md")}
     locales = ct.load_locales(ROOT)
-    assert locales, "no README.<locale>.md found -- test is looking at nothing"
+    assert locales, "no docs/<locale>/index.md found -- test is looking at nothing"
+    known = {loc.path for loc in locales}
     problems = []
     for loc in locales:
         problems += ct.check_locale(
-            loc, loc.path.read_text(encoding="utf-8"), source, existing_files=existing
+            loc, loc.path.read_text(encoding="utf-8"), source, known_locales=known
         ).problems
     assert not problems, "shipped translations have drift:\n  " + "\n  ".join(problems)
 
@@ -192,11 +203,14 @@ def test_status_page_lists_every_shipped_translation():
         assert loc.name in status, f"{loc.name} is missing from docs/localization/STATUS.md"
 
 
-@pytest.mark.parametrize("name", ["README.hi.md", "README.zh-CN.md", "README.ru.md"])
+@pytest.mark.parametrize(
+    "name", ["docs/hi/index.md", "docs/zh-CN/index.md", "docs/ru/index.md"]
+)
 def test_checker_never_modifies_a_translation(name, tmp_path):
     before = (ROOT / name).read_bytes()
     source = (ROOT / "README.md").read_text(encoding="utf-8")
-    loc = next(loc for loc in ct.load_locales(ROOT) if loc.name == name)
+    locales = ct.load_locales(ROOT)
+    loc = next(loc for loc in locales if loc.name == name)
     ct.check_locale(loc, loc.path.read_text(encoding="utf-8"), source,
-                    existing_files={p.name for p in ROOT.glob("*.md")})
+                    known_locales={x.path for x in locales})
     assert (ROOT / name).read_bytes() == before, "the checker must be read-only"

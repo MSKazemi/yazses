@@ -16,7 +16,8 @@ entire problem disappears.
 |---|---|
 | `com.mskazemi.YazSes.yml` | The build manifest |
 | `com.mskazemi.YazSes.metainfo.xml` | The store listing — description, categories, limitations |
-| `python3-yazses.json` | **Not committed yet.** Generated dependency modules, see below |
+| `python3-yazses.json` | Generated dependency modules — 45 pinned wheels with hashes. Committed; regenerate via the Flatpak workflow, never by hand |
+| `SUBMISSION.md` | The resubmission pack: why flathub#9765 closed, the filled-in PR body, and the demo-video shot list |
 
 ## The app ID is permanent
 
@@ -69,10 +70,13 @@ not in a footnote. Do not ship a build that cannot type and describe it as if it
    flatpak run org.freedesktop.appstream-glib validate com.mskazemi.YazSes.metainfo.xml
    ```
 
-5. Submit a pull request to [flathub/flathub](https://github.com/flathub/flathub) on the
-   `new-pr` branch, with the permission justifications from the manifest comments in the PR
-   body. Reviewers ask about `--device=input` and the injection sockets every time; answering
-   before being asked shortens the review considerably.
+5. Submit a pull request to [flathub/flathub](https://github.com/flathub/flathub) **against
+   the `new-pr` base branch**, using **their template verbatim** — see
+   [SUBMISSION.md](SUBMISSION.md), which carries the filled-in body ready to paste. The first
+   attempt ([flathub#9765](https://github.com/flathub/flathub/pull/9765)) was auto-closed by
+   the submission-checker bot for using a custom description instead of the template, so this
+   is not a formality. Reviewers ask about `--device=input` and the injection sockets every
+   time; answering before being asked shortens the review considerably.
 
 ## Runtime choice
 

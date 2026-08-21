@@ -24,7 +24,7 @@ flowchart TB
     AUD["2 · Audio<br/>recorder → VAD (calibrated) → pre-speech padding"]:::stage
     STT["3 · STT<br/>faster-whisper (CPU int8) · streaming · disfluency filter"]:::stage
     PP["4 · Post-process<br/>cleaner · voice-punctuation · continuation spacing · LLM cleanup"]:::stage
-    CMD["5 · Commands<br/>Tier1 regex grammar · Tier2 SLM router · LSP context"]:::stage
+    CMD["5 · Commands<br/>Tier1 regex grammar · LSP context<br/>(Tier2 SLM router: designed, not wired)"]:::stage
     DIS{"6 · dispatch()"}:::core
     HK --> AUD --> STT --> PP --> CMD --> DIS
   end

@@ -29,3 +29,139 @@ def test_load_wav_returns_16k_mono_float32(tmp_path):
     assert audio.dtype == np.float32
     assert audio.ndim == 1
     assert abs(len(audio) - 8000) < 400  # ~0.5s at 16 kHz
+
+
+# ---- the documented contract when nothing can decode the file ---------------
+
+
+def test_an_undecodable_file_raises_the_documented_runtimeerror(tmp_path, monkeypatch):
+    """`load_audio` promises RuntimeError "if no decoder can read it (neither PyAV
+    nor a system ffmpeg)" — and the ffmpeg fallback was unguarded, so that promise
+    held only when ffmpeg was *absent*.
+
+    With ffmpeg present and the file not audio — the ordinary case — a raw
+    `CalledProcessError` escaped and `yazses transcribe` printed the whole argv:
+
+        Transcription failed: Command '['ffmpeg', '-nostdin', '-threads', '0',
+        '-i', '/…/notes.docx', '-f', 'f32le', …]' returned non-zero exit status 183.
+
+    which names neither the problem nor anything the reader can do.
+    """
+    import subprocess
+
+    from yazses.recimport import audio_io
+
+    bad = tmp_path / "notes.docx"
+    bad.write_bytes(b"PK\x03\x04 not audio")
+
+    monkeypatch.setattr(audio_io.shutil, "which", lambda _n: "/usr/bin/ffmpeg")
+    monkeypatch.setattr(
+        audio_io, "_decode_pyav",
+        lambda *_a, **_k: (_ for _ in ()).throw(ValueError("Invalid data found")))
+    monkeypatch.setattr(
+        audio_io, "_decode_ffmpeg",
+        lambda *_a, **_k: (_ for _ in ()).throw(
+            subprocess.CalledProcessError(183, ["ffmpeg", "-nostdin", "-i", str(bad)])))
+
+    with pytest.raises(RuntimeError) as caught:
+        audio_io.load_audio(bad)
+
+    message = str(caught.value)
+    assert "ffmpeg" in message and "-nostdin" not in message, (
+        f"the raw command line reached the user: {message}"
+    )
+    assert "not an audio or video file" in message or "truncated" in message
+    assert "mp3" in message, "the message never says which formats do work"
+
+
+def test_a_missing_ffmpeg_still_says_to_install_it(tmp_path, monkeypatch):
+    """The other branch keeps its own advice: with no ffmpeg at all, the useful
+    thing to say is 'install it', not 'this file is not audio'."""
+    from yazses.recimport import audio_io
+
+    bad = tmp_path / "clip.opus"
+    bad.write_bytes(b"nope")
+    monkeypatch.setattr(audio_io.shutil, "which", lambda _n: None)
+    monkeypatch.setattr(
+        audio_io, "_decode_pyav",
+        lambda *_a, **_k: (_ for _ in ()).throw(ValueError("no decoder")))
+
+    with pytest.raises(RuntimeError, match="Install ffmpeg"):
+        audio_io.load_audio(bad)
+
+
+def test_digital_silence_carries_no_signal():
+    """Two seconds of real silence transcribed to "You" on a live run.
+
+    That is Whisper's well-known silence hallucination, and the empty-transcript
+    note cannot catch it because the transcript is not empty — it is a confident
+    word with a start and end time. The check that does catch it is about the
+    *input*: audio with no signal in it cannot contain speech, which is a
+    measurement rather than a guess about the model.
+    """
+    import numpy as np
+
+    from yazses.recimport.audio_io import carries_no_signal
+
+    assert carries_no_signal(np.zeros(32000, dtype="float32")) is True
+    assert carries_no_signal(np.array([], dtype="float32")) is True
+
+
+def test_a_quiet_but_real_recording_still_carries_signal():
+    """The floor must sit below any usable recording's noise floor.
+
+    Peak, not mean: a one-hour interview with sparse speech averages close to
+    zero, so a mean-based gate — the one the daemon uses for a hold-to-talk burst
+    — would call a real recording silent.
+    """
+    import numpy as np
+
+    from yazses.recimport.audio_io import carries_no_signal
+
+    rng = np.random.default_rng(0)
+    quiet = (rng.standard_normal(32000) * 1e-3).astype("float32")
+    assert carries_no_signal(quiet) is False, "a real noise floor was called silent"
+
+    sparse = np.zeros(160000, dtype="float32")
+    sparse[80000:80400] = 0.2  # a quarter-second of speech in ten seconds
+    assert carries_no_signal(sparse) is False, (
+        "sparse speech in a long file averages to nearly zero — this must use peak"
+    )
+
+
+def test_a_missing_file_says_so_rather_than_blaming_the_format():
+    """`load_audio` documents `FileNotFoundError` for a missing path and never raised it.
+
+    Found through the MCP server, where a nonexistent path is reachable (the CLI
+    rejects it at argument parsing, so only programmatic callers get here). An
+    agent asking to transcribe a path that does not exist was told:
+
+        RuntimeError: Could not decode '/nonexistent.wav' as audio. Neither PyAV
+        nor ffmpeg could read it, so it is probably not an audio or video file,
+        or it is truncated.
+
+    The real error, visible in the log one line above, was
+    `[Errno 2] No such file or directory`. Every cause offered is wrong, and each
+    one sends the reader to check the file's contents instead of its name.
+    """
+    import pytest
+
+    from yazses.recimport.audio_io import load_audio
+
+    with pytest.raises(FileNotFoundError) as exc:
+        load_audio("/definitely/not/here/clip.wav")
+    assert "clip.wav" in str(exc.value)
+
+
+def test_a_directory_is_not_reported_as_a_missing_file(tmp_path):
+    """Present but not a file: saying "no such file" would be its own wrong cause."""
+    import pytest
+
+    from yazses.recimport.audio_io import load_audio
+
+    with pytest.raises(Exception) as exc:
+        load_audio(str(tmp_path))
+    assert not isinstance(exc.value, FileNotFoundError), (
+        "a directory exists; reporting it as missing sends the reader after the "
+        "wrong thing"
+    )

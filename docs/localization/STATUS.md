@@ -11,37 +11,37 @@ language fixes it.
 
 | Locale | File | Scope | Native reviewer | Translated from | Status | Next action |
 |---|---|---|---|---|---|---|
-| हिंदी (`hi`) | [README.hi.md](https://github.com/MSKazemi/yazses/blob/main/README.hi.md) | full | [@Sushanttmishraa](https://github.com/Sushanttmishraa) | `96711bc` (2026-08-13) | active | re-check against English when the README changes materially |
-| 简体中文 (`zh-CN`) | [README.zh-CN.md](https://github.com/MSKazemi/yazses/blob/main/README.zh-CN.md) | partial | *needed* | `96711bc` (2026-08-13) | active | covers install + quickstart only; a native reviewer is wanted |
-| Русский (`ru`) | [README.ru.md](https://github.com/MSKazemi/yazses/blob/main/README.ru.md) | full | [@4nmus](https://github.com/4nmus) | `96711bc` (2026-08-13) | active | re-check against English when the README changes materially |
+| हिंदी (`hi`) | [docs/hi/index.md](https://mskazemi.com/yazses/hi/index.html) | full | @Sushanttmishraa — *account deleted* | `96711bc` (2026-08-13) | active | **a new native reviewer is wanted**; the translation itself is unaffected |
+| 简体中文 (`zh-CN`) | [docs/zh-CN/index.md](https://mskazemi.com/yazses/zh-CN/index.html) | partial | *needed* | `96711bc` (2026-08-13) | active | covers install + quickstart only; a native reviewer is wanted |
+| Русский (`ru`) | [docs/ru/index.md](https://mskazemi.com/yazses/ru/index.html) | full | [@4nmus](https://github.com/4nmus) | `96711bc` (2026-08-13) | active | re-check against English when the README changes materially |
 
 
 <!-- generated-drafts:start -->
-| Deutsch (`de`) | [README.de.md](https://github.com/MSKazemi/yazses/blob/main/README.de.md) | partial | *needed* | `346ba97` | draft | needs a native reviewer — [#176](https://github.com/MSKazemi/yazses/issues/176) |
-| Nederlands (`nl`) | [README.nl.md](https://github.com/MSKazemi/yazses/blob/main/README.nl.md) | partial | *needed* | `346ba97` | draft | needs a native reviewer — [#194](https://github.com/MSKazemi/yazses/issues/194) |
-| Tiếng Việt (`vi`) | [README.vi.md](https://github.com/MSKazemi/yazses/blob/main/README.vi.md) | partial | *needed* | `346ba97` | draft | needs a native reviewer — [#205](https://github.com/MSKazemi/yazses/issues/205) |
-| Türkçe (`tr`) | [README.tr.md](https://github.com/MSKazemi/yazses/blob/main/README.tr.md) | partial | *needed* | `346ba97` | draft | needs a native reviewer — [#203](https://github.com/MSKazemi/yazses/issues/203) |
-| bahasa Indonesia (`id`) | [README.id.md](https://github.com/MSKazemi/yazses/blob/main/README.id.md) | partial | *needed* | `346ba97` | draft | needs a native reviewer — [#179](https://github.com/MSKazemi/yazses/issues/179) |
-| español (`es`) | [README.es.md](https://github.com/MSKazemi/yazses/blob/main/README.es.md) | partial | *needed* | `346ba97` | draft | needs a native reviewer — [#170](https://github.com/MSKazemi/yazses/issues/170) |
-| français (`fr`) | [README.fr.md](https://github.com/MSKazemi/yazses/blob/main/README.fr.md) | partial | *needed* | `346ba97` | draft | needs a native reviewer — [#175](https://github.com/MSKazemi/yazses/issues/175) |
-| italiano (`it`) | [README.it.md](https://github.com/MSKazemi/yazses/blob/main/README.it.md) | partial | *needed* | `346ba97` | draft | needs a native reviewer — [#197](https://github.com/MSKazemi/yazses/issues/197) |
-| polski (`pl`) | [README.pl.md](https://github.com/MSKazemi/yazses/blob/main/README.pl.md) | partial | *needed* | `346ba97` | draft | needs a native reviewer — [#200](https://github.com/MSKazemi/yazses/issues/200) |
-| português do Brasil (`pt-BR`) | [README.pt-BR.md](https://github.com/MSKazemi/yazses/blob/main/README.pt-BR.md) | partial | *needed* | `346ba97` | draft | needs a native reviewer — [#174](https://github.com/MSKazemi/yazses/issues/174) |
-| svenska (`sv`) | [README.sv.md](https://github.com/MSKazemi/yazses/blob/main/README.sv.md) | partial | *needed* | `346ba97` | draft | needs a native reviewer — [#201](https://github.com/MSKazemi/yazses/issues/201) |
-| čeština (`cs`) | [README.cs.md](https://github.com/MSKazemi/yazses/blob/main/README.cs.md) | partial | *needed* | `346ba97` | draft | needs a native reviewer — [#193](https://github.com/MSKazemi/yazses/issues/193) |
-| ελληνικά (`el`) | [README.el.md](https://github.com/MSKazemi/yazses/blob/main/README.el.md) | partial | *needed* | `346ba97` | draft | needs a native reviewer — [#195](https://github.com/MSKazemi/yazses/issues/195) |
-| українська (`uk`) | [README.uk.md](https://github.com/MSKazemi/yazses/blob/main/README.uk.md) | partial | *needed* | `346ba97` | draft | needs a native reviewer — [#204](https://github.com/MSKazemi/yazses/issues/204) |
-| עברית (`he`) | [README.he.md](https://github.com/MSKazemi/yazses/blob/main/README.he.md) | partial | *needed* | `346ba97` | draft | needs a native reviewer — [#196](https://github.com/MSKazemi/yazses/issues/196) |
-| اردو (`ur`) | [README.ur.md](https://github.com/MSKazemi/yazses/blob/main/README.ur.md) | partial | *needed* | `346ba97` | draft | needs a native reviewer — [#232](https://github.com/MSKazemi/yazses/issues/232) |
-| العربية (`ar`) | [README.ar.md](https://github.com/MSKazemi/yazses/blob/main/README.ar.md) | partial | *needed* | `346ba97` | draft | needs a native reviewer — [#190](https://github.com/MSKazemi/yazses/issues/190) |
-| فارسی (`fa`) | [README.fa.md](https://github.com/MSKazemi/yazses/blob/main/README.fa.md) | partial | *needed* | `346ba97` | draft | needs a native reviewer — [#199](https://github.com/MSKazemi/yazses/issues/199) |
-| বাংলা (`bn`) | [README.bn.md](https://github.com/MSKazemi/yazses/blob/main/README.bn.md) | partial | *needed* | `346ba97` | draft | needs a native reviewer — [#191](https://github.com/MSKazemi/yazses/issues/191) |
-| தமிழ் (`ta`) | [README.ta.md](https://github.com/MSKazemi/yazses/blob/main/README.ta.md) | partial | *needed* | `346ba97` | draft | needs a native reviewer — [#202](https://github.com/MSKazemi/yazses/issues/202) |
-| తెలుగు (`te`) | [README.te.md](https://github.com/MSKazemi/yazses/blob/main/README.te.md) | partial | *needed* | `346ba97` | draft | needs a native reviewer — [#230](https://github.com/MSKazemi/yazses/issues/230) |
-| ไทย (`th`) | [README.th.md](https://github.com/MSKazemi/yazses/blob/main/README.th.md) | partial | *needed* | `346ba97` | draft | needs a native reviewer — [#231](https://github.com/MSKazemi/yazses/issues/231) |
-| 日本語 (`ja`) | [README.ja.md](https://github.com/MSKazemi/yazses/blob/main/README.ja.md) | partial | *needed* | `346ba97` | draft | needs a native reviewer — [#177](https://github.com/MSKazemi/yazses/issues/177) |
-| 繁體中文 (`zh-TW`) | [README.zh-TW.md](https://github.com/MSKazemi/yazses/blob/main/README.zh-TW.md) | partial | *needed* | `346ba97` | draft | needs a native reviewer — [#192](https://github.com/MSKazemi/yazses/issues/192) |
-| 한국어 (`ko`) | [README.ko.md](https://github.com/MSKazemi/yazses/blob/main/README.ko.md) | partial | *needed* | `346ba97` | draft | needs a native reviewer — [#198](https://github.com/MSKazemi/yazses/issues/198) |
+| Deutsch (`de`) | [docs/de/index.md](https://mskazemi.com/yazses/de/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#176](https://github.com/MSKazemi/yazses/issues/176) |
+| Nederlands (`nl`) | [docs/nl/index.md](https://mskazemi.com/yazses/nl/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#194](https://github.com/MSKazemi/yazses/issues/194) |
+| Tiếng Việt (`vi`) | [docs/vi/index.md](https://mskazemi.com/yazses/vi/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#205](https://github.com/MSKazemi/yazses/issues/205) |
+| Türkçe (`tr`) | [docs/tr/index.md](https://mskazemi.com/yazses/tr/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#203](https://github.com/MSKazemi/yazses/issues/203) |
+| bahasa Indonesia (`id`) | [docs/id/index.md](https://mskazemi.com/yazses/id/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#179](https://github.com/MSKazemi/yazses/issues/179) |
+| español (`es`) | [docs/es/index.md](https://mskazemi.com/yazses/es/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#170](https://github.com/MSKazemi/yazses/issues/170) |
+| français (`fr`) | [docs/fr/index.md](https://mskazemi.com/yazses/fr/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#175](https://github.com/MSKazemi/yazses/issues/175) |
+| italiano (`it`) | [docs/it/index.md](https://mskazemi.com/yazses/it/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#197](https://github.com/MSKazemi/yazses/issues/197) |
+| polski (`pl`) | [docs/pl/index.md](https://mskazemi.com/yazses/pl/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#200](https://github.com/MSKazemi/yazses/issues/200) |
+| português do Brasil (`pt-BR`) | [docs/pt-BR/index.md](https://mskazemi.com/yazses/pt-BR/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#174](https://github.com/MSKazemi/yazses/issues/174) |
+| svenska (`sv`) | [docs/sv/index.md](https://mskazemi.com/yazses/sv/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#201](https://github.com/MSKazemi/yazses/issues/201) |
+| čeština (`cs`) | [docs/cs/index.md](https://mskazemi.com/yazses/cs/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#193](https://github.com/MSKazemi/yazses/issues/193) |
+| ελληνικά (`el`) | [docs/el/index.md](https://mskazemi.com/yazses/el/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#195](https://github.com/MSKazemi/yazses/issues/195) |
+| українська (`uk`) | [docs/uk/index.md](https://mskazemi.com/yazses/uk/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#204](https://github.com/MSKazemi/yazses/issues/204) |
+| עברית (`he`) | [docs/he/index.md](https://mskazemi.com/yazses/he/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#196](https://github.com/MSKazemi/yazses/issues/196) |
+| اردو (`ur`) | [docs/ur/index.md](https://mskazemi.com/yazses/ur/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#232](https://github.com/MSKazemi/yazses/issues/232) |
+| العربية (`ar`) | [docs/ar/index.md](https://mskazemi.com/yazses/ar/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#190](https://github.com/MSKazemi/yazses/issues/190) |
+| فارسی (`fa`) | [docs/fa/index.md](https://mskazemi.com/yazses/fa/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#199](https://github.com/MSKazemi/yazses/issues/199) |
+| বাংলা (`bn`) | [docs/bn/index.md](https://mskazemi.com/yazses/bn/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#191](https://github.com/MSKazemi/yazses/issues/191) |
+| தமிழ் (`ta`) | [docs/ta/index.md](https://mskazemi.com/yazses/ta/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#202](https://github.com/MSKazemi/yazses/issues/202) |
+| తెలుగు (`te`) | [docs/te/index.md](https://mskazemi.com/yazses/te/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#230](https://github.com/MSKazemi/yazses/issues/230) |
+| ไทย (`th`) | [docs/th/index.md](https://mskazemi.com/yazses/th/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#231](https://github.com/MSKazemi/yazses/issues/231) |
+| 日本語 (`ja`) | [docs/ja/index.md](https://mskazemi.com/yazses/ja/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#177](https://github.com/MSKazemi/yazses/issues/177) |
+| 繁體中文 (`zh-TW`) | [docs/zh-TW/index.md](https://mskazemi.com/yazses/zh-TW/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#192](https://github.com/MSKazemi/yazses/issues/192) |
+| 한국어 (`ko`) | [docs/ko/index.md](https://mskazemi.com/yazses/ko/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#198](https://github.com/MSKazemi/yazses/issues/198) |
 <!-- generated-drafts:end -->
 
 The rows above are **machine-assisted drafts**, generated by `scripts/gen-readme-translation.py` from the string table in `scripts/translations.py`. Each one says so in the reader's own language at the top of the file. **Reviewing one is a much smaller job than translating a README from scratch**, and it is the single most useful thing a native speaker can do here — correct the prose in the string table and regenerate.

@@ -9,7 +9,10 @@ on:
       - 'src/yazses/__main__.py'
       - 'src/yazses/tray/**'
       - 'packaging/windows/**'
+      - 'assets/**'
       - 'scripts/build-windows.ps1'
+      - 'scripts/gen-icons.py'
+      - 'src/yazses/brandmark.py'
       - '.github/workflows/build-windows.yml'
       - 'pyproject.toml'
   workflow_dispatch:
@@ -75,7 +78,18 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
-          version: '0.5.x'
+          # `latest`, like every other workflow here. This was pinned to '0.5.x'
+          # — a toolchain from December 2024 — and only in the two desktop-bundle
+          # workflows, which is also where both cross-architecture legs failed.
+          # On windows-11-arm the pin is the whole failure:
+          #
+          #   error: No download found for request: cpython-3.12-windows-aarch64-none
+          #
+          # uv 0.5 predates python-build-standalone's Windows ARM64 builds, so it
+          # cannot fetch an interpreter for the runner it is standing on. A pin
+          # that old is not stability, it is a platform that had not been invented
+          # yet.
+          version: 'latest'
 
       - name: Set up Python
         run: uv python install 3.12
@@ -177,7 +191,7 @@ jobs:
           Write-Host "::endgroup::"
 
           Write-Host "::group::Payload"
-          foreach ($f in @('YazSes.exe','yazses-cli.exe','yazses.cmd')) {
+          foreach ($f in @('YazSesApp.exe','yazses-cli.exe','yazses.cmd')) {
             if (-not (Test-Path "$app\$f")) { throw "installer did not deliver $f" }
             Write-Host "  ok  $f"
           }
@@ -237,7 +251,7 @@ jobs:
                -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART'
           if ($u.ExitCode -ne 0) { throw "uninstaller exited $($u.ExitCode)" }
 
-          if (Test-Path "$app\YazSes.exe") { throw "uninstall left the binary behind" }
+          if (Test-Path "$app\YazSesApp.exe") { throw "uninstall left the binary behind" }
           # A botched PATH removal is the one failure here that damages the
           # machine rather than just the app, so assert both halves.
           $after = (Get-ItemProperty -Path 'HKCU:\Environment' -Name Path).Path
@@ -259,13 +273,32 @@ jobs:
           retention-days: 14
 
       - name: Attest build provenance for the .exe
+        id: attest
         uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v2
         with:
-          subject-path: "*.exe"
+          # dist/, not the repo root — same defect as build-macos.yml. The glob
+          # matched nothing, the step failed, and the "Attach to release" step
+          # after it never ran, so the installer never reached the release.
+          subject-path: dist/YazSes-*-windows-${{ matrix.arch }}.exe
+
+      # Scorecard's Signed-Releases check reads release ASSET FILENAMES, not
+      # GitHub's attestations API, so the attestation above scored 0/10 until the
+      # bundle was attached too. See the longer note in release.yml. `pwsh` here:
+      # every other run step in this job sets it explicitly, and the arch is in the
+      # name because both matrix legs upload to the same release.
+      - name: Attach the provenance bundle as a release asset
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          Copy-Item "${{ steps.attest.outputs.bundle-path }}" `
+            "dist/YazSes-$version-windows-${{ matrix.arch }}.intoto.jsonl"
 
       - name: Attach to release (tag builds only)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
         with:
-          files: dist/YazSes-*-windows-${{ matrix.arch }}.exe
+          files: |
+            dist/YazSes-*-windows-${{ matrix.arch }}.exe
+            dist/YazSes-*-windows-${{ matrix.arch }}.intoto.jsonl
           fail_on_unmatched_files: true

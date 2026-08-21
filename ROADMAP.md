@@ -11,15 +11,33 @@
 
 ## Current frontier — Waves F–O (all OFF by default)
 
-**Stable release: v2.18.2**, published on PyPI, GitHub Releases, Snap, and the APT repo, with
+**Stable release: v2.29.0**, published on PyPI, GitHub Releases, Snap, and the APT repo, with
 Windows `.exe`, macOS `.dmg`, and Debian `.deb` installers attached to the GitHub release (all
 release workflows fire on `v*` tags). The v2 line is delivered as a long series of research
 waves, each a fresh state-of-the-art sweep → ADRs → pure, 100%-covered, off-by-default cores.
 
-As of `v2.18.2`: **141 capabilities (74 wired / 67 honestly marked "planned")**, **3049 tests
-green**, ADRs `adr-v2-001..129`, and the per-wave state-of-the-art research notes. The counts
-come from the feature registry (`yazses.system.features`), not from counting by hand — they
-had gone stale on three of four numbers, each one understating what had actually shipped.
+On `main` (v2.29.0 plus the unreleased frontier): **147 capabilities (85 wired / 62 honestly
+marked "planned")**, **4300+ tests green**, ADRs `adr-v2-001..132`, and the per-wave
+state-of-the-art research notes. The counts come from the feature registry
+(`yazses.system.features`) and from running the suite, not from counting by hand — every one
+of them had gone stale again by 2026-08-14, and again in the direction of understating what
+had shipped. All three are now pinned by
+`tests/test_docs_current_version_claims.py`, so they fail CI rather than rotting
+quietly. Re-derive them, do not edit them:
+
+```bash
+uv run python -c "from yazses.system import features as F; \
+    print(len(F._CATEGORIES), 'total;', len(F._CATEGORIES) - len(F._UNWIRED), 'wired;', \
+          len(F._UNWIRED), 'planned')"
+uv run python -m pytest tests/ -q | tail -1
+```
+
+The test figure is deliberately a **floor** (`4300+`), not an exact count. An exact
+one is self-invalidating: adding the guard tests that check this very line moved it
+4337 → 4347 in the same sitting, so any number written here is stale the moment the
+suite grows. A floor stays true as tests are added and only breaks if tests are
+*removed* — which is the direction worth being told about. Raise it when the margin
+gets embarrassing; the guard fails if the suite ever drops below it.
 
 - **Shipped in `v2.14.0` — the perception release** (ADR-v2-129, all opt-in, lazy deps):
   **Parakeet TDT** second STT engine (`yazses features enable stt-parakeet` — beats

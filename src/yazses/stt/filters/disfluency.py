@@ -6,6 +6,24 @@ from dataclasses import dataclass
 
 from yazses.config import DisfluencyConfig
 
+#: Single words that can plausibly BE a filler. Not the active filter list -- that is
+#: ``[filters.disfluency] filler_words`` -- and not a list of things to strip. It answers
+#: one question: *could this word be a filler at all?*
+#:
+#: Used by ``learning/analysis.py`` as the exception to its stopword rule, so `yazses tune`
+#: can still discover a real filler ("okay") without proposing that an ordinary word
+#: ("this") be deleted from every future dictation.
+#:
+#: Deliberately NOT the same list as ``reflow/outline.py``'s leading fillers, which are
+#: *phrases* matched at the start of a sentence ("so basically", "okay so", "and then").
+#: The two overlap but answer different questions and have different shapes, and merging
+#: them would mean one of the two callers getting a list that does not fit its job.
+PLAUSIBLE_FILLERS = frozenset("""
+    um uh er ah hmm mm erm huh
+    like well okay right actually basically anyway so
+    sort kind guess think know mean
+""".split())
+
 
 @dataclass
 class FilterResult:

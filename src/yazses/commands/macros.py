@@ -94,7 +94,15 @@ def expand(macro: Macro, ctx: MacroContext) -> tuple[str, int]:
     if _CURSOR in template:
         idx = template.index(_CURSOR)
         before = _resolve_vars(template[:idx], ctx)
-        after = _resolve_vars(template[idx + len(_CURSOR):], ctx)
+        # Any FURTHER ${cursor} markers are dropped, not carried through. Only the first
+        # positions the caret -- as documented -- but the rest used to survive into the
+        # output and get typed into the user's document verbatim:
+        #
+        #     "a${cursor}b${cursor}c"  ->  typed "ab${cursor}c"
+        #
+        # Stripping them before measuring `after` keeps the offset right: the caret still
+        # lands where the first marker was, now against the text actually injected.
+        after = _resolve_vars(template[idx + len(_CURSOR):], ctx).replace(_CURSOR, "")
         return before + after, len(after)
     resolved = _resolve_vars(template, ctx)
     return resolved, 0

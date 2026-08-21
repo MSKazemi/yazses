@@ -55,3 +55,32 @@ def decide(*, alive: bool, relaunches_so_far: int,
             ),
         )
     return RelaunchDecision(relaunch=True, reason="tray is not running — relaunching")
+
+
+#: Cap on what a dead tray's stderr may contribute to the daemon log. A Qt plugin
+#: failure is a few lines; a traceback with a loop in it is not, and the daemon log is
+#: also what `yazses report` attaches to an issue.
+STDERR_TAIL_LINES = 12
+
+
+def describe_exit(stderr_text: str) -> str:
+    """One-line-per-line summary of why a tray process died, or "" if it said nothing.
+
+    The supervisor used to launch the tray with ``stderr=DEVNULL`` and then, on giving
+    up, advise *"start it manually with `yazses tray` to see the error it prints"* — an
+    instruction that only exists because the error was thrown away. Observed on a real
+    machine: five relaunches across an evening and not one word about the cause.
+
+    Blank lines and Python's ``Traceback (most recent call last):`` banner are dropped;
+    the banner costs a line of the budget and carries nothing the frames below it do not.
+    """
+    lines = [ln.rstrip() for ln in stderr_text.splitlines()]
+    lines = [
+        ln for ln in lines
+        if ln.strip() and not ln.startswith("Traceback (most recent call last)")
+    ]
+    if not lines:
+        return ""
+    # The tail, not the head: the exception type and message are the last thing printed,
+    # and they are what names the cause. A head-first cut keeps the frames and drops it.
+    return "\n".join(lines[-STDERR_TAIL_LINES:])

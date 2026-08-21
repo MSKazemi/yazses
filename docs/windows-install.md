@@ -19,8 +19,17 @@ description: "Install YazSes on Windows for offline speech-to-text: pipx install
 
 ## Install
 
-1. Download `YazSes-<version>-windows-x64.exe` from the
-   [Releases](https://github.com/MSKazemi/yazses/releases) page.
+1. Download the installer for your machine from the
+   [Releases](https://github.com/MSKazemi/yazses/releases) page:
+   `YazSes-<version>-windows-x64.exe` for an Intel or AMD PC, or
+   `YazSes-<version>-windows-arm64.exe` for an ARM one (Snapdragon, Surface Pro X).
+
+    !!! tip "Not sure which?"
+
+        **Settings → System → About → System type.** The x64 installer also runs on
+        ARM under Windows' emulation, so it is the safe choice if you are unsure —
+        the native ARM build is simply faster. See
+        [platform support](platform-support.md#windows) for what is proven on each.
 2. Double-click the installer.
 3. **SmartScreen warning:** Windows shows
    *"Microsoft Defender SmartScreen prevented an unrecognized app from starting."*
@@ -89,8 +98,13 @@ release, and the transcribed text appears in whatever window is focused.
 > ```
 
 The first transcription downloads the Whisper model (~80 MB for `tiny.en`)
-into `%LOCALAPPDATA%\huggingface\hub\`. Subsequent dictations are fully
+into `%USERPROFILE%\.cache\huggingface\hub\`. Subsequent dictations are fully
 offline.
+
+> **Behind a firewall?** That one download is the only time YazSes needs the
+> network, and a personal firewall will block it. Fetch it deliberately instead —
+> `yazses model download tiny.en` — or see
+> [Choosing a model → Installing a model without network access](models.md#installing-a-model-without-network-access).
 
 ## Microphone access
 
@@ -121,14 +135,71 @@ The bundle contains two executables, and the difference matters:
 
 | Binary | Subsystem | Use |
 |---|---|---|
-| `YazSes.exe` | windowed | tray and daemon; no console window flashes |
+| `YazSesApp.exe` | windowed | tray and daemon; no console window flashes |
 | `yazses-cli.exe` | console | the CLI — `yazses` on PATH is a shim to this |
 
-A windowed binary has no console attached, so `YazSes.exe --cli doctor` prints
-nothing at all. Use `yazses` (or `yazses-cli.exe` directly); that is what these
-docs mean everywhere they say `yazses`.
+A windowed binary has no console attached, so `YazSesApp.exe --cli doctor` has
+nowhere to print. Use `yazses` (or `yazses-cli.exe` directly); that is what
+these docs mean everywhere they say `yazses`.
 
 Both live in `%LOCALAPPDATA%\Programs\YazSes`.
+
+> **Upgrading from 2.18.2 or earlier?** The windowed binary used to be called
+> `YazSes.exe`, which — because Windows resolves `.exe` before `.cmd` and
+> filenames are case-insensitive — answered to a bare `yazses` and shadowed the
+> shim. That is why `yazses doctor` printed nothing and then failed with
+> *"'NoneType' object has no attribute 'isatty'"*. The installer deletes the old
+> binary on upgrade; if you ever see a stray `YazSes.exe` in the install folder
+> after a manual copy, delete it.
+
+## Updating
+
+Ask YazSes and it will tell you what applies to *your* install:
+
+```powershell
+yazses update --check    # what's available, and how to get it
+```
+
+It knows which of the four Windows channels you used, and checks the GitHub
+release — that is where the `.exe` lives, and PyPI carries no `.exe` at all.
+
+| How you installed | How to update |
+|---|---|
+| The `.exe` installer | Download the newest one from the [releases page](https://github.com/MSKazemi/yazses/releases/latest) and run it — it upgrades in place and keeps your settings and models |
+| winget | `winget upgrade --id MSKazemi.YazSes -e` |
+| Chocolatey | `choco upgrade yazses -y` |
+| Scoop | `scoop update yazses` |
+
+Restart YazSes afterwards (tray → **Restart daemon**, or `yazses restart`): the
+new code is on disk, but the process doing your dictation is still the old one.
+
+There is no one-command upgrade for the `.exe` installer — the upgrade *is* a
+downloaded installer, and there is nothing YazSes could safely run for you. It
+prints the steps instead of pretending otherwise.
+
+### Being told when a new version lands
+
+Off by default, because it is the only thing in YazSes that opens an outbound
+connection on its own:
+
+```powershell
+yazses features enable update-check
+yazses restart
+```
+
+Once on, YazSes checks daily and shows **one** notification per release, with the
+steps for your install method. It sends a plain "what is the latest version"
+request to github.com — no voice, no text, no config, no identifier — and nothing
+else about your machine ever leaves it.
+
+**Behind a firewall?** Nothing breaks. Dictation is entirely local and never needs
+the network, and a blocked update check is a silent no-op that retries later —
+it will not pop errors at you or stop the daemon. Run `yazses update` whenever you
+want and it will tell you it could not reach github.com, then print the steps to
+update by hand. (If your firewall also blocks the *first-run model download*, that
+is the one thing YazSes genuinely needs the network for once; see
+[#310](https://github.com/MSKazemi/yazses/issues/310) — it now explains itself
+instead of dying, and `yazses model download base.en` fetches it when you unblock.)
 
 ## Troubleshooting
 
@@ -155,9 +226,34 @@ bug. The daemon logs `SendInput sent 0/N events (lastError=5)` when this
 happens. Run YazSes elevated too if you need to dictate into elevated
 windows; otherwise leave it unelevated, which is the safer default.
 
+**"Dictation stopped working part-way through the day."** If the daemon crashes,
+Windows will not restart it on its own — the autostart entry only fires at login,
+and there is no Windows Service supervising it. The **tray** is the safety net: it
+notices the daemon has gone, restarts it (up to five times, then it stops and says
+so), and turns red meanwhile. So keep the tray running. If you quit the tray, start
+it again with `yazses tray`; to recover by hand, run `yazses start`.
+
+**"Where do the mic warnings go?"** Windows has no libnotify, so the daemon cannot
+show a toast itself. It hands them to the tray instead, which shows them as balloon
+notifications — a microphone that changed, a silence threshold that was re-tuned,
+several silent clips in a row. With the tray closed those only reach
+`yazses logs`.
+
 **"Tray icon is missing."** Windows may be hiding it under the chevron
 (`^`) at the left of the tray. Drag it out, or right-click the taskbar →
 **Taskbar settings** → **Other system tray icons** → flip on.
+
+**"The icons are generic or blank."** Releases before this fix shipped without
+their icon file, so shortcuts showed PyInstaller's default artwork and the tray
+showed a plain coloured disc. Upgrade; if a stale shortcut keeps the old icon,
+Windows is serving it from its icon cache — sign out and back in, or delete
+`%LOCALAPPDATA%\IconCache.db` and restart Explorer.
+
+**What the tray colour means.** The badge is the YazSes "Y" in a state colour:
+🔵 blue ready/idle, 🟢 green dictating into a text field, 🟡 yellow dictating with
+**no text field focused** (the words would go nowhere, so they are copied to the
+clipboard instead), 🟣 purple command mode (the command key is held), 🔴 red a
+problem — an error, or several silent clips in a row. Hover for the details.
 
 ## Uninstall
 

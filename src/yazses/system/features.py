@@ -158,6 +158,20 @@ def _registry() -> list[_Def]:
         ("audio", "device_change_notify", "false", False),
         ("audio", "silent_streak_notify", "false", False),
     )
+    # The only feature in YazSes that opens an outbound connection, so it is
+    # OPTIONAL rather than RECOMMENDED and ships off. `uc_*` — `u_*` would collide.
+    # The spoken exit from the mic guard's toast (ADR-022). Separate toggle from
+    # `mic-guard` on purpose: that one decides whether YazSes *asks*, this one
+    # decides whether the question can be answered without a pointer, and it
+    # consumes an utterance so it must be opted into on its own.
+    mva_on, mva_off = _bool("audio", "voice_answer")
+    # Reduced motion is tri-state, not a boolean, so disabling restores "auto"
+    # (follow the desktop) rather than writing "off". Forcing full animation on a
+    # user whose desktop asked for less would be a different opinion, not an off
+    # switch -- the same reasoning as `chinese-script` above.
+    rm_on = (("overlay", "reduced_motion", "on", True),)
+    rm_off = (("overlay", "reduced_motion", "auto", True),)
+    uc_on, uc_off = _bool("general", "update_check")
     pe_on, pe_off = _bool("personalize")
     co_on, co_off = _bool("cocktail")
     # Gaze: enabling also turns on routing, so the feature actually targets the
@@ -330,6 +344,29 @@ def _registry() -> list[_Def]:
              "Notifies + auto-heals when your microphone silently switches (e.g. a "
              "USB-C monitor stealing capture) so dictation never dies in silence. Keep on.",
              lambda c: c.audio.device_change_notify, micguard_on, micguard_off),
+        _Def("mic-voice-answer", "Mic guard: answer by voice", "[audio] voice_answer",
+             OPTIONAL,
+             "Say \"re-calibrate\", \"pin this mic\" or \"ignore\" to answer the mic "
+             "guard's toast, instead of clicking it. Without this the daemon asks a "
+             "question about your microphone that only a pointer can answer -- and the "
+             "person seeing it is the one whose dictation just stopped. Off by default "
+             "because it consumes a burst that would otherwise be typed; the whole "
+             "utterance must be the answer, and only within 45s of the toast.",
+             lambda c: bool(getattr(c.audio, "voice_answer", False)), mva_on, mva_off),
+        _Def("overlay-reduced-motion", "Overlay: reduced motion",
+             "[overlay] reduced_motion", OPTIONAL,
+             "Stops the overlay's rings travelling: one steady ring while you speak, "
+             "brightness in discrete steps. The default is \"auto\", which already "
+             "follows GNOME/macOS/Windows' own reduce-animations setting -- enable this "
+             "only if your desktop has no such setting YazSes can read (KDE, Xfce, a "
+             "bare WM). Disabling restores \"auto\", not full motion.",
+             lambda c: getattr(c.overlay, "reduced_motion", "auto") == "on",
+             rm_on, rm_off),
+        _Def("update-check", "Update check", "[general] update_check", OPTIONAL,
+             "Tells you once when a newer YazSes is released, with the exact steps "
+             "to update. OFF by default and the only thing here that touches the "
+             "network — it asks github.com/PyPI for a version number and nothing else.",
+             lambda c: bool(getattr(c.general, "update_check", False)), uc_on, uc_off),
         _Def("dysfluency", "Dysfluency-Friendly", "[accessibility]", RECOMMENDED,
              "Collapses stutters/repeats (b-b-because→because). Try it if you "
              "stutter or have dysarthria.",
@@ -668,9 +705,23 @@ def _registry() -> list[_Def]:
              "machine, and a rewrite that fails its safety checks leaves your text "
              "untouched. Off by default.",
              lambda c: c.commands.rewrite, rw_on, rw_off),
-        _Def("windowctl", "Voice Window Management", "[windowctl] — layout by voice", OPTIONAL,
-             "Hands-free desktop layout: 'move window left half', 'maximize', 'workspace 3'. "
-             "Needs the windowctl extra for your compositor. Off by default.",
+        # Describes focusing only, because that is all that runs. The layout verbs
+        # ("move window left half", "maximize", "workspace 3") were advertised here
+        # for a long time and none of them worked: their grammar lives in
+        # windowctl/commands.py, which nothing imports, and the WindowBackend
+        # protocol has only list_windows() and focus() — so there is no method that
+        # could carry out a WmAction even once it were wired. Enabling the feature
+        # succeeded and the examples did nothing, which is worse than not offering
+        # it. Guarded by tests/test_windowctl_promises.py -- which now reads the
+        # `example` and `use_case` dicts too. It scanned only name+why, and both of
+        # those live far away in `_EXAMPLES`/`_USE_CASES`, so "move window left half"
+        # and "workspace 3" survived the correction in the two lines printed directly
+        # underneath it by `yazses features info`.
+        _Def("windowctl", "Voice Window Focus", "[windowctl] — focus a window by name", OPTIONAL,
+             "Say 'focus the browser' or 'switch to my editor' to raise a window by "
+             "name. X11 only (Wayland does not let one app focus another). "
+             "Rearranging windows by voice is designed but not connected yet. "
+             "Off by default.",
              lambda c: c.windowctl.enabled, wc_on, wc_off),
         _Def("markup", "Structured-Markup Dictation", "[markup] — speak lists & tables", OPTIONAL,
              "Speak structure and get Markdown/org: 'bullet list: apples; oranges' → a list; "
@@ -680,9 +731,10 @@ def _registry() -> list[_Def]:
              "Edit the whole document by voice: 'replace every utilise with use'. Not just the "
              "last utterance. Off by default.",
              lambda c: c.findreplace.enabled, fr_on, fr_off),
-        _Def("cmdsafety", "Terminal Command Safety Gate", "[cmdsafety] — confirm dangerous commands", RECOMMENDED,
-             "In a terminal, holds a destructive command (rm -rf, curl|sh, force-push) until you "
-             "say 'confirm', so a misrecognition can't fire it. Off by default.",
+        _Def("cmdsafety", "Command Safety Gate", "[cmdsafety] — confirm dangerous commands", RECOMMENDED,
+             "Holds a destructive dictated command (rm -rf, mkfs, dd, curl|sh, force-push) until "
+             "you say 'confirm', so a misrecognition can't fire it. Judged on the command text, "
+             "not on which window is focused, so it still protects on Wayland. Off by default.",
              lambda c: c.cmdsafety.enabled, csf_on, csf_off),
         _Def("spokenregex", "Spoken Regex Builder", "[spokenregex] — dictate search patterns", OPTIONAL,
              "Build regexes by voice: 'four digits dash two digits' → \\d{4}-\\d{2}. Feeds find "
@@ -973,6 +1025,9 @@ _SLUG_PACKAGES: dict[str, tuple[str, ...]] = {
     "undo": ("commands",),           # commands/revise.py, wired in daemon._on_hold_end
     "target-guard": ("inject",),     # inject/target.py
     "mic-guard": ("audio",),         # audio/device_monitor.py
+    "mic-voice-answer": ("audio",),  # audio/mic_prompt.py, wired in daemon._on_hold_end
+    "overlay-reduced-motion": ("overlay",),  # overlay/motion.py
+    "update-check": ("system",),     # system/update_notify.py, wired in core/daemon.py
     "dysfluency": ("stt",),          # stt/filters/disfluency.py
     "punch-in": ("postprocess",),    # postprocess/punch_in.py
     "prosody": ("postprocess",),     # postprocess/prosody.py
@@ -1023,9 +1078,9 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 # without wiring it fails CI.
 _UNWIRED: frozenset[str] = frozenset({
     "acoustic_profiles", "affect", "agent", "audioguard", "autostop",
-    "bookmarks", "breath", "bridge", "checkdigit", "cmdsafety", "cmdspotter",
+    "bookmarks", "breath", "bridge", "cmdspotter",
     "code", "codec", "compose", "condense", "contour", "corrdict",
-    "crowdproof", "diagramvox", "earcon", "echo", "fieldaware",
+    "crowdproof", "diagramvox", "echo", "fieldaware",
     "focusprofile", "gesture", "hatselect", "headpointer",
     "hesitation", "hotwords", "interpret", "involuntary", "langroute",
     "latency", "lipread", "loadguard", "math", "morsevox",
@@ -1133,11 +1188,11 @@ _EXAMPLES: dict[str, str] = {
     "cite": "Say 'cite Vaswani 2017' to insert a citation from your .bib.",
     "langroute": "Switch languages mid-session and the right model loads automatically.",
     "hotwords": "Add 'Kubernetes' to vocab and it stops being mis-heard.",
-    "windowctl": "Say 'move window left half' or 'workspace 3' to arrange your desktop.",
+    "windowctl": "Say 'focus the browser' and the browser window is raised.",
     "rewrite": "Select a paragraph, hold the command key, say 'make this shorter'.",
     "markup": "Say 'bullet list: apples; oranges; pears' to type a Markdown list.",
     "findreplace": "Say 'replace every utilise with use' to edit the whole document.",
-    "cmdsafety": "Dictate 'rm -rf' in a terminal and it waits for you to say 'confirm'.",
+    "cmdsafety": "Dictate 'rm -rf' and it waits for you to say 'confirm' before it types.",
     "spokenregex": "Say 'four digits dash two digits' to build \\d{4}-\\d{2}.",
     "slotfill": "Say 'high priority, affects Firefox' to fill a bug-report form.",
     "cmdspotter": "Enroll 'send' once, then say it to fire the action instantly.",
@@ -1174,6 +1229,9 @@ _EXAMPLES: dict[str, str] = {
     "autostop": "Tap once and speak; recording stops when you finish.",
     "mousegrid": "Say a grid number to move the cursor, then 'click'.",
     "mic-guard": "Plug in a USB-C monitor; YazSes notices the mic switched and pops a fix.",
+    "mic-voice-answer": "The mic-switch toast appears; say \"pin this mic\" instead of reaching for the mouse.",
+    "overlay-reduced-motion": "The rings stop travelling; one steady ring shows the mic is live.",
+    "update-check": "A new release lands; you get one toast with the command to install it.",
     "tray": "Click the top-bar mic icon → pick a microphone or re-calibrate, no terminal.",
     "target-guard": "Dictate with no text box focused → it's copied to the clipboard, not lost.",
     "multiprofile": "Each enrolled speaker loads their own vocab/hotkey automatically.",
@@ -1223,7 +1281,12 @@ _USE_CASES: dict[str, str] = {
     "read-back": "When you can't or won't look at the screen and need to hear what was transcribed.",
     "personalize": "When your jargon or names get mis-heard and you want STT biased to your own frequent terms.",
     "polyglot": "When you naturally mix two languages in one sentence and need both transcribed correctly.",
-    "streaming": "When you want to see text land live as you talk rather than only on release.",
+    "streaming": (
+        "When you want to see text land live as you talk rather than only on "
+        "release \u2014 and you run tiny.en. Measured on base.en the rolling decode "
+        "cannot keep up: no live text appears in most utterances, and the final "
+        "text lands 56 % later than with streaming off (docs/benchmarks.md)."
+    ),
     "stt-parakeet": "When you want noticeably fewer English word errors without a bigger, slower Whisper model.",
     "stt-moonshine": "When you dictate in short bursts and want the smallest, quickest engine that still reads well.",
     "learning": "When you want dictation accuracy to improve over time from your own corrected usage.",
@@ -1290,11 +1353,11 @@ _USE_CASES: dict[str, str] = {
     "cite": "When writing a paper by voice and you want citations pulled from your local BibTeX library.",
     "langroute": "When you switch spoken languages during a session and don't want to toggle models by hand.",
     "hotwords": "When rare names or jargon keep getting mis-transcribed despite a vocabulary prompt.",
-    "windowctl": "When you want to arrange windows and switch workspaces without touching the mouse.",
+    "windowctl": "When you want to raise a window by name without reaching for the mouse or Alt-Tab.",
     "rewrite": "When you edit prose all day and want an offline alternative to the cloud voice-editing tools.",
     "markup": "When dictating notes that need real lists or tables, not a flat paragraph.",
     "findreplace": "When you need to change a word across the whole document, not just the last utterance.",
-    "cmdsafety": "When dictating into a terminal where a misheard rm or force-push could be catastrophic.",
+    "cmdsafety": "When you dictate into a shell and a misheard rm or force-push would be unrecoverable.",
     "spokenregex": "When you need a regex for a find dialog or grep but don't want to type the syntax.",
     "slotfill": "When filing a structured ticket or form and want one utterance routed to its named fields.",
     "cmdspotter": "When a few short commands come up constantly and you want them to fire without a full decode.",
@@ -1327,6 +1390,9 @@ _USE_CASES: dict[str, str] = {
     "autostop": "When holding the hotkey the whole time is tiring and you'd rather tap once and let it stop itself.",
     "mousegrid": "When you need to click somewhere no accessibility tree exists and want to do it hands-free.",
     "mic-guard": "When plugging in a monitor/headset silently switches your mic and dictation stops working with no clue why.",
+    "mic-voice-answer": "When you cannot (or would rather not) use a pointer, and a toast asking about your microphone is the one thing you cannot answer hands-free.",
+    "overlay-reduced-motion": "When moving things on screen make you unwell and your desktop has no reduce-animations setting YazSes can read.",
+    "update-check": "When you'd rather be told a fix has shipped than remember to run `yazses update` yourself.",
     "tray": "When you'd rather click a top-bar icon to switch mics or restart than remember terminal commands.",
     "target-guard": "When you sometimes speak before clicking into a text field and your words vanish into the wrong window.",
     "multiprofile": "When several people share one machine and each wants their own vocab and settings loaded.",
@@ -1365,6 +1431,7 @@ _CATEGORIES: dict[str, str] = {
     "stt-parakeet": CAT_CORE,
     "stt-moonshine": CAT_CORE,
     "tray": CAT_CORE, "target-guard": CAT_CORE, "staged": CAT_CORE,
+    "update-check": CAT_CORE,
     "ghost-ahead": CAT_CORE, "autostop": CAT_CORE, "hesitation": CAT_CORE,
     "breath": CAT_CORE, "continuum": CAT_CORE, "whispermode": CAT_CORE,
     "wakeword": CAT_CORE, "focusprofile": CAT_CORE, "latency": CAT_CORE,
@@ -1412,6 +1479,8 @@ _CATEGORIES: dict[str, str] = {
     "vocaljoystick": CAT_ACCESS, "mouthswitch": CAT_ACCESS, "morsevox": CAT_ACCESS,
     "contour": CAT_ACCESS, "earcon": CAT_ACCESS, "srpace": CAT_ACCESS,
     "echo": CAT_ACCESS, "proofback": CAT_ACCESS, "read-back": CAT_ACCESS,
+    "mic-voice-answer": CAT_ACCESS,
+    "overlay-reduced-motion": CAT_ACCESS,
     "readback_clone": CAT_ACCESS, "voicehealth": CAT_ACCESS, "loadguard": CAT_ACCESS,
     "voicetimer": CAT_ACCESS, "spatialvad": CAT_ACCESS, "modality": CAT_ACCESS,
     "gaze": CAT_ACCESS, "mousegrid": CAT_ACCESS,
@@ -1472,6 +1541,39 @@ def toggleable_slugs() -> list[str]:
     return [d.slug for d in _registry() if d.on_writes]
 
 
+def enable_caveat(slug: str, cfg) -> str | None:
+    """A measured reason this capability may not do what the user expects *here*.
+
+    Distinct from the three refusals `features enable` already makes (unknown,
+    unwired, deps-can-never-arrive): the config is valid and the feature does
+    work. What it cannot express in the static registry is that some capabilities
+    only pay off in combination with the *rest* of the config — so enabling one
+    on the wrong settings is a silent loss rather than an error.
+
+    Returns advice to print, or ``None``. Never refuses; the user may have a
+    reason, and the honest move is to hand them the number, not the veto.
+    """
+    slug = (slug or "").strip().lower()
+    if slug == "streaming":
+        model = (getattr(getattr(cfg, "stt", None), "model", "") or "").strip().lower()
+        # Streaming only wins where a rolling decode keeps up with the speech.
+        # Measured (paper/benchmark/bench_streaming.py, n=15, real-time-fed):
+        # tiny.en confirmed a live prefix in 15/15 utterances (72 % of the text
+        # on screen at release); base.en managed it in 6/15 (0 % median), while
+        # still making the final text 56 % slower than with streaming off.
+        if model and not model.startswith("tiny"):
+            return (
+                f"Heads up: streaming is measured to pay off only on tiny.en, and "
+                f"[stt] model is {model}. On {model} the rolling decode cannot keep "
+                "up with the speech — in 9 of 15 benchmark utterances no live text "
+                "appeared before the key was released, and the final text still "
+                "arrived 56 % later than with streaming off. Either set "
+                "[stt] model = tiny.en, or leave streaming off. "
+                "Numbers: docs/benchmarks.md"
+            )
+    return None
+
+
 # Tiers we turn on for a fresh install. DEFAULT_ON are already on by dataclass
 # default; RECOMMENDED are "safe and useful" and enabled on first run so a new
 # user (snap/pipx/apt) gets the good experience without hand-editing config.
@@ -1504,3 +1606,42 @@ def default_enabled_writes() -> list[tuple]:
         if d.tier in _DEFAULT_ENABLED_TIERS and d.slug not in _UNWIRED:
             writes.extend(d.on_writes)
     return writes
+
+
+def default_state() -> dict[str, bool]:
+    """The out-of-the-box on/off state of every toggleable capability.
+
+    ``True`` for the recommended-by-default tiers — exactly what
+    :func:`default_enabled_writes` seeds a fresh config with — and ``False`` for
+    everything else, which is what each feature's ``off_writes`` restores and
+    what its config dataclass already defaults to. So this is not a second
+    opinion about defaults: it is the same one, expressed per capability.
+
+    This is what "restore defaults" means, and both the settings window and
+    ``yazses features reset`` read it, so they cannot drift apart.
+
+    Designed-but-unwired capabilities are excluded for the same reason
+    :func:`default_enabled_slugs` excludes them: nothing reads their key, so
+    "resetting" one would only write a claim the daemon ignores.
+    """
+    return {
+        d.slug: d.tier in _DEFAULT_ENABLED_TIERS
+        for d in _registry()
+        if d.on_writes and d.slug not in _UNWIRED
+    }
+
+
+def default_drift(cfg) -> list[tuple[Feature, bool]]:
+    """Every capability whose state in *cfg* is not its shipped default.
+
+    Returns ``(feature, default_state)`` pairs in registry order — the exact set
+    of rows a reset has to write, and nothing else. Computing the difference
+    rather than rewriting all ~200 keys matters: a reset that rewrote every key
+    would churn the whole config file (and its comments) to change three lines.
+    """
+    defaults = default_state()
+    return [
+        (f, defaults[f.slug])
+        for f in feature_status(cfg)
+        if f.slug in defaults and f.on != defaults[f.slug]
+    ]

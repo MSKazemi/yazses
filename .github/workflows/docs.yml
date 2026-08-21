@@ -67,6 +67,17 @@ jobs:
       - name: Build site (strict)
         run: uv run --group docs mkdocs build --strict
 
+      # The unit tests prove the exclusion *rule* is right and reads its list from
+      # the pre-commit hook. They do not look at what was built, and those are
+      # different claims: a correct rule that does not run publishes everything,
+      # and a file can reach the site by a route the hook never sees — a nav entry
+      # added by hand, a copied asset, an include.
+      #
+      # This is the last point where a leak is still cheap to stop. After the
+      # upload it is public. stdlib only, so it needs nothing installed.
+      - name: Refuse to publish anything private
+        run: python3 scripts/check-site-privacy.py site
+
       # The APT repository is built by apt-repo.yml and pushed to the `gh-pages`
       # branch. That used to be what GitHub Pages served, so it appeared at
       # https://mskazemi.com/yazses/apt/. Moving the documentation to a

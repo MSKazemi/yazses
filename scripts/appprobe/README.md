@@ -30,7 +30,8 @@ asserted.
 | App | Result |
 |---|---|
 | kitty, Alacritty, Konsole, tmux, Neovim, Emacs, xterm, Sublime Text | **EXACT** — byte for byte |
-| VS Code | **EXACT** — byte for byte, but *not* via `probe.sh`; see the retraction below |
+| GNOME Terminal | **EXACT** — byte for byte (needs a session bus, see below) |
+| VS Code, Firefox, Thunderbird, Obsidian, Zed | **EXACT** — byte for byte (`probe-gui.sh`) |
 | LibreOffice Writer | **PARTIAL** — see below |
 
 LibreOffice Writer turned `kubectl get pods --namespace prod` into
@@ -53,43 +54,108 @@ bash /work/probe.sh emacs "" "ctrl+x ctrl+s ctrl+x ctrl+c" \
     xterm -e "emacs -nw /work/out.txt"
 ```
 
-## Known limits — where the boundary actually is
+## Electron and Gecko apps — `probe-gui.sh`
 
-Tested, so you do not have to rediscover it:
+```bash
+docker build -f scripts/appprobe/Dockerfile.gui -t yazses-appprobe-gui scripts/appprobe
+P="-v $PWD/scripts/appprobe:/work"
+
+# Firefox — a local page with a <textarea>
+docker run --rm --shm-size=2g $P yazses-appprobe-gui bash /work/probe-gui.sh \
+    firefox 50 50 /opt/firefox/firefox --no-remote \
+    --profile /tmp/probe-firefox file:///work/page.html
+
+# Thunderbird — a compose window, no account needed
+docker run --rm --shm-size=2g $P yazses-appprobe-gui bash /work/probe-gui.sh \
+    thunderbird 50 50 /opt/thunderbird/thunderbird \
+    --profile /tmp/probe-thunderbird -compose
+
+# VS Code — click at 35% width, so the text lands in the editor, not the Chat panel
+docker run --rm --shm-size=2g $P yazses-appprobe-gui bash -c \
+    ': > /work/scratch.txt; bash /work/probe-gui.sh vscode 50 35 code --no-sandbox
+      --disable-gpu --disable-workspace-trust --password-store=basic
+      --user-data-dir=/tmp/probe-vscode /work/scratch.txt'
+```
+
+```
+RESULT|firefox|EXACT|kubectl get pods --namespace prod
+RESULT|thunderbird|EXACT|kubectl get pods --namespace prod
+RESULT|vscode|EXACT|kubectl get pods --namespace prod
+```
+
+Obsidian needs a vault to exist, or it opens on its vault picker and there is
+nothing to type into; Zed stacks two modals that Escape cannot answer, so its
+`PROBE_PRE_KEYS` starts with Return:
+
+```bash
+docker run --rm --shm-size=2g $P yazses-appprobe-gui bash -c '
+    mkdir -p /tmp/vault /root/.config/obsidian
+    echo "{\"vaults\":{\"0123456789abcdef\":{\"path\":\"/tmp/vault\",\"ts\":1700000000000,\"open\":true}}}" \
+        > /root/.config/obsidian/obsidian.json
+    bash /work/probe-gui.sh obsidian 45 60 obsidian --no-sandbox --disable-gpu'
+
+docker run --rm --shm-size=2g -e PROBE_PRE_KEYS="Return Escape" $P yazses-appprobe-gui bash -c '
+    mkdir -p /tmp/proj; : > /tmp/proj/a.txt
+    bash /work/probe-gui.sh zed 55 50 /opt/zed.app/bin/zed /tmp/proj/a.txt'
+```
+
+Seed the VS Code scratch file with `:`, not `echo` — `echo` writes a newline, and
+`ctrl+a` then selects it, so a perfectly good run reports `PARTIAL`.
+
+Three things differ from a terminal, and each one previously produced a **wrong
+conclusion that was published in this file**:
+
+- **Startup is slow.** 40–50 seconds cold. `probe.sh` waits 7 — and an app that
+  has not drawn yet is indistinguishable from one that ignores XTEST.
+- **A first-run modal swallows every keystroke, silently.** VS Code opens on
+  *"Sign in to use GitHub Copilot"*. This is the whole of the former
+  *"Electron never receives a keystroke"* entry. **Electron receives keystrokes
+  fine.** `probe-gui.sh` sends Escape twice before typing, and saves a screenshot
+  so the next person can see a dialog rather than infer a toolkit limitation.
+- **`apt install firefox` on Ubuntu 24.04 is a snap stub** — a script that prints
+  `snap install firefox` and exits. With no snapd in a container the browser
+  never starts, which is why Gecko was recorded as *"no window at all"*.
+  `Dockerfile.gui` takes the tarball from Mozilla instead, and both browsers
+  come up.
+
+The general lesson, which is worth more than the table: **a negative result from
+a harness is a claim about the harness until you have looked at the screen.**
+
+## GNOME Terminal
+
+It is a thin client for `gnome-terminal-server`, which needs a session D-Bus
+**and refuses to start under a non-UTF-8 locale** — the base image now sets
+`LANG=C.UTF-8` for exactly that reason. Give it the bus as part of the launch
+command, not as a wrapper around the probe:
+
+```bash
+docker run --rm -e PROBE_WAIT=25 -v "$PWD/scripts/appprobe:/work" yazses-appprobe \
+    bash /work/probe.sh gnome-terminal "" "ctrl+d" \
+    dbus-run-session -- gnome-terminal --wait -- bash -c 'cat > /work/out.txt'
+```
+
+`PROBE_WAIT` exists because the D-Bus activation puts this well past the
+7-second default, and a slow start is indistinguishable from a dead one in the
+output.
+
+## Known limits — where the boundary actually is
 
 | Toolkit | Result |
 |---|---|
 | X11/GTK/Qt native — terminals, Vim, Emacs, Sublime | works, byte for byte |
-| **Electron** — VS Code | `probe.sh` finds nothing lands. **This was a wrong conclusion** — see the retraction below. Electron accepts XTEST fine. |
-| **Gecko** — Firefox, Thunderbird | no window at all in a bare Xvfb |
-| **GTK with a session bus** — GNOME Terminal | no window, even with `dbus-launch` and `gnome-terminal-server` started by hand |
+| Electron — VS Code | works, byte for byte, once the first-run modal is dismissed |
+| Gecko — Firefox, Thunderbird | works, byte for byte, with the Mozilla build |
+| GTK with a session bus — GNOME Terminal | works, byte for byte, under `dbus-run-session` in a UTF-8 locale |
 | **Java/Swing** — JetBrains | starts, but stops at a licence agreement. Clicking through a EULA automatically is not something this script should do. |
+| **Apps behind a login** — Slack, Discord | the message composer is the interesting part and it is behind an account. Only the login field is reachable, and a config asserting the untested half would be worse than no config. |
+| **AppImage-only apps** — Logseq | not in any apt repository. Adding one to `Dockerfile.gui` is a good contribution. |
 
-### Retraction — "Electron never receives a keystroke" was wrong
+Two remaining traps:
 
-This file used to state that as a measured fact. It is not. Driving the same
-xdotool XTEST path against a live VS Code window and reading the buffer back
-returns `kubectl get pods --namespace prod` byte for byte, capitalisation and
-both hyphens intact (`examples/config.vscode.toml`).
-
-Two properties of `probe.sh` produced the false negative, and both look exactly
-like an application ignoring XTEST:
-
-- **It waits 7 seconds.** VS Code needs roughly 40 to draw in a container. An app
-  that has not painted yet cannot receive anything.
-- **A first-run modal absorbs every keystroke, silently.** VS Code opens on *"Sign
-  in to use GitHub Copilot"*. The keys arrive, go to the dialog, and vanish with no
-  error and no log line. Sending Escape first is enough.
-
-The general lesson is worth more than the row it corrects: **a negative result from
-a harness is a claim about the harness until you have looked at the screen.**
-
-So `probe.sh` itself still covers native toolkits only. Electron, Gecko and anything
-needing a real desktop session want a longer wait, a dismissed modal, and a click
-into the editing area rather than the window centre — a side panel that is also a
-text target produces a clean pass that proves nothing. Teaching the probe to do that
-is a genuinely useful contribution.
 - **The first few characters can be lost** in a GUI app if typing starts before a
   text field has the caret. Use a sentinel prefix to tell that apart from the app
   mangling your input — that is how the LibreOffice result above was confirmed to
   be AutoCorrect and not a timing artefact.
+- **Click into the editing area, not just the window.** VS Code's Chat panel on
+  the right is also a text target, so a centre click can produce a clean EXACT
+  that proves nothing about the editor. `CLICK_PCT` exists for this.

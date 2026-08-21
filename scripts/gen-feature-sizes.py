@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+"""Regenerate the per-feature download-size table (ADR-018).
+
+`yazses features enable <slug>` can download a great deal. `speechbrain` — one line
+in the `voiceprint` extra — resolves to torch plus the entire NVIDIA CUDA stack, on
+a CPU-only offline dictation tool. The user currently finds that out by watching a
+progress bar. This script produces the numbers that let them find out first.
+
+**Why resolved closures rather than wheel sizes.** The obvious table is
+"package -> size of its wheel", and it is wrong in the direction that matters:
+`speechbrain`'s own wheel is a few MB and its closure is gigabytes. Quoting the wheel
+would tell a user a feature is cheap immediately before it fills their disk. So each
+feature is *resolved* with `uv pip install --dry-run` against a base environment, and
+every distribution in the resulting closure is priced.
+
+**Why a committed table rather than a live query.** `yazses features` has to render
+offline, instantly, and identically for everyone (ADR-011: the daemon makes no
+outbound connection the user did not ask for). A stale number is acceptable; a hang
+is not. This script is run by a maintainer and its output is committed.
+
+Usage:
+    uv run python scripts/gen-feature-sizes.py            # regenerate + write
+    uv run python scripts/gen-feature-sizes.py --check    # fail if stale (CI)
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+import tempfile
+import urllib.error
+import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+OUT = ROOT / "src/yazses/system/feature_sizes.json"
+
+sys.path.insert(0, str(ROOT / "src"))
+
+# Distributions a base install already has. Anything in the resolved closure that is
+# already present costs nothing to add, which is the whole point of quoting a
+# *marginal* figure -- the tts/silero/parakeet extras all name an onnxruntime that
+# faster-whisper already brought in.
+_BASE_MARKER = "yazses"
+
+
+def _resolve(packages: list[str], base_venv: Path) -> list[tuple[str, str]]:
+    """Every (name, version) `uv pip install` would add, given *base_venv*."""
+    proc = subprocess.run(
+        ["uv", "pip", "install", "--dry-run", *packages],
+        capture_output=True, text=True,
+        env={"VIRTUAL_ENV": str(base_venv), "PATH": __import__("os").environ["PATH"],
+             "HOME": __import__("os").environ.get("HOME", "/tmp")},
+    )
+    out = proc.stdout + proc.stderr
+    added = []
+    for line in out.splitlines():
+        m = re.match(r"\s*\+\s+(\S+)==(\S+)", _strip_ansi(line))
+        if m and m.group(1) != _BASE_MARKER:
+            added.append((m.group(1), m.group(2)))
+    return added
+
+
+def _strip_ansi(s: str) -> str:
+    return re.sub(r"\x1b\[[0-9;]*m", "", s)
+
+
+_size_cache: dict[tuple[str, str], float | None] = {}
+
+
+def price_all(distributions: set[tuple[str, str]]) -> None:
+    """Fetch every distribution's size concurrently, into `_size_cache`.
+
+    The first version of this queried PyPI serially inside the per-feature loop. The
+    18 features resolve to a few hundred distinct distributions, each a separate HTTPS
+    round trip, and the run was still going after 30 minutes with nothing to show. A
+    thread pool turns that into seconds: the work is entirely network-bound, so the
+    GIL is irrelevant and the only real limit is politeness to PyPI.
+
+    Capped at 16 because this is someone else's free service and the whole job is a
+    few hundred requests -- there is nothing to gain from being greedier.
+    """
+    todo = [d for d in sorted(distributions) if d not in _size_cache]
+    if not todo:
+        return
+    print(f"Pricing {len(todo)} distributions ...", flush=True)
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        futures = {pool.submit(_fetch_wheel_mb, n, v): (n, v) for n, v in todo}
+        for done, future in enumerate(as_completed(futures), 1):
+            name, version = futures[future]
+            try:
+                _size_cache[(name, version)] = future.result()
+            except Exception:
+                _size_cache[(name, version)] = None
+            if done % 25 == 0 or done == len(todo):
+                print(f"  {done}/{len(todo)}", flush=True)
+
+
+def _wheel_mb(name: str, version: str) -> float | None:
+    """The cached size for this exact version, fetching it if `price_all` missed it."""
+    key = (name, version)
+    if key in _size_cache:
+        return _size_cache[key]
+    _size_cache[key] = _fetch_wheel_mb(name, version)
+    return _size_cache[key]
+
+
+def _fetch_wheel_mb(name: str, version: str) -> float | None:
+    """Largest linux/any wheel for this exact version, in MB. One HTTPS request."""
+    url = f"https://pypi.org/pypi/{name}/{version}/json"
+    try:
+        with urllib.request.urlopen(url, timeout=30) as fh:
+            data = json.load(fh)
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError):
+        return None
+    sizes = [
+        u["size"] for u in data.get("urls", [])
+        if u["filename"].endswith(".whl")
+        and ("manylinux" in u["filename"] or "-any." in u["filename"])
+    ]
+    if not sizes:
+        sizes = [u["size"] for u in data.get("urls", [])]
+    return round(max(sizes) / 1e6, 1) if sizes else None
+
+
+def build(base_venv: Path) -> dict:
+    from yazses.system.features import _FEATURE_DEPS
+
+    # Resolve every feature first, then price the union in one concurrent pass.
+    # Doing it per feature re-paid the network cost for every shared distribution --
+    # and torch appears in several closures.
+    closures: dict[str, list[tuple[str, str]]] = {}
+    for slug, (_modules, packages) in sorted(_FEATURE_DEPS.items()):
+        closures[slug] = _resolve(list(packages), base_venv)
+        print(f"  resolved {slug:22s} {len(closures[slug])} distributions", flush=True)
+    price_all({d for c in closures.values() for d in c})
+
+    table: dict[str, dict] = {}
+    for slug, closure in closures.items():
+        total = 0.0
+        unpriced = []
+        for name, version in closure:
+            mb = _wheel_mb(name, version)
+            if mb is None:
+                unpriced.append(name)
+            else:
+                total += mb
+        table[slug] = {
+            "download_mb": round(total, 1),
+            "packages": len(closure),
+            "unpriced": sorted(unpriced),
+        }
+        # flush: this runs for tens of minutes and its output is usually redirected
+        # to a log, where block buffering makes a working run look like a hung one.
+        print(f"  {slug:22s} {total:8.1f} MB  ({len(closure)} distributions)"
+              f"{'  UNPRICED: ' + ','.join(unpriced) if unpriced else ''}", flush=True)
+    return {
+        "_comment": (
+            "Generated by scripts/gen-feature-sizes.py -- do not hand-edit. "
+            "Download size of the fully resolved dependency closure for each "
+            "feature, measured against a base install on Linux x86_64. Marginal "
+            "cost on a given machine is computed at runtime from what is missing."
+        ),
+        "features": table,
+    }
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--check", action="store_true", help="fail if the table is stale")
+    args = ap.parse_args()
+
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp) / "base"
+        print(f"Building a clean base environment in {base} ...")
+        subprocess.run(["uv", "venv", "--python", "3.12", str(base)],
+                       check=True, capture_output=True)
+        subprocess.run(["uv", "pip", "install", str(ROOT)], check=True,
+                       capture_output=True,
+                       env={"VIRTUAL_ENV": str(base),
+                            "PATH": __import__("os").environ["PATH"],
+                            "HOME": __import__("os").environ.get("HOME", "/tmp")})
+        print("Resolving each feature ...")
+        table = build(base)
+
+    rendered = json.dumps(table, indent=2, sort_keys=True) + "\n"
+    if args.check:
+        current = OUT.read_text(encoding="utf-8") if OUT.exists() else ""
+        if current != rendered:
+            print(f"\n{OUT.relative_to(ROOT)} is stale — run this script without --check",
+                  file=sys.stderr)
+            return 1
+        print(f"\n{OUT.relative_to(ROOT)} is up to date.")
+        return 0
+    OUT.write_text(rendered, encoding="utf-8")
+    print(f"\nwrote {OUT.relative_to(ROOT)}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -39,14 +39,17 @@ if TYPE_CHECKING:
 
 from yazses.audio.adaptive_vad import AdaptiveThreshold
 from yazses.audio.device_monitor import DeviceMonitor, SilentStreakTracker
+from yazses.audio.mic_prompt import MicPrompt
 from yazses.audio.padding import PreSpeechRingBuffer
 from yazses.audio.recorder import AudioRecorder
 from yazses.audio.vad_calibrated import is_silent_calibrated
+from yazses.cmdsafety.classify import ConfirmGate
 from yazses.commands.dispatch import dispatch as cmd_dispatch
 from yazses.commands.grammar import IntentType, classify
 from yazses.commands.macros import MacroContext, build_macro_table
 from yazses.commands.revise import DictationLedger, parse_revise
 from yazses.config import Config, load_config
+from yazses.earcon.play import EarconPlayer
 from yazses.inject.streaming import StreamingInjector
 from yazses.ipc.protocol import Request
 from yazses.learning.capture import CorpusWriter, build_writer
@@ -65,15 +68,34 @@ from yazses.staged.buffer import classify as staged_classify
 from yazses.staged.buffer import describe as staged_describe
 from yazses.stt.base import SttEngine
 from yazses.stt.endpoint import EndpointAnticipator
+from yazses.stt.errors import ModelUnavailableError
 from yazses.stt.factory import build_engine
 from yazses.stt.filters.disfluency import filter_transcript
 from yazses.stt.latency import LatencyWindow
 from yazses.stt.streaming import StreamingEngine
 from yazses.styleguard.loader import build_style_rules
 from yazses.styleguard.rules import apply_style
+from yazses.system.outcomes import OutcomeWindow, classify_outcome
+from yazses.system.relaunch import Mode, command_for
 from yazses.tts.factory import build_tts
 
 log = logging.getLogger(__name__)
+
+
+def _running_version() -> str:
+    """The version of the yazses package this daemon imported. Never raises.
+
+    Deferred rather than module-level: `importlib.metadata` is the single most
+    expensive import in the tree (52 ms, measured), and CLI start-up cost is
+    guarded by `tests/test_cli_startup_cost.py`.
+    """
+    try:
+        from importlib.metadata import version
+
+        return version("yazses")
+    except Exception:
+        return ""
+
 
 
 def should_launch_overlay(config: Config, env: Mapping[str, str]) -> bool:
@@ -128,6 +150,11 @@ class _DaemonState:
 
 # Tone names with house phrasing. Anything else in `[profiles.app]` is appended
 # verbatim as "Use a <tone> tone." — see `Daemon._clean_dictation`.
+# How many undelivered toasts to hold for the tray. Small on purpose: these are
+# transient status messages, and a tray that has been quit must not make the
+# daemon accumulate them for the rest of the session.
+_MAX_PENDING_NOTIFICATIONS = 10
+
 _TONE_INSTRUCTIONS: dict[str, str] = {
     "casual": "Use a casual, conversational tone.",
     "formal": "Use a formal, professional tone.",
@@ -152,6 +179,8 @@ class Daemon:
         self._command_hotkey: HotkeyBackend | None = None
         self._command_thread: threading.Thread | None = None
         self._command_mode: bool = False
+        # Toasts awaiting collection by the tray, where the OS has no libnotify.
+        self._pending_notifications: list[dict[str, str]] = []
         # Non-keyboard activation sources (EMG squeeze — [emg] device_port).
         # Each is a HotkeyBackend duck-type driving the same hold callbacks.
         self._extra_activations: list[HotkeyBackend] = []
@@ -201,9 +230,22 @@ class Daemon:
         # (#296). Bounded and in-memory: a diagnostic must not depend on the
         # opt-in learning corpus, and it must not write anything to disk.
         self._latency = LatencyWindow()
+        self._outcomes = OutcomeWindow()
         # Staged dictation (#294): when on, a burst lands here for review instead
         # of typing straight into the focused app. Off by default.
         self._staged = StagedBuffer()
+        # Command Safety Gate (ADR-v2-065): holds one dangerous dictated command
+        # pending a spoken confirm. Always constructed — it is a couple of fields and
+        # stays inert unless [cmdsafety] enabled, which keeps `_on_hold_end` free of
+        # a None check on the hot path.
+        self._cmdsafety = ConfirmGate()
+        # When the mic guard last asked something, so a spoken answer can be
+        # scoped to an open question rather than to the whole session.
+        self._mic_prompt = MicPrompt()
+        # Earcon feedback (ADR-v2-096): non-speech tones for state changes, so the
+        # daemon is usable without seeing the tray. Always constructed and inert
+        # unless [earcon] enabled, keeping the hot path free of a None check.
+        self._earcon = EarconPlayer(self._config.earcon.enabled)
         self._edit_watcher: EditWatcher | None = None
         self._cleaner: LlmCleaner | None = None
         # Read-Back Loop TTS backend (None when [tts] disabled — dormant).
@@ -243,6 +285,11 @@ class Daemon:
         self._meeting_controller: MeetingController | None = None
         self._meeting_recorder: AudioRecorder | None = None
         self._meeting_finalizing = False
+        # slug -> monotonic time it was last reported to the user, so a fault that
+        # recurs on every burst is explained once rather than every time. See
+        # `system/diagnosis.py::should_notify` for why the ceiling matters more than
+        # the repeats do.
+        self._diagnosed_at: dict[str, float] = {}
         # Audio-input resilience: count consecutive silent-discards and watch the OS
         # default input device so a mic that silently switches (e.g. a USB-C monitor
         # stealing capture) is auto-healed to the last-good device + notified, instead
@@ -284,6 +331,11 @@ class Daemon:
         if not self._acquire_instance_lock():
             return
         self._install_signal_handlers()
+        # Where a toast goes when this OS has no libnotify: onto the status reply
+        # for the tray to show. No-op on Linux, which uses notify-send directly.
+        from yazses.system.notify import set_fallback_sink
+
+        set_fallback_sink(self._queue_notification)
 
         lifecycle = self._platform.lifecycle
         lifecycle.write_pid()
@@ -295,7 +347,16 @@ class Daemon:
             # rather than getting "daemon not reachable" for the 5–10 seconds
             # the model takes to load on first run.
             self._start_ipc_server()
-            self._build_pipeline()
+            try:
+                self._build_pipeline()
+            except ModelUnavailableError as exc:
+                # The one startup failure the user can fix themselves, and the one
+                # that used to kill the daemon with a raw traceback (#310). Hold the
+                # process in ERROR state instead: IPC is already up, so the tray goes
+                # red with the reason and `yazses status` can answer, rather than the
+                # daemon vanishing and leaving "not running" as the only clue.
+                self._await_shutdown_in_error(exc)
+                return
             with self._lock:
                 self._state.ready = True
                 self._state.state = TrayState.IDLE
@@ -324,9 +385,37 @@ class Daemon:
             if self._device_monitor is not None:
                 self._device_monitor.start()
                 log.info("Watching for audio-input device changes.")
+            self._start_update_watcher()
             self._hotkey.run()
         finally:
             self._shutdown()
+
+    def _await_shutdown_in_error(self, exc: ModelUnavailableError) -> None:
+        """Report a fixable startup failure and stay up until asked to stop.
+
+        Exiting here would be worse than it looks: the tray dies with the daemon,
+        so the user is left with a window that closed and no statement of why.
+        Staying resident costs nothing (no model is loaded, no hotkey is hooked)
+        and keeps every channel that can explain the problem alive — the tray
+        icon, `yazses status`, and the log.
+        """
+        message = str(exc)
+        log.error("%s", message)
+        with self._lock:
+            self._state.state = TrayState.ERROR
+            self._state.last_error = message
+            self._state.ready = False
+        try:
+            from yazses.system import notify as notify_mod
+
+            notify_mod.notify(
+                "YazSes cannot start dictation",
+                f"The speech model {exc.model!r} is missing and could not be "
+                f"downloaded. Run: yazses model download {exc.model}",
+            )
+        except Exception:  # noqa: BLE001 — a toast must not mask the real error
+            log.debug("Could not send the model-unavailable notification", exc_info=True)
+        self._stop_event.wait()
 
     def _maybe_launch_overlay(self) -> None:
         """Spawn the sonar overlay as a detached process when configured."""
@@ -340,7 +429,7 @@ class Daemon:
             return
         try:
             self._overlay_proc = subprocess.Popen(
-                [sys.executable, "-m", "yazses.overlay.app"],
+                command_for(Mode.OVERLAY),
                 start_new_session=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -363,10 +452,10 @@ class Daemon:
             return
         try:
             self._tray_proc = subprocess.Popen(
-                [sys.executable, "-m", "yazses.tray.app"],
+                command_for(Mode.TRAY),
                 start_new_session=True,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stderr=self._open_tray_stderr(),
             )
             log.info("Launched system-tray indicator (pid %d).", self._tray_proc.pid)
         except Exception:
@@ -389,6 +478,39 @@ class Daemon:
         )
         self._tray_supervisor.start()
 
+    def _tray_stderr_path(self):
+        """Where a tray process's stderr is parked until someone asks why it died."""
+        return self._platform.paths.data_dir / "tray-stderr.log"
+
+    def _open_tray_stderr(self):
+        """A write handle for the next tray's stderr, or DEVNULL if that is impossible.
+
+        Truncated per launch: this answers "why did the tray that just died die?", and a
+        growing file would answer it with the previous six failures as well. Falls back
+        to DEVNULL rather than raising -- a tray that cannot be launched at all is a
+        worse outcome than a tray whose error is unreadable, which is the status quo.
+        """
+        try:
+            path = self._tray_stderr_path()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            return path.open("w", encoding="utf-8", errors="replace")
+        except Exception:  # noqa: BLE001 - diagnostics must never block the tray
+            return subprocess.DEVNULL
+
+    def _last_tray_error(self) -> str:
+        """What the tray printed before it died, formatted for one log call."""
+        from yazses.tray.supervisor import describe_exit
+
+        try:
+            text = self._tray_stderr_path().read_text(encoding="utf-8", errors="replace")
+        except Exception:  # noqa: BLE001 - no file is the normal case
+            return ""
+        summary = describe_exit(text)
+        if not summary:
+            return ""
+        indented = summary.replace("\n", "\n    ")
+        return f"\n  it said:\n    {indented}"
+
     def _supervise_tray(self) -> None:
         from yazses.system.single_instance import holder_pid
         from yazses.tray.supervisor import DEFAULT_INTERVAL_S, decide
@@ -401,22 +523,89 @@ class Daemon:
                     alive=holder_pid(lock) is not None, relaunches_so_far=relaunches
                 )
                 if decision.give_up:
-                    log.warning("Tray supervisor: %s", decision.reason)
+                    # Say why, not just that. The reason text tells the user to run
+                    # `yazses tray` to see the error -- advice that only ever existed
+                    # because the error was being discarded.
+                    log.warning(
+                        "Tray supervisor: %s%s", decision.reason, self._last_tray_error()
+                    )
                     return
                 if not decision.relaunch:
                     continue
-                log.info("Tray supervisor: %s", decision.reason)
+                log.info(
+                    "Tray supervisor: %s%s", decision.reason, self._last_tray_error()
+                )
                 proc = subprocess.Popen(
-                    [sys.executable, "-m", "yazses.tray.app"],
+                    command_for(Mode.TRAY),
                     start_new_session=True,
                     stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
+                    stderr=self._open_tray_stderr(),
                 )
                 self._tray_proc = proc
                 relaunches += 1
                 log.info("Relaunched system-tray indicator (pid %d).", proc.pid)
             except Exception:  # noqa: BLE001 — supervision must outlive its own errors
                 log.exception("Tray supervisor iteration failed")
+
+    # ---- update watcher ---------------------------------------------------
+
+    def _start_update_watcher(self) -> None:
+        """Start the opt-in "a newer YazSes is out" watcher.
+
+        Dormant unless ``[general] update_check`` is on — it is the only outbound
+        connection YazSes ever makes, so it is a choice, not a default.
+        """
+        if not getattr(self._config.general, "update_check", False):
+            return
+        threading.Thread(
+            target=self._watch_for_updates, name="update-check", daemon=True
+        ).start()
+        log.info("Update check enabled; will look for a newer release periodically.")
+
+    def _watch_for_updates(self) -> None:
+        """Ask periodically whether a newer release exists; announce it once.
+
+        Every failure is swallowed on purpose. A machine behind a firewall must
+        keep dictating exactly as before — a blocked check is a no-op that retries
+        at the next tick, never an error the user has to clear.
+        """
+        import time
+
+        from yazses.system import update_notify
+        from yazses.system.notify import notify
+        from yazses.system.updater import check_update
+
+        state_path = self._platform.paths.data_dir / update_notify.STATE_NAME
+        interval_h = getattr(self._config.general, "update_check_interval_hours", 24)
+        # Tick often enough to react to a laptop waking up mid-interval, but let
+        # `should_check` decide what is actually due.
+        tick_s = 900.0
+        # A first check right at startup would race the model load and compete
+        # with the user's first dictation, so the loop waits one tick first.
+        while not self._stop_event.wait(tick_s):
+            try:
+                state = update_notify.read_state(state_path)
+                now = time.time()
+                if not update_notify.should_check(now, state.last_check, interval_h):
+                    continue
+                status = check_update(self._version())
+                state.last_check = now
+                if update_notify.should_notify(status, state.notified_version):
+                    summary, body = update_notify.notification(status)
+                    notify(summary, body)
+                    state.notified_version = status.latest or ""
+                    log.info("A newer YazSes is available: %s", status.latest)
+                elif status.latest is None:
+                    log.debug("Update check could not reach the source: %s", status.note)
+                update_notify.write_state(state_path, state)
+            except Exception:  # noqa: BLE001 — a background check must never escalate
+                log.debug("Update check iteration failed", exc_info=True)
+
+    def _version(self) -> str:
+        """The running version, for the update check ("dev" in a source tree)."""
+        from yazses import branding
+
+        return branding.version()
 
     def shutdown(self) -> None:
         log.info("Shutting down.")
@@ -453,6 +642,11 @@ class Daemon:
         backend = (self._config.injection.backend or "auto").strip().lower()
         if backend and backend != "auto":
             os.environ["YAZSES_INJECTOR"] = backend
+        # Same bridge for [injection] fallback_to_clipboard, which was documented,
+        # defaulted to true, and read by nothing -- so turning it off did nothing.
+        os.environ["YAZSES_INJECT_FALLBACK"] = (
+            "1" if self._config.injection.fallback_to_clipboard else "0"
+        )
         self._injector = self._platform.injector_factory()
         log.info("Injection backend: %s", self._injection_backend_name())
 
@@ -538,7 +732,7 @@ class Daemon:
 
         # Voice window focus (#39). None on Wayland (which forbids cross-client
         # focus) and without xdotool; the spoken command then stays dictation.
-        self._window_backend = self._build_window_backend()
+        self._window_backend = self._build_window_backend(cfg)
 
         # Optional non-keyboard activation sources (EMG squeeze via [emg]).
         self._extra_activations = self._build_activation_sources(cfg)
@@ -667,6 +861,7 @@ class Daemon:
         server.register("meeting_status", self._handle_meeting_status)
         server.register("pin_mic", self._handle_pin_mic)
         server.register("recalibrate_mic", self._handle_recalibrate_mic)
+        server.register("ask_human", self._handle_ask_human)
         server.serve_in_thread()
         self._ipc_server = server
 
@@ -809,6 +1004,8 @@ class Daemon:
         with self._lock:
             self._state.state = TrayState.RECORDING
         log.info("Recording started (cleaning up %d leaked char(s))", leaked)
+        # The eyes-free counterpart of the tray turning green. Non-blocking.
+        self._earcon.play("recording_start")
 
         # "No text target" guard: detect (off the hot path, so recording onset isn't
         # delayed) whether the focused element accepts text. Drives the yellow tray state
@@ -866,6 +1063,11 @@ class Daemon:
                 with self._lock:
                     self._state.last_error = f"Microphone unavailable: {exc}"
                     self._state.state = TrayState.IDLE
+                # The user is holding the key right now and nothing is happening.
+                # Before this, that produced a log line and a blue idle badge.
+                from yazses.system.diagnosis import CAPTURE
+
+                self._report_failure(exc, CAPTURE)
 
     # Evdev/ydotool keycodes for the hold-to-talk hotkeys (Linux input-event-codes;
     # ydotool uses the same numbers). Mirrors platform/linux/hotkey.py's keymap.
@@ -936,6 +1138,7 @@ class Daemon:
             log.debug("hotkey-modifier release (best-effort) failed", exc_info=True)
 
     def _on_hold_end(self) -> None:
+        self._earcon.play("recording_stop")
         log.info("Recording stopped, transcribing...")
 
         # Force the compositor to release the hold-to-talk key NOW, before the
@@ -983,6 +1186,9 @@ class Daemon:
         event: dict = {"ts": time.time(), "model": self._config.stt.model}
         clip: np.ndarray | None = None
         sample_rate = self._config.audio.sample_rate
+        # Set by the pipeline's `except` handler. Declared here because the `finally`
+        # reads it on every burst, including the ones that never raise.
+        pipeline_failed = False
 
         try:
             audio = self._recorder.stop()
@@ -1024,6 +1230,10 @@ class Daemon:
                 self._adaptive_vad.observe_discard(level)
                 self._maybe_retune_threshold(acc.vad_threshold)
                 self._note_silent_discard()
+                # Nothing was heard, so nothing will be typed. Without a screen this is
+                # indistinguishable from a slow transcription, and the user waits for
+                # text that is never coming.
+                self._earcon.play("error")
                 if stream_injector is not None:
                     stream_injector.cancel()
                 return
@@ -1171,6 +1381,19 @@ class Daemon:
             if not text:
                 event["discard_reason"] = "empty"
                 log.info("Empty transcription -- discarding.")
+                # Decoding to nothing is the same failure as hearing nothing: the key
+                # was held, speech happened, no text appears. It used to differ only
+                # in that this path said nothing at all -- so a microphone capturing
+                # audible but unintelligible audio (too quiet, wrong device, badly
+                # attenuated) discarded for ever with `silent_streak` stuck at 0,
+                # while the guard built for exactly that symptom saw a healthy mic.
+                # Measured on a real machine: four consecutive empty transcriptions
+                # at levels 0.0022-0.0069, against 0.0199 for that machine's last
+                # successful capture, and not one word said about it.
+                self._note_silent_discard()
+                # Same reasoning as the silent branch: nothing will be typed, and
+                # without a screen that is indistinguishable from a slow decode.
+                self._earcon.play("error")
                 if stream_injector is not None:
                     stream_injector.cancel()
                 return
@@ -1608,6 +1831,41 @@ class Daemon:
                              macro_table=self._macro_table,
                              macro_context=self._build_macro_context())
             else:
+                # Command Safety Gate (ADR-v2-065): a dictated `rm -rf` waits for a
+                # spoken "confirm" instead of typing straight into a shell. Runs
+                # BEFORE staged dictation on purpose — the confirm word has to be
+                # consumed as a control utterance, and the staged buffer would
+                # otherwise swallow it as ordinary text.
+                if self._config.cmdsafety.enabled:
+                    gated = self._cmdsafety_gate(text, event)
+                    if gated is None:
+                        return
+                    text = gated
+                    event["final_text"] = text
+
+                # Checksum-Validated Entry (ADR-v2-106, wired by ADR-021): a dictated
+                # card number, IBAN or ISBN whose check digit fails waits rather than
+                # typing a number nothing downstream will notice is wrong. Shares the
+                # command gate's confirm word, so the user learns one release phrase
+                # rather than one per guard.
+                if self._config.checkdigit.enabled:
+                    checked = self._checkdigit_gate(text, event)
+                    if checked is None:
+                        return
+                    text = checked
+                    event["final_text"] = text
+
+                # Spoken answer to the mic guard's toast (ADR-022): the daemon may
+                # not ask a question about your microphone that only a pointer can
+                # answer. After the two safety gates so a held command keeps first
+                # claim on the utterance; before staged, which would swallow it.
+                if self._config.audio.voice_answer:
+                    answered = self._mic_answer_gate(text, event)
+                    if answered is None:
+                        return
+                    text = answered
+                    event["final_text"] = text
+
                 # Staged dictation (#294): bursts land in a review buffer instead of
                 # typing, and only a commit types — `scratch that` is already too
                 # late once the wrong token is in a terminal. A commit hands back the
@@ -1647,15 +1905,35 @@ class Daemon:
                 self._maybe_read_back(text)
 
         except Exception as exc:
+            # Recorded for the outcome gauge: nothing reached the window, and
+            # `discard_reason` is not set on this path.
+            pipeline_failed = True
             log.warning("Pipeline error: %s", exc)
             with self._lock:
                 self._state.last_error = str(exc)
+            # `INJECT` rather than `TRANSCRIBE` for the fallback wording: this block
+            # wraps decode *and* delivery, and of the two, "it heard you and the text
+            # went nowhere" is the one the user is looking at. A failure that is
+            # recognisable at all is recognised by its own markers regardless.
+            from yazses.system.diagnosis import INJECT
+
+            self._report_failure(exc, INJECT)
             if stream_injector is not None:
                 try:
                     stream_injector.cancel()
                 except Exception:
                     pass
         finally:
+            # Every burst passes through here exactly once, whatever became of it, so
+            # this is the one place the outcome can be counted without threading a
+            # return value through each early return. The per-burst result was always
+            # in the log and never summarised -- the same gap #296 closed for decode
+            # latency, and the more basic number of the two.
+            self._outcomes.record(
+                classify_outcome(
+                    event.get("discard_reason"), pipeline_failed=pipeline_failed
+                )
+            )
             # Non-silent capture that produced a transcript means the mic is working:
             # reset the silent streak and remember this device as the auto-heal target.
             if event.get("raw_text") and not event.get("discard_reason"):
@@ -1729,13 +2007,21 @@ class Daemon:
 
     def _notify_mic(self, title: str, body: str, *, actions: bool = True) -> None:
         """Fire a desktop notification about the mic; never raises."""
+        if actions:
+            # Open the spoken-answer window (ADR-022). Only for toasts that actually
+            # ask something -- the nine informational ones pass actions=False, and
+            # arming "ignore" after a toast with no buttons would be a control word
+            # with nothing to control.
+            self._mic_prompt.ask(time.time())
         try:
             from yazses.system import notify as notify_mod
 
+            urgency, expire_ms = notify_mod.toast_policy(bool(actions))
             notify_mod.notify(
                 title,
                 body,
-                urgency="critical",
+                urgency=urgency,
+                expire_ms=expire_ms,
                 actions=self._mic_actions() if actions else None,
                 on_action=self._on_mic_action if actions else None,
             )
@@ -1786,19 +2072,17 @@ class Daemon:
 
         if not self._config.audio.silent_streak_notify:
             return
-        if healed:
-            body = (
-                f"Heard nothing on '{active}' {streak}× in a row.\n"
-                f"Switched capture back to '{last_good}' (last worked).\n"
-                "Not right? Pin a mic:  yazses audio use <name>"
-            )
-            self._notify_mic("🔇 Mic recovered", body)
-        else:
-            body = (
-                f"Heard nothing {streak}× in a row — your mic may have changed.\n"
-                "Fix it:  yazses mic-level --set   ·   yazses audio devices"
-            )
-            self._notify_mic("🔇 Dictation isn't hearing you", body)
+        # One implementation for every surface. `yazses audio status` used to phrase
+        # this fault differently and name no command at all, so the advice `yazses
+        # status` sends you to was a dead end.
+        from yazses.audio.device_monitor import silent_streak_advice
+
+        headline, remedies = silent_streak_advice(
+            streak, active=active, last_good=last_good, healed=healed
+        )
+        body = "\n".join([headline, *remedies])
+        title = "🔇 Mic recovered" if healed else "🔇 Dictation isn't hearing you"
+        self._notify_mic(title, body)
 
     def _note_good_capture(self) -> None:
         """A clip produced usable audio — reset the streak, remember the device."""
@@ -2005,6 +2289,154 @@ class Daemon:
             "preview": self._staged.preview(),
             "summary": staged_describe(self._staged),
         }
+
+    def _mic_answer_gate(self, text: str, event: dict) -> str | None:
+        """Spoken answer to the mic guard's toast. The text to type, or None.
+
+        Runs **after** the command-safety and check-digit gates and **before**
+        staged dictation, and both halves of that are deliberate.
+
+        After the safety gates, because a held `rm -rf` must keep first claim on the
+        utterance: putting this first would let "ignore" answer a mic toast while a
+        dangerous command sat waiting. It cannot steal their release words either --
+        the vocabularies do not overlap -- and if a command *is* held, saying a mic
+        answer discards it as an implicit cancel, which is the safe direction.
+
+        Before staged dictation, for the reason ADR-021 gives for the others: the
+        staged buffer would swallow the answer as ordinary text.
+        """
+        from yazses.audio.mic_prompt import match_mic_answer
+
+        now = time.time()
+        if not self._mic_prompt.is_open(now, self._config.audio.voice_answer_window_s):
+            return text
+        answer = match_mic_answer(text)
+        if answer is None:
+            return text
+
+        self._mic_prompt.close()
+        event["mic_answer"] = answer
+        log.info("Mic guard: answered %r by voice.", answer)
+        try:
+            self._on_mic_action(answer)
+        except Exception:
+            # The answer was still consumed -- typing "re-calibrate" into the user's
+            # document because re-calibration failed would be the worse outcome.
+            log.exception("Mic guard: spoken action %r failed", answer)
+        return None
+
+    def _cmdsafety_gate(self, text: str, event: dict) -> str | None:
+        """Command Safety Gate (ADR-v2-065). The text to type, or None when nothing types.
+
+        Three outcomes, in the order they are checked:
+
+        1. **A control word while something is held.** "confirm" releases the held
+           command and returns *it* — not the word "confirm", which would type the
+           word into the shell instead of running the command. An explicit cancel
+           discards it and types nothing.
+        2. **Anything else while something is held.** The held command is discarded
+           and the new utterance is typed normally. This is deliberate: the
+           alternative is a modal state where the daemon ignores everything until the
+           magic word is said, and a user who has forgotten the word — or whose
+           "confirm" was mis-heard — is stuck with dictation apparently broken. The
+           safe direction is losing the dangerous command, never running it by
+           accident, so an implicit cancel costs one re-dictation and nothing else.
+        3. **Nothing held.** A dangerous command is held and announced; everything
+           else passes through untouched.
+
+        The gate never raises into the dictation path — notification is best-effort
+        and the text either types or does not.
+        """
+        from yazses.cmdsafety.classify import assess_command
+        from yazses.cmdsafety.spoken import match_control
+
+        control = match_control(
+            text,
+            self._config.cmdsafety.confirm_words,
+            self._config.cmdsafety.cancel_words,
+        )
+
+        if self._cmdsafety.pending is not None:
+            held = self._cmdsafety.pending
+            if control == "confirm":
+                released = self._cmdsafety.confirm()
+                event["cmdsafety_action"] = "confirm"
+                log.info("Command safety: confirmed, running the held command.")
+                self._notify_cmdsafety("Confirmed — running the held command.")
+                return released
+            self._cmdsafety.cancel()
+            if control == "cancel":
+                event["cmdsafety_action"] = "cancel"
+                log.info("Command safety: cancelled the held command.")
+                self._notify_cmdsafety("Cancelled — the command was not run.")
+                return None
+            # Neither word: drop the held command and treat this as ordinary dictation.
+            event["cmdsafety_action"] = "implicit_cancel"
+            log.info("Command safety: discarded the held command (not confirmed).")
+            self._notify_cmdsafety(
+                "Discarded the held command — it was not confirmed."
+            )
+            _ = held  # kept for the log line above; deliberately never injected
+
+        risk = assess_command(text)
+        if self._cmdsafety.submit(text) is None:
+            event["cmdsafety_action"] = "held"
+            event["cmdsafety_reason"] = risk.reason
+            log.warning("Command safety: holding a dangerous command (%s).", risk.reason)
+            self._notify_cmdsafety(
+                f"Held: {risk.reason}. Say “confirm” to run it."
+            )
+            return None
+        return text
+
+    def _checkdigit_gate(self, text: str, event: dict) -> str | None:
+        """Checksum-Validated Entry (ADR-021). The text to type, or None when it waits.
+
+        Deliberately narrow, per ADR-021's rule that a confirmation is judged on how
+        *rarely* it fires: this only holds an utterance that is a bare number, long
+        enough for a checksum to mean anything, and failing every scheme whose length it
+        fits. Prose containing a number, a short number, and any number that satisfies an
+        applicable checksum all pass through with no comment.
+
+        Reuses the command gate's held-command slot and its confirm word. A second guard
+        with a second release phrase would be a second thing to remember at exactly the
+        moment the user is already surprised.
+        """
+        from yazses.checkdigit.guard import check, describe
+
+        # A pending hold is the command gate's to resolve — it owns the confirm word,
+        # and re-checking the confirmation utterance here would hold "confirm" itself
+        # for failing a checksum it was never a candidate for.
+        if self._cmdsafety.pending is not None:
+            return text
+
+        result = check(
+            text,
+            self._config.checkdigit.schemes,
+            min_digits=self._config.checkdigit.min_digits,
+            want_suggestion=self._config.checkdigit.suggest_fix,
+        )
+        if not result.failed:
+            return text
+
+        self._cmdsafety.hold(text)
+        event["checkdigit_action"] = "held"
+        event["checkdigit_scheme"] = result.scheme
+        if result.suggestion:
+            event["checkdigit_suggestion"] = result.suggestion
+        log.warning("Check digit: holding a number that fails %s.", result.scheme)
+        self._notify_cmdsafety(describe(result))
+        return None
+
+    def _notify_cmdsafety(self, message: str) -> None:
+        """Say what the gate did. Best-effort; never raises into dictation."""
+        log.info("Command safety: %s", message)
+        try:
+            from yazses.system.notify import notify
+
+            notify("YazSes — command safety", message)
+        except Exception:  # pragma: no cover - notification is never load-bearing
+            log.debug("Command-safety notification failed", exc_info=True)
 
     def _stage_or_commit(self, text: str, event: dict) -> str | None:
         """Staged dictation (#294). The text to type, or None when nothing types.
@@ -2428,8 +2860,22 @@ class Daemon:
         log.info("Punch-In: corrected %d chars.", len(last))
         return {"ok": True, "applied": True, "old": last, "new": corrected, "candidates": cand_view}
 
-    def _build_window_backend(self):
-        """X11 window backend for voice focus, or None (logged) when impossible."""
+    def _build_window_backend(self, cfg):
+        """X11 window backend for voice focus, or None (logged) when impossible.
+
+        `[windowctl] enabled` is checked HERE rather than at the call site, and that
+        is the whole gate: `_try_window_focus` already returns False on a None
+        backend, so a disabled feature leaves "focus the browser" to be dictated as
+        text -- the same path Wayland takes, which is already the tested one.
+
+        It had no gate at all. The daemon called `_try_window_focus` unconditionally
+        in command mode, so voice focus ran whether or not the feature was enabled:
+        `yazses features disable windowctl` was a no-op, and the catalogue's "Off by
+        default" was false. It also cost every user an xdotool probe at startup for a
+        feature they had not asked for.
+        """
+        if not getattr(cfg.windowctl, "enabled", False):
+            return None
         try:
             import os
 
@@ -2472,6 +2918,16 @@ class Daemon:
                                  "No local model is configured, so the selection was left alone.")
             return True
 
+        injector = self._injector
+        if injector is None:
+            # Same shape as the cleaner guard above: the injector is built during
+            # startup, so None here means a rewrite arrived before the daemon was
+            # ready. Saying so beats an AttributeError from inside the rewrite.
+            log.warning("Rewrite needs the injector, which is not ready yet.")
+            self._notify_rewrite("Rewrite unavailable",
+                                 "Text injection is not ready yet, so the selection was left alone.")
+            return True
+
         from yazses.rewrite.engine import rewrite_selection
         from yazses.system.clipboard import read_selection, set_clipboard
 
@@ -2479,7 +2935,7 @@ class Daemon:
             intent,
             read_selection=read_selection,
             rewrite=lambda instruction, text: cleaner.cleanup(text, custom_prompt=instruction),
-            inject=self._injector.inject,
+            inject=injector.inject,
             save_original=set_clipboard,
             fallback_text=self._ledger.last_text() or "",
         )
@@ -2767,6 +3223,12 @@ class Daemon:
                 recorder.start()
             except Exception as exc:
                 log.exception("Meeting start failed")
+                # The tray's Start meeting entry shows this reason itself, but the
+                # CLI caller and an auto-stop have no such surface — and a meeting
+                # that failed to start is exactly the failure someone walks away from.
+                from yazses.system.diagnosis import MEETING
+
+                self._report_failure(exc, MEETING)
                 return {"ok": False, "reason": f"could not start meeting: {exc}"}
             self._meeting_controller = controller
             self._meeting_recorder = recorder
@@ -2780,13 +3242,14 @@ class Daemon:
             from yazses.recimport.factory import diarization_status
 
             diar = diarization_status(cfg)
-            if not diar["ready"]:
-                miss = "the diarization extra" if not diar["extra_installed"] else "the speaker models"
-                resp["warning"] = (
-                    f"Speaker labels are on but {miss} are missing — this meeting's "
-                    "transcript will not be attributed. Install with `yazses features "
-                    "enable meeting` and fetch models via `yazses transcribe --download-models`."
-                )
+            # Same advice `yazses meeting status` prints, from one implementation.
+            # This used to name both remedies unconditionally, which asks the user to
+            # do a step they cannot act on yet — and the CLI's copy named only the
+            # wrong one. Two surfaces phrasing one fault differently is the shape.
+            from yazses.recimport.factory import diarization_advice
+
+            if advice := diarization_advice(diar):
+                resp["warning"] = advice
         return resp
 
     def _handle_meeting_status(self, _request: Request) -> dict[str, object]:
@@ -2957,12 +3420,144 @@ class Daemon:
             return None
         return getattr(self._injector, "backend_name", None) or type(self._injector).__name__
 
+    def _report_failure(self, error: BaseException | str, where: str) -> object | None:
+        """Tell the user what broke and what to do about it. Never raises.
+
+        Every caller of this already logged the failure and set ``last_error``. Both
+        are invisible: the log needs `yazses logs`, and ``last_error`` reaches only
+        `yazses status` — the tray does not colour on it, so a microphone that will
+        not open leaves the badge **idle blue** while nothing is typed. This is the
+        only path on which the person holding the key finds out.
+
+        Rate-limited by diagnosis slug: a broken microphone fails on every burst, and
+        five identical toasts teach the user to dismiss YazSes notifications, which
+        costs more than the suppressed repeats. Returns the ``Diagnosis`` when one was
+        shown and None when it was suppressed, so callers (and tests) can tell the two
+        apart.
+
+        Wrapped whole, because it runs from the audio and hotkey threads on paths that
+        are *already* handling a failure — an exception here would replace a fixable
+        problem with an unfixable one.
+        """
+        try:
+            from yazses.system import notify as notify_mod
+            from yazses.system.diagnosis import diagnose, should_notify
+
+            found = diagnose(error, where=where)
+            with self._lock:
+                fresh = should_notify(found.slug, time.monotonic(), self._diagnosed_at)
+            if not fresh:
+                return None
+
+            # ADR-v2-132 asks whether the report offer should wait for a *repeated*
+            # fault. The better rule falls out of the diagnosis itself: offer it only
+            # when YazSes could not identify the failure. A recognised one already
+            # carries the command that fixes it, and an issue about a missing ydotool
+            # helps nobody -- least of all the person who now has two things to do.
+            actions = None
+            if found.slug.startswith("unknown-"):
+                actions = [notify_mod.NotifyAction("report", "Prepare a bug report")]
+
+            # A named function, not a lambda with a default argument: `notify` declares
+            # `on_action: Callable[[str], None] | None`, and the two-parameter lambda
+            # neither matched that signature nor gave mypy a type to infer. `found` is
+            # closed over rather than bound as a default -- there is exactly one call
+            # here and it happens before the loop variable can change.
+            diagnosis = found
+
+            def _on_action(key: str) -> None:
+                if key == "report":
+                    self._prepare_bug_report(diagnosis)
+
+            # A recognised fault carries no button, so there is nothing to answer and no
+            # reason for it to outlive its own relevance -- it clears itself. Only the
+            # unrecognised one, which offers to prepare a report, stays until you decide.
+            urgency, expire_ms = notify_mod.toast_policy(bool(actions))
+            notify_mod.notify(
+                found.title,
+                found.body,
+                urgency=urgency,
+                expire_ms=expire_ms,
+                actions=actions,
+                on_action=_on_action,
+            )
+            return found
+        except Exception:  # noqa: BLE001 - never mask the failure being reported
+            log.debug("Could not report a failure to the user", exc_info=True)
+            return None
+
+    def _prepare_bug_report(self, diagnosis) -> bool:
+        """Open GitHub's issue form, pre-filled. Sends nothing. Never raises.
+
+        ADR-v2-132 option (b). **YazSes makes no request** — the browser does, to a page
+        the user then reads and submits from their own account. So this adds no entry to
+        ADR-019's egress inventory, and `tests/test_egress_inventory.py` should keep
+        passing untouched; if it ever needed editing for this, the implementation went
+        wrong.
+
+        The body is assembled by the same `report.collect` the `yazses report` command
+        uses, so redaction has one implementation rather than two. Returns whether a
+        browser was reached, so a silent failure is distinguishable from a silent
+        success — this runs from a toast, where there is nothing else to see.
+        """
+        try:
+            from yazses.system import report as report_mod
+            from yazses.system.browser import open_url
+
+            paths = self._platform.paths
+            gathered = report_mod.collect(
+                config_file=paths.config_file,
+                # `daemon.log`, the same name `yazses report` passes. Getting this
+                # wrong costs nothing visible: `_log_tail` answers "<no log file>"
+                # and the report is filed without the section that explains the bug.
+                log_file=paths.log_dir / "daemon.log",
+                data_dir=paths.data_dir,
+                status=self._handle_status(None),  # type: ignore[arg-type]
+            )
+            body = report_mod.summarise_for_issue(gathered, diagnosis=diagnosis)
+            title = getattr(diagnosis, "title", "YazSes problem report")
+            return bool(open_url(report_mod.issue_url(title, body)))
+        except Exception:  # noqa: BLE001 - a toast button must never take the daemon down
+            log.exception("Could not prepare a bug report")
+            return False
+
+    def _queue_notification(self, title: str, body: str) -> None:
+        """Hold a toast the daemon cannot show, for the tray to collect.
+
+        Registered with ``system.notify.set_fallback_sink`` at startup, so it only
+        ever runs where ``notify-send`` is absent — Windows and macOS. Called from
+        the audio and hotkey threads, hence the lock.
+
+        The queue is bounded and drops the OLDEST on overflow: these are status
+        messages, so a recent one ("switched back to your USB mic") is worth more
+        than the tenth copy of an older one, and an unbounded queue behind a tray
+        that has quit would grow for the life of the daemon.
+        """
+        with self._lock:
+            self._pending_notifications.append({"title": title, "body": body})
+            if len(self._pending_notifications) > _MAX_PENDING_NOTIFICATIONS:
+                del self._pending_notifications[:-_MAX_PENDING_NOTIFICATIONS]
+
+    def _drain_notifications(self) -> list[dict[str, str]]:
+        """Take the queued toasts. Caller must hold ``self._lock``."""
+        if not self._pending_notifications:
+            return []
+        pending = self._pending_notifications
+        self._pending_notifications = []
+        return pending
+
     def _handle_status(self, _request: Request) -> dict[str, object]:
         with self._lock:
             uptime = (time.monotonic() - self._state.started_at) if self._state.started_at else 0.0
             return {
                 "state": self._state.state.value,
                 "ready": self._state.ready,
+                # The version of the code THIS PROCESS is running, which is not the
+                # version of the CLI asking. A daemon keeps running the build it
+                # started with until it is restarted, so an upgrade leaves the two
+                # disagreeing until `yazses restart` -- and nothing could see that
+                # before this field existed.
+                "version": _running_version(),
                 "model": self._config.stt.model,
                 "hotkey": self._resolved_hotkey(),
                 "injection_backend": self._injection_backend_name(),
@@ -2994,13 +3589,28 @@ class Daemon:
                 # Confidence Ink (ADR-v2-001): feature state + last-burst count.
                 "confidence_enabled": self._config.confidence.enabled,
                 "low_confidence_last": self._last_low_confidence_words,
+                # Meeting Mode (ADR-v2-127), for the tray's Start/Stop entries. `state`
+                # already says "meeting" while capturing, but two things it cannot say
+                # are whether the feature is even on and whether the post-pass is still
+                # running -- and both are states in which a click must be refused with a
+                # reason rather than silently doing nothing. Finalizing is invisible
+                # otherwise: capture has ended, the state is back to IDLE, and the
+                # transcript is still being written.
+                "meeting_enabled": self._config.meeting.enabled,
+                "meeting_active": self._meeting_controller is not None,
+                "meeting_finalizing": self._meeting_finalizing,
                 # Decode latency over a bounded recent window, per model (#296).
                 # Percentiles, not a mean: decode time is right-skewed and it is
                 # the slow tail you wait through. The count travels with it so a
                 # p95 over six utterances cannot be read as a p95.
                 "decode_latency": self._latency.as_dict(),
+                "outcomes": self._outcomes.as_dict(),
                 # Staged dictation (#294): what is pending review, if anything.
                 "staged": self.staged_state(),
+                # Toasts the daemon could not show itself (no libnotify — Windows and
+                # macOS), handed to the tray to display natively. DRAINED by this
+                # read, so each one is delivered once; see _queue_notification.
+                "notifications": self._drain_notifications(),
             }
 
     def _handle_shutdown(self, _request: Request) -> dict[str, bool]:
@@ -3147,6 +3757,95 @@ class Daemon:
         flagged = self._corpus.mark_last_wrong(correction)
         return {"ok": flagged}
 
+    def _handle_ask_human(self, request: Request) -> dict[str, object]:
+        """Ask the user a question out loud on an agent's behalf (ADR-020 §1, §4).
+
+        Lives here rather than in the MCP server because this process owns the
+        three things the feature turns on: the microphone, the knowledge of
+        whether a hold is in progress, and the injector that must **not** fire —
+        the answer travels back to the caller and is never typed into whatever the
+        user had open.
+
+        Every refusal is returned as data, never raised: the caller is an agent on
+        the other side of a JSON-RPC socket, and it needs the reason to decide
+        whether to ask again.
+        """
+        from yazses.mcp.ask import AskHumanService, Refusal
+
+        params = request.params if isinstance(request.params, dict) else {}
+        question = str(params.get("question") or "")
+        caller = str(params.get("caller") or "an agent")
+        timeout_s = float(params.get("timeout_s") or 30.0)
+
+        service = AskHumanService(
+            speaker=self._ask_human_speaker(),
+            listener=self._ask_human_listener,
+            max_per_hour=self._config.mcp.ask_human_per_hour,
+            enabled=self._config.mcp.ask_human,
+            # A hold means the user is speaking right now. `_state.state` is the
+            # same field the tray reads, so this cannot drift from what the user
+            # sees.
+            is_holding=lambda: self._state.state == TrayState.RECORDING,
+            clock=time.monotonic,
+        )
+        try:
+            return {"ok": True, "answer": service.ask(question, caller=caller, timeout_s=timeout_s)}
+        except Refusal as refusal:
+            return {
+                "ok": False,
+                "reason": str(refusal),
+                "retry_after_s": refusal.retry_after_s,
+                "deferred": refusal.deferred,
+            }
+
+    def _ask_human_speaker(self):
+        """The TTS backend, or one that raises if speech is unavailable.
+
+        Raising is right: a question the user never heard must not be recorded as
+        asked, and `AskHumanService` turns the failure into a refusal that does not
+        spend the caller's budget.
+        """
+        tts = getattr(self, "_tts", None)
+        if tts is not None:
+            return tts
+
+        class _Unavailable:
+            def speak(self, text: str) -> None:
+                raise RuntimeError(
+                    "no text-to-speech backend is configured "
+                    "(`yazses features enable read-back` installs one)"
+                )
+
+        return _Unavailable()
+
+    def _ask_human_listener(self, timeout_s: float) -> str:
+        """Record one answer and transcribe it, **without touching the injector**.
+
+        Uses the recorder's own start/stop rather than the hold-to-talk path on
+        purpose: `_on_hold_end` is where transcription becomes typing, and this
+        answer must reach the caller instead. Reusing it would type the user's
+        reply into whatever window happened to be focused.
+
+        The recorder is always stopped, including on failure — leaving the stream
+        open would hold the microphone against the next real dictation.
+        """
+        recorder, engine = self._recorder, self._engine
+        if recorder is None or engine is None:
+            # Both are built during startup. An empty answer is the honest result
+            # when there is nothing to record with — the caller already treats ""
+            # as "no answer given" and falls back accordingly.
+            log.warning("Cannot ask for a spoken answer before capture and STT are ready.")
+            return ""
+
+        recorder.start()
+        try:
+            time.sleep(max(1.0, float(timeout_s)))
+        finally:
+            audio = recorder.stop()
+        if audio is None or not len(audio):
+            return ""
+        return (engine.transcribe(audio) or "").strip()
+
     # ---- Signals & helpers -------------------------------------------------
 
     def _build_macro_context(self) -> MacroContext:
@@ -3178,15 +3877,23 @@ class Daemon:
         from logging.handlers import RotatingFileHandler
 
         log_dir = self._platform.paths.log_dir
+        target = log_dir / "daemon.log"
+        # Adding to the root logger is additive and permanent, so a second call
+        # writes every line twice and reaches the 1 MB rotation threshold twice as
+        # fast -- halving how much history a bug report can carry. Measured: one
+        # call gave one handler, two calls gave two, both on the same file.
+        root = logging.getLogger()
+        for existing in root.handlers:
+            if getattr(existing, "baseFilename", None) == str(target.absolute()):
+                existing.setLevel(level)
+                return
         try:
             log_dir.mkdir(parents=True, exist_ok=True)
-            handler = RotatingFileHandler(
-                log_dir / "daemon.log", maxBytes=1_000_000, backupCount=3
-            )
+            handler = RotatingFileHandler(target, maxBytes=1_000_000, backupCount=3)
             handler.setFormatter(logging.Formatter(fmt))
             handler.setLevel(level)
             logging.getLogger().addHandler(handler)
-            log.info("Logging to %s", log_dir / "daemon.log")
+            log.info("Logging to %s", target)
         except OSError as exc:
             log.warning("Could not open log file in %s: %s", log_dir, exc)
 
@@ -3202,6 +3909,15 @@ class Daemon:
         return self._platform.default_hotkey if key == "auto" else key
 
     def _shutdown(self) -> None:
+        # Drop the sink first: it points at this instance, and notify() is module
+        # level, so leaving it set would queue toasts onto a dead daemon (and keep
+        # it alive) in any process that builds a second one — tests, most of all.
+        try:
+            from yazses.system.notify import set_fallback_sink
+
+            set_fallback_sink(None)
+        except Exception:
+            log.debug("clearing the notification sink failed", exc_info=True)
         if self._stream_engine is not None:
             try:
                 self._stream_engine.stop()  # join the decode loop before exit

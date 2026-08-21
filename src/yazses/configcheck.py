@@ -21,6 +21,7 @@ covered the day they are added, with nothing to remember.
 from __future__ import annotations
 
 import dataclasses
+import math
 import types
 import typing
 from dataclasses import dataclass
@@ -114,14 +115,27 @@ def coerce_value(value, tp):
     if inner is float:
         if isinstance(value, bool):
             return False, None, "should be a number, got true/false"
+        note = None
         if isinstance(value, (int, float)):
-            return True, float(value), None
-        if isinstance(value, str):
+            out = float(value)
+        elif isinstance(value, str):
             try:
-                return True, float(value.strip()), f'should be a bare number, not "{value}"'
+                out = float(value.strip())
+                note = f'should be a bare number, not "{value}"'
             except ValueError:
-                pass
-        return False, None, f"should be a number, got {_name(value)}"
+                return False, None, f"should be a number, got {_name(value)}"
+        else:
+            return False, None, f"should be a number, got {_name(value)}"
+        # `nan` and `inf` are floats, so a type check waves them through -- and this
+        # module's whole promise is that a bad config yields a working daemon and a
+        # ConfigProblem, never a silent oddity. The one that bites is
+        # `[accessibility] vad_threshold`: the silence gate is `mean(|audio|) <
+        # threshold`, so `inf` discards every burst and dictation types nothing at
+        # all, while `nan` makes the comparison false forever and the gate stops
+        # gating. Both used to load cleanly with `doctor` reporting no problem.
+        if not math.isfinite(out):
+            return False, None, f"must be an ordinary number, got {value}"
+        return True, out, note
     if inner is str:
         if isinstance(value, str):
             return True, value, None
@@ -132,6 +146,41 @@ def coerce_value(value, tp):
     if dataclasses.is_dataclass(inner):
         return True, value, None  # handled by build_section's recursion
     return True, value, None
+
+
+def _default_of(field):
+    """The field's shipped default, or ``None`` if it only has a factory."""
+    if field.default is not dataclasses.MISSING:
+        return field.default
+    return None
+
+
+def negative_is_impossible(field) -> bool:
+    """Does a negative value make this setting meaningless? Derived, not listed.
+
+    Every numeric setting in YazSes is one of two things. Most are magnitudes -- a
+    duration, a size, a count, an RMS threshold -- where a negative is not a wrong
+    value but an impossible one. A few are genuinely signed: `[hallucination]
+    logprob_threshold`, `[reask] threshold` and `[whispermode] tilt_min` are all
+    log-probabilities or signed measures and ship negative defaults.
+
+    Rather than hand-maintaining a list of which is which -- a list that would be
+    correct on the day it was written and wrong after the next feature -- the shipped
+    default decides: a setting whose own default is >= 0 is a magnitude. A new signed
+    setting brings its own permission with it.
+
+    This matters because `configcheck` validated *types* only, and `doctor` reports its
+    result as **"Config validity: every setting has the expected type"**. A negative
+    `vad_threshold` is type-correct and catastrophic: `is_silent` is
+    ``mean(abs(audio)) < threshold``, which against a negative threshold is never true,
+    so nothing is ever discarded as silence and every burst -- including the ones where
+    nobody spoke -- reaches the model to hallucinate on. The user is told their config
+    is valid.
+    """
+    default = _default_of(field)
+    if isinstance(default, bool) or not isinstance(default, (int, float)):
+        return False
+    return default >= 0
 
 
 def build_section(cls, raw, section: str, problems: list[ConfigProblem]):
@@ -162,6 +211,14 @@ def build_section(cls, raw, section: str, problems: list[ConfigProblem]):
             kwargs[key] = build_section(inner, value, f"{section}.{key}", problems)
             continue
         ok, coerced, note = coerce_value(value, tp)
+        if (
+            ok
+            and not isinstance(coerced, bool)
+            and isinstance(coerced, (int, float))
+            and coerced < 0
+            and negative_is_impossible(fields[key])
+        ):
+            ok, note = False, f"cannot be negative (got {coerced})"
         if ok:
             if note:
                 problems.append(

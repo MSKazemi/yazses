@@ -200,3 +200,38 @@ def test_stop_not_running_says_nothing_to_stop(monkeypatch):
     result = runner.invoke(cli.app, ["stop"])
     assert result.exit_code == 1
     assert "nothing to stop" in result.output.lower()
+
+
+def test_every_command_quickstart_recommends_actually_exists(monkeypatch):
+    """Quickstart is the first thing a newcomer reads, so a name that has moved
+    breaks their very first action — and nothing here was checking.
+
+    The existing tests pin the *shape* of the page (three steps, the hotkey, the
+    star link) and none of them opens the command tree, so renaming or removing a
+    recommended command would leave the suite green and the onboarding broken.
+
+    Resolution goes through `typer.main.get_command`, deliberately not an
+    `isinstance(..., click.Group)` walk: under Click 8.4 a `TyperGroup` is not a
+    `click.Group`, so such a walk finds nothing and passes — the exact way the CLI
+    reference guard was blind to ~50 subcommands.
+    """
+    import re
+
+    import click
+    import typer.main
+
+    for running in (False, True):
+        _patch(monkeypatch, _Platform(running=running))
+        out = runner.invoke(cli.app, ["quickstart"]).output
+
+        # `yazses <cmd>` as recommended, ignoring the bare program name and flags.
+        named = {m for m in re.findall(r"\byazses ([a-z][a-z-]+)", out)}
+        assert named, "no `yazses <cmd>` recommendations found — this guard is blind"
+
+        root = typer.main.get_command(cli.app)
+        ctx = click.Context(root)
+        missing = sorted(n for n in named if root.get_command(ctx, n) is None)
+        assert not missing, (
+            f"quickstart (running={running}) tells a first-time user to run "
+            f"{missing}, which no longer exist"
+        )

@@ -237,8 +237,24 @@ def test_a_departed_contributor_is_not_reported_as_missing_from_the_wall():
 
 
 def _translated_readmes() -> list[Path]:
-    """`README.<code>.md` — the translations, which carry their own copy of the wall."""
-    return sorted(p for p in ROOT.glob("README.*.md") if p.name != "README.md")
+    """The translations, which carry their own copy of the wall.
+
+    They live at `docs/<code>/index.md`. They used to be `README.<code>.md` at the
+    repo root, where a GitHub blob page can carry neither `hreflang` nor `canonical`
+    and the 28 of them read to a search engine as unrelated duplicates.
+
+    The count is asserted because this is a glob: when the files moved, a glob still
+    pointing at the old location matched nothing, and every check below passed by
+    iterating an empty list. A guard that silently checks nothing is worse than no
+    guard, because it still reports green.
+    """
+    found = sorted(ROOT.glob("docs/*/index.md"))
+    translations = [p for p in found if "yazses-l10n" in p.read_text(encoding="utf-8")]
+    assert len(translations) > 20, (
+        f"expected the translations at docs/<code>/index.md, found {len(translations)} — "
+        "if they moved again, repoint this glob rather than letting it match nothing"
+    )
+    return translations
 
 
 def test_translations_carry_the_same_wall():
@@ -267,13 +283,29 @@ def test_translations_carry_the_same_wall():
         )
 
 
-def test_translations_show_the_same_badge_count():
-    expected = len(_rc_logins())
+def test_translations_carry_no_badge_block():
+    """The badges belong on the README, and one of them breaks the docs build.
+
+    This replaces a check that the translations' all-contributors badge matched
+    `.all-contributorsrc`. They no longer carry badges at all: a translation is a
+    docs-site page now, `material/privacy` downloads every external asset at build
+    time so no viewer's IP reaches a third party, and **zenodo.org serves the DOI
+    badge to a browser but answers that downloader with 403**. One badge on one
+    translated page therefore fails the entire build.
+
+    Pinned as a test rather than left as a comment because re-adding the badge block
+    looks like an obvious improvement — the failure it causes is in the docs deploy,
+    nowhere near the file that was edited.
+    """
     for path in _translated_readmes():
-        badge = re.search(r"all_contributors-(\d+)-", path.read_text(encoding="utf-8"))
-        assert badge, f"the all-contributors badge is gone from {path.name}"
-        assert int(badge.group(1)) == expected, (
-            f"{path.name} badge says {badge.group(1)}, .all-contributorsrc has {expected}"
+        offenders = [
+            ln for ln in path.read_text(encoding="utf-8").splitlines()
+            if ln.startswith("[![")
+        ]
+        assert not offenders, (
+            f"{path.relative_to(ROOT)} carries a badge block: {offenders[0][:60]}… — "
+            "badges stay on README.md; the Zenodo one 403s the privacy plugin and "
+            "fails the docs build"
         )
 
 
@@ -285,8 +317,12 @@ def test_every_translation_is_reachable_from_the_english_readme():
     from the front door.
     """
     english = README.read_text(encoding="utf-8")
-    unlinked = [p.name for p in _translated_readmes() if f"({p.name})" not in english]
+    unlinked = [
+        p.relative_to(ROOT).as_posix()
+        for p in _translated_readmes()
+        if f"({p.relative_to(ROOT).as_posix()})" not in english
+    ]
     assert not unlinked, (
-        f"translated READMEs not linked from README.md: {unlinked} — add them to the "
+        f"translations not linked from README.md: {unlinked} — add them to the "
         '"Read this in other languages" line at the top, alphabetically by code'
     )

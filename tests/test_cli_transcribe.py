@@ -34,15 +34,24 @@ class _FakeDiarizer:
         return [DiarTurn(0.0, 1.2, "speaker_0"), DiarTurn(1.8, 3.0, "speaker_1")]
 
 
+def _signal(n=16000):
+    """Audio a working microphone could have produced (a noise floor above zero)."""
+    rng = np.random.default_rng(0)
+    return (rng.standard_normal(n) * 1e-2).astype("float32")
+
+
 def _patch(monkeypatch, diarizer=None):
     monkeypatch.setattr(cli, "load_config", lambda *_a, **_k: Config(), raising=False)
     monkeypatch.setattr(
         "yazses.config.load_config", lambda *_a, **_k: Config(), raising=False)
     monkeypatch.setattr(
         "yazses.stt.faster_whisper.FasterWhisperEngine", _FakeEngine, raising=True)
+    # Audio with a real noise floor. This used to be `np.zeros(...)`, so every test
+    # in this file transcribed pure silence into "hello there general" -- a pairing
+    # that cannot occur, and one that hid the silent-input note from all of them.
     monkeypatch.setattr(
         "yazses.recimport.audio_io.load_audio",
-        lambda *_a, **_k: (np.zeros(16000, dtype="float32"), 16000), raising=True)
+        lambda *_a, **_k: (_signal(), 16000), raising=True)
     monkeypatch.setattr(
         "yazses.recimport.pipeline.build_diarizer",
         lambda *_a, **_k: diarizer, raising=True)
@@ -117,3 +126,146 @@ def test_transcribe_help_lists_flags():
     assert r.exit_code == 0
     for flag in ("--diarize", "--speakers", "--names", "--format", "--rename"):
         assert flag in r.output
+
+
+# ---- audio with no recognisable speech --------------------------------------
+
+
+class _SilentEngine:
+    """Transcribes to nothing — music, silence, or a language the model cannot read."""
+
+    def __init__(self, *a, **k):
+        pass
+
+    def transcribe_words(self, audio, sample_rate=16000, initial_prompt=None, task=None):
+        return "", []
+
+
+def _patch_silent(monkeypatch):
+    _patch(monkeypatch, diarizer=None)
+    monkeypatch.setattr(
+        "yazses.stt.faster_whisper.FasterWhisperEngine", _SilentEngine, raising=True)
+
+
+def test_an_empty_transcript_says_so(tmp_path, monkeypatch):
+    """"Wrote transcript.txt" over an empty file is a silent failure, on the surface
+    where most people meet YazSes working for the first time.
+
+    A file of music, of silence, or of speech in a language an `.en` model cannot
+    read all produce nothing — and the command reported success, named the file, and
+    went on to ask for a star.
+    """
+    _patch_silent(monkeypatch)
+    f = _audio(tmp_path)
+    r = runner.invoke(cli.app, ["transcribe", str(f), "--no-diarize"], env=_ENV)
+    assert r.exit_code == 0, r.output
+    assert f.with_suffix(".txt").read_text().strip() == ""
+    assert "no speech was recognised" in r.output, (
+        f"an empty transcript was reported as an ordinary success: {r.output!r}"
+    )
+
+
+def test_the_note_names_causes_the_user_can_act_on(tmp_path, monkeypatch):
+    """A warning with no cause is a warning to dismiss. The English-only model is the
+    one a user can neither see nor guess from an empty file."""
+    _patch_silent(monkeypatch)
+    r = runner.invoke(cli.app, ["transcribe", str(_audio(tmp_path)), "--no-diarize"], env=_ENV)
+    for cause in ("music", "language", ".en"):
+        assert cause in r.output, f"the note never mentions {cause!r}"
+
+
+def test_a_normal_transcript_stays_quiet(tmp_path, monkeypatch):
+    """The note must not fire on success, or it becomes noise to scroll past."""
+    _patch(monkeypatch, diarizer=None)
+    r = runner.invoke(cli.app, ["transcribe", str(_audio(tmp_path)), "--no-diarize"], env=_ENV)
+    assert "no speech was recognised" not in r.output
+
+
+def test_the_check_is_on_utterances_not_the_rendered_text(tmp_path, monkeypatch):
+    """VTT with no cues is still "WEBVTT", so a check on the rendered string would
+    stay silent for exactly one of the five formats — the subtle half of this fix."""
+    _patch_silent(monkeypatch)
+    f = _audio(tmp_path)
+    r = runner.invoke(cli.app, ["transcribe", str(f), "--no-diarize", "-f", "vtt"], env=_ENV)
+    assert r.exit_code == 0, r.output
+    assert f.with_suffix(".vtt").read_text().strip(), "the VTT header vanished"
+    assert "no speech was recognised" in r.output, (
+        "the empty-transcript note was skipped for VTT, whose rendered text is never empty"
+    )
+
+
+# ---- --min-speakers is not honoured by the shipped diarizer -----------------
+
+
+def test_min_speakers_warns_that_the_shipped_diarizer_ignores_it(tmp_path, monkeypatch):
+    """`--help` calls it "Lower bound on the auto-detected speaker count", and on the
+    default backend it does nothing at all.
+
+    Only `recimport/pyannote_backend.py` reads `min_speakers`, and pyannote is one of
+    the adapters this build does not ship. The sherpa diarizer reads `max_speakers`
+    alone. Saying so before a long transcription beats the user inferring it from a
+    speaker count that ignored their floor.
+    """
+    _patch(monkeypatch, diarizer=_FakeDiarizer())
+    r = runner.invoke(
+        cli.app,
+        ["transcribe", str(_audio(tmp_path)), "--diarize", "--min-speakers", "3"],
+        env=_ENV,
+    )
+    assert r.exit_code == 0, r.output
+    assert "--min-speakers is ignored" in r.output
+    assert "sherpa" in r.output, "the note does not say which backend is in use"
+    assert "--speakers" in r.output, "a note with no alternative is a note to dismiss"
+
+
+def test_no_warning_when_no_lower_bound_was_asked_for(tmp_path, monkeypatch):
+    """It must stay silent in the ordinary case, or it is noise on every run."""
+    _patch(monkeypatch, diarizer=_FakeDiarizer())
+    r = runner.invoke(
+        cli.app, ["transcribe", str(_audio(tmp_path)), "--diarize"], env=_ENV)
+    assert "--min-speakers" not in r.output
+
+
+def test_no_warning_without_diarization(tmp_path, monkeypatch):
+    """Speaker bounds are meaningless without `--diarize`; warning about one there
+    would be answering a question nobody asked."""
+    _patch(monkeypatch, diarizer=None)
+    r = runner.invoke(
+        cli.app,
+        ["transcribe", str(_audio(tmp_path)), "--no-diarize", "--min-speakers", "3"],
+        env=_ENV,
+    )
+    assert "--min-speakers is ignored" not in r.output
+
+
+def test_words_decoded_from_silence_are_flagged_as_invented(tmp_path, monkeypatch):
+    """The failure the empty-transcript note cannot see.
+
+    Found by running the real command on two seconds of digital silence: it wrote
+    "You" — a confident word with a start and an end time — named the file, and
+    asked for a star. The transcript is not empty, so the existing check stays
+    quiet, and no property of the output distinguishes an invented word from a
+    real one.
+
+    So the evidence has to come from the input, which is unambiguous: audio with
+    no signal in it cannot contain speech. A muted microphone, a device held by
+    another application, and capture pointed at the wrong input all produce
+    exactly this, and all of them are ordinary.
+    """
+    _patch(monkeypatch, diarizer=None)
+    monkeypatch.setattr(
+        "yazses.recimport.audio_io.load_audio",
+        lambda *_a, **_k: (np.zeros(32000, dtype="float32"), 16000), raising=True)
+    r = runner.invoke(cli.app, ["transcribe", str(_audio(tmp_path)), "--no-diarize"], env=_ENV)
+    assert r.exit_code == 0, r.output
+    assert "carries no signal" in r.output, (
+        f"words decoded from silence were reported as an ordinary transcript: {r.output!r}"
+    )
+    assert "muted" in r.output, "a warning with no cause is a warning to dismiss"
+
+
+def test_a_recording_with_a_noise_floor_is_not_flagged(tmp_path, monkeypatch):
+    """It must stay silent on every real recording or it becomes noise to scroll past."""
+    _patch(monkeypatch, diarizer=None)
+    r = runner.invoke(cli.app, ["transcribe", str(_audio(tmp_path)), "--no-diarize"], env=_ENV)
+    assert "carries no signal" not in r.output, r.output

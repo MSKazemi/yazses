@@ -103,3 +103,47 @@ def test_features_registered_off_by_default():
     slugs = [f.slug for f in feature_status(Config())]
     assert "spelling" in slugs and "gitvoice" in slugs
     assert Config().spelling.enabled is False and Config().gitvoice.enabled is False
+
+
+def test_a_spoken_slash_makes_the_branch_name_it_sounds_like():
+    """`feature/login` spoken is "feature slash login", and it lost everything after.
+
+    The ref patterns capture `[\\w./-]+`, which stops at the space, and `re.search`
+    is unanchored, so the rest of the name was silently discarded:
+
+        "delete branch feature slash login"      -> git branch -D feature
+        "delete branch my slash deep slash name" -> git branch -D my
+
+    A destructive command aimed at a *different branch than the one named*, with
+    nothing to show that anything was dropped. `feature/…` is the most common
+    branch convention there is.
+    """
+    from yazses.gitvoice.plan import build_git_argv
+
+    assert build_git_argv("delete branch feature slash login") == [
+        "git", "branch", "-D", "feature/login"]
+    assert build_git_argv("create branch feature slash login") == [
+        "git", "checkout", "-b", "feature/login"]
+    assert build_git_argv("delete branch my slash deep slash name") == [
+        "git", "branch", "-D", "my/deep/name"]
+    # Spelled with a real slash, unchanged.
+    assert build_git_argv("delete branch feature/login") == [
+        "git", "branch", "-D", "feature/login"]
+
+
+def test_words_after_the_ref_refuse_rather_than_truncate_it():
+    """Anchored at both ends, which is this project's rule for spoken grammars.
+
+    CLAUDE.md: "Spoken-command grammars are anchored at both ends (`^...$`) …  a
+    suffix match swallows 'click undo' instead of typing it." These were anchored
+    at one end, so anything the grammar did not model was dropped and a command
+    was emitted anyway. Refusing prints the hint listing what it does understand;
+    emitting `git branch -D` against the wrong ref does not.
+    """
+    from yazses.gitvoice.plan import build_git_argv
+
+    assert build_git_argv("delete branch feature login") is None
+    assert build_git_argv("create branch some name here") is None
+    # Case preserved, per the module's own docstring about case-sensitive refs.
+    assert build_git_argv("delete branch Feature slash Login") == [
+        "git", "branch", "-D", "Feature/Login"]

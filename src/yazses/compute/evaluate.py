@@ -53,6 +53,20 @@ def evaluate(text: str):
     for word, sym in _WORDS:
         t = re.sub(rf"\b{re.escape(word)}\b", sym, t)
 
+    # WHOLE-utterance, as the docstring says. Stripping every non-operator character
+    # instead meant any sentence carrying two numbers and one operator word collapsed to
+    # an expression, and the utterance was REPLACED by the answer:
+    #
+    #     "I ran 5 miles over 2 days"    ->  "2.5"
+    #     "chapter 3 minus chapter 1"    ->  "2"
+    #     "we met 2 times in 3 days"     ->  "6"
+    #
+    # Six of eight ordinary sentences. "over" and "times" are common English words, and
+    # this transform does not mangle the text -- it discards it. So anything left over
+    # after the lead-in words and the operator words have been consumed means this was
+    # prose, and prose is returned untouched.
+    if re.search(r"[a-z]", t):
+        return None
     expr = re.sub(r"[^0-9+\-*/().% ]", "", t).strip()
     if not re.search(r"\d", expr) or not re.search(r"[-+*/]", expr):
         return None

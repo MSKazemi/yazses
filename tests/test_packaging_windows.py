@@ -45,8 +45,9 @@ def test_cli_binary_defaults_to_the_cli(argv0):
 @pytest.mark.parametrize(
     "argv0",
     [
-        r"C:\Program Files\YazSes\YazSes.exe",
-        "YazSes.exe",
+        r"C:\Program Files\YazSes\YazSesApp.exe",
+        "YazSesApp.exe",
+        "YazSes.exe",  # the pre-2.18.3 name, still dispatched correctly
         "yazses.exe",  # case-insensitive filesystems fold this onto YazSes.exe
     ],
 )
@@ -91,6 +92,53 @@ def test_shim_forwards_to_the_cli_binary_relative_to_itself():
 def test_installer_ships_the_shim():
     iss = _ISS.read_text(encoding="utf-8")
     assert "yazses.cmd" in iss
+
+
+# ---- The shim has to be *reachable* ------------------------------------
+#
+# Shipping the shim is not the same as it being used. Windows resolves a bare
+# `yazses` through PATHEXT, whose default order puts .EXE ahead of .CMD, and
+# NTFS is case-insensitive. A windowed binary named YazSes.exe therefore answers
+# to `yazses` and the shim beside it is dead code — which is exactly what
+# shipped through 2.18.2: `yazses doctor` in PowerShell printed nothing (a GUI
+# binary has no stdout) and then crashed in a message box.
+
+_PATHEXT_BEFORE_CMD = (".com", ".exe", ".bat")
+
+
+def _windowed_exe_name() -> str:
+    """The windowed binary's name, from the spec that builds it."""
+    spec = _SPEC.read_text(encoding="utf-8")
+    # the EXE(...) block carrying console=False
+    windowed = spec[: spec.index("console=False")]
+    return windowed[windowed.rindex('name="') + len('name="') :].split('"')[0]
+
+
+def test_no_bundled_binary_shadows_the_yazses_shim():
+    """No shipped executable may case-fold onto `yazses` with an extension that
+    PATHEXT resolves before .CMD."""
+    for name in (_windowed_exe_name(), "yazses-cli"):
+        for ext in _PATHEXT_BEFORE_CMD:
+            assert (name + ext).lower() != "yazses" + ext, (
+                f"{name}{ext} answers to a bare `yazses` and shadows yazses.cmd; "
+                "the CLI would reach a binary with no stdout"
+            )
+
+
+def test_installer_exe_define_matches_the_spec():
+    """installer.iss shortcuts and the HKCU\\Run entry point at the windowed
+    binary by name. If the spec renames it, every shortcut breaks silently."""
+    iss = _ISS.read_text(encoding="utf-8")
+    assert f'#define MyAppExeName "{_windowed_exe_name()}.exe"' in iss
+
+
+def test_installer_deletes_the_pre_rename_windowed_binary():
+    """Inno only overwrites files it ships. On an upgrade from <= 2.18.2 an
+    orphaned YazSes.exe would stay in {app} and keep shadowing the shim, so the
+    fix would not reach existing users."""
+    iss = _ISS.read_text(encoding="utf-8")
+    assert "[InstallDelete]" in iss
+    assert r'Name: "{app}\YazSes.exe"' in iss
 
 
 # ---- Installer / app agreement -----------------------------------------
@@ -159,3 +207,47 @@ def test_version_lookup_never_raises_without_metadata(monkeypatch):
 
     monkeypatch.setattr(cli, "_pkg_version", _boom)
     assert cli._installed_version() == "0.0.0+unknown"
+
+
+# ---- Brand icon --------------------------------------------------------
+
+
+def test_spec_fails_loudly_when_the_brand_icon_is_missing():
+    """The silent fallback is why every release shipped a generic icon.
+
+    `icon=str(ICON) if ICON.exists() else None` meant a missing assets/yazses.ico
+    produced a perfectly successful build carrying PyInstaller's default artwork
+    on the desktop shortcut, the Start menu, the taskbar and Add/Remove Programs.
+    A build that cannot brand itself must fail, not shrug.
+    """
+    spec = _SPEC.read_text(encoding="utf-8")
+    # Comments are stripped: the fix's own rationale quotes the old expression.
+    code = "\n".join(
+        ln for ln in spec.splitlines() if not ln.lstrip().startswith("#")
+    )
+    assert "if ICON.exists() else None" not in code
+    assert "raise SystemExit" in code
+    assert "scripts/gen-icons.py" in spec
+
+
+def test_spec_points_at_an_icon_that_exists():
+    spec = _SPEC.read_text(encoding="utf-8")
+    assert 'ICON = REPO / "assets" / "yazses.ico"' in spec
+    assert (_PKG.parents[1] / "assets" / "yazses.ico").is_file()
+    assert spec.count("icon=str(ICON),") == 2  # windowed + console binaries
+
+
+def test_installer_brands_the_setup_executable():
+    """Without SetupIconFile the downloaded installer is a generic unsigned blob."""
+    iss = _ISS.read_text(encoding="utf-8")
+    assert "SetupIconFile=" in iss
+    ref = next(ln for ln in iss.splitlines() if ln.startswith("SetupIconFile="))
+    target = (_PKG / ref.split("=", 1)[1].strip().replace("\\", "/")).resolve()
+    assert target.is_file(), f"SetupIconFile points at a missing file: {target}"
+
+
+def test_build_script_preflights_the_icon():
+    """Fail in two seconds, not after a ten-minute PyInstaller run."""
+    ps1 = (_PKG.parents[1] / "scripts" / "build-windows.ps1").read_text(encoding="utf-8")
+    assert r"assets\yazses.ico" in ps1
+    assert "gen-icons.py" in ps1

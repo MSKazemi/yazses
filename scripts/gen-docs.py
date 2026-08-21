@@ -36,6 +36,27 @@ _TIER_ORDER_NOTE = (
 )
 
 
+
+def _download_mb(slug: str):
+    """The feature's resolved download size in MB, or None (ADR-018).
+
+    Reads the same committed table the CLI reads, so the feature reference and
+    `yazses features info` can never quote different numbers.
+    """
+    try:
+        from yazses.system.depsize import full_download_mb
+
+        return full_download_mb(slug)
+    except Exception:
+        return None
+
+
+def _format_mb(mb: float) -> str:
+    from yazses.system.depsize import format_mb
+
+    return format_mb(mb)
+
+
 def _front(title: str, desc: str) -> str:
     return (
         "---\n"
@@ -90,6 +111,12 @@ def gen_features() -> str:
                 out.write(f"- **Use when:** {f.use_case}\n")
             if f.example:
                 out.write(f"- **Example:** {f.example}\n")
+            # What it costs to turn on (ADR-018). Only for features that actually
+            # fetch something -- a "Download: 0 MB" line on the 126 pure-logic
+            # capabilities would be noise, and the absence already says free.
+            _mb = _download_mb(f.slug)
+            if _mb:
+                out.write(f"- **Download:** {_format_mb(_mb)}\n")
             if not f.wired:
                 out.write(
                     "- **Activate:** not possible yet — designed but not wired "

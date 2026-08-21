@@ -32,6 +32,9 @@ exclude_docs: |
 # (46 files would swamp it); the Releases index links the notable ones.
 not_in_nav: |
   /releases/v*.md
+  /design/adr/*.md
+  /design/specs/*.md
+  /design/research/**/*.md
   /mobile/adr/adr-mob-*.md
 
 # A link to a heading that does not exist was only `info` by default, so it never
@@ -130,6 +133,10 @@ hooks:
   # "## References" section, so the structured data and the visible bibliography
   # cannot disagree.
   - hooks/research_schema.py
+  # Publishes the  tier (decision records, specifications, research notes)
+  # into the built site without copying it into . See the hook for why it is
+  # not in the nav: 155 ADRs would bury the user documentation.
+  - hooks/design_tier.py
   # Emits a `.md` twin of every page plus a <link rel="alternate"> pointing at
   # it. AI crawlers and coding agents ingest dedicated Markdown URLs (and prefer
   # them — ~80% fewer tokens, no chrome) while largely ignoring llms.txt, so
@@ -261,9 +268,20 @@ markdown_extensions:
   - pymdownx.tasklist:
       custom_checkbox: true
 
+# Eight top-level tabs, deliberately. `navigation.tabs` renders the top level as
+# one horizontal bar that does **not** scroll for the reader — Material only
+# scrolls it programmatically, to the active tab. At fifteen tabs the list
+# overflowed its container, so the entries at the right-hand end were clipped off
+# and unreachable from the top nav on an ordinary laptop screen.
+#
+# Eight fits with room to spare. Before adding a ninth top-level entry, measure the
+# rendered width (`nav.scrollWidth - nav.getBoundingClientRect().width` on
+# `.md-tabs__list`); prefer nesting under an existing tab.
+# Guarded by tests/test_docs_nav_fits.py.
 nav:
   - Home: index.md
   - Get started:
+      - Watch the CLI: watch-the-cli.md
       - Try it without installing: try-without-installing.md
       - Platform support (OS + CPU): platform-support.md
       - Install on Linux: install-linux.md
@@ -296,13 +314,16 @@ nav:
       - Personal vocabulary: how-to/personal-vocabulary.md
       - Macros & snippets: how-to/macros-and-snippets.md
       - House style: how-to/house-style.md
+      - Install only what you need: how-to/install-only-what-you-need.md
       - Choosing a model on a low-RAM machine: how-to/low-ram-models.md
       - CPU use and battery on a laptop: how-to/cpu-and-battery.md
       - "'Silent audio -- discarding'": how-to/silent-audio-discarding.md
       - The tray icon does not appear: how-to/tray-icon-missing.md
       - Running fully air-gapped: how-to/air-gapped.md
       - Dictation types into the wrong window: how-to/wrong-window.md
+      - Stop a misheard command from running: how-to/command-safety.md
       - After a distro upgrade: how-to/after-a-distro-upgrade.md
+      - The update did not change the version: how-to/update-did-nothing.md
       - Over SSH and Remote-SSH editors: how-to/ssh-and-remote.md
       - Remote dictation: how-to/remote-dictation.md
       - Performance tuning: how-to/performance-tuning.md
@@ -310,6 +331,7 @@ nav:
       - Jump to a symbol by voice: how-to/editor-jump.md
       - Glance-Type (look to pane): how-to/gaze-look-to-pane.md
       - Transcribe recordings: tutorials/transcribe-recordings.md
+      - Troubleshooting: troubleshooting.md
   - Research:
       - The science of post-keyboard input: research/index.md
       - Students, researchers & industry: research/get-involved.md
@@ -317,6 +339,10 @@ nav:
       - Voice control: research/voice-control.md
       - Muscle & brain control: research/muscle-brain-control.md
       - The HCI canon behind YazSes: research/hci-canon.md
+      - Glossary: research/glossary.md
+      - Where YazSes goes next: research/directions.md
+      - Ten gaps for researchers: research/framework-gaps.md
+      - Accessibility beyond the checkbox: research/accessibility-beyond-the-checkbox.md
       - Ten open questions: research/agenda.md
   - Reference:
       - Features: features.md
@@ -332,26 +358,67 @@ nav:
       - Known-good microphones: known-good-microphones.md
       - Choosing a model: models.md
       - Capability matrix: capability-matrix.md
+      - Reliability & self-healing: reliability.md
       - Privacy statement: privacy-statement.md
       - Offline-inference challenge: launch/offline-challenge.md
       - Code signing & verification: code-signing.md
-  - Architecture:
-      - Overview: architecture.md
-      - Diagrams: diagrams/index.md
-  - Mobile (in design):
-      - Overview: mobile/index.md
-      - Android architecture: mobile/architecture.md
-      - The core contract: mobile/contract.md
-      - Portability matrix: mobile/portability.md
-      - Contributing to mobile: mobile/contributing.md
-      - Decision records: mobile/adr/README.md
-  - Troubleshooting: troubleshooting.md
-  - Contributing:
-      - Start here — your first contribution: contribute/start.md
-      - How to contribute: contributing.md
-      - Find a task that fits you: contribute/find.md
-      - All open tasks: contribute/tasks.md
-      - What contributors built: contribute/built.md
-      - Translation status: localization/STATUS.md
-  - Roadmap: roadmap.md
-  - Releases: releases/index.md
+      - Architecture:
+          - Overview: architecture.md
+          - Diagrams: diagrams/index.md
+      - Engineering (design):
+          - What is published, and why: design/README.md
+          - Decision records: design/adr/index.md
+          - Specifications: design/specs/index.md
+          - Research notes: design/research/index.md
+          - Architecture (internal): design/architecture.md
+          - Threat model: design/threat-model.md
+          - EMG protocol: design/emg-protocol.md
+      - Mobile (in design):
+          - Overview: mobile/index.md
+          - Android architecture: mobile/architecture.md
+          - The core contract: mobile/contract.md
+          - Portability matrix: mobile/portability.md
+          - Contributing to mobile: mobile/contributing.md
+          - Decision records: mobile/adr/README.md
+  - Project:
+      - Roadmap: roadmap.md
+      - Releases: releases/index.md
+      - Contributing:
+          - Start here — your first contribution: contribute/start.md
+          - How to contribute: contributing.md
+          - Find a task that fits you: contribute/find.md
+          - All open tasks: contribute/tasks.md
+          - What contributors built: contribute/built.md
+          - Translation status: localization/STATUS.md
+  # The README in 28 languages. These pages carry `alternates:` front matter,
+  # which hooks/hreflang.py turns into reciprocal hreflang tags — the signal a
+  # `blob/main/README.xx.md` page could not carry, which is why they live here.
+  - Languages:
+      - "Deutsch": de/index.md
+      - "Nederlands": nl/index.md
+      - "Tiếng Việt": vi/index.md
+      - "Türkçe": tr/index.md
+      - "bahasa Indonesia": id/index.md
+      - "español": es/index.md
+      - "français": fr/index.md
+      - "italiano": it/index.md
+      - "polski": pl/index.md
+      - "português do Brasil": pt-BR/index.md
+      - "svenska": sv/index.md
+      - "čeština": cs/index.md
+      - "ελληνικά": el/index.md
+      - "Русский": ru/index.md
+      - "українська": uk/index.md
+      - "עברית": he/index.md
+      - "اردو": ur/index.md
+      - "العربية": ar/index.md
+      - "فارسی": fa/index.md
+      - "हिंदी": hi/index.md
+      - "বাংলা": bn/index.md
+      - "தமிழ்": ta/index.md
+      - "తెలుగు": te/index.md
+      - "ไทย": th/index.md
+      - "日本語": ja/index.md
+      - "简体中文": zh-CN/index.md
+      - "繁體中文": zh-TW/index.md
+      - "한국어": ko/index.md

@@ -1,70 +1,357 @@
 [
-  {"phrase": "delete last 3 words", "expected_action": "delete_words", "expected_intent": "edit"},
-  {"phrase": "delete last word", "expected_action": "delete_words", "expected_intent": "edit"},
-  {"phrase": "delete last 1 word", "expected_action": "delete_words", "expected_intent": "edit"},
-  {"phrase": "delete the last 5 words", "expected_action": "delete_words", "expected_intent": "edit"},
-  {"phrase": "delete the last word", "expected_action": "delete_words", "expected_intent": "edit"},
-  {"phrase": "delete last three words", "expected_action": "delete_words", "expected_intent": "edit"},
-  {"phrase": "delete last two words", "expected_action": "delete_words", "expected_intent": "edit"},
-  {"phrase": "delete last 2 lines", "expected_action": "delete_lines", "expected_intent": "edit"},
-  {"phrase": "delete last line", "expected_action": "delete_lines", "expected_intent": "edit"},
-  {"phrase": "delete last 1 line", "expected_action": "delete_lines", "expected_intent": "edit"},
-  {"phrase": "delete the last 3 lines", "expected_action": "delete_lines", "expected_intent": "edit"},
-  {"phrase": "delete the last line", "expected_action": "delete_lines", "expected_intent": "edit"},
-  {"phrase": "undo", "expected_action": "undo", "expected_intent": "edit"},
-  {"phrase": "undo that", "expected_action": "undo", "expected_intent": "edit"},
-  {"phrase": "undo 3 times", "expected_action": "undo_n", "expected_intent": "edit"},
-  {"phrase": "undo 1 time", "expected_action": "undo_n", "expected_intent": "edit"},
-  {"phrase": "undo five times", "expected_action": "undo_n", "expected_intent": "edit"},
-  {"phrase": "save", "expected_action": "save", "expected_intent": "edit"},
-  {"phrase": "save file", "expected_action": "save", "expected_intent": "edit"},
-  {"phrase": "save file now", "expected_action": "save", "expected_intent": "edit"},
-  {"phrase": "save now", "expected_action": "save", "expected_intent": "edit"},
-  {"phrase": "copy", "expected_action": "copy", "expected_intent": "edit"},
-  {"phrase": "copy that", "expected_action": "copy", "expected_intent": "edit"},
-  {"phrase": "copy this", "expected_action": "copy", "expected_intent": "edit"},
-  {"phrase": "copy line", "expected_action": "copy", "expected_intent": "edit"},
-  {"phrase": "copy selection", "expected_action": "copy", "expected_intent": "edit"},
-  {"phrase": "paste", "expected_action": "paste", "expected_intent": "edit"},
-  {"phrase": "paste here", "expected_action": "paste", "expected_intent": "edit"},
-  {"phrase": "comment", "expected_action": "comment", "expected_intent": "edit"},
-  {"phrase": "comment out", "expected_action": "comment", "expected_intent": "edit"},
-  {"phrase": "comment this", "expected_action": "comment", "expected_intent": "edit"},
-  {"phrase": "comment line", "expected_action": "comment", "expected_intent": "edit"},
-  {"phrase": "select 3 lines", "expected_action": "select_lines", "expected_intent": "edit"},
-  {"phrase": "select 1 line", "expected_action": "select_lines", "expected_intent": "edit"},
-  {"phrase": "select end", "expected_action": "select_to_end", "expected_intent": "edit"},
-  {"phrase": "select to end", "expected_action": "select_to_end", "expected_intent": "edit"},
-  {"phrase": "select all", "expected_action": "select_all", "expected_intent": "edit"},
-  {"phrase": "go to line 42", "expected_action": "go_to_line", "expected_intent": "navigate"},
-  {"phrase": "go to line 1", "expected_action": "go_to_line", "expected_intent": "navigate"},
-  {"phrase": "go to function main", "expected_action": "go_to_function", "expected_intent": "navigate"},
-  {"phrase": "go to method render", "expected_action": "go_to_function", "expected_intent": "navigate"},
-  {"phrase": "jump to function parse_args", "expected_action": "go_to_function", "expected_intent": "navigate"},
-  {"phrase": "find def calculate", "expected_action": "go_to_function", "expected_intent": "navigate"},
-  {"phrase": "go to class MyModel", "expected_action": "go_to_class", "expected_intent": "navigate"},
-  {"phrase": "jump to class BaseHandler", "expected_action": "go_to_class", "expected_intent": "navigate"},
-  {"phrase": "go to file config.py", "expected_action": "go_to_file", "expected_intent": "navigate"},
-  {"phrase": "open file utils.py", "expected_action": "go_to_file", "expected_intent": "navigate"},
-  {"phrase": "run tests", "expected_action": "run_tests", "expected_intent": "terminal"},
-  {"phrase": "run test", "expected_action": "run_tests", "expected_intent": "terminal"},
-  {"phrase": "run the tests", "expected_action": "run_tests", "expected_intent": "terminal"},
-  {"phrase": "run build", "expected_action": "run_build", "expected_intent": "terminal"},
-  {"phrase": "run the build", "expected_action": "run_build", "expected_intent": "terminal"},
-  {"phrase": "run that", "expected_action": "run_last", "expected_intent": "terminal"},
-  {"phrase": "run pytest", "expected_action": "run_command", "expected_intent": "terminal"},
-  {"phrase": "run make install", "expected_action": "run_command", "expected_intent": "terminal"},
-  {"phrase": "rename this to new_handler", "expected_action": "rename_symbol", "expected_intent": "refactor"},
-  {"phrase": "rename symbol to BaseProcessor", "expected_action": "rename_symbol", "expected_intent": "refactor"},
-  {"phrase": "rename it to calculate_total", "expected_action": "rename_symbol", "expected_intent": "refactor"},
-  {"phrase": "new function process_data", "expected_action": "new_function", "expected_intent": "edit"},
-  {"phrase": "new function called helper", "expected_action": "new_function", "expected_intent": "edit"},
-  {"phrase": "new class DataHandler", "expected_action": "new_class", "expected_intent": "edit"},
-  {"phrase": "new class call MyMixin", "expected_action": "new_class", "expected_intent": "edit"},
-  {"phrase": "new file models.py", "expected_action": "new_file", "expected_intent": "edit"},
-  {"phrase": "The quick brown fox jumps over the lazy dog", "expected_action": "inject", "expected_intent": "dictate"},
-  {"phrase": "I need to refactor this module later", "expected_action": "inject", "expected_intent": "dictate"},
-  {"phrase": "The temperature outside is twenty degrees", "expected_action": "inject", "expected_intent": "dictate"},
-  {"phrase": "She walked along the river path at dusk", "expected_action": "inject", "expected_intent": "dictate"},
-  {"phrase": "This function handles authentication tokens", "expected_action": "inject", "expected_intent": "dictate"}
+  {
+    "phrase": "delete last 3 words",
+    "expected_action": "delete_words",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "delete last word",
+    "expected_action": "delete_words",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "delete last 1 word",
+    "expected_action": "delete_words",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "delete the last 5 words",
+    "expected_action": "delete_words",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "delete the last word",
+    "expected_action": "delete_words",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "delete last three words",
+    "expected_action": "delete_words",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "delete last two words",
+    "expected_action": "delete_words",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "delete last 2 lines",
+    "expected_action": "delete_lines",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "delete last line",
+    "expected_action": "delete_lines",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "delete last 1 line",
+    "expected_action": "delete_lines",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "delete the last 3 lines",
+    "expected_action": "delete_lines",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "delete the last line",
+    "expected_action": "delete_lines",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "undo",
+    "expected_action": "undo",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "undo that",
+    "expected_action": "undo",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "undo 3 times",
+    "expected_action": "undo_n",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "undo 1 time",
+    "expected_action": "undo_n",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "undo five times",
+    "expected_action": "undo_n",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "save",
+    "expected_action": "save",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "save file",
+    "expected_action": "save",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "save file now",
+    "expected_action": "save",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "save now",
+    "expected_action": "save",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "copy",
+    "expected_action": "copy",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "copy that",
+    "expected_action": "copy",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "copy this",
+    "expected_action": "copy",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "copy line",
+    "expected_action": "copy",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "copy selection",
+    "expected_action": "copy",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "paste",
+    "expected_action": "paste",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "paste here",
+    "expected_action": "paste",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "comment",
+    "expected_action": "comment",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "comment out",
+    "expected_action": "comment",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "comment this",
+    "expected_action": "comment",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "comment line",
+    "expected_action": "comment",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "select 3 lines",
+    "expected_action": "select_lines",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "select 1 line",
+    "expected_action": "select_lines",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "select end",
+    "expected_action": "select_to_end",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "select to end",
+    "expected_action": "select_to_end",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "select all",
+    "expected_action": "select_all",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "go to line 42",
+    "expected_action": "go_to_line",
+    "expected_intent": "navigate"
+  },
+  {
+    "phrase": "go to line 1",
+    "expected_action": "go_to_line",
+    "expected_intent": "navigate"
+  },
+  {
+    "phrase": "go to function main",
+    "expected_action": "go_to_function",
+    "expected_intent": "navigate"
+  },
+  {
+    "phrase": "go to method render",
+    "expected_action": "go_to_function",
+    "expected_intent": "navigate"
+  },
+  {
+    "phrase": "jump to function parse_args",
+    "expected_action": "go_to_function",
+    "expected_intent": "navigate"
+  },
+  {
+    "phrase": "find def calculate",
+    "expected_action": "go_to_function",
+    "expected_intent": "navigate"
+  },
+  {
+    "phrase": "go to class MyModel",
+    "expected_action": "go_to_class",
+    "expected_intent": "navigate"
+  },
+  {
+    "phrase": "jump to class BaseHandler",
+    "expected_action": "go_to_class",
+    "expected_intent": "navigate"
+  },
+  {
+    "phrase": "go to file config.py",
+    "expected_action": "go_to_file",
+    "expected_intent": "navigate"
+  },
+  {
+    "phrase": "open file utils.py",
+    "expected_action": "go_to_file",
+    "expected_intent": "navigate"
+  },
+  {
+    "phrase": "run tests",
+    "expected_action": "run_tests",
+    "expected_intent": "terminal"
+  },
+  {
+    "phrase": "run test",
+    "expected_action": "run_tests",
+    "expected_intent": "terminal"
+  },
+  {
+    "phrase": "run the tests",
+    "expected_action": "run_tests",
+    "expected_intent": "terminal"
+  },
+  {
+    "phrase": "run build",
+    "expected_action": "run_build",
+    "expected_intent": "terminal"
+  },
+  {
+    "phrase": "run the build",
+    "expected_action": "run_build",
+    "expected_intent": "terminal"
+  },
+  {
+    "phrase": "run that",
+    "expected_action": "run_last",
+    "expected_intent": "terminal"
+  },
+  {
+    "phrase": "run pytest",
+    "expected_action": "run_command",
+    "expected_intent": "terminal"
+  },
+  {
+    "phrase": "run make install",
+    "expected_action": "run_command",
+    "expected_intent": "terminal"
+  },
+  {
+    "phrase": "rename this to new_handler",
+    "expected_action": "rename_symbol",
+    "expected_intent": "refactor"
+  },
+  {
+    "phrase": "rename symbol to BaseProcessor",
+    "expected_action": "rename_symbol",
+    "expected_intent": "refactor"
+  },
+  {
+    "phrase": "rename it to calculate_total",
+    "expected_action": "rename_symbol",
+    "expected_intent": "refactor"
+  },
+  {
+    "phrase": "new function process_data",
+    "expected_action": "new_function",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "new function called helper",
+    "expected_action": "new_function",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "new class DataHandler",
+    "expected_action": "new_class",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "new class call MyMixin",
+    "expected_action": "new_class",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "new file models.py",
+    "expected_action": "new_file",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "The quick brown fox jumps over the lazy dog",
+    "expected_action": "inject",
+    "expected_intent": "dictate"
+  },
+  {
+    "phrase": "I need to refactor this module later",
+    "expected_action": "inject",
+    "expected_intent": "dictate"
+  },
+  {
+    "phrase": "The temperature outside is twenty degrees",
+    "expected_action": "inject",
+    "expected_intent": "dictate"
+  },
+  {
+    "phrase": "She walked along the river path at dusk",
+    "expected_action": "inject",
+    "expected_intent": "dictate"
+  },
+  {
+    "phrase": "This function handles authentication tokens",
+    "expected_action": "inject",
+    "expected_intent": "dictate"
+  },
+  {
+    "phrase": "comment this line",
+    "expected_action": "comment",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "comment the line",
+    "expected_action": "comment",
+    "expected_intent": "edit"
+  },
+  {
+    "phrase": "comment this selection",
+    "expected_action": "comment",
+    "expected_intent": "edit"
+  }
 ]

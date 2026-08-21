@@ -1,6 +1,6 @@
 ---
-title: Transcribing research interviews without the audio leaving your computer
-description: A tool-neutral guide for qualitative researchers, oral historians and journalists — why cloud transcription raises consent and ethics-approval questions, what local transcription actually means, the free options, and why every automated transcript still needs a correction pass.
+title: Transcribe research interviews on your own computer
+description: A tool-neutral guide for qualitative researchers and journalists — why cloud transcription raises consent and ethics questions, and the free local options.
 ---
 
 # Transcribing research interviews without the audio leaving your computer
@@ -76,7 +76,7 @@ yazses transcribe interview.m4a --diarize --names "Interviewer,Participant"
 
 That writes `interview.txt` next to the recording, with each utterance attributed. Speaker
 labelling needs one extra component — `pipx install 'yazses[diarization]'` — which downloads
-about 15 MB of speaker models on first use.
+about 45 MB of speaker models on first use.
 
 Other output formats, for different analysis workflows:
 
@@ -85,6 +85,43 @@ yazses transcribe interview.m4a --format srt     # timestamped, for playback alo
 yazses transcribe interview.m4a --format json    # structured, for import into other tools
 yazses transcribe interview.m4a --model small.en # slower, noticeably more accurate
 ```
+
+### What `--format json` actually contains
+
+"Structured, for import into other tools" is only useful if you know the structure.
+This is the real output, produced by the renderer rather than written by hand:
+
+```json
+{
+  "language": "en",
+  "diarized": true,
+  "speakers": { "speaker_0": "Alice", "speaker_1": "Bob" },
+  "text": "Shall we start with the budget? Yes, I have the figures here.",
+  "utterances": [
+    { "speaker": "speaker_0", "name": "Alice",
+      "start": 0.0, "end": 2.4, "text": "Shall we start with the budget?" }
+  ],
+  "words": [
+    { "start": 0.0, "end": 0.4, "text": "Shall", "speaker": "speaker_0" }
+  ]
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `language` | the language code the model decoded with |
+| `diarized` | whether speaker attribution ran at all |
+| `speakers` | cluster id → display name, for the ids used below |
+| `text` | the whole transcript as one string |
+| `utterances` | runs of consecutive words by one speaker, with times in seconds |
+| `words` | per-word timings, each tagged with its speaker |
+
+Two things worth knowing before you parse it. **`speaker` is a cluster id, not a
+person** — `speaker_0` means "the first voice this recording distinguished", and it
+does not carry across files unless you name it. And when nothing was diarized,
+`utterances` still has entries but their `speaker` is `""`; when nothing was
+recognised at all, `utterances` and `words` are empty and `text` is `""` — which the
+command now also tells you on stderr rather than writing an empty file in silence.
 
 Any common audio or video container works — MP3, M4A, WAV, FLAC, OGG, MP4, MKV — with no
 conversion step.

@@ -9,9 +9,18 @@ import re
 from dataclasses import dataclass
 
 # Ordered (pattern, reason) — first match wins. Irreversible/destructive → "dangerous".
+# NOTE: every pattern here is matched against a LOWER-CASED command (see
+# `assess_command`), so a pattern containing an uppercase letter can never fire.
+# `chmod -R 777` shipped that way and was silently unreachable -- classified `safe`,
+# which for this module means "typed straight through without a confirmation".
+# `test_cmdsafety_patterns_can_fire.py` now fails on any such pattern.
 _DANGEROUS = [
     (r"\brm\s+(?:-\w+\s+)*-\w*[rf]\w*", "recursive/forced delete"),
     (r"\brm\s+-\w*[rf]", "recursive/forced delete"),
+    # The long forms of the same flags. `rm --recursive --force /data` is the identical
+    # command and was classified safe, because both `rm` patterns above only read the
+    # short cluster.
+    (r"\brm\b[^\n|;]*--(?:recursive|force)\b", "recursive/forced delete"),
     (r"\bdd\b[^\n]*\bof=", "raw disk write"),
     (r"\bmkfs\b", "format filesystem"),
     (r"\b(?:shutdown|reboot|halt|poweroff|init\s+0)\b", "power state change"),
@@ -20,7 +29,7 @@ _DANGEROUS = [
     (r"\b(?:curl|wget)\b[^\n|]*\|\s*(?:sudo\s+)?(?:sh|bash|zsh)\b", "pipe download to shell"),
     (r">\s*/dev/(?:sd|nvme|hd)\w*", "overwrite block device"),
     (r":\(\)\s*\{\s*:\s*\|\s*:", "fork bomb"),
-    (r"\bchmod\s+-R\s+0*777\b", "recursive world-writable"),
+    (r"\bchmod\s+-r\s+0*777\b", "recursive world-writable"),
     (r"\brm\s+-\w*\s+/(?:\s|$)", "delete root"),
 ]
 # Elevated or overwrite-capable but not inherently destructive → "caution".
@@ -68,6 +77,22 @@ class ConfirmGate:
             self._pending = text
             return None
         return text
+
+    def hold(self, text: str) -> None:
+        """Hold *text* pending confirmation, whatever :func:`assess_command` thinks.
+
+        ``submit`` decides *whether* to hold using this module's own shell-risk rules.
+        Other guards reach a hold decision by different reasoning — a dictated card
+        number that fails its check digit is not a dangerous *command*, it is a
+        confidently wrong *value* (ADR-021) — and they still want the same held slot and
+        the same spoken release word, so the user learns one confirm phrase rather than
+        one per guard.
+
+        Kept separate from ``submit`` rather than adding a ``force=`` flag, because the
+        two answer different questions and merging them would let a caller silently skip
+        the risk assessment on a path that ought to have it.
+        """
+        self._pending = text
 
     def confirm(self):
         """Release and return the held command (or ``None`` if nothing is pending)."""

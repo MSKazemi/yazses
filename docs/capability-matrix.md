@@ -27,6 +27,9 @@ the general case, and it names the fix for anything missing.
 | Clipboard fallback | ✅ | ✅ | ✅ | ✅ |
 | "No text target" guard | ✅ AT-SPI² | ✅ AT-SPI² | ⚠️ best-effort | ⚠️ best-effort |
 | System tray | ✅ Qt | ✅ Qt | ✅ rumps | ✅ pystray |
+| Tray input-level ring | ✅ | ✅ | ❌ see ³ | ❌ see ³ |
+| Earcon state cues (eyes-free) | ✅ | ✅ | ✅ | ✅ |
+| Command safety gate, check digits | ✅ | ✅ | ✅ | ✅ |
 | Voice-activity overlay | ✅ | ✅ | ✅ | ✅ |
 | Autostart at login | ✅ systemd | ✅ systemd | ✅ launchd | ✅ HKCU\\Run |
 | Offline transcription (`transcribe`) | ✅ | ✅ | ✅ | ✅ |
@@ -34,6 +37,12 @@ the general case, and it names the fix for anything missing.
 | **Voice window focus** ("focus the browser") | ✅ xdotool | ❌ **not possible** | ❌ | ❌ |
 | **Glance-Type gaze routing** | ✅ | ❌ **not possible** | ❌ | ❌ |
 | EMG / BrainFlow activation | ✅ | ✅ | ✅ | ✅ |
+
+³ The level ring is drawn by the Qt tray, which repaints on the 0.15 s recording poll.
+The macOS and Windows trays render through `rumps`/`pystray` and repaint far less often,
+so the ring would lag the thing it reports. The **earcons** carry the same information on
+every platform, and audio is the channel that works when the tray is not being looked at
+anyway.
 
 ¹ Wayland needs `ydotool` **and** a running `ydotoold`; `wtype` works only on
 wlroots compositors and is blocked on GNOME and KDE. `yazses setup` installs and

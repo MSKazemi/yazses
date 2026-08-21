@@ -27,7 +27,36 @@ jobs:
       # verifiable link a user has (OpenSSF Signed-Releases, #116).
       id-token: write
       attestations: write
-    runs-on: macos-latest
+    # One .dmg per architecture. `macos-latest` is an Apple-silicon image, so until
+    # this matrix existed the only bundle was arm64 -- an Intel Mac could install via
+    # pipx but the .app would not launch, and its name said nothing about that.
+    #
+    # PyInstaller does not cross-compile and `target_arch=None` in the spec means
+    # "host architecture", so the runner label IS the target. build-macos.sh derives
+    # the name from `uname -m` rather than a flag, which keeps the two from
+    # disagreeing (the same reasoning as build-windows.ps1).
+    #
+    # x86_64 is `continue-on-error` on purpose: `macos-15-intel` has never run in
+    # this repository, and a brand-new leg must not be able to fail a release that
+    # the arm64 build completed fine. Promote it once it has been green a few times.
+    #
+    # It also has a deadline that is not ours (ADR-017): `macos-15-intel` is the LAST
+    # x86_64 image GitHub Actions will offer, available until August 2027, and
+    # `macos-13` was retired on 2025-12-04. When it goes, this leg goes with it and
+    # `pipx` becomes the only Intel path.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-latest
+            experimental: false
+          - arch: x86_64
+            runner: macos-15-intel
+            experimental: true
+    name: build (macos-${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    continue-on-error: ${{ matrix.experimental }}
     timeout-minutes: 30
 
     env:
@@ -53,7 +82,18 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
-          version: '0.5.x'
+          # `latest`, like every other workflow here. This was pinned to '0.5.x'
+          # — a toolchain from December 2024 — and only in the two desktop-bundle
+          # workflows, which is also where both cross-architecture legs failed.
+          # On windows-11-arm the pin is the whole failure:
+          #
+          #   error: No download found for request: cpython-3.12-windows-aarch64-none
+          #
+          # uv 0.5 predates python-build-standalone's Windows ARM64 builds, so it
+          # cannot fetch an interpreter for the runner it is standing on. A pin
+          # that old is not stability, it is a platform that had not been invented
+          # yet.
+          version: 'latest'
 
       - name: Set up Python
         run: uv python install 3.12
@@ -155,19 +195,34 @@ jobs:
       - name: Upload .dmg (signed if applicable)
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: yazses-macos-${{ steps.sign.outputs.sign == 'true' && 'signed' || 'unsigned' }}-${{ github.sha }}
+          name: yazses-macos-${{ matrix.arch }}-${{ steps.sign.outputs.sign == 'true' && 'signed' || 'unsigned' }}-${{ github.sha }}
           path: dist/YazSes-*.dmg
           if-no-files-found: error
           retention-days: 14
 
       - name: Attest build provenance for the .dmg
+        id: attest
         uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v2
         with:
-          subject-path: "*.dmg"
+          # dist/, not the repo root. Every other step in this job addresses the
+          # artifact as dist/YazSes-*.dmg; this one globbed the workspace root,
+          # found nothing, and failed the job — which skipped "Attach to release"
+          # below, so the .dmg was built and uploaded as a run artifact but never
+          # reached the release. v2.19.0 shipped with only the two .deb files.
+          subject-path: dist/YazSes-*.dmg
+
+      # Scorecard's Signed-Releases check reads release ASSET FILENAMES, not
+      # GitHub's attestations API, so the attestation above scored 0/10 until the
+      # bundle was attached too. See the longer note in release.yml.
+      - name: Attach the provenance bundle as a release asset
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: cp "${{ steps.attest.outputs.bundle-path }}" "dist/YazSes-${GITHUB_REF_NAME#v}-macos-${{ matrix.arch }}.intoto.jsonl"
 
       - name: Attach to release (tag builds only)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
         with:
-          files: dist/YazSes-*.dmg
+          files: |
+            dist/YazSes-*.dmg
+            dist/YazSes-*.intoto.jsonl
           fail_on_unmatched_files: true

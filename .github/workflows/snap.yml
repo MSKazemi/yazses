@@ -122,7 +122,16 @@ jobs:
           exit 1
 
       - name: Publish to Snap Store
+        id: publish
         if: steps.check-snap-creds.outputs.have_creds == 'true'
+        # Shorter than the job's 60 minutes on purpose. v2.20.0 and v2.21.0 both
+        # built a good snap and then stalled here until the *job* limit killed
+        # them, which GitHub reports as "cancelled" — indistinguishable from
+        # someone pressing stop. Two releases passed with `latest/stable` on
+        # 2.19.0 and nothing in the run list that looked like a failure. An upload
+        # plus a channel release is a few minutes' work; 20 is generous, and
+        # failing at 20 produces an error somebody reads.
+        timeout-minutes: 20
         uses: snapcore/action-publish@214b86e5ca036ead1668c79afb81e550e6c54d40 # v1
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
@@ -143,3 +152,26 @@ jobs:
           # only ever feeds edge, so any arch missing from the matrix above is an
           # arch that never reaches `snap install yazses`.
           release: stable,edge
+
+      # A bare "has timed out after 20 minutes" says nothing about which half failed,
+      # and the two halves have opposite meanings. Measured on run 31906962075: the
+      # upload *succeeds* -- the file transfers, the credentials are accepted -- and
+      # then `snapcraft upload` polls the store, which answered `Status: processing`
+      # 971 times, roughly once a second, for nineteen unbroken minutes.
+      #
+      # So a timeout here is almost never a broken pipeline. It is a revision sitting
+      # in the store's review queue, and reading it as "publish is broken" sends the
+      # next person to check credentials that are demonstrably fine.
+      #
+      # The job still FAILS, deliberately. Nothing reached `latest/stable`, and a
+      # green workflow that published nothing is the exact failure this whole area
+      # exists to prevent. What changes is that the failure now says what happened.
+      - name: Explain what a publish timeout means
+        if: always() && steps.publish.outcome == 'failure'
+        run: |
+          echo "::warning title=Snap publish did not complete::The snap was BUILT and \
+          almost certainly UPLOADED; what did not finish is the store's review of the \
+          revision. Check the step log above: if it shows 'Uploading...' followed by \
+          repeated 'Status: processing', the credentials are fine and the revision is \
+          queued for review -- see https://snapcraft.io/yazses/releases . Nothing has \
+          reached latest/stable, which is why this job is red."

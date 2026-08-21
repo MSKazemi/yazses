@@ -1,9 +1,12 @@
-"""Every tray offers "Settings…", on every OS (#63).
+"""Every tray offers the same entries, on every OS (#63).
 
-Linux had the entry; macOS and Windows did not, so the same menu meant different
+Linux had "Settings…"; macOS and Windows did not, so the same menu meant different
 things depending on where you ran it. Clicking cannot be tested without the
 target OS — that part needs a Mac or Windows user — but *presence and wiring*
 can, and those are what silently drifted.
+
+The same guard now covers About / Help / Check for updates, which arrived with the
+same failure mode already visible: Windows shipped a ``Help`` item wired to nothing.
 """
 
 from __future__ import annotations
@@ -15,6 +18,7 @@ from pathlib import Path
 
 import pytest
 
+from yazses.tray import menu as menu_mod
 from yazses.tray.menu import SETTINGS_LABEL
 
 TRAYS = {
@@ -24,18 +28,63 @@ TRAYS = {
 }
 ROOT = Path(__file__).resolve().parent.parent
 
+# Every user-visible label that must mean the same thing on all three OSes.
+SHARED_LABELS = [
+    menu_mod.SETTINGS_LABEL,
+    menu_mod.ABOUT_LABEL,
+    menu_mod.HELP_LABEL,
+    menu_mod.DOCS_LABEL,
+    menu_mod.TROUBLESHOOTING_LABEL,
+    menu_mod.REPORT_BUG_LABEL,
+    menu_mod.UPDATE_LABEL,
+    menu_mod.MEETING_START_LABEL,
+    menu_mod.MEETING_STOP_LABEL,
+]
 
+# entry -> the names a tray may use to render it. The Help sub-links are driven by
+# ``about.help_links()`` on Linux and Windows and by the constants on macOS; either
+# way the labels and URLs come from the one shared source.
+SHARED_ENTRIES = {
+    "Settings…": ("SETTINGS_LABEL", "settings_label"),
+    "About": ("ABOUT_LABEL",),
+    "Help": ("HELP_LABEL",),
+    "Help links": ("help_links", "DOCS_LABEL"),
+    "Check for updates…": ("UPDATE_LABEL",),
+    # Meeting Mode is the one capability with no key to hold, so the tray is the
+    # only surface that can start or end one without a terminal. The Qt tray derives
+    # both entries from `meeting_entries`; the static menus import the constants.
+    "Start meeting": ("MEETING_START_LABEL", "meeting_entries"),
+    "Stop meeting": ("MEETING_STOP_LABEL", "meeting_entries"),
+}
+
+# entry -> the names that prove a click actually does something.
+ENTRY_HANDLERS = {
+    "Settings…": ("launch_settings", "_launch_settings", "_on_settings"),
+    "About": ("about_html", "about_lines", "_on_about", "_about_clicked"),
+    "Help links": ("open_url", "open_link", "_open", "_link_clicked", "_on_open_url"),
+    "Check for updates…": (
+        "check_and_describe", "check_updates", "_on_check_updates", "_update_clicked",
+    ),
+    # One name each, because Start and Stop must not collapse onto a single handler:
+    # a tray that wired both to "start" would look right in every source-text check
+    # while making it impossible to end a meeting from the icon.
+    "Start meeting": ("_on_meeting_start", "_meeting_clicked", "start_meeting"),
+    "Stop meeting": ("_on_meeting_stop", "_meeting_clicked", "stop_meeting"),
+}
+
+
+@pytest.mark.parametrize("entry", sorted(SHARED_ENTRIES))
 @pytest.mark.parametrize("os_name", sorted(TRAYS))
-def test_every_tray_offers_the_settings_entry(os_name):
-    """The parity gap this closes: only Linux had it.
+def test_every_tray_offers_the_shared_entries(os_name, entry):
+    """The parity gap this closes: only Linux had them.
 
-    Linux reads the label off the shared ``TrayModel``; the rumps and pystray
+    Linux reads "Settings…" off the shared ``TrayModel``; the rumps and pystray
     menus are built before any model arrives, so they import the constant. Both
     resolve to the same string — what matters is that neither invents its own.
     """
     source = (ROOT / TRAYS[os_name]).read_text(encoding="utf-8")
-    assert "SETTINGS_LABEL" in source or "settings_label" in source, (
-        f"{os_name} tray has no Settings… entry"
+    assert any(marker in source for marker in SHARED_ENTRIES[entry]), (
+        f"{os_name} tray has no {entry} entry"
     )
 
 
@@ -48,33 +97,38 @@ def test_every_tray_module_actually_imports(os_name):
 
 
 def test_the_macos_menu_handlers_are_not_crossed():
-    """Each rumps label routes to exactly one handler.
+    """Each rumps label *path* routes to exactly one handler.
 
     ``@rumps.clicked`` binds by label, so stacking a second one on the wrong
     function silently re-points an existing menu entry — "Pause hotkey" opening
-    Settings, with nothing to see in a diff-free read of the file.
+    Settings, with nothing to see in a diff-free read of the file. Submenu items
+    bind on the full path (``clicked(HELP_LABEL, DOCS_LABEL)``), so the whole
+    argument tuple is the identity — comparing only the first argument would read
+    three distinct Help sub-entries as one label bound three times.
     """
     module = ast.parse((ROOT / TRAYS["macos"]).read_text(encoding="utf-8"))
-    labels = [
-        node.args[0]
+    paths = [
+        tuple(ast.unparse(a) for a in node.args)
         for node in ast.walk(module)
         if isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
         and node.func.attr == "clicked"
         and node.args
     ]
-    rendered = [ast.unparse(a) for a in labels]
-    assert len(rendered) == len(set(rendered)), f"a label is bound twice: {rendered}"
+    assert len(paths) == len(set(paths)), f"a label path is bound twice: {paths}"
 
 
+@pytest.mark.parametrize("entry", sorted(ENTRY_HANDLERS))
 @pytest.mark.parametrize("os_name", sorted(TRAYS))
-def test_every_tray_actually_wires_the_entry_to_something(os_name):
-    """A label with no handler is a menu item that does nothing when clicked."""
+def test_every_tray_actually_wires_the_entry_to_something(os_name, entry):
+    """A label with no handler is a menu item that does nothing when clicked.
+
+    Not hypothetical: the Windows tray shipped ``MenuItem("Help", None,
+    enabled=False)`` — a Help entry that could not be clicked at all.
+    """
     source = (ROOT / TRAYS[os_name]).read_text(encoding="utf-8")
-    assert "settings" in source.lower()
-    assert any(marker in source for marker in
-               ("launch_settings", "_launch_settings", "_on_settings")), (
-        f"{os_name} renders Settings… but wires no handler"
+    assert any(marker in source for marker in ENTRY_HANDLERS[entry]), (
+        f"{os_name} renders {entry} but wires no handler"
     )
 
 
@@ -156,17 +210,66 @@ def test_the_shortcut_flag_matches_what_the_bundle_accepts():
             assert f'"{flag}"' in main, f"the installer passes {flag}, the bundle ignores it"
 
 
-def test_the_shared_label_is_used_rather_than_three_copies():
-    """One label, so the menus cannot say three different things.
+def test_the_shared_labels_are_used_rather_than_three_copies():
+    """One label each, so the menus cannot say three different things.
 
     Checked against the parsed source, not the text: prose in a comment that
     happens to quote the label is not a second copy of it.
     """
     assert SETTINGS_LABEL
+    shared = set(SHARED_LABELS)
     for path in TRAYS.values():
         module = ast.parse((ROOT / path).read_text(encoding="utf-8"))
         literals = [
             node.value for node in ast.walk(module)
-            if isinstance(node, ast.Constant) and node.value == SETTINGS_LABEL
+            if isinstance(node, ast.Constant) and node.value in shared
         ]
-        assert not literals, f"{path} hardcodes the label instead of importing SETTINGS_LABEL"
+        assert not literals, f"{path} hardcodes {literals} instead of importing the constant"
+
+
+def test_the_help_links_point_at_pages_that_exist():
+    """A Help entry that 404s is worse than no Help entry.
+
+    The docs site builds with ``use_directory_urls: false``, so every page is a
+    ``.html`` file — a link written as a directory would break silently.
+    """
+    from yazses import branding
+    from yazses.tray.about import help_links
+
+    # Read as text: mkdocs.yml carries custom !ENV/!!python tags a safe loader rejects.
+    mkdocs = (ROOT / "mkdocs.yml").read_text(encoding="utf-8")
+    assert "use_directory_urls: false" in mkdocs
+    assert f"site_url: {branding.WEBSITE}" in mkdocs, "branding.WEBSITE is not the docs site"
+    site = branding.WEBSITE
+
+    for label, url in help_links():
+        assert url.startswith(("https://github.com/MSKazemi/", site)), label
+        if url.startswith(site):
+            page = url[len(site):] or "index.html"
+            assert page.endswith(".html"), f"{label} is not a built page URL: {url}"
+            source = ROOT / "docs" / page.replace(".html", ".md")
+            assert source.is_file(), f"{label} links to {url}, but {source} does not exist"
+
+
+def test_the_recording_state_set_is_shared_not_copied() -> None:
+    """`tray/app.py` and `tray/menu.py` must decide "is this a burst?" from one set.
+
+    They each held an identical four-element copy. The two answer the same question for
+    different purposes -- `menu.py` picks the icon colour for a state, `app.py` decides
+    whether to poll at 0.15 s instead of 1 s during it -- so a state added to one and not
+    the other yields an icon that is the right colour and a second behind, or the wrong
+    colour polled quickly. Nothing would report either.
+
+    Found by a machine sweep for literal collections duplicated across modules, the same
+    sweep that found `learning`'s redaction set covering four of six stored text fields.
+    """
+    from yazses.tray import app as tray_app
+    from yazses.tray import menu as tray_menu
+
+    assert tray_app._RECORDING_STATES is tray_menu._RECORDING_STATES, (
+        "tray/app.py has its own copy again — import it from tray/menu.py instead"
+    )
+    # Named explicitly so silently emptying the set cannot make this vacuous.
+    assert tray_menu._RECORDING_STATES == frozenset(
+        {"recording", "transcribing", "injecting", "meeting"}
+    )

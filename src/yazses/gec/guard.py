@@ -47,6 +47,17 @@ def fix_articles(text: str) -> str:
     """Fix a/an agreement before the following word (heuristic + exceptions). Pure."""
     def repl(m: re.Match) -> str:
         art, word = m.group(1), m.group(2)
+        if word.isupper():
+            # An all-caps token's article depends on how it is SAID, which its spelling
+            # does not reveal: "FBI" is spelled out ("an eff-bee-eye") while "NATO" is a
+            # word ("a nay-toh"). Judging by the first letter got nine of ten initialisms
+            # wrong -- "an FBI agent" -> "a FBI agent", "an MRI" -> "a MRI", "an XML file"
+            # -> "a XML file" -- i.e. a grammar corrector introducing grammar errors into
+            # text that was already right.
+            #
+            # No rule keyed on spelling can separate the two, so the user's own article
+            # stands. A missed correction costs nothing; a false one corrupts.
+            return m.group(0)
         correct = "an" if _wants_an(word) else "a"
         if art[0].isupper():
             correct = correct.capitalize()

@@ -11,9 +11,16 @@ from typing import Optional
 import typer
 
 from yazses import branding
+from yazses.hotkeys.names import SETTABLE_HOTKEYS, SUPPORTED_HOTKEYS, canonical
 from yazses.ipc.client import IpcUnreachableError
 from yazses.platform import get_paths, get_platform
-from yazses.system.updater import check_update, run_upgrade
+from yazses.system.outcomes import describe_outcomes
+from yazses.system.relaunch import Mode, command_for
+
+# `yazses.system.updater` is imported inside `update()` rather than here: it pulls
+# `urllib.request` and `http.client` (~21 ms) for a network stack that only that one
+# command uses, and every invocation — `status`, `stop`, each Tab-completion — was
+# paying it. Guarded by tests/test_cli_startup_cost.py.
 
 # `-h` is accepted everywhere alongside `--help`. Sub-apps each need their own
 # copy (Typer does not propagate context settings into added sub-typers).
@@ -41,12 +48,10 @@ def _maybe_point_at_project(data_dir, *, succeeded: bool) -> None:
     message must not be able to fail a command that has already succeeded.
     """
     try:
-        import sys
-
-        from yazses.system import nudge
+        from yazses.system import nudge, streams
 
         if not nudge.should_show(
-            data_dir, succeeded=succeeded, interactive=sys.stdout.isatty()
+            data_dir, succeeded=succeeded, interactive=streams.stdout_isatty()
         ):
             return
         typer.echo("")
@@ -78,7 +83,7 @@ _APP_EPILOG = (
 
 app = typer.Typer(
     name="yazses",
-    help="Local, offline voice dictation — hold a key, speak, release.",
+    help=branding.TAGLINE,
     context_settings=CONTEXT_SETTINGS,
     no_args_is_help=True,          # bare `yazses` shows help instead of an error
     rich_markup_mode="rich",
@@ -298,19 +303,65 @@ def meeting_status() -> None:
         typer.echo("Finalizing the last meeting (transcribing + diarizing)…")
     else:
         diar = result.get("diarization")
-        if diar and diar.get("requested") and not diar.get("ready"):
-            what = "extra not installed" if not diar.get("extra_installed") else "models missing"
-            typer.echo(f"Speaker labels: unavailable ({what}) — "
-                       "run `yazses transcribe --download-models`.")
+        if diar:
+            # One implementation of "why not, and what to do", shared with the
+            # daemon's `meeting start` warning. This used to recompute the cause
+            # correctly and then recommend `--download-models` whichever it was —
+            # a ~45 MB download that fixes nothing when the missing piece is a
+            # Python package.
+            from yazses.recimport.factory import diarization_advice
+
+            # The advice opens with "Speaker labels are on but…", so it is printed
+            # as-is; prefixing it produced "Speaker labels: unavailable — Speaker
+            # labels are on but…".
+            if advice := diarization_advice(diar):
+                typer.echo(advice)
         recent = result.get("recent", [])
         if not recent:
             typer.echo("No meetings yet. Start one with: yazses meeting start")
             return
         typer.echo("Recent meetings:")
         for m in recent:
-            spk = m.get("num_speakers", "?")
             note = " +notes" if m.get("has_notes") else ""
-            typer.echo(f"  {m.get('id')}  {spk} speaker(s){note}  {m.get('dir', '')}")
+            typer.echo(
+                f"  {m.get('id')}  {_speaker_summary(m)}{note}  {m.get('dir', '')}"
+            )
+
+
+def _format_uptime(seconds) -> str:
+    """Seconds as something a person reads at a glance.
+
+    `uptime: 48176.17s` is how this printed a daemon that had been up thirteen
+    hours -- nobody converts that in their head, and two decimal places on half a
+    day is precision that was never measured. The value matters most when it is
+    large: a long uptime is how you notice a daemon that predates the upgrade.
+    """
+    if seconds is None:
+        return "unknown"
+    total = int(float(seconds))
+    if total < 60:
+        return f"{total}s"
+    if total < 3600:
+        return f"{total // 60}m {total % 60}s"
+    return f"{total // 3600}h {(total % 3600) // 60}m"
+
+
+def _speaker_summary(m: dict) -> str:
+    """How many speakers a meeting has, or that it was never labelled.
+
+    "0 speaker(s)" reads as a failed transcription, and on an undiarized meeting
+    it is answering a question nobody asked: speaker labelling was not attempted,
+    which is a different statement from "nobody spoke". Measured on a real
+    machine, an 8081-second meeting with a 1.7 MB transcript listed as
+    `0 speaker(s)`.
+
+    `is False` rather than a falsy test on purpose -- an older `meeting.json`
+    without the key says nothing either way, and guessing would assert something
+    the file does not contain.
+    """
+    if m.get("diarized") is False:
+        return "not diarized"
+    return f"{m.get('num_speakers', '?')} speaker(s)"
 
 
 @meeting_app.command("list")
@@ -336,9 +387,19 @@ def meeting_list(
         typer.echo("No meetings found.")
         return
     for m in meetings:
-        spk = m.get("num_speakers", "?")
         note = " +notes" if m.get("has_notes") else ""
-        typer.echo(f"{m.get('id')}  {spk} speaker(s){note}  {m.get('dir', '')}")
+        typer.echo(f"{m.get('id')}  {_speaker_summary(m)}{note}  {m.get('dir', '')}")
+        # `list_meetings` has always set `recoverable` on a meeting that never finalized
+        # but left a live.jsonl, and this listing -- the only place it would be seen --
+        # dropped it. The daemon streams that file all through a meeting for exactly this
+        # case, so an hour-long meeting cut short by a crash had its partial transcript
+        # sitting on disk with nothing in the product acknowledging it existed.
+        if m.get("recoverable"):
+            lines = store.read_live_lines(m.get("dir", ""))
+            typer.echo(
+                f"    ⚠ did not finish — {len(lines)} line(s) of live transcript "
+                f"recoverable from {m.get('dir', '')}/live.jsonl"
+            )
 
 
 @meeting_app.command("relabel")
@@ -435,6 +496,13 @@ def meeting_enroll(
         )
         raise typer.Exit(1)
     cipher = Cipher(load_or_create_key(paths.data_dir))
+    # Replacing an enrollment is allowed -- better audio gives a better voiceprint -- but
+    # it destroys biometric data the user deliberately enrolled, and a second person with
+    # the same name is indistinguishable from a re-enrollment from in here. Say which
+    # happened rather than letting it look like a fresh one.
+    from yazses.meeting.participants import existing_participant
+
+    replacing = existing_participant(name, cfg.meeting)
     try:
         path = enroll_participant(
             d, speaker, name, embedder=embedder, cipher=cipher, config=cfg.meeting,
@@ -443,6 +511,8 @@ def meeting_enroll(
     except (FileNotFoundError, ValueError) as exc:
         typer.echo(f"Could not enroll {name}: {exc}", err=True)
         raise typer.Exit(1)
+    if replacing:
+        typer.echo(f"Replaced the existing voiceprint for {name} ({replacing}).")
     typer.echo(f"Enrolled {name} (from {speaker}). Future meetings will auto-name them.")
     typer.echo(f"  Voiceprint: {path}  (encrypted, on-device — ADR-011/012)")
 
@@ -812,10 +882,9 @@ def tray(
     """
     if background:
         import subprocess
-        import sys
 
         subprocess.Popen(
-            [sys.executable, "-m", "yazses.tray.app"],
+            command_for(Mode.TRAY),
             start_new_session=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -966,6 +1035,39 @@ _TIER_ALIASES = {
 }
 
 
+#: Width of the catalogue's DOWNLOAD column. Mirrors
+#: `depsize.SIZE_COLUMN_WIDTH`, which is what the labels are sized against;
+#: `tests/test_cli_features_grouped.py` fails if the two drift apart. Not
+#: imported at module scope because `yazses features` must not pay for an import
+#: it may not need.
+_SIZE_W = 9
+#: Width of the NAME column. A cap rather than a measurement: the longest display
+#: name is 41 characters, and sizing to it would widen every one of 147 rows by 9
+#: columns to accommodate two. Prose, so it is safe to clip -- unlike TOGGLE NAME.
+_NAME_W = 32
+
+
+def _clip(text: str, width: int) -> str:
+    """*text* trimmed to *width* columns, with an ellipsis when it did not fit."""
+    return text if len(text) <= width else text[: width - 1] + "\u2026"
+
+
+
+def _catalogue_size(feat) -> str:
+    """What *feat* downloads on a fresh install, for the catalogue, or ``""``.
+
+    Never raises: a size is a courtesy, and `yazses features` failing because one
+    could not be computed would be a bad trade (same rule as
+    `_feature_download_note`).
+    """
+    try:
+        from yazses.system.depsize import catalogue_size_label
+
+        return catalogue_size_label(feat.slug, bool(getattr(feat, "pip_packages", None)))
+    except Exception:  # pragma: no cover - a size must never break the catalogue
+        return ""
+
+
 def _echo_capabilities(
     platform,
     *,
@@ -1013,6 +1115,18 @@ def _echo_capabilities(
         or "YazSes capabilities — toggle with `yazses features enable/disable <name>`:\n"
     )
     total = 0
+    # Column widths, measured across every row the whole table will show rather than
+    # per group, so the groups line up with each other too. `:<32` and `:<16` were
+    # minimums, and any longer value pushed DOWNLOAD and ADVICE right for that row
+    # alone -- 10 of 147 rows were ragged, and adding one 22-character slug made it
+    # 11. The two columns are treated differently on purpose:
+    #
+    #   TOGGLE NAME is *copied* into `yazses features enable <name>`, so it grows to
+    #   fit and is never truncated. A shortened slug is a command that does not run.
+    #   NAME is prose and may be clipped; `yazses features info` carries the full text.
+    all_shown = [f for _, _, feats in groups for f in feats if _keep(f)]
+    slug_w = max([16, *(len(f.slug) for f in all_shown if f.toggleable)])
+
     for cat, blurb, feats in groups:
         shown = [f for f in feats if _keep(f)]
         if not shown:
@@ -1021,11 +1135,18 @@ def _echo_capabilities(
         typer.echo(f"┌─ {cat}  ({on_n}/{len(shown)} on)")
         if blurb:
             typer.echo(f"│  {blurb}")
-        typer.echo(f"│  {'':5}  {'NAME':<32} {'TOGGLE NAME':<16} ADVICE")
+        typer.echo(
+            f"│  {'':5}  {'NAME':<{_NAME_W}} {'TOGGLE NAME':<{slug_w}} "
+            f"{'DOWNLOAD':<{_SIZE_W}} ADVICE"
+        )
         for f in shown:
             mark = "● ON " if f.on else "○ off"
             slug = f.slug if f.toggleable else "—"
-            typer.echo(f"│  {mark}  {f.name:<32} {slug:<16} {f.tier_label}")
+            size = _catalogue_size(f)
+            typer.echo(
+                f"│  {mark}  {_clip(f.name, _NAME_W):<{_NAME_W}} {slug:<{slug_w}} "
+                f"{size:<{_SIZE_W}} {f.tier_label}"
+            )
         typer.echo("└" + "─" * 40)
         total += len(shown)
 
@@ -1034,6 +1155,8 @@ def _echo_capabilities(
         return
     typer.echo(
         f"\n  {total} shown.  ●/○ = on/off.  Apply changes with `yazses restart`."
+        "\n  DOWNLOAD = what enabling fetches on a fresh install; blank = nothing"
+        " to download."
         "\n  Tip: `yazses features enable dysfluency` (use the TOGGLE NAME column)."
         "\n  Filter:  --on · --tier rec · --category access"
         "\n  Describe ALL capabilities (use case + example): `yazses features info`."
@@ -1062,6 +1185,12 @@ def _echo_feature_card(feat, *, full: bool) -> None:
                 "see the matching design/adr/ entry."
             )
         elif feat.toggleable:
+            # What it will cost, before it is spent (ADR-018). `speechbrain` alone
+            # resolves to torch plus the NVIDIA CUDA stack, and until this line
+            # existed the only way to find that out was to watch it download.
+            note = _feature_download_note(feat)
+            if note:
+                typer.echo(f"\n  Cost:     {note}")
             typer.echo(f"\n  Enable:   yazses features enable {feat.slug}")
             typer.echo(f"  Disable:  yazses features disable {feat.slug}")
             typer.echo("  Apply:    yazses restart")
@@ -1149,7 +1278,12 @@ def features_enable(
     --no-install).
     """
     from yazses.config import load_config
-    from yazses.system.features import EXPERIMENTAL, find_feature, toggleable_slugs
+    from yazses.system.features import (
+        EXPERIMENTAL,
+        enable_caveat,
+        find_feature,
+        toggleable_slugs,
+    )
 
     platform = get_platform()
     cfg = load_config(platform.paths.config_file)
@@ -1187,8 +1321,27 @@ def features_enable(
         raise typer.Exit(1)
     _apply_feature_writes(platform.paths.config_file, feat.on_writes)
     typer.echo(f"Enabled {feat.name}.  {feat.why}")
+    caveat = enable_caveat(feat.slug, cfg)
+    if caveat:
+        typer.echo(f"\n{caveat}\n")
     _install_feature_deps(feat, skip=no_install)
     typer.echo("Apply it:  yazses restart")
+
+
+def _feature_download_note(feat) -> str:
+    """What enabling *feat* will fetch on this machine, or ``""`` (ADR-018).
+
+    Never raises into the catalogue: a size is a courtesy, and `yazses features`
+    failing because a size could not be computed would be a bad trade.
+    """
+    if not getattr(feat, "pip_packages", None):
+        return ""
+    try:
+        from yazses.system.depsize import download_note
+
+        return download_note(feat.slug, _missing_feature_deps(feat))
+    except Exception:  # pragma: no cover - a size must never break the catalogue
+        return ""
 
 
 def _missing_feature_deps(feat) -> list[str]:
@@ -1224,6 +1377,22 @@ def _install_feature_deps(feat, *, skip: bool) -> None:
 
     if not _missing_feature_deps(feat):
         return
+    # Say what this costs before spending it (ADR-018). Printed even when the
+    # install proceeds: a download that turns out to be gigabytes is one the user
+    # should have been able to cancel, and knowing mid-download still beats
+    # knowing afterwards.
+    note = _feature_download_note(feat)
+    if note:
+        from yazses.system.depsize import is_a_large_download
+
+        loud = is_a_large_download(feat.slug, _missing_feature_deps(feat))
+        prefix = "\n⚠  Large download — " if loud else "\n"
+        typer.echo(f"{prefix}this {note}.")
+        if loud:
+            typer.echo(
+                "   Ctrl-C now to stop. `--no-install` prints the packages instead "
+                "of fetching them."
+            )
     if skip:
         typer.echo(
             "Skipping dependency install (--no-install). This feature needs:\n  "
@@ -1263,6 +1432,80 @@ def features_disable(
             f"Note: {feat.name} was never wired into this build — this only "
             "cleans up the config key an older version may have written."
         )
+    typer.echo("Apply it:  yazses restart")
+
+
+@features_app.command(
+    "reset",
+    epilog=_examples(
+        "yazses features reset --dry-run   show what would change, write nothing",
+        "yazses features reset             restore defaults (asks first)",
+        "yazses restart                    apply the change",
+    ),
+)
+def features_reset(
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip the confirmation prompt."),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="List what would change and write nothing."
+    ),
+    no_install: bool = typer.Option(
+        False, "--no-install", help="Don't auto-install optional deps for what it turns on."
+    ),
+) -> None:
+    """Restore every capability to the state a fresh install ships with.
+
+    The same "Restore defaults" the settings window offers, for machines with no
+    graphical session — an SSH box, a server, or a distribution too old for
+    PySide6. Only capabilities that are off their default are written, so your
+    config file (and its comments) is not churned to change three lines.
+
+    Your hotkey, microphone, vocabulary and any hand-edited settings are left
+    alone: this resets the feature switches, not the whole file.
+    """
+    from yazses.config import load_config
+    from yazses.system.features import default_drift
+
+    platform = get_platform()
+    cfg = load_config(platform.paths.config_file)
+    drift = default_drift(cfg)
+
+    if not drift:
+        typer.echo("Every capability is already at its default. Nothing to do.")
+        return
+
+    turning_on = [f for f, desired in drift if desired]
+    turning_off = [f for f, desired in drift if not desired]
+    typer.echo(f"{len(drift)} capabilit{'y' if len(drift) == 1 else 'ies'} differ(s) "
+               "from the defaults:\n")
+    for feat in turning_on:
+        typer.echo(f"  ○ → ● ON   {feat.name}  [{feat.slug}]")
+    for feat in turning_off:
+        typer.echo(f"  ● → ○ off  {feat.name}  [{feat.slug}]")
+
+    if dry_run:
+        typer.echo("\nDry run — nothing was written. Drop --dry-run to apply.")
+        return
+    if not yes and not typer.confirm("\nRestore these to their defaults?"):
+        typer.echo("Cancelled — nothing was written.")
+        raise typer.Exit(1)
+
+    written = 0
+    for feat, desired in drift:
+        # A default-on capability whose libraries this environment can never
+        # supply (a read-only snap, say) is skipped rather than written: the same
+        # refusal `features enable` makes, for the same reason — a config key
+        # nothing can honour is a lie, not a default.
+        if desired and (blocked := _feature_deps_blocked(feat)) is not None:
+            typer.echo(f"  Skipped {feat.name}: {blocked}", err=True)
+            continue
+        _apply_feature_writes(
+            platform.paths.config_file, feat.on_writes if desired else feat.off_writes
+        )
+        written += 1
+        if desired:
+            _install_feature_deps(feat, skip=no_install)
+    typer.echo(f"\nRestored {written} capabilit{'y' if written == 1 else 'ies'} "
+               "to their defaults.")
     typer.echo("Apply it:  yazses restart")
 
 
@@ -1353,7 +1596,10 @@ def vocab_export(
     if output is None:
         # No trailing blank line: typer.echo would add a second newline to text
         # that already ends in one, and the round-trip has to be byte-exact.
-        sys.stdout.write(text)
+        from yazses.system import streams
+
+        if not streams.write_out(text):
+            raise typer.Exit(1)  # no console (windowed build): fail loudly, not silently
         return
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(text, encoding="utf-8")
@@ -1694,15 +1940,28 @@ def cliphistory_list() -> None:
     if not items:
         typer.echo("Clipboard history is empty. Add one with: yazses cliphistory add <text>")
         return
+    # The ends are labelled because the numbering alone sets a trap. This list is
+    # newest-first, so #1 is the most recent -- but `recall "the first thing I copied"`
+    # deliberately means the OLDEST, which is the right reading of that sentence and is
+    # tested as such. A bare "1. …" invites "the first one" and returns the other end.
+    # Naming the ends costs two words and removes the ambiguity at the only place the
+    # user meets it.
+    last = len(items)
     for i, it in enumerate(items, start=1):
-        typer.echo(f"  {i}. {it}")
+        if i == 1 and last > 1:
+            typer.echo(f"  {i}. {it}   ← most recent")
+        elif i == last and last > 1:
+            typer.echo(f"  {i}. {it}   ← oldest")
+        else:
+            typer.echo(f"  {i}. {it}")
 
 
 @cliphistory_app.command(
     "recall",
     epilog=_examples(
         'yazses cliphistory recall "the last url"     print the newest URL entry',
-        'yazses cliphistory recall "the second one"    print entry #2',
+        'yazses cliphistory recall "the second one"    print entry #2 (list order)',
+        'yazses cliphistory recall "the first thing I copied"   the OLDEST entry',
     ),
 )
 def cliphistory_recall(
@@ -1710,8 +1969,14 @@ def cliphistory_recall(
 ) -> None:
     """Print the history entry a spoken reference points to — offline.
 
-    Understands url/link, email, ordinals (last/second/…), first/oldest, and 'number N';
-    defaults to the most recent entry. Exits non-zero if nothing matches.
+    Understands url/link, email, ordinals, and 'number N'; defaults to the most
+    recent entry. Exits non-zero if nothing matches.
+
+    Which end is which, because the two natural readings point opposite ways:
+    'last', 'latest', 'most recent' mean the NEWEST entry (#1 in `list`), while
+    'first' and 'oldest' mean the OLDEST -- 'the first thing I copied' is the right
+    reading of that sentence. Numbered ordinals ('second', 'third', 'number 3')
+    follow the `list` numbering, which is newest-first.
     """
     from yazses.cliphistory.history import resolve_reference
     from yazses.cliphistory.store import load_items
@@ -1886,11 +2151,6 @@ def srs_review(
                f"(reps {updated['reps']}, ease {updated['ease']}).")
 
 
-# Valid hold-to-talk keys (mirror platform/linux/hotkey.py keymap).
-_HOTKEYS = [
-    "right_alt", "left_alt", "right_ctrl", "left_ctrl",
-    "right_shift", "left_shift", "right_meta", "left_meta", "space",
-]
 
 @app.command(
     rich_help_panel=_SETUP,
@@ -1946,7 +2206,18 @@ def verify(
         typer.echo(f"  [{'OK' if step.ok else 'FAIL'}] {step.name}: {step.detail}")
     typer.echo("")
     if result.ok:
-        typer.echo("✓ Dictation works end to end on this machine.")
+        # The verdict used to be unconditional, and it is the line people read. verify
+        # proves the chain RAN; only the user can say the words are the ones they spoke.
+        # Recording silence in a quiet room still clears the gate on room noise and gets
+        # a confident invented word back, so an unqualified tick certified a mic that
+        # was never hearing anyone.
+        heard = next((s for s in result.steps if s.name == "Transcription"), None)
+        typer.echo("✓ The whole chain ran: captured, heard, cleaned"
+                   + (", typed." if do_type else "."))
+        if heard is not None:
+            typer.echo(f"  It {heard.detail} — if that is not what you said, the mic is "
+                       "the problem, not the pipeline:")
+            typer.echo("      yazses mic-level --set   ·   yazses audio status")
         _maybe_point_at_project(platform.paths.data_dir, succeeded=True)
         return
     failure = result.failure
@@ -2158,7 +2429,11 @@ def audio_use(
 )
 def audio_status() -> None:
     """Show the pinned mic, the OS default, and (if running) live capture health."""
-    from yazses.audio.devices import current_default_input_name
+    from yazses.audio.devices import (
+        current_default_input_name,
+        default_source_behind_alias,
+        is_routing_alias,
+    )
     from yazses.config import load_config
 
     platform = get_platform()
@@ -2166,7 +2441,40 @@ def audio_status() -> None:
     pinned = (cfg.audio.device or "").strip()
     typer.echo(f"Pinned mic:    {pinned or '(none — follows OS default)'}")
     try:
-        typer.echo(f"OS default:    {current_default_input_name() or '(unknown)'}")
+        default_name = current_default_input_name()
+        typer.echo(f"OS default:    {default_name or '(unknown)'}")
+        # `default`/`pipewire` name a route, not a microphone. The device-change
+        # watcher spots a switch by comparing this name over time, so against an
+        # alias it compares "default" with "default" for ever and never fires --
+        # the mic behind it can change with nothing on screen changing. Worth
+        # saying here, because this is the page someone opens when dictation
+        # stopped working and they are trying to find out what it is listening to.
+        if not pinned and is_routing_alias(default_name):
+            # Naming the alias is not enough on the screen someone opens when
+            # dictation stopped: they need to know *which* microphone it currently
+            # points at. Best-effort via wpctl, absent without complaint.
+            behind = default_source_behind_alias()
+            behind_name = None
+            if behind:
+                behind_name, vol = behind
+                typer.echo(f"               → {behind_name}  (volume {vol * 100:.0f}%)")
+            typer.echo(
+                "               ⚠ that is a routing alias, not a microphone — the "
+                "device behind it\n"
+                "                 can change without this name changing."
+            )
+            # The advice used to be a fixed "yazses audio use <name>", printed directly
+            # under the resolved device name -- which reads as "type that name", and on a
+            # PipeWire desktop that name is not in the capture list at all. `audio use`
+            # warns and pins it anyway (for hotplug), so the pin never resolves and
+            # capture quietly follows the alias again. Derived from the name now.
+            from yazses.audio.devices import alias_pin_advice, list_input_devices
+
+            try:
+                advice = alias_pin_advice(behind_name, list_input_devices())
+            except Exception:  # pragma: no cover - hardware/backend dependent
+                advice = "Pin one of the names from `yazses audio devices`."
+            typer.echo(f"                 {advice}")
     except Exception:  # pragma: no cover - hardware/backend dependent
         typer.echo("OS default:    (unavailable)")
     if not platform.lifecycle.is_running():
@@ -2182,7 +2490,14 @@ def audio_status() -> None:
     typer.echo(f"Last-good mic: {info.get('last_good_device') or '(none yet)'}")
     streak = info.get("silent_streak") or 0
     if streak:
-        typer.echo(f"⚠ silent clips in a row: {streak} — mic may have changed.")
+        from yazses.audio.device_monitor import silent_streak_advice
+
+        # The count is already the line's subject, so only the remedies are borrowed
+        # -- the headline would repeat it.
+        _headline, remedies = silent_streak_advice(streak)
+        typer.echo(f"⚠ silent clips in a row: {streak}")
+        for line in remedies:
+            typer.echo(f"               {line}")
 
 
 hotkey_app = typer.Typer(
@@ -2210,7 +2525,7 @@ def hotkey_show() -> None:
         typer.echo(f"Command key:       {cmd}  (force command mode)")
     else:
         typer.echo("Command key:       (none) — commands auto-detected on the dictation key")
-    typer.echo(f"Choices: {', '.join(_HOTKEYS)}")
+    typer.echo(f"Choices: {', '.join(SETTABLE_HOTKEYS)}")
 
 
 @hotkey_app.command(
@@ -2228,9 +2543,13 @@ def hotkey_set(
     Pick a dedicated modifier (right_alt/right_ctrl/right_shift) so it doesn't
     collide with normal typing the way `space` can.
     """
-    if key not in _HOTKEYS:
+    # SETTABLE, not SUPPORTED: `auto` is a real choice — it is the shipped default
+    # and means "the usual key for this OS". Offering only bindable keys made
+    # picking one a door that closed behind you, with no way back to the default
+    # short of editing TOML.
+    if key not in SETTABLE_HOTKEYS:
         typer.echo(
-            f"Unknown key {key!r}. Choose one of: {', '.join(_HOTKEYS)}", err=True
+            f"Unknown key {key!r}. Choose one of: {', '.join(SETTABLE_HOTKEYS)}", err=True
         )
         raise typer.Exit(1)
     from yazses.system.configedit import set_config_key
@@ -2262,7 +2581,6 @@ def hotkey_command(
 
     Example:  yazses hotkey command right_ctrl   (dictate on right_alt, command on right_ctrl)
     """
-    from yazses.config import load_config
     from yazses.system.configedit import set_config_key
 
     platform = get_platform()
@@ -2271,14 +2589,24 @@ def hotkey_command(
         typer.echo("Command key removed (commands auto-detected on the dictation key).")
         typer.echo("Apply it:  yazses restart")
         return
-    if key not in _HOTKEYS:
+    # SUPPORTED, not SETTABLE: `auto` means "the platform's default dictation
+    # key", which is meaningless for a *command* key and would silently alias
+    # onto the dictation key on most machines.
+    if key not in SUPPORTED_HOTKEYS:
         typer.echo(
-            f"Unknown key {key!r}. Choose one of: {', '.join(_HOTKEYS)}, or 'off'.",
+            f"Unknown key {key!r}. Choose one of: {', '.join(SUPPORTED_HOTKEYS)}, or 'off'.",
             err=True,
         )
         raise typer.Exit(1)
-    dictation = load_config(platform.paths.config_file).hotkey.key or platform.default_hotkey
-    if key == dictation:
+    # `_resolved_hotkey` rather than the raw config value: the default is the
+    # sentinel "auto", which never equals a real key name, so the clash below was
+    # invisible on exactly the config every new install starts with.
+    #
+    # Compared through `canonical()` because right_option and right_alt are one
+    # physical key under two names — a string comparison waves that clash through
+    # and command mode then swallows every dictation burst.
+    dictation = _resolved_hotkey(platform)
+    if canonical(key) == canonical(dictation):
         typer.echo(
             f"Command key must differ from your dictation key ({dictation!r}). "
             f"Change one with `yazses hotkey set <key>`.",
@@ -2368,12 +2696,17 @@ def status(
     typer.echo(f"  backend:  {info.get('injection_backend')}")
     if info.get("input_device"):
         typer.echo(f"  mic:      {info.get('input_device')}")
-    typer.echo(f"  uptime:   {info.get('uptime_s')}s")
+    typer.echo(f"  uptime:   {_format_uptime(info.get('uptime_s'))}")
     # Decode latency, per model, over a bounded recent window (#296). Absent on a
     # daemon that has not decoded anything yet, and on an older daemon — a status
     # command that errors against a running daemon is worse than a missing line.
     for line in render_status_lines(info.get("decode_latency")):
         typer.echo(line)
+    # How often dictation actually produced text. Absent until there is enough to
+    # mean something, and absent on an older daemon that does not send the field.
+    outcome_line = describe_outcomes(info.get("outcomes"))
+    if outcome_line:
+        typer.echo(outcome_line)
     if info.get("silent_streak"):
         typer.echo(
             f"  ⚠ mic:    {info['silent_streak']} silent clips in a row — "
@@ -2496,6 +2829,15 @@ def doctor(
     run_doctor(check_mic=mic)
 
 
+def _echo_steps(steps: list[str]) -> None:
+    """Print manual update instructions as an indented block (blank lines kept)."""
+    if not steps:
+        return
+    typer.echo("")
+    for step in steps:
+        typer.echo(f"  {step}" if step else "")
+
+
 @app.command(
     rich_help_panel=_MAINT,
     epilog=_examples(
@@ -2512,20 +2854,33 @@ def update(
         False, "--yes", "-y", help="Install the update without prompting."
     ),
 ) -> None:
-    """Check for a newer YazSes and update it (snap / uv tool / pipx / pip).
+    """Check for a newer YazSes and update it (snap / uv / pipx / pip / Windows).
 
     Detects how YazSes was installed and checks the matching source — the tracked
-    snap channel for snap installs, PyPI for the pip-family ones — then upgrades
-    only when the available version is strictly newer (never a downgrade). After a
-    snap/pip upgrade, restart the daemon to load the new code:
-    `systemctl --user restart yazses` (or `yazses stop && yazses start`).
+    snap channel for snap, the GitHub release for the Windows installer, Chocolatey,
+    winget and Scoop (that is where the .exe lives), PyPI for the pip-family ones —
+    then upgrades only when the available version is strictly newer (never a
+    downgrade). Where there is no one-command upgrade, or the network is blocked,
+    it prints the steps to update by hand instead of just failing. After an upgrade,
+    restart the daemon to load the new code: `yazses restart`.
     """
+    from yazses.system.updater import (
+        check_update,
+        manual_update_steps,
+        pinned_install_hint,
+        run_upgrade_checked,
+    )
+
     current = _installed_version()
     status = check_update(current)
     typer.echo(f"Installed:  yazses {current}  (via {status.method})")
 
     if status.latest is None:
-        typer.echo(f"Could not determine the latest version ({status.note}).", err=True)
+        # The check needs the network; dictation does not. A blocked check is not
+        # a broken YazSes, so say what still works and hand over the manual steps
+        # rather than leaving the user with an error and no way forward.
+        typer.echo(f"Could not check for updates — {status.note}.", err=True)
+        _echo_steps(status.steps)
         raise typer.Exit(1)
 
     typer.echo(f"Available:  yazses {status.latest}")
@@ -2536,17 +2891,24 @@ def update(
 
     typer.echo(f"\nUpdate available: {current} → {status.latest}")
     if not status.command:
-        # upgrade_command() returns None for any install method it has no recipe
-        # for. Today detect_install_method() only ever yields snap/uv/pipx/pip, so
-        # this is unreachable from here — but it is one `apt` branch away from
-        # being live, and joining None would crash instead of telling the user
-        # what to do.
-        typer.echo(
-            f"No automatic upgrade is available for a {status.method!r} install. "
-            "Upgrade it the same way you installed it.",
-            err=True,
-        )
-        raise typer.Exit(1)
+        # No command for this method — the Windows installer is the live case
+        # (the upgrade is a downloaded .exe, with nothing safe to shell out to).
+        # Exact steps for a channel we recognise is a success; for a method we
+        # have no recipe for, the generic advice is still printed but the exit
+        # code stays non-zero, because we genuinely could not do what was asked.
+        from yazses.system.updater import WINDOWS_METHODS
+
+        known = status.method in WINDOWS_METHODS
+        if known:
+            typer.echo(f"There's no one-command upgrade for a {status.method} install. Do this:")
+        else:
+            typer.echo(
+                f"No automatic upgrade is available for a {status.method!r} install.", err=True
+            )
+        _echo_steps(status.steps)
+        if not known:
+            raise typer.Exit(1)
+        return
     typer.echo(f"Command: {' '.join(status.command)}")
 
     if check:
@@ -2557,13 +2919,35 @@ def update(
         typer.echo("Skipped.")
         return
 
-    code = run_upgrade(status)
-    if code == 0:
-        typer.echo(f"\nUpdated to {status.latest}. Restart the daemon to load it:")
+    # Verified, not assumed: `uv tool upgrade` exits 0 and changes nothing when the
+    # install carries an exact version pin, and this used to print "Updated to X"
+    # over the top of the package manager's own "Nothing to upgrade".
+    outcome = run_upgrade_checked(status)
+    if outcome.ok:
+        typer.echo(f"\nUpdated to {outcome.after}. Restart the daemon to load it:")
         typer.echo("  systemctl --user restart yazses   # or: yazses stop && yazses start")
-    else:
-        typer.echo(f"\nUpgrade command exited with code {code}.", err=True)
-        raise typer.Exit(code or 1)
+        return
+    if outcome.code != 0:
+        typer.echo(f"\nUpgrade command exited with code {outcome.code}.", err=True)
+        # A failed upgrade leaves the user exactly where the offline path does:
+        # still running an old version, still needing a way forward. On the
+        # Windows installer channel there is no command that could have worked in
+        # the first place, so the steps are the only actionable thing we have.
+        _echo_steps(status.steps or manual_update_steps(status.method))
+        raise typer.Exit(outcome.code or 1)
+    if outcome.after is None:
+        typer.echo(
+            "\nThe upgrade command finished, but the installed version could not be "
+            "read — check with `yazses --version`.",
+            err=True,
+        )
+        raise typer.Exit(1)
+    typer.echo(
+        f"\nThe upgrade command finished without an error, but yazses is still "
+        f"{outcome.after}.\n{pinned_install_hint(outcome.method, outcome.command)}",
+        err=True,
+    )
+    raise typer.Exit(1)
 
 
 def _calibrate_mic(*, seconds: float = 4.0, set_threshold: bool = False) -> bool:
@@ -2818,6 +3202,7 @@ def shellpipe(
     rich_help_panel=_DICTATION,
     epilog=_examples(
         "yazses gitvoice \"commit with message fix the parser\"   -> git commit -m 'fix the parser'",
+        'yazses gitvoice "create branch feature slash login"     -> git checkout -b feature/login',
         'yazses gitvoice "force push" --run                     refuses: destructive, needs --yes',
         'yazses gitvoice "force push" --run --yes                -> actually runs it',
     ),
@@ -2923,18 +3308,19 @@ def case(
     without hand-editing it.
 
     With --style, recases the whole TEXT. Without it, detects a spoken style command
-    ('make this snake case: …') and recases the remainder. Reads the TEXT argument,
+    ('make this snake case …') and recases the remainder. The colon is optional --
+    it cannot be dictated. Reads the TEXT argument,
     or standard input when omitted.
     """
     import sys as _sys
 
-    from yazses.casetransform.transform import detect_style_command, transform_case
+    from yazses.casetransform.transform import split_style_command, transform_case
 
     src = text if text is not None else _sys.stdin.read()
     chosen = style
     payload = src
     if chosen is None:
-        chosen = detect_style_command(src)
+        chosen, payload = split_style_command(src)
         if chosen is None:
             typer.echo(
                 "No --style given and no spoken style command detected. "
@@ -2942,9 +3328,7 @@ def case(
                 err=True,
             )
             raise typer.Exit(1)
-        # strip a leading "make this … case:" command so only the payload is recased
-        if ":" in src:
-            payload = src.split(":", 1)[1]
+
     typer.echo(transform_case(payload.strip(), chosen))
 
 
@@ -2964,7 +3348,8 @@ def screenplay(
     Use it when: you're drafting a script by voice and want scene headings,
     character cues, transitions, and smart-quoted dialogue formatted for you.
 
-    Recognises 'scene: interior/exterior <place>, <time>' → 'INT./EXT. …',
+    Recognises 'scene interior/exterior <place> <time>' → 'INT./EXT. …',
+    (the colon and comma are optional — neither can be dictated),
     '<Name> (character) <dialogue>' → a character cue, and 'transition: cut to'
     → 'CUT TO:'; anything else becomes a smart-quoted action line. Each input line
     is formatted independently. Reads the TEXT argument, or standard input when omitted.
@@ -3222,6 +3607,8 @@ def setup(
     """
     import sys as _sys
 
+    from yazses.system import streams as _streams
+
     if _sys.platform != "linux":
         typer.echo("yazses setup currently provisions Linux only; nothing to do.")
         return
@@ -3275,7 +3662,7 @@ def setup(
     # Offer to "connect to voice" now — run the mic calibration interactively when
     # we have a terminal and nothing blocks recording (mic granted, no re-login due).
     can_calibrate = not mic_pending and not (plan.add_to_input_group or _setup.input_group_pending_relogin())
-    if can_calibrate and _sys.stdin.isatty() and typer.confirm(
+    if can_calibrate and _streams.stdin_isatty() and typer.confirm(
         "\nCalibrate the mic to your voice now?", default=True
     ):
         try:
@@ -3502,12 +3889,21 @@ def gaze_status() -> None:
 
 @model_app.command(
     "list",
-    epilog=_examples("yazses model list    show SLM intent-router models + which are downloaded"),
+    epilog=_examples("yazses model list    show speech + intent-router models, and which are present"),
 )
 def model_list() -> None:
-    """List available SLM models and their download status."""
+    """List available models (speech-to-text and SLM) and their status."""
     from yazses.commands.model_manager import list_models, local_path
+    from yazses.stt.download import WHISPER_MODELS, hub_cache_dir, is_cached
 
+    cache = hub_cache_dir()
+    typer.echo("Speech-to-text (`[stt] model`):\n")
+    for name in sorted(WHISPER_MODELS):
+        state = "downloaded" if is_cached(name, cache) else "not downloaded"
+        typer.echo(f"  {name:<24}  [{state}]")
+    typer.echo(f"\n  Cache: {cache}")
+
+    typer.echo("\nIntent routing (`[commands] slm_model_path`):\n")
     for info in list_models():
         path = local_path(info.id)
         status = f"installed: {path}" if path else f"not downloaded ({info.size_mb} MB)"
@@ -3518,12 +3914,43 @@ def model_list() -> None:
 
 @model_app.command(
     "download",
-    epilog=_examples("yazses model download qwen2.5-0.5b    download an SLM for intent routing"),
+    epilog=_examples(
+        "yazses model download base.en          fetch the speech model ahead of first use",
+        "yazses model download qwen2.5-0.5b     download an SLM for intent routing",
+    ),
 )
 def model_download(
     model_id: str = typer.Argument(..., help="Model ID (see `yazses model list`)."),
 ) -> None:
-    """Download a GGUF model for Tier 2 SLM intent routing."""
+    """Download a model: a speech-to-text checkpoint, or a GGUF for intent routing.
+
+    The speech model is normally fetched on the daemon's first run. Doing it here
+    instead makes it an explicit, watchable step — which is the only workable
+    route on a machine behind a firewall, where the implicit download fails with
+    nothing useful on screen (#310).
+    """
+    from yazses.stt.download import is_cached, is_whisper_model, whisper_model_url
+
+    if is_whisper_model(model_id):
+        from yazses.stt.download import download_stt_model
+
+        if is_cached(model_id):
+            typer.echo(f"{model_id} is already downloaded — nothing to do.")
+            return
+        try:
+            path = download_stt_model(model_id, echo=typer.echo)
+        except Exception as exc:
+            from yazses.stt.errors import model_unavailable_message
+
+            typer.echo("", err=True)
+            typer.echo(model_unavailable_message(model_id, exc), err=True)
+            raise typer.Exit(1)
+        typer.echo("\nDone. This is the model `[stt] model` selects:")
+        typer.echo("  [stt]")
+        typer.echo(f'  model = "{model_id}"')
+        typer.echo(f"\nStored in {path}")
+        return
+
     from yazses.commands.model_manager import download_model
 
     try:
@@ -3532,7 +3959,16 @@ def model_download(
         typer.echo("  [commands]")
         typer.echo(f'  slm_model_path = "{path}"')
     except ValueError as exc:
+        # Unknown to the GGUF registry — but the user may have meant a speech
+        # model and mistyped it, so name that possibility rather than just
+        # listing SLMs.
         typer.echo(str(exc), err=True)
+        if whisper_model_url(model_id) is None:
+            typer.echo(
+                "\nIf you meant a speech-to-text model, `yazses model list` "
+                "shows the valid names.",
+                err=True,
+            )
         raise typer.Exit(1)
     except Exception as exc:
         typer.echo(f"Download failed: {exc}", err=True)
@@ -3742,6 +4178,7 @@ def punch_in(
     epilog=_examples(
         "yazses tune                     dry-run: print proposed config changes",
         "yazses tune --apply             review and write approved changes",
+        "yazses tune --limit 200         only the 200 most recent clips (much faster)",
         "yazses tune --no-retranscribe   skip the slower re-transcription pass",
     ),
 )
@@ -3750,6 +4187,12 @@ def tune(
     retranscribe: bool = typer.Option(
         True, "--retranscribe/--no-retranscribe",
         help="Re-transcribe captured audio with a larger model to find errors.",
+    ),
+    limit: int = typer.Option(
+        0, "--limit", min=0,
+        help="Re-transcribe only the N most recent clips (0 = all). "
+             "A full corpus can take an hour; this is the middle ground between "
+             "that and --no-retranscribe.",
     ),
 ) -> None:
     """Analyze the learning corpus and propose accuracy improvements.
@@ -3773,7 +4216,9 @@ def tune(
         raise typer.Exit(1)
 
     cfg = load_config(platform.paths.config_file)
-    store = open_store(data_dir)
+    # The patterns matter here specifically: --retranscribe writes `retx_text`, a fresh
+    # transcription of the same audio the user added them to scrub.
+    store = open_store(data_dir, tuple(cfg.learning.redact_patterns))
 
     transcribe_fn = None
     if retranscribe:
@@ -3798,9 +4243,44 @@ def tune(
             transcribe_fn=transcribe_fn,
             echo=typer.echo,
             confirm=typer.confirm,
+            # 0 means "all", which `retranscribe` spells as None. Passing 0 through
+            # would mean "re-transcribe nothing" and look like a silent no-op.
+            limit=limit or None,
         )
     finally:
         store.close()
+
+
+@app.command(
+    name="mcp-server",
+    rich_help_panel=_REMOTE,
+    epilog=_examples(
+        "yazses mcp-server        speak MCP on stdin/stdout (for an agent to spawn)",
+    ),
+)
+def mcp_server() -> None:
+    """Expose YazSes to another agent over MCP, on stdin/stdout (ADR-020).
+
+    Not a service you leave running: an MCP client *spawns* this as a child
+    process and talks to it over pipes. There is no port, no bind address and
+    nothing another machine can reach — the same structural property as YazSes's
+    own Unix-socket IPC, which is why ADR-020 chose stdio over HTTP for a daemon
+    that holds a live microphone.
+
+    One tool today: `transcribe`, which turns an audio file into text on this
+    machine. `ask_human` — an agent asking you a question out loud — is specified
+    in ADR-020 and needs the daemon, so it is not offered yet rather than offered
+    and broken.
+
+    Point an MCP client at it with:
+
+        {"command": "yazses", "args": ["mcp-server"]}
+    """
+    from yazses.config import load_config
+    from yazses.mcp.server import serve
+
+    platform = get_platform()
+    raise typer.Exit(serve(load_config(platform.paths.config_file)))
 
 
 @app.command(
@@ -3833,9 +4313,14 @@ def transcribe(
     speakers: int = typer.Option(
         0, "--speakers", help="Force an exact speaker count (0 = auto-detect)."),
     min_speakers: int = typer.Option(
-        0, "--min-speakers", help="Lower bound on the auto-detected speaker count."),
+        0, "--min-speakers",
+        help="IGNORED by the shipped sherpa diarizer (only the unshipped pyannote "
+             "adapter reads it) — the run warns and continues. Use --speakers to "
+             "constrain the count."),
     max_speakers: int = typer.Option(
-        0, "--max-speakers", help="Upper bound on the auto-detected speaker count."),
+        0, "--max-speakers",
+        help="Force exactly this many speakers on the shipped diarizer (same as "
+             "--speakers). 0 = auto-detect."),
     names: Optional[str] = typer.Option(
         None, "--names",
         help="Comma list mapped to speakers in order of first appearance: 'Alice,Bob,Carol'."),
@@ -3873,7 +4358,7 @@ def transcribe(
     models (install the `diarization` extra; the first run downloads ~45 MB, or
     pre-fetch with --download-models). Each utterance is then prefixed by a
     speaker label; provide --names (positional) or --rename (explicit map) to use
-    real names, cap the count with --speakers / --min-speakers / --max-speakers,
+    real names, force the count with --speakers,
     or let an enrolled voiceprint name you ("You"). Everything stays on this
     machine; speaker naming stores no new data and never enrolls anyone
     automatically.
@@ -3929,6 +4414,17 @@ def transcribe(
         language=language or ri.language,
     )
 
+    # `--min-speakers` is read only by recimport/pyannote_backend.py, which is one of
+    # the adapters this build does not ship (system/backends.py calls that class out
+    # separately from "the optional dependency is missing"). The default `sherpa`
+    # diarizer reads max_speakers alone, so a lower bound silently does nothing --
+    # said here, before a long transcription, rather than discovered after it.
+    if want_diarize and min_speakers and (eff.backend or "sherpa").strip().lower() != "pyannote":
+        typer.echo(
+            f"Note: --min-speakers is ignored by the '{eff.backend}' diarizer; only the "
+            "pyannote backend honours a lower bound, and it is not shipped in this "
+            "build. Use --speakers to force an exact count.", err=True)
+
     # Build the STT engine from the configured [stt] settings.
     from yazses.stt.faster_whisper import FasterWhisperEngine
 
@@ -3975,16 +4471,65 @@ def transcribe(
             "Note: diarization was unavailable (install the `diarization` extra and run "
             "`yazses transcribe --download-models`); wrote a plain transcript.", err=True)
 
+    # A --rename naming a speaker who is not in the recording renamed nobody. Silently
+    # doing nothing leaves the user reading "Speaker 1" and guessing why, so name the
+    # keys that matched nothing and list the ones that exist.
+    if rename_map:
+        from yazses.recimport.naming import unmatched_renames
+
+        stray = unmatched_renames(result.utterances, rename_map)
+        if stray:
+            present = sorted({u.speaker for u in result.utterances if u.speaker})
+            typer.echo(
+                f"Note: --rename {', '.join(stray)} matched no speaker in this recording"
+                + (f"; it has {', '.join(present)}." if present else "."),
+                err=True,
+            )
+
     text = render_transcript(result, fmt)
     out_path = Path(out) if out else Path(audio_file).with_suffix("." + fmt)
     out_path.write_text(text, encoding="utf-8")
     n_spk = len({u.speaker for u in result.utterances if u.speaker})
     summary = f" ({n_spk} speaker{'s' if n_spk != 1 else ''})" if result.diarized else ""
     typer.echo(f"Wrote {out_path}{summary}")
+
+    # Nothing was recognised. Say so: "Wrote transcript.txt" over an empty file is the
+    # silent failure this project spends its earcons and guards avoiding, and it lands
+    # on the surface where most people meet YazSes working for the first time.
+    #
+    # Tested on `result.utterances` rather than on the rendered text, because the text
+    # is not empty for every format -- a VTT with no cues is still "WEBVTT\n", so a
+    # check on the string would stay quiet for exactly one of the five.
+    if not result.utterances:
+        typer.echo(
+            f"Note: no speech was recognised, so {out_path.name} is empty. Common "
+            "causes: the file holds music or silence; it is speech in another language "
+            "while the model is English-only (`[stt] model` ending in `.en`); or the "
+            "audio decoded to nothing. `yazses doctor` reports the configured model.",
+            err=True,
+        )
+
+    # Silence that produced *words* -- the case the note above cannot see, because the
+    # transcript is not empty. Two seconds of digital silence decodes to "You", with a
+    # start and an end time, and nothing about that output marks it as invented. The
+    # evidence is in the input, so that is where it is measured.
+    elif result.silent_input:
+        typer.echo(
+            f"Note: the audio carries no signal, so the text in {out_path.name} was "
+            "produced from silence and is not trustworthy -- speech models answer "
+            "silence with confident invented words rather than nothing. Common causes: "
+            "the microphone was muted, another application held the input device, or "
+            "the wrong device was recorded. `yazses audio devices` lists the inputs.",
+            err=True,
+        )
+
     # `transcribe` is where most people meet this project working for the first time --
     # it is the one path that needs no microphone, no hotkey and no re-login, so it is
-    # also what the container and Codespace trials run.
-    _maybe_point_at_project(paths.data_dir, succeeded=True)
+    # also what the container and Codespace trials run. An empty transcript is not the
+    # moment to ask them for a star.
+    _maybe_point_at_project(
+        paths.data_dir, succeeded=bool(result.utterances) and not result.silent_input
+    )
 
 
 def _load_voiceprints(cfg, paths):
@@ -4035,9 +4580,20 @@ def corpus_status() -> None:
     def _fmt(ts):
         return _dt.datetime.fromtimestamp(ts).isoformat(timespec="seconds") if ts else "-"
 
+    # The size used to print bare, with nothing to compare it against -- so a corpus
+    # sitting exactly on its cap, evicting the oldest events on every capture, looked
+    # identical to one with room to spare.
+    from yazses.config import load_config
+    from yazses.learning.store import capacity_line
+
+    lc = load_config(platform.paths.config_file).learning
+    size_text, warning = capacity_line(s.size_bytes, lc.max_corpus_mb, lc.retention_days)
+
     typer.echo(f"  location:  {data_dir}")
     typer.echo(f"  events:    {s.count} ({s.discarded} discarded, {s.wrong} flagged wrong)")
-    typer.echo(f"  size:      {s.size_bytes / 1_048_576:.1f} MB")
+    typer.echo(f"  size:      {size_text}")
+    if warning:
+        typer.echo(f"  ⚠          {warning}")
     typer.echo(f"  range:     {_fmt(s.oldest_ts)} → {_fmt(s.newest_ts)}")
 
 
@@ -4145,3 +4701,14 @@ def main() -> None:
     except UnsupportedPlatformError as exc:
         typer.secho(f"\n{exc}\n", fg=typer.colors.RED, err=True)
         raise SystemExit(2) from None
+
+
+if __name__ == "__main__":  # pragma: no cover - exercised by `python -m yazses.cli`
+    # `python -m yazses.cli --version` printed nothing and exited 0 without this.
+    #
+    # That matters more than it looks: `-m yazses.cli` is the documented last-resort
+    # launch path -- the one `tray/launch.py` and `settingsui/app.py::_run_restart`
+    # fall back to when there is no console script to be found -- and it silently did
+    # nothing on every install that actually needed it. A fallback that fails quietly
+    # is worse than no fallback, because the code above it reports success.
+    main()

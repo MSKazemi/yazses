@@ -133,3 +133,122 @@ def test_report_states_the_version_that_is_actually_installed():
     import yazses
 
     assert yazses.__version__ == pkg_version("yazses")
+
+
+# ---- the account name outside $HOME -----------------------------------------
+
+
+def _with_account(monkeypatch, name):
+    """Point the redactor at a chosen account name."""
+    import re
+
+    monkeypatch.setattr(
+        report_mod, "_ACCOUNT", re.compile(rf"\b{re.escape(name)}\b", re.IGNORECASE)
+    )
+
+
+def test_the_account_name_is_redacted_outside_the_home_directory(monkeypatch):
+    """Home-only redaction missed every path that embeds the name elsewhere.
+
+    Found by running `yazses report --print` on a real machine: the log tail
+    carried `/tmp/pytest-of-<account>/...` while `/home/<account>` was correctly
+    collapsed to `~`. The bundle is meant to be attached to a public issue, and its
+    own help text promises "paths and identifiers removed".
+
+    `/media/<account>/…` is the one that matters in normal use — it is where a
+    transcribed file off a USB stick lives.
+    """
+    _with_account(monkeypatch, "ada")
+    for path in (
+        "/media/ada/USB-STICK/note.wav",
+        "/run/media/ada/disk/note.wav",
+        "/tmp/pytest-of-ada/pytest-3/x.toml",
+        "sent mail to ada",
+    ):
+        assert "ada" not in report_mod.redact_text(path), path
+
+
+def test_the_home_path_still_collapses_rather_than_being_blanked(monkeypatch):
+    """Home is matched first because it is longer and more specific.
+
+    `~/.config/yazses` is diagnostically useful; `/home/<redacted>/.config/yazses`
+    is the same information with more noise.
+    """
+    _with_account(monkeypatch, "ada")
+    out = report_mod.redact_text(f"{Path.home()}/.config/yazses/config.toml")
+    assert out.startswith("~/"), out
+
+
+def test_a_generic_account_name_is_left_alone(monkeypatch):
+    """Redaction that destroys the report defeats its purpose as surely as
+    redaction that misses.
+
+    An account called `root`, `ubuntu` or `ci` identifies nobody, and blanking a
+    common short word would shred the surrounding log — `/usr/lib/test/...`,
+    `docker run`, "the build failed" — into unreadable diagnostics.
+    """
+    for generic in ("root", "ubuntu", "ci", "runner", "test"):
+        monkeypatch.setattr("getpass.getuser", lambda g=generic: g)
+        assert report_mod._account_pattern() is None, generic
+
+
+def test_a_short_account_name_is_left_alone(monkeypatch):
+    """Two letters cannot be matched on word boundaries without wrecking prose."""
+    monkeypatch.setattr("getpass.getuser", lambda: "jo")
+    assert report_mod._account_pattern() is None
+
+
+def test_an_unreadable_account_never_breaks_the_report(monkeypatch):
+    """A diagnostic bundle that raises while being collected is worse than one
+    that redacts a little less."""
+    def _boom():
+        raise OSError("no passwd entry")
+
+    monkeypatch.setattr("getpass.getuser", _boom)
+    assert report_mod._account_pattern() is None
+
+
+def test_the_corpus_size_counts_the_audio_clips(tmp_path):
+    """`report` sized `corpus.db` alone, and the clips are almost all of it.
+
+    Measured on a real machine: the database was 3.0 MB and the corpus was
+    1294.9 MB. `yazses report` said 3.0. `yazses corpus status` said 1294.9. The
+    same corpus, 430x apart, and the wrong number is the one that gets attached
+    to bug reports — so a maintainer reading "3 MB" rules the corpus out of a
+    disk-space problem it is in fact causing.
+
+    It is also the number a user checks against `[learning] max_corpus_mb`
+    (default 500), which prunes on the total. Reading the report, someone 2.5x
+    over the cap concludes they are comfortably under it.
+
+    Still never opens anything: this is filesystem metadata, the same stat calls
+    the store's own pruning uses.
+    """
+    from yazses.system import report as report_mod
+
+    data_dir = tmp_path / "data"
+    (data_dir / "clips").mkdir(parents=True)
+    (data_dir / "corpus.db").write_bytes(b"x" * 3_000_000)
+    for i in range(4):
+        (data_dir / "clips" / f"{i}.wav.enc").write_bytes(b"y" * 2_000_000)
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+    log = tmp_path / "yazses.log"
+    log.write_text("")
+    data = report_mod.collect(
+        config_file=cfg, log_file=log, data_dir=data_dir, status=None
+    )
+    size = data["corpus"]["size_mb"]
+    expected = 11_000_000 / 1_048_576  # the cap enforces mebibytes; so must this
+    assert abs(size - expected) < 0.2, (
+        f"expected the database plus its clips ({expected:.1f}); got {size} — "
+        "clips are almost all of a real corpus"
+    )
+
+    # The reported number exists to be compared against `[learning] max_corpus_mb`,
+    # so it must be in the unit the prune enforces. Dividing by 1e6 made `report` and
+    # `corpus status` disagree on one corpus, which reads as a bug in one of them.
+    from yazses.learning.store import corpus_disk_bytes
+
+    assert size == round(corpus_disk_bytes(data_dir) / 1_048_576, 1)

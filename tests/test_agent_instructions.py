@@ -25,6 +25,7 @@ contradict each other, and that none of them points at something a contributor c
 """
 from __future__ import annotations
 
+import posixpath
 import re
 import subprocess
 from functools import lru_cache
@@ -33,8 +34,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 CANONICAL = "AGENTS.md"
+#: GitHub reads the community-health files from `.github/` as readily as from the root,
+#: and the root listing was 43 markdown files deep. Named once, because every surface
+#: below addresses it by repo-relative path.
+CONTRIBUTING = ".github/CONTRIBUTING.md"
 #: Every surface that states whether the type checker is clean.
-MYPY_SURFACES = ("AGENTS.md", "CONTRIBUTING.md", "README.md", "Makefile")
+MYPY_SURFACES = ("AGENTS.md", CONTRIBUTING, "README.md", "Makefile")
 
 
 @lru_cache(maxsize=1)
@@ -54,8 +59,24 @@ def _read(name: str) -> str:
     return (ROOT / name).read_text(encoding="utf-8")
 
 
-def _translated_readmes() -> list[Path]:
-    return sorted(p for p in ROOT.glob("README.*.md") if p.name != "README.md")
+def _translated_readmes() -> list[str]:
+    """The translations, as repo-relative paths, at `docs/<code>/index.md`.
+
+    They were `README.<code>.md` at the repo root until the move that gave them
+    `hreflang` and `canonical` on the docs site. The count is asserted because a
+    glob left pointing at the old location matches nothing, and the two checks that
+    iterate this list would then pass by examining no files at all — green, and
+    guarding nothing.
+    """
+    found = [
+        p for p in sorted(ROOT.glob("docs/*/index.md"))
+        if "yazses-l10n" in p.read_text(encoding="utf-8")
+    ]
+    assert len(found) > 20, (
+        f"expected the translations at docs/<code>/index.md, found {len(found)} — "
+        "if they moved again, repoint this glob rather than letting it match nothing"
+    )
+    return [p.relative_to(ROOT).as_posix() for p in found]
 
 
 def test_the_canonical_agent_file_is_shipped():
@@ -86,6 +107,21 @@ def _instruction_links(text: str) -> set[str]:
     return set(linked) | set(backticked)
 
 
+def _candidate_targets(target: str, owner: str) -> set[str]:
+    """Repo-relative paths `target` could mean, as written inside `owner`.
+
+    A markdown link resolves against the *linking file's* directory, so once a
+    surface moved out of the root (`.github/CONTRIBUTING.md`) its links became
+    `../ROADMAP.md` — correct on GitHub, absent from `git ls-files`, which lists
+    `ROADMAP.md`. Normalising against the owner's directory is what compares the
+    two honestly. A backticked mention is prose rather than a path, so the repo
+    root stays a valid reading of a bare name too.
+    """
+    owner_dir = posixpath.dirname(owner)
+    resolved = posixpath.normpath(posixpath.join(owner_dir, target)) if owner_dir else target
+    return {resolved, posixpath.normpath(target)}
+
+
 def test_no_shipped_instruction_file_points_at_something_unshipped():
     """The failure this suite exists to catch, in its general form.
 
@@ -96,9 +132,9 @@ def test_no_shipped_instruction_file_points_at_something_unshipped():
     tracked = _tracked()
     if not tracked:  # no git available (sdist, vendored tree) — nothing to verify against
         return
-    for name in (CANONICAL, "CONTRIBUTING.md", "README.md"):
+    for name in (CANONICAL, CONTRIBUTING, "README.md"):
         for target in _instruction_links(_read(name)):
-            assert target in tracked, (
+            assert _candidate_targets(target, name) & tracked, (
                 f"{name} links to {target}, which git does not ship — a contributor "
                 "who clones this repo cannot open it. Point at a tracked file, or "
                 "drop the reference. (If it exists on your disk, it is gitignored.)"
@@ -133,7 +169,7 @@ def test_no_surface_claims_type_errors_are_expected():
 
 def test_translated_readmes_do_not_keep_a_stale_gate_claim():
     """A translation carrying the old claim is the same bug, harder to notice."""
-    stale = [p.name for p in _translated_readmes() if _claims_known_type_errors(p.read_text(encoding="utf-8"))]
+    stale = [name for name in _translated_readmes() if _claims_known_type_errors(_read(name))]
     assert not stale, (
         f"translated READMEs still claim known/pre-existing type errors: {stale} — "
         "the gate block is copied verbatim from README.md, so copy the corrected one across"
@@ -151,7 +187,7 @@ CI_WORKFLOW = ".github/workflows/test.yml"
 #: surface that is not named here is a surface nobody is checking; the banner was drifting
 #: for exactly that reason.
 LINT_SURFACES = (
-    "AGENTS.md", "CONTRIBUTING.md", "README.md", "Makefile", ".devcontainer/setup.sh",
+    "AGENTS.md", CONTRIBUTING, "README.md", "Makefile", ".devcontainer/setup.sh",
 )
 
 
@@ -181,7 +217,7 @@ def test_every_surface_quotes_the_lint_command_ci_actually_runs():
     assert ci, f"no `ruff check` invocation found in {CI_WORKFLOW} — has the gate moved?"
     expected = set(ci[0])
 
-    surfaces = [*LINT_SURFACES, *(p.name for p in _translated_readmes())]
+    surfaces = [*LINT_SURFACES, *_translated_readmes()]
     for name in surfaces:
         for targets in _ruff_targets(_read(name)):
             missing = sorted(expected - set(targets))

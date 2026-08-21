@@ -3,6 +3,25 @@
 Handles the common spoken-math vocabulary (greek, operators, functions/symbols) and a few
 templates (squared/cubed, square root of, to the). Intentionally limited — arbitrary nested
 expressions route to a deferred MathSpeech model. Pure and deterministic.
+
+.. warning::
+
+   **Not safe to wire onto the dictation path as it stands.** The rules match their
+   keywords anywhere in an utterance, and those keywords are ordinary English, so plain
+   prose is rewritten:
+
+       "she squared her shoulders and left"  ->  "she^{2} her shoulders and left"
+       "plus I think we should go"           ->  "+ I think we should go"
+
+   Harmless today — the feature is unwired and `spoken_to_latex` is called from nothing
+   outside this package — which is exactly why it is written down here rather than left
+   to be discovered by whoever wires it. Anything routing dictation through this needs a
+   way to know the utterance is *maths* first (a mode, a command key, an explicit
+   trigger); a broader keyword list makes it worse, not better.
+
+   Found by feeding realistic prose through the function — the same five-minute check
+   that turned up real corruption in `itn/normalize.py`, `acronyms/glossary.py` and
+   `selfrepair/repair.py`, all of which *were* reachable.
 """
 from __future__ import annotations
 

@@ -46,11 +46,13 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
 REPO = "MSKazemi/yazses"
-# Must match packaging/flatpak/com.mskazemi.YazSes.yml `app-id` exactly. It previously read
-# "io.github.mskazemi.YazSes", which no manifest ever declared, so this check was querying an ID that
-# can never exist and would have reported Flathub as unpublished forever -- including after a
-# successful publish. com.mskazemi.* is the correct prefix: Flathub requires an ID under a domain the
-# maintainer controls, and mskazemi.com is his.
+# Must match the manifest, the metainfo and .github/workflows/flatpak.yml, all of
+# which use com.mskazemi.YazSes (a domain the maintainer controls, as Flathub
+# requires). This read io.github.mskazemi.YazSes until 2026-08-14. Both IDs 404
+# today because the app is not on Flathub yet, so the gate looked healthy — it
+# would have started reporting a published app as missing, forever, on the day
+# the submission landed. A check against the wrong identifier does not fail; it
+# lies quietly.
 FLATPAK_ID = "com.mskazemi.YazSes"
 TIMEOUT = 20
 RETRIES = 3
@@ -73,6 +75,19 @@ def _verdict(status: int, published: bool) -> bool | None:
 # demoting a release. Everything else is a publishing gap: real, worth failing
 # the build over, but not a reason to relabel what did ship.
 CORE = {"deb", "dmg", "exe", "pypi"}
+
+# Everything this tag push publishes on its own, CORE plus the container image.
+# Distinct from CORE on purpose: this set answers "has CI finished?", which is a
+# question about *waiting*, while CORE answers "is the release broken for a user
+# on that OS?", which is what may demote a release. Docker belongs in the first
+# and not the second -- a missing image is a gap in reach, not a broken download.
+#
+# It exists so the wait and the verdict share one implementation. They did not
+# before: release-complete.yml counted assets in bash and hardened that count to
+# two-per-platform, while the script it then asked for the verdict still accepted
+# one of a pair. Two implementations of "is this published" is what let those
+# drift, so there is now one.
+CI_PUBLISHED = CORE | {"docker"}
 
 
 @dataclass
@@ -136,8 +151,20 @@ def check_release_assets(version: str) -> dict[str, tuple[bool | None, str]]:
     names = [a["name"] for a in data.get("assets", [])]
     out = {}
     for key, suffix in (("deb", ".deb"), ("dmg", ".dmg"), ("exe", ".exe")):
-        hit = next((n for n in names if n.endswith(suffix)), None)
-        out[key] = (hit is not None, hit or f"no {suffix} attached")
+        # TWO of each -- one per architecture. Taking the first match called a
+        # platform published on one of a pair, which is exactly what let v2.20.0
+        # and v2.21.0 certify "All platforms published" while carrying no Intel
+        # bundle. release-complete.yml's wait loop was hardened to `> 1` at the
+        # time; this, the check it delegates the *verdict* to, was not -- so the
+        # summary table and `--core-only` both still accepted a half-built
+        # release, and --core-only is what decides whether it keeps "Latest".
+        hits = sorted(n for n in names if n.endswith(suffix))
+        if not hits:
+            out[key] = (False, f"no {suffix} attached")
+        elif len(hits) == 1:
+            out[key] = (False, f"only {hits[0]} — one architecture of a pair")
+        else:
+            out[key] = (True, ", ".join(hits))
     return out
 
 
@@ -163,6 +190,29 @@ def check_snap(version: str) -> tuple[bool | None, str]:
     return version in stable, f"stable={','.join(sorted(set(stable)))}"
 
 
+def _evidence(label: str, found: list[str], version: str, limit: int = 4) -> str:
+    """Report evidence that supports the verdict rather than the head of a list.
+
+    Both of these truncated with ``[:n]``, and a registry returns tags roughly in
+    insertion order — so GHCR carrying 2.22.0 was reported as ``tags=2.18.2,2.19.0``
+    and read exactly like an image three releases behind. The verdict was right the
+    whole time; the evidence beside it said the opposite, which is worse than no
+    evidence because it invites the reader to distrust the correct answer.
+
+    So: name the queried version first when it is present, then the tail, which is
+    where a recent release actually lands.
+    """
+    if not found:
+        return f"{label}=none"
+    if version in found:
+        rest = [v for v in found if v != version][-(limit - 1):]
+        shown = [version, *rest]
+    else:
+        shown = found[-limit:]
+    more = "" if len(shown) >= len(found) else f" (+{len(found) - len(shown)} more)"
+    return f"{label}={','.join(shown)}{more}"
+
+
 def check_apt(version: str) -> tuple[bool | None, str]:
     status, body = _get(
         f"https://raw.githubusercontent.com/{REPO}/gh-pages/apt/Packages"
@@ -170,7 +220,7 @@ def check_apt(version: str) -> tuple[bool | None, str]:
     if status != 200:
         return _verdict(status, False), f"Packages HTTP {status}"
     found = re.findall(r"^Version:\s*(\S+)", body.decode("utf-8", "replace"), re.M)
-    return version in found, f"apt={','.join(found[:3]) or 'none'}"
+    return version in found, _evidence("apt", found, version, limit=3)
 
 
 def check_homebrew(version: str) -> tuple[bool | None, str]:
@@ -255,7 +305,12 @@ def check_docker(version: str) -> tuple[bool | None, str]:
     if status != 200 or not data:
         return _verdict(status, False), f"tags HTTP {status}"
     tags = data.get("tags") or []
-    return version in tags, f"tags={','.join(tags[:4]) or 'none'}"
+    # `sha256-…` entries are the attestation/referrer artifacts the attest step
+    # pushes alongside the image. They are tags as far as the registry is concerned
+    # and noise as far as a human reading "is 2.22.0 published?" is concerned, so
+    # they are excluded from the evidence — never from the verdict.
+    readable = [t for t in tags if not t.startswith("sha256-")]
+    return version in tags, _evidence("tags", readable, version)
 
 
 CHECKS = [
@@ -275,16 +330,19 @@ CHECKS = [
 ASSET_LABELS = {"deb": "Linux .deb", "dmg": "macOS .dmg", "exe": "Windows .exe"}
 
 
-def run(version: str, core_only: bool) -> list[Result]:
+def run(version: str, core_only: bool, ci_only: bool = False) -> list[Result]:
     results: list[Result] = []
     for key, (ok, detail) in check_release_assets(version).items():
         results.append(Result(key, ASSET_LABELS[key], ok, detail, core=True))
 
-    if core_only:
-        core = [r for r in results if r.key in CORE]
+    if core_only or ci_only:
+        subset = [r for r in results if r.key in CORE]
         ok, detail = check_pypi(version)
-        core.append(Result("pypi", "PyPI", ok, detail, core=True))
-        return core
+        subset.append(Result("pypi", "PyPI", ok, detail, core=True))
+        if ci_only:
+            ok, detail = check_docker(version)
+            subset.append(Result("docker", "Docker (GHCR)", ok, detail))
+        return subset
 
     # Every check is an independent network round-trip against a different host,
     # so run them concurrently -- serially this took ~200s, which is too slow to
@@ -314,10 +372,17 @@ def main() -> int:
         help="only the channels CI produces (deb/dmg/exe/PyPI) -- used to decide "
         "whether a release is broken for users, as opposed to merely unpublished",
     )
+    ap.add_argument(
+        "--ci-only",
+        action="store_true",
+        help="only the channels this tag push publishes itself (CORE plus the "
+        "container image) -- used to wait for CI to finish before reporting, so "
+        "an in-flight channel is never named as missing",
+    )
     ap.add_argument("--format", choices=("markdown", "json"), default="markdown")
     args = ap.parse_args()
 
-    results = run(args.version, args.core_only)
+    results = run(args.version, args.core_only, args.ci_only)
     # `is False` and `is None` are different answers and are reported separately.
     # Rolling them together is what made one dropped connection to the AUR read as
     # an unpublished package -- and "publish it again" is the wrong repair for a

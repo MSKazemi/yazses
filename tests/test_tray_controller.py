@@ -38,18 +38,38 @@ def test_stop_daemon_calls_shutdown():
     assert c.calls == [("shutdown", {})]
 
 
+# These two used to assert the literal `["yazses", "restart"]`, which is exactly
+# the spelling that made the tray's Settings button impossible on the Windows
+# installer build — there is no `yazses` on PATH there. They now assert the
+# *contract*: the verb is right and the argv is whatever `settings_command()`
+# resolves for this install, whose own rules are pinned in
+# tests/test_tray_settings_command.py.
+
+
 def test_restart_shells_out_to_cli():
+    from yazses.tray.launch import settings_command
+
     spawned = []
     ctrl = TrayController(_FakeClient(), launcher=lambda argv: spawned.append(argv))
     ctrl.restart()
-    assert spawned == [["yazses", "restart"]]
+    assert spawned == [settings_command("restart")]
+    assert spawned[0][-1] == "restart"
 
 
 def test_launch_settings_shells_out_to_cli():
+    from yazses.tray.launch import settings_command
+
     spawned = []
     ctrl = TrayController(_FakeClient(), launcher=lambda argv: spawned.append(argv))
     assert ctrl.launch_settings() is True
-    assert spawned == [["yazses", "settings"]]
+    assert spawned == [settings_command()]
+    # Asserts the *contract* — that the controller spawns whatever the resolver
+    # returns — not the argv itself, which depends on how this machine is installed
+    # and is covered by tests/test_system_relaunch.py. The literal "settings" was
+    # only ever true while every path ended in that word; Settings now has its own
+    # `yazses-settings` gui-script, so a frozen bundle ends in `--settings` and a
+    # normal install ends in the script name.
+    assert spawned[0][-1].endswith(("yazses-settings", "yazses-settings.exe", "--settings"))
 
 
 def test_launch_settings_does_not_raise_when_launch_fails():
@@ -85,3 +105,136 @@ def test_call_wraps_failure():
 
     res = TrayController(_Boom()).pin("X")
     assert res["ok"] is False and "nope" in res["error"]
+
+
+# ---- help / about / updates ------------------------------------------------
+
+
+def test_open_url_uses_the_injected_opener():
+    opened = []
+    ctrl = TrayController(_FakeClient(), opener=lambda url: opened.append(url) or True)
+    assert ctrl.open_url("https://example.test/docs") is True
+    assert opened == ["https://example.test/docs"]
+
+
+def test_open_url_reports_a_failure_rather_than_raising():
+    def _boom(_url):
+        raise RuntimeError("no display")
+
+    ctrl = TrayController(_FakeClient(), opener=_boom)
+    assert ctrl.open_url("https://example.test/") is False
+    assert TrayController(_FakeClient(), opener=lambda _u: False).open_url("x") is False
+
+
+def test_check_updates_survives_a_dead_network(monkeypatch):
+    """No network is the common case for an offline-first tool; it must not raise."""
+    def _boom(_current, **_kw):
+        raise OSError("name resolution failed")
+
+    monkeypatch.setattr("yazses.system.updater.check_update", _boom)
+
+    status = TrayController(_FakeClient()).check_updates()
+    assert status.latest is None
+    assert status.available is False
+    assert "name resolution failed" in status.note
+
+
+def test_check_updates_passes_the_running_version_through(monkeypatch):
+    seen = {}
+
+    def _fake(current, **_kw):
+        seen["current"] = current
+        from yazses.system.updater import UpdateStatus
+
+        return UpdateStatus("uv", current, "9.9.9", True, ["uv", "tool", "upgrade", "yazses"])
+
+    monkeypatch.setattr("yazses.system.updater.check_update", _fake)
+    monkeypatch.setattr("yazses.branding.version", lambda: "1.2.3")
+
+    status = TrayController(_FakeClient()).check_updates()
+    assert seen["current"] == "1.2.3"
+    assert status.latest == "9.9.9"
+
+
+def test_install_update_runs_the_upgrade_and_verifies_the_version_moved(monkeypatch):
+    from yazses.system.updater import UpdateStatus
+
+    ran = []
+    monkeypatch.setattr(
+        "yazses.system.updater.run_upgrade", lambda s: ran.append(s.command) or 0
+    )
+    monkeypatch.setattr("yazses.system.updater.installed_version", lambda **kw: "2.0")
+    status = UpdateStatus("uv", "1.0", "2.0", True, ["uv", "tool", "upgrade", "yazses"])
+
+    outcome = TrayController(_FakeClient()).install_update(status)
+
+    assert ran == [["uv", "tool", "upgrade", "yazses"]]
+    assert outcome.ok and outcome.after == "2.0"
+
+
+def test_install_update_does_not_call_a_pinned_no_op_a_success(monkeypatch):
+    """Exit 0 with an unchanged version is the pinned-install case, not a success."""
+    from yazses.system.updater import UpdateStatus
+
+    monkeypatch.setattr("yazses.system.updater.run_upgrade", lambda s: 0)
+    monkeypatch.setattr("yazses.system.updater.installed_version", lambda **kw: "1.0")
+    status = UpdateStatus("uv", "1.0", "2.0", True, ["uv", "tool", "upgrade", "yazses"])
+
+    outcome = TrayController(_FakeClient()).install_update(status)
+
+    assert outcome.code == 0
+    assert not outcome.changed
+    assert not outcome.ok
+
+
+def test_install_update_reports_a_failure_rather_than_raising(monkeypatch):
+    def _boom(_status):
+        raise OSError("uv is gone")
+
+    monkeypatch.setattr("yazses.system.updater.run_upgrade", _boom)
+    outcome = TrayController(_FakeClient()).install_update(object())
+    assert outcome.code == 1
+    assert not outcome.ok
+
+
+def test_launched_children_are_reaped_rather_than_left_as_zombies():
+    """A settings window opened from the tray left a zombie for over an hour.
+
+    Observed on a live machine — the real process tree, not a fixture:
+
+        yazses-tray    (1442790)
+        └── yazses-settings (1802882)  Z, 4023s
+
+    The tray spawns with `Popen` and deliberately does not block on it, which is
+    right: Settings must not freeze the icon. But nothing ever calls `wait()` or
+    `poll()`, so the finished child stays a zombie holding a PID. Python's
+    `subprocess` only reaps opportunistically when the *next* `Popen` is created,
+    so opening Settings once and closing it leaks until the tray happens to spawn
+    something else — and opening it repeatedly accumulates.
+    """
+    class _Handle:
+        def __init__(self, codes):
+            self._codes = list(codes)
+        def poll(self):
+            return self._codes.pop(0) if self._codes else 0
+
+    spawned = []
+
+    def launcher(argv):
+        h = _Handle([None, 0])          # running on the first tick, exited on the next
+        spawned.append(h)
+        return h
+
+    c = TrayController(_FakeClient(), launcher=launcher)
+    assert c.launch_settings() is True
+
+    assert c.reap() == 0, "still running — must not be dropped while alive"
+    assert c.reap() == 1, "exited — must be reaped exactly once"
+    assert c.reap() == 0, "and not counted again"
+
+
+def test_reaping_survives_a_launcher_that_returns_something_odd():
+    """The launcher is injected; a test double or an old handle may have no `poll`."""
+    c = TrayController(_FakeClient(), launcher=lambda argv: object())
+    assert c.launch_settings() is True
+    assert c.reap() == 0, "an unpollable handle must not raise or be counted"

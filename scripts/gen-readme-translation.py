@@ -47,22 +47,43 @@ INSTALL_APT = (
     "bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)"
 )
 
+#: Where a translation cites the authoritative English text. Absolute on purpose:
+#: the translations render on two surfaces now (GitHub and the docs site) and only
+#: one of them can reach a repo-root file by a relative path.
+ENGLISH_README = "https://github.com/MSKazemi/yazses#readme"
+REPO_BLOB = "https://github.com/MSKazemi/yazses/blob/main"
+
+#: Every translation lives at `docs/<lang>/index.md` so the docs site can give it a
+#: language-rooted URL, an `hreflang` set and a `canonical` — none of which a
+#: `blob/main/README.xx.md` page can carry.
+def translation_path(code: str) -> Path:
+    return ROOT / "docs" / code / "index.md"
+
 
 def _english() -> str:
     return (ROOT / "README.md").read_text(encoding="utf-8")
 
 
 def badge_block() -> str:
-    """The contiguous badge block, copied verbatim from the English README.
+    """The contiguous badge block from the English README. **Not used any more.**
 
-    Copied rather than restated: `tests/test_contributors_wall.py` requires every
-    translation to show the same all-contributors count, and
-    `tests/test_citation_metadata.py` requires the same DOI. Both are numbers that
-    change, and a hand-maintained copy in 25 files is 25 chances to be wrong.
+    Kept because it documents why the badges are absent from the translations, which
+    is otherwise the kind of omission someone restores in good faith.
+
+    The badges are repo furniture — CI status, PyPI version, licence, Zenodo DOI.
+    They earn their place above a README that a developer is reading in a code host.
+    A translation is now `docs/<lang>/index.md`, a landing page whose job is to be
+    found and read, and `docs/index.md` — the English page it declares itself an
+    alternate of — carries no badges either.
+
+    There is also a hard reason. `material/privacy` downloads every external asset at
+    build time so no viewer's IP reaches a third party, and **zenodo.org answers that
+    downloader with 403** while serving the same badge to a browser. One DOI badge on
+    one translated page therefore fails the entire docs build, every time.
     """
     lines = _english().splitlines()
     block = [ln for ln in lines if ln.startswith("[![")]
-    return "\n".join(block)
+    return "\n".join(block).replace("](LICENSE)", f"]({REPO_BLOB}/LICENSE)")
 
 
 def contributors_block() -> str:
@@ -86,24 +107,63 @@ def source_sha() -> str:
 
 
 def switcher(current: str) -> str:
-    """The line-1 language switcher, with *current* as plain text."""
+    """The line-1 language switcher, with *current* as plain text.
+
+    Paths depend on where the file being written lives. The English README stays at
+    the repo root; every translation is `docs/<lang>/index.md`, so that it is a real
+    page on the docs site — the only surface that can carry the `hreflang` and
+    `canonical` tags a GitHub blob page has no `<head>` to hold.
+
+    The relative forms below resolve identically on GitHub and in mkdocs, which is
+    what lets one file serve both. From `docs/de/index.md`, `../fr/index.md` is
+    `docs/fr/index.md` either way, and `../index.md` is the English front page
+    either way — the docs home on the site, its source on GitHub.
+    """
+    def link(code: str) -> str:
+        if current == "en":  # written at the repo root
+            return f"docs/{code}/index.md"
+        return f"../{code}/index.md"  # written at docs/<current>/index.md
+
     entries = []
     english = "English" if current != "en" else "**English**"
-    entries.append(english if current == "en" else "[English](README.md)")
+    entries.append(english if current == "en" else "[English](../index.md)")
     # Generated drafts and human translations together — leaving the human ones out
     # silently dropped Hindi, Russian and Chinese from every switcher the first time
     # this ran.
     everything = {code: spec["name"] for code, spec in LOCALES.items()}
     everything.update(HUMAN_LOCALES)
     for code, label in sorted(everything.items(), key=lambda kv: kv[1]):
-        entries.append(label if code == current else f"[{label}](README.{code}.md)")
+        entries.append(label if code == current else f"[{label}]({link(code)})")
     return "**Read this in other languages:** " + " · ".join(entries)
+
+
+def front_matter(code: str, spec: dict) -> str:
+    """The docs-site header for a translation, written in the reader's language.
+
+    `title` and `description` are what a search engine shows in a result, so they
+    have to be in the language the page is written in — an English title on a
+    Persian page is the pair Google shows to nobody. Both come from the locale's
+    own strings rather than a template.
+
+    `alternates` is the whole point of the move: `hooks/hreflang.py` turns this one
+    declaration into reciprocal `hreflang` tags on both this page and the English
+    front page. Without it the 28 translations read as unrelated duplicates.
+    """
+    t = spec["strings"]
+    description = " ".join(t["pitch"].split())
+    return (
+        "---\n"
+        f'title: "YazSes — {spec["name"]}"\n'
+        f'description: "{description}"\n'
+        "alternates:\n"
+        "  en: index.md\n"
+        "---\n"
+    )
 
 
 def render(code: str, spec: dict, sha: str) -> str:
     t = spec["strings"]
     rtl = spec.get("rtl", False)
-    badges = badge_block()
     wall = contributors_block()
     body = f"""{switcher(code)}
 <!-- yazses-l10n: locale={code}; source=README.md; source_sha={sha}; scope=partial; status=draft -->
@@ -111,12 +171,10 @@ def render(code: str, spec: dict, sha: str) -> str:
 > ⚠️ **{t['draft_title']}** — {t['draft_body']}
 >
 > *This is a machine-assisted **draft** translation, not yet reviewed by a native
-> speaker. English is authoritative: [README.md](README.md). Improving it is a
+> speaker. English is authoritative: [README.md]({ENGLISH_README}). Improving it is a
 > welcome first contribution — see [issue #{spec['issue']}](https://github.com/MSKazemi/yazses/issues/{spec['issue']}).*
 
 # YazSes
-
-{badges}
 
 {t['pitch']}
 
@@ -149,7 +207,7 @@ def render(code: str, spec: dict, sha: str) -> str:
 {t['more']}
 
 - [{t['link_docs']}](https://mskazemi.com/yazses/)
-- [{t['link_readme']}](README.md)
+- [{t['link_readme']}]({ENGLISH_README})
 - [{t['link_issues']}](https://github.com/MSKazemi/yazses/issues)
 
 ---
@@ -159,12 +217,15 @@ def render(code: str, spec: dict, sha: str) -> str:
 {wall}
 """
     if rtl:
-        # The switcher must stay on line 1 for the checker, so it goes ABOVE the
-        # wrapper rather than inside it — wrapping the whole file would push it to
-        # line 2 and the check would fail. Everything after it is right-to-left.
+        # The switcher stays the first line of the body, so it goes ABOVE the wrapper
+        # rather than inside it — the switcher is language-neutral and the checker
+        # looks for it before any prose. Everything after it is right-to-left.
         first, rest = body.split("\n", 1)
         body = f'{first}\n\n<div dir="rtl">\n\n{rest}\n</div>\n'
-    return body
+    # Front matter is prepended last, after any RTL wrapping: it is YAML the docs
+    # build parses, not prose, and wrapping it in a `dir="rtl"` div would leave the
+    # page with no title, description or `alternates` at all.
+    return front_matter(code, spec) + "\n" + body
 
 
 def _update_status_page(sha: str) -> None:
@@ -182,7 +243,7 @@ def _update_status_page(sha: str) -> None:
     end_marker = "<!-- generated-drafts:end -->"
     rows = [
         f"| {spec['name']} (`{code}`) | "
-        f"[README.{code}.md](https://github.com/MSKazemi/yazses/blob/main/README.{code}.md) | "
+        f"[docs/{code}/index.md](https://mskazemi.com/yazses/{code}/index.html) | "
         f"partial | *needed* | `{sha}` | draft | "
         f"needs a native reviewer — [#{spec['issue']}]"
         f"(https://github.com/MSKazemi/yazses/issues/{spec['issue']}) |"
@@ -224,28 +285,33 @@ def main() -> int:
         if code not in LOCALES:
             ap.error(f"unknown locale {code!r}; known: {', '.join(sorted(LOCALES))}")
         text = render(code, LOCALES[code], sha)
-        path = ROOT / f"README.{code}.md"
+        path = translation_path(code)
+        rel = path.relative_to(ROOT).as_posix()
         if args.check:
             if not path.exists() or path.read_text(encoding="utf-8") != text:
-                problems.append(path.name)
+                problems.append(rel)
             continue
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
-        print(f"wrote {path.name}")
+        print(f"wrote {rel}")
 
     # Every existing README's switcher must list the new locales too, or their
     # links go stale the moment a language is added.
     if not args.check:
-        for existing, current in (("README.md", "en"), ("README.hi.md", "hi"),
-                                  ("README.ru.md", "ru"), ("README.zh-CN.md", "zh-CN")):
-            path = ROOT / existing
+        targets = [(ROOT / "README.md", "en")]
+        targets += [(translation_path(code), code) for code in HUMAN_LOCALES]
+        for path, current in targets:
             if not path.exists():
                 continue
             lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
-            if lines and lines[0].startswith("**Read this in other languages:**") or \
-               (lines and "](README.md)" in lines[0]):
-                lines[0] = switcher(current) + "\n"
-                path.write_text("".join(lines), encoding="utf-8")
-                print(f"updated switcher in {existing}")
+            # Not line 0 any more — a translation now opens with docs-site front
+            # matter, so the switcher has to be found rather than assumed.
+            for i, line in enumerate(lines):
+                if line.startswith("**Read this in other languages:**"):
+                    lines[i] = switcher(current) + "\n"
+                    path.write_text("".join(lines), encoding="utf-8")
+                    print(f"updated switcher in {path.relative_to(ROOT).as_posix()}")
+                    break
 
     if not args.check:
         _update_status_page(sha)

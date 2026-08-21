@@ -21,11 +21,16 @@ htmlcov/
 site/
 .cache/
 
-# Snap build artifacts
-stage/
-prime/
-parts/
-overlay/
+# Snap build artifacts. Anchored to the repository root with a leading slash:
+# an unanchored `overlay/` matches a directory of that name at ANY depth, and it
+# was silently swallowing `src/yazsesoverlay/` — the shipped voice-activity
+# overlay package. Tracked files there were unaffected, so nothing looked wrong,
+# but a NEW file added to that package never appeared in `git status` at all.
+# `parts/` and `stage/` are common enough words to deserve the same treatment.
+/stage/
+/prime/
+/parts/
+/overlay/
 *.snap
 
 # Editor / OS
@@ -58,6 +63,10 @@ Thumbs.db
 # AI / assistant tooling
 .claude/
 CLAUDE.md
+# Maintainer's personal inbox/backlog for this project (single entry point for
+# ideas + tasks, driven by .claude/skills/note). Never published.
+.note
+.note.*
 GEMINI.md
 # AGENTS.md is deliberately NOT ignored: unlike CLAUDE.md it holds no private
 # config, it is the public agents.md contributor standard that coding agents read.
@@ -74,15 +83,43 @@ mcp.json
 # never published: marketing copy, SEO analysis, vision/idea notes for features
 # that may never ship, and distribution status.
 # See design/README.md for the full contract.
+#
+# `.mohsen.*` is the owner's own scratch notes, dropped in the repo root while
+# working: raw thinking — unordered task dumps, half-formed feature ideas,
+# reminders. Same tier, same reason. Globbed rather than listed so a second note
+# file does not have to remember to come back here. It also still catches the
+# pre-rename `.mohsen.note*` backups the note tool leaves behind; the live note
+# itself is `.note`/`.note.*`, listed above.
+.mohsen.*
 strategy/
 notes/
 drafts/
 .craft/
 
-# The manuscript stays private until the preprint is posted. It also contains
-# paper/data/ (688 MB LibriSpeech) and third-party paper PDFs used for reference
-# checking, neither of which may ever be published.
-paper/
+# Three subtrees of the otherwise-public `design/` that are strategy, not
+# engineering. They were named private by the pre-commit hook's link-leak check and
+# by hooks/design_tier.py — which excludes them from the built site — and were in
+# neither the hook's block list nor here, so `git add -A` would have published them.
+# Found 2026-08-16; the hook's two lists are now cross-checked by
+# tests/test_privacy_hook_blocks_what_it_calls_private.py.
+design/vision/
+design/marketing/
+design/seo/
+
+# The manuscript stays private. It also contains paper/data/ (688 MB LibriSpeech)
+# and third-party paper PDFs used for reference checking, neither of which may
+# ever be published.
+#
+# The BENCHMARK HARNESS is the exception, and deliberately so: docs/benchmarks.md
+# is a public page whose whole claim is "every number here can be reproduced with
+# the commands at the bottom", and those commands are `git clone` + a script under
+# paper/benchmark/. While all of paper/ was ignored those instructions 404'd for
+# every reader, which made the page's central promise false. The harness is pure
+# Python (~84 KB, no data, no PDFs, no manuscript), so it is published and the
+# rest stays private.
+paper/*
+!paper/benchmark/
+paper/benchmark/__pycache__/
 
 # Private-only docs — deliberately not published.
 # Delete a line here to publish that doc. Only the master-reference PDF stays

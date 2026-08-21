@@ -62,6 +62,18 @@ If you want to add a reference, put it in
 [`research/hci-corpus.bib`](research/hci-corpus.bib), verify it with
 [`research/verify_refs.py`](research/verify_refs.py), and cite it. Do not commit the paper.
 
+**Link the landing page, not the file.** A URL ending in `.pdf` is the wrong citation
+even though linking is not redistribution: it skips the abstract or publisher page that
+carries the version, the licence and the DOI, and it breaks as soon as the author
+reorganises their site — which is most of why link rot exists in bibliographies. Cite
+`arxiv.org/abs/1710.10468`, not `.../1710.10468.pdf`.
+
+Both rules are enforced by `tests/test_citation_hygiene.py`, which also asserts that no
+PDF is *tracked* — the ignore rule and the hook guard the commit, and neither notices one
+that arrived by a merge or a `git add -f`. It keeps a short, named exception list for
+sources that genuinely have no landing page, such as a conference presentation hosted by
+its author; that list is a debt, and the test fails if it grows.
+
 ## Contributing to the design record
 
 - **Changing behaviour that had an ADR?** Update the ADR or supersede it. An ADR is a
@@ -74,4 +86,4 @@ If you want to add a reference, put it in
   — fifteen entries in the corpus would have been wrong if written from memory, so this
   is not ceremony.
 
-Start with [`CONTRIBUTING.md`](../CONTRIBUTING.md) for the code side.
+Start with [`CONTRIBUTING.md`](../.github/CONTRIBUTING.md) for the code side.

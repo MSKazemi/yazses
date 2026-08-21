@@ -47,6 +47,13 @@ yazses meeting notes   <id>                                  # summary, decision
 
 Everything above runs on CPU. No network access is used at any point.
 
+!!! tip "No terminal? Use the tray icon"
+
+    **Start meeting** and **Stop meeting** are in the [tray icon's click-menu](tray-and-overlay.md),
+    so you can begin recording after the call has already started without alt-tabbing to a
+    shell. It runs the same two commands over IPC. Meeting Mode is off by default — turn it
+    on once in **Settings…**, or with `yazses features enable meeting`, and restart.
+
 ## How it compares
 
 | | **YazSes** | Otter.ai | Fireflies / tl;dv / Granola | Meetily, TalkTrack & similar local tools | Whisper + your own scripts |

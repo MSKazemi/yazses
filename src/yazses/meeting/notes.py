@@ -164,10 +164,31 @@ def _extract_json(text: str) -> dict:
     start, depth = s.find("{"), 0
     if start < 0:
         return {}
+    # String-aware, because a brace inside a *value* is not structure. Counting braces
+    # blind closed the object at the first "}" in any summary that contained one:
+    #
+    #     {"summary": "the config needs a } here"}   ->  {}   (the whole minutes lost)
+    #     {"summary": "use { to open a block"}      ->  {}
+    #
+    # Minutes of a technical meeting are exactly where a brace turns up in prose, and the
+    # loss is silent -- `_parse_minutes` returns empty Minutes and the user gets a blank
+    # page with no error.
+    in_string = escaped = False
     for i in range(start, len(s)):
-        if s[i] == "{":
+        ch = s[i]
+        if in_string:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+            continue
+        if ch == '"':
+            in_string = True
+        elif ch == "{":
             depth += 1
-        elif s[i] == "}":
+        elif ch == "}":
             depth -= 1
             if depth == 0:
                 try:

@@ -39,10 +39,54 @@ def _num_token(tok: str):
     return None
 
 
+#: Top-level domains a person actually speaks. A spoken address ends in one of these;
+#: "at the dot matrix printer" does not. Not exhaustive on purpose -- the cost of missing
+#: a rare TLD is that the user types one address by hand, and the cost of being too
+#: permissive is ordinary dictation silently rewritten into an email address.
+_TLDS = frozenset("""
+    com org net edu gov mil int io co ai app dev me info biz tv cc us uk de fr it es
+    nl be ch at se no fi dk pl cz ru ua tr gr pt ie nz au ca jp cn kr in br mx ar za
+    eu xyz online site tech cloud page blog wiki news email
+""".split())
+
+#: A domain never starts with one of these; a sentence very often does. "look at **the**
+#: dot com boom" is prose, and its "domain" opens with an article.
+_DOMAIN_STOPWORDS = frozenset(
+    "the a an this that these those my your our their his her its and or but".split()
+)
+
+
+def _looks_like_a_domain(domain: str) -> bool:
+    """Is this dotted phrase a spoken domain rather than ordinary English? Pure.
+
+    The original rule was "the domain must contain a spoken dot", which its comment
+    justified as stopping "meet at noon". It does -- and it does not stop the far commoner
+    shape, an ordinary sentence containing "at <word> dot <word>":
+
+        "look at the dot com boom"           -> "look@the.com boom"
+        "point at the dot on the screen"     -> "point@the.on the screen"
+        "meet me at the dot matrix printer"  -> "meet me@the.matrix printer"
+
+    Eight of eight realistic sentences were rewritten. Two extra conditions, both of which
+    every spoken address satisfies and ordinary prose rarely does: the last label must be
+    a real TLD, and the first must not be an article.
+    """
+    labels = domain.split(".")
+    if len(labels) < 2:
+        return False
+    if labels[-1] not in _TLDS:
+        return False
+    return labels[0] not in _DOMAIN_STOPWORDS
+
+
 def _emails(text: str) -> str:
     def repl(m: re.Match) -> str:
         local = _DOT_RE.sub(".", m.group(1)).lower()
         domain = _DOT_RE.sub(".", m.group(2)).lower()
+        if not _looks_like_a_domain(domain):
+            # Leave the words exactly as spoken. A missed address costs one hand-typed
+            # line; a false one silently corrupts a sentence the user dictated.
+            return m.group(0)
         return f"{local}@{domain}"
 
     return _EMAIL_RE.sub(repl, text)

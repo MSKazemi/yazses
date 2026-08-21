@@ -4,7 +4,11 @@ from dataclasses import replace
 import pytest
 
 from yazses.config import CocktailConfig, Config, StreamingConfig
-from yazses.settingsui.controller import PendingChanges, SettingsController
+from yazses.settingsui.controller import (
+    PendingChanges,
+    SettingsController,
+    defaults_diff,
+)
 
 
 class _Recorder:
@@ -302,3 +306,41 @@ def test_apply_collects_missing_packages_per_slug():
     report = _controller(rec).apply(pending)
 
     assert report.missing_packages == {"cocktail": ("speechbrain>=1.1",)}
+
+
+# --- defaults_diff: what "Restore defaults" would stage ----------------------
+
+
+def test_defaults_diff_lists_only_the_rows_that_are_off_default():
+    pending = PendingChanges({"a": True, "b": False, "c": True})
+
+    diff = defaults_diff({"a": True, "b": True, "c": False}, pending)
+
+    assert diff == [("b", True), ("c", False)]
+
+
+def test_defaults_diff_compares_against_what_the_window_shows_not_the_file():
+    """Restore defaults must undo edits you staged a moment ago, too."""
+    pending = PendingChanges({"a": True})
+    pending.stage("a", False)
+
+    assert defaults_diff({"a": True}, pending) == [("a", True)]
+
+    # ...and once it is back at the default, there is nothing left to restore.
+    pending.stage("a", True)
+    assert defaults_diff({"a": True}, pending) == []
+
+
+def test_defaults_diff_skips_rows_the_window_cannot_switch():
+    """Staging a greyed-out row would produce an Apply error nobody can act on."""
+    pending = PendingChanges({"a": False, "core": False})
+
+    diff = defaults_diff({"a": True, "core": True}, pending, toggleable=["a"])
+
+    assert diff == [("a", True)]
+
+
+def test_defaults_diff_is_ordered_so_the_confirmation_reads_the_same_every_time():
+    pending = PendingChanges({"z": False, "m": False, "a": False})
+    diff = defaults_diff({"z": True, "m": True, "a": True}, pending)
+    assert [slug for slug, _ in diff] == ["a", "m", "z"]

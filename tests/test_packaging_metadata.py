@@ -13,6 +13,7 @@ against the single source of truth in `pyproject.toml`.
 from __future__ import annotations
 
 import json
+import re
 import tomllib
 from pathlib import Path
 
@@ -67,14 +68,50 @@ def test_packaging_points_at_the_canonical_repo(path):
 
 def test_the_winget_identifier_is_the_current_one():
     """The old NovaFabric moniker is dead; nothing may reintroduce it."""
-    for manifest in WINGET.rglob("*.yaml"):
+    manifests = list(WINGET.rglob("*.yaml"))
+    assert manifests, f"no manifests under {WINGET} -- guard is blind"
+    for manifest in manifests:
         assert "NovaFabric" not in manifest.read_text(encoding="utf-8"), manifest
 
 
 def test_no_packaging_file_still_names_the_retired_org():
-    for path in (ROOT / "packaging").rglob("*"):
-        if path.is_file() and path.suffix in {".json", ".yaml", ".yml", ".toml"}:
-            assert "novafabric" not in path.read_text(encoding="utf-8", errors="ignore").lower(), path
+    paths = [
+        p
+        for p in (ROOT / "packaging").rglob("*")
+        if p.is_file() and p.suffix in {".json", ".yaml", ".yml", ".toml"}
+    ]
+    assert paths, "no packaging manifests matched -- guard is blind"
+    for path in paths:
+        assert "novafabric" not in path.read_text(encoding="utf-8", errors="ignore").lower(), path
+
+
+def test_the_lockfile_records_the_current_project_version():
+    """`uv.lock` carries its own copy of the project version, and it goes stale silently.
+
+    The lock has a `[[package]] name = "yazses"` entry with a `version` field. Nothing
+    regenerates it except an actual `uv sync`/`uv lock`, so a release that bumps
+    `pyproject.toml` and does not re-lock leaves the two disagreeing -- which is how
+    this file sat at 2.18.2 while the project shipped 2.19.0 and 2.20.0.
+
+    `test_sbom.py` does not cover this: it guards the *dependency* graph against
+    `uv.lock`, and both sides of that comparison were consistent the whole time. The
+    project's own version entry had no guard at all.
+
+    Why it matters beyond tidiness: `uv.lock` is committed so that a fresh clone
+    reproduces the exact environment a release was built and tested in. A lock that
+    names the wrong version of the thing being locked makes that record ambiguous,
+    and it is the file auditors and downstream packagers read to answer "what was in
+    this release?".
+    """
+    lock = (ROOT / "uv.lock").read_text(encoding="utf-8")
+    match = re.search(
+        r'^\[\[package\]\]\nname = "yazses"\nversion = "([^"]+)"', lock, re.MULTILINE
+    )
+    assert match, "no [[package]] entry for yazses in uv.lock"
+    assert match.group(1) == PYPROJECT["project"]["version"], (
+        f"uv.lock records yazses {match.group(1)} but pyproject.toml says "
+        f"{PYPROJECT['project']['version']}. Run `uv lock` and commit the result."
+    )
 
 
 # ---- the Scoop manifest has to be able to update itself --------------------
@@ -117,20 +154,26 @@ def test_the_autoupdate_hash_regex_actually_extracts_the_right_hash():
     version = manifest["version"]
     spec = manifest["autoupdate"]["architecture"]["64bit"]["hash"]
 
-    # A real SHA256SUMS.txt from a release, in the format the workflow writes.
+    # A real SHA256SUMS.txt from a release, in the format the workflow writes. The
+    # .exe line carries the manifest's OWN hash: what is under test is whether the
+    # regex picks the Windows line out of three, so the .deb and .dmg hashes are
+    # decoys and only their distinctness matters. Hardcoding the .exe hash instead
+    # pinned one release's value, and the test then failed on the next one — it did,
+    # on v2.19.0 — reporting a stale fixture as if the regex had broken.
+    expected = manifest["architecture"]["64bit"]["hash"]
     published = (
         "87ee4e8eb0f3f2dc36b15643bd2bc26227364aec27a269a9db4b3211b3a9a789  "
         f"yazses_{version}_amd64.deb\n"
         "f3b24712bf7b65f5ad03cbe12c98f3ef713184d9a16c841820814b9e33103858  "
         f"YazSes-{version}.dmg\n"
-        "78d08aa50ea1456b450ab5305d6151778ece3cfe471f4bc04d24073a7534f775  "
+        f"{expected}  "
         f"YazSes-{version}-windows-x64.exe\n"
     )
 
     pattern = spec["regex"].replace("$version", version).replace("$sha256", "([a-fA-F0-9]{64})")
     match = re.search(pattern, published)
     assert match, f"regex {pattern!r} matches nothing in a real SHA256SUMS.txt"
-    assert match.group(1) == manifest["architecture"]["64bit"]["hash"], (
+    assert match.group(1) == expected, (
         "extracted a hash, but not the one for the Windows installer"
     )
 

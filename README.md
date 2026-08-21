@@ -1,4 +1,4 @@
-**Read this in other languages:** **English** · [Deutsch](README.de.md) · [Nederlands](README.nl.md) · [Tiếng Việt](README.vi.md) · [Türkçe](README.tr.md) · [bahasa Indonesia](README.id.md) · [español](README.es.md) · [français](README.fr.md) · [italiano](README.it.md) · [polski](README.pl.md) · [português do Brasil](README.pt-BR.md) · [svenska](README.sv.md) · [čeština](README.cs.md) · [ελληνικά](README.el.md) · [Русский](README.ru.md) · [українська](README.uk.md) · [עברית](README.he.md) · [اردو](README.ur.md) · [العربية](README.ar.md) · [فارسی](README.fa.md) · [हिंदी](README.hi.md) · [বাংলা](README.bn.md) · [தமிழ்](README.ta.md) · [తెలుగు](README.te.md) · [ไทย](README.th.md) · [日本語](README.ja.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [한국어](README.ko.md)
+**Read this in other languages:** **English** · [Deutsch](docs/de/index.md) · [Nederlands](docs/nl/index.md) · [Tiếng Việt](docs/vi/index.md) · [Türkçe](docs/tr/index.md) · [bahasa Indonesia](docs/id/index.md) · [español](docs/es/index.md) · [français](docs/fr/index.md) · [italiano](docs/it/index.md) · [polski](docs/pl/index.md) · [português do Brasil](docs/pt-BR/index.md) · [svenska](docs/sv/index.md) · [čeština](docs/cs/index.md) · [ελληνικά](docs/el/index.md) · [Русский](docs/ru/index.md) · [українська](docs/uk/index.md) · [עברית](docs/he/index.md) · [اردو](docs/ur/index.md) · [العربية](docs/ar/index.md) · [فارسی](docs/fa/index.md) · [हिंदी](docs/hi/index.md) · [বাংলা](docs/bn/index.md) · [தமிழ்](docs/ta/index.md) · [తెలుగు](docs/te/index.md) · [ไทย](docs/th/index.md) · [日本語](docs/ja/index.md) · [简体中文](docs/zh-CN/index.md) · [繁體中文](docs/zh-TW/index.md) · [한국어](docs/ko/index.md)
 
 # YazSes
 
@@ -52,11 +52,11 @@ Not sure yet? **[Try it without installing](https://mskazemi.com/yazses/try-with
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21856271.svg)](https://doi.org/10.5281/zenodo.21856271)
 [![Documentation](https://img.shields.io/badge/docs-mskazemi.com%2Fyazses-5e35b1)](https://mskazemi.com/yazses/)
 [![Open Source Helpers](https://www.codetriage.com/mskazemi/yazses/badges/users.svg)](https://www.codetriage.com/mskazemi/yazses)
-[![All Contributors](https://img.shields.io/badge/all_contributors-13-orange.svg?style=flat-square)](#contributors)
+[![All Contributors](https://img.shields.io/badge/all_contributors-14-orange.svg?style=flat-square)](#contributors)
 
 [![Get it from the Snap Store](https://snapcraft.io/en/light/install.svg)](https://snapcraft.io/yazses)
 
-**Your voice never leaves your machine.** Offline voice dictation that types into any app, transcribes a recording, or captures a whole meeting with speaker names and minutes — all on your own CPU. No cloud. No API key. No subscription.
+**No audio, no text, nothing leaves your machine by default.** Offline voice dictation that types into any app, transcribes a recording, or captures a whole meeting with speaker names and minutes — all on your own CPU. No cloud. No API key. No subscription.
 
 YazSes is a free, open-source, offline voice dictation and speech-to-text daemon for **Linux (X11 & Wayland), macOS, and Windows**, built on [faster-whisper](https://github.com/SYSTRAN/faster-whisper). Use it when audio must not be sent to Google, Apple, Microsoft, or Otter — because the meeting is confidential, the machine is air-gapped, or you simply don't want a subscription. Unlike cloud dictation such as Wispr Flow, YazSes runs entirely on-device; unlike Talon Voice, it aims at plug-and-play use rather than advanced scripting; and unlike the other free on-device tools (Handy, OpenWhispr), it adds voice **commands**, speaker-labelled meeting capture and published benchmarks. YazSes is **not** recommended if you need a conversational AI agent, non-English models out of the box, or a mobile/web app.
 
@@ -67,12 +67,13 @@ YazSes is a free, open-source, offline voice dictation and speech-to-text daemon
 *40-second tour: the core loop, the command line, and the system tray. Terminal output is real; the command-line typing is re-enacted for legibility.*
 ▶️ **[Watch it on YouTube](https://www.youtube.com/watch?v=nn8WUKsCvZ4)** — same reel with chapters.
 
-![yazses doctor — all green, fully offline](docs/screenshots/yazses-doctor.png)
+![yazses doctor — all green, fully offline by default](docs/screenshots/yazses-doctor.png)
 
-Prefer text over video? [`docs/demo/yazses-cli.cast`](docs/demo/yazses-cli.cast) is an
-asciinema recording of the CLI happy path (`-h` → `about` → `quickstart` → `features` →
-`status`) — every byte is real command output, nothing hand-typed. Play it with
-[asciinema](https://asciinema.org): `asciinema play docs/demo/yazses-cli.cast`.
+Prefer text over video? **[Watch the CLI in your browser](https://mskazemi.com/yazses/watch-the-cli.html)**
+— an asciinema recording of the happy path (`-h` → `about` → `quickstart` → `features` →
+`status`), where every byte is real command output and nothing is hand-typed. The player is
+served from the docs site itself, not a CDN, so reading it does not report you to anyone.
+In your own terminal: `asciinema play docs/demo/yazses-cli.cast`.
 
 > ⭐ **If that looks useful, a star is how other people find it.** There's no company and no
 > ad budget behind this — word of mouth is the entire distribution strategy.
@@ -122,7 +123,7 @@ and `pipx` paths install the last tagged release. YazSes is also on the
 **Just want to transcribe a recording?** There is a container for that — no install at
 all: `docker run --rm -v "$PWD:/data" ghcr.io/mskazemi/yazses transcribe /data/talk.m4a
 --diarize`. It does file→transcript with speaker labels and **not** hold-to-talk
-dictation, which needs a real desktop session; see [the Docker page](https://mskazemi.github.io/yazses/docker/).
+dictation, which needs a real desktop session; see [the Docker page](https://mskazemi.com/yazses/docker.html).
 
 > **Piping a script from the internet into your shell?** Fair. Add `--dry-run` and it
 > inspects your machine, prints every change it would make, and exits without making any
@@ -181,7 +182,7 @@ yazses verify               # speak once and prove the whole pipeline works
 
 | OS | Hold this key | Say… |
 |---|---|---|
-| Linux | `Space` | *"the quick brown fox"* (types it) · *"go to line 42"* · *"run the tests"* |
+| Linux | `Right Alt` | *"the quick brown fox"* (types it) · *"go to line 42"* · *"run the tests"* |
 | macOS | `Right Option` | *"delete the last word"* · *"save file"* · *"new function parse config"* |
 | Windows | `Right Ctrl` | *"undo that"* · *"select all"* · *"comment this line"* |
 
@@ -195,7 +196,7 @@ Release the key — YazSes transcribes and acts. On a modern laptop CPU that is 
 
 ## What you can say
 
-Hold the key and just **talk** — by default everything you say is typed at the cursor. YazSes also recognises a set of **voice commands** (a fast regex grammar; an optional ~0.5B SLM router catches phrasings the grammar misses) that map to editor/terminal **key sequences** instead of being typed:
+Hold the key and just **talk** — by default everything you say is typed at the cursor. YazSes also recognises a set of **voice commands** (a fast regex grammar; a ~0.5B SLM router for phrasings the grammar misses is designed but **not wired yet**) that map to editor/terminal **key sequences** instead of being typed:
 
 | Say something like… | What happens |
 |---|---|
@@ -218,17 +219,17 @@ You can also define multi-step **macros** and a personal **vocabulary** of mis-h
 
 ```
 Hold hotkey → record audio → VAD gate → faster-whisper (CPU) → clean + disfluency filter
-            → command grammar (Tier 1 regex, optional Tier 2 SLM router)
+            → command grammar (Tier 1 regex; Tier 2 SLM router designed, not wired)
             → dictate? type the text   ·   command? send the key sequence
 ```
 
-Everything runs on your CPU — no GPU, no network. Transcription uses **faster-whisper** (int8). A fast regex grammar classifies each utterance as dictation or a command; when its confidence is low, an optional ~0.5B SLM router takes a second look.
+Everything runs on your CPU — no GPU, no network. Transcription uses **faster-whisper** (int8). A fast regex grammar classifies each utterance as dictation or a command. A ~0.5B SLM router was designed to take a second look when confidence is low; the seam exists (`grammar.classify()` accepts it) but nothing constructs one, so **Tier 1 decides every utterance today**.
 
 Measured on a 13th-gen Core i7 laptop, int8 on CPU: **4.07 % WER** on LibriSpeech test-clean with the default `base.en`, a **1.56 s median** decode, and **0.29 ms** of total non-decode pipeline overhead — i.e. essentially all the latency is the speech model. Everything, including the method and the commands to reproduce it, is on the [benchmarks page](docs/benchmarks.md).
 
 **Models:**
 - **Speech-to-text:** faster-whisper — `tiny.en` (fast) / `base.en` / `small.en` (more accurate), int8 on CPU
-- **Command routing (optional):** Qwen2.5-0.5B SLM for Tier 2 intent classification — *not* required for dictation, fetched with `yazses model download`
+- **Command routing (not wired):** Qwen2.5-0.5B SLM for Tier 2 intent classification. `yazses model download` can fetch it, but **nothing loads it yet** — downloading it today gains you nothing. (The command is still the right way to pre-fetch a *speech* model behind a firewall.)
 - **Dictation cleanup (optional, off by default):** a small offline LLM can tidy grammar/punctuation; length- and token-preservation guards stop it rewriting meaning
 
 ---
@@ -255,7 +256,10 @@ Measured on a 13th-gen Core i7 laptop, int8 on CPU: **4.07 % WER** on LibriSpeec
 - **Macros & personal vocabulary** — define multi-step commands and teach YazSes your mis-heard words
 - **Dysfluency-Friendly Mode** — opt-in collapse of stutters/repeats (`b-b-because` → `because`) for stuttered or dysarthric speech
 - **Self-improving** — opt-in, encrypted on-device learning corpus; `yazses tune` proposes accuracy fixes from your own corrections (nothing leaves the machine)
-- **Editor context** — optional Neovim / VS Code LSP context improves accuracy on code identifiers
+- **Editor navigation** — `yazses jump "go to function parse_config"` resolves the symbol
+  through your editor's LSP (Neovim bridge; opt-in). *Feeding LSP symbols into the
+  transcription prompt is designed but **not wired** — the daemon builds its prompt from
+  your vocabulary and mined terms only, so it does not yet improve identifier accuracy.*
 - **Accessibility** — VAD calibration wizard, mic-level tuning, and EMG (muscle-sensor) trigger support for motor-disability use
 - **Voice-activity overlay** — optional sonar rings near the cursor while you speak
 
@@ -434,7 +438,9 @@ model = "small.en"          # tiny.en (fast) | base.en | small.en (accurate); CP
 initial_prompt = ""         # vocabulary/context primed into Whisper
 
 [hotkey]
-key = "space"               # hold-to-talk key (yazses hotkey set <key>)
+key = "auto"                # hold-to-talk key; "auto" = Right Alt on Linux,
+                            # Right Option on macOS, Right Ctrl on Windows
+                            # (yazses hotkey set <key>)
 command_key = ""            # optional dedicated key that forces command mode
 hold_threshold_ms = 500     # how long to hold before recording starts
 
@@ -443,7 +449,9 @@ sample_rate = 16000
 max_record_seconds = 90
 
 [injection]
-backend = "auto"            # auto | xdotool | ydotool | wtype | clipboard
+backend = "auto"            # auto | type | ydotool | wtype | clipboard
+                            # ("xdotool" is not a token — on X11 `auto` already
+                            #  uses xdotool; asking for it on Wayland gets ydotool)
 
 [accessibility]
 vad_threshold = 0.0008      # lower for quiet speech, raise if room noise triggers (yazses mic-level --set)
@@ -517,13 +525,14 @@ brew install --cask yazses
 # pipx (Python ≥ 3.11) — works on Apple Silicon and Intel
 pipx install yazses
 
-# App bundle (.dmg) — unsigned developer preview, Apple Silicon only
+# App bundle (.dmg) — unsigned developer preview; separate Apple Silicon and Intel builds
 # https://github.com/MSKazemi/yazses/releases/latest
 ```
 
-> **On an Intel Mac, use pipx.** The `.dmg` is built host-arch on GitHub's arm64
-> `macos-latest` runner and carries no `x86_64` slice, so it cannot launch on Intel;
-> the cask declares `arch: :arm64` and refuses rather than installing a broken app.
+> **On an Intel Mac, take the `-macos-x86_64.dmg` or use pipx — not Homebrew.** Since
+> v2.22.0 the `.dmg` is built as a per-architecture matrix, so releases carry both
+> `…-macos-arm64.dmg` and `…-macos-x86_64.dmg`. The **cask** is still Apple Silicon
+> only: it declares `arch: :arm64` and refuses rather than installing a broken app.
 > Details in [docs/macos-install.md](docs/macos-install.md).
 
 ### Windows
@@ -594,14 +603,14 @@ installed, or depended on by anything here.
 | | **Python** · `main` | **Rust HCI exploration** · `archive/rust-hci-v1` |
 |---|---|---|
 | What it is | The shipping app — dictation, file transcription, Meeting Mode, voice commands, macros | An early-stage rewrite exploring deeper **human–computer interaction**: an on-device *agent* (LLM tool-use, personal memory, editor awareness) |
-| Status | ✅ **Active — current product** (v2.17.0, installed & maintained) | ⏸️ **Paused / archived** — not shipped, not installable |
+| Status | ✅ **Active — current product** (v2.29.0, installed & maintained) | ⏸️ **Paused / archived** — not shipped, not installable |
 | Offline STT | ✅ faster-whisper (CPU int8) | ✅ Whisper + Moonshine v2 (~9 ms) |
 | Voice commands | ✅ regex grammar (+ optional SLM router) → key sequences | ✅ via LLM tool-calls |
 | Voice macros · Mid-Thought Undo · Punch-In · Prosody Ink · Ghost Ahead | ✅ | ❌ |
 | Dysfluency-Friendly Mode · learning corpus + `yazses tune` | ✅ | ❌ |
 | On-device **LLM agent** (OS tools: git commit, media, notes, screenshots…) | ❌ (optional offline text *cleanup* only) | ✅ |
 | **Personal memory** (encrypted on-device vector store) | ❌ | ✅ |
-| Editor context (Neovim / VS Code) | ✅ LSP context, opt-in | ✅ 5-tier window detection + bridges |
+| Editor context (Neovim / VS Code) | ✅ LSP **navigation** (`yazses jump`), opt-in; LSP-into-prompt not wired | ✅ 5-tier window detection + bridges |
 | Screen-reader integration (AT-SPI / NVDA) | ❌ | ✅ |
 | Packaged & distributed (PyPI, snap, APT) | ✅ | ❌ |
 
@@ -639,7 +648,7 @@ already covers the licence grant.
   [share a config for your app or editor](https://github.com/MSKazemi/yazses/issues/43), or
   [add your setup to SHOWCASE.md](https://github.com/MSKazemi/yazses/issues/42).
 - 🐞 **Found a bug or have an idea?** Open an [issue](https://github.com/MSKazemi/yazses/issues/new/choose) (the `yazses doctor` output resolves most reports on its own) or ask in [Discussions](https://github.com/MSKazemi/yazses/discussions).
-- 🔧 **Sending a PR?** See [CONTRIBUTING.md](CONTRIBUTING.md). The gates are quick:
+- 🔧 **Sending a PR?** See [CONTRIBUTING.md](.github/CONTRIBUTING.md). The gates are quick:
 
 ```bash
 uv run python -m pytest tests/   # tests — must be green
@@ -684,6 +693,7 @@ Thanks to these people for helping build YazSes ✨ — every bug report, doc fi
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Prithvi4904"><img src="https://avatars.githubusercontent.com/u/216231806?v=4?s=100" width="100px;" alt="Prithvi4904"/><br /><sub><b>Prithvi4904</b></sub></a><br /><a href="#translation-Prithvi4904" title="Translation">🌍</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/4nmus"><img src="https://avatars.githubusercontent.com/u/145120721?v=4?s=100" width="100px;" alt="4nmus"/><br /><sub><b>4nmus</b></sub></a><br /><a href="#translation-4nmus" title="Translation">🌍</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Mr-Neutr0n"><img src="https://avatars.githubusercontent.com/u/64578610?v=4?s=100" width="100px;" alt="hari"/><br /><sub><b>hari</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=Mr-Neutr0n" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/mercael91"><img src="https://avatars.githubusercontent.com/u/257655913?v=4?s=100" width="100px;" alt="mercael"/><br /><sub><b>mercael</b></sub></a><br /><a href="#infra-mercael91" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
     </tr>
   </tbody>
 </table>

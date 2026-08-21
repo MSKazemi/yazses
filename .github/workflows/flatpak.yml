@@ -4,8 +4,9 @@
 # ---------------
 # Flathub will not accept a manifest that does not build, and the manifest cannot
 # build until `python3-yazses.json` exists — a generated list of every Python
-# dependency with its URL and hash. That file has never been committed, which is
-# the single reason the Flathub submission (issue #45) has never been made.
+# dependency with its URL and hash. That file is now committed (45 pinned wheels).
+# The remaining blocker on issue #45 is the demo video Flathub'''s checklist asks
+# for; see packaging/flatpak/SUBMISSION.md.
 #
 # It cannot be generated correctly on a developer machine either. The wheels have
 # to match the *runtime's* Python, not the host's, so flatpak-pip-generator must

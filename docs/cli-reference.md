@@ -89,7 +89,7 @@ After a successful update, restart the daemon to load it:
 | `yazses start` | Start the daemon; restarts cleanly if one is already running (never a duplicate). |
 | `yazses restart` | Stop **all** daemons (including stray/detached ones) and start exactly one. |
 | `yazses stop` | Stop the running daemon. |
-| `yazses status` | Show state, hotkey, model, injection backend, uptime and decode latency (p50/p95) over IPC. |
+| `yazses status` | Show state, hotkey, model, injection backend, uptime, decode latency (p50/p95) and how many recent bursts produced text, over IPC. |
 | `yazses tray` | Show the top-bar tray icon + click-menu (pick/pin mic, re-calibrate, start/stop). |
 | `yazses features` | See capabilities and turn them on/off — no config-file editing. |
 | `yazses settings` | The same switchboard as a window — every capability as a checkbox. See [the Settings window](settings-gui.md). |
@@ -164,6 +164,24 @@ rather than shown — a p95 over six utterances is not a p95, and printing one i
 reading it as one. The window is bounded (the last 200 utterances per model) so the
 numbers still move after you change model, which is exactly when you look at them.
 
+And it reports **how often dictation actually produced text**:
+
+```
+  typed:    18 of 20 recent bursts (90%)
+```
+
+A fast decode that types nothing is not usable at all, so this is the more basic of the
+two numbers. A burst counts as `typed` only if text reached the window: one that was
+discarded (silence, an empty transcription, no text target) or that raised does not,
+which means the figure cannot flatter itself by counting failures as successes.
+
+It is a **gauge, not a warning** — it shows on a healthy run too, because a number that
+only appears when something is wrong gives you no baseline to compare against, and you
+cannot tell 70% from 100% at the moment it matters. Like the latency window it is
+bounded and recent, so a change that started this morning is visible rather than
+averaged into months of history; and it stays silent below five bursts, because "0% of
+1" would be believed.
+
 This needs nothing turned on: the samples live in memory in the running daemon,
 are never written to disk, and do not involve any audio or transcript text. They
 reset when the daemon restarts.
@@ -220,7 +238,13 @@ Ubuntu); disable auto-launch with `yazses features disable tray`.
 
 The friendly switchboard for turning capabilities on and off — no config-file
 editing. Bare `yazses features` lists **every** capability **grouped by category**,
-showing whether each is on/off, its toggle name, and an advice tier.
+showing whether each is on/off, its toggle name, what enabling it downloads, and an
+advice tier.
+
+The **DOWNLOAD** column is what the capability fetches on a fresh install — the whole
+dependency closure, so `cocktail` reads as `~3.1 GB` rather than as the one package
+you type. Blank means nothing to download, which is true of most capabilities. See
+[Install only what you need](how-to/install-only-what-you-need.md).
 
 ![yazses features — capabilities grouped by category, each with its on/off state, toggle name, and advice tier](screenshots/yazses-features.png)
 
@@ -240,6 +264,7 @@ showing whether each is on/off, its toggle name, and an advice tier.
 | `yazses features info <name>` | Describe one capability — what it does, a usage example, and how to toggle it. |
 | `yazses features enable <name>` | Turn a capability **on** (writes your config), then `yazses restart` to apply. |
 | `yazses features disable <name>` | Turn a capability **off**, then `yazses restart`. |
+| `yazses features reset` | Restore **every** capability to the state a fresh install ships with. |
 
 ```bash
 yazses features                          # every capability, grouped, + advice
@@ -250,8 +275,25 @@ yazses features info                     # describe ALL capabilities + usage exa
 yazses features info reflow              # describe one + show a usage example
 yazses features enable read-back         # turn one on  (use the TOGGLE NAME)
 yazses features disable cocktail         # turn one off
+yazses features reset --dry-run          # what a reset would change; writes nothing
+yazses features reset                    # restore the defaults (asks first)
 yazses restart                           # apply
 ```
+
+**`yazses features reset`** is the terminal half of the settings window's
+**Restore defaults** button — the same operation, for a machine with no
+graphical session, no PySide6, or a distribution too old to load Qt.
+
+| Option | Description |
+|---|---|
+| `--dry-run` | List what would change and write nothing. |
+| `--yes` / `-y` | Skip the confirmation prompt. |
+| `--no-install` | Don't auto-install optional deps for what it turns back on. |
+
+It writes **only** the capabilities that are off their default, so your config
+file and its comments are not churned to change three lines — and it resets the
+feature switches only. Your hotkey, microphone, vocabulary and every hand-edited
+setting are left exactly as they are.
 
 Each row shows an **advice** tier:
 
@@ -271,7 +313,8 @@ it's not advised and exits; add `--force` to override.
 ### `yazses settings`
 
 The same switchboard as a **window**: every capability as a checkbox, grouped by
-the same categories `yazses features` prints, with its advice tier underneath.
+the same categories `yazses features` prints, with its advice tier and a one-line
+description underneath.
 
 ```bash
 yazses settings           # open the window (blocks until you close it)
@@ -283,14 +326,28 @@ feature registry as the CLI, so the two can never disagree — and it honours th
 same rules: core and *planned — designed, not yet wired* features are shown but
 not clickable, and an experimental one asks for confirmation before it is staged.
 
-A few things it deliberately does **not** do (yet — see the
-[settings-gui epic](https://github.com/MSKazemi/yazses/issues/65)):
+Three things it gives you that a plain checkbox list cannot:
 
-- It does not install a feature's optional Python packages. `yazses features
-  enable <name>` does; the window tells you which packages are missing and names
-  that command.
-- It needs a **graphical session**. On a headless box or a bare SSH session it
-  says so and points you at `yazses features` instead of failing at Qt.
+- **A filter box.** Matches the name, the toggle name, the category *and* the
+  description, so `stutter` finds Dysfluency-Friendly. `on:` / `off:` and
+  `tier:rec` mirror the flags above. Filtering is visibility only — Apply and
+  Restore defaults still act on every capability.
+
+- **Help on every option.** Hover a row, or click its **?** button, for the same
+  card `yazses features info` prints — what it does, when you'd want it, an
+  example, the exact config keys ticking it writes, and any packages it installs.
+  The **?** button exists beside the tooltip rather than instead of it: hover is
+  unreachable by keyboard, unavailable on touch, and never announced by a screen
+  reader.
+- **Restore defaults.** Puts every switch back to the state a fresh install ships
+  with. It *stages* the change and names every capability it would touch first,
+  so nothing is written until you press Apply — and it never turns an
+  experimental capability on, because those are by definition not the advised
+  set. `yazses features reset` is the same operation in a terminal.
+
+It needs a **graphical session**. On a headless box or a bare SSH session it says
+so and points you at `yazses features` / `yazses features reset` instead of
+failing at Qt.
 
 ### `yazses-daemon`
 
@@ -491,7 +548,14 @@ yazses enroll-voice    # record a sample → save your speaker voiceprint
 
 ### `yazses model`
 
-Manage the optional Tier 2 SLM intent-routing models.
+Manage the Tier 2 SLM intent-routing models.
+
+!!! warning "Tier 2 is designed, not wired"
+
+    Nothing loads an SLM router today — `grammar.classify()` accepts one and no
+    code constructs it, so Tier 1 decides every utterance and downloading a GGUF
+    gains you nothing. The command is still the right way to pre-fetch a *speech*
+    model behind a firewall.
 
 | Command | Description |
 |---|---|
@@ -664,9 +728,17 @@ is encrypted on-device data and is intentionally not portable (see the
 | `yazses hotkey set <key>` | Change the key you hold to **dictate** (e.g. `right_ctrl`), then `yazses restart`. |
 | `yazses hotkey command <key>` | Set a dedicated **command** key, or `off` to disable it. Then `yazses restart`. |
 
-Choices: `right_alt` (default), `left_alt`, `right_ctrl`, `left_ctrl`,
+Choices: `auto` (the shipped default — the usual key for your OS), `right_alt`,
+`left_alt`, `right_option`, `left_option`, `right_ctrl`, `left_ctrl`,
 `right_shift`, `left_shift`, `right_meta`, `left_meta`, `space`. Prefer a
 dedicated modifier so it doesn't collide with normal typing.
+
+`right_option` / `left_option` are the macOS names for the alt keys and mean the
+same physical key, so one config file behaves the same on every OS. The command
+key accepts everything except `auto`, which means "the platform's default
+*dictation* key" and would land on the dictation key itself.
+
+The same list is a dropdown in [the Settings window](settings-gui.md).
 
 ```bash
 yazses hotkey show                # print the keys + the choices
@@ -715,9 +787,31 @@ no error (every clip is discarded as silence). Two things fix this:
   substring, re-resolved on every recording, so it keeps working even if a hotplug
   renumbers devices.
 - **The mic-change guard** (on by default, `yazses features disable mic-guard` to turn
-  off) watches for the default input changing and for a run of silent clips. When it
-  sees trouble it **auto-heals** — switching capture back to the last mic that worked —
-  and shows a desktop notification with **Re-calibrate / Pin this mic / Ignore** buttons.
+  off) watches for the default input changing and for a run of bursts that produced no
+  text — whether they were discarded as silence *or* reached the model and decoded to
+  nothing, which from your side is the same event. When it sees trouble it
+  **auto-heals** — switching capture back to the last mic that worked — and shows a
+  desktop notification with **Re-calibrate / Pin this mic / Ignore** buttons.
+
+!!! warning "On Linux, the device-change half often cannot fire — pin instead"
+
+    The guard spots a switch by comparing the default device's **name** over time. On
+    ALSA and PipeWire the default is usually a routing *alias* called `default`, which
+    forwards to whichever device is current: the microphone behind it changes and the
+    name does not. So on a typical Linux desktop that half compares `default` with
+    `default` for ever.
+
+    The streak half is unaffected — it counts outcomes, not names — but it reacts after
+    the fact. **Pinning a real device is what makes a silent switch impossible rather
+    than merely detectable.**
+
+    `yazses audio status` and `yazses doctor` name the microphone actually behind the
+    alias, and its volume, so you can see what you are really recording:
+
+    ```
+    OS default:    default
+                   → Raptor Lake-P/U/H cAVS Digital Microphone  (volume 65%)
+    ```
 
 If dictation goes quiet after changing your audio setup, run `yazses audio status` (or
 `yazses status`) to see the live capture device and whether clips are being discarded.
@@ -727,6 +821,7 @@ If dictation goes quiet after changing your audio setup, run `yazses audio statu
 | Command | Description |
 |---|---|
 | `yazses gaze calibrate` | Calibrate the webcam so your gaze maps to screen zones. |
+| `yazses gaze status` | Show whether look-to-pane is ready: deps, desktop backend, calibration. |
 
 Requires `[gaze] enabled = true`, an X11 session with `xdotool`, and a webcam. The
 webcam gaze deps (mediapipe + opencv) are installed automatically on first run
@@ -737,6 +832,7 @@ hold only — never stored or sent.
 
 ```bash
 yazses gaze calibrate    # fit the webcam gaze → screen-zone mapping
+yazses gaze status       # deps, X11/xdotool, and whether a calibration exists
 ```
 
 ---
@@ -847,9 +943,13 @@ uploaded.
 | `yazses cite` | `--bib <file>` (req), `--style <latex\|plain\|apa>` | `yazses cite "vaswani 2017" --bib refs.bib` → `\cite{vaswani2017}` |
 | `yazses slotfill` | `--slot NAME:after=… \| NAME:choices=…` (repeatable) | `yazses slotfill "priority high" --slot priority:after=priority` → `{"priority": "high"}` |
 
-- **`reflow`** splits on sentence boundaries, strips a leading discourse marker
-  (`first`, `then`, `finally`, …), and turns action phrases (`I need to`, `to do`,
-  `follow up`) into `- [ ]` checkboxes.
+- **`reflow`** splits on sentence boundaries, strips leading discourse markers
+  (`first`, `then`, `finally`, …) **and leading fillers** (`um`, `so basically`,
+  `you know`, `well`, … — the same list the dictation disfluency filter uses), and turns
+  action phrases (`I need to`, `to do`, `follow up`) into `- [ ]` checkboxes. Speech
+  stacks them, so stripping repeats: `so um basically I need to update the docs` gives
+  `- [ ] I need to update the docs`. Only *leading* fillers count — `we ship it so people
+  can use it` keeps its `so`.
 - **`table`** splits cells on commas/semicolons or the word `and`; rows split on
   `next row` or newlines; a leading `row:`/`entry:`/`record:` marker is stripped.
 - **`shellpipe`** recognises stages like `list files`, `filter for X`,
@@ -859,10 +959,17 @@ uploaded.
 - **`braille`** translates to Unicode Braille; `--grade 1` is uncontracted.
 - **`case`** recases text to a naming convention (`snake`, `kebab`, `camel`, `pascal`,
   `title`, `sentence`, `upper`, `lower`, `constant`); with no `--style` it detects a
-  spoken `make this … case:` command and recases the remainder.
-- **`screenplay`** formats each line as Fountain: `scene: interior/exterior <place>,
-  <time>` → `INT./EXT. …`, `<Name> (character) <dialogue>` → a character cue,
-  `transition: cut to` → `CUT TO:`; other lines become smart-quoted action lines.
+  spoken `make this … case` command and recases the remainder (the colon is optional).
+- **`screenplay`** formats each line as Fountain: `scene interior/exterior <place>
+  <time>` → `INT./EXT. …`, `<Name> character <dialogue>` → a character cue,
+  `transition cut to` → `CUT TO:`; other lines become smart-quoted action lines.
+
+    **Every separator here is optional**, because a colon, a comma and a pair of
+    parentheses are three things you cannot dictate — and this command is for drafting
+    by voice. `scene: interior coffee shop, day` and `scene interior coffee shop day`
+    give the same result. The parenthesised `(character)` form stays exact; the spoken
+    one is only read as a cue when the name is short and does not begin with a
+    determiner, so `the character walks in` stays an action line.
 - **`findreplace`** parses `replace every/first X with Y` (add `case-sensitive`) and
   applies it to `--in`/stdin; exits non-zero if the command can't be parsed.
 - **`chords`** parses a spoken chord (modifiers + a named/F/char key + an optional
@@ -879,6 +986,58 @@ uploaded.
 cat notes.txt | yazses reflow          # reflow a piped transcript
 yazses table --sep ';' "a, b next row c, d"   # semicolon-separated CSV
 yazses braille --grade 1 "abc"         # Grade 1 (uncontracted)
+```
+
+### `yazses gitvoice`
+
+Turn a spoken git command into a git command, fully offline. It **always prints
+the resolved command and how to undo it**, which is the point — you see exactly
+what you are about to run before anything happens.
+
+**Options:** `--run` (execute instead of only printing) · `--yes` (confirm a
+destructive command so `--run` will run it).
+
+```bash
+$ yazses gitvoice "commit with message fix the parser"
+git commit -m 'fix the parser'
+undo: git reset --soft HEAD~1
+
+$ yazses gitvoice "discard changes in src"
+git checkout -- src
+undo: recover via: git reflog / your editor's local history (uncommitted changes are gone unless stashed first)
+```
+
+Reads the `TEXT` argument, or standard input when omitted, and **exits non-zero
+if it cannot parse the utterance** — so a misheard command produces an error, not
+a plausible wrong command.
+
+**A branch you name reaches the command.** `push to main` renders
+`git push origin main`, not a bare `git push` — which would push whichever branch
+you happen to be standing on. Say the remote too (`push to upstream develop`) and it
+is used; say only a branch and `origin` is assumed, which fails loudly on a repo
+whose remote is called something else rather than quietly pushing the wrong ref.
+**Say the punctuation in a branch name.** `feature/login` and `fix-tray-crash` are
+both ordinary conventions and neither can be dictated — nothing turns the silence
+between two words into a `/` or a `-` — so you say the separator:
+
+| You say | You get |
+|---|---|
+| `create branch feature slash login` | `git checkout -b feature/login` |
+| `create branch fix dash tray dash crash` | `git checkout -b fix-tray-crash` |
+| `push to feature hyphen login` | `git push origin feature-login` |
+
+`slash`, `dash`, `hyphen`, `underscore` and `dot` all work, on every command that
+reads a branch name. They apply **only** where a ref is read: `commit with message fix
+the dash in the title` keeps its word.
+
+**Destructive commands are never run without `--yes`, even with `--run`.**
+Force-push, hard reset, `branch -D` and discarding uncommitted changes all
+require it. Misrecognition is a fact of dictation, so the one class of command
+you cannot undo is the one that asks twice:
+
+```bash
+yazses gitvoice "force push" --run          # refuses: destructive, needs --yes
+yazses gitvoice "force push" --run --yes    # actually runs it
 ```
 
 ### `yazses punch-in`
@@ -917,10 +1076,27 @@ and most other ffmpeg-decodable media.
 | `--language <lang>` | `en` (default) or `translate` to render any-language audio into English. |
 | `--diarize` / `--no-diarize` | Tag who said what with local speaker models (needs the `diarization` extra). |
 | `--speakers <N>` | Force an exact speaker count (`0` = auto-detect). |
-| `--min-speakers <N>` / `--max-speakers <N>` | Bounds on the auto-detected speaker count. |
+| `--max-speakers <N>` | ⚠ On the shipped `sherpa` diarizer this forces an **exact** count, it does not cap one: `6` on a three-person recording manufactures six by splitting real speakers apart. `0` (default) auto-detects. |
+| `--min-speakers <N>` | ⚠ **Ignored** by the shipped diarizer — only the pyannote adapter reads it, and this build does not ship it. The command says so before transcribing rather than silently ignoring the floor. |
 | `--names "Alice,Bob"` | Comma list mapped to speakers in order of first appearance. |
 | `--rename speaker_0=Alice` | Explicit speaker→name map, repeatable. |
 | `--download-models` | Fetch the ~45 MB sherpa diarization models, then exit (no transcription). |
+
+**It tells you when the transcript is not trustworthy**, rather than reporting success
+over it:
+
+- **Nothing recognised** — music, silence, or speech in a language an English-only model
+  cannot read produce an empty file. The command says so and names the causes you can
+  act on, the useful one being the `.en` model, which you can neither see nor guess from
+  a blank file.
+- **Audio with no signal in it** — a muted microphone, an input held by another
+  application, or capture pointed at the wrong device. Speech models answer silence with
+  a *confident invented word* rather than with nothing (two seconds of digital silence
+  decodes to "You"), so an empty-transcript check cannot catch this. The check is on the
+  input instead: audio carrying no signal cannot contain speech. The transcript is still
+  written — you may want to see what was invented — but it is not presented as a result.
+- **A file that is not audio, or is missing** — reported as such, with the formats that
+  do work, instead of an ffmpeg command line.
 
 ```bash
 yazses transcribe talk.mp3                     # → talk.txt beside it
@@ -965,6 +1141,7 @@ clustering**, not pitch. Off by default — enable with `yazses features enable 
 | `yazses meeting list` | List stored meetings on this machine (no daemon required). |
 | `yazses meeting relabel <id>` | Fix speaker labels and re-render: `--merge SPEAKER_2=speaker_1` folds clusters, `--rename speaker_1=Alice` names one (both repeatable); `--format`/`-f` picks the re-render format (default `md`). |
 | `yazses meeting notes <id>` | Generate minutes (summary, decisions, action items) from a stored transcript. Needs `[meeting] notes = true` and a local `notes_model` GGUF; runs locally (slow on CPU). |
+| `yazses meeting enroll <id> --speaker <cluster> --name <name>` | Enroll one speaker from a stored meeting as a named voiceprint, so they are auto-named next time. Both flags are required. Needs the recording to still exist — i.e. the meeting ran with `[meeting] retain_audio = true`. |
 
 ```bash
 yazses features enable meeting     # turn it on (writes [meeting] enabled = true)
@@ -975,7 +1152,14 @@ yazses meeting list                # see stored meetings
 yazses meeting list --json         # machine-readable array
 yazses meeting relabel <id> --rename speaker_1=Alice --merge speaker_2=speaker_1
 yazses meeting notes <id>          # local-LLM minutes (needs notes_model)
+yazses meeting enroll <id> --speaker speaker_1 --name Alice   # name them for good
 ```
+
+`meeting enroll` is the one that carries across meetings: `relabel` fixes the labels
+on *one* transcript, while `enroll` saves that speaker's voiceprint so the next
+meeting names them on its own. The voiceprint is encrypted and never leaves the
+machine (ADR-011/012), it enrols only the speaker you name, and it needs the audio
+— which is deleted at stop unless `[meeting] retain_audio = true`.
 
 Notes:
 
@@ -989,6 +1173,50 @@ Notes:
 - **Minutes are opt-in and local.** `notes` stays off until you set `notes = true`
   and point `notes_model` at a local GGUF — nothing is sent anywhere.
 - You are responsible for having consent to record and transcribe the meeting.
+
+### `yazses fileopen` — open a file by voice
+
+Fuzzy-matches a spoken query against the files in a directory and opens the best
+match with your desktop's default handler.
+
+**Arguments:** `QUERY` (required) — the spoken query.
+**Options:** `--dir` / `-d <path>` (directory to search, default `.`) ·
+`--yes` / `-y` (launch immediately, without the confirmation prompt).
+
+```bash
+yazses fileopen "the quarterly budget spreadsheet"
+yazses fileopen "meeting notes from march" --dir ~/Documents
+yazses fileopen "readme" -y          # skip the confirmation
+```
+
+Without `-y` it shows the match and asks first — a fuzzy match on a misheard
+query can otherwise open the wrong file.
+
+### `yazses jump` — move the caret by voice
+
+Jumps to a symbol or a line in the active editor, via the configured LSP editor
+bridge.
+
+**Arguments:** `TARGET` (required) — e.g. `line 240`, `function tokenize`, `main`.
+
+```bash
+yazses jump "line 240"
+yazses jump "function tokenize"
+```
+
+Requires a reachable editor bridge. (`[commands] lsp_enabled` and `lsp_editor` are
+**not read by anything** — this command contacts the editor directly whichever way
+they are set; the keys are reserved for an editor-context prompt that is designed
+and not wired.) Start
+Neovim with `nvim --listen`, or install the YazSes VS Code extension. Without a
+live bridge there is no real cursor to move, so the command reports that rather
+than guessing:
+
+```
+$ yazses jump "line 240"
+Editor bridge not reachable. Start Neovim with `nvim --listen` (yazses reads $NVIM),
+or install the YazSes VS Code extension.
+```
 
 ### Voice command reference
 
@@ -1033,8 +1261,9 @@ so "Save file." works the same as "save". Spelled-out numbers ("delete the last
     it is the only one gated this way.
 
 Don't see a command you want? Tell us — the grammar is easily extended.
-Natural-language commands beyond this fixed list require the optional Tier 2 SLM
-router (`[commands] slm_model_path`), which is off by default.
+Natural-language commands beyond this fixed list would need the Tier 2 SLM router,
+which is designed but **not wired** — there is no switch that turns it on today, and
+`[commands] slm_model_path` is read by nothing.
 
 ### Voice punctuation (opt-in)
 
@@ -1063,6 +1292,43 @@ typed — it issues backspaces, so it works in any text field, and a buffer ledg
 ensures it never deletes more than YazSes injected. Saying the phrase inside a
 sentence ("scratch the surface") does not trigger it.
 
+### Voice Undo / Redo timeline
+
+Off by default (`[timeline] enabled = true`). Where **Mid-Thought Undo** removes
+the last thing typed, the timeline steps back through *what YazSes typed* by an
+amount you name — and can step forward again.
+
+| You say | Effect |
+|---|---|
+| "undo" · "undo that" | step back one burst |
+| "undo two words" | step back 2 words |
+| "undo the last sentence" | step back 1 sentence |
+| "undo 3 bursts" | step back 3 bursts |
+| "undo everything" | step back over the whole session's injections |
+| "redo" | step forward again |
+
+Counts accept digits or the words `one`–`ten`; above ten (`MAX_REPEAT`) the
+utterance is not a command and is typed instead.
+
+**This is distinct from the `undo` voice *command***, which sends Ctrl+Z to the
+application (see the table above). The timeline knows what YazSes itself
+injected; Ctrl+Z is whatever the focused application decides it means.
+
+Like "scratch that", the grammar is **anchored at both ends**, so ordinary
+speech containing the word is typed, not executed:
+
+```
+"undo two words"           → steps back two words
+"click undo"               → typed
+"I need to undo that"      → typed
+"press control z to undo"  → typed
+```
+
+That anchoring is not a nicety. "undo" is an ordinary English word, and a
+pattern that merely has to *end* the utterance matches all three of the lines
+above — which would silently delete a user's text instead of typing their
+sentence.
+
 ---
 
 ## Remote
@@ -1071,6 +1337,44 @@ sentence ("scratch the surface") does not trigger it.
 |---|---|
 | `yazses remote <host>` | Forward voice typing to a remote host over SSH. |
 | `yazses-agent --listen <port>` | Run the remote injection agent on the remote host. |
+
+### `yazses mcp-server`
+
+Expose YazSes to another agent over **MCP**, on stdin/stdout.
+
+Not a service you leave running: an MCP client *spawns* it as a child process and
+talks to it over pipes. There is no port, no bind address, and nothing another
+machine can reach — the same structural property as YazSes's own Unix-socket IPC,
+which is why [ADR-020](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-020-agent-protocols.md)
+chose stdio over HTTP for a daemon that holds a live microphone.
+
+Point an MCP client at it:
+
+```json
+{"command": "yazses", "args": ["mcp-server"]}
+```
+
+| Tool | What it does | Offered when |
+|---|---|---|
+| `transcribe(path, diarize=false)` | Turn an audio or video file into text, entirely on this machine. Nothing is uploaded. | always |
+| `ask_human(question, timeout_s)` | Ask **you** a question out loud and return your spoken answer. | `[mcp] ask_human = true` |
+
+`ask_human` is the reason this exists. An agent stuck on a decision only a person
+can make otherwise has to put text on a screen and wait to be noticed; speaking is
+the cheapest interrupt you can service, because it needs neither your eyes nor your
+hands.
+
+It is **off by default** and not even listed until you enable it — a tool that is
+offered and always refuses teaches a model to stop calling it. When on:
+
+- **`[mcp] ask_human_per_hour`** (default 3) is a budget shared by every caller, so
+  it limits interruptions to *you* rather than per agent. Nothing a caller does
+  earns another slot.
+- Nothing is spoken **while you are dictating**; the question waits, and costs the
+  agent nothing.
+- The caller is **named** in what is spoken.
+- Your answer goes **back to the agent** and is never typed into the window you had
+  open.
 
 ### `yazses remote`
 
@@ -1165,11 +1469,19 @@ corroborated proposals are listed first. Dry-run by default — changes nothing.
 **Options:** `--apply` (review each proposal interactively and write approved ones
 to `config.toml`, comments preserved) · `--retranscribe` / `--no-retranscribe`
 (re-transcribe captured audio with a larger model to find errors; on by default —
-skip for a faster run that uses only flagged/edited signals).
+skip for a faster run that uses only flagged/edited signals) · `--limit N`
+(re-transcribe only the **N most recent** clips).
+
+Re-transcription is the slow step by a wide margin — a full corpus of ~1,600 clips
+takes about an hour on CPU — so it reports its progress and, once it can measure a
+rate, how long is left. `--limit` is the middle ground between that and skipping the
+pass altogether: the recent clips are the ones recorded with the model, microphone
+and threshold you use *now*, which is what tuning is trying to improve.
 
 ```bash
 yazses tune                     # dry-run: print proposed config changes
 yazses tune --apply             # review and write approved changes
+yazses tune --limit 200         # only the 200 most recent clips (much faster)
 yazses tune --no-retranscribe   # skip the slower re-transcription pass
 ```
 

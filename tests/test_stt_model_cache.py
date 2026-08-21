@@ -64,12 +64,23 @@ def test_a_missing_model_still_downloads(monkeypatch):
 
 def test_a_download_failure_is_not_swallowed(monkeypatch):
     """Only the cache probe is forgiving. A real failure must still reach the caller,
-    rather than leaving the engine holding no model."""
+    rather than leaving the engine holding no model.
+
+    Since #310 it arrives as ModelUnavailableError rather than the raw error:
+    the caller is the daemon's startup path, and a bare OSError there became a
+    traceback the user could not act on. The original is chained, so nothing is
+    lost — assert both, because "wrapped" must never come to mean "hidden".
+    """
+    from yazses.stt.errors import ModelUnavailableError
 
     class _FakeModel:
         def __init__(self, model_name, **kwargs) -> None:
             raise OSError("no route to host")
 
     monkeypatch.setattr(fw, "WhisperModel", _FakeModel)
-    with pytest.raises(OSError, match="no route to host"):
+    with pytest.raises(ModelUnavailableError) as caught:
         fw._load_model("base.en", "cpu", "int8")
+
+    assert isinstance(caught.value.__cause__, OSError)
+    assert "no route to host" in str(caught.value.__cause__)
+    assert "no route to host" in str(caught.value), "the cause must survive into the advice"

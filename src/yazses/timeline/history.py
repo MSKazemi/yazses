@@ -40,8 +40,22 @@ class InjectionTimeline:
             m = re.search(r"\s*\S+\s*$", last)
             return len(m.group()) if m else len(last)
         if scope == "sentence":
-            idx = max(last.rfind("."), last.rfind("!"), last.rfind("?"))
-            return len(last) - idx - 1 if 0 <= idx < len(last) - 1 else len(last)
+            # Look for the boundary BEFORE the final sentence, ignoring the terminator
+            # that ends the burst itself. Searching the whole string finds that trailing
+            # "." instead, and the old guard (`idx < len(last) - 1`) then rejected it and
+            # fell back to deleting the entire burst:
+            #
+            #     "One. Two three."  ->  15 backspaces, everything gone
+            #     "One. Two three"   ->  11 backspaces, leaving "One."   (correct)
+            #
+            # So "undo that sentence" worked only on a burst whose last sentence had no
+            # terminator -- and dictation ends sentences with one, whether from voice
+            # punctuation or from Whisper's own. The common case was the broken one.
+            body = last.rstrip()
+            if body and body[-1] in ".!?":
+                body = body[:-1]
+            idx = max(body.rfind("."), body.rfind("!"), body.rfind("?"))
+            return len(last) - idx - 1 if idx >= 0 else len(last)
         return len(last)
 
     def peek_undo(self, scope: str = "last"):

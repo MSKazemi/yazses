@@ -8,8 +8,12 @@ so they unit-test directly.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from yazses.audio.devices import InputDevice, resolve_input_device
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from yazses.platform.base import TrayModel
 
 # Three-colour scheme: GREEN while recording your voice (you're holding the key and
 # speaking, through the brief transcribe/inject that finishes that dictation), BLUE for
@@ -24,6 +28,20 @@ _RED = "#e53935"        # problem — error or silent-streak
 _DEFAULT_SILENT_STREAK_LIMIT = 3
 # Label for the menu entry that opens the graphical settings window (`yazses settings`).
 SETTINGS_LABEL = "Settings…"
+# The three entries that answer the questions a user has *at the icon*: what am I
+# running, where do I get help, is there a newer version. One constant each, imported by
+# all three trays, so the same menu cannot come to mean different things per OS (#63).
+ABOUT_LABEL = "About YazSes"
+HELP_LABEL = "Help"
+DOCS_LABEL = "Documentation"
+TROUBLESHOOTING_LABEL = "Troubleshooting"
+REPORT_BUG_LABEL = "Report a bug…"
+UPDATE_LABEL = "Check for updates…"
+# Meeting Mode's two live actions. Meeting Mode is the one capability with no key to
+# hold — it runs hands-free for an hour — so until now the only way to begin or end one
+# was a terminal, which is exactly what you do not have open in a meeting.
+MEETING_START_LABEL = "Start meeting"
+MEETING_STOP_LABEL = "Stop meeting"
 # Actively capturing/handling your dictation → green. Everything else that is not a
 # problem → blue (normal). Meeting Mode also captures audio, so it is green too.
 _RECORDING_STATES = frozenset(
@@ -100,6 +118,95 @@ def build_menu_model(
     )
 
 
+@dataclass(frozen=True)
+class MeetingEntry:
+    """One Meeting Mode menu entry, and whether clicking it can do anything.
+
+    ``reason`` is never None when ``enabled`` is False. A greyed-out entry with no
+    explanation is worse than no entry at all: the user is left deciding between "this
+    is broken" and "I am not allowed", and the answer is usually neither.
+    """
+
+    label: str
+    action: str          # the IPC method a click invokes
+    enabled: bool
+    reason: str | None = None
+
+
+# The daemon's own guard in `_handle_meeting_start`: a meeting may only begin from a
+# resting state, because starting one mid-dictation would take the microphone away from
+# a burst in progress.
+_MEETING_START_STATES = frozenset({"idle", "paused"})
+
+
+def meeting_entries(status: dict) -> list[MeetingEntry]:
+    """The Start/Stop meeting entries for *status*. Pure.
+
+    Both entries are always returned, in a fixed order, because two of the three trays
+    build their menu once at startup and cannot swap a label later. So the shape has to
+    be the same every tick, and it is the *enabled* flag that moves.
+
+    **The daemon decides; this predicts.** Every rule below mirrors one the daemon
+    enforces in `_handle_meeting_start`, and a prediction that disagrees with it is a
+    bug in this function, not a licence for the tray to act. That is why a click still
+    sends the IPC call and still shows whatever ``reason`` comes back: this layer exists
+    to grey out a doomed click and say why, not to become a second authority on when a
+    meeting may run.
+    """
+    state = str(status.get("state") or "idle")
+    active = bool(status.get("meeting_active")) or state == "meeting"
+    finalizing = bool(status.get("meeting_finalizing"))
+    # Absent on an older daemon that predates the field. Treating that as "off" would
+    # grey the entry out on a daemon where Meeting Mode works perfectly well, so the
+    # benefit of the doubt goes to enabled and the daemon refuses if it is wrong.
+    enabled_raw = status.get("meeting_enabled")
+    feature_on = True if enabled_raw is None else bool(enabled_raw)
+    # `ready` is likewise absent from a bare model-derived status; only an explicit
+    # False means "still loading".
+    loading = status.get("ready") is False
+
+    def _blocked() -> str | None:
+        """A reason that stops *both* actions, or None."""
+        if not feature_on:
+            return (
+                "Meeting Mode is off — turn it on in Settings, then restart YazSes."
+            )
+        if loading:
+            return "YazSes is still starting up."
+        if finalizing:
+            return "Still finishing the last meeting — transcribing and writing it up."
+        return None
+
+    blocked = _blocked()
+    if blocked is not None:
+        return [
+            MeetingEntry(MEETING_START_LABEL, "meeting_start", False, blocked),
+            MeetingEntry(MEETING_STOP_LABEL, "meeting_stop", False, blocked),
+        ]
+
+    if active:
+        return [
+            MeetingEntry(
+                MEETING_START_LABEL, "meeting_start", False,
+                "A meeting is already running.",
+            ),
+            MeetingEntry(MEETING_STOP_LABEL, "meeting_stop", True),
+        ]
+
+    start_reason = (
+        None if state in _MEETING_START_STATES
+        else f"YazSes is busy ({state}) — try again in a moment."
+    )
+    return [
+        MeetingEntry(
+            MEETING_START_LABEL, "meeting_start", start_reason is None, start_reason
+        ),
+        MeetingEntry(
+            MEETING_STOP_LABEL, "meeting_stop", False, "No meeting is running."
+        ),
+    ]
+
+
 def _silent_streak_limit(status: dict) -> int:
     """How many consecutive silent clips make the icon red.
 
@@ -119,6 +226,41 @@ def _silent_streak_limit(status: dict) -> int:
     except (TypeError, ValueError):
         return _DEFAULT_SILENT_STREAK_LIMIT
     return limit if limit > 0 else _DEFAULT_SILENT_STREAK_LIMIT
+
+
+def glyph_for(badge_hex: str) -> str:
+    """The mark colour that is actually legible on *badge_hex* — black or white.
+
+    The glyph was white on every state colour. Measured with the contrast maths
+    already in `settingsui/theme.py` — the only such maths in the codebase, and
+    never applied anywhere near the tray — white scores:
+
+        yellow 1.71:1 · green 3.06:1 · red 4.23:1 · blue 4.51:1 · purple 6.30:1
+
+    WCAG AA asks 4.5:1, so three of the five failed. The worst is **yellow**, which
+    is the badge meaning "recording, but there is nowhere to type" — the state a
+    user most needs to notice, wearing the least readable mark of the set. An icon
+    that says "your words are going nowhere" and cannot be read is not doing the
+    one job it exists for.
+
+    Black or white rather than a computed tint: at 16 px the mark is a few hundred
+    pixels of stroke, and a mid-tone loses to the badge whatever the maths says.
+    Falls back to white on an unparseable colour rather than raising — the paint
+    path swallows exceptions, so an error here would mean no icon at all.
+    """
+    from yazses.settingsui.theme import contrast_ratio
+
+    text = (badge_hex or "").strip().lstrip("#")
+    if len(text) != 6:
+        return "#ffffff"
+    try:
+        badge = tuple(int(text[i:i + 2], 16) for i in (0, 2, 4))
+    except ValueError:
+        return "#ffffff"
+
+    white = contrast_ratio((255, 255, 255), badge)  # type: ignore[arg-type]
+    black = contrast_ratio((0, 0, 0), badge)  # type: ignore[arg-type]
+    return "#ffffff" if white >= black else "#000000"
 
 
 def icon_spec(status: dict) -> tuple[str, str]:
@@ -154,3 +296,117 @@ def icon_spec(status: dict) -> tuple[str, str]:
     if state in _RECORDING_STATES and not command_mode and target_ok is False:
         tooltip += "\n⚠ no text field focused — will save to clipboard"
     return color, tooltip
+
+
+def status_from_model(model: TrayModel) -> dict:
+    """Flatten a ``TrayModel`` into the daemon-shaped status dict ``icon_spec`` reads.
+
+    Every platform tray receives a ``TrayModel`` but the pure policy above is
+    written against the daemon's own status dict, so each backend has to bridge
+    the two. Linux did it inline and Windows did not do it at all — which is how
+    the Windows tray ended up with a private seven-colour table, no command-mode
+    purple, no no-text-target yellow, and five ``TrayState`` members that
+    silently rendered as idle blue. One shared bridge, so they cannot diverge.
+    """
+    from yazses.platform.base import TrayState as _TrayState
+
+    state = model.state
+    return {
+        "state": state.value if isinstance(state, _TrayState) else state,
+        "hotkey": model.hotkey,
+        "model": model.model,
+        "input_device": model.input_device,
+        "silent_streak": model.silent_streak,
+        "target_ok": model.target_ok,
+        "command_mode": model.command_mode,
+        # The level ring reads these two. They belong in the shared bridge rather
+        # than in one backend's inline copy: the Linux tray built this dict by hand
+        # and included them, Windows built a different dict and did not, and that
+        # asymmetry is the same one that gave Windows a private colour table. A
+        # backend that cannot draw a ring simply ignores them.
+        "audio_level": model.audio_level,
+        "vad_threshold": model.vad_threshold,
+        # Meeting Mode's Start/Stop entries read these. Same reasoning as the two
+        # above: they belong in the one shared bridge, so a tray cannot end up with a
+        # menu entry that is permanently greyed out because its own hand-built dict
+        # forgot a key.
+        "meeting_enabled": model.meeting_enabled,
+        "meeting_active": model.meeting_active,
+        "meeting_finalizing": model.meeting_finalizing,
+    }
+
+
+# --------------------------------------------------------------------------- #
+# Live input level — the one thing the five colours cannot say
+# --------------------------------------------------------------------------- #
+# Green means "the daemon is recording". It does not mean "your microphone is
+# hearing you", and those come apart exactly when it matters: a muted mic, a USB-C
+# monitor that stole capture, a VAD threshold set above the user's voice. The
+# symptom is the most common one this project has — `Silent audio -- discarding`
+# has its own troubleshooting page — and today the icon looks identical throughout.
+# You speak a whole sentence, the badge is green, and nothing is typed.
+#
+# So the badge carries a level ring while recording. The daemon already publishes
+# both numbers it needs (`audio_level`, `vad_threshold`) for the overlay, so this
+# costs no daemon change and no extra IPC.
+#
+# The design decision that makes it readable: **the gate is anchored at a fixed
+# position on the ring** rather than the ring being a linear map of the raw level.
+# `audio_level` is mean(|samples|) — a number whose useful range depends on the mic,
+# the room and the threshold. Drawn linearly, a quiet setup would sit invisibly near
+# zero and a loud one would peg. Anchored, "the ring passed the notch" means
+# "this will be transcribed" on every machine, which is the only question being asked.
+_GATE_AT = 0.35     # the VAD threshold sits here on a 0..1 ring
+_RING_MIN = 0.04    # a floor, so a live-but-silent mic still reads as "listening"
+
+
+@dataclass(frozen=True)
+class LevelRing:
+    """How to draw the input-level ring around the badge.
+
+    ``fraction`` is 0..1 of a full sweep. ``above_gate`` is whether the current level
+    would pass the silence gate — i.e. whether speaking right now produces text.
+    ``show`` is false whenever there is nothing honest to draw.
+    """
+
+    fraction: float
+    above_gate: bool
+    show: bool
+
+    @property
+    def gate_fraction(self) -> float:
+        """Where to draw the notch that marks the threshold."""
+        return _GATE_AT
+
+
+def level_ring(status: dict) -> LevelRing:
+    """The level ring for *status*. Pure.
+
+    Hidden unless recording: an idle badge with a ring would imply YazSes is
+    listening when it is not, which is the opposite of what this project promises.
+    Hidden too when the threshold is missing or non-positive, because the gate
+    position would be meaningless and a ring with no reference point is decoration.
+    """
+    state = str(status.get("state") or "idle")
+    if state not in _RECORDING_STATES:
+        return LevelRing(0.0, False, False)
+
+    try:
+        level = float(status.get("audio_level") or 0.0)
+        threshold = float(status.get("vad_threshold") or 0.0)
+    except (TypeError, ValueError):
+        return LevelRing(0.0, False, False)
+    if threshold <= 0 or level < 0:
+        return LevelRing(0.0, False, False)
+
+    ratio = level / threshold
+    if ratio <= 1.0:
+        # Below the gate: the sub-gate range maps onto the arc before the notch, so
+        # a user can see themselves approaching it rather than only that they failed.
+        fraction = _GATE_AT * ratio
+    else:
+        # Above it: compress the tail so ordinary speech fills a useful amount of
+        # ring and a shout does not simply peg. 4x the threshold reaches full.
+        over = min((ratio - 1.0) / 3.0, 1.0)
+        fraction = _GATE_AT + (1.0 - _GATE_AT) * over
+    return LevelRing(max(_RING_MIN, min(1.0, fraction)), ratio > 1.0, True)

@@ -18,5 +18,17 @@
     "sounddevice",
     "typer"
   ],
-  "import_time_budget_us": 231610
+  "base_dependency_markers": {
+    "evdev": "sys_platform == \"linux\"",
+    "pillow": "sys_platform == \"win32\"",
+    "pyobjc-framework-applicationservices": "sys_platform == \"darwin\"",
+    "pyobjc-framework-avfoundation": "sys_platform == \"darwin\"",
+    "pyobjc-framework-cocoa": "sys_platform == \"darwin\"",
+    "pyobjc-framework-quartz": "sys_platform == \"darwin\"",
+    "pystray": "sys_platform == \"win32\"",
+    "python-xlib": "sys_platform == \"linux\" or platform_system == \"FreeBSD\" or platform_system == \"OpenBSD\" or platform_system == \"NetBSD\" or platform_system == \"DragonFly\"",
+    "pywin32": "sys_platform == \"win32\"",
+    "rumps": "sys_platform == \"darwin\""
+  },
+  "import_time_budget_us": 220308
 }

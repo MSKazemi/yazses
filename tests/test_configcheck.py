@@ -6,12 +6,13 @@ the user is told what was wrong.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
 
-from yazses.config import load_config, load_config_checked
+from yazses.config import AccessibilityConfig, load_config, load_config_checked
 from yazses.configcheck import ConfigProblem, build_section, coerce_value
 
 
@@ -163,3 +164,48 @@ def test_load_config_never_raises_and_keeps_its_signature(tmp_path: Path):
     cfg = load_config(path)
 
     assert cfg.accessibility.vad_threshold == 0.01, "documented default"
+
+
+# ---- nan and inf are floats, and a type check waves them through -------------
+
+
+@pytest.mark.parametrize("literal", ["nan", "inf", "-inf", '"nan"', '"inf"'])
+def test_a_non_finite_threshold_falls_back_and_is_reported(tmp_path, literal):
+    """`vad_threshold = inf` used to load cleanly and break dictation completely.
+
+    The silence gate is `mean(|audio|) < threshold`, so infinity discards every
+    burst and nothing is ever typed; NaN makes the comparison false forever and the
+    gate stops gating. Both are floats, so the type check passed them, `doctor`
+    reported no config problem, and the user had a daemon that looked healthy and
+    transcribed nothing.
+
+    This module's promise is a working daemon *and* a ConfigProblem — never a silent
+    oddity — so the fallback matters as much as the report.
+    """
+    cfg_file = tmp_path / "config.toml"
+    cfg_file.write_text(f"[accessibility]\nvad_threshold = {literal}\n", encoding="utf-8")
+
+    result = load_config_checked(cfg_file)
+    value = result.config.accessibility.vad_threshold
+
+    assert math.isfinite(value), f"{literal} reached the silence gate as {value!r}"
+    assert value == AccessibilityConfig().vad_threshold, "did not fall back to the default"
+    assert result.problems, f"{literal} was accepted without a word"
+
+
+def test_ordinary_numbers_are_untouched(tmp_path):
+    """The guard must not cost the normal case anything."""
+    cfg_file = tmp_path / "config.toml"
+    cfg_file.write_text("[accessibility]\nvad_threshold = 0.004\n", encoding="utf-8")
+    result = load_config_checked(cfg_file)
+    assert result.config.accessibility.vad_threshold == 0.004
+    assert not result.problems
+
+
+def test_a_quoted_number_still_repairs(tmp_path):
+    """`"0.004"` -> 0.004 is the documented repair and must survive the new check."""
+    cfg_file = tmp_path / "config.toml"
+    cfg_file.write_text('[accessibility]\nvad_threshold = "0.004"\n', encoding="utf-8")
+    result = load_config_checked(cfg_file)
+    assert result.config.accessibility.vad_threshold == 0.004
+    assert result.problems, "a repaired value should still be reported at the source"

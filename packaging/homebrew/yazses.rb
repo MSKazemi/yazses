@@ -19,10 +19,15 @@
 # worse than no cask: Homebrew refuses the download, so the first thing a new
 # user sees is a failure that looks like the project is broken.
 cask "yazses" do
-  version "2.18.2"
-  sha256 "f3b24712bf7b65f5ad03cbe12c98f3ef713184d9a16c841820814b9e33103858"
+  version "2.29.0"
+  sha256 "c1306b97d6bfaa65f0df5512e65396a0cf787a5a898560ad3e48098423c8880a"
 
-  url "https://github.com/MSKazemi/yazses/releases/download/v#{version}/YazSes-#{version}.dmg",
+  # arm64 explicitly in the filename since ADR-017: the .dmg used to be named as
+  # though it were for everybody, which is a large part of why an Apple-silicon-only
+  # bundle went unnoticed. An Intel .dmg is now built too, but this cask will not
+  # offer it until that build has been green a few times -- a cask whose hash is a
+  # guess is worse than no cask.
+  url "https://github.com/MSKazemi/yazses/releases/download/v#{version}/YazSes-#{version}-macos-arm64.dmg",
       verified: "github.com/MSKazemi/yazses/"
   name "YazSes"
   desc "Offline voice dictation — hold a key, speak, release; no cloud, no subscription"
@@ -80,9 +85,11 @@ cask "yazses" do
     its hash changes, so you may have to re-grant Accessibility after an
     upgrade.
 
-    On an Intel Mac this cask will refuse to install: the .dmg is built for
-    Apple Silicon only. Install from PyPI instead, which is architecture
-    independent:
+    On an Intel Mac this cask will refuse to install: it tracks the Apple Silicon
+    build. An Intel .dmg is now produced as well, and this cask will offer it once
+    that build is proven. Until then, install from PyPI, which is architecture
+    independent and is also the path that outlives the Intel bundle — GitHub retires
+    x86_64 macOS runners in 2027:
 
         pipx install yazses && yazses quickstart
   EOS

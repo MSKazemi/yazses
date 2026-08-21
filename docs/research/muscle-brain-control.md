@@ -1,6 +1,6 @@
 ---
-title: Muscle (EMG) vs brain (EEG) computer control — what actually works in 2026
-description: The measured hierarchy of hands-free computer control, from a $50 EMG electrode to a 62-WPM intracortical speech BCI. What Meta's Nature 2025 sEMG wristband really showed, why silent speech works at 30 words but not 30,000, and what that means for people who cannot use a keyboard. 28 cited sources, with open research questions.
+title: "Muscle (EMG) vs brain (EEG) control: what works"
+description: The measured hierarchy of hands-free control, from a $50 EMG electrode to a 62-WPM intracortical speech BCI — and what it means if you cannot use a keyboard.
 ---
 
 # Muscle & brain control: the honest hierarchy

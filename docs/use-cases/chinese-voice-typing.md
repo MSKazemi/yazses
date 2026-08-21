@@ -1,17 +1,24 @@
 ---
-title: "Chinese voice typing, offline — free Mandarin speech to text for PC"
-description: "Dictate Chinese into any application with no internet, no account and no subscription. Offline Mandarin voice typing for Windows, Linux and macOS, with Simplified or Traditional output you choose rather than the model guessing."
+title: "Offline Chinese voice typing on a PC — how to configure it with YazSes"
+description: "YazSes is an English-tuned dictation tool and its default model cannot decode Mandarin at all. This page shows how to point it at a multilingual Whisper model, the Simplified/Traditional trap that costs more accuracy than it looks, and the numbers we actually measured. No promises about Chinese — a how-to, not a support claim."
 ---
 
-# Chinese voice typing on a PC, fully offline
+# Offline Chinese voice typing on a PC, with YazSes
 
-**In short:** YazSes is free, open-source dictation software that types Chinese into any
-application on your computer, and it keeps working with the network cable pulled out. You
-hold a key, speak, release, and the characters appear where your cursor is. Nothing is
-uploaded by default, no account is needed, and there is no per-minute charge.
+!!! warning "Bottom line first: YazSes is an English dictation tool"
 
-This page is deliberately specific about what works and what does not, because Chinese
-support in offline speech recognition is usually oversold. There is also a
+    YazSes ships `base.en` and is tuned for English. **We do not claim Chinese support.**
+    Every accuracy benchmark this project publishes is English
+    ([LibriSpeech](../benchmarks.md)). The multilingual decoding below is
+    **Whisper's** capability, not YazSes's — YazSes passes a `language` flag through and you
+    supply the model. If you want a tool marketed for Chinese, use one built for Chinese.
+
+**What this page is:** a how-to for people who already use YazSes for English and want to
+point it at Mandarin anyway, plus one Chinese-specific problem we did fix (the
+Simplified/Traditional trap) and the numbers we measured while fixing it.
+
+It is deliberately specific about what works and what does not, because Chinese support in
+offline speech recognition is usually oversold. There is also a
 [Simplified Chinese version of this page](../zh/chinese-voice-typing.md).
 
 ## It is not on by default — you must switch models

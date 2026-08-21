@@ -13,6 +13,7 @@ the daemon. macOS/Windows backends are a future extension; this is the Linux pat
 """
 from __future__ import annotations
 
+import atexit
 import logging
 import shutil
 import subprocess
@@ -28,6 +29,47 @@ _APP_NAME = "YazSes"
 # forgotten toast can't pin a daemon thread forever.
 _ACTION_TIMEOUT_S = 120.0
 
+# Every actionable toast currently blocked on --wait. Tracked because the cap above
+# is enforced *inside* the worker thread, and a thread is not where a process's last
+# word is spoken: the thread is a daemon thread, so when the interpreter exits it is
+# abandoned without unwinding, its `except TimeoutExpired` never runs, and nothing
+# ever kills `notify-send`. In the long-lived daemon the cap fires and that is
+# invisible; in every short-lived process -- a CLI command, `yazses verify`, a test
+# run -- the process is gone in seconds and the toast is orphaned onto the user's
+# desktop for good. One test suite leaked four per run, forever.
+#
+# `--urgency critical` is what makes it permanent rather than merely untidy: a
+# critical notification never expires on its own (freedesktop spec), so `--wait`
+# has nothing to wait for once no one is left to click it.
+_inflight: set[subprocess.Popen] = set()
+_inflight_lock = threading.Lock()
+_shutting_down = False
+
+
+def _kill_inflight() -> None:
+    """Kill every toast still waiting for a click. Runs at interpreter exit.
+
+    Registered with `atexit`, which runs on the main thread *before* daemon threads
+    are torn down -- so this is the one place that still gets to speak for them.
+    Never raises: it runs during shutdown, where an exception is both useless and
+    ugly, and a toast we failed to kill is not worth a traceback on the way out.
+    """
+    global _shutting_down
+    with _inflight_lock:
+        _shutting_down = True
+        procs = list(_inflight)
+        _inflight.clear()
+    for proc in procs:
+        try:
+            if proc.poll() is None:
+                proc.kill()
+                proc.wait(timeout=1.0)
+        except Exception:  # pragma: no cover - shutdown is not a place to fail
+            pass
+
+
+atexit.register(_kill_inflight)
+
 
 @dataclass(frozen=True)
 class NotifyAction:
@@ -35,6 +77,38 @@ class NotifyAction:
 
     key: str
     label: str
+
+
+# How long an informational toast stays up. Only meaningful at non-critical urgency:
+# the spec exempts `critical` from expiry entirely, so a server that honours the level
+# will keep a critical toast on screen no matter what timeout accompanies it.
+_INFO_EXPIRE_MS = 10_000
+
+
+def toast_policy(actionable: bool) -> tuple[str, int | None]:
+    """Return the ``(urgency, expire_ms)`` a toast should carry. Pure.
+
+    Both daemon call sites used to send **every** failure at ``critical``, and a critical
+    notification never expires on its own — the freedesktop spec exempts that level from
+    the timeout precisely so an alert cannot be missed. The consequence on a real desktop:
+    a dictation burst that failed to inject — transient, already over, nothing to answer —
+    left a pop-up that outranked everything else on screen and stayed until it was clicked.
+    Once the toast has no button, there is nothing to click *for*; it is a status report
+    demanding to be dismissed like an alarm.
+
+    So the level now follows whether the toast is **answerable**:
+
+    - **actionable** → ``critical`` and no expiry. It asks a question, and `--wait` needs
+      it to survive until the user answers; a prompt that vanishes mid-read is worse than
+      a persistent one.
+    - **informational** → ``normal`` with a timeout, so it behaves like every other
+      notification on the system and clears itself.
+
+    ⓘ The urgency is the load-bearing half. GNOME Shell applies its own timing to normal
+    notifications and largely ignores the requested duration, while KDE and dunst honour
+    it — passing both means the toast clears on all three rather than only the last two.
+    """
+    return ("critical", None) if actionable else ("normal", _INFO_EXPIRE_MS)
 
 
 def build_notify_argv(
@@ -46,11 +120,14 @@ def build_notify_argv(
     icon: str | None = _DEFAULT_ICON,
     actions: list[NotifyAction] | None = None,
     wait: bool = False,
+    expire_ms: int | None = None,
 ) -> list[str]:
     """Assemble the ``notify-send`` argv. Pure — no process is spawned."""
     argv = ["notify-send", "--app-name", app_name, "--urgency", urgency]
     if icon:
         argv += ["--icon", icon]
+    if expire_ms is not None:
+        argv += ["--expire-time", str(expire_ms)]
     if wait:
         argv.append("--wait")
     for action in actions or []:
@@ -68,6 +145,33 @@ def parse_action_result(stdout: str | None, actions: list[NotifyAction] | None) 
     key = (stdout or "").strip()
     valid = {a.key for a in (actions or [])}
     return key if key in valid else None
+
+
+# Where a notification goes when libnotify is absent. The daemon registers a sink
+# that queues the message onto its `status` reply, which the tray is already
+# polling; the tray then shows it with the OS's own toast (pystray on Windows,
+# rumps on macOS). Module-level because `notify()` is called from eight places in
+# the daemon that have no business knowing how a toast is delivered.
+_fallback_sink: Callable[[str, str], None] | None = None
+
+
+def set_fallback_sink(sink: Callable[[str, str], None] | None) -> None:
+    """Register (or clear with ``None``) the no-libnotify delivery sink."""
+    global _fallback_sink
+    _fallback_sink = sink
+
+
+def _deliver_to_fallback(title: str, body: str) -> bool:
+    """Hand the message to the sink. True if it took it. Never raises."""
+    sink = _fallback_sink
+    if sink is None:
+        return False
+    try:
+        sink(title, body)
+        return True
+    except Exception:
+        log.debug("fallback notification sink raised", exc_info=True)
+        return False
 
 
 def notifier_available(which: Callable[[str], str | None] = shutil.which) -> bool:
@@ -103,9 +207,11 @@ def notify(
     actions: list[NotifyAction] | None = None,
     on_action: Callable[[str], None] | None = None,
     runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+    spawner: Callable[..., subprocess.Popen] = subprocess.Popen,
     available: bool | None = None,
     actions_supported: bool | None = None,
     spawn: bool = True,
+    expire_ms: int | None = None,
 ) -> None:
     """Show a desktop notification; never raises.
 
@@ -115,12 +221,22 @@ def notify(
     informational toast is shown (its ``body`` should already spell out the fix). When
     ``notify-send`` is missing, the message is logged only.
 
-    ``available``/``actions_supported`` override the capability probes (for tests);
-    ``spawn=False`` runs the actionable path inline instead of on a thread (for tests).
+    ``runner`` spawns the plain toast and the capability probe (both return promptly);
+    ``spawner`` starts the actionable one, whose lifetime we must own -- see
+    ``_kill_inflight``. ``available``/``actions_supported`` override the capability
+    probes (for tests); ``spawn=False`` runs the actionable path inline instead of on
+    a thread (for tests).
     """
     avail = notifier_available() if available is None else available
     if not avail:
-        log.info("Desktop notification (notify-send unavailable): %s — %s", title, body)
+        # No libnotify — i.e. Windows and macOS, where every self-healing event
+        # (the mic auto-heal, a VAD retune, a silent streak) used to be written to
+        # a log file the user never opens. Hand it to whatever sink is registered
+        # so the tray can surface it natively; the log line stays either way.
+        if _deliver_to_fallback(title, body):
+            log.info("Desktop notification (via fallback sink): %s — %s", title, body)
+        else:
+            log.info("Desktop notification (notify-send unavailable): %s — %s", title, body)
         return
 
     use_actions = bool(actions) and (
@@ -128,7 +244,9 @@ def notify(
     )
 
     if not use_actions:
-        argv = build_notify_argv(title, body, urgency=urgency, icon=icon)
+        # Only the un-actionable toast takes a timeout: the actionable one is waiting for
+        # an answer, and a prompt that expires mid-read has thrown the question away.
+        argv = build_notify_argv(title, body, urgency=urgency, icon=icon, expire_ms=expire_ms)
         try:
             runner(argv, timeout=10.0)
         except Exception as exc:  # never let a toast break the caller
@@ -139,12 +257,34 @@ def notify(
         argv = build_notify_argv(
             title, body, urgency=urgency, icon=icon, actions=actions, wait=True
         )
+        # Spawn and register under one lock, so a toast started as the interpreter is
+        # going down is either killed by `_kill_inflight` or never started at all --
+        # never spawned into the gap just after it stopped looking.
         try:
-            proc = runner(argv, capture_output=True, text=True, timeout=_ACTION_TIMEOUT_S)
+            with _inflight_lock:
+                if _shutting_down:
+                    return
+                proc = spawner(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                _inflight.add(proc)
+        except Exception as exc:
+            log.debug("actionable notify-send failed to start: %s", exc)
+            return
+
+        try:
+            stdout, _ = proc.communicate(timeout=_ACTION_TIMEOUT_S)
         except Exception as exc:
             log.debug("actionable notify-send failed: %s", exc)
+            try:
+                proc.kill()
+                proc.communicate(timeout=1.0)
+            except Exception:
+                log.debug("could not kill a timed-out notify-send", exc_info=True)
             return
-        key = parse_action_result(getattr(proc, "stdout", ""), actions)
+        finally:
+            with _inflight_lock:
+                _inflight.discard(proc)
+
+        key = parse_action_result(stdout, actions)
         if key and on_action is not None:
             try:
                 on_action(key)

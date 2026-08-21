@@ -23,7 +23,8 @@ def get_user_name(user_id):
 
 The engine has no way to know that "open paren" is a symbol rather than a word,
 or that "get user name" is one snake_case identifier rather than three words.
-Code mode is what supplies that missing intent.
+Code mode is what supplies that missing intent. **Planned — designed and tested,
+not yet wired**, so `features enable` refuses it for now.
 
 ```sh
 yazses features enable code
@@ -40,7 +41,8 @@ yazses features info code   # exact behaviour and an example
 
 ## Maths and LaTeX
 
-If you write papers rather than programs, spoken maths is injected as LaTeX:
+If you write papers rather than programs, spoken maths is injected as LaTeX.
+**Planned — not yet wired**, so `features enable` refuses it for now:
 
 ```sh
 yazses features enable math
@@ -60,6 +62,12 @@ A structured grammar maps spoken phrases onto git operations. The important part
 is the safety design: **destructive operations wait for a spoken confirmation**,
 and the undo is always spoken back to you. Say *"force push"* and it does not
 immediately force-push — it asks, and it tells you how to reverse it.
+
+Say a branch name the way it is written: *"create branch feature slash login"*
+becomes `git checkout -b feature/login`, and the capitalisation you speak is kept,
+because git refs are case-sensitive. A phrase the grammar does not recognise is
+**refused rather than partly understood** — it prints what it does understand
+instead of running a command against a name it only half heard.
 
 ## Terminal safety
 
@@ -91,7 +99,7 @@ capabilities extend this for development work:
 | Voice Jump-to-Symbol | `yazses features enable jump` | Jump to a symbol by name |
 | Voice Fuzzy File Open | `yazses features enable fileopen` | Open a file by speaking part of its name |
 | Spoken Shell Pipeline Builder | `yazses features enable shellpipe` | Compose a shell pipeline by voice |
-| Spoken Regex Builder | `yazses features enable spokenregex` | Describe a regex in words |
+| Spoken Regex Builder | `yazses features enable spokenregex` *(planned — not yet wired)* | Describe a regex in words |
 | Auto-Pairing & Wrap | `yazses features enable autopair` | Balance brackets and quotes |
 | Voice Case Transform | `yazses features enable casetransform` | Re-case an identifier by voice |
 
@@ -109,6 +117,12 @@ be transcribed correctly. It is off by default:
 lsp_enabled = true
 lsp_editor = "neovim"
 ```
+
+!!! warning "These keys are not read"
+
+    The editor-context prompt was designed and never wired — the daemon does not
+    construct the editor bridge, so setting these changes nothing. `yazses jump`
+    contacts your editor directly and works regardless of them.
 
 You can also maintain a [personal vocabulary](../how-to/personal-vocabulary.md)
 of project-specific names the model keeps mishearing.

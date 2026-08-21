@@ -53,8 +53,48 @@ yazses doctor        # confirms which model is configured and whether it is cach
 ```
 
 The model downloads once, on first use, and is cached in
-`~/.cache/huggingface/hub`. Only the model you configure is downloaded — there is
-no bundle of all three.
+`~/.cache/huggingface/hub` (the same path on Linux, macOS and Windows). Only the
+model you configure is downloaded — there is no bundle of all three.
+
+## Installing a model without network access
+
+Transcription is offline. The *model* is not: it has to reach the machine once.
+That single download is the only moment YazSes needs the network, and on a
+locked-down machine — a personal firewall, a corporate proxy, an air-gapped box —
+it is exactly the moment that fails.
+
+You do not have to leave it to chance. Fetch it as its own step:
+
+```bash
+yazses model list                  # every model, and which are already here
+yazses model download base.en      # fetch one deliberately, with progress
+```
+
+If the machine cannot reach `huggingface.co` at all, copy the model in by hand.
+`yazses model list` prints the cache directory; download the repo on any machine
+that does have access and place it there:
+
+| Model | Repository |
+|---|---|
+| `tiny.en` | <https://huggingface.co/Systran/faster-whisper-tiny.en> |
+| `base.en` | <https://huggingface.co/Systran/faster-whisper-base.en> |
+| `small.en` | <https://huggingface.co/Systran/faster-whisper-small.en> |
+
+The names are not a pattern you can extrapolate — `large` resolves to
+`large-v3`, and `turbo` comes from a different organisation entirely — so take
+the repository from `yazses model list` rather than guessing.
+
+You can also point `[stt] model` straight at a directory, which skips the cache
+and the hub completely:
+
+```toml
+[stt]
+model = "/opt/models/faster-whisper-base.en"
+```
+
+`yazses doctor` reports whether the configured model is present either way, and
+if the daemon ever starts without one it says which of these routes to take
+instead of failing silently.
 
 ## Non-English
 

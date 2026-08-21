@@ -20,6 +20,27 @@ _WRAP = {
 _QUOTES = ('"', "'", "`")
 
 
+def _opens_a_quote(text: str, i: int) -> bool:
+    """Is the quote character at *i* opening a quotation, or is it an apostrophe? Pure.
+
+    Only ``'`` is ambiguous, and it is ambiguous in the commonest words in English. Every
+    apostrophe was read as an opening single quote, so an odd number of contractions
+    appended a stray one and an even number silently did not:
+
+        "it's fine"            ->  "it's fine'"
+        "the user's file"      ->  "the user's file'"
+        "I can't see O'Brien"  ->  unchanged, because the two happened to pair
+
+    A quotation never opens directly after a letter or digit -- there is a space or a line
+    start first -- while an apostrophe always follows one ("it's", "users'", "1990's"). A
+    closing quote is not decided here: once a ``'`` has opened, the next one closes it, so
+    "he said 'hi'" still balances.
+    """
+    if text[i] != "'":
+        return True
+    return i == 0 or not (text[i - 1].isalpha() or text[i - 1].isdigit())
+
+
 def balance_delimiters(text: str) -> str:
     """Append the closers needed to balance brackets and quotes in ``text``. Pure.
 
@@ -30,13 +51,13 @@ def balance_delimiters(text: str) -> str:
     s = text or ""
     stack = []          # expected closer chars, innermost last
     open_quote = None
-    for ch in s:
+    for i, ch in enumerate(s):
         if open_quote is not None:
             if ch == open_quote:
                 open_quote = None
                 stack.pop()
             continue
-        if ch in _QUOTES:
+        if ch in _QUOTES and _opens_a_quote(s, i):
             open_quote = ch
             stack.append(ch)
         elif ch in _OPEN:

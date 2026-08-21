@@ -37,11 +37,13 @@
 #    editable — it only knows whether *a* text field has focus, never whether
 #    it is the one you meant.
 #
-# [commands] lsp_enabled = true feeds VS Code's LSP symbols to Whisper as
-# context, which measurably helps with identifiers. It needs the YazSes VS Code
-# extension to write the context file; that extension is not published yet, so
-# the setting is off below. Without it the bridge logs a warning and context
-# injection stays disabled — it never breaks dictation. See
+# [commands] lsp_enabled is INERT in this build, and the blocker is not the
+# missing VS Code extension. Nothing in src/ reads lsp_enabled or lsp_editor at
+# all — the daemon never constructs the editor bridge — so setting them has no
+# effect, logs no warning, and feeds nothing to Whisper. They are left here at
+# their defaults because the loader accepts them and removing a key people may
+# already have set is a separate decision. The design is real and the module
+# exists (commands/lsp_context.py); what is missing is the wiring. See
 # docs/how-to/editor-jump.md.
 
 [stt]

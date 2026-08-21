@@ -1,6 +1,6 @@
 ---
-title: The science of post-keyboard input — voice, eye and muscle interfaces, measured
-description: An open, cited research notebook on post-keyboard human-computer interaction. How accurate webcam eye tracking really is, how offline speech recognition overtook the cloud, and why a $50 EMG electrode beats a $1,000 EEG headset — every number sourced, everything running on a laptop CPU.
+title: "Post-keyboard input, measured: voice, eye and muscle"
+description: An open, cited research notebook on voice, gaze and EMG input — what the measurements actually say, all of it running offline on an ordinary laptop CPU.
 ---
 
 # Research: the science of post-keyboard input
@@ -47,6 +47,9 @@ If you read nothing else, these five results are the whole argument:
   behind a swappable interface, so an experiment replaces one box and leaves
   the rest of the pipeline intact —
   [platform details & how to cite](get-involved.md#for-researchers-evaluation-citation-collaboration).
+  Sitting on interview recordings that an ethics approval forbids you to upload?
+  [Transcribe them without the audio leaving your
+  computer](../use-cases/research-interview-transcription.md).
 
 - :material-school-outline: **I'm a student.**
   There are eight thesis- and course-sized projects with an open issue, a
@@ -81,9 +84,22 @@ the hardware.
   correction cost outranks word error rate, and the three things we have not
   measured.
 
+- :material-alphabetical-variant: **[Glossary](glossary.md)**
+  Plain definitions for the speech, HCI and evaluation terms these pages use —
+  including why WER is not enough and what text-entry research reports instead.
+
 - :material-help-circle-outline: **[Ten open questions](agenda.md)**
   The research agenda: what we think is worth measuring next, with the method
   and the literature for each. Three need no new code. All are open.
+
+- :material-signs-pointing-outline: **[Where YazSes goes next](directions.md)**
+  The forward-looking directions, sorted by what is actually buildable: on an
+  ordinary laptop today, only after a measurement, or not without a lab. Plus
+  what we have decided *not* to pursue, and why.
+
+- :material-toolbox-outline: **[Ten gaps for researchers](framework-gaps.md)**
+  What YazSes still lacks before you could run, replicate and publish a study
+  with it — deliberately unflattering, with the seam and the size for each.
 
 - :material-eye-outline: **[Eye control](eye-control.md)**
   What a $20 webcam can and cannot know about where you look — and why

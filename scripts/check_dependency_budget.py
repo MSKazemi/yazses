@@ -127,6 +127,67 @@ def base_dependency_names() -> list[str]:
     return names
 
 
+def base_dependency_specs(specs: list[str] | None = None) -> dict[str, str]:
+    """Canonical name → its environment marker (``""`` when it has none).
+
+    The name alone is not the cost. ``Pillow; sys_platform == "win32"`` is free
+    for every Linux and macOS user; the same line without the marker is in
+    everyone's base install. Both reduce to "Pillow", so a name-only comparison
+    reports no change for a widening that makes every non-Windows user download
+    it — which is precisely what ADR-016 says must not happen quietly ("a user
+    who never enables it must not pay a byte").
+    """
+    source = specs if specs is not None else _pyproject()["project"]["dependencies"]
+    out: dict[str, str] = {}
+    for spec in source:
+        name = re.split(r"[\[<>=!~; ]", spec, maxsplit=1)[0]
+        marker = spec.split(";", 1)[1].strip() if ";" in spec else ""
+        out[canonical(name)] = marker
+    return out
+
+
+def check_markers(current: dict[str, str], baseline: dict, *, is_pull_request: bool) -> bool:
+    """Fail when a dependency's platform marker is dropped or loosened.
+
+    Only the *widening* direction is a failure. Adding a marker shrinks who pays
+    and needs no ceremony; removing one is a real cost increase that the name
+    comparison cannot see.
+
+    Baselines recorded before this field existed simply have nothing to compare
+    against, and pass — a gate that starts failing on old data teaches people to
+    re-record without reading, which is the opposite of the point.
+    """
+    recorded: dict[str, str] = baseline.get("base_dependency_markers") or {}
+    if not recorded:
+        return True
+
+    widened = sorted(
+        name for name, marker in recorded.items()
+        if marker and not current.get(name, marker)
+    )
+    if not widened:
+        return True
+
+    detail = ", ".join(f"{name} (was: {recorded[name]})" for name in widened)
+    if OVERRIDE_LABEL in pr_labels():
+        print(
+            f"  {len(widened)} dependency now installs everywhere: {detail} — allowed, "
+            f"PR carries '{OVERRIDE_LABEL}'. Run --record-baseline before merge."
+        )
+        return True
+
+    print(
+        f"  ✋ {len(widened)} dependency lost its platform marker: {detail}\n"
+        f"     The name did not change, so the count above is unmoved — but every "
+        f"platform now downloads it. ADR-016: a user who never enables a capability "
+        f"must not pay a byte for it.\n"
+        f"     If this is deliberate, label the PR '{OVERRIDE_LABEL}' and re-record "
+        f"the baseline. Check the packaged installs too (snap cannot pip-install at "
+        f"runtime, so a new base dependency must be bundled or be honestly absent)."
+    )
+    return not is_pull_request
+
+
 def declared_extras() -> list[str]:
     return sorted(_pyproject()["project"].get("optional-dependencies", {}))
 
@@ -168,6 +229,12 @@ def write_baseline(base_dependencies: list[str], import_time_us: int) -> None:
             "the diff."
         ),
         "base_dependencies": sorted(base_dependencies, key=str.lower),
+        # Name → environment marker. Recorded separately because the name alone
+        # does not carry the cost: dropping `; sys_platform == "win32"` puts a
+        # dependency in every install while the name list is unchanged.
+        "base_dependency_markers": {
+            name: marker for name, marker in sorted(base_dependency_specs().items()) if marker
+        },
         "import_time_budget_us": import_time_us,
     }
     BASELINE_FILE.write_text(json.dumps(baseline, indent=2) + "\n", encoding="utf-8")
@@ -430,6 +497,7 @@ def main(argv: list[str] | None = None) -> int:
             )
 
     ok = check_growth(current, growth_baseline, is_pull_request=is_pull_request)
+    ok &= check_markers(base_dependency_specs(), growth_baseline, is_pull_request=is_pull_request)
     ok &= check_extras_covered(declared_extras())
     ok &= check_eager_imports(modules)
     ok &= check_import_time(cumulative_us, baseline, enforced=in_ci)

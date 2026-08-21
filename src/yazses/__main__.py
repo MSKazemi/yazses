@@ -11,12 +11,21 @@ Modes:
 - ``--cli``     → run the Typer CLI; remaining args pass through to it
 - ``--settings``→ open the graphical settings window (the Start-menu
   shortcut and the tray's "Settings…" entry both use this)
+- ``--overlay`` → run the voice-activity overlay (the daemon launches it)
 
 The default mode depends on which executable was launched. The Windows bundle
-ships two: a windowed ``YazSes.exe`` (tray/daemon, no console) and a console
+ships two: a windowed ``YazSesApp.exe`` (tray/daemon, no console) and a console
 ``yazses-cli.exe`` behind a ``yazses`` shim. A GUI-subsystem binary has no
 stdout to write to, so the CLI has to be reachable through the console one or
 ``yazses doctor`` prints nothing at all.
+
+Whenever this entry point routes to the CLI it first calls
+``wincon.ensure_streams()``. That is the safety net for a CLI command that
+reaches the windowed binary despite the shim — it borrows the launching
+terminal's console if there is one, and otherwise guarantees the std streams are
+at least not ``None``. Without it, ``sys.stdout.isatty()`` anywhere downstream
+raises ``AttributeError`` and Windows renders it as an "Unhandled exception in
+script" dialog rather than an error message.
 """
 
 from __future__ import annotations
@@ -25,9 +34,21 @@ import sys
 from pathlib import Path
 
 # Executables whose bare invocation means "run the CLI" rather than "run the
-# tray". Matched on the argv[0] stem, so YazSes.exe and yazses-cli.exe stay
+# tray". Matched on the argv[0] stem, so YazSesApp.exe and yazses-cli.exe stay
 # distinguishable on a case-insensitive filesystem.
 _CLI_SUFFIX = "-cli"
+
+
+def _run_cli(args: list[str]) -> None:
+    """Dispatch to the Typer CLI, with printable streams guaranteed first."""
+    from yazses.system.wincon import ensure_streams
+
+    ensure_streams()
+
+    from yazses.cli import app
+
+    sys.argv = [sys.argv[0]] + args
+    app()
 
 
 def default_mode(argv0: str) -> str:
@@ -59,16 +80,23 @@ def main() -> None:
 
         sys.argv = [sys.argv[0]] + args[1:]
         run_settings()
-    elif mode == "--cli":
-        from yazses.cli import app
+    elif mode == "--overlay":
+        # The daemon launches the voice-activity overlay as its own process. Without
+        # a branch here there was no argv the bundle would accept for it at all, so
+        # the overlay was unreachable from a .app or .exe by construction -- the
+        # daemon's launch fell through to the CLI, exited 2, and had no console to
+        # say so.
+        from yazses.overlay.app import run as run_overlay
 
         sys.argv = [sys.argv[0]] + args[1:]
-        app()
+        run_overlay()
+    elif mode == "--cli":
+        _run_cli(args[1:])
     else:
         # No mode flag → default to CLI (matches the pip-installed `yazses` script).
-        from yazses.cli import app
-
-        app()
+        # `YazSesApp.exe doctor` lands here too, which is why _run_cli fixes up
+        # the std streams before Typer touches them.
+        _run_cli(args)
 
 
 if __name__ == "__main__":

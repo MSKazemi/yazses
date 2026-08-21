@@ -57,7 +57,7 @@ Copy this, replacing the task ID:
 I'm making one contribution to the YazSes project. I remain the author and I will
 read every line before it goes anywhere.
 
-1. Read AGENTS.md and CONTRIBUTING.md in the repo root, completely.
+1. Read AGENTS.md in the repo root and .github/CONTRIBUTING.md, completely.
 2. Run: uv run python scripts/check-task.py <TASK-ID>
    It prints the task, the exact files I may touch, and the command that decides
    whether the work is done. Treat that output as the specification.

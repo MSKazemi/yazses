@@ -50,6 +50,8 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 | `silent_streak_threshold` | int | `3` |
 | `auto_heal_device` | bool | `true` |
 | `device_poll_interval_s` | float | `3.0` |
+| `voice_answer` | bool | `false` |
+| `voice_answer_window_s` | float | `45.0` |
 
 ## `[injection]`
 
@@ -65,6 +67,8 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 | Key | Type | Default |
 |---|---|---|
 | `log_level` | str | `"INFO"` |
+| `update_check` | bool | `false` |
+| `update_check_interval_hours` | int | `24` |
 
 ## `[streaming]`
 
@@ -223,6 +227,7 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 | `size_px` | int | `220` |
 | `fps` | int | `60` |
 | `cursor_offset_px` | int | `28` |
+| `reduced_motion` | str | `"auto"` |
 
 ## `[tray]`
 
@@ -703,6 +708,8 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 | Key | Type | Default |
 |---|---|---|
 | `enabled` | bool | `false` |
+| `confirm_words` | list | `[]` |
+| `cancel_words` | list | `[]` |
 
 ## `[spokenregex]`
 
@@ -815,6 +822,13 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 | Key | Type | Default |
 |---|---|---|
 | `enabled` | bool | `false` |
+
+## `[mcp]`
+
+| Key | Type | Default |
+|---|---|---|
+| `ask_human` | bool | `false` |
+| `ask_human_per_hour` | int | `3` |
 
 ## `[recimport]`
 
@@ -1025,6 +1039,9 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 | Key | Type | Default |
 |---|---|---|
 | `enabled` | bool | `false` |
+| `schemes` | list | `['luhn', 'isbn13', 'isbn10']` |
+| `min_digits` | int | `12` |
+| `suggest_fix` | bool | `true` |
 
 ## `[sembr]`
 

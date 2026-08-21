@@ -61,7 +61,7 @@ yazses transcribe note.fr.m4a --language translate
 Speaker tagging is opt-in and needs a small one-time setup, because it uses a
 separate speaker model (sherpa-onnx — CPU-only, no PyTorch, no GPU, no account).
 
-**One-time:** install the extra and fetch the models (~15 MB):
+**One-time:** install the extra and fetch the models (~45 MB):
 
 ```sh
 uv sync --extra diarization                 # or: pipx inject yazses sherpa-onnx
@@ -105,8 +105,21 @@ count, telling it usually improves the split:
 yazses transcribe call.ogg --diarize --speakers 2
 ```
 
-Use `--min-speakers` / `--max-speakers` to give a range instead of an exact
-number.
+!!! warning "There is no range option on the shipped diarizer"
+
+    `--min-speakers` and `--max-speakers` read like a range and are not one.
+    Measured against the `sherpa` diarizer this build ships:
+
+    - `--max-speakers N` becomes an **exact** cluster count, not a cap. On a
+      three-person recording `--max-speakers 6` does not allow up to six, it
+      manufactures six by splitting real speakers apart.
+    - `--min-speakers` is read only by the pyannote adapter, which this build does
+      not ship, so it is **ignored**. The run says so before transcribing rather
+      than quietly dropping the floor.
+
+    If you know the count, `--speakers N` is the flag that does what you mean. If
+    you do not, leave all three alone: auto-detection is the default and is what
+    these were measured against.
 
 ### Let your own voice name itself
 

@@ -6,8 +6,11 @@ threshold can sit above the user's voice, the injector can be pointed at a windo
 ignores synthetic keys, the model can load and return empty text. Prerequisites are
 evidence *about* the parts; they are not evidence that the parts work together.
 
-This runs the real chain end to end — capture, the silence gate, transcription, injection —
-against a target the user cannot lose text into, and reports which link broke. It is the
+This runs the real chain end to end — capture, the silence gate, transcription, *cleaning*,
+injection — against a target the user cannot lose text into, and reports which link broke.
+The cleaning step is not decoration: the daemon injects what survives ``clean_text``, not
+what the model returned, so a check that skipped it certified transcripts the daemon
+discards. It is the
 only check in the project that produces evidence rather than inference, so it is also the
 only honest answer to "is it definitely going to work when I press the key?".
 
@@ -17,6 +20,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+
+from yazses.postprocess.cleaner import clean_text
 
 
 @dataclass(frozen=True)
@@ -102,7 +107,74 @@ def verify(
             "language — try a larger one with `[stt] model`.",
         )
         return result
-    result.add("Transcription", True, f"produced {len(text.split())} word(s)")
+    # The daemon does not inject what the model returns; it injects what survives
+    # `clean_text`, and a burst cleaned to nothing is discarded (core/daemon.py, the
+    # "Empty transcription" branch). Verifying the raw string instead certified a chain
+    # the daemon would silently drop: `[BLANK_AUDIO]` is the commonest thing Whisper
+    # emits for silence, it is non-empty, and it printed as `heard "[BLANK_AUDIO]"`
+    # above "Dictation works end to end on this machine". A muted microphone therefore
+    # passed the one check whose entire job is to find the broken link.
+    cleaned = clean_text(text)
+    if not cleaned.strip():
+        result.add(
+            "Transcription", False,
+            f'the model heard silence and returned only "{" ".join(text.split())[:40]}", '
+            "which is discarded before anything is typed. The level cleared the gate, so "
+            "something is being captured — but not your voice. Check the microphone is "
+            "unmuted and is the one being captured: `yazses audio status`.",
+        )
+        return result
+    # `clean_text` strips `[BLANK_AUDIO]`, but the model's other silence artefacts are
+    # ordinary English and survive it. `postprocess/hallucination.py` already recognises
+    # them and verify never asked: a clip of pure room noise decoding to "Thanks for
+    # watching" printed as a passing Transcription step under "Dictation works end to end".
+    #
+    # Only whole-transcript matches against the outro list are used, which is that
+    # module's own premise -- nobody dictates "please subscribe" as an entire utterance.
+    # Nothing here is a general "does this look invented?" test, and it must not become
+    # one: see the note below on why that call belongs to the user.
+    from yazses.postprocess.hallucination import is_ghost_phrase, is_repetition_loop
+
+    if is_ghost_phrase(cleaned):
+        result.add(
+            "Transcription", False,
+            f'the model returned "{" ".join(cleaned.split())[:40]}" -- a phrase Whisper '
+            "invents for silence, not something anyone dictates. The level cleared the "
+            "gate, so something is being captured, but not your voice. Check the mic is "
+            "unmuted and is the one being used: `yazses audio status`.",
+        )
+        return result
+    if is_repetition_loop(cleaned):
+        result.add(
+            "Transcription", False,
+            f'the model looped on one phrase ("{" ".join(cleaned.split())[:40]}"), which '
+            "is a decode failure rather than speech. Try a larger `[stt] model`, or check "
+            "the recording is not near-silence: `yazses mic-level`.",
+        )
+        return result
+
+    text = cleaned
+    # Show the words, not a count of them. A count cannot be checked against what
+    # you said, so it cannot contradict anything: run in a quiet room with nobody
+    # speaking, this printed "produced 1 word(s)" and then "Dictation works end to
+    # end", because ambient noise cleared the gate and the model answered
+    # near-silence with a confident invented word. That is the real shape of a
+    # muted or wrong microphone in a room with any noise in it.
+    #
+    # Whether a word is invented cannot be decided reliably. Whether it is what you
+    # said can -- by you, instantly, if it is on the screen.
+    #
+    # And that is exactly why the checks above stop at the KNOWN artefacts. "You" is the
+    # commonest thing this model returns for silence, and it is also an ordinary English
+    # word somebody may well have said -- adding it to the ghost list would fail a real
+    # dictation. The asymmetry runs the other way here than in the daemon: a verify that
+    # wrongly passes costs one confusing session, a verify that wrongly fails sends
+    # someone to re-calibrate a microphone that was fine.
+    spoken = " ".join(text.split())
+    n = len(text.split())
+    shown = spoken if len(spoken) <= 60 else spoken[:59].rstrip() + "\u2026"
+    detail = f'heard "{shown}"' + (f" ({n} words)" if n > 8 else "")
+    result.add("Transcription", True, detail)
 
     if inject is None:
         result.add("Injection", True, "skipped (not requested)")

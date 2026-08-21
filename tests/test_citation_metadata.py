@@ -80,20 +80,38 @@ def test_citation_does_not_use_a_version_pinned_doi() -> None:
 
 
 def test_readme_badge_uses_the_same_concept_doi() -> None:
-    """The README badge and the citation file must not disagree about the identifier.
+    """No shipped front page may name a DOI that disagrees with the citation file.
 
-    Every translation carries its own copy of the badge block, so this globs rather
-    than naming files: the list was hard-coded to `README.md` + `README.hi.md`, and
-    `README.zh-CN.md` and `README.ru.md` both arrived afterwards and were never
-    checked. A copied badge is exactly the thing that goes stale unwatched.
+    The list was once hard-coded to `README.md` + `README.hi.md`, and two more
+    translations arrived afterwards and were never checked; globbing fixed that. It
+    then broke the other way: the glob was `README.*.md` at the repo root, and when
+    the translations moved to `docs/<locale>/index.md` it matched nothing and the
+    test passed by checking one file. So the search is asserted to be non-empty and
+    to actually reach the translations.
+
+    Translations no longer carry the badge block — `material/privacy` downloads
+    every external asset at build time and zenodo.org answers that downloader with
+    403, so one DOI badge on one translated page failed the whole docs build. This
+    checks any DOI that *is* present rather than requiring one, which is what keeps
+    it correct whichever way that decision goes later.
     """
-    readmes = [REPO_ROOT / "README.md", *sorted(REPO_ROOT.glob("README.*.md"))]
-    for readme in readmes:
-        text = readme.read_text(encoding="utf-8")
+    translations = sorted(REPO_ROOT.glob("docs/*/index.md"))
+    assert len(translations) > 20, (
+        f"expected the translations at docs/<locale>/index.md, found {len(translations)} "
+        "candidates — if they moved again, repoint this glob rather than letting it "
+        "pass by matching nothing"
+    )
+    for path in [REPO_ROOT / "README.md", *translations]:
+        text = path.read_text(encoding="utf-8")
         dois = set(re.findall(r"10\.5281/zenodo\.\d+", text))
-        assert dois == {CONCEPT_DOI}, (
-            f"{readme.name} DOI badge disagrees with CITATION.cff: {dois}"
+        assert dois <= {CONCEPT_DOI}, (
+            f"{path.relative_to(REPO_ROOT)} names a DOI that disagrees with "
+            f"CITATION.cff: {sorted(dois - {CONCEPT_DOI})}"
         )
+    readme_dois = set(
+        re.findall(r"10\.5281/zenodo\.\d+", (REPO_ROOT / "README.md").read_text(encoding="utf-8"))
+    )
+    assert readme_dois == {CONCEPT_DOI}, "README.md must carry the concept-DOI badge"
 
 
 def test_citation_release_date_is_iso() -> None:

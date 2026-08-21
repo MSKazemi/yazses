@@ -1,6 +1,6 @@
 ---
-title: The HCI canon behind YazSes — 48 papers that decide how voice input should work
-description: The human-computer interaction literature behind an offline dictation tool — why hold-to-talk beats a toggle, why correction cost matters more than word error rate, why gaze picks a window and never a character, and what still has not been measured. Every reference resolved against Crossref or DataCite.
+title: "The HCI canon behind YazSes: 48 papers"
+description: The HCI literature behind an offline dictation tool — why hold-to-talk beats a toggle, why correction cost outweighs word error rate, and what is unmeasured.
 ---
 
 # The HCI canon behind YazSes

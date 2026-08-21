@@ -2,7 +2,7 @@
 
 **Status:** open for contributors · **Last updated:** 2026-08-07
 **Read first:** [`index.md`](index.md) (why + milestones), [`architecture.md`](architecture.md),
-the root [`CONTRIBUTING.md`](https://github.com/MSKazemi/yazses/blob/main/CONTRIBUTING.md)
+the root [`CONTRIBUTING.md`](https://github.com/MSKazemi/yazses/blob/main/.github/CONTRIBUTING.md)
 
 The Android app is a 6–12 month effort that the maintainer cannot build alone while also
 running the desktop line. So it is designed to be built by a group of people who have never

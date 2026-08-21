@@ -102,6 +102,16 @@ class AudioConfig:
     # Cadence of the background default-input-device watcher, in seconds. 0 disables
     # the watcher (the silent-streak detector still works, being on the hot path).
     device_poll_interval_s: float = 3.0
+    # Answer the mic guard's [Re-calibrate]/[Pin this mic]/[Ignore] toast by SAYING one
+    # of them (ADR-022, Spec 1). Without this the daemon asks a question about your
+    # microphone that can only be answered with a pointer -- and the person seeing it is
+    # the one whose dictation just stopped working. OFF by default like the other
+    # utterance-consuming guards (`[cmdsafety]`, `[checkdigit]`): it swallows a burst
+    # that would otherwise be typed, and that is a behaviour change to opt into.
+    voice_answer: bool = False
+    # How long the toast stays answerable by voice. Bounded on purpose -- "ignore" is
+    # an ordinary word, and an unbounded window arms it for the rest of the session.
+    voice_answer_window_s: float = 45.0
 
 
 @dataclass
@@ -125,15 +135,40 @@ class InjectionConfig:
 @dataclass
 class GeneralConfig:
     log_level: str = "INFO"
+    # Periodically ask whether a newer YazSes has been released and, if so, say
+    # so once with the exact steps to update.
+    #
+    # OFF by default, and it must stay that way: this is the only thing in YazSes
+    # that reaches the network on its own, and "nothing leaves the machine" is the
+    # product. A background check tells github.com/PyPI your IP and that you run
+    # this tool. Nothing about your voice, audio, text or config is ever sent —
+    # the request is a plain "what is the latest version" GET — but it is still an
+    # outbound connection the user has to choose. Turn it on with
+    # `yazses features enable update-check`.
+    update_check: bool = False
+    update_check_interval_hours: int = 24
 
 
 @dataclass
 class StreamingConfig:
-    # Disabled by default: live-partial injection corrects on commit via
-    # shift+Left selection (inject/streaming.py), which deletes text in apps
-    # where shift+Left isn't "extend selection". Batch transcribe-on-release is
-    # the reliable, higher-accuracy path proven by tools like nerd-dictation and
-    # faster-whisper-dictation. Opt back in with [streaming] enabled = true.
+    # Disabled by default for two independent reasons.
+    #
+    # Correctness: live-partial injection corrects on commit via shift+Left
+    # selection (inject/streaming.py), which deletes text in apps where
+    # shift+Left isn't "extend selection". Batch transcribe-on-release is the
+    # reliable, higher-accuracy path proven by tools like nerd-dictation and
+    # faster-whisper-dictation.
+    #
+    # Latency: streaming does NOT make the final text arrive sooner — commit()
+    # re-decodes the whole utterance anyway, now competing with a decode loop
+    # running every partial_interval_ms. Measured (paper/benchmark/bench_streaming.py,
+    # n=15 real-time-fed utterances): speech-end -> final text 0.92 s -> 1.22 s on
+    # tiny.en, and 1.42 s -> 2.21 s on base.en. Worse, on base.en the rolling
+    # decode cannot keep up with the audio, so LocalAgreement confirmed no prefix
+    # at all before release in 9 of 15 utterances (0 % visible at release, vs 72 %
+    # on tiny.en). Streaming is only a win on tiny.en.
+    #
+    # Opt back in with [streaming] enabled = true.
     enabled: bool = False
     partial_interval_ms: int = 300
     partial_marker: str = ""
@@ -529,6 +564,11 @@ class OverlayConfig:
     size_px: int = 220               # overlay window square size
     fps: int = 60                    # render tick rate
     cursor_offset_px: int = 28       # offset from the pointer so it isn't under the caret
+    # auto | on | off. `auto` follows the desktop's own reduce-animations setting
+    # (GNOME, macOS, Windows); a desktop it cannot read means full motion, as before.
+    # Reduced motion keeps the ring and drops the travel -- it removes the animation,
+    # not the answer to "am I being heard".
+    reduced_motion: str = "auto"
 
 
 @dataclass
@@ -1056,8 +1096,29 @@ class CmdspotterConfig:
 
 @dataclass
 class CmdsafetyConfig:
-    """v2.5 Wave I — Terminal Command Safety Gate (ADR-v2-065). OFF by default."""
+    """Command Safety Gate — hold a dangerous dictated command pending a spoken confirm
+    (ADR-v2-065). OFF by default.
+
+    **Why this does not gate on "am I in a terminal".** The feature was designed as a
+    *terminal* gate, and the obvious implementation asks the focus detector whether a
+    terminal is focused. That answer is unavailable in exactly the sessions where the
+    guard matters most: `TargetDetector` needs AT-SPI or X11, so on Wayland without
+    AT-SPI the app class is `""`. A guard that silently stops protecting on a whole
+    display server is worse than no guard, because the user believes it is on.
+
+    So the gate reads the *command text* and nothing else. That is defensible because
+    the patterns in `cmdsafety/classify.py` are highly specific -- `rm -rf`, `mkfs`,
+    `dd of=`, a fork bomb, `curl | sh`. Prose that matches one of them is vanishingly
+    rare, and when it happens the cost is one spoken "confirm". The reverse mistake --
+    letting a mis-heard `rm -rf /` through because the display server hid the window
+    class -- is unrecoverable. Asymmetric costs, so the gate fails safe.
+    """
     enabled: bool = False
+    # Phrases that release a held command / discard it. Empty falls back to the
+    # defaults in `cmdsafety/spoken.py` rather than disabling the words, because a
+    # held command with no release phrase cannot be run at all.
+    confirm_words: list[str] = field(default_factory=list)
+    cancel_words: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -1173,6 +1234,28 @@ class ShellpipeConfig:
 
 
 @dataclass
+class McpConfig:
+    """Being callable by another agent over MCP (ADR-020). Off by default.
+
+    Two tools and only two. `transcribe` reads a file the caller already has and
+    returns text — it touches no microphone and no window, so it needs no
+    permission beyond running the server at all.
+
+    `ask_human` is the one with restraints, because an agent that can speak to you
+    at will is an agent that can interrupt you at will. ADR-020 §4 makes the
+    interrupt budget a condition of the feature existing rather than a setting:
+    `ask_human_per_hour = 0` keeps the tool listed and always refusing, which is
+    different from the tool being absent — the caller learns *why*.
+    """
+
+    #: Offer `ask_human` at all. `yazses mcp-server` always offers `transcribe`.
+    ask_human: bool = False
+    #: Spoken questions allowed per rolling hour, shared across every caller — it
+    #: protects the person, not each agent's fair share. 0 = never.
+    ask_human_per_hour: int = 3
+
+
+@dataclass
 class RecimportConfig:
     """Recording Import — offline batch file transcription with speaker attribution.
 
@@ -1184,7 +1267,13 @@ class RecimportConfig:
     # sherpa (default, ONNX/no torch) | pyannote (accuracy; needs the
     # `diarization-pyannote` extra + a one-time gated HF model download) | none
     backend: str = "sherpa"
-    max_speakers: int = 0              # 0 = auto-detect
+    # NOT an upper bound on the shipped `sherpa` backend, despite the name: it becomes
+    # FastClusteringConfig(num_clusters=N), which is an EXACT cluster count. Measured
+    # against sherpa-onnx 1.13.5 on two well-separated speakers: num_clusters=2 gave
+    # 2 clusters, 4 gave 4, and 6 gave 6 -- it splits real speakers to reach the
+    # number. So a generous "at most 6" invents six people. 0 auto-detects, which is
+    # why it is the default. Only the (unshipped) pyannote backend treats it as a cap.
+    max_speakers: int = 0              # 0 = auto-detect; otherwise an EXACT count
     min_speakers: int = 0
     cluster_threshold: float = 0.5     # sherpa fast-clustering threshold (auto-count mode)
     output_format: str = "txt"         # txt | md | srt | vtt | json
@@ -1218,7 +1307,8 @@ class MeetingConfig:
     # sherpa (default, ONNX/no torch) | pyannote (accuracy; needs the
     # `diarization-pyannote` extra + a one-time gated HF model download) | none
     backend: str = "sherpa"
-    max_speakers: int = 0              # 0 = auto-detect the count
+    # Exact cluster count on the shipped backend, not a cap -- see RecimportConfig.
+    max_speakers: int = 0              # 0 = auto-detect; otherwise an EXACT count
     min_speakers: int = 0
     cluster_threshold: float = 0.5     # sherpa fast-clustering threshold (auto-count mode)
     model: str = ""                    # "" => inherit the [stt] model
@@ -1404,8 +1494,29 @@ class MorsevoxConfig:
 
 @dataclass
 class CheckdigitConfig:
-    """v2.9 Wave M — Checksum-Validated Data Entry (ADR-v2-106). OFF by default."""
+    """Checksum-Validated Data Entry (ADR-v2-106, wired by ADR-021). OFF by default.
+
+    A mis-heard digit in a card number, IBAN or ISBN is the cheapest error to catch and
+    one of the most expensive to miss: nothing downstream will notice, and the failure
+    surfaces as a declined payment or a wrong record rather than as a typo.
+
+    **It fires only on arithmetic, never on a guess.** The utterance must look like a
+    checkable number *and* fail its check digit. Digits that pass are typed with no
+    comment, and anything that is not a plausible number is not examined at all — which
+    is what keeps a guard like this from training the user to dismiss it (ADR-021: judge
+    these on how rarely they fire, not on how much they catch).
+    """
     enabled: bool = False
+    #: Which checksums to test, in order. `luhn` covers payment cards and many national
+    #: IDs; `isbn13`/`isbn10` books; `verhoeff` several government schemes (e.g. Aadhaar).
+    schemes: list[str] = field(default_factory=lambda: ["luhn", "isbn13", "isbn10"])
+    #: Shortest run of digits worth checking. Below this, false positives dominate —
+    #: a 4-digit year or a house number is not a card number, and Luhn will happily
+    #: reject it.
+    min_digits: int = 12
+    #: Offer the single-digit correction when exactly one candidate passes. More than one
+    #: candidate means the suggestion would be a guess between them, so none is offered.
+    suggest_fix: bool = True
 
 
 @dataclass
@@ -1643,6 +1754,7 @@ class Config:
     fileopen: FileopenConfig = field(default_factory=FileopenConfig)
     jump: JumpConfig = field(default_factory=JumpConfig)
     shellpipe: ShellpipeConfig = field(default_factory=ShellpipeConfig)
+    mcp: McpConfig = field(default_factory=McpConfig)
     recimport: RecimportConfig = field(default_factory=RecimportConfig)
     meeting: MeetingConfig = field(default_factory=MeetingConfig)
     crowdproof: CrowdproofConfig = field(default_factory=CrowdproofConfig)

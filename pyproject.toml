@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "yazses"
-version = "2.18.2"
-description = "Local, offline voice dictation for Linux, macOS, and Windows — hold a key, speak, release"
+version = "2.29.0"
+description = "Local, offline-by-default voice dictation for Linux, macOS, and Windows — hold a key, speak, release"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.11"
@@ -46,9 +46,24 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: Microsoft :: Windows",
+    # One line per interpreter the test matrix actually runs the suite on --
+    # no more, no less. PyPI renders these as the project's own answer to "does
+    # this run on my Python?", and packagers filter on them without ever seeing
+    # the CI matrix, so drift here is a wrong answer given to the people least
+    # able to check it. 3.13 and 3.14 were green for weeks while these two lines
+    # still said otherwise. `tests/test_platform_support_claims.py` holds both
+    # directions of this invariant, so adding a matrix entry without a classifier
+    # (or a classifier without a matrix entry) now fails the suite.
+    #
+    # Deliberately absent: `Operating System :: POSIX :: BSD`. A BSD backend
+    # ships and is unit-tested, but `pip install yazses` cannot succeed there --
+    # ctranslate2 has no BSD wheel and no sdist (#306) -- and a classifier says
+    # the install works. Same test guards that omission.
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Multimedia :: Sound/Audio :: Speech",
 ]
 dependencies = [
@@ -109,9 +124,21 @@ Repository = "https://github.com/MSKazemi/yazses"
 [project.scripts]
 yazses = "yazses.cli:main"
 yazses-daemon = "yazses.main:run"
+yazses-agent = "yazses.remote.agent:main"
+
+# Windowed programs. On Windows, pip builds a console launcher for
+# [project.scripts] and a pythonw launcher for [project.gui-scripts] — so
+# listing these above meant a console window appeared behind the tray, the
+# settings window and the overlay, and popped up at every login (Windows
+# autostart runs yazses-tray.exe). Identical to [project.scripts] on Linux and
+# macOS, where the two tables generate the same launcher.
+#
+# Each of these run() functions calls system.wincon.ensure_streams() first: a
+# GUI launcher has no console, so sys.stderr is None and logging.basicConfig
+# would raise on its first line.
+[project.gui-scripts]
 yazses-tray = "yazses.tray.app:run"
 yazses-settings = "yazses.settingsui.app:run"
-yazses-agent = "yazses.remote.agent:main"
 yazses-overlay = "yazses.overlay.app:run"
 
 [project.optional-dependencies]
@@ -263,6 +290,23 @@ dev = [
     "ruff>=0.14.5",
     "mypy>=1.19.1",
     "jiwer>=3.0.0",
+    # Pillow is a win32-only runtime dep (the pystray tray), but the brand-mark
+    # renderer and `scripts/gen-icons.py` need it on every platform so the icon
+    # assets can be regenerated and unit-tested on the Linux CI leg too.
+    "Pillow>=12.3.0",
+]
+# Reproducible benchmark harness behind docs/benchmarks.md and the arXiv paper
+# (paper/benchmark/). Build-only; never shipped in the wheel. `uv sync --group
+# benchmark` then `uv run python paper/benchmark/run_all.py`. jiwer = WER scoring;
+# whisper-normalizer = Whisper's own EnglishTextNormalizer, the standard that makes
+# our WER comparable with other Whisper results; psutil = RSS; soundfile = read
+# LibriSpeech FLAC; matplotlib = the paper figures.
+benchmark = [
+    "jiwer>=4.0.0",
+    "psutil>=7.1.0",
+    "matplotlib>=3.10.0",
+    "soundfile>=0.14.0",
+    "whisper-normalizer>=0.1.15",
 ]
 # Documentation site (MkDocs + Material). Build-only; never shipped in the wheel.
 # `uv sync --group docs` then `uv run mkdocs serve`. Deployed to GitHub Pages by
@@ -295,6 +339,14 @@ ignore = [
     "E731",  # lambda assignment — used in tests as compact stubs
     "E702",  # `x = 1; i += 2; continue` — deliberate in the table-driven parsers
 ]
+
+[tool.ruff.lint.isort]
+# `_common` is the shared helper module that sits *beside* the benchmark scripts in
+# paper/benchmark/, imported as a bare name because they run from that directory.
+# Without this ruff reads it as third-party and folds it in among jiwer and numpy,
+# which is where its autofix would put it — the nine scripts that import it all keep
+# it in its own block, and that grouping is the author's, not an accident.
+known-first-party = ["_common"]
 
 [tool.ruff.lint.per-file-ignores]
 # Re-exports: package __init__ files intentionally import names they do not use.

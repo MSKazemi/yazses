@@ -1,15 +1,22 @@
 ---
 title: Multilingual offline dictation — non-English speech to text and code-switching
-description: Dictate in languages other than English, translate speech to English as you speak, transliterate into a non-Latin script, and handle sentences that naturally mix two languages — all running on-device with no cloud service.
+description: YazSes is English-tuned and ships an English-only model. Whisper itself is multilingual, so you can point YazSes at a multilingual checkpoint yourself — this page shows how, including translation, transliteration and code-switching. No accuracy data is published for any non-English language.
 ---
 
 # Dictating in more than one language
 
-**Short answer:** the underlying Whisper model is multilingual, so dictation is not
-English-only. YazSes adds the layers around it that bilingual speakers actually
-need — switching language per application, transliterating into a non-Latin
-script, translating as you speak, and handling sentences that mix two languages
-mid-thought.
+!!! warning "Bottom line first: YazSes is an English dictation tool"
+
+    YazSes ships `base.en` and is tuned for English, and **every accuracy benchmark this
+    project publishes is English** ([LibriSpeech](../benchmarks.md)). **We do not claim
+    support for any other language.** What follows is a how-to, not a support claim.
+
+**Short answer:** the *underlying Whisper model* is multilingual, so if you supply a
+multilingual checkpoint yourself, YazSes will pass your chosen language through to it.
+On top of that YazSes adds some conveniences bilingual speakers ask for — switching
+language per application, transliterating into a non-Latin script, translating as you
+speak, and handling sentences that mix two languages mid-thought. **The recognition
+quality in any of those languages is Whisper's, and we have not measured it.**
 
 All of it runs on your machine. This matters for languages where the cloud
 alternatives are weakest or absent entirely.
@@ -122,7 +129,8 @@ switch, rather than forcing the whole utterance through one language setting.
 ## Per-application language switching
 
 If you write in one language in your email client and another in your editor,
-switching by hand every time is friction that makes dictation not worth using:
+switching by hand every time is friction that makes dictation not worth using.
+**Planned — not yet wired**, so `features enable` refuses it for now:
 
 ```sh
 yazses features enable langroute
@@ -138,8 +146,8 @@ Two distinct capabilities, often confused:
 |---|---|
 | Speak language X, get text in language X | Set `[stt] language` |
 | Speak language X, get **English** text | `yazses features enable translate` |
-| Speak language X, get text composed in language Y | `yazses features enable compose` |
-| Two people, two languages, back and forth | `yazses features enable interpret` |
+| Speak language X, get text composed in language Y | `yazses features enable compose` *(planned — not yet wired)* |
+| Two people, two languages, back and forth | `yazses features enable interpret` *(planned — not yet wired)* |
 
 For an existing recording rather than live dictation, the same translation path is
 one flag:
@@ -185,7 +193,8 @@ the backend before changing the model.
 
 If you are dictating in a language you are still learning, there is an optional
 capability that gives you feedback on pronunciation rather than silently
-transcribing something you did not intend:
+transcribing something you did not intend. **Planned — not yet wired**, so
+`features enable` refuses it for now:
 
 ```sh
 yazses features enable pronunciation

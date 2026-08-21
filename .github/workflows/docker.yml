@@ -3,13 +3,23 @@
 # Uses the built-in GITHUB_TOKEN with `packages: write` — no new secrets.
 name: docker
 
+# NOTE ON THE TRIGGER (fixed 2026-08-14 — do not re-add `paths:`)
+#
+# This used to carry a `paths:` filter alongside `tags: ["v*"]`. A `push` filter
+# set applies to EVERY push the workflow sees, tags included, and a tag push
+# changes no files — so the paths filter matched nothing and silently suppressed
+# every tag build. Result: `7aa2879 ci: ... let a tag publish the container` never
+# did. Five releases (v2.16.0 -> v2.18.2) produced zero tag-triggered runs, and
+# `ghcr.io/mskazemi/yazses:latest` still 404s.
+#
+# The cost of dropping `paths` is that a push to main now always runs the build +
+# smoke test (~1.5 min) instead of only when docker files change. That is a build-
+# health check on the release artifact, which is worth 1.5 minutes. The publish is
+# still gated on the tag ref by the `if:`/`push:` conditions below, so a push to
+# main still cannot move `latest`.
 on:
   push:
     branches: [main]
-    paths:
-      - "packaging/docker/**"
-      - ".github/workflows/docker.yml"
-      - "pyproject.toml"
     tags: ["v*"]
   workflow_dispatch:
 
@@ -64,6 +74,44 @@ jobs:
       - name: Version being installed
         id: version
         run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      # The image installs `yazses[diarization]==<version>` from PyPI, but the
+      # PyPI upload happens in release.yml, which a tag starts at the same
+      # moment as this workflow. Whichever wins the race decides whether the
+      # release gets a container: on v2.19.0 and v2.20.0 this job lost, pip
+      # found no such version, and the tag shipped without an image until
+      # someone re-ran it by hand. Wait for the version to exist instead.
+      # This waits on what `pip install` resolves against, NOT on the JSON
+      # metadata API. On v2.24.0 the old check polled
+      # https://pypi.org/pypi/yazses/<v>/json, saw 200, and the Docker build
+      # failed SIXTEEN SECONDS later with "no matching distribution", listing
+      # versions that stopped one release short. The two surfaces are cached
+      # separately and the metadata API leads -- so the guard passed while the
+      # thing it guards was still untrue.
+      #
+      # The PEP 503 simple index is what pip resolves against, so waiting for the
+      # artifact to appear *there* is waiting for the thing that actually failed.
+      # Deliberately not `pip download`: that would be the most faithful test, and
+      # it silently assumes pip is installed -- a venv without it reports the same
+      # "cannot resolve" as a missing release, which is a false negative in the
+      # direction that blocks every build.
+      - name: Wait for PyPI to serve this version to pip
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -uo pipefail
+          for attempt in $(seq 1 40); do
+            if curl -fsS https://pypi.org/simple/yazses/ \
+                 | grep -q "yazses-${VERSION}-py3-none-any.whl"; then
+              echo "the index pip reads serves yazses ${VERSION} (attempt ${attempt})."
+              exit 0
+            fi
+            echo "yazses ${VERSION} not in the simple index yet; retrying in 30s (${attempt}/40)."
+            sleep 30
+          done
+          echo "::error::yazses ${VERSION} never reached the simple index -- refusing to build an image that would pin the wrong version."
+          exit 1
 
       - name: Build and push
         id: push

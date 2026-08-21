@@ -190,6 +190,14 @@ Describe a capability — what it does, a usage example, and how to toggle it.
 
 - **Arguments:** `name`
 
+### `yazses features reset`
+
+Restore every capability to the state a fresh install ships with.
+
+- `--yes`, `-y` — Skip the confirmation prompt.
+- `--dry-run` — List what would change and write nothing.
+- `--no-install` — Don't auto-install optional deps for what it turns on.
+
 ## `yazses fileopen`
 
 Open a file by voice: fuzzy matches your spoken query against files in a directory.
@@ -272,6 +280,10 @@ Flag the last dictation as a misrecognition (a learning signal).
 
 - `--correction`, `-c` — What you actually said (optional).
 
+## `yazses mcp-server`
+
+Expose YazSes to another agent over MCP, on stdin/stdout (ADR-020).
+
 ## `yazses meeting`
 
 Hands-free meeting recording with who-said-what speaker labels + notes.
@@ -330,13 +342,13 @@ Manage SLM intent-routing models (download / list).
 
 ### `yazses model download`
 
-Download a GGUF model for Tier 2 SLM intent routing.
+Download a model: a speech-to-text checkpoint, or a GGUF for intent routing.
 
 - **Arguments:** `model_id`
 
 ### `yazses model list`
 
-List available SLM models and their download status.
+List available models (speech-to-text and SLM) and their status.
 
 ## `yazses outline`
 
@@ -534,8 +546,8 @@ Transcribe an audio file to text — fully offline, on your machine.
 - `--format`, `-f` — Output format: txt (default) | md | srt | vtt | json (srt/vtt add timestamps).
 - `--diarize`, `--no-diarize` — Tag who said what with local speaker models (needs the diarization extra).
 - `--speakers` — Force an exact speaker count (0 = auto-detect).
-- `--min-speakers` — Lower bound on the auto-detected speaker count.
-- `--max-speakers` — Upper bound on the auto-detected speaker count.
+- `--min-speakers` — IGNORED by the shipped sherpa diarizer (only the unshipped pyannote adapter reads it) — the run warns and continues. Use --speakers to constrain the count.
+- `--max-speakers` — Force exactly this many speakers on the shipped diarizer (same as --speakers). 0 = auto-detect.
 - `--names` — Comma list mapped to speakers in order of first appearance: 'Alice,Bob,Carol'.
 - `--rename` — Explicit speaker→name map, repeatable: --rename speaker_0=Alice --rename speaker_1=Bob.
 - `--language` — 'en' (default) or 'translate' to render any-language audio into English text.
@@ -555,10 +567,11 @@ Analyze the learning corpus and propose accuracy improvements.
 
 - `--apply` — Review and apply proposals interactively.
 - `--retranscribe`, `--no-retranscribe` — Re-transcribe captured audio with a larger model to find errors.
+- `--limit` — Re-transcribe only the N most recent clips (0 = all). A full corpus can take an hour; this is the middle ground between that and --no-retranscribe.
 
 ## `yazses update`
 
-Check for a newer YazSes and update it (snap / uv tool / pipx / pip).
+Check for a newer YazSes and update it (snap / uv / pipx / pip / Windows).
 
 - `--check` — Only report whether an update is available; don't install.
 - `--yes`, `-y` — Install the update without prompting.

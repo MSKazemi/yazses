@@ -15,6 +15,7 @@ from importlib.metadata import version as _pkg_version
 from pathlib import Path
 
 from yazses.platform import PermissionState, get_platform
+from yazses.system import streams
 from yazses.system.miclevel import LevelStats
 from yazses.system.snap import in_strict_snap, keyboard_capture_advice
 
@@ -155,6 +156,45 @@ def _version_check() -> _Check:
         return ("Version", "WARN", "yazses version metadata not found")
 
 
+def _stale_daemon_note(daemon_version: str) -> str:
+    """Is the running daemon a different build from the CLI asking? Pure.
+
+    An upgrade replaces the files on disk and does not touch the process that is
+    already running: the daemon keeps executing the build it started with until
+    `yazses restart`. So after every upgrade there is a window in which `yazses
+    --version` says one thing and the code actually handling your dictation is
+    another, and until this check nothing in the product could see it. `doctor`
+    printed the CLI's version beside the daemon's *liveness* and called it healthy,
+    which is the exact shape of "exit 0 is not proof an upgrade happened".
+
+    An **empty** version is itself the answer rather than a missing one: the field
+    was added in 2.24.0, so a daemon that does not report one is necessarily older
+    than the CLI reading this. Silence is evidence here, not an unknown.
+    """
+    try:
+        installed = _pkg_version("yazses")
+    except PackageNotFoundError:
+        return ""  # nothing to compare against; _version_check already warns
+
+    if not daemon_version:
+        return (
+            "the daemon predates version reporting, so it is older than this "
+            "install — run `yazses restart` to pick up the upgrade"
+        )
+    if daemon_version != installed:
+        return (
+            f"daemon is running {daemon_version}, you have {installed} — "
+            "run `yazses restart` so dictation uses the version you installed"
+        )
+    return ""
+
+
+# The verdict line decides "is it already running?" from the daemon check's own
+# detail rather than re-asking the OS, so the bottom line can never contradict the
+# lines printed above it. Both sides go through this constant so they cannot drift.
+_RUNNING_PREFIX = "running"
+
+
 def _daemon_check(platform) -> _Check:
     """Report whether the daemon is running, with live state when IPC answers."""
     lifecycle = platform.lifecycle
@@ -169,36 +209,37 @@ def _daemon_check(platform) -> _Check:
             f"model {info.get('model')}" if info.get("model") else "",
         ) if b]
         suffix = (", " + ", ".join(bits)) if bits else ""
-        return ("Daemon", "OK", f"running (PID {pid}{suffix})")
+
+        stale = _stale_daemon_note(str(info.get("version") or ""))
+        if stale:
+            return ("Daemon", "WARN", f"{_RUNNING_PREFIX} (PID {pid}{suffix}) — {stale}")
+        return ("Daemon", "OK", f"{_RUNNING_PREFIX} (PID {pid}{suffix})")
     except Exception:
         # Running but IPC not yet ready (still loading the model) or unreachable.
-        return ("Daemon", "OK", f"running (PID {pid}; IPC not ready)")
+        return ("Daemon", "OK", f"{_RUNNING_PREFIX} (PID {pid}; IPC not ready)")
 
 
 def _model_check(model: str, hf_cache: Path) -> _Check:
     """Report whether the configured STT model is available locally.
 
-    A local directory/file path is checked directly; otherwise we scan the
-    Hugging Face hub cache for a ``models--…<model>`` snapshot. We match on the
-    cache directory name (no ``faster_whisper`` import) so doctor stays fast.
+    Delegates the "is it here?" question to ``stt.download.is_cached``, which
+    matches on the hub cache's directory name (no ``faster_whisper`` import) so
+    doctor stays fast.
     """
-    local = Path(model).expanduser()
-    if local.exists():
+    from yazses.stt.download import is_cached
+
+    if Path(model).expanduser().exists():
         return ("STT model", "OK", f"{model} (local files)")
-    token = model.split("/")[-1]
-    if hf_cache.exists():
-        for entry in hf_cache.iterdir():
-            if (
-                entry.name.startswith("models--")
-                and entry.name.endswith(token)
-                and (entry / "snapshots").exists()
-            ):
-                return ("STT model", "OK", f"{model} (cached)")
+    if is_cached(model, hf_cache):
+        return ("STT model", "OK", f"{model} (cached)")
+    # Naming the command matters more than it looks: on a firewalled machine the
+    # automatic fetch is precisely what fails, and this is the route that reports
+    # why (#310).
     return (
         "STT model",
         "WARN",
         f"{model} not downloaded — fetched automatically on first dictation "
-        "(needs network once)",
+        f"(needs network once). To do it now: yazses model download {model}",
     )
 
 
@@ -210,15 +251,32 @@ def _autostart_check(platform) -> _Check | None:
     program you must remember to launch. It is reported as a FAIL rather than a warning
     because "I have to run `yazses start` every morning" is the symptom people live with
     for months without realising it is fixable.
+
+    It also has to be honest about the *other* half of "does it come back": what
+    happens when the daemon crashes mid-session. systemd (``Restart=on-failure``)
+    and launchd (``KeepAlive``) supervise it themselves; the Windows autostart is
+    an ``HKCU\\Run`` value that fires once at login and never again, so there
+    recovery comes from the tray poller instead — which means it is only covered
+    while the tray is running. Reporting a bare "yes" on Windows implied a
+    supervision that does not exist.
     """
-    if sys.platform != "linux":
-        return None
     lifecycle = getattr(platform, "lifecycle", None)
     if lifecycle is None or not hasattr(lifecycle, "is_autostart_installed"):
         return None
+    mechanism = {
+        "linux": "systemd user service is enabled; it also restarts a crashed daemon",
+        "darwin": "launchd agent is loaded; it also restarts a crashed daemon",
+        "win32": (
+            "HKCU\\Run entry — that covers login only. Windows has no service "
+            "supervising the daemon, so a crash is recovered by the tray; keep the "
+            "tray running (`yazses tray`) for that safety net"
+        ),
+    }.get(sys.platform)
+    if mechanism is None:  # a platform with autostart we have nothing accurate to say about
+        return None
     try:
         if lifecycle.is_autostart_installed():
-            return ("Starts at login", "OK", "yes — systemd user service is enabled")
+            return ("Starts at login", "OK", f"yes — {mechanism}")
     except Exception as exc:  # noqa: BLE001 — never let a probe break doctor
         return ("Starts at login", "WARN", f"could not be determined ({exc})")
     return (
@@ -244,7 +302,7 @@ def _config_validity(config_file: Path) -> list[_Check]:
     except Exception as exc:  # noqa: BLE001 — doctor must survive anything
         return [("Config validity", "WARN", f"could not be checked ({exc})")]
     if not problems:
-        return [("Config validity", "OK", "every setting has the expected type")]
+        return [("Config validity", "OK", "every setting is a usable value")]
 
     out: list[_Check] = []
     defaulted = [p for p in problems if not p.repaired]
@@ -315,17 +373,32 @@ def _config_summary(cfg, config_file: Path) -> list[_Check]:
     ))
     pinned = (getattr(cfg.audio, "device", "") or "").strip()
     if pinned:
-        out.append(("Microphone", "OK", f"pinned: {pinned!r}"))
+        out.append(("Input device", "OK", f"pinned: {pinned!r}"))
     else:
         try:
-            from yazses.audio.devices import current_default_input_name
+            from yazses.audio import devices as _devices
 
-            default = current_default_input_name()
+            default = _devices.current_default_input_name()
         except Exception:
             default = None
+        # `default` names a route, not a microphone, so on a PipeWire desktop the
+        # line above is the least useful true thing this command can say -- and this
+        # is the surface the documentation points at first. Resolve it when we can:
+        # on the machine that prompted this the alias pointed at an internal array at
+        # 65% gain while another source sat at 100%, and every dictation for an hour
+        # decoded to nothing with no way to see why from inside YazSes.
+        behind = ""
+        try:
+            if _devices.is_routing_alias(default):
+                found = _devices.default_source_behind_alias()
+                if found:
+                    behind = f" → {found[0]} (volume {found[1] * 100:.0f}%)"
+        except Exception:  # pragma: no cover - best-effort, never breaks doctor
+            behind = ""
         out.append((
-            "Microphone", "OK",
-            f"OS default: {default or 'unknown'} (pin with `yazses audio use <name>`)",
+            "Input device", "OK",
+            f"OS default: {default or 'unknown'}{behind} "
+            "(pin with `yazses audio use <name>`)",
         ))
     guard = getattr(cfg.injection, "target_guard", "off")
     if guard != "off":
@@ -372,11 +445,23 @@ def _mic_level_check(cfg, seconds: float = 2.0) -> _Check:
     except Exception as exc:
         return ("Mic level", "WARN", f"could not sample microphone ({exc})")
     thr = cfg.accessibility.vad_threshold
-    if not stats.is_silent and stats.mean_abs >= thr:
+    # Compared against the user's gate and nothing else. This was also conditioned on
+    # `not stats.is_silent`, and `is_silent` is measured against a FIXED floor
+    # (miclevel._MIN_THRESHOLD, 0.002) unrelated to that gate -- so for any threshold
+    # below the floor the warning was suppressed across exactly the band where the
+    # gate sits under the room's noise, which is the case this check exists for.
+    # Measured on a real machine: ambient 0.0010, vad_threshold 0.0005, reported
+    # "[OK] ambient 0.0010 under vad_threshold 0.0005".
+    #
+    # `mean_abs > 0` keeps a dead microphone out of it: nothing captured at all is
+    # the Microphone check's business, and with a gate of 0 this would otherwise
+    # blame the gate for a mic that recorded nothing.
+    if stats.mean_abs > 0 and stats.mean_abs >= thr:
         return (
             "Mic level", "WARN",
-            f"ambient {stats.mean_abs:.4f} >= vad_threshold {thr} — room noise may "
-            "trigger spurious transcripts; raise it or run `yazses mic-level`",
+            f"ambient {stats.mean_abs:.4f} >= vad_threshold {thr} — the gate sits at "
+            "or below the room's noise floor, so silence passes it and is transcribed "
+            "as invented words; raise it or run `yazses mic-level --set`",
         )
     return (
         "Mic level", "OK",
@@ -430,13 +515,23 @@ def _keyboard_capture_check(perms, platform_name: str) -> _Check:
     return ("Keyboard capture", "OK" if state is PermissionState.OK else "FAIL", detail)
 
 
-def _window_focus_check(is_wayland: bool, is_x11: bool) -> _Check | None:
+def _window_focus_check(is_wayland: bool, is_x11: bool, cfg=None) -> _Check | None:
     """Report whether "focus the browser" can work on this session (#39).
 
     Wayland deliberately forbids one client focusing another's window and no
     portal exposes it, so this is a permanent property of the session rather
     than something to install. Saying so here is the difference between a user
     concluding YazSes is broken and knowing the platform said no.
+
+    Two conditions, and both must hold. This checked only the first and reported
+    ``"focus the browser" works`` off the presence of xdotool alone. That was true
+    only while the daemon ran voice focus unconditionally; once `[windowctl] enabled`
+    became a real gate, doctor was asserting that a disabled feature works -- and
+    doctor is precisely where someone looks after it did not.
+
+    The session limitation is reported first even when the feature is off, because
+    enabling it on Wayland would not help and sending someone to run a command that
+    cannot work is worse than saying the platform said no.
     """
     if not (is_wayland or is_x11):
         return None
@@ -444,6 +539,9 @@ def _window_focus_check(is_wayland: bool, is_x11: bool) -> _Check | None:
 
     if is_wayland:
         return ("Voice window focus", "SKIP", wayland_limitation())
+    if cfg is not None and not getattr(getattr(cfg, "windowctl", None), "enabled", False):
+        return ("Voice window focus", "SKIP",
+                "off — enable with `yazses features enable windowctl`, then `yazses restart`")
     if not shutil.which("xdotool"):
         return ("Voice window focus", "WARN",
                 "needs xdotool to enumerate and raise windows — run `yazses setup`")
@@ -620,7 +718,10 @@ _ANSI = {
 
 
 def _color_enabled() -> bool:
-    return sys.stdout.isatty() and os.environ.get("NO_COLOR") is None
+    # streams.stdout_isatty() rather than sys.stdout.isatty(): a windowed
+    # PyInstaller build has no console, so sys.stdout is None and the raw call
+    # raises AttributeError — turning `doctor` into a crash dialog on Windows.
+    return streams.stdout_isatty() and os.environ.get("NO_COLOR") is None
 
 
 def _c(text: str, *styles: str) -> str:
@@ -651,6 +752,33 @@ def _format_check(name: str, status: str, detail: str) -> str:
             styled.append(ln)
     detail_out = "\n".join(styled)
     return f"  {tag} {name}: {detail_out}"
+
+
+def microphone_detail(state: str, *, snap_pending: bool, no_portaudio: bool) -> str:
+    """What to print beside a failing microphone check. Pure.
+
+    Extracted so the branch can be tested without running the whole doctor, which is
+    how this file already treats every other decision it makes.
+
+    The ordering matters. Inside the snap, PortAudio ships with the package, so an
+    un-connected `audio-record` interface is the cause and must win. Outside it, a
+    missing PortAudio runtime is the commonest reason a fresh `pipx`/`uv tool` install
+    has no microphone — nothing pulls `libportaudio2` in, `sounddevice` raises on
+    import, and `check_microphone` reports the same `UNKNOWN` it reports for a machine
+    with no input hardware. Those two need opposite actions, and this row used to
+    render both as the bare word "unknown".
+
+    Naming the package unconditionally would be as wrong as never naming it: a machine
+    that has PortAudio and no microphone must not be sent to apt.
+    """
+    if snap_pending:
+        return "not granted — run: sudo snap connect yazses:audio-record"
+    if no_portaudio:
+        return (
+            "PortAudio is not installed, so no audio device can be opened — "
+            "run: sudo apt install libportaudio2  (pipx/uv installs do not pull it in)"
+        )
+    return state
 
 
 def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
@@ -720,11 +848,11 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     mic = perms.check_microphone()
     mic_detail = mic.value
     if mic not in (PermissionState.OK, PermissionState.NOT_APPLICABLE):
-        # In the snap, a mic FAIL is almost always the un-connected interface.
-        from yazses.system.setup import snap_mic_pending
+        from yazses.system.setup import portaudio_missing, snap_mic_pending
 
-        if snap_mic_pending():
-            mic_detail = "not granted — run: sudo snap connect yazses:audio-record"
+        mic_detail = microphone_detail(
+            mic.value, snap_pending=snap_mic_pending(), no_portaudio=portaudio_missing()
+        )
     checks.append((
         "Microphone",
         "OK" if mic in (PermissionState.OK, PermissionState.NOT_APPLICABLE) else "FAIL",
@@ -754,12 +882,17 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
         checks.extend(_injection_readiness(is_wayland, is_x11))
 
         # Whether "focus the browser" can work here. Wayland cannot, by design.
-        window_focus = _window_focus_check(is_wayland, is_x11)
+        window_focus = _window_focus_check(is_wayland, is_x11, cfg)
         if window_focus is not None:
             checks.append(window_focus)
 
     # Model cache (Hugging Face)
-    hf_cache = Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface")) / "hub"
+    # Ask huggingface_hub rather than re-deriving: HF_HUB_CACHE and
+    # XDG_CACHE_HOME both override HF_HOME, and a wrong path here sends anyone
+    # placing the model by hand to a directory nothing reads.
+    from yazses.stt.download import hub_cache_dir
+
+    hf_cache = hub_cache_dir()
     checks.append(("Model cache", "OK" if hf_cache.exists() else "WARN", str(hf_cache)))
 
     # Configured STT model availability (downloaded vs fetched-on-first-use).
@@ -855,7 +988,11 @@ def _verdict_line(checks: list[_Check], cfg, platform) -> str:
     """
     fails = sum(1 for c in checks if c[1] == "FAIL")
     warns = sum(1 for c in checks if c[1] == "WARN")
-    running = any(c[0] == "Daemon" and c[1] == "OK" for c in checks)
+    # NOT `tag == "OK"`: a stale daemon is running *and* WARN, and reading the
+    # tag told a running daemon to `yazses start`.
+    daemon = next((c for c in checks if c[0] == "Daemon"), None)
+    running = daemon is not None and daemon[2].startswith(_RUNNING_PREFIX)
+    stale = daemon is not None and running and daemon[1] == "WARN"
     # Resolve the hotkey for the "hold X to dictate" hint (sentinels → default).
     key = getattr(getattr(cfg, "hotkey", None), "key", "") or ""
     if key in ("", "auto"):
@@ -869,7 +1006,12 @@ def _verdict_line(checks: list[_Check], cfg, platform) -> str:
             f"{'them' if n != 1 else 'it'}, then re-run `yazses doctor`.",
             "bred", "bold",
         )
-    start_hint = "you're all set — " + dictate_hint if running else f"run `yazses start`, then {dictate_hint}"
+    if not running:
+        start_hint = f"run `yazses start`, then {dictate_hint}"
+    elif stale:
+        start_hint = f"run `yazses restart` to pick up the upgrade, then {dictate_hint}"
+    else:
+        start_hint = "you're all set — " + dictate_hint
     if warns:
         n = warns
         return _c(

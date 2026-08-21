@@ -1,0 +1,53 @@
+# examples/config.firefox.toml
+# A YazSes setup for dictating into Firefox — web textareas, webmail, wikis,
+# GitHub comment boxes, anything that is a text field in a page.
+#
+# Copy to ~/.config/yazses/config.toml and edit as needed.
+
+# ---------------------------------------------------------------------------
+# Measured, by injecting a string into a <textarea> in a live Firefox window
+# and reading the field back:
+#
+#     dictated:  kubectl get pods --namespace prod
+#     arrived:   kubectl get pods --namespace prod      (exact)
+#
+# Firefox accepts synthetic keystrokes and does not rewrite them — unlike a
+# word processor, nothing here turns `--` into an en dash.
+#
+# One packaging trap, worth knowing because it is invisible: on Ubuntu the
+# `firefox` command is a snap stub. If the snap is not installed, running it
+# prints "snap install firefox" and exits, which from the outside looks like
+# Firefox crashed or ignored the injection. It never started. Check with
+# `firefox --version` before blaming YazSes.
+#
+# The "no text target" guard earns its keep in a browser more than anywhere
+# else: most of a page is not editable, so a mistimed burst has nowhere to go.
+# Left at the default it goes to the clipboard instead of into a keyboard
+# shortcut — in a browser, stray letters are single-key shortcuts, and a lost
+# burst can navigate away from a half-written comment.
+# ---------------------------------------------------------------------------
+
+[stt]
+model = "base.en"
+device = "cpu"
+compute_type = "int8"
+
+[hotkey]
+key = "right_ctrl"         # bare right_ctrl is not a Firefox shortcut
+hold_threshold_ms = 400
+
+[audio]
+sample_rate = 16000
+channels = 1
+max_record_seconds = 120   # comment boxes and wiki edits run long
+
+[injection]
+backend = "type"           # verified EXACT into a page textarea
+fallback_to_clipboard = true
+target_guard = "clipboard" # see the note above — do not set this to "off"
+
+[commands]
+voice_punctuation = true   # prose, so spoken punctuation is usually wanted
+
+[general]
+log_level = "INFO"
