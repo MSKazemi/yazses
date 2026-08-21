@@ -76,6 +76,11 @@ CAPTURE_PROVING_DISCARDS = frozenset({
     "no_target",
     "window_focus_no_match",
     "deixis_no_target",
+    # A spoken capability (ADR-v2-131) produced text and a policy declined to type it:
+    # the safety gate held it for a confirm, or the injector refused it. Both mean the
+    # microphone was heard and decoded — the failure is downstream of capture.
+    "cmdsafety_held",
+    "spoken_inject_failed",
 })
 
 

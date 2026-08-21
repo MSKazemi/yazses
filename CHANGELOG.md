@@ -6,6 +6,61 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Ten capabilities that shipped as registry entries with no runtime code are now
+  wired (#164).** Each had a designed, tested, pure core and no caller, so `yazses
+  features enable <name>` refused it outright and the feature page marked it *planned*.
+  The registry's honest count moves from **85 wired / 62 planned to 95 / 52**.
+
+  **Six answer to a phrase**, and they share one door rather than a branch each:
+  `spelling`, `code`, `math`, `spokenregex`, `snippets` and `voicetimer` now route
+  through a single anchored router (`src/yazses/spokencmd/`). Their triggers are
+  ordinary English — *spell*, *code*, *math*, *regex*, *insert*, *set a timer for* — so
+  they run only while the dedicated **command key** is held, and every trigger is
+  anchored at both ends so "the code review is on Friday" is typed rather than
+  interpreted. Enabling one without `[hotkey] command_key` bound now says so instead of
+  writing a config key nothing can reach.
+
+  Their output goes through the **command-safety gate**, which is the load-bearing part:
+  `spell romeo mike space dash romeo foxtrot space slash` assembles `rm -rf /` character
+  for character, and it now waits for a spoken *confirm* exactly as if it had been
+  dictated. Measured rather than assumed — the milder sibling `code` produces
+  `rm - r f /`, which the gate scores safe because the spaces defeat the pattern.
+
+  **Four answer to the machine.** `corrdict` replays corrections you have already made by
+  hand ("yaz says" → "YazSes") once a substitution has enough support, mined from the
+  encrypted learning corpus; `smartpaste` and `focusprofile` key off the focused window —
+  Markdown bullets and autolinked URLs in a notes app, verbatim capture in a terminal so a
+  cleanup pass cannot reword a command line; `latency` decodes with a lighter model at a
+  greedy beam while the load average is high, loading it in the background so the governor
+  never becomes the pause it exists to prevent.
+
+  Each of the four refuses to turn on and quietly do nothing: enabling one without its
+  precondition (`[learning] enabled`, a focused-window probe, a POSIX load average) prints
+  what is missing.
+
+- **`[stt] beam_size`** — decoder beam width. `0` (the default) keeps faster-whisper's own
+  choice; `1` is greedy decoding, faster and less accurate. Added so the latency governor
+  can ask for it, and available to anyone who wants that trade permanently.
+
+- **`[latency] light_model`** — the model the governor decodes with under load
+  (default `tiny.en`).
+
+### Notes
+
+- `corrdict` mines only pairs that *sound like* each other. Without that gate, rewording a
+  sentence mined as cleanly as a misrecognition: `difflib` breaks a whole-sentence rewrite
+  into exactly the short spans the length guard allows, so "send" → "forward" became a
+  permanent substitution replayed into unrelated sentences. The two classes separate
+  cleanly on measurement — misrecognitions score 0.75–0.83, rewordings 0.09–0.32.
+- The speculative-decoding half of ADR-v2-073 is designed but not built, and no config key
+  advertises it.
+- `prosodypunct` and `hesitation` remain *planned*, and not for want of wiring: both need
+  an F0 series, and no F0 extractor exists anywhere in `src/yazses`. `reask` has its signal
+  already (per-word `probability` is on the `transcribe_words` records) but needs an
+  interactive picker.
+
 ### Fixed
 
 - **Desktop notifications could be swallowed before the tray showed them (Windows and

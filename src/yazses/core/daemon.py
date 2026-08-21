@@ -8,6 +8,7 @@ lifecycle. All platform-specific concerns are reached through
 
 from __future__ import annotations
 
+import dataclasses
 import functools
 import logging
 import os
@@ -29,6 +30,7 @@ if TYPE_CHECKING:
     # so the `X | None` attribute annotations resolve for the type checker.
     from yazses.gaze.targeter import GazeTargeter
     from yazses.inject.target import TargetDetector
+    from yazses.latency.pool import EnginePool
     from yazses.learning.edit_watch import EditWatcher
     from yazses.meeting.controller import MeetingController
     from yazses.polyglot.router import PolyglotRouter
@@ -64,6 +66,9 @@ from yazses.postprocess.spacing import continuation_prefix
 from yazses.postprocess.voice_punctuation import apply_voice_punctuation
 from yazses.remote.forwarder import RemoteForwarder
 from yazses.remote.local_proxy import RemoteInjectorProxy
+from yazses.spokencmd.registry import build_handlers as build_spoken_handlers
+from yazses.spokencmd.router import route as route_spoken
+from yazses.spokencmd.timers import TimerService
 from yazses.staged.buffer import StagedAction, StagedBuffer
 from yazses.staged.buffer import classify as staged_classify
 from yazses.staged.buffer import describe as staged_describe
@@ -206,6 +211,9 @@ class Daemon:
         self._warned_inert: set[str] = set()
         self._injector: InjectorBackend | None = None
         self._engine: SttEngine | None = None
+        # Adaptive Latency Governor (ADR-v2-073). None unless `[latency] enabled`
+        # and this platform reports a load average; see `_decode_engine`.
+        self._governor: "EnginePool | None" = None
         self._recorder: AudioRecorder | None = None
         self._ipc_server: IpcServer | None = None
         self._padding_buffer: PreSpeechRingBuffer | None = None
@@ -236,6 +244,8 @@ class Daemon:
         # Personal Adapter P1 (ADR-v2-009): corpus-mined biasing terms, computed
         # once and cached (None = not yet computed). Off unless [personalize].
         self._personal_bias: list[str] | None = None
+        # Self-Learning Correction Dictionary (ADR-v2-079); see `_correction_table`.
+        self._correction_table_cache: dict[str, str] | None = None
         # Confidence Ink (ADR-v2-001): low-confidence word count from the last
         # burst, surfaced in `yazses status` (metadata only, never the words).
         self._last_low_confidence_words: int = 0
@@ -259,6 +269,15 @@ class Daemon:
         # daemon is usable without seeing the tray. Always constructed and inert
         # unless [earcon] enabled, keeping the hot path free of a None check.
         self._earcon = EarconPlayer(self._config.earcon.enabled)
+        # Spoken capabilities (ADR-v2-131): phonetic spelling, spoken code, spoken
+        # maths, snippets, spoken regex and voice timers answer to a *phrase*, not
+        # to a key of their own. Built once from config into a list the command
+        # path walks; every one is off by default, so the usual value here is an
+        # empty tuple and the hot path pays a single falsy check.
+        self._spoken_handlers = list(build_spoken_handlers(self._config))
+        # Constructed only when a timer is actually set — it owns a thread, and a
+        # daemon whose user never says "set a timer" should not have one.
+        self._timers: TimerService | None = None
         self._edit_watcher: EditWatcher | None = None
         self._cleaner: LlmCleaner | None = None
         # Read-Back Loop TTS backend (None when [tts] disabled — dormant).
@@ -666,6 +685,9 @@ class Daemon:
         apply_injection_config(self._config.injection)
         self._injector = self._platform.injector_factory()
         log.info("Injection backend: %s", self._injection_backend_name())
+
+        if cfg.latency.enabled:
+            self._build_governor()
 
         if cfg.streaming.enabled:
             self._stream_engine = StreamingEngine(
@@ -1344,20 +1366,29 @@ class Daemon:
             if use_streaming:
                 assert self._stream_engine is not None
                 text = self._stream_engine.commit()
-            elif want_words:
-                text, prosody_words = self._engine.transcribe_words(
-                    decode_audio,
-                    self._config.audio.sample_rate,
-                    initial_prompt=bias_prompt,
-                    task=stt_task,
-                )
             else:
-                text = self._engine.transcribe(
-                    decode_audio,
-                    self._config.audio.sample_rate,
-                    initial_prompt=bias_prompt,
-                    task=stt_task,
-                )
+                # Adaptive Latency Governor (ADR-v2-073): on a loaded machine this
+                # is a smaller model at a narrower beam. `self._engine` whenever
+                # the governor is off, dormant, or its choice is not resident yet
+                # — it never loads inline, because a governor whose first act is a
+                # multi-second model load has made latency worse, not better. The
+                # streaming branch above is deliberately not governed: it decodes
+                # against a long-lived StreamingEngine built around one model.
+                decoder = self._decode_engine()
+                if want_words:
+                    text, prosody_words = decoder.transcribe_words(
+                        decode_audio,
+                        self._config.audio.sample_rate,
+                        initial_prompt=bias_prompt,
+                        task=stt_task,
+                    )
+                else:
+                    text = decoder.transcribe(
+                        decode_audio,
+                        self._config.audio.sample_rate,
+                        initial_prompt=bias_prompt,
+                        task=stt_task,
+                    )
             decode_ms = (time.monotonic() - t_decode) * 1000.0
             event["raw_text"] = text
             event["decode_ms"] = decode_ms
@@ -1495,6 +1526,22 @@ class Daemon:
                     # wrong for a command. "change hello to goodbye" on the clipboard
                     # helps nobody.
                     can_type = self._state.target_ok is not False
+
+                    # Spoken capabilities (ADR-v2-131): "spell alpha bravo",
+                    # "code def foo open paren", "math x squared", "regex three
+                    # digits", "insert <snippet>", "set a timer for 25 minutes".
+                    # First because every trigger is a required leading verb
+                    # anchored at both ends, so none of them can shadow the
+                    # open-ended handlers below — while `_try_spoken_edit`'s
+                    # "change X to Y" could otherwise claim "code change x to y".
+                    # Passed `can_type` rather than gated on it: a timer reports
+                    # itself through a notification and types nothing, so it is
+                    # the one capability here that still works with no editable
+                    # target focused.
+                    if self._try_spoken(text, event, can_type=can_type):
+                        if stream_injector is not None:
+                            stream_injector.cancel()
+                        return
 
                     # Offline Command Mode (#99): rewrite the selection locally.
                     # Whole-utterance grammar, so dictation containing "make this
@@ -1650,6 +1697,27 @@ class Daemon:
             from yazses.postprocess.profiles import resolve_profile
             profile = resolve_profile(app_class, self._config.profiles)
 
+            # Focus-Class Auto-Profile (ADR-v2-094): a default for the app in front
+            # of you, so the common cases work without hand-writing a `[profiles.app]`
+            # glob for every terminal and editor you use. Only ever *fills in* — a
+            # glob the user wrote always wins, because they wrote it about this app
+            # and this is a keyword guess about a class of them.
+            #
+            # `shell` and `code` map to `verbatim`, which is the whole point of the
+            # feature: reformatting is right for prose and wrong for a command line.
+            # An LLM cleanup pass that turns a dictated shell command into a polite
+            # sentence has destroyed it. `prose` maps to nothing, because "prose" is
+            # already what the configured default does.
+            if self._config.focusprofile.enabled and not profile.tone and app_class:
+                from dataclasses import replace as _replace
+
+                from yazses.focusprofile.resolve import resolve_profile as focus_profile
+
+                _cls = focus_profile("", app_class)
+                if _cls in ("shell", "code"):
+                    profile = _replace(profile, tone="verbatim")
+                    event["focus_profile"] = _cls
+
             # Verbatim/Autoformat mode (ADR-v2-078): the spoken commands "dictate
             # verbatim" / "resume formatting" toggle a persistent gate and type nothing;
             # while verbatim, all formatting transforms are bypassed (literal capture).
@@ -1701,6 +1769,23 @@ class Daemon:
                     if _vocab:
                         text = correct_text(text, _vocab)
                         event["final_text"] = text
+                # Self-Learning Correction Dictionary: replay the fixes you have
+                # already made by hand ("yaz says" -> "YazSes"). Beside the phonetic
+                # corrector because they do the same job from different evidence —
+                # that one knows your vocabulary file, this one knows what you
+                # corrected. Both run before anything downstream reads the words, so
+                # a fixed term reaches the command grammar and the safety gate as the
+                # term it actually is. Opt-in (ADR-v2-079).
+                if self._config.corrdict.enabled:
+                    _table = self._correction_table()
+                    if _table:
+                        from yazses.corrdict.mine import apply_corrections
+
+                        _before = text
+                        text = apply_corrections(text, _table)
+                        if text != _before:
+                            event["corrdict_applied"] = True
+                            event["final_text"] = text
                 # Spoken punctuation/formatting ("comma" -> ","). Opt-in.
                 if self._config.commands.voice_punctuation:
                     text = apply_voice_punctuation(text)
@@ -1821,6 +1906,24 @@ class Daemon:
                     event["prosody_breaks"] = presult.paragraph_breaks
                     event["prosody_emphasized"] = presult.emphasized
                     event["final_text"] = text
+                # Smart-Paste (ADR-v2-036): adapt the syntax to the surface the text
+                # is going into — a bullet and a bare URL are written differently in a
+                # Markdown note than in a mail body. Last of the formatting transforms
+                # because it is the one that is about the *destination* rather than the
+                # words, and it must see what the others produced. Opt-in.
+                #
+                # Before the verbatim check on purpose: verbatim means "type what I
+                # said", and this is a formatting transform like the rest, so verbatim
+                # discards it too.
+                if self._config.smartpaste.enabled and app_class:
+                    from yazses.smartpaste.adapt import adapt, classify_surface
+
+                    _surface = classify_surface(app_class)
+                    _adapted = adapt(text, _surface)
+                    if _adapted != text:
+                        text = _adapted
+                        event["smartpaste_surface"] = _surface
+                        event["final_text"] = text
                 # Verbatim mode: discard every formatting transform above and inject the
                 # cleaned literal text (ITN/punctuation/reflow/etc. all bypassed).
                 if verbatim_active:
@@ -2664,6 +2767,51 @@ class Daemon:
             self._personal_bias = []
         return self._personal_bias
 
+    def _correction_table(self) -> dict[str, str]:
+        """The mined ``{wrong: right}`` table for this session (ADR-v2-079).
+
+        Computed once and cached, exactly like `_personal_bias_terms` and for the
+        same reasons: the corpus read is bounded, guarded, and must never be
+        repeated per burst.
+
+        **Empty unless the learning corpus is on**, because the corrections it
+        learns from are corpus events. That is the honest behaviour rather than a
+        gap: `[corrdict] enabled` on its own has nothing to mine, so it changes
+        nothing until the user also opts into capture (ADR-011/012). The daemon
+        says so once through `_warn_feature_inert` instead of staying silent.
+        """
+        if self._correction_table_cache is not None:
+            return self._correction_table_cache
+        self._correction_table_cache = {}
+        if not self._config.learning.enabled:
+            self._warn_feature_inert(
+                "corrdict",
+                "it learns from the encrypted learning corpus, and [learning] enabled "
+                "is false, so there are no corrections to mine",
+            )
+            return self._correction_table_cache
+        try:
+            from yazses.corrdict.table import build_table
+            from yazses.learning.capture import open_store
+
+            store = open_store(self._platform.paths.data_dir)
+            try:
+                events = store.events()[-500:]
+            finally:
+                store.close()
+            self._correction_table_cache = build_table(
+                events, min_support=self._config.corrdict.min_support
+            )
+            if self._correction_table_cache:
+                log.info(
+                    "Correction dictionary: %d substitution(s) mined from the corpus.",
+                    len(self._correction_table_cache),
+                )
+        except Exception:
+            log.debug("Correction dictionary mining failed; skipping", exc_info=True)
+            self._correction_table_cache = {}
+        return self._correction_table_cache
+
     def _correct_vocabulary(self, text: str, event: dict) -> str:
         """Restore personal-vocabulary words the recogniser mangled (#73).
 
@@ -2758,6 +2906,82 @@ class Daemon:
                 pass  # context priming is best-effort; never break dictation
         # Always prime the coined app name so Whisper spells "YazSes".
         return merge_initial_prompt(base)
+
+    def _build_governor(self) -> None:
+        """Stand up the Adaptive Latency Governor, or say why it cannot run.
+
+        Failure here must never stop dictation coming up, so every step is guarded:
+        an unusable platform, an unreadable load average and a broken pool all end
+        with `self._governor is None`, which `_decode_engine` reads as "use the
+        engine you already have".
+        """
+        try:
+            from yazses.latency.load import unavailable_reason
+            from yazses.latency.pool import EnginePool
+        except Exception:
+            log.exception("Latency governor unavailable; decoding normally")
+            return
+
+        reason = unavailable_reason()
+        if reason:
+            self._warn_feature_inert("latency", reason)
+            return
+
+        stt = self._config.stt
+        base_key = (stt.model, int(getattr(stt, "beam_size", 0) or 0))
+
+        def build(model: str, beam_size: int) -> object:
+            # Through the same factory as the daemon's own engine, so `[stt] engine`,
+            # the language check and the Han-script wrapper all still apply.
+            return build_engine(dataclasses.replace(stt, model=model, beam_size=beam_size))
+
+        self._governor = EnginePool(build, base_key, self._engine)
+        log.info(
+            "Adaptive Latency Governor on: %s below %.0f%% load, %s at or above %.0f%%.",
+            stt.model, self._config.latency.high_load,
+            self._config.latency.light_model, self._config.latency.high_load,
+        )
+
+    def _decode_engine(self) -> SttEngine:
+        """The engine this burst should decode with. Never blocks, never raises.
+
+        Falls back to `self._engine` for every uncertainty there is — governor off,
+        load unreadable, chosen model not resident yet — because the cost of being
+        wrong here is a decode that is merely not optimised, and the cost of raising
+        is a burst of speech lost.
+        """
+        assert self._engine is not None
+        pool = self._governor
+        if pool is None:
+            return self._engine
+        try:
+            from yazses.latency.governor import GovernorConfig, pick_policy
+            from yazses.latency.load import cpu_percent
+
+            load = cpu_percent()
+            if load is None:
+                return self._engine
+            cfg = self._config.latency
+            policy = pick_policy(
+                load,
+                GovernorConfig(
+                    base_model=self._config.stt.model,
+                    light_model=cfg.light_model,
+                    # `draft_model` stays empty: speculative decoding is designed in
+                    # ADR-v2-073 but not implemented here, so the policy's
+                    # `speculative` flag is never True and nothing reads it. Naming
+                    # a config key for it would advertise a decode path that does
+                    # not exist.
+                    draft_model="",
+                    high_load=cfg.high_load,
+                    low_load=cfg.low_load,
+                ),
+            )
+            engine = pool.get(policy.model, policy.beam_size)
+        except Exception:
+            log.exception("Latency governor failed; decoding with the loaded model")
+            return self._engine
+        return engine or self._engine  # type: ignore[return-value]
 
     def _warn_feature_inert(self, feature: str, reason: str | None) -> None:
         """Log once that *feature* is enabled but cannot do anything, and why.
@@ -2936,6 +3160,104 @@ class Daemon:
         except Exception:
             log.debug("window focus backend init failed", exc_info=True)
             return None
+
+    def _try_spoken(self, phrase: str, event: dict, *, can_type: bool) -> bool:
+        """Spoken capabilities that answer to a phrase (ADR-v2-131). True if handled.
+
+        Six capabilities route through here — spelling, code, maths, snippets,
+        regex and timers — because each needed the same door and none of them
+        needed its own branch in this function. `spokencmd/router.py` owns which
+        one claims an utterance; this method owns what happens to the answer.
+
+        **The safety gate is re-applied here, and that is the point.** The gate
+        judges the command *text*, so it has to see the text as it will be typed —
+        `tests/test_cmdsafety_sees_the_typed_text.py` measures that invariant and
+        names this exact wiring as the way to break it. That test worried about
+        `code`, and the capability that actually reaches it is `spelling`:
+
+            spell_parse("romeo mike space dash romeo foxtrot space slash")
+                -> "rm -rf /"        -> assess_command: dangerous
+
+        The phonetic alphabet maps *dash*, *slash* and *space*, so it assembles a
+        destructive command exactly, character for character. `spoken_symbols` is
+        the milder case measured rather than assumed: "rm minus r f slash" yields
+        ``rm - r f /``, which `assess_command` scores **safe** because the spaces
+        defeat the pattern — it types something inert rather than something
+        dangerous.
+
+        Either way this path returns long before the dictation gate at the bottom
+        of `_on_hold_end`, so without this call the guard would never see the text
+        at all.
+
+        A non-typing capability (a timer) runs even with no editable target: it
+        reports through a notification and puts nothing on screen. The router is
+        told `can_type` and skips the typing handlers itself, so the decision
+        lives in one place rather than being re-derived per capability.
+        """
+        if not self._spoken_handlers:
+            return False
+        result = route_spoken(phrase, self._spoken_handlers, can_type=can_type)
+        if result is None:
+            return False
+
+        event["spoken_slug"] = result.slug
+
+        if result.action is not None:
+            self._run_spoken_action(result, event)
+            return True
+
+        text = result.text or ""
+        if not text:
+            return False
+
+        # Same order as the dictation path: the gate sees the final text.
+        if self._config.cmdsafety.enabled:
+            gated = self._cmdsafety_gate(text, event)
+            if gated is None:
+                event["discard_reason"] = "cmdsafety_held"
+                return True
+            text = gated
+
+        try:
+            self._active_injector().inject(text)
+        except Exception:
+            log.exception("Spoken capability %s failed to inject", result.slug)
+            event["discard_reason"] = "spoken_inject_failed"
+            return True
+        event["final_text"] = text
+        event["injected"] = True
+        log.info("Spoken capability %s produced %d chars.", result.slug, len(text))
+        return True
+
+    def _run_spoken_action(self, result, event: dict) -> None:
+        """Carry out a spoken capability's action. Never raises into the hot path."""
+        name, argument = result.action
+        try:
+            if name == "timer_set":
+                if self._timers is None:
+                    self._timers = TimerService(self._notify_spoken)
+                self._timers.set(int(argument or 0), "Voice timer finished.")
+            elif name == "timer_cancel":
+                if self._timers is not None:
+                    self._timers.cancel()
+            else:
+                log.debug("Unknown spoken action %r", name)
+                return
+        except Exception:
+            log.exception("Spoken action %s failed", name)
+            return
+        event["spoken_action"] = name
+        if result.message:
+            self._notify_spoken(result.message)
+
+    def _notify_spoken(self, message: str) -> None:
+        """Best-effort desktop notification for a spoken capability."""
+        try:
+            from yazses.system.notify import notify
+
+            notify("YazSes", message)
+        except Exception:
+            log.debug("Spoken notification failed", exc_info=True)
 
     def _try_rewrite(self, phrase: str, event: dict) -> bool:
         """Rewrite the current selection with the local model (#99).
@@ -4019,6 +4341,13 @@ class Daemon:
             set_fallback_sink(None)
         except Exception:
             log.debug("clearing the notification sink failed", exc_info=True)
+        if self._timers is not None:
+            # A pending voice timer has nothing to report to a desktop that is
+            # going away, and its thread must not hold the process open.
+            try:
+                self._timers.shutdown()
+            except Exception:
+                log.exception("Voice timer shutdown raised")
         if self._stream_engine is not None:
             try:
                 self._stream_engine.stop()  # join the decode loop before exit

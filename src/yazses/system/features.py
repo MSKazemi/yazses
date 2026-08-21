@@ -601,8 +601,10 @@ def _registry() -> list[_Def]:
              "low confidence, chime = command done) — faster than spoken read-back. Off by default.",
              lambda c: c.earcon.enabled, ec_on, ec_off),
         _Def("voicetimer", "Local Voice Timer", "[voicetimer] — offline timers & break reminders", OPTIONAL,
-             "Set a timer or break reminder by voice ('set a timer for 25 minutes'), announced by "
-             "read-back — fully offline, no phone or cloud assistant. Off by default.",
+             "Set a timer or break reminder by voice: hold the command key and say 'set a timer "
+             "for 25 minutes'; 'cancel the timer' stops it. Announced by a desktop notification "
+             "— fully offline, no phone or cloud assistant. Needs [hotkey] command_key bound. "
+             "Off by default.",
              lambda c: c.voicetimer.enabled, vt_on, vt_off),
         _Def("focusprofile", "Focus-Class Auto-Profile", "[focusprofile] — auto grammar per app class",
              RECOMMENDED,
@@ -692,17 +694,21 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "capture, 'resume formatting' to restore — mid-burst. Off by default.",
              lambda c: c.verbatim.enabled, vbt_on, vbt_off),
         _Def("spelling", "Phonetic Spelling Mode", "[spelling] — NATO → exact characters", RECOMMENDED,
-             "A character-exact mode for passwords/codes/IDs: 'capital alpha bravo double lima' → "
-             "'Abll'. Handles digits and symbols. Off by default.",
+             "A character-exact mode for passwords/codes/IDs: hold the command key and say "
+             "'spell capital alpha bravo double lima' → 'Abll'. Handles digits and symbols. "
+             "Needs [hotkey] command_key bound. Off by default.",
              lambda c: c.spelling.enabled, spl_on, spl_off),
         _Def("gitvoice", "Voice Git Choreographer", "[gitvoice] — safe git by voice", OPTIONAL,
              "Drive git by voice via a structured grammar; destructive ops (force-push, reset "
              "--hard) wait for a spoken confirm and the undo is always spoken. Off by default.",
              lambda c: c.gitvoice.enabled, gv_on, gv_off),
         _Def("latency", "Adaptive Latency Governor", "[latency] — load-aware decode", RECOMMENDED,
-             "Keeps dictation responsive under CPU load (lighter model/beam) and losslessly "
-             "faster when idle (speculative decoding). Needs the latency extra for a draft model. "
-             "Off by default.",
+             "Adapts decoding to system load: while the 1-minute load average is at or above "
+             "[latency] high_load it decodes with [latency] light_model at a greedy beam, and "
+             "otherwise with your normal model. The light model loads in the background the first "
+             "time that happens and then stays resident (~75 MB for tiny.en). POSIX only — Windows "
+             "exposes no load average, and there the governor says so and stays off. The "
+             "speculative-decoding half of ADR-v2-073 is designed but not built. Off by default.",
              lambda c: c.latency.enabled, lat_on, lat_off),
         _Def("diarize", "Diarized Conversation Capture", "[diarize] — attributed multi-speaker", OPTIONAL,
              "Capture a live conversation as attributed Markdown (**Alice:** …) and rename "
@@ -760,8 +766,9 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "not on which window is focused, so it still protects on Wayland. Off by default.",
              lambda c: c.cmdsafety.enabled, csf_on, csf_off),
         _Def("spokenregex", "Spoken Regex Builder", "[spokenregex] — dictate search patterns", OPTIONAL,
-             "Build regexes by voice: 'four digits dash two digits' → \\d{4}-\\d{2}. Feeds find "
-             "dialogs and grep. Off by default.",
+             "Build regexes by voice: hold the command key and say 'regex four digits dash "
+             "two digits' → \\d{4}-\\d{2}. Feeds find dialogs and grep. Needs "
+             "[hotkey] command_key bound. Off by default.",
              lambda c: c.spokenregex.enabled, srx_on, srx_off),
         _Def("slotfill", "Slot-Filling Dictation", "[slotfill] — one utterance → a form", OPTIONAL,
              "Speak once and fill a named-field template: 'bug in login, high priority, affects "
@@ -874,8 +881,11 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "Pure heuristic; a local SLM refines it via the reflow extra. Off by default.",
              lambda c: c.reflow.enabled, rf_on, rf_off),
         _Def("smartpaste", "Smart-Paste", "[smartpaste] — adapt syntax to app", OPTIONAL,
-             "Adapts injected syntax to the target app (markdown bullets, code casing, URL "
-             "autolinking) using local window info. No model. Off by default.",
+             "Adapts injected text to the focused app: a spoken bullet becomes '- ' and a bare "
+             "URL is angle-bracketed in Markdown notes; terminals, editors, mail and plain fields "
+             "are left exactly as dictated. Local window info only, no model. Needs the "
+             "focused-window probe, so [injection] target_guard must not be \"off\". "
+             "Off by default.",
              lambda c: c.smartpaste.enabled, sp_on, sp_off),
         _Def("scrub", "Audio-Anchored Scrubbing", "[scrub] — replay/pinpoint a word", OPTIONAL,
              "Keeps word-level timestamps so you can replay what you said or pick a word to "
@@ -894,8 +904,10 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "identifiers (snake/camel/pascal). Activate via a command key. Off by default.",
              lambda c: c.code.enabled, co_on2, co_off2),
         _Def("math", "Spoken Math (LaTeX)", "[math] — dictate equations", OPTIONAL,
-             "Dictate math and inject LaTeX ('x squared plus y squared' -> x^{2} + y^{2}). "
-             "Common cases pure; nested expressions need the mathspeech extra. Off by default.",
+             "Dictate math and inject LaTeX: hold the command key and say 'math x squared "
+             "plus y squared' -> x^{2} + y^{2}. The leading 'math' is required — the "
+             "keywords are ordinary English, so prose would otherwise be rewritten. "
+             "Needs [hotkey] command_key bound. Off by default.",
              lambda c: c.math.enabled, ma_on, ma_off),
         _Def("autostop", "Hands-Free Auto-Stop", "[autostop] — tap & speak", OPTIONAL,
              "Tap once and speak; recording auto-stops when you finish (silence timeout + "
@@ -911,8 +923,9 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "enrolled profiles. Off by default.",
              lambda c: c.voiceprint.multi_profile, mp_on, mp_off),
         _Def("snippets", "Voice Snippets", "[snippets] — spoken text expander", OPTIONAL,
-             "Say a trigger ('insert my signature') to type a stored template. Add entries "
-             "under [snippets]. Off by default.",
+             "Hold the command key and say a trigger ('insert my signature') to type a "
+             "stored template. Add entries under [snippets]. Needs [hotkey] command_key "
+             "bound. Off by default.",
              lambda c: c.snippets.enabled, sn_on, sn_off),
         _Def("phonetic", "Phonetic Corrector", "[phonetic] — fix mis-heard names", OPTIONAL,
              "Fixes mis-heard proper nouns by sound against your vocabulary "
@@ -1112,17 +1125,25 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 _UNWIRED: frozenset[str] = frozenset({
     "acoustic_profiles", "affect", "agent", "audioguard", "autostop",
     "bookmarks", "breath", "bridge", "cmdspotter",
-    "code", "codec", "compose", "condense", "contour", "corrdict",
+    "codec", "compose", "condense", "contour",
     "crowdproof", "diagramvox", "echo", "fieldaware",
-    "focusprofile", "gesture", "hatselect", "headpointer",
+    "gesture", "hatselect", "headpointer",
     "hesitation", "hotwords", "interpret", "involuntary", "langroute",
-    "latency", "lipread", "loadguard", "math", "morsevox",
+    "lipread", "loadguard", "morsevox",
     "mousegrid", "mouthswitch", "multiprofile", "pilot", "predict",
     "pronunciation", "proofback", "prosodypunct", "rag", "readback_clone",
     "reask", "screengrounded", "scribe", "scrub", "sentiment", "sign",
-    "smartpaste", "snippets", "spatialvad", "spelling", "spokenregex",
+    "spatialvad",
     "spreadsheet", "srpace", "suggestmode",
-    "vocaljoystick", "voiceguard", "voicehealth", "voicetimer", "wakeword",
+    "vocaljoystick", "voiceguard", "voicehealth", "wakeword",
+})
+
+
+#: The capabilities routed through `spokencmd/registry.py`. They share one
+#: precondition that no other feature has — command mode — so the set is named
+#: once here rather than repeated in the CLI, the caveat and the tests.
+SPOKEN_COMMAND_SLUGS: frozenset[str] = frozenset({
+    "spelling", "code", "math", "spokenregex", "snippets", "voicetimer",
 })
 
 
@@ -1587,6 +1608,45 @@ def enable_caveat(slug: str, cfg) -> str | None:
     reason, and the honest move is to hand them the number, not the veto.
     """
     slug = (slug or "").strip().lower()
+    if slug in SPOKEN_COMMAND_SLUGS:
+        # These six only ever run inside command mode, and command mode exists
+        # only while a dedicated command key is held. With [hotkey] command_key
+        # unset — the default — `features enable spelling` writes a true config
+        # key that no burst can ever reach, and `yazses features` then lists the
+        # capability as ON. That is the "toggle that lies" shape this registry
+        # exists to prevent, and it is not expressible statically: the same
+        # feature is perfectly live on a machine that has bound the key.
+        bound = (getattr(getattr(cfg, "hotkey", None), "command_key", "") or "").strip()
+        if not bound:
+            return (
+                "Heads up: this capability only runs while the dedicated command key "
+                "is held, and [hotkey] command_key is not set — so enabling it now "
+                "changes nothing you can trigger. Bind one first, e.g. "
+                "`yazses hotkey command right_ctrl`, then `yazses restart`."
+            )
+    if slug == "corrdict":
+        # The table is mined from corpus events, and the corpus is off by default
+        # (ADR-011). Enabling corrdict alone is the same "toggle that lies" shape:
+        # a true config key with nothing behind it.
+        if not getattr(getattr(cfg, "learning", None), "enabled", False):
+            return (
+                "Heads up: this learns from the encrypted learning corpus, and "
+                "[learning] enabled is false — so there is nothing to mine and "
+                "enabling it now changes nothing. Turn on capture first: "
+                "`yazses features enable learning`."
+            )
+    if slug in ("smartpaste", "focusprofile"):
+        # Both key off the focused application, which only the no-text-target
+        # detector resolves. With the guard off nothing ever sets `app_class`, so
+        # both are silently inert rather than merely less accurate.
+        guard = (getattr(getattr(cfg, "injection", None), "target_guard", "") or "").strip().lower()
+        if guard == "off":
+            return (
+                "Heads up: this keys off which application has focus, and "
+                "[injection] target_guard is \"off\", so nothing resolves the "
+                "focused app — enabling it now changes nothing. Set target_guard "
+                "back to \"clipboard\" or \"warn\" first."
+            )
     if slug == "streaming":
         model = (getattr(getattr(cfg, "stt", None), "model", "") or "").strip().lower()
         # Streaming only wins where a rolling decode keeps up with the speech.

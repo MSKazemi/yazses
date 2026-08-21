@@ -38,7 +38,9 @@ from yazses.core.daemon import Daemon
 #: imports. Derived from the source once and pinned here, so adding a transform without
 #: adding it to this list is itself caught by `test_the_list_is_still_complete`.
 TRANSFORMS = [
+    "adapt",               # Smart-Paste (ADR-v2-036)
     "apply_conversions",
+    "apply_corrections",   # Self-Learning Correction Dictionary (ADR-v2-079)
     "apply_self_repair",
     "apply_symbols",
     "balance_delimiters",

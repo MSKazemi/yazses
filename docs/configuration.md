@@ -13,7 +13,7 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 
 **Match the Type column exactly.** In TOML only `str` values take quotes; `int`, `float` and `bool` must be bare. Writing `vad_threshold = "0.004"` instead of `vad_threshold = 0.004` loads without complaint and then fails at runtime, because the value stays a string where a number is expected. See [Troubleshooting](troubleshooting.md#dictation-stopped-working-right-after-i-edited-configtoml).
 
-**63 of these 447 keys are inert**, and they are marked ⚠️ inert in the Status column. The loader accepts them, `configcheck` validates them and they have a documented default — but no code reads them, so setting one loads without complaint and changes nothing. Most belong to capabilities that are registered but not yet wired; see [`yazses features`](cli-reference.md) for what is actually switchable. Both numbers here are counted at generation time, and the list of inert keys is the same one the test suite gates on, so neither can quietly fall out of date.
+**61 of these 449 keys are inert**, and they are marked ⚠️ inert in the Status column. The loader accepts them, `configcheck` validates them and they have a documented default — but no code reads them, so setting one loads without complaint and changes nothing. Most belong to capabilities that are registered but not yet wired; see [`yazses features`](cli-reference.md) for what is actually switchable. Both numbers here are counted at generation time, and the list of inert keys is the same one the test suite gates on, so neither can quietly fall out of date.
 
 This has bitten before: `[injection] fallback_to_clipboard` was documented in seventeen places and defaulted to `true` while nothing read it, so anyone who turned it off was silently overruled.
 
@@ -29,6 +29,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `initial_prompt` | str | `""` |  |
 | `vocab_correction` | bool | `false` |  |
 | `cpu_threads` | int | `0` |  |
+| `beam_size` | int | `0` |  |
 | `chinese_script` | str | `""` |  |
 
 ## `[hotkey]`
@@ -482,7 +483,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | Key | Type | Default | Status |
 |---|---|---|---|
 | `enabled` | bool | `false` |  |
-| `entries` | dict | `{}` | ⚠️ inert |
+| `entries` | dict | `{}` |  |
 
 ## `[phonetic]`
 
@@ -769,6 +770,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `enabled` | bool | `false` |  |
 | `high_load` | float | `85.0` |  |
 | `low_load` | float | `40.0` |  |
+| `light_model` | str | `"tiny.en"` |  |
 
 ## `[diarize]`
 
@@ -806,7 +808,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | Key | Type | Default | Status |
 |---|---|---|---|
 | `enabled` | bool | `false` |  |
-| `min_support` | int | `3` | ⚠️ inert |
+| `min_support` | int | `3` |  |
 
 ## `[fileopen]`
 

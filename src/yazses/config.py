@@ -50,6 +50,12 @@ class SttConfig:
     # trade on mains power and the wrong one on battery, where the cost is the
     # core-seconds rather than the wall-clock. Nothing capped it before this.
     cpu_threads: int = 0
+    # Decoder beam width. 0 keeps faster-whisper's own default (5). 1 is greedy
+    # decoding: measurably faster and measurably worse, which is why it is not the
+    # default — it is here so the Adaptive Latency Governor (`[latency]`) can ask
+    # for it on a loaded machine, and so a user who wants that trade permanently
+    # can take it without one. Ignored by engines that do not decode with a beam.
+    beam_size: int = 0
     # Which Han script Chinese output is written in: "simplified" (简体, mainland)
     # | "traditional" (繁體, Taiwan/Hong Kong) | "" to leave the model's own choice
     # alone. Whisper picks a script per utterance and is not consistent about it,
@@ -1176,10 +1182,20 @@ class LangrouteConfig:
 
 @dataclass
 class LatencyConfig:
-    """v2.5 Wave I — Adaptive Latency Governor (ADR-v2-073). OFF by default."""
+    """v2.5 Wave I — Adaptive Latency Governor (ADR-v2-073). OFF by default.
+
+    Watches the system load average and decodes the next utterance with a cheaper
+    policy while the machine is busy. POSIX-only: Windows exposes no load average,
+    so the governor logs once that it is inactive and changes nothing.
+    """
     enabled: bool = False
     high_load: float = 85.0
     low_load: float = 40.0
+    # The model used while load is at or above `high_load`, with greedy decoding.
+    # It is loaded in the background the first time that happens and then stays
+    # resident alongside `[stt] model` — roughly 75 MB for tiny.en, and the reason
+    # this feature is off by default rather than free.
+    light_model: str = "tiny.en"
 
 
 @dataclass

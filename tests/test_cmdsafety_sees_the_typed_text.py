@@ -24,12 +24,17 @@ But `code/spoken.py::spoken_symbols` *does* emit shell operators:
 
     "rm minus r f slash"  ->  "rm - r f /"
 
-It is in `features._UNWIRED` today. Wire it **after** the gate and dictating a destructive
-command becomes runnable text typed into a shell with the guard never having seen it — a
-guard that cannot fire, which is a shape this repo has hit repeatedly.
+It was in `features._UNWIRED` when this file was written. It is wired now, along with
+`spelling` — and `spelling` is the worse case, because the phonetic alphabet maps *dash*,
+*slash* and *space*, so it assembles `rm -rf /` character for character. Both return from
+`_try_spoken` before the dictation gate at the bottom of `_on_hold_end` is ever reached, so
+that method re-applies the gate to the text it assembled. Without it the guard would never
+see the text at all — a guard that cannot fire, which is a shape this repo has hit
+repeatedly.
 
-So the invariant is asserted rather than assumed: every text transform on the dictation path
-that can emit shell syntax runs before `_cmdsafety_gate`.
+So the invariant is asserted rather than assumed, on both paths: every text transform that
+can emit shell syntax runs before the gate, and the spoken-capability path hands the gate
+the *assembled* text rather than the phrase that was spoken.
 
 ## Anchors are the call text, not the name
 
@@ -118,23 +123,56 @@ def test_every_shell_syntax_transform_runs_before_the_gate() -> None:
         )
 
 
-def test_the_unwired_shell_symbol_grammar_is_still_unwired() -> None:
-    """`spoken_symbols` emits `/`, `|` and `-`. Wiring it after the gate would make a
-    dictated destructive command runnable with the guard never having seen it.
+def test_the_spoken_capability_path_hands_the_gate_the_assembled_text() -> None:
+    """`code` and `spelling` are wired now (ADR-v2-131), so this is the live case.
 
-    This fails the day someone wires it, which is when the ordering above must be
-    extended rather than rediscovered.
+    Both assemble shell syntax out of ordinary words, and both return from
+    `_try_spoken` long before the dictation gate at the bottom of `_on_hold_end`.
+    So `_try_spoken` re-applies the gate itself, and what it must hand it is the
+    *assembled* text — not the phrase that was spoken.
+    """
+    from types import SimpleNamespace
+
+    from yazses.config import Config
+    from yazses.core.daemon import Daemon
+    from yazses.spokencmd.registry import build_handlers
+
+    config = Config()
+    config.spelling.enabled = True
+    config.cmdsafety.enabled = True
+
+    seen: list[str] = []
+    typed: list[str] = []
+    fake = SimpleNamespace(
+        _config=config,
+        _spoken_handlers=list(build_handlers(config)),
+        _cmdsafety_gate=lambda text, event: seen.append(text),  # returns None -> held
+        _active_injector=lambda: SimpleNamespace(inject=typed.append),
+    )
+
+    event: dict = {}
+    handled = Daemon._try_spoken(fake, "spell romeo mike space dash romeo foxtrot space slash", event, can_type=True)
+
+    assert handled, "the phonetic spelling capability did not claim its own trigger"
+    assert seen == ["rm -rf /"], seen
+    assert typed == [], "a held command was typed anyway"
+    assert event["discard_reason"] == "cmdsafety_held"
+    assert assess_command(seen[0]).level != "safe"
+
+
+def test_the_milder_sibling_is_measured_rather_than_assumed() -> None:
+    """`spoken_symbols` was the capability the ordering guard was written about.
+
+    It emits `/`, `|` and `-`, but the spaces it leaves behind defeat the
+    patterns: what it types is inert, not dangerous. That is a measurement, not a
+    reason to stop routing it through the gate.
     """
     from yazses.code.spoken import spoken_symbols
-    from yazses.system.features import _UNWIRED
 
     assert "/" in spoken_symbols("slash")
     assert "|" in spoken_symbols("pipe")
-    assert "code" in _UNWIRED, (
-        "code/spoken.py is wired now — add its call site to "
-        "test_every_shell_syntax_transform_runs_before_the_gate, and check it runs "
-        "before `_cmdsafety_gate`"
-    )
+    assert spoken_symbols("rm minus r f slash") == "rm - r f /"
+    assert assess_command("rm - r f /").level == "safe"
 
 
 def test_the_gate_still_precedes_the_staged_buffer() -> None:

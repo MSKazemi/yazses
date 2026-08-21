@@ -32,8 +32,51 @@ change nothing (no runtime code reads its config yet).
 ```
 
 They stay listed because that is where a contributor picks one up — each has a matching
-`design/adr/` entry. **61 of the 122 rows below are ◌ today.** Rows without the mark are
+`design/adr/` entry. **51 of the 122 rows below are ◌ today.** Rows without the mark are
 wired and can be turned on.
+
+### "Hold the command key" — what that means
+
+Six capabilities below say it: **Phonetic Spelling Mode**, **Spoken Code Mode**, **Spoken
+Math**, **Spoken Regex Builder**, **Voice Snippets** and **Local Voice Timer**. Each is
+triggered by a leading word — `spell …`, `code …`, `math …`, `regex …`, `insert …`,
+`set a timer for …` — and those are ordinary English. Left on the normal dictation key
+they would claim sentences you meant to type, so they only run while a **dedicated
+command key** is held:
+
+```
+yazses hotkey command right_ctrl   # bind one (any key you do not type with)
+yazses restart
+```
+
+Without one bound, `yazses features enable spelling` still writes the config key and
+says so:
+
+```
+Heads up: this capability only runs while the dedicated command key is held, and
+[hotkey] command_key is not set — so enabling it now changes nothing you can trigger.
+```
+
+Every trigger is anchored at **both** ends, so "the code review is on Friday" is typed
+rather than interpreted, and each capability's output goes through the same command-safety
+gate as ordinary dictation — spelling out `romeo mike space dash romeo foxtrot space slash`
+assembles `rm -rf /`, and that waits for a spoken **confirm** exactly as if you had
+dictated it.
+
+### The four that answer to the machine instead
+
+Four more were wired at the same time and need no key, because what triggers them is not
+something you say:
+
+| Toggle | Trigger | Needs |
+|---|---|---|
+| `corrdict` — Self-Learning Correction Dictionary | a fix you have made ≥ `min_support` times | `[learning] enabled`; it mines your own corrections |
+| `smartpaste` — Smart-Paste | the app that has focus | `[injection] target_guard` not `"off"` |
+| `focusprofile` — Focus-Class Auto-Profile | the app that has focus | `[injection] target_guard` not `"off"` |
+| `latency` — Adaptive Latency Governor | the 1-minute load average | POSIX; Windows exposes no load average |
+
+Each says so when you enable it without its precondition, rather than turning on and
+doing nothing.
 
 ## Dictation upgrades (Wave A)
 
@@ -88,13 +131,13 @@ accessibility tree. See `design/adr/adr-v2-023/024` (internal).
 | Feature | Toggle | What it does |
 |---|---|---|
 | **Hallucination Guard** | `hallucination` | Drops Whisper's fabricated ghost text on silence/noise (the phantom "Thank you.") before it's typed. |
-| ◌ **Voice Snippets** | `snippets` | Say a trigger ("insert my signature") to type a stored template. |
+| **Voice Snippets** | `snippets` | Say a trigger ("insert my signature") to type a stored template. Hold the command key. |
 | **Phonetic Corrector** | `phonetic` | Fixes mis-heard proper nouns by sound ("Cuber Netties" → "Kubernetes"). |
 | **Multi-User Profiles** | `voiceprint` `multi_profile` | Loads each enrolled speaker's own vocab/hotkey/cleanup from their voiceprint. |
 | ◌ **Hands-Free Auto-Stop** | `autostop` | Tap once and speak; recording auto-stops when you finish. |
 | ◌ **Voice Mouse Grid** | `mousegrid` | Drive the cursor and click by voice via a numbered grid, on any pixels. |
-| ◌ **Spoken Code Mode** | `code` | Dictate code: spoken symbols → punctuation, word-groups → cased identifiers. |
-| ◌ **Spoken Math (LaTeX)** | `math` | Dictate equations → LaTeX ("x squared plus y squared" → `x^{2} + y^{2}`). |
+| **Spoken Code Mode** | `code` | Dictate code: spoken symbols → punctuation, word-groups → cased identifiers. Hold the command key. |
+| **Spoken Math (LaTeX)** | `math` | Dictate equations → LaTeX ("x squared plus y squared" → `x^{2} + y^{2}`). Hold the command key. |
 | ◌ **Wake-Word Activation** (exp) | `wakeword` | Start dictation hands-free on a keyword. Always-listening, local-only, `--force`. |
 | ◌ **Vocal-Strain Guard** | `voicehealth` | Advises a break when your voice shows rising strain over a session (advisory only). |
 
@@ -109,7 +152,7 @@ Toggle with `yazses features enable <name>`.
 | Feature | `features` name | What it does |
 |---|---|---|
 | **Speaking Coach** | `coach` | Private analytics of your dictation: filler rate, words-per-minute, vocabulary diversity. |
-| ◌ **Smart-Paste** | `smartpaste` | Adapts injected syntax to the target app (markdown bullets, code casing, URL autolinking). |
+| **Smart-Paste** | `smartpaste` | Markdown bullets and autolinked URLs in a notes app; terminals, editors and mail left exactly as dictated. Needs the focused-window probe. |
 | ◌ **Audio-Anchored Scrubbing** | `scrub` | Keeps word timestamps so you can replay what you said or re-dictate one word. |
 | **Dictation Reflow** | `reflow` | Say "structure this" to rewrite a ramble into bullets + action items. |
 | ◌ **Acoustic Context Profiles** | `acoustic_profiles` | Detects your environment (quiet/café/car/meeting) and auto-tunes the mic gate + denoise. |
@@ -160,14 +203,14 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | Feature | `features` name | What it does |
 |---|---|---|
 | **Terminal Command Safety Gate** | `cmdsafety` | Holds a destructive terminal command until you say "confirm". |
-| ◌ **Spoken Regex Builder** | `spokenregex` | Build search patterns by voice ("four digits dash two digits" → `\d{4}-\d{2}`). |
+| **Spoken Regex Builder** | `spokenregex` | Build search patterns by voice ("four digits dash two digits" → `\d{4}-\d{2}`). Hold the command key. |
 | **Structured-Markup Dictation** | `markup` | Speak lists/tables → Markdown/org ("bullet list: apples; oranges"). |
 | **Document Find-and-Replace** | `findreplace` | Edit the whole document by voice ("replace every utilise with use"). |
 | ◌ **Hard Contextual Biasing** | `hotwords` | Biases recognition toward your vocabulary with a hotword trie so rare names win. |
 | **Voice Window Focus** | `windowctl` | Raise a window by name ("focus the browser"). X11 only. |
 | **Citation-by-Voice** | `cite` | "cite Vaswani 2017" → a formatted citation from your local .bib, offline. |
 | ◌ **Per-Language Auto Switching** | `langroute` | Detects the language you speak and hot-swaps to its model + ITN. |
-| ◌ **Adaptive Latency Governor** | `latency` | Keeps dictation responsive under CPU load, faster when idle (speculative decoding). |
+| **Adaptive Latency Governor** | `latency` | Decodes with a lighter model at a greedy beam while the load average is high. POSIX only; speculative decoding not built. |
 | **Diarized Conversation Capture** | `diarize` | Attributed multi-speaker Markdown (**Alice:** …) with rename-by-voice. |
 
 ## Wave J — precision input, safety & recovery (v2.6, in progress)
@@ -176,11 +219,11 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 
 | Feature | `features` name | What it does |
 |---|---|---|
-| ◌ **Phonetic Spelling Mode** | `spelling` | NATO words → exact characters for passwords/codes ("capital alpha bravo double lima" → `Abll`). |
+| **Phonetic Spelling Mode** | `spelling` | NATO words → exact characters for passwords/codes ("capital alpha bravo double lima" → `Abll`). Hold the command key. |
 | **Voice Git Choreographer** | `gitvoice` | Safe git by voice: destructive ops wait for a spoken confirm; the undo is always spoken. |
 | ◌ **Confidence-Gated Re-Ask** | `reask` | Holds an uncertain word and asks you to pick/repeat it instead of guessing (flagship). |
 | **Verbatim / Autoformat Toggle** | `verbatim` | "dictate verbatim" freezes all formatting mid-burst; "resume formatting" restores it. |
-| ◌ **Self-Learning Correction Dictionary** | `corrdict` | Auto-fixes the ASR errors you keep correcting, learned from your edits. |
+| **Self-Learning Correction Dictionary** | `corrdict` | Auto-fixes the ASR errors you keep correcting, learned from your own edits. Needs `[learning] enabled`. |
 | **Voice Fuzzy File Open** | `fileopen` | "open the mortgage notes" → fuzzy-matches and opens a local file. |
 | **Voice Jump-to-Symbol** | `jump` | "go to line 240" / "jump to function tokenize" → the editor moves there. |
 | **Spoken Shell Pipeline Builder** | `shellpipe` | Speak stages → render a shell pipeline as text; nothing runs until "run it". |
@@ -201,8 +244,8 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | ◌ **Session Bookmarks** | `bookmarks` | "bookmark here as intro" + "jump to my last bookmark" for long sessions. |
 | **Spoken Table Entry** | `tablecsv` | "row: Ada, 1815, London" → tab/comma cells, "next row" advances. |
 | **Word-Count & Goal Tracker** | `wordgoal` | Count dictated words, set a goal, ask "how many words so far?" |
-| ◌ **Local Voice Timer** | `voicetimer` | "set a timer for 25 minutes" — offline, spoken by read-back. |
-| ◌ **Focus-Class Auto-Profile** | `focusprofile` | Grammar profile follows the focused window's class (terminal→shell, editor→code). |
+| **Local Voice Timer** | `voicetimer` | "set a timer for 25 minutes" — offline; announced by a desktop notification. Hold the command key. |
+| **Focus-Class Auto-Profile** | `focusprofile` | Dictates verbatim into a terminal or editor when no `[profiles.app]` glob matches, so a cleanup pass cannot reword a command line. |
 
 Wave K is complete — all ten features (see Wave K) are shipped,
 pure, 100%-covered, and off by default.

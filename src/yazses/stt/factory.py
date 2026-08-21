@@ -112,6 +112,7 @@ def _build_faster_whisper(stt: "SttConfig", fallback_from: str = "") -> "SttEngi
         compute_type=getattr(stt, "compute_type", "int8"),
         language=language,
         cpu_threads=int(getattr(stt, "cpu_threads", 0) or 0),
+        beam_size=int(getattr(stt, "beam_size", 0) or 0),
     )
 
 

@@ -85,6 +85,8 @@ class FasterWhisperEngine:
     # __new__ to exercise the streaming seam without loading a model) still has a
     # well-defined language instead of raising AttributeError mid-decode.
     _language: str = "en"
+    #: Same reason as `_language`: a partially constructed engine still decodes.
+    _beam_size: int = 0
 
     def __init__(
         self,
@@ -93,6 +95,7 @@ class FasterWhisperEngine:
         compute_type: str = "int8",
         language: str = "en",
         cpu_threads: int = 0,
+        beam_size: int = 0,
     ) -> None:
         log.info("Loading STT model '%s' on %s (%s)...", model_name, device, compute_type)
         self._model = _load_model(model_name, device, compute_type, cpu_threads)
@@ -100,6 +103,10 @@ class FasterWhisperEngine:
         # omitting the kwarg entirely (passing language=None means the same thing
         # but relies on an undocumented default — omission is the explicit form).
         self._language = (language or "").strip()
+        # 0 means "say nothing and let faster-whisper choose", which is not the
+        # same as passing its current default explicitly — the default is theirs
+        # to change, and pinning it here would silently freeze it at 5.
+        self._beam_size = int(beam_size or 0)
         log.info("Model loaded.")
 
     def _decode_kwargs(self, task: str | None) -> dict:
@@ -109,9 +116,12 @@ class FasterWhisperEngine:
         so it never carries a language. Otherwise pin `[stt] language`, or omit it
         when the user asked for auto-detection.
         """
-        if task == "translate":
-            return {"task": "translate"}
-        return {"language": self._language} if self._language else {}
+        kwargs: dict = {"task": "translate"} if task == "translate" else (
+            {"language": self._language} if self._language else {}
+        )
+        if self._beam_size > 0:
+            kwargs["beam_size"] = self._beam_size
+        return kwargs
 
     def transcribe(
         self,

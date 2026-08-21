@@ -185,19 +185,19 @@ YazSes ships **147 capabilities**. All but the core are **off by default** — t
 
 ### Focus-Class Auto-Profile
 
-- **Toggle:** `focusprofile`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[focusprofile] — auto grammar per app class`
+- **Toggle:** `focusprofile`  ·  **Tier:** recommended  ·  **Config:** `[focusprofile] — auto grammar per app class`
 - **What it does:** Auto-selects the dictation profile from the focused window's class (terminal→shell, editor→code, browser→prose) so you never switch profiles by hand. Off by default.
 - **Use when:** When you move between a terminal, editor, and browser and don't want to switch profiles by hand.
 - **Example:** Move from your editor to a terminal and the grammar follows.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable focusprofile` then `yazses restart`
 
 ### Adaptive Latency Governor
 
-- **Toggle:** `latency`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[latency] — load-aware decode`
-- **What it does:** Keeps dictation responsive under CPU load (lighter model/beam) and losslessly faster when idle (speculative decoding). Needs the latency extra for a draft model. Off by default.
+- **Toggle:** `latency`  ·  **Tier:** recommended  ·  **Config:** `[latency] — load-aware decode`
+- **What it does:** Adapts decoding to system load: while the 1-minute load average is at or above [latency] high_load it decodes with [latency] light_model at a greedy beam, and otherwise with your normal model. The light model loads in the background the first time that happens and then stays resident (~75 MB for tiny.en). POSIX only — Windows exposes no load average, and there the governor says so and stays off. The speculative-decoding half of ADR-v2-073 is designed but not built. Off by default.
 - **Use when:** When your CPU is busy and dictation lags, but you still want fast response when it's idle.
 - **Example:** Dictation stays snappy when your CPU is busy, faster when it's idle.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable latency` then `yazses restart`
 
 ### Hands-Free Auto-Stop
 
@@ -285,11 +285,11 @@ YazSes ships **147 capabilities**. All but the core are **off by default** — t
 
 ### Self-Learning Correction Dictionary
 
-- **Toggle:** `corrdict`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[corrdict] — auto-fix your recurring errors`
+- **Toggle:** `corrdict`  ·  **Tier:** recommended  ·  **Config:** `[corrdict] — auto-fix your recurring errors`
 - **What it does:** Learns the ASR errors you keep fixing (e.g. 'yaz says' → 'YazSes') and applies them automatically to future output. High-precision, from your own edits. Off by default.
 - **Use when:** When you keep fixing the same ASR mistake and want it corrected automatically from now on.
 - **Example:** You keep fixing 'yaz says'→'YazSes'; soon it's fixed automatically.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable corrdict` then `yazses restart`
 
 ### Confidence-Gated Re-Ask
 
@@ -301,11 +301,11 @@ YazSes ships **147 capabilities**. All but the core are **off by default** — t
 
 ### Phonetic Spelling Mode
 
-- **Toggle:** `spelling`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[spelling] — NATO → exact characters`
-- **What it does:** A character-exact mode for passwords/codes/IDs: 'capital alpha bravo double lima' → 'Abll'. Handles digits and symbols. Off by default.
+- **Toggle:** `spelling`  ·  **Tier:** recommended  ·  **Config:** `[spelling] — NATO → exact characters`
+- **What it does:** A character-exact mode for passwords/codes/IDs: hold the command key and say 'spell capital alpha bravo double lima' → 'Abll'. Handles digits and symbols. Needs [hotkey] command_key bound. Off by default.
 - **Use when:** When dictating a password, code, or ID that has to be character-exact.
 - **Example:** Say 'capital alpha bravo double lima' to type 'Abll' exactly.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable spelling` then `yazses restart`
 
 ### Hard Contextual Biasing
 
@@ -533,11 +533,11 @@ YazSes ships **147 capabilities**. All but the core are **off by default** — t
 
 ### Spoken Regex Builder
 
-- **Toggle:** `spokenregex`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[spokenregex] — dictate search patterns`
-- **What it does:** Build regexes by voice: 'four digits dash two digits' → \d{4}-\d{2}. Feeds find dialogs and grep. Off by default.
+- **Toggle:** `spokenregex`  ·  **Tier:** optional  ·  **Config:** `[spokenregex] — dictate search patterns`
+- **What it does:** Build regexes by voice: hold the command key and say 'regex four digits dash two digits' → \d{4}-\d{2}. Feeds find dialogs and grep. Needs [hotkey] command_key bound. Off by default.
 - **Use when:** When you need a regex for a find dialog or grep but don't want to type the syntax.
 - **Example:** Say 'four digits dash two digits' to build \d{4}-\d{2}.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable spokenregex` then `yazses restart`
 
 ### On-Device Condense
 
@@ -613,27 +613,27 @@ YazSes ships **147 capabilities**. All but the core are **off by default** — t
 
 ### Smart-Paste
 
-- **Toggle:** `smartpaste`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[smartpaste] — adapt syntax to app`
-- **What it does:** Adapts injected syntax to the target app (markdown bullets, code casing, URL autolinking) using local window info. No model. Off by default.
+- **Toggle:** `smartpaste`  ·  **Tier:** optional  ·  **Config:** `[smartpaste] — adapt syntax to app`
+- **What it does:** Adapts injected text to the focused app: a spoken bullet becomes '- ' and a bare URL is angle-bracketed in Markdown notes; terminals, editors, mail and plain fields are left exactly as dictated. Local window info only, no model. Needs the focused-window probe, so [injection] target_guard must not be "off". Off by default.
 - **Use when:** When you dictate the same text into different apps and want the formatting to fit each one.
 - **Example:** Dictate into markdown vs a terminal — syntax adapts to the app.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable smartpaste` then `yazses restart`
 
 ### Spoken Code Mode
 
-- **Toggle:** `code`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[code] — dictate code syntax`
+- **Toggle:** `code`  ·  **Tier:** optional  ·  **Config:** `[code] — dictate code syntax`
 - **What it does:** Dictate code: spoken symbols become punctuation and word-groups become cased identifiers (snake/camel/pascal). Activate via a command key. Off by default.
 - **Use when:** When you're writing code by voice and need spoken symbols and cased identifiers, not prose.
 - **Example:** Dictate 'def foo open paren' → 'def foo(' in code mode.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable code` then `yazses restart`
 
 ### Spoken Math (LaTeX)
 
-- **Toggle:** `math`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[math] — dictate equations`
-- **What it does:** Dictate math and inject LaTeX ('x squared plus y squared' -> x^{2} + y^{2}). Common cases pure; nested expressions need the mathspeech extra. Off by default.
+- **Toggle:** `math`  ·  **Tier:** optional  ·  **Config:** `[math] — dictate equations`
+- **What it does:** Dictate math and inject LaTeX: hold the command key and say 'math x squared plus y squared' -> x^{2} + y^{2}. The leading 'math' is required — the keywords are ordinary English, so prose would otherwise be rewritten. Needs [hotkey] command_key bound. Off by default.
 - **Use when:** When you're writing equations by voice and want them injected as LaTeX.
 - **Example:** Say 'x squared plus y squared' → 'x^{2} + y^{2}'.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable math` then `yazses restart`
 
 ### Tone-Aware Formatting
 
@@ -837,11 +837,11 @@ YazSes ships **147 capabilities**. All but the core are **off by default** — t
 
 ### Voice Snippets
 
-- **Toggle:** `snippets`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[snippets] — spoken text expander`
-- **What it does:** Say a trigger ('insert my signature') to type a stored template. Add entries under [snippets]. Off by default.
+- **Toggle:** `snippets`  ·  **Tier:** optional  ·  **Config:** `[snippets] — spoken text expander`
+- **What it does:** Hold the command key and say a trigger ('insert my signature') to type a stored template. Add entries under [snippets]. Needs [hotkey] command_key bound. Off by default.
 - **Use when:** When you keep typing the same boilerplate (signature, address) and want a spoken shortcut.
 - **Example:** Say 'insert my signature' to type a stored template.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable snippets` then `yazses restart`
 
 ### Voice-to-Tool (Spoken MCP)
 
@@ -1031,11 +1031,11 @@ YazSes ships **147 capabilities**. All but the core are **off by default** — t
 
 ### Local Voice Timer
 
-- **Toggle:** `voicetimer`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[voicetimer] — offline timers & break reminders`
-- **What it does:** Set a timer or break reminder by voice ('set a timer for 25 minutes'), announced by read-back — fully offline, no phone or cloud assistant. Off by default.
+- **Toggle:** `voicetimer`  ·  **Tier:** optional  ·  **Config:** `[voicetimer] — offline timers & break reminders`
+- **What it does:** Set a timer or break reminder by voice: hold the command key and say 'set a timer for 25 minutes'; 'cancel the timer' stops it. Announced by a desktop notification — fully offline, no phone or cloud assistant. Needs [hotkey] command_key bound. Off by default.
 - **Use when:** When you want to set a timer or break reminder by voice without a phone or cloud assistant.
 - **Example:** Say 'set a timer for 25 minutes' — it reminds you, fully offline.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable voicetimer` then `yazses restart`
 
 ### Silent Lip-Reading
 

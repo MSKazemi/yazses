@@ -61,6 +61,8 @@ from yazses.commands.grammar import classify
 from yazses.commands.revise import parse_revise
 from yazses.compute.evaluate import evaluate
 from yazses.config import Config
+from yazses.spokencmd.registry import build_handlers
+from yazses.spokencmd.router import route as route_spoken
 from yazses.timeline.history import parse_timeline_command
 from yazses.verbatim.gate import detect_mode_command
 
@@ -93,6 +95,13 @@ SPEECH = [
     "my house number is 4539 and the postcode follows",
     "press on with the design review",
 ]
+
+
+def _spelling_on() -> Config:
+    """The seeded config: `spelling` is RECOMMENDED, so first run turns it on."""
+    cfg = Config()
+    cfg.spelling.enabled = True
+    return cfg
 
 
 def _is_dictation(text: str) -> bool:
@@ -131,6 +140,9 @@ def test_no_default_on_transform_consumes_it(text: str) -> None:
     assert not (getattr(result, "checked", False) and not getattr(result, "ok", True)), (
         "checkdigit would hold this burst for a spoken confirm"
     )
+    assert route_spoken(text, build_handlers(_spelling_on())) is None, (
+        "a spoken capability would claim this burst instead of typing it"
+    )
 
 
 @pytest.mark.parametrize(
@@ -145,6 +157,7 @@ def test_no_default_on_transform_consumes_it(text: str) -> None:
         ("resume formatting", lambda t: detect_mode_command(t) is not None),
         ("2 plus 2", lambda t: evaluate(t) is not None),
         ("15% of 240", lambda t: evaluate(t) is not None),
+        ("spell alpha bravo", lambda t: route_spoken(t, build_handlers(_spelling_on())) is not None),
     ],
 )
 def test_each_transform_still_fires_on_its_own_command(text: str, parser) -> None:
@@ -166,12 +179,107 @@ def test_the_seeded_set_is_what_this_file_covers() -> None:
         ensure_recommended_config(path)
         seeded = set(tomllib.loads(path.read_text(encoding="utf-8")))
 
-    covered = {"commands", "revise", "timeline", "verbatim", "compute", "checkdigit"}
+    covered = {
+        "commands", "revise", "timeline", "verbatim", "compute", "checkdigit",
+        # `spelling` is the one seeded spoken capability (ADR-v2-131). It is covered
+        # twice over: the router is asserted quiet on all of SPEECH above, and
+        # `test_a_spoken_capability_cannot_reach_the_dictation_path` pins that it is
+        # only reachable while the command key is held.
+        "spelling",
+        # `corrdict` rewrites words rather than consuming a burst, and on a stock
+        # install it rewrites nothing: its table is mined from the learning corpus,
+        # which is off by default. `test_the_seeded_correction_table_is_empty` is
+        # the assertion, and it is the one that matters — a substitution table is
+        # the only seeded thing here that could silently change what you said.
+        "corrdict",
+    }
     # Sections that cannot consume a burst: they change how it is delivered, not whether.
     delivery_only = {"overlay", "tray", "injection", "audio", "accessibility", "cmdsafety"}
-    unexamined = seeded - covered - delivery_only
+    # Nor these: they change how the burst is *decoded* or which tone is applied to
+    # it. Both leave the words themselves alone, and neither can swallow one.
+    decode_only = {"latency", "focusprofile"}
+    unexamined = seeded - covered - delivery_only - decode_only
     assert not unexamined, (
         f"first run now enables {sorted(unexamined)}, which this file does not cover. "
         f"If any of them can consume a burst, add it to test_no_default_on_transform_"
         f"consumes_it; if it only affects delivery, list it in `delivery_only`."
     )
+
+
+def test_a_spoken_capability_cannot_reach_the_dictation_path() -> None:
+    """`spelling` is seeded on, and it assembles shell syntax out of NATO words.
+
+    That is only safe because `_try_spoken` is called inside the command-mode chain —
+    a burst dictated with the ordinary hold-to-talk key never reaches it. The command
+    key is unbound by default, so on a stock install the seeded toggle changes nothing
+    until the user binds one deliberately.
+    """
+    import inspect
+
+    from yazses.core.daemon import Daemon
+
+    lines = inspect.getsource(Daemon._on_hold_end).splitlines()
+    branch = next(i for i, ln in enumerate(lines) if ln.strip() == "if command_mode:")
+    call = next(
+        i for i, ln in enumerate(lines)
+        if "self._try_spoken(text, event, can_type=can_type)" in ln
+    )
+    depth = len(lines[branch]) - len(lines[branch].lstrip())
+
+    assert branch < call, "_try_spoken now runs before the command-mode branch"
+
+    # Inside the branch, not merely after it. Both halves are needed and the first
+    # was found by sabotage: relocating the call to just past the block's last line
+    # leaves nothing dedented *between* the two, so the scan alone passed a mutation
+    # that had moved the call onto the dictation path.
+    call_depth = len(lines[call]) - len(lines[call].lstrip())
+    assert call_depth > depth, (
+        f"_try_spoken sits at indent {call_depth}, outside the command-mode block at "
+        f"indent {depth} — a seeded spoken capability could now claim an ordinary "
+        f"dictation burst"
+    )
+    dedented = [
+        i for i in range(branch + 1, call)
+        if lines[i].strip() and len(lines[i]) - len(lines[i].lstrip()) <= depth
+    ]
+    assert not dedented, (
+        f"_on_hold_end line {dedented[0]} leaves the command-mode block before "
+        f"_try_spoken — the call is no longer command-mode only"
+    )
+    assert Config().hotkey.command_key == "", (
+        "the command key is bound by default now; the seeded spoken capabilities are "
+        "live on a stock install and need the corpus replay this file documents"
+    )
+
+
+def test_the_seeded_correction_table_is_empty() -> None:
+    """`corrdict` is seeded on, and it is a substitution table applied to every burst.
+
+    It learns from the encrypted learning corpus, which is off by default (ADR-011),
+    so on a stock install there is nothing to mine and nothing is rewritten. That is
+    what makes seeding it safe, and it is asserted rather than assumed because the
+    failure mode — words silently replaced by words you did not say — is the worst
+    one on this path.
+    """
+    from types import SimpleNamespace
+
+    from yazses.core.daemon import Daemon
+    from yazses.corrdict.mine import apply_corrections
+    from yazses.corrdict.table import build_table
+
+    cfg = Config()
+    assert cfg.corrdict.enabled is False or cfg.learning.enabled is False
+    fake = SimpleNamespace(
+        _config=cfg,
+        _correction_table_cache=None,
+        _warn_feature_inert=lambda *_: None,
+        _platform=SimpleNamespace(paths=SimpleNamespace(data_dir=None)),
+    )
+    table = Daemon._correction_table(fake)
+    assert table == {}
+    # And an empty table is a no-op rather than a crash on every sentence above.
+    for text in SPEECH:
+        assert apply_corrections(text, table) == text
+    # Non-vacuity: the same call on real corrected events does produce a table.
+    events = [SimpleNamespace(final_text="yaz says works", correction_text="YazSes works")] * 3
+    assert build_table(events, min_support=3) == {"yaz says": "YazSes"}
