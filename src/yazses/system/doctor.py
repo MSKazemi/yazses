@@ -301,7 +301,7 @@ def _daemon_check(platform) -> tuple[_Check, dict]:
     pid = lifecycle.read_pid()
     try:
         client = platform.ipc_client_factory(platform.paths.ipc_socket)
-        info = client.call("status")
+        info = client.call("status", consume_notifications=False)
         bits = [b for b in (
             f"state {info.get('state')}" if info.get("state") else "",
             f"model {info.get('model')}" if info.get("model") else "",

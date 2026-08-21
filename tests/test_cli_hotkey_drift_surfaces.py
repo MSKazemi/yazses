@@ -45,7 +45,7 @@ class _Client:
     def is_reachable(self) -> bool:
         return self._reachable
 
-    def call(self, method: str) -> dict:
+    def call(self, method: str, **params) -> dict:
         if self._boom:
             raise OSError("socket went away mid-call")
         return dict(self._payload or {})

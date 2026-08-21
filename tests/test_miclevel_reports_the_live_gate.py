@@ -65,7 +65,7 @@ class _Client:
     def is_reachable(self):
         return self._payload is not None
 
-    def call(self, method):
+    def call(self, method, **params):
         assert method == "status"
         return self._payload
 

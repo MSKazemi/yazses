@@ -44,7 +44,7 @@ class _FakeClient:
         self.reply = reply
         self.calls = 0
 
-    def call(self, method):
+    def call(self, method, **params):
         self.calls += 1
         if isinstance(self.reply, Exception):
             raise self.reply

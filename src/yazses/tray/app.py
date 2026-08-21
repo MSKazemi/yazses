@@ -205,9 +205,13 @@ def run() -> None:
                     )
                 )
                 # Toasts the daemon could not show itself (no libnotify — Windows,
-                # macOS). The status read drains them, so a failure to display one
-                # loses it; that is the right trade for a transient status message,
-                # and far better than the log-only silence it replaces.
+                # macOS). This poll is the ONE status read that consumes the queue —
+                # every other reader in `src/` passes `consume_notifications=False`,
+                # because it cannot show what it takes. `status` has fourteen callers,
+                # and the overlay polls it continuously right beside this loop.
+                # A failure to display one still loses it; that is the right trade for
+                # a transient status message, and far better than the log-only silence
+                # it replaces.
                 _show_notifications(tray, info.get("notifications"))
                 if str(info.get("state") or "") in _RECORDING_STATES:
                     interval = _FAST_POLL_INTERVAL_S  # keep the icon live during a burst

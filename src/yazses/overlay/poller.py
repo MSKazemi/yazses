@@ -84,7 +84,9 @@ class StatusPoller:
         while not self._stop.is_set():
             interval = _SLOW_INTERVAL_S
             try:
-                info = self._client.call("status")  # type: ignore[attr-defined]
+                info = self._client.call(  # type: ignore[attr-defined]
+                    "status", consume_notifications=False
+                )
                 snap = parse_status(info if isinstance(info, dict) else {})
                 self._set(snap)
                 booted = True

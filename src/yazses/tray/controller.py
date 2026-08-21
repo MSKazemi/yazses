@@ -77,7 +77,7 @@ class TrayController:
     def status(self) -> dict:
         """Current daemon status, or ``{}`` when unreachable."""
         try:
-            return dict(self._client.call("status"))
+            return dict(self._client.call("status", consume_notifications=False))
         except Exception as exc:
             log.debug("tray status call failed: %s", exc)
             return {}

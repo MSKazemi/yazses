@@ -8,6 +8,44 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Desktop notifications could be swallowed before the tray showed them (Windows and
+  macOS).** Where there is no `notify-send`, the daemon cannot pop a toast itself: it
+  queues each one and hands it to the tray on the next status read, which is the only
+  notification channel those platforms have. That read *drained* the queue — correct for
+  a single consumer, except `status` has fourteen callers. The voice-activity overlay
+  polls it continuously right alongside the tray and displays no notifications at all, so
+  whichever poll landed first took the toast and it was lost. The tray's own menu did the
+  same: opening it read `status` and swallowed anything pending.
+
+  Only a caller that can display a toast now consumes the queue; every other reader — the
+  overlay, `doctor`, the settings window, the CLI, and the daemon's own bug-report builder
+  — leaves it in place. `status` still drains by default, so an older tray running against
+  an upgraded daemon behaves exactly as before rather than re-showing the same toast on
+  every poll. A build-time guard now finds every status reader in the source and fails
+  until each one either opts out or is a declared displayer.
+
+- **Two meeting participants whose names differed only in capitalisation destroyed each
+  other's voiceprint on macOS and Windows.** A participant's display name is stored nowhere
+  but the filename of their enrolled voiceprint, so the file *is* the identity. The path was
+  derived from the name alone, which made `Amara` and `amara` two different people — on
+  Linux. On macOS (APFS) and Windows (NTFS) the filesystem treats those as one file, so
+  enrolling the second silently overwrote the first: the voiceprint of someone who had done
+  nothing was replaced, and enrolling it back would replace the other one. Nothing reported
+  it, because from YazSes's side the write succeeded.
+
+  The same defect made `meeting enroll`'s own warning contradict what it then did. The
+  "Replaced the existing voiceprint for …" check asked whether a file for that name existed
+  — a question the filesystem answered case-insensitively — while the path it wrote to was
+  built case-sensitively. So it truthfully warned you were about to replace Amara and then,
+  on Linux, did not; and on macOS it replaced her whether or not it had warned.
+
+  A name is now one participant regardless of case on every platform: an existing enrolment
+  is resolved against what is actually enrolled, so `amara` finds Amara, replaces Amara, and
+  keeps the spelling she was enrolled with. An exact match still wins, so a machine that
+  already holds both variants — only reachable on a case-sensitive filesystem — keeps
+  returning each of them for its own name rather than collapsing one into the other. Which
+  person you get is no longer a property of the computer you are sitting at.
+
 - **`yazses report` put dictated text in the bundle it tells you to attach to an issue.**
   The command's own help promises *"your settings with paths, identifiers and anything you
   typed yourself removed"* and *"your dictated text and the learning corpus are never

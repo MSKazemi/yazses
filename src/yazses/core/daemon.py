@@ -3572,7 +3572,12 @@ class Daemon:
                 # and the report is filed without the section that explains the bug.
                 log_file=paths.log_dir / "daemon.log",
                 data_dir=paths.data_dir,
-                status=self._handle_status(None),  # type: ignore[arg-type]
+                # Not a displayer: this builds a bug report. Eating the toast
+                # that prompted the user to click "prepare a report" would be a
+                # particularly unkind way to lose one.
+                status=self._handle_status(
+                    Request(method="status", params={"consume_notifications": False})
+                ),
             )
             body = report_mod.summarise_for_issue(gathered, diagnosis=diagnosis)
             title = getattr(diagnosis, "title", "YazSes problem report")
@@ -3598,6 +3603,15 @@ class Daemon:
             if len(self._pending_notifications) > _MAX_PENDING_NOTIFICATIONS:
                 del self._pending_notifications[:-_MAX_PENDING_NOTIFICATIONS]
 
+    def _peek_notifications(self) -> list[dict[str, str]]:
+        """The queued toasts, left in place. Caller must hold ``self._lock``.
+
+        A copy, not the live list: the caller serialises it outside the lock, and
+        handing out the object the audio thread appends to is a race waiting to be
+        found on a machine nobody is debugging.
+        """
+        return list(self._pending_notifications)
+
     def _drain_notifications(self) -> list[dict[str, str]]:
         """Take the queued toasts. Caller must hold ``self._lock``."""
         if not self._pending_notifications:
@@ -3606,7 +3620,18 @@ class Daemon:
         self._pending_notifications = []
         return pending
 
-    def _handle_status(self, _request: Request) -> dict[str, object]:
+    def _handle_status(self, request: Request | None) -> dict[str, object]:
+        # Only a caller that can *display* a toast may consume the queue. Default True
+        # rather than False, and the direction is the whole compatibility story: the
+        # daemon keeps running the build it started with until `yazses restart`, so an
+        # older tray polling a newer daemon is an ordinary state after an upgrade. It
+        # sends no flag. Defaulting to False would leave the queue undrained and the
+        # tray re-showing the same toast every poll — a regression. Defaulting to True
+        # means an unaware caller behaves exactly as it does today, and every skew
+        # combination is no worse than the current one.
+        consume = bool(
+            (getattr(request, "params", None) or {}).get("consume_notifications", True)
+        )
         with self._lock:
             # Same clock as the stamp in `run()` -- mixing the two yields a
             # difference that is neither.
@@ -3674,9 +3699,19 @@ class Daemon:
                 # Staged dictation (#294): what is pending review, if anything.
                 "staged": self.staged_state(),
                 # Toasts the daemon could not show itself (no libnotify — Windows and
-                # macOS), handed to the tray to display natively. DRAINED by this
-                # read, so each one is delivered once; see _queue_notification.
-                "notifications": self._drain_notifications(),
+                # macOS), handed to the tray to display natively. Drained by this read
+                # so each one is delivered once — but ONLY for a caller that says it
+                # can show them (see `consume` above). Every other reader gets the same
+                # list and leaves it in place.
+                #
+                # It used to drain unconditionally, and `status` has fourteen callers.
+                # The overlay polls it continuously alongside the tray and cannot
+                # display a notification; whichever poll landed first took the toast
+                # and it was simply lost. On Windows and macOS this queue is the only
+                # notification channel there is.
+                "notifications": (
+                    self._drain_notifications() if consume else self._peek_notifications()
+                ),
             }
 
     def _handle_shutdown(self, _request: Request) -> dict[str, bool]:

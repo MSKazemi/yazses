@@ -41,7 +41,7 @@ class _Client:
         # responses: iterable of dicts to return, or IpcUnreachableError instances.
         self._responses = list(responses)
 
-    def call(self, _method):
+    def call(self, _method, **params):
         item = self._responses.pop(0) if self._responses else IpcUnreachableError("gone")
         if isinstance(item, Exception):
             raise item

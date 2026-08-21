@@ -589,7 +589,7 @@ class SettingsWindow:
 
                 platform = get_platform()
                 client = platform.ipc_client_factory(platform.paths.ipc_socket)
-                self._apply_level(client.call("status"))
+                self._apply_level(client.call("status", consume_notifications=False))
             except Exception:
                 self._apply_level(None)
 
@@ -1133,7 +1133,9 @@ class SettingsWindow:
             from yazses.platform import get_platform
 
             platform = get_platform()
-            return platform.ipc_client_factory(platform.paths.ipc_socket).call("status")
+            return platform.ipc_client_factory(platform.paths.ipc_socket).call(
+                "status", consume_notifications=False
+            )
         except Exception:
             return None
 

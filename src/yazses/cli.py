@@ -702,7 +702,9 @@ def _live_hotkey(platform) -> str:
         client = platform.ipc_client_factory(platform.paths.ipc_socket)
         if not client.is_reachable():
             return ""
-        return str(client.call("status").get("hotkey") or "")
+        return str(
+            client.call("status", consume_notifications=False).get("hotkey") or ""
+        )
     except Exception:
         return ""
 
@@ -717,7 +719,7 @@ def _live_vad_threshold(platform) -> float | None:
         client = platform.ipc_client_factory(platform.paths.ipc_socket)
         if not client.is_reachable():
             return None
-        value = client.call("status").get("vad_threshold")
+        value = client.call("status", consume_notifications=False).get("vad_threshold")
         return float(value) if value is not None else None
     except Exception:  # noqa: BLE001
         return None
@@ -941,7 +943,7 @@ def _wait_until_ready(platform, timeout: float = 20.0):
             # The PID file appeared and then the process died → crashed on startup.
             return "died", last_info
         try:
-            info = client.call("status")
+            info = client.call("status", consume_notifications=False)
             last_info = info
             state = str(info.get("state", "")).lower()
             if info.get("ready") or state in ("idle", "recording", "injecting"):
@@ -1072,7 +1074,9 @@ def _finalizing_meeting(platform) -> bool:
         client = platform.ipc_client_factory(platform.paths.ipc_socket)
         if not client.is_reachable():
             return False
-        return bool(client.call("status").get("meeting_finalizing"))
+        return bool(
+            client.call("status", consume_notifications=False).get("meeting_finalizing")
+        )
     except Exception:
         return False
 
@@ -2569,7 +2573,7 @@ def report(
     platform = get_platform()
     try:
         client = platform.ipc_client_factory(platform.paths.ipc_socket)
-        status = client.call("status")
+        status = client.call("status", consume_notifications=False)
     except Exception:  # noqa: BLE001 — a dead daemon is exactly when this is needed
         status = None
 
@@ -2837,7 +2841,7 @@ def audio_status() -> None:
         return
     client = platform.ipc_client_factory(platform.paths.ipc_socket)
     try:
-        info = client.call("status")
+        info = client.call("status", consume_notifications=False)
     except IpcUnreachableError:
         typer.echo("Daemon:        starting up")
         return
@@ -3035,7 +3039,7 @@ def status(
     pid = platform.lifecycle.read_pid()
     client = platform.ipc_client_factory(platform.paths.ipc_socket)
     try:
-        info = client.call("status")
+        info = client.call("status", consume_notifications=False)
     except IpcUnreachableError:
         if json_output:
             typer.echo(_json.dumps({"running": True, "state": "starting", "pid": pid, "ready": False}))

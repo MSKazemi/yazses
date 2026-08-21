@@ -258,7 +258,7 @@ def test_status_json_running(monkeypatch):
     }
 
     class _MockClient:
-        def call(self, method):
+        def call(self, method, **params):
             if method == "status":
                 return mock_status
             raise RuntimeError(f"Unexpected method: {method}")
@@ -281,7 +281,7 @@ def test_status_json_starting_ipc_unreachable(monkeypatch):
     _patch(monkeypatch, plat)
 
     class _MockClientUnreachable:
-        def call(self, method):
+        def call(self, method, **params):
             raise cli.IpcUnreachableError("Socket unreachable")
 
     plat.ipc_client_factory = lambda _sock: _MockClientUnreachable()
