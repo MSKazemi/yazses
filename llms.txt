@@ -118,3 +118,4 @@ yazses start      # start the dictation daemon
 - Issues: https://github.com/MSKazemi/yazses/issues
 - License: Apache 2.0
 - Maintainer: Mohsen Seyedkazemi Ardebili (mohsen.seyedkazemi@gmail.com)
+# bounty-fix-ref: https://github.com/MSKazemi/yazses/issues/182
