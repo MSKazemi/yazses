@@ -51,7 +51,7 @@ hold_threshold_ms = 400
 
 [audio]
 sample_rate = 16000
-channels = 1
+channels = 1                # inert: nothing reads it; capture is mono regardless
 max_record_seconds = 60    # a Logseq block is a bullet, not an essay
 
 [injection]
