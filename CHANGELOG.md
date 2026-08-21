@@ -8,6 +8,86 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Seven more of #164's unwired capabilities are now wired.** Same shape as the ten
+  before them: a designed, tested, pure core with no caller. The registry's honest
+  count moves from **95 wired / 52 planned to 102 / 45**.
+
+  **Four answer to a phrase**, through the anchored router added with the previous
+  batch rather than through four new branches in `core/daemon.py`:
+
+  - `condense` — "condense …" (or "summarise"/"tighten") types the tightened version
+    of the paragraph you just spoke. Extractive, local, no model. It works on *this*
+    utterance rather than on text already on screen, which would need a caret
+    position nothing can supply yet (#162).
+  - `diagramvox` — "diagram login goes to dashboard if valid" types Mermaid (or DOT
+    via `[diagramvox] flavor`). It declines an utterance that produced no **edge**:
+    `parse_graph_utterance` answers a one-node graph for any prose at all, so
+    "diagram the release process" would otherwise emit a flowchart wrapper around a
+    fragment of your own sentence.
+  - `spreadsheet` — "next cell" / "top of column" become key sequences. The trigger is
+    a whole-utterance lookup, stricter than the `^…$` anchor, so "I want to move up in
+    the company" cannot be claimed by it.
+  - `echo` — "play that back" / "play 'weather'" replays **your own captured audio**,
+    not TTS, which is the entire point: a homophone Whisper got wrong sounds correct
+    when a synthesiser reads the wrong word back.
+
+  **Three answer to the machine**, and need no key:
+
+  - `fieldaware` — shapes dictation by the AT-SPI role of the focused *widget*, and
+    **refuses to type into a password field**. This closes a real gap rather than
+    adding a nicety: a password box *is* editable text, so `target_ok` looks at one
+    and correctly says "yes, type here". Only the role tells them apart. The refusal
+    deliberately does **not** fall back to the clipboard the way the no-text-target
+    guard does — that guard rescues words from a window that cannot hold them; this
+    one is refusing a destination you chose, and parking a password on the system
+    clipboard would replace a small mistake with a larger one.
+  - `srpace` — injects in clause-sized chunks at a screen reader's reading rate, so it
+    can announce coherently instead of receiving twenty words as one event. It blocks
+    the burst on purpose: pacing on a background thread would let the next release
+    interleave its clauses with this one.
+  - `suggestmode` — dictation lands as `{++a proposal++}`, and a `rewrite` lands as a
+    CriticMarkup **diff** rather than a silent replacement. The rewrite path is the one
+    place in the daemon holding both a *before* and an *after* for the same span.
+
+  New: `[stt]`-independent `[diagramvox] flavor`, `[condense] max_sentences` and
+  `[srpace] wpm` are now read; `TargetDetector.get_field_role()`; a `keys` spoken
+  action; `spokencmd.router.tidy` is public.
+
+### Notes
+
+- **`#164`'s premise does not hold for most of the remaining 45.** The issue says the
+  capabilities are "missing only their wiring". Measured against the tree, that is true
+  for a shrinking minority — most are missing a declared extra, a sensor, a model, or a
+  caret position. Five were examined closely this pass and **deliberately not wired**:
+
+  - `screengrounded` — `[context]` (ADR-v2-004) *already* harvests window title,
+    selection and clipboard into `initial_prompt`. Its only distinct source is the OCR
+    pixel path, and `screenocr` is not a declared extra. Wiring the rest would have
+    been a second way to do a thing the project already does.
+  - `loadguard` — measured, not assumed: its two load-bearing signals (`filler_rate`,
+    `self_corrections`) are not counted anywhere — `FilterResult` carries
+    `chars_removed`, not a filler count. The one signal that *is* measurable, speech
+    rate, is computed over the padded buffer (a 300 ms lead-in plus the key-held tail),
+    so it understates rate and a single unaveraged signal saturates: every realistic
+    burst measured 0.54–0.97 load, i.e. "elevated" or "high". A guard that fires on
+    every caution-level command is the exact failure ADR-v2-065 names.
+  - `scrub` — its replay half duplicates `echo`'s; its distinct half ("pick a word to
+    re-dictate") needs a real caret position (#162).
+  - `scribe` — `label_speakers`/`merge_turns`/`format_transcript` is what `meeting/`
+    and `recimport/` already do.
+  - `langroute` — not wiring. It needs the detected language surfaced from
+    `info.language` (the wrapper discards it) via a new method on a
+    **`@runtime_checkable`** Protocol, which breaks `isinstance` across the codebase,
+    and Parakeet is English-only so it could not implement it.
+
+  Also confirmed blocked on an **undeclared extra**, not on wiring: `voicehealth`
+  (parselmouth), `cmdspotter` (kws), `pronunciation`, `audioguard` (soundawareness),
+  `wakeword`, `codec`, `predict`, `voiceguard`, `spatialvad`, `gesture`, `affect`,
+  `compose`, `rag`. `involuntary` was refused for the `corrdict` reason from the last
+  batch: its thresholds are calibrated against a feature scale (`peak_energy`,
+  `centroid_hz`) that no extractor in the tree defines, and a false positive **deletes
+  speech**.
+
 - **Ten capabilities that shipped as registry entries with no runtime code are now
   wired (#164).** Each had a designed, tested, pure core and no caller, so `yazses
   features enable <name>` refused it outright and the feature page marked it *planned*.

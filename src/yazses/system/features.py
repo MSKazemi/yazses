@@ -783,12 +783,16 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "name. Needs the soundawareness extra. Off by default.",
              lambda c: c.audioguard.enabled, ag2_on, ag2_off),
         _Def("condense", "On-Device Condense", "[condense] — summarise your ramble", OPTIONAL,
-             "A condense variant inserts a tightened summary of your long dictation instead of "
-             "the verbatim text. Local extractive summary. Off by default.",
+             "Say 'condense' (or 'summarise'/'tighten') and then a rambling paragraph, and the "
+             "tightened version is typed instead. Local, extractive, no model. Operates on what "
+             "you just said rather than on text already on screen, which would need a caret "
+             "position nothing can supply yet. Off by default.",
              lambda c: c.condense.enabled, cnd_on, cnd_off),
         _Def("spreadsheet", "Spoken Spreadsheet", "[spreadsheet] — grid nav + cells", OPTIONAL,
-             "Cell-addressed dictation + grid navigation for spreadsheets: 'next row', 'cell "
-             "down', 'go to B7'. Hands-free 2D entry. Off by default.",
+             "Grid navigation for spreadsheets by voice: 'next row', 'cell down', 'top of "
+             "column'. Hands-free 2D entry. Cell addressing ('go to B7') is deliberately not "
+             "wired: it needs an app-specific Go To binding and Excel and Calc disagree, so a "
+             "guessed shortcut would silently act on whatever is focused. Off by default.",
              lambda c: c.spreadsheet.enabled, ss_on, ss_off),
         _Def("cliphistory", "Clipboard-History by Voice", "[cliphistory] — recall copies", OPTIONAL,
              "Recall recent copies by voice: 'paste the second thing I copied', 'the URL I "
@@ -1123,19 +1127,13 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 # feature later forces removing it here, and adding a stub registry entry
 # without wiring it fails CI.
 _UNWIRED: frozenset[str] = frozenset({
-    "acoustic_profiles", "affect", "agent", "audioguard", "autostop",
-    "bookmarks", "breath", "bridge", "cmdspotter",
-    "codec", "compose", "condense", "contour",
-    "crowdproof", "diagramvox", "echo", "fieldaware",
-    "gesture", "hatselect", "headpointer",
-    "hesitation", "hotwords", "interpret", "involuntary", "langroute",
-    "lipread", "loadguard", "morsevox",
-    "mousegrid", "mouthswitch", "multiprofile", "pilot", "predict",
-    "pronunciation", "proofback", "prosodypunct", "rag", "readback_clone",
-    "reask", "screengrounded", "scribe", "scrub", "sentiment", "sign",
-    "spatialvad",
-    "spreadsheet", "srpace", "suggestmode",
-    "vocaljoystick", "voiceguard", "voicehealth", "wakeword",
+    "acoustic_profiles", "affect", "agent", "audioguard", "autostop", "bookmarks", "breath",
+    "bridge", "cmdspotter", "codec", "compose", "contour", "crowdproof", "gesture",
+    "hatselect", "headpointer", "hesitation", "hotwords", "interpret", "involuntary",
+    "langroute", "lipread", "loadguard", "morsevox", "mousegrid", "mouthswitch",
+    "multiprofile", "pilot", "predict", "pronunciation", "proofback", "prosodypunct", "rag",
+    "readback_clone", "reask", "screengrounded", "scribe", "scrub", "sentiment", "sign",
+    "spatialvad", "vocaljoystick", "voiceguard", "voicehealth", "wakeword",
 })
 
 
@@ -1144,6 +1142,7 @@ _UNWIRED: frozenset[str] = frozenset({
 #: once here rather than repeated in the CLI, the caveat and the tests.
 SPOKEN_COMMAND_SLUGS: frozenset[str] = frozenset({
     "spelling", "code", "math", "spokenregex", "snippets", "voicetimer",
+    "condense", "diagramvox", "spreadsheet", "echo",
 })
 
 
@@ -1609,7 +1608,7 @@ def enable_caveat(slug: str, cfg) -> str | None:
     """
     slug = (slug or "").strip().lower()
     if slug in SPOKEN_COMMAND_SLUGS:
-        # These six only ever run inside command mode, and command mode exists
+        # These only ever run inside command mode, and command mode exists
         # only while a dedicated command key is held. With [hotkey] command_key
         # unset — the default — `features enable spelling` writes a true config
         # key that no burst can ever reach, and `yazses features` then lists the
@@ -1635,18 +1634,41 @@ def enable_caveat(slug: str, cfg) -> str | None:
                 "enabling it now changes nothing. Turn on capture first: "
                 "`yazses features enable learning`."
             )
-    if slug in ("smartpaste", "focusprofile"):
-        # Both key off the focused application, which only the no-text-target
-        # detector resolves. With the guard off nothing ever sets `app_class`, so
-        # both are silently inert rather than merely less accurate.
+    if slug in ("smartpaste", "focusprofile", "fieldaware"):
+        # All three key off what the no-text-target detector resolves — the focused
+        # application for two of them, the focused widget's role for `fieldaware`.
+        # With the guard off the detector is never built, so nothing ever sets
+        # either, and all three are silently inert rather than merely less accurate.
         guard = (getattr(getattr(cfg, "injection", None), "target_guard", "") or "").strip().lower()
         if guard == "off":
+            what = ("the role of the focused field" if slug == "fieldaware"
+                    else "which application has focus")
             return (
-                "Heads up: this keys off which application has focus, and "
-                "[injection] target_guard is \"off\", so nothing resolves the "
-                "focused app — enabling it now changes nothing. Set target_guard "
-                "back to \"clipboard\" or \"warn\" first."
+                f"Heads up: this keys off {what}, and [injection] target_guard is "
+                "\"off\", so the detector that resolves it is never built — enabling "
+                "it now changes nothing. Set target_guard back to \"clipboard\" or "
+                "\"warn\" first."
             )
+    if slug == "fieldaware":
+        # Stronger than the guard check above, and worth saying separately: the role
+        # comes from AT-SPI and only from AT-SPI. X11 reports a *window* class, never
+        # the focused widget, so on a machine with no accessibility bus this capability
+        # is inert no matter how the target guard is set — and its headline behaviour
+        # is refusing to type into a password box, which is precisely the thing a user
+        # should not believe is protecting them when it is not.
+        try:
+            from yazses.inject.target import AtspiFocusTracker
+
+            if not AtspiFocusTracker.available():
+                return (
+                    "Heads up: this reads the focused field's role from AT-SPI, and "
+                    "pyatspi is not importable here — so no role is ever resolved and "
+                    "the password-field refusal will not fire. Install the system "
+                    "AT-SPI bindings (Debian/Ubuntu: python3-pyatspi) first."
+                )
+        except Exception:
+            pass
+
     if slug == "streaming":
         model = (getattr(getattr(cfg, "stt", None), "model", "") or "").strip().lower()
         # Streaming only wins where a rolling decode keeps up with the speech.

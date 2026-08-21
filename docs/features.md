@@ -429,11 +429,11 @@ YazSes ships **147 capabilities**. All but the core are **off by default** — t
 
 ### Diagrams-as-Code by Voice
 
-- **Toggle:** `diagramvox`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[diagramvox] — dictate a flowchart`
+- **Toggle:** `diagramvox`  ·  **Tier:** optional  ·  **Config:** `[diagramvox] — dictate a flowchart`
 - **What it does:** Dictate a flowchart ('start goes to login; login goes to dashboard if success') and get Mermaid/Graphviz source — draw diagrams without a mouse or canvas. "And" fans a clause out to multiple sources or destinations, so one utterance can describe a whole graph, not just one edge. Off by default.
 - **Use when:** When you want to build a flowchart as code by voice without touching a mouse or canvas.
 - **Example:** Say 'A goes to B and C, B goes to D' and get a three-edge Mermaid flowchart.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable diagramvox` then `yazses restart`
 
 ### Screenplay Auto-Format
 
@@ -453,11 +453,11 @@ YazSes ships **147 capabilities**. All but the core are **off by default** — t
 
 ### Suggestion-Mode Dictation
 
-- **Toggle:** `suggestmode`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[suggestmode] — edits as tracked changes`
+- **Toggle:** `suggestmode`  ·  **Tier:** optional  ·  **Config:** `[suggestmode] — edits as tracked changes`
 - **What it does:** Emits dictated edits as CriticMarkup tracked changes ({++add++}, {--cut--}, {~~old~>new~~}) for an editor to review later, instead of applying them. Off by default.
 - **Use when:** When you edit a shared doc where changes must be reviewed before they're accepted, not applied.
 - **Example:** Your edit lands as {~~old~>new~~} for the author to accept later.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable suggestmode` then `yazses restart`
 
 ### Semantic Line Breaks
 
@@ -541,19 +541,19 @@ YazSes ships **147 capabilities**. All but the core are **off by default** — t
 
 ### On-Device Condense
 
-- **Toggle:** `condense`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[condense] — summarise your ramble`
-- **What it does:** A condense variant inserts a tightened summary of your long dictation instead of the verbatim text. Local extractive summary. Off by default.
+- **Toggle:** `condense`  ·  **Tier:** optional  ·  **Config:** `[condense] — summarise your ramble`
+- **What it does:** Say 'condense' (or 'summarise'/'tighten') and then a rambling paragraph, and the tightened version is typed instead. Local, extractive, no model. Operates on what you just said rather than on text already on screen, which would need a caret position nothing can supply yet. Off by default.
 - **Use when:** When you tend to ramble and want a tightened summary typed instead of the full transcript.
 - **Example:** Ramble for a paragraph and a tightened 2-sentence summary is typed.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable condense` then `yazses restart`
 
 ### Spoken Spreadsheet
 
-- **Toggle:** `spreadsheet`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[spreadsheet] — grid nav + cells`
-- **What it does:** Cell-addressed dictation + grid navigation for spreadsheets: 'next row', 'cell down', 'go to B7'. Hands-free 2D entry. Off by default.
+- **Toggle:** `spreadsheet`  ·  **Tier:** optional  ·  **Config:** `[spreadsheet] — grid nav + cells`
+- **What it does:** Grid navigation for spreadsheets by voice: 'next row', 'cell down', 'top of column'. Hands-free 2D entry. Cell addressing ('go to B7') is deliberately not wired: it needs an app-specific Go To binding and Excel and Calc disagree, so a guessed shortcut would silently act on whatever is focused. Off by default.
 - **Use when:** When entering data into a grid and you need hands-free cell navigation and addressing.
 - **Example:** Say 'next row' or 'go to B7' to drive a spreadsheet.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable spreadsheet` then `yazses restart`
 
 ### Spoken Temporal Normalizer
 
@@ -589,11 +589,11 @@ YazSes ships **147 capabilities**. All but the core are **off by default** — t
 
 ### Field-Aware Dictation
 
-- **Toggle:** `fieldaware`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[fieldaware] — shape output by field`
+- **Toggle:** `fieldaware`  ·  **Tier:** optional  ·  **Config:** `[fieldaware] — shape output by field`
 - **What it does:** Reshapes output to the focused control: number field → digits, search box → no trailing period, password field → refuses to type. Off by default.
 - **Use when:** When dictating into forms where each field needs different formatting (digits, no period).
 - **Example:** Focus a number field and 'forty two' is typed as 42.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable fieldaware` then `yazses restart`
 
 ### Entity ITN
 
@@ -959,19 +959,19 @@ YazSes ships **147 capabilities**. All but the core are **off by default** — t
 
 ### Echo Own-Audio Replay
 
-- **Toggle:** `echo`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[echo] — 'play that back'`
+- **Toggle:** `echo`  ·  **Tier:** optional  ·  **Config:** `[echo] — 'play that back'`
 - **What it does:** Say 'play that back' to replay your own captured audio for a text span (not TTS) — catch homophone/ASR errors by ear, eyes-free. Off by default.
 - **Use when:** When you suspect a homophone or ASR error and want to verify it by hearing your own audio.
 - **Example:** Say 'play that back' and hear your own recording of the last words.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable echo` then `yazses restart`
 
 ### Screen-Reader Pacing
 
-- **Toggle:** `srpace`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[srpace] — pace injection to a screen reader`
+- **Toggle:** `srpace`  ·  **Tier:** optional  ·  **Config:** `[srpace] — pace injection to a screen reader`
 - **What it does:** Pace injected text to a screen reader's reading rate, clause-chunked, instead of one burst — so the screen reader can announce it coherently. Off by default.
 - **Use when:** When a screen-reader user needs injected text paced so the reader can announce it coherently.
 - **Example:** Dictate a paragraph and your screen reader keeps up, clause by clause.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable srpace` then `yazses restart`
 
 ### Interruptible Proofreading
 

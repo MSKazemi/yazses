@@ -1,12 +1,12 @@
 {
-  "total": 914,
+  "total": 907,
   "open": 127,
   "by_family": {
     "app-profile": 154,
     "compatibility": 297,
     "contract-vector": 60,
     "docs": 40,
-    "feature-wiring": 52,
+    "feature-wiring": 45,
     "localization": 184,
     "measurement": 90,
     "packaging": 24,
@@ -16,12 +16,12 @@
   "by_risk": {
     "L0": 471,
     "L1": 383,
-    "L2": 60
+    "L2": 53
   },
   "by_state": {
     "draft": 2,
     "open": 127,
-    "verified": 785
+    "verified": 778
   },
   "no_setup_needed": 89,
   "cloud_agent_ready": 38,

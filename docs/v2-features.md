@@ -32,7 +32,7 @@ change nothing (no runtime code reads its config yet).
 ```
 
 They stay listed because that is where a contributor picks one up — each has a matching
-`design/adr/` entry. **51 of the 122 rows below are ◌ today.** Rows without the mark are
+`design/adr/` entry. **44 of the 122 rows below are ◌ today.** Rows without the mark are
 wired and can be turned on.
 
 ### "Hold the command key" — what that means
@@ -170,7 +170,7 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 |---|---|---|
 | **Entity ITN** | `itn` | Spoken emails/versions → written form, no command words ("john dot doe at gmail dot com"). |
 | **Redaction Ink** | `redaction` | Masks spoken secrets (cards via Luhn, SSNs, keys) before they're typed. |
-| ◌ **Field-Aware Dictation** | `fieldaware` | Shapes output by the focused field; refuses to type into password fields. |
+| **Field-Aware Dictation** | `fieldaware` | Shapes output by the focused field; refuses to type into password fields. |
 | **Corpus Voiceprint Scrub** | `corpus_scrub` | Speaker-anonymizes stored learning audio (keeps content, not voice). |
 | ◌ **Compose-in-Target-Language** | `compose` | Speak your strongest language, inject in a target language. |
 | **Grammar Repair** | `gec` | Minimal-edit article/agreement fixes for non-native dictation. |
@@ -189,10 +189,10 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Voice Unit Conversion** | `convert` | "twenty miles in kilometers" → "32.19 kilometers", offline. |
 | **Spoken Temporal Normalizer** | `temporal` | "next Friday" → a concrete date, from the local clock. |
 | **Mid-Utterance Self-Repair** | `self_repair` | "email Sarah no I mean Sara" → "email Sara" before typing. |
-| ◌ **Spoken Spreadsheet** | `spreadsheet` | Grid navigation + cell addressing ("next row", "go to B7"). |
+| **Spoken Spreadsheet** | `spreadsheet` | Grid navigation by voice ("next row", "next cell", "top of column"). Cell addressing ("go to B7") is **not** wired: it needs an app-specific Go To binding, and Excel and Calc do not agree on one. |
 | **Clipboard-History by Voice** | `cliphistory` | Recall recent copies by voice ("the second thing I copied"). |
 | ◌ **Ambient Audio-Event Guard** | `audioguard` | Auto-pause/alert on a doorbell, phone, alarm or your name. |
-| ◌ **On-Device Condense** | `condense` | Insert a tightened summary of your own long dictation. |
+| **On-Device Condense** | `condense` | Insert a tightened summary of your own long dictation. |
 | **Slot-Filling Dictation** | `slotfill` | One utterance fills a named-field template. |
 | ◌ **Few-Shot Command Spotter** | `cmdspotter` | Enrolled low-latency micro-commands ("send", "stop"). |
 
@@ -282,10 +282,10 @@ The lowest-bandwidth input methods and new text-intelligence layers.
 | **Semantic Line Breaks** | `sembr` | Breaks prose one clause per source line so git diffs stay clean. |
 | **Acronym & Glossary Manager** | `acronyms` | Expands acronyms on first use, contracts after, warns on undefined. |
 | **Style-Consistency Enforcer** | `styleguard` | Applies your house style sheet to each dictation (Vale-lite). |
-| ◌ **Suggestion-Mode Dictation** | `suggestmode` | Emits edits as CriticMarkup tracked changes for later review. |
+| **Suggestion-Mode Dictation** | `suggestmode` | Emits edits as CriticMarkup tracked changes for later review. |
 | **Screenplay Auto-Format** | `screenplay` | Formats dictated scenes/dialogue as Fountain screenplay markup. |
 | **Spaced-Repetition Capture** | `srscap` | "remember that X is Y" → a local Anki cloze card (SM-2). |
-| ◌ **Diagrams-as-Code by Voice** | `diagramvox` | Dictate a flowchart → Mermaid/Graphviz source, no canvas. |
+| **Diagrams-as-Code by Voice** | `diagramvox` | Dictate a flowchart → Mermaid/Graphviz source, no canvas. |
 | ◌ **Interruptible Proofreading** | `proofback` | Interrupt the read-back and land the cursor on the exact word. |
 
 Wave M is complete — all ten features (see Wave M) are shipped,
@@ -305,8 +305,8 @@ Structural code editing, internationalization, and accessibility-output correctn
 | **SafeGlyph** | `safeglyph` | Flag Unicode confusables/invisibles in identifiers and URLs before injection. |
 | **WordFind** | `wordfind` | Offline reverse dictionary — describe a word, get a ranked shortlist. |
 | ◌ **LoadGuard** | `loadguard` | Widen confirmations / defer risky actions when speech shows rising cognitive load. |
-| ◌ **Echo** | `echo` | "Play that back" replays your own captured audio for a text span (not TTS). |
-| ◌ **Screen-Reader Pacing** | `srpace` | Pace injection to a screen reader's reading rate, clause-chunked. |
+| **Echo** | `echo` | "Play that back" replays your own captured audio for a text span (not TTS). |
+| **Screen-Reader Pacing** | `srpace` | Pace injection to a screen reader's reading rate, clause-chunked. |
 
 Wave N is complete — all ten features (see Wave N) are shipped,
 pure, 100%-covered, and off by default.

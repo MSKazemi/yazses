@@ -17,7 +17,7 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 
-from yazses.spokencmd.router import SpokenHandler, SpokenResult, prefixed
+from yazses.spokencmd.router import SpokenHandler, SpokenResult, prefixed, tidy
 
 #: Order is fixed and matters only for determinism — the verbs are disjoint, so
 #: no phrase can be claimed by two handlers.
@@ -126,6 +126,124 @@ def _voicetimer() -> SpokenHandler:
     return SpokenHandler(slug="voicetimer", match=match, types=False)
 
 
+
+def _condense(max_sentences: int) -> SpokenHandler:
+    """"condense <a rambling paragraph>" types the tightened version.
+
+    Deliberately operates on the *body of this utterance* rather than on text
+    already injected. Condensing what is already on screen would mean selecting
+    and replacing it, and that needs a real caret position — the same thing that
+    keeps `bookmarks` and `hatselect` unwired (issue #162). Speaking the long
+    version and receiving the short one needs no caret at all.
+    """
+    from yazses.condense.extract import condense
+
+    def convert(body: str) -> str | None:
+        return condense(body, max_sentences=max_sentences)
+
+    return prefixed("condense", ("condense", "summarise", "summarize", "tighten"), convert)
+
+
+def _diagramvox(flavor: str) -> SpokenHandler:
+    """"diagram A goes to B if yes" types Mermaid (or DOT).
+
+    Declines unless the utterance produced at least one **edge**. `parse_graph_utterance`
+    answers a one-node `Graph` for any prose at all — "diagram the release process"
+    parses to a single node — and rendering that emits a flowchart wrapper around a
+    fragment of the user's sentence. An edge is the thing that makes an utterance a
+    diagram rather than a phrase that began with the word.
+    """
+    from yazses.diagramvox.graph import parse_graph_utterance
+
+    def convert(body: str) -> str | None:
+        graph = parse_graph_utterance(body)
+        if not graph.edges:
+            return None
+        return graph.to_dot() if flavor == "dot" else graph.to_mermaid()
+
+    return prefixed("diagramvox", ("diagram", "flowchart", "graph"), convert)
+
+
+def _spreadsheet() -> SpokenHandler:
+    """Spoken grid movement -> a key sequence ("next cell" -> Tab).
+
+    Only :func:`parse_grid_move` is wired, and the omission is deliberate rather
+    than partial work. Its keys — Tab, Return, the arrows, Home/End, ctrl+arrow —
+    mean the same thing in Excel, LibreOffice Calc, Google Sheets and an ordinary
+    HTML table, so they are safe to send without knowing which one is focused.
+    `parse_cell_reference` is not wired because jumping to "B7" needs an
+    application-specific Go To binding (Excel and Calc do not agree on one), and a
+    guessed shortcut does not fail visibly — it silently does something else in
+    whatever window is focused.
+
+    The trigger is an exact whole-utterance dictionary lookup, which is stricter
+    than the ``^…$`` anchor :func:`prefixed` applies, so no sentence containing
+    "move up" can be claimed by it.
+    """
+    from yazses.spreadsheet.grid import parse_grid_move
+
+    def match(text: str) -> SpokenResult | None:
+        keys = parse_grid_move(tidy(text))
+        if not keys:
+            return None
+        return SpokenResult(slug="spreadsheet", action=("keys", keys))
+
+    return SpokenHandler(slug="spreadsheet", match=match)
+
+
+def _echo() -> SpokenHandler:
+    """"play that back" / "play the word 'report'" replays your own captured audio.
+
+    ``types=False``: this puts nothing on screen, so it runs even with no editable
+    target focused — which is the point, because the case it exists for is checking
+    a homophone by ear rather than by eye.
+
+    The trigger is anchored here and **not** delegated to
+    `resolve_playback_target`, which cannot be a trigger test: its documented last
+    resort is "default: replay everything", so it answers a window for any
+    non-empty utterance at all. Asking it "is this a playback request?" would get
+    "yes" for every sentence the user dictates.
+    """
+    def match(text: str) -> SpokenResult | None:
+        # The trigger is tested against the tidied phrase, but the *payload* is the
+        # raw utterance. `tidy` strips outer quotes, and a quote is meaningful here:
+        # `resolve_playback_target` reads "play the word 'report'" by its quoted
+        # token, and a stripped closing quote drops it to the bare-token path where
+        # a leading apostrophe stops it matching the span text at all — so the
+        # request silently degrades to replaying the whole clip.
+        if not _ECHO_TRIGGER.match(_strip_sentence_end(text)):
+            return None
+        return SpokenResult(slug="echo", action=("echo_play", (text or "").strip()))
+
+    return SpokenHandler(slug="echo", match=match, types=False)
+
+
+#: Anchored at both ends like every trigger built by :func:`prefixed`, and narrowed
+#: to the shapes `resolve_playback_target` actually understands.
+#:
+#: A leading verb alone is not enough, which a test found rather than a review:
+#: ``^(?:play|replay|repeat)\s+.+$`` claims **"repeat business"**. So the utterance
+#: must also name what to replay — *that*, *back*, *again*, *all*, *last*, *first*,
+#: *word* — or quote the word it wants. Bare ``replay`` is unambiguous and allowed;
+#: bare ``play`` is not, because it is an ordinary verb with an ordinary object.
+#: Whisper ends a short utterance with a full stop the user never said, so the
+#: trigger has to tolerate one — but it must NOT strip quotes the way `tidy` does.
+#: A quoted word is how the user picks *which* word to replay, and `tidy` takes the
+#: closing quote off "play 'weather'", which stops the trigger matching at all.
+_SENTENCE_END = " \t\r\n.,!?;:\u2026"
+
+
+def _strip_sentence_end(text: str) -> str:
+    return (text or "").strip().strip(_SENTENCE_END).strip()
+
+
+_ECHO_KEYWORDS = r"that|back|again|all|last|first|word"
+_ECHO_TRIGGER = re.compile(
+    r"^replay$"
+    rf"|^(?:play|replay|repeat)\s+(?:.*\b(?:{_ECHO_KEYWORDS})\b.*|['\"].+['\"])$",
+    re.IGNORECASE,
+)
+
 def _specs(config):
     """``(slug, enabled, build)`` for every spoken capability, in routing order.
 
@@ -146,6 +264,12 @@ def _specs(config):
         ("snippets", config.snippets.enabled,
          lambda: _snippets(dict(config.snippets.entries or {}))),
         ("voicetimer", config.voicetimer.enabled, _voicetimer),
+        ("condense", config.condense.enabled,
+         lambda: _condense(int(config.condense.max_sentences))),
+        ("diagramvox", config.diagramvox.enabled,
+         lambda: _diagramvox(str(config.diagramvox.flavor or "mermaid").lower())),
+        ("spreadsheet", config.spreadsheet.enabled, _spreadsheet),
+        ("echo", config.echo.enabled, _echo),
     )
 
 

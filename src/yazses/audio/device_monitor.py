@@ -81,6 +81,9 @@ CAPTURE_PROVING_DISCARDS = frozenset({
     # microphone was heard and decoded — the failure is downstream of capture.
     "cmdsafety_held",
     "spoken_inject_failed",
+    # Field-Aware Dictation refused the *destination* (a password box). The audio was
+    # captured, decoded and shaped; only the target was wrong.
+    "fieldaware_refused",
 })
 
 

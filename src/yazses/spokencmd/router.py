@@ -88,7 +88,7 @@ def prefixed(
     pattern = re.compile(rf"^(?:{alternatives})\s+(.+)$", re.IGNORECASE)
 
     def match(text: str) -> SpokenResult | None:
-        hit = pattern.match(_tidy(text))
+        hit = pattern.match(tidy(text))
         if hit is None:
             return None
         produced = convert(hit.group(1).strip())
@@ -105,7 +105,14 @@ def prefixed(
 _OUTER = " \t\r\n.,!?;:\"'`…"
 
 
-def _tidy(text: str) -> str:
+def tidy(text: str) -> str:
+    """Strip whitespace and the outer punctuation Whisper adds. Pure.
+
+    Public because a handler that matches the *whole* utterance rather than a
+    ``verb + body`` shape (`spreadsheet`) has to normalise exactly as :func:`prefixed`
+    does, and a second implementation of "strip the full stop the user never said"
+    is precisely the kind of near-duplicate that drifts.
+    """
     return (text or "").strip().strip(_OUTER).strip()
 
 
@@ -122,7 +129,7 @@ def route(
     daemon's own note on that branch is that copying a *command* to the clipboard
     helps nobody.
     """
-    if not _tidy(text):
+    if not tidy(text):
         return None
     for handler in handlers:
         if handler.types and not can_type:

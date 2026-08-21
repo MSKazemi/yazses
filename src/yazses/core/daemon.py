@@ -164,6 +164,12 @@ class _DaemonState:
     # Per-app profiles (ADR-v2-100): the focused application, resolved alongside
     # `target_ok` by the same detector, so a profile can key off it. "" when unknown.
     app_class: str = ""
+    # Field-Aware Dictation (ADR-v2-047): the AT-SPI role of the focused *widget*,
+    # resolved by the same detector as `app_class`. Distinct from it because the
+    # application says nothing about whether the caret sits in a password box.
+    # "" when nothing can report one, which keeps the capability inert rather than
+    # guessing.
+    field_role: str = ""
 
 
 # Tone names with house phrasing. Anything else in `[profiles.app]` is appended
@@ -246,6 +252,10 @@ class Daemon:
         self._personal_bias: list[str] | None = None
         # Self-Learning Correction Dictionary (ADR-v2-079); see `_correction_table`.
         self._correction_table_cache: dict[str, str] | None = None
+        # Echo own-audio replay (ADR-v2-119): the most recent burst's decoded audio,
+        # its sample rate and its word timings. None until a burst is captured with
+        # `[echo] enabled`; see `_on_hold_end` and `_echo_play`.
+        self._replay: "tuple[np.ndarray, int, list[Word]] | None" = None
         # Confidence Ink (ADR-v2-001): low-confidence word count from the last
         # burst, surfaced in `yazses status` (metadata only, never the words).
         self._last_low_confidence_words: int = 0
@@ -1348,7 +1358,12 @@ class Daemon:
             # Confidence Ink (ADR-v2-001) also needs the word-timestamps path for
             # per-word probabilities; share the same decode as prosody.
             want_confidence = self._config.confidence.enabled and not use_streaming
-            want_words = want_prosody or want_confidence
+            # Echo (ADR-v2-119) replays *your own audio* for a chosen word, so it needs
+            # the same per-word timestamps: the char->time index is built from them.
+            # Joining this OR rather than decoding twice is the whole cost of the
+            # feature — a user with prosody or Confidence Ink already on pays nothing.
+            want_echo = self._config.echo.enabled and not use_streaming
+            want_words = want_prosody or want_confidence or want_echo
             # Speech translation (ADR-v2-014): X→English via Whisper's translate task
             # when [translate] is enabled (whisper backend, target en). None → normal.
             try:
@@ -1390,6 +1405,13 @@ class Daemon:
                         task=stt_task,
                     )
             decode_ms = (time.monotonic() - t_decode) * 1000.0
+            # Keep this burst's audio + word timings so "play that back" has something
+            # to play. One burst only, in RAM, replaced by the next: it is the audio of
+            # what the user just said, and ADR-011 says the machine keeps nothing it
+            # does not need. Retained only while the feature is on.
+            if want_echo:
+                self._replay = (decode_audio, self._config.audio.sample_rate,
+                                list(prosody_words))
             event["raw_text"] = text
             event["decode_ms"] = decode_ms
             # Aggregated into p50/p95 for `yazses status` (#296). In-memory and
@@ -2011,9 +2033,48 @@ class Daemon:
                     if use_streaming and stream_injector is not None:
                         stream_injector.cancel()
                     return
+                # Field-Aware Dictation (ADR-v2-047): shape or refuse by the role of
+                # the focused *widget*. Last before injection on purpose — this is a
+                # property of the destination, not a style, so it outranks every
+                # transform above it including verbatim. "Type exactly what I said"
+                # is still not an instruction to type a sentence into a password box.
+                #
+                # A refusal deliberately does NOT fall back to the clipboard the way
+                # the no-text-target guard does. That guard is rescuing words from a
+                # window that cannot hold them; this one is refusing a destination the
+                # user chose, and the text it is holding is whatever they were about
+                # to put in a password field. Parking that on the system clipboard for
+                # the next application to read would replace a small mistake with a
+                # larger one.
+                if self._config.fieldaware.enabled:
+                    shaped = self._fieldaware_shape(text, event)
+                    if shaped is None:
+                        if use_streaming and stream_injector is not None:
+                            stream_injector.cancel()
+                        return
+                    text = shaped
+                    event["final_text"] = text
+
+                # Suggestion-Mode (ADR-v2-113): dictation lands as a *proposal*
+                # ({++...++}) rather than as final text, so a CriticMarkup-aware
+                # editor can accept or reject it. After the field guard so a refusal
+                # is not dressed up as a suggestion, and after the continuation space
+                # so the marker wraps the words and not the separator.
+                if self._config.suggestmode.enabled:
+                    from yazses.suggestmode.critic import to_criticmarkup
+
+                    _lead = text[: len(text) - len(text.lstrip())]
+                    _body = text.strip()
+                    if _body:
+                        text = _lead + to_criticmarkup("insert", _body)
+                        event["suggestmode"] = True
+                        event["final_text"] = text
+
                 if use_streaming:
                     assert stream_injector is not None
                     stream_injector.commit(text)
+                elif self._config.srpace.enabled:
+                    self._inject_paced(text, injector, event)
                 else:
                     injector.inject(text)
                 self._last_dictation_monotonic = time.monotonic()
@@ -2381,12 +2442,15 @@ class Daemon:
             try:
                 ok = detector.resolve()
                 app_class = detector.get_app_class()
+                field_role = detector.get_field_role()
             except Exception:
                 ok = None
                 app_class = ""
+                field_role = ""
             with self._lock:
                 self._state.target_ok = ok
                 self._state.app_class = app_class
+                self._state.field_role = field_role
 
         threading.Thread(target=_run, name="target-detect", daemon=True).start()
 
@@ -3229,6 +3293,81 @@ class Daemon:
         log.info("Spoken capability %s produced %d chars.", result.slug, len(text))
         return True
 
+    def _inject_paced(self, text: str, injector, event: dict) -> None:
+        """Inject in clause-sized chunks at a screen reader's reading rate (ADR-v2-120).
+
+        A screen reader announces what lands in the buffer. Twenty words arriving as
+        one event is one announcement the listener cannot follow and cannot replay;
+        the same twenty words arriving as four clauses, spaced at reading speed, are
+        four they can. `srpace/schedule.py` owns the chunking and the arithmetic.
+
+        **This blocks the burst until it finishes, deliberately.** Pacing on a
+        background thread would let the next hold-to-talk release start injecting
+        into the middle of this one, and two interleaved paced streams put the
+        clauses of two sentences in an order neither speaker used. Someone who turns
+        SRPace on is asking for slow sequential delivery; making it concurrent would
+        remove the only property it exists to provide.
+
+        Not combined with streaming injection: that path commits progressively
+        already, and pacing a stream would fight it. The `elif` at the call site is
+        what keeps them apart.
+        """
+        from yazses.srpace.schedule import plan_injection_schedule
+
+        schedule = plan_injection_schedule(text, wpm=self._config.srpace.wpm)
+        if not schedule:
+            return
+        event["srpace_chunks"] = len(schedule)
+        elapsed = 0.0
+        for chunk in schedule:
+            wait = (chunk.delay_ms / 1000.0) - elapsed
+            if wait > 0:
+                time.sleep(wait)
+                elapsed += wait
+            injector.inject(chunk.text if chunk.delay_ms == 0 else " " + chunk.text)
+
+    def _fieldaware_shape(self, text: str, event: dict) -> str | None:
+        """Shape dictation for the focused field, or ``None`` to refuse it entirely.
+
+        Field-Aware Dictation (ADR-v2-047). The role comes from AT-SPI and only from
+        AT-SPI — `TargetDetector.get_field_role` explains why there is no X11
+        fallback. With no role the profile is the default one, which changes nothing,
+        so a machine without the accessibility bus behaves exactly as before.
+
+        The refusal case is the reason this is worth wiring at all. `target_ok` cannot
+        reach it: a password box **is** editable text, so the no-text-target guard
+        looks at one and correctly says "yes, type here". Only the role tells the two
+        apart, and dictating a password aloud into a field that then holds it in
+        plain text is a failure the user cannot undo by pressing backspace.
+
+        Never raises into the hot path: a broken profile lookup returns the text
+        unchanged rather than dropping the burst.
+        """
+        try:
+            from yazses.fieldaware.profile import apply_profile, profile_for_role
+
+            with self._lock:
+                role = self._state.field_role
+            if not role:
+                return text
+            profile = profile_for_role(role)
+            shaped = apply_profile(text, profile)
+        except Exception:
+            log.exception("Field-aware shaping failed; injecting unchanged")
+            return text
+
+        event["field_role"] = role
+        if shaped is None:
+            event["discard_reason"] = "fieldaware_refused"
+            log.info("Field-aware guard refused injection into a %r field.", role)
+            self._notify_spoken(
+                f"Not typed: the focused {role} field does not take dictation."
+            )
+            return None
+        if shaped != text:
+            event["fieldaware_shaped"] = True
+        return shaped
+
     def _run_spoken_action(self, result, event: dict) -> None:
         """Carry out a spoken capability's action. Never raises into the hot path."""
         name, argument = result.action
@@ -3240,6 +3379,13 @@ class Daemon:
             elif name == "timer_cancel":
                 if self._timers is not None:
                     self._timers.cancel()
+            elif name == "echo_play":
+                self._echo_play(str(argument or ""), event)
+            elif name == "keys":
+                # Spoken grid movement (`spreadsheet`). This is the one action that
+                # reaches the focused window rather than reporting, so it goes through
+                # the active injector exactly as `commands/dispatch.py` does.
+                self._active_injector().inject_key_sequence(list(argument or ()))
             else:
                 log.debug("Unknown spoken action %r", name)
                 return
@@ -3249,6 +3395,48 @@ class Daemon:
         event["spoken_action"] = name
         if result.message:
             self._notify_spoken(result.message)
+
+    def _echo_play(self, phrase: str, event: dict) -> None:
+        """Replay the retained burst audio for the span the phrase names (ADR-v2-119).
+
+        Plays the user's **own recorded voice**, never TTS. That is the whole design:
+        a homophone Whisper got wrong sounds correct when a synthesiser reads the
+        wrong word back, and sounds wrong when you hear what you actually said.
+
+        Blocking playback on this thread, matching `earcon/play.py`'s blocking call —
+        but unlike an earcon this is a foreground answer to a request, so overlapping
+        it with the next burst would be the bug, not the feature.
+        """
+        replay = self._replay
+        if replay is None:
+            self._notify_spoken("Nothing captured to play back yet.")
+            return
+        audio, sample_rate, words = replay
+        try:
+            from yazses.echo.span import build_span_index, resolve_playback_target
+
+            spans = build_span_index([(w.text, w.start, w.end) for w in words])
+            window = resolve_playback_target(phrase, spans)
+        except Exception:
+            log.exception("Echo could not resolve a playback target")
+            return
+        if window is None:
+            self._notify_spoken("Nothing to play back for that.")
+            return
+        start_s, end_s = window
+        try:
+            import sounddevice as sd
+
+            begin = max(0, int(start_s * sample_rate))
+            finish = min(len(audio), int(end_s * sample_rate))
+            if finish <= begin:
+                return
+            event["echo_span_s"] = round(end_s - start_s, 3)
+            sd.play(audio[begin:finish], samplerate=sample_rate, blocking=True)
+        except Exception:
+            # No output device, a busy card, a container, an SSH session — all
+            # ordinary. Same posture as the earcon layer: never raise into the daemon.
+            log.debug("Echo playback failed", exc_info=True)
 
     def _notify_spoken(self, message: str) -> None:
         """Best-effort desktop notification for a spoken capability."""
@@ -3304,11 +3492,33 @@ class Daemon:
         from yazses.rewrite.engine import rewrite_selection
         from yazses.system.clipboard import read_selection, set_clipboard
 
+        # Suggestion-Mode (ADR-v2-113): with it on, a rewrite lands as CriticMarkup
+        # tracked changes instead of silently replacing the selection. This is the
+        # one place in the daemon that holds both a *before* and an *after* for the
+        # same span, which is what a diff needs — the dictation path has only an
+        # after. `read_selection` is wrapped rather than called twice because
+        # `rewrite_selection` may fall back to the ledger when the selection is
+        # empty, and the text it actually rewrote is the only correct "before".
+        _seen: dict[str, str] = {}
+
+        def _read_and_remember() -> str:
+            original = read_selection()
+            _seen["original"] = original or ""
+            return original
+
+        def _inject_rewrite(rewritten: str) -> None:
+            if self._config.suggestmode.enabled:
+                from yazses.suggestmode.critic import diff_to_critic
+
+                injector.inject(diff_to_critic(_seen.get("original", ""), rewritten))
+            else:
+                injector.inject(rewritten)
+
         outcome = rewrite_selection(
             intent,
-            read_selection=read_selection,
+            read_selection=_read_and_remember,
             rewrite=lambda instruction, text: cleaner.cleanup(text, custom_prompt=instruction),
-            inject=injector.inject,
+            inject=_inject_rewrite,
             save_original=set_clipboard,
             fallback_text=self._ledger.last_text() or "",
         )

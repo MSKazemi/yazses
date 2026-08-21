@@ -57,6 +57,11 @@ class AtspiFocusTracker:
     def __init__(self) -> None:
         self._editable: bool | None = None
         self._app_class: str = ""
+        # The focused element's AT-SPI role name, kept for Field-Aware Dictation
+        # (ADR-v2-047). It was already read to compute `_editable` and then thrown
+        # away; a password field and a plain entry are both "editable text", so the
+        # tri-state cannot tell them apart and the role is the only thing that can.
+        self._role: str = ""
         self._thread: threading.Thread | None = None
         self._started = False
 
@@ -86,6 +91,7 @@ class AtspiFocusTracker:
                 role = src.getRoleName()
                 editable = src.getState().contains(pyatspi.STATE_EDITABLE)
                 self._editable = is_editable_role(role, editable)
+                self._role = role or ""
                 try:
                     app = src.getApplication()
                     if app:
@@ -116,6 +122,10 @@ class AtspiFocusTracker:
 
     def get_app_class(self) -> str:
         return self._app_class
+
+    def get_role(self) -> str:
+        """The focused element's AT-SPI role name, or ``""`` when unknown."""
+        return self._role
 
     def stop(self) -> None:
         try:
@@ -204,6 +214,23 @@ class TargetDetector:
             return self._xdotool()
         except Exception:
             return None
+
+    def get_field_role(self) -> str:
+        """The focused element's role name, or ``""`` when nothing can report one.
+
+        AT-SPI only. There is deliberately no xdotool fallback: X11 reports a *window*
+        class, not the role of the focused widget inside it, so a fallback here could
+        only ever guess — and the one caller that matters uses this to decide whether
+        it is looking at a password box. Guessing "not a password field" is the exact
+        wrong direction to be wrong in, so an unknown role stays unknown and
+        Field-Aware Dictation stays inert.
+        """
+        if self._atspi is None:
+            return ""
+        try:
+            return self._atspi.get_role() or ""
+        except Exception:
+            return ""
 
     def get_app_class(self) -> str:
         if self._atspi is not None:

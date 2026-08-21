@@ -101,7 +101,7 @@
 <text class="yz-l" x="343" y="488" text-anchor="middle">Config</text>
 <text class="yz-s" x="343" y="504" text-anchor="middle">self-repairing</text>
 </g>
-<g class="yz-node"><title>system/features.py — 95 wired, 52 designed but not wired</title>
+<g class="yz-node"><title>system/features.py — 102 wired, 45 designed but not wired</title>
 <rect class="yz-box" x="430" y="464" width="154" height="52" rx="7"/>
 <text class="yz-l" x="507" y="488" text-anchor="middle">Registry</text>
 <text class="yz-s" x="507" y="504" text-anchor="middle">147 capabilities</text>
