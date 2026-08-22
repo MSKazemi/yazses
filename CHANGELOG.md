@@ -8,6 +8,34 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The Windows test jobs had been running zero tests, and reporting it as one
+  broken file.** `tests/test_setup_probe_survives_a_passwdless_uid.py` imported
+  `pwd` — POSIX-only — at module scope, so on Windows pytest failed during
+  *collection*:
+
+  ```
+  collected 9525 items / 1 error / 8 skipped
+  ERROR collecting tests/test_setup_probe_survives_a_passwdless_uid.py
+  !!!!!!! Interrupted: 1 error during collection !!!!!!!
+  ======== 8 skipped, 1 error in 14.19s ========
+  ```
+
+  A collection error aborts the whole session, so both Windows jobs stopped before
+  running anything. `main` carried this for days: the cross-platform matrix existed
+  and half of it was verifying nothing. Now `pytest.importorskip`, and
+  `tests/test_repo_hygiene_posix_only_imports.py` fails the build on any test module
+  that reintroduces the shape (a function-scope import and `importorskip` both stay
+  legal — the hazard is module scope, not the import).
+
+- **Two `quickstart` tests were platform-dependent without saying so**, which is why
+  both macOS jobs were red. The prerequisites tick only renders on Linux, so
+  `test_quickstart_still_ticks_when_the_probe_says_so` *could not* pass off Linux —
+  and its counterpart, which asserts the string is **absent**, passed off Linux for
+  the wrong reason: absent because the branch that prints it never ran. Both now pin
+  the platform, which fixes the first and gives the second its meaning back. A
+  `skipif` would have done neither.
+
+
 - **macOS: the dictation key needed a permission YazSes never asked for.** On the
   first Macs this was ever run on ([#182](https://github.com/MSKazemi/yazses/issues/182)),
   Accessibility was granted and visibly enabled, `doctor` reported it and nothing

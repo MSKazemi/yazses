@@ -22,7 +22,7 @@ renders as a tick.
 from __future__ import annotations
 
 import os
-import pwd
+import sys
 
 import pytest
 from typer.testing import CliRunner
@@ -30,7 +30,35 @@ from typer.testing import CliRunner
 from yazses.cli import app
 from yazses.system import setup
 
+# `pwd` is POSIX-only. It was imported at module scope, so on Windows this file
+# raised `ModuleNotFoundError` during *collection* -- which is not one red test,
+# it is the whole module erroring and both Windows jobs failing with it. The
+# subject here is the passwd database, which Windows does not have, so skipping
+# is the honest answer rather than a workaround.
+pwd = pytest.importorskip("pwd", reason="POSIX passwd database; absent on Windows")
+
 runner = CliRunner()
+
+
+@pytest.fixture
+def linux_quickstart(monkeypatch):
+    """Force `quickstart`'s Linux branch, whatever host the tests run on.
+
+    The prerequisites step only renders a tick on Linux -- every other platform
+    prints "Check prerequisites" unconditionally, because the `input` group and
+    the system packages are a Linux concern. So both quickstart tests below were
+    platform-dependent without saying so:
+
+    * the "still ticks" one **could not pass** off Linux and took both macOS jobs
+      red;
+    * the "does not tick" one **passed off Linux for the wrong reason** -- it
+      asserts a string is absent, and on macOS it is absent because the branch
+      that could print it never runs. Green, and proving nothing.
+
+    Pinning the platform fixes the first and gives the second its meaning back,
+    which a `skipif` would not have done.
+    """
+    monkeypatch.setattr(sys, "platform", "linux")
 
 
 @pytest.fixture
@@ -104,7 +132,7 @@ def test_an_unnamed_group_membership_is_false_not_an_error(passwdless_uid):
     assert setup._user_in_input_group("4242") is False
 
 
-def test_quickstart_does_not_tick_a_check_it_could_not_run(monkeypatch):
+def test_quickstart_does_not_tick_a_check_it_could_not_run(monkeypatch, linux_quickstart):
     """The false statement, pinned directly."""
     def _boom(*a, **k):
         raise KeyError("getpwuid(): uid not found: 4242")
@@ -121,7 +149,7 @@ def test_quickstart_does_not_tick_a_check_it_could_not_run(monkeypatch):
     )
 
 
-def test_quickstart_still_ticks_when_the_probe_says_so(monkeypatch):
+def test_quickstart_still_ticks_when_the_probe_says_so(monkeypatch, linux_quickstart):
     """The counterpart -- the fix must not turn a real ✓ into a shrug."""
     monkeypatch.setattr(setup, "build_plan", lambda *a, **k: setup.SetupPlan(session="x11"))
     result = runner.invoke(app, ["quickstart"])
