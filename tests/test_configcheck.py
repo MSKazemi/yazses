@@ -123,7 +123,7 @@ def test_a_thoroughly_broken_file_still_yields_a_working_config(tmp_path: Path):
         '[streaming]\nenabled = "false"\n\n'
         "[audio]\nvad_treshold = 0.01\n\n"
         "[nosuchsection]\nenabled = true\n"
-    )
+    , encoding="utf-8")
 
     loaded = load_config_checked(path)
 
@@ -142,7 +142,7 @@ def test_a_thoroughly_broken_file_still_yields_a_working_config(tmp_path: Path):
 def test_unparseable_toml_starts_on_defaults_instead_of_raising(tmp_path: Path):
     """A syntax error must not mean "no dictation today"."""
     path = tmp_path / "config.toml"
-    path.write_text("[hotkey\nkey = broken")
+    path.write_text("[hotkey\nkey = broken", encoding="utf-8")
 
     loaded = load_config_checked(path)
 
@@ -159,7 +159,7 @@ def test_missing_file_is_valid_and_silent(tmp_path: Path):
 
 def test_load_config_never_raises_and_keeps_its_signature(tmp_path: Path):
     path = tmp_path / "config.toml"
-    path.write_text('[accessibility]\nvad_threshold = "nonsense"\n')
+    path.write_text('[accessibility]\nvad_threshold = "nonsense"\n', encoding="utf-8")
 
     cfg = load_config(path)
 

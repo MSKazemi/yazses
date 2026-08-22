@@ -123,7 +123,7 @@ def test_the_detector_can_actually_fail(text, expected):
     assert unresolved(text) == expected
 
 
-@pytest.mark.parametrize("path", _sources(), ids=lambda p: str(p.relative_to(REPO)))
+@pytest.mark.parametrize("path", _sources(), ids=lambda p: p.relative_to(REPO).as_posix())
 def test_every_advised_command_exists(path):
     text = path.read_text(encoding="utf-8")
     missing = {}
@@ -307,7 +307,7 @@ def test_the_flag_detector_can_actually_fail(text, expected):
     assert advised_flags(text) == expected
 
 
-@pytest.mark.parametrize("path", _sources(), ids=lambda p: str(p.relative_to(REPO)))
+@pytest.mark.parametrize("path", _sources(), ids=lambda p: p.relative_to(REPO).as_posix())
 def test_every_advised_flag_exists(path):
     bad = [b for text in _advice_strings(path) for b in advised_flags(text)]
     assert not bad, (

@@ -101,10 +101,13 @@ def test_the_doctor_row_appears_on_a_real_mac() -> None:
     """The row is gated on `Platform.name`, and a comparison against a string no
     backend produces is how the Windows elevation row stayed invisible for
     releases (`tests/test_doctor_platform_names.py`). Prove it renders here."""
-    from yazses.platform.factory import build_platform
+    from yazses.platform import get_platform
     from yazses.system.doctor import _input_monitoring_check
 
-    platform = build_platform()
+    # `get_platform()`, the same call `doctor` makes -- imported from the package,
+    # which is the public seam. Reaching into `platform.factory` for a name that
+    # does not exist is what made this the one hardware test that could not pass.
+    platform = get_platform()
     row = _input_monitoring_check(platform.permissions, platform.name)
     assert row is not None, "the Input monitoring row is missing on macOS itself"
     name, status, _detail = row

@@ -55,7 +55,7 @@ def _status_call_sites() -> list[tuple[str, int, bool]]:
     """
     sites: list[tuple[str, int, bool]] = []
     for path in sorted(SRC.rglob("*.py")):
-        tree = ast.parse(path.read_text(), filename=str(path))
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
@@ -94,7 +94,7 @@ def test_the_scan_does_not_confuse_the_staged_status_action():
 
         return client.call("staged", action=action)   # via _staged_call("status")
     """
-    lines = (SRC / "cli.py").read_text().splitlines()
+    lines = (SRC / "cli.py").read_text(encoding="utf-8").splitlines()
     matched = [lines[line - 1] for f, line, _ in _status_call_sites() if f == "cli.py"]
 
     assert matched, "no cli.py status calls found at all — the scan is broken"
@@ -122,7 +122,7 @@ def test_every_status_reader_that_cannot_display_a_toast_opts_out():
 def test_the_approved_displayer_actually_displays():
     """`_DISPLAYERS` is an exemption; it has to be earned, not asserted."""
     for name in _DISPLAYERS:
-        source = (SRC / name).read_text()
+        source = (SRC / name).read_text(encoding="utf-8")
         assert "_show_notifications" in source, (
             f"{name} is exempted from opting out but never shows a notification"
         )

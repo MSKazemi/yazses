@@ -25,13 +25,13 @@ _SRCINFO = _ARCH / ".SRCINFO"
 
 
 def _pkgbuild_field(name: str) -> str:
-    m = re.search(rf"^{name}=([^\s#]+)", _PKGBUILD.read_text(), re.MULTILINE)
+    m = re.search(rf"^{name}=([^\s#]+)", _PKGBUILD.read_text(encoding="utf-8"), re.MULTILINE)
     assert m, f"{name} not found in PKGBUILD"
     return m.group(1).strip("'\"")
 
 
 def _srcinfo_field(name: str) -> str:
-    m = re.search(rf"^\s*{name} = (.+)$", _SRCINFO.read_text(), re.MULTILINE)
+    m = re.search(rf"^\s*{name} = (.+)$", _SRCINFO.read_text(encoding="utf-8"), re.MULTILINE)
     assert m, f"{name} not found in .SRCINFO"
     return m.group(1).strip()
 
@@ -90,13 +90,13 @@ def test_source_is_the_pypi_sdist_not_a_github_tarball():
 def test_runtime_dependencies_are_declared(dep):
     """Each of these is load-bearing: the STT engine, audio capture, the
     PortAudio shared library sounddevice dlopens, and Qt for the tray/overlay."""
-    assert f"depends = {dep}" in _SRCINFO.read_text()
+    assert f"depends = {dep}" in _SRCINFO.read_text(encoding="utf-8")
 
 
 def test_package_does_not_pip_install_at_build_time():
     """An earlier revision ran `pip install` inside package(), which downloads
     from PyPI during the build. That is unreproducible and against AUR policy."""
-    body = _PKGBUILD.read_text()
+    body = _PKGBUILD.read_text(encoding="utf-8")
     assert "pip install" not in body, (
         "package() must not pip-install; declare real dependencies instead"
     )

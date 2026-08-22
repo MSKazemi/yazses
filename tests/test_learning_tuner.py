@@ -62,7 +62,7 @@ def test_tune_apply_writes_config(store, tmp_path):
         echo=lambda _m: None, confirm=lambda _q: True,
     )
     assert applied
-    data = tomllib.loads(config_path.read_text())
+    data = tomllib.loads(config_path.read_text(encoding="utf-8"))
     assert "terraform" in data["stt"]["initial_prompt"]
 
 

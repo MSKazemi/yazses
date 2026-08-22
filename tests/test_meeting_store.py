@@ -48,7 +48,7 @@ def test_new_meeting_and_write_outputs(tmp_path):
     written = store.write_outputs(d, _make_result(cfg), fmt="md")
     assert (d / "transcript.json").exists()
     assert (d / "transcript.md").exists()
-    assert "**Speaker 1:** hello there" in written["md"].read_text()
+    assert "**Speaker 1:** hello there" in written["md"].read_text(encoding="utf-8")
 
 
 def test_list_meetings_newest_first(tmp_path):
@@ -91,11 +91,11 @@ def test_relabel_merges_speakers(tmp_path):
     d = store.new_meeting(cfg, "m")
     store.write_outputs(d, _make_result(cfg), fmt="txt")
     store.relabel(d, merges={"speaker_1": "speaker_0"}, fmt="txt")
-    payload = json.loads((d / "transcript.json").read_text())
+    payload = json.loads((d / "transcript.json").read_text(encoding="utf-8"))
     speakers = {w["speaker"] for w in payload["words"]}
     assert speakers == {"speaker_0"}
     # every rendered line now carries the same single speaker label
-    labels = {ln.split(":")[0] for ln in (d / "transcript.txt").read_text().splitlines() if ln}
+    labels = {ln.split(":")[0] for ln in (d / "transcript.txt").read_text(encoding="utf-8").splitlines() if ln}
     assert labels == {"Speaker 1"}
 
 
@@ -104,7 +104,7 @@ def test_relabel_renames_speaker(tmp_path):
     d = store.new_meeting(cfg, "m")
     store.write_outputs(d, _make_result(cfg), fmt="txt")
     store.relabel(d, renames={"speaker_0": "Alice"}, fmt="txt")
-    txt = (d / "transcript.txt").read_text()
+    txt = (d / "transcript.txt").read_text(encoding="utf-8")
     assert "Alice: hello there" in txt
     assert "Speaker" in txt  # the other cluster stays anonymous
 
@@ -117,6 +117,6 @@ def test_relabel_preserves_prior_custom_name(tmp_path):
     store.write_outputs(d, result, fmt="txt")
     # renaming only the anonymous one keeps Alice intact
     store.relabel(d, renames={"speaker_1": "Bob"}, fmt="txt")
-    txt = (d / "transcript.txt").read_text()
+    txt = (d / "transcript.txt").read_text(encoding="utf-8")
     assert "Alice: hello there" in txt
     assert "Bob: general kenobi" in txt

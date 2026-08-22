@@ -91,7 +91,7 @@ def test_finalize_writes_outputs_and_meta(tmp_path):
     d = ctl.dir
     assert (d / "transcript.json").exists()
     assert (d / "transcript.md").exists()
-    meta = json.loads((d / "meeting.json").read_text())
+    meta = json.loads((d / "meeting.json").read_text(encoding="utf-8"))
     assert meta["status"] == "done"
     assert meta["num_speakers"] == 2
     # shows up in listings

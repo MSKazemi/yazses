@@ -65,7 +65,7 @@ def _platform(config_file: Path, *, live: dict | None = None, running: bool = Tr
 def drifted(tmp_path):
     """The exact state this machine was in: configured right_alt, daemon on right_ctrl."""
     cfg = tmp_path / "config.toml"
-    cfg.write_text('[hotkey]\nkey = "right_alt"\ncommand_key = "right_ctrl"\n')
+    cfg.write_text('[hotkey]\nkey = "right_alt"\ncommand_key = "right_ctrl"\n', encoding="utf-8")
     return cfg
 
 
@@ -95,7 +95,7 @@ def test_no_second_opinion_is_silence_not_an_error(drifted, kwargs):
 
 def test_agreement_is_silent(tmp_path):
     cfg = tmp_path / "config.toml"
-    cfg.write_text('[hotkey]\nkey = "right_alt"\n')
+    cfg.write_text('[hotkey]\nkey = "right_alt"\n', encoding="utf-8")
     assert cli._hotkey_drift_note(_platform(cfg, live={"hotkey": "right_alt"})) == ""
 
 
@@ -103,7 +103,7 @@ def test_auto_is_resolved_before_it_is_compared(tmp_path):
     """`key = "auto"` means the platform default. Comparing the literal string would
     have fired the warning on every correctly configured machine."""
     cfg = tmp_path / "config.toml"
-    cfg.write_text('[hotkey]\nkey = "auto"\n')
+    cfg.write_text('[hotkey]\nkey = "auto"\n', encoding="utf-8")
     agreeing = _platform(cfg, live={"hotkey": "space"}, default="space")
     assert cli._hotkey_drift_note(agreeing) == ""
     disagreeing = _platform(cfg, live={"hotkey": "right_ctrl"}, default="space")
@@ -123,7 +123,7 @@ def test_hotkey_show_warns_and_names_both_keys(monkeypatch, drifted):
 
 def test_hotkey_show_stays_quiet_when_they_agree(monkeypatch, tmp_path):
     cfg = tmp_path / "config.toml"
-    cfg.write_text('[hotkey]\nkey = "right_alt"\n')
+    cfg.write_text('[hotkey]\nkey = "right_alt"\n', encoding="utf-8")
     monkeypatch.setattr(cli, "get_platform", lambda: _platform(cfg, live={"hotkey": "right_alt"}))
     out = CliRunner().invoke(cli.app, ["hotkey", "show"]).output
     assert "yazses restart" not in out, "a correctly configured machine must stay green"

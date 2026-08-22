@@ -18,7 +18,7 @@ def test_meeting_loads_from_toml(tmp_path):
     cfg_path.write_text(
         "[meeting]\nenabled = true\nmax_speakers = 4\nretain_audio = true\n"
         "notes = true\nnotes_model = \"/models/phi.gguf\"\n"
-    )
+    , encoding="utf-8")
     cfg = load_config(cfg_path)
     assert cfg.meeting.enabled is True
     assert cfg.meeting.max_speakers == 4

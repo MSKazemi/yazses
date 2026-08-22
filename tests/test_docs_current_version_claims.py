@@ -134,7 +134,7 @@ def test_status_row_matches_pyproject_in_every_language():
             continue
         checked += 1
         if match.group(1) != current_version():
-            stale[str(path.relative_to(ROOT))] = match.group(1)
+            stale[path.relative_to(ROOT).as_posix()] = match.group(1)
     assert checked, "the status row vanished -- this guard is now checking nothing"
     assert not stale, (
         f"pyproject.toml says {current_version()}, but the status row is stale in: "

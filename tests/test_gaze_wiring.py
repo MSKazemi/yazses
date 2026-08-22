@@ -31,7 +31,7 @@ def test_load_calibration_absent_is_none(tmp_path):
 
 
 def test_load_calibration_rejects_wrong_shape(tmp_path):
-    calibration_path(tmp_path).write_text('{"version": 1, "A": [[1, 2]]}')
+    calibration_path(tmp_path).write_text('{"version": 1, "A": [[1, 2]]}', encoding="utf-8")
     assert load_calibration(tmp_path) is None  # not 2x3 → ignored
 
 

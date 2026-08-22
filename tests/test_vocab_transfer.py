@@ -148,7 +148,7 @@ def test_export_to_a_file_reports_the_count(tmp_path, monkeypatch):
     result = runner.invoke(cli.app, ["vocab", "export", "-o", str(out)])
 
     assert result.exit_code == 0
-    assert out.read_text() == "one\ntwo\n"
+    assert out.read_text(encoding="utf-8") == "one\ntwo\n"
     assert "2 word" in result.output
 
 
@@ -156,7 +156,7 @@ def test_import_from_a_file_merges(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "get_platform", lambda: _fake_platform(tmp_path))
     add_vocab(tmp_path / "vocabulary.txt", ["mine"])
     src = tmp_path / "team.txt"
-    src.write_text("theirs\nmine\n")
+    src.write_text("theirs\nmine\n", encoding="utf-8")
 
     result = runner.invoke(cli.app, ["vocab", "import", str(src)])
 
@@ -185,7 +185,7 @@ def test_replace_asks_before_discarding_an_existing_dictionary(tmp_path, monkeyp
     monkeypatch.setattr(cli, "get_platform", lambda: _fake_platform(tmp_path))
     add_vocab(tmp_path / "vocabulary.txt", ["precious"])
     src = tmp_path / "other.txt"
-    src.write_text("replacement\n")
+    src.write_text("replacement\n", encoding="utf-8")
 
     result = runner.invoke(cli.app, ["vocab", "import", str(src), "--replace"], input="n\n")
 
@@ -197,7 +197,7 @@ def test_replace_proceeds_when_confirmed(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "get_platform", lambda: _fake_platform(tmp_path))
     add_vocab(tmp_path / "vocabulary.txt", ["old"])
     src = tmp_path / "other.txt"
-    src.write_text("new\n")
+    src.write_text("new\n", encoding="utf-8")
 
     result = runner.invoke(cli.app, ["vocab", "import", str(src), "--replace"], input="y\n")
 
@@ -209,7 +209,7 @@ def test_replace_with_yes_does_not_prompt(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "get_platform", lambda: _fake_platform(tmp_path))
     add_vocab(tmp_path / "vocabulary.txt", ["old"])
     src = tmp_path / "other.txt"
-    src.write_text("new\n")
+    src.write_text("new\n", encoding="utf-8")
 
     result = runner.invoke(cli.app, ["vocab", "import", str(src), "--replace", "--yes"])
 
@@ -222,7 +222,7 @@ def test_replace_on_an_empty_dictionary_does_not_prompt(tmp_path, monkeypatch):
     """There is nothing to lose, so a confirmation would be noise."""
     monkeypatch.setattr(cli, "get_platform", lambda: _fake_platform(tmp_path))
     src = tmp_path / "other.txt"
-    src.write_text("new\n")
+    src.write_text("new\n", encoding="utf-8")
 
     result = runner.invoke(cli.app, ["vocab", "import", str(src), "--replace"])
 

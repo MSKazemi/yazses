@@ -56,11 +56,11 @@ def test_resolve_prefers_the_console_script_next_to_this_interpreter(tmp_path, m
     """
     env = tmp_path / "env" / "bin"
     env.mkdir(parents=True)
-    (env / "yazses-daemon").write_text("#!/bin/sh\n")
-    (env / "python").write_text("")
+    (env / "yazses-daemon").write_text("#!/bin/sh\n", encoding="utf-8")
+    (env / "python").write_text("", encoding="utf-8")
     other = tmp_path / "other"
     other.mkdir()
-    (other / "yazses-daemon").write_text("#!/bin/sh\n")
+    (other / "yazses-daemon").write_text("#!/bin/sh\n", encoding="utf-8")
 
     monkeypatch.setattr(sys, "executable", str(env / "python"))
     monkeypatch.setenv("PATH", str(other))
@@ -72,7 +72,7 @@ def test_resolve_falls_back_to_the_module_when_no_console_script_exists(tmp_path
     """A source checkout has no console script; the interpreter still works."""
     env = tmp_path / "bin"
     env.mkdir(parents=True)
-    (env / "python").write_text("")
+    (env / "python").write_text("", encoding="utf-8")
     monkeypatch.setattr(sys, "executable", str(env / "python"))
     monkeypatch.setenv("PATH", str(tmp_path / "empty"))
 

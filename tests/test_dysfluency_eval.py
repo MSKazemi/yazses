@@ -16,7 +16,7 @@ from yazses.config import DisfluencyConfig
 from yazses.stt.filters.disfluency import _collapse_dysfluencies
 
 _DATA = json.loads(
-    (Path(__file__).parent / "fixtures" / "disfluency" / "dysfluency_eval.json").read_text()
+    (Path(__file__).parent / "fixtures" / "disfluency" / "dysfluency_eval.json").read_text(encoding="utf-8")
 )
 _CFG = DisfluencyConfig(collapse_repetitions=True, collapse_prolongations=True)
 

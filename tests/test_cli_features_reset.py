@@ -38,12 +38,12 @@ def _use_config(monkeypatch, path: Path):
 
 
 def _config_text(path: Path) -> str:
-    return path.read_text() if path.exists() else ""
+    return path.read_text(encoding="utf-8") if path.exists() else ""
 
 
 def test_dry_run_lists_the_changes_and_writes_nothing(monkeypatch, tmp_path):
     cfg = _use_config(monkeypatch, tmp_path / "config.toml")
-    cfg.write_text('[streaming]\nenabled = true\n')
+    cfg.write_text('[streaming]\nenabled = true\n', encoding="utf-8")
 
     r = runner.invoke(cli.app, ["features", "reset", "--dry-run"], env=WIDE)
 
@@ -55,7 +55,7 @@ def test_dry_run_lists_the_changes_and_writes_nothing(monkeypatch, tmp_path):
 
 def test_reset_turns_an_opt_in_capability_back_off(monkeypatch, tmp_path):
     cfg = _use_config(monkeypatch, tmp_path / "config.toml")
-    cfg.write_text('[streaming]\nenabled = true\n')
+    cfg.write_text('[streaming]\nenabled = true\n', encoding="utf-8")
 
     r = runner.invoke(cli.app, ["features", "reset", "--yes"], env=WIDE)
 
@@ -66,7 +66,7 @@ def test_reset_turns_an_opt_in_capability_back_off(monkeypatch, tmp_path):
 
 def test_reset_turns_a_recommended_capability_back_on(monkeypatch, tmp_path):
     cfg = _use_config(monkeypatch, tmp_path / "config.toml")
-    cfg.write_text('[commands]\nenabled = false\n')
+    cfg.write_text('[commands]\nenabled = false\n', encoding="utf-8")
 
     r = runner.invoke(cli.app, ["features", "reset", "--yes"], env=WIDE)
 
@@ -77,7 +77,7 @@ def test_reset_turns_a_recommended_capability_back_on(monkeypatch, tmp_path):
 
 def test_declining_the_prompt_writes_nothing(monkeypatch, tmp_path):
     cfg = _use_config(monkeypatch, tmp_path / "config.toml")
-    cfg.write_text('[streaming]\nenabled = true\n')
+    cfg.write_text('[streaming]\nenabled = true\n', encoding="utf-8")
 
     r = runner.invoke(cli.app, ["features", "reset"], input="n\n", env=WIDE)
 
@@ -95,7 +95,7 @@ def test_reset_leaves_settings_that_are_not_feature_switches_alone(monkeypatch, 
         '[audio]\ndevice = "Yeti"\n\n'
         '[accessibility]\nvad_threshold = 0.004\n\n'
         "[streaming]\nenabled = true\n"
-    )
+    , encoding="utf-8")
 
     r = runner.invoke(cli.app, ["features", "reset", "--yes"], env=WIDE)
 
@@ -110,7 +110,7 @@ def test_reset_leaves_settings_that_are_not_feature_switches_alone(monkeypatch, 
 def test_reset_writes_only_the_rows_that_are_off_default(monkeypatch, tmp_path):
     """Rewriting all ~200 keys would churn the whole file to change one line."""
     cfg = _use_config(monkeypatch, tmp_path / "config.toml")
-    cfg.write_text('[streaming]\nenabled = true\n')
+    cfg.write_text('[streaming]\nenabled = true\n', encoding="utf-8")
     written: list[tuple] = []
     monkeypatch.setattr(
         cli, "_apply_feature_writes", lambda path, writes: written.extend(writes)
@@ -128,7 +128,7 @@ def test_a_config_already_at_the_defaults_is_a_no_op(monkeypatch, tmp_path):
     cfg = _use_config(monkeypatch, tmp_path / "config.toml")
     # Seed the file with the shipped defaults, then reset twice: the second run
     # must find nothing left to do.
-    cfg.write_text("")
+    cfg.write_text("", encoding="utf-8")
     runner.invoke(cli.app, ["features", "reset", "--yes"], env=WIDE)
     before = _config_text(cfg)
 
@@ -142,7 +142,7 @@ def test_a_config_already_at_the_defaults_is_a_no_op(monkeypatch, tmp_path):
 def test_a_capability_whose_libraries_can_never_arrive_is_skipped(monkeypatch, tmp_path):
     """Same refusal `features enable` makes: never write a key nothing can honour."""
     cfg = _use_config(monkeypatch, tmp_path / "config.toml")
-    cfg.write_text('[tray]\nenabled = false\n')
+    cfg.write_text('[tray]\nenabled = false\n', encoding="utf-8")
     monkeypatch.setattr(
         cli,
         "_feature_deps_blocked",

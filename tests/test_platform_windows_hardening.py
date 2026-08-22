@@ -134,21 +134,21 @@ def test_is_running_never_calls_os_kill(tmp_path, monkeypatch):
     monkeypatch.setattr(os, "kill", _boom)
 
     paths = _paths(tmp_path)
-    paths.pid_file.write_text("4321")
+    paths.pid_file.write_text("4321", encoding="utf-8")
     lifecycle = WindowsLifecycle(paths, alive_probe=lambda pid: False)
     assert lifecycle.is_running() is False
 
 
 def test_is_running_false_when_probe_says_dead(tmp_path):
     paths = _paths(tmp_path)
-    paths.pid_file.write_text("4321")
+    paths.pid_file.write_text("4321", encoding="utf-8")
     lifecycle = WindowsLifecycle(paths, alive_probe=lambda pid: False)
     assert lifecycle.is_running() is False
 
 
 def test_is_running_consults_the_recorded_pid(tmp_path):
     paths = _paths(tmp_path)
-    paths.pid_file.write_text("4321")
+    paths.pid_file.write_text("4321", encoding="utf-8")
     seen: list[int] = []
     WindowsLifecycle(paths, alive_probe=lambda pid: seen.append(pid) or False).is_running()
     assert seen == [4321]
@@ -189,7 +189,7 @@ def test_frozen_autostart_is_quoted_and_starts_the_tray(tmp_path, monkeypatch):
 
     exe = tmp_path / "John Smith" / "YazSes.exe"
     exe.parent.mkdir(parents=True)
-    exe.write_text("")
+    exe.write_text("", encoding="utf-8")
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     monkeypatch.setattr(sys, "executable", str(exe))
 
@@ -205,7 +205,7 @@ def test_non_frozen_tray_script_path_is_quoted(tmp_path, monkeypatch):
 
     scripts = tmp_path / "Program Files" / "Scripts"
     scripts.mkdir(parents=True)
-    (scripts / "yazses-tray.exe").write_text("")
+    (scripts / "yazses-tray.exe").write_text("", encoding="utf-8")
     monkeypatch.setattr(sys, "frozen", False, raising=False)
     monkeypatch.setattr(sys, "executable", str(scripts / "python.exe"))
 
@@ -493,19 +493,19 @@ def _released_version() -> str:
 def test_scoop_manifest_tracks_the_released_version():
     import json
 
-    manifest = json.loads((_repo_root() / "packaging/scoop/yazses.json").read_text())
+    manifest = json.loads((_repo_root() / "packaging/scoop/yazses.json").read_text(encoding="utf-8"))
     version = _released_version()
     assert manifest["version"] == version
     assert version in manifest["architecture"]["64bit"]["url"]
 
 
 def test_chocolatey_nuspec_tracks_the_released_version():
-    nuspec = (_repo_root() / "packaging/chocolatey/yazses.nuspec").read_text()
+    nuspec = (_repo_root() / "packaging/chocolatey/yazses.nuspec").read_text(encoding="utf-8")
     assert f"<version>{_released_version()}</version>" in nuspec
 
 
 def test_chocolatey_install_script_points_at_this_release():
-    script = (_repo_root() / "packaging/chocolatey/tools/chocolateyinstall.ps1").read_text()
+    script = (_repo_root() / "packaging/chocolatey/tools/chocolateyinstall.ps1").read_text(encoding="utf-8")
     assert _released_version() in script
 
 
@@ -525,8 +525,8 @@ def test_scoop_and_chocolatey_agree_on_the_checksum():
     import json
     import re
 
-    scoop = json.loads((_repo_root() / "packaging/scoop/yazses.json").read_text())
-    choco = (_repo_root() / "packaging/chocolatey/tools/chocolateyinstall.ps1").read_text()
+    scoop = json.loads((_repo_root() / "packaging/scoop/yazses.json").read_text(encoding="utf-8"))
+    choco = (_repo_root() / "packaging/chocolatey/tools/chocolateyinstall.ps1").read_text(encoding="utf-8")
     match = re.search(r"checksum64\s*=\s*'([0-9a-fA-F]{64})'", choco)
     assert match, "no checksum64 found in chocolateyinstall.ps1"
     assert scoop["architecture"]["64bit"]["hash"].lower() == match.group(1).lower()
@@ -540,7 +540,7 @@ def test_no_placeholder_checksums_in_windows_packaging():
         "packaging/scoop/yazses.json",
         "packaging/chocolatey/tools/chocolateyinstall.ps1",
     ):
-        text = (_repo_root() / rel).read_text()
+        text = (_repo_root() / rel).read_text(encoding="utf-8")
         assert not re.search(r"PLACEHOLDER|SKIP|TODO", text, re.IGNORECASE), rel
 
 
@@ -602,8 +602,8 @@ def test_scoop_bucket_copy_matches_the_packaging_manifest():
     import json
 
     root = _repo_root()
-    packaged = json.loads((root / "packaging" / "scoop" / "yazses.json").read_text())
-    served = json.loads((root / "bucket" / "yazses.json").read_text())
+    packaged = json.loads((root / "packaging" / "scoop" / "yazses.json").read_text(encoding="utf-8"))
+    served = json.loads((root / "bucket" / "yazses.json").read_text(encoding="utf-8"))
     assert served == packaged, (
         "bucket/yazses.json drifted from packaging/scoop/yazses.json — copy it over"
     )
@@ -616,7 +616,7 @@ def test_scoop_manifest_shims_the_cli():
     has no stdout to print to."""
     import json
 
-    m = json.loads((_repo_root() / "packaging" / "scoop" / "yazses.json").read_text())
+    m = json.loads((_repo_root() / "packaging" / "scoop" / "yazses.json").read_text(encoding="utf-8"))
     assert "bin" in m, "Scoop users would have no `yazses` command at all"
     flat = [x for entry in m["bin"] for x in (entry if isinstance(entry, list) else [entry])]
     assert "yazses-cli.exe" in flat

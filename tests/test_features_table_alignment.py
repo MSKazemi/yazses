@@ -92,7 +92,7 @@ def test_the_row_regex_covers_every_badge_the_list_can_emit():
     from pathlib import Path as _Path
 
     src = _Path(__file__).resolve().parents[1] / "src" / "yazses" / "cli.py"
-    body = src.read_text()
+    body = src.read_text(encoding="utf-8")
     start = body.index("def _echo_capabilities")
     end = body.index("def _echo_feature_card", start)
     marks = _re.findall(r"^\s*mark = (.+)$", body[start:end], _re.M)

@@ -111,7 +111,7 @@ def test_the_real_changelog_resolves_the_current_version(gen):
     from pathlib import Path
 
     root = Path(__file__).resolve().parent.parent
-    ver = tomllib.loads((root / "pyproject.toml").read_text())["project"]["version"]
+    ver = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
     assert gen._release_date(ver) != "unreleased", (
         f"no date found for {ver} in CHANGELOG.md — the heading style and the "
         "generator's pattern have drifted apart again"

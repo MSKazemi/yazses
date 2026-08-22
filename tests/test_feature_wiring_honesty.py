@@ -233,12 +233,12 @@ def test_cli_disable_unwired_cleans_stale_config(monkeypatch, tmp_path) -> None:
     import yazses.cli as cli
 
     cfg = tmp_path / "config.toml"
-    cfg.write_text("[wakeword]\nenabled = true\n")
+    cfg.write_text("[wakeword]\nenabled = true\n", encoding="utf-8")
     monkeypatch.setattr(cli, "get_platform", lambda: _fake_platform(tmp_path))
     result = CliRunner().invoke(cli.app, ["features", "disable", "wakeword"])
     assert result.exit_code == 0, _combined_output(result)
     assert "never wired" in _combined_output(result)
-    assert "enabled = false" in cfg.read_text()
+    assert "enabled = false" in cfg.read_text(encoding="utf-8")
 
 
 def test_cli_list_marks_unwired_as_planned(monkeypatch, tmp_path) -> None:

@@ -253,6 +253,6 @@ def test_the_docs_describe_the_third_badge() -> None:
     """The badge is only honest if the page a reader lands on explains it."""
     from pathlib import Path as _Path
 
-    ref = (_Path(__file__).resolve().parents[1] / "docs" / "cli-reference.md").read_text()
+    ref = (_Path(__file__).resolve().parents[1] / "docs" / "cli-reference.md").read_text(encoding="utf-8")
     assert "◌" in ref, "cli-reference.md documents two states for a three-state badge"
     assert "features disable" in ref

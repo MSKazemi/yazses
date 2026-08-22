@@ -49,7 +49,7 @@ def test_the_source_tree_is_there_to_check() -> None:
 
 
 def test_no_python_source_file_is_ignored() -> None:
-    files = [str(p.relative_to(ROOT)) for p in SRC.rglob("*.py")]
+    files = [p.relative_to(ROOT).as_posix() for p in SRC.rglob("*.py")]
     ignored = _ignored(files)
     assert not ignored, (
         "these shipped source files are invisible to git — a new file beside them "
@@ -61,7 +61,7 @@ def test_no_source_package_directory_is_ignored() -> None:
     """The directory matters as much as the files: the trap is what happens to the
     *next* file added there, not to the ones already tracked."""
     packages = [
-        str(p.relative_to(ROOT))
+        p.relative_to(ROOT).as_posix()
         for p in SRC.rglob("*")
         if p.is_dir() and p.name != "__pycache__"
     ]
@@ -87,7 +87,7 @@ def test_the_snap_artefact_rules_are_anchored() -> None:
 
 def test_the_tests_directory_is_not_ignored() -> None:
     """Same failure, equally silent: a new test that never runs in CI."""
-    ignored = _ignored([str(p.relative_to(ROOT)) for p in (ROOT / "tests").glob("*.py")])
+    ignored = _ignored([p.relative_to(ROOT).as_posix() for p in (ROOT / "tests").glob("*.py")])
     assert not ignored, f"ignored test files: {sorted(ignored)[:10]}"
 
 

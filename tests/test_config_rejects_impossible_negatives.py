@@ -57,7 +57,7 @@ def test_the_catastrophic_case_is_now_repaired(tmp_path) -> None:
     path = tmp_path / "config.toml"
     path.write_text(
         "[accessibility]\nvad_threshold = -5.0\npre_speech_padding_ms = -900\n"
-    )
+    , encoding="utf-8")
     loaded = load_config_checked(path)
 
     assert loaded.config.accessibility.vad_threshold == Config().accessibility.vad_threshold

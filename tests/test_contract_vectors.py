@@ -110,7 +110,7 @@ def test_every_case_is_documented_and_uniquely_identified(fname, doc):
 
 @pytest.mark.parametrize("fname,doc", VECTOR_FILES, ids=[f for f, _ in VECTOR_FILES])
 def test_declared_contract_version_matches(fname, doc):
-    version = (ROOT / "contract" / "VERSION").read_text().strip()
+    version = (ROOT / "contract" / "VERSION").read_text(encoding="utf-8").strip()
     assert doc["contract_version"] == version, (
         f"{fname} was generated under contract {doc['contract_version']}, "
         f"but contract/VERSION says {version}"

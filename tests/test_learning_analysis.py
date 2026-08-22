@@ -171,23 +171,23 @@ def test_set_toml_key_creates_file(tmp_path):
     path = tmp_path / "config.toml"
     set_toml_key(path, "stt", "model", "small.en")
     import tomllib
-    assert tomllib.loads(path.read_text())["stt"]["model"] == "small.en"
+    assert tomllib.loads(path.read_text(encoding="utf-8"))["stt"]["model"] == "small.en"
 
 
 def test_set_toml_key_replaces_existing(tmp_path):
     path = tmp_path / "config.toml"
-    path.write_text("[accessibility]\nvad_threshold = 0.02\n")
+    path.write_text("[accessibility]\nvad_threshold = 0.02\n", encoding="utf-8")
     set_toml_key(path, "accessibility", "vad_threshold", 0.005)
     import tomllib
-    assert tomllib.loads(path.read_text())["accessibility"]["vad_threshold"] == 0.005
+    assert tomllib.loads(path.read_text(encoding="utf-8"))["accessibility"]["vad_threshold"] == 0.005
 
 
 def test_set_toml_key_inserts_into_existing_section(tmp_path):
     path = tmp_path / "config.toml"
-    path.write_text("[stt]\nmodel = \"base.en\"\n")
+    path.write_text("[stt]\nmodel = \"base.en\"\n", encoding="utf-8")
     set_toml_key(path, "stt", "initial_prompt", "kubernetes terraform")
     import tomllib
-    data = tomllib.loads(path.read_text())
+    data = tomllib.loads(path.read_text(encoding="utf-8"))
     assert data["stt"]["model"] == "base.en"
     assert data["stt"]["initial_prompt"] == "kubernetes terraform"
 
@@ -197,7 +197,7 @@ def test_apply_few_shots(tmp_path):
     prop = Proposal(kind="few_shots", title="t", detail="d", evidence=1,
                     target="few_shots", examples=['"save the world" -> {}'])
     apply_proposal(prop, tmp_path / "config.toml", fs)
-    assert "save the world" in fs.read_text()
+    assert "save the world" in fs.read_text(encoding="utf-8")
 
 
 # ---- helper to build EventRecord without a DB -----------------------------

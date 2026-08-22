@@ -197,7 +197,7 @@ def test_no_surface_sends_a_windows_user_to_the_roaming_directory():
         except (OSError, UnicodeDecodeError):
             continue
         if bad in text:
-            offenders.append(str(path.relative_to(REPO)))
+            offenders.append(path.relative_to(REPO).as_posix())
     assert not offenders, (
         f"these name a directory YazSes never reads: {offenders}. Use %LOCALAPPDATA%."
     )

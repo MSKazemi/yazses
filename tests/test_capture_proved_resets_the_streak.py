@@ -51,7 +51,7 @@ def _discard_reasons_in_source() -> set[str]:
     a set is the thing that goes stale, and this suite exists because two sets one
     condition apart disagreed.
     """
-    tree = ast.parse(DAEMON_SRC.read_text())
+    tree = ast.parse(DAEMON_SRC.read_text(encoding="utf-8"))
     found: set[str] = set()
     for node in ast.walk(tree):
         if not isinstance(node, ast.Assign):

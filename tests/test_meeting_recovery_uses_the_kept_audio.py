@@ -202,7 +202,7 @@ def test_recovering_writes_the_same_outputs_a_finished_meeting_has(tmp_path):
     info = recover.recover_meeting(d, _Cfg(tmp_path), engine=_Engine())
 
     assert (d / "transcript.json").exists() and (d / "transcript.md").exists()
-    meta = json.loads((d / "meeting.json").read_text())
+    meta = json.loads((d / "meeting.json").read_text(encoding="utf-8"))
     assert meta["status"] == "done"
     assert meta["recovered"] is True, "a reader deserves to know the duration came from the WAV"
     assert meta["id"] == "20260820-100000"
@@ -225,7 +225,7 @@ def test_recovery_never_opens_the_recording_for_writing():
     """Source guard for the same hazard, because the behavioural test above can only
     catch it once someone has already shipped it. Any of these constructors would
     truncate `audio.wav`."""
-    src = pathlib.Path("src/yazses/meeting/recover.py").read_text()
+    src = pathlib.Path("src/yazses/meeting/recover.py").read_text(encoding="utf-8")
     tree = ast.parse(src)
     called = {
         node.func.id if isinstance(node.func, ast.Name) else getattr(node.func, "attr", "")
@@ -255,7 +255,7 @@ def test_a_recovered_recording_that_held_no_speech_is_still_labelled(tmp_path):
     d = _recording(tmp_path / "m", audio=hiss)
     info = recover.recover_meeting(d, _Cfg(tmp_path), engine=_Engine())
     assert info["capture"] == store.CAPTURE_NO_SPEECH
-    assert json.loads((d / "meeting.json").read_text())["capture"] == store.CAPTURE_NO_SPEECH
+    assert json.loads((d / "meeting.json").read_text(encoding="utf-8"))["capture"] == store.CAPTURE_NO_SPEECH
     assert store.capture_warning(info)
 
 
@@ -296,7 +296,7 @@ def test_the_command_recovers_the_meeting(monkeypatch, tmp_path):
     result = _invoke(monkeypatch, tmp_path, ["meeting", "recover", "20260820-100000"])
     assert result.exit_code == 0, result.output
     assert (d / "transcript.md").exists()
-    assert json.loads((d / "meeting.json").read_text())["status"] == "done"
+    assert json.loads((d / "meeting.json").read_text(encoding="utf-8"))["status"] == "done"
 
 
 def test_the_command_refuses_a_meeting_with_nothing_to_recover(monkeypatch, tmp_path):

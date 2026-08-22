@@ -296,14 +296,14 @@ def test_a_spec_with_no_usage_descriptions_is_an_error_not_an_empty_list(mod, tm
     """"Required nothing" must never read as "all fine" -- an extraction that
     quietly returns [] turns the whole check into a no-op that stays green."""
     spec = tmp_path / "x.spec"
-    spec.write_text("app = BUNDLE(coll, name='X.app', info_plist={'CFBundleName': 'X'})\n")
+    spec.write_text("app = BUNDLE(coll, name='X.app', info_plist={'CFBundleName': 'X'})\n", encoding="utf-8")
     with pytest.raises(ValueError, match="no NS.*UsageDescription"):
         mod.usage_description_keys(spec)
 
 
 def test_a_spec_with_no_info_plist_is_an_error(mod, tmp_path):
     spec = tmp_path / "x.spec"
-    spec.write_text("a = 1\n")
+    spec.write_text("a = 1\n", encoding="utf-8")
     with pytest.raises(ValueError, match="no info_plist"):
         mod.usage_description_keys(spec)
 

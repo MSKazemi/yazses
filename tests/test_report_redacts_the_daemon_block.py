@@ -76,7 +76,7 @@ def _status_keys_in_source() -> set[str]:
     and a guard that scanned only `_handle_status` would have declared the payload fully
     classified while missing the single field this file exists for.
     """
-    tree = ast.parse(DAEMON_SRC.read_text())
+    tree = ast.parse(DAEMON_SRC.read_text(encoding="utf-8"))
     wanted = {"_handle_status", "staged_state"}
     found: set[str] = set()
     for node in ast.walk(tree):
@@ -124,8 +124,8 @@ def _daemon():
 
 
 def _bundle(tmp_path, status) -> dict:
-    (tmp_path / "config.toml").write_text('[stt]\nmodel = "base.en"\n')
-    (tmp_path / "daemon.log").write_text("2026-08-21 00:00:00,000 INFO yazses: up\n")
+    (tmp_path / "config.toml").write_text('[stt]\nmodel = "base.en"\n', encoding="utf-8")
+    (tmp_path / "daemon.log").write_text("2026-08-21 00:00:00,000 INFO yazses: up\n", encoding="utf-8")
     return R.collect(
         config_file=tmp_path / "config.toml",
         log_file=tmp_path / "daemon.log",

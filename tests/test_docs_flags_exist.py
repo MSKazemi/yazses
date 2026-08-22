@@ -95,7 +95,7 @@ def _unknown_flags(extra_line: str = "") -> list[str]:
 
     out: list[str] = []
     for page in _pages():
-        out += scan(page.read_text(encoding="utf-8"), str(page.relative_to(ROOT)))
+        out += scan(page.read_text(encoding="utf-8"), page.relative_to(ROOT).as_posix())
     if extra_line:
         out += scan(extra_line, "<planted>")
     return sorted(set(out))

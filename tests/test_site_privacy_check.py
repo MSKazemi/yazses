@@ -95,8 +95,8 @@ def test_a_missing_site_is_an_error_not_a_pass(tmp_path) -> None:
 def test_a_clean_site_passes(tmp_path) -> None:
     site = tmp_path / "site"
     (site / "guides").mkdir(parents=True)
-    (site / "index.html").write_text("hi")
-    (site / "guides" / "a.html").write_text("hi")
+    (site / "index.html").write_text("hi", encoding="utf-8")
+    (site / "guides" / "a.html").write_text("hi", encoding="utf-8")
     assert _script().main(["prog", str(site)]) == 0
 
 
@@ -106,8 +106,8 @@ def test_a_dirty_site_fails(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(mod, "_hook_text", lambda: 'x"(^|[^a-zA-Z0-9_/-])(secrets)/"')
     site = tmp_path / "site"
     (site / "secrets").mkdir(parents=True)
-    (site / "index.html").write_text("hi")
-    (site / "secrets" / "plan.html").write_text("confidential")
+    (site / "index.html").write_text("hi", encoding="utf-8")
+    (site / "secrets" / "plan.html").write_text("confidential", encoding="utf-8")
     assert mod.main(["prog", str(site)]) == 1
 
 
@@ -127,8 +127,8 @@ def test_paths_are_compared_posix_style_on_every_platform(tmp_path) -> None:
     monkey = 'x"(^|[^a-zA-Z0-9_/-])(secrets)/"'
     site = tmp_path / "site"
     (site / "secrets" / "deep").mkdir(parents=True)
-    (site / "index.html").write_text("hi")
-    (site / "secrets" / "deep" / "plan.html").write_text("confidential")
+    (site / "index.html").write_text("hi", encoding="utf-8")
+    (site / "secrets" / "deep" / "plan.html").write_text("confidential", encoding="utf-8")
 
     original = mod._hook_text
     mod._hook_text = lambda: monkey

@@ -53,7 +53,11 @@ _MIN_FETCHERS = 4
 def _download_modules() -> dict[str, pathlib.Path]:
     """Every ``download.py`` in the package, keyed the way the table keys it."""
     return {
-        str(p.relative_to(SRC)): p
+        # `.as_posix()`, never `str()`: on Windows `str()` yields
+        # `yazses\\stt\\parakeet.py`, which matches none of the `yazses/...` keys
+        # this file compares against -- so four tests failed there and nowhere
+        # else, reading like a missing module rather than a separator.
+        p.relative_to(SRC).as_posix(): p
         for p in (SRC / "yazses").rglob("download.py")
     }
 
@@ -98,7 +102,7 @@ def hub_fetching_modules() -> dict[str, set[str]]:
             if name in HUB_LOADERS
         }
         if hits:
-            found[str(path.relative_to(SRC))] = hits
+            found[path.relative_to(SRC).as_posix()] = hits
     return found
 
 

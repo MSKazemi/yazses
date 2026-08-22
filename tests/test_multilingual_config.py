@@ -128,7 +128,7 @@ def test_no_documented_config_pairs_an_english_model_with_another_language():
     from pathlib import Path
 
     page = Path(__file__).resolve().parent.parent / "docs/use-cases/multilingual-dictation.md"
-    blocks = re.findall(r"```toml\n(.*?)```", page.read_text(), re.S)
+    blocks = re.findall(r"```toml\n(.*?)```", page.read_text(encoding="utf-8"), re.S)
     assert blocks, "no toml examples parsed from the multilingual page"
 
     bad = []

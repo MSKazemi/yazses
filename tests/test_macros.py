@@ -94,7 +94,7 @@ def test_load_macros_parses_text_and_snippet(tmp_path):
         '[[macro]]\ntrigger = "license header"\ntype = "text"\ntext = "HEADER"\n\n'
         '[[macro]]\ntrigger = "try except"\ntype = "snippet"\n'
         'snippet = "try:\\n    ${cursor}\\nexcept:\\n    raise"\n'
-    )
+    , encoding="utf-8")
     table = load_macros(p)
     assert len(table) == 2
     assert table.match("license header").template == "HEADER"
@@ -106,7 +106,7 @@ def test_load_macros_rejects_duplicate_trigger_first_wins(tmp_path):
     p.write_text(
         '[[macro]]\ntrigger = "dup"\ntype = "text"\ntext = "FIRST"\n\n'
         '[[macro]]\ntrigger = "Dup."\ntype = "text"\ntext = "SECOND"\n'
-    )
+    , encoding="utf-8")
     table = load_macros(p)
     assert len(table) == 1
     assert table.match("dup").template == "FIRST"
@@ -118,7 +118,7 @@ def test_load_macros_skips_invalid_entry_without_raising(tmp_path):
         '[[macro]]\ntype = "text"\ntext = "no trigger"\n\n'        # missing trigger
         '[[macro]]\ntrigger = "bad"\ntype = "wat"\ntext = "x"\n\n'  # bad type
         '[[macro]]\ntrigger = "good"\ntype = "text"\ntext = "OK"\n'
-    )
+    , encoding="utf-8")
     table = load_macros(p)
     assert len(table) == 1
     assert table.match("good").template == "OK"
@@ -126,7 +126,7 @@ def test_load_macros_skips_invalid_entry_without_raising(tmp_path):
 
 def test_load_macros_unparseable_file_returns_empty(tmp_path):
     p = tmp_path / "macros.toml"
-    p.write_text("this is = = not valid toml [[[")
+    p.write_text("this is = = not valid toml [[[", encoding="utf-8")
     table = load_macros(p)
     assert len(table) == 0
 
@@ -137,7 +137,7 @@ def test_load_macros_none_path_is_empty():
 
 def test_load_macros_skips_punctuation_only_trigger(tmp_path):
     p = tmp_path / "macros.toml"
-    p.write_text('[[macro]]\ntrigger = "..."\ntype = "text"\ntext = "x"\n')
+    p.write_text('[[macro]]\ntrigger = "..."\ntype = "text"\ntext = "x"\n', encoding="utf-8")
     assert len(load_macros(p)) == 0
 
 
@@ -146,7 +146,7 @@ def test_load_macros_parses_actions_macro_dormant(tmp_path):
     p.write_text(
         '[[macro]]\ntrigger = "run my tests"\ntype = "actions"\n'
         'actions = [ { key = "ctrl+grave" }, { text = "pytest" }, { key = "Return" } ]\n'
-    )
+    , encoding="utf-8")
     table = load_macros(p)
     macro = table.match("run my tests")
     assert macro.type == "actions"
@@ -163,7 +163,7 @@ def test_build_macro_table_dormant_when_disabled(tmp_path):
 def test_build_macro_table_loads_when_enabled(tmp_path):
     (tmp_path / "macros.toml").write_text(
         '[[macro]]\ntrigger = "hi"\ntype = "text"\ntext = "hello"\n'
-    )
+    , encoding="utf-8")
     cfg = load_config()
     cfg.macros.enabled = True
     table = build_macro_table(cfg, tmp_path)
@@ -249,7 +249,7 @@ def test_config_macros_defaults_off():
 
 def test_config_loads_macros_section(tmp_path):
     p = tmp_path / "config.toml"
-    p.write_text('[macros]\nenabled = true\nauthor = "Mo"\npath = "m.toml"\n')
+    p.write_text('[macros]\nenabled = true\nauthor = "Mo"\npath = "m.toml"\n', encoding="utf-8")
     cfg = load_config(p)
     assert cfg.macros.enabled is True
     assert cfg.macros.author == "Mo"

@@ -215,7 +215,7 @@ def test_a_null_tap_names_a_grant_we_actually_determined(granted: bool) -> None:
 def _info_plist_keys() -> set[str]:
     """Read the spec's `info_plist=` dict out of the source, not by importing it
     (the spec runs under PyInstaller and pulls in the whole app to do it)."""
-    tree = ast.parse(SPEC.read_text())
+    tree = ast.parse(SPEC.read_text(encoding="utf-8"))
     for node in ast.walk(tree):
         if isinstance(node, ast.keyword) and node.arg == "info_plist":
             assert isinstance(node.value, ast.Dict)

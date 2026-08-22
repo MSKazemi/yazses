@@ -72,7 +72,7 @@ def _probes() -> list[tuple[str, int, tuple[str, ...], str | None]]:
             if requires is None:
                 continue  # built from a variable — covered by its own factory's tests
             extra = _literal(kwargs["extra"]) if "extra" in kwargs else None
-            found.append((str(path.relative_to(ROOT)), node.lineno, tuple(requires), extra))
+            found.append((path.relative_to(ROOT).as_posix(), node.lineno, tuple(requires), extra))
     return found
 
 

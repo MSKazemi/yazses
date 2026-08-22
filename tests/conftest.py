@@ -116,7 +116,7 @@ _WATCHED_HOST_FILES = _resolve_watched_host_files()
 def _read_pid_file() -> int | None:
     """The pid inside the real pid file, or None. Never raises."""
     try:
-        return int(_WATCHED_HOST_FILES["pid file"].read_text().strip())
+        return int(_WATCHED_HOST_FILES["pid file"].read_text(encoding="utf-8").strip())
     except (OSError, ValueError, KeyError):
         return None
 

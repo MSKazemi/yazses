@@ -218,7 +218,7 @@ def _run(tmp_path, monkeypatch, audio, text="You"):
 
 def test_the_command_warns_that_the_words_were_invented(tmp_path, monkeypatch):
     output, out = _run(tmp_path, monkeypatch, _hiss())
-    assert out.read_text().strip() == "You", "the transcript is still written, not suppressed"
+    assert out.read_text(encoding="utf-8").strip() == "You", "the transcript is still written, not suppressed"
     assert _NO_SPEECH_NOTE in output
     assert _NO_SIGNAL_NOTE not in output, "a quiet room is not a dead microphone"
 
@@ -261,7 +261,7 @@ def test_an_invented_transcript_is_not_a_moment_to_ask_for_a_star(tmp_path, monk
     import ast
     import pathlib as _pathlib
 
-    source = (_pathlib.Path(__file__).resolve().parent.parent / "src/yazses/cli.py").read_text()
+    source = (_pathlib.Path(__file__).resolve().parent.parent / "src/yazses/cli.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
     calls = [
         node

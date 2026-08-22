@@ -23,7 +23,7 @@ def test_load_config_missing_file_returns_defaults(tmp_path):
 
 def test_load_config_partial_override(tmp_path):
     config_file = tmp_path / "config.toml"
-    config_file.write_text('[stt]\nmodel = "small.en"\n')
+    config_file.write_text('[stt]\nmodel = "small.en"\n', encoding="utf-8")
     cfg = load_config(config_file)
     assert cfg.stt.model == "small.en"
     assert cfg.stt.device == "cpu"          # default preserved
@@ -34,7 +34,7 @@ def test_load_config_full_section(tmp_path):
     config_file.write_text(
         '[hotkey]\nhold_threshold_ms = 800\n'
         '[audio]\nmax_record_seconds = 30\n'
-    )
+    , encoding="utf-8")
     cfg = load_config(config_file)
     assert cfg.hotkey.hold_threshold_ms == 800
     assert cfg.audio.max_record_seconds == 30
@@ -61,7 +61,7 @@ def test_overlay_section_override(tmp_path):
         'position = "bottom_center"\n'
         'accent = "#ff00aa"\n'
         'fps = 30\n'
-    )
+    , encoding="utf-8")
     cfg = load_config(config_file)
     assert cfg.overlay.enabled is True
     assert cfg.overlay.position == "bottom_center"
@@ -83,7 +83,7 @@ def test_disfluency_collapse_defaults_off():
 
 def test_dysfluency_friendly_preset_enables_collapse(tmp_path):
     f = tmp_path / "config.toml"
-    f.write_text("[accessibility]\ndysfluency_friendly = true\n")
+    f.write_text("[accessibility]\ndysfluency_friendly = true\n", encoding="utf-8")
     cfg = load_config(f)
     assert cfg.accessibility.dysfluency_friendly is True
     assert cfg.filters.disfluency.collapse_repetitions is True
@@ -95,7 +95,7 @@ def test_disfluency_collapse_explicit_override(tmp_path):
     f = tmp_path / "config.toml"
     f.write_text(
         "[filters.disfluency]\ncollapse_prolongations = true\nprolongation_min_run = 4\n"
-    )
+    , encoding="utf-8")
     cfg = load_config(f)
     assert cfg.filters.disfluency.collapse_prolongations is True
     assert cfg.filters.disfluency.prolongation_min_run == 4

@@ -52,7 +52,7 @@ def _construction_sites() -> list[tuple[str, int, set[str]]]:
             name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", "")
             if name == "FasterWhisperEngine":
                 sites.append((
-                    str(path.relative_to(SRC.parent.parent)),
+                    path.relative_to(SRC.parent.parent).as_posix(),
                     node.lineno,
                     {k.arg for k in node.keywords if k.arg},
                 ))

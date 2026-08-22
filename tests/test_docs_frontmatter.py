@@ -50,7 +50,7 @@ def test_there_are_pages_to_check():
 @pytest.mark.parametrize(
     "path,description",
     _pages_with_description(),
-    ids=[str(p.relative_to(DOCS)) for p, _ in _pages_with_description()],
+    ids=[p.relative_to(DOCS).as_posix() for p, _ in _pages_with_description()],
 )
 def test_description_has_no_double_quote(path: Path, description: str):
     assert '"' not in description, (
@@ -63,7 +63,7 @@ def test_description_has_no_double_quote(path: Path, description: str):
 @pytest.mark.parametrize(
     "path,description",
     _pages_with_description(),
-    ids=[str(p.relative_to(DOCS)) for p, _ in _pages_with_description()],
+    ids=[p.relative_to(DOCS).as_posix() for p, _ in _pages_with_description()],
 )
 def test_description_is_a_usable_length(path: Path, description: str):
     """Catch a description that is missing in substance or has run away entirely.

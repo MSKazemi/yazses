@@ -14,12 +14,12 @@ DICTATION_PATH = Path(__file__).parent / "fixtures" / "commands" / "dictation_co
 
 
 def load_commands():
-    with open(COMMANDS_PATH) as f:
+    with open(COMMANDS_PATH, encoding="utf-8") as f:
         return json.load(f)
 
 
 def load_dictation_sentences():
-    text = DICTATION_PATH.read_text()
+    text = DICTATION_PATH.read_text(encoding="utf-8")
     # Split into ~sentence-length chunks for testing
     sentences = [s.strip() for s in text.replace('\n', ' ').split('.') if s.strip()]
     return sentences

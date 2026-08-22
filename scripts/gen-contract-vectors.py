@@ -52,7 +52,7 @@ from yazses.stt.vocabulary import merge_initial_prompt  # noqa: E402
 
 CONTRACT_DIR = ROOT / "contract"
 VECTOR_DIR = CONTRACT_DIR / "vectors"
-CONTRACT_VERSION = (CONTRACT_DIR / "VERSION").read_text().strip()
+CONTRACT_VERSION = (CONTRACT_DIR / "VERSION").read_text(encoding="utf-8").strip()
 
 
 # ── the units under contract ──────────────────────────────────────────────────

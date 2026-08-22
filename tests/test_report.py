@@ -86,7 +86,7 @@ def test_collect_survives_a_dead_daemon_and_a_missing_config(tmp_path):
 
 def test_collect_reports_config_problems(tmp_path):
     config = tmp_path / "config.toml"
-    config.write_text('[accessibility]\nvad_threshold = "0.004"\n')
+    config.write_text('[accessibility]\nvad_threshold = "0.004"\n', encoding="utf-8")
 
     data = report_mod.collect(
         config_file=config, log_file=tmp_path / "absent.log", data_dir=tmp_path, status=None
@@ -98,7 +98,7 @@ def test_collect_reports_config_problems(tmp_path):
 def test_log_tail_is_bounded_and_scrubbed(tmp_path):
     home = str(Path.home())
     log = tmp_path / "daemon.log"
-    log.write_text("\n".join(f"line {i} at {home}/x" for i in range(500)))
+    log.write_text("\n".join(f"line {i} at {home}/x" for i in range(500)), encoding="utf-8")
 
     data = report_mod.collect(
         config_file=tmp_path / "absent.toml", log_file=log, data_dir=tmp_path,
@@ -118,7 +118,7 @@ def test_write_produces_readable_json_and_a_summary(tmp_path):
     bundle = report_mod.write(data, tmp_path / "out" / "report.json")
 
     assert bundle.path.exists()
-    assert json.loads(bundle.path.read_text())["daemon"]["state"] == "idle"
+    assert json.loads(bundle.path.read_text(encoding="utf-8"))["daemon"]["state"] == "idle"
     assert "daemon=idle" in bundle.summary
 
 
@@ -233,9 +233,9 @@ def test_the_corpus_size_counts_the_audio_clips(tmp_path):
         (data_dir / "clips" / f"{i}.wav.enc").write_bytes(b"y" * 2_000_000)
 
     cfg = tmp_path / "config.toml"
-    cfg.write_text("")
+    cfg.write_text("", encoding="utf-8")
     log = tmp_path / "yazses.log"
-    log.write_text("")
+    log.write_text("", encoding="utf-8")
     data = report_mod.collect(
         config_file=cfg, log_file=log, data_dir=data_dir, status=None
     )

@@ -25,7 +25,7 @@ def test_run_wizard_returns_valid_thresholds(tmp_path, monkeypatch):
     """Wizard should derive vad_threshold and min_silence_ms within expected ranges."""
     # Load expected ranges
     stats_path = Path(__file__).parent / "fixtures" / "accessibility" / "rms_stats.json"
-    with open(stats_path) as f:
+    with open(stats_path, encoding="utf-8") as f:
         stats = json.load(f)
 
     from yazses.accessibility.enroll import run_wizard

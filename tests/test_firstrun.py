@@ -20,10 +20,10 @@ def test_writes_config_when_absent(tmp_path):
 
 def test_never_overrides_existing_config(tmp_path):
     cfg_path = tmp_path / "config.toml"
-    cfg_path.write_text("[overlay]\nenabled = false\n")
+    cfg_path.write_text("[overlay]\nenabled = false\n", encoding="utf-8")
     assert firstrun.ensure_recommended_config(cfg_path) is False
     # Untouched: the user's explicit choice survives.
-    assert "enabled = false" in cfg_path.read_text()
+    assert "enabled = false" in cfg_path.read_text(encoding="utf-8")
     assert load_config(cfg_path).overlay.enabled is False
 
 

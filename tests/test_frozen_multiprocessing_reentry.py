@@ -110,7 +110,7 @@ def test_a_frozen_process_runs_the_program_and_says_so(
     monkeypatch.setattr("sys.argv", ["YazSes", "-B", "-c", program])
 
     assert _handle_interpreter_reentry() is True
-    assert marker.read_text() == "yes", "the relaunched program did not run"
+    assert marker.read_text(encoding="utf-8") == "yes", "the relaunched program did not run"
 
 
 def test_a_frozen_process_still_hands_real_commands_to_the_cli(
@@ -133,4 +133,4 @@ def test_the_program_sees_the_argv_python_would_have_given_it(
     monkeypatch.setattr("sys.argv", ["YazSes", "-B", "-c", program])
 
     assert _handle_interpreter_reentry() is True
-    assert marker.read_text() == repr(["-c"])
+    assert marker.read_text(encoding="utf-8") == repr(["-c"])

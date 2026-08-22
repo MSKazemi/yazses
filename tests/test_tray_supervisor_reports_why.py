@@ -142,7 +142,7 @@ def test_an_unwritable_location_falls_back_to_devnull(tmp_path) -> None:
     icon down with them.
     """
     blocked = tmp_path / "not-a-dir"
-    blocked.write_text("I am a file")
+    blocked.write_text("I am a file", encoding="utf-8")
     daemon = _Daemon(blocked / "sub")
     assert daemon._open_tray_stderr() is subprocess.DEVNULL
     assert daemon._last_tray_error() == ""

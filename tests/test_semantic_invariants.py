@@ -308,7 +308,7 @@ def test_minimal_pairs_are_symmetric():
 
 
 def test_declared_contract_version_matches():
-    version = (ROOT / "contract" / "VERSION").read_text().strip()
+    version = (ROOT / "contract" / "VERSION").read_text(encoding="utf-8").strip()
     for doc, name in ((DIMENSIONS, "dimensions.json"), (INVARIANTS, "invariants.json")):
         assert doc["contract_version"] == version, (
             f"contract/semantic/{name} declares {doc['contract_version']}, "

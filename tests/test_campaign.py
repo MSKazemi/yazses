@@ -54,7 +54,7 @@ def test_every_task_in_the_inventory_is_valid(campaign, tasks):
 def test_generated_files_are_in_sync(campaign, tasks):
     """Same contract as the docs generator: regenerate and commit, do not hand-edit."""
     stale = [
-        str(p.relative_to(ROOT))
+        p.relative_to(ROOT).as_posix()
         for p, content in campaign.generate(tasks).items()
         if not p.exists() or p.read_text(encoding="utf-8") != content
     ]
@@ -66,7 +66,7 @@ def test_generated_files_are_in_sync(campaign, tasks):
 
 def test_the_schema_is_derived_from_the_field_spec(campaign):
     """If someone hand-edits the JSON Schema, it stops describing the validator."""
-    schema = json.loads((ROOT / "campaign" / "schemas" / "task.schema.json").read_text())
+    schema = json.loads((ROOT / "campaign" / "schemas" / "task.schema.json").read_text(encoding="utf-8"))
     assert set(schema["properties"]) == set(campaign.FIELD_SPEC), (
         "the committed schema's fields differ from FIELD_SPEC — FIELD_SPEC is the source "
         "of truth; regenerate rather than editing the schema"

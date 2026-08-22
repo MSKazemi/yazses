@@ -74,7 +74,7 @@ def test_it_says_why_the_bundle_id_is_there(advice: str) -> None:
 def test_the_bundle_id_matches_what_the_app_is_actually_built_with() -> None:
     """A tccutil reset naming the wrong bundle silently does nothing at all."""
     spec = (Path(__file__).resolve().parents[1]
-            / "packaging" / "macos" / "yazses.spec").read_text()
+            / "packaging" / "macos" / "yazses.spec").read_text(encoding="utf-8")
     ids = set(re.findall(r'CFBundleIdentifier"\s*:\s*"([^"]+)"', spec))
     ids |= set(re.findall(r'bundle_identifier\s*=\s*"([^"]+)"', spec))
     assert ids, "no bundle identifier found in the spec — this guard stopped guarding"

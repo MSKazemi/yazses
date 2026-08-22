@@ -91,7 +91,7 @@ def test_the_cache_is_declared_on_the_function_itself(running_version):
 
 
 def _function(name: str) -> ast.FunctionDef:
-    tree = ast.parse(DAEMON.read_text())
+    tree = ast.parse(DAEMON.read_text(encoding="utf-8"))
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef) and node.name == name:
             return node
@@ -182,7 +182,7 @@ def test_the_page_states_the_idle_poll_rates_the_code_actually_uses():
     from yazses.overlay import poller
     from yazses.tray import app as tray_app
 
-    text = DOC.read_text()
+    text = DOC.read_text(encoding="utf-8")
     expected = {
         "device monitor": (_hz(AudioConfig().device_poll_interval_s), "0.33 Hz"),
         "tray": (_hz(tray_app._POLL_INTERVAL_S), "1 Hz"),
@@ -198,7 +198,7 @@ def test_the_page_states_the_recording_poll_rates_the_code_actually_uses():
     from yazses.overlay import poller
     from yazses.tray import app as tray_app
 
-    text = DOC.read_text()
+    text = DOC.read_text(encoding="utf-8")
     for rate, printed in (
         (_hz(tray_app._FAST_POLL_INTERVAL_S), "6.7 Hz"),
         (_hz(poller._FAST_INTERVAL_S), "20 Hz"),
@@ -221,7 +221,7 @@ def test_the_page_states_the_right_default_for_each_poller(section, attr, key):
     live = {"overlay": OverlayConfig(), "tray": TrayConfig()}[section]
     on = getattr(live, attr)
     assert on is True, f"[{section}] {attr} now defaults to {on} -- the page says true"
-    assert key in DOC.read_text(), f"the page no longer states the [{section}] default"
+    assert key in DOC.read_text(encoding="utf-8"), f"the page no longer states the [{section}] default"
 
 
 def test_the_page_names_a_command_that_can_actually_turn_each_poller_off():
@@ -229,7 +229,7 @@ def test_the_page_names_a_command_that_can_actually_turn_each_poller_off():
     from yazses.system.features import find_feature
 
     cfg = load_config()
-    text = DOC.read_text()
+    text = DOC.read_text(encoding="utf-8")
     for slug in ("tray", "overlay"):
         feature = find_feature(cfg, slug)
         assert feature is not None and feature.wired and feature.toggleable, (

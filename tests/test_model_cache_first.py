@@ -202,7 +202,7 @@ _FETCHING_CALLS = {"from_hparams", "from_pretrained", "load_model", "snapshot_do
 def _modules_calling_a_loader() -> dict[str, set[str]]:
     found: dict[str, set[str]] = {}
     for path in SRC.rglob("*.py"):
-        rel = str(path.relative_to(SRC.parent.parent))
+        rel = path.relative_to(SRC.parent.parent).as_posix()
         tree = ast.parse(path.read_text(encoding="utf-8"))
         names = {
             node.func.attr

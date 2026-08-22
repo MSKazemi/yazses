@@ -70,7 +70,7 @@ def test_transcribe_plain_writes_sidecar_txt(tmp_path, monkeypatch):
     assert r.exit_code == 0, r.output
     out = f.with_suffix(".txt")
     assert out.exists()
-    assert out.read_text().strip() == "hello there general"
+    assert out.read_text(encoding="utf-8").strip() == "hello there general"
 
 
 def test_transcribe_diarized_tags_speakers(tmp_path, monkeypatch):
@@ -78,7 +78,7 @@ def test_transcribe_diarized_tags_speakers(tmp_path, monkeypatch):
     f = _audio(tmp_path)
     r = runner.invoke(cli.app, ["transcribe", str(f), "--diarize"], env=_ENV)
     assert r.exit_code == 0, r.output
-    text = f.with_suffix(".txt").read_text()
+    text = f.with_suffix(".txt").read_text(encoding="utf-8")
     assert "Speaker 1: hello there" in text
     assert "Speaker 2: general" in text
 
@@ -89,7 +89,7 @@ def test_transcribe_names_flag(tmp_path, monkeypatch):
     r = runner.invoke(
         cli.app, ["transcribe", str(f), "--diarize", "--names", "Alice,Bob"], env=_ENV)
     assert r.exit_code == 0, r.output
-    text = f.with_suffix(".txt").read_text()
+    text = f.with_suffix(".txt").read_text(encoding="utf-8")
     assert "Alice: hello there" in text and "Bob: general" in text
 
 
@@ -99,7 +99,7 @@ def test_transcribe_json_format(tmp_path, monkeypatch):
     r = runner.invoke(
         cli.app, ["transcribe", str(f), "--diarize", "--format", "json"], env=_ENV)
     assert r.exit_code == 0, r.output
-    payload = json.loads(f.with_suffix(".json").read_text())
+    payload = json.loads(f.with_suffix(".json").read_text(encoding="utf-8"))
     assert payload["diarized"] is True and payload["words"]
 
 
@@ -159,7 +159,7 @@ def test_an_empty_transcript_says_so(tmp_path, monkeypatch):
     f = _audio(tmp_path)
     r = runner.invoke(cli.app, ["transcribe", str(f), "--no-diarize"], env=_ENV)
     assert r.exit_code == 0, r.output
-    assert f.with_suffix(".txt").read_text().strip() == ""
+    assert f.with_suffix(".txt").read_text(encoding="utf-8").strip() == ""
     assert "no speech was recognised" in r.output, (
         f"an empty transcript was reported as an ordinary success: {r.output!r}"
     )
@@ -188,7 +188,7 @@ def test_the_check_is_on_utterances_not_the_rendered_text(tmp_path, monkeypatch)
     f = _audio(tmp_path)
     r = runner.invoke(cli.app, ["transcribe", str(f), "--no-diarize", "-f", "vtt"], env=_ENV)
     assert r.exit_code == 0, r.output
-    assert f.with_suffix(".vtt").read_text().strip(), "the VTT header vanished"
+    assert f.with_suffix(".vtt").read_text(encoding="utf-8").strip(), "the VTT header vanished"
     assert "no speech was recognised" in r.output, (
         "the empty-transcript note was skipped for VTT, whose rendered text is never empty"
     )

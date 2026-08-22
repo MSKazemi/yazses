@@ -40,7 +40,7 @@ def test_lock_file_records_pid(tmp_path):
     path = tmp_path / "daemon.lock"
     lock = SingleInstanceLock(str(path))
     assert lock.acquire() is True
-    assert path.read_text().strip() == str(os.getpid())
+    assert path.read_text(encoding="utf-8").strip() == str(os.getpid())
     lock.release()
 
 
@@ -84,7 +84,7 @@ def test_holder_pid_is_none_when_nobody_holds_the_lock(tmp_path):
     from yazses.system.single_instance import holder_pid
 
     path = tmp_path / "daemon.lock"
-    path.write_text("")
+    path.write_text("", encoding="utf-8")
 
     assert holder_pid(path) is None
 
@@ -137,9 +137,9 @@ def test_is_running_is_false_for_a_pid_file_left_by_a_crash(tmp_path, monkeypatc
     from yazses.system import pid as pid_module
 
     lock_file = tmp_path / "daemon.lock"
-    lock_file.write_text("")  # exists, unheld — a crashed daemon's leftovers
+    lock_file.write_text("", encoding="utf-8")  # exists, unheld — a crashed daemon's leftovers
     pid_file = tmp_path / "daemon.pid"
-    pid_file.write_text(str(os.getpid()))  # a live pid, but not holding the lock
+    pid_file.write_text(str(os.getpid()), encoding="utf-8")  # a live pid, but not holding the lock
     monkeypatch.setattr(pid_module, "_LOCK_FILE", lock_file)
     monkeypatch.setattr(pid_module, "_PID_FILE", pid_file)
 

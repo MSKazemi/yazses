@@ -100,7 +100,7 @@ def test_every_dispatcher_action_has_a_deliberate_consequence():
     from yazses.activation.confirm import _IRREVERSIBLE_ACTIONS, _REVERSIBLE_ACTIONS
 
     src = Path(__file__).resolve().parent.parent / "src/yazses/commands/dispatch.py"
-    actions = set(re.findall(r'^\s*"([a-z_0-9]+)":\s*\[', src.read_text(), re.M))
+    actions = set(re.findall(r'^\s*"([a-z_0-9]+)":\s*\[', src.read_text(encoding="utf-8"), re.M))
     assert actions, "found no actions in commands/dispatch.py -- test is looking at nothing"
 
     unclassified = sorted(actions - _REVERSIBLE_ACTIONS - _IRREVERSIBLE_ACTIONS)

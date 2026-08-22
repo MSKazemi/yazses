@@ -96,14 +96,14 @@ def test_the_check_catches_the_shape_it_exists_for() -> None:
     vacuous = '''
 def test_thing():
     for p in ROOT.glob("*.yaml"):
-        assert "bad" not in p.read_text()
+        assert "bad" not in p.read_text(encoding="utf-8")
 '''
     guarded = '''
 def test_thing():
     paths = list(ROOT.glob("*.yaml"))
     assert paths, "guard is blind"
     for p in paths:
-        assert "bad" not in p.read_text()
+        assert "bad" not in p.read_text(encoding="utf-8")
 '''
     no_assert = '''
 def test_thing():

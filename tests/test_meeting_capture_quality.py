@@ -159,7 +159,7 @@ def test_a_real_recording_still_gets_its_notes(monkeypatch):
 def test_the_verdict_is_written_into_meeting_json(tmp_path):
     """Read back off disk: an in-memory dict proves nothing about what survives."""
     store.write_meta(tmp_path, {"id": "m1", "status": "done", "capture": store.CAPTURE_NO_SPEECH})
-    on_disk = json.loads((tmp_path / "meeting.json").read_text())
+    on_disk = json.loads((tmp_path / "meeting.json").read_text(encoding="utf-8"))
     assert on_disk["capture"] == store.CAPTURE_NO_SPEECH
     assert store.capture_warning(store.read_meta(tmp_path))
 
@@ -171,7 +171,7 @@ def test_the_controller_records_the_verdict_it_was_given():
     import ast
     import pathlib
 
-    src = pathlib.Path("src/yazses/meeting/controller.py").read_text()
+    src = pathlib.Path("src/yazses/meeting/controller.py").read_text(encoding="utf-8")
     tree = ast.parse(src)
     writes = [
         node

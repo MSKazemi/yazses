@@ -169,9 +169,9 @@ def _drive_the_guard(tmp_path, *, before_exists: bool, after_exists: bool):
 
     pid_file = tmp_path / "daemon.pid"
     config = tmp_path / "config.toml"
-    config.write_text("x")
+    config.write_text("x", encoding="utf-8")
     if before_exists:
-        pid_file.write_text("4237")
+        pid_file.write_text("4237", encoding="utf-8")
 
     real = conftest._WATCHED_HOST_FILES
     try:
@@ -180,7 +180,7 @@ def _drive_the_guard(tmp_path, *, before_exists: bool, after_exists: bool):
         next(gen)                       # setup: snapshot `before`
 
         if after_exists and not before_exists:
-            pid_file.write_text("4237")
+            pid_file.write_text("4237", encoding="utf-8")
         elif before_exists and not after_exists:
             pid_file.unlink()
 

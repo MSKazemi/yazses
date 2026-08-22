@@ -86,7 +86,7 @@ class _Platform:
 def calibrate(tmp_path, monkeypatch):
     """Drive the real `_calibrate_mic` with a loud sample and a fake daemon."""
     cfg = tmp_path / "config.toml"
-    cfg.write_text("[accessibility]\nvad_threshold = 0.004\n")
+    cfg.write_text("[accessibility]\nvad_threshold = 0.004\n", encoding="utf-8")
 
     from yazses import cli
     from yazses.system import miclevel

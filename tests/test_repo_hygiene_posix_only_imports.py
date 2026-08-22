@@ -90,8 +90,8 @@ def test_the_guard_actually_catches_the_shape(tmp_path: Path) -> None:
     """Prove the detector, not just its verdict — otherwise a broken parser reads
     as a clean repo."""
     bad = tmp_path / "test_bad.py"
-    bad.write_text("import os\nimport pwd\n\ndef test_x():\n    assert pwd\n")
-    assert _module_scope_imports(ast.parse(bad.read_text())) & POSIX_ONLY == {"pwd"}
+    bad.write_text("import os\nimport pwd\n\ndef test_x():\n    assert pwd\n", encoding="utf-8")
+    assert _module_scope_imports(ast.parse(bad.read_text(encoding="utf-8"))) & POSIX_ONLY == {"pwd"}
 
 
 def test_the_guard_allows_the_two_documented_fixes(tmp_path: Path) -> None:
@@ -104,5 +104,5 @@ def test_the_guard_allows_the_two_documented_fixes(tmp_path: Path) -> None:
         "def test_y():\n"
         "    import grp\n"
         "    assert grp\n"
-    )
-    assert not (_module_scope_imports(ast.parse(ok.read_text())) & POSIX_ONLY)
+    , encoding="utf-8")
+    assert not (_module_scope_imports(ast.parse(ok.read_text(encoding="utf-8"))) & POSIX_ONLY)

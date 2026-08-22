@@ -73,7 +73,7 @@ def test_load_rules_file_expands_preferred_variants(tmp_path):
     p.write_text(
         '[[rule]]\npreferred = "e-mail"\nvariants = ["email", "e mail"]\n\n'
         '[[rule]]\npreferred = "cannot"\nvariants = ["can not"]\n'
-    )
+    , encoding="utf-8")
     rules = load_rules_file(p)
     out, changes = apply_style("Send an Email, an e mail, you can not skip it.", rules)
     assert out == "Send an e-mail, an e-mail, you cannot skip it."
@@ -84,7 +84,7 @@ def test_load_rules_file_regex_and_case_sensitivity(tmp_path):
     p = tmp_path / "style-rules.toml"
     p.write_text(
         '[[rule]]\npreferred = "U.S."\nvariants = ["US"]\nignore_case = false\n'
-    )
+    , encoding="utf-8")
     rules = load_rules_file(p)
     out, _ = apply_style("US and us", rules)
     assert out == "U.S. and us"
@@ -96,7 +96,7 @@ def test_load_rules_file_skips_invalid_entry_without_raising(tmp_path):
         '[[rule]]\nvariants = ["no preferred"]\n\n'                # missing preferred
         '[[rule]]\npreferred = "no variants"\nvariants = []\n\n'   # empty variants
         '[[rule]]\npreferred = "e-mail"\nvariants = ["email"]\n'
-    )
+    , encoding="utf-8")
     rules = load_rules_file(p)
     out, changes = apply_style("Send an Email.", rules)
     assert out == "Send an e-mail."
@@ -105,7 +105,7 @@ def test_load_rules_file_skips_invalid_entry_without_raising(tmp_path):
 
 def test_load_rules_file_unparseable_file_returns_empty(tmp_path):
     p = tmp_path / "style-rules.toml"
-    p.write_text("this is = = not valid toml [[[")
+    p.write_text("this is = = not valid toml [[[", encoding="utf-8")
     assert load_rules_file(p) == []
 
 
@@ -118,7 +118,7 @@ def test_load_rules_file_drops_an_uncompilable_regex(tmp_path):
     p.write_text(
         '[[rule]]\npreferred = "X"\nvariants = ["(unclosed"]\nregex = true\n\n'
         '[[rule]]\npreferred = "e-mail"\nvariants = ["email"]\n'
-    )
+    , encoding="utf-8")
     rules = load_rules_file(p)
     out, _ = apply_style("send an email", rules)   # must not raise
     assert out == "send an e-mail"                 # the valid rule still applies
@@ -129,7 +129,7 @@ def test_load_rules_file_drops_non_string_terms(tmp_path):
     p.write_text(
         '[[rule]]\npreferred = "e-mail"\nvariants = [1999]\n\n'
         '[[rule]]\npreferred = 42\nvariants = ["x"]\n'
-    )
+    , encoding="utf-8")
     assert load_rules_file(p) == []
     assert apply_style("x 1999", load_rules_file(p))[0] == "x 1999"
 
@@ -137,13 +137,13 @@ def test_load_rules_file_drops_non_string_terms(tmp_path):
 def test_load_rules_file_rejects_a_scalar_rule_table(tmp_path):
     # `rule = "…"` instead of `[[rule]]` used to raise out of the daemon's constructor.
     p = tmp_path / "style-rules.toml"
-    p.write_text('rule = "oops"\n')
+    p.write_text('rule = "oops"\n', encoding="utf-8")
     assert load_rules_file(p) == []
 
 
 def test_load_rules_file_keeps_a_valid_regex(tmp_path):
     p = tmp_path / "style-rules.toml"
-    p.write_text('[[rule]]\npreferred = "<year>"\nvariants = ["[0-9]{4}"]\nregex = true\n')
+    p.write_text('[[rule]]\npreferred = "<year>"\nvariants = ["[0-9]{4}"]\nregex = true\n', encoding="utf-8")
     assert apply_style("in 1999", load_rules_file(p))[0] == "in <year>"
 
 
@@ -168,7 +168,7 @@ def test_build_style_rules_dormant_when_disabled(tmp_path):
 def test_build_style_rules_loads_when_enabled(tmp_path):
     (tmp_path / "style-rules.toml").write_text(
         '[[rule]]\npreferred = "e-mail"\nvariants = ["email"]\n'
-    )
+    , encoding="utf-8")
     cfg = load_config()
     cfg.styleguard.enabled = True
     rules = build_style_rules(cfg, tmp_path)
@@ -183,7 +183,7 @@ def test_config_styleguard_defaults_off():
 
 def test_config_loads_styleguard_section(tmp_path):
     p = tmp_path / "config.toml"
-    p.write_text('[styleguard]\nenabled = true\npath = "house-style.toml"\n')
+    p.write_text('[styleguard]\nenabled = true\npath = "house-style.toml"\n', encoding="utf-8")
     cfg = load_config(p)
     assert cfg.styleguard.enabled is True
     assert cfg.styleguard.path == "house-style.toml"

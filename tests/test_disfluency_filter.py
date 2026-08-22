@@ -14,7 +14,7 @@ CORPUS_PATH = Path(__file__).parent / "fixtures" / "disfluency" / "corpus.json"
 
 
 def load_corpus():
-    with open(CORPUS_PATH) as f:
+    with open(CORPUS_PATH, encoding="utf-8") as f:
         return json.load(f)
 
 

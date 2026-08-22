@@ -140,7 +140,7 @@ def test_daemon_persists_a_lowered_threshold_and_says_so(tmp_path, monkeypatch):
     from yazses.platform import get_platform
 
     config_file = tmp_path / "config.toml"
-    config_file.write_text("[accessibility]\nvad_threshold = 0.0024\n")
+    config_file.write_text("[accessibility]\nvad_threshold = 0.0024\n", encoding="utf-8")
 
     daemon = Daemon(config=Config(), platform=get_platform())
     daemon._platform = types.SimpleNamespace(
@@ -171,7 +171,7 @@ def test_daemon_leaves_the_config_alone_when_the_gate_is_not_at_fault(tmp_path):
 
     config_file = tmp_path / "config.toml"
     original = "[accessibility]\nvad_threshold = 0.0024\n"
-    config_file.write_text(original)
+    config_file.write_text(original, encoding="utf-8")
 
     daemon = Daemon(config=Config(), platform=get_platform())
     daemon._platform = types.SimpleNamespace(
@@ -182,4 +182,4 @@ def test_daemon_leaves_the_config_alone_when_the_gate_is_not_at_fault(tmp_path):
         daemon._adaptive_vad.observe_discard(0.0)  # dead mic: nothing to hear
     daemon._maybe_retune_threshold(0.0024)
 
-    assert config_file.read_text() == original
+    assert config_file.read_text(encoding="utf-8") == original
