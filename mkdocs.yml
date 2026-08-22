@@ -347,7 +347,14 @@ nav:
   - Reference:
       - Features: features.md
       - Comparison & alternatives: comparison.md
-      - YazSes vs nerd-dictation: compare/yazses-vs-nerd-dictation.md
+      - Compare:
+          - Overview: compare/index.md
+          - vs Dragon NaturallySpeaking: compare/dragon-naturallyspeaking-linux-alternative.md
+          - vs Wispr Flow: compare/wispr-flow-linux-alternative.md
+          - vs Handy: compare/yazses-vs-handy.md
+          - vs Vocalinux: compare/yazses-vs-vocalinux.md
+          - vs Speech Note: compare/yazses-vs-speech-note.md
+          - vs nerd-dictation: compare/yazses-vs-nerd-dictation.md
       - Benchmarks: benchmarks.md
       - FAQ: faq.md
       - v2 features (preview): v2-features.md

@@ -23,8 +23,8 @@ wins.
 | **FluidVoice** | Yes (Parakeet) | Yes (Command Mode) | Announced | macOS (Windows community port) | Free | Yes (GPLv3) |
 | Dragon (Nuance) | Yes | Yes | No | Windows | Paid (commercial) | No |
 | Talon Voice | Yes | Yes (advanced scripting) | Yes | Yes | Freemium | No (free tier + paid beta) |
-| nerd-dictation | Yes (VOSK) | Via Python config | Yes | No | Free | Yes (GPLv3) |
-| Vocalinux | Yes (whisper.cpp / Whisper / VOSK) | Yes (text manipulation) | Yes (X11 & Wayland) | No | Free | Yes (GPLv3) |
+| nerd-dictation | Yes (VOSK) | Via Python config | Yes | No | Free | Yes (GPL-3.0) |
+| Vocalinux | Yes (whisper.cpp / Whisper / VOSK) | Yes | Yes (X11 & Wayland) | No | Free | Yes (AGPL-3.0) |
 | Wispr Flow | No (cloud) | Limited | No | Yes | Subscription | No |
 | Willow Voice | No (cloud) | Limited | No | Yes (+ iOS) | Subscription | No |
 | Voice In | No (browser engine) | No | Via browser | Via browser | Freemium | No |
@@ -233,7 +233,7 @@ vocabulary, file transcription, meeting capture.
 
 ### YazSes vs Vocalinux
 
-[Vocalinux](https://github.com/jatinkrmalik/vocalinux) is GPLv3, supports
+[Vocalinux](https://github.com/VocaHQ/vocalinux) is AGPL-3.0, supports
 whisper.cpp / Whisper / VOSK, runs on X11 and Wayland, has voice commands for
 text manipulation, and — notably — offers **Vulkan GPU acceleration** across AMD,
 Intel and NVIDIA.
