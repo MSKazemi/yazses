@@ -67,10 +67,10 @@ class LinuxLifecycle:
             raise RuntimeError("systemctl not found; cannot manage autostart.")
 
         wanted = autostart.unit_text(autostart.resolve_daemon_command())
-        existing = self._service_file.read_text() if self._service_file.exists() else None
+        existing = self._service_file.read_text(encoding="utf-8") if self._service_file.exists() else None
         if autostart.needs_rewrite(existing, wanted):
             self._service_file.parent.mkdir(parents=True, exist_ok=True)
-            self._service_file.write_text(wanted)
+            self._service_file.write_text(wanted, encoding="utf-8")
             subprocess.run(
                 ["systemctl", "--user", "daemon-reload"],
                 check=False, capture_output=True, text=True,

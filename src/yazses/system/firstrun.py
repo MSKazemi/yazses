@@ -41,7 +41,8 @@ def ensure_recommended_config(path: Path | None = None) -> bool:
     p.write_text(
         "# YazSes configuration (created on first run).\n"
         "# The recommended feature set is enabled below. Toggle anything with\n"
-        "#   yazses features enable <name>   /   yazses features disable <name>\n"
+        "#   yazses features enable <name>   /   yazses features disable <name>\n",
+        encoding="utf-8",
     )
     for section, key, value, quote in default_enabled_writes():
         set_config_key(p, section, key, value, quote=quote)

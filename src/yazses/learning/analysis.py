@@ -638,12 +638,12 @@ def apply_proposal(proposal: Proposal, config_path: Path, few_shots_path: Path) 
     """Apply an approved proposal to disk and return a description."""
     if proposal.target == "few_shots":
         few_shots_path.parent.mkdir(parents=True, exist_ok=True)
-        existing = few_shots_path.read_text() if few_shots_path.exists() else (
+        existing = few_shots_path.read_text(encoding="utf-8") if few_shots_path.exists() else (
             "# YazSes SLM few-shot examples (auto-proposed by `yazses tune`).\n"
             "# One example per line, in the SLM router's classification format.\n"
         )
         block = "\n".join(proposal.examples)
-        few_shots_path.write_text(existing.rstrip("\n") + "\n" + block + "\n")
+        few_shots_path.write_text(existing.rstrip("\n") + "\n" + block + "\n", encoding="utf-8")
         return f"appended {len(proposal.examples)} few-shot example(s) to {few_shots_path}"
     assert proposal.section and proposal.key is not None
     return set_toml_key(config_path, proposal.section, proposal.key, proposal.value)
@@ -655,6 +655,6 @@ def load_few_shots(path: Path) -> list[str]:
         return []
     return [
         ln.strip()
-        for ln in path.read_text().splitlines()
+        for ln in path.read_text(encoding="utf-8").splitlines()
         if ln.strip() and not ln.lstrip().startswith("#")
     ]

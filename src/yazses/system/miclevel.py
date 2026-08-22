@@ -153,10 +153,10 @@ def update_threshold_in_config(path: Path, threshold: float) -> str:
     line = f"vad_threshold = {threshold}"
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(f"[accessibility]\n{line}\n")
+        path.write_text(f"[accessibility]\n{line}\n", encoding="utf-8")
         return f"created {path} with {line}"
 
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     # Replace an existing assignment, but only one that is actually INSIDE
     # [accessibility]. This used to substitute `vad_threshold` anywhere in the file, so a
     # key a user had put under the wrong section was rewritten instead -- and the function
@@ -172,7 +172,7 @@ def update_threshold_in_config(path: Path, threshold: float) -> str:
         block = text[start:end]
         new_block, n = re.subn(r"(?m)^[ \t]*vad_threshold[ \t]*=.*$", line, block)
         if n:
-            path.write_text(text[:start] + new_block + text[end:])
+            path.write_text(text[:start] + new_block + text[end:], encoding="utf-8")
             return f"updated {line}"
 
     # No existing key: insert under [accessibility] if present, else append it.
@@ -183,5 +183,5 @@ def update_threshold_in_config(path: Path, threshold: float) -> str:
     else:
         sep = "" if text.endswith("\n") or not text else "\n"
         new_text = f"{text}{sep}\n[accessibility]\n{line}\n"
-    path.write_text(new_text)
+    path.write_text(new_text, encoding="utf-8")
     return f"added {line}"

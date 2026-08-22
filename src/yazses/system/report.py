@@ -394,7 +394,7 @@ def _log_tail(log_file: Path, lines: int) -> list[str]:
     if not log_file.exists():
         return ["<no log file>"]
     try:
-        content = log_file.read_text(errors="replace").splitlines()
+        content = log_file.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError as exc:
         return [f"<unreadable: {exc}>"]
     tail = content[-lines:]
@@ -603,7 +603,7 @@ def issue_url(title: str, body: str, *, base: str = ISSUE_URL) -> str:
 def write(report: dict, out: Path) -> Bundle:
     """Write the report as JSON and describe it in one line."""
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(report, indent=2, sort_keys=True, default=str))
+    out.write_text(json.dumps(report, indent=2, sort_keys=True, default=str), encoding="utf-8")
     problems = len(report.get("config_problems") or [])
     daemon = report.get("daemon") or {}
     state = daemon.get("state", "unreachable")

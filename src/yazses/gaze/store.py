@@ -25,7 +25,7 @@ def save_calibration(cal: CalibrationMap, data_dir: Path) -> Path:
     """Write *cal* to ``data_dir/gaze_calibration.json`` and return the path."""
     path = calibration_path(data_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"version": 1, "A": cal.A.tolist()}, indent=2))
+    path.write_text(json.dumps({"version": 1, "A": cal.A.tolist()}, indent=2), encoding="utf-8")
     return path
 
 
@@ -33,7 +33,7 @@ def load_calibration(data_dir: Path) -> CalibrationMap | None:
     """Load the calibration map from *data_dir*, or ``None`` if absent/unreadable."""
     path = calibration_path(data_dir)
     try:
-        raw = json.loads(path.read_text())
+        raw = json.loads(path.read_text(encoding="utf-8"))
         A = np.array(raw["A"], dtype="float64")
     except (OSError, ValueError, KeyError, TypeError):
         # TypeError: the file may hold valid JSON that is not an object -- `"a string"["A"]`

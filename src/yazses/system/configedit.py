@@ -85,14 +85,14 @@ def set_config_key(path, section: str, key: str, value, *, quote: bool | None = 
 
     if not p.exists():
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(f"[{section}]\n{line}\n")
+        p.write_text(f"[{section}]\n{line}\n", encoding="utf-8")
         return f"created {p} with [{section}] {line}"
 
-    text = p.read_text()
+    text = p.read_text(encoding="utf-8")
     header = re.search(rf"(?m)^\[{re.escape(section)}\]\s*$", text)
     if not header:
         sep = "" if (not text or text.endswith("\n")) else "\n"
-        p.write_text(f"{text}{sep}\n[{section}]\n{line}\n")
+        p.write_text(f"{text}{sep}\n[{section}]\n{line}\n", encoding="utf-8")
         return f"added [{section}] {line}"
 
     # Bound the section: from the header to the next "[...]" line (or EOF).
@@ -104,9 +104,9 @@ def set_config_key(path, section: str, key: str, value, *, quote: bool | None = 
     key_re = re.compile(rf"(?m)^[ \t]*{re.escape(key)}[ \t]*=.*$")
     if key_re.search(block):
         new_block = key_re.sub(line, block, count=1)
-        p.write_text(text[:start] + new_block + text[end:])
+        p.write_text(text[:start] + new_block + text[end:], encoding="utf-8")
         return f"updated [{section}] {line}"
 
     # Section exists but the key doesn't — insert right after the header.
-    p.write_text(text[:header.end()] + "\n" + line + text[header.end():])
+    p.write_text(text[:header.end()] + "\n" + line + text[header.end():], encoding="utf-8")
     return f"added {line} under [{section}]"

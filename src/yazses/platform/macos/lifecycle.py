@@ -24,14 +24,14 @@ class MacosLifecycle:
 
     def write_pid(self) -> None:
         self._paths.pid_file.parent.mkdir(parents=True, exist_ok=True)
-        self._paths.pid_file.write_text(str(os.getpid()))
+        self._paths.pid_file.write_text(str(os.getpid()), encoding="utf-8")
 
     def clear_pid(self) -> None:
         self._paths.pid_file.unlink(missing_ok=True)
 
     def read_pid(self) -> int | None:
         try:
-            return int(self._paths.pid_file.read_text().strip())
+            return int(self._paths.pid_file.read_text(encoding="utf-8").strip())
         except (FileNotFoundError, ValueError):
             return None
 
@@ -88,7 +88,7 @@ class MacosLifecycle:
             stdout=log_dir / "stdout.log",
             stderr=log_dir / "stderr.log",
         )
-        self._plist_path.write_text(plist)
+        self._plist_path.write_text(plist, encoding="utf-8")
         uid = os.getuid()
         subprocess.run(
             ["launchctl", "bootstrap", f"gui/{uid}", str(self._plist_path)],

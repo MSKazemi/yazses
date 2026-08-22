@@ -152,7 +152,7 @@ def _write_config(config_path: Path, values: dict, output_fn=print) -> None:
             output_fn(f"\nConfig written to {config_path}")
         except ImportError:
             # Fallback: append [accessibility] section
-            lines = config_path.read_text().splitlines() if config_path.exists() else []
+            lines = config_path.read_text(encoding="utf-8").splitlines() if config_path.exists() else []
             # Remove existing [accessibility] section
             result_lines = []
             in_section = False
@@ -171,7 +171,7 @@ def _write_config(config_path: Path, values: dict, output_fn=print) -> None:
                 else:
                     result_lines.append(f"{k} = {v}")
             config_path.parent.mkdir(parents=True, exist_ok=True)
-            config_path.write_text("\n".join(result_lines) + "\n")
+            config_path.write_text("\n".join(result_lines) + "\n", encoding="utf-8")
             output_fn(f"\nConfig written to {config_path}")
     except Exception as exc:
         output_fn(f"\nWarning: could not write config: {exc}")

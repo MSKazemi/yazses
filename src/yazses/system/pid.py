@@ -24,7 +24,7 @@ _LOCK_FILE = _DATA_DIR / "daemon.lock"
 
 def write_pid() -> None:
     _PID_FILE.parent.mkdir(parents=True, exist_ok=True)
-    _PID_FILE.write_text(str(os.getpid()))
+    _PID_FILE.write_text(str(os.getpid()), encoding="utf-8")
 
 
 def read_pid() -> int | None:
@@ -47,7 +47,7 @@ def _read_pid_file() -> int | None:
     if not _PID_FILE.exists():
         return None
     try:
-        return int(_PID_FILE.read_text().strip())
+        return int(_PID_FILE.read_text(encoding="utf-8").strip())
     except (ValueError, OSError):
         return None
 
@@ -84,7 +84,9 @@ def is_running() -> bool:
         return True
     # Guard against recycled PIDs: verify the process is actually our daemon.
     try:
-        cmdline = Path(f"/proc/{pid}/cmdline").read_text()
+        cmdline = Path(f"/proc/{pid}/cmdline").read_text(
+            encoding="utf-8", errors="replace"
+        )
         return "yazses" in cmdline
     except OSError:
         return True

@@ -3506,7 +3506,7 @@ def logs(
     if not log_file.exists():
         typer.echo(f"No log yet at {log_file} -- start the daemon first.")
         raise typer.Exit(code=1)
-    content = log_file.read_text(errors="replace").splitlines()
+    content = log_file.read_text(encoding="utf-8", errors="replace").splitlines()
     for line in content[-lines:]:
         typer.echo(line)
     typer.echo(f"\n({log_file} -- follow live with: tail -f {log_file})")

@@ -85,7 +85,7 @@ def _sources() -> list[pathlib.Path]:
     files += [
         f
         for f in sorted((REPO / "docs").rglob("*.md"))
-        if not any(str(f.relative_to(REPO)).startswith(s) for s in _SPECULATIVE)
+        if not any(f.relative_to(REPO).as_posix().startswith(s) for s in _SPECULATIVE)
     ]
     return files
 
