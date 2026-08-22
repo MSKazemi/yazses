@@ -170,3 +170,173 @@ def test_json_mode_is_machine_readable_and_still_enforces_expectations(mod, tmp_
 
     # The expectations must gate the exit code in JSON mode too, not just in text mode.
     assert mod.main([str(dmg), "--json", "--expect-arch", "x86_64"]) == 1
+
+
+# --- --require-key: the permission strings ---------------------------------
+#
+# The #182 shape. macOS refuses a service whose `NS*UsageDescription` is absent
+# **without prompting**, so the bundle is well formed, the build is green, and the
+# feature is simply dead. Version and architecture were the only things this tool
+# could fail on, and neither would have caught it.
+
+_INPUT_MONITORING = (
+    b"<key>NSInputMonitoringUsageDescription</key>"
+    b"<string>Watches the dictation key.</string>"
+)
+
+
+def _plist_with(extra: bytes) -> bytes:
+    return INFO_PLIST.replace(b"</dict></plist>", extra + b"</dict></plist>", 1)
+
+
+def test_a_required_permission_string_that_is_present_passes(mod, tmp_path):
+    raw = _plist_with(_INPUT_MONITORING) + b"\0" * 64 + _macho(0x0100000C)
+    dmg = tmp_path / "T.dmg"
+    dmg.write_bytes(_build_dmg(raw))
+
+    assert (
+        mod.main(
+            [
+                str(dmg),
+                "--require-key",
+                "NSMicrophoneUsageDescription",
+                "--require-key",
+                "NSInputMonitoringUsageDescription",
+            ]
+        )
+        == 0
+    )
+
+
+def test_a_missing_permission_string_fails_the_command(mod, tmp_path):
+    """The real defect: the app cannot ask for Input Monitoring, so the hotkey
+    never fires and macOS never shows the microphone prompt either."""
+    raw = INFO_PLIST + b"\0" * 64 + _macho(0x0100000C)  # no Input Monitoring key
+    dmg = tmp_path / "T.dmg"
+    dmg.write_bytes(_build_dmg(raw))
+
+    assert mod.main([str(dmg), "--require-key", "NSInputMonitoringUsageDescription"]) == 1
+
+
+def test_an_empty_permission_string_is_missing_too(mod, tmp_path):
+    """`<string></string>` satisfies a presence check and satisfies no user: macOS
+    shows this text in the dialog, and an empty prompt is an unanswerable one."""
+    raw = _plist_with(
+        b"<key>NSInputMonitoringUsageDescription</key><string></string>"
+    ) + b"\0" * 64 + _macho(0x0100000C)
+    dmg = tmp_path / "T.dmg"
+    dmg.write_bytes(_build_dmg(raw))
+
+    assert mod.main([str(dmg), "--require-key", "NSInputMonitoringUsageDescription"]) == 1
+
+
+def test_a_required_key_outside_plist_keys_is_still_looked_for(mod, tmp_path):
+    """`--require-key` must not silently fail on a key this script does not list;
+    otherwise the check reports a correct bundle as broken and gets removed."""
+    raw = _plist_with(
+        b"<key>NSCameraUsageDescription</key><string>Gaze targeting.</string>"
+    ) + b"\0" * 64 + _macho(0x0100000C)
+    dmg = tmp_path / "T.dmg"
+    dmg.write_bytes(_build_dmg(raw))
+
+    assert "NSCameraUsageDescription" not in mod.PLIST_KEYS
+    assert mod.main([str(dmg), "--require-key", "NSCameraUsageDescription"]) == 0
+
+
+def test_an_undecodable_bundle_reports_the_container_not_the_keys(mod, tmp_path, capsys):
+    """No Info.plist at all is one fault, not one per key -- naming five missing
+    permissions would send someone to the spec file, which is fine."""
+    raw = b"\0" * 512 + _macho(0x0100000C)
+    dmg = tmp_path / "T.dmg"
+    dmg.write_bytes(_build_dmg(raw))
+
+    rc = mod.main(
+        [
+            str(dmg),
+            "--require-key",
+            "NSMicrophoneUsageDescription",
+            "--require-key",
+            "NSInputMonitoringUsageDescription",
+        ]
+    )
+    err = capsys.readouterr().err
+    assert rc == 1
+    assert err.count("ERROR:") == 1, err
+    assert "no Info.plist could be read" in err
+
+
+def test_the_required_keys_are_printed_not_only_judged(mod, tmp_path, capsys):
+    raw = _plist_with(_INPUT_MONITORING) + b"\0" * 64 + _macho(0x0100000C)
+    dmg = tmp_path / "T.dmg"
+    dmg.write_bytes(_build_dmg(raw))
+
+    mod.main([str(dmg), "--require-key", "NSInputMonitoringUsageDescription"])
+    out = capsys.readouterr().out
+    assert "NSInputMonitoringUsageDescription" in out
+    assert "Watches the dictation key." in out
+
+
+# --- --require-keys-from-spec ---------------------------------------------
+
+
+def test_the_real_spec_yields_the_permissions_the_app_actually_needs(mod):
+    """Run against `packaging/macos/yazses.spec` itself, not a fabricated one.
+
+    A parser tested only on its own fixture proves the fixture. The spec is the
+    file that will change, so it is the file to read.
+    """
+    keys = mod.usage_description_keys(ROOT / "packaging" / "macos" / "yazses.spec")
+    assert "NSMicrophoneUsageDescription" in keys
+    assert "NSInputMonitoringUsageDescription" in keys, (
+        "the grant the hold-to-talk CGEventTap needs on macOS 10.15+ (#182)"
+    )
+
+
+def test_a_spec_with_no_usage_descriptions_is_an_error_not_an_empty_list(mod, tmp_path):
+    """"Required nothing" must never read as "all fine" -- an extraction that
+    quietly returns [] turns the whole check into a no-op that stays green."""
+    spec = tmp_path / "x.spec"
+    spec.write_text("app = BUNDLE(coll, name='X.app', info_plist={'CFBundleName': 'X'})\n")
+    with pytest.raises(ValueError, match="no NS.*UsageDescription"):
+        mod.usage_description_keys(spec)
+
+
+def test_a_spec_with_no_info_plist_is_an_error(mod, tmp_path):
+    spec = tmp_path / "x.spec"
+    spec.write_text("a = 1\n")
+    with pytest.raises(ValueError, match="no info_plist"):
+        mod.usage_description_keys(spec)
+
+
+def test_the_spec_route_fails_a_bundle_missing_one_of_its_permissions(mod, tmp_path):
+    """End to end: the real spec's key list against a bundle that lacks one."""
+    raw = INFO_PLIST + b"\0" * 64 + _macho(0x0100000C)  # microphone only
+    dmg = tmp_path / "T.dmg"
+    dmg.write_bytes(_build_dmg(raw))
+
+    spec = ROOT / "packaging" / "macos" / "yazses.spec"
+    assert mod.main([str(dmg), "--require-keys-from-spec", str(spec)]) == 1
+
+
+def test_the_spec_route_passes_a_bundle_that_carries_them_all(mod, tmp_path):
+    spec = ROOT / "packaging" / "macos" / "yazses.spec"
+    extra = b"".join(
+        f"<key>{k}</key><string>YazSes needs this.</string>".encode()
+        for k in mod.usage_description_keys(spec)
+    )
+    raw = _plist_with(extra) + b"\0" * 64 + _macho(0x0100000C)
+    dmg = tmp_path / "T.dmg"
+    dmg.write_bytes(_build_dmg(raw))
+
+    assert mod.main([str(dmg), "--require-keys-from-spec", str(spec)]) == 0
+
+
+def test_an_unreadable_spec_fails_the_command_rather_than_raising(mod, tmp_path, capsys):
+    """This runs inside a release job. A traceback there is a red build with no
+    statement of what was wrong."""
+    raw = INFO_PLIST + b"\0" * 64 + _macho(0x0100000C)
+    dmg = tmp_path / "T.dmg"
+    dmg.write_bytes(_build_dmg(raw))
+
+    assert mod.main([str(dmg), "--require-keys-from-spec", str(tmp_path / "nope.spec")]) == 1
+    assert "ERROR:" in capsys.readouterr().err

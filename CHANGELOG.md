@@ -8,6 +8,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Nothing verified what was inside the shipped `.dmg`.** `scripts/inspect-dmg.py`
+  — the tool written precisely because the macOS bundle is the one artefact nobody
+  on this project can open — was wired into no workflow at all, and could only fail
+  on version and architecture. So a bundle missing a permission string inspected
+  clean, which is the worst thing it could do: macOS refuses a service whose
+  `NS*UsageDescription` is absent **without ever prompting**, so the build is green,
+  the bundle is well formed, and hold-to-talk is simply dead with no dialog to
+  answer. That is exactly how
+  [#182](https://github.com/MSKazemi/yazses/issues/182) presented.
+
+  The inspector now takes `--require-key` and `--require-keys-from-spec`, and
+  `build-macos.yml` runs it on every `.dmg` it produces. The required keys are read
+  out of `packaging/macos/yazses.spec` rather than restated, so a permission added
+  there is covered the day it is added. The first run of the new guard found that
+  `NSAppleEventsUsageDescription` had never been inspected either.
+
 - **The Windows test jobs had been running zero tests, and reporting it as one
   broken file.** `tests/test_setup_probe_survives_a_passwdless_uid.py` imported
   `pwd` — POSIX-only — at module scope, so on Windows pytest failed during

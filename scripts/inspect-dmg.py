@@ -41,6 +41,7 @@ Limits, stated plainly
 from __future__ import annotations
 
 import argparse
+import ast
 import base64
 import collections
 import json
@@ -67,13 +68,57 @@ CPU_TYPES = {0x0100000C: "arm64", 0x01000007: "x86_64", 0x0000000C: "arm", 0x000
 #: MH_EXECUTE / MH_DYLIB / MH_BUNDLE — enough to reject random bytes that match the magic.
 FILE_TYPES = {2: "MH_EXECUTE", 6: "MH_DYLIB", 8: "MH_BUNDLE"}
 
+#: Keys read out of the bundle's Info.plist. Every `NS*UsageDescription` the spec
+#: declares must appear here, and `tests/test_macos_usage_descriptions.py` fails the
+#: build when one does not -- a permission string missing from the bundle is
+#: invisible until a user hits the permission, and a permission string missing from
+#: *this list* is invisible even then, because the inspector simply stops looking.
 PLIST_KEYS = (
     "CFBundleShortVersionString",
     "CFBundleVersion",
     "CFBundleIdentifier",
     "LSMinimumSystemVersion",
     "NSMicrophoneUsageDescription",
+    "NSInputMonitoringUsageDescription",
+    "NSAppleEventsUsageDescription",
 )
+
+
+#: A `NS<Service>UsageDescription` key, as Apple spells them.
+USAGE_DESCRIPTION_RE = re.compile(r"NS\w+UsageDescription")
+
+
+def usage_description_keys(spec_path: Path) -> list[str]:
+    """Every permission string `packaging/macos/yazses.spec` declares.
+
+    Read out of the spec's source rather than restated here. A hand-copied list is
+    the failure this guards against, not the fix for it: the spec is where a new
+    permission gets added, and a checker holding its own copy stays green through
+    exactly the release that drops one.
+
+    Parsed with `ast`, not imported -- the spec runs under PyInstaller and pulls in
+    the whole application.
+
+    Raises `ValueError` if the spec has no `info_plist=` or declares no usage
+    descriptions at all, because "required nothing" must never read as "all fine".
+    """
+    tree = ast.parse(spec_path.read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.keyword) and node.arg == "info_plist"):
+            continue
+        if not isinstance(node.value, ast.Dict):
+            raise ValueError(f"{spec_path}: info_plist= is not a dict literal")
+        found = [
+            k.value
+            for k in node.value.keys
+            if isinstance(k, ast.Constant)
+            and isinstance(k.value, str)
+            and USAGE_DESCRIPTION_RE.fullmatch(k.value)
+        ]
+        if not found:
+            raise ValueError(f"{spec_path} declares no NS*UsageDescription keys")
+        return found
+    raise ValueError(f"no info_plist= found in {spec_path}")
 
 
 def read_koly(data: bytes) -> tuple[int, int]:
@@ -129,15 +174,20 @@ def inflate(data: bytes, xml_offset: int, xml_length: int) -> tuple[bytes, int]:
     return bytes(out), skipped
 
 
-def read_info_plist(image: bytes) -> dict[str, str]:
+def read_info_plist(image: bytes, keys: tuple[str, ...] | None = None) -> dict[str, str]:
     """Pull the app bundle's Info.plist values straight out of the raw image.
 
     The plist is XML on disk, so the values are greppable without walking HFS+.
+
+    `keys` defaults to :data:`PLIST_KEYS`. It exists so ``--require-key`` can ask
+    about a key this file does not list: without it a required-but-unlisted key is
+    never *looked for*, and would be reported missing from a bundle that has it --
+    a check that fails on correct artefacts, which gets switched off.
     """
     found: dict[str, str] = {}
-    for key in PLIST_KEYS:
+    for key in keys or PLIST_KEYS:
         m = re.search(
-            rf"<key>{key}</key>\s*<string>([^<]*)</string>".encode(), image, re.S
+            rf"<key>{re.escape(key)}</key>\s*<string>([^<]*)</string>".encode(), image, re.S
         )
         if m:
             found[key] = m.group(1).decode("utf-8", errors="replace").strip()
@@ -172,6 +222,28 @@ def main(argv: list[str] | None = None) -> int:
         help="fail unless every Mach-O slice is this architecture",
     )
     ap.add_argument(
+        "--require-key",
+        action="append",
+        default=[],
+        metavar="KEY",
+        help=(
+            "fail unless this Info.plist key is present and non-empty; repeatable. "
+            "Use it for the NS*UsageDescription strings: without one macOS can refuse "
+            "a permission WITHOUT PROMPTING, so the bundle looks fine and the feature "
+            "is simply dead (#182)."
+        ),
+    )
+    ap.add_argument(
+        "--require-keys-from-spec",
+        type=Path,
+        metavar="SPEC",
+        help=(
+            "require every NS*UsageDescription declared in this PyInstaller spec "
+            "(packaging/macos/yazses.spec). Derives the list from the file that "
+            "defines it, so a permission added there cannot escape this check."
+        ),
+    )
+    ap.add_argument(
         "--json",
         action="store_true",
         help="emit the findings as JSON, for a release job to record or diff",
@@ -182,6 +254,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: no such file: {args.dmg}", file=sys.stderr)
         return 1
 
+    if args.require_keys_from_spec:
+        try:
+            args.require_key += usage_description_keys(args.require_keys_from_spec)
+        except (OSError, SyntaxError, ValueError) as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
+
     data = args.dmg.read_bytes()
     try:
         image, skipped = inflate(data, *read_koly(data))
@@ -189,7 +268,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: could not decode {args.dmg.name}: {exc}", file=sys.stderr)
         return 1
 
-    info = read_info_plist(image)
+    info = read_info_plist(image, PLIST_KEYS + tuple(args.require_key))
     tally, fat = scan_macho(image)
 
     if args.json:
@@ -219,11 +298,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if info:
         print("\nInfo.plist")
-        for key in PLIST_KEYS:
-            if key in info:
-                value = info[key]
-                shown = value if len(value) <= 60 else value[:57] + "..."
-                print(f"  {key:<30} {shown}")
+        # `info` preserves the order it was asked for, which is PLIST_KEYS followed
+        # by anything --require-key added -- so a required key is *shown*, not only
+        # judged. A check whose evidence is invisible is one nobody can debug.
+        for key, value in info.items():
+            shown = value if len(value) <= 60 else value[:57] + "..."
+            print(f"  {key:<34} {shown}")
     else:
         print("\n  WARNING: no Info.plist values found")
 
@@ -250,13 +330,24 @@ def _verdict(args, info: dict[str, str], tally, *, quiet: bool) -> int:
             problems.append(f"unexpected architectures present: {wrong}")
         if not tally.get(args.expect_arch):
             problems.append(f"no {args.expect_arch} slice found at all")
+    for key in args.require_key:
+        # An unreadable plist is reported once rather than once per key: the cause
+        # is the container, and a list of "missing" keys would name the wrong thing.
+        if not info:
+            problems.append(
+                "no Info.plist could be read, so none of the required keys "
+                f"({', '.join(args.require_key)}) could be checked"
+            )
+            break
+        if not info.get(key):
+            problems.append(f"required Info.plist key {key} is missing or empty")
 
     if problems:
         for p in problems:
             print(f"ERROR: {p}", file=sys.stderr)
         return 1
 
-    if not quiet and (args.expect_version or args.expect_arch):
+    if not quiet and (args.expect_version or args.expect_arch or args.require_key):
         print("\nOK — the bundle matches what was expected.")
         print("(Well-formed is not the same as running. That still needs a Mac.)")
     return 0

@@ -43,6 +43,23 @@ _HID_ACCESS_DENIED = 1
 _HID_ACCESS_UNKNOWN = 2
 
 
+#: Where IOKit lives on every macOS that can run this app. Tried *before*
+#: `ctypes.util.find_library`, deliberately.
+#:
+#: Since macOS 11 system frameworks are not files on disk -- they live in the dyld
+#: shared cache. `find_library` copes by asking `_dyld_shared_cache_contains_path`,
+#: but that helper raises `NotImplementedError` on some builds and `dyld_find`
+#: swallows it and reports the framework as missing. `CDLL` loads a cache-only
+#: path perfectly well, so going straight at the constant is both simpler and more
+#: reliable than the search that exists to *find* this exact constant.
+#:
+#: The failure this avoids is silent: a `None` here downgrades Input Monitoring to
+#: UNKNOWN forever, which renders as a WARN with advice attached and looks exactly
+#: like "the user has not been asked yet". The fix for #182 would appear to be
+#: shipped and do nothing.
+_IOKIT_FRAMEWORK = "/System/Library/Frameworks/IOKit.framework/IOKit"
+
+
 def _iokit():
     """Return the IOKit handle, or ``None`` where it cannot be loaded.
 
@@ -51,12 +68,22 @@ def _iokit():
     ``IOHIDCheckAccess`` is a bare C function, not an Objective-C selector, and
     which PyObjC framework wheel exposes it has moved between releases — a
     missing symbol here would silently downgrade the check to UNKNOWN forever.
+
+    Two attempts, in this order: the constant framework path (see
+    :data:`_IOKIT_FRAMEWORK`), then `find_library` as a fallback for any layout
+    that constant does not describe.
     """
     import ctypes
     import ctypes.util
 
+    try:
+        return ctypes.CDLL(_IOKIT_FRAMEWORK)
+    except OSError:
+        pass
+
     path = ctypes.util.find_library("IOKit")
     if path is None:
+        log.warning("IOKit not found; Input Monitoring cannot be determined")
         return None
     try:
         return ctypes.CDLL(path)

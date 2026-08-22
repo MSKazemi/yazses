@@ -148,6 +148,37 @@ jobs:
       - name: Build .dmg
         run: ./scripts/build-macos.sh
 
+      # The build succeeding says nothing about what is inside the bundle, and this
+      # is the one artefact nobody on this project can open -- development is on
+      # Linux. Two defects have already lived in exactly that gap: an .app reporting
+      # CFBundleVersion 0.1.2 for every release from v0.1.3 to v2.18.0, and a .dmg
+      # with no x86_64 slice while the docs promised Intel.
+      #
+      # The permission strings are the third, and the worst of the three, because
+      # macOS refuses a service whose NS*UsageDescription is absent WITHOUT EVER
+      # PROMPTING. The bundle is well formed, the build is green, and hold-to-talk
+      # is simply dead with no dialog to answer -- which is how #182 presented on
+      # the first Mac this project was ever run on.
+      #
+      # The required keys are read out of packaging/macos/yazses.spec rather than
+      # listed here, so a permission added there is covered the day it is added.
+      - name: Verify what is inside the .dmg
+        shell: bash
+        run: |
+          set -euo pipefail
+          DMG=$(ls dist/YazSes-*.dmg | head -1)
+          # Only tag builds know the version they claim to be; a PR build does not.
+          # `${A[@]+...}` because macOS ships bash 3.2, where `set -u` treats an
+          # EMPTY array expansion as an unbound variable and kills the step.
+          EXPECT=()
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            EXPECT+=(--expect-version "${GITHUB_REF_NAME#v}")
+          fi
+          uv run --no-project python scripts/inspect-dmg.py "${DMG}" \
+              --expect-arch "${{ matrix.arch }}" \
+              --require-keys-from-spec packaging/macos/yazses.spec \
+              ${EXPECT[@]+"${EXPECT[@]}"}
+
       - name: Codesign .app and .dmg (Developer ID)
         if: steps.sign.outputs.sign == 'true'
         shell: bash
