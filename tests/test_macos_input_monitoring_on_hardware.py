@@ -104,9 +104,12 @@ def test_the_doctor_row_appears_on_a_real_mac() -> None:
     from yazses.platform import get_platform
     from yazses.system.doctor import _input_monitoring_check
 
-    # `get_platform()`, the same call `doctor` makes -- imported from the package,
-    # which is the public seam. Reaching into `platform.factory` for a name that
-    # does not exist is what made this the one hardware test that could not pass.
+    # `get_platform()`, the same call `doctor` makes. The bug here was the *name*:
+    # this asked `platform.factory` for `build_platform`, which does not exist
+    # anywhere in that module -- factory imports a per-OS builder inside each
+    # branch. `get_platform` itself is importable from either `yazses.platform` or
+    # `yazses.platform.factory`; they are the same object. The package is used here
+    # because it is the seam `doctor` imports from, not because the other fails.
     platform = get_platform()
     row = _input_monitoring_check(platform.permissions, platform.name)
     assert row is not None, "the Input monitoring row is missing on macOS itself"
