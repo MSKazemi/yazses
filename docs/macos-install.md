@@ -37,10 +37,24 @@ uname -m      # arm64 → Apple Silicon;  x86_64 → Intel
 
 ```sh
 brew tap MSKazemi/yazses
+brew trust MSKazemi/yazses
 brew install --cask yazses
 ```
 
 Upgrades then come with `brew upgrade --cask yazses`.
+
+> **The `brew trust` line is not optional.** Homebrew now refuses to load a cask
+> from a third-party tap until you trust it, so without it the install stops with
+>
+> ```
+> Error: Refusing to load cask mskazemi/yazses/yazses from untrusted tap mskazemi/yazses.
+> ```
+>
+> This is Homebrew's own anti-supply-chain hardening, not a fault in the tap — it
+> applies to every third-party tap. Reported and verified end to end on an Apple M4
+> by [@slegarraga](https://github.com/slegarraga)
+> ([#182](https://github.com/MSKazemi/yazses/issues/182)); the install completes
+> cleanly once the tap is trusted.
 
 ### Apple Silicon — direct download
 
@@ -114,10 +128,47 @@ If the prompt didn't appear, open the pane directly:
 open 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'
 ```
 
+## Grant Input Monitoring access — the second switch
+
+**Accessibility on its own is not enough.** Since macOS 10.15 an app that
+*watches* for a key without consuming it needs **Input Monitoring** as well, and
+it is a separate service granted in a separate pane. YazSes needs both: without
+Input Monitoring the dictation key does nothing at all, in every application,
+while the Accessibility toggle sits there enabled.
+
+1. Launch YazSes and **hold the dictation key once**. macOS shows an
+   **Input Monitoring** prompt the first time.
+2. In **System Settings → Privacy & Security → Input Monitoring**, enable
+   **YazSes**.
+3. **Quit and relaunch YazSes.** The grant is read when the event tap is
+   created, so a running daemon will not pick it up.
+
+Or open the pane directly:
+
+```sh
+open 'x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent'
+```
+
+> **YazSes is not in the list?** An app only appears in Input Monitoring once it
+> has asked for it. Launch YazSes, hold the key once, then look again — you
+> cannot add it with the `+` button before it has asked.
+
+`yazses doctor` reports **Accessibility** and **Input monitoring** as two rows,
+because they are two switches and either one being off produces the same dead
+key.
+
 ## Grant Microphone access
 
 Hold the dictation key once. The first time, macOS prompts:
 *"YazSes would like to access the microphone."* Click **OK**.
+
+> **No microphone prompt ever appeared, and YazSes is not in the Microphone
+> list?** That is almost always this same problem one step upstream. macOS shows
+> the microphone prompt at the moment an app first records, and YazSes only
+> records while the dictation key is held — so if the key is dead for want of
+> **Input Monitoring**, nothing ever records, no prompt is ever shown, and the
+> app never appears in the Microphone pane. Fix Input Monitoring first, then
+> hold the key again.
 
 If you accidentally clicked **Don't Allow**, re-enable in
 **System Settings → Privacy & Security → Microphone → YazSes**.
@@ -155,6 +206,13 @@ The `.app` ships a CLI alongside the tray:
 (For convenience, you can symlink it: `sudo ln -s /Applications/YazSes.app/Contents/MacOS/YazSes /usr/local/bin/yazses` and then run `yazses --cli doctor`.)
 
 ## Troubleshooting
+
+**"Accessibility is on and the hotkey does nothing."** Check **Input
+Monitoring**, not Accessibility. A keyboard event tap needs both since macOS
+10.15, they are granted in different panes, and Accessibility being enabled says
+nothing about the other one. See
+[Grant Input Monitoring access](#grant-input-monitoring-access--the-second-switch)
+above, and run `yazses doctor` — it reports the two separately.
 
 **"YazSes keeps asking for Accessibility."** macOS treats unsigned apps as
 new identities each time their hash changes. After every YazSes update you

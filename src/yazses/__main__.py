@@ -39,6 +39,76 @@ from pathlib import Path
 _CLI_SUFFIX = "-cli"
 
 
+def interpreter_reentry(args: list[str]) -> str | None:
+    """Return the ``-c`` program CPython is asking this binary to run, else None.
+
+    Pure, so the parsing is testable without freezing anything.
+
+    **Why a frozen app has to answer this at all.** In a PyInstaller bundle
+    ``sys.executable`` is the bundle, not a Python interpreter — and parts of the
+    standard library relaunch ``sys.executable`` on the assumption that it *is*
+    one. ``multiprocessing.resource_tracker`` builds exactly this::
+
+        [sys.executable, *util._args_from_interpreter_flags(), "-c",
+         "from multiprocessing.resource_tracker import main;main(<fd>)"]
+
+    PyInstaller's bootloader sets ``dont_write_bytecode``, so the flags are
+    ``["-B"]`` and the child re-enters :func:`main` with
+    ``["-B", "-c", "from multiprocessing..."]``. With no branch for it that falls
+    through to the Typer CLI, which reports *"No such option: -B"*, exits, and
+    takes the resource tracker with it — after which Python prints
+    *"resource_tracker: process died unexpectedly … Some resources might leak"*
+    and relaunches it, and the whole thing repeats for every tracked resource.
+
+    Observed on the first successful end-to-end macOS run
+    ([#182](https://github.com/MSKazemi/yazses/issues/182)): the dictation chain
+    itself was green — captured, heard, cleaned — and every command was framed by
+    that error, which reads as a broken CLI rather than a leaked semaphore.
+
+    Only the interpreter's own leading short flags are skipped. Anything that is
+    not a flag, and any ``--long`` option, means this is a real YazSes invocation
+    and is left alone — ``yazses transcribe -v file.wav`` must not be mistaken for
+    an interpreter re-entry.
+    """
+    for i, arg in enumerate(args):
+        if arg == "-c":
+            return args[i + 1] if i + 1 < len(args) else None
+        # `_args_from_interpreter_flags` emits only single-token short flags
+        # (`-B`, `-E`, `-s`, `-Wignore`, `-Xdev`); none takes a separate value.
+        if arg.startswith("-") and not arg.startswith("--") and len(arg) > 1:
+            continue
+        return None
+    return None
+
+
+def _handle_interpreter_reentry() -> bool:
+    """Serve a stdlib relaunch of this binary, and say whether one was served.
+
+    Gated on ``sys.frozen``. A pip-installed ``yazses`` is launched through a
+    console script and never receives these argv shapes, so outside a bundle the
+    same input should stay what it has always been: a CLI usage error. Executing
+    it there would turn a typo into arbitrary code.
+
+    ``freeze_support()`` covers the *other* relaunch shape,
+    ``--multiprocessing-fork`` (a spawned child process). It is a no-op except in
+    that exact case, so calling it unconditionally-when-frozen is safe.
+    """
+    if not getattr(sys, "frozen", False):
+        return False
+
+    import multiprocessing
+
+    multiprocessing.freeze_support()
+
+    code = interpreter_reentry(sys.argv[1:])
+    if code is None:
+        return False
+    # Match `python -c`: argv[0] is "-c" and the program runs as __main__.
+    sys.argv = ["-c"]
+    exec(compile(code, "<multiprocessing>", "exec"), {"__name__": "__main__"})
+    return True
+
+
 def _run_cli(args: list[str]) -> None:
     """Dispatch to the Typer CLI, with printable streams guaranteed first."""
     from yazses.system.wincon import ensure_streams
@@ -58,6 +128,12 @@ def default_mode(argv0: str) -> str:
 
 
 def main() -> None:
+    # Before anything reads argv as a YazSes command: the stdlib relaunches
+    # `sys.executable`, which in a bundle is this binary. See
+    # `interpreter_reentry`.
+    if _handle_interpreter_reentry():
+        return
+
     args = sys.argv[1:]
     mode = args[0] if args else default_mode(sys.argv[0])
 

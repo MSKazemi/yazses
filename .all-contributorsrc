@@ -11,7 +11,7 @@
   "commitConvention": "angular",
   "contributorsPerLine": 7,
   "contributorsSortAlphabetically": false,
-  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-14-orange.svg?style=flat-square)](#contributors)",
+  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-16-orange.svg?style=flat-square)](#contributors)",
   "contributors": [
     {
       "login": "MSKazemi",
@@ -147,6 +147,27 @@
       "contributions": [
         "infra",
         "doc"
+      ]
+    },
+    {
+      "login": "happytester-funbugs",
+      "name": "Tanya Martin-McClellan",
+      "avatar_url": "https://avatars.githubusercontent.com/u/184687761?v=4",
+      "profile": "https://github.com/happytester-funbugs",
+      "contributions": [
+        "userTesting",
+        "bug",
+        "platform"
+      ]
+    },
+    {
+      "login": "AtmanActive",
+      "name": "AtmanActive",
+      "avatar_url": "https://avatars.githubusercontent.com/u/7526717?v=4",
+      "profile": "https://github.com/AtmanActive",
+      "contributions": [
+        "bug",
+        "userTesting"
       ]
     }
   ]

@@ -6,6 +6,76 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **macOS: the dictation key needed a permission YazSes never asked for.** On the
+  first Macs this was ever run on ([#182](https://github.com/MSKazemi/yazses/issues/182)),
+  Accessibility was granted and visibly enabled, `doctor` reported it and nothing
+  else, and the hotkey did **nothing** — in any application. YazSes was also absent
+  from Privacy → Microphone entirely, with no `+` button to add it.
+
+  That is three symptoms and one cause. `MacosHotkey` observes the key with a
+  `CGEventTap`, and since macOS 10.15 an observing keyboard tap requires user
+  approval of **Input Monitoring** *in addition to* Accessibility — a separate TCC
+  service, in a separate pane. YazSes never checked it, never requested it, and the
+  bundle declared no `NSInputMonitoringUsageDescription`, so `CGEventTapCreate`
+  returned NULL, the key never fired, nothing ever opened the microphone, and macOS
+  therefore never showed the one-time microphone prompt that is what puts an app in
+  that pane in the first place.
+
+  Four surfaces, because the permission was invisible on all of them:
+
+  - `MacosPermissions.check_input_monitoring()` / `request_input_monitoring()` read
+    the service through IOKit (`IOHIDCheckAccess` / `IOHIDRequestAccess`, via
+    `ctypes` — they are bare C functions, and which PyObjC wheel exposes them has
+    moved between releases). Requesting is not cosmetic: **an app that never asks
+    does not appear in the pane at all**, so "enable it in Settings" was not advice
+    anyone could follow.
+  - `yazses doctor` grows an **Input monitoring** row on macOS, next to Keyboard
+    capture. `UNKNOWN` is a WARN, not a FAIL — before anything has asked, "never
+    determined" and "refused" are the same value, and a red line in front of every
+    new user would be wrong.
+  - `MacosHotkey.run()` asks before creating the tap, and a NULL tap now names the
+    grant we actually determined instead of naming Accessibility unconditionally —
+    which, on the machine that reported this, was the one permission already on.
+  - The `.app` declares `NSInputMonitoringUsageDescription`. Without the string
+    macOS may refuse the service without ever prompting.
+
+  The Accessibility remedy now points at the second switch too, which is the loop
+  #182 was stuck in: re-toggling a permission that was already correct.
+
+  ⚠ **Verified by tests and by Apple's documented behaviour, not on hardware** —
+  there is no Mac in this project's CI or on the maintainer's desk. #182 stays open
+  until someone confirms it on a real machine.
+
+- **Every command in the macOS `.app` printed "No such option: `-B`".** Including
+  the ones that worked: the first successful end-to-end run on a Mac reported
+  captured, heard and cleaned — framed above and below by that error and by
+  *"resource_tracker: process died unexpectedly … Some resources might leak"*
+  ([#182](https://github.com/MSKazemi/yazses/issues/182)).
+
+  In a PyInstaller bundle `sys.executable` **is the bundle**, and parts of the
+  standard library relaunch `sys.executable` assuming it is a Python interpreter.
+  `multiprocessing.resource_tracker` runs
+  `[sys.executable, *interpreter_flags, "-c", "<program>"]`, and PyInstaller's
+  bootloader sets `dont_write_bytecode`, so the child re-entered YazSes's own argv
+  dispatch as `["-B", "-c", …]`, fell through to the Typer CLI, and was killed by a
+  usage error — after which Python relaunched it and it happened again.
+
+  `src/yazses/__main__.py` now recognises an interpreter relaunch before anything
+  reads argv as a YazSes command, and runs the program the stdlib asked for.
+  `multiprocessing.freeze_support()` covers the other relaunch shape
+  (`--multiprocessing-fork`). Both are gated on `sys.frozen`: outside a bundle
+  that argv cannot come from the stdlib, and executing it would turn a CLI typo
+  into arbitrary code.
+
+- **macOS Homebrew: the documented one-liner failed for every new user.** Homebrew
+  now refuses to load a cask from an untrusted third-party tap, so
+  `brew install --cask yazses` stopped with *"Refusing to load cask … from untrusted
+  tap"*. `brew trust MSKazemi/yazses` is now in the README and the install guide.
+  Found by running the route end to end on an Apple M4 — the route this project had
+  marked "never executed" — by [@slegarraga](https://github.com/slegarraga).
+
 ### Added
 
 - **Seven more of #164's unwired capabilities are now wired.** Same shape as the ten

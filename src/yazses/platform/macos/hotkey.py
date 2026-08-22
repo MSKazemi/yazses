@@ -70,6 +70,52 @@ def resolve_key_id(key_id: str, default: str = "right_option") -> tuple[str, str
     return name, kind, value
 
 
+def _request_input_monitoring() -> bool:
+    """Trigger the Input Monitoring prompt, and say whether it is granted now.
+
+    Delegated to :class:`~yazses.platform.macos.permissions.MacosPermissions` so
+    the prompt, the `doctor` row and the remedy text all read the same service
+    through the same call. Never raises: the caller treats a failure here as
+    "not granted" and lets the tap deliver the verdict.
+    """
+    try:
+        from yazses.platform.macos.permissions import MacosPermissions
+
+        return MacosPermissions().request_input_monitoring()
+    except Exception:  # pragma: no cover - defensive
+        log.exception("Input Monitoring request raised")
+        return False
+
+
+def tap_failure_message(*, input_monitoring_granted: bool) -> str:
+    """Explain a NULL ``CGEventTapCreate`` in terms of the grant that is missing.
+
+    Pure, so the wording is testable without a Mac.
+
+    The old message named Accessibility and nothing else, which on the first Mac
+    this was ever run on was the one permission the user had already granted
+    (#182). A keyboard tap needs **two** grants on macOS 10.15+, and NULL does
+    not say which is absent -- so the message leads with whichever one we could
+    actually determine, and never claims the other is fine.
+    """
+    if not input_monitoring_granted:
+        return (
+            "CGEventTapCreate returned NULL and macOS has not granted Input "
+            "Monitoring to this process.\n"
+            "Since macOS 10.15 the dictation key needs BOTH Input Monitoring and "
+            "Accessibility; Accessibility alone is not enough.\n"
+            "  System Settings -> Privacy & Security -> Input Monitoring -> enable YazSes\n"
+            "Then quit and relaunch YazSes -- the grant is read when the tap is created.\n"
+            "Run `yazses doctor` to see both permissions separately."
+        )
+    return (
+        "CGEventTapCreate returned NULL even though Input Monitoring is granted.\n"
+        "The other grant a keyboard tap needs is Accessibility:\n"
+        "  System Settings -> Privacy & Security -> Accessibility -> enable YazSes\n"
+        "Then quit and relaunch YazSes. Run `yazses doctor` to see both separately."
+    )
+
+
 class MacosHotkey:
     """HotkeyBackend implementation for macOS using CGEventTap."""
 
@@ -125,6 +171,15 @@ class MacosHotkey:
         else:
             event_mask = CGEventMaskBit(kCGEventKeyDown) | CGEventMaskBit(kCGEventKeyUp)
 
+        # Ask for Input Monitoring BEFORE creating the tap. Since macOS 10.15 an
+        # observing keyboard tap needs this grant as well as Accessibility, and
+        # requesting it is also what puts YazSes in the Input Monitoring list --
+        # an app that never asks does not appear there, so "enable it in
+        # Settings" was not advice anyone could act on (#182). Never fatal: the
+        # tap below is the real test, and a refusal here still produces a NULL
+        # tap with the fuller message.
+        granted = _request_input_monitoring()
+
         self._tap = CGEventTapCreate(
             kCGSessionEventTap,
             kCGHeadInsertEventTap,
@@ -134,10 +189,7 @@ class MacosHotkey:
             None,
         )
         if not self._tap:
-            raise RuntimeError(
-                "CGEventTapCreate returned NULL. Grant Accessibility permission to "
-                "this process in System Settings → Privacy & Security → Accessibility."
-            )
+            raise RuntimeError(tap_failure_message(input_monitoring_granted=granted))
 
         self._loop_source = CFMachPortCreateRunLoopSource(None, self._tap, 0)
         self._runloop = CFRunLoopGetCurrent()

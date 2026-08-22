@@ -1,7 +1,15 @@
-"""macOS permission checks — Accessibility (TCC) and Microphone (AVCaptureDevice).
+"""macOS permission checks — Accessibility, Input Monitoring, and Microphone.
 
-Both require PyObjC. Imports are local so that the module can be imported on
-non-Mac systems for static checks without crashing.
+Three TCC services, not two, and the third is the one that was missing. The
+hotkey is a ``CGEventTap`` over keyboard events, and **since macOS 10.15 such a
+tap needs Input Monitoring approval in addition to Accessibility** — a fact this
+module never checked, the bundle never declared a usage string for, and no
+surface ever named. See :meth:`MacosPermissions.check_input_monitoring`.
+
+Accessibility and Microphone go through PyObjC; Input Monitoring goes through
+``IOKit`` via :mod:`ctypes`, because ``IOHIDCheckAccess``/``IOHIDRequestAccess``
+are plain C functions that PyObjC does not reliably expose. Every import is
+local so the module still imports on non-Mac systems for static checks.
 """
 
 from __future__ import annotations
@@ -24,6 +32,37 @@ _AV_NOT_DETERMINED = 0
 _AV_RESTRICTED = 1
 _AV_DENIED = 2
 _AV_AUTHORIZED = 3
+
+# IOHIDRequestType / IOHIDAccessType from IOKit/hid/IOHIDLib.h (macOS 10.15+).
+# `kIOHIDRequestTypeListenEvent` is the one an *observing* event tap needs;
+# `kIOHIDRequestTypePostEvent` (0) is for synthesising input and is a different
+# grant, which is why asking for the wrong one would answer the wrong question.
+_HID_REQUEST_LISTEN_EVENT = 1
+_HID_ACCESS_GRANTED = 0
+_HID_ACCESS_DENIED = 1
+_HID_ACCESS_UNKNOWN = 2
+
+
+def _iokit():
+    """Return the IOKit handle, or ``None`` where it cannot be loaded.
+
+    Separated so the two Input Monitoring calls share one failure mode and so a
+    test can substitute it. ``ctypes`` rather than PyObjC on purpose:
+    ``IOHIDCheckAccess`` is a bare C function, not an Objective-C selector, and
+    which PyObjC framework wheel exposes it has moved between releases — a
+    missing symbol here would silently downgrade the check to UNKNOWN forever.
+    """
+    import ctypes
+    import ctypes.util
+
+    path = ctypes.util.find_library("IOKit")
+    if path is None:
+        return None
+    try:
+        return ctypes.CDLL(path)
+    except OSError:
+        log.warning("IOKit could not be loaded; Input Monitoring is unknown")
+        return None
 
 
 class MacosPermissions:
@@ -63,6 +102,111 @@ class MacosPermissions:
         if status == _AV_DENIED or status == _AV_RESTRICTED:
             return PermissionState.DENIED
         return PermissionState.UNKNOWN  # NotDetermined → user hasn't been asked yet
+
+    def check_input_monitoring(self) -> PermissionState:
+        """Report the **Input Monitoring** grant — the one that was never checked.
+
+        `MacosHotkey` observes the dictation key with a ``CGEventTap`` over
+        keyboard events. Since macOS 10.15 that requires user approval of
+        **Input Monitoring** *as well as* Accessibility, and the two are separate
+        TCC services granted in separate panes. YazSes asked for neither the
+        string nor the grant, so on a Mac the whole chain looked like this:
+
+        * the user grants Accessibility, which `doctor` checks and reports OK;
+        * `CGEventTapCreate` returns NULL anyway, because Input Monitoring is
+          not granted, so the hotkey does nothing at all;
+        * nothing ever opens the microphone, so macOS never shows its one-time
+          microphone prompt and **YazSes never appears in the Microphone list**.
+
+        That is exactly the report on #182: Accessibility visibly on, hotkey
+        dead, and the app absent from Privacy → Microphone with no way to add it.
+        Both later symptoms are downstream of this one grant, which is why a
+        missing row here read as two unrelated bugs.
+
+        UNKNOWN rather than DENIED when IOKit cannot answer: on this service
+        "not determined" and "refused" are the same return value to a caller
+        that has never asked, and reporting a refusal we cannot substantiate
+        would send the reader to a pane where there is nothing yet to toggle.
+        """
+        lib = _iokit()
+        if lib is None:
+            return PermissionState.UNKNOWN
+        try:
+            import ctypes
+
+            fn = lib.IOHIDCheckAccess
+        except AttributeError:
+            # Pre-10.15. `LSMinimumSystemVersion` is 11.0, so this is defensive.
+            log.warning("IOHIDCheckAccess unavailable; Input Monitoring is unknown")
+            return PermissionState.UNKNOWN
+        fn.restype = ctypes.c_uint32
+        fn.argtypes = [ctypes.c_uint32]
+        try:
+            status = int(fn(_HID_REQUEST_LISTEN_EVENT))
+        except Exception:  # pragma: no cover - defensive
+            log.exception("IOHIDCheckAccess raised")
+            return PermissionState.UNKNOWN
+        if status == _HID_ACCESS_GRANTED:
+            return PermissionState.OK
+        if status == _HID_ACCESS_DENIED:
+            return PermissionState.DENIED
+        return PermissionState.UNKNOWN  # _HID_ACCESS_UNKNOWN → never asked
+
+    def request_input_monitoring(self) -> bool:
+        """Ask macOS for Input Monitoring, showing its one-time prompt.
+
+        Returns whether access is granted **now**. It is called before the event
+        tap is created rather than after it fails, because a NULL tap carries no
+        reason: the same NULL answers "not granted", "asked and refused" and
+        "asked and the user has not answered yet". Asking first is what puts the
+        app in the Input Monitoring list at all — an app that never requests it
+        does not appear there, which is the state #182 described for Microphone
+        and the reason "just enable it in Settings" was not advice anyone could
+        follow.
+        """
+        lib = _iokit()
+        if lib is None:
+            return False
+        try:
+            import ctypes
+
+            fn = lib.IOHIDRequestAccess
+        except AttributeError:
+            return False
+        fn.restype = ctypes.c_bool
+        fn.argtypes = [ctypes.c_uint32]
+        try:
+            return bool(fn(_HID_REQUEST_LISTEN_EVENT))
+        except Exception:  # pragma: no cover - defensive
+            log.exception("IOHIDRequestAccess raised")
+            return False
+
+    def how_to_grant_input_monitoring(self) -> str:
+        """Remedy for Input Monitoring — a third pane, not a rewording of the first.
+
+        Kept apart from :meth:`how_to_grant` for the reason that made this bug
+        expensive: sending someone to Accessibility for an Input Monitoring
+        problem sends them to a toggle that is *already on*, which reads as "the
+        app is lying to me" rather than "there is a second switch".
+        """
+        return (
+            "Allow Input Monitoring in System Settings:\n"
+            "  System Settings -> Privacy & Security -> Input Monitoring -> enable YazSes.\n"
+            "Or open the pane directly:\n"
+            "  open 'x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent'\n"
+            "This is a different service from Accessibility. Since macOS 10.15 the\n"
+            "dictation key needs BOTH, and Accessibility being on says nothing about\n"
+            "this one -- an enabled Accessibility toggle with a dead hotkey is what\n"
+            "a missing Input Monitoring grant looks like.\n"
+            "Not listed at all? An app only appears here once it has asked. Launch\n"
+            "YazSes and hold the dictation key once, then look again.\n"
+            "Listed and enabled but still refused? These builds are unsigned, so\n"
+            "macOS sees a new identity whenever the binary changes and the old\n"
+            "approval stops applying. Reset just this app's decision:\n"
+            f"  tccutil reset ListenEvent {_BUNDLE_ID}\n"
+            "(the bundle id matters -- drop it and that command clears the grant\n"
+            "for every app on the Mac, not only this one)"
+        )
 
     def request_keyboard_capture(self) -> None:
         try:
@@ -116,7 +260,10 @@ class MacosPermissions:
             "add it back, then relaunch -- or reset just this app's decision:\n"
             f"  tccutil reset Accessibility {_BUNDLE_ID}\n"
             "(the bundle id matters -- drop it and that command clears the grant\n"
-            "for every app on the Mac, not only this one)"
+            "for every app on the Mac, not only this one)\n"
+            "Accessibility is also not the only switch. Since macOS 10.15 the\n"
+            "dictation key needs Input Monitoring too, in its own pane -- check the\n"
+            "'Input monitoring' row above before toggling this one again."
         )
 
     def how_to_grant_microphone(self) -> str:

@@ -158,6 +158,13 @@ app = BUNDLE(
         "NSMicrophoneUsageDescription":
             "YazSes transcribes speech locally; the microphone is used "
             "only while you hold the dictation key.",
+        # Input Monitoring. Since macOS 10.15 the hold-to-talk CGEventTap needs
+        # this grant as well as Accessibility, and without the string the OS can
+        # refuse without ever prompting -- which is how #182 presented: the
+        # Accessibility toggle on, the hotkey dead, and no prompt to answer.
+        "NSInputMonitoringUsageDescription":
+            "YazSes watches for the dictation key you chose so it can start "
+            "and stop recording; keystrokes are never stored or sent.",
         "NSAppleEventsUsageDescription":
             "YazSes does not send Apple Events; this entitlement is "
             "present for compatibility with macOS Accessibility prompts.",

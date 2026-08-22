@@ -23,6 +23,40 @@ argument, and the record of it is the decision it altered.
   while all 191 parity vectors were green. Also raised the agency-preserving uncertainty
   invariant for graded EMG activation ([#103](https://github.com/MSKazemi/yazses/issues/103)).
 
+## Testing & field reports
+
+Running an unproven build on your own machine and writing down exactly what happened.
+This project had **three supported platforms and hardware for one of them**, so for a
+long time the macOS and Windows builds were correct only in the sense that nobody had
+disproved them. These reports are what turned that into evidence — and two of them
+found defects that no amount of reading the code here would have surfaced.
+
+- [@happytester-funbugs](https://github.com/happytester-funbugs) (Tanya Martin-McClellan) —
+  the first person to take the macOS build all the way through, on an M2 running
+  Tahoe: both `.dmg` routes and Homebrew, Gatekeeper, the permission panes, and
+  `doctor` output at every step ([#182](https://github.com/MSKazemi/yazses/issues/182),
+  [#241](https://github.com/MSKazemi/yazses/issues/241),
+  [#6](https://github.com/MSKazemi/yazses/issues/6)). The report that mattered most was
+  the one that looked like three separate bugs — Accessibility granted and enabled, the
+  dictation key dead everywhere, and YazSes absent from the Microphone pane with no way
+  to add it. It is one cause: a `CGEventTap` needs **Input Monitoring** as well as
+  Accessibility on macOS 10.15+, and YazSes never asked for it, so nothing ever recorded
+  and macOS never showed the microphone prompt that puts an app in that list. Reported
+  carefully enough — with the state of each toggle, not just "it doesn't work" — that
+  the cause was findable without a Mac.
+- [@AtmanActive](https://github.com/AtmanActive) — the first bug report from a real user
+  outside the project ([#310](https://github.com/MSKazemi/yazses/issues/310)): a crash on
+  first run that turned out to be a firewall blocking the model download, i.e. the
+  offline-first tool failing at the one moment it is not yet offline.
+- [@slegarraga](https://github.com/slegarraga) (Sebastian Legarraga) — ran the Homebrew
+  cask route end to end on an Apple M4, the route this project had marked "never
+  executed", and found that Homebrew's new tap-trust gate makes the **documented
+  one-liner fail for every new user** without `brew trust`
+  ([#182](https://github.com/MSKazemi/yazses/issues/182)); also fixed the tap's
+  deprecated `depends_on macos:` warning upstream. Notably declined to claim `doctor`
+  output that could not be captured from a sandbox — a report that says where it stops
+  is worth more than one that guesses.
+
 ## Contributors
 - [@4nmus](https://github.com/4nmus) — Russian README translation, the project's first in
   Cyrillic script
@@ -42,7 +76,7 @@ argument, and the record of it is the decision it altered.
 - [@Parinitha-26](https://github.com/Parinitha-26)
 - [@Prithvi4904](https://github.com/Prithvi4904) — first README translation (Hindi), and the
   language switcher that makes every later translation reachable
-- [@slegarraga](https://github.com/slegarraga)
+- [@slegarraga](https://github.com/slegarraga) — see **Testing & field reports** above
 - [@waterlemonnn](https://github.com/MSKazemi/yazses/commits?author=waterlemonnn)
 
 <!-- New contributors: added on merge, alphabetical. Want to be here? See CONTRIBUTING.md and grab a

@@ -668,6 +668,40 @@ def _keyboard_capture_check(perms, platform_name: str) -> _Check:
     return ("Keyboard capture", "OK" if state is PermissionState.OK else "FAIL", detail)
 
 
+def _input_monitoring_check(perms, platform_name: str) -> _Check | None:
+    """macOS: the *second* grant a keyboard tap needs, reported on its own row.
+
+    Returns ``None`` off macOS -- no other OS has this service, and an always-OK
+    row would be noise on the two platforms where it means nothing.
+
+    Why it is a row at all. `doctor` reported one permission for the hotkey,
+    Accessibility, and reported it OK. Since macOS 10.15 an observing
+    ``CGEventTap`` needs **Input Monitoring** as well, so a Mac with
+    Accessibility granted and Input Monitoring not granted produced a clean
+    `doctor` and a completely dead dictation key -- and, because nothing ever
+    opened the microphone, no microphone prompt and no YazSes entry in the
+    Microphone pane either. Three symptoms, one missing row (#182).
+
+    UNKNOWN is a WARN, not a FAIL. On this service "never asked" and "refused"
+    are indistinguishable to a process that has not yet asked, and calling that
+    a failure would put a red line in front of every user who has simply not
+    held the key yet.
+    """
+    if platform_name != MACOS_PLATFORM_NAME:
+        return None
+    check = getattr(perms, "check_input_monitoring", None)
+    if check is None:  # a backend that predates this row
+        return None
+    state = check()
+    if state is PermissionState.OK:
+        return ("Input monitoring", "OK", state.value)
+    advice = getattr(perms, "how_to_grant_input_monitoring", None)
+    detail = f"{state.value} — {advice()}" if advice is not None else state.value
+    if state is PermissionState.UNKNOWN:
+        return ("Input monitoring", "WARN", detail)
+    return ("Input monitoring", "FAIL", detail)
+
+
 def _window_focus_check(is_wayland: bool, is_x11: bool, cfg=None) -> _Check | None:
     """Report whether "focus the browser" can work on this session (#39).
 
@@ -1047,6 +1081,13 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
 
     # Keyboard capture
     checks.append(_keyboard_capture_check(perms, platform.name))
+
+    # macOS only: the second grant the same hotkey needs. Placed directly after
+    # keyboard capture because the two are one question to the user ("does my
+    # dictation key work?") that macOS splits into two switches in two panes.
+    input_mon = _input_monitoring_check(perms, platform.name)
+    if input_mon is not None:
+        checks.append(input_mon)
 
     # Windows only: "Keyboard capture: ok" is about installing the hook and says
     # nothing about elevated windows, which UIPI excludes either way. Without
