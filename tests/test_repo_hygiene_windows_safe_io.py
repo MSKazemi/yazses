@@ -60,10 +60,17 @@ def _is_builtin_open(node: ast.Call) -> bool:
 
 
 def _is_binary_mode(node: ast.Call) -> bool:
-    """Builtin-`open` mode argument, which is the second one."""
+    """Bytes need no encoding. The mode may be positional or keyword.
+
+    `open(p, "rb")` and `open(p, mode="rb")` are the same call; a check that reads
+    only the positional slot calls the second one a violation, and a guard that
+    fires on correct code is a guard someone deletes.
+    """
+    modes = [a for a in node.args[1:2]]
+    modes += [k.value for k in node.keywords if k.arg == "mode"]
     return any(
         isinstance(a, ast.Constant) and isinstance(a.value, str) and "b" in a.value
-        for a in node.args[1:2]
+        for a in modes
     )
 
 
@@ -134,6 +141,33 @@ def test_the_detector_catches_the_shapes_it_claims_to(tmp_path: Path) -> None:
         "open",
     ]
     assert stringified_relative_paths(bad) == [7]
+
+
+@pytest.mark.parametrize(
+    "source,expected",
+    [
+        ('open(p, "w")', 1),
+        ('open(p, "wb")', 0),  # bytes take no encoding
+        ('open(p, mode="rb")', 0),  # ...and the mode may be a keyword
+        ('open(p, "w", encoding="utf-8")', 0),
+        ("os.open(p, flags)", 0),  # a file descriptor, not text
+        ("tarfile.open(p)", 0),  # not text I/O at all
+        ("Image.open(p)", 0),
+        ('p.open("rb")', 0),  # Path.open puts the mode where the builtin puts a buffer
+        ("p.read_text()", 1),
+        ('p.read_text(encoding="utf-8")', 0),
+    ],
+)
+def test_each_call_shape_is_judged_correctly(source: str, expected: int, tmp_path: Path) -> None:
+    """One row per shape, both directions.
+
+    Written after the detector's first run produced four false positives against
+    real code -- the count of *allowed* rows here is the point, not the flagged
+    ones.
+    """
+    f = tmp_path / "s.py"
+    f.write_text(f"import os, tarfile\nfrom PIL import Image\n{source}\n", encoding="utf-8")
+    assert len(unencoded_text_io(f)) == expected, source
 
 
 def test_the_detector_allows_the_correct_forms(tmp_path: Path) -> None:
