@@ -340,3 +340,110 @@ def test_an_unreadable_spec_fails_the_command_rather_than_raising(mod, tmp_path,
 
     assert mod.main([str(dmg), "--require-keys-from-spec", str(tmp_path / "nope.spec")]) == 1
     assert "ERROR:" in capsys.readouterr().err
+
+
+# --- more than one plist in the image (the v2.30.0 macOS failure) -------------------
+
+#: A bundled Qt framework's Info.plist. Every fixture above holds exactly *one*
+#: plist, which is why the bug below survived them: the fixture was never the case
+#: under test. A real `.app` carries dozens, and this one is the exact plugin whose
+#: version was reported as the application's on the v2.30.0 tag.
+QT_PLIST = b"""<?xml version="1.0"?><plist><dict>
+<key>CFBundleShortVersionString</key><string>6.11</string>
+<key>CFBundleVersion</key><string>6.11.1</string>
+<key>CFBundleIdentifier</key><string>org.qt-project.QtVirtualKeyboardQml</string>
+</dict></plist>"""
+
+
+def test_a_framework_plist_earlier_in_the_image_does_not_answer_for_the_app(mod, tmp_path):
+    """The v2.30.0 macOS build failed here, on a `.dmg` that was correct.
+
+    Reported `CFBundleShortVersionString is '6.11', expected '2.30.0'` while printing
+    *our* usage descriptions in the same block -- because each key was answered by
+    whichever plist lay earliest in the image, independently of the others.
+    """
+    raw = QT_PLIST + b"\0" * 32 + INFO_PLIST + b"\0" * 64 + _macho(0x0100000C)
+    dmg = tmp_path / "T.dmg"
+    dmg.write_bytes(_build_dmg(raw))
+
+    assert mod.main([str(dmg), "--expect-version", "2.18.2"]) == 0
+
+
+def test_the_keys_all_come_from_one_document(mod, tmp_path):
+    """A mixed answer is the failure mode, not merely a wrong version.
+
+    Version from Qt and permissions from the app read as a single coherent bundle,
+    which is what made the report so hard to believe.
+    """
+    raw = QT_PLIST + b"\0" * 32 + INFO_PLIST
+    image, _ = mod.inflate(*(lambda d: (d, *mod.read_koly(d)))(_build_dmg(raw)))
+    info = mod.read_info_plist(image)
+
+    assert info["CFBundleIdentifier"] == "com.yazses.app"
+    assert info["CFBundleShortVersionString"] == "2.18.2"
+    assert "6.11" not in info.values()
+
+
+def test_the_identifier_picks_the_app_plist_over_a_richer_decoy(mod, tmp_path):
+    """Selection must not rest on the key-count fallback when the truth is known.
+
+    A framework plist can carry more of `PLIST_KEYS` than the app's does, so the
+    fallback is a tie-breaker, never the mechanism.
+    """
+    decoy = INFO_PLIST.replace(b"com.yazses.app", b"org.qt-project.Decoy").replace(
+        b"<string>2.18.2</string>", b"<string>9.9.9</string>"
+    )
+    decoy = decoy.replace(
+        b"</dict></plist>",
+        b"<key>NSInputMonitoringUsageDescription</key><string>x</string>"
+        b"<key>NSAppleEventsUsageDescription</key><string>x</string></dict></plist>",
+    )
+    raw = decoy + b"\0" * 32 + INFO_PLIST
+    image, _ = mod.inflate(*(lambda d: (d, *mod.read_koly(d)))(_build_dmg(raw)))
+
+    assert mod.read_info_plist(image, identifier="com.yazses.app")[
+        "CFBundleShortVersionString"
+    ] == "2.18.2"
+    # Without the identifier the richer decoy wins -- which is why the spec supplies it.
+    assert mod.read_info_plist(image)["CFBundleShortVersionString"] == "9.9.9"
+
+
+def test_an_identifier_that_matches_nothing_reads_nothing(mod, tmp_path):
+    """Better to report an unreadable bundle than to answer from another plist."""
+    raw = QT_PLIST + b"\0" * 32 + INFO_PLIST
+    image, _ = mod.inflate(*(lambda d: (d, *mod.read_koly(d)))(_build_dmg(raw)))
+
+    assert mod.read_info_plist(image, identifier="com.example.absent") == {}
+
+
+def test_the_spec_is_where_the_identifier_comes_from(mod):
+    """Derived, not restated -- the same rule the usage-description list follows."""
+    declared = mod.spec_info_plist(ROOT / "packaging" / "macos" / "yazses.spec")
+
+    assert declared["CFBundleIdentifier"] == "com.yazses.app"
+    # CFBundleVersion is computed from pyproject, so it has no literal to read.
+    assert declared["CFBundleVersion"] is None
+
+
+def test_the_spec_route_reads_the_app_plist_not_the_first_one(mod, tmp_path):
+    """End to end: --require-keys-from-spec must also aim the version check."""
+    app = _plist_with(
+        b"<key>NSInputMonitoringUsageDescription</key><string>Key watch.</string>"
+        b"<key>NSAppleEventsUsageDescription</key><string>None sent.</string>"
+    )
+    raw = QT_PLIST + b"\0" * 32 + app + b"\0" * 64 + _macho(0x0100000C)
+    dmg = tmp_path / "T.dmg"
+    dmg.write_bytes(_build_dmg(raw))
+
+    assert (
+        mod.main(
+            [
+                str(dmg),
+                "--expect-version",
+                "2.18.2",
+                "--require-keys-from-spec",
+                str(ROOT / "packaging" / "macos" / "yazses.spec"),
+            ]
+        )
+        == 0
+    )

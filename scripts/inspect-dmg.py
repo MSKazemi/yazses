@@ -88,6 +88,29 @@ PLIST_KEYS = (
 USAGE_DESCRIPTION_RE = re.compile(r"NS\w+UsageDescription")
 
 
+def spec_info_plist(spec_path: Path) -> dict[str, str | None]:
+    """The spec's ``info_plist=`` dict, as literal strings where it holds them.
+
+    Parsed with `ast`, not imported -- the spec runs under PyInstaller and pulls in
+    the whole application. A value the spec computes (``CFBundleVersion=VERSION``)
+    has no literal to read and maps to ``None``; the key is still reported, because
+    "declared here" is what callers ask about.
+    """
+    tree = ast.parse(spec_path.read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.keyword) and node.arg == "info_plist"):
+            continue
+        if not isinstance(node.value, ast.Dict):
+            raise ValueError(f"{spec_path}: info_plist= is not a dict literal")
+        out: dict[str, str | None] = {}
+        for key, value in zip(node.value.keys, node.value.values):
+            if isinstance(key, ast.Constant) and isinstance(key.value, str):
+                literal = value.value if isinstance(value, ast.Constant) else None
+                out[key.value] = literal if isinstance(literal, str) else None
+        return out
+    raise ValueError(f"no info_plist= found in {spec_path}")
+
+
 def usage_description_keys(spec_path: Path) -> list[str]:
     """Every permission string `packaging/macos/yazses.spec` declares.
 
@@ -96,29 +119,13 @@ def usage_description_keys(spec_path: Path) -> list[str]:
     permission gets added, and a checker holding its own copy stays green through
     exactly the release that drops one.
 
-    Parsed with `ast`, not imported -- the spec runs under PyInstaller and pulls in
-    the whole application.
-
     Raises `ValueError` if the spec has no `info_plist=` or declares no usage
     descriptions at all, because "required nothing" must never read as "all fine".
     """
-    tree = ast.parse(spec_path.read_text(encoding="utf-8"))
-    for node in ast.walk(tree):
-        if not (isinstance(node, ast.keyword) and node.arg == "info_plist"):
-            continue
-        if not isinstance(node.value, ast.Dict):
-            raise ValueError(f"{spec_path}: info_plist= is not a dict literal")
-        found = [
-            k.value
-            for k in node.value.keys
-            if isinstance(k, ast.Constant)
-            and isinstance(k.value, str)
-            and USAGE_DESCRIPTION_RE.fullmatch(k.value)
-        ]
-        if not found:
-            raise ValueError(f"{spec_path} declares no NS*UsageDescription keys")
-        return found
-    raise ValueError(f"no info_plist= found in {spec_path}")
+    found = [k for k in spec_info_plist(spec_path) if USAGE_DESCRIPTION_RE.fullmatch(k)]
+    if not found:
+        raise ValueError(f"{spec_path} declares no NS*UsageDescription keys")
+    return found
 
 
 def read_koly(data: bytes) -> tuple[int, int]:
@@ -174,20 +181,70 @@ def inflate(data: bytes, xml_offset: int, xml_length: int) -> tuple[bytes, int]:
     return bytes(out), skipped
 
 
-def read_info_plist(image: bytes, keys: tuple[str, ...] | None = None) -> dict[str, str]:
+#: One embedded XML plist document. A `.app` contains *many* -- every bundled Qt
+#: framework ships its own -- so a search for a key must be bounded to one document
+#: before it is read. Non-greedy: plists do not nest, and the first `</plist>` after
+#: an `<?xml` header closes that document.
+_PLIST_DOC_RE = re.compile(rb"<\?xml\b.*?</plist>", re.S)
+
+
+def app_info_plist(image: bytes, identifier: str | None = None) -> bytes | None:
+    """The application bundle's ``Info.plist``, picked out of every plist in the image.
+
+    **This is the bug v2.30.0 shipped into.** The previous implementation grepped the
+    whole raw image for ``<key>X</key><string>...</string>``, once per key, and took
+    the first hit anywhere. A `.app` carries dozens of `Info.plist` files -- one per
+    bundled Qt framework -- so each key was answered by whichever plist happened to
+    lie earliest, and the answers came from *different files*. The v2.30.0 macOS build
+    failed with::
+
+        ERROR: CFBundleShortVersionString is '6.11', expected '2.30.0'
+          CFBundleIdentifier   org.qt-project.QtVirtualKeyboardQml
+          NSMicrophoneUsageDescription  YazSes transcribes speech locally...
+
+    -- version and identifier from Qt's virtual-keyboard plugin, usage strings from
+    ours, in one report that read as a single file. The `.dmg` was correct; the check
+    was not, and it blocked the release for a day.
+
+    Selection is by ``CFBundleIdentifier`` when the caller knows it (the spec
+    declares it, so it is derived rather than restated). Without one, a lone document
+    is unambiguous; otherwise the app's plist is taken to be the one carrying the most
+    of the keys an application bundle declares, which a framework's does not.
+    """
+    docs = _PLIST_DOC_RE.findall(image)
+    if not docs:
+        return None
+    if identifier:
+        want = f"<string>{identifier}</string>".encode()
+        for doc in docs:
+            if want in doc:
+                return doc
+        return None
+    if len(docs) == 1:
+        return docs[0]
+    return max(docs, key=lambda d: sum(f"<key>{k}</key>".encode() in d for k in PLIST_KEYS))
+
+
+def read_info_plist(
+    image: bytes, keys: tuple[str, ...] | None = None, identifier: str | None = None
+) -> dict[str, str]:
     """Pull the app bundle's Info.plist values straight out of the raw image.
 
-    The plist is XML on disk, so the values are greppable without walking HFS+.
+    The plist is XML on disk, so the values are greppable without walking HFS+ --
+    but only once the *document* has been isolated, see :func:`app_info_plist`.
 
     `keys` defaults to :data:`PLIST_KEYS`. It exists so ``--require-key`` can ask
     about a key this file does not list: without it a required-but-unlisted key is
     never *looked for*, and would be reported missing from a bundle that has it --
     a check that fails on correct artefacts, which gets switched off.
     """
+    doc = app_info_plist(image, identifier)
+    if doc is None:
+        return {}
     found: dict[str, str] = {}
     for key in keys or PLIST_KEYS:
         m = re.search(
-            rf"<key>{re.escape(key)}</key>\s*<string>([^<]*)</string>".encode(), image, re.S
+            rf"<key>{re.escape(key)}</key>\s*<string>([^<]*)</string>".encode(), doc, re.S
         )
         if m:
             found[key] = m.group(1).decode("utf-8", errors="replace").strip()
@@ -244,6 +301,15 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     ap.add_argument(
+        "--app-identifier",
+        metavar="ID",
+        help=(
+            "CFBundleIdentifier of the application bundle, used to pick its Info.plist "
+            "out of the many a .app contains. Derived from --require-keys-from-spec "
+            "when that is given; supply it explicitly to check a bundle without a spec."
+        ),
+    )
+    ap.add_argument(
         "--json",
         action="store_true",
         help="emit the findings as JSON, for a release job to record or diff",
@@ -257,6 +323,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.require_keys_from_spec:
         try:
             args.require_key += usage_description_keys(args.require_keys_from_spec)
+            # The spec declares the identifier too, so the plist to read is derived
+            # from the same file that defines it rather than named twice.
+            args.app_identifier = args.app_identifier or spec_info_plist(
+                args.require_keys_from_spec
+            ).get("CFBundleIdentifier")
         except (OSError, SyntaxError, ValueError) as exc:
             print(f"ERROR: {exc}", file=sys.stderr)
             return 1
@@ -268,7 +339,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: could not decode {args.dmg.name}: {exc}", file=sys.stderr)
         return 1
 
-    info = read_info_plist(image, PLIST_KEYS + tuple(args.require_key))
+    info = read_info_plist(image, PLIST_KEYS + tuple(args.require_key), args.app_identifier)
     tally, fat = scan_macho(image)
 
     if args.json:
