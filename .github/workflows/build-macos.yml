@@ -179,6 +179,96 @@ jobs:
               --require-keys-from-spec packaging/macos/yazses.spec \
               ${EXPECT[@]+"${EXPECT[@]}"}
 
+      # Inspecting the .dmg proves what is inside it. It does not prove the thing
+      # RUNS -- and until this step existed, nothing anywhere had ever executed the
+      # built .app. Every macOS bundle this project has shipped went out unrun.
+      #
+      # Two of the three defects the first real Mac run found are reproducible here
+      # with no human and no microphone:
+      #
+      #   * the `-B -c` re-entry. In a bundle `sys.executable` IS this binary, and
+      #     the stdlib relaunches it as if it were an interpreter --
+      #     `multiprocessing.resource_tracker` builds exactly `[sys.executable, "-B",
+      #     "-c", "..."]`. With no branch for it that falls through to Typer, which
+      #     answers "No such option: -B", and the tracker dies and respawns for every
+      #     tracked resource. It frames every command the user runs. `__main__.py`
+      #     handles it now and this is the only place that can prove it, because the
+      #     bug does not exist outside a frozen binary.
+      #
+      #   * the CLI being reachable at all from inside the .app, with printable
+      #     streams.
+      #
+      # The third -- granting Input Monitoring and speaking -- needs a human at a
+      # Mac and is deliberately not attempted. What IS checked is that `doctor`
+      # renders the Input Monitoring row, since the #182 failure mode was that
+      # permission being neither granted nor requested nor mentioned.
+      #
+      # Runs before codesigning: an unsigned binary built on this machine carries no
+      # quarantine attribute, so Gatekeeper is not in the way.
+      - name: Smoke-test the built .app
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=dist/YazSes.app/Contents/MacOS/YazSes
+          test -x "${APP}" || { echo "no executable at ${APP}"; exit 1; }
+
+          # macOS ships no `timeout`. perl's alarm is present on every runner and
+          # keeps a hung probe from burning the 30-minute job budget.
+          #
+          # No `--` before "$@": with -e, perl stops switch parsing at the code
+          # string, so everything after it lands in @ARGV verbatim -- including the
+          # `--`, which `shift` does not remove and `exec` then tries to RUN. That
+          # form fails silently in the worst way available: a failed exec in perl
+          # falls off the end of the script, so the probe runs nothing, prints
+          # nothing, and exits 0. Only the output checks below would notice.
+          # A leading `-B` in "$@" is safe for the same reason it is @ARGV, not a switch.
+          run_capped() { perl -e 'alarm shift; exec @ARGV' 90 "$@"; }
+
+          echo "==> the interpreter re-entry the stdlib performs on a frozen binary"
+          # Not a synthetic check: this is byte-for-byte the argv shape
+          # multiprocessing.resource_tracker builds. It must execute the program,
+          # not parse it as YazSes options.
+          OUT=$(run_capped "${APP}" -B -c "print('reentry-ok')" 2>&1) || true
+          echo "${OUT}"
+          case "${OUT}" in
+            *reentry-ok*) echo "    ok: the bundle served the re-entry" ;;
+            *"No such option"*)
+              echo "FAIL: argv fell through to the CLI -- __main__.interpreter_reentry"
+              echo "      is not handling the frozen relaunch. This is the #182 -B bug."
+              exit 1 ;;
+            *) echo "FAIL: re-entry produced neither the program output nor a CLI error"; exit 1 ;;
+          esac
+
+          echo "==> the CLI is reachable from inside the bundle"
+          VER=$(run_capped "${APP}" --cli --version 2>&1) || true
+          echo "${VER}"
+          case "${VER}" in
+            "") echo "FAIL: --version printed nothing; the bundle has no usable stdout"; exit 1 ;;
+            *"No such option"*|*Traceback*) echo "FAIL: --version errored"; exit 1 ;;
+          esac
+
+          echo "==> doctor runs, and says something about Input Monitoring"
+          # doctor exits non-zero when prerequisites are missing, which on a bare
+          # runner they are. Its exit code is not the subject; its output is.
+          DOC=$(run_capped "${APP}" --cli doctor 2>&1) || true
+          echo "${DOC}"
+          case "${DOC}" in
+            *Traceback*) echo "FAIL: doctor raised inside the bundle"; exit 1 ;;
+          esac
+          case "${DOC}" in
+            *"Input Monitoring"*) echo "    ok: the row is rendered" ;;
+            *) echo "FAIL: doctor never mentions Input Monitoring. That permission being"
+               echo "      silently absent -- not denied, not requested, not named -- is"
+               echo "      exactly how #182 presented."; exit 1 ;;
+          esac
+
+          echo "==> no resource-tracker storm framing the output"
+          case "${DOC}${VER}" in
+            *"resource_tracker"*) echo "FAIL: leaked semaphores; the re-entry branch is not holding"; exit 1 ;;
+          esac
+
+          echo "All bundle smoke checks passed."
+
       - name: Codesign .app and .dmg (Developer ID)
         if: steps.sign.outputs.sign == 'true'
         shell: bash
