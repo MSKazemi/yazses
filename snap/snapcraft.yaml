@@ -1,6 +1,13 @@
 name: yazses
 base: core24
-version: "2.17.0"
+# Kept equal to `pyproject.toml`'s `[project] version` by
+# `tests/test_snap_version_matches_the_project.py`. The tag workflow rewrites
+# this line before building, so on a tagged release it is overwritten anyway --
+# but the snapcraft.io **build service** builds the repository exactly as
+# committed, and nothing rewrites anything for it. This line sat at 2.17.0 while
+# the project shipped 2.29.0, so all 188 of its builds were stamped with a
+# version twelve releases old and *lower* than what `latest/stable` served.
+version: "2.29.0"
 summary: Local, offline-by-default voice dictation for Linux
 description: |
   YazSes is offline-by-default, on-device voice dictation. Hold a key (Space by

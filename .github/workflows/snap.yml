@@ -123,55 +123,103 @@ jobs:
 
       - name: Publish to Snap Store
         id: publish
-        if: steps.check-snap-creds.outputs.have_creds == 'true'
         # Shorter than the job's 60 minutes on purpose. v2.20.0 and v2.21.0 both
         # built a good snap and then stalled here until the *job* limit killed
         # them, which GitHub reports as "cancelled" — indistinguishable from
         # someone pressing stop. Two releases passed with `latest/stable` on
-        # 2.19.0 and nothing in the run list that looked like a failure. An upload
-        # plus a channel release is a few minutes' work; 20 is generous, and
-        # failing at 20 produces an error somebody reads.
-        timeout-minutes: 20
-        uses: snapcore/action-publish@214b86e5ca036ead1668c79afb81e550e6c54d40 # v1
+        # 2.19.0 and nothing in the run list that looked like a failure.
+        if: steps.check-snap-creds.outputs.have_creds == 'true'
+        timeout-minutes: 30
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
-        with:
-          snap: ${{ steps.snap-build.outputs.snap }}
-          # Publish to edge as well as stable. Originally because nothing else fed
-          # edge, so it did not stay empty, it stayed *stale* — it sat on 1.4.1
-          # while stable was 2.15.0, handing `snap install --edge` a build eleven
-          # releases old.
-          #
-          # Since 2026-08-08 the snapcraft.io build service is connected to this
-          # repo and auto-releases every push to main into edge, so edge now has a
-          # continuous feed and the original argument no longer applies. The tag
-          # publish stays anyway: it is harmless (at tag time main *is* the tag)
-          # and it keeps stable and edge consistent even if the build service is
-          # unavailable. This workflow remains the only publisher to **stable**,
-          # which is why it has to cover every architecture: the build service
-          # only ever feeds edge, so any arch missing from the matrix above is an
-          # arch that never reaches `snap install yazses`.
-          release: stable,edge
+          SNAP_FILE: ${{ steps.snap-build.outputs.snap }}
+          ARCH: ${{ matrix.arch }}
+        # This used to be `snapcore/action-publish` with `release: stable,edge`,
+        # i.e. `snapcraft upload <snap> --release stable,edge`. That command does
+        # two things and only the first one has ever worked here.
+        #
+        # The transfer finishes in about a minute and the store assigns a revision
+        # straight away. The client then polls the store's scan for a verdict, and
+        # for this ~474 MB snap the verdict does not arrive: run 32221079405
+        # printed `Status: processing` 988 times over nineteen unbroken minutes and
+        # was killed with the release never applied. Because `--release` is an
+        # argument to the command that is still blocked, killing the client kills
+        # the release too — the revision lands and no channel ever points at it.
+        #
+        # The snapcraft.io build service fails from the other side of the same
+        # wall: Launchpad reports `store_upload_status: Failed to upload` on builds
+        # whose revisions are demonstrably sitting in the store, 188 of them.
+        #
+        # Ten consecutive tagged releases died here. `latest/stable` served 2.19.0
+        # while the project shipped 2.29.0.
+        #
+        # So: upload, do NOT wait for the verdict, then read the revision number
+        # back out of the store and apply the channel release as its own call. The
+        # release is what the blocked poll was holding hostage; it does not need
+        # the scan to have reported.
+        run: |
+          set -uo pipefail
+          command -v snapcraft >/dev/null || sudo snap install snapcraft --classic
 
-      # A bare "has timed out after 20 minutes" says nothing about which half failed,
-      # and the two halves have opposite meanings. Measured on run 31906962075: the
-      # upload *succeeds* -- the file transfers, the credentials are accepted -- and
-      # then `snapcraft upload` polls the store, which answered `Status: processing`
-      # 971 times, roughly once a second, for nineteen unbroken minutes.
+          timeout 900 snapcraft upload "$SNAP_FILE" 2>&1 | tee upload.log || true
+
+          # From the filename, which the arch check above has already proved.
+          VERSION=$(basename "$SNAP_FILE" | sed -E "s/^yazses_(.+)_${ARCH}\.snap$/\1/")
+
+          # Read the revision back from the store rather than parsing upload.log:
+          # the log is exactly what gets truncated when the poll is killed, and the
+          # revision exists whether or not the client lived to be told about it.
+          REV=""
+          for _ in $(seq 1 10); do
+            REV=$(snapcraft revisions yazses 2>/dev/null \
+                  | awk -v v="$VERSION" -v a="$ARCH" '$3 == a && $4 == v { print $1; exit }')
+            [ -n "$REV" ] && break
+            sleep 15
+          done
+          if [ -z "$REV" ]; then
+            echo "::error::the store holds no revision for yazses $VERSION/$ARCH — the upload itself failed, not the wait"
+            exit 1
+          fi
+          echo "Store revision for $VERSION/$ARCH is $REV"
+
+          set -e
+          snapcraft release yazses "$REV" stable,edge
+
+          # A green workflow is not a published package — this whole area exists
+          # because that assumption hid a stuck store for nine releases. Read the
+          # channel back and fail if it did not move.
+          snapcraft status yazses | tee status.log
+          awk -v a="$ARCH" -v v="$VERSION" \
+            '$2 == a && $3 == "stable" { ok = ($4 == v) } END { exit !ok }' status.log || {
+            echo "::error::released revision $REV but latest/stable is still not $VERSION on $ARCH"
+            exit 1
+          }
+          echo "latest/stable is $VERSION on $ARCH (revision $REV)"
+
+      # The step above no longer waits for the store's scan, so a failure here has
+      # changed meaning and the explanation had to change with it. It used to say
+      # "the revision is queued for review, the pipeline is fine" -- true, and the
+      # reason ten releases went unpublished while every run looked like an
+      # infrastructure hiccup somebody else would clear.
       #
-      # So a timeout here is almost never a broken pipeline. It is a revision sitting
-      # in the store's review queue, and reading it as "publish is broken" sends the
-      # next person to check credentials that are demonstrably fine.
+      # Now the upload is allowed to time out and the channel release is a separate
+      # call, so reaching this step means one of two things that are worth telling
+      # apart: the store holds no revision at all (the upload really failed), or the
+      # revision exists and `snapcraft release` refused it -- which is the case that
+      # points at the store's review of the revision rather than at this workflow.
       #
       # The job still FAILS, deliberately. Nothing reached `latest/stable`, and a
       # green workflow that published nothing is the exact failure this whole area
-      # exists to prevent. What changes is that the failure now says what happened.
-      - name: Explain what a publish timeout means
+      # exists to prevent.
+      - name: Explain what a failed publish means
         if: always() && steps.publish.outcome == 'failure'
         run: |
-          echo "::warning title=Snap publish did not complete::The snap was BUILT and \
-          almost certainly UPLOADED; what did not finish is the store's review of the \
-          revision. Check the step log above: if it shows 'Uploading...' followed by \
-          repeated 'Status: processing', the credentials are fine and the revision is \
-          queued for review -- see https://snapcraft.io/yazses/releases . Nothing has \
-          reached latest/stable, which is why this job is red."
+          echo "::warning title=Snap publish did not complete::The snap was BUILT. \
+          Read the step log above and tell the two cases apart. (1) 'the store holds \
+          no revision' -- the upload itself failed; check credentials. (2) The \
+          revision was found and 'snapcraft release' or the channel read-back failed \
+          -- the upload is fine and the store's review of the revision is what is \
+          holding it; repeated 'Status: processing' in the upload log is the same \
+          signal, and it no longer blocks the release on its own. See \
+          https://snapcraft.io/yazses/releases . Nothing reached latest/stable, \
+          which is why this job is red."
