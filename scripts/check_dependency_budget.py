@@ -97,7 +97,11 @@ EXTRA_MODULES: dict[str, tuple[str, ...]] = {
 # Extras that exist but cannot be enforced this way, each for a stated reason. An extra
 # belongs here only when a base install is *expected* to have its modules importable.
 EXEMPT_EXTRAS: dict[str, str] = {
-    "all": "aggregate of every other extra; its members are checked individually",
+    "all": (
+        "the union of every other extra bar a named exclusion, so every member is "
+        "already checked through the extra that owns it; that it really is the "
+        "union is proved by tests/test_the_all_extra_is_the_union_it_claims.py"
+    ),
 }
 
 # module -> the extra(s) that own it, for the failure message.

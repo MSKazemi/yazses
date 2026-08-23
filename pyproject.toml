@@ -302,6 +302,24 @@ gaze = [
     "mediapipe>=0.10.35",
     "opencv-python>=5.0",
 ]
+# "Just give me the lot." This list is the union of every other extra minus exactly one
+# exclusion, and tests/test_the_all_extra_is_the_union_it_claims.py computes that equality
+# on every run. It was hand-maintained until 2026-08-23 and had silently fallen eight
+# extras behind: `pip install yazses[all]` shipped no denoise, no Chinese script
+# normalisation, no Silero VAD, no Moonshine, no EMG band, no MCP agent and no pyannote
+# diarization. Nothing computed the claim, so nothing noticed.
+#
+# THE EXCLUSION LIST -- add here only with a reason that survives being read out loud:
+#
+#   voiceprint-resemblyzer -- it pins `setuptools<81` for the *whole environment* (see
+#     its own comment above for why it must). An install that asked for "everything"
+#     should not silently hold an unrelated build tool back for every other package.
+#     No capability is lost: this is the alternative backend behind `[voiceprint]
+#     backend`, and its default (ECAPA, via `speechbrain`) is already here. Ask for
+#     `yazses[all,voiceprint-resemblyzer]` to add it deliberately.
+#
+# Pins are copied verbatim from the owning extra; the guard fails on any drift, so a
+# version bump happens in one place and is checked here rather than remembered.
 all = [
     "llama-cpp-python>=0.3.33",
     "pygls>=2.1.1",
@@ -319,6 +337,13 @@ all = [
     "sherpa-onnx-core>=1.13.6",
     "mediapipe>=0.10.35",
     "opencv-python>=5.0",
+    "opencc-python-reimplemented>=0.1.7",
+    "brainflow>=5.22.2",
+    "noisereduce>=3.0.3",
+    "useful-moonshine-onnx>=20251121",
+    "pyannote.audio>=4.0.7",
+    "silero-vad>=5.1.2",
+    "mcp>=1.28.1",
 ]
 
 [dependency-groups]

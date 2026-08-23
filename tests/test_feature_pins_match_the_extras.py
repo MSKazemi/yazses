@@ -59,7 +59,11 @@ def _declared() -> dict[str, set[str]]:
     """Distribution -> every requirement string an extra states for it."""
     out: dict[str, set[str]] = {}
     for name, requirements in EXTRAS.items():
-        if name == "all":  # an aggregate, not an independent statement
+        # `all` restates pins the owning extras already state, so counting it here
+        # would report every dependency as declared twice. That it really is the
+        # union -- in both directions, so a bump in one place cannot drift -- is
+        # proved by tests/test_the_all_extra_is_the_union_it_claims.py.
+        if name == "all":
             continue
         for req in requirements:
             out.setdefault(_distribution(req), set()).add(req)

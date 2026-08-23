@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `pip install yazses[all]` was missing eight extras, and two guards said it could not be
+
+- **`[all]` is now the union of every other extra**, computed and checked rather than
+  remembered. It was hand-maintained and had fallen eight extras behind, so an install
+  that asked for everything got no denoise, no Chinese script normalisation, no Silero
+  VAD, no Moonshine, no EMG band, no MCP agent and no pyannote diarization — nine
+  requirement strings in total. The omissions were never a resolver constraint:
+  `pyproject.toml` declares no `conflicts` and `uv.lock` already resolved all nine
+  together, so adding them changed the lock by fourteen lines and moved no version.
+- The one deliberate exclusion is `voiceprint-resemblyzer`, which pins `setuptools<81`
+  for the whole environment; an install asking for "everything" should not silently hold
+  an unrelated build tool back, and its seam's default backend (ECAPA via `speechbrain`)
+  is already in `[all]`. The reason is stated beside the list, and a guard fails if an
+  exclusion loses its stated reason, names an extra that no longer exists, or points at a
+  seam whose default backend has since left `[all]`.
+- Two places already treated `[all]` as a computed aggregate and exempted it on that
+  basis — `scripts/check_dependency_budget.py` and `tests/test_feature_pins_match_the_extras.py`.
+  Both exemptions were sound given the relationship they named, and neither computed it,
+  so both stayed green while it stopped holding. The equality is now proved in **both**
+  directions: a new extra that `[all]` forgets fails, and so does a pin bumped in one
+  place only, which would leave `[all]` quietly resolving an older version.
+
 ### Fixed — the 56 best-documented config keys were the ones the reference page said nothing about
 
 `docs/configuration.md` derives its Notes column from the comment beside each field in
