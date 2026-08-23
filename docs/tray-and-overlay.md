@@ -91,10 +91,13 @@ that most often go wrong — the wrong microphone, and a daemon that needs a res
   transcript is being written, which continues for a while after the click.
 
   Both entries are always shown, and on Linux the one that cannot apply is greyed out with
-  the reason attached — *Meeting Mode is off*, *a meeting is already running*, *still
-  finishing the last meeting*. Meeting Mode is off by default, so that is the state most
-  people see first; turn it on in **Settings…** (or `yazses features enable meeting`) and
-  restart. On macOS and Windows the menu is built once when the tray starts and cannot grey
+  the reason given — *Meeting Mode is off*, *a meeting is already running*, *still
+  finishing the last meeting*. When neither entry can do anything the reason appears as a
+  plain line in the menu above them, not only as a hover tooltip: a tooltip is unreachable
+  by keyboard, is never announced by a screen reader, and is not drawn at all on a desktop
+  that renders the tray menu itself (GNOME with AppIndicator). Meeting Mode is off by
+  default, so that is the state most people see first; turn it on in **Settings…** (or
+  `yazses features enable meeting`) and restart. On macOS and Windows the menu is built once when the tray starts and cannot grey
   entries out as state changes, so both stay clickable there and YazSes answers with the same
   reason when a click can't apply.
 - **Settings…** — opens the graphical settings window (the same thing as `yazses settings`),

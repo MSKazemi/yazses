@@ -8,6 +8,7 @@ so they unit-test directly.
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -206,6 +207,41 @@ def meeting_entries(status: dict) -> list[MeetingEntry]:
             MEETING_STOP_LABEL, "meeting_stop", False, "No meeting is running."
         ),
     ]
+
+
+def meeting_notice(entries: Sequence[MeetingEntry]) -> str | None:
+    """The one line that explains a wholly greyed-out Meeting Mode, or ``None``.
+
+    ``MeetingEntry.reason`` is documented as never being ``None`` on a disabled entry,
+    because "a greyed-out entry with no explanation is worse than no entry at all".
+    The Qt tray honoured that by hanging the reason off ``QAction.setToolTip`` — and a
+    ``QMenu`` renders action tooltips only when ``toolTipsVisible`` is set, which nothing
+    in the tree ever set. So the reason was written and never shown, and the two entries
+    the tray greys out most often (Meeting Mode is off by default) said nothing at all.
+    The other two trays leave the entries clickable and show the daemon's refusal as a
+    toast, which left Linux -- the one tray that predicts the refusal -- as the only one
+    that could not explain it.
+
+    A tooltip is also the wrong *only* answer here. On a desktop that renders the tray
+    menu itself (GNOME + AppIndicator exports it over dbusmenu; this is the common Linux
+    case) the popup is never a Qt widget, so no amount of ``toolTipsVisible`` puts a
+    tooltip on screen. A visible menu line survives that, so the reason goes in the menu
+    and the tooltip stays as the per-entry extra.
+
+    Derived from the *entries* rather than re-read from the status dict, so the notice
+    cannot come to disagree with what is actually greyed out. Only the case where both
+    entries are disabled for the **same** reason gets a line: when they differ, the
+    greying is self-explanatory ("Stop meeting" is grey because no meeting is running)
+    and a banner would be noise.
+    """
+    items = list(entries)
+    if len(items) < 2 or any(item.enabled for item in items):
+        return None
+    reasons = {item.reason for item in items}
+    if len(reasons) != 1:
+        return None
+    reason = items[0].reason
+    return f"\u24d8 {reason}" if reason else None
 
 
 def _silent_streak_limit(status: dict) -> int:

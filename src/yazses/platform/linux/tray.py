@@ -302,9 +302,15 @@ class LinuxTray:
             UPDATE_LABEL,
             build_menu_model,
             meeting_entries,
+            meeting_notice,
         )
 
         menu.clear()
+        # A QMenu renders an action's tooltip only when this is on -- it is off by
+        # default, which is why every reason the tray attached below was written and
+        # never seen. Free where the menu is a Qt widget; the visible notice line below
+        # is what covers the desktops that render the menu themselves.
+        menu.setToolTipsVisible(True)
         ctrl = self._controller
         status = ctrl.status() if ctrl is not None else {}
         with self._lock:
@@ -347,7 +353,12 @@ class LinuxTray:
         # greyed out with its reason as the tooltip rather than failing on click —
         # something the rumps and pystray menus, built once at startup, cannot do.
         menu.addSeparator()
-        for entry in meeting_entries(status):
+        entries = meeting_entries(status)
+        notice = meeting_notice(entries)
+        if notice:
+            note = menu.addAction(notice)
+            note.setEnabled(False)
+        for entry in entries:
             act = menu.addAction(entry.label)
             act.setEnabled(entry.enabled)
             if entry.reason:
