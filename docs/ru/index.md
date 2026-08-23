@@ -356,23 +356,27 @@ Prefer `yazses features` / `yazses hotkey` / `yazses vocab` to edit config safel
 
 ```toml
 [stt]
-model = "small.en"          # tiny.en (fast) | base.en | small.en (accurate); CPU int8
+model = "base.en"           # tiny.en (fast) | base.en | small.en (accurate); CPU int8
 initial_prompt = ""         # vocabulary/context primed into Whisper
 
 [hotkey]
-key = "space"               # hold-to-talk key (yazses hotkey set <key>)
+key = "auto"                # hold-to-talk key; "auto" = Right Alt on Linux,
+                            # Right Option on macOS, Right Ctrl on Windows
+                            # (yazses hotkey set <key>)
 command_key = ""            # optional dedicated key that forces command mode
 hold_threshold_ms = 500     # how long to hold before recording starts
 
 [audio]
 sample_rate = 16000
-max_record_seconds = 90
+max_record_seconds = 300    # a single hold is cut at this many seconds
 
 [injection]
-backend = "auto"            # auto | xdotool | ydotool | wtype | clipboard
+backend = "auto"            # auto | type | ydotool | wtype | clipboard
+                            # ("xdotool" is not a token — on X11 `auto` already
+                            #  uses xdotool; asking for it on Wayland gets ydotool)
 
 [accessibility]
-vad_threshold = 0.0008      # lower for quiet speech, raise if room noise triggers (yazses mic-level --set)
+vad_threshold = 0.01        # lower for quiet speech, raise if room noise triggers (yazses mic-level --set)
 ```
 
 See the [CLI reference](../cli-reference.md) and [`examples/config.example.toml`](https://github.com/MSKazemi/yazses/blob/main/examples/config.example.toml) for all options.

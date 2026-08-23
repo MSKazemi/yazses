@@ -2,7 +2,7 @@
 # Copy to ~/.config/yazses/config.toml and edit as needed.
 
 [stt]
-model = "tiny.en"         # tiny.en (fast) | base.en (accurate)
+model = "base.en"         # tiny.en fast · base.en balanced · small.en accurate
 device = "cpu"
 compute_type = "int8"
 
@@ -12,7 +12,7 @@ hold_threshold_ms = 500
 
 [audio]
 sample_rate = 16000
-max_record_seconds = 90
+max_record_seconds = 300   # a burst is cut at this many seconds; 90 truncated long dictations
 
 [injection]
 backend = "auto"           # auto | type | ydotool | wtype | clipboard

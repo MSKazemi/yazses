@@ -6,6 +6,73 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the config we hand people told them to undo a bug fix
+
+- **The example config three packagers install stated two values the code disagrees
+  with.** `examples/config.example.toml` is what `scripts/build-deb.sh`, `debian/rules`
+  and `packaging/arch/PKGBUILD` all put in `/usr/share/yazses/`, and what the README
+  links to — while `examples/config.toml`, which is generated from the dataclass defaults
+  and stale-checked, ships nowhere. It set `[stt] model = "tiny.en"` against a default of
+  `base.en`, silently downgrading accuracy for anyone who copied it, and
+  `[audio] max_record_seconds = 90` against a default of `300` — the ceiling that was
+  raised *because* 90 was cutting long dictations off, so copying the file re-introduced
+  the bug that raised it.
+- **The README's own config block was further out.** Under "Essential settings" it showed
+  `model = "small.en"`, `max_record_seconds = 90` and `vad_threshold = 0.0008` against a
+  shipped default of `0.01` — a silence gate twelve times more sensitive, handed to every
+  reader of the front page, predisposing them to exactly the spurious-transcript problem
+  `yazses mic-level` exists to fix. Neither `tiny.en` nor `0.0008` was ever the default:
+  both have been what they are since the initial commit.
+- **The Russian and Hindi landing pages carried a fifth error and a stale fourth value.**
+  Their blocks were byte-identical to each other, every comment in English — copies of an
+  older README, not translated content — offering `key = "space"` as the hold-to-talk key
+  and `xdotool` as an injection backend the README says is not a token. Both now carry the
+  corrected block. `docs/zh-CN/index.md` deliberately deviates and is untouched: a Chinese
+  setup must set `[stt] language` and a non-`.en` model.
+- Two guards already swept `examples/` and neither could see any of this: one rejects a
+  key that does not **exist**, the other a key nothing **reads**. A live, correctly-spelled
+  key holding the wrong *value* passed both. Values were the unchecked axis, and are now
+  checked — with the swept region derived from the packaging scripts themselves, so
+  pointing a packager at a different example tomorrow is covered without editing a list.
+
+### Fixed — the new attribution guard fired on half of a corpus, and lied in three of those
+
+The implausible-attribution warning shipped earlier in this cycle with a flat threshold:
+a speaker label holding under **20 seconds** across a whole recording is a fragment, and
+a result that is mostly fragments is unreliable. 20 s was measured on AMI, where a
+recording runs forty minutes.
+
+Scored against VoxConverse — short broadcast and web video, which is exactly what
+`yazses transcribe` is handed — at the shipped `[recimport] cluster_threshold = 1.0`, it
+fired on **7 of 15** recordings and only 4 of those were genuinely over-split. The other
+three had a speaker count that was exactly right (8 labels for 8 people) or *too low*
+(9 for 12, 14 for 17), so the sentence it printed — "a person's worth of speech split
+apart rather than that many people" — was **false about the result it described**. A
+guard that fires half the time and misdiagnoses three of those firings trains the user to
+dismiss it, and then it is not protecting anything.
+
+The threshold now scales with the recording: `min(20 s, max(5 s, 2 % of total speech))`.
+
+| | VoxConverse @ 0.9 | VoxConverse @ 1.0 | 3-minute shatter |
+|---|---|---|---|
+| flat 20 s | 8 fire, 1 false | 7 fire, **3 false** | caught |
+| scaled | 6 fire, **0 false** | 4 fire, **0 false** | caught |
+
+Three things make this safe to change days after shipping it:
+
+- **It can only relax.** The derived threshold is bounded above by the 20 s every
+  published measurement used, so no result that was silent before can start warning.
+- **AMI is untouched.** 2 % of half an hour is 36 s, above the ceiling — so the ADR's
+  table and the 257-labels-for-four-people catastrophe that produced the module are still
+  evaluated at exactly 20 s.
+- **The floor is doing work a proportion cannot.** Shatter a three-minute clip into forty
+  equal slivers and every label holds exactly `total/40`; a fraction-of-total threshold
+  moves with the shattering and never catches it. Under five seconds of speech in a whole
+  recording is not a participant on any recording length.
+
+What it still does not cover is unchanged and stated in `design/adr/adr-v2-133`: it is
+one-directional, so under-splitting and a collapse into a single cluster both pass.
+
 ### Fixed — what `beam_size` actually costs, instead of what the source assumed
 
 `config.py` described `beam_size = 1` as "measurably faster and measurably worse". Both
