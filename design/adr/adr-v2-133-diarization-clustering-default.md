@@ -120,6 +120,36 @@ approximate the forced-count answer, it arrives at the same partition — so opt
 3 are not a trade-off here, and the remaining question is only whether `1.2` holds
 elsewhere.
 
+### The gate: `1.2` does not transfer to another domain
+
+VoxConverse exists in this harness for exactly one purpose — *"it checks that a change does
+not help one domain by hurting another"* (`paper/benchmark/README.md`). Fifteen dev
+recordings, 137.7 min, broadcast and YouTube audio:
+
+| threshold | 0.5 (shipped) | 0.7 | **1.2 (AMI optimum)** |
+|---|---|---|---|
+| DER | 41.72% | **24.39%** | 42.13% |
+| mean speaker-count error | +31.73 | +16.20 | **−6.40** |
+| exact count | 1/15 | 2/15 | 1/15 |
+
+Two things fall out, and they point in opposite directions.
+
+**The optimum does not transfer.** AMI's best value is VoxConverse's worst of the three, and
+the count error changes *sign*: at `1.2` VoxConverse is under-counted by 6.4 speakers per
+recording, where AMI at the same value is within 0.75. This is the complete-linkage mechanism
+again, now measured across domains rather than inferred: a cut height that clears the
+worst-case same-speaker pair in a 40-minute meeting merges distinct speakers in a
+crowd-scene broadcast. **`0.5` is nevertheless not optimal anywhere measured** — synthetic
+peaks near `0.9`, AMI at `1.2`, and VoxConverse is 17 pp better at `0.7` than at the shipped
+value.
+
+**But the cost of raising it is not symmetric with the gain.** Moving the default from `0.5`
+to `1.2` is worth **+57 pp** on AMI (84.1% → 27.07%) and **−0.41 pp** on VoxConverse
+(41.72% → 42.13%), which on fifteen files is noise. So the gate did not veto raising the
+default; it vetoed the *claim* that `1.2` is the right number in general. Meeting Mode is
+pointed at meetings, and on the corpus that is not meetings the change costs approximately
+nothing while leaving that domain as mis-tuned as it already was.
+
 ### The failure was visible in the output and nothing looked
 
 That table is also a signal. A label holding 0.32 s of speech across a 14-minute meeting
