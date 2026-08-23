@@ -1,6 +1,6 @@
 ---
-title: Dragon NaturallySpeaking for Linux — why it does not exist, and what to use instead
-description: Dragon has never had a Linux version and the Mac version was discontinued in 2018. Here is an honest look at what Dragon actually does better, what the open-source offline options on Linux are, and how close YazSes gets.
+title: "Dragon NaturallySpeaking for Linux — why it does not exist, and what to use instead"
+description: "Dragon has no Linux version and its Mac edition ended in 2018. An honest look at what Dragon still does better, and the closest offline Linux alternative."
 ---
 
 # Is there a Dragon NaturallySpeaking for Linux?

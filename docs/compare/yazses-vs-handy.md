@@ -1,6 +1,6 @@
 ---
-title: Handy alternative — YazSes vs Handy for offline speech to text
-description: An honest comparison of YazSes and Handy, two free offline open-source dictation tools for Linux, macOS and Windows — Wayland support, voice commands, file transcription and meeting capture, and where Handy is the better pick.
+title: "Handy alternative — YazSes vs Handy for offline speech to text"
+description: "YazSes vs Handy, two free offline open-source dictation tools: Wayland support, voice commands, file and meeting transcription, and where Handy is better."
 ---
 
 # YazSes vs Handy

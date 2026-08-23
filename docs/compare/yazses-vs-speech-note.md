@@ -1,6 +1,6 @@
 ---
-title: Speech Note alternative — YazSes vs Speech Note (dsnote) on Linux
-description: An honest comparison of YazSes and Speech Note (dsnote) for Linux — a background dictation daemon versus a note-taking app with speech to text, text to speech and translation.
+title: "Speech Note alternative — YazSes vs Speech Note (dsnote) on Linux"
+description: "YazSes vs Speech Note (dsnote) on Linux: a background dictation daemon versus a note-taking app with speech to text, text to speech and translation."
 ---
 
 # YazSes vs Speech Note (dsnote)

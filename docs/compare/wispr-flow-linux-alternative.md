@@ -1,6 +1,6 @@
 ---
-title: Wispr Flow for Linux — the offline, open-source alternative
-description: Wispr Flow has no Linux client and its own documentation states that offline transcription is not available. Here is what it does well, and how YazSes compares for people who need Linux, offline dictation, or both.
+title: "Wispr Flow for Linux — the offline, open-source alternative"
+description: "Wispr Flow has no Linux client and its docs say offline transcription is unavailable. What it does well, and how YazSes compares for offline dictation."
 ---
 
 # Wispr Flow alternative for Linux

@@ -1,6 +1,6 @@
 ---
-title: Voice dictation compared — YazSes vs Dragon, Wispr Flow, Handy, Vocalinux and more
-description: Side-by-side comparisons of YazSes against the dictation tools people actually choose between - Dragon, Wispr Flow, Handy, Vocalinux, Speech Note and nerd-dictation. Which run offline, which support Linux and Wayland, and which is right for your job.
+title: "Voice dictation compared — YazSes vs Dragon, Wispr Flow, Handy, Vocalinux and more"
+description: "YazSes compared with Dragon, Wispr Flow, Handy, Vocalinux, Speech Note and nerd-dictation: which run offline, which support Linux and Wayland, which fits."
 ---
 
 # Compare

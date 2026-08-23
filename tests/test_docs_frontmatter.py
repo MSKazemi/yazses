@@ -76,3 +76,100 @@ def test_description_is_a_usable_length(path: Path, description: str):
         f"{path.relative_to(DOCS)}: description is {len(description)} characters; "
         "aim for roughly 50–360 so it reads as a summary rather than a stub or a page."
     )
+
+
+# ---- front matter that does not parse at all ----------------------------
+#
+# The guard above reads the front matter with `yaml.safe_load` and returns `{}`
+# when that raises. That is the right behaviour for a helper and the wrong
+# behaviour for a guard: a page whose front matter is *unparseable* declares no
+# description, so it is skipped rather than reported, and the one check meant to
+# protect descriptions goes quiet exactly when a description has been destroyed.
+#
+# The trigger is an unquoted colon. YAML reads `description: A vs B: notes` as a
+# nested mapping, fails, and MkDocs discards the **whole block** — so the page
+# loses its `title:` as well and falls back to `site_description`, identically on
+# every affected page. Nothing goes red: `mkdocs build --strict` is silent about
+# it, the page renders, and only the search snippet and the tab title are wrong.
+#
+# Found on five `docs/compare/` pages at once, all with the same shape
+# (`... dictation tools: GPU vs CPU`). Quoting the value fixes it.
+
+
+def _pages_with_front_matter() -> list[Path]:
+    """Every page that opens a `---` block, parseable or not."""
+    return [
+        p
+        for p in sorted(DOCS.rglob("*.md"))
+        if p.read_text(encoding="utf-8").startswith("---")
+        and p.read_text(encoding="utf-8").find("\n---", 3) != -1
+    ]
+
+
+def test_there_is_front_matter_to_parse():
+    """Guard the guard: this passes over an empty list."""
+    assert len(_pages_with_front_matter()) >= 40
+
+
+@pytest.mark.parametrize(
+    "path",
+    _pages_with_front_matter(),
+    ids=[p.relative_to(DOCS).as_posix() for p in _pages_with_front_matter()],
+)
+def test_front_matter_parses(path: Path):
+    text = path.read_text(encoding="utf-8")
+    block = text[3 : text.find("\n---", 3)]
+    try:
+        loaded = yaml.safe_load(block)
+    except yaml.YAMLError as exc:
+        raise AssertionError(
+            f"{path.relative_to(DOCS)}: the front matter is not valid YAML, so "
+            f"MkDocs drops all of it -- the page loses its title and its "
+            f"description and silently falls back to site_description. The usual "
+            f"cause is an unquoted colon in a value; wrap the value in double "
+            f"quotes. YAML said: {exc}"
+        ) from exc
+    assert isinstance(loaded, dict), (
+        f"{path.relative_to(DOCS)}: the front matter parsed as "
+        f"{type(loaded).__name__}, not a mapping, so MkDocs reads no keys from it."
+    )
+
+
+# ---- the compare pages are built to win a search click ------------------
+#
+# Scoped to `docs/compare/` on purpose. 87 of the 135 pages that declare a
+# description are longer than this and that is fine -- they are documentation a
+# reader has already arrived at. The compare tree is the opposite: its whole job
+# is the snippet under a search result for someone deciding between two tools, and
+# Google truncates that near 160 characters. A description that says what makes
+# YazSes different in its last 70 characters says it to nobody.
+
+COMPARE = DOCS / "compare"
+SNIPPET_LIMIT = 160
+
+
+def _compare_pages() -> list[Path]:
+    return sorted(COMPARE.rglob("*.md"))
+
+
+def test_there_are_compare_pages():
+    assert len(_compare_pages()) >= 5
+
+
+@pytest.mark.parametrize(
+    "path",
+    _compare_pages(),
+    ids=[p.relative_to(DOCS).as_posix() for p in _compare_pages()],
+)
+def test_compare_description_fits_a_search_snippet(path: Path):
+    desc = _front_matter(path).get("description")
+    assert isinstance(desc, str) and desc.strip(), (
+        f"{path.relative_to(DOCS)}: a compare page with no description gets the "
+        f"generic site_description as its search snippet, which says nothing "
+        f"about the comparison the reader searched for."
+    )
+    assert len(desc) <= SNIPPET_LIMIT, (
+        f"{path.relative_to(DOCS)}: the description is {len(desc)} characters and "
+        f"Google truncates near {SNIPPET_LIMIT}, so the tail is cut. Put the "
+        f"differentiator first and shorten."
+    )

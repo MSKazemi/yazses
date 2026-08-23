@@ -1,6 +1,6 @@
 ---
-title: Vocalinux alternative — YazSes vs Vocalinux for Linux voice dictation
-description: An honest comparison of YazSes and Vocalinux, two offline open-source voice dictation tools for Linux — GPU versus CPU, engine choice, licensing (Apache-2.0 vs AGPL-3.0), and whether you need macOS or Windows too.
+title: "Vocalinux alternative — YazSes vs Vocalinux for Linux voice dictation"
+description: "YazSes vs Vocalinux, two offline open-source Linux dictation tools: GPU vs CPU, engine choice, Apache-2.0 vs AGPL-3.0, and cross-platform support."
 ---
 
 # YazSes vs Vocalinux

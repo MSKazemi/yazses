@@ -1,6 +1,6 @@
 ---
-title: nerd-dictation alternative — YazSes vs nerd-dictation for Linux voice typing
-description: A detailed, honest comparison of YazSes and nerd-dictation for offline Linux voice dictation - hold-to-talk versus begin/end commands, Whisper versus VOSK accuracy, Wayland support, and a step-by-step guide to migrating your nerd-dictation setup.
+title: "nerd-dictation alternative — YazSes vs nerd-dictation for Linux voice typing"
+description: "YazSes vs nerd-dictation for offline Linux voice typing: hold-to-talk vs begin/end, Whisper vs VOSK, Wayland support, and how to migrate your setup."
 ---
 
 # YazSes vs nerd-dictation
