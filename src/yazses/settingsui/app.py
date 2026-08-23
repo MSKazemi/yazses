@@ -1185,13 +1185,13 @@ class SettingsWindow:
     def _start_install_worker(self, plans) -> None:
         from PySide6.QtCore import QThread
 
+        from yazses.settingsui.deps import describe_install_start
         from yazses.settingsui.worker import InstallWorker
 
         self._apply_button.setEnabled(False)
-        self._hint.setText(
-            f"Installing packages for {', '.join(p.slug for p in plans)}… "
-            "this can take a few minutes."
-        )
+        # Says what this costs before it is spent (ADR-018), and -- because this window
+        # has no cancel to offer -- says so when the answer is gigabytes.
+        self._hint.setText(describe_install_start(plans))
 
         thread = QThread(self._win)
         worker = InstallWorker(plans)

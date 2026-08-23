@@ -8,6 +8,31 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The settings window started a 3.1 GB download and called it "a few minutes".**
+  `yazses features enable <slug>` says what an install costs *before* it spends it
+  (ADR-018) — it prints the marginal download note, and for a large one prefixes it with
+  "⚠ Large download —" and "Ctrl-C now to stop", because "a download that turns out to be
+  gigabytes is one the user should have been able to cancel". The settings window did none
+  of it: nothing under `settingsui/` referenced `depsize` at all, `_auto_install` defaults
+  to **true**, and the one line it showed was `Installing packages for <slug>… this can
+  take a few minutes.`
+
+  Measured against the real registry: 19 capabilities have a priceable install and **9**
+  are ones the CLI shouts about — `multiprofile`, `cocktail` and `voiceguard` are each
+  **~3.1 GB**, and `stt-parakeet` fetches ~600 MB of model files.
+
+  It was worse in the window than in the terminal, not better. There is no cancel here:
+  the install worker exposes no interrupt and Apply is disabled while it runs, so the
+  CLI's "Ctrl-C now to stop" has no equivalent to offer. The number *before* the click is
+  the only warning that can help — and this is the surface the settings epic exists to
+  serve, i.e. the user least likely to have a terminal open to notice a disk filling.
+
+  The window now shows the same marginal size the CLI quotes, marks a large one as such,
+  and says plainly that it cannot be stopped once started. The decision is a pure function
+  in `settingsui/deps.py` (`describe_install_start`) like the rest of that package, so the
+  whole message matrix tests without a display, and a test fails the build if the Qt layer
+  goes back to a hardcoded sentence of its own.
+
 - **`yazses meeting relabel` re-cut the transcript it promised only to re-render.** Its
   own docstring says it re-renders "from `transcript.json`, never re-diarizing", and the
   CLI help says it "only re-renders". What it did was rebuild every utterance from the

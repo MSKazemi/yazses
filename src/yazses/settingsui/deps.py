@@ -172,6 +172,65 @@ def describe_failure(outcome: InstallOutcome) -> str:
     )
 
 
+def _depsize_price(slug: str, packages: Sequence[str]) -> tuple[str, bool]:
+    """``(note, loud)`` for one capability, from the committed size table (ADR-018).
+
+    Imported here rather than at module scope for the reason the rest of this package
+    imports late: `settingsui/deps.py` is pure and must stay importable wherever the
+    window's wiring is inspected.
+    """
+    from yazses.system.depsize import download_note, is_a_large_download
+
+    return download_note(slug, list(packages)), is_a_large_download(slug, list(packages))
+
+
+def describe_install_start(plans: Sequence[InstallPlan], *, price=None) -> str:
+    """What the window says *before* it spends the user's bandwidth (ADR-018).
+
+    `yazses features enable` prints the marginal download note first, and shouts for a
+    large one, because "a download that turns out to be gigabytes is one the user should
+    have been able to cancel". The window said only "this can take a few minutes" -- for
+    installs that are ~3.1 GB.
+
+    It is worse here than in the terminal: this window has no cancel at all. The worker
+    exposes no interrupt and Apply is disabled while it runs, so the CLI's "Ctrl-C now to
+    stop" has no equivalent, and the number *before* the click is the only warning that
+    can help. That is why a loud run says plainly that it cannot be stopped.
+
+    ``price`` is injected so the whole message matrix tests without the size catalogue.
+    A pricing lookup that raises is treated as no price rather than an error: a size is a
+    courtesy, and the CLI already refuses to let one break the thing it annotates.
+    """
+    if not plans:
+        return ""
+    lookup = price or _depsize_price
+    slugs = ", ".join(p.slug for p in plans)
+
+    notes: list[str] = []
+    loud = False
+    for plan in plans:
+        try:
+            note, is_loud = lookup(plan.slug, plan.packages)
+        except Exception:  # noqa: BLE001 - a size must never break the message
+            note, is_loud = "", False
+        if note:
+            # The slug is already in the "installing packages for X" clause, so repeat it
+            # only when there is more than one and the notes would otherwise be ambiguous.
+            notes.append(f"{plan.slug} {note}" if len(plans) > 1 else note)
+        loud = loud or bool(is_loud)
+
+    if not notes:
+        return f"Installing packages for {slugs}\u2026 this can take a few minutes."
+
+    detail = "; ".join(notes)
+    if loud:
+        return (
+            f"\u26a0 Large download \u2014 installing packages for {slugs}\u2026 "
+            f"{detail}. This cannot be stopped once it has started."
+        )
+    return f"Installing packages for {slugs}\u2026 {detail}."
+
+
 def describe_skipped(missing_by_slug: dict[str, Sequence[str]]) -> str:
     """The message when the user opted out of installing (`--no-install`)."""
     if not missing_by_slug:
