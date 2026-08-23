@@ -67,3 +67,53 @@ def test_trailing_slash_in_site_url_does_not_double_up() -> None:
     assert "//yazses" not in hreflang.build_alternates(HI, {"en": EN}, SITE)["hi"]
     no_slash = hreflang.build_alternates(HI, {"en": EN}, SITE.rstrip("/"))
     assert no_slash == hreflang.build_alternates(HI, {"en": EN}, SITE)
+
+
+class _FakeFile:
+    def __init__(self, src_uri: str) -> None:
+        self.src_uri = src_uri
+
+
+class _FakePage:
+    def __init__(self, src_uri: str, alternates: dict[str, str] | None = None) -> None:
+        self.file = _FakeFile(src_uri)
+        self.meta = {"alternates": alternates} if alternates else {}
+
+
+class _FakeConfig:
+    def __init__(self, pages: list[_FakePage]) -> None:
+        self._hreflang_pages = pages
+
+
+def test_many_translations_of_one_page_form_a_single_set() -> None:
+    """A set of 3+ must not collapse into disjoint pairs.
+
+    Every translation of the README declares nothing but `en: index.md`. Read as
+    independent pairs, each one overwrites `index.md`'s entry, so the English
+    page ends up naming only the translation processed last and the rest lose
+    reciprocity — which is how 27 of 28 were silently discarded while the
+    two-page tests above stayed green.
+    """
+    langs = ["de", "fr", "fa", "zh-TW"]
+    pages = [_FakePage("index.md")] + [
+        _FakePage(f"{lang}/index.md", {"en": "index.md"}) for lang in langs
+    ]
+    groups = hreflang._collect_pairs(_FakeConfig(pages))
+
+    expected = {"en": "index.md", **{lang: f"{lang}/index.md" for lang in langs}}
+    # The original must name every translation, not just the last one.
+    assert groups["index.md"] == expected
+    # And each translation must name its siblings, not only the original.
+    for lang in langs:
+        assert groups[f"{lang}/index.md"] == expected
+
+
+def test_unrelated_translation_sets_are_not_merged() -> None:
+    """Transitive merging must join only sets that actually share a page."""
+    pages = [
+        _FakePage("hi/index.md", {"en": "index.md"}),
+        _FakePage(HI, {"en": EN}),
+    ]
+    groups = hreflang._collect_pairs(_FakeConfig(pages))
+    assert groups["index.md"] == {"en": "index.md", "hi": "hi/index.md"}
+    assert groups[EN] == {"en": EN, "hi": HI}

@@ -93,11 +93,18 @@ def build_alternates(
 
 
 def _collect_pairs(config: Any) -> dict[str, dict[str, str]]:
-    """Map every page in a translation pair to its ``{lang: src_uri}`` group.
+    """Map every page in a translation set to its ``{lang: src_uri}`` group.
 
     Built once from the whole page set so the *original* gets its tags too,
-    without needing a declaration of its own — which is what keeps the pair
+    without needing a declaration of its own — which is what keeps the set
     reciprocal even when only the translation is edited.
+
+    Groups are merged transitively rather than replaced. The 28 README
+    translations each declare nothing but ``en: index.md``, which describes a
+    single 29-page set, not 28 disjoint pairs — and writing them as pairs made
+    each translation overwrite ``index.md``'s entry, so the English page ended
+    up naming only whichever translation was processed last. hreflang is
+    discarded unless it is reciprocal, so that silently threw away the other 27.
     """
     groups: dict[str, dict[str, str]] = {}
     for page in getattr(config, "_hreflang_pages", []):
@@ -107,8 +114,15 @@ def _collect_pairs(config: Any) -> dict[str, dict[str, str]]:
         group = {page_language(page.file.src_uri): page.file.src_uri}
         for lang, uri in declared.items():
             group[str(lang)] = str(uri)
-        for uri in group.values():
-            groups[uri] = group
+
+        # Absorb every set this declaration touches, then republish the union to
+        # all its members, so a page added later sees the siblings it never named.
+        merged: dict[str, str] = {}
+        for uri in list(group.values()):
+            merged.update(groups.get(uri) or {})
+        merged.update(group)
+        for uri in merged.values():
+            groups[uri] = merged
     return groups
 
 
