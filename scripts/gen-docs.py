@@ -14,7 +14,9 @@ and live alongside these.
 """
 from __future__ import annotations
 
+import ast
 import dataclasses
+import functools
 import io
 import sys
 from pathlib import Path
@@ -161,20 +163,125 @@ def _type_name(tp) -> str:
     )
 
 
-def _section_rows(inst) -> list[tuple[str, str, str, str]]:
-    """(key, type, default, nested-marker) rows for a dataclass instance, recursing
-    one level into nested dataclasses (e.g. filters.disfluency)."""
-    rows: list[tuple[str, str, str, str]] = []
+@functools.lru_cache(maxsize=1)
+def _field_notes() -> dict[tuple[str, str], str]:
+    """`(dataclass name, field name)` -> the trailing `#` comment on its definition.
+
+    The reference table listed 449 keys with a type and a default and no meaning, so
+    a key whose *name* misleads had nowhere to say so. `[recimport] max_speakers` is
+    the worst of them: on the shipped sherpa backend it becomes
+    `FastClusteringConfig(num_clusters=N)`, an **exact** cluster count, so a generous
+    "at most 6" invents six people out of three. `config.py` has said exactly that
+    beside the field for a long time; the page a user actually reads before editing
+    TOML by hand did not.
+
+    Derived from the source rather than a curated list of interesting keys, because a
+    curated list is the thing that goes stale: it can only ever describe the traps
+    somebody remembered. Anything with a trailing comment gets one, and adding a
+    comment is all it takes to document a key.
+
+    Scoped per class, never by bare field name -- `enabled`, `engine` and
+    `model_path` each appear in several sections with different meanings, and a
+    global name->comment map would print one section's note under another's key.
+    """
+    src = (ROOT / "src" / "yazses" / "config.py").read_text(encoding="utf-8")
+    lines = src.splitlines()
+    notes: dict[tuple[str, str], str] = {}
+    for node in ast.walk(ast.parse(src)):
+        if not isinstance(node, ast.ClassDef):
+            continue
+        for stmt in node.body:
+            if not isinstance(stmt, ast.AnnAssign) or not isinstance(stmt.target, ast.Name):
+                continue
+            # end_lineno, not lineno: a default spanning several lines carries its
+            # comment on the last one.
+            idx = (stmt.end_lineno or stmt.lineno) - 1
+            comment = _trailing_comment(lines[idx])
+            if comment:
+                notes[(node.name, stmt.target.id)] = _with_continuations(lines, idx)
+    return notes
+
+
+def _with_continuations(lines: list[str], idx: int) -> str:
+    """The field's trailing comment plus any wrapped remainder on the lines below.
+
+    A comment too long for one line is continued in the same column, and taking only
+    the first line silently truncates it -- `[recimport] language` published
+    `Whisper code ("en", "fa", …); "" auto-detects;` and dropped the half naming
+    `"translate"`, a magic value that then appeared nowhere in the reference at all.
+
+    Alignment is what separates a continuation from the *next* field's leading
+    comment, and the difference matters: leading comments are the more common shape
+    in this file, and attaching one to the field above would file every note under
+    the wrong key. A continuation sits at the trailing comment's own column; a
+    leading comment sits at the field indent.
+    """
+    first = lines[idx]
+    col = _comment_column(first)
+    parts = [_trailing_comment(first)]
+    j = idx + 1
+    while j < len(lines):
+        nxt = lines[j]
+        if not nxt.strip().startswith("#") or nxt.index("#") != col:
+            break
+        parts.append(nxt.strip()[1:].strip())
+        j += 1
+    return " ".join(p for p in parts if p)
+
+
+def _comment_column(line: str) -> int:
+    """Index of the `#` that opens *line*'s trailing comment (-1 if there is none)."""
+    in_str: str | None = None
+    i = 0
+    while i < len(line):
+        ch = line[i]
+        if in_str:
+            if ch == "\\":
+                i += 2
+                continue
+            if ch == in_str:
+                in_str = None
+        elif ch in "\"'":
+            in_str = ch
+        elif ch == "#":
+            return i
+        i += 1
+    return -1
+
+
+def _trailing_comment(line: str) -> str:
+    """The `# ...` at the end of *line*, or `""` -- ignoring `#` inside a string.
+
+    Naive splitting on `#` would truncate a default like `key: str = "#"` and publish
+    the remains as documentation.
+    """
+    col = _comment_column(line)
+    return line[col + 1:].strip() if col >= 0 else ""
+
+
+def _md_cell(text: str) -> str:
+    """Escape a note for a table cell: a bare `|` would end the column early."""
+    return text.replace("|", "\\|")
+
+
+def _section_rows(inst) -> list[tuple[str, str, str, str, str]]:
+    """(key, type, default, nested-marker, note) rows for a dataclass instance,
+    recursing one level into nested dataclasses (e.g. filters.disfluency)."""
+    notes = _field_notes()
+    cls = type(inst).__name__
+    rows: list[tuple[str, str, str, str, str]] = []
     for fld in dataclasses.fields(inst):
         val = getattr(inst, fld.name)
         if dataclasses.is_dataclass(val):
-            rows.append((fld.name, "table", "", "nested"))
+            rows.append((fld.name, "table", "", "nested", ""))
+            sub_cls = type(val).__name__
             for sub in dataclasses.fields(val):
                 sv = getattr(val, sub.name)
                 rows.append((f"{fld.name}.{sub.name}", _type_name(sub.type),
-                             _fmt_default(sv), ""))
+                             _fmt_default(sv), "", notes.get((sub_cls, sub.name), "")))
         else:
-            rows.append((fld.name, _type_name(fld.type), _fmt_default(val), ""))
+            rows.append((fld.name, _type_name(fld.type), _fmt_default(val), "",
+                         notes.get((cls, fld.name), "")))
     return rows
 
 
@@ -211,7 +318,7 @@ def gen_configuration() -> str:
         for fld in dataclasses.fields(cfg)
     }
     n_keys = sum(
-        1 for rows in rows_by_section.values() for _, _, _, m in rows if m != "nested"
+        1 for rows in rows_by_section.values() for *_, m, _ in rows if m != "nested"
     )
     out.write(
         f"**{len(inert)} of these {n_keys} keys are inert**, and they are marked "
@@ -230,13 +337,15 @@ def gen_configuration() -> str:
     for fld in dataclasses.fields(cfg):
         section = fld.name
         out.write(f"## `[{section}]`\n\n")
-        out.write("| Key | Type | Default | Status |\n|---|---|---|---|\n")
-        for key, tp, default, marker in rows_by_section[section]:
+        out.write("| Key | Type | Default | Status | Notes |\n|---|---|---|---|---|\n")
+        for key, tp, default, marker, note in rows_by_section[section]:
             if marker == "nested":
-                out.write(f"| **`[{section}.{key}]`** | | | |\n")
+                out.write(f"| **`[{section}.{key}]`** | | | | |\n")
             else:
                 status = INERT_MARK if f"{section}.{key}" in inert else ""
-                out.write(f"| `{key}` | {tp} | {default} | {status} |\n")
+                out.write(
+                    f"| `{key}` | {tp} | {default} | {status} | {_md_cell(note)} |\n"
+                )
         out.write("\n")
     return out.getvalue()
 

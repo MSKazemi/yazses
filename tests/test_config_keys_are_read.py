@@ -124,17 +124,44 @@ def test_stripping_comments_does_not_damage_code_or_strings():
 # together. Only an assertion against the rendered page can notice.
 
 
+def _cells(line: str) -> list[str]:
+    """Split a markdown table row on its *unescaped* pipes.
+
+    The Notes column carries values like `txt \\| md \\| srt`, where the pipe is escaped
+    precisely so it does not end the cell. Splitting on every `|` turns that one row
+    into eight cells and silently drops it from the parse.
+    """
+    return [c.strip().replace("\\|", "|")
+            for c in re.split(r"(?<!\\)\|", line.strip().strip("|"))]
+
+
 def _reference_rows() -> dict[str, str]:
-    """`section.key` → its Status cell, read out of the committed reference page."""
+    """`section.key` → its Status cell, read out of the committed reference page.
+
+    The Status column is located by its **header**, not by an index. It used to be
+    the fourth and last cell, and adding a Notes column beside it moved nothing about
+    Status while breaking every row's `len(cells) == 4` test — which does not report
+    "the table changed shape", it reports an empty parse, i.e. compliance.
+    """
     rows: dict[str, str] = {}
     section = ""
+    status_col = -1
     for line in REFERENCE.read_text(encoding="utf-8").splitlines():
         if m := re.fullmatch(r"## `\[([a-z][a-z0-9_.]*)\]`", line.strip()):
             section = m.group(1)
+            status_col = -1
             continue
-        cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if section and len(cells) == 4 and (m := re.fullmatch(r"`([a-z][a-z0-9_.]*)`", cells[0])):
-            rows[f"{section}.{m.group(1)}"] = cells[3]
+        cells = _cells(line)
+        if section and "Key" in cells and "Status" in cells:
+            status_col = cells.index("Status")
+            continue
+        if (
+            section
+            and status_col >= 0
+            and len(cells) > status_col
+            and (m := re.fullmatch(r"`([a-z][a-z0-9_.]*)`", cells[0]))
+        ):
+            rows[f"{section}.{m.group(1)}"] = cells[status_col]
     return rows
 
 
@@ -145,6 +172,10 @@ def test_the_reference_page_is_actually_being_parsed():
     assert len(rows) > 400, f"only parsed {len(rows)} key rows out of the reference"
     assert rows["stt.model"] == "", "a read key must carry an empty Status cell"
     assert rows["audio.channels"] == INERT_MARK
+    # A row whose Notes cell contains escaped pipes must still be parsed, and its
+    # Status must still be read from the Status column rather than from a fragment
+    # of the note that the split happened to leave in that position.
+    assert rows["recimport.output_format"] == ""
 
 
 def test_the_reference_marks_exactly_the_keys_the_ledger_knows_are_inert():
