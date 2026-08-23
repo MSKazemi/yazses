@@ -22,6 +22,33 @@ except ImportError:
     print("Error: jiwer is not installed. Run: uv pip install jiwer")
     sys.exit(1)
 
+
+def _build_normalizer():
+    """Return (normalize_fn, name) -- Whisper's normaliser when it is installed.
+
+    This harness scored with a bare `.lower()`, which counts punctuation as part of
+    the word it is glued to. On the corpus this repo ships, `base.en` returns the
+    reference text *exactly* apart from two commas, and `.lower()` scored that
+    flawless transcription at 9.09 % WER while the standard normaliser scores it
+    0.00 %. So the community table was reporting recognition errors that were not
+    recognition errors, on the page that invites contributors to publish numbers.
+
+    It also made these numbers incomparable with `paper/benchmark/bench_wer.py`,
+    which has always used `EnglishTextNormalizer` -- two harnesses in one project
+    producing two different WERs for the same audio and the same model.
+
+    Falls back to `.lower()` rather than exiting, because this script's job is to be
+    runnable on a contributor's machine; but it says which one it used, and the
+    printed table row is labelled, so a lenient number can never be quietly pasted
+    into the table next to a strict one.
+    """
+    try:
+        from whisper_normalizer.english import EnglishTextNormalizer
+    except ImportError:
+        return (lambda t: t.lower().strip()), "lower"
+    normalizer = EnglishTextNormalizer()
+    return (lambda t: normalizer(t)), "whisper"
+
 def get_peak_rss_mb() -> float:
     try:
         import psutil
@@ -135,6 +162,14 @@ def main():
     references = []
     hypotheses = []
     
+    normalize, normalizer_name = _build_normalizer()
+    if normalizer_name == "lower":
+        print(
+            "Warning: whisper-normalizer is not installed, so WER is scored with a bare "
+            "lower-case fold. That counts punctuation as part of a word and inflates the "
+            "score -- a perfect transcription can read as ~9 % WER. Install it for a "
+            "comparable number: uv sync --group benchmark"
+        )
     print(f"Found {len(wav_files)} files. Starting benchmark...")
     
     for wav_path in wav_files:
@@ -178,8 +213,8 @@ def main():
         total_audio_duration += duration
         total_decode_time += decode_time
         
-        references.append(reference.lower())
-        hypotheses.append(hypothesis.lower().strip())
+        references.append(normalize(reference))
+        hypotheses.append(normalize(hypothesis))
         
         print(f"[{wav_path.name}] duration={duration:.2f}s decode={decode_time:.2f}s RTF={decode_time/duration:.3f}")
         
@@ -196,7 +231,7 @@ def main():
     print(f"Dataset Size : {len(references)} files ({total_audio_duration:.2f}s total audio)")
     print(f"Subject      : {subject}")
     print(f"Model        : {args.model or '(tool default)'}")
-    print(f"WER          : {wer * 100:.2f}%")
+    print(f"WER          : {wer * 100:.2f}%  (normalizer: {normalizer_name})")
     print(f"Overall RTF  : {rtf:.3f}x")
     if peak_rss > 0:
         print(f"Peak RSS     : {peak_rss:.1f} MB")
@@ -210,7 +245,10 @@ def main():
     # own footprint as theirs would be a fabricated number, so it is omitted explicitly.
     if external is not None:
         rss_str = "n/a (subprocess)"
-    print(f"| CPU/GPU | `{label}` (`{args.model or 'default'}`) | {wer * 100:.1f}% | {rtf:.2f}x | {rss_str} |")
+    # The normaliser is part of the number. A row scored with the fallback must not be
+    # pasted into the table beside rows scored with Whisper's, so it labels itself.
+    wer_str = f"{wer * 100:.1f}%" if normalizer_name == "whisper" else f"{wer * 100:.1f}% (lower-fold)"
+    print(f"| CPU/GPU | `{label}` (`{args.model or 'default'}`) | {wer_str} | {rtf:.2f}x | {rss_str} |")
 
 if __name__ == "__main__":
     main()

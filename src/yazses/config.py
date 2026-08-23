@@ -423,7 +423,17 @@ class CocktailConfig:
     enabled: bool = False
     mode: str = "gate"                # gate (P1) | suppress (P2, gated on a model)
     target_threshold: float = 0.5     # per-window target-speaker cosine score to keep
-    window_ms: int = 500              # window the gate scores (ECAPA needs ~0.5s+)
+    # The window the gate scores. 500 ms is NOT a recommendation -- it is the value
+    # live testing on 2026-06-19 measured as broken, kept only because the feature
+    # ships off and `features enable cocktail` refuses without `--force`. At this
+    # granularity ECAPA scores the *enrolled speaker* low against their own
+    # voiceprint, so any threshold strict enough to reject another voice rejected
+    # ~90% of the user's own speech (a 5 s utterance left one surviving window).
+    # design/v2-cognitive-layer/02-cocktail-filter.md says revisit only with
+    # 1-1.5 s windows plus a much lower threshold tuned live, cohort scoring, or a
+    # real target-speaker model -- so this is deliberately not "fixed" by guessing a
+    # bigger number, which would swap a known-bad default for an unmeasured one.
+    window_ms: int = 500
 
 
 @dataclass

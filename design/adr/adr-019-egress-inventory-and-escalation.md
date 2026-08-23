@@ -148,14 +148,23 @@ repository imports `requests`; the fetch happens anyway.
 
 This document already recorded the limitation — *"a dependency making its own network
 calls is not caught — `faster-whisper` fetching a model is the obvious case"* — and then
-named only the obvious one. Three more were already in the tree. **A stated limitation is
+named only the obvious one. Four more were already in the tree. **A stated limitation is
 not a guard**, which is the same lesson the section above it records about `ssh`, and this
 is its third instance. A third scan now covers it.
+
+The fourth, `stt/moonshine.py`, arrived later and by a different route: it was caught by
+`tests/test_model_cache_first.py`, whose loader vocabulary included `MoonshineOnnxModel`,
+while this inventory's did not. Two guards over the same mechanism kept separate lists of
+what a loader is called, and a module fell between them -- exactly what this document
+records happening once already with `download_model`. The lists are now the same length
+for the same reason, and the lesson is that a vocabulary shared by two scanners has to be
+shared in fact, not in intent.
 
 | Module | Loader | What crosses the wire | Trigger |
 |---|---|---|---|
 | `stt/faster_whisper.py` | `WhisperModel(...)` | ← Whisper weights, **local cache tried first** | first run, or a new `[stt] model` |
 | `stt/parakeet.py` | `onnx_asr.load_model(...)` | ← Parakeet weights | `[stt] engine = parakeet` |
+| `stt/moonshine.py` | `MoonshineOnnxModel(...)` | ← Moonshine weights | `[stt] engine = moonshine` |
 | `voiceprint/ecapa.py` | `EncoderClassifier.from_hparams(...)` | ← ECAPA weights (~20 MB) | a voiceprint is enrolled or matched |
 | `recimport/pyannote_backend.py` | `Pipeline.from_pretrained(...)` | ← gated pipeline, **→ the user's HF token** | `diarization-pyannote` backend |
 | `stt/download.py` | `download_model(...)` | ← Whisper weights, fetched **on purpose** with progress | `yazses model download` (issue #310) |

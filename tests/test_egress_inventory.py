@@ -126,6 +126,13 @@ DEPENDENCY_FETCH = {
         "cache first (`local_files_only=True`) and only downloads on a miss"
     ),
     "stt/parakeet.py": "onnx-asr resolves the Parakeet model id against huggingface.co",
+    "stt/moonshine.py": (
+        "useful-moonshine-onnx resolves the Moonshine model id against huggingface.co. "
+        "Found by `tests/test_model_cache_first.py` and missed here for a release: that "
+        "file's loader vocabulary listed `MoonshineOnnxModel` and this one did not, so "
+        "the module fell between two guards over the same mechanism -- the identical "
+        "failure this file already records about `download_model`"
+    ),
     "voiceprint/ecapa.py": (
         "speechbrain fetches `speechbrain/spkrec-ecapa-voxceleb` (~20 MB) from "
         "huggingface.co when a voiceprint is enrolled or matched"
@@ -157,7 +164,7 @@ DEPENDENCY_FETCH = {
 #: and the file fell between them.
 _DEPENDENCY_LOADERS = frozenset(
     {"WhisperModel", "load_model", "from_hparams", "from_pretrained", "VoiceEncoder",
-     "download_model", "snapshot_download", "hf_hub_download"}
+     "download_model", "snapshot_download", "hf_hub_download", "MoonshineOnnxModel"}
 )
 
 ALLOWED = {**FETCH, **SEND, **LOCAL_IPC, **LOCAL_BOUND, **HANDOFF}
