@@ -6,6 +6,32 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — the Parakeet speed claim was off by more than a factor of two
+
+Five places said Parakeet TDT "beats whisper-large-v3 at roughly 4x whisper-small CPU
+speed". The accuracy half survives measurement; the speed half does not.
+
+On 200 LibriSpeech `test-clean` utterances, 16 Xeon vCPUs, int8 CPU, everything through
+the shipping engine factory:
+
+| engine | WER | real-time factor | vs `small.en` |
+|---|---|---|---|
+| `parakeet-tdt-0.6b-v2` | **2.06 %** | 0.050 | **1.8× faster** |
+| `small.en` | 2.66 % | 0.092 | — |
+| `large-v3` | 3.23 % | 0.451 | 0.2× |
+
+So Parakeet is about **twice** whisper-small's speed, not four times, and ~20× realtime
+rather than the vendor's ~30×. Two independent runs on the same box agree (1.79× and
+1.84×). The accuracy claim holds and is now local rather than inherited — and the reason
+it holds is worth stating, because it is not that Parakeet recognises better: `large-v3`
+has the **fewest substitutions** of any model measured (62, against `small.en`'s 100) and
+the **most insertions** (89, against 8). On dictation-length clips the large Whisper
+models add words nobody said, and that is what costs them the comparison.
+
+`docs/architecture.md`, `docs/features.md`, `docs/research/voice-control.md`,
+`ROADMAP.md`, `src/yazses/config.py`, `src/yazses/stt/parakeet.py` and
+`src/yazses/system/features.py` now quote the measurement.
+
 ### Changed — the speaker-clustering default was measured for the first time, and it was wrong
 
 `[recimport] cluster_threshold` moves from `0.5` to `1.0` and `[meeting] cluster_threshold`

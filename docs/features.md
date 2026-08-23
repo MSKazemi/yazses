@@ -120,7 +120,7 @@ YazSes ships **147 capabilities**. All but the core are **off by default** — t
 ### Parakeet STT engine (high accuracy)
 
 - **Toggle:** `stt-parakeet`  ·  **Tier:** optional  ·  **Config:** `[stt] engine`
-- **What it does:** Swaps Whisper for NVIDIA Parakeet TDT: better English accuracy than whisper-large-v3 at roughly 4x whisper-small CPU speed, and no hallucinated text on silence. English only (v2). Downloads the model (~600 MB) on first use; disable restores faster-whisper.
+- **What it does:** Swaps Whisper for NVIDIA Parakeet TDT: 2.06% word error rate against whisper-large-v3's 3.23% on 200 LibriSpeech utterances, at roughly twice whisper-small's CPU speed, and an eighth of large-v3's insertions. English only (v2). Downloads the model (~600 MB) on first use; disable restores faster-whisper.
 - **Use when:** When you want noticeably fewer English word errors without a bigger, slower Whisper model.
 - **Example:** yazses features enable stt-parakeet — same hotkey, sharper transcripts.
 - **Download:** ~4.0 MB

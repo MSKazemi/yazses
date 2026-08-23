@@ -1,10 +1,12 @@
 """NVIDIA Parakeet TDT engine over onnx-asr (`[stt] engine = "parakeet"`).
 
 WHY: Parakeet TDT 0.6B v2 sits above whisper-large-v3 on the Hugging Face Open
-ASR leaderboard (lower English WER) while decoding at ~30x realtime on CPU via
-int8 ONNX — several times faster than whisper-small — and, being a
-CTC/transducer-family model, it does not hallucinate text on silence the way
-Whisper's decoder can. English-only (v2), so it is opt-in
+ASR leaderboard, and locally so: 2.06% WER against large-v3's 3.23% on 200
+LibriSpeech test-clean utterances, at roughly twice whisper-small's CPU speed
+(~20x realtime on 16 Xeon vCPUs, against the vendor's ~30x). Being a
+CTC/transducer-family model it also does not hallucinate text on silence the
+way Whisper's decoder can — on the same 200 utterances it inserted 11 words
+where large-v3 inserted 89. See `docs/benchmarks.md`. English-only (v2), so it is opt-in
 (`yazses features enable stt-parakeet`), never the default.
 
 Dependency isolation: ``onnx_asr`` (pip ``onnx-asr``, ~a NumPy + onnxruntime

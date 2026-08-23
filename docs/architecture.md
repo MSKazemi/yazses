@@ -274,9 +274,10 @@ Stage by stage:
 5. **STT decode.** The buffered audio is transcribed on the CPU by a pluggable
    engine behind the `SttEngine` protocol (`src/yazses/stt/base.py`, selected by
    `[stt] engine`): **faster-whisper** by default, or **NVIDIA Parakeet TDT**
-   (`yazses features enable stt-parakeet`) — lower word-error rate than
-   whisper-large-v3 at roughly 4× whisper-small's CPU speed, with no hallucinated
-   text on silence. On the Whisper path an `initial_prompt` biases the model
+   (`yazses features enable stt-parakeet`) — 2.06 % word error rate against
+   whisper-large-v3's 3.23 % on 200 LibriSpeech utterances, at roughly twice
+   whisper-small's CPU speed, and an eighth of large-v3's insertions
+   ([benchmarks](benchmarks.md)). On the Whisper path an `initial_prompt` biases the model
    toward the right words — the app name and your personal vocabulary.
    (An editor-context prefix was designed and is **not wired**: the daemon never
    constructs `LspContextProvider`, so nothing from your editor reaches the prompt.)

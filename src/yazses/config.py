@@ -14,8 +14,9 @@ log = logging.getLogger(__name__)
 class SttConfig:
     # Which speech-to-text backend decodes audio: "faster-whisper" (default,
     # Whisper via CTranslate2) | "parakeet" (NVIDIA Parakeet TDT via onnx-asr —
-    # better English WER than whisper-large-v3 at ~30x realtime CPU, no silence
-    # hallucinations; opt-in via `yazses features enable stt-parakeet`). An
+    # 2.06% WER against whisper-large-v3's 3.23% on 200 LibriSpeech utterances,
+    # measured at ~20x realtime CPU on 16 Xeon vCPUs; opt-in via
+    # `yazses features enable stt-parakeet`). An
     # unknown value or a missing optional dep falls back to faster-whisper with
     # a logged warning — never a crash (stt/factory.py).
     engine: str = "faster-whisper"

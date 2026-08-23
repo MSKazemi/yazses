@@ -97,7 +97,10 @@ sequenceDiagram
 ```
 
 At ~30× realtime, batch decode of a 5-second burst is ~170 ms — inside the
-"instant" budget *without any streaming machinery*. Streaming still matters
+"instant" budget *without any streaming machinery*. YazSes' own measurement on
+16 Xeon vCPUs is slower than the cited figure, ~20× realtime (~250 ms for the
+same burst), which does not change the conclusion but is the number to reason
+from here — see [benchmarks](../benchmarks.md). Streaming still matters
 for long-form dictation preview; the state of the art there is Moonshine v2's
 cached streaming encoder (148–258 ms measured, with its streaming mode
 reported as *more* accurate than its own batch mode —

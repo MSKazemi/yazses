@@ -417,10 +417,11 @@ def _registry() -> list[_Def]:
              "it can fight some editors; enable if you want live text.",
              lambda c: c.streaming.enabled, s_on, s_off),
         _Def("stt-parakeet", "Parakeet STT engine (high accuracy)", "[stt] engine", OPTIONAL,
-             "Swaps Whisper for NVIDIA Parakeet TDT: better English accuracy than "
-             "whisper-large-v3 at roughly 4x whisper-small CPU speed, and no "
-             "hallucinated text on silence. English only (v2). Downloads the "
-             "model (~600 MB) on first use; disable restores faster-whisper.",
+             "Swaps Whisper for NVIDIA Parakeet TDT: 2.06% word error rate "
+             "against whisper-large-v3's 3.23% on 200 LibriSpeech utterances, at "
+             "roughly twice whisper-small's CPU speed, and an eighth of "
+             "large-v3's insertions. English only (v2). Downloads the model "
+             "(~600 MB) on first use; disable restores faster-whisper.",
              lambda c: (c.stt.engine or "").strip().lower() == "parakeet",
              pk_on, pk_off),
         _Def("stt-moonshine", "Moonshine STT engine (fast, short bursts)", "[stt] engine",

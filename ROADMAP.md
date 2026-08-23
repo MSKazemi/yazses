@@ -40,9 +40,9 @@ suite grows. A floor stays true as tests are added and only breaks if tests are
 gets embarrassing; the guard fails if the suite ever drops below it.
 
 - **Shipped in `v2.14.0` — the perception release** (ADR-v2-129, all opt-in, lazy deps):
-  **Parakeet TDT** second STT engine (`yazses features enable stt-parakeet` — beats
-  whisper-large-v3 WER at ~4x whisper-small CPU speed, behind a new pluggable `SttEngine`
-  seam); **gaze deixis** ("close this" / "focus that" act on the looked-at window, with
+  **Parakeet TDT** second STT engine (`yazses features enable stt-parakeet` — since
+  measured at 2.06 % WER against whisper-large-v3's 3.23 %, at roughly twice
+  whisper-small's CPU speed, behind a new pluggable `SttEngine` seam); **gaze deixis** ("close this" / "focus that" act on the looked-at window, with
   real per-frame eye-agreement confidence replacing a hard-coded 1.0); the **sotto-voce
   command channel** (whisper a phrase → command, speak → dictation; pure DSP); the
   **activation-source seam** that finally constructs the EMG squeeze-to-talk backend; and
