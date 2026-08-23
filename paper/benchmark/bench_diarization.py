@@ -243,6 +243,25 @@ def run(corpus: Path, max_speakers: int = 0, dump_rttm: Path | None = None) -> d
     }
 
 
+def with_provenance(out: dict) -> dict:
+    """Stamp a result with the host and library versions that produced it.
+
+    Every other bench gets this from `run_all.py`, which cannot run this one: it needs
+    a corpus path and the optional `diarization` extra. So this was the single
+    benchmark whose published JSON named no CPU, OS or library version at all -- and
+    it is the one whose result moved by 68 points when one dependency's default
+    changed. Separate from `__main__` so the stamping can be tested without a corpus,
+    models or a diarization backend.
+    """
+    from datetime import datetime, timezone
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from _common import provenance
+
+    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return {"provenance": provenance(stamp), **out}
+
+
 def sweep(corpus: Path, thresholds=(0.4, 0.5, 0.6, 0.7, 0.8, 0.9)) -> list[dict]:
     """Score the corpus at several `[recimport] cluster_threshold` values.
 
@@ -313,4 +332,6 @@ if __name__ == "__main__":
         out = run(corpus_dir, max_speakers=max_speakers, dump_rttm=dump_dir)
         print(json.dumps(out["summary"], indent=2))
     if len(args) > 1:
-        Path(args[1]).write_text(json.dumps(out, indent=2) + "\n", encoding="utf-8")
+        Path(args[1]).write_text(
+            json.dumps(with_provenance(out), indent=2) + "\n", encoding="utf-8"
+        )

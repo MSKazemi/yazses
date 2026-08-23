@@ -250,3 +250,29 @@ def test_resampling_is_by_utterance_not_by_word(wer_mod):
     lo_s, hi_s = wer_mod._bootstrap_wer_ci(spread)
     lo_c, hi_c = wer_mod._bootstrap_wer_ci(clumped)
     assert (hi_c - lo_c) > (hi_s - lo_s)
+
+
+# --- provenance -------------------------------------------------------------
+
+
+def test_the_diarization_result_carries_the_host_that_produced_it(diar):
+    """`run_all.py` stamps every other bench and cannot stamp this one.
+
+    It needs a corpus path and the optional `diarization` extra, so it is excluded
+    from the suite runner — which left the one benchmark whose number moved by 68
+    points when a dependency default changed as the only one publishing a JSON that
+    named no CPU, OS or library version.
+    """
+    stamped = diar.with_provenance({"summary": {"der_strict": 84.09}})
+    assert "provenance" in stamped
+    for field in ("cpu_model", "os", "numpy", "ctranslate2", "load_average_1m"):
+        assert field in stamped["provenance"], f"provenance dropped {field!r}"
+    # the result itself must survive the stamping unchanged
+    assert stamped["summary"] == {"der_strict": 84.09}
+
+
+def test_provenance_is_added_without_displacing_an_existing_key(diar):
+    """A corpus result already has `config`; stamping must not shadow it."""
+    stamped = diar.with_provenance({"config": {"cluster_threshold": 1.2}})
+    assert stamped["config"] == {"cluster_threshold": 1.2}
+    assert list(stamped)[0] == "provenance", "provenance should read first in the file"
