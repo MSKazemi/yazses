@@ -296,10 +296,10 @@ def _holdout_support(proposal: Proposal, holdout: list[EventRecord], config: Con
     artefact of the data it was fit to.
     """
     if proposal.kind == "vocabulary":
-        new_terms = set(_tokens(str(proposal.value))) - set(_tokens(config.stt.initial_prompt))
+        new_terms = set(_tokens(str(proposal.value))) - _primed_terms(config)
         n = 0
         for e in holdout:
-            better = _better_text(e)
+            better = _corrected_text(e)
             if not better:
                 continue
             raw = set(_tokens(e.raw_text))
@@ -439,6 +439,41 @@ def _better_text(e: EventRecord) -> str:
     return ""
 
 
+def _corrected_text(e: EventRecord) -> str:
+    """The *human* correction for an event, or "" -- never a model's re-transcription.
+
+    Distinct from :func:`_better_text` on purpose, and the distinction is the whole
+    point for spelling. A re-transcription is a bigger Whisper's guess, and
+    ``initial_prompt`` priming exists precisely for words Whisper *cannot spell* --
+    so sourcing the spelling from Whisper is circular, and it fails in the one place
+    it is most needed: on coined words.
+
+    Measured on a real 1646-event corpus (2026-08-23): every one of the 21 terms the
+    vocabulary proposal offered came from ``retx_text`` and none from a correction,
+    including ``yasas`` -- a fifth variant of the exact mis-hearing that
+    ``stt/vocabulary.py`` documents for this app's own name ("yes ses", "yaz says",
+    "yacht says", ...). Applying it would have primed the decoder toward the broken
+    spelling that the built-in prompt exists to prevent, alongside ``snapp``,
+    ``cube`` and a ``free``/``lance`` split of "freelance".
+
+    :func:`_propose_disfluency` already draws this same line, for the same reason.
+    """
+    return e.correction_text or ""
+
+
+def _primed_terms(config: Config) -> set[str]:
+    """Every term already in the *effective* ``initial_prompt``.
+
+    Reads the merged prompt, not the configured one: ``stt/vocabulary.py`` always
+    prepends the built-in app-name phrase, so a proposer that consults only
+    ``[stt] initial_prompt`` cannot see it and will offer a term that is already
+    primed. The daemon composes the same way in ``_effective_initial_prompt``.
+    """
+    from yazses.stt.vocabulary import merge_initial_prompt
+
+    return set(_tokens(merge_initial_prompt(config.stt.initial_prompt) or ""))
+
+
 #: Function words that are never worth priming. Whisper's language model already knows
 #: them perfectly; `initial_prompt` is a *bounded* budget (the decoder sees only the last
 #: ~224 tokens), so every stopword in it displaces a term that would actually have helped.
@@ -480,12 +515,13 @@ def _worth_priming(token: str) -> bool:
 
 
 def _propose_vocabulary(events: list[EventRecord], config: Config) -> Proposal | None:
-    # Words present in the corrected/re-transcribed text but missing from what
-    # the live model produced — i.e. terms it consistently fails to hear.
+    # Words present in the user's own correction but missing from what the live model
+    # produced — i.e. terms it consistently fails to hear. A model re-transcription is
+    # deliberately not accepted here; see _corrected_text.
     missed: Counter[str] = Counter()
-    existing = set(_tokens(config.stt.initial_prompt))
+    existing = _primed_terms(config)
     for e in events:
-        better = _better_text(e)
+        better = _corrected_text(e)
         if not better:
             continue
         raw_tokens = set(_tokens(e.raw_text))
@@ -505,7 +541,7 @@ def _propose_vocabulary(events: list[EventRecord], config: Config) -> Proposal |
         kind="vocabulary",
         title="Add vocabulary to the Whisper prompt",
         detail=(
-            f"{len(terms)} term(s) were repeatedly mis-transcribed and corrected: "
+            f"{len(terms)} term(s) were repeatedly mis-transcribed and corrected by you: "
             f"{', '.join(terms)}. Priming them via initial_prompt helps Whisper "
             "spell them right."
         ),

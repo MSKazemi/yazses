@@ -8,6 +8,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`yazses tune` proposed priming Whisper with words Whisper had made up.** The
+  vocabulary proposal mines terms that appear in the "better" text of an event but
+  not in what the live model produced, and "better" accepted either a human
+  correction *or* `tune`'s own re-transcription by a larger Whisper. For spelling
+  that is circular: `initial_prompt` priming exists precisely for words Whisper
+  cannot spell, so the one source that must not supply the spelling is Whisper.
+
+  Measured on a real 1646-event corpus: all 21 offered terms came from the
+  re-transcription and none from a correction. Among them was `yasas` — a variant
+  of the exact mis-hearing `stt/vocabulary.py` documents for this app's own name
+  ("yes ses", "yaz says", "yacht says") — plus `snapp`, `cube`, and a `free`/`lance`
+  split of "freelance". Applying it would have biased the decoder toward the broken
+  spelling that the built-in prompt exists to prevent.
+
+  The proposer and its held-out corroboration now both take spellings only from a
+  human correction, the line `_propose_disfluency` already drew for the same reason.
+  A corpus with no corrections now yields no vocabulary proposal, which is the
+  correct answer rather than a confident wrong one. Separately, both now compare
+  against the *effective* prompt via `merge_initial_prompt`, not the configured
+  `[stt] initial_prompt` alone — the built-in app-name phrase was invisible to them,
+  so an already-primed term could be proposed again.
+
 - **The `voiceprint-resemblyzer` extra installed and then could not import, and the
   daemon reported it as available while doing so.** Resemblyzer requires
   `webrtcvad>=2.0.10`, whose first line is `import pkg_resources`; setuptools no

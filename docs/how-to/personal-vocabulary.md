@@ -77,7 +77,12 @@ For stubborn terms, two stronger, related mechanisms exist:
   into the same prompt. Your dictionary is merged *ahead* of it, so both take
   effect together. Use `initial_prompt` for a sentence of context ("A talk about
   Kubernetes and GitOps"); use the dictionary for individual terms. The `yazses
-  tune` learning loop proposes additions to `initial_prompt` from your corpus.
+  tune` learning loop proposes additions to `initial_prompt` from your corpus —
+  but only from terms **you** corrected. A spelling taken from `tune`'s own
+  re-transcription would be one Whisper model's guess at a word Whisper cannot
+  spell, which is the case `initial_prompt` exists for, so `tune` refuses that
+  source. If you never correct a dictation, expect no vocabulary proposal; add the
+  term here instead.
 
 - **The `hotwords` feature** (`[hotwords]`, off by default) goes further than a
   soft prompt: it biases recognition toward your vocabulary with a hotword trie,
