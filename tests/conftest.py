@@ -228,6 +228,9 @@ def _no_test_may_write_the_users_real_config():
     assert not changed, (
         f"this test modified the real {' and '.join(changed)} on this machine. "
         "Point the platform paths at tmp_path and clear the `get_platform`/`get_paths` "
-        "lru_caches (setting XDG_CONFIG_HOME alone does nothing once they are warm), "
-        "or mock the lifecycle backend."
+        "lru_caches, or mock the lifecycle backend. Two reasons XDG_CONFIG_HOME alone "
+        "is not enough: the caches ignore it once warm, and platformdirs never reads "
+        "it off Linux at all — set APPDATA/LOCALAPPDATA (Windows) and HOME (macOS) "
+        "too, then assert `get_paths().config_dir` really is under tmp_path. See the "
+        "`scratch` fixture in tests/test_features_core_is_not_unknown.py."
     )
