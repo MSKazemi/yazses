@@ -171,20 +171,38 @@ def run(n: int, specs: list[tuple[str, str, str]] | None = None,
         "models": {},
     }
 
+    # One engine raising must not cost the others their results. `moonshine/tiny` used
+    # to crash on its first utterance, and because the JSON is written only after the
+    # last spec, a matrix that had already scored five checkpoints over an hour and a
+    # half produced nothing at all. A failed engine is recorded as failed and the run
+    # continues; `results["failed"]` is what a reader checks before treating the table
+    # as complete, so a silent gap is not possible either.
+    results["failed"] = {}
+
     for label, engine_name, model_name in specs:
         print(f"[wer] loading {label} (engine={engine_name}) ...", flush=True)
-        t_load = time.monotonic()
-        engine = _build(engine_name, model_name, cpu_threads)
-        load_s = time.monotonic() - t_load
+        try:
+            t_load = time.monotonic()
+            engine = _build(engine_name, model_name, cpu_threads)
+            load_s = time.monotonic() - t_load
+        except Exception as exc:  # noqa: BLE001 - a broken engine is a result
+            results["failed"][label] = f"{type(exc).__name__}: {exc}"
+            print(f"[wer] {label}: FAILED TO LOAD — {type(exc).__name__}: {exc}", flush=True)
+            continue
 
         refs: list[str] = []
         hyps: list[str] = []
         rtfs: list[float] = []
         decode_s_total = 0.0
+        broke = ""
         for i, (utt_id, flac, ref, dur) in enumerate(subset):
             audio = load_audio(flac)
             t0 = time.monotonic()
-            hyp = engine.transcribe(audio)
+            try:
+                hyp = engine.transcribe(audio)
+            except Exception as exc:  # noqa: BLE001 - see the note above the loop
+                broke = f"{type(exc).__name__}: {exc} (at utterance {utt_id})"
+                break
             dt = time.monotonic() - t0
             decode_s_total += dt
             rtfs.append(dt / dur if dur > 0 else 0.0)
@@ -192,6 +210,12 @@ def run(n: int, specs: list[tuple[str, str, str]] | None = None,
             hyps.append(_normalize(hyp))
             if (i + 1) % 25 == 0:
                 print(f"  {label}: {i + 1}/{len(subset)}", flush=True)
+        if broke:
+            # Partial output is not a WER. Scoring the utterances it managed before
+            # dying would publish a number for an engine that does not work.
+            results["failed"][label] = broke
+            print(f"[wer] {label}: FAILED — {broke}", flush=True)
+            continue
 
         # jiwer expects non-empty strings; drop pairs where the reference is empty.
         pairs = [(r, h) for r, h in zip(refs, hyps) if r.strip()]

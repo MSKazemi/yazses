@@ -97,6 +97,15 @@ uv run python paper/benchmark/bench_wer.py 200 default --threads 4
 publish; the value is written into every result's `config.cpu_threads` so a reader can
 tell "CTranslate2 chose" from "nobody recorded it".
 
+**A broken engine does not take the others down with it.** `bench_wer` writes its JSON
+after the last spec, so a matrix that had scored five checkpoints over ninety minutes
+once produced *nothing* because the sixth engine raised on its first utterance. An engine
+that fails to load, or dies part-way through the subset, is now recorded in
+`results["failed"]` and the run continues. **Check that key before treating a table as
+complete** — and note that a partly-decoded engine is deliberately given no WER at all,
+because a score over the utterances it survived is a number for an engine that does not
+work.
+
 ## Notes
 
 - Subset selection is deterministic: a speaker-stratified round-robin over the sorted
