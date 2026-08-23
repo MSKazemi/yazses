@@ -102,6 +102,27 @@ jobs:
             sleep 60
           done
 
+      - name: Verify every published artifact has a servable attestation
+        # Four workflows call actions/attest-build-provenance, and a test proves the
+        # *workflow* attaches a bundle -- nothing proved a *published* artifact ends
+        # up with an attestation GitHub will serve. `gh attestation verify` appeared
+        # exactly once in this repository, inside a comment.
+        #
+        # The failure this catches is silent in the direction that hurts: an attest
+        # step that produces nothing leaves a release that looks signed, scores well,
+        # and cannot be verified by anyone who tries. v2.19.0 was a near-miss of this
+        # shape -- the .dmg attest step globbed the wrong directory and the asset
+        # went missing too, which is the only reason it was noticed.
+        #
+        # Checked by digest from SHA256SUMS.txt, so it costs a few API calls rather
+        # than downloading ~370 MB of installers. Placed before the channel report
+        # because that step is *expected* to fail until every channel publishes,
+        # while this one passed on both v2.29.0 (6 artifacts) and v2.30.0 (2).
+        run: |
+          set -euo pipefail
+          python3 scripts/verify-provenance.py --tag "$TAG" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Report every channel, and fail if any lacks this version
         # Owner policy, 2026-08-13: maximum coverage -- every channel is checked,
         # not just the ones CI builds. Some (winget, Chocolatey, Flathub, nixpkgs)

@@ -1,10 +1,18 @@
-# CI/CD audit — pass 1 of 3: the workflow layer
+# CI/CD audit
 
-**Date:** 2026-08-24 · **Scope of this pass:** the 23 files in `.github/workflows/`.
-Passes 2 and 3 cover the three build scripts in `scripts/`, the six package channels,
-and release provenance / SBOM / signing.
+**Started:** 2026-08-24 · budget 3 passes.
 
-## The question this audit asks
+* **Pass 1 — the workflow layer.** The 23 files in `.github/workflows/`.
+* **Pass 2 — release provenance.** Attestations, checksums, and what a published
+  artifact can be checked against.
+* **Pass 3 — remaining.** The three build scripts in `scripts/`, the six package
+  channels, SBOM and signing.
+
+---
+
+## Pass 1 — the workflow layer
+
+### The question this audit asks
 
 Not "is the YAML tidy" but: **what does each surface actually prove, by a command, today?**
 Everything else is assertion. A pipeline is enterprise-grade when its claims are checkable,
@@ -14,7 +22,7 @@ The sharpest form of that question turns out to be one the YAML cannot answer ab
 *has this workflow ever run at all?* A file can be perfectly written, committed, reviewed,
 and never once fire.
 
-## Method
+### Method
 
 Two derivations, both re-runnable:
 
@@ -31,9 +39,9 @@ Note for anyone re-running #2: in YAML 1.1 the key `on:` parses as the **boolean
 not the string `"on"`. A script that reads `doc["on"]` finds nothing and reports every
 workflow as untriggered — a check that cannot parse its input reports compliance.
 
-## Findings
+### Findings
 
-### F1 — `ppa.yml` has never run, and could not have. *(live defect, now marked)*
+#### F1 — `ppa.yml` has never run, and could not have. *(live defect, now marked)*
 
 ```
 Launchpad PPA    active    runs=0    last=never
@@ -55,7 +63,7 @@ convert silence into a *failing* job, which is why this pass marks it disabled w
 reason rather than enabling it. **Whether the PPA should exist at all is a decision, not a
 fix.**
 
-### F2 — `release.yml` and `snap.yml` carried the same shape, one major ahead of the blade. *(fixed)*
+#### F2 — `release.yml` and `snap.yml` carried the same shape, one major ahead of the blade. *(fixed)*
 
 ```yaml
 tags:
@@ -71,7 +79,7 @@ run to fail**. That is strictly worse than v2.30.0's failure, which at least wen
 Both are now `tags: ["v*"]`. Jobs verified unchanged: `release.yml` still declares
 `test → publish-pypi → build-deb → release-linux`, `snap.yml` still declares `snap`.
 
-### F3 — `flatpak.yml` cannot fire on the way this repository is actually developed. *(open)*
+#### F3 — `flatpak.yml` cannot fire on the way this repository is actually developed. *(open)*
 
 Triggers are `pull_request` (paths `packaging/flatpak/**`) and `workflow_dispatch` — there
 is **no `push` trigger**. Maintainer work here lands directly on `main`, so a change to the
@@ -96,7 +104,7 @@ be worth it. That is a design choice, not a typo.
 | `apt-repo.yml` | 17 success / 15 skipped / 8 failure | genuinely exercised. Healthy. |
 | `android-test.yml` | 7 runs, last 2026-08-15 | path-filtered; consistent with no Android changes since. |
 
-## What is now proven by a command
+### What is now proven by a command
 
 `tests/test_release_workflow_triggers.py` derives every tag-triggered workflow from the
 YAML and asserts each still fires **for this major and the next**. The `offset=1` case is
@@ -116,7 +124,7 @@ Verified to bite, not merely to pass:
 | restore `release.yml` to `v2.*` | only the next-major case red | 1 failed |
 | *(pre-fix state, as found)* | `ppa` today, all three for v3 | 2 failed |
 
-## Still only asserted, after this pass
+### Still only asserted, after pass 1
 
 * That any release workflow **does the right thing when it runs** — this pass proves only
   that it runs. Job-level correctness is pass 2/3 territory.
@@ -124,3 +132,96 @@ Verified to bite, not merely to pass:
   credentials.
 * Provenance, SBOM and signing: `checksums.yml` and the `.intoto.jsonl` attestations exist
   and ran on v2.30.0, but nothing in the repository *verifies* an attestation.
+
+---
+
+## Pass 2 — release provenance
+
+**Date:** 2026-08-24 · **Scope:** attestations, published checksums, and what a released
+artifact can actually be checked against.
+
+### The gap pass 1 named
+
+> Provenance, SBOM and signing: `checksums.yml` and the `.intoto.jsonl` attestations exist
+> and ran on v2.30.0, but nothing in the repository *verifies* an attestation.
+
+Measured: `gh attestation verify` occurs **once** in the whole repository, at
+`.github/workflows/release.yml:181` — **inside a comment**. `codesign --verify` runs only
+under `if: steps.sign.outputs.sign == 'true'`, and no signing certificate exists yet. So no
+published artifact had ever been checked against its own provenance.
+
+`tests/test_release_provenance_assets.py` is not that check, and does not claim to be: it
+proves the *workflow* attaches a bundle. The distance between "the workflow has an attest
+step" and "the artifact people download can be verified" is exactly where v2.19.0 failed —
+the `.dmg` attest step globbed the workspace root instead of `dist/`, produced nothing, and
+skipped the upload. That was caught only because the asset went missing too. Had it
+attested nothing while still uploading, the release would have looked signed, scored well
+on Scorecard, and failed for anyone who tried to verify it.
+
+### F4 — provenance was never verified, and is now. *(closed)*
+
+The check is by **digest**, never by download. Every release publishes `SHA256SUMS.txt`, and
+GitHub serves attestations at `/repos/{owner}/{repo}/attestations/sha256:{digest}` — so a
+full check costs a few API calls instead of ~370 MB of installers. That is what makes it
+cheap enough to run on every release rather than once, by hand, after something goes wrong.
+
+`scripts/verify-provenance.py`, run live during this pass:
+
+```
+$ python scripts/verify-provenance.py --tag v2.29.0
+attested suffixes (derived from .github/workflows): ['.deb', '.dmg', '.exe']
+  OK   YazSes-2.29.0-macos-arm64.dmg     1 attestation(s)
+  OK   YazSes-2.29.0-macos-x86_64.dmg    1 attestation(s)
+  OK   YazSes-2.29.0-windows-arm64.exe   1 attestation(s)
+  OK   YazSes-2.29.0-windows-x64.exe     1 attestation(s)
+  OK   yazses_2.29.0_amd64.deb           1 attestation(s)
+  OK   yazses_2.29.0_arm64.deb           1 attestation(s)
+
+all 6 attestable artifact(s) verified by digest
+```
+
+**The result is good news, and it is now evidence rather than belief:** every artifact of
+the last complete release carries a real in-toto attestation, across all three channels. The
+half-published v2.30.0 verifies too, for the two artifacts it did publish.
+
+Which suffixes require an attestation is **derived from the workflows that do the
+attesting** (`subject-path:` of each `actions/attest-build-provenance` step), not listed in
+the script. A hand-written list is the defect it would be guarding against: add a channel,
+forget the list, and the check reports success over an artifact nobody attested.
+
+Wired into `release-complete.yml`, before the channel report — that step is *expected* to
+fail until every channel publishes, so a check placed after it would never run.
+
+### The failure mode this class of checker actually has
+
+Not a wrong answer: a **vacuous** one. If the derived suffix set comes back empty, every
+release passes, because nothing was required and so nothing was missing. The script fails
+loudly on an empty derivation, and `tests/test_verify_provenance.py` exists mostly to make
+that impossible — including a test that the empty case is *reachable*, so the guard is not
+dead code.
+
+Writing those tests found a real bug in the checker itself: `main()` called
+`attested_suffixes()` and took the default argument, which Python binds at **definition**
+time. The function could therefore never be pointed at another tree, the empty-derivation
+guard was untestable, and the "offline" test made a live network call. Fixed by reading the
+module global at call time — after which the suite went from 3.53 s to 0.24 s, which is the
+measurable sign it had stopped touching the network.
+
+### Observations from this pass
+
+* **`checksums.yml` behaved correctly on a partial release.** It logged `no asset matched
+  *.deb` and `*.dmg`, checksummed the four Windows assets that did exist, and attached
+  `SHA256SUMS.txt`. A job that skips absent inputs and still publishes what it has is the
+  right shape.
+* **The incomplete-release safety net fired.** `release-complete.yml` demoted v2.30.0 to
+  pre-release, so `gh release list` still shows **v2.29.0 as Latest**. The half-published
+  release is not being advertised to anyone.
+* `SHA256SUMS.txt` also checksums the `.intoto.jsonl` bundles. Harmless, slightly odd.
+
+### Still only asserted, after pass 2
+
+* That the artifacts **install and launch**. Provenance says who built a file, not that it
+  works.
+* Code signing: macOS and Windows builds remain unsigned, gated on a certificate.
+* The SBOM tracks `uv.lock`, which is the development closure. Whether it describes what a
+  user actually installs from PyPI is a pass-3 question.
