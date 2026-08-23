@@ -14,13 +14,13 @@ against the degenerate inputs that would otherwise produce a confident zero.
 """
 from __future__ import annotations
 
-import importlib.util
 import json
-import sys
 import wave
 from pathlib import Path
 
 import pytest
+
+from tests.benchmark_deps import load
 
 ROOT = Path(__file__).resolve().parent.parent
 BENCH = ROOT / "paper" / "benchmark"
@@ -31,14 +31,7 @@ def _load(name: str):
     # they import each other by bare name (`from _common import ...`). Loading one
     # from a test has to reproduce that, or the import fails inside the module and
     # surfaces as a collection error naming `_common` rather than the module asked for.
-    if str(BENCH) not in sys.path:
-        sys.path.insert(0, str(BENCH))
-    spec = importlib.util.spec_from_file_location(name, BENCH / f"{name}.py")
-    module = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
+    return load(name, f"{name}.py")
 
 
 @pytest.fixture(scope="module")

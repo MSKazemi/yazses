@@ -16,11 +16,11 @@ from pathlib import Path
 
 from yazses.platform import PermissionState, get_platform
 from yazses.platform.base import (
+    BSD_PREFIXES,
     LINUX_PLATFORM_NAME,
     MACOS_PLATFORM_NAME,
     WINDOWS_PLATFORM_NAME,
 )
-from yazses.platform.bsd import BSD_PREFIXES
 from yazses.system import streams
 from yazses.system.miclevel import LevelStats
 from yazses.system.snap import in_strict_snap, keyboard_capture_advice

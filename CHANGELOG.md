@@ -6,7 +6,45 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Nothing yet.
+### Fixed — the macOS app crashed on `yazses doctor`, and one tuple of strings was why
+
+- **`system/doctor.py` imported `BSD_PREFIXES` from `yazses.platform.bsd`.** That module
+  imports the Linux backend at module scope, because BSD reuses it wholesale — so a
+  four-string tuple dragged the entire Linux platform package into `doctor` on every OS.
+  From source this is invisible: a wheel carries every backend, the import resolves, and
+  nothing looks wrong. Inside the PyInstaller macOS bundle, which correctly ships no Linux
+  backend, `yazses doctor` died with `No module named 'yazses.platform.linux'`. The
+  constant now lives in `platform/base.py` beside the other platform names, where asking
+  "is this a BSD?" costs no backend import.
+- **Nothing outside the platform package may now name an OS backend in a module-scope
+  import**, checked two ways: by source across the whole tree, and by importing
+  `system/doctor.py` in a subprocess and looking at what actually loaded. The backend set
+  is derived from `platform/factory.py`'s own dispatch, so it stays right when a platform
+  is added, and it correctly excludes `platform/emg/`, which is an activation source
+  rather than an OS backend.
+- Only the tag-time bundle smoke test could see this, which means it was found *during* a
+  release rather than before one.
+
+### Fixed — seven tests turned `main` red and skipped a release's PyPI publish
+
+- **The benchmark harness's tests imported `psutil`, `jiwer` and `whisper-normalizer` at
+  collection time.** Those live in the `benchmark` dependency *group*, which `uv sync`
+  does not install, so every CI job running the suite raised `ModuleNotFoundError`. In
+  `release.yml` that failed the `test` job and skipped `publish-pypi` outright.
+- The mechanism to prevent this was already in the same file — three tests called
+  `pytest.importorskip` for `scipy`, `jiwer` and `whisper_normalizer` — and the list was
+  simply short of the dependency that mattered. A hand-written list of what to skip on is
+  only ever as complete as the day it was written, so `tests/benchmark_deps.py` now
+  **derives** the optional set from `pyproject.toml`'s `benchmark` group and from the bench
+  module's own imports, transitively, `ast.walk`-ing into function bodies — because the
+  imports that broke it were inside functions, so the module loaded cleanly and the failure
+  landed at call time, several tests later.
+- **A new `benchmark-harness` CI job installs the group and runs those tests on every
+  push.** Skipping alone would have traded a red build for a silently green one:
+  `benchmark.yml` is `workflow_dispatch` only, so nothing else would ever have run them.
+  The job asserts the dependencies import before running anything, the same guard the `gui`
+  job uses for Qt.
+
 
 ## [2.30.0] — 2026-08-24
 

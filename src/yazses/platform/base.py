@@ -22,11 +22,23 @@ from typing import Any, Protocol, runtime_checkable
 #: so the bundle and its readers cannot drift apart in the first place.
 #:
 #: BSD declares `sys.platform` itself ("freebsd14", "openbsd7"), so a check for
-#: that family is a prefix match against `platform.bsd.BSD_PREFIXES`, never an
-#: equality test.
+#: that family is a prefix match against `BSD_PREFIXES`, never an equality test.
 LINUX_PLATFORM_NAME = "linux"
 MACOS_PLATFORM_NAME = "darwin"
 WINDOWS_PLATFORM_NAME = "win32"
+
+#: The BSD `sys.platform` prefixes. This is a *name*, like the three above, and it
+#: lives here for the reason they do — so that asking "is this platform a BSD?" does
+#: not require importing a platform backend.
+#:
+#: It used to live in `platform/bsd/__init__.py`, and `system/doctor.py` imported it
+#: from there. That module imports the Linux backend at module scope (BSD reuses it
+#: wholesale), so a single tuple of strings dragged the entire Linux platform package
+#: into `doctor` on every OS. From source that is invisible; inside a PyInstaller
+#: macOS bundle, which correctly ships no Linux backend, `yazses doctor` died with
+#: `No module named 'yazses.platform.linux'` — a shipped .app that crashed on a
+#: documented command, caught only by the bundle smoke test.
+BSD_PREFIXES = ("freebsd", "openbsd", "netbsd", "dragonfly")
 
 
 class UnsupportedPlatformError(RuntimeError):

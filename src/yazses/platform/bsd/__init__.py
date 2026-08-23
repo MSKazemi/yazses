@@ -34,7 +34,7 @@ import logging
 import os
 import sys
 
-from yazses.platform.base import Paths, Platform
+from yazses.platform.base import BSD_PREFIXES, Paths, Platform
 from yazses.platform.linux import _make_tray
 from yazses.platform.linux.lifecycle import LinuxLifecycle
 from yazses.platform.linux.paths import build_paths
@@ -44,7 +44,9 @@ log = logging.getLogger(__name__)
 # sys.platform on a BSD carries the major version ("freebsd14", "openbsd7"), so
 # every check has to be a prefix match — an equality test against "freebsd"
 # silently never fires. This tuple is the single source of that truth.
-BSD_PREFIXES = ("freebsd", "openbsd", "netbsd", "dragonfly")
+# Defined in `platform.base` so that a BSD check needs no backend import;
+# re-exported here because this is where callers reasonably look for it.
+BSD_PREFIXES = BSD_PREFIXES
 
 
 def is_bsd(platform_name: str | None = None) -> bool:

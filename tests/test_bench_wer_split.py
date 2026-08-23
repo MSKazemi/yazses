@@ -12,27 +12,18 @@ the result file's name.
 """
 from __future__ import annotations
 
-import importlib.util
-import sys
 from pathlib import Path
 
 import pytest
+
+from tests.benchmark_deps import load
 
 BENCH = Path(__file__).resolve().parent.parent / "paper" / "benchmark"
 
 
 def _load(name: str):
     """Import a bench module by path -- `paper/` is not a package."""
-    sys.path.insert(0, str(BENCH))
-    try:
-        spec = importlib.util.spec_from_file_location(name, BENCH / f"{name}.py")
-        assert spec and spec.loader
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[name] = module
-        spec.loader.exec_module(module)
-        return module
-    finally:
-        sys.path.remove(str(BENCH))
+    return load(name, f"{name}.py")
 
 
 def _refuse_to_load(*_args, **_kwargs):

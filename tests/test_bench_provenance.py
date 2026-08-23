@@ -18,24 +18,18 @@ likely failure mode rather than an unlikely one.
 """
 from __future__ import annotations
 
-import importlib.util
-import sys
 from pathlib import Path
 
 import pytest
+
+from tests.benchmark_deps import load
 
 BENCH = Path(__file__).resolve().parents[1] / "paper" / "benchmark"
 
 
 @pytest.fixture(scope="module")
 def common():
-    if str(BENCH) not in sys.path:
-        sys.path.insert(0, str(BENCH))
-    spec = importlib.util.spec_from_file_location("_common", BENCH / "_common.py")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["_common"] = module
-    spec.loader.exec_module(module)
-    return module
+    return load("_common", "_common.py")
 
 
 def test_provenance_names_what_decides_the_result(common):

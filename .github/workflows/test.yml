@@ -396,3 +396,42 @@ jobs:
             # it would re-introduce the permanent red this job just stopped being.
             # Widening the FreeBSD surface needs a FreeBSD build of ctranslate2
             # upstream, not a change here.
+
+  # The benchmark harness's own tests. `uv sync` installs the base dependencies
+  # only, so `psutil`, `jiwer` and `whisper-normalizer` -- all in the `benchmark`
+  # dependency *group* -- are absent in the `test` job above. Seven tests raised
+  # ModuleNotFoundError there, which turned `main` red and skipped the
+  # `publish-pypi` step of a tagged release.
+  #
+  # `tests/benchmark_deps.py` now makes those tests skip when the group is
+  # missing, which fixes the red but would leave the harness tested nowhere:
+  # `benchmark.yml` is `workflow_dispatch` only, because it downloads 346 MB of
+  # LibriSpeech and decodes for tens of minutes. This job is the cheap half --
+  # the group is five small pure-Python-ish wheels, no corpus, no checkpoints --
+  # so the tests that guard the harness actually execute on every push.
+  benchmark-harness:
+    name: Benchmark harness tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+
+      - name: Install dependencies (with the benchmark group)
+        run: uv sync --group benchmark
+
+      - name: The benchmark dependencies must actually be importable
+        # Without this the tests skip and the job passes green having tested
+        # nothing -- the same failure mode the `gui` job guards against, and the
+        # reason this job exists rather than trusting the skip to be temporary.
+        run: uv run python -c "import psutil, jiwer, whisper_normalizer, soundfile"
+
+      - name: Run the benchmark harness tests
+        shell: bash
+        run: |
+          set -o pipefail
+          uv run python -m pytest -v -rs \
+            tests/test_bench_provenance.py \
+            tests/test_bench_wer_split.py \
+            tests/test_bench_diarization_scoring.py
