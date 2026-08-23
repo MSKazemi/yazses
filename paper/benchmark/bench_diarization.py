@@ -185,10 +185,11 @@ def run(corpus: Path, max_speakers: int = 0, dump_rttm: Path | None = None) -> d
     cfg = RecimportConfig()
     # max_speakers=0 leaves sherpa's clustering to decide the count, which is the
     # honest setting: Meeting Mode does not know how many people are in the room.
-    diarizer = SherpaDiarizer(
+    diarizer_cfg = (
         type(cfg)(**{**cfg.__dict__, "max_speakers": max_speakers})
         if max_speakers else cfg
     )
+    diarizer = SherpaDiarizer(diarizer_cfg)
 
     per_meeting = []
     for meta in manifest["meetings"]:
@@ -223,6 +224,11 @@ def run(corpus: Path, max_speakers: int = 0, dump_rttm: Path | None = None) -> d
             "backend": "sherpa-onnx (pyannote segmentation-3.0 + 3D-Speaker ERes2Net)",
             "frame_s": FRAME,
             "scoring": "frame-based, Hungarian one-to-one mapping (md-eval semantics)",
+            # The two settings that decide the result, recorded because the first
+            # real-audio run found the shipped `cluster_threshold` responsible for
+            # essentially all of the error -- a DER quoted without it says nothing.
+            "cluster_threshold": diarizer_cfg.cluster_threshold,
+            "max_speakers": diarizer_cfg.max_speakers,
             "n_meetings": len(per_meeting),
         },
         "summary": {
@@ -287,6 +293,14 @@ if __name__ == "__main__":
         i = argv.index("--thresholds")
         thresholds = tuple(float(x) for x in argv[i + 1].split(",") if x.strip())
         del argv[i:i + 2]
+    # `max_speakers` is an exact cluster count on the shipped sherpa backend, not a
+    # cap (see RecimportConfig), so this measures the one mitigation a user has today:
+    # telling the tool how many people were in the room.
+    max_speakers = 0
+    if "--max-speakers" in argv:
+        i = argv.index("--max-speakers")
+        max_speakers = int(argv[i + 1])
+        del argv[i:i + 2]
     if "--dump-rttm" in argv:
         i = argv.index("--dump-rttm")
         dump_dir = Path(argv[i + 1])
@@ -296,7 +310,7 @@ if __name__ == "__main__":
     if "--sweep" in sys.argv:
         out = {"sweep": sweep(corpus_dir, thresholds)}
     else:
-        out = run(corpus_dir, dump_rttm=dump_dir)
+        out = run(corpus_dir, max_speakers=max_speakers, dump_rttm=dump_dir)
         print(json.dumps(out["summary"], indent=2))
     if len(args) > 1:
         Path(args[1]).write_text(json.dumps(out, indent=2) + "\n", encoding="utf-8")
