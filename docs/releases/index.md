@@ -23,11 +23,12 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.29.0](v2.29.0.md)** — forty-three things that were quietly wrong. Sixty-two
-commits, one feature, and the rest corrections that share a shape: they produced no error,
-they produced a confident wrong answer. Diagnostics that certified a microphone hearing
-nobody; text transforms that cut "Firstly" to "ly" and turned "an FBI agent" into "a FBI
-agent"; commands that reported success and changed nothing.
+**[YazSes 2.30.0](v2.30.0.md)** — the release that measured its own claims. 176 commits.
+Speaker labels in meeting transcripts were scored against annotated audio for the first
+time and were mostly wrong — four people split into up to 257 clusters — and are fixed.
+Seventeen capabilities that shipped with no way to reach them are now reachable. And most
+of what YazSes told you about itself, from the example config to the extras to the store
+listing, turned out to be checked by nothing.
 Install it with:
 
 ```sh
@@ -37,6 +38,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.30.0](v2.30.0.md) — the release that measured its own claims: speaker labels scored for the first time (84% DER, now 26.7%), seventeen unreachable capabilities wired, `[all]` eight extras short of all, and Flathub installing eleven releases behind what it advertised.
 - [v2.29.0](v2.29.0.md) — 43 corrections found mostly by running the product: `verify` certified a mic hearing nobody, `reflow` cut "Firstly" to "ly", `redact_patterns` scrubbed four of six fields, and a destructive-command guard could never fire.
 - [v2.28.0](v2.28.0.md) — when something breaks, YazSes now says what and what to do, and can prepare a bug report without sending one; a critical toast that outlived the process that raised it; a report that could carry your personal dictionary.
 - [v2.27.0](v2.27.0.md) — the docs described a YazSes that does not exist: the wrong Linux hotkey, a hidden Intel Mac build, eight pages offering features that cannot be enabled; plus a status line that says whether dictation is working.

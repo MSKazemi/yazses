@@ -333,7 +333,13 @@ def test_the_flatpak_installs_exactly_one_yazses_wheel():
     )
 
 
-def test_the_pinned_wheel_is_the_version_the_listing_advertises():
+def _released_versions() -> list[str]:
+    """Every version CHANGELOG.md records as released, newest first."""
+    text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    return re.findall(r"(?m)^## \[(\d+\.\d+\.\d+)\]", text)
+
+
+def test_the_pinned_wheel_is_the_project_version_or_the_one_before_it():
     """The listing said 2.29.0 and the build installed 2.18.2 — eleven releases apart.
 
     `test_the_newest_release_entry_matches_the_project_version` above already holds the
@@ -342,18 +348,33 @@ def test_the_pinned_wheel_is_the_version_the_listing_advertises():
     Flathub user would have read 2.29.0 on the store page and run 2.18.2, and nothing in
     the repository disagreed. Half a relationship checked is not the relationship checked.
 
-    Bumping the version therefore has to bump this pin too, hash included — the URL is
-    content-addressed by PyPI, so a stale hash is a hard build failure rather than a
-    silently old install, and that is the failure mode to prefer.
+    **Why this is not simply `pinned == project`.** It was, for one pass, and that rule
+    cannot be satisfied by the commit that performs a release: the pin is a PyPI URL with
+    a content hash, and the wheel for the version being released does not exist until
+    after the tag is pushed and CI publishes it. A rule no correct release can satisfy
+    does not get obeyed; it gets deleted. So the pin may be the project version *or* the
+    release immediately before it — the width of exactly one publish window — and nothing
+    wider. That still fails loudly on the eleven-version gap this was written for, and it
+    fails on a two-version one, which is the first moment the post-publish refresh could
+    have been skipped twice.
+
+    The ordering is what makes it safe: within a release, `chore(release)` bumps the
+    version with the pin one behind, then the published wheel is pinned in a follow-up.
+    Leaving that follow-up undone is caught by the *next* release, not this one.
     """
     (source,) = _yazses_wheel_sources()
     match = _WHEEL.search(source["url"])
     assert match is not None
     pinned = match.group(2)
     project = PYPROJECT["project"]["version"]
-    assert pinned == project, (
+    released = _released_versions()
+    assert released, "CHANGELOG.md records no released version to measure the pin against"
+    previous = next((v for v in released if v != project), None)
+    allowed = {project} | ({previous} if previous else set())
+    assert pinned in allowed, (
         f"the Flatpak build installs yazses {pinned}, but this project is at {project} "
-        f"and the metainfo advertises it. Update the `url` *and* the `sha256` in "
+        f"and the newest release before it is {previous}. A pin outside those two is "
+        f"stale by more than one publish window. Update the `url` *and* the `sha256` in "
         f"{PYTHON_SOURCES.name} from https://pypi.org/pypi/yazses/{project}/json"
     )
 
