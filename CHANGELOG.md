@@ -8,6 +8,16 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`yazses fileopen` told every BSD user their OS was unsupported.** The launcher
+  gated on `sys.platform.startswith("linux")` and fell through to
+  `NotImplementedError: Unsupported platform: freebsd14` on FreeBSD, OpenBSD, NetBSD
+  and DragonFly — the four systems `platform/factory.py` builds a real backend bundle
+  for. `xdg-utils` is in ports and pkgsrc exactly as `xdotool` and `xclip` are, which
+  is why the BSD backend is a thin composition over the Linux one rather than a
+  parallel implementation; this was the last gate in `src/` outside `platform/linux/`
+  that had not been told. The check now goes through `platform.bsd.is_bsd`, so it is a
+  prefix match — `sys.platform` carries the major version and is never the bare OS name.
+
 - **`yazses tune` proposed priming Whisper with words Whisper had made up.** The
   vocabulary proposal mines terms that appear in the "better" text of an event but
   not in what the live model produced, and "better" accepted either a human
