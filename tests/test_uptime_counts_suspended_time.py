@@ -65,13 +65,18 @@ def test_it_falls_back_when_the_constant_is_absent(monkeypatch):
 
 
 def test_it_falls_back_when_the_call_is_refused(monkeypatch):
-    """A kernel that names the constant and rejects the call must not kill status."""
+    """A kernel that names the constant and rejects the call must not kill status.
+
+    ``raising=False`` because Windows has no ``time.clock_gettime`` at all, and
+    without it this test raised ``AttributeError`` during *setup* on every Windows
+    runner -- red CI for the one platform where the fallback is not a hypothetical.
+    """
     monkeypatch.setattr(uptime_mod, "_BOOTTIME", 7)
 
     def _refuse(_clock):
         raise OSError(22, "Invalid argument")
 
-    monkeypatch.setattr(time, "clock_gettime", _refuse)
+    monkeypatch.setattr(time, "clock_gettime", _refuse, raising=False)
     assert isinstance(uptime_mod.monotonic_including_suspend(), float)
 
 
