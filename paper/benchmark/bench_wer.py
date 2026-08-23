@@ -146,21 +146,24 @@ def _engine_versions(specs) -> dict:
 
 
 def run(n: int, specs: list[tuple[str, str, str]] | None = None,
-        cpu_threads: int = 0) -> dict:
+        cpu_threads: int = 0, split: str = "test-clean") -> dict:
     specs = specs or DEFAULT_SPECS
-    subset = librispeech_subset(n, stratified=True)
+    subset = librispeech_subset(n, stratified=True, split=split)
     total_audio_s = sum(dur for _, _, _, dur in subset)
     n_speakers = len({utt_id.split("-")[0] for utt_id, _, _, _ in subset})
     results: dict = {
         "config": {
-            "dataset": "LibriSpeech test-clean",
-            "dataset_source": "https://www.openslr.org/resources/12/test-clean.tar.gz",
+            "dataset": f"LibriSpeech {split}",
+            "dataset_source": f"https://www.openslr.org/resources/12/{split}.tar.gz",
             "citation": "Panayotov et al., ICASSP 2015",
             "n_utterances": len(subset),
             "n_speakers": n_speakers,
             "total_audio_seconds": round(total_audio_s, 1),
             "normalizer": "whisper_normalizer.english.EnglishTextNormalizer",
-            "selection": "deterministic speaker-stratified round-robin across all test-clean speakers",
+            "selection": (
+                "deterministic speaker-stratified round-robin across all "
+                f"{split} speakers"
+            ),
             "engines": sorted({e for _, e, _ in specs}),
             "engine_versions": _engine_versions(specs),
             # 0 = CTranslate2 decides. Recorded rather than assumed because it is
@@ -296,7 +299,18 @@ if __name__ == "__main__":
         i = argv.index("--threads")
         cpu_threads = int(argv[i + 1])
         del argv[i:i + 2]
+    # `--split test-other` measures the harder half of the same corpus. The result
+    # is written to `wer-<split>.json` for anything but the default, because
+    # test-clean's file is what docs/benchmarks.md's headline table is checked
+    # against -- a harder run overwriting it would silently republish the wrong
+    # number under the right name.
+    split = "test-clean"
+    if "--split" in argv:
+        i = argv.index("--split")
+        split = argv[i + 1]
+        del argv[i:i + 2]
 
     n = int(argv[0]) if argv else 200
     specs = _parse_specs(argv[1] if len(argv) > 1 else "default")
-    write_result("wer", run(n, specs, cpu_threads))
+    name = "wer" if split == "test-clean" else f"wer-{split}"
+    write_result(name, run(n, specs, cpu_threads, split))

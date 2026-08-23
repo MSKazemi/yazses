@@ -88,7 +88,9 @@ def test_the_result_records_the_thread_count_even_when_it_is_the_default(
     bench_wer, monkeypatch
 ):
     """`0` and "unrecorded" are different claims and must not render identically."""
-    monkeypatch.setattr(bench_wer, "librispeech_subset", lambda n, stratified: [])
+    monkeypatch.setattr(
+        bench_wer, "librispeech_subset", lambda n, stratified, split="test-clean": []
+    )
     out = bench_wer.run(0, [], cpu_threads=0)
     assert "cpu_threads" in out["config"], (
         "a result whose config omits cpu_threads cannot be compared with one from "

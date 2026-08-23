@@ -76,7 +76,11 @@ def _subset(bench_wer, monkeypatch, n: int = 4) -> None:
     """Fixed references, so no LibriSpeech checkout is needed."""
     rows = [(f"utt-{i}", Path(f"/nonexistent/{i}.flac"), "the quick brown fox", 1.0)
             for i in range(n)]
-    monkeypatch.setattr(bench_wer, "librispeech_subset", lambda _n, stratified=True: rows)
+    monkeypatch.setattr(
+        bench_wer,
+        "librispeech_subset",
+        lambda _n, stratified=True, split="test-clean": rows,
+    )
 
 
 def test_a_working_engine_still_reports_when_a_later_one_dies(bench_wer, monkeypatch):

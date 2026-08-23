@@ -22,6 +22,29 @@ DATA_DIR = PAPER_DIR / "data"
 RESULTS_DIR = PAPER_DIR / "results"
 LIBRISPEECH_DIR = DATA_DIR / "LibriSpeech" / "test-clean"
 
+# The splits a WER bench may be pointed at. `test-clean` is read audiobook speech
+# recorded in quiet conditions and is the split every published Whisper number uses,
+# which is exactly why it cannot be the only one measured here: docs/benchmarks.md
+# has always warned that "your dictation WER will be worse than this" without ever
+# measuring anything that was worse. `test-other` is the same corpus, same readers'
+# format, drawn from the harder half of the speaker pool -- so it answers "how much
+# worse" on a difference that is only the audio.
+LIBRISPEECH_SPLITS = ("test-clean", "test-other")
+
+
+def librispeech_dir(split: str = "test-clean") -> Path:
+    """Directory for one LibriSpeech split, validated.
+
+    An unknown split would otherwise surface as a `FileNotFoundError` naming a path
+    the reader has to reverse-engineer, and -- worse -- a *typo'd* one could silently
+    match nothing and score zero utterances.
+    """
+    if split not in LIBRISPEECH_SPLITS:
+        raise ValueError(
+            f"unknown LibriSpeech split {split!r}; expected one of {LIBRISPEECH_SPLITS}"
+        )
+    return DATA_DIR / "LibriSpeech" / split
+
 SAMPLE_RATE = 16000
 
 
@@ -164,9 +187,9 @@ def load_audio(flac_path: Path) -> np.ndarray:
 
 
 def librispeech_subset(
-    n: int, stratified: bool = True
+    n: int, stratified: bool = True, split: str = "test-clean"
 ) -> list[tuple[str, Path, str, float]]:
-    """Return a deterministic subset of LibriSpeech test-clean.
+    """Return a deterministic subset of a LibriSpeech split.
 
     Each entry is ``(utt_id, flac_path, reference_text, duration_seconds)``.
 
@@ -176,24 +199,30 @@ def librispeech_subset(
     rather than clustering on the lowest-numbered ids. Fully deterministic (no RNG).
     ``stratified=False`` keeps the legacy "first ``n`` by sorted id" behaviour
     (used for timing-only benches where speaker mix is irrelevant).
+
+    ``split`` selects the LibriSpeech split; see `LIBRISPEECH_SPLITS`. It is a
+    parameter rather than a module constant because a number measured on one split
+    and quoted as the other is the single cheapest way to make this page wrong, so
+    the split travels with the call and lands in the result JSON's config block.
     """
     import soundfile as sf
 
-    if not LIBRISPEECH_DIR.exists():
+    root = librispeech_dir(split)
+    if not root.exists():
         raise FileNotFoundError(
-            f"LibriSpeech test-clean not found at {LIBRISPEECH_DIR}. "
-            "Download https://www.openslr.org/resources/12/test-clean.tar.gz "
+            f"LibriSpeech {split} not found at {root}. Download "
+            f"https://www.openslr.org/resources/12/{split}.tar.gz "
             "into paper/data/ and extract it."
         )
     refs: dict[str, str] = {}
-    for trans in LIBRISPEECH_DIR.rglob("*.trans.txt"):
+    for trans in root.rglob("*.trans.txt"):
         for line in trans.read_text().splitlines():
             utt_id, _, text = line.partition(" ")
             refs[utt_id] = text
 
     def _entry(utt_id: str):
         parts = utt_id.split("-")  # e.g. 7127-75946-0000
-        flac = LIBRISPEECH_DIR / parts[0] / parts[1] / f"{utt_id}.flac"
+        flac = root / parts[0] / parts[1] / f"{utt_id}.flac"
         if not flac.exists():
             return None
         info = sf.info(str(flac))
