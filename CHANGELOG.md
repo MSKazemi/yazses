@@ -8,6 +8,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`yazses doctor` told a machine with a flawless install to reinstall the package.**
+  Found on real hardware — a Windows Server 2022 box with zero sound devices — where the
+  microphone row read *"PortAudio could not be loaded … this means a broken or partial
+  install — run: `pip install --force-reinstall sounddevice`"*. The install was perfect.
+
+  `sounddevice` calls `Pa_Initialize()` at module scope, so `import sounddevice` fails for
+  two unrelated reasons and the exception type is the only thing that separates them: an
+  `OSError: PortAudio library not found` means the runtime really is absent, while a
+  `PortAudioError` can only be raised by a PortAudio that already **loaded**. The doctor's
+  probe caught `Exception` and called both "missing", so a machine with no audio system at
+  all was sent to reinstall a package that was never the problem — and after the reinstall
+  the row says exactly the same thing.
+
+  The same reasoning had already been applied once, to `system/diagnosis.py`, whose comment
+  records that a `PortAudioError` proves PortAudio loaded and whose test names error `-9986`
+  among the codes that must not be diagnosed as a missing library. That is precisely the
+  code Windows raised. Two guards with two vocabularies, only one of them narrowed. The
+  microphone row now distinguishes the two states and, for the second, says what is actually
+  wrong per OS (no input device, or the sound service is not running) and says plainly that
+  reinstalling will not help.
+
 - **`yazses remote --stop` reported a failed disconnect as a successful one.** The remote
   injector proxy is one of exactly two paths in the daemon that can send what the user
   actually said off this machine (ADR-019), so "Remote session disconnected." is a privacy

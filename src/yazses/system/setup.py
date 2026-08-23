@@ -227,23 +227,52 @@ def snap_interface_pending(
     return getattr(r, "returncode", 0) != 0
 
 
-def portaudio_missing() -> bool:
-    """True when the PortAudio runtime is absent, so `sounddevice` cannot load.
+def portaudio_state() -> str:
+    """`"ok"` | `"missing"` | `"uninitialised"` — why `sounddevice` will not import.
 
-    This is failure class 1 at the top of this module, and it is the single most
-    likely reason a `pipx`/`uv tool` install has no microphone: nothing pulls
-    `libportaudio2` in, and `sounddevice` raises `OSError: PortAudio library not
-    found` on import.
+    `sounddevice` calls `Pa_Initialize()` at **module scope**, so a failed import
+    carries two completely different facts and the exception type is what separates
+    them:
 
-    Distinguished from "no input device" on purpose. Both surface as an unusable
-    microphone, and only one of them is fixed by an apt command — reporting the
-    symptom without the cause is what sent people to check their hardware.
+    * `OSError: PortAudio library not found` — the runtime is genuinely absent. This
+      is failure class 1 at the top of this module and the single most likely reason a
+      `pipx`/`uv tool` install has no microphone: nothing pulls `libportaudio2` in.
+    * `sounddevice.PortAudioError` — the library **loaded and then failed to start**.
+      It cannot be missing; it is the thing that raised.
+
+    Collapsing the two is not hypothetical. Windows Server 2022 with no audio device
+    raises `PortAudioError(..., -9986)` from the import, and the doctor row built on the
+    old boolean answered *"this means a broken or partial install — run: pip install
+    --force-reinstall sounddevice"* on a machine where the install is perfect and the
+    reinstall cannot help. Confirmed on real hardware, not reasoned about.
+
+    `system/diagnosis.py` had already been narrowed for exactly this — its comment says
+    a `PortAudioError` proves PortAudio loaded, and its test names `-9986` among the
+    codes that must not be diagnosed as a missing library. This function is the other
+    guard, with the other vocabulary, which is how the two disagreed.
     """
     try:
         import sounddevice  # noqa: F401
-    except Exception:
-        return True
-    return False
+    except Exception as exc:  # noqa: BLE001
+        names = {cls.__name__ for cls in type(exc).__mro__}
+        return "uninitialised" if "PortAudioError" in names else "missing"
+    return "ok"
+
+
+def portaudio_missing() -> bool:
+    """True when the PortAudio runtime is absent, so `sounddevice` cannot load.
+
+    Distinguished from "no input device" *and* from "PortAudio started and failed" on
+    purpose. All three surface as an unusable microphone, and only one of them is fixed
+    by an apt command — reporting the symptom without the cause is what sent people to
+    check their hardware.
+    """
+    return portaudio_state() == "missing"
+
+
+def portaudio_uninitialised() -> bool:
+    """True when PortAudio loaded and `Pa_Initialize()` failed — no audio system."""
+    return portaudio_state() == "uninitialised"
 
 
 def snap_mic_pending(env: Mapping[str, str] | None = None, *, runner=subprocess.run) -> bool:

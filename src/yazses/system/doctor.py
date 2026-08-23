@@ -538,11 +538,22 @@ def _config_summary(
                     behind = f" → {found[0]} (volume {found[1] * 100:.0f}%)"
         except Exception:  # pragma: no cover - best-effort, never breaks doctor
             behind = ""
-        out.append((
-            "Input device", "OK",
-            f"OS default: {default or 'unknown'}{behind} "
-            "(pin with `yazses audio use <name>`)",
-        ))
+        if default:
+            out.append((
+                "Input device", "OK",
+                f"OS default: {default}{behind} (pin with `yazses audio use <name>`)",
+            ))
+        else:
+            # This row was hardcoded "OK" and printed "OS default: unknown (pin with
+            # `yazses audio use <name>`)". On a machine whose audio stack cannot be
+            # reached it therefore sat one line below "[FAIL] Microphone: ... no usable
+            # audio system" contradicting it, and offered a command that lists nothing.
+            # An unqueryable device is not an OK device; the tag has to say so.
+            out.append((
+                "Input device", "WARN",
+                "could not be queried — the audio system did not answer. The Microphone "
+                "row above says why; `yazses audio devices` shows the same error.",
+            ))
     guard = getattr(cfg.injection, "target_guard", "off")
     if guard != "off":
         try:
@@ -1000,6 +1011,39 @@ def portaudio_advice(platform_name: str) -> str:
     )
 
 
+def portaudio_init_advice(platform_name: str) -> str:
+    """PortAudio loaded and failed to start — what that means, per OS. Pure.
+
+    The counterpart to `portaudio_advice`, and the reason the two exist separately:
+    every message there names an install or a reinstall, and none of them can help
+    here. `Pa_Initialize()` failing proves the library is present — it is the thing
+    that raised — so the fault is the machine's audio system, not the package.
+
+    Found on a Windows Server 2022 box with zero sound devices, where the reinstall
+    advice was printed against a flawless install.
+    """
+    if platform_name == WINDOWS_PLATFORM_NAME:
+        return (
+            "PortAudio is installed but could not start, so this machine has no usable "
+            "audio system — reinstalling will not help. Check that a microphone is "
+            "present and enabled in Settings > System > Sound, and that the Windows "
+            "Audio service is running (services.msc). Remote/server sessions often "
+            "have no audio device at all."
+        )
+    if platform_name == MACOS_PLATFORM_NAME:
+        return (
+            "PortAudio is installed but could not start, so this machine has no usable "
+            "audio system — reinstalling will not help. Check a microphone is connected "
+            "and selected in System Settings > Sound > Input."
+        )
+    return (
+        "PortAudio is installed but could not start, so this machine has no usable "
+        "audio system — reinstalling will not help. Check the sound server is running "
+        "(`systemctl --user status pipewire pulseaudio`) and that an input device "
+        "exists (`arecord -l`). A container needs /dev/snd passed through."
+    )
+
+
 def microphone_detail(
     state: str,
     *,
@@ -1007,6 +1051,7 @@ def microphone_detail(
     no_portaudio: bool,
     platform_name: str,
     advice: str = "",
+    portaudio_uninitialised: bool = False,
 ) -> str:
     """What to print beside a failing microphone check. Pure.
 
@@ -1026,12 +1071,17 @@ def microphone_detail(
     good microphone advice on a check that always answers OK.
 
     Naming a package unconditionally would be as wrong as never naming it: a machine
-    that has PortAudio and no microphone must not be sent to a package manager.
+    that has PortAudio and no microphone must not be sent to a package manager. That is
+    also why `portaudio_uninitialised` is a *separate* branch rather than folded into
+    `no_portaudio`: a library that loaded and failed to start cannot be reinstalled into
+    working, and telling someone to try is the same defect one line further on.
     """
     if snap_pending:
         return "not granted — run: sudo snap connect yazses:audio-record"
     if no_portaudio:
         return portaudio_advice(platform_name)
+    if portaudio_uninitialised:
+        return portaudio_init_advice(platform_name)
     if advice:
         return f"{state} — {advice}"
     return state
@@ -1112,12 +1162,18 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     mic = perms.check_microphone()
     mic_detail = mic.value
     if mic not in (PermissionState.OK, PermissionState.NOT_APPLICABLE):
-        from yazses.system.setup import portaudio_missing, snap_mic_pending
+        from yazses.system.setup import portaudio_state, snap_mic_pending
 
+        # One probe, two facts: importing sounddevice runs Pa_Initialize(), so the
+        # exception type is what separates "the library is absent" from "the library
+        # started and this machine has no audio system". Calling two booleans would
+        # import — and fail — twice.
+        pa_state = portaudio_state()
         mic_detail = microphone_detail(
             mic.value,
             snap_pending=snap_mic_pending(),
-            no_portaudio=portaudio_missing(),
+            no_portaudio=pa_state == "missing",
+            portaudio_uninitialised=pa_state == "uninitialised",
             platform_name=platform.name,
             advice=perms.how_to_grant_microphone(),
         )
