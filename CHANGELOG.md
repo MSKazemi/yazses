@@ -6,6 +6,64 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — every shipped STT engine measured against every other, on easy and hard audio
+
+`docs/benchmarks.md` compared three Whisper checkpoints on a laptop and described the
+other engines on their vendors' word. All eight are now measured under one method — the
+same 200-utterance speaker-stratified LibriSpeech subset, the same normaliser, every
+engine built through the shipping `stt.factory.build_engine`, on an otherwise idle
+16-vCPU Xeon:
+
+| Engine / model | WER | Sub | Ins | RTF |
+|---|---|---|---|---|
+| `parakeet-tdt-0.6b-v2` | **2.06 %** | 73 | 11 | 0.050 |
+| `small.en` | 2.66 % | 100 | 8 | 0.092 |
+| `moonshine/base` | 3.17 % | 110 | 23 | **0.023** |
+| `large-v3` | 3.23 % | **62** | **89** | 0.451 |
+| `medium.en` | 3.28 % | 86 | 40 | 0.246 |
+| `base.en` (default) | 4.01 % | 141 | 30 | 0.042 |
+| `moonshine/tiny` | 4.20 % | 152 | 28 | 0.016 |
+| `tiny.en` | 5.18 % | 166 | 42 | 0.028 |
+
+The large Whisper models lose on **insertions, not recognition**: `large-v3` has the
+fewest substitutions of anything measured and eleven times `small.en`'s insertions. And
+`moonshine/base` reaches `large-v3`'s accuracy at twenty times the speed. Neither fact
+was visible while the engines were being compared across separate published tables.
+
+### Added — `--split test-other`, so "your WER will be worse" is a number
+
+The benchmark harness only knew about LibriSpeech `test-clean`, so the page had always
+warned that real WER is worse without measuring anything worse. `bench_wer.py` now takes
+`--split` (`test-clean` | `test-other`) and writes to a split-specific result file, so a
+hard-split run can never overwrite the headline numbers.
+
+On `test-other` the default `base.en` goes from 4.01 % to 9.46 % — the difference between
+an occasional fix and one word in ten. **The ranking inverts**: `small.en` beats
+`medium.en` and `large-v3` on clean audio and falls behind both on hard audio, because
+`large-v3`'s substitutions barely move (87 → 87) while `small.en`'s rise (100 → 161).
+Parakeet (1.4×) and `large-v3` (1.5×) degrade least; everything else lands between 1.7×
+and 2.5×.
+
+### Fixed — a benchmark number that changes when you measure it twice, and one dictation that does
+
+Repeating the whole matrix on the same box, same code, same subset: six of eight engines
+return byte-identical numbers, and `tiny.en` (4.93–5.25 %) and `large-v3` (3.23–3.98 %)
+do not. Decoding the same subset **twice inside one process** still differs on one
+utterance in two hundred, and seeding CTranslate2's RNG changes nothing.
+
+Decoding that one clip forty times names the mechanism. Its greedy decode *fails* and
+emits a single word; faster-whisper's default `temperature=[0.0, 0.2, … 1.0]` fallback
+catches that on the compression-ratio and log-probability checks and re-decodes by
+**sampling** — 34 distinct outputs in 40 runs with defaults, exactly 1 with
+`temperature=0.0`, and that one is the truncated word. Disabling the fallback is not a
+fix; it trades a random correct-ish sentence for a deterministic wrong one.
+
+This is a **product** behaviour, not only a benchmark artefact: on `tiny.en`, dictating
+one long sentence twice can return two different transcripts, or one word. `base.en`,
+`small.en` and the rest give one output in 40 either way, so the shipped default does not
+do this — but anyone who picked `tiny.en` for speed is exposed to it. The published
+`tiny.en` and `large-v3` rows now carry the spread instead of a false second decimal.
+
 ### Changed — the Parakeet speed claim was off by more than a factor of two
 
 Five places said Parakeet TDT "beats whisper-large-v3 at roughly 4x whisper-small CPU

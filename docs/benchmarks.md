@@ -44,6 +44,133 @@ be worse than this** — a real microphone in a real room with spontaneous speec
 harder problem than the benchmark. Treat these as a comparison *between models*, not
 as a promise about your desk.
 
+## Every engine, measured against every other
+
+The table above is the three default Whisper checkpoints on the reference laptop. This
+one is the whole pluggable-engine matrix, including the two engines the documentation
+had been comparing on the vendors' word since they shipped. Measured on a 16-vCPU Intel
+Xeon Platinum 8573C (Azure `Standard_D16s_v6`, Ubuntu 24.04, CTranslate2 4.8.1, int8 on
+CPU, otherwise idle), the same 200-utterance speaker-stratified `test-clean` subset, the
+same `EnglishTextNormalizer`, and every engine built through the shipping
+`stt.factory.build_engine` rather than a bespoke call.
+
+| Engine / model | WER | 95 % CI | Sub | Del | Ins | RTF | vs real time |
+|---|---|---|---|---|---|---|---|
+| `parakeet-tdt-0.6b-v2` | **2.06 %** | 1.54–2.68 | 73 | 12 | 11 | 0.050 | 19.8× |
+| `small.en` | 2.66 % | 2.05–3.28 | 100 | 16 | 8 | 0.092 | 10.9× |
+| `moonshine/base` | 3.17 % | 2.49–4.02 | 110 | 15 | 23 | **0.023** | **42.6×** |
+| `large-v3` | 3.23 % | 1.95–5.00 | **62** | 8 | **89** | 0.451 | 2.2× |
+| `medium.en` | 3.28 % | 2.09–5.01 | 86 | 27 | 40 | 0.246 | 4.1× |
+| `base.en` **(default)** | 4.01 % | 3.21–4.87 | 141 | 16 | 30 | 0.042 | 24.1× |
+| `moonshine/tiny` | 4.20 % | 3.42–5.06 | 152 | 16 | 28 | 0.016 | 62.6× |
+| `tiny.en` | 5.18 % | 4.22–6.31 | 166 | 23 | 42 | 0.028 | 35.4× |
+
+RTF is real-time factor — decode seconds per audio second, so lower is faster. It is a
+property of this machine and may not be carried to another one; the WER column may.
+
+**The two largest Whisper models lose, and the reason is insertions, not recognition.**
+`large-v3` has the *fewest* substitutions of anything measured — 62, against `small.en`'s
+100 — so as a recogniser it is exactly as good as its reputation. It also has 89
+insertions against `small.en`'s 8. On dictation-length clips the large models add text
+that was never spoken, and on a short utterance that is the dominant error. This is the
+same failure mode as Whisper's hallucination on silence, and it is why a bigger model is
+not automatically the better choice for hold-to-talk.
+
+**Parakeet wins, and the confidence intervals overlap.** 2.06 % against `large-v3`'s
+3.23 % is a point estimate on 200 utterances, and the intervals (1.54–2.68 against
+1.95–5.00) share a lot of ground. Parakeet is the right way to bet on this evidence;
+"Parakeet beats whisper-large-v3" is not something 200 utterances establish.
+
+**Parakeet is about twice `small.en`'s speed, not four times.** Five places in this
+project's own documentation said "roughly 4× whisper-small CPU speed", inherited from
+the vendor. 0.092 / 0.050 = 1.84, and a second run on the same box gave 1.79. The
+vendor's ~30× real time is ~20× here. Those five places now quote this table.
+
+**Moonshine is the fastest thing here by a distance**, and `moonshine/base` reaches
+`large-v3`'s accuracy at twenty times the speed — worth knowing before assuming the
+accuracy/latency trade-off has to be paid in the usual direction.
+
+### How much worse: the same models on `test-other`
+
+This page has always said "your dictation WER will be worse than this" without measuring
+anything that was worse — the benchmark harness only knew about `test-clean`. It now
+takes `--split test-other`: the same corpus, the same readers' format, drawn from the
+half LibriSpeech's authors set aside as harder. 200 utterances, 33 speakers, 23.4 minutes,
+same machine, same method.
+
+| Engine / model | `test-clean` | `test-other` | Multiplier |
+|---|---|---|---|
+| `parakeet-tdt-0.6b-v2` | 2.06 % | **2.88 %** | **1.4×** |
+| `large-v3` | 3.23 % | 4.86 % | 1.5× |
+| `small.en` | 2.66 % | 5.59 % | 2.1× |
+| `medium.en` | 3.28 % | 5.51 % | 1.7× |
+| `moonshine/base` | 3.17 % | 8.04 % | 2.5× |
+| `base.en` **(default)** | 4.01 % | 9.46 % | 2.4× |
+| `moonshine/tiny` | 4.20 % | 10.35 % | 2.5× |
+| `tiny.en` | 5.18 % | 11.61 % | 2.2× |
+
+**Take the right lesson from the multiplier.** `test-other` is still read speech from a
+recording session; it is not you dictating into a laptop microphone with a fan running.
+So this is not a prediction of your desk — it is a lower bound on how far a number from
+this page can move when only the audio gets harder. On the default model that is 4 % to
+9.5 %, which is the difference between "occasional fix" and "one word in ten".
+
+**The ranking is not stable across the two splits.** On clean audio `small.en` beats
+both `medium.en` and `large-v3`; on harder audio it falls behind both, and `large-v3`
+becomes the best Whisper checkpoint measured. The reason is visible in the error
+breakdown: `large-v3`'s substitutions barely move (87 on clean, 87 on other) while
+`small.en`'s rise from 100 to 161. The big model's recognition advantage was always real
+and was simply outweighed, on easy audio, by the words it invents. Make the audio harder
+and the trade flips.
+
+**Two models barely degrade at all** — Parakeet (1.4×) and `large-v3` (1.5×), the
+non-Whisper engine and the largest Whisper checkpoint. Everything else lands between
+1.7× and 2.5×, with `base.en` and both Moonshine models at the top of that range.
+If you are choosing a model for conditions you cannot control, this column matters more
+than the `test-clean` one.
+
+### The same number, measured twice, is not the same number
+
+Repeating the whole matrix on the same box, same code, same 200 utterances:
+
+| Model | Measurements across repeated runs |
+|---|---|
+| `tiny.en` | 4.93 %, 4.95 %, 5.18 %, 5.25 % |
+| `large-v3` | 3.23 %, 3.41 %, 3.98 % |
+| `base.en`, `small.en`, `medium.en`, `parakeet`, both `moonshine` | identical every time |
+
+So two of the eight are unstable by up to three quarters of a point, and the rest do not
+move at all. That is not the machine. Decoding the same subset **twice inside one
+process** — same loaded weights, same threads, same instruction set — still produced one
+differing utterance in two hundred, and seeding CTranslate2's RNG changed nothing.
+
+Decoding that one clip (`7176-88083-0001`, 16.6 s) forty times names the mechanism:
+
+| `tiny.en`, 40 decodes of one clip | Distinct outputs |
+|---|---|
+| faster-whisper defaults | **34** |
+| `temperature=0.0` (fallback disabled) | **1** — and it is the single word `"The"` |
+| `condition_on_previous_text=False` | 34 |
+| `beam_size=1` | 35 |
+
+The greedy decode of this clip **fails**, emitting one word. faster-whisper's default
+`temperature=[0.0, 0.2, … 1.0]` fallback notices — the output fails its compression-ratio
+and log-probability checks — and re-decodes by *sampling* until something plausible comes
+out. The fallback is what rescues the utterance; sampling is why the rescue is a
+different sentence each time. Turning it off is not a fix: it trades a random correct-ish
+sentence for a deterministic one-word truncation.
+
+Run against `base.en` and `small.en`, the same clip gives **1 distinct output in 40**,
+with the fallback on or off. The instability is not general — it is what happens when a
+model is small enough that its first-choice decode fails the quality check, and on this
+corpus that is `tiny.en` and `large-v3` and nothing else.
+
+Two things follow. The second decimal place on the `tiny.en` and `large-v3` rows above is
+noise, and the first is not entirely safe either. And it is a **product** behaviour, not
+only a benchmark artefact: on `tiny.en`, dictating one long sentence twice can return two
+different transcripts, or one word. YazSes' default is `base.en`, which on this evidence
+does not do it.
+
 ## Speed — how long until the text appears
 
 Decode time for a single utterance, measured end-to-end on 30 utterances (median
