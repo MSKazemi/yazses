@@ -153,7 +153,7 @@ def _fake_tree(root: Path, spec: dict[str, list[tuple[str, int]]]) -> tuple[Path
                 w.writeframes(b"\x00\x00" * (16000 * dur))
             lines = [f"SPEAKER {fid} 1 {i * 5}.00 4.00 <NA> <NA> spk{i % 4} <NA> <NA>"
                      for i in range(8)]
-            (rttm / f"{fid}.rttm").write_text("\n".join(lines) + "\n")
+            (rttm / f"{fid}.rttm").write_text("\n".join(lines) + "\n", encoding="utf-8")
     return wav, rttm
 
 

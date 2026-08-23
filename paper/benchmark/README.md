@@ -166,6 +166,24 @@ those voices over-fit, which is why the real corpora exist.
 
 ```bash
 uv run python paper/benchmark/bench_diarization.py /tmp/ami-corpus ami-sweep.json --sweep
+uv run python paper/benchmark/bench_diarization.py /tmp/ami-corpus s.json --sweep \
+  --thresholds 0.9,1.0,1.1,1.2,1.3,1.4,1.6
+```
+
+The default range stops at `0.9`, and on real audio the useful values are above it, so
+widen it before concluding anything from the shape of the curve. A sweep whose optimum
+lies outside its range does not report "range too narrow" — it reports a metric
+improving monotonically to the edge, which reads exactly like "no threshold helps".
+
+### Telling it the speaker count
+
+`--max-speakers N` sets `[recimport] max_speakers`, which on the shipped sherpa backend
+is an **exact** cluster count rather than an upper bound, so `4` means four clusters
+whatever the audio contains. It measures the mitigation available to a user who knows
+how many people were in the room:
+
+```bash
+uv run python paper/benchmark/bench_diarization.py /tmp/ami-corpus n.json --max-speakers 4
 ```
 
 ### Subset selection
