@@ -74,15 +74,35 @@ move when a person moves it.
 gh workflow run benchmark.yml -f wer_n=100 -f lat_n=20
 ```
 
-Read the artifacts with the provenance block, never without it: **word error rate is
-a property of the model** and is comparable across hosts, while **latency and RTF are
-properties of the machine** and must be reported per host. Merging latency from two
+Read the artifacts with the provenance block, never without it. **Latency and RTF are
+properties of the machine** and must be reported per host; merging latency from two
 runners into one table is a defect, not a summary.
+
+**WER is very nearly a property of the model, and the gap matters.** CTranslate2 owns
+the int8 kernels and the order their partial sums are reduced in, and that order
+depends on the ISA it dispatched to *and* on how many threads the GEMM was split
+across. On one laptop, one byte-identical 200-utterance subset and one set of library
+versions, `tiny.en` scored **4.78%** with the thread count left to CTranslate2,
+**4.88%** at one thread and **4.95%** at four -- while `base.en` and `small.en` did not
+move at all, which is exactly why this is easy to miss. The spread sits well inside
+the bootstrap interval the bench already reports (tiny.en: 4.03-5.83), so it does not
+threaten the *ranking* of models; it does mean a tenth of a point between two hosts is
+not a finding. Pin the thread count on both before reading anything into a small gap:
+
+```bash
+uv run python paper/benchmark/bench_wer.py 200 default --threads 4
+```
+
+`--threads 0` (the default) is the shipping behaviour and therefore the right thing to
+publish; the value is written into every result's `config.cpu_threads` so a reader can
+tell "CTranslate2 chose" from "nobody recorded it".
 
 ## Notes
 
-- Results are deterministic given the same models and data (LibriSpeech subset is
-  chosen by sorting utterance ids and taking the first N).
+- Subset selection is deterministic: a speaker-stratified round-robin over the sorted
+  utterance ids, so the same `N` always scores the same clips. Decoding is *nearly*
+  deterministic -- see the thread-count note above; identical inputs and library
+  versions can still differ in the last decimal when the thread count differs.
 - Run nothing else CPU-heavy during a run: latency/RTF are wall-clock measurements.
 - The numbers reported in the paper were taken on the machine named in each result
   file's `provenance` block; re-run on your own hardware to re-scope.

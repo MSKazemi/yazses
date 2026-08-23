@@ -370,10 +370,20 @@ not a benchmark:
   machines.
 
 When those runs do land, latency and RTF get **one table per host and are never
-merged**: word error rate is a property of the model and is comparable everywhere,
-while latency is a property of the machine. Each result JSON carries a provenance
-block naming the CPU, OS and library versions that produced it, so a number can
-never be quoted without its conditions.
+merged**: latency is a property of the machine. Word error rate is *nearly* a
+property of the model — near enough to rank checkpoints, not near enough to read a
+tenth of a point between two hosts. CTranslate2 owns the int8 kernels and the order
+their partial sums are reduced in, and that order depends on the instruction set it
+dispatched to and on how many threads it split the matrix multiply across. On one
+laptop, one byte-identical 200-utterance subset and one set of library versions,
+`tiny.en` scored 4.78% with the thread count left to CTranslate2, 4.88% at one
+thread and 4.95% at four; `base.en` and `small.en` did not move at all. The 0.17
+point spread sits well inside the 95% interval the harness already reports for
+`tiny.en` (4.03–5.83), so it changes no conclusion on this page — but it is why
+`bench_wer.py` takes `--threads` and records the value in every result. Each result
+JSON also carries a provenance block naming the CPU, OS, thread count, load average
+and library versions that produced it, so a number can never be quoted without its
+conditions.
 
 Contributions on any of these are welcome, and reporting results from your own
 hardware is a genuinely useful first contribution.

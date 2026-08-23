@@ -11,6 +11,15 @@ hardcode three Whisper checkpoints, so `docs/models.md`'s claim that Parakeet be
 whisper-large-v3 was carried on the vendor's word with no local measurement behind
 it. Routing through `build_engine` is what makes the claim checkable.
 
+**A WER from this bench is not portable to the last decimal.** CTranslate2, not
+faster-whisper, chooses the int8 kernels and the order the partial sums are reduced
+in, and that order depends on the ISA it dispatched to *and* on how many threads it
+split the GEMM across. Measured on one laptop, one byte-identical 200-utterance
+subset and one set of library versions, `tiny.en` moved 4.78% -> 4.88% -> 4.95%
+across auto / 1 / 4 threads; `base.en` and `small.en` did not move at all. So the
+thread count is recorded with every result, and a small gap between two hosts is
+not evidence of anything until they were given the same one.
+
 **The factory's kindness is this bench's hazard.** `build_engine` deliberately never
 lets a bad `[stt] engine` brick dictation: a missing optional dependency falls back
 to faster-whisper with a logged warning. That is right for a daemon and fatal for a
@@ -93,15 +102,22 @@ def _bootstrap_wer_ci(per_utt: list[tuple[int, int]]) -> tuple[float, float]:
             round(draws[int(0.975 * _BOOTSTRAP_N)], 2))
 
 
-def _build(engine_name: str, model: str):
-    """Build *model* on *engine_name*, refusing a silent fallback to another engine."""
+def _build(engine_name: str, model: str, cpu_threads: int = 0):
+    """Build *model* on *engine_name*, refusing a silent fallback to another engine.
+
+    `cpu_threads` is passed straight through to `SttConfig`, where `0` means "let
+    CTranslate2 decide from the environment" -- which is the shipping default and
+    therefore the right thing to measure, but is also why the resulting WER is a
+    property of this host as well as of the model. Pin it to compare two machines.
+    """
     from yazses.config import SttConfig
     from yazses.stt.factory import build_engine
 
     # language="en": every model here is English or English-only, and an explicit
     # code avoids Whisper's extra auto-detect pass skewing the RTF measurement.
     engine = build_engine(
-        SttConfig(engine=engine_name, model=model, language="en", compute_type="int8")
+        SttConfig(engine=engine_name, model=model, language="en",
+                  compute_type="int8", cpu_threads=cpu_threads)
     )
     actual = type(engine).__name__
     expected = _EXPECTED_CLASS[engine_name]
@@ -129,7 +145,8 @@ def _engine_versions(specs) -> dict:
     return out
 
 
-def run(n: int, specs: list[tuple[str, str, str]] | None = None) -> dict:
+def run(n: int, specs: list[tuple[str, str, str]] | None = None,
+        cpu_threads: int = 0) -> dict:
     specs = specs or DEFAULT_SPECS
     subset = librispeech_subset(n, stratified=True)
     total_audio_s = sum(dur for _, _, _, dur in subset)
@@ -146,6 +163,10 @@ def run(n: int, specs: list[tuple[str, str, str]] | None = None) -> dict:
             "selection": "deterministic speaker-stratified round-robin across all test-clean speakers",
             "engines": sorted({e for _, e, _ in specs}),
             "engine_versions": _engine_versions(specs),
+            # 0 = CTranslate2 decides. Recorded rather than assumed because it is
+            # one of the two things (with the ISA) that make two hosts disagree on
+            # a WER they were both computing correctly.
+            "cpu_threads": cpu_threads,
         },
         "models": {},
     }
@@ -153,7 +174,7 @@ def run(n: int, specs: list[tuple[str, str, str]] | None = None) -> dict:
     for label, engine_name, model_name in specs:
         print(f"[wer] loading {label} (engine={engine_name}) ...", flush=True)
         t_load = time.monotonic()
-        engine = _build(engine_name, model_name)
+        engine = _build(engine_name, model_name, cpu_threads)
         load_s = time.monotonic() - t_load
 
         refs: list[str] = []
@@ -245,6 +266,13 @@ if __name__ == "__main__":
 
     from _common import write_result
 
-    n = int(sys.argv[1]) if len(sys.argv) > 1 else 200
-    specs = _parse_specs(sys.argv[2] if len(sys.argv) > 2 else "default")
-    write_result("wer", run(n, specs))
+    argv = sys.argv[1:]
+    cpu_threads = 0
+    if "--threads" in argv:
+        i = argv.index("--threads")
+        cpu_threads = int(argv[i + 1])
+        del argv[i:i + 2]
+
+    n = int(argv[0]) if argv else 200
+    specs = _parse_specs(argv[1] if len(argv) > 1 else "default")
+    write_result("wer", run(n, specs, cpu_threads))
