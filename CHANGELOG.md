@@ -6,6 +6,35 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [2.30.0] — 2026-08-24
+
+### Measured — the 300 ms silence lead-in, and the guard's AMI claim
+
+- **`[accessibility] pre_speech_padding_ms` does not do what the note beside it said.**
+  Measured on 200 stratified LibriSpeech `test-clean` utterances with the leading room
+  tone trimmed away (median 290 ms) so speech starts at sample 0: with the onset intact,
+  every lead from 0 to 1000 ms lands inside the run-to-run noise band. Whisper needs no
+  run-up. Where it *does* matter is when the key was caught late and speech is genuinely
+  missing — and there it changes sign: 40 ms of speech gone and the lead-in recovers 6
+  opening words in 200; 120 ms gone and it loses 11; 240 ms gone and it loses 4. The
+  three clipped rows were run end to end twice and **all nine first-word counts
+  reproduced exactly**, while WER moved by up to 1.0 point in the same cells. The
+  default stays at 300 ms — the better half of the trade in the near-miss case, free in
+  the common one — but the comment now states the measurement instead of a mechanism.
+- **`tests/test_pre_speech_buffer_is_never_fed.py` overstated the surviving path.** It
+  said the setting "works" through synthetic silence; that claim was the unmeasured one.
+  Corrected to the numbers above, with the point it was written to protect intact: the
+  variant that *could* recover a clipped onset retains real audio from before the key
+  went down, and is deliberately never fed.
+- **ADR-v2-133's "AMI is untouched" is no longer only arithmetic.** The full 16-recording
+  AMI test split was scored at the shipped `cluster_threshold = 1.2` under both the flat
+  20 s rule and the new scaled one: they agree **16 / 16**. The derived threshold clamps
+  to the ceiling on twelve recordings, and on the four shorter sessions where it drops
+  (13.8–19.1 s) no verdict changes. One firing under either rule, `IS1009d` — 6 labels
+  for 4 speakers — and it is a real over-split.
+
 ### Fixed — a test hung every Windows CI run forever, and a hang reports nothing
 
 - **`tests/test_settings_failure_is_visible.py::test_alert_is_a_no_op_off_windows` read

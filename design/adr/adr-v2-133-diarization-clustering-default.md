@@ -296,8 +296,13 @@ Three properties make it safe to change a guard that shipped hours earlier:
 
 * **It can only relax.** The derived threshold is bounded above by the 20 s every
   published measurement was taken at, so nothing that was silent can start warning.
-* **AMI is untouched.** 2% of half an hour is 36 s, above the ceiling, so the table above
-  and the 257-label catastrophe that produced this module are evaluated at the same 20 s.
+* **AMI is untouched** — argued from the arithmetic, then measured. 2% of half an hour is
+  36 s, above the ceiling, so the table above and the 257-label catastrophe that produced
+  this module are evaluated at the same 20 s. Scoring the full 16-recording AMI test split
+  at the shipped `1.2` under both rules agrees on **16 of 16**: the derived threshold
+  clamps to 20.0 s on twelve, and on the four shorter sessions where it does drop
+  (13.8–19.1 s) no verdict changes. One recording fires under either rule, `IS1009d`
+  (4 speakers, 6 labels), and it is a genuine over-split.
 * **The floor is what a proportional rule cannot do.** Shatter a three-minute clip into
   forty equal slivers and every label holds exactly `total/40`; the fraction moves with
   the shattering and never catches up. Five seconds of speech across a whole recording is

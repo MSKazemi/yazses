@@ -110,7 +110,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
 | `min_silence_ms` | int | `500` |  |  |
-| `pre_speech_padding_ms` | int | `300` |  | Silence lead-in prepended before STT decode. faster-whisper drops/clips the first word when a clip starts abruptly mid-utterance; a short lead-in gives it a clean onset boundary so the opening word survives. |
+| `pre_speech_padding_ms` | int | `300` |  | Silence prepended before STT decode, and the size of the (deliberately unfed) pre-speech ring buffer. Measured on 200 LibriSpeech utterances with the leading room tone trimmed away: with the onset intact it changes nothing, every lead from 0 to 1000 ms landing inside the run-to-run noise band. It matters only when the key was caught late and speech is actually missing, and there it changes sign -- with 40 ms of speech gone it recovers 6 opening words in 200, with 120 ms gone it loses 11. Silence cannot reconstruct audio that was never captured; 300 ms is kept because it is the better half of that trade in the near-miss case and costs nothing when there is no miss at all. |
 | `vad_source` | str | `"default"` | ⚠️ inert |  |
 | `vad_threshold` | float | `0.01` |  |  |
 | `dysfluency_friendly` | bool | `false` |  | v0.8.0 — Dysfluency-Friendly Mode master preset (ADR-015): enables the disfluency collapse pass and widens onset padding. Off by default. |

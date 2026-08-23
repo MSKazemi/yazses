@@ -22,16 +22,27 @@ constructed and read but never written would, in one plausible commit, turn a
 hold-to-talk dictation tool into one that records the room. This test makes that
 commit fail and forces the trade to be made deliberately rather than as cleanup.
 
-## What is NOT broken
+## What the surviving path does and does not do
 
-`[accessibility] pre_speech_padding_ms` still does its documented job through a
-different path: `core/daemon.py` prepends `np.zeros(...)` — synthetic silence, not
-captured audio — before decode, so faster-whisper does not clip an abrupt onset. The
-setting works; only the *retained audio* variant does not exist.
+`[accessibility] pre_speech_padding_ms` still has a second, live effect:
+`core/daemon.py` prepends `np.zeros(...)` — synthetic silence, not captured audio —
+before decode. That half was measured on 200 LibriSpeech utterances (see
+`docs/benchmarks.md`, "The 300 ms of silence before every decode") and it is much
+narrower than the note beside it claimed:
 
-Whether the accessibility case (a genuinely delayed onset, where synthetic silence
-cannot help because the quiet speech happened before the key went down) is worth the
-privacy cost is the owner's call, not a cleanup decision.
+* onset intact — no effect at all, every lead from 0 to 1000 ms inside the
+  run-to-run noise band;
+* 40 ms of speech missing — the lead-in buys back 6 opening words in 200;
+* 120 ms missing — it *costs* 11, and 240 ms missing costs 4.
+
+So the setting is not a fix for a clipped onset; it is a small win in the mildest
+case and a small loss past that. Prepended silence cannot reconstruct audio that was
+never captured, which is precisely why the retained-audio variant is the one that
+would work — and why it is not wired.
+
+Whether the accessibility case (a genuinely delayed onset, where the quiet speech
+happened before the key went down) is worth the privacy cost is the owner's call, not
+a cleanup decision.
 """
 
 from __future__ import annotations

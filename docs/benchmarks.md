@@ -171,6 +171,63 @@ only a benchmark artefact: on `tiny.en`, dictating one long sentence twice can r
 different transcripts, or one word. YazSes' default is `base.en`, which on this evidence
 does not do it.
 
+### The 300 ms of silence before every decode
+
+`[accessibility] pre_speech_padding_ms` prepends synthetic silence to every burst
+before it reaches the decoder. The reason written next to it was that
+"faster-whisper drops/clips the first word when a clip starts abruptly
+mid-utterance". Nothing had measured it.
+
+**Method.** 200 stratified `test-clean` utterances, `base.en` int8, on an otherwise
+idle 16-vCPU Xeon. Each clip opens with a beat of room tone, which would hide the
+effect, so the leading silence is trimmed first (10 ms frames, peak ≥ 0.01; median
+290 ms removed) to put speech at sample 0. To simulate a hotkey pressed *late*, a
+further slice of **speech** is then removed. The reported metric is how often the
+first word of the reference is the first word of the hypothesis — WER is given too,
+but it is the whole-utterance number and mostly measures things this setting cannot
+touch.
+
+**With the onset intact, the lead-in does nothing.**
+
+| lead-in | WER | first word right |
+|---|---|---|
+| 0 ms | 3.92 % | 186 / 200 |
+| 100 ms | 4.09 % | 190 / 200 |
+| **300 ms (default)** | **3.92 %** | **189 / 200** |
+| 600 ms | 4.01 % | 190 / 200 |
+| 1000 ms | 4.09 % | 190 / 200 |
+
+Every cell is inside the run-to-run band measured [just above](#the-same-number-measured-twice-is-not-the-same-number).
+Whisper does not need a run-up.
+
+**With the onset clipped, it helps in one narrow case and hurts in the others.**
+
+| speech removed | lead 0 ms | lead 300 ms | lead 600 ms |
+|---|---|---|---|
+| none | 186 / 200 | 189 / 200 | 190 / 200 |
+| 40 ms | 176 / 200 | **182 / 200** | **182 / 200** |
+| 120 ms | **143 / 200** | 132 / 200 | 129 / 200 |
+| 240 ms | **83 / 200** | 79 / 200 | 78 / 200 |
+
+Compare across a row — one clipping severity at three lead-ins. The three clipped
+rows were run end to end twice, and **all nine first-word counts reproduced exactly**
+while WER moved by up to 1.0 point in the same cells; the `none` row is carried over
+from the sweep above and was measured once. So the effect is real, and it changes
+sign. Lose 40 ms — a fraction of one phoneme — and the lead-in buys back 6 opening
+words in 200. Lose 120 ms and it costs 11. The likely reason is that silence gives the decoder a clean word boundary
+at a point that is *not* a word boundary, so it commits to an onset that was never
+there; an abrupt start leaves it readier to recover.
+
+**What this does not say.** It does not say the setting is useless — 300 ms is the
+better half of the trade in the case a hold-to-talk user is most often in (the key
+caught slightly late), and it costs nothing measurable when the onset is intact. It
+does say the stated mechanism is narrower than the note claimed, and that no amount
+of prepended silence recovers a word that was not captured. The mechanism that could
+recover one — retaining real audio from *before* the key went down — exists in
+`audio/padding.py` and is deliberately never fed, because feeding it means listening
+while the key is up. That trade is [pinned as a test](https://github.com/MSKazemi/yazses/blob/main/tests/test_pre_speech_buffer_is_never_fed.py),
+not left to a future tidy-up.
+
 ## Speed — how long until the text appears
 
 Decode time for a single utterance, measured end-to-end on 30 utterances (median
@@ -643,6 +700,12 @@ on this page still stands, because 2 % of half an hour is 36 s and AMI is evalua
 same 20 s it always was; the floor catches what a proportion cannot, since a three-minute
 clip shattered into forty equal slivers gives every label exactly `total/40` and a
 fraction-of-total threshold moves with the shattering instead of catching it.
+
+That AMI claim was then measured rather than left as arithmetic. Scoring the whole
+16-recording test split at the shipped `1.2` under both rules agrees **16 / 16**: the
+derived threshold clamps to the 20 s ceiling on twelve, and on the four shorter sessions
+where it does drop (13.8–19.1 s) no verdict moves. One recording fires under either rule
+— `IS1009d`, 6 labels for 4 speakers — and it is a genuine over-split.
 
 ### Scoring cross-check
 
