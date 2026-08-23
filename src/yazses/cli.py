@@ -4269,7 +4269,12 @@ def gaze_calibrate(
     import importlib
 
     from yazses.config import load_config
-    from yazses.gaze.calibrate import collect_samples, default_targets, fit_calibration
+    from yazses.gaze.calibrate import (
+        calibration_blocker,
+        collect_samples,
+        default_targets,
+        fit_calibration,
+    )
     from yazses.gaze.desktop import build_desktop
     from yazses.gaze.factory import build_gaze
     from yazses.gaze.store import save_calibration
@@ -4277,6 +4282,16 @@ def gaze_calibrate(
 
     platform = get_platform()
     cfg = load_config(platform.paths.config_file)
+
+    # Ask the free questions first. Both are answerable without fetching anything -- one
+    # is a config flag, the other an `xdotool` probe -- and asking them *after* the
+    # install is how this command came to download ~219 MB on a default install and then
+    # refuse, and to download the same 219 MB on Wayland, where nothing can make it work.
+    desktop = build_desktop()
+    blocked = calibration_blocker(enabled=cfg.gaze.enabled, desktop_ok=desktop is not None)
+    if blocked is not None:
+        typer.echo(blocked, err=True)
+        raise typer.Exit(1)
 
     # Auto-install the webcam gaze deps on first run (same path as
     # `yazses features enable gaze`), so calibration is turnkey.
@@ -4287,20 +4302,15 @@ def gaze_calibrate(
 
     backend = build_gaze(cfg.gaze)
     if backend is None:
+        # Reaching here now means the dependencies themselves -- the one case an
+        # install can repair, and the only one left after the checks above.
         typer.echo(
-            "Gaze backend unavailable. Ensure `[gaze] enabled = true` and that the "
-            "webcam deps installed:\n  yazses features enable gaze --force",
+            "The webcam gaze deps are still unavailable after the install step.\n"
+            "  Try:  yazses features enable gaze --force",
             err=True,
         )
         raise typer.Exit(1)
-    desktop = build_desktop()
-    if desktop is None:
-        typer.echo(
-            "Gaze routing needs an X11 session with `xdotool` installed "
-            "(Wayland forbids external window focus).",
-            err=True,
-        )
-        raise typer.Exit(1)
+    assert desktop is not None  # calibration_blocker refused a None desktop above
 
     width, height = desktop.screen_size()
     targets = default_targets(width, height, cfg.gaze.calibration_points)
@@ -4374,6 +4384,13 @@ def gaze_status() -> None:
     ready = all((enabled, cfg.gaze.route_dictation, backend is not None, desktop is not None, cal is not None))
     if ready:
         typer.echo("\nReady — dictation will land in the window you look at.")
+    elif not enabled:
+        # `gaze calibrate` refuses while the feature is off, so naming it here as the
+        # alternative would send the user to a command that cannot run yet.
+        typer.echo(
+            "\nNext: turn it on — `yazses features enable gaze --force` "
+            "(this installs the webcam deps too), then `yazses gaze calibrate`."
+        )
     elif backend is None:
         typer.echo(
             "\nNext: install the webcam deps — `yazses features enable gaze --force` "

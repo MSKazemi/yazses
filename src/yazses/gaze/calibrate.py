@@ -12,6 +12,37 @@ from typing import Callable
 import numpy as np
 
 
+def calibration_blocker(*, enabled: bool, desktop_ok: bool) -> str | None:
+    """Why calibration cannot work here, or ``None`` if it can. Pure.
+
+    Both answers are free -- one is a config flag, the other a ``xdotool`` probe -- and
+    both used to be checked *after* the webcam dependencies were fetched. On a default
+    install that meant ``yazses gaze calibrate`` downloaded **~219 MB** and then said
+    "Ensure `[gaze] enabled = true`"; on Wayland it downloaded the same 219 MB to
+    announce that external window focus is forbidden there, which no download can fix.
+
+    The project already settled this question elsewhere -- ``system/backends.py`` exists
+    so a factory "never sends the user after an extra that cannot supply that backend" --
+    so the rule is applied here rather than re-argued: ask the free questions first.
+
+    Deliberately does not decide the *dependency* case. That one genuinely cannot be
+    answered before an install, and it is the one an install actually repairs.
+    """
+    if not enabled:
+        return (
+            "Look-to-pane is off, so there is nothing to calibrate yet.\n"
+            "  Turn it on (this also installs the webcam deps):\n"
+            "    yazses features enable gaze --force"
+        )
+    if not desktop_ok:
+        return (
+            "Gaze routing needs an X11 session with `xdotool` installed "
+            "(Wayland forbids external window focus).\n"
+            "  Nothing to install here -- the webcam deps cannot make this work."
+        )
+    return None
+
+
 @dataclass(frozen=True)
 class CalibrationMap:
     """Affine map: [x, y] = A @ [yaw, pitch, 1]. ``A`` is 2x3."""

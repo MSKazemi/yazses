@@ -160,8 +160,10 @@ calibration is not discriminating between regions — [re-calibrate](#it-routes-
 ### "Gaze unavailable" or a `✗` on the deps line
 
 The webcam deps are not installed in the environment YazSes runs from. Re-run
-`yazses features enable gaze --force` (it auto-installs), or run
-`yazses gaze calibrate`, which installs them on first use.
+`yazses features enable gaze --force` (it auto-installs), or — once `[gaze] enabled`
+is already on — run `yazses gaze calibrate`, which installs them on first use.
+Calibration refuses before installing anything while the feature is off or the session
+is Wayland, because neither of those is something a download can fix.
 
 ### `can't open camera by index` / `0 point(s) captured a face`
 

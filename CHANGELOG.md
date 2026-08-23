@@ -130,6 +130,29 @@ it does *not* claim in `design/adr/adr-v2-133-diarization-clustering-default.md`
 
 ### Fixed
 
+- **`yazses gaze calibrate` downloaded 219 MB and then refused.** Three things can stop
+  calibration, and two of them are free to check: `[gaze] enabled` is a config flag, and
+  the X11/`xdotool` desktop backend is a probe of the running session. Only the third —
+  are the webcam dependencies present — needs an install, and it is the only one an
+  install repairs. They were checked in the opposite order.
+
+  So on a default install (`[gaze] enabled` is `false`) the command printed *"this
+  downloads up to ~219 MB (12 packages), plus ~3.7 MB of model files"*, fetched it, and
+  then said *"Ensure `[gaze] enabled = true`"*. On Wayland it fetched the same 219 MB to
+  announce that external window focus is forbidden there — which no download can change.
+  The project had already settled the principle elsewhere: `system/backends.py` exists so
+  a factory "never sends the user after an extra that cannot supply that backend".
+
+  The free questions are now asked first, by a pure `calibration_blocker()`, and each
+  refusal names what to do instead. The turnkey install is unchanged once calibrating is
+  actually possible. `yazses gaze status` no longer offers `yazses gaze calibrate` as the
+  alternative for a disabled machine either — that was a pointer to a command that refuses.
+
+  The reason this survived is that the test suite asserted it: the auto-install tests
+  built a bare `Config()`, in which `[gaze] enabled` is `false`, and required the
+  installer to run anyway. Those fixtures now describe a machine where calibration can
+  work, and the ordering is pinned separately.
+
 - **The liveness probe killed the process it was asked about, and on Windows that was the
   test runner.** Running the full suite on a real Windows Server 2022 box, it died at 49%:
   silently, with exit code 0, no traceback and no summary line. Twice, in the same place.
