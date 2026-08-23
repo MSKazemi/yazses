@@ -93,18 +93,43 @@ def cache_first() -> Iterator[None]:
     # `Any`: this is a module object fetched by name, so the checker cannot know it
     # carries the attribute -- and the whole point is that it might not.
     constants: Any = sys.modules.get("huggingface_hub.constants")
+    was_imported = constants is not None
     prior_flag = getattr(constants, "HF_HUB_OFFLINE", None) if constants else None
     if constants is not None:
         constants.HF_HUB_OFFLINE = True
     try:
         yield
     finally:
-        if constants is not None:
-            constants.HF_HUB_OFFLINE = prior_flag
+        # Restore the environment first: the constant's correct value is derived
+        # from it below.
         if prior_env is None:
             os.environ.pop(_ENV, None)
         else:
             os.environ[_ENV] = prior_env
+        # Re-read `sys.modules` rather than reusing the reference captured above.
+        # The captured one is `None` in the case this whole module exists to serve
+        # -- the docstring's "not-yet-imported huggingface_hub", i.e. the lazy
+        # optional extras -- because those import the hub for the first time
+        # *inside* this window. It then initialises HF_HUB_OFFLINE from the
+        # variable we just set, and restoring through the stale `None` reference
+        # was a no-op, so the constant stayed True for the rest of the process.
+        #
+        # That silently disabled the network for everything after it, starting with
+        # `load_cache_first`'s own retry-online fallback -- the half that makes a
+        # FIRST run work. The observable failure was that `features enable
+        # stt-parakeet` could never download its model: the cache miss was correct,
+        # the retry was already offline, and `build_engine` fell back to
+        # faster-whisper. Whisper hid it, because faster_whisper imports the hub at
+        # module scope, so for the default engine the module is always already
+        # present and the original restore path ran.
+        constants = sys.modules.get("huggingface_hub.constants")
+        if constants is not None:
+            if was_imported:
+                constants.HF_HUB_OFFLINE = prior_flag
+            else:
+                # Imported during the window, so it read our flag rather than the
+                # user's. Recompute from the environment as the hub itself would.
+                constants.HF_HUB_OFFLINE = _truthy(prior_env)
 
 
 def load_cache_first(load: Callable[[], T], *, what: str) -> T:
