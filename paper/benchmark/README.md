@@ -90,9 +90,17 @@ runners into one table is a defect, not a summary.
 
 ## Diarization (Meeting Mode)
 
-`bench_diarization.py` is **not** in `run_all.py` and never will be: it needs a
-corpus that is not in the repository, and a bench that silently skips is worse than
-one that is absent. Build the corpus first, then score against it:
+`bench_diarization.py` is **not** in `run_all.py` and never will be: it needs a corpus
+that is not in the repository, and a bench that silently skips is worse than one that
+is absent. It scores any directory holding `<id>.wav`, `<id>.rttm` and a
+`manifest.json` that declares where its reference came from — a corpus that does not
+declare its own provenance is refused, because the strings it would otherwise inherit
+describe some other corpus.
+
+Three corpora, answering three different questions. **Their numbers are not
+comparable with each other and must never be averaged.**
+
+### 1. Synthetic — the regression fixture
 
 ```bash
 export AZURE_SPEECH_KEY=... AZURE_SPEECH_REGION=westeurope
@@ -105,12 +113,65 @@ uv run yazses transcribe --download-models
 uv run python paper/benchmark/bench_diarization.py /tmp/meeting-corpus out.json
 ```
 
-The ground truth is exact rather than annotated — the mixer placed every turn — so
-the primary figure is DER at **collar 0**; the NIST 250 ms collar is reported beside
-it only so the number can be set next to published ones.
+The ground truth is exact rather than annotated — the mixer placed every turn — so the
+primary figure is DER at **collar 0**; the NIST 250 ms collar is reported beside it
+only so the number can be set next to published ones.
 
-**The corpus is synthetic and the DER is therefore a floor, not a real-room figure.**
-Neural TTS voices are cleaner and more separable than people in a room, so a real
-meeting will score worse. Its value is as a regression fixture: it answers "did this
-change make separation worse", never "this is the DER". Do not quote it as the
-latter, and do not merge it with a figure measured on AMI or VoxConverse.
+**Synthetic, so the DER is a floor, not a real-room figure.** Neural TTS voices are
+cleaner and more separable than people in a room, so a real meeting scores worse. Its
+value is as a regression fixture: it answers "did this change make separation worse",
+never "this is the DER".
+
+### 2. AMI — the target-domain number
+
+Real four-person meetings in real rooms: what Meeting Mode is actually pointed at, and
+therefore the only one of the three that can justify changing a shipped default.
+
+```bash
+mkdir -p /tmp/ami/wav /tmp/ami/rttm
+for m in EN2002a ES2004a IS1009a TS3003a; do          # official test split
+  curl -fsSL -o "/tmp/ami/wav/$m.wav" \
+    "https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus/$m/audio/$m.Mix-Headset.wav"
+  curl -fsSL -o "/tmp/ami/rttm/$m.rttm" \
+    "https://raw.githubusercontent.com/pyannote/AMI-diarization-setup/main/only_words/rttms/test/$m.rttm"
+done
+uv run python paper/benchmark/make_corpus.py ami /tmp/ami/wav /tmp/ami/rttm /tmp/ami-corpus 90
+uv run python paper/benchmark/bench_diarization.py /tmp/ami-corpus ami.json
+```
+
+The headset mix is cleaner than a single table microphone, so a far-field recording
+scores worse than this.
+
+### 3. VoxConverse — the generalisation check
+
+Broadcast and YouTube audio: harder acoustically than a meeting and easier in turn
+structure, so it checks that a change does not help one domain by hurting another.
+
+```bash
+mkdir -p /tmp/vox && cd /tmp/vox
+curl -fsSL -O https://mm.kaist.ac.kr/datasets/voxconverse/data/voxconverse_dev_wav.zip
+curl -fsSL -o vox.zip https://codeload.github.com/joonson/voxconverse/zip/refs/heads/master
+unzip -q voxconverse_dev_wav.zip -d wav_root && unzip -q vox.zip -d repo_root
+cd - && uv run python paper/benchmark/make_corpus.py voxconverse \
+    /tmp/vox/wav_root /tmp/vox/repo_root/voxconverse-master/dev /tmp/vox-corpus 90
+uv run python paper/benchmark/bench_diarization.py /tmp/vox-corpus vox.json
+```
+
+### Sweeping the clustering threshold
+
+`--sweep` re-scores the corpus across `[recimport] cluster_threshold` values. On the
+synthetic corpus the shipped `0.5` is dominated on every metric, with an interior
+minimum near `0.8` — but a threshold tuned on TTS voices is precisely the parameter
+those voices over-fit, which is why the real corpora exist.
+
+```bash
+uv run python paper/benchmark/bench_diarization.py /tmp/ami-corpus ami-sweep.json --sweep
+```
+
+### Subset selection
+
+`make_corpus.py` takes an equal **number** of recordings from every bucket — speaker
+count for VoxConverse, session for AMI — because `run()` averages DER across meetings
+without weighting by duration, so a bucket's influence is its file count. Selection is
+deterministic and never ordered by duration, and the chosen ids are written into the
+manifest so a published number names the exact recordings behind it.

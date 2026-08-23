@@ -2,16 +2,26 @@
 
 `docs/benchmarks.md` says speaker separation is not measured. This measures it.
 
-Scored against the synthetic corpus from `scripts/gen-meeting-corpus.py`, whose
-ground truth is exact rather than annotated -- the renderer placed every turn, so
-the reference is the instruction the mixer was given, not somebody's estimate of it.
-That removes the usual reason a collar is required at all, so this reports DER at
-**collar 0** as the primary number and at the NIST 250 ms collar alongside it, the
-latter only so the figure can be put next to published ones.
+Scores any corpus laid out as `<id>.wav` + `<id>.rttm` + `manifest.json`. Two exist:
 
-Read the number as a regression floor, never as "the DER". Neural TTS voices are
-cleaner and better separated than a real room, so a diarizer scores optimistically
-here; what the figure is good for is noticing that a change made it worse.
+- the synthetic corpus from `scripts/gen-meeting-corpus.py`, whose ground truth is
+  exact rather than annotated -- the renderer placed every turn, so the reference is
+  the instruction the mixer was given, not somebody's estimate of it;
+- VoxConverse dev, via `make_corpus_voxconverse.py` -- real recordings, human
+  annotation.
+
+**The two numbers are different measurements and must never be averaged or
+compared.** The synthetic figure is a regression floor: neural TTS voices are cleaner
+and further apart in embedding space than people in a room, so a diarizer scores
+optimistically, and what the figure is good for is noticing that a change made it
+worse. The VoxConverse figure is a real DER, and it is the one that can justify
+changing a default. Each corpus states which it is in its own manifest, and
+`_read_manifest` refuses a corpus that does not say.
+
+Because the synthetic reference has no annotation error, the usual reason a collar
+is required does not apply to it, so DER at **collar 0** is the primary number, with
+the NIST 250 ms collar reported alongside only so the figure can be set next to
+published ones. On an annotated corpus the collared number is the comparable one.
 
 Scoring is frame-based (10 ms) with an optimal one-to-one speaker mapping via the
 Hungarian algorithm, which is what NIST md-eval does. Reimplemented rather than
@@ -120,12 +130,58 @@ def _load_wav(path: Path) -> np.ndarray:
     return np.frombuffer(raw, dtype="<i2").astype(np.float32) / 32768.0
 
 
-def run(corpus: Path, max_speakers: int = 0) -> dict:
+def _read_manifest(corpus: Path) -> dict:
+    """Load *corpus*/manifest.json, refusing one that does not declare its provenance.
+
+    `ground_truth` and `caveat` are copied verbatim into the result JSON, and they
+    are what tell a reader how far the number travels. They used to be literals in
+    the config block, which was harmless for exactly as long as one corpus existed:
+    the wording read "synthetic (Azure neural TTS); ground truth exact by
+    construction", so pointing this bench at VoxConverse or AMI would have published
+    a real-room DER under the synthetic label -- and the synthetic label is
+    precisely the thing that marks the number as a floor.
+
+    A corpus that does not declare them is refused rather than defaulted, because
+    the only available default is a sentence describing some other corpus.
+    """
+    manifest = json.loads((corpus / "manifest.json").read_text(encoding="utf-8"))
+    missing = [k for k in ("ground_truth", "caveat") if not manifest.get(k)]
+    if missing:
+        raise SystemExit(
+            f"{corpus / 'manifest.json'} does not declare {', '.join(missing)}. "
+            "Every corpus must say how its reference was produced and how far the "
+            "resulting DER generalises; those strings are published with the number."
+        )
+    return manifest
+
+
+def write_rttm(path: Path, file_id: str, turns) -> None:
+    """Write *turns* as a NIST RTTM, so a standard scorer can check this one.
+
+    `score()` is a reimplementation -- frame-based DER with a Hungarian one-to-one
+    mapping, matching md-eval's semantics -- chosen over pulling in
+    `pyannote.metrics`, which would add pyannote.audio to the benchmark group and
+    undo the point of a sherpa backend that needs no torch. The cost of that choice
+    is that a bug in the scorer would be invisible: every number here would move
+    together and nothing would look wrong.
+
+    Dumping the hypothesis in the standard format removes that. The same files can
+    be handed to `md-eval.pl` or `dscore` and the DER compared, so the scorer is
+    checkable by something that was not written here.
+    """
+    lines = [
+        f"SPEAKER {file_id} 1 {start:.3f} {end - start:.3f} <NA> <NA> {spk} <NA> <NA>"
+        for start, end, spk in turns
+    ]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def run(corpus: Path, max_speakers: int = 0, dump_rttm: Path | None = None) -> dict:
     """Diarize every meeting in *corpus* and score it against its own RTTM."""
     from yazses.config import RecimportConfig
     from yazses.recimport.diarizer import SherpaDiarizer
 
-    manifest = json.loads((corpus / "manifest.json").read_text(encoding="utf-8"))
+    manifest = _read_manifest(corpus)
     cfg = RecimportConfig()
     # max_speakers=0 leaves sherpa's clustering to decide the count, which is the
     # honest setting: Meeting Mode does not know how many people are in the room.
@@ -141,6 +197,9 @@ def run(corpus: Path, max_speakers: int = 0) -> dict:
         ref = read_rttm(corpus / f"{mid}.rttm")
         turns = diarizer.diarize(audio, 16000)
         hyp = [(t.start, t.end, t.speaker) for t in turns]
+        if dump_rttm is not None:
+            dump_rttm.mkdir(parents=True, exist_ok=True)
+            write_rttm(dump_rttm / f"{mid}.rttm", mid, hyp)
         row = {"id": mid, "duration_s": meta["duration_s"],
                "true_speakers": meta["n_speakers"]}
         for collar in (0.0, 0.25):
@@ -159,8 +218,8 @@ def run(corpus: Path, max_speakers: int = 0) -> dict:
     return {
         "config": {
             "corpus": str(corpus),
-            "corpus_kind": "synthetic (Azure neural TTS); ground truth exact by construction",
-            "caveat": "clean synthetic speech -- a floor, not a real-room DER",
+            "corpus_kind": manifest["ground_truth"],
+            "caveat": manifest["caveat"],
             "backend": "sherpa-onnx (pyannote segmentation-3.0 + 3D-Speaker ERes2Net)",
             "frame_s": FRAME,
             "scoring": "frame-based, Hungarian one-to-one mapping (md-eval semantics)",
@@ -190,7 +249,7 @@ def sweep(corpus: Path, thresholds=(0.4, 0.5, 0.6, 0.7, 0.8, 0.9)) -> list[dict]
     from yazses.config import RecimportConfig
     from yazses.recimport.diarizer import SherpaDiarizer
 
-    manifest = json.loads((corpus / "manifest.json").read_text(encoding="utf-8"))
+    manifest = _read_manifest(corpus)
     rows = []
     for thr in thresholds:
         diar = SherpaDiarizer(replace(RecimportConfig(), cluster_threshold=thr))
@@ -216,12 +275,18 @@ def sweep(corpus: Path, thresholds=(0.4, 0.5, 0.6, 0.7, 0.8, 0.9)) -> list[dict]
 
 
 if __name__ == "__main__":
-    args = [a for a in sys.argv[1:] if a != "--sweep"]
+    argv = sys.argv[1:]
+    dump_dir = None
+    if "--dump-rttm" in argv:
+        i = argv.index("--dump-rttm")
+        dump_dir = Path(argv[i + 1])
+        del argv[i:i + 2]
+    args = [a for a in argv if a != "--sweep"]
     corpus_dir = Path(args[0])
     if "--sweep" in sys.argv:
         out = {"sweep": sweep(corpus_dir)}
     else:
-        out = run(corpus_dir)
+        out = run(corpus_dir, dump_rttm=dump_dir)
         print(json.dumps(out["summary"], indent=2))
     if len(args) > 1:
         Path(args[1]).write_text(json.dumps(out, indent=2) + "\n", encoding="utf-8")

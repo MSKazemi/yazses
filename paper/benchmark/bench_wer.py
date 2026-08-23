@@ -58,6 +58,40 @@ _EXPECTED_CLASS = {
 
 _normalize = EnglishTextNormalizer()
 
+# Resamples for the bootstrap interval. 1000 is the usual floor for a stable 95%
+# percentile interval and costs milliseconds here -- the decode already happened.
+_BOOTSTRAP_N = 1000
+_BOOTSTRAP_SEED = 20260823
+
+
+def _bootstrap_wer_ci(per_utt: list[tuple[int, int]]) -> tuple[float, float]:
+    """95% CI for corpus WER, resampling *utterances* (not words) with replacement.
+
+    `per_utt` is (errors, reference_words) per utterance.
+
+    Why this exists: these runs score a 200-utterance subset, and a bare percentage
+    invites a comparison the sample cannot support. Measured here, `small.en` came out
+    ahead of `medium.en` -- the reverse of the published full-test-clean ordering --
+    and without an interval there is no way for a reader to tell whether that is a
+    finding or the subset. Resampling is at the utterance level because that is the
+    unit that was sampled; resampling words would treat one 30-word utterance as 30
+    independent draws and report an interval several times too narrow.
+    """
+    import random
+
+    if not per_utt:
+        return (0.0, 0.0)
+    rng = random.Random(_BOOTSTRAP_SEED)
+    n = len(per_utt)
+    draws = []
+    for _ in range(_BOOTSTRAP_N):
+        sample = [per_utt[rng.randrange(n)] for _ in range(n)]
+        words = sum(w for _, w in sample)
+        draws.append(sum(e for e, _ in sample) / words * 100 if words else 0.0)
+    draws.sort()
+    return (round(draws[int(0.025 * _BOOTSTRAP_N)], 2),
+            round(draws[int(0.975 * _BOOTSTRAP_N)], 2))
+
 
 def _build(engine_name: str, model: str):
     """Build *model* on *engine_name*, refusing a silent fallback to another engine."""
@@ -143,11 +177,22 @@ def run(n: int, specs: list[tuple[str, str, str]] | None = None) -> dict:
         ref_list = [r for r, _ in pairs]
         hyp_list = [h for _, h in pairs]
         measures = jiwer.process_words(ref_list, hyp_list)
+        # Per-utterance error counts, for the bootstrap interval below. Scored one
+        # at a time deliberately: jiwer's corpus call returns only totals, and the
+        # interval needs to know which utterance each error came from.
+        per_utt = []
+        for r, h in pairs:
+            m1 = jiwer.process_words([r], [h])
+            per_utt.append((m1.substitutions + m1.deletions + m1.insertions,
+                            m1.substitutions + m1.deletions + m1.hits))
+        ci_low, ci_high = _bootstrap_wer_ci(per_utt)
         results["models"][label] = {
             "engine": engine_name,
             "engine_class": type(engine).__name__,
             "model": model_name,
             "wer": round(measures.wer * 100, 2),  # percent
+            "wer_ci95": [ci_low, ci_high],
+            "n_scored_utterances": len(per_utt),
             "mer": round(measures.mer * 100, 2),
             "substitutions": measures.substitutions,
             "deletions": measures.deletions,
@@ -164,7 +209,9 @@ def run(n: int, specs: list[tuple[str, str, str]] | None = None) -> dict:
         }
         m = results["models"][label]
         print(
-            f"[wer] {label}: WER={m['wer']}%  RTF median={m['rtf_median']} "
+            f"[wer] {label}: WER={m['wer']}% "
+            f"(95% CI {m['wer_ci95'][0]}-{m['wer_ci95'][1]})  "
+            f"RTF median={m['rtf_median']} "
             f"(~{m['realtime_speedup_median']}x realtime)  load={m['load_seconds']}s",
             flush=True,
         )
