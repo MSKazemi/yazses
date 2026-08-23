@@ -79,6 +79,63 @@ which reads exactly like "no threshold helps". The corpus may or may not have be
 adequate proxy — that is being measured separately by re-sweeping it over the wider
 range — but the range was capped below the answer either way.
 
+**Re-swept to `1.6`, the synthetic corpus keeps its optimum at `0.8`–`0.9`** (15.79% at
+`0.9`, 7 of 8 counts right) and collapses to a flat 63.61% from `1.2` upward. That was
+recorded as a falsifiable prediction before the run: *if the optimum stays put, the
+complete-linkage mechanism explains both corpora; if it drifts toward AMI's `1.2`, they
+disagree about something else.* It stayed. So the corpus was not simply mis-swept — it
+genuinely has a lower optimum, because complete linkage cuts at a fixed height and the
+cut must clear the worst-case *same-speaker* pair in the recording. Three minutes of one
+synthetic voice barely varies; forty minutes of a person in a real room varies a lot.
+
+**That is the finding with the most weight for this decision, and it argues against
+option 1.** The useful cut height is a property of the recording — its length, its room,
+its speakers — not of the dataset or of the language. A single shipped constant is being
+asked to be right across all of them.
+
+### The four-meeting sweep
+
+| threshold | 0.9 | 1.0 | 1.1 | **1.2** |
+|---|---|---|---|---|
+| DER (4 AMI meetings) | 46.28% | 33.58% | 30.11% | **27.07%** |
+| mean speaker-count error | +35.00 | +22.00 | +7.75 | **+0.75** |
+| meetings with the right count | 0/4 | 0/4 | 0/4 | 1/4 |
+
+`1.2` reaches **27.07%**, which is *better* than the 28.55% that forcing
+`max_speakers = 4` achieves on the same four meetings — and it gets there without asking
+the user anything.
+
+### At `1.2` the clustering recovers the right partition, it does not merely improve
+
+Per-speaker total speech on `IS1009a` (14 minutes, four people), same audio:
+
+| setting | speakers | turns | per-speaker seconds |
+|---|---|---|---|
+| shipped `0.5` | 86 | 190 | largest five 60.1, 47.6, 46.9, 38.4, 37.9; **smallest 0.32** |
+| `cluster_threshold = 1.2` | 4 | 148 | 412.7, 165.3, 73.8, 35.6 |
+| `max_speakers = 4` | 4 | 148 | 412.7, 165.3, 73.8, 35.6 |
+
+The last two rows are identical to the decimal. On this recording the threshold does not
+approximate the forced-count answer, it arrives at the same partition — so options 1 and
+3 are not a trade-off here, and the remaining question is only whether `1.2` holds
+elsewhere.
+
+### The failure was visible in the output and nothing looked
+
+That table is also a signal. A label holding 0.32 s of speech across a 14-minute meeting
+is not a participant, and at `0.5` most of the 86 labels are of that kind, while the
+smallest genuine speaker at `1.2` holds 35.6 s. Nothing in the pipeline asked, so Meeting
+Mode wrote the transcript and [[adr-v2-128]]'s minutes consumed the labels as if they
+named people.
+
+**Shipped independently of this decision** as `recimport/plausibility.py`: it fires on
+the *shape* of the distribution — most labels too small to be a participant, and only
+once there are enough labels for "most" to mean something — never on the count, which
+cannot tell a large meeting from a broken small one. It is advisory and one-directional:
+it can say a result looks wrong, never that one looks right, and it never edits or
+suppresses a transcript. Whatever this ADR decides, a future regression of the same kind
+now announces itself.
+
 ## Decision
 
 **Open.** The evidence above establishes the problem and rules out two explanations

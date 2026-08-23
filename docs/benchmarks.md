@@ -423,13 +423,36 @@ defaults that score 22.8% here score 84.09% on real meetings. Its job is regress
 detection — "did this change make separation worse" — on a corpus that can be
 regenerated on demand.
 
-Swept, it has an interior minimum near `0.8` (14.7%, speaker-count error +0.12) and
-gets *worse* above it — 28.3% at `1.0` — where AMI is still improving at `1.0` and
-optimal at `1.2`. That is not a contradiction; it is the complete-linkage mechanism
-described above. These meetings are three minutes long with deliberately distinct
-voices, so the worst-case same-speaker pair is close by, and the cut that separates
-them is low. **It is also exactly why a default cannot be tuned here:** the parameter
-this corpus is most likely to overfit is the one being tuned.
+Swept the whole way to `1.6`, it has an interior minimum near `0.8`–`0.9` and gets
+*worse* above it, where AMI is still improving at `1.0` and optimal at `1.2`:
+
+| `cluster_threshold` | DER | speaker-count error | right count |
+|---|---|---|---|
+| 0.5 (shipped) | 22.77% | +3.38 | 0 / 8 |
+| 0.7 | 15.98% | +0.62 | 6 / 8 |
+| 0.8 | 14.7% | +0.12 | — |
+| **0.9** | **15.79%** | −0.25 | **7 / 8** |
+| 1.0 | 28.33% | −1.12 | 3 / 8 |
+| 1.1 | 37.58% | −1.62 | 3 / 8 |
+| 1.2 | 63.61% | −2.62 | 0 / 8 |
+| 1.3 – 1.6 | 63.61% | −2.62 | 0 / 8 |
+
+Flat from `1.2` upward because everything has already collapsed into one or two
+clusters, so a higher cut has nothing left to merge.
+
+**The two corpora disagreeing was predicted before the sweep was run, and the widened
+range is what tested it.** The prediction on the record was: if this optimum stays near
+`0.8`–`0.9` when the range is widened to `1.6`, the complete-linkage mechanism described
+above explains both corpora; if it drifts up toward AMI's `1.2`, they disagree about
+something else and the mechanism is wrong. It stayed. Complete linkage cuts a dendrogram
+at a fixed height, so the cut has to clear the worst-case *same-speaker* pair in the
+recording — and these meetings are three minutes long in deliberately distinct synthetic
+voices, so that pair is close by, while forty minutes of a person in a real room is not.
+
+Two things follow. **A default cannot be tuned here**, because the parameter this corpus
+is most likely to overfit is the one being tuned. And the useful cut height is a property
+of the *recording* rather than of the dataset, which is why a single shipped constant is
+a questionable shape of fix regardless of which constant wins.
 
 
 ## What is not measured here
