@@ -7,6 +7,7 @@ measured under (design/vision/PRINCIPLES.md).
 from __future__ import annotations
 
 import json
+import os
 import platform
 import subprocess
 import sys
@@ -95,13 +96,17 @@ class Provenance:
     faster_whisper: str
     yazses: str
     numpy: str
+    # CTranslate2, not faster-whisper, chooses the int8 kernels and the order the
+    # partial sums are reduced in -- so it, the thread count it was given and the
+    # ISA it dispatched to are what decide whether two hosts agree on a WER.
+    ctranslate2: str
+    omp_num_threads: str
+    load_average_1m: float
     compute_type: str = "int8"
     device: str = "cpu"
 
 
 def provenance(timestamp: str) -> dict:
-    import os
-
     import psutil
 
     p = Provenance(
@@ -115,8 +120,26 @@ def provenance(timestamp: str) -> dict:
         faster_whisper=_pkg_version("faster-whisper"),
         yazses=_pkg_version("yazses"),
         numpy=np.__version__,
+        ctranslate2=_pkg_version("ctranslate2"),
+        omp_num_threads=os.environ.get("OMP_NUM_THREADS", "unset"),
+        load_average_1m=_load_average(),
     )
     return asdict(p)
+
+
+def _load_average() -> float:
+    """One-minute load average, or ``-1.0`` where the OS has no such notion.
+
+    Recorded because a benchmark that reports seconds is only meaningful on a box
+    that was not busy, and "the box was idle" is a claim the artifact should carry
+    rather than something the person reading it has to take on trust. A dedicated
+    machine is no protection: the contention that invalidated the first run of this
+    matrix was created by other jobs the same operator started on the same host.
+    """
+    try:
+        return round(os.getloadavg()[0], 2)  # not available on Windows
+    except (AttributeError, OSError):
+        return -1.0
 
 
 def _os_pretty() -> str:
