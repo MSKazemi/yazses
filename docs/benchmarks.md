@@ -613,6 +613,37 @@ moving it, and does not depend on agreeing about where to move it to.
 right (+0.73 against +5.20), which the naming path downstream depends on, and it degrades
 far more gracefully toward meeting audio (33.58% against 46.28%).
 
+### How often the plausibility guard fires, and how often it is right
+
+A warning is only worth having if it is rare and correct. `recimport/plausibility.py`
+warns when a diarization result looks like fragments rather than people; it was measured
+against the same corpora, at the **shipped** defaults, after it had already shipped.
+
+| corpus / threshold | recordings | genuinely over-split | flat 20 s fires | of those, correct |
+|---|---|---|---|---|
+| VoxConverse @ `0.9` | 15 | 11 | 8 | 7 |
+| VoxConverse @ `1.0` — `[recimport]` default | 15 | 5 | **7** | **4** |
+
+**Seven firings in fifteen recordings, three of them wrong.** And wrong in the way that
+matters: `aisvi` found 8 speakers where there were 8, `epdpg` 9 where there were 12,
+`vmaiq` 14 where there were 17 — so the sentence the user was shown, *"a person's worth of
+speech split apart rather than that many people"*, was false about the result it was
+describing. A warning that fires on half a corpus and misdiagnoses three of those trains
+people to dismiss it, and a dismissed guard costs attention and catches nothing.
+
+The cause was a constant with a unit nobody had noticed: **20 seconds is a
+meeting-length number.** AMI recordings run forty minutes, where a participant holding the
+floor for under twenty seconds is barely present. VoxConverse clips run three to fifteen
+minutes, where twenty seconds is an ordinary speaker's whole contribution.
+
+The threshold now scales with the recording — `min(20 s, max(5 s, 2 % of total speech))` —
+which takes both corpora to **zero false alarms** with the same true positives at `1.0`
+and one fewer at `0.9`. Two bounds, each earning its place: the ceiling means every number
+on this page still stands, because 2 % of half an hour is 36 s and AMI is evaluated at the
+same 20 s it always was; the floor catches what a proportion cannot, since a three-minute
+clip shattered into forty equal slivers gives every label exactly `total/40` and a
+fraction-of-total threshold moves with the shattering instead of catching it.
+
 ### Scoring cross-check
 
 Because every number above rests on the scorer, it was validated against two

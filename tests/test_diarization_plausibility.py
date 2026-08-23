@@ -18,8 +18,10 @@ from dataclasses import dataclass
 import pytest
 
 from yazses.recimport.plausibility import (
+    FRAGMENT_FLOOR_SECONDS,
     FRAGMENT_SECONDS,
     attribution_problem,
+    fragment_threshold,
     speech_by_speaker,
 )
 
@@ -151,3 +153,51 @@ def test_a_turn_object_need_not_be_the_diarizers_dataclass():
             self.start, self.end, self.speaker = s, e, spk
 
     assert speech_by_speaker([Loose(0, 3, "x")]) == {"x": 3.0}
+
+
+def test_the_fragment_threshold_scales_with_the_recording_between_its_bounds():
+    """20 s is a meeting-length constant. On AMI, where it was measured, a recording
+    runs half an hour and the ceiling binds; on a five-minute import it calls ordinary
+    speakers fragments."""
+    assert fragment_threshold(1800.0) == FRAGMENT_SECONDS       # 2% is 36 s; ceiling
+    assert fragment_threshold(300.0) == pytest.approx(6.0)      # five minutes
+    assert fragment_threshold(60.0) == FRAGMENT_FLOOR_SECONDS   # 2% is 1.2 s; floor
+    assert fragment_threshold(0.0) == FRAGMENT_FLOOR_SECONDS
+    assert fragment_threshold(-5.0) == FRAGMENT_FLOOR_SECONDS
+
+
+def test_scaling_can_only_ever_relax_the_guard_never_tighten_it():
+    """The property that makes this safe to change: the derived threshold is bounded
+    above by the constant every published measurement was taken at, so no recording
+    that was silent before can start warning."""
+    for speech in (0.0, 30.0, 180.0, 600.0, 1800.0, 36000.0):
+        assert fragment_threshold(speech) <= FRAGMENT_SECONDS
+
+
+def test_a_short_clip_of_real_speakers_is_no_longer_called_fragments():
+    """VoxConverse `aisvi`: eight labels for eight real speakers in 7.5 minutes, six of
+    them under 20 s because the recording is short. The flat constant fired and told the
+    user their result was "a person's worth of speech split apart" — of a result whose
+    speaker count was exactly right."""
+    aisvi = {"s0": 178.1, "s1": 10.1, "s2": 0.8, "s3": 11.3,
+             "s4": 1.2, "s5": 23.3, "s6": 14.2, "s7": 213.5}
+    assert attribution_problem(_turns(aisvi), fragment_seconds=20.0) is not None
+    assert attribution_problem(_turns(aisvi)) is None
+
+
+def test_a_short_clip_shattered_into_equal_slivers_is_still_caught():
+    """The failure mode the floor exists for. Three minutes split forty ways: every
+    label holds exactly total/40, so a proportional threshold moves with the shattering
+    and never catches up. 4.5 s each is under the floor, and the floor does not move."""
+    shattered = {f"s{i}": 180.0 / 40 for i in range(40)}
+    assert fragment_threshold(180.0) == FRAGMENT_FLOOR_SECONDS
+    assert attribution_problem(_turns(shattered)) is not None
+
+
+def test_the_ami_catastrophe_this_guard_was_built_for_is_untouched():
+    """257 labels in a four-person meeting, the measurement that produced the module.
+    Half an hour of speech puts 2% above the ceiling, so the threshold is the same 20 s
+    it always was."""
+    ami = {f"s{i}": 1800.0 / 257 for i in range(257)}
+    assert fragment_threshold(1800.0) == FRAGMENT_SECONDS
+    assert attribution_problem(_turns(ami)) is not None

@@ -271,6 +271,41 @@ It is honest about what it does not cover: `1.1` is still wrong (10 labels for 4
 passes, and `1.3` collapses the meeting into one cluster and passes, because the guard is
 one-directional and a single cluster is not "mostly fragments". It is a floor, not a check.
 
+### Amendment (same window) — the guard's 20 s was a meeting-length constant
+
+The table above was built on AMI, where a recording runs forty minutes. Scored the same
+way against **VoxConverse at the shipped `[recimport]` default of `1.0`**, a flat 20 s
+fired on **7 of 15** recordings, and only 4 of those 7 were genuinely over-split. The
+other three held a speaker count that was exactly right (`aisvi`, 8 labels for 8 people)
+or *too low* (`epdpg` 9 for 12, `vmaiq` 14 for 17) — so the warning was not merely noisy,
+its sentence ("a person's worth of speech split apart rather than that many people") was
+**false about the result it was describing**. A guard that fires on half of a corpus and
+misdiagnoses three of those firings teaches the user to dismiss it, which is how it stops
+protecting the case it was built for.
+
+The threshold now scales with the recording, bounded at both ends:
+`min(20 s, max(5 s, 2% of total speech))`.
+
+| rule | Vox @ 0.9 | | Vox @ 1.0 | | 3-min shatter |
+|---|---|---|---|---|---|
+| | fires / correct | false | fires / correct | false | |
+| flat 20 s | 8 / 7 | 1 | 7 / 4 | **3** | caught |
+| scaled | 6 / 6 | **0** | 4 / 4 | **0** | caught |
+
+Three properties make it safe to change a guard that shipped hours earlier:
+
+* **It can only relax.** The derived threshold is bounded above by the 20 s every
+  published measurement was taken at, so nothing that was silent can start warning.
+* **AMI is untouched.** 2% of half an hour is 36 s, above the ceiling, so the table above
+  and the 257-label catastrophe that produced this module are evaluated at the same 20 s.
+* **The floor is what a proportional rule cannot do.** Shatter a three-minute clip into
+  forty equal slivers and every label holds exactly `total/40`; the fraction moves with
+  the shattering and never catches up. Five seconds of speech across a whole recording is
+  not a participant on any recording length, and that bound does not move.
+
+What it still does not cover is unchanged: it is one-directional, so under-splitting and a
+collapse to a single cluster both pass silently. It is a floor, not a check.
+
 ### Option 2 (change the embedder) — deferred, not rejected
 
 The English sibling of the same architecture takes `IS1009a` from 90.20% to 52.89% at the

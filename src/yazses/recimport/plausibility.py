@@ -33,7 +33,26 @@ from __future__ import annotations
 # from taste: on AMI at the shipped defaults the median label held ~5 s, and with the
 # speaker count supplied it held ~3 minutes. Anywhere in between separates them, so the
 # value is chosen low enough that a genuinely quiet attendee is not called a fragment.
+#
+# It is a **ceiling**, not the threshold itself. 20 s is a meeting-length constant: AMI
+# recordings run half an hour, where a participant who holds the floor for under twenty
+# seconds is barely there. Applied unchanged to a five-minute import it calls ordinary
+# speakers fragments — scored against VoxConverse at the shipped `[recimport]` default,
+# a flat 20 s fired on 7 of 15 recordings and 3 of those 7 held a speaker count that was
+# exactly right or too low, so the message ("split apart rather than that many people")
+# was not merely noisy, it was false.
 FRAGMENT_SECONDS = 20.0
+
+# So the threshold scales with the recording, between a floor and that ceiling. 2% of
+# all speech: on a half-hour meeting that is 36 s and the ceiling binds, leaving AMI
+# behaviour untouched; on a five-minute clip it is 6 s.
+FRAGMENT_SPEECH_FRACTION = 0.02
+
+# The floor is what the fraction alone cannot do. Shatter a three-minute clip into forty
+# equal slivers and every label holds exactly total/40 — no fraction-of-total rule can
+# see it, because the fraction moves with the shattering. Under five seconds of speech
+# in a whole recording is not a participant on any recording length.
+FRAGMENT_FLOOR_SECONDS = 5.0
 
 # Below this many labels, "most of them are small" is not a claim about a distribution.
 # Four one-word answers in a five-person call must not trip it.
@@ -57,10 +76,22 @@ def speech_by_speaker(turns) -> dict[str, float]:
     return totals
 
 
+def fragment_threshold(total_speech_seconds: float) -> float:
+    """How little speech makes a label a fragment, for a recording of this length. Pure.
+
+    Bounded at both ends on purpose. The ceiling keeps long meetings — where the
+    constant was measured — behaving exactly as before. The floor keeps a short
+    recording shattered into equal slivers catchable, which a proportional rule alone
+    cannot do.
+    """
+    scaled = FRAGMENT_SPEECH_FRACTION * max(0.0, total_speech_seconds)
+    return min(FRAGMENT_SECONDS, max(FRAGMENT_FLOOR_SECONDS, scaled))
+
+
 def attribution_problem(
     turns,
     *,
-    fragment_seconds: float = FRAGMENT_SECONDS,
+    fragment_seconds: float | None = None,
     min_labels: int = MIN_LABELS,
     fragment_ratio: float = FRAGMENT_RATIO,
 ) -> str | None:
@@ -68,10 +99,15 @@ def attribution_problem(
 
     Never raises and never inspects audio: it reads only the turns a diarizer returned,
     so it costs nothing and works identically for a live meeting and an imported file.
+
+    `fragment_seconds` overrides the derived threshold; `None` scales it to the
+    recording, which is what every caller wants.
     """
     totals = speech_by_speaker(turns)
     if len(totals) < min_labels:
         return None
+    if fragment_seconds is None:
+        fragment_seconds = fragment_threshold(sum(totals.values()))
     fragments = [s for s in totals.values() if s < fragment_seconds]
     if len(fragments) < fragment_ratio * len(totals):
         return None
