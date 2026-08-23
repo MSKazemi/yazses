@@ -4045,22 +4045,33 @@ def slotfill(
     epilog=_examples(
         "yazses remote dev.example.com           forward voice typing over SSH",
         "yazses remote dev.example.com -p 2222   use a non-default SSH port",
-        "yazses remote dev.example.com --stop    disconnect the session",
+        "yazses remote --stop                    disconnect the session",
     ),
 )
 def remote(
-    host: str = typer.Argument(..., help="SSH host to forward voice typing to."),
+    host: str = typer.Argument("", help="SSH host to forward voice typing to. Omit with --stop."),
     port: int = typer.Option(22, "--port", "-p", help="SSH port."),
     key_file: str = typer.Option("", "--key-file", "-i", help="Path to SSH private key."),
     stop: bool = typer.Option(False, "--stop", help="Disconnect active remote session."),
 ) -> None:
     """Forward voice typing to a remote host over SSH."""
+    # `--stop` needs no host -- the daemon knows which session it holds -- and requiring
+    # one meant retyping it to close a tunnel that is already open.
+    if not stop and not host:
+        typer.echo("Error: a host is required (e.g. yazses remote dev.example.com).", err=True)
+        raise typer.Exit(1)
     platform = get_platform()
     client = platform.ipc_client_factory(platform.paths.ipc_socket)
     try:
         if stop:
             result = client.call("remote_stop")
-            typer.echo("Remote session disconnected." if result.get("ok") else f"Error: {result}")
+            if result.get("ok"):
+                typer.echo("Remote session disconnected.")
+            else:
+                # Matches the start branch below: a failed teardown may have left the
+                # tunnel up, so it must not exit 0 on stdout like a success.
+                typer.echo(f"Error: {result.get('reason', result)}", err=True)
+                raise typer.Exit(1)
         else:
             result = client.call("remote_start", host=host, port=port, key_file=key_file)
             if result.get("ok"):

@@ -4347,8 +4347,20 @@ class Daemon:
         return {"ok": True, "state": "connecting"}
 
     def _handle_remote_stop(self, _request: Request) -> dict[str, object]:
+        """Tear the SSH tunnel down -- and report honestly when it did not go down.
+
+        `remote/local_proxy.py` is one of only two paths that can send what the user
+        said off this machine (ADR-019), so "disconnected" is a privacy claim rather
+        than a status line. A `disconnect()` that raises leaves the SSH child alive --
+        `RemoteForwarder.disconnect` clears `_process` on its last line -- so the
+        handle goes back instead of being dropped, or nothing could ever reach that
+        tunnel again. It is restored only if no `remote_start` claimed the slot while
+        we were outside the lock, which `disconnect()` blocking for up to five seconds
+        leaves ample room for.
+        """
         with self._lock:
             fwd = self._remote_forwarder
+            injector = self._remote_injector
             self._remote_forwarder = None
             self._remote_injector = None
             self._state.state = TrayState.IDLE
@@ -4357,6 +4369,11 @@ class Daemon:
                 fwd.disconnect()
             except Exception as exc:
                 log.warning("Remote disconnect raised: %s", exc)
+                with self._lock:
+                    if self._remote_forwarder is None:
+                        self._remote_forwarder = fwd
+                        self._remote_injector = injector
+                return {"ok": False, "reason": f"disconnect failed: {exc}"}
         return {"ok": True}
 
     def _handle_remote_status(self, _request: Request) -> dict[str, object]:

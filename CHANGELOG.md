@@ -8,6 +8,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`yazses remote --stop` reported a failed disconnect as a successful one.** The remote
+  injector proxy is one of exactly two paths in the daemon that can send what the user
+  actually said off this machine (ADR-019), so "Remote session disconnected." is a privacy
+  claim rather than a status line — and it was made unconditionally.
+
+  `_handle_remote_stop` dropped the forwarder from the daemon *before* tearing it down,
+  then caught everything `disconnect()` raised with a log line and returned `ok`.
+  `RemoteForwarder.disconnect` clears its handle to the SSH child on its last line, so a
+  `terminate()`/`kill()` that raises — a reaping race, a credential change — left the
+  tunnel up with nothing holding a reference to it: no later `--stop` could reach it, and
+  the user had already been told it was closed. The handle now goes back, unless a new
+  session claimed the slot while the teardown was running outside the lock, and the
+  failure is reported instead of swallowed.
+
+  The CLI compounded it: the stop branch printed its error to stdout and exited 0, unlike
+  the connect branch three lines below it, so a script could not tell the two apart.
+
+- **`yazses remote --stop` demanded a host it then threw away.** `--stop` calls the daemon
+  with no arguments — the daemon knows which session it holds — but `host` was a required
+  positional, so `yazses remote --stop` exited 2 with "Missing argument 'host'" and closing
+  a tunnel meant retyping the machine it went to. The argument is now optional; connecting
+  without one fails with a sentence naming what is missing rather than a usage dump.
+
 - **The accessibility wizard reset the accessibility settings.** `yazses enroll`
   measures two values and used to write them by deleting the whole `[accessibility]`
   section of `config.toml` and appending a fresh one — silently resetting the other five
