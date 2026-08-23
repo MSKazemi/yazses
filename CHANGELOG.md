@@ -8,6 +8,41 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Windows: config writes used the locale code page, so one accent broke them.**
+  Python's default text encoding is the locale code page — UTF-8 on Linux and macOS,
+  **cp1252 on Windows**. `system/configedit.py`, the comment-preserving writer behind
+  `yazses features enable`, `hotkey set` and `audio use`, both read and wrote
+  `config.toml` through it. TOML is required by its own specification to be UTF-8, so
+  the writer was reading a UTF-8 file as something else: a vocabulary entry, a path or
+  a name carrying a single non-ASCII character raised `UnicodeDecodeError` on read or
+  `UnicodeEncodeError` on write, and the command failed outright rather than
+  degrading. `miclevel`, `accessibility/enroll` and `firstrun` write the same file the
+  same way, and the JSON stores had it too — JSON being UTF-8 by specification as
+  well. 30 call sites across 12 modules now name their encoding.
+
+  `/proc/<pid>/cmdline` in `system/pid.py` deliberately takes `errors="replace"`
+  instead: it is NUL-separated raw bytes that are only substring-checked, and the
+  handler around it catches `OSError`, which `UnicodeDecodeError` is not — so a bare
+  `encoding="utf-8"` there would have turned a silent pass into a crash.
+
+- **The Windows jobs had never run a test, and running them found eleven failures.**
+  None was a regression; it was the first look at code nothing had ever executed. The
+  same cp1252 default broke 214 unencoded text-I/O call sites across 40 test files,
+  and `str(path.relative_to(root))` — backslash-separated on Windows — matched none of
+  the `yazses/...` literals the suite compares against. Both shapes are now failed by
+  `tests/test_repo_hygiene_windows_safe_io.py`, whose scope is chosen so it can never
+  fire on correct code: `tarfile.open`, `Image.open`, `os.open` and `Path.open("rb")`
+  are all excluded, and the mode is read from the positional argument *or* the `mode=`
+  keyword, since `Path.open` takes its mode where the builtin takes a buffer size.
+
+- **A macOS-only test imported a name that does not exist**, and every Linux run was
+  green because a `skipif`-ed module is never imported at all. It failed the first
+  time it reached a real Mac — the one place it existed to prove something rather than
+  discover its own typo. `tests/test_platform_gated_tests_import_real_names.py` now
+  resolves those names on any host. The other six tests in that file passed on
+  `macos-latest`, so the IOKit binding behind the Input Monitoring fix is confirmed on
+  Apple silicon rather than reasoned about.
+
 - **Nothing verified what was inside the shipped `.dmg`.** `scripts/inspect-dmg.py`
   — the tool written precisely because the macOS bundle is the one artefact nobody
   on this project can open — was wired into no workflow at all, and could only fail
