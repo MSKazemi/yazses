@@ -51,10 +51,33 @@ def scratch(tmp_path, monkeypatch):
     file ran after something that had already warmed the cache. Run it alone and
     it was clean — which is why it survived every review.
     """
-    from yazses.platform.factory import reset_platform_cache
+    from yazses.platform.factory import get_paths, reset_platform_cache
 
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    # `XDG_CONFIG_HOME` is a Linux answer to a cross-platform question. platformdirs
+    # reads `%APPDATA%`/`%LOCALAPPDATA%` on Windows and `~/Library/Application
+    # Support` on macOS, so on the Windows runner this fixture sandboxed nothing at
+    # all: `features enable` wrote into the runner's own config and only the
+    # host-state guard in conftest noticed, at teardown, as an error rather than a
+    # failure.
+    for var in ("XDG_CONFIG_HOME", "XDG_DATA_HOME"):
+        monkeypatch.setenv(var, str(tmp_path))
+    for var in ("APPDATA", "LOCALAPPDATA"):
+        monkeypatch.setenv(var, str(tmp_path))
+    # macOS resolves its path through `expanduser`, i.e. HOME. USERPROFILE is the
+    # Windows fallback platformdirs uses when the APPDATA vars are absent.
+    for var in ("HOME", "USERPROFILE"):
+        monkeypatch.setenv(var, str(tmp_path))
     reset_platform_cache()
+
+    # Prove it, rather than trust it. This is the whole defect: the fixture looked
+    # like a sandbox on every platform and was one on exactly one of them, and the
+    # tests passed either way because nothing asserted where the writes landed.
+    resolved = get_paths().config_dir
+    assert tmp_path in resolved.parents or resolved == tmp_path, (
+        f"the sandbox did not take: config_dir resolved to {resolved}, outside "
+        f"{tmp_path}. A test that writes config would edit the real machine."
+    )
+
     yield tmp_path
     reset_platform_cache()  # the next test must not inherit this tmp_path
 
