@@ -8,6 +8,23 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The accessibility wizard reset the accessibility settings.** `yazses enroll`
+  measures two values and used to write them by deleting the whole `[accessibility]`
+  section of `config.toml` and appending a fresh one — silently resetting the other five
+  keys to their defaults: `pre_speech_padding_ms`, `vad_source`, `dysfluency_friendly`,
+  `read_back` and `confirm_timeout_s`.
+
+  `dysfluency_friendly` is the sharp end of it. That is the setting a disfluent speaker
+  turns on deliberately, and this is the wizard written for that user; losing it as a
+  side effect of calibrating a microphone inverts the purpose of the command.
+
+  The writer had a second branch that round-tripped through `tomllib` and `tomli_w`,
+  which keeps the keys and destroys every comment in the file instead. It never ran:
+  `tomli_w` is declared by no extra and appears in `pyproject.toml` only inside a mypy
+  override list, so the destructive fallback was always the live path. Both are gone —
+  the wizard now writes through `system/configedit.py`, the comment-preserving writer
+  `features`, `hotkey set`, `audio use` and `mic-level --set` already share.
+
 - **Six surfaces told the user to install a VS Code extension that does not exist.**
   The `yazses jump` failure message, two `LspContextProvider` log lines, the `jump`
   entry in the feature registry (and so `docs/features.md`), `docs/cli-reference.md` and

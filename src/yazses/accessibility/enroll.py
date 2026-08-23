@@ -131,48 +131,33 @@ def run_wizard(
 
 
 def _write_config(config_path: Path, values: dict, output_fn=print) -> None:
-    """Write accessibility values to config.toml using inline TOML patching."""
+    """Write accessibility values to config.toml, preserving comments and other keys.
+
+    This goes through ``system.configedit.set_config_key`` -- the same writer
+    ``features``, ``hotkey set``, ``audio use`` and ``mic-level --set`` use -- rather
+    than round-tripping the file through ``tomllib`` and back out.
+
+    It used to do the round trip, and both of its branches lost something. The
+    ``tomli_w`` branch rebuilt the file from parsed dicts, so every comment in it went
+    away; and ``tomli_w`` is declared by no extra (it appears in ``pyproject.toml`` only
+    in a mypy override list), so that branch never actually ran. What ran was the
+    fallback, which deleted the whole ``[accessibility]`` section and wrote back only the
+    two values the wizard computes -- silently resetting the other five to their
+    defaults: ``pre_speech_padding_ms``, ``vad_source``, ``dysfluency_friendly``,
+    ``read_back`` and ``confirm_timeout_s``.
+
+    That last set is why this matters more here than it would elsewhere.
+    ``dysfluency_friendly`` is the setting a disfluent speaker turns on deliberately, and
+    this is the wizard written for that user; losing it as a side effect of calibrating a
+    microphone is the opposite of what the command is for.
+    """
+    from yazses.system.configedit import set_config_key
+
     try:
-        import tomllib
-        if config_path.exists():
-            with open(config_path, "rb") as f:
-                data = tomllib.load(f)
-        else:
-            data = {}
-
-        acc = data.setdefault("accessibility", {})
-        acc.update(values)
-
-        # Write using tomli_w if available, otherwise write manually
-        try:
-            import tomli_w
-            config_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(config_path, "wb") as f:
-                tomli_w.dump(data, f)
-            output_fn(f"\nConfig written to {config_path}")
-        except ImportError:
-            # Fallback: append [accessibility] section
-            lines = config_path.read_text(encoding="utf-8").splitlines() if config_path.exists() else []
-            # Remove existing [accessibility] section
-            result_lines = []
-            in_section = False
-            for line in lines:
-                if line.strip() == "[accessibility]":
-                    in_section = True
-                elif line.strip().startswith("[") and in_section:
-                    in_section = False
-                if not in_section:
-                    result_lines.append(line)
-            result_lines.append("")
-            result_lines.append("[accessibility]")
-            for k, v in values.items():
-                if isinstance(v, float):
-                    result_lines.append(f"{k} = {v:.4f}")
-                else:
-                    result_lines.append(f"{k} = {v}")
-            config_path.parent.mkdir(parents=True, exist_ok=True)
-            config_path.write_text("\n".join(result_lines) + "\n", encoding="utf-8")
-            output_fn(f"\nConfig written to {config_path}")
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        for key, value in values.items():
+            set_config_key(config_path, "accessibility", key, value)
+        output_fn(f"\nConfig written to {config_path}")
     except Exception as exc:
         output_fn(f"\nWarning: could not write config: {exc}")
         output_fn("Manual config:")
