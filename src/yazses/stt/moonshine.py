@@ -11,13 +11,19 @@ published wheel rather than assumed:
 * **`transcribe()` returns a batch.** It ends in `decode_batch(tokens)`, so the
   result is a *list* of strings; taking it as a string would silently yield
   `"['hello']"` in the user's document.
-* **Audio must be 2-D and between 0.1 s and 64 s**, enforced with bare
-  `assert`s. Both bounds are reachable in normal use — a stray key tap produces
-  a sub-0.1 s buffer, and a long dictated paragraph passes 64 s — and an
-  `AssertionError` escaping into the daemon would look like a crash rather than
-  a limit. Short buffers return "" (there is nothing there); long ones are
-  **split on the silence gate** and the pieces joined, so a long burst degrades
-  in accuracy at the seams rather than failing outright.
+* **Audio is passed 1-D, and must be between 0.1 s and 64 s**, both enforced
+  with bare `assert`s. The duration bounds are reachable in normal use — a stray
+  key tap produces a sub-0.1 s buffer, and a long dictated paragraph passes 64 s
+  — and an `AssertionError` escaping into the daemon would look like a crash
+  rather than a limit. Short buffers return "" (there is nothing there); long
+  ones are **split on the silence gate** and the pieces joined, so a long burst
+  degrades in accuracy at the seams rather than failing outright.
+
+  The shape is the subtle half, and this adapter had it backwards. The message
+  in upstream's assertion says `[batch, samples]`, but it is checked *after*
+  `load_audio` has already done `audio[None, ...]`, so what the **caller** must
+  supply is the un-batched array. Passing `(1, N)` yields `(1, 1, N)` and fails
+  that assertion for every utterance.
 
 `initial_prompt` is ignored: Moonshine has no prompt conditioning, the same as
 Parakeet. Personal vocabulary is recovered afterwards instead — see
@@ -152,7 +158,12 @@ class MoonshineEngine:
     def _decode_one(self, audio: np.ndarray, sample_rate: int = _SAMPLE_RATE) -> str:
         import moonshine_onnx
 
-        waveform = np.asarray(audio, dtype=np.float32).reshape(1, -1)  # [batch, samples]
+        # **1-D on purpose.** Upstream's `transcribe` calls `load_audio`, which ends in
+        # `return audio[None, ...]` for anything that is not a path — it adds the batch
+        # axis itself, unconditionally. Handing it an already-batched `(1, N)` array
+        # produces `(1, 1, N)` and trips the very assertion this used to be shaped
+        # around, on every single utterance.
+        waveform = np.asarray(audio, dtype=np.float32).reshape(-1)
         result = moonshine_onnx.transcribe(waveform, self._load())
         return _first_text(result)
 

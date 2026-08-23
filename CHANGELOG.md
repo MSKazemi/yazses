@@ -8,6 +8,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The Moonshine speech engine crashed on every utterance.** `[stt] engine = moonshine`
+  raised `AssertionError: audio should be of shape [batch, samples]` from inside the
+  upstream package for any audio at all, so the engine `docs/models.md` compares against
+  the others had never transcribed anything.
+
+  The adapter reshaped the buffer to `(1, N)` because that is what upstream's assertion
+  message asks for. The assertion runs *after* `transcribe()` has called `load_audio()`,
+  whose last line is `return audio[None, ...]` — it adds the batch axis itself, for any
+  input that is not a file path. A pre-batched array therefore arrives as `(1, 1, N)` and
+  fails the check the reshape was written to satisfy. The caller has to pass the array
+  un-batched, and now does.
+
+  The unit tests could not see it: the fake `moonshine_onnx` recorded its argument and
+  asserted nothing, so it accepted a shape the real package rejects — a double built from
+  the same misreading as the code it stands in for. It now mirrors upstream's actual
+  pipeline (batch, then assert), and two new tests pin `load_audio`'s behaviour against
+  the installed wheel rather than against the assertion's wording.
+
+  Found by running the WER benchmark across every engine on real audio; it is not
+  reachable from any test that mocks the package.
+
 - **`yazses doctor` told a machine with a flawless install to reinstall the package.**
   Found on real hardware — a Windows Server 2022 box with zero sound devices — where the
   microphone row read *"PortAudio could not be loaded … this means a broken or partial

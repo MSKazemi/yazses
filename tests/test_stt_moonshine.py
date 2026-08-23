@@ -47,7 +47,15 @@ def fake_moonshine(monkeypatch):
             self.model_name = model_name
 
     def transcribe(audio, model=DEFAULT_MODEL):
+        # Mirror upstream's *pipeline*, not just its assertion. The real function is
+        #     audio = load_audio(audio)   # -> audio[None, ...], unconditionally
+        #     assert_audio_size(audio)    # -> assert len(audio.shape) == 2
+        # so it is the caller's un-batched array that must be 1-D. The previous double
+        # recorded the argument and asserted nothing, which is how a caller that passed
+        # `(1, N)` — and therefore failed on every real utterance — stayed green here.
         calls.append(np.asarray(audio))
+        batched = np.asarray(audio)[None, ...]
+        assert len(batched.shape) == 2, "audio should be of shape [batch, samples]"
         return ["hello world"]          # upstream returns decode_batch(...) — a list
 
     module.MoonshineOnnxModel = MoonshineOnnxModel
@@ -77,11 +85,39 @@ def test_real_package_enforces_the_audio_bounds_we_mirror():
     module = importlib.import_module("moonshine_onnx.transcribe")
     source = inspect.getsource(module.assert_audio_size)
     assert "0.1" in source and "64" in source
-    assert "[batch, samples]" in source, "audio must be 2-D"
+    assert "[batch, samples]" in source, "the shape assertion is still there"
 
 
 def test_our_bounds_match_upstreams():
     assert (MIN_SECONDS, MAX_SECONDS) == (0.1, 64.0)
+
+
+def test_real_package_batches_the_audio_itself() -> None:
+    """The contract that was never pinned, and the whole bug.
+
+    `assert_audio_size` says `[batch, samples]`, so the adapter reshaped to `(1, N)`
+    before calling — but `transcribe` runs `load_audio` first, and `load_audio` ends in
+    `return audio[None, ...]` for any non-path input. The assertion therefore describes
+    the array *after* upstream has batched it, and a caller that batches it too fails on
+    every utterance. Pinned against the installed package, not remembered.
+    """
+    import importlib
+
+    tm = importlib.import_module("moonshine_onnx.transcribe")
+    one_d = np.zeros(16000, dtype=np.float32)
+    assert tm.load_audio(one_d).shape == (1, 16000)
+    assert tm.load_audio(one_d.reshape(1, -1)).shape == (1, 1, 16000)
+
+
+def test_the_real_package_rejects_a_pre_batched_array() -> None:
+    """State the failure the way the machine stated it, with no model download."""
+    import importlib
+
+    tm = importlib.import_module("moonshine_onnx.transcribe")
+    one_d = np.zeros(16000, dtype=np.float32)
+    tm.assert_audio_size(tm.load_audio(one_d))          # the fix: fine
+    with pytest.raises(AssertionError, match=r"\[batch, samples\]"):
+        tm.assert_audio_size(tm.load_audio(one_d.reshape(1, -1)))
 
 
 # ---- decoding --------------------------------------------------------------
@@ -92,10 +128,14 @@ def test_a_batch_result_is_unwrapped_to_a_string(fake_moonshine):
     assert MoonshineEngine(_Cfg()).transcribe(_audio(2)) == "hello world"
 
 
-def test_audio_is_reshaped_to_batch_samples(fake_moonshine):
+def test_audio_is_passed_un_batched(fake_moonshine):
+    """The regression: `[batch, samples]` describes what upstream checks, not what
+    it is given. `load_audio` adds the axis, so handing it `(1, N)` makes `(1, 1, N)`
+    and every utterance fails the assertion the reshape was written to satisfy."""
     MoonshineEngine(_Cfg()).transcribe(_audio(2))
-    assert fake_moonshine[0].ndim == 2, "upstream asserts [batch, samples]"
-    assert fake_moonshine[0].shape[0] == 1
+    assert fake_moonshine[0].ndim == 1, (
+        "upstream batches the array itself in load_audio; a pre-batched one becomes 3-D"
+    )
 
 
 @pytest.mark.parametrize("result,expected", [
