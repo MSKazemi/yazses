@@ -3,7 +3,14 @@ name: Launchpad PPA
 on:
   push:
     tags:
-      - "v0.*"  # Python v0.x only — v1.x handled by rust-release.yml
+      # RELEASE-TRIGGER-DISABLED: dead since v1.0.0 and never once run; needs a
+      # decision before it can publish. The comment below named rust-release.yml as
+      # the successor for v1.x, and that workflow was deleted in 61025cc when the
+      # Rust line was archived -- so no tag has matched this pattern since, and the
+      # Launchpad PPA has had no publisher at all. Credentials were never set up
+      # either (see design/packaging/ppa-setup.md), so widening the glob would only
+      # convert silence into a failing job. Nothing advertises a PPA to users.
+      - "v0.*"  # Python v0.x only — v1.x was to be handled by rust-release.yml
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true

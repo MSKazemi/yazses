@@ -3,9 +3,10 @@ name: Snap
 on:
   push:
     tags:
-      - "v0.*"
-      - "v1.*"  # Part 1 owns the 1.x line (Rust release workflow archived)
-      - "v2.*"  # v2 Python line (cognitive layer); publishes to stable like 1.x
+      # `v*`, never a list of majors: an enumeration has to be extended by
+      # hand at each bump, and the failure is silent -- no job runs, so the tag
+      # looks successful while nothing publishes. `ppa.yml` died that way.
+      - "v*"
   workflow_dispatch:
     inputs:
       version:
