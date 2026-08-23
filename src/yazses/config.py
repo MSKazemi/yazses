@@ -1307,7 +1307,18 @@ class RecimportConfig:
     # why it is the default. Only the (unshipped) pyannote backend treats it as a cap.
     max_speakers: int = 0              # EXACT count on sherpa, not a cap; 0 auto-detects
     min_speakers: int = 0
-    cluster_threshold: float = 0.5     # sherpa fast-clustering threshold (auto-count mode)
+    # Complete-linkage dendrogram CUT HEIGHT, so higher is more permissive -- backwards
+    # from most tuning intuitions. It has to clear the worst-case SAME-speaker pair in the
+    # recording, which is why the useful value grows with how long and how variable that
+    # recording is, and why no single constant is right for every input (ADR-v2-133).
+    # `1.0` rather than `0.5`, which was copied from a sherpa-onnx Mandarin example and is
+    # optimal on no corpus measured. This path takes arbitrary files, so it is tuned on
+    # VoxConverse (15 recordings, 1-20 speakers): 41.72% DER at 0.5, 16.30% at 0.9, 17.34%
+    # at 1.0. `0.9` wins on DER by 1 pp and `1.0` is chosen anyway -- it over-counts by
+    # +0.73 speakers where 0.9 over-counts by +5.20, and the naming path downstream reads
+    # the labels; and on meeting audio, which this command is also handed, 0.9 scores
+    # 46.28% where 1.0 scores 33.58%. See `[meeting] cluster_threshold`, which is 1.2.
+    cluster_threshold: float = 1.0     # sherpa fast-clustering threshold (auto-count mode)
     output_format: str = "txt"         # txt | md | srt | vtt | json
     model: str = ""                    # "" => inherit the [stt] model
     language: str = "en"               # Whisper code ("en", "fa", …); "" auto-detects;
@@ -1343,7 +1354,13 @@ class MeetingConfig:
     # Exact cluster count on the shipped backend, not a cap -- see RecimportConfig.
     max_speakers: int = 0              # EXACT count on sherpa, not a cap; 0 auto-detects
     min_speakers: int = 0
-    cluster_threshold: float = 0.5     # sherpa fast-clustering threshold (auto-count mode)
+    # `1.2`, not `[recimport]`'s `1.0`: this path only ever sees audio YazSes recorded
+    # itself, one room and one microphone, so it takes its own corpus's optimum outright.
+    # AMI test split, 16 recordings, 543.7 min: 75.21% DER at the old 0.5 default (finding
+    # 81 to 272 speakers in four-person rooms), 26.71% at 1.2 -- which also beats forcing
+    # the exact count with `max_speakers = 4` (29.42%), without asking the user anything.
+    # The window is narrow: 1.3 merges a whole meeting into one cluster. See ADR-v2-133.
+    cluster_threshold: float = 1.2     # sherpa fast-clustering threshold (auto-count mode)
     model: str = ""                    # "" => inherit the [stt] model
     language: str = "en"               # Whisper code ("en", "fa", …); "" auto-detects;
                                        # "translate" renders any language into English

@@ -209,6 +209,6 @@ The v2 programme: interaction layer, cognitive layer, and everything after.
 | [adr-v2-130-out-of-band-recovery-for-the-update-path](adr-v2-130-out-of-band-recovery-for-the-update-path.md) | A repair to the update path needs a delivery route that does not depend on the update path | Accepted |
 | [adr-v2-131-cloud-escalation-scope](adr-v2-131-cloud-escalation-scope.md) | What cloud escalation could ever cover, once the privacy rules are applied | Accepted |
 | [adr-v2-132-assisted-bug-reporting](adr-v2-132-assisted-bug-reporting.md) | Assisted bug reporting: what a "send this as an issue" button may do | ** |
-| [adr-v2-133-diarization-clustering-default](adr-v2-133-diarization-clustering-default.md) | The diarization clustering default, measured on real meeting audio | **proposed — evidence complete for the problem, decision open.** Written |
+| [adr-v2-133-diarization-clustering-default](adr-v2-133-diarization-clustering-default.md) | The diarization clustering default, measured on real meeting audio | Accepted — 2026-08-23 |
 
 <!-- END GENERATED ADR INDEX -->

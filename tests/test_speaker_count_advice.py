@@ -1,15 +1,24 @@
-"""The one setting worth more than all the others, and nothing said it.
+"""A hint whose own justification expired, and had to be re-measured rather than kept.
 
-Meeting Mode ships `max_speakers = 0` (auto) with `cluster_threshold = 0.5`. Measured
-on the AMI test split — four real four-person meetings, headset mix, human RTTMs from
-`pyannote/AMI-diarization-setup` — that combination scores **84.09% DER** and finds
-257, 81, 86 and 98 speakers in the four meetings. Setting the count to 4 scores
-**28.55%** with 4 of 4 speakers every time (ADR-v2-133).
+Meeting Mode ships `max_speakers = 0` (auto). Written against the old
+`cluster_threshold = 0.5`, this hint was unarguable: on the AMI test split that pairing
+scored **84.09% DER**, finding 257, 81, 86 and 98 speakers in four four-person meetings,
+while setting the count to 4 scored **28.55%**.
 
-A user who records an hour-long meeting gets an unreadable transcript, no error, and
-no indication that a single number would have fixed most of it. So both surfaces that
-begin a diarized run now say so *before* the run, not after: on a long recording the
-advice is worth nothing once the decode has already happened.
+ADR-v2-133 raised the defaults, and the ordering **reversed**. On the full 16-recording
+AMI test split, auto-count at `1.2` scores **26.71%** and `max_speakers = 4` scores
+**29.42%**. A hint still saying "this fixes most of it" would now be pushing users toward
+the worse setting — the failure mode of every number written into prose and then left
+there while the thing it described moved.
+
+What survives is that the estimate is wrong in both directions without saying so: exact on
+2 of 16 AMI meetings, and under-counting a crowded recording at the `[recimport]` default.
+A user who *knows* the count can still delete that error term, and because `max_speakers`
+is an exact count on this backend rather than a cap, a user who is guessing must not.
+
+So both surfaces that begin a diarized run still say it *before* the run, not after — on a
+long recording the advice is worth nothing once the decode has already happened — but they
+say a different, smaller, true thing.
 
 What is guarded here is when the hint must stay quiet, which is the half that decides
 whether anyone reads it. It fires only when it can help: diarization on, the sherpa
@@ -80,8 +89,27 @@ def test_the_backend_name_is_matched_loosely_like_every_other_read_of_it():
 
 
 def test_the_hint_quotes_the_measurement_rather_than_asserting_a_vibe():
-    """"Accuracy may be lower" is advice nobody acts on. The numbers are what make
-    the difference legible, and they are the reason the flag is worth a line."""
+    """"Accuracy may be lower" is advice nobody acts on. The number is what makes the
+    difference legible — and it has to be a number that is still true."""
     cfg = dataclasses.replace(RecimportConfig(), diarize=True)
     hint = speaker_count_advice(cfg, REMEDY)
-    assert "257" in hint and "84" in hint
+    assert "2 " in hint and "16" in hint, hint
+
+
+def test_the_hint_no_longer_claims_the_flag_is_an_improvement():
+    """The reversal is the point: at the shipped thresholds, pinning the count is 29.42%
+    against auto's 26.71% on the AMI test split. A hint that still promised a large win
+    would be recommending the worse of the two."""
+    cfg = dataclasses.replace(RecimportConfig(), diarize=True)
+    hint = speaker_count_advice(cfg, REMEDY).lower()
+    for stale in ("257", "84%", "84 %", "over-splits badly"):
+        assert stale not in hint, f"the hint still quotes the pre-ADR-v2-133 case: {stale}"
+
+
+def test_the_hint_warns_that_the_count_is_exact_rather_than_a_maximum():
+    """`max_speakers` becomes FastClusteringConfig(num_clusters=N) on the shipped
+    backend, so a cautious over-estimate invents people. Advising a user to set it
+    without saying that is advising them into a different bug."""
+    cfg = dataclasses.replace(RecimportConfig(), diarize=True)
+    hint = speaker_count_advice(cfg, REMEDY).lower()
+    assert "exact count" in hint and "not a maximum" in hint

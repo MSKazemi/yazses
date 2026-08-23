@@ -1,13 +1,17 @@
 # ADR-v2-133 — The diarization clustering default, measured on real meeting audio
 
-**Status:** **proposed — evidence complete for the problem, decision open.** Written
-2026-08-23 during the Azure measurement window, the first time Meeting Mode's speaker
-attribution had ever been scored against annotated human audio.
+**Status:** Accepted — 2026-08-23
 **Deciders:** Mohsen Seyedkazemi Ardebili
 **Context links:** [[adr-v2-125]] (diarized recording import — the cores this reuses),
 [[adr-v2-127]] (meeting mode), [[adr-v2-128]] (on-device minutes, which consume the
 speaker labels), [[adr-011]] (nothing leaves the machine — constrains which models may
 be fetched and from where)
+
+Decided during the Azure measurement window, the first time Meeting Mode's speaker
+attribution had ever been scored against annotated human audio. The decision below rests
+on the full AMI test split (16 recordings, 543.7 min) and a cross-domain gate on
+VoxConverse (15 recordings, 137.7 min); both are reproducible with
+`paper/benchmark/bench_diarization.py`.
 
 ---
 
@@ -166,26 +170,132 @@ it can say a result looks wrong, never that one looks right, and it never edits 
 suppresses a transcript. Whatever this ADR decides, a future regression of the same kind
 now announces itself.
 
+### The full test split, and what it does to option 3
+
+The four-meeting sweep was four recordings. Repeated on the **entire AMI test split** — 16
+recordings, 543.7 minutes, `only_words` references, collar 0:
+
+| | DER | mean speaker-count error | exact count |
+|---|---|---|---|
+| shipped (`0.5`, auto-count) | **75.21%** | **+155.19** | 0/16 |
+| `cluster_threshold = 1.2` | **26.71%** | +2.06 | 2/16 |
+| `max_speakers = 4` | 29.42% | +0.06 | 16/16 by construction |
+
+Per recording the shipped default runs from 53.7% to 92.0% DER, finding between 81 and 272
+speakers in rooms holding four people.
+
+**`1.2` beats forcing the exact count on four times the audio** — 26.71% against 29.42% —
+and it does so without asking the user a question. The four-meeting run said the same thing
+(27.07 against 28.55) and could have been luck; it was not. That is the measurement option 3
+needed to win and did not get.
+
+Option 3 also has a defect the split exposes on its own terms: **`EN2002c` has three
+speakers, not four.** `max_speakers` is an *exact* cluster count on this backend, so the arm
+is guaranteed wrong there — and a four-person meeting where somebody stays silent or joins
+late is ordinary. Forcing 4 still scores 18.84% on it, far better than the shipped 84.74%,
+so the option is not harmful; it is just not better than a threshold, and it costs a question.
+
 ## Decision
 
-**Open.** The evidence above establishes the problem and rules out two explanations
-(scoring, segmentation). It does not yet establish a replacement default: that needs the
-four-meeting sweep over `0.9–1.6` and the per-model threshold sweep, both in flight.
+**Raise the threshold, and stop pretending the two features see the same audio.**
 
-## Options under consideration
+* `[meeting] cluster_threshold`: `0.5` → **`1.2`**
+* `[recimport] cluster_threshold`: `0.5` → **`1.0`**
+* `max_speakers` stays `0` and stays documented as the escape hatch for a user who knows
+  the count and wants it obeyed.
+* The embedder is not changed (option 2 deferred, see below).
 
-1. **Raise `cluster_threshold` only.** Cheapest; no new download, no ADR-011 surface.
+The two keys already existed separately and were only ever set together by inheritance from
+the same upstream example. They point at different audio, and the measurements say so:
+
+| corpus | what it stands for | optimum measured |
+|---|---|---|
+| AMI test split (16, 543.7 min) | Meeting Mode: one room, one microphone, long | **1.2** |
+| VoxConverse dev (15, 137.7 min) | `yazses transcribe`: arbitrary files, 1–20 speakers | **0.9** |
+| Synthetic TTS (8) | neither; a proxy that turned out to be a poor one | 0.8–0.9 |
+
+**`0.5` is optimal on none of them.** That is the whole case for moving, and it does not
+depend on picking the right replacement.
+
+### Why `[recimport]` gets `1.0` and not the `0.9` that measured best
+
+`0.9` is the point optimum on VoxConverse — 16.30% against `1.0`'s 17.34%, a 1 pp lead on
+fifteen files. Two things outweigh it:
+
+1. **Speaker count.** At `0.9` VoxConverse is over-counted by **+5.20** speakers per
+   recording; at `1.0` by **+0.73**, with the count exactly right on 3 of 15. ADR-v2-125's
+   naming path consumes those labels — a voiceprint match, a `min_speaker_seconds` gate, a
+   "Speaker N" fallback — so a label count that is nearly right is worth more downstream than
+   a DER that is 1 pp lower.
+2. **`recimport` does not know what it was handed.** It is `yazses transcribe <file>`:
+   podcasts, interviews, lectures, and meeting recordings. On meeting audio `0.9` scores
+   46.28% and `1.0` scores 33.58%. Choosing for the tail rather than for the point estimate
+   costs 1 pp on the matched corpus and saves 12.7 pp on the mismatched one.
+
+`[meeting]` has no such ambiguity — it only ever sees audio YazSes recorded itself in a room
+— so it takes its corpus's optimum outright.
+
+### What this decision does not claim
+
+**Not that `1.2` is a good number in general.** VoxConverse is 42.13% there, and the
+speaker-count error changes *sign*: at `1.2` a broadcast recording is under-counted by 6.4
+speakers where a meeting is within 0.75. The gate did its job. It vetoed the general claim,
+not the change.
+
+**Not that a constant is the right shape.** Complete-linkage cuts at a fixed height, and the
+height that clears the worst-case same-speaker pair depends on the recording — three minutes
+of one synthetic voice barely varies, forty minutes of a person in a real room varies a lot.
+Three corpora produced three optima for exactly that reason. A per-recording estimate is the
+better answer and nobody has one here; two defaults matched to two input domains is the best
+a constant can do, and the plausibility guard is what covers the rest.
+
+### The guard is what makes a split default safe
+
+`recimport/plausibility.py` (shipped independently of this decision) was run against real
+diarizer output on `IS1009a` at every threshold on the curve:
+
+| threshold | labels | under 20 s | verdict | DER |
+|---|---|---|---|---|
+| 0.5 | 86 | 75 | **fires** | 90.20% |
+| 0.9 | 28 | 22 | **fires** | 51.68% |
+| 1.0 | 21 | 17 | **fires** | 31.89% |
+| 1.1 | 10 | 4 | silent | 28.14% |
+| 1.2 | 4 | 0 | silent | 21.89% |
+| 1.3 | 1 | 0 | silent | 45.45% |
+
+On the same recording's **human annotation** — four speakers holding 412, 144, 71 and 68
+seconds — it is silent. So it catches the case the split default is exposed to (a meeting
+imported through `transcribe`, where `1.0` over-splits) and leaves a correct answer alone.
+
+It is honest about what it does not cover: `1.1` is still wrong (10 labels for 4 people) and
+passes, and `1.3` collapses the meeting into one cluster and passes, because the guard is
+one-directional and a single cluster is not "mostly fragments". It is a floor, not a check.
+
+### Option 2 (change the embedder) — deferred, not rejected
+
+The English sibling of the same architecture takes `IS1009a` from 90.20% to 52.89% at the
+shipped threshold, so the Mandarin embedder is a real second-order defect. It is deferred
+because **a threshold is a distance in one embedding space**: adopting a new embedder
+invalidates every number above and requires the whole sweep again, on both corpora, before
+anything could be shipped. That is a separate measurement window, and the threshold change
+delivers the larger share of the win without changing what a user's machine downloads.
+
+## Options considered
+
+Outcomes are recorded against each; the reasoning is in the Decision above.
+
+1. **Raise `cluster_threshold` only.** — **CHOSEN**, with one value per feature. Cheapest; no new download, no ADR-011 surface.
    Risk: one number tuned on four AMI meetings, in a window ~0.1 wide, shipped to
    arbitrary rooms and microphones.
-2. **Switch the embedder to an English or bilingual sibling and re-tune the threshold
+2. **Deferred. Switch the embedder to an English or bilingual sibling and re-tune the threshold
    for it.** Changes what a user's machine downloads, which is why this needs an ADR at
    all. All candidates come from the same sherpa-onnx release already trusted by
    `download.py`, so no new host is contacted.
-3. **Stop shipping a bare threshold.** `max_speakers` is an *exact* cluster count on this
+3. **Rejected as a default. Stop shipping a bare threshold.** `max_speakers` is an *exact* cluster count on this
    backend, so a user who knows how many people were in the room bypasses clustering's
-   count estimate entirely. Being measured as `ami_maxspk4.json`. This is the only option
+   count estimate entirely. Measured on the full split: 29.42% against `1.2`'s 26.71%. This is the only option
    that does not ask a single constant to generalise across rooms.
-4. **Do nothing and document it.** Rejected as a standalone option: 84% DER with 86
+4. **Rejected. Do nothing and document it.** Rejected as a standalone option: 84% DER with 86
    labels for 4 speakers is not a degraded transcript, it is an unusable one, and Meeting
    Mode's minutes (ADR-v2-128) consume those labels.
 
@@ -194,4 +304,20 @@ is published whether or not the fix lands in the same release.
 
 ## Consequences
 
-To be written with the decision.
+* **Meeting Mode's speaker labels become usable.** 75.21% → 26.71% DER on the AMI test
+  split. Not good — 26.71% is a poor diarization result by the literature's standards — but
+  the difference between "which of these four people said this" and "here are 155 speakers
+  who were not in the room", and ADR-v2-128's minutes consume these labels directly.
+* **Two defaults now differ where one used to be copied.** `docs/configuration.md` and
+  `docs/benchmarks.md` must say why, because a user comparing the two sections will otherwise
+  read it as an oversight.
+* **The published numbers get worse before they get better.** `docs/benchmarks.md` carries
+  the shipped-default result as measured, including the 75.21%. It was true of every release
+  to date and is not deleted by fixing it.
+* **A user who pinned `cluster_threshold = 0.5` keeps it.** The change is to the dataclass
+  default; `configcheck.py` does not rewrite an explicit value.
+* **The synthetic corpus is demoted, not deleted.** Its optimum (0.8–0.9) matched neither
+  shipped default, and it swept a range that could not contain AMI's answer. It stays as a
+  cheap regression fixture and stops being evidence for a default.
+* **Nothing is re-tuned for the embedder that is actually shipped.** If option 2 lands, all
+  of this is measured again.

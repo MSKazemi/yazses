@@ -845,7 +845,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `backend` | str | `"sherpa"` |  |  |
 | `max_speakers` | int | `0` |  | EXACT count on sherpa, not a cap; 0 auto-detects |
 | `min_speakers` | int | `0` |  |  |
-| `cluster_threshold` | float | `0.5` |  | sherpa fast-clustering threshold (auto-count mode) |
+| `cluster_threshold` | float | `1.0` |  | sherpa fast-clustering threshold (auto-count mode) |
 | `output_format` | str | `"txt"` |  | txt \| md \| srt \| vtt \| json |
 | `model` | str | `""` |  | "" => inherit the [stt] model |
 | `language` | str | `"en"` |  | Whisper code ("en", "fa", …); "" auto-detects; "translate" renders any language into English |
@@ -867,7 +867,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `backend` | str | `"sherpa"` |  |  |
 | `max_speakers` | int | `0` |  | EXACT count on sherpa, not a cap; 0 auto-detects |
 | `min_speakers` | int | `0` |  |  |
-| `cluster_threshold` | float | `0.5` |  | sherpa fast-clustering threshold (auto-count mode) |
+| `cluster_threshold` | float | `1.2` |  | sherpa fast-clustering threshold (auto-count mode) |
 | `model` | str | `""` |  | "" => inherit the [stt] model |
 | `language` | str | `"en"` |  | Whisper code ("en", "fa", …); "" auto-detects; "translate" renders any language into English |
 | `vad_backend` | str | `"calibrated"` |  | calibrated \| silero (utterance segmentation) |

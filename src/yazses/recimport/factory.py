@@ -128,18 +128,24 @@ def speaker_count_advice(config, remedy: str) -> str | None:
     labels at all"*. This answers a different question: labels will be produced, and
     on real audio they will be poor, and there is a single flag that fixes most of it.
 
-    Measured on the AMI test split (4 meetings, headset mix, human RTTMs from
-    `pyannote/AMI-diarization-setup`, `design/adr/adr-v2-133-…`) with the shipped
-    `cluster_threshold = 0.5`:
+    **The reason changed when the threshold did, and the wording had to change with it.**
+    This advice was written against `cluster_threshold = 0.5`, where auto-count scored
+    84.09% DER on AMI and giving the count scored 28.55% — a gap so large that "set this
+    one flag" was simply correct. ADR-v2-133 raised the defaults, and on the full AMI test
+    split (16 recordings, 543.7 min) the ordering **reverses**: auto-count at `1.2` scores
+    **26.71%** and `max_speakers = 4` scores **29.42%**. Telling every user to pin the
+    count would now make the average result slightly worse, so this no longer claims to be
+    the largest improvement available.
 
-    * `max_speakers = 0` (auto): **84.09% DER**, and the clustering found 257, 81, 86
-      and 98 speakers in four four-person meetings.
-    * `max_speakers = 4`: **28.55% DER**, 4 of 4 speakers in every meeting.
+    What survives the change is that the estimate is still *wrong*, in both directions and
+    without saying so: exact on 2 of 16 AMI meetings (+2.06 on average), and on VoxConverse
+    at the `[recimport]` default it under-counts a crowded broadcast recording. A user who
+    knows the number can still remove that whole error term, and — because `max_speakers`
+    is an exact count on this backend rather than a cap — nobody who does not know it
+    should guess. That is what the hint says now.
 
-    That is not a tuning nicety, it is the difference between a usable transcript and
-    an unreadable one, and nothing in the product said so. Only sherpa is advised
-    about: the pyannote adapter reads the value as a genuine upper bound, where
-    leaving it unset is a reasonable default rather than a trap.
+    Only sherpa is advised about: the pyannote adapter reads the value as a genuine upper
+    bound, where leaving it unset is a reasonable default rather than a trap.
 
     `remedy` is supplied by the caller because `yazses transcribe` and Meeting Mode
     set the count differently, and naming a step the user cannot take from where they
@@ -154,9 +160,10 @@ def speaker_count_advice(config, remedy: str) -> str | None:
     if int(getattr(config, "max_speakers", 0) or 0) > 0:
         return None
     return (
-        "Speaker count is set to auto. On real meetings the shipped clustering "
-        "over-splits badly — measured on the AMI test split it found 257 speakers in "
-        "a four-person meeting (84% DER, against 29% when the count is given). "
+        "Speaker count is set to auto, so the clustering will estimate it — measured on "
+        "the AMI test split it gets it exactly right in 2 meetings out of 16. If you know "
+        "how many people are on this recording, saying so removes that error. Only say so "
+        "if you know: this is an exact count, not a maximum. "
         + remedy
     )
 

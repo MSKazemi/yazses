@@ -3763,12 +3763,18 @@ class Daemon:
         """IPC: begin a hands-free meeting recording. Streams a live transcript.
 
         Optional `speakers`: how many people are in the room, for this meeting only.
-        It is the setting that decides whether the transcript is readable -- 84.09%
-        DER at auto against 28.55% when the count is given, on the AMI test split
-        (ADR-v2-133) -- and until now the only way to supply it was to hand-edit
-        `[meeting] max_speakers` and restart the daemon. Nobody edits a config file
-        between two meetings with different numbers of people in the room, so in
-        practice the good path was unreachable.
+        The only way to supply it used to be hand-editing `[meeting] max_speakers` and
+        restarting the daemon, and nobody edits a config file between two meetings with
+        different numbers of people in the room, so in practice the path was unreachable.
+
+        It is no longer the setting that decides whether the transcript is readable --
+        that was true against the old `cluster_threshold = 0.5` (84.09% DER at auto
+        against 28.55% supplied), and ADR-v2-133 reversed it: on the full AMI test split
+        auto now scores 26.71% and a supplied count scores 29.42%. It stays because the
+        clustering's estimate is still wrong in both directions -- exact on 2 of 16 AMI
+        meetings -- and a user who *knows* the number deletes that error term. On this
+        backend it is an exact count rather than a cap, so a user who is guessing should
+        leave it alone.
         """
         cfg = self._config.meeting
         if not cfg.enabled:

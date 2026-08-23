@@ -296,10 +296,32 @@ so it is named here rather than left for a reader to assume.
 
 ### On real meetings: AMI — the number that matters
 
-Four meetings from the AMI test split (EN2002a, ES2004a, IS1009a, TS3003a), 90 minutes
-of real four-person meetings in real rooms, headset mix, scored against the human
-reference RTTMs published by `pyannote/AMI-diarization-setup` (`only_words`, test
-split). This is what Meeting Mode is actually pointed at.
+The **whole AMI test split**: 16 recordings, 543.7 minutes of real four-person meetings
+in real rooms, headset mix, scored against the human reference RTTMs published by
+`pyannote/AMI-diarization-setup` (`only_words`, test split). This is what Meeting Mode is
+actually pointed at.
+
+| | DER (collar 0) | mean speaker-count error | exact count |
+|---|---|---|---|
+| defaults **before v2.30** (`cluster_threshold = 0.5`) | **75.21%** | **+155.19** | 0 / 16 |
+| defaults **now** (`[meeting] cluster_threshold = 1.2`) | **26.71%** | +2.06 | 2 / 16 |
+| `max_speakers = 4` (count supplied) | 29.42% | +0.06 | 16 / 16 |
+
+Per recording the old default ran from 53.7% to 92.0% DER, finding between **81 and 272**
+speakers in rooms holding four people. The threshold change is
+[ADR-v2-133](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-v2-133-diarization-clustering-default.md);
+the rest of this section is the evidence behind it, kept because the old numbers were
+published and deleting them would be the wrong kind of tidy.
+
+Note the third row. **Supplying the exact speaker count is now worse than letting the
+clustering estimate it** — 29.42% against 26.71% — which is the reverse of what the
+four-meeting subset below showed at the old threshold, and is why the pre-run hint about
+`--speakers` no longer claims to be a large win.
+
+#### The four-meeting subset, at the old defaults
+
+The first measurement, kept for continuity with the sweeps further down, which were all
+run on these four (EN2002a, ES2004a, IS1009a, TS3003a — 90 minutes).
 
 | Metric | Shipped defaults | `max_speakers = 4` |
 |---|---|---|
@@ -326,21 +348,27 @@ to the wrong speaker at the defaults, because the clustering split four people i
 between 81 and 257 clusters. A transcript in that state is not "somewhat inaccurate";
 it is unreadable.
 
-**Telling it the speaker count is the single largest improvement available today.**
-`--speakers 4` on `yazses transcribe`, or `[meeting] max_speakers` in `config.toml`,
-takes the DER from 84.09% to 28.55% and the speaker count from wrong in 4 of 4
-meetings to exact in 4 of 4. Note that on the shipped sherpa backend this is an
-**exact** cluster count, not an upper bound — a cautious "at most 6" for a
-three-person conversation invents six speakers.
+**At the old threshold, telling it the speaker count was the single largest improvement
+available** — `--speakers 4` on `yazses transcribe`, or `[meeting] max_speakers` in
+`config.toml`, took the DER from 84.09% to 28.55% and the speaker count from wrong in 4 of
+4 meetings to exact in 4 of 4. **That is no longer true at the shipped defaults**: on the
+full test split the count-supplied run scores 29.42% against auto's 26.71%. The flag is
+still worth setting when you know the number and the recording is unusual — a crowded
+call, or a meeting where the labels come out obviously wrong — but it is not a fix for a
+broken default any more, because the default is not broken any more.
+
+Note that on the shipped sherpa backend this is an **exact** cluster count, not an upper
+bound — a cautious "at most 6" for a three-person conversation invents six speakers, which
+is why nothing recommends guessing it.
 
 ### Where the threshold actually sits on real audio
 
-`[recimport] cluster_threshold` defaults to `0.5`. Swept on IS1009a, which the
-defaults score at 90.20%:
+`cluster_threshold` used to default to `0.5` on both features. Swept on IS1009a,
+which that value scores at 90.20%:
 
 | `cluster_threshold` | DER | Speakers found (true: 4) |
 |---|---|---|
-| **0.5 — shipped default** | **90.20%** | 86 |
+| **0.5 — the old default** | **90.20%** | 86 |
 | 0.7 | 76.49% | 56 |
 | 0.9 | 51.68% | 28 |
 | 1.0 | 31.89% | 21 |
@@ -350,8 +378,8 @@ defaults score at 90.20%:
 | 1.5 | 45.45% | 1 |
 | 2.0 | 45.45% | 1 |
 
-Two things are worth reading off that table. The optimum is **more than twice** the
-shipped default, and the window around it is narrow: `1.3` merges every speaker into
+Two things are worth reading off that table. The optimum is **more than twice** the old
+default, and the window around it is narrow: `1.3` merges every speaker into
 one cluster. And `1.2` reaches 21.89% — the same figure `max_speakers = 4` reaches on
 this meeting — because both routes arrive at the same four-cluster solution.
 
@@ -383,12 +411,40 @@ beats every alternative at `0.9`. The threshold dominates; the embedder is secon
 An earlier reading of this data blamed the Mandarin embedder first, and the sweeps
 above are what corrected it.
 
-**No default has been changed on the strength of these numbers.** `1.2` is an optimum
-on meetings from three rooms in one corpus, and the curve is sharp enough that
-"probably close enough" is not an argument — `1.3` collapses IS1009a to a single
-speaker. The options and the evidence are written up in
-[ADR-v2-133](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-v2-133-diarization-clustering-default.md),
-which is open.
+**Both defaults have since been changed on the strength of these numbers, to two
+different values.** `[meeting] cluster_threshold` is `1.2` and `[recimport]
+cluster_threshold` is `1.0`, because the two features are handed different audio and a
+cut height is a property of the recording rather than of the product. The reasoning, the
+cross-domain gate that nearly stopped it, and what the decision explicitly does *not*
+claim are in
+[ADR-v2-133](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-v2-133-diarization-clustering-default.md).
+
+### The cross-domain check: VoxConverse
+
+A threshold tuned on meetings could easily be a threshold that only works on meetings, so
+it was gated against a corpus that is not meetings before anything moved. 15 VoxConverse
+dev recordings, 137.7 minutes of broadcast and YouTube audio, 1 to 20 speakers each:
+
+| `cluster_threshold` | DER | speaker-count error | right count |
+|---|---|---|---|
+| 0.5 (old default) | 41.72% | +31.73 | 1 / 15 |
+| 0.6 | 31.61% | +22.80 | 1 / 15 |
+| 0.7 | 24.39% | +16.20 | 2 / 15 |
+| **0.9** | **16.30%** | +5.20 | **4 / 15** |
+| **1.0 — `[recimport]` default** | 17.34% | **+0.73** | 3 / 15 |
+| 1.1 | 24.99% | −3.27 | 2 / 15 |
+| 1.2 — `[meeting]` default | 42.13% | −6.40 | 1 / 15 |
+
+Two things to read off it. **AMI's optimum is VoxConverse's worst**, and the count error
+changes *sign*: at `1.2` a crowd-scene broadcast is under-counted by 6.4 speakers where a
+meeting is within 0.75. And **`0.5` is optimal on none of the three corpora measured** —
+synthetic peaks at 0.8–0.9, VoxConverse at 0.9, AMI at 1.2 — which is the whole case for
+moving it, and does not depend on agreeing about where to move it to.
+
+`[recimport]` takes `1.0` rather than the `0.9` that scores 1 pp better here, because
+`yazses transcribe` is handed arbitrary files: `1.0` gets the speaker count almost exactly
+right (+0.73 against +5.20), which the naming path downstream depends on, and it degrades
+far more gracefully toward meeting audio (33.58% against 46.28%).
 
 ### Scoring cross-check
 
@@ -419,7 +475,7 @@ primary figure is scored with **no forgiveness collar**.
 
 **Read this as a floor, not as the DER**, and never as a substitute for the AMI number
 above. TTS voices are cleaner and more separable than people in a room: the same
-defaults that score 22.8% here score 84.09% on real meetings. Its job is regression
+defaults that score 22.8% here scored 84.09% on real meetings. Its job is regression
 detection — "did this change make separation worse" — on a corpus that can be
 regenerated on demand.
 
@@ -428,7 +484,7 @@ Swept the whole way to `1.6`, it has an interior minimum near `0.8`–`0.9` and 
 
 | `cluster_threshold` | DER | speaker-count error | right count |
 |---|---|---|---|
-| 0.5 (shipped) | 22.77% | +3.38 | 0 / 8 |
+| 0.5 (the old default) | 22.77% | +3.38 | 0 / 8 |
 | 0.7 | 15.98% | +0.62 | 6 / 8 |
 | 0.8 | 14.7% | +0.12 | — |
 | **0.9** | **15.79%** | −0.25 | **7 / 8** |
@@ -450,9 +506,10 @@ recording — and these meetings are three minutes long in deliberately distinct
 voices, so that pair is close by, while forty minutes of a person in a real room is not.
 
 Two things follow. **A default cannot be tuned here**, because the parameter this corpus
-is most likely to overfit is the one being tuned. And the useful cut height is a property
-of the *recording* rather than of the dataset, which is why a single shipped constant is
-a questionable shape of fix regardless of which constant wins.
+is most likely to overfit is the one being tuned — so it is now a regression fixture and
+nothing more. And the useful cut height is a property of the *recording* rather than of
+the dataset, which is why the fix that shipped is two constants rather than one, and why
+even two is a compromise: the right answer is a per-recording estimate that nobody has.
 
 
 ## What is not measured here

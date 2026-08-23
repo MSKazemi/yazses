@@ -6,6 +6,44 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — the speaker-clustering default was measured for the first time, and it was wrong
+
+`[recimport] cluster_threshold` moves from `0.5` to `1.0` and `[meeting] cluster_threshold`
+from `0.5` to `1.2`. Both had been carried since the feature shipped on the sherpa-onnx
+example's value, never measured against annotated audio.
+
+Measured on the **full AMI test split** (16 recordings, 543.7 minutes of real meetings,
+scored against the human RTTM annotation):
+
+| `cluster_threshold` | DER | mean speaker-count error |
+|---|---|---|
+| `0.5` (shipped) | 75.21% | +155.19 |
+| `1.2` | **26.71%** | +2.06 |
+| `0.5` + `max_speakers=4` (the exact truth) | 29.42% | +0.06 |
+
+The shipped default invented **86 to 272 speakers** in a four-person meeting. It is a
+dendrogram cut height under complete-linkage clustering, so it has to clear the worst-case
+distance between two windows *of the same voice* — which grows with the length and
+variability of the recording. `0.5` was a value for short, clean, few-speaker clips.
+
+Two consequences beyond the number:
+
+- **The threshold beats supplying the exact speaker count.** `26.71%` at `1.2` against
+  `29.42%` for a run told the truth up front. `yazses transcribe --speakers` and Meeting
+  Mode both advertised that flag as the fix for bad attribution; the hint has been rewritten
+  to quote what was measured (the estimate is exactly right in 2 of 16 recordings) instead
+  of promising an improvement, and to warn that the value is an *exact* count, not a maximum.
+- **The two defaults are deliberately different.** On VoxConverse (15 dev recordings,
+  137.7 minutes of broadcast and web video — shorter, noisier, up to 20 speakers) the
+  optimum is `0.9` at 16.30% DER, with `1.2` collapsing to 42.13%. `[meeting]` gets `1.2`
+  because meeting audio is what it records; `[recimport]` gets `1.0` because it imports
+  whatever file it is handed — `1.0` costs one point of DER against the VoxConverse optimum
+  (17.34%), has the lowest speaker-count error of the whole sweep (+0.73), and degrades
+  gracefully toward meeting audio rather than off a cliff.
+
+Full sweeps, both corpora, wins and losses, in `docs/benchmarks.md`; the decision and what
+it does *not* claim in `design/adr/adr-v2-133-diarization-clustering-default.md`.
+
 ### Fixed
 
 - **The liveness probe killed the process it was asked about, and on Windows that was the
