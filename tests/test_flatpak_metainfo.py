@@ -20,6 +20,7 @@ repository, since a listing whose images 404 is worse than one with none.
 
 from __future__ import annotations
 
+import json
 import re
 import tomllib
 import xml.etree.ElementTree as ET
@@ -305,3 +306,101 @@ def test_the_desktop_entry_launches_the_command_the_manifest_exports() -> None:
         "Icon must be the app ID: that is the name the installed hicolor icon carries"
     )
     assert entry["Categories"].endswith(";"), "Categories must be a ;-terminated list"
+
+
+# --- what a Flathub install would actually contain ---------------------------------
+
+
+PYTHON_SOURCES = ROOT / "packaging/flatpak/python3-yazses.json"
+
+#: `yazses-2.29.0-py3-none-any.whl` -> `2.29.0`, from the wheel's own filename. PEP 427
+#: puts the version in the second `-`-separated field, so this reads the artifact rather
+#: than the URL path, whose hash directories say nothing.
+_WHEEL = re.compile(r"/(yazses)-([^-]+)-py3-none-any\.whl$")
+
+
+def _yazses_wheel_sources() -> list[dict]:
+    sources = json.loads(PYTHON_SOURCES.read_text(encoding="utf-8"))["sources"]
+    return [s for s in sources if _WHEEL.search(s.get("url", ""))]
+
+
+def test_the_flatpak_installs_exactly_one_yazses_wheel():
+    """Non-vacuity, and a second pin would make "which one wins" a build-order question."""
+    found = _yazses_wheel_sources()
+    assert len(found) == 1, (
+        f"{len(found)} yazses wheels pinned in {PYTHON_SOURCES.name}: "
+        f"{[s.get('url') for s in found]}"
+    )
+
+
+def test_the_pinned_wheel_is_the_version_the_listing_advertises():
+    """The listing said 2.29.0 and the build installed 2.18.2 — eleven releases apart.
+
+    `test_the_newest_release_entry_matches_the_project_version` above already holds the
+    *metainfo* to `pyproject.toml`, which is exactly why this went unnoticed: that guard
+    kept the advertised half current while the installed half stayed where it was. A
+    Flathub user would have read 2.29.0 on the store page and run 2.18.2, and nothing in
+    the repository disagreed. Half a relationship checked is not the relationship checked.
+
+    Bumping the version therefore has to bump this pin too, hash included — the URL is
+    content-addressed by PyPI, so a stale hash is a hard build failure rather than a
+    silently old install, and that is the failure mode to prefer.
+    """
+    (source,) = _yazses_wheel_sources()
+    match = _WHEEL.search(source["url"])
+    assert match is not None
+    pinned = match.group(2)
+    project = PYPROJECT["project"]["version"]
+    assert pinned == project, (
+        f"the Flatpak build installs yazses {pinned}, but this project is at {project} "
+        f"and the metainfo advertises it. Update the `url` *and* the `sha256` in "
+        f"{PYTHON_SOURCES.name} from https://pypi.org/pypi/yazses/{project}/json"
+    )
+
+
+def test_the_pinned_wheel_states_a_sha256():
+    """Flatpak verifies it; an absent or placeholder hash fails at build, not at review."""
+    (source,) = _yazses_wheel_sources()
+    digest = str(source.get("sha256", ""))
+    assert re.fullmatch(r"[0-9a-f]{64}", digest), (
+        f"the yazses wheel pin has no usable sha256 (got {digest!r})"
+    )
+
+
+def test_every_linux_runtime_dependency_is_pinned_in_the_manifest():
+    """A Flatpak that installs the right version and is missing an import is no better.
+
+    `python3-yazses.json` is regenerated only by a `workflow_dispatch` run of
+    `.github/workflows/flatpak.yml`, whose artifact a human then commits — it cannot be
+    produced on a laptop, because the wheels must match the *runtime's* Python inside
+    `org.kde.Sdk` rather than the host's. That manual step is why the yazses pin sat
+    eleven releases behind, and it is equally why a dependency added to `pyproject.toml`
+    afterwards would simply not be in the Flatpak.
+
+    Platform-gated dependencies are excluded by reading their environment marker, not by
+    listing their names: `pyobjc-*`, `rumps` (darwin), `pywin32`, `pystray`, `Pillow`
+    (win32) are all correctly absent from a Linux build, and a name list would have to be
+    remembered every time one is added.
+    """
+    pinned = set()
+    sources = json.loads(PYTHON_SOURCES.read_text(encoding="utf-8"))["sources"]
+    for source in sources:
+        match = re.search(r"/([A-Za-z0-9_.\-]+)-\d[^/]*\.(?:whl|tar\.gz)$", source.get("url", ""))
+        if match:
+            pinned.add(re.sub(r"[-_.]+", "-", match.group(1)).lower())
+    assert len(pinned) > 20, f"only {len(pinned)} pins parsed out of {len(sources)} sources"
+
+    missing = []
+    for spec in PYPROJECT["project"]["dependencies"]:
+        requirement, _, marker = spec.partition(";")
+        if "darwin" in marker or "win32" in marker:
+            continue
+        name = re.split(r"[\[<>=!~ ]", requirement.strip(), maxsplit=1)[0]
+        if re.sub(r"[-_.]+", "-", name).lower() not in pinned:
+            missing.append(name)
+
+    assert not missing, (
+        f"{missing} are runtime dependencies on Linux but are pinned nowhere in "
+        f"{PYTHON_SOURCES.name}, so the Flatpak would install without them. Re-run the "
+        "`regenerate` job of .github/workflows/flatpak.yml and commit its artifact."
+    )

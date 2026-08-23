@@ -6,6 +6,24 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the Flathub listing advertised 2.29.0 and the build installed 2.18.2
+
+- **The Flatpak pinned `yazses-2.18.2-py3-none-any.whl` — eleven releases behind what its
+  own store listing announced.** `packaging/flatpak/python3-yazses.json` now pins 2.29.0,
+  URL and `sha256` both.
+- The reason it went unnoticed is instructive: `test_the_newest_release_entry_matches_the_project_version`
+  already held the **metainfo** to `pyproject.toml`, so the advertised half was kept current
+  automatically while the installed half — a different file, checked by nothing — stayed
+  where it was. Half a relationship checked is not the relationship checked. The pin is now
+  held to the project version too, so bumping the version has to bump both.
+- **Every Linux runtime dependency is now required to be pinned in the manifest.** The
+  dependency list is regenerated only by a manual `workflow_dispatch` run whose artifact a
+  human commits — it cannot be produced on a laptop, since the wheels must match the
+  runtime's Python inside `org.kde.Sdk` — so a dependency added to `pyproject.toml`
+  afterwards would simply be absent from the Flatpak. Platform-gated dependencies are
+  excluded by reading their environment marker rather than by name, so the macOS and
+  Windows ones stay correctly out of a Linux build without a list to maintain.
+
 ### Fixed — the config we hand people told them to undo a bug fix
 
 - **The example config three packagers install stated two values the code disagrees
