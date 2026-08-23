@@ -157,12 +157,25 @@ class _FakeBoard:
         self.released = True
 
 
-def _run_once(chunks, fail_on=""):
+def _run_once(chunks, fail_on="", monkeypatch=None):
     """Drive the source until the fake board runs out of chunks, then stop it.
 
     The stream has to actually iterate — stopping before `run()` would exit the
     loop before a single sample is read, which is how this harness was wrong the
     first time and reported "no squeeze detected" for a hard squeeze.
+
+    The fake serves a **single row**, so it only fakes a board whose EMG data sits
+    on row 0. `BrainFlowSource._emg_channels` asks the real `BoardShim` for the
+    channel map and falls back to "all rows" only when the import fails, and board
+    -1 (BrainFlow's synthetic board) reports rows 1..16 — every one of them past
+    the end of a 1-row array, so `_consume` finds nothing usable and returns before
+    the detector ever sees a sample.
+
+    That made the outcome depend on whether `brainflow` happened to be installed:
+    green on every CI runner and on the maintainer's laptop, red on a box built
+    with `uv sync --all-extras`. Found by building that box. The fake now pins the
+    channel map it is built for, so the test measures the squeeze detector on every
+    machine rather than measuring the environment.
     """
     started, ended = [], []
     board = _FakeBoard(chunks, fail_on=fail_on)
@@ -178,6 +191,9 @@ def _run_once(chunks, fail_on=""):
         return serve(n)
 
     board.get_current_board_data = serve_then_stop
+    # Row 0 is where this fake puts its samples; say so rather than letting an
+    # optional install decide.
+    source._emg_channels = lambda: []
     source.run()
     return board, started, ended
 

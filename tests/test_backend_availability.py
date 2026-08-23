@@ -12,6 +12,7 @@ import logging
 from dataclasses import replace
 
 import numpy as np
+import pytest
 
 from yazses.config import DenoiseConfig
 from yazses.denoise import frontend
@@ -144,7 +145,50 @@ def test_denoise_backend_none_is_a_passthrough_without_warning(caplog):
 
 # --- factories -----------------------------------------------------------------
 
-def test_voiceprint_resemblyzer_advises_its_own_extra_not_the_neighbouring_one(caplog):
+@pytest.fixture
+def absent_dependency(monkeypatch):
+    """Force a named third-party package to look uninstalled, on any machine.
+
+    The two tests below assert the *message a user sees when the extra is missing*,
+    and they used to read that state off the machine instead of setting it. On every
+    CI runner and on the maintainer's laptop the extras are in fact absent, so they
+    passed -- and on a box built with `uv sync --all-extras` they failed, because
+    the message under test is then correctly a different one. A test whose subject
+    is "the dependency is missing" has to make the dependency missing.
+
+    Both halves have to be faked. `find_spec` alone controls what the probe reports,
+    but the factory reaches the probe only by way of a *failed construction* -- so on
+    a box where the backend genuinely installs and works, the constructor succeeds
+    and the message under test is never produced at all.
+    """
+    import builtins
+    import importlib.util
+
+    real_find = importlib.util.find_spec
+    real_import = builtins.__import__
+
+    def make_absent(name: str) -> None:
+        top = name.split(".")[0]
+
+        def fake_find(mod, *args, **kwargs):
+            if mod == name or mod.split(".")[0] == top:
+                return None
+            return real_find(mod, *args, **kwargs)
+
+        def fake_import(mod, *args, **kwargs):
+            if mod == name or mod.split(".")[0] == top:
+                raise ModuleNotFoundError(f"No module named {top!r}", name=top)
+            return real_import(mod, *args, **kwargs)
+
+        monkeypatch.setattr(importlib.util, "find_spec", fake_find)
+        monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    return make_absent
+
+
+def test_voiceprint_resemblyzer_advises_its_own_extra_not_the_neighbouring_one(
+    caplog, absent_dependency
+):
     """The adapter ships now (#70), so the honest answer changed from "never" to "not yet".
 
     What must not change is the extra it names: `voiceprint` is speechbrain/ECAPA
@@ -154,6 +198,7 @@ def test_voiceprint_resemblyzer_advises_its_own_extra_not_the_neighbouring_one(c
     from yazses.config import VoiceprintConfig
     from yazses.voiceprint.factory import build_embedder
 
+    absent_dependency("resemblyzer")
     cfg = replace(VoiceprintConfig(), enabled=True, backend="resemblyzer")
     with caplog.at_level(logging.WARNING):
         assert build_embedder(cfg) is None            # still degrades to dormant
@@ -163,11 +208,14 @@ def test_voiceprint_resemblyzer_advises_its_own_extra_not_the_neighbouring_one(c
     assert "`voiceprint` extra" not in msg
 
 
-def test_diarization_pyannote_advises_its_own_extra_not_the_neighbouring_one(caplog):
+def test_diarization_pyannote_advises_its_own_extra_not_the_neighbouring_one(
+    caplog, absent_dependency
+):
     """As above for #71: `diarization` is sherpa-onnx and cannot supply pyannote."""
     from yazses.config import RecimportConfig
     from yazses.recimport.factory import build_diarizer
 
+    absent_dependency("pyannote.audio")
     cfg = replace(RecimportConfig(), diarize=True, backend="pyannote")
     with caplog.at_level(logging.WARNING):
         assert build_diarizer(cfg) is None
