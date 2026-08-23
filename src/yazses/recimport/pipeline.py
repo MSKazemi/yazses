@@ -65,8 +65,13 @@ def _build_engine(config):
     return FasterWhisperEngine(model_name=model, language=language)
 
 
-def _cleaned(u):
-    """*u* with its text cleaned, or None when nothing survives. Pure."""
+def cleaned_utterance(u):
+    """*u* with its text cleaned, or None when nothing survives. Pure.
+
+    Public because `meeting/store.py::relabel` must apply the *same* rule: it rebuilds a
+    transcript from stored data and would otherwise resurrect exactly the artefacts this
+    drops.
+    """
     cleaned = clean_text(getattr(u, "text", "") or "")
     if not cleaned.strip():
         return None
@@ -159,7 +164,7 @@ def transcribe_file(
     # counting them sees the truth. `words` are deliberately left alone: they are
     # timing data feeding alignment and subtitle spans, and an index into them is not
     # this function's to invalidate.
-    utterances = [u for u in (_cleaned(u) for u in utterances) if u is not None]
+    utterances = [u for u in (cleaned_utterance(u) for u in utterances) if u is not None]
     text = clean_text(text)
 
     if progress:

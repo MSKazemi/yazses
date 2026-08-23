@@ -13,8 +13,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from yazses.postprocess.cleaner import clean_text
 from yazses.recimport.align import Utterance, merge_utterances
 from yazses.recimport.naming import resolve_names
+from yazses.recimport.pipeline import cleaned_utterance
 from yazses.recimport.render import render_transcript
 
 _META = "meeting.json"
@@ -333,9 +335,25 @@ def relabel(meeting_dir: str | Path, *, merges=None, renames=None, fmt: str = "m
         return merges.get(spk, spk) if spk else spk
 
     assigned = [(remap(spk), s, e, t) for (spk, s, e, t) in view.assigned]
-    # merge_utterances treats None as "inherit"; empty speaker means unassigned word.
-    merge_input = [((spk or None), s, e, t) for (spk, s, e, t) in assigned]
-    utterances = merge_utterances(merge_input)
+    if view.diarized:
+        # merge_utterances treats None as "inherit"; empty speaker means unassigned word.
+        merge_input = [((spk or None), s, e, t) for (spk, s, e, t) in assigned]
+        utterances = merge_utterances(merge_input)
+    else:
+        # Not diarized: `recimport/pipeline.py` calls merge_utterances only under
+        # `if diarized:` and gives an undiarized recording exactly one utterance for the
+        # whole of it -- there are no turns to break a run on, and a silence gap is not
+        # one. Running it here re-cut, on the 1.0 s default, a transcript the user asked
+        # only to re-label. Remapping speakers is all this branch owes; the shape stays.
+        utterances = [
+            Utterance(remap(u.speaker), u.start, u.end, u.text) for u in view.utterances
+        ]
+
+    # The same cleaning the finalize pass applies. `assigned`/`words` are stored
+    # deliberately uncleaned (they are timing data feeding alignment and subtitle spans),
+    # so anything rebuilt from them brings back the artefacts Whisper narrates over
+    # silence -- an 11.6 s meeting of room noise stored as ". . .".
+    utterances = [u for u in (cleaned_utterance(u) for u in utterances) if u is not None]
 
     # Preserve prior non-anonymous names (mapped through merges), let renames win.
     carried: dict[str, str] = {}
@@ -346,7 +364,7 @@ def relabel(meeting_dir: str | Path, *, merges=None, renames=None, fmt: str = "m
     speaker_names = resolve_names(utterances, renames=carried)
 
     updated = _ResultView(
-        text=view.text,
+        text=clean_text(view.text),
         utterances=utterances,
         assigned=assigned,
         language=view.language,

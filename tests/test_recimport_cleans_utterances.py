@@ -49,7 +49,7 @@ from __future__ import annotations
 import pytest
 
 from yazses.recimport.align import Utterance
-from yazses.recimport.pipeline import _cleaned
+from yazses.recimport.pipeline import cleaned_utterance
 
 
 @pytest.mark.parametrize(
@@ -57,7 +57,7 @@ from yazses.recimport.pipeline import _cleaned
 )
 def test_an_artefact_utterance_is_dropped_not_emptied(artefact: str) -> None:
     """Dropped, so a caller counting utterances sees the truth."""
-    assert _cleaned(Utterance("S1", 0.0, 1.0, artefact)) is None
+    assert cleaned_utterance(Utterance("S1", 0.0, 1.0, artefact)) is None
 
 
 @pytest.mark.parametrize(
@@ -72,14 +72,14 @@ def test_an_artefact_utterance_is_dropped_not_emptied(artefact: str) -> None:
 )
 def test_real_speech_survives(spoken: str, expected: str) -> None:
     """The expensive direction: a cleaner that dropped speech would destroy a meeting."""
-    out = _cleaned(Utterance("S1", 0.0, 1.0, spoken))
+    out = cleaned_utterance(Utterance("S1", 0.0, 1.0, spoken))
     assert out is not None
     assert out.text == expected
 
 
 def test_speaker_and_timings_are_preserved() -> None:
     """Cleaning is a text operation; alignment must be untouched by it."""
-    out = _cleaned(Utterance("SPEAKER_02", 3.25, 9.5, "  Right, so the plan is this."))
+    out = cleaned_utterance(Utterance("SPEAKER_02", 3.25, 9.5, "  Right, so the plan is this."))
     assert out is not None
     assert (out.speaker, out.start, out.end) == ("SPEAKER_02", 3.25, 9.5)
 

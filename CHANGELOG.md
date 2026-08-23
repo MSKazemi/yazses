@@ -8,6 +8,35 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`yazses meeting relabel` re-cut the transcript it promised only to re-render.** Its
+  own docstring says it re-renders "from `transcript.json`, never re-diarizing", and the
+  CLI help says it "only re-renders". What it did was rebuild every utterance from the
+  stored *words* through `merge_utterances` — the **diarized** path's segmentation rule —
+  so relabelling reshaped the transcript in two ways the finalize pass had deliberately
+  decided against.
+
+  `recimport/pipeline.py` calls `merge_utterances` only under `if diarized:`; an
+  undiarized recording gets exactly one utterance spanning the whole of it, because with
+  no speaker turns there is nothing to break a run on and a silence gap is not a turn.
+  `relabel` called it unconditionally, so a non-diarized transcript came back gap-split on
+  the 1.0 s default. Measured on a real 11.6 s meeting: one utterance in, two out. Every
+  meeting `yazses meeting list` reports on that machine is non-diarized — the normal state
+  without the diarization extra, and exactly the user who reaches for `relabel` to put a
+  name on an un-attributed transcript.
+
+  The pipeline also runs `clean_text` over the utterances and drops the ones that clean to
+  nothing, because Whisper narrates silence: an 11.6 s meeting of room noise finalized as
+  `". . ."`. `relabel` rebuilt from `words`, which the pipeline leaves uncleaned on purpose
+  (they are timing data feeding alignment and subtitle spans), and applied no cleaning of
+  its own — so on the diarized path the artefacts the finalize pass had removed came back
+  on the first relabel. Neither showed up as an error: the command printed the paths it
+  wrote and exited 0.
+
+  `relabel` now keeps the stored utterance shape when the meeting is not diarized, and
+  shares the finalize pass's cleaning rule (`recimport.pipeline.cleaned_utterance`, made
+  public for the purpose) rather than carrying a second copy of it that could drift. It is
+  now idempotent — verified against all four stored meetings.
+
 - **The Moonshine speech engine crashed on every utterance.** `[stt] engine = moonshine`
   raised `AssertionError: audio should be of shape [batch, samples]` from inside the
   upstream package for any audio at all, so the engine `docs/models.md` compares against
