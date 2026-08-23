@@ -48,12 +48,24 @@ a meeting runs (mutually exclusive; documented). `meeting_stop` runs the finaliz
 to `IDLE`.
 
 **Finalize (at stop), reusing ADR-v2-125 cores verbatim — do not reimplement:**
-1. `SherpaDiarizer.diarize(full_wav)` → turns with auto speaker count (`max_speakers` caps it; `0`=auto).
+1. `SherpaDiarizer.diarize(full_wav)` → turns with auto speaker count (`max_speakers` — see the correction below; `0`=auto).
 2. `recimport/align.py::assign_words_to_turns` + `merge_utterances` → per-speaker utterances (pure numpy).
 3. `recimport/naming.py` (+ `voiceprint/`): enrolled user → **"You"**, explicit `--names`/`--rename`,
    voiceprint match ≥`min_speaker_seconds`/≥`name_threshold`, else **"Speaker N"**.
 4. `recimport/render.py` → `transcript.md` / `.json` / `.srt`; `transcript.json` lossless (word ts +
    per-word speaker).
+
+> **Correction (2026-08-23).** Step 1 above said `max_speakers` *caps* the speaker
+> count. It does not, on the backend this ADR shipped. `recimport/diarizer.py` passes
+> it as `FastClusteringConfig(num_clusters=N)`, which sherpa-onnx treats as an **exact**
+> cluster count: it will split real speakers apart to reach the number. Only the
+> (unshipped) pyannote adapter reads it as an upper bound. `config.py`, the CLI help
+> and `docs/configuration.md` now all say so; this line is left in place with the
+> correction beside it, because an ADR is a record of what was decided and when.
+>
+> Measured on the AMI test split (`design/adr/adr-v2-133-…`): setting it to the true
+> speaker count is currently the single largest improvement available to a user —
+> EN2002a 90.47% → 35.42% DER, IS1009a 90.20% → 21.89%.
 5. **Opt-in** minutes via [[adr-v2-128-meeting-minutes-generation]] → `notes.md`.
 
 **Output:** `~/.local/share/yazses/meetings/<timestamp>/{transcript.md, transcript.json, notes.md?, audio.wav?}`.
