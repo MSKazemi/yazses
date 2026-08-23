@@ -190,10 +190,12 @@ uv run python paper/benchmark/bench_diarization.py /tmp/ami-corpus s.json --swee
   --thresholds 0.9,1.0,1.1,1.2,1.3,1.4,1.6
 ```
 
-The default range stops at `0.9`, and on real audio the useful values are above it, so
-widen it before concluding anything from the shape of the curve. A sweep whose optimum
-lies outside its range does not report "range too narrow" — it reports a metric
-improving monotonically to the edge, which reads exactly like "no threshold helps".
+The default range now runs `0.4` to `1.4`. It used to stop at `0.9`, which is below
+the real-audio optimum of `1.2`, so every AMI sweep ran to the edge of its range still
+improving — and a sweep whose optimum lies outside its range does not report "range too
+narrow", it reports a metric improving monotonically to the last column, which reads
+exactly like "no threshold helps". Widen it again before concluding anything about a
+corpus longer or noisier than AMI: the useful cut height grows with the recording.
 
 ### Telling it the speaker count
 

@@ -262,12 +262,23 @@ def with_provenance(out: dict) -> dict:
     return {"provenance": provenance(stamp), **out}
 
 
-def sweep(corpus: Path, thresholds=(0.4, 0.5, 0.6, 0.7, 0.8, 0.9)) -> list[dict]:
+def sweep(corpus: Path, thresholds=(0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4)) -> list[dict]:
     """Score the corpus at several `[recimport] cluster_threshold` values.
 
     Kept in the harness rather than in a throwaway script because the first run of
     this bench found the shipped default sitting well off the optimum, and a claim
     like that has to stay re-runnable by anyone who doubts it.
+
+    **The range used to stop at 0.9, and that hid the answer.** On real meeting audio
+    the optimum is 1.2 -- more than twice the shipped 0.5 -- so every AMI sweep ran to
+    the edge of its range still improving. A sweep does not report "your range is too
+    narrow"; it reports a metric falling monotonically to the last column, which reads
+    exactly like "no threshold helps here". It now runs to 1.4, one step past the
+    point where a real meeting collapses into a single cluster, so the curve shows its
+    far side as well as its near one.
+
+    Not widened further: above ~1.4 every recording measured so far is one cluster,
+    and the extra columns cost a full pass over the corpus each to say so again.
     """
     from dataclasses import replace
 
@@ -307,7 +318,7 @@ if __name__ == "__main__":
     # metric improves monotonically to the edge and offers no optimum, which reads
     # exactly like "no threshold helps". Settable so the range can be widened
     # without editing the harness on whatever machine is running it.
-    thresholds = (0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
+    thresholds = (0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4)
     if "--thresholds" in argv:
         i = argv.index("--thresholds")
         thresholds = tuple(float(x) for x in argv[i + 1].split(",") if x.strip())
