@@ -1,9 +1,15 @@
 """The post-hoc "does this look like people?" check on a diarization result.
 
-The numbers in the AMI cases below are the measured ones, not invented shapes: scored
-against the human annotations for the AMI test split, the shipped clustering defaults
-returned 86 labels for the four people in IS1009a, with the largest holding 60s and the
-smallest 0.32s. Every guard here exists so that result cannot pass silently again.
+The AMI cases below are the measured distributions, not invented shapes. Both come from
+one recording, IS1009a, so the two directions of this check are tested against the same
+11.5 minutes of audio: the shipped clustering defaults returned **86 labels for four
+people**, and the human annotation of the same recording returned four. Every guard here
+exists so that first result cannot pass silently again.
+
+The fragment split is the real one, and it is closer to the ratio floor than a caricature
+would be: 75 of the 86 labels hold under 20s, so 11 of them are participant-sized. A
+fixture that gave the broken run only five real-sized labels would be an easier case than
+the one that shipped.
 """
 from __future__ import annotations
 
@@ -34,17 +40,47 @@ def _turns(durations: dict[str, float]) -> list[Turn]:
     return out
 
 
-def _over_split(n: int) -> list[Turn]:
-    """The measured IS1009a shape: a handful of real-sized labels, the rest fragments."""
-    big = {f"speaker_{i}": s for i, s in enumerate([60.1, 47.6, 46.9, 38.4, 37.9])}
-    small = {f"speaker_{i + 5}": 5.0 for i in range(n - 5)}
+#: Every label in the shipped-defaults run on IS1009a that held 20s or more, in seconds,
+#: exactly as measured. The remaining 75 labels are fragments; their median was 3.88s.
+IS1009A_REAL_SIZED = [60.11, 47.6, 46.93, 38.37, 37.94, 31.37, 27.83, 25.38, 22.09,
+                      21.72, 20.15]
+IS1009A_FRAGMENTS = 75
+IS1009A_FRAGMENT_MEDIAN = 3.88
+
+#: The human annotation of the same recording: four people, 695.9s of speech between them,
+#: and one of them holding most of it. Nothing here may look like a fragment.
+IS1009A_REFERENCE = {"FIE088": 412.53, "FIO089": 144.26, "FIO087": 70.89, "FIO084": 68.22}
+
+
+def _over_split() -> list[Turn]:
+    """The measured IS1009a shape at the shipped defaults: 11 real labels, 75 fragments."""
+    big = {f"speaker_{i}": s for i, s in enumerate(IS1009A_REAL_SIZED)}
+    off = len(IS1009A_REAL_SIZED)
+    small = {f"speaker_{i + off}": IS1009A_FRAGMENT_MEDIAN for i in range(IS1009A_FRAGMENTS)}
     return _turns({**big, **small})
 
 
 def test_the_measured_ami_failure_is_flagged():
-    problem = attribution_problem(_over_split(86))
+    problem = attribution_problem(_over_split())
     assert problem is not None
     assert "86 speakers" in problem
+    assert "75 of them" in problem
+
+
+def test_the_human_annotation_of_the_same_recording_is_not_flagged():
+    # The other direction, on the same audio. This is what makes the check one-directional
+    # rather than a count alarm: the true answer for IS1009a has to survive it untouched.
+    assert attribution_problem(_turns(IS1009A_REFERENCE)) is None
+
+
+def test_the_measured_fixture_is_the_measured_one():
+    # Guards the fixture itself. The margin that matters is how far the real run sits above
+    # the ratio floor, and a fixture that quietly drifted toward all-fragments would report
+    # a guard that is more certain than the measurement behind it.
+    turns = _over_split()
+    totals = speech_by_speaker(turns)
+    assert len(totals) == 86
+    assert sum(1 for v in totals.values() if v < FRAGMENT_SECONDS) == IS1009A_FRAGMENTS
 
 
 def test_a_normal_four_person_meeting_is_not_flagged():
