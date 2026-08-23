@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a test hung every Windows CI run forever, and a hang reports nothing
+
+- **`tests/test_settings_failure_is_visible.py::test_alert_is_a_no_op_off_windows` read
+  `sys.platform` off the host,** so on Windows it took the branch its own name says it
+  does not test: it called the real `user32.MessageBoxW`. That call is modal and
+  synchronous — it returns the button the user clicked — so on an unattended runner it
+  never returns. Four Windows CI jobs (runs `32661049814` and `32661231351`, Python 3.11
+  and 3.12 alike) printed this test's name and then nothing for **2 h 30 m**, while the
+  Linux and macOS jobs of the same runs finished in ten minutes. The test now forces the
+  platform, so it tests the off-Windows guard on every OS instead of only where the guard
+  is trivially true.
+- **The success path had no test at all.** `alert` could have degraded to a permanent
+  `return False` — the silence it exists to escape — and stayed green. A recording double
+  now pins that on Windows it really calls `user32` with the message, the title and the
+  documented flags.
+- **A `conftest.py` tripwire makes the whole class of fault impossible.** Any test that
+  reaches the real `MessageBoxW` now fails at teardown naming itself. It records rather
+  than raises, because `wincon.alert` swallows every exception by design: a raise would
+  be caught, turned into `return False`, and the test would pass with the box on screen.
+- **Why it survived every Windows run until now.** A hang produces no result, not a red
+  one, so nothing was ever reported. It only became reachable once the `os.kill(pid, 0)`
+  liveness-probe crash at 49% was fixed and the run got far enough to meet it.
+
 ### Fixed — the "silero" VAD backend documented itself as cheap and costs 3 GB
 
 - **`src/yazses/meeting/silero_vad.py` claimed "the ONNX path avoids a torch dependency".

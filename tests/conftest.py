@@ -1,6 +1,7 @@
 import importlib
 import logging
 import os
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -48,6 +49,55 @@ def _no_test_may_pop_a_toast_on_the_users_desktop(monkeypatch):
     """
     monkeypatch.setattr(
         "yazses.system.notify.notifier_available", lambda *a, **k: False, raising=True
+    )
+
+
+@pytest.fixture(autouse=True)
+def _no_test_may_pop_a_windows_message_box(monkeypatch):
+    """A test must not reach the real `user32.MessageBoxW`.
+
+    Same family as the toast fixture above, and worse in one respect: a toast that
+    never expires is litter, while `MessageBoxW` is *synchronous*. It returns when
+    somebody clicks it, and in an unattended run nobody ever does.
+
+    `test_settings_failure_is_visible.py::test_alert_is_a_no_op_off_windows` read
+    `sys.platform` off the host, so on Windows it took the branch its own name says
+    it does not test and called the real box. Four Windows CI jobs printed that test
+    name and then nothing for 2 h 30 m while their Linux and macOS siblings finished
+    in ten. A hang is not a failure: CI produced no result at all, not a red one,
+    which is why it went unnoticed across every Windows run the suite has ever had.
+
+    The tripwire records instead of raising, and the failure is reported at teardown,
+    because `wincon.alert` swallows every exception by design -- raising here would be
+    caught, turned into `return False`, and the test would pass while the box was on
+    screen. Off Windows there is no `ctypes.windll` and nothing to patch; the guard is
+    dormant rather than absent, which is the correct shape for a Windows-only hazard.
+    """
+    if sys.platform != "win32":
+        yield
+        return
+
+    import ctypes
+
+    calls: list[tuple] = []
+
+    def _record(*args):
+        calls.append(args)
+        return 1  # IDOK -- whatever the caller would have got from a click
+
+    try:
+        monkeypatch.setattr(ctypes.windll.user32, "MessageBoxW", _record)
+    except Exception:  # noqa: BLE001 -- an unpatchable user32 must not fail the suite
+        yield
+        return
+
+    yield
+
+    assert not calls, (
+        "this test reached the real user32.MessageBoxW, which blocks until a human "
+        f"clicks it: {calls}. On an unattended Windows runner that is a permanent "
+        "hang, and a hang produces no test result at all. Patch the call, or force "
+        "`sys.platform` if the test is about the off-Windows branch."
     )
 
 

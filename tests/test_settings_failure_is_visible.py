@@ -23,9 +23,58 @@ import pytest
 from yazses.system import wincon
 
 
-def test_alert_is_a_no_op_off_windows():
-    """It must be safe to call unconditionally; the platform check lives inside."""
+def test_alert_is_a_no_op_off_windows(monkeypatch):
+    """It must be safe to call unconditionally; the platform check lives inside.
+
+    The platform is *forced* rather than read off the host, and that is the whole
+    point of the test. Read off the host it asserts nothing on Linux (the guard is
+    trivially true) and on Windows it does not assert either -- it calls the real
+    `MessageBoxW`, which is modal and synchronous: it returns the button the user
+    clicked, so with nobody at the machine it never returns at all.
+
+    That is not a hypothesis. Four Windows CI jobs -- runs 32661049814 and
+    32661231351, Python 3.11 and 3.12 alike -- printed this test's name and then
+    nothing for 2 h 30 m, while their Linux and macOS siblings finished in ten
+    minutes:
+
+        19:25:38  ...test_the_settings_model_reads_all_four_from_the_config PASSED [85%]
+        21:56:09  ...test_alert_is_a_no_op_off_windows
+        21:56:09  ##[error]The operation was canceled.
+
+    A hang is not a failure. CI produced no result rather than a red one, which is
+    why this survived every Windows run the suite has ever had -- and why it only
+    became visible now: until the liveness-probe crash at 49% was fixed, the run
+    died before it ever got here.
+    """
+    monkeypatch.setattr(sys, "platform", "linux")
     assert wincon.alert("message", "title") is False
+
+
+def test_alert_shows_a_box_on_windows_and_says_so():
+    """The other half of the guard: on Windows it must actually call user32.
+
+    Nothing covered the success path, so `alert` could have degraded to a
+    permanent `return False` -- the void it exists to escape -- and stayed green.
+    A recording double stands in for `windll` because the real call blocks.
+    """
+    calls: list[tuple] = []
+
+    class _User32:
+        def MessageBoxW(self, *args):  # noqa: N802 -- the Win32 spelling
+            calls.append(args)
+            return 1
+
+    class _Windll:
+        user32 = _User32()
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(sys, "platform", "win32")
+        import ctypes
+
+        mp.setattr(ctypes, "windll", _Windll(), raising=False)
+        assert wincon.alert("body", "head") is True
+
+    assert calls == [(None, "body", "head", wincon._MB_FLAGS)]
 
 
 def test_alert_never_raises_even_if_the_call_blows_up(monkeypatch):
