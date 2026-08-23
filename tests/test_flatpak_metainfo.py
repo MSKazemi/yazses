@@ -361,6 +361,16 @@ def test_the_pinned_wheel_is_the_project_version_or_the_one_before_it():
     The ordering is what makes it safe: within a release, `chore(release)` bumps the
     version with the pin one behind, then the published wheel is pinned in a follow-up.
     Leaving that follow-up undone is caught by the *next* release, not this one.
+
+    **Do not replace this with `test_platform_windows_hardening._released_version()`.**
+    That helper looks like the better mechanism -- it reads the git tags and drops the
+    one being released -- and unifying the two is an obvious-looking tidy-up. It is
+    wrong here, and 2026-08-24 is the proof: the `v2.30.0` tag exists and its GitHub
+    release carries the Windows `.exe`, so tags are the correct proxy *there*, because
+    those assets hang off the tag. This pin is a **PyPI wheel**, and PyPI's newest was
+    still 2.29.0 with `v2.30.0` tagged -- the publish job had been skipped. Pointed at
+    the tags, this guard would have demanded a pin to a wheel that does not exist and
+    pushed the Flathub build into a 404. Different registry, different question.
     """
     (source,) = _yazses_wheel_sources()
     match = _WHEEL.search(source["url"])
