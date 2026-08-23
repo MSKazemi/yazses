@@ -12,12 +12,12 @@
       "unpriced": []
     },
     "cocktail": {
-      "download_mb": 3065.9,
+      "download_mb": 3066.0,
       "packages": 37,
       "unpriced": []
     },
     "denoise": {
-      "download_mb": 61.1,
+      "download_mb": 61.2,
       "packages": 11,
       "unpriced": []
     },
@@ -42,7 +42,7 @@
       "unpriced": []
     },
     "multiprofile": {
-      "download_mb": 3065.9,
+      "download_mb": 3066.0,
       "packages": 37,
       "unpriced": []
     },
@@ -72,7 +72,7 @@
       "unpriced": []
     },
     "stt-moonshine": {
-      "download_mb": 112.7,
+      "download_mb": 112.8,
       "packages": 18,
       "unpriced": []
     },
@@ -87,7 +87,7 @@
       "unpriced": []
     },
     "voiceguard": {
-      "download_mb": 3065.9,
+      "download_mb": 3066.0,
       "packages": 37,
       "unpriced": []
     },
