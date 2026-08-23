@@ -5211,7 +5211,14 @@ def main() -> None:
     standalone mode only converts its own exception types, so this has to sit
     outside it.
     """
+    from yazses.cli_help import apply as escape_help_sections
     from yazses.platform.base import UnsupportedPlatformError
+
+    # Rich parses `[meeting]` in a help string as a style tag and drops it, so twelve
+    # commands named a config key without naming its section. Escaped here rather
+    # than in the source strings, so the generators that read those strings raw --
+    # the docs page and the man page -- keep seeing what was written.
+    escape_help_sections(app)
 
     try:
         app()
