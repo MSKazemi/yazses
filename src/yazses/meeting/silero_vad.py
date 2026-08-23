@@ -3,8 +3,21 @@
 An ``is_silent(chunk) -> bool`` predicate backed by the Silero VAD ONNX model, offered as
 an alternative to the calibrated RMS gate for noisier rooms. Heavy and optional: imported
 lazily and only when ``[meeting] vad_backend = "silero"``; absent extra → the factory in
-:mod:`yazses.meeting.vad` falls back to the calibrated gate. The ONNX path avoids a torch
-dependency. On-device only (ADR-011). Exercised on hardware, not in CI.
+:mod:`yazses.meeting.vad` falls back to the calibrated gate. On-device only (ADR-011):
+`silero-vad` ships its ONNX inside the wheel, so choosing this backend downloads no model
+and revalidates nothing — which is why it is the one model load in the tree that needs no
+`system/hfcache.load_cache_first` wrapper (`tests/test_model_cache_first.py::_BUNDLED`).
+
+**The extra is expensive, and this docstring used to say the opposite.** It claimed "the
+ONNX path avoids a torch dependency"; it does not. `silero-vad` declares `torch` and
+`torchaudio` unconditionally — not behind its own `onnx-cpu` extra — and imports torch at
+module scope, so the ONNX path avoids torch only at *inference*. Measured 2026-08-23
+against this project's venv, `pip install yazses[silero]` resolves to **25 distributions,
+~3.0 GB**, most of it the NVIDIA CUDA stack (`nvidia-cublas` 543 MB, `torch` 527 MB,
+`nvidia-cudnn` 445 MB) on a CPU-only offline dictation tool. That is the same trap ADR-018
+was written about for `speechbrain`, and the reason `[meeting] vad_backend` says so where
+the choice is actually made. The default calibrated RMS gate costs nothing and is what
+almost every room should use. Exercised on hardware, not in CI.
 """
 from __future__ import annotations
 

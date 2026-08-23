@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the "silero" VAD backend documented itself as cheap and costs 3 GB
+
+- **`src/yazses/meeting/silero_vad.py` claimed "the ONNX path avoids a torch dependency".
+  It does not.** `silero-vad` declares `torch` and `torchaudio` unconditionally — not
+  behind its own `onnx-cpu` extra — and imports torch at module scope, so the ONNX path
+  avoids torch only at inference. Resolved against this project's venv, `[silero]` adds
+  **25 distributions, ~3.0 GB**, most of it the NVIDIA CUDA stack, on a CPU-only offline
+  dictation tool. `[meeting] vad_backend` now states that cost where the choice is made,
+  so it reaches `docs/configuration.md` rather than living in a module nobody opens.
+- **The cache-first guard could not see a whole shape of call.**
+  `tests/test_model_cache_first.py` scanned only *attribute* calls
+  (`moonshine_onnx.MoonshineOnnxModel(...)`), so a loader imported directly — the ordinary
+  way to call a module-level function, and how `load_silero_vad` is called — was invisible
+  to the inventory that exists to prove no loader is missing. It now reads both shapes.
+- **Loaders that need no wrapper are now listed with their reason, not omitted.** A new
+  `_BUNDLED` registry records that `silero-vad` ships its ONNX inside the wheel and
+  resolves it through `importlib.resources` — no hub, nothing to revalidate, nothing to
+  hang — because an unwritten judgement is indistinguishable from an oversight, which is
+  exactly how three loaders went unguarded before. A machine on which the extra *is*
+  installed additionally checks that the ONNX is really there, so silero-vad moving its
+  weights to the hub fails the build instead of silently reintroducing the hang.
+
 ### Fixed — the Flathub listing advertised 2.29.0 and the build installed 2.18.2
 
 - **The Flatpak pinned `yazses-2.18.2-py3-none-any.whl` — eleven releases behind what its

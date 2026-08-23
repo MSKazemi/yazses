@@ -1384,8 +1384,8 @@ class MeetingConfig:
     model: str = ""                    # "" => inherit the [stt] model
     language: str = "en"               # Whisper code ("en", "fa", …); "" auto-detects;
                                        # "translate" renders any language into English
-    vad_backend: str = "calibrated"    # calibrated | silero (utterance segmentation)
-    silero_threshold: float = 0.5      # silero speech-probability gate (needs the `silero` extra)
+    vad_backend: str = "calibrated"    # calibrated | silero -- silero needs the `silero` extra: ~3 GB (torch + CUDA)
+    silero_threshold: float = 0.5      # silero speech-probability gate (only read when vad_backend = "silero")
     name_from_voiceprints: bool = True # match enrolled voiceprints (needs enrollment)
     participants_dir: str = ""         # "" => <data_dir>/participants (enrolled speakers)
     min_speaker_seconds: float = 3.0   # min aggregated cluster speech to attempt naming

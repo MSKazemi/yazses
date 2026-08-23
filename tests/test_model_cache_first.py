@@ -196,21 +196,48 @@ _LOADERS = {
     # classifications equal so one cannot gain a module without the other.
     "src/yazses/stt/moonshine.py": "MoonshineOnnxModel",
 }
-# Attribute names that fetch a pretrained model through huggingface_hub.
+# Modules that load a pretrained model *from a file the wheel already carries*, and the
+# one-line reason each needs no cache-first wrapper. They are listed rather than omitted
+# because "this one is fine" is a judgement, and an unwritten judgement is indistinguishable
+# from an oversight -- which is precisely how the three loaders above went unguarded.
+_BUNDLED = {
+    "src/yazses/meeting/silero_vad.py": (
+        "load_silero_vad",
+        "silero-vad ships its ONNX inside the wheel (`silero_vad/data/silero_vad.onnx`) "
+        "and `load_silero_vad` resolves it through `importlib.resources` -- verified "
+        "2026-08-23 against 6.2.1. No hub, so nothing to revalidate and nothing to hang.",
+    ),
+}
+
+# Call names that fetch a pretrained model. Both spellings are searched: an *attribute*
+# call (`moonshine_onnx.MoonshineOnnxModel(...)`) and a *bare name* one
+# (`from silero_vad import load_silero_vad; load_silero_vad(...)`). Only the first was
+# looked for until 2026-08-23, so a loader imported directly -- the ordinary way to call a
+# module-level function -- was invisible to every check below. The blind spot cost nothing
+# this time because the one module it hid turned out to need no wrapper, but the guard
+# cannot claim to be an inventory while a whole call shape is unreachable to it.
 _FETCHING_CALLS = {"from_hparams", "from_pretrained", "load_model", "snapshot_download",
-                   "MoonshineOnnxModel"}
+                   "MoonshineOnnxModel", "load_silero_vad"}
+
+
+def _loader_calls(tree: ast.AST) -> set[str]:
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Attribute) and func.attr in _FETCHING_CALLS:
+            names.add(func.attr)
+        elif isinstance(func, ast.Name) and func.id in _FETCHING_CALLS:
+            names.add(func.id)
+    return names
+
+
 def _modules_calling_a_loader() -> dict[str, set[str]]:
     found: dict[str, set[str]] = {}
     for path in SRC.rglob("*.py"):
         rel = path.relative_to(SRC.parent.parent).as_posix()
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        names = {
-            node.func.attr
-            for node in ast.walk(tree)
-            if isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
-            and node.func.attr in _FETCHING_CALLS
-        }
+        names = _loader_calls(ast.parse(path.read_text(encoding="utf-8")))
         if names:
             found[rel] = names
     return found
@@ -224,10 +251,13 @@ def test_every_hub_loader_in_the_tree_is_registered():
     "modules that load cache-first". Those two facts now sit in one test.
     """
     found = set(_modules_calling_a_loader())
-    assert found == set(_LOADERS), (
-        f"unregistered model loader(s): {sorted(found - set(_LOADERS))}; "
-        f"registered but no longer loading: {sorted(set(_LOADERS) - found)}. "
-        f"Route the call through `system/hfcache.load_cache_first` and add it here."
+    known = set(_LOADERS) | set(_BUNDLED)
+    assert found == known, (
+        f"unregistered model loader(s): {sorted(found - known)}; "
+        f"registered but no longer loading: {sorted(known - found)}. "
+        f"Route the call through `system/hfcache.load_cache_first` and add it to "
+        f"`_LOADERS` -- or, if the weights ship inside the wheel, add it to `_BUNDLED` "
+        f"with the reason."
     )
 
 
@@ -281,4 +311,40 @@ def test_no_loader_call_escapes_the_helper(relpath):
     assert not loose, (
         f"{relpath}: {len(loose)} pretrained-model call(s) at line(s) "
         f"{[n.lineno for n in loose]} are outside `load_cache_first(...)`."
+    )
+
+
+# --- the loaders that need no wrapper, and why -------------------------------
+
+
+def test_a_bundled_loader_is_not_also_claimed_to_be_guarded():
+    """One classification each. Both would mean the reason was never actually made."""
+    overlap = set(_BUNDLED) & set(_LOADERS)
+    assert not overlap, f"{sorted(overlap)} is registered as both bundled and hub-backed"
+
+
+@pytest.mark.parametrize("relpath", sorted(_BUNDLED))
+def test_a_bundled_loader_states_a_reason_and_still_makes_that_call(relpath):
+    call, reason = _BUNDLED[relpath]
+    assert len(reason.split()) >= 10, "a one-word exemption is not a reason"
+    assert call in _loader_calls(
+        ast.parse((SRC.parent.parent / relpath).read_text(encoding="utf-8"))
+    ), f"{relpath} no longer calls {call}; re-classify it rather than leaving it here"
+
+
+def test_the_silero_model_really_does_ship_inside_the_wheel():
+    """The claim above, checked where it can be — on a machine with the extra.
+
+    Skipped in CI, which installs no optional extra; that is the same reason the three
+    hub loaders went unguarded, so this cannot be the only thing holding the claim up —
+    it is the half that catches silero-vad *changing its mind* and moving the weights to
+    the hub, which no amount of source reading would notice.
+    """
+    silero_vad = pytest.importorskip("silero_vad", reason="the `silero` extra is optional")
+    data = pathlib.Path(silero_vad.__file__).parent / "data"
+    onnx = sorted(data.glob("*.onnx"))
+    assert onnx, (
+        f"silero-vad {getattr(silero_vad, '__version__', '?')} carries no ONNX in "
+        f"{data} -- `load_silero_vad(onnx=True)` must now be fetching it, so "
+        f"meeting/silero_vad.py belongs in `_LOADERS`, not `_BUNDLED`."
     )
