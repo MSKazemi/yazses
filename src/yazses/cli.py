@@ -242,6 +242,8 @@ def meeting_start() -> None:
     if result.get("ok"):
         if result.get("warning"):
             typer.echo(f"⚠ {result['warning']}", err=True)
+        if result.get("hint"):
+            typer.echo(f"Note: {result['hint']}", err=True)
         typer.echo(f"Recording meeting {result['meeting_id']}.")
         typer.echo(f"  Folder: {result['dir']}")
         typer.echo("  Watch it:  yazses meeting status")
@@ -4899,6 +4901,16 @@ def transcribe(
             f"Note: --min-speakers is ignored by the '{eff.backend}' diarizer; only the "
             "pyannote backend honours a lower bound, and it is not shipped in this "
             "build. Use --speakers to force an exact count.", err=True)
+
+    # Said here rather than after the transcription, for the same reason as the note
+    # above: on a long recording the run is measured in minutes, and advice that
+    # arrives with the result costs a second pass.
+    from yazses.recimport.factory import speaker_count_advice
+
+    if hint := speaker_count_advice(
+        eff, "Pass `--speakers N` if you know how many people are on the recording."
+    ):
+        typer.echo(f"Note: {hint}", err=True)
 
     # Built by the pipeline's own builder rather than here, so this path cannot drift
     # from the one `yazses meeting` uses. It also carries `--language` into the decoder,

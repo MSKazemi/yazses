@@ -3833,6 +3833,17 @@ class Daemon:
 
             if advice := diarization_advice(diar):
                 resp["warning"] = advice
+            # A separate key, not a second `warning`: the tray renders `warning` as a
+            # fault, and this is not one -- diarization will run, it will just
+            # over-split without a speaker count. Measured at 84% DER against 29%
+            # (ADR-v2-133), which is too large a difference to leave unsaid at the
+            # one moment the user is about to record for an hour.
+            from yazses.recimport.factory import speaker_count_advice
+
+            if hint := speaker_count_advice(
+                cfg, "Set `[meeting] max_speakers` to the number of people in the room."
+            ):
+                resp["hint"] = hint
         return resp
 
     def _handle_meeting_status(self, _request: Request) -> dict[str, object]:

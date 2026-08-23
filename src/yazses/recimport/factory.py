@@ -121,6 +121,46 @@ def diarization_advice(status: dict) -> str | None:
     )
 
 
+def speaker_count_advice(config, remedy: str) -> str | None:
+    """Tell the user the one setting that is worth more than every other, or None.
+
+    Separate from `diarization_advice`, which answers *"why are there no speaker
+    labels at all"*. This answers a different question: labels will be produced, and
+    on real audio they will be poor, and there is a single flag that fixes most of it.
+
+    Measured on the AMI test split (4 meetings, headset mix, human RTTMs from
+    `pyannote/AMI-diarization-setup`, `design/adr/adr-v2-133-…`) with the shipped
+    `cluster_threshold = 0.5`:
+
+    * `max_speakers = 0` (auto): **84.09% DER**, and the clustering found 257, 81, 86
+      and 98 speakers in four four-person meetings.
+    * `max_speakers = 4`: **28.55% DER**, 4 of 4 speakers in every meeting.
+
+    That is not a tuning nicety, it is the difference between a usable transcript and
+    an unreadable one, and nothing in the product said so. Only sherpa is advised
+    about: the pyannote adapter reads the value as a genuine upper bound, where
+    leaving it unset is a reasonable default rather than a trap.
+
+    `remedy` is supplied by the caller because `yazses transcribe` and Meeting Mode
+    set the count differently, and naming a step the user cannot take from where they
+    are is the failure `diarization_advice` was written to end. The *fact* stays in
+    one place, which is the half that must not drift.
+    """
+    if not getattr(config, "diarize", False):
+        return None
+    backend = (getattr(config, "backend", "sherpa") or "sherpa").strip().lower()
+    if backend != "sherpa":
+        return None
+    if int(getattr(config, "max_speakers", 0) or 0) > 0:
+        return None
+    return (
+        "Speaker count is set to auto. On real meetings the shipped clustering "
+        "over-splits badly — measured on the AMI test split it found 257 speakers in "
+        "a four-person meeting (84% DER, against 29% when the count is given). "
+        + remedy
+    )
+
+
 def _pyannote_model_cached() -> bool:
     """True when the gated pyannote pipeline is already in the Hugging Face cache.
 
