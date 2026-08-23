@@ -35,6 +35,14 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   are all excluded, and the mode is read from the positional argument *or* the `mode=`
   keyword, since `Path.open` takes its mode where the builtin takes a buffer size.
 
+  With those eleven fixed, one Windows-only defect remained and it was in a fixture:
+  a test sandbox built from `XDG_CONFIG_HOME` alone, which platformdirs honours on
+  Linux and ignores on Windows and macOS. The test edited the runner's real config,
+  and only a teardown guard in `conftest.py` noticed. The fixture now sets the
+  Windows and macOS variables too and — the actual repair — **asserts** that the
+  resolved config directory lands inside `tmp_path`, because a sandbox that cannot
+  fail is not evidence that anything was contained.
+
 - **A macOS-only test imported a name that does not exist**, and every Linux run was
   green because a `skipif`-ed module is never imported at all. It failed the first
   time it reached a real Mac — the one place it existed to prove something rather than
