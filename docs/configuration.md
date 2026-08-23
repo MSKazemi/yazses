@@ -21,26 +21,26 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
-| `engine` | str | `"faster-whisper"` |  |  |
-| `model` | str | `"base.en"` |  |  |
-| `language` | str | `"en"` |  |  |
-| `device` | str | `"cpu"` |  |  |
-| `compute_type` | str | `"int8"` |  |  |
-| `initial_prompt` | str | `""` |  |  |
-| `vocab_correction` | bool | `false` |  |  |
-| `cpu_threads` | int | `0` |  |  |
-| `beam_size` | int | `0` |  |  |
-| `chinese_script` | str | `""` |  |  |
+| `engine` | str | `"faster-whisper"` |  | Which speech-to-text backend decodes audio: "faster-whisper" (default, Whisper via CTranslate2) \| "parakeet" (NVIDIA Parakeet TDT via onnx-asr — 2.06% WER against whisper-large-v3's 3.23% on 200 LibriSpeech utterances, measured at ~20x realtime CPU on 16 Xeon vCPUs; opt-in via `yazses features enable stt-parakeet`). An unknown value or a missing optional dep falls back to faster-whisper with a logged warning — never a crash (stt/factory.py). |
+| `model` | str | `"base.en"` |  | base.en balances accuracy and CPU latency far better than tiny.en, which produces frequent word errors. Larger models (small.en/medium.en) trade decode latency for marginal gains on clean speech. |
+| `language` | str | `"en"` |  | Spoken language, as a Whisper code ("en", "de", "fr", "es", "fa", …). Empty string = let Whisper auto-detect per utterance, which costs an extra decode pass and can flip mid-session, so an explicit code is preferred when you know the language. Requires a MULTILINGUAL model: the `.en` checkpoints (base.en, small.en, …) are English-only and cannot decode anything else, so set `model = "small"` (no suffix) alongside it — stt/factory.py warns when the pair is contradictory. Ignored on the translate path (ADR-v2-014), which auto-detects the source by design, and by the Parakeet engine (English-only). |
+| `device` | str | `"cpu"` |  | Where CTranslate2 runs the decode: "cpu" (default) \| "cuda" \| "auto". YazSes is a CPU-first project — every published benchmark, latency target and model recommendation on this page assumes int8 on CPU — so "cuda" is supported but unmeasured, and needs a CTranslate2 built against your CUDA runtime. Ignored by engines that do not decode through CTranslate2 (Parakeet, Moonshine). |
+| `compute_type` | str | `"int8"` |  | Decode precision. "int8" (default) is the CPU-first choice and what everything here is measured at; "int8_float32", "float32" and (on GPU) "float16" also exist. The supported set is a property of your CPU, not of this project: an unsupported value raises inside `WhisperModel(...)` and is re-raised as ModelUnavailableError, so it is reported as a missing *model* rather than a bad precision. `ctranslate2.get_supported_compute_types(device)` is the authority, and the Settings window checks against it before writing this key. |
+| `initial_prompt` | str | `""` |  | Optional vocabulary/context primed into Whisper as initial_prompt. Helps it spell domain terms and proper nouns it otherwise mis-transcribes. `yazses tune` proposes additions here from the learning corpus. |
+| `vocab_correction` | bool | `false` |  | Recover personal-vocabulary words the recogniser mis-heard, after decoding (#73). `initial_prompt` is Whisper-only, so with `engine = "parakeet"` the personal dictionary is otherwise ignored entirely — this is engine-agnostic and helps Whisper too. OFF by default: it rewrites transcribed text, and that is a thing a user should switch on knowingly. |
+| `cpu_threads` | int | `0` |  | How many CPU cores the decoder may use. 0 keeps ctranslate2's default, which is "all of them" — a 0.8 s decode measured 4.9 CPU-seconds on a 20-core laptop, because the work is spread across every core. That is the right trade on mains power and the wrong one on battery, where the cost is the core-seconds rather than the wall-clock. Nothing capped it before this. |
+| `beam_size` | int | `0` |  | Decoder beam width. 0 keeps faster-whisper's own default (5). 1 is greedy decoding: measurably faster and measurably worse, which is why it is not the default — it is here so the Adaptive Latency Governor (`[latency]`) can ask for it on a loaded machine, and so a user who wants that trade permanently can take it without one. Ignored by engines that do not decode with a beam. |
+| `chinese_script` | str | `""` |  | Which Han script Chinese output is written in: "simplified" (简体, mainland) \| "traditional" (繁體, Taiwan/Hong Kong) \| "" to leave the model's own choice alone. Whisper picks a script per utterance and is not consistent about it, so a mainland user gets Traditional characters back for a large share of correct transcriptions (postprocess/han_script.py has the measurements). Empty by default because the right answer is regional, not universal. Needs the `chinese` extra; without it the setting warns once and no-ops. |
 
 ## `[hotkey]`
 
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
-| `key` | str | `"auto"` |  |  |
+| `key` | str | `"auto"` |  | "auto" resolves to the platform's default hold-to-talk key (Linux: right_alt, macOS: right_option, Windows: right_ctrl) — a modifier key, so it never collides with normal typing the way the space bar would. |
 | `hold_threshold_ms` | int | `500` |  |  |
 | `source` | str | `"default"` |  |  |
 | `evdev_device` | str | `""` | ⚠️ inert |  |
-| `command_key` | str | `""` |  |  |
+| `command_key` | str | `""` |  | Optional dedicated *command* key. Empty = single-key mode (commands are auto-detected on the dictation key). When set to a different key, holding it forces command mode: whatever you say is parsed as a command and never typed as literal text (an unrecognised phrase is ignored, not inserted). |
 
 ## `[audio]`
 
@@ -48,38 +48,38 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 |---|---|---|---|---|
 | `sample_rate` | int | `16000` |  |  |
 | `channels` | int | `1` | ⚠️ inert |  |
-| `max_record_seconds` | int | `300` |  |  |
-| `device` | str | `""` |  |  |
-| `device_change_notify` | bool | `true` |  |  |
-| `silent_streak_notify` | bool | `true` |  |  |
-| `silent_streak_threshold` | int | `3` |  |  |
-| `auto_heal_device` | bool | `true` |  |  |
-| `device_poll_interval_s` | float | `3.0` |  |  |
-| `voice_answer` | bool | `false` |  |  |
-| `voice_answer_window_s` | float | `45.0` |  |  |
+| `max_record_seconds` | int | `300` |  | Hard cap on a single hold-to-talk recording. Generous so long dictations aren't cut off mid-sentence; raise further in config for very long takes. |
+| `device` | str | `""` |  | Pin the input microphone by name (case-insensitive substring). Empty = follow the OS default input device. Resolved fresh on each recording, so a hotplug that shifts device indices can't break the pin. Set it with `yazses audio use <name>` so a monitor/headset can't silently steal capture. |
+| `device_change_notify` | bool | `true` |  | Desktop-notify (with action buttons where supported) when the OS default input device changes — so a silent switch that breaks dictation is visible. |
+| `silent_streak_notify` | bool | `true` |  | Desktop-notify after a run of consecutive silent-discards (the direct "dictation stopped writing" symptom of a mic that switched to a dead source). |
+| `silent_streak_threshold` | int | `3` |  | How many silent-discards in a row trigger the notify + auto-heal. |
+| `auto_heal_device` | bool | `true` |  | On a device change / silent streak, automatically switch capture back to the last device that produced usable audio ("last-good"), then notify what changed. |
+| `device_poll_interval_s` | float | `3.0` |  | Cadence of the background default-input-device watcher, in seconds. 0 disables the watcher (the silent-streak detector still works, being on the hot path). |
+| `voice_answer` | bool | `false` |  | Answer the mic guard's [Re-calibrate]/[Pin this mic]/[Ignore] toast by SAYING one of them (ADR-022, Spec 1). Without this the daemon asks a question about your microphone that can only be answered with a pointer -- and the person seeing it is the one whose dictation just stopped working. OFF by default like the other utterance-consuming guards (`[cmdsafety]`, `[checkdigit]`): it swallows a burst that would otherwise be typed, and that is a behaviour change to opt into. |
+| `voice_answer_window_s` | float | `45.0` |  | How long the toast stays answerable by voice. Bounded on purpose -- "ignore" is an ordinary word, and an unbounded window arms it for the rest of the session. |
 
 ## `[injection]`
 
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
-| `backend` | str | `"auto"` |  |  |
+| `backend` | str | `"auto"` |  | How text reaches the focused app. "auto" (default) probes the session: xdotool on X11, ydotool on Wayland (types, so it works in terminals too). "type"/"ydotool" force typing, "clipboard" forces copy+Ctrl+V (instant, but a no-op in terminals where Ctrl+V is literal), "wtype" is Wayland-only and is ignored on X11. `yazses doctor` names the one that will actually be used. |
 | `fallback_to_clipboard` | bool | `true` |  |  |
-| `continuation_window_ms` | int | `30000` |  |  |
-| `target_guard` | str | `"clipboard"` |  |  |
+| `continuation_window_ms` | int | `30000` |  | Successive hold-to-talk bursts within this window are treated as one continuous dictation: a separating space is prepended to the next burst so words don't glue together at the boundary (postprocess/spacing.py). 0 disables continuation spacing entirely. |
+| `target_guard` | str | `"clipboard"` |  | "No text target" guard: what to do when you dictate with no editable field focused (so the text would be typed into the wrong place / nowhere). "clipboard" (default) — copy the transcript to the clipboard + notify instead of typing; "warn" — notify but still type; "off" — no guard. Detection is AT-SPI when available (precise; needs python3-pyatspi), else a best-effort X11 focus check. Only acts on a *confident* "no target", so it never drops normal dictation. |
 
 ## `[general]`
 
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
 | `log_level` | str | `"INFO"` |  |  |
-| `update_check` | bool | `false` |  |  |
+| `update_check` | bool | `false` |  | Periodically ask whether a newer YazSes has been released and, if so, say so once with the exact steps to update. OFF by default, and it must stay that way: this is the only thing in YazSes that reaches the network on its own, and "nothing leaves the machine" is the product. A background check tells github.com/PyPI your IP and that you run this tool. Nothing about your voice, audio, text or config is ever sent — the request is a plain "what is the latest version" GET — but it is still an outbound connection the user has to choose. Turn it on with `yazses features enable update-check`. |
 | `update_check_interval_hours` | int | `24` |  |  |
 
 ## `[streaming]`
 
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
-| `enabled` | bool | `false` |  |  |
+| `enabled` | bool | `false` |  | Disabled by default for two independent reasons. Correctness: live-partial injection corrects on commit via shift+Left selection (inject/streaming.py), which deletes text in apps where shift+Left isn't "extend selection". Batch transcribe-on-release is the reliable, higher-accuracy path proven by tools like nerd-dictation and faster-whisper-dictation. Latency: streaming does NOT make the final text arrive sooner — commit() re-decodes the whole utterance anyway, now competing with a decode loop running every partial_interval_ms. Measured (paper/benchmark/bench_streaming.py, n=15 real-time-fed utterances): speech-end -> final text 0.92 s -> 1.22 s on tiny.en, and 1.42 s -> 2.21 s on base.en. Worse, on base.en the rolling decode cannot keep up with the audio, so LocalAgreement confirmed no prefix at all before release in 9 of 15 utterances (0 % visible at release, vs 72 % on tiny.en). Streaming is only a win on tiny.en. Opt back in with [streaming] enabled = true. |
 | `partial_interval_ms` | int | `300` |  |  |
 | `partial_marker` | str | `""` | ⚠️ inert |  |
 
@@ -97,8 +97,8 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `disfluency.repetition_max_fragment_len` | int | `2` |  | max length of a stutter "fragment" |
 | `disfluency.llm_enabled` | bool | `false` |  |  |
 | `disfluency.llm_endpoint` | str | `"http://localhost:11434"` |  |  |
-| `disfluency.llm_allow_remote_endpoint` | bool | `false` |  |  |
-| `disfluency.llm_model` | str | `""` |  |  |
+| `disfluency.llm_allow_remote_endpoint` | bool | `false` |  | Refuse an `llm_endpoint` that is not loopback. Cleanup sends *transcribed text* to the endpoint, so a remote host here would carry dictation off the machine — which AGENTS.md rule 1 ("nothing leaves the machine") forbids by default. Setting this true is the deliberate, documented opt-out; the daemon warns on every start while it is on. |
+| `disfluency.llm_model` | str | `""` |  | Local GGUF model path for offline cleanup; empty falls back to the Ollama HTTP endpoint above. Mirrors the Rust v1.0 [cleanup] feature for the Python path (kept in parity until v1.0 GA). |
 | `disfluency.llm_system_prompt` | str | `"Reformat only. Do not add facts and do not remove information. Preserve every proper noun, number, code identifier, and URL exactly as given. Fix capitalization, punctuation, and paragraph breaks; do not change word choices. Output ONLY the reformatted text with no preamble, no explanation, and no markdown fences."` |  |  |
 | `disfluency.llm_max_tokens` | int | `256` |  |  |
 | `disfluency.llm_timeout_ms` | int | `2000` |  |  |
@@ -110,11 +110,11 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
 | `min_silence_ms` | int | `500` |  |  |
-| `pre_speech_padding_ms` | int | `300` |  |  |
+| `pre_speech_padding_ms` | int | `300` |  | Silence lead-in prepended before STT decode. faster-whisper drops/clips the first word when a clip starts abruptly mid-utterance; a short lead-in gives it a clean onset boundary so the opening word survives. |
 | `vad_source` | str | `"default"` | ⚠️ inert |  |
 | `vad_threshold` | float | `0.01` |  |  |
-| `dysfluency_friendly` | bool | `false` |  |  |
-| `read_back` | str | `"off"` |  |  |
+| `dysfluency_friendly` | bool | `false` |  | v0.8.0 — Dysfluency-Friendly Mode master preset (ADR-015): enables the disfluency collapse pass and widens onset padding. Off by default. |
+| `read_back` | str | `"off"` |  | v2 — Read-Back Loop (spec-read-back-loop): speak the final transcript back via offline TTS so dictation can be verified by ear. "off" (default) \| "final" (P1: read the final transcript) \| "confirm" (P2: full yes/no/redo loop). Requires [tts] enabled. confirm_timeout_s is the P2 listen window. |
 | `confirm_timeout_s` | float | `6.0` | ⚠️ inert |  |
 
 ## `[commands]`
@@ -126,15 +126,15 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `custom` | list | `[]` |  |  |
 | `slm_model_path` | str | `""` |  | path to GGUF file; empty = disabled |
 | `slm_confidence_threshold` | float | `0.75` | ⚠️ inert |  |
-| `lsp_enabled` | bool | `false` | ⚠️ inert |  |
+| `lsp_enabled` | bool | `false` | ⚠️ inert | v0.4.0 — LSP context injection (ADR-v04-002) |
 | `lsp_editor` | str | `"auto"` | ⚠️ inert | auto \| neovim \| vscode |
-| `voice_punctuation` | bool | `false` |  |  |
-| `rewrite` | bool | `false` |  |  |
-| `rewrite_timeout_s` | float | `20.0` | ⚠️ inert |  |
-| `symbols` | bool | `false` |  |  |
-| `self_repair` | bool | `false` |  |  |
-| `spoken_edit` | bool | `false` |  |  |
-| `spoken_edit_destructive` | bool | `false` |  |  |
+| `voice_punctuation` | bool | `false` |  | v1.4.0 — spoken punctuation/formatting in dictation ("comma", "new line"). Off by default: these words also occur in ordinary speech. |
+| `rewrite` | bool | `false` |  | Offline Command Mode (#99): with a selection and the command key held, "make this shorter" rewrites it in place using the LOCAL model configured under [filters.disfluency]. OFF by default — it replaces text the user already wrote, which is not something to switch on for them. |
+| `rewrite_timeout_s` | float | `20.0` | ⚠️ inert | Seconds a local rewrite may take before it is abandoned and the selection left alone. A stalled model must not hold the dictation pipeline. |
+| `symbols` | bool | `false` |  | v2.4 Wave H — Emoji & Symbol by Voice (ADR-v2-055): "shrug emoji"→🤷, "right arrow"→→. Off by default: the names also occur in ordinary speech. |
+| `self_repair` | bool | `false` |  | v2.4 Wave H — Mid-Utterance Self-Repair (ADR-v2-058): "email Sarah no I mean Sara"→"Sara". Off by default: editing phrases also occur in ordinary speech. |
+| `spoken_edit` | bool | `false` |  | v2.0.0 Wave A — Spoken Edit Mode (ADR-v2-003): open-ended voice editing of the last-injected span ("change X to Y", "delete the last sentence"). Command-key gated to avoid dictate-vs-command ambiguity. OFF by default. |
+| `spoken_edit_destructive` | bool | `false` |  | Allow destructive spoken edits (delete last sentence/words). OFF by default; when on, a destructive edit still updates the ledger so "scratch that" undoes it. Requires spoken_edit. (ADR-v2-003) |
 
 ## `[macros]`
 
@@ -179,7 +179,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `enabled` | bool | `false` |  |  |
 | `format` | str | `"none"` |  | none \| markdown |
 | `pause_paragraph_ms` | int | `700` |  | inter-word gap (ms) at/above which a ¶ is inserted |
-| `pause_sentence_ms` | int | `0` |  |  |
+| `pause_sentence_ms` | int | `0` |  | v2.0.0 Wave A — pause→sentence punctuation (ADR-v2-002). 0 disables; when >0, a gap at/above this (but below pause_paragraph_ms) inserts a sentence-ending period. |
 | `emphasis_enabled` | bool | `true` |  | bold prominent words (only when format renders bold) |
 | `emphasis_sensitivity` | float | `0.65` |  | 0..1; higher = fewer, surer bolds (precision bias) |
 | `experimental_pitch_question` | bool | `false` | ⚠️ inert |  |
@@ -212,11 +212,11 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `capture_audio` | bool | `true` |  |  |
 | `retention_days` | int | `30` |  |  |
 | `max_corpus_mb` | int | `500` |  |  |
-| `tune_model` | str | `"small.en"` |  |  |
-| `redact_patterns` | list | `[]` |  |  |
-| `anonymize_audio` | bool | `false` |  |  |
+| `tune_model` | str | `"small.en"` |  | Larger model used by `yazses tune` to re-transcribe captured audio and produce pseudo-ground-truth for error detection. |
+| `redact_patterns` | list | `[]` |  | Regexes scrubbed (replaced with [REDACTED]) from text before it is stored. |
+| `anonymize_audio` | bool | `false` |  | v2.3 Wave G — Corpus Voiceprint Scrub (ADR-v2-048): speaker-anonymize stored clips. |
 | `anonymize_strength` | float | `1.08` |  |  |
-| `capture_edits` | bool | `false` |  |  |
+| `capture_edits` | bool | `false` |  | Edit capture (signal b): after a dictation, read the editor line back and record what you changed in place. Opt-in, editor-bridge only (NO keystroke logging). Currently supports Neovim via a --listen socket. |
 | `edit_capture_delay_s` | float | `8.0` |  |  |
 | `editor_socket` | str | `""` |  | e.g. nvim --listen /tmp/nvim.sock; empty = disabled |
 
@@ -232,7 +232,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `size_px` | int | `220` |  | overlay window square size |
 | `fps` | int | `60` |  | render tick rate |
 | `cursor_offset_px` | int | `28` |  | offset from the pointer so it isn't under the caret |
-| `reduced_motion` | str | `"auto"` |  |  |
+| `reduced_motion` | str | `"auto"` |  | auto \| on \| off. `auto` follows the desktop's own reduce-animations setting (GNOME, macOS, Windows); a desktop it cannot read means full motion, as before. Reduced motion keeps the ring and drops the travel -- it removes the animation, not the answer to "am I being heard". |
 
 ## `[tray]`
 
@@ -277,9 +277,9 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `camera_index` | int | `0` |  |  |
 | `calibration_points` | int | `9` |  |  |
 | `confidence_min` | float | `0.5` |  |  |
-| `route_dictation` | bool | `false` |  |  |
+| `route_dictation` | bool | `false` |  | v2.0.0 Wave C — Gaze-Routed Dictation (ADR-v2-010): route the next dictation to the looked-at window (else the focused window), and confirm destructive gaze-routed actions since coarse gaze can misroute. Off by default. |
 | `confirm_destructive` | bool | `true` |  |  |
-| `deixis` | bool | `true` |  |  |
+| `deixis` | bool | `true` |  | Gaze deixis (2026-08): in command mode, "close this" / "focus that" / "minimize this" act on the window the gaze snapshot says you are looking at. Sub-flag of the (opt-in) gaze feature; destructive actions honour confirm_destructive above via an actionable confirm toast. |
 
 ## `[cocktail]`
 
@@ -288,7 +288,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `enabled` | bool | `false` |  |  |
 | `mode` | str | `"gate"` |  | gate (P1) \| suppress (P2, gated on a model) |
 | `target_threshold` | float | `0.5` |  | per-window target-speaker cosine score to keep |
-| `window_ms` | int | `500` |  |  |
+| `window_ms` | int | `500` |  | The window the gate scores. 500 ms is NOT a recommendation -- it is the value live testing on 2026-06-19 measured as broken, kept only because the feature ships off and `features enable cocktail` refuses without `--force`. At this granularity ECAPA scores the *enrolled speaker* low against their own voiceprint, so any threshold strict enough to reject another voice rejected ~90% of the user's own speech (a 5 s utterance left one surviving window). design/v2-cognitive-layer/02-cocktail-filter.md says revisit only with 1-1.5 s windows plus a much lower threshold tuned live, cohort scoring, or a real target-speaker model -- so this is deliberately not "fixed" by guessing a bigger number, which would swap a known-bad default for an unmeasured one. |
 
 ## `[personalize]`
 
@@ -713,7 +713,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
 | `enabled` | bool | `false` |  |  |
-| `confirm_words` | list | `[]` |  |  |
+| `confirm_words` | list | `[]` |  | Phrases that release a held command / discard it. Empty falls back to the defaults in `cmdsafety/spoken.py` rather than disabling the words, because a held command with no release phrase cannot be run at all. |
 | `cancel_words` | list | `[]` |  |  |
 
 ## `[spokenregex]`
@@ -770,7 +770,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `enabled` | bool | `false` |  |  |
 | `high_load` | float | `85.0` |  |  |
 | `low_load` | float | `40.0` |  |  |
-| `light_model` | str | `"tiny.en"` |  |  |
+| `light_model` | str | `"tiny.en"` |  | The model used while load is at or above `high_load`, with greedy decoding. It is loaded in the background the first time that happens and then stays resident alongside `[stt] model` — roughly 75 MB for tiny.en, and the reason this feature is off by default rather than free. |
 
 ## `[diarize]`
 
@@ -833,8 +833,8 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
-| `ask_human` | bool | `false` |  |  |
-| `ask_human_per_hour` | int | `3` |  |  |
+| `ask_human` | bool | `false` |  | Offer `ask_human` at all. `yazses mcp-server` always offers `transcribe`. |
+| `ask_human_per_hour` | int | `3` |  | Spoken questions allowed per rolling hour, shared across every caller — it protects the person, not each agent's fair share. 0 = never. |
 
 ## `[recimport]`
 
@@ -842,7 +842,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 |---|---|---|---|---|
 | `enabled` | bool | `false` |  |  |
 | `diarize` | bool | `false` |  | attribute speakers; false = plain transcript |
-| `backend` | str | `"sherpa"` |  |  |
+| `backend` | str | `"sherpa"` |  | sherpa (default, ONNX/no torch) \| pyannote (accuracy; needs the `diarization-pyannote` extra + a one-time gated HF model download) \| none |
 | `max_speakers` | int | `0` |  | EXACT count on sherpa, not a cap; 0 auto-detects |
 | `min_speakers` | int | `0` |  |  |
 | `cluster_threshold` | float | `1.0` |  | sherpa fast-clustering threshold (auto-count mode) |
@@ -864,7 +864,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `retain_audio` | bool | `false` |  | keep audio.wav after finalize (else deleted) |
 | `live_transcript` | bool | `true` |  | stream a rolling transcript for `meeting status` |
 | `diarize` | bool | `true` |  | attribute speakers at stop |
-| `backend` | str | `"sherpa"` |  |  |
+| `backend` | str | `"sherpa"` |  | sherpa (default, ONNX/no torch) \| pyannote (accuracy; needs the `diarization-pyannote` extra + a one-time gated HF model download) \| none |
 | `max_speakers` | int | `0` |  | EXACT count on sherpa, not a cap; 0 auto-detects |
 | `min_speakers` | int | `0` |  |  |
 | `cluster_threshold` | float | `1.2` |  | sherpa fast-clustering threshold (auto-count mode) |
@@ -1045,9 +1045,9 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
 | `enabled` | bool | `false` |  |  |
-| `schemes` | list | `['luhn', 'isbn13', 'isbn10']` |  |  |
-| `min_digits` | int | `12` |  |  |
-| `suggest_fix` | bool | `true` |  |  |
+| `schemes` | list | `['luhn', 'isbn13', 'isbn10']` |  | Which checksums to test, in order. `luhn` covers payment cards and many national IDs; `isbn13`/`isbn10` books; `verhoeff` several government schemes (e.g. Aadhaar). |
+| `min_digits` | int | `12` |  | Shortest run of digits worth checking. Below this, false positives dominate — a 4-digit year or a house number is not a card number, and Luhn will happily reject it. |
+| `suggest_fix` | bool | `true` |  | Offer the single-digit correction when exactly one candidate passes. More than one candidate means the suggestion would be a guess between them, so none is offered. |
 
 ## `[sembr]`
 

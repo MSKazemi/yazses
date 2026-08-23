@@ -199,7 +199,44 @@ def _field_notes() -> dict[tuple[str, str], str]:
             comment = _trailing_comment(lines[idx])
             if comment:
                 notes[(node.name, stmt.target.id)] = _with_continuations(lines, idx)
+            else:
+                leading = _leading_block(lines, stmt.lineno - 1)
+                if leading:
+                    notes[(node.name, stmt.target.id)] = leading
     return notes
+
+
+def _leading_block(lines: list[str], idx: int) -> str:
+    """The comment block written directly above the field at *idx*, at its own indent.
+
+    Trailing comments were the only shape read at first, which left the 56 most
+    heavily documented keys in the file with an empty Notes cell -- `[stt] engine`,
+    `model`, `language`, `initial_prompt` among them. A key whose explanation runs to
+    a paragraph cannot be written after the field, so the keys most worth documenting
+    were exactly the ones the reference page said nothing about.
+
+    Indent equality is what makes this safe, and it is the whole guard. A wrapped
+    *trailing* comment continues in the column of the `#` that opened it, which is
+    always further right than the field indent; a block that belongs to this field
+    sits at the field indent. So a continuation can never be mistaken for the next
+    field's leading block, and a leading block can never be attached to the field
+    above it -- the failure `_with_continuations` was written to avoid.
+    """
+    if idx <= 0:
+        return ""
+    indent = len(lines[idx]) - len(lines[idx].lstrip())
+    parts: list[str] = []
+    j = idx - 1
+    while j >= 0:
+        line = lines[j]
+        stripped = line.strip()
+        if not stripped.startswith("#") or (len(line) - len(line.lstrip())) != indent:
+            break
+        # `#:` is the sphinx attribute-comment spelling and config.py uses it in two
+        # sections; publishing the colon puts a stray ": " at the head of the note.
+        parts.append(stripped[1:].lstrip(":").strip())
+        j -= 1
+    return " ".join(p for p in reversed(parts) if p)
 
 
 def _with_continuations(lines: list[str], idx: int) -> str:

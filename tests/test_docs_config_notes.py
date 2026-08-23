@@ -57,14 +57,38 @@ def test_notes_are_scoped_to_the_class_not_the_bare_field_name(gen):
         "no field name repeats across classes, so this guard is not testing anything "
         "— re-check the extraction rather than deleting the assertion"
     )
-    # `backend` is annotated in seven config dataclasses and names a different set of
-    # choices in each; a global map would print the gaze backends under `[denoise]`.
+    # `backend` is annotated in ten config dataclasses and names a different set of
+    # choices in most of them; a global map would print the gaze backends under
+    # `[denoise]`. Distinctness is not the property to assert, though: `[recimport]`
+    # and `[meeting]` document their sherpa/pyannote choice in the same words on
+    # purpose, and requiring every note to differ would make a correct extraction
+    # fail. What must hold is that each class's note came from *that class's* source.
     backends = {cls: note for (cls, field), note in notes.items() if field == "backend"}
     assert len(backends) >= 4, backends
-    assert len(set(backends.values())) == len(backends), (
-        "two sections got the same `backend` note, which is what a name-keyed lookup "
+    assert len(set(backends.values())) > 1, (
+        "every `backend` note is identical, which is exactly what a name-keyed lookup "
         f"would produce:\n  {backends}"
     )
+    for cls, note in backends.items():
+        segment = _class_source(cls)
+        assert _strip_comment_marks(note[:60]) in _strip_comment_marks(segment), (
+            f"{cls}'s `backend` note is not written anywhere in {cls}'s own source, so "
+            f"it was taken from another section:\n  {note}"
+        )
+
+
+def _class_source(name: str) -> str:
+    """The source text of one dataclass in `config.py`, header to header."""
+    src = (ROOT / "src" / "yazses" / "config.py").read_text(encoding="utf-8")
+    start = src.index(f"class {name}")
+    nxt = src.find("\nclass ", start)
+    return src[start:] if nxt < 0 else src[start:nxt]
+
+
+def _strip_comment_marks(text: str) -> str:
+    """Comment punctuation and line breaks removed, so a wrapped note can be looked
+    for in the source it was joined from."""
+    return re.sub(r"\s+", " ", re.sub(r"#:?", " ", text)).strip()
 
 
 def test_a_hash_inside_a_string_default_is_not_published_as_documentation(gen):
@@ -132,3 +156,54 @@ def test_the_reference_carries_notes_for_a_substantial_share_of_keys():
         "derived from config.py's trailing comments, so this dropping means the "
         "extraction broke rather than that the comments went away"
     )
+
+
+def test_a_leading_comment_block_documents_the_field_below_it(gen):
+    """The keys most worth documenting are the ones whose explanation does not fit
+    after the field. Reading only trailing comments left `[stt] engine`, `model`,
+    `language`, `initial_prompt` and 51 others with an empty Notes cell — the exact
+    keys a user is most likely to edit by hand."""
+    lines = [
+        "    # Which backend decodes audio. Two sentences, because one",
+        "    # would not have been enough to say it.",
+        '    engine: str = "faster-whisper"',
+    ]
+    assert gen._leading_block(lines, 2) == (
+        "Which backend decodes audio. Two sentences, because one would not have been "
+        "enough to say it."
+    )
+
+
+def test_a_wrapped_trailing_comment_is_not_taken_as_the_next_fields_leading_block(gen):
+    """The one way reading leading comments can go wrong. A continuation sits in the
+    column of the `#` that opened the trailing comment; a leading block sits at the
+    field indent. Confuse them and the note lands on the wrong key — and the key it
+    was written for is left blank."""
+    lines = [
+        '    first: int = 0                     # belongs to first, and wraps',
+        "                                       # onto this line",
+        "    second: int = 0",
+    ]
+    assert gen._leading_block(lines, 2) == ""
+    assert gen._with_continuations(lines, 0) == "belongs to first, and wraps onto this line"
+
+
+def test_the_sphinx_colon_spelling_does_not_reach_the_page(gen):
+    """`config.py` writes `#:` in two sections. Publishing the marker put a stray
+    `": "` at the head of five notes."""
+    lines = [
+        "    #: Spoken questions allowed per rolling hour.",
+        "    ask_human_per_hour: int = 3",
+    ]
+    assert gen._leading_block(lines, 1) == "Spoken questions allowed per rolling hour."
+
+
+def test_the_stt_section_a_user_edits_first_is_documented_end_to_end():
+    """`[stt]` is the section people change, and every key in it had an empty Notes
+    cell while `config.py` explained all of them at length."""
+    text = REFERENCE.read_text(encoding="utf-8")
+    section = text.split("## `[stt]`", 1)[1].split("\n## ", 1)[0]
+    rows = [ln for ln in section.splitlines() if ln.startswith("| `")]
+    assert len(rows) >= 8, section
+    blank = [ln.split("|")[1].strip() for ln in rows if ln.rstrip().endswith("|  |")]
+    assert not blank, f"[stt] keys still undocumented on the reference page: {blank}"

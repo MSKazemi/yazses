@@ -6,6 +6,37 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the 56 best-documented config keys were the ones the reference page said nothing about
+
+`docs/configuration.md` derives its Notes column from the comment beside each field in
+`config.py`, which made documenting a key the same act as commenting it. It read only
+**trailing** comments — the `# ...` written after the field on the same line. An
+explanation that runs to a paragraph cannot be written there, so the keys whose meaning
+needed the most saying were exactly the ones that reached the page with an empty cell:
+`[stt] engine`, `model`, `language`, `initial_prompt`, `cpu_threads`, `beam_size`,
+`chinese_script`, `[injection] backend`, `[audio] device`, `[accessibility]
+pre_speech_padding_ms` and 46 others, every one of them already explained at length in
+the source directly above the field.
+
+A leading comment block at the field's own indent is now read too. Indent equality is
+the whole guard, and it is exact rather than approximate: a wrapped *trailing* comment
+continues in the column of the `#` that opened it, always further right than the field
+indent, so a continuation can never be mistaken for the next field's block — the misfiling
+the trailing-only reader was written to avoid. `#:` is stripped, since two sections use
+the sphinx attribute-comment spelling and the marker was reaching the page.
+
+Two `[stt]` keys turned out to be undocumented in the source as well, and both are traps:
+`device` (YazSes is CPU-first — every benchmark, latency target and model recommendation
+assumes int8 on CPU, so `"cuda"` is supported but unmeasured) and `compute_type`, whose
+supported set is a property of your CPU rather than of this project, and where an
+unsupported value raises inside `WhisperModel(...)` and is reported as a missing *model*.
+
+One existing guard had to be corrected rather than satisfied: it required every section's
+`backend` note to be unique, as a proxy for "the lookup is keyed by class, not by field
+name". `[recimport]` and `[meeting]` document their sherpa/pyannote choice in the same
+words on purpose, so a correct extraction now fails a distinctness test. It asserts the
+real property instead — each section's note must be written in that section's own source.
+
 ### Added — every shipped STT engine measured against every other, on easy and hard audio
 
 `docs/benchmarks.md` compared three Whisper checkpoints on a laptop and described the

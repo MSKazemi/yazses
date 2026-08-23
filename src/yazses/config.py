@@ -33,7 +33,19 @@ class SttConfig:
     # the pair is contradictory. Ignored on the translate path (ADR-v2-014), which
     # auto-detects the source by design, and by the Parakeet engine (English-only).
     language: str = "en"
+    # Where CTranslate2 runs the decode: "cpu" (default) | "cuda" | "auto". YazSes is
+    # a CPU-first project — every published benchmark, latency target and model
+    # recommendation on this page assumes int8 on CPU — so "cuda" is supported but
+    # unmeasured, and needs a CTranslate2 built against your CUDA runtime. Ignored by
+    # engines that do not decode through CTranslate2 (Parakeet, Moonshine).
     device: str = "cpu"
+    # Decode precision. "int8" (default) is the CPU-first choice and what everything
+    # here is measured at; "int8_float32", "float32" and (on GPU) "float16" also
+    # exist. The supported set is a property of your CPU, not of this project: an
+    # unsupported value raises inside `WhisperModel(...)` and is re-raised as
+    # ModelUnavailableError, so it is reported as a missing *model* rather than a bad
+    # precision. `ctranslate2.get_supported_compute_types(device)` is the authority,
+    # and the Settings window checks against it before writing this key.
     compute_type: str = "int8"
     # Optional vocabulary/context primed into Whisper as initial_prompt. Helps it
     # spell domain terms and proper nouns it otherwise mis-transcribes. `yazses
