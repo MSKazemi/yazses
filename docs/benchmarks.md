@@ -210,7 +210,7 @@ the repository is a *single* 11-second, 22-word clip, so the only WER values it 
 produce at all are multiples of 1/22 — 0 %, 4.5 %, 9.1 %, and so on. It tells you the
 pipeline decodes correctly on your machine; the RTF and peak-RSS columns are the ones
 carrying real information. For an accuracy figure, use the 200-utterance, 40-speaker
-LibriSpeech run under [Accuracy](#accuracy) instead.
+LibriSpeech run under [Accuracy](#accuracy--word-error-rate) instead.
 
 > **Correction (2026-08-23).** This row previously read `4.2 % | 0.85x | 215.3 MB`, and
 > two separate things were wrong with it.
