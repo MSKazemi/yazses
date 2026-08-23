@@ -75,6 +75,15 @@ def finalize_meeting(
             "Meeting audio holds no speech (%s); skipping the notes pass.",
             "no signal" if getattr(result, "silent_input", False) else "no speech detected",
         )
+    # Not part of `unusable`, and deliberately not a reason to skip the notes: the
+    # speech was heard correctly and the discussion is really in there. What is wrong
+    # is who each line is credited to, which makes the minutes' attribution untrustworthy
+    # while leaving their content worth having. Suppressing them would destroy the
+    # salvageable half to hide the broken one.
+    suspect = getattr(result, "attribution_suspect", "")
+    if suspect:
+        log.warning("%s The transcript's words are unaffected.", suspect)
+
     if getattr(config, "notes", False) and not unusable:
         from yazses.meeting.notes import generate_minutes
 

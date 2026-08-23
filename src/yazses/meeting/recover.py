@@ -95,6 +95,7 @@ def recover_meeting(
         getattr(res.transcript, "silent_input", False),
         getattr(res.transcript, "no_speech", False),
     )
+    suspect = getattr(res.transcript, "attribution_suspect", "")
     meeting_id = store.read_meta(d).get("id") or d.name
     store.write_meta(d, {
         "id": meeting_id,
@@ -104,6 +105,7 @@ def recover_meeting(
         "speakers": speakers,
         "has_notes": notes_md is not None,
         "capture": capture,
+        "attribution_suspect": suspect,
         "recovered": True,
         "status": "done",
     })
@@ -116,6 +118,7 @@ def recover_meeting(
         "speakers": speakers,
         "has_notes": notes_md is not None,
         "capture": capture,
+        "attribution_suspect": suspect,
         "recovered": True,
         "files": {k: str(v) for k, v in written.items()},
     }

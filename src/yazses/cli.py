@@ -398,7 +398,12 @@ def _speaker_summary(m: dict) -> str:
         return "unfinished"
     if m.get("diarized") is False:
         return "not diarized"
-    return f"{m.get('num_speakers', '?')} speaker(s)"
+    count = f"{m.get('num_speakers', '?')} speaker(s)"
+    # A bare "86 speaker(s)" reads as a fact about the meeting rather than a symptom.
+    # The count is the very thing under suspicion here (ADR-v2-133), so it does not get
+    # to stand alone -- printing it unqualified is how a four-person meeting listed as a
+    # crowd and nobody looked twice.
+    return f"{count} — attribution unreliable" if m.get("attribution_suspect") else count
 
 
 def _meeting_row(m: dict) -> str:
@@ -5032,6 +5037,19 @@ def transcribe(
             "Common causes: the file holds music or room noise, the recording captured "
             "the wrong source, or the speech is too faint to detect. Play the file back "
             "to check before trusting the transcript.",
+            err=True,
+        )
+
+    # A separate `if`, deliberately outside the chain above: this is not a fourth way
+    # for a transcript to be empty or invented. The words are real and correctly heard;
+    # only the names attached to them are wrong, so it can and must be reported
+    # alongside a transcript that is otherwise worth keeping.
+    if result.attribution_suspect:
+        typer.echo(
+            f"Note: {result.attribution_suspect} Re-run with `--speakers N` to give the "
+            "number of people who spoke -- on this backend that is an exact cluster "
+            "count, so it replaces the estimate rather than capping it. The words "
+            f"themselves are unaffected; only the speaker labels in {out_path.name} are.",
             err=True,
         )
 

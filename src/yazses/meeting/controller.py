@@ -182,6 +182,9 @@ class MeetingController:
             getattr(result.transcript, "silent_input", False),
             getattr(result.transcript, "no_speech", False),
         )
+        # Stored rather than only logged: finalize runs long after `meeting stop`
+        # returned, so the log line is the one place the user is not looking.
+        suspect = getattr(result.transcript, "attribution_suspect", "")
         store.write_meta(self._session.dir, {
             "id": self.meeting_id,
             "duration_s": round(self._session.duration_s(), 1),
@@ -190,6 +193,7 @@ class MeetingController:
             "speakers": speakers,
             "has_notes": notes_md is not None,
             "capture": capture,
+            "attribution_suspect": suspect,
             "status": "done",
         })
         return {
@@ -200,5 +204,6 @@ class MeetingController:
             "speakers": speakers,
             "has_notes": notes_md is not None,
             "capture": capture,
+            "attribution_suspect": suspect,
             "files": {k: str(v) for k, v in written.items()},
         }

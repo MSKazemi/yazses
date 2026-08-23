@@ -16,6 +16,7 @@ from yazses.postprocess.cleaner import clean_text
 from yazses.recimport.align import Utterance, assign_words_to_turns, merge_utterances
 from yazses.recimport.factory import build_diarizer
 from yazses.recimport.naming import resolve_names
+from yazses.recimport.plausibility import attribution_problem
 
 log = logging.getLogger(__name__)
 
@@ -30,6 +31,10 @@ class TranscriptResult:
     speaker_names: dict       # canonical speaker id -> display name
     silent_input: bool = False  # the audio carried no signal; any text is hallucinated
     no_speech: bool = False     # signal, but a speech detector found none; same for the text
+    # Set when the speaker labels do not look like people (ADR-v2-133). Orthogonal to
+    # the two above: the speech is real and was heard correctly, only the attribution
+    # is wrong, so it is a separate field rather than another value of one flag.
+    attribution_suspect: str = ""
 
 
 def _build_engine(config):
@@ -113,6 +118,11 @@ def transcribe_file(
         diarizer = build_diarizer(config)
     turns = diarizer.diarize(audio, sample_rate) if diarizer is not None else []
     diarized = bool(turns)
+    # Asked of the turns, before alignment collapses them into utterances. Measured
+    # on AMI, the shipped clustering can return 86 labels for four people and nothing
+    # downstream can tell -- the transcript is fluent, the timings are right, and the
+    # minutes in ADR-v2-128 will name the crowd as participants.
+    attribution_suspect = (attribution_problem(turns) or "") if diarized else ""
 
     if diarized:
         turn_tuples = [(t.start, t.end, t.speaker) for t in turns]
@@ -163,4 +173,5 @@ def transcribe_file(
         speaker_names=speaker_names,
         silent_input=silent_input,
         no_speech=no_speech,
+        attribution_suspect=attribution_suspect,
     )
