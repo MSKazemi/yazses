@@ -221,7 +221,7 @@ voiceprint-resemblyzer = [
     # invisible because the probe behind the honesty message answers from
     # `find_spec`, which reports the package present on disk and never that it
     # fails to import. See tests/test_voiceprint_message_is_not_self_contradictory.py.
-    "setuptools<81",
+    "setuptools<84",
 ]
 # Pluggable STT — NVIDIA Parakeet TDT via onnx-asr (`[stt] engine = "parakeet"`,
 # `yazses features enable stt-parakeet`). onnxruntime only, no torch, no NeMo;
