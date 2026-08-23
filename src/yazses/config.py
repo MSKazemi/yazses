@@ -64,10 +64,17 @@ class SttConfig:
     # core-seconds rather than the wall-clock. Nothing capped it before this.
     cpu_threads: int = 0
     # Decoder beam width. 0 keeps faster-whisper's own default (5). 1 is greedy
-    # decoding: measurably faster and measurably worse, which is why it is not the
-    # default — it is here so the Adaptive Latency Governor (`[latency]`) can ask
-    # for it on a loaded machine, and so a user who wants that trade permanently
-    # can take it without one. Ignored by engines that do not decode with a beam.
+    # decoding; it is here so the Adaptive Latency Governor (`[latency]`) can ask for
+    # it on a loaded machine, and so a user who wants that trade permanently can take
+    # it without one. What the trade actually costs, measured on 200 LibriSpeech
+    # utterances per cell (`docs/benchmarks.md`): greedy costs `base.en` 0.38 WER
+    # points on clean audio and 1.07 on hard audio, and is 11-16% faster — a smaller
+    # speed gain than "greedy" suggests. On `small.en` and clean audio it is *better*
+    # (2.53% against 2.66%), so "worse" is a property of the model and the audio, not
+    # of beam search. Beams 2, 5 and 8 score identically on `base.en`; the default is
+    # 5 because it is the well-trodden setting and beam 2 would save about 20 ms on a
+    # five-second burst, which nobody can perceive. Ignored by engines that do not
+    # decode with a beam.
     beam_size: int = 0
     # Which Han script Chinese output is written in: "simplified" (简体, mainland)
     # | "traditional" (繁體, Taiwan/Hong Kong) | "" to leave the model's own choice

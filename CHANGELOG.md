@@ -6,6 +6,34 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — what `beam_size` actually costs, instead of what the source assumed
+
+`config.py` described `beam_size = 1` as "measurably faster and measurably worse". Both
+halves were assumptions, and both are wrong in a way that matters to the Adaptive Latency
+Governor, which is the thing that turns greedy decoding on.
+
+Measured, 200 LibriSpeech utterances per cell, idle 16-vCPU Xeon, through the shipping
+engine factory:
+
+| Model | Split | beam 1 | beam 2 | beam 5 *(default)* |
+|---|---|---|---|---|
+| `base.en` | `test-clean` | 4.39 % | **4.01 %** | **4.01 %** |
+| `base.en` | `test-other` | 10.56 % | 9.49 % | **9.46 %** |
+| `small.en` | `test-clean` | **2.53 %** | — | 2.66 % |
+| `small.en` | `test-other` | 6.18 % | — | **5.59 %** |
+
+"Faster" is **11–16 %**, not a category change — about 20 ms on a five-second burst,
+because the beam is not where a Whisper decode spends its time. "Worse" is a property of
+the model and the audio rather than of beam search: greedy costs `base.en` 0.38 points on
+clean audio and 1.07 on hard audio, and on `small.en` with clean audio it is *better* and
+faster. And everything beam 5 buys, **beam 2 already has** — beams 2, 5 and 8 score
+identically on `base.en`.
+
+The default is unchanged. Beam 2 would save about 20 ms per burst, which nobody can
+perceive, and 5 is the setting the rest of the world runs. What changes is that the
+Governor's trade is now a number instead of a guess, and that `docs/benchmarks.md` and
+the configuration reference carry it.
+
 ### Fixed — `pip install yazses[all]` was missing eight extras, and two guards said it could not be
 
 - **`[all]` is now the union of every other extra**, computed and checked rather than

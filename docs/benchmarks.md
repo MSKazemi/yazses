@@ -195,6 +195,46 @@ Read this table before choosing a model. The honest summary:
 Change it with `[stt] model` in your config, or see
 [performance tuning](how-to/performance-tuning.md).
 
+### The one decode knob that is not the model
+
+`[stt] beam_size` is the only setting that changes how the decoder searches rather than
+what it searches with. `0` — the default — leaves faster-whisper's own default of 5.
+This project's source described `1` as "measurably faster and measurably worse", which
+had never been measured. It is now, on the same 200-utterance subsets and the same idle
+16-vCPU Xeon as the tables above:
+
+| Model | Split | `beam_size` | WER | RTF |
+|---|---|---|---|---|
+| `base.en` | `test-clean` | 1 | 4.39 % | 0.0310 |
+| `base.en` | `test-clean` | 2 | **4.01 %** | 0.0322 |
+| `base.en` | `test-clean` | 3 | 4.07 % | 0.0348 |
+| `base.en` | `test-clean` | 5 *(default)* | **4.01 %** | 0.0361 |
+| `base.en` | `test-clean` | 8 | **4.01 %** | 0.0377 |
+| `base.en` | `test-other` | 1 | 10.56 % | 0.0376 |
+| `base.en` | `test-other` | 2 | 9.49 % | 0.0388 |
+| `base.en` | `test-other` | 5 *(default)* | **9.46 %** | 0.0417 |
+| `small.en` | `test-clean` | 1 | **2.53 %** | 0.0663 |
+| `small.en` | `test-clean` | 5 *(default)* | 2.66 % | 0.0765 |
+| `small.en` | `test-other` | 1 | 6.18 % | 0.0823 |
+| `small.en` | `test-other` | 5 *(default)* | **5.59 %** | 0.0919 |
+
+**"Faster" is 11–16 %, not a category change.** Greedy decoding sounds like it should
+be several times quicker. It is not: the beam is not where a Whisper decode spends its
+time. On a five-second utterance the whole saving is about 20 ms.
+
+**"Worse" depends on the model and the audio, and once reverses.** Greedy costs
+`base.en` 0.38 points on clean audio and 1.07 on hard audio — the harder the audio, the
+more the search is worth. On `small.en` and clean audio greedy is *better* (2.53 %
+against 2.66 %) and faster, and on hard audio it is worse again. So the cost of greedy
+is a property of the pairing, not of beam search.
+
+**Everything beam 5 buys, beam 2 already has.** On `base.en` beams 2, 5 and 8 score
+identically on clean audio, and beam 2 is within 0.03 points on hard audio, for 8–11 %
+less decode. The default stays at 5 anyway: 20 ms on a burst is not perceptible, and 5
+is the setting the rest of the world runs. What this table is for is the Adaptive
+Latency Governor, which drops to greedy on a loaded machine — it can now say what that
+costs instead of guessing.
+
 ### Everything that isn't the model is free
 
 The rest of the pipeline is irrelevant to your latency. Measured over 2,000
