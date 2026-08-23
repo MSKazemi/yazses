@@ -304,12 +304,22 @@ return scopes
 
 
 class VSCodeBridge:
-    """Bridge that reads context written by the YazSes VS Code extension.
+    """Bridge that reads editor context from a JSON file in the shared cache directory.
 
-    The extension writes a JSON file to the shared cache directory whenever
-    the cursor moves (debounced to 200 ms). This bridge reads that file
-    synchronously — no IPC required. Returns None if the file is absent or
-    older than *_STALE_SECONDS*.
+    Reads that file synchronously — no IPC required. Returns None if the file is
+    absent or older than *_STALE_SECONDS*.
+
+    **Nothing currently writes that file.** The companion YazSes VS Code extension this
+    was designed against has never been published: there is no source for it in this
+    repository, no marketplace listing, and every design note that mentions it
+    (adr-v04-002, gap-002) calls it a deferred, separately shipped artefact. So this
+    bridge is a reader waiting for a writer, and messages must not tell a user to go and
+    install something that does not exist — they will search the marketplace, find
+    nothing, and conclude YazSes is broken.
+
+    It is also context-only, and permanently so for navigation: ``get_symbols`` returns
+    ``{}`` and ``apply_motion`` returns ``False`` below, both of which ``yazses jump``
+    calls. A published extension would still not make ``jump`` work through this bridge.
     """
 
     _CONTEXT_FILENAME = "vscode-context.json"
@@ -445,8 +455,9 @@ class LspContextProvider:
             bridge = VSCodeBridge()
             if not bridge.connect():
                 log.info(
-                    "LspContextProvider: VSCodeBridge requested but context file not found. "
-                    "Install the YazSes VS Code extension. Context injection disabled."
+                    "LspContextProvider: VSCodeBridge requested but its context file is "
+                    "absent, and no YazSes VS Code extension is published to write one. "
+                    "Context injection disabled."
                 )
                 return NullBridge()
             return bridge
@@ -473,7 +484,8 @@ class LspContextProvider:
 
             log.info(
                 "LspContextProvider: no supported editor detected. "
-                "Context injection disabled (set $NVIM or install the VS Code extension)."
+                "Context injection disabled (set $NVIM; the VS Code bridge needs a "
+                "companion extension that is not published)."
             )
             return NullBridge()
 

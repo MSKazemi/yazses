@@ -175,10 +175,10 @@ it is the largest thing YazSes leaves behind and it is not where people look. Th
 "DEBUG"` puts every transcript in it, as the warning above says, and it does not live in
 the data directory that the rest of this page is about.
 
-If you use the YazSes VS Code extension, it also writes `vscode-context.json` into the
-model-cache directory so the `yazses jump` command can read your cursor position. YazSes
-itself only reads that file; the extension is what creates it, and removing the cache
-directory removes it.
+YazSes reads `vscode-context.json` from the model-cache directory if it is there, to
+pick up your editor cursor position. Nothing in YazSes writes it, and the companion VS
+Code extension that was designed to write it has never been published — so in practice
+the file is absent. Removing the cache directory removes it.
 
 ## Configuration file
 

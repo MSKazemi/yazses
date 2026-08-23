@@ -132,8 +132,10 @@ def jump(
     bridge = LspContextProvider(editor="auto").bridge
     if not bridge.connect():
         typer.echo(
-            "Editor bridge not reachable. Start Neovim with `nvim --listen` (yazses reads "
-            "$NVIM), or install the YazSes VS Code extension.",
+            "Editor bridge not reachable. Start Neovim with `nvim --listen` "
+            "(yazses reads $NVIM).\n"
+            "VS Code cannot be used for jumping: its bridge supplies dictation context "
+            "only and has no cursor motion, and no YazSes VS Code extension is published.",
             err=True,
         )
         raise typer.Exit(1)

@@ -1403,15 +1403,16 @@ yazses jump "function tokenize"
 Requires a reachable editor bridge. (`[commands] lsp_enabled` and `lsp_editor` are
 **not read by anything** — this command contacts the editor directly whichever way
 they are set; the keys are reserved for an editor-context prompt that is designed
-and not wired.) Start
-Neovim with `nvim --listen`, or install the YazSes VS Code extension. Without a
-live bridge there is no real cursor to move, so the command reports that rather
-than guessing:
+and not wired.) Start Neovim with `nvim --listen`. VS Code is **not** an option
+here: its bridge supplies dictation context only, and no YazSes VS Code extension
+is published. Without a live bridge there is no real cursor to move, so the command
+reports that rather than guessing:
 
 ```
 $ yazses jump "line 240"
-Editor bridge not reachable. Start Neovim with `nvim --listen` (yazses reads $NVIM),
-or install the YazSes VS Code extension.
+Editor bridge not reachable. Start Neovim with `nvim --listen` (yazses reads $NVIM).
+VS Code cannot be used for jumping: its bridge supplies dictation context only and
+has no cursor motion, and no YazSes VS Code extension is published.
 ```
 
 ### Voice command reference

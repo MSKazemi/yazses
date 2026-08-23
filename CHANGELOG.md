@@ -8,6 +8,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Six surfaces told the user to install a VS Code extension that does not exist.**
+  The `yazses jump` failure message, two `LspContextProvider` log lines, the `jump`
+  entry in the feature registry (and so `docs/features.md`), `docs/cli-reference.md` and
+  `docs/privacy-statement.md` all offered "install the YazSes VS Code extension" as the
+  way to get an editor bridge. No such extension exists: there is no source for it in
+  this repository, no marketplace listing and no publish workflow, and every design note
+  that mentions it calls it a deferred, separately shipped artefact. A user who followed
+  the instruction searched the marketplace, found nothing, and had no way to tell whether
+  they had missed a step or the tool was broken.
+
+  For `jump` it was worse than unhelpful. `VSCodeBridge.get_symbols` returns `{}` and
+  `apply_motion` returns `False`, and `jump` calls both — so a published extension would
+  still not have made the command work through that bridge. The message now names Neovim
+  as the way to do it and says plainly that VS Code cannot.
+
+  `tests/test_no_phantom_vscode_extension.py` scans `src/yazses/**.py` and `docs/**.md`
+  for the wording, which is how the sixth site was found after a hand-audit had already
+  been done. `design/` is out of scope: a design note may propose an artefact, and
+  calling it deferred there is the honest thing to do.
+
 - **`yazses fileopen` told every BSD user their OS was unsupported.** The launcher
   gated on `sys.platform.startswith("linux")` and fell through to
   `NotImplementedError: Unsupported platform: freebsd14` on FreeBSD, OpenBSD, NetBSD

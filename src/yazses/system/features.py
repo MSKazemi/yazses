@@ -668,7 +668,8 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
         _Def("jump", "Voice Jump-to-Symbol", "[jump] — navigate code by voice", OPTIONAL,
              "Run `yazses jump \"<spoken target>\"` — 'jump to function tokenize', 'go to line "
              "240' → the editor moves there (fuzzy symbol match, or a search fallback). Needs "
-             "Neovim started with `nvim --listen`, or the VS Code extension. Off by default.",
+             "Neovim started with `nvim --listen`. VS Code is not supported for jumping: its "
+             "bridge is context-only and no YazSes VS Code extension is published. Off by default.",
              lambda c: c.jump.enabled, jmp_on, jmp_off),
         _Def("shellpipe", "Spoken Shell Pipeline Builder", "[shellpipe] — build pipelines, preview first", OPTIONAL,
              "Speak stages ('list files, pipe to grep error, pipe to word count') → renders 'ls | "
