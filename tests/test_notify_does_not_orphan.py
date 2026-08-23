@@ -27,6 +27,8 @@ import time
 
 import pytest
 
+from yazses.system.proc import process_alive
+
 pytestmark = pytest.mark.skipif(
     sys.platform == "win32",
     reason="POSIX orphan semantics; notify.py documents itself as the Linux path",
@@ -70,11 +72,9 @@ _CHILD = textwrap.dedent(
 
 
 def _alive(pid: int) -> bool:
-    try:
-        os.kill(pid, 0)
-    except (ProcessLookupError, PermissionError):
-        return False
-    return True
+    # Not `os.kill(pid, 0)`: that spelling terminates the process on Windows, and a test
+    # about a child that outlives its parent must not be the thing that ends it.
+    return process_alive(pid)
 
 
 def test_an_actionable_toast_dies_with_the_process_that_raised_it(tmp_path):

@@ -6,6 +6,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from yazses.system.proc import process_alive
+
 
 @pytest.fixture
 def sine_audio_3s():
@@ -129,18 +131,14 @@ _DAEMON_PID_AT_IMPORT = _read_pid_file()
 
 
 def _alive(pid: int | None) -> bool:
-    """Is *pid* a live process? Signal 0 checks without delivering anything."""
-    if not pid or pid <= 0:
-        return False
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True  # exists, owned by someone else
-    except OSError:
-        return False
-    return True
+    """Is *pid* a live process?
+
+    This used to spell it ``os.kill(pid, 0)``, which on Windows is ``TerminateProcess``:
+    the guard's own "prove the probe is not trivially true" test asks whether *this*
+    process is alive, and so killed the test runner — silently, with exit code 0, a
+    little under halfway through the suite. See :mod:`yazses.system.proc`.
+    """
+    return process_alive(pid)
 
 
 def _pid_file_change_is_the_real_daemon(before: tuple, after: tuple) -> bool:

@@ -11,6 +11,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from yazses.platform.base import Paths
+from yazses.system.proc import process_alive as _process_alive
 
 log = logging.getLogger(__name__)
 
@@ -26,41 +27,11 @@ _PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 def process_alive(pid: int) -> bool:
     """True when *pid* names a live process. Never terminates anything.
 
-    ``os.kill(pid, 0)`` is the POSIX idiom for this and is **actively harmful on
-    Windows**: CPython's ``os.kill`` has no signal semantics there, so anything
-    that is not ``CTRL_C_EVENT``/``CTRL_BREAK_EVENT`` falls through to
-    ``TerminateProcess(handle, sig)``. Signal 0 therefore *kills the process*
-    and gives it exit code 0 (see https://bugs.python.org/issue14480). Because
-    ``yazses status``, ``doctor`` and the tray's poll loop all reach
-    ``is_running()``, the liveness probe was killing the very daemon it was
-    asked about.
-
-    ``OpenProcess`` + ``GetExitCodeProcess`` is the read-only equivalent.
+    The implementation, and the explanation of why ``os.kill(pid, 0)`` may not be used
+    here, now live in :mod:`yazses.system.proc` — this was the only copy for a while and
+    two other call sites kept the destructive idiom because of it.
     """
-    import ctypes
-    from ctypes import wintypes
-
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    kernel32.OpenProcess.restype = wintypes.HANDLE
-    kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
-    kernel32.GetExitCodeProcess.restype = wintypes.BOOL
-    kernel32.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
-    kernel32.CloseHandle.restype = wintypes.BOOL
-    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
-
-    handle = kernel32.OpenProcess(_PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
-    if not handle:
-        # ERROR_ACCESS_DENIED (5) means the process exists but belongs to
-        # someone else; anything else (typically ERROR_INVALID_PARAMETER) means
-        # there is no such process.
-        return ctypes.get_last_error() == 5
-    try:
-        code = wintypes.DWORD()
-        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
-            return False
-        return code.value == _STILL_ACTIVE
-    finally:
-        kernel32.CloseHandle(handle)
+    return _process_alive(pid)
 
 
 def is_yazses_image(tasklist_csv: str) -> bool:

@@ -17,6 +17,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from yazses.system.proc import process_alive
+
 _DATA_DIR = Path.home() / ".local" / "share" / "yazses"
 _PID_FILE = _DATA_DIR / "daemon.pid"
 _LOCK_FILE = _DATA_DIR / "daemon.lock"
@@ -75,13 +77,12 @@ def is_running() -> bool:
     if _LOCK_FILE.exists() and _locking_supported():
         # The lock is free, so no daemon holds it; a leftover PID file is not evidence.
         return False
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
+    # `os.kill(pid, 0)` used to stand here. It is the POSIX idiom and it *terminates*
+    # the process on Windows, so `status`, `doctor` and the tray's poll loop each had a
+    # path that killed whatever held that PID — the daemon, or after a PID recycle some
+    # unrelated program. See `system/proc.py`.
+    if not process_alive(pid):
         return False
-    except PermissionError:
-        # Process exists but we can't signal it — assume it's running.
-        return True
     # Guard against recycled PIDs: verify the process is actually our daemon.
     try:
         cmdline = Path(f"/proc/{pid}/cmdline").read_text(

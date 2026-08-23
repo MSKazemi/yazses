@@ -8,6 +8,61 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The liveness probe killed the process it was asked about, and on Windows that was the
+  test runner.** Running the full suite on a real Windows Server 2022 box, it died at 49%:
+  silently, with exit code 0, no traceback and no summary line. Twice, in the same place.
+  The killer was the test whose entire job is to prove the probe answers both ways —
+  `test_the_liveness_probe_is_not_trivially_true_or_false`, which asks whether *this*
+  process is alive. `tests/conftest.py::_alive` spelled that `os.kill(pid, 0)`, the POSIX
+  idiom, and CPython's `os.kill` on Windows has no signal semantics: anything that is not
+  `CTRL_C_EVENT`/`CTRL_BREAK_EVENT` falls through to `TerminateProcess(handle, sig)`. So
+  signal 0 terminates the process and hands it exit code 0 — a failure indistinguishable
+  from a pass to anything reading a status code, which is why no Windows run had ever got
+  past the halfway mark and nothing said so.
+
+  **The same idiom was still in shipped code.** `system/pid.py::is_running` is reached by
+  `yazses status`, `yazses doctor` and the tray's poll loop, and on the branch where a PID
+  file exists without a held lock — a daemon killed with `-9`, or an install predating the
+  lock file — it terminated whatever process held that PID. After a PID recycle that is not
+  the daemon; it is an unrelated program, killed by a status query, which then reports "not
+  running".
+
+  The project already knew. `platform/windows/lifecycle.py::process_alive` carries this
+  explanation and the read-only `OpenProcess` + `GetExitCodeProcess` replacement, written
+  after the probe was caught killing the very daemon `status` was asked about. What it did
+  not do was own the only copy, and the guard that was supposed to prevent a second one —
+  `test_is_running_never_calls_os_kill` — names one class and hands it a stub probe, so the
+  real call never ran and it stayed green through both surviving call sites.
+
+  The probe now has one home, `system/proc.py`, and three callers. The new guard walks the
+  AST of every file under `src/`, `tests/`, `paper/`, `scripts/` and `hooks/` and fails on
+  any `os.kill(_, 0)` outside the two files allowed to spell it: the implementation, where
+  it sits behind a `sys.platform` branch, and the macOS lifecycle, which cannot execute on
+  Windows at all. Verified on the same Windows box that produced the crash.
+
+- **The tray greyed out Meeting Mode and never said why.** `MeetingEntry` states its own
+  contract — `reason` is never empty on a disabled entry, because "a greyed-out entry with
+  no explanation is worse than no entry at all: the user is left deciding between *this is
+  broken* and *I am not allowed*, and the answer is usually neither." The Linux tray
+  honoured it by hanging the reason off `QAction.setToolTip`, and a `QMenu` renders action
+  tooltips only when `toolTipsVisible` is set. Nothing in the tree ever set it —
+  `grep -rn "ToolTipsVisible" src/ tests/` returned nothing — so the reason was computed,
+  attached, and never shown.
+
+  The state it hid is the default one: Meeting Mode is off until you enable it, so a fresh
+  install opens the tray menu to two dead entries and no explanation. The macOS and Windows
+  trays leave both entries clickable and show the daemon's own refusal as a toast, which
+  left Linux — the one tray that goes to the trouble of predicting the refusal — as the
+  only one that could not explain it.
+
+  A tooltip alone would not have been enough either. Where the desktop renders the tray
+  menu itself (GNOME with AppIndicator exports it over dbusmenu) the popup is not a Qt
+  widget, so no tooltip is ever drawn. The reason now appears as a visible, disabled line
+  above the two entries whenever both are blocked for the same cause, and
+  `toolTipsVisible` is switched on so the per-entry reasons work where the menu *is* Qt.
+  `meeting_notice()` derives that line from the entries rather than re-reading the status,
+  so the banner cannot come to disagree with what is actually greyed out.
+
 - **The settings window started a 3.1 GB download and called it "a few minutes".**
   `yazses features enable <slug>` says what an install costs *before* it spends it
   (ADR-018) — it prints the marginal download note, and for a large one prefixes it with
