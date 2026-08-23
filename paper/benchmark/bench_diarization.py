@@ -277,6 +277,16 @@ def sweep(corpus: Path, thresholds=(0.4, 0.5, 0.6, 0.7, 0.8, 0.9)) -> list[dict]
 if __name__ == "__main__":
     argv = sys.argv[1:]
     dump_dir = None
+    # The sweep range is an assumption, and a wrong one is silent: if the useful
+    # threshold for a corpus lies outside the range, the sweep reports that the
+    # metric improves monotonically to the edge and offers no optimum, which reads
+    # exactly like "no threshold helps". Settable so the range can be widened
+    # without editing the harness on whatever machine is running it.
+    thresholds = (0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
+    if "--thresholds" in argv:
+        i = argv.index("--thresholds")
+        thresholds = tuple(float(x) for x in argv[i + 1].split(",") if x.strip())
+        del argv[i:i + 2]
     if "--dump-rttm" in argv:
         i = argv.index("--dump-rttm")
         dump_dir = Path(argv[i + 1])
@@ -284,7 +294,7 @@ if __name__ == "__main__":
     args = [a for a in argv if a != "--sweep"]
     corpus_dir = Path(args[0])
     if "--sweep" in sys.argv:
-        out = {"sweep": sweep(corpus_dir)}
+        out = {"sweep": sweep(corpus_dir, thresholds)}
     else:
         out = run(corpus_dir, dump_rttm=dump_dir)
         print(json.dumps(out["summary"], indent=2))
