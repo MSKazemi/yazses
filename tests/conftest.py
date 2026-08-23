@@ -1,3 +1,4 @@
+import importlib
 import logging
 import os
 from pathlib import Path
@@ -191,6 +192,72 @@ def _host_state() -> dict[str, tuple]:
         except OSError:
             state[label] = (False, 0, 0)
     return state
+
+
+@pytest.fixture
+def sandbox_paths(tmp_path, monkeypatch):
+    """Point every YazSes directory at *tmp_path*, on every OS, without touching env.
+
+    The previous version of this sandbox set `XDG_CONFIG_HOME`, then `APPDATA`,
+    `LOCALAPPDATA`, `HOME` and `USERPROFILE` as well when the first proved to be a
+    Linux answer to a cross-platform question. **That still does not work on Windows,**
+    and the second attempt was never run on a Windows machine before it shipped:
+    executed on Windows Server 2022 it stops the leak and then fails the sandbox
+    assertion for every test, because platformdirs resolves the Windows folders through
+    the OS rather than through the environment. Setting an environment variable is not a
+    thing you can do to it.
+
+    So this patches the seam instead of the environment. `build_paths()` is the single
+    function each platform backend uses to produce its `Paths`, and `get_platform()`
+    calls it, so replacing it puts every consumer inside the sandbox -- including the
+    modules that did `from yazses.platform import get_platform` at import time and hold
+    their own binding, which is what defeats patching the factory.
+
+    Both `lru_cache`s are cleared on the way in and on the way out: whichever test
+    resolved them first otherwise pins one answer for the whole session, which is how
+    the original escape was order-dependent and therefore invisible.
+    """
+    import yazses.platform.factory as factory
+    from yazses.platform.base import Paths
+
+    root = tmp_path / "yazses-sandbox"
+    sandboxed = Paths(
+        config_dir=root / "config",
+        state_dir=root / "state",
+        cache_dir=root / "cache",
+        log_dir=root / "log",
+        data_dir=root / "data",
+    )
+    # Every backend, not just this OS's: cheap, and a test that swaps `sys.platform`
+    # would otherwise fall through to the real resolver for the OS it swapped to.
+    #
+    # Both the defining module *and* the package that imported the name: each
+    # `platform/<os>/__init__.py` does `from ...paths import build_paths` at import
+    # time and calls its own binding, so patching only `paths` leaves the caller
+    # pointing at the original function. That is the same `from X import Y` trap that
+    # makes patching `factory.get_platform` useless, one layer down.
+    for mod in ("linux", "macos", "windows", "bsd"):
+        for name in (f"yazses.platform.{mod}.paths", f"yazses.platform.{mod}"):
+            try:
+                module = importlib.import_module(name)
+            except Exception:  # noqa: BLE001 - a backend that will not import cannot leak
+                continue
+            if hasattr(module, "build_paths"):
+                monkeypatch.setattr(module, "build_paths", lambda _s=sandboxed: _s)
+
+    factory.reset_platform_cache()
+
+    # Prove it, rather than trust it. This assertion is the reason the Windows failure
+    # was found at all, so it stays -- a sandbox nobody checks is the original defect.
+    resolved = factory.get_paths().config_dir
+    assert root in resolved.parents or resolved == root, (
+        f"the sandbox did not take: config_dir resolved to {resolved}, outside {root}. "
+        f"A test that writes config would edit the real machine."
+    )
+
+    yield sandboxed
+
+    factory.reset_platform_cache()  # the next test must not inherit this tmp_path
 
 
 @pytest.fixture(autouse=True)

@@ -40,46 +40,25 @@ from yazses.system.features import feature_status, find_feature
 
 
 @pytest.fixture
-def scratch(tmp_path, monkeypatch):
-    """A config directory these tests may write to — which needs *both* lines.
+def scratch(sandbox_paths):
+    """A config directory these tests may write to — see `sandbox_paths` in conftest.
 
-    `XDG_CONFIG_HOME` alone does nothing: `get_platform()`/`get_paths()` are
-    `lru_cache(maxsize=1)`, so whichever test resolved them first pins the real
-    path for the entire session. This file passed either way; the difference was
-    that `features enable timeline` wrote `[timeline] enabled = true` into the
-    developer's own `~/.config/yazses/config.toml`, silently, and only when the
-    file ran after something that had already warmed the cache. Run it alone and
-    it was clean — which is why it survived every review.
+    This fixture used to build the sandbox itself out of environment variables, and
+    two successive attempts at that were both wrong. `XDG_CONFIG_HOME` alone is a
+    Linux answer: platformdirs reads `%LOCALAPPDATA%` on Windows and
+    `~/Library/Application Support` on macOS, so on the Windows runner it sandboxed
+    nothing and `features enable` wrote into the runner's own config, which only the
+    host-state guard in conftest noticed, at teardown, as an error rather than a
+    failure.
+
+    Adding `APPDATA`/`LOCALAPPDATA`/`HOME`/`USERPROFILE` looked like the fix and was
+    not, and the reason it survived review is that it was never executed on Windows.
+    Run there, it stops the write and then fails its own sandbox assertion for every
+    test in this file: platformdirs asks the OS for the Windows folders, so no
+    environment variable can move them. The working sandbox replaces `build_paths()`
+    instead, which is a seam rather than a hint.
     """
-    from yazses.platform.factory import get_paths, reset_platform_cache
-
-    # `XDG_CONFIG_HOME` is a Linux answer to a cross-platform question. platformdirs
-    # reads `%APPDATA%`/`%LOCALAPPDATA%` on Windows and `~/Library/Application
-    # Support` on macOS, so on the Windows runner this fixture sandboxed nothing at
-    # all: `features enable` wrote into the runner's own config and only the
-    # host-state guard in conftest noticed, at teardown, as an error rather than a
-    # failure.
-    for var in ("XDG_CONFIG_HOME", "XDG_DATA_HOME"):
-        monkeypatch.setenv(var, str(tmp_path))
-    for var in ("APPDATA", "LOCALAPPDATA"):
-        monkeypatch.setenv(var, str(tmp_path))
-    # macOS resolves its path through `expanduser`, i.e. HOME. USERPROFILE is the
-    # Windows fallback platformdirs uses when the APPDATA vars are absent.
-    for var in ("HOME", "USERPROFILE"):
-        monkeypatch.setenv(var, str(tmp_path))
-    reset_platform_cache()
-
-    # Prove it, rather than trust it. This is the whole defect: the fixture looked
-    # like a sandbox on every platform and was one on exactly one of them, and the
-    # tests passed either way because nothing asserted where the writes landed.
-    resolved = get_paths().config_dir
-    assert tmp_path in resolved.parents or resolved == tmp_path, (
-        f"the sandbox did not take: config_dir resolved to {resolved}, outside "
-        f"{tmp_path}. A test that writes config would edit the real machine."
-    )
-
-    yield tmp_path
-    reset_platform_cache()  # the next test must not inherit this tmp_path
+    yield sandbox_paths.config_dir
 
 
 def _core_slugs() -> list[str]:
