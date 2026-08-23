@@ -1041,13 +1041,27 @@ _FEATURE_DEPS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     "cocktail": (("speechbrain",), ("speechbrain>=1.1",)),
     "multiprofile": (("speechbrain",), ("speechbrain>=1.1",)),
     "voiceguard": (("speechbrain",), ("speechbrain>=1.1",)),
-    "diarize": (("sherpa_onnx",), ("sherpa-onnx>=1.13.4",)),
+    # sherpa-onnx-core is named alongside the bindings on purpose: it carries
+    # libonnxruntime.so and the two sherpa .so files, and the dependency between
+    # them is declared only in the wheel's METADATA (never the sdist's PKG-INFO),
+    # so a resolver reading the sdist installs bindings that cannot import. See
+    # tests/test_diarization_extra_ships_its_runtime.py.
+    "diarize": (
+        ("sherpa_onnx",),
+        ("sherpa-onnx>=1.13.6", "sherpa-onnx-core>=1.13.6"),
+    ),
     # [cpu] pins onnxruntime; [hub] adds huggingface-hub so load_model can
     # actually download the Parakeet checkpoint on first use.
     "stt-parakeet": (("onnx_asr",), ("onnx-asr[cpu,hub]>=0.12",)),
     "stt-moonshine": (("moonshine_onnx",), ("useful-moonshine-onnx>=20251121",)),
-    "recimport": (("sherpa_onnx",), ("sherpa-onnx>=1.13.4",)),
-    "meeting": (("sherpa_onnx",), ("sherpa-onnx>=1.13.4",)),
+    "recimport": (
+        ("sherpa_onnx",),
+        ("sherpa-onnx>=1.13.6", "sherpa-onnx-core>=1.13.6"),
+    ),
+    "meeting": (
+        ("sherpa_onnx",),
+        ("sherpa-onnx>=1.13.6", "sherpa-onnx-core>=1.13.6"),
+    ),
 }
 
 

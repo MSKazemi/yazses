@@ -62,9 +62,28 @@ def _unavailable_detail(backend: str, exc: Exception) -> str:
         }
         if backend in adapters:
             adapter, requires, extra = adapters[backend]
-            return probe_backend(
+            status = probe_backend(
                 backend, adapter=adapter, requires=requires, extra=extra
-            ).message
+            )
+            if status.available:
+                # The adapter imported and every dependency the probe knows about
+                # is present, so the probe has nothing to report -- and pasting its
+                # "is available" onto this caller's "unavailable:" prefix produced a
+                # message that contradicted itself in a single sentence, while
+                # discarding the one thing that would have helped: the exception.
+                #
+                # It is reachable, not theoretical. The probe answers from
+                # `importlib.util.find_spec`, which reports whether a package is on
+                # disk, never whether it imports -- and Resemblyzer pulls in
+                # `webrtcvad`, whose first line is `import pkg_resources`, removed
+                # from setuptools in 81.0.0. So a correctly installed
+                # `voiceprint-resemblyzer` extra raises ModuleNotFoundError on a
+                # current setuptools and the user was told the backend was
+                # available. `recimport/factory.py` already guards this; the two
+                # were written from the same shape and only one got the fix.
+                return str(exc)
+            if status.implemented or status.missing:
+                return status.message
     except Exception:  # pragma: no cover - diagnostics must never mask the real error
         pass
     return str(exc)

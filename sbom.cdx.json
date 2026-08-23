@@ -2782,13 +2782,13 @@
     {
       "type": "library",
       "name": "setuptools",
-      "version": "83.0.0",
-      "purl": "pkg:pypi/setuptools@83.0.0",
-      "bom-ref": "pkg:pypi/setuptools@83.0.0",
+      "version": "80.10.2",
+      "purl": "pkg:pypi/setuptools@80.10.2",
+      "bom-ref": "pkg:pypi/setuptools@80.10.2",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "025bccbbf0fa05b6192bc64ae1e7b16e001fd6d6d4d5de03c97b1c1ade523bef"
+          "content": "8b0e9d10c784bf7d262c4e5ec5d4ec94127ce206e8738f29a437945fbc219b70"
         }
       ]
     },
@@ -2808,15 +2808,22 @@
     {
       "type": "library",
       "name": "sherpa-onnx",
-      "version": "1.13.4",
-      "purl": "pkg:pypi/sherpa-onnx@1.13.4",
-      "bom-ref": "pkg:pypi/sherpa-onnx@1.13.4",
+      "version": "1.13.6",
+      "purl": "pkg:pypi/sherpa-onnx@1.13.6",
+      "bom-ref": "pkg:pypi/sherpa-onnx@1.13.6",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "29547692418513ad88034c2b5f98985e33042b2351e4ab375469f19a8de18c5f"
+          "content": "d55a0e769efd9b014c2d3aaa54754288dc39c7261e9334c575d54ba22214ca27"
         }
       ]
+    },
+    {
+      "type": "library",
+      "name": "sherpa-onnx-core",
+      "version": "1.13.6",
+      "purl": "pkg:pypi/sherpa-onnx-core@1.13.6",
+      "bom-ref": "pkg:pypi/sherpa-onnx-core@1.13.6"
     },
     {
       "type": "library",
