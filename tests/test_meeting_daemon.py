@@ -8,9 +8,22 @@ import numpy as np
 from yazses.config import Config
 from yazses.core import daemon as daemon_mod
 from yazses.core.daemon import Daemon
+from yazses.ipc.protocol import Request
 from yazses.platform import get_platform
 from yazses.platform.base import TrayState
 from yazses.postprocess.prosody import Word
+
+
+def _start(daemon, **params):
+    """Call the `meeting_start` handler the way the IPC server does.
+
+    These tests used to pass `None`, which worked only while the handler ignored its
+    request entirely. It now reads an optional `speakers`, and a stub that skips the
+    parameter object cannot exercise the parameter contract at all.
+    """
+    return daemon._handle_meeting_start(
+        Request(method="meeting_start", params=params, id=1)
+    )
 
 
 class _FakeEngine:
@@ -50,13 +63,13 @@ def _daemon(tmp_path, *, enabled=True):
 
 def test_start_refused_when_disabled(tmp_path):
     d = _daemon(tmp_path, enabled=False)
-    assert d._handle_meeting_start(None)["ok"] is False
+    assert _start(d)["ok"] is False
 
 
 def test_start_refused_when_loading(tmp_path):
     d = _daemon(tmp_path)
     d._state.ready = False
-    assert d._handle_meeting_start(None)["ok"] is False
+    assert _start(d)["ok"] is False
 
 
 def test_stop_without_meeting(tmp_path):
@@ -101,7 +114,7 @@ def test_start_warns_when_diarization_models_absent(tmp_path, monkeypatch):
     d = _daemon(tmp_path)
     d._config.meeting.diarize = True                       # ask for speaker labels
     d._config.meeting.model_dir = str(tmp_path / "absent")  # but no models on disk
-    started = d._handle_meeting_start(None)
+    started = _start(d)
     assert started["ok"] is True
     assert "warning" in started and "not be attributed" in started["warning"]
     # status also surfaces the unavailability when idle
@@ -118,13 +131,13 @@ def test_full_start_feed_stop_finalize(tmp_path, monkeypatch):
     monkeypatch.setattr(daemon_mod, "AudioRecorder", _FakeRecorder)
     d = _daemon(tmp_path)
 
-    started = d._handle_meeting_start(None)
+    started = _start(d)
     assert started["ok"] is True
     assert d._state.state == TrayState.MEETING
     assert d._meeting_controller is not None
 
     # a second start is refused while running
-    assert d._handle_meeting_start(None)["ok"] is False
+    assert _start(d)["ok"] is False
 
     # status reports the active meeting
     assert d._handle_meeting_status(None)["active"] is True
@@ -161,7 +174,7 @@ def _started_meeting(tmp_path, monkeypatch, *, retain=False):
     monkeypatch.setattr(daemon_mod, "AudioRecorder", _FakeRecorder)
     d = _daemon(tmp_path)
     d._config.meeting.retain_audio = retain
-    assert d._handle_meeting_start(None)["ok"] is True
+    assert _start(d)["ok"] is True
     d._meeting_controller.feed(np.ones(16000, dtype="float32"))
     return d
 

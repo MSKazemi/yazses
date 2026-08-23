@@ -313,6 +313,11 @@ Transcript format to re-render.
 .TP
 \fByazses meeting start\fR
 Start recording a meeting (hands-free \(em no key to hold).
+.RS
+.TP
+\fB\-\-speakers, \-s\fR
+How many people are in the room. Worth more than every other setting: 84% DER at auto vs 29% when the count is given, on the AMI test split. 0 = use [meeting] max_speakers.
+.RE
 .TP
 \fByazses meeting status\fR
 Show the running meeting (elapsed + live transcript) or recent meetings.

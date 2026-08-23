@@ -3759,11 +3759,30 @@ class Daemon:
 
     # ---- Meeting Mode (ADR-v2-127) ----------------------------------------
 
-    def _handle_meeting_start(self, _request: Request) -> dict[str, object]:
-        """IPC: begin a hands-free meeting recording. Streams a live transcript."""
+    def _handle_meeting_start(self, request: Request) -> dict[str, object]:
+        """IPC: begin a hands-free meeting recording. Streams a live transcript.
+
+        Optional `speakers`: how many people are in the room, for this meeting only.
+        It is the setting that decides whether the transcript is readable -- 84.09%
+        DER at auto against 28.55% when the count is given, on the AMI test split
+        (ADR-v2-133) -- and until now the only way to supply it was to hand-edit
+        `[meeting] max_speakers` and restart the daemon. Nobody edits a config file
+        between two meetings with different numbers of people in the room, so in
+        practice the good path was unreachable.
+        """
         cfg = self._config.meeting
         if not cfg.enabled:
             return {"ok": False, "reason": "meeting mode is off; run `yazses features enable meeting`"}
+        try:
+            speakers = int((request.params or {}).get("speakers", 0) or 0)
+        except (TypeError, ValueError):
+            return {"ok": False, "reason": "speakers must be a whole number"}
+        if speakers < 0:
+            return {"ok": False, "reason": "speakers cannot be negative"}
+        if speakers:
+            # Per-meeting override, never written to disk: the next meeting has a
+            # different number of people in it.
+            cfg = dataclasses.replace(cfg, max_speakers=speakers)
         with self._lock:
             if not self._state.ready or self._engine is None:
                 return {"ok": False, "reason": "daemon still loading; try again in a moment"}

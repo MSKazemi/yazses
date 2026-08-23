@@ -224,18 +224,28 @@ def fileopen(
 
 
 @meeting_app.command("start")
-def meeting_start() -> None:
+def meeting_start(
+    speakers: int = typer.Option(
+        0, "--speakers", "-s",
+        help="How many people are in the room. Worth more than every other setting: "
+             "84% DER at auto vs 29% when the count is given, on the AMI test split. "
+             "0 = use [meeting] max_speakers."),
+) -> None:
     """Start recording a meeting (hands-free — no key to hold).
 
     Requires `[meeting] enabled = true` (`yazses features enable meeting`). Records
     continuously, streams a live transcript, and — at `yazses meeting stop` — writes a
     speaker-attributed transcript (and opt-in notes) to a per-meeting folder. On-device;
     audio is deleted after the post-pass unless `[meeting] retain_audio = true`.
+
+    `--speakers N` applies to this meeting only and is never written to config: the
+    next meeting has a different number of people in it, which is exactly why editing
+    `[meeting] max_speakers` between meetings was never going to happen.
     """
     platform = get_platform()
     client = platform.ipc_client_factory(platform.paths.ipc_socket)
     try:
-        result = client.call("meeting_start")
+        result = client.call("meeting_start", speakers=speakers)
     except IpcUnreachableError:
         typer.echo("Daemon is not running. Start it with: yazses start", err=True)
         raise typer.Exit(1)

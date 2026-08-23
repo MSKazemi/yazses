@@ -328,6 +328,8 @@ Fix speaker labels — merge two clusters and/or rename them — and re-render.
 
 Start recording a meeting (hands-free — no key to hold).
 
+- `--speakers`, `-s` — How many people are in the room. Worth more than every other setting: 84% DER at auto vs 29% when the count is given, on the AMI test split. 0 = use [meeting] max_speakers.
+
 ### `yazses meeting status`
 
 Show the running meeting (elapsed + live transcript) or recent meetings.
