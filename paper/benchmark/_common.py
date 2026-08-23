@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import platform
 import subprocess
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -24,16 +25,51 @@ SAMPLE_RATE = 16000
 
 
 def _cpu_model() -> str:
+    """Name the CPU on every OS the benchmarks run on.
+
+    This used to shell out to ``lscpu`` and fall back to ``platform.processor()``.
+    ``lscpu`` exists only on Linux, and the fallback answers ``"arm"`` on macOS and
+    an empty string on some Windows builds -- so a cross-machine results table would
+    have stamped several different hosts with the same uninformative name. Latency
+    and RTF are machine-specific and may never be merged across hosts (see
+    ``docs/benchmarks.md``), which is exactly the comparison this field exists to
+    keep honest, so each OS gets the query that actually answers it.
+    """
     try:
-        out = subprocess.run(
-            ["lscpu"], capture_output=True, text=True, check=False
-        ).stdout
-        for line in out.splitlines():
-            if line.strip().startswith("Model name:"):
-                return line.split(":", 1)[1].strip()
+        if sys.platform == "darwin":
+            out = subprocess.run(
+                ["sysctl", "-n", "machdep.cpu.brand_string"],
+                capture_output=True, text=True, check=False,
+            ).stdout.strip()
+            if out:
+                return out
+        elif sys.platform == "win32":
+            # The registry rather than `wmic`: wmic is deprecated and absent from
+            # recent Windows images, so the subprocess would simply not be found.
+            import winreg
+
+            key = winreg.OpenKey(
+                winreg.HKEY_LOCAL_MACHINE,
+                r"HARDWARE\DESCRIPTION\System\CentralProcessor\0",
+            )
+            try:
+                value, _ = winreg.QueryValueEx(key, "ProcessorNameString")
+            finally:
+                winreg.CloseKey(key)
+            if value:
+                return str(value).strip()
+        else:
+            out = subprocess.run(
+                ["lscpu"], capture_output=True, text=True, check=False
+            ).stdout
+            for line in out.splitlines():
+                if line.strip().startswith("Model name:"):
+                    return line.split(":", 1)[1].strip()
     except Exception:  # pragma: no cover - best effort
         pass
-    return platform.processor() or "unknown"
+    # platform.machine() is the more useful of the two on macOS/Windows, where
+    # platform.processor() is often "arm" or "".
+    return platform.processor() or platform.machine() or "unknown"
 
 
 def _pkg_version(name: str) -> str:

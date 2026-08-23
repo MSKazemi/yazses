@@ -1,0 +1,163 @@
+name: Benchmarks
+
+# Manual only. The harness downloads 346 MB of LibriSpeech, fetches Whisper
+# checkpoints, and decodes hundreds of utterances -- tens of minutes per runner.
+# Running that on every push would spend most of this repository's CI time
+# re-measuring numbers that only change when the models or the pipeline do.
+on:
+  workflow_dispatch:
+    inputs:
+      wer_n:
+        description: "Utterances for the WER/RTF bench (LibriSpeech test-clean, speaker-stratified)"
+        default: "100"
+      lat_n:
+        description: "Utterances for the latency bench"
+        default: "20"
+      vad_n:
+        description: "Clips for the VAD bench"
+        default: "200"
+      stream_n:
+        description: "Utterances for the streaming bench (fed at real time -- the slowest per utterance)"
+        default: "10"
+
+# Least privilege: this workflow measures and uploads an artifact. It never
+# commits results back. A benchmark that can write to the repository is a
+# benchmark that can silently rewrite a published number, and
+# tests/test_benchmarks_match_results.py exists precisely so that docs/benchmarks.md
+# and paper/results/*.json can only be moved together, by a person.
+permissions:
+  contents: read
+
+env:
+  # One cache location on every OS, so the cache key below means the same thing
+  # on Windows as on Linux. faster-whisper fetches through huggingface_hub, which
+  # honours HF_HOME.
+  HF_HOME: ${{ github.workspace }}/.hf-cache
+
+jobs:
+  bench:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    # macOS/Windows runners are free on a public repository, so the whole matrix
+    # costs nothing but wall clock.
+    timeout-minutes: 150
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            label: Linux x86_64
+            experimental: false
+          # arm64 Linux: free and unlimited on public repositories, and the
+          # architecture the .deb, snap and docker image all ship for without a
+          # single published number behind them. Non-blocking until it has run
+          # once -- the benches have never executed on the architecture either.
+          - os: ubuntu-24.04-arm
+            label: Linux arm64
+            experimental: true
+          - os: macos-latest
+            label: macOS arm64 (Apple silicon)
+            experimental: false
+          # The first execution of ANY kind on this image in this repository --
+          # build-macos.yml notes it "has never run here". It is also the last
+          # Intel macOS image GitHub offers (ADR-017), so its numbers have a
+          # deadline that is not ours. Non-blocking for both reasons.
+          - os: macos-15-intel
+            label: macOS x86_64 (Intel)
+            experimental: true
+          # Blocking, unlike the Intel leg: test.yml already runs a blocking
+          # windows-latest job, so Windows is a proven platform here and a red
+          # result is a finding rather than noise. Hiding it behind
+          # continue-on-error would discard the thing this workflow exists to find.
+          - os: windows-latest
+            label: Windows x86_64
+            experimental: false
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        # sounddevice dlopen's PortAudio at import time, and the audio benches
+        # import the shipping audio modules rather than reimplementing them.
+        run: sudo apt-get update && sudo apt-get install -y libportaudio2
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: uv sync --group benchmark
+
+      - name: Cache LibriSpeech test-clean
+        id: cache-librispeech
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: paper/data/LibriSpeech
+          # The corpus is immutable (OpenSLR resource 12, Panayotov et al. 2015),
+          # so the key names the artefact and never needs invalidating.
+          key: librispeech-test-clean-v1
+
+      - name: Download LibriSpeech test-clean
+        if: steps.cache-librispeech.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p paper/data
+          cd paper/data
+          curl -fsSL -O https://www.openslr.org/resources/12/test-clean.tar.gz
+          # bsdtar ships with the Windows runner image, so one command covers all
+          # four legs.
+          tar -xzf test-clean.tar.gz
+          rm -f test-clean.tar.gz
+
+      - name: Cache Whisper checkpoints
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .hf-cache
+          key: hf-cache-${{ runner.os }}-${{ runner.arch }}-v1
+
+      - name: Corpus is actually present
+        # librispeech_subset() raises a clear FileNotFoundError, but it does so
+        # deep inside a 40-minute job. Fail in five seconds instead, and say what
+        # the harness will be measuring on.
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d paper/data/LibriSpeech/test-clean
+          echo "speakers: $(ls paper/data/LibriSpeech/test-clean | wc -l)"
+          echo "flac    : $(find paper/data/LibriSpeech/test-clean -name '*.flac' | wc -l)"
+
+      - name: Run the benchmark suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run python paper/benchmark/run_all.py \
+            --wer-n "${{ inputs.wer_n }}" \
+            --lat-n "${{ inputs.lat_n }}" \
+            --vad-n "${{ inputs.vad_n }}" \
+            --stream-n "${{ inputs.stream_n }}"
+
+      - name: Show the provenance this run stamped
+        # The whole point of the cross-machine matrix. WER and DER are properties
+        # of the model and are comparable across hosts; latency and RTF are
+        # properties of the machine and must never be merged into one table --
+        # so every number has to arrive naming the host that produced it.
+        shell: bash
+        run: |
+          uv run python -c "
+          import json, pathlib
+          p = pathlib.Path('paper/results/index.json')
+          prov = json.loads(p.read_text())['provenance']
+          for k, v in prov.items():
+              print(f'{k:16}: {v}')
+          "
+
+      - name: Upload results
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: results-${{ matrix.os }}
+          path: paper/results/*.json
+          if-no-files-found: error

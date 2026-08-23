@@ -8,6 +8,86 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The `voiceprint-resemblyzer` extra installed and then could not import, and the
+  daemon reported it as available while doing so.** Resemblyzer requires
+  `webrtcvad>=2.0.10`, whose first line is `import pkg_resources`; setuptools no
+  longer ships that package (83.0.0 has none), so `from resemblyzer import
+  VoiceEncoder` raises `ModuleNotFoundError` on any current environment. The extra
+  now pins `setuptools<81` — upstream's own advice, worded that way in the
+  deprecation warning — rather than the maintained `webrtcvad-wheels` fork, which
+  would put a second distribution in charge of the `webrtcvad` module name alongside
+  the one Resemblyzer pulls in by name.
+
+  The message the user actually saw was worse than the failure: *"Voiceprint backend
+  'resemblyzer' unavailable: backend 'resemblyzer' is available."* — a sentence that
+  contradicts itself and discards the exception, which was the only text naming a
+  cause. `voiceprint/factory.py` pasted `probe_backend`'s verdict onto an
+  "unavailable:" prefix without checking whether the probe had anything to say, and
+  the probe answers from `importlib.util.find_spec`, which reports whether a package
+  sits on disk and never whether importing it works. `recimport/factory.py` already
+  guards this exact case and explains it in a comment; the two were written from the
+  same shape and only one got the fix.
+
+- **A test's verdict depended on whether an optional dependency happened to be
+  installed.** `tests/test_emg_pressure.py`'s fake board serves a single row of
+  samples, but `BrainFlowSource._emg_channels` asks the real `BoardShim` for the
+  channel map and only falls back to "all rows" when the import fails — and board
+  -1 reports rows 1..16, every one past the end of a 1-row array, so `_consume`
+  returned before the detector saw a sample. Green wherever `brainflow` is absent
+  (every CI runner), red wherever it is present. The fake now pins the channel map
+  it was built for. Two tests in `tests/test_backend_availability.py` had the
+  mirror-image problem — they assert the message shown when an extra is *missing*
+  and read that state off the machine instead of setting it — and now force it.
+
+  All three were found by building a `uv sync --all-extras` box, which no CI job
+  does, and running the suite on it.
+
+- **Cache-first model loading left offline mode switched on, so Parakeet could
+  never download.** `system/hfcache.py` forbids hub requests for the duration of a
+  model load, setting both `HF_HUB_OFFLINE` in the environment and
+  `huggingface_hub.constants.HF_HUB_OFFLINE` — because either alone is a silent
+  no-op. Restoring only ever undid the second, through a module reference captured
+  *before* the window opened. That reference is `None` in exactly the case the
+  module exists to serve: its three callers (`onnx_asr`, speechbrain, pyannote) are
+  lazy optional extras, so they import `huggingface_hub` for the first time *inside*
+  the window, where it initialises its constant from the variable just set. The
+  restore then ran through a stale `None` and the constant stayed `True` for the
+  remaining life of the process.
+
+  Everything after it was silently offline, starting with `load_cache_first`'s own
+  retry-online fallback — the half that makes a *first* run work. So on a machine
+  without the checkpoint already cached, `yazses features enable stt-parakeet`
+  appeared to succeed and dictation kept running on faster-whisper: the cache miss
+  was correct, the retry was already offline, and `build_engine` fell back with only
+  a log line. faster-whisper hid it for the default engine, which is why it went
+  unnoticed — it imports `huggingface_hub` at module scope, so for Whisper the
+  constant was always already present and the original restore path was correct.
+  `sys.modules` is now re-read on exit, and a hub that appeared during the window is
+  restored from the environment as the library itself would compute it.
+
+- **The `diarization` extra installed sherpa-onnx without its native libraries.**
+  sherpa-onnx ships as two distributions: `sherpa-onnx` holds the Python bindings,
+  `sherpa-onnx-core` holds `libonnxruntime.so` and the two sherpa `.so` files they
+  link against. That dependency is declared in the wheel's `METADATA` and **not** in
+  the sdist's `PKG-INFO`, and the resolver took the sdist's view while installing the
+  wheel — so `uv.lock` recorded `sherpa-onnx` with no dependencies at all and
+  `sherpa-onnx-core` appeared nowhere in it. `uv sync --extra diarization` therefore
+  installed bindings with no runtime under them on every platform, and
+  `import sherpa_onnx` raised `ImportError: libonnxruntime.so: cannot open shared
+  object file`. `yazses features enable meeting` installed the same broken pair.
+
+  Two layers hid it. `recimport.factory.build_diarizer` catches the failure and
+  degrades to an unattributed transcript, which is the right behaviour for a meeting
+  in progress but leaves only a log line. And `diarization_status` decides "the extra
+  is installed" with `importlib.util.find_spec`, which answers *is it on disk*, not
+  *can it import* — it found the package, reported ready, and so `meeting start`'s
+  warning, whose whole purpose is that there is never a silent un-attributed
+  transcript, stayed silent. No CI job installs this extra, so nothing exercised the
+  combination. `sherpa-onnx-core` is now named explicitly in the extras and in
+  `_FEATURE_DEPS`, the floor moves to 1.13.6, and
+  `tests/test_diarization_extra_ships_its_runtime.py` guards both statically so it
+  fails on every platform whether or not the extra is installed.
+
 - **Windows: config writes used the locale code page, so one accent broke them.**
   Python's default text encoding is the locale code page — UTF-8 on Linux and macOS,
   **cp1252 on Windows**. `system/configedit.py`, the comment-preserving writer behind

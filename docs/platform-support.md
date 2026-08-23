@@ -60,6 +60,17 @@ fails the build in either direction.
 measured, and the measurement is worth stating because it changes what you should
 install:
 
+- **The test suite now runs on aarch64, and until recently never had.** Every row
+  above shipped on the strength of the code being pure Python; nothing had executed
+  a single test on the architecture. It has now been run on an aarch64 Linux box —
+  **12029 passed, 42 skipped, exit 0, identical to the x86_64 result**, with no
+  arm64-specific failure of any kind. A leg on GitHub's free `ubuntu-24.04-arm`
+  runner keeps it that way rather than leaving it a one-off. One genuine
+  architectural difference surfaced and is harmless: CTranslate2 offers
+  `{int8, float32, int8_float32}` on aarch64 against four types on x86_64 (`int16`
+  is absent), and the settings window derives its list from CTranslate2 at runtime,
+  so it already adapts.
+
 - **The snap is on `stable` for arm64**, not edge-only. The Snap Store API answers
   `stable arm64` directly — the command is in [Verifying this page](#verifying-this-page-yourself).
   What *is* true is that the whole snap, both architectures, sits two releases
