@@ -151,8 +151,55 @@ def test_identical_text_needs_every_digest_to_agree(mod):
     assert out["n_utterances_ever_differing"] == 0
 
 
-def test_the_three_arms_are_the_ones_the_docstring_names(mod):
-    assert list(mod.ARMS) == ["baseline", "greedy", "greedy_no_context"]
+def test_the_four_arms_are_the_ones_the_docstring_names(mod):
+    assert list(mod.ARMS) == ["baseline", "greedy", "greedy_no_context", "no_context"]
     assert mod.ARMS["baseline"] == {}, "the control must go through the same wrapper"
     assert mod.ARMS["greedy"] == {"temperature": 0.0}
     assert mod.ARMS["greedy_no_context"]["condition_on_previous_text"] is False
+
+
+def test_the_two_factors_are_crossed(mod):
+    """The arms must be a 2x2 over (fallback, conditioning), not three ad-hoc settings.
+
+    Without `no_context` the design confounds them: `greedy_no_context` changes both
+    knobs at once, so any difference it shows cannot be attributed to either. The fourth
+    arm is what turns the comparison into something that can name a cause.
+    """
+    def cell(a):
+        e = mod.ARMS[a]
+        return (e.get("temperature") == 0.0, e.get("condition_on_previous_text") is False)
+
+    assert {cell(a) for a in mod.ARMS} == {(False, False), (True, False),
+                                          (True, True), (False, True)}
+
+
+def test_an_arm_subset_is_filed_under_its_own_name(mod, tmp_path, monkeypatch):
+    """A single-arm re-run must never overwrite the completed multi-arm measurement.
+
+    `write_result` files a changed artifact's predecessor under `history/`, so reusing
+    the name would retire the three-arm result and leave a one-arm payload standing as
+    the current one -- the archive doing the opposite of what it exists for.
+    """
+    names = []
+    monkeypatch.setattr(mod, "run", lambda *a, **k: {"arms": {}})
+    monkeypatch.setattr(mod, "write_result", lambda name, payload: names.append(name) or "x")
+    monkeypatch.setattr(mod, "RESULTS_DIR", tmp_path)
+    monkeypatch.setattr(mod.sys, "argv", ["p", "5", "test-other", "200", "large-v3", "no_context"])
+    mod.main()
+    assert names == ["probes/decode-determinism-large-v3-test-other-no_context"]
+
+
+def test_the_full_run_keeps_the_unsuffixed_name(mod, tmp_path, monkeypatch):
+    names = []
+    monkeypatch.setattr(mod, "run", lambda *a, **k: {"arms": {}})
+    monkeypatch.setattr(mod, "write_result", lambda name, payload: names.append(name) or "x")
+    monkeypatch.setattr(mod, "RESULTS_DIR", tmp_path)
+    monkeypatch.setattr(mod.sys, "argv", ["p", "5", "test-other", "200", "large-v3"])
+    mod.main()
+    assert names == ["probes/decode-determinism-large-v3-test-other"]
+
+
+def test_an_unknown_arm_is_refused_rather_than_silently_running_nothing(mod):
+    """A typo must not decode zero utterances and write an empty artifact."""
+    with pytest.raises(SystemExit, match="no such arm"):
+        mod.run(1, "test-other", 1, "tiny.en", only=["greedy_no_ctx"])

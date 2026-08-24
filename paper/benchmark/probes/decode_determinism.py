@@ -14,6 +14,15 @@ tests the thing a user actually cares about, which is not the same question:
   A  baseline            what ships today: faster-whisper's defaults, fallback ladder on
   B  no fallback         temperature=0.0 -- one greedy pass, no sampled rescue
   C  no fallback, no ctx  temperature=0.0 and condition_on_previous_text=False
+  D  no ctx              condition_on_previous_text=False, fallback ladder left ON
+
+Arm D was added after A-C ran, because A-C between them do not contain the setting
+YazSes would actually ship. Conditioning is the *cause* of the repetition loops the
+fallback exists to rescue -- B and C differ in nothing else, and B emits 466 insertions
+where C emits 40 -- so the interesting change removes the cause and keeps the safety
+net. C removes both at once and cannot say whether the net is still earning anything.
+D is also the one arm whose determinism is genuinely open: it keeps the sampled rescue,
+so it is reproducible only if, with conditioning off, the fallback never fires at all.
 
 **This is a product question before it is a paper question.** YazSes types its output
 into the user's document. A dictation daemon that emits a different sentence each time
@@ -69,6 +78,7 @@ ARMS: dict[str, dict] = {
     "baseline": {},
     "greedy": {"temperature": 0.0},
     "greedy_no_context": {"temperature": 0.0, "condition_on_previous_text": False},
+    "no_context": {"condition_on_previous_text": False},
 }
 
 
@@ -131,7 +141,10 @@ def _digest(hyps: list[str]) -> str:
     return hashlib.sha256("\n".join(hyps).encode("utf-8")).hexdigest()[:16]
 
 
-def run(repeats: int, split: str, n: int, model: str, on_arm=None) -> dict:
+def run(repeats: int, split: str, n: int, model: str, on_arm=None, only=None) -> dict:
+    arms = {k: v for k, v in ARMS.items() if only is None or k in only}
+    if not arms:
+        raise SystemExit(f"no such arm; known arms are {', '.join(ARMS)}")
     subset = librispeech_subset(n, stratified=True, split=split)
     refs = [bench_wer._normalize(ref) for _, _, ref, _ in subset]
     ids = [utt_id for utt_id, _, _, _ in subset]
@@ -143,13 +156,13 @@ def run(repeats: int, split: str, n: int, model: str, on_arm=None) -> dict:
             "n_utterances": len(subset),
             "model": model,
             "repeats": repeats,
-            "arms": {k: (v or "faster-whisper defaults") for k, v in ARMS.items()},
+            "arms": {k: (v or "faster-whisper defaults") for k, v in arms.items()},
             "normalizer": "whisper_normalizer.english.EnglishTextNormalizer",
         },
         "arms": {},
     }
 
-    for arm, extra in ARMS.items():
+    for arm, extra in arms.items():
         runs = []
         first_hyps: list[str] | None = None
         for r in range(repeats):
@@ -222,7 +235,14 @@ def main() -> None:
     split = sys.argv[2] if len(sys.argv) > 2 else "test-other"
     n = int(sys.argv[3]) if len(sys.argv) > 3 else 200
     model = sys.argv[4] if len(sys.argv) > 4 else "large-v3"
-    name = f"probes/decode-determinism-{model}-{split}"
+    # A comma-separated arm list writes a *separately named* artifact. Filing a
+    # single-arm run under the three-arm name would let `write_result` move the
+    # complete measurement into `history/` and leave the partial one standing as
+    # the current result -- a re-run destroying evidence, which is the failure the
+    # non-destructive archive was built to prevent.
+    only = sys.argv[5].split(",") if len(sys.argv) > 5 else None
+    suffix = f"-{'-'.join(only)}" if only else ""
+    name = f"probes/decode-determinism-{model}-{split}{suffix}"
     # The checkpoint is written *beside* the archive, not through `write_result`, and
     # deliberately: `write_result` files any change to an existing artifact under
     # `results/history/` so that a re-run can never destroy a measurement. Routing three
@@ -236,7 +256,7 @@ def main() -> None:
         partial.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         print(f"[det] checkpoint -> {partial} ({len(payload['arms'])} arms)", flush=True)
 
-    payload = run(repeats, split, n, model, on_arm=checkpoint)
+    payload = run(repeats, split, n, model, on_arm=checkpoint, only=only)
     print(f"wrote {write_result(name, payload)}", flush=True)
     partial.unlink(missing_ok=True)
 

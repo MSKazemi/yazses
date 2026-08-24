@@ -177,5 +177,10 @@ def test_concentration_does_not_divide_by_zero_when_nothing_improved():
 
 
 def test_the_arms_are_the_ones_the_determinism_probe_settled():
-    """The comparison is only meaningful against the arms already shown deterministic."""
-    assert set(mod.ARMS) == {"baseline", "greedy", "greedy_no_context"}
+    """The per-utterance comparison must cover every arm the determinism probe defines.
+
+    Pinned as an equality rather than a subset: a fifth arm added there and not scored
+    here would leave the shipping decision resting on a comparison that silently omits
+    a candidate.
+    """
+    assert set(mod.ARMS) == {"baseline", "greedy", "greedy_no_context", "no_context"}
