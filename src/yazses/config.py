@@ -95,6 +95,14 @@ class SttConfig:
     # 5.70%, medium.en identical output byte for byte, large-v3 4.84-6.21% against
     # 3.82%. So it is a size rule, not a preference -- leave it alone on base.en and
     # small.en, it changes nothing on medium.en, set it false on large-v3 and above.
+    #
+    # medium.en's zero is the strongest cell in the ladder and the only one that
+    # needed no statistics: 20 decodes over both splits -- 5 per arm on test-other
+    # at 5.51% and 5 per arm on test-clean at 3.28% -- produced a single distinct
+    # hypothesis set per split, so the two arms are not merely equal on average,
+    # they are the same text. That is why the rule above is stated as a threshold
+    # rather than a trend: the effect does not shrink toward zero at medium.en, it
+    # is exactly zero there, and only reappears with the opposite sign on large-v3.
     condition_on_previous_text: bool = True
     # Optional vocabulary/context primed into Whisper as initial_prompt. Helps it
     # spell domain terms and proper nouns it otherwise mis-transcribes. `yazses
