@@ -93,6 +93,16 @@ those; do not run them. `largev3_repeat.py` is the exception and is meant to be 
 (`python paper/benchmark/probes/largev3_repeat.py 4 test-other 200`): it needs only
 LibriSpeech, which downloads itself.
 
+`decode_determinism.py` is the other, and it is the follow-up: `largev3_repeat.py`
+established that only the insertions move, and this tests *why* and *whether it can be
+turned off*, by running the same 200 utterances through three decode settings -- what
+ships, `temperature=0.0`, and `temperature=0.0` with `condition_on_previous_text=False`
+-- five times each. It records a SHA-256 of each run's concatenated hypotheses, because
+two runs that trade one insertion for another score the same WER and are not the same
+text, and the ids of the utterances that differ, because a spread says the model is
+noisy while a list of ids says where. Run it as
+`python paper/benchmark/probes/decode_determinism.py 5 test-other 200 large-v3`.
+
 Its first result is `largev3-instability-test-other.json`, and it is the one number on
 this page worth re-deriving yourself, because it is a claim about *variance*. Across
 five decodes of the same 200 utterances the substitutions (87), deletions (15) and hits
