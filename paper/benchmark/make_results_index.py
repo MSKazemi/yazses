@@ -36,6 +36,7 @@ MEASURES = {
     "latency": "decode P50/P95, cold start, RSS, per-stage timings",
     "meta": "dysfluency gate, model footprint, engineering scale",
     "onset": "first-word accuracy against the silence lead-in",
+    "platform": "which install targets resolve, per OS and instruction set",
     "plausibility": "how often the implausible-attribution warning fires",
     "streaming": "partial-hypothesis latency and rewrite rate",
     "vad": "speech detection and silence rejection at the default threshold",
@@ -43,12 +44,31 @@ MEASURES = {
 }
 
 
+#: Suffixes that mark a file as an *analysis of* a measurement rather than a
+#: measurement. Seven of the twenty-five harness artifacts are these, and the prefix
+#: match below described every one of them as the grid it re-reads: a paired bootstrap
+#: over utterances was listed as "WER and RTF across `[stt] beam_size`", which is what
+#: the grid file says, so the manifest asserted that the same thing had been measured
+#: twice. `paper/results/README.md` warns about exactly this glob -- the warning was
+#: written because the confusion had already happened once, by hand.
+ANALYSES = {
+    "significance": (
+        "paired bootstrap over the same utterances -- an analysis of the grid file of "
+        "the same name, not a second measurement"
+    ),
+}
+
+
 def _describe(name: str) -> str:
     stem = name.split(".")[0]
+    analysis = next(
+        (ANALYSES[a] for a in ANALYSES if stem.endswith(f"-{a}") or f"-{a}-" in stem),
+        "",
+    )
     for key in sorted(MEASURES, key=len, reverse=True):
         if stem == key or stem.startswith(f"{key}-") or stem.startswith(f"{key}_"):
-            return MEASURES[key]
-    return ""
+            return f"{analysis} ({MEASURES[key]})" if analysis else MEASURES[key]
+    return analysis
 
 
 def _machine(prov: dict) -> str:
@@ -78,6 +98,7 @@ def rows(results: Path = RESULTS) -> list[dict]:
             "machine": _machine(prov),
             "when": prov.get("timestamp", ""),
             "yazses": prov.get("yazses", ""),
+            "command": prov.get("argv", ""),
             "produced_by": probe.get("produced_by", ""),
             "superseded_by": probe.get("superseded_by", ""),
         })
@@ -111,11 +132,20 @@ def render(entries: list[dict]) -> str:
         "",
         "Written by a committed `paper/benchmark/bench_*.py` and reproducible by re-running it.",
         "",
-        "| File | Measures | Machine | Taken | YazSes |",
-        "|---|---|---|---|---|",
+        "**The `Command` column is how you re-run one.** A row that shows `\u2014` predates the",
+        "field: `_common.write_result` stamps it now, so re-running that benchmark fills it",
+        "in. The arguments are not decoration -- `bench_wer.py` writes one filename for",
+        "`200 test-clean` and for `500 test-other`, and `bench_beam.py` writes one for the",
+        "`base.en` grid and the `tiny.en` grid whose disagreement decided ADR-v2-073.",
+        "",
+        "| File | Measures | Command | Machine | Taken | YazSes |",
+        "|---|---|---|---|---|---|",
     ]
     for e in harness:
-        lines.append(f"| `{e['path']}` | {e['measures']} | {e['machine']} | {e['when']} | {e['yazses']} |")
+        cmd = f"`{e['command']}`" if e["command"] else "\u2014"
+        lines.append(
+            f"| `{e['path']}` | {e['measures']} | {cmd} | {e['machine']} | {e['when']} | {e['yazses']} |"
+        )
 
     if probes:
         lines += [

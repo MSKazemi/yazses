@@ -127,6 +127,62 @@ class Provenance:
     load_average_1m: float
     compute_type: str = "int8"
     device: str = "cpu"
+    #: The command line this artifact was produced by, redacted.
+    #:
+    #: The archive claimed to be reproducible while recording, for every one of its
+    #: eighty-three files, the *script* and never its arguments -- and the arguments
+    #: are what decide the numbers. `bench_wer.py` writes the same filename for
+    #: `200 test-clean` and `500 test-other`; `bench_beam.py` writes it for
+    #: `--grid=base.en:1,2,5` and for `--grid=tiny.en:1,2,5`, which is the pair whose
+    #: disagreement decided ADR-v2-073; `bench_diarization.py` writes it with and
+    #: without `--max-speakers 4`, the difference the AMI table turns on. A reader
+    #: told only the script name cannot re-run any of them, so "reproduce it from the
+    #: harness" was an instruction that could not be followed.
+    argv: str = ""
+
+
+def _redact(text: str) -> str:
+    """Strip the home directory and the login name out of a command line.
+
+    Everything in `paper/results/` is published, and
+    `tests/test_benchmark_results_are_archived.py` fails the build on `/home/<name>`,
+    `/Users/<name>` or a bare login. The benchmarks were run on rented boxes where the
+    corpus path began with the home directory every time, so the argv this records
+    would carry one into git history on its first use if it were stored raw -- the
+    exact leak that guard exists to prevent, arriving through a new door.
+
+    Order matters: the real `$HOME` is replaced first so that a path *under* it keeps
+    its tail (`$HOME/ami16_corpus`), and only then is the generic form applied to a
+    path belonging to some other account.
+    """
+    import re
+
+    home = os.path.expanduser("~")
+    if home and home != "/":
+        text = text.replace(home, "$HOME")
+    text = re.sub(r"/home/[A-Za-z0-9_.-]+", "$HOME", text)
+    text = re.sub(r"/Users/[A-Za-z0-9_.-]+", "$HOME", text)
+    text = re.sub(r"[Cc]:\\+Users\\+[A-Za-z0-9_.-]+", "$HOME", text)
+    user = os.environ.get("USER") or os.environ.get("USERNAME") or ""
+    if len(user) > 2:
+        text = re.sub(rf"\b{re.escape(user)}\b", "$USER", text)
+    return text
+
+
+def _argv() -> str:
+    """This process's command line, shortened to the repository and redacted.
+
+    `sys.argv[0]` is an absolute path to the script; the useful form is the one a
+    reader can paste, which is the path relative to the repository root.
+    """
+    import shlex
+
+    argv = list(sys.argv) or [""]
+    try:
+        argv[0] = Path(argv[0]).resolve().relative_to(REPO_ROOT).as_posix()
+    except Exception:
+        argv[0] = Path(argv[0]).name
+    return _redact(shlex.join(argv))
 
 
 def provenance(timestamp: str) -> dict:
@@ -146,6 +202,7 @@ def provenance(timestamp: str) -> dict:
         ctranslate2=_pkg_version("ctranslate2"),
         omp_num_threads=os.environ.get("OMP_NUM_THREADS", "unset"),
         load_average_1m=_load_average(),
+        argv=_argv(),
     )
     return asdict(p)
 
@@ -288,6 +345,17 @@ def write_result(name: str, payload: dict) -> Path:
             "provenance": provenance(time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())),
             **payload,
         }
+    else:
+        # `run_all.py` attaches a *shared* block so every file in one sweep names the
+        # same machine and the same instant, and that is the right thing for the
+        # machine half. The command line is not shared in the same way -- it is a fact
+        # about this process, and stamping it only on the branch above would have left
+        # every sweep-written artifact without the one field that says how to re-run
+        # it. Filled in rather than overwritten, so a caller that already recorded a
+        # more precise command keeps it.
+        prov = payload["provenance"]
+        if isinstance(prov, dict) and not prov.get("argv"):
+            payload = {**payload, "provenance": {**prov, "argv": _argv()}}
     path = RESULTS_DIR / f"{name}.json"
     text = json.dumps(payload, indent=2, sort_keys=False)
     _archive_previous(path, text)

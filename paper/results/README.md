@@ -30,11 +30,23 @@ on a file without it.
   "logical_cpus": 20, "ram_gb": 33.3,
   "os": "Ubuntu 24.04.4 LTS", "kernel": "7.0.0-28-generic",
   "python": "3.12.3", "faster_whisper": "1.2.1", "yazses": "2.12.0.dev4",
-  "ctranslate2": "...", "omp_num_threads": "unset", "load_average_1m": 0.4
+  "ctranslate2": "...", "omp_num_threads": "unset", "load_average_1m": 0.4,
+  "argv": "paper/benchmark/bench_beam.py --grid=tiny.en:1,2,5 --split=test-clean"
 }
 ```
 
-Three rules for using these files, each learned the expensive way:
+`argv` is **how you re-run it**, and it is newer than most of this directory — a file
+without one was written before the field existed, and re-running that benchmark fills
+it in. It is here because the archive spent its first weeks recording the producing
+*script* and never its arguments, while the arguments are what decide the numbers:
+`bench_wer.py` writes `wer.json` for `200 test-clean` and for `500 test-other`,
+`bench_beam.py` writes `beam-test-clean.json` for the `base.en` grid and for the
+`tiny.en` grid whose disagreement decided ADR-v2-073, and `bench_diarization.py` writes
+one filename with and without `--max-speakers`. Home directories and login names are
+replaced (`$HOME`, `$USER`) before the field is stored, because this is the one part of
+provenance copied from a path a person typed.
+
+Four rules for using these files, each learned the expensive way:
 
 * **Latency and RTF are properties of the machine.** Merging timings from two hosts
   into one table is a defect, not a summary. Read the `cpu_model` and the
@@ -44,6 +56,11 @@ Three rules for using these files, each learned the expensive way:
   CTranslate2's int8 reduction order depends on the ISA and the thread count, so
   `tiny.en` moved 4.78 → 4.95 % across thread counts on one laptop while `base.en` and
   `small.en` did not move at all. A tenth of a point between two hosts is not a finding.
+* **A `-significance` file is an analysis, not a second measurement.** It re-reads the
+  grid file of the same name and puts a paired-bootstrap interval on a gap; it decodes
+  nothing. Counting it as evidence counts the same utterances twice — which the
+  generated `MANIFEST.md` invited for as long as it described both files with the same
+  sentence.
 * **Check `failed` before treating a matrix as complete.** An engine that dies part-way
   is recorded there and given no score, because a WER over the utterances it survived
   is a number for an engine that does not work.

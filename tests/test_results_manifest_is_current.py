@@ -87,3 +87,70 @@ def test_a_cpu_name_is_not_mangled(gen) -> None:
     field stops trusting the rest of the table."""
     machines = {r["machine"] for r in gen.rows()}
     assert not [m for m in machines if "Th Gen" in m or "(R)" in m or "(TM)" in m], machines
+
+
+# --------------------------------------------------------------------------------
+# An analysis is not a measurement, and the manifest must not say it is.
+# --------------------------------------------------------------------------------
+#
+# `_describe` matched by *prefix* over `MEASURES`, so every `*-significance*.json` --
+# seven of the twenty-five harness artifacts -- was described as the grid it re-reads:
+# "WER and RTF across `[stt] beam_size`". A reader counting rows would have concluded
+# the beam grid was measured three times per split when it was measured once and
+# bootstrapped twice, and `paper/results/README.md` already carries a paragraph warning
+# about this exact confusion, written after it happened once by hand.
+#
+# Derived from the directory, not from a list of the seven: the next analysis suffix
+# added is covered the day the file lands.
+
+
+def _analysis_artifacts() -> list[str]:
+    return sorted(
+        p.name for p in RESULTS.glob("*.json")
+        if any(f"-{a}" in p.stem for a in ("significance",))
+    )
+
+
+def test_there_are_analysis_artifacts_to_check() -> None:
+    """Guard the guard: the check below iterates and passes on an empty archive."""
+    found = _analysis_artifacts()
+    assert len(found) >= 5, f"only {len(found)} analysis artifacts found: {found}"
+
+
+@pytest.mark.parametrize("name", _analysis_artifacts())
+def test_an_analysis_is_not_described_as_a_measurement(gen, name: str) -> None:
+    described = gen._describe(name)
+    assert "bootstrap" in described, (
+        f"{name} is a significance analysis of another file, and the manifest "
+        f"describes it as {described!r} -- the description of the grid it re-reads. "
+        "Two different files claiming the same measurement is how a reader "
+        "double-counts the evidence."
+    )
+
+
+def test_a_measurement_is_still_described_as_one(gen) -> None:
+    """The other direction: the analysis rule must not swallow the grid itself.
+
+    `beam-test-clean.json` and `beam-test-clean-significance.json` differ by a suffix,
+    and a substring test written slightly wrong labels both as bootstraps -- which
+    would lose the measurement rather than the analysis, the worse of the two.
+    """
+    assert "bootstrap" not in gen._describe("beam-test-clean.json")
+    assert "beam_size" in gen._describe("beam-test-clean.json")
+
+
+def test_every_harness_row_carries_a_description(gen) -> None:
+    """A blank `Measures` cell is an unlabelled number.
+
+    `platform-resolution.json` had one for as long as it existed: `MEASURES` is keyed
+    on the script stem and nobody added `platform` when the bench was written, so the
+    manifest listed the artifact and said nothing about it.
+    """
+    blank = [
+        p.name for p in RESULTS.glob("*.json") if not gen._describe(p.name)
+    ]
+    assert not blank, (
+        f"{blank} appear in MANIFEST.md with an empty Measures column. Add the script "
+        "stem to make_results_index.MEASURES; listing a number without saying what it "
+        "measures is the omission the manifest exists to close."
+    )

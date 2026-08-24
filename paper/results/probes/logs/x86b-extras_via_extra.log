@@ -1,0 +1,57 @@
+=== 2026-08-24T03:26:26Z installing THE EXTRAS, by name ===
+Resolved 143 packages in 58ms
+   Building yazses @ file://$HOME/yazses
+Downloading setuptools (1.0MiB)
+ Downloaded setuptools
+      Built yazses @ file://$HOME/yazses
+Prepared 2 packages in 370ms
+Uninstalled 2 packages in 3ms
+Installed 2 packages in 6ms
+ - setuptools==84.0.0
+ + setuptools==80.10.2
+ - yazses==2.29.0 (from file://$HOME/yazses)
+ + yazses==2.30.0 (from file://$HOME/yazses)
+rc_install=0
+=== versions ===
+pyannote.audio==4.0.7
+resemblyzer==0.1.4
+setuptools==80.10.2
+webrtcvad==2.0.10
+torch==2.13.0
+numpy==2.5.2
+=== does the import the extra exists to protect actually work? ===
+$HOME/yazses/.venv/lib/python3.12/site-packages/webrtcvad.py:1: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+  import pkg_resources
+resemblyzer imports OK
+=== the two gated tests ===
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.1.1, pluggy-1.6.0 -- $HOME/yazses/.venv/bin/python
+rootdir: $HOME/yazses
+configfile: pyproject.toml
+plugins: anyio-4.14.2, mock-3.15.1
+collecting ... collected 33 items / 31 deselected / 2 selected
+
+tests/test_shipped_backends.py::test_pyannote_adapter_call_binds_against_the_real_signature PASSED [ 50%]
+tests/test_shipped_backends.py::test_real_resemblyzer_returns_a_unit_vector_at_both_lengths PASSED [100%]
+
+=============================== warnings summary ===============================
+tests/test_shipped_backends.py::test_real_resemblyzer_returns_a_unit_vector_at_both_lengths
+  $HOME/yazses/.venv/lib/python3.12/site-packages/resemblyzer/audio.py:1: DeprecationWarning: Please import `binary_dilation` from the `scipy.ndimage` namespace; the `scipy.ndimage.morphology` namespace is deprecated and will be removed in SciPy 2.0.0.
+    from scipy.ndimage.morphology import binary_dilation
+
+tests/test_shipped_backends.py::test_real_resemblyzer_returns_a_unit_vector_at_both_lengths
+  $HOME/yazses/.venv/lib/python3.12/site-packages/webrtcvad.py:1: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+    import pkg_resources
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================= 2 passed, 31 deselected, 2 warnings in 4.44s =================
+=== the whole backends file ===
+    from scipy.ndimage.morphology import binary_dilation
+
+tests/test_shipped_backends.py::test_real_resemblyzer_returns_a_unit_vector_at_both_lengths
+  $HOME/yazses/.venv/lib/python3.12/site-packages/webrtcvad.py:1: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+    import pkg_resources
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+33 passed, 2 warnings in 3.84s
+EXTRAS_V2_DONE 2026-08-24T03:26:38Z

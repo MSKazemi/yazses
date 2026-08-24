@@ -14,33 +14,39 @@ a quarter when a second job shares the box.
 
 Written by a committed `paper/benchmark/bench_*.py` and reproducible by re-running it.
 
-| File | Measures | Machine | Taken | YazSes |
-|---|---|---|---|---|
-| `beam-governor-test-clean-significance-vs-beam2.json` | WER and RTF across `[stt] beam_size` | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T02:58:29Z | 2.29.0 |
-| `beam-governor-test-clean-significance.json` | WER and RTF across `[stt] beam_size` | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T02:58:29Z | 2.29.0 |
-| `beam-governor-test-clean.json` | WER and RTF across `[stt] beam_size` | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T02:58:29Z | 2.29.0 |
-| `beam-governor-test-other-significance-vs-beam2.json` | WER and RTF across `[stt] beam_size` | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T02:54:04Z | 2.29.0 |
-| `beam-governor-test-other-significance.json` | WER and RTF across `[stt] beam_size` | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T02:54:04Z | 2.29.0 |
-| `beam-governor-test-other.json` | WER and RTF across `[stt] beam_size` | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T02:54:04Z | 2.29.0 |
-| `beam-test-clean-significance-vs-beam2.json` | WER and RTF across `[stt] beam_size` | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T00:41:07Z | 2.29.0 |
-| `beam-test-clean-significance.json` | WER and RTF across `[stt] beam_size` | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T00:41:07Z | 2.29.0 |
-| `beam-test-clean.json` | WER and RTF across `[stt] beam_size` | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T00:41:07Z | 2.29.0 |
-| `beam-test-other-significance-vs-beam2.json` | WER and RTF across `[stt] beam_size` | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T00:51:03Z | 2.29.0 |
-| `beam-test-other-significance.json` | WER and RTF across `[stt] beam_size` | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T00:51:03Z | 2.29.0 |
-| `beam-test-other.json` | WER and RTF across `[stt] beam_size` | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T00:51:03Z | 2.29.0 |
-| `commands.json` | command-grammar accuracy and false-positive rate | 13th Gen Intel Core i7-1370P (20 vCPU) | 2026-07-30T20:47:09Z | 2.12.0.dev4 |
-| `diarization-ami16_corpus-der.json` | diarization DER, miss, false alarm, confusion | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T02:39:46Z | 2.29.0 |
-| `index.json` | roll-up written by `run_all.py` (a snapshot, superseded by the per-bench files) | 13th Gen Intel Core i7-1370P (20 vCPU) | 2026-07-30T21:17:57Z | 2.12.0.dev4 |
-| `latency.json` | decode P50/P95, cold start, RSS, per-stage timings | 13th Gen Intel Core i7-1370P (20 vCPU) | 2026-07-30T20:47:09Z | 2.12.0.dev4 |
-| `meta.json` | dysfluency gate, model footprint, engineering scale | 13th Gen Intel Core i7-1370P (20 vCPU) | 2026-07-30T20:47:09Z | 2.12.0.dev4 |
-| `onset-significance.json` | first-word accuracy against the silence lead-in | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-23T23:55:32Z | 2.29.0 |
-| `onset.json` | first-word accuracy against the silence lead-in | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-23T23:55:32Z | 2.29.0 |
-| `platform-resolution.json` |  | 13th Gen Intel Core i7-1370P (20 vCPU) | 2026-08-24T01:01:29Z | 2.30.0 |
-| `plausibility-ami-1.2.json` | how often the implausible-attribution warning fires | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-23T22:23:41Z | 2.29.0 |
-| `streaming.json` | partial-hypothesis latency and rewrite rate | 13th Gen Intel Core i7-1370P (20 vCPU) | 2026-08-23T22:40:38Z | 2.30.0 |
-| `vad.json` | speech detection and silence rejection at the default threshold | 13th Gen Intel Core i7-1370P (20 vCPU) | 2026-08-23T22:29:44Z | 2.30.0 |
-| `wer-test-other.json` | WER and RTF per engine and checkpoint | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-23T23:55:32Z | 2.29.0 |
-| `wer.json` | WER and RTF per engine and checkpoint | 13th Gen Intel Core i7-1370P (20 vCPU) | 2026-07-30T21:17:57Z | 2.12.0.dev4 |
+**The `Command` column is how you re-run one.** A row that shows `—` predates the
+field: `_common.write_result` stamps it now, so re-running that benchmark fills it
+in. The arguments are not decoration -- `bench_wer.py` writes one filename for
+`200 test-clean` and for `500 test-other`, and `bench_beam.py` writes one for the
+`base.en` grid and the `tiny.en` grid whose disagreement decided ADR-v2-073.
+
+| File | Measures | Command | Machine | Taken | YazSes |
+|---|---|---|---|---|---|
+| `beam-governor-test-clean-significance-vs-beam2.json` | paired bootstrap over the same utterances -- an analysis of the grid file of the same name, not a second measurement (WER and RTF across `[stt] beam_size`) | — | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T02:58:29Z | 2.29.0 |
+| `beam-governor-test-clean-significance.json` | paired bootstrap over the same utterances -- an analysis of the grid file of the same name, not a second measurement (WER and RTF across `[stt] beam_size`) | — | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T02:58:29Z | 2.29.0 |
+| `beam-governor-test-clean.json` | WER and RTF across `[stt] beam_size` | — | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T02:58:29Z | 2.29.0 |
+| `beam-governor-test-other-significance-vs-beam2.json` | paired bootstrap over the same utterances -- an analysis of the grid file of the same name, not a second measurement (WER and RTF across `[stt] beam_size`) | — | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T02:54:04Z | 2.29.0 |
+| `beam-governor-test-other-significance.json` | paired bootstrap over the same utterances -- an analysis of the grid file of the same name, not a second measurement (WER and RTF across `[stt] beam_size`) | — | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T02:54:04Z | 2.29.0 |
+| `beam-governor-test-other.json` | WER and RTF across `[stt] beam_size` | — | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T02:54:04Z | 2.29.0 |
+| `beam-test-clean-significance-vs-beam2.json` | paired bootstrap over the same utterances -- an analysis of the grid file of the same name, not a second measurement (WER and RTF across `[stt] beam_size`) | — | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T00:41:07Z | 2.29.0 |
+| `beam-test-clean-significance.json` | paired bootstrap over the same utterances -- an analysis of the grid file of the same name, not a second measurement (WER and RTF across `[stt] beam_size`) | — | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T00:41:07Z | 2.29.0 |
+| `beam-test-clean.json` | WER and RTF across `[stt] beam_size` | — | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T00:41:07Z | 2.29.0 |
+| `beam-test-other-significance-vs-beam2.json` | paired bootstrap over the same utterances -- an analysis of the grid file of the same name, not a second measurement (WER and RTF across `[stt] beam_size`) | — | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T00:51:03Z | 2.29.0 |
+| `beam-test-other-significance.json` | paired bootstrap over the same utterances -- an analysis of the grid file of the same name, not a second measurement (WER and RTF across `[stt] beam_size`) | — | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T00:51:03Z | 2.29.0 |
+| `beam-test-other.json` | WER and RTF across `[stt] beam_size` | — | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T00:51:03Z | 2.29.0 |
+| `commands.json` | command-grammar accuracy and false-positive rate | — | 13th Gen Intel Core i7-1370P (20 vCPU) | 2026-07-30T20:47:09Z | 2.12.0.dev4 |
+| `diarization-ami16_corpus-der.json` | diarization DER, miss, false alarm, confusion | — | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T02:39:46Z | 2.29.0 |
+| `index.json` | roll-up written by `run_all.py` (a snapshot, superseded by the per-bench files) | — | 13th Gen Intel Core i7-1370P (20 vCPU) | 2026-07-30T21:17:57Z | 2.12.0.dev4 |
+| `latency.json` | decode P50/P95, cold start, RSS, per-stage timings | — | 13th Gen Intel Core i7-1370P (20 vCPU) | 2026-07-30T20:47:09Z | 2.12.0.dev4 |
+| `meta.json` | dysfluency gate, model footprint, engineering scale | — | 13th Gen Intel Core i7-1370P (20 vCPU) | 2026-07-30T20:47:09Z | 2.12.0.dev4 |
+| `onset-significance.json` | paired bootstrap over the same utterances -- an analysis of the grid file of the same name, not a second measurement (first-word accuracy against the silence lead-in) | — | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-23T23:55:32Z | 2.29.0 |
+| `onset.json` | first-word accuracy against the silence lead-in | — | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-23T23:55:32Z | 2.29.0 |
+| `platform-resolution.json` | which install targets resolve, per OS and instruction set | — | 13th Gen Intel Core i7-1370P (20 vCPU) | 2026-08-24T01:01:29Z | 2.30.0 |
+| `plausibility-ami-1.2.json` | how often the implausible-attribution warning fires | — | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-23T22:23:41Z | 2.29.0 |
+| `streaming.json` | partial-hypothesis latency and rewrite rate | — | 13th Gen Intel Core i7-1370P (20 vCPU) | 2026-08-23T22:40:38Z | 2.30.0 |
+| `vad.json` | speech detection and silence rejection at the default threshold | — | 13th Gen Intel Core i7-1370P (20 vCPU) | 2026-08-23T22:29:44Z | 2.30.0 |
+| `wer-test-other.json` | WER and RTF per engine and checkpoint | — | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-23T23:55:32Z | 2.29.0 |
+| `wer.json` | WER and RTF per engine and checkpoint | — | 13th Gen Intel Core i7-1370P (20 vCPU) | 2026-07-30T21:17:57Z | 2.12.0.dev4 |
 
 ## Probes
 
@@ -132,4 +138,4 @@ than a redundant copy.
 
 | File | Measures | Machine | Taken |
 |---|---|---|---|
-| `history/platform-resolution-2026-08-24T01-00-23Z.json` |  | 13th Gen Intel Core i7-1370P (20 vCPU) | 2026-08-24T01:00:23Z |
+| `history/platform-resolution-2026-08-24T01-00-23Z.json` | which install targets resolve, per OS and instruction set | 13th Gen Intel Core i7-1370P (20 vCPU) | 2026-08-24T01:00:23Z |

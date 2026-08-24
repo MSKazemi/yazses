@@ -1,0 +1,84 @@
+=== 2026-08-24T03:21:42Z installing the two extras ===
+uv=$HOME/.local/bin/uv
+ + pyannote-database==6.1.1
+ + pyannote-metrics==4.1
+ + pyannote-pipeline==4.0.0
+ + pyannoteai-sdk==0.4.0
+ + pyparsing==3.3.2
+ + pytest==9.1.1
+ + pytest-mock==3.15.1
+ + python-dateutil==2.9.0.post0
+ + pytorch-lightning==2.6.5
+ + pytorch-metric-learning==2.9.0
+ + resemblyzer==0.1.4
+ + safetensors==0.8.0
+ + sortedcontainers==2.4.0
+ + sqlalchemy==2.0.52
+ + sympy==1.14.0
+ + torch==2.13.0
+ + torch-audiomentations==0.12.0
+ + torch-pitch-shift==1.2.5
+ + torchaudio==2.11.0
+ + torchcodec==0.16.0
+ + torchmetrics==1.9.0
+ + triton==3.7.1
+ + typing==3.10.0.0
+ + webrtcvad==2.0.10
+ + yarl==1.24.5
+rc_install=0
+=== versions ===
+pyannote.audio==4.0.7
+resemblyzer==0.1.4
+torch==2.13.0
+numpy==2.5.2
+=== the two gated tests, by name ===
+        """
+        from yazses.voiceprint.resemblyzer_backend import ResemblyzerEmbedder
+    
+>       embedder = ResemblyzerEmbedder(_VpCfg())
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_shipped_backends.py:534: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/yazses/voiceprint/resemblyzer_backend.py:61: in __init__
+    from resemblyzer import VoiceEncoder  # optional extra
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/resemblyzer/__init__.py:3: in <module>
+    from resemblyzer.audio import preprocess_wav, wav_to_mel_spectrogram, trim_long_silences, \
+.venv/lib/python3.12/site-packages/resemblyzer/audio.py:6: in <module>
+    import webrtcvad
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+>   import pkg_resources
+E   ModuleNotFoundError: No module named 'pkg_resources'
+
+.venv/lib/python3.12/site-packages/webrtcvad.py:1: ModuleNotFoundError
+=============================== warnings summary ===============================
+tests/test_shipped_backends.py::test_real_resemblyzer_returns_a_unit_vector_at_both_lengths
+  $HOME/yazses/.venv/lib/python3.12/site-packages/resemblyzer/audio.py:1: DeprecationWarning: Please import `binary_dilation` from the `scipy.ndimage` namespace; the `scipy.ndimage.morphology` namespace is deprecated and will be removed in SciPy 2.0.0.
+    from scipy.ndimage.morphology import binary_dilation
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_shipped_backends.py::test_real_resemblyzer_returns_a_unit_vector_at_both_lengths
+============ 1 failed, 1 passed, 31 deselected, 1 warning in 10.57s ============
+=== the whole file ===
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+>   import pkg_resources
+E   ModuleNotFoundError: No module named 'pkg_resources'
+
+.venv/lib/python3.12/site-packages/webrtcvad.py:1: ModuleNotFoundError
+=============================== warnings summary ===============================
+tests/test_shipped_backends.py::test_real_resemblyzer_returns_a_unit_vector_at_both_lengths
+  $HOME/yazses/.venv/lib/python3.12/site-packages/resemblyzer/audio.py:1: DeprecationWarning: Please import `binary_dilation` from the `scipy.ndimage` namespace; the `scipy.ndimage.morphology` namespace is deprecated and will be removed in SciPy 2.0.0.
+    from scipy.ndimage.morphology import binary_dilation
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_shipped_backends.py::test_real_resemblyzer_returns_a_unit_vector_at_both_lengths
+1 failed, 32 passed, 1 warning in 3.66s
+=== (the whole-suite run is omitted: only src/ and tests/ were synced to this box,
+     so twenty-one modules failed collection on paper/, contract/ and scripts/ being
+     absent. That is a property of the sync, not of the code, and publishing it as a
+     result would be publishing an artifact of how the box was prepared.) ===

@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from pathlib import Path
 
 import pytest
@@ -201,3 +202,99 @@ def test_the_separator_fold_does_not_merge_two_real_scripts() -> None:
     archive requirement and a missing result would go unreported."""
     keys = [_norm(p.name[len("bench_"):-len(".py")]) for p in HARNESS.glob("bench_*.py")]
     assert len(keys) == len(set(keys)), f"two bench scripts fold to one key: {sorted(keys)}"
+
+
+# --------------------------------------------------------------------------------
+# 5. Every new result records the command line that produced it.
+# --------------------------------------------------------------------------------
+#
+# The archive opened on the claim that a figure can be re-derived from the harness,
+# and recorded, for all eighty-three files, the *script* and never its arguments. The
+# arguments are the measurement: `bench_wer.py` writes `wer.json` for `200 test-clean`
+# and `500 test-other` alike, `bench_beam.py` writes `beam-test-clean.json` for the
+# `base.en` grid and for the `tiny.en` grid whose disagreement decided ADR-v2-073, and
+# `bench_diarization.py` writes one filename with and without `--max-speakers 4` -- the
+# difference the AMI table turns on. "Reproduce it from the harness" was an instruction
+# that could not be followed.
+#
+# Guarded in three parts, because each fails differently: the chokepoint stamps it, it
+# stamps it on the sweep path too, and what it stamps carries no home directory.
+
+#: Results taken before this predate the field and are exempt. A single constant with
+#: a stated meaning, and one that self-heals: re-running any of those benchmarks fills
+#: the field in and moves the artifact across the line. Not a hand-written list of the
+#: eighty-three exempt files -- a list is only complete on the day it is written, and
+#: its omissions are invisible, which is the failure this whole module exists to catch.
+ARGV_STAMPED_FROM = "2026-08-24T04:00:00Z"
+
+
+@pytest.fixture(scope="module")
+def common():
+    from tests.benchmark_deps import load
+
+    return load("_common", "_common.py")
+
+
+def test_the_chokepoint_stamps_the_command(common, tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(common, "RESULTS_DIR", tmp_path)
+    monkeypatch.setattr(sys, "argv", ["paper/benchmark/bench_beam.py", "--grid=tiny.en:1,2,5"])
+    path = common.write_result("argv-probe", {"result": {}})
+    prov = json.loads(path.read_text(encoding="utf-8"))["provenance"]
+    assert prov["argv"] == "paper/benchmark/bench_beam.py --grid=tiny.en:1,2,5"
+
+
+def test_the_sweep_path_is_stamped_too(common, tmp_path, monkeypatch) -> None:
+    """`run_all.py` attaches a shared provenance block, and the early return that
+    honoured it skipped the one field that is *not* shared across a sweep. Stamping
+    only the branch that builds a block would have left every sweep-written artifact
+    -- which is most of the archive -- without the field, and passed the test above."""
+    monkeypatch.setattr(common, "RESULTS_DIR", tmp_path)
+    monkeypatch.setattr(sys, "argv", ["paper/benchmark/run_all.py"])
+    shared = {"timestamp": "2026-08-24T05:00:00Z", "cpu_model": "x", "os": "y",
+              "python": "3.12.0", "yazses": "2.29.0"}
+    path = common.write_result("argv-sweep", {"provenance": dict(shared), "result": {}})
+    prov = json.loads(path.read_text(encoding="utf-8"))["provenance"]
+    assert prov["argv"] == "paper/benchmark/run_all.py"
+    # and the shared half is untouched -- the block says which machine, and this must
+    # not become a second thing that overwrites it.
+    assert prov["timestamp"] == shared["timestamp"]
+
+
+def test_a_caller_that_recorded_its_own_command_keeps_it(common, tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(common, "RESULTS_DIR", tmp_path)
+    monkeypatch.setattr(sys, "argv", ["paper/benchmark/run_all.py"])
+    prov_in = {"timestamp": "t", "argv": "something more precise"}
+    path = common.write_result("argv-keep", {"provenance": prov_in, "result": {}})
+    prov = json.loads(path.read_text(encoding="utf-8"))["provenance"]
+    assert prov["argv"] == "something more precise"
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "bench_diarization.py /home/azureuser/ami16_corpus out.json",
+        "bench_wer.py /Users/mohsen/data 200",
+    ],
+)
+def test_the_recorded_command_carries_no_home_directory(common, raw: str) -> None:
+    """The argv is the one field written from a *path the operator typed*, so it is the
+    likeliest new source of the leak check 2 above exists to catch -- and it would have
+    arrived through a door that check watches but this module's authors had not yet
+    pointed anything at."""
+    out = common._redact(raw)
+    hits = [m.group(0) for pat in IDENTIFIERS for m in [pat.search(out)] if m]
+    assert not hits, f"_redact left {hits} in {out!r}"
+    assert "$HOME" in out, f"the path was dropped rather than redacted: {out!r}"
+
+
+@pytest.mark.parametrize("path", _results(), ids=lambda p: p.name)
+def test_every_result_taken_since_the_cutover_records_its_command(path: Path) -> None:
+    prov = json.loads(path.read_text(encoding="utf-8")).get("provenance") or {}
+    when = prov.get("timestamp", "")
+    if not when or when < ARGV_STAMPED_FROM:
+        pytest.skip(f"taken {when or 'at an unrecorded time'}; predates the field")
+    assert prov.get("argv"), (
+        f"{path.name} was written after the command line became part of provenance and "
+        "carries none. It was produced by something that bypassed "
+        "`_common.write_result`, which is the only place that stamps it."
+    )

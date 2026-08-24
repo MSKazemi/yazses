@@ -56,7 +56,20 @@ the plan rather than as ten thousand progress dots. `*-bootstrap.log` **is** kep
 despite being an install log, because it is the record of what the two machines were
 actually built from and every timing on this page is a property of that build.
 
-**Two of these logs are the only surviving record of a measurement.** The `test-other`
+**Two of these logs are an A/B proof that a dependency pin is load-bearing.**
+`x86b-extras_bare_names.log` and `x86b-extras_via_extra.log` are the same two tests,
+on the same box, twenty minutes apart. The first installed `resemblyzer` by bare name
+and `test_real_resemblyzer_returns_a_unit_vector_at_both_lengths` died on
+`ModuleNotFoundError: No module named 'pkg_resources'`; the second installed
+`.[voiceprint-resemblyzer]`, whose `setuptools<81` pin exists for precisely that, and
+both tests passed. The passing run still carries upstream's own warning verbatim --
+"pin to Setuptools<81" -- which is where the pin came from. Both tests are gated on an
+optional extra no CI job installs, so neither had ever executed anywhere before this
+run; the pyannote one binds the adapter's call against the real
+`Pipeline.from_pretrained` signature and is what would catch a repeat of the 3.x
+`use_auth_token` → 4.x `token` rename.
+
+**Two other logs are the only surviving record of a measurement.** The `test-other`
 engine matrix was run twice on the same instance; the second run overwrote
 `../wer-test-other.json`, and it disagreed with the first by 2.83 points on `large-v3`.
 Run 1 therefore exists only as `logs/x86b-other_wer.log` and run 2, which is also the
