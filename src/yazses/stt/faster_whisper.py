@@ -87,6 +87,9 @@ class FasterWhisperEngine:
     _language: str = "en"
     #: Same reason as `_language`: a partially constructed engine still decodes.
     _beam_size: int = 0
+    #: Same reason again. `True` is faster-whisper's own default, so a partially
+    #: constructed engine decodes exactly as one built through `__init__` would.
+    _condition_on_previous_text: bool = True
 
     def __init__(
         self,
@@ -96,6 +99,7 @@ class FasterWhisperEngine:
         language: str = "en",
         cpu_threads: int = 0,
         beam_size: int = 0,
+        condition_on_previous_text: bool = True,
     ) -> None:
         log.info("Loading STT model '%s' on %s (%s)...", model_name, device, compute_type)
         self._model = _load_model(model_name, device, compute_type, cpu_threads)
@@ -107,6 +111,11 @@ class FasterWhisperEngine:
         # same as passing its current default explicitly — the default is theirs
         # to change, and pinning it here would silently freeze it at 5.
         self._beam_size = int(beam_size or 0)
+        # `[stt] condition_on_previous_text`. Unlike `beam_size`, the falsy value is
+        # meaningful here — `False` *is* the request — so it cannot be expressed by
+        # omission, and the kwarg is always passed. Passing True explicitly matches
+        # faster-whisper's current default, so the shipped path is unchanged.
+        self._condition_on_previous_text = bool(condition_on_previous_text)
         log.info("Model loaded.")
 
     def _decode_kwargs(self, task: str | None) -> dict:
@@ -115,12 +124,26 @@ class FasterWhisperEngine:
         ``task="translate"`` (ADR-v2-014, X→English) must auto-detect the source,
         so it never carries a language. Otherwise pin `[stt] language`, or omit it
         when the user asked for auto-detection.
+
+        Every decode path goes through here — `transcribe`, `transcribe_words` and
+        the streaming `decode_window`. That is not tidiness: `[stt] language` was a
+        documented key that did nothing for a year because three call sites each
+        hardcoded ``language="en"``, and `condition_on_previous_text` would fail the
+        same way. A setting that reaches one of three decode paths is worse than one
+        that reaches none, because it appears to work.
+
+        `condition_on_previous_text` is sent only when the user turned it off. The
+        default is faster-whisper's own, and pinning a library default explicitly
+        freezes it at whatever it happens to be today — the reason `beam_size = 0`
+        means "say nothing" rather than "say 5".
         """
         kwargs: dict = {"task": "translate"} if task == "translate" else (
             {"language": self._language} if self._language else {}
         )
         if self._beam_size > 0:
             kwargs["beam_size"] = self._beam_size
+        if not self._condition_on_previous_text:
+            kwargs["condition_on_previous_text"] = False
         return kwargs
 
     def transcribe(

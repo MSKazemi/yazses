@@ -47,6 +47,33 @@ class SttConfig:
     # precision. `ctranslate2.get_supported_compute_types(device)` is the authority,
     # and the Settings window checks against it before writing this key.
     compute_type: str = "int8"
+    # Whether each decode window is prompted with the text of the one before it.
+    # `true` (default) is faster-whisper's own default and what every published
+    # YazSes benchmark was measured at — leave it alone unless you have configured
+    # a large checkpoint.
+    #
+    # What it buys and what it costs was measured, five decodes per arm, 200
+    # LibriSpeech utterances (docs/benchmarks.md, and the artifacts
+    # `decode-determinism-*.json` under `paper/results/probes/`).
+    #
+    # On `base.en`, the shipped model, conditioning is
+    # simply better: 4.01% against 4.24-4.28% on test-clean, 9.46% against 9.81% on
+    # test-other, and bit-reproducible run to run. On `large-v3` the sign flips —
+    # conditioning sends the model into a repetition loop on roughly 1.5% of
+    # utterances, which is what makes that checkpoint's WER wander between 4.84%
+    # and 6.21% across identical runs, and turning it off removes the runaway and
+    # makes decoding reproducible.
+    #
+    # Note what that is *not*: the corpus-average gain from turning it off is 1.05
+    # points with a 95% interval of [-2.59, +0.16], more utterances get worse (8)
+    # than better (4), and 95.7% of it comes from three clips. This is a knob for
+    # not losing a paragraph to a repetition loop, not a knob for lowering WER.
+    #
+    # It applies to dictation, not only to long recordings: faster-whisper advances
+    # to the model's last emitted timestamp rather than by a whole 30s window, so
+    # 8-20% of ordinary sub-30-second utterances take a second pass that carries the
+    # first pass's text.
+    condition_on_previous_text: bool = True
     # Optional vocabulary/context primed into Whisper as initial_prompt. Helps it
     # spell domain terms and proper nouns it otherwise mis-transcribes. `yazses
     # tune` proposes additions here from the learning corpus.

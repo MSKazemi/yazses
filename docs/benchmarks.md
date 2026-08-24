@@ -294,10 +294,21 @@ that is not a one-point WER event, it is a ruined document — which is a good r
 turn the setting off on a large model, and not the same claim as "it lowers WER".
 
 So: **no default changes.** `base.en` is already the best of the four arms on both splits
-and is already bit-reproducible. If you have configured a large checkpoint and care more
-about never getting a runaway than about a tenth of a point, `condition_on_previous_text`
-is the knob — but YazSes does not expose it as config today, and on this evidence the
-better answer for most people is to stay on the default model.
+and is already bit-reproducible. The measurement did change one thing: the knob it found
+had no way to be reached, so `[stt] condition_on_previous_text` now exists.
+
+```toml
+[stt]
+model = "large-v3"
+condition_on_previous_text = false   # never lose a paragraph to a repetition loop
+```
+
+It defaults to `true`, which is faster-whisper's own default and what every number on this
+page was measured at, and it is sent to the decoder only when you turn it off — so nothing
+changes for anyone who does not set it. Set it if you have configured a large checkpoint
+and care more about never getting a runaway than about a tenth of a point. On this evidence
+the better answer for most people is to stay on the default model, where the question does
+not arise.
 
 One last thing worth knowing, because it decides who is affected: conditioning is *not*
 confined to long recordings. It is only consulted between 30-second windows, so a

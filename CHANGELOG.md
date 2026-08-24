@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `[stt] condition_on_previous_text`, the knob the 2x2 found had no way to be reached
+
+- The decode measurement below found a failure mode a user could not turn off: conditioning
+  each window on the previous one's text sends a large checkpoint into a repetition loop on
+  roughly 1.5 % of utterances, and nothing in `config.toml` reached the flag. `docs/benchmarks.md`
+  had to end a section by naming a setting and admitting YazSes did not expose it.
+- Defaults to `true`, which is faster-whisper's own default and what every published number
+  was measured at, and it is **sent to the decoder only when you turn it off** -- pinning a
+  library default explicitly would freeze it at today's value, the same reason
+  `[stt] beam_size = 0` means "say nothing" rather than "say 5". Nothing changes for anyone
+  who does not set it, and a test fails if the default path ever starts sending the kwarg.
+- Threaded through the one `_decode_kwargs` seam, so `transcribe`, `transcribe_words` and
+  the streaming `decode_window` all honour it. `[stt] language` was a documented key that
+  did nothing for a year because those same three call sites each hardcoded `language="en"`;
+  a test now reads the source of every decode path and fails one that builds its own kwargs,
+  and a second test fails if a fourth decode path is added and left out of the first.
+- Config-only for now: it is not in the Settings window, which carries the value settings
+  a person changes often, and this is one for a user who has already configured a large
+  checkpoint by hand.
+
 ### Measured — the decode defaults were put to a 2x2 and both are kept
 
 - `large-v3` decoding the same 200 `test-other` utterances five times produced five
