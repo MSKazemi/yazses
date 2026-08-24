@@ -63,3 +63,31 @@ def test_config_doc_covers_every_section(gen):
     text = gen.gen_configuration()
     for fld in dataclasses.fields(Config()):
         assert f"## `[{fld.name}]`" in text, f"[{fld.name}] missing from configuration.md"
+
+
+def test_no_config_comment_smuggles_a_layout_into_a_table_cell() -> None:
+    """A config comment is flattened into one markdown table cell.
+
+    `_leading_comment` joins the block with single spaces, so anything whose meaning
+    lives in its *layout* -- an aligned table of numbers, a bullet list, a code
+    block -- arrives as an unreadable run-on. It renders, every generator test
+    passes, and the public configuration reference carries a paragraph like
+    "model test-clean test-other tiny.en 4.82 11.77". That happened here, to the
+    `[stt] model` guidance, and nothing noticed until the generated cell was read.
+
+    Runs of spaces are the tell: prose does not align columns. A collapsed table
+    keeps its padding, because the join preserves what was inside each line.
+    """
+    import re
+
+    text = (ROOT / "docs" / "configuration.md").read_text(encoding="utf-8")
+    offenders = [
+        line.split("|")[1].strip()
+        for line in text.splitlines()
+        if line.startswith("| `") and re.search(r"\S {3,}\S", line)
+    ]
+    assert not offenders, (
+        "these config comments contain aligned columns that collapse into an "
+        f"unreadable table cell: {offenders}. Write the numbers as prose -- the "
+        "comment is rendered into one cell of docs/configuration.md, not as a block."
+    )

@@ -26,6 +26,21 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a person changes often, and this is one for a user who has already configured a large
   checkpoint by hand.
 
+### Fixed — `[stt] model` told users the larger checkpoints were a marginal gain
+
+- The config reference said larger models "trade decode latency for marginal gains on
+  clean speech", and this project's own archived numbers say the opposite: `small.en`
+  removes **36 %** of `base.en`'s errors on clean audio (4.07 -> 2.59 %) and **41 %** on
+  hard audio (9.46 -> 5.59 %), for about twice the decode time and still ~10x realtime.
+  The sentence steered people away from a substantially better model. `base.en` stays
+  the default -- it is the best *latency* trade for hold-to-talk -- but the reason is now
+  the true one, with the measurements and where they came from.
+- Also fixed the shape of the repair: the numbers were first written as an aligned table,
+  which a config comment cannot carry. `scripts/gen-docs.py` flattens the comment block
+  into a single markdown table cell, so the table arrived in the public reference as
+  "model test-clean test-other tiny.en 4.82 11.77" and every generator test still passed.
+  A test now fails any config comment whose cell contains aligned columns.
+
 ### Measured — the decode defaults were put to a 2x2 and both are kept
 
 - `large-v3` decoding the same 200 `test-other` utterances five times produced five

@@ -20,9 +20,20 @@ class SttConfig:
     # unknown value or a missing optional dep falls back to faster-whisper with
     # a logged warning — never a crash (stt/factory.py).
     engine: str = "faster-whisper"
-    # base.en balances accuracy and CPU latency far better than tiny.en, which
-    # produces frequent word errors. Larger models (small.en/medium.en) trade
-    # decode latency for marginal gains on clean speech.
+    # base.en is the default because it is the best *latency* trade for
+    # hold-to-talk, not because the larger checkpoints add little -- they add a
+    # lot, and this comment used to say otherwise. Measured on 200 LibriSpeech
+    # utterances per cell (`paper/results/wer.json` and `wer-test-other.json`):
+    # tiny.en scores 4.82% on clean audio and 11.77% on hard; base.en 4.07% and
+    # 9.46%; small.en 2.59% and 5.59%; medium.en 5.51% on hard.
+    #
+    # So small.en removes 36% of base.en's errors on clean audio and 41% on hard
+    # audio, for about twice the decode time (RTF 0.104 against 0.049) -- still
+    # ~10x realtime, so a five-second burst costs roughly half a second more.
+    # That is the real trade: if you notice word errors more than you notice the
+    # wait, set small.en. medium.en costs 2.6x small.en for 0.08 of a point and
+    # is not worth it. large-v3 is *worse* than both on hard audio (7.69%) and
+    # decodes a different answer each run -- see condition_on_previous_text below.
     model: str = "base.en"
     # Spoken language, as a Whisper code ("en", "de", "fr", "es", "fa", …).
     # Empty string = let Whisper auto-detect per utterance, which costs an extra
