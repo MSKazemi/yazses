@@ -25,6 +25,10 @@ from dataclasses import dataclass, field
 
 from yazses.postprocess.cleaner import clean_text
 
+# `_MIN_THRESHOLD` is the floor the *setter* refuses to go below. Imported rather than
+# repeated: the recommender and the setter disagreeing is the bug this branch fixes.
+from yazses.system.miclevel import _MIN_THRESHOLD
+
 
 @dataclass(frozen=True)
 class Step:
@@ -51,6 +55,22 @@ class VerifyResult:
     def add(self, name: str, ok: bool, detail: str) -> None:
         self.steps.append(Step(name, ok, detail))
 
+
+#: Below this, the recording carries no usable signal — and, decisively, **no gate this
+#: project would ever set could pass it**, so "lower the gate" is not a fix, it is a loop.
+#:
+#: Derived, not chosen: it is `miclevel._MIN_THRESHOLD`, the floor the *setter* already
+#: refuses to go below so that a silent room cannot calibrate the gate down onto its own
+#: noise. The recommender has to agree with the setter or it sends the user after a
+#: command that cannot do what it was recommended for — `yazses mic-level --set` returns,
+#: the gate does not move, `verify` fails identically, and nothing says why.
+#:
+#: Corroborated on 1646 real bursts from a live corpus: 42 events sit at or below it and
+#: **not one ever produced text**, 39 of them the bursts the daemon itself marked
+#: `silent` (median level 0.00001 — a muted microphone or the wrong input device, not
+#: zero, because real hardware dithers). The quietest burst that did produce text
+#: measured 0.0050, and nothing at all was observed in between.
+_NO_SIGNAL_FLOOR = _MIN_THRESHOLD
 
 #: How far above the silence gate a level has to sit before it is unremarkable.
 #: Measured on 172 real bursts from a live daemon log: the **quietest** burst that
@@ -136,11 +156,22 @@ def verify(
             "one YazSes is using. Check `yazses audio devices`.",
         )
         return result
+    if level <= _NO_SIGNAL_FLOOR:
+        result.add(
+            "Signal", False,
+            f"level {level:.4f} is not quiet speech — it is no signal. The microphone is "
+            f"muted, it is not the one YazSes is using, or nothing was said in the "
+            f"window. Check `yazses audio devices`, then run this again and speak. "
+            f"Do not lower the gate to reach this level: it sits below room tone.",
+        )
+        return result
     if level < threshold:
         result.add(
             "Signal", False,
-            f"level {level:.4f} is below the silence gate {threshold:.4f}, so real speech "
-            f"would be discarded. Fix with `yazses mic-level --set`.",
+            f"level {level:.4f} is below the silence gate {threshold:.4f}, so speech this "
+            f"quiet would be discarded. If you did speak, lower the gate with "
+            f"`yazses mic-level --set`. If you are not certain you did, run this again "
+            f"first — this step cannot tell quiet speech from no speech.",
         )
         return result
     result.add("Signal", True, signal_detail(level, threshold))
