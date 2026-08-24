@@ -145,3 +145,75 @@ def test_the_assessment_is_actually_published(marker):
         f".github/SECURITY.md. Someone reviewing the open Dependabot alert has "
         f"nowhere to read why it is not exploitable here."
     )
+
+
+# ---------------------------------------------------------------------------
+# Dependabot #9 -- `setuptools < 83.0.0`, MANIFEST.in exclusion bypass in sdist
+#
+# Different in kind from the diskcache advisory above: a patched release exists.
+# The alert stays open because the `voiceprint-resemblyzer` extra pins
+# `setuptools<81` so that `pkg_resources` remains importable for `webrtcvad`.
+# The published assessment says the advisory cannot reach this project anyway,
+# and rests on three facts. Each is pinned below, because "we build with
+# hatchling" and "there is no MANIFEST.in" are exactly the sort of fact that a
+# later packaging change flips without anyone rereading the security policy.
+# ---------------------------------------------------------------------------
+
+#: Extras allowed to hold setuptools below the patched release.
+SETUPTOOLS_PIN_EXTRA = "voiceprint-resemblyzer"
+
+
+def test_the_project_is_not_built_with_setuptools():
+    """Fact 1: the vulnerable sdist builder is not the one that packages YazSes."""
+    build = _pyproject()["build-system"]
+    assert build["build-backend"] == "hatchling.build", (
+        f"the build backend changed to {build['build-backend']!r}. The security "
+        "policy tells readers the setuptools sdist advisory cannot apply because "
+        "setuptools does not build this project. Re-do that assessment."
+    )
+    assert not any("setuptools" in r for r in build["requires"]), (
+        f"setuptools entered build-system.requires ({build['requires']}), so it "
+        "now participates in building this package."
+    )
+
+
+def test_there_is_no_manifest_in_to_bypass():
+    """Fact 2: the advisory is a bypass of exclusions declared in `MANIFEST.in`."""
+    assert not (ROOT / "MANIFEST.in").is_file(), (
+        "a MANIFEST.in appeared. The published assessment says there are no "
+        "exclusion rules for the setuptools advisory to bypass, and that is no "
+        "longer true. Either remove it or rewrite .github/SECURITY.md."
+    )
+
+
+def test_the_setuptools_pin_stays_inside_the_one_extra_that_needs_it():
+    """Fact 3: a base install must never be held below the patched release.
+
+    The pin buys an import fix for `resemblyzer`; letting it escape into
+    `project.dependencies` would hold every user below a security patch to solve
+    a problem only that extra has.
+    """
+    pp = _pyproject()["project"]
+    base = [d for d in pp.get("dependencies", []) if "setuptools" in d]
+    assert not base, (
+        f"setuptools is pinned in base dependencies ({base}). That holds every "
+        "install below the patched 83.0.0 for the sake of one optional extra."
+    )
+    pinned_in = sorted(
+        name for name, deps in pp.get("optional-dependencies", {}).items()
+        if any("setuptools" in d for d in deps)
+    )
+    assert pinned_in == [SETUPTOOLS_PIN_EXTRA], (
+        f"extras pinning setuptools are {pinned_in}, expected only "
+        f"[{SETUPTOOLS_PIN_EXTRA!r}]. Each extra that pins below 83.0.0 needs its "
+        "own line in the security policy saying why."
+    )
+
+
+def test_the_setuptools_assessment_is_actually_published():
+    text = SECURITY_POLICY.read_text(encoding="utf-8")
+    assert "setuptools" in text and "MANIFEST.in" in text, (
+        "the setuptools advisory is guarded by tests but not assessed in "
+        ".github/SECURITY.md, so a reader looking at the open Dependabot alert "
+        "has nowhere to read why it is not exploitable here."
+    )

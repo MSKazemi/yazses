@@ -57,8 +57,10 @@ the same privileges as the user running YazSes.
 "Out of scope" is not the same as "unanswered". An advisory against a dependency
 still shows up in anyone's supply-chain scan of this repository, and leaving it
 with no published reasoning is how a real finding later gets waved through by
-someone who has learned the alerts are noise. So each open advisory with **no
-upstream patch** is assessed here, and **each assessment is pinned by a test** in
+someone who has learned the alerts are noise. So each open advisory that this
+project does not simply upgrade away is assessed here — whether because no
+upstream patch exists, or because something here holds the dependency below the
+fix — and **each assessment is pinned by a test** in
 `tests/test_dependency_advisories.py` — the reasoning below cannot quietly stop
 being true without the suite failing.
 
@@ -87,3 +89,39 @@ scope above.
 If you enable a local LLM feature *and* configure llama-cpp's disk cache
 yourself, that assessment no longer covers you — that is a supported thing to
 want, so please open an issue rather than assuming.
+
+### `setuptools` < 83.0.0 — `MANIFEST.in` exclusion bypass when building an sdist
+
+**Not exploitable in YazSes as shipped.** A patched release *does* exist (83.0.0),
+which makes this different from the advisory above: the alert stays open because
+one optional extra deliberately pins below it, not because there is nothing to
+upgrade to.
+
+The vulnerability is in setuptools' **sdist builder** — on a case-insensitive,
+Unicode-normalising filesystem (macOS APFS/HFS+) an NFC/NFD collision can defeat a
+`MANIFEST.in` exclusion, so a file you told the packager to leave out is included
+in the source distribution anyway. Three things would each have to be true for
+that to reach this project, and none is:
+
+1. **YazSes is not built with setuptools.** `[build-system]` declares
+   `requires = ["hatchling"]` and `build-backend = "hatchling.build"`. The
+   vulnerable code path is not the one that produces the YazSes sdist or wheel.
+2. **There is no `MANIFEST.in` in this repository.** The advisory is a bypass *of
+   exclusion rules written in that file*. With no such file there are no
+   exclusions to bypass, and hatchling's file selection is configured in
+   `pyproject.toml` by a different mechanism entirely.
+3. **Installing setuptools does not run the vulnerable path.** It is a build-time
+   code path. `setuptools` reaches an ordinary install only as a runtime
+   dependency of `ctranslate2` and `torch`; nothing in YazSes builds an sdist.
+
+The pin itself is `setuptools<81`, scoped to the `voiceprint-resemblyzer` extra,
+and it exists for an unrelated and load-bearing reason: `resemblyzer` requires
+`webrtcvad`, whose first line is `import pkg_resources`, and setuptools removed
+`pkg_resources` in 81. Without the pin that extra installs and then cannot import
+— which is how it once shipped. So taking the security patch in that extra would
+trade a build-time issue this project cannot reach for a runtime break every user
+of the extra *would* hit.
+
+If you build source distributions of **your own** packages on macOS in an
+environment where YazSes pinned setuptools for you, upgrade setuptools there —
+that is a real exposure, it is simply not one YazSes creates or can fix for you.
