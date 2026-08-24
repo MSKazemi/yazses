@@ -31,7 +31,12 @@ on a file without it.
   "os": "Ubuntu 24.04.4 LTS", "kernel": "7.0.0-28-generic",
   "python": "3.12.3", "faster_whisper": "1.2.1", "yazses": "2.12.0.dev4",
   "ctranslate2": "...", "omp_num_threads": "unset", "load_average_1m": 0.4,
-  "argv": "paper/benchmark/bench_beam.py --grid=tiny.en:1,2,5 --split=test-clean"
+  "argv": "paper/benchmark/bench_beam.py --grid=tiny.en:1,2,5 --split=test-clean",
+  "corpus": {
+    "dataset": "LibriSpeech test-clean", "requested_n": 200, "n": 200,
+    "stratified": true, "sha256_16": "08c500680ad493e4",
+    "first": "1089-134686-0000", "last": "908-157963-0004", "n_missing": 0
+  }
 }
 ```
 
@@ -45,6 +50,24 @@ it in. It is here because the archive spent its first weeks recording the produc
 one filename with and without `--max-speakers`. Home directories and login names are
 replaced (`$HOME`, `$USER`) before the field is stored, because this is the one part of
 provenance copied from a path a person typed.
+
+`corpus` is **what was scored**, and it exists because every file here used to record
+`n_utterances: 200` and nothing identifying the 200. The selection is deterministic
+given the corpus — sorted ids, sorted speakers, round-robin, no RNG — but an utterance
+whose `.flac` is missing is skipped and the round-robin simply takes the next one, so a
+host with a partially extracted corpus scores a *different* set and still reports 200.
+These numbers come from a laptop, two rented x86 boxes and three CI runners, and
+"reproducible across CPUs" is a conclusion drawn from exactly that kind of comparison.
+`sha256_16` digests the selected ids **in decode order** (the order matters:
+`condition_on_previous_text` makes one utterance's decode depend on what preceded it),
+and `n_missing` is non-zero precisely when this host's corpus is not the one a peer
+artifact's digest was taken over.
+
+It was checked, not merely enabled: all three Linux hosts return `08c500680ad493e4` for
+200 stratified `test-clean` utterances with the same first and last id, so the
+cross-host comparison stands. `test-other` is present on one box only, which is why
+every `test-other` number in this directory came from that box. Like `argv`, the field
+is newer than most of these files; re-running a benchmark fills it in.
 
 Four rules for using these files, each learned the expensive way:
 

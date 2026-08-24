@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — every archived benchmark result now records *which* utterances it scored
+
+- Each file recorded `n_utterances: 200` and nothing identifying the 200. The selection is
+  deterministic given the corpus — sorted ids, sorted speakers, round-robin, no RNG — but
+  `librispeech_subset` skips an utterance whose `.flac` is absent and takes the next one, so
+  a host with a partially extracted corpus scores a **different** set and still reports 200.
+  These numbers come from a laptop, two rented x86 boxes and three CI runners, and
+  "reproducible across CPUs" is a conclusion drawn from exactly that kind of comparison.
+- Provenance gained a `corpus` block: the digest of the selected ids **in decode order**
+  (order matters — `condition_on_previous_text` makes one utterance's decode depend on what
+  preceded it), the requested and actual counts, the first and last id, and `n_missing`,
+  which is non-zero precisely when this host's corpus is not the one a peer artifact's
+  digest was taken over. Recorded inside `librispeech_subset`, where the data is, rather
+  than asking eight `__main__` blocks to thread it through — the arrangement that had
+  already failed for provenance itself and again for the command line.
+- The check was then run. All three Linux hosts return `08c500680ad493e4` for 200 stratified
+  `test-clean` utterances with the same first and last id, so the cross-host comparison
+  stands; it is now pinned in a test that fails if the selection or the corpus moves.
+  `test-other` is present on one box only, which is why every `test-other` number in the
+  archive came from that box.
+
 ### Changed — every archived benchmark result now records the command that produced it
 
 - `paper/results/` opened on the claim that its numbers can be re-derived from the harness
