@@ -6,6 +6,415 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — six surfaces told users a shipped diarization backend was not shipped
+
+- The `pyannote` adapter has shipped since 2026-08-13 behind the optional
+  `diarization-pyannote` extra, and `system/backends.py` says so explicitly. Six live
+  surfaces still said the opposite: the `--min-speakers` option help, the runtime note
+  that fires when you pass it, `system/depsize.py` (citing `system/backends.py` as its
+  authority while that file said the reverse), `config.py`'s `max_speakers` comment,
+  the transcribe tutorial, and the CLI reference. **A user who needs a lower speaker
+  bound was told no backend provides one**, so they never installed the extra that
+  does. Every one now names the extra instead.
+- `tests/test_docs_do_not_deny_shipped_backends.py` guards it. The existing
+  deny-a-wired-feature guard structurally could not: it keys on capability slugs from
+  `system/features.py`, and a pluggable backend is a *config value*, not a capability,
+  so nothing in the registry ever mentions it. The new guard derives the shipped set
+  from the adapter modules named at each `probe_backend` call site — shipping an
+  adapter arms it the same day, with no list to maintain — and it found a sixth
+  surface that a manual sweep had missed. Saying `deepfilternet` is unshipped stays
+  correct and stays sayable; it genuinely has no adapter and cannot get one.
+
+### Fixed — `features enable` warned about a "different Python" that was the same one
+
+- `daemon_interpreter_differs` derived the daemon's environment prefix with
+  `dirname(dirname(argv[0]))`. `argv[0]` is whatever was typed, so a daemon started
+  as `.venv/bin/python -m yazses.main` yields the *relative* `.venv`, which can never
+  equal an absolute `sys.prefix`. Every such daemon was reported as a foreign
+  interpreter, and `features enable` then told the user to install into
+  `.venv/bin/python` — a path that means something different in every directory and
+  nothing in most. It is now resolved against the daemon's own working directory
+  (`/proc/<pid>/cwd`), never the caller's, and still without `realpath`, because
+  resolving a venv's `python` symlink to its shared base is what would make the check
+  never fire at all.
+- The existing test could only see this when the suite itself was launched with a
+  relative interpreter path — it reads the host, and had been passing under
+  `uv run python -m pytest` for as long as it existed. The pure `(argv0, cwd)` cases
+  beside it now state the behaviour without depending on how pytest was invoked.
+
+### Fixed — a `large-v3` instability figure compared two different corpora
+
+- `docs/benchmarks.md` stated that `large-v3`'s `test-other` insertions "doubled from 89
+  to 184 between the runs". **89 is the `test-clean` figure.** The two runs being compared
+  were on different corpora with different reference-word counts (4 598 hits against
+  3 619), so a cross-split difference was published as one split's run-to-run movement.
+  The qualitative claim survives — insertions move, substitutions do not — but the
+  supporting number did not, and the real within-split range is **101 to 184**.
+- The distribution the page said "nobody has characterised yet" has now been measured:
+  four more full decodes of the same 200 `test-other` utterances. Across five independent
+  runs the substitutions (87), deletions (15) and hits (3 619) are **bit-identical**, so
+  every WER is exactly `(102 + insertions) / 3721` and the entire 2.2-point spread is the
+  insertion count. `large-v3` is not unreliable at recognising the words that were said;
+  it is unreliable at *stopping*. The monotonic fall over the first three repeats
+  (141 → 124 → 101) looked like a harness warm-up artefact; the fourth repeat's 144
+  refutes that.
+- `tests/test_benchmarks_match_results.py` now holds the published table to the artifact
+  row by row, and to the identity in prose. It parses the table rather than searching the
+  page: every figure in it is also quoted in the surrounding text, so a substring check
+  passed a deliberately drifted cell.
+
+### Fixed — the pyannote diarization backend's gated-model remedy was unreachable
+
+- The backend carried a carefully written error naming both fixes for a gated Hugging
+  Face model, and it only fired when `from_pretrained` **returned** `None`. On the path a
+  new user actually hits — no stored token, so `huggingface_hub` **raises** first — they
+  saw the raw upstream text instead, which names the token and never the acceptance step.
+  A perfectly valid token still fails until the model conditions are accepted, so the
+  message read as though the token were wrong.
+- The remedy is now shared by both paths and names `pyannote/segmentation-3.0` alongside
+  `pyannote/speaker-diarization-3.1`: the pipeline loads both, they are gated separately,
+  and accepting only the one you asked for is the commoner near-miss than accepting
+  neither. A failure that is *not* about access — a full disk, a dead network — is left
+  to propagate untouched, because sending someone to a licence page for an hour is worse
+  than the original message.
+- The suggested login command was `huggingface-cli login`, a deprecation shim in the
+  `huggingface_hub` 1.x this project already depends on; it is now `hf auth login`, with
+  the old spelling kept as a parenthetical.
+
+### Fixed — `meeting start --help` advertised a DER the product had stopped shipping
+
+- **`yazses meeting start --help` told every user that speaker labelling scores "84 % DER
+  at auto vs 29 % when the count is given".** Both figures were measured against
+  `cluster_threshold = 0.5` on a four-meeting subset. ADR-v2-133 raised the shipped
+  default to `1.2`, at which the *full* AMI test split scores **26.71 %** — so the help
+  overstated the tool's own error rate roughly threefold and pushed users toward
+  `--speakers` on evidence that no longer described the build they were running. The flag
+  help now says what is still true and checkable: the count is exact rather than a cap on
+  the shipped backend, so guessing it invents people.
+- A guard already forbade those figures and did not catch this: it checked the string
+  `speaker_count_advice()` returns, and this was a second surface saying the same wrong
+  thing. `tests/test_cli_help_has_no_superseded_diarization_figures.py` now walks the
+  Typer app itself — every command, every option — so a new command that copies the old
+  sentence fails on the day it lands.
+
+### Changed — a published AMI comparison was confounded and has been withdrawn
+
+- `docs/benchmarks.md` read *"supplying the exact speaker count is now worse than letting
+  the clustering estimate it — 29.42 % against 26.71 %"*. The artifacts behind those two
+  rows differ in **two** variables: 29.42 % was measured at `cluster_threshold = 0.5`
+  with the count supplied, 26.71 % at `1.2` with it estimated. The comparison cannot
+  separate the threshold from the count, and within its own condition the data says the
+  opposite — at `0.5`, supplying the count improves DER from 75.21 % to 29.42 %, the
+  largest single effect on the page.
+- What the data does support is the reason the default moved: **raising the threshold
+  achieved more than supplying the count did, without asking the user for anything.**
+  The deciding cell — threshold `1.2` *with* the count — had never been run and is now
+  being measured. Until it lands, nothing claims a direction. The same confounded
+  sentence was carried in the rationale docstrings of `recimport/factory.py` and
+  `core/daemon.py::_handle_meeting_start`; both now state the limit instead.
+- `bench_diarization.py` additionally reports the **time-weighted corpus DER** beside the
+  per-recording mean. The mean stays the headline (a forty-minute meeting should not
+  drown out three short ones), but every AMI and DIHARD table aggregates over speech
+  time, and reporting only one of the two made this page quietly incomparable to the
+  literature it is read against. Both are computed from rows already recorded, so the
+  figure is re-derivable from artifacts that predate it. On the AMI test split the two
+  are **26.71 %** (per recording) and **27.37 %** (per second of speech, over 8.5 hours
+  of scored audio); the page now says which one to place beside a published table.
+- The 26.71 % headline had **no per-recording artifact at all** — it was quoted from a
+  sweep row, so it could not be decomposed, re-aggregated or bootstrapped by anyone,
+  including us. `paper/results/diarization-ami16_corpus-der.json` is the first artifact
+  behind it, and the published figure re-derives from its own 16 rows exactly.
+
+### Changed — the beam-size table is now decided, and two of its readings were wrong
+
+- **`beam_size = 2` and `beam_size = 5` are indistinguishable, and that is now a measured
+  statement rather than a reading.** Bootstrapped paired on the utterances both settings
+  decoded, `base.en` differs by 0.000 points on `test-clean` (95 % CI [−0.21, +0.18]) and
+  0.03 on `test-other` (95 % CI [−0.33, +0.40]). The intervals exclude a benefit above
+  about 0.4 points in either direction. Beam 5 costs 7.8 % more decode on hard audio and
+  11.4 % on clean.
+- **Two conclusions the page drew from the bare grid did not survive the paired test** and
+  are now written as observations: that a wider beam can be worse (beam 8 at 9.84 % against
+  beam 5 at 9.46 % — paired, p = 0.40) and that the effect reverses sign on `small.en` with
+  clean audio (2.53 % against 2.66 % — paired, p = 0.15). Beam search beating greedy
+  survived on both splits (p = 0.024 clean, p = 0.0010 hard).
+- `[stt] beam_size` keeps its default of `0`, which means "let faster-whisper choose" and
+  is deliberately not a pin.
+- `analyze_beam.py` gained `--baseline=N` so the comparison that decides a default —
+  5 against 2 — can be asked at all; the baseline is written into the artifact's filename
+  so two analyses of one measurement cannot displace each other. `bench_beam.py` gained
+  `--grid`/`--name` for the same reason, and refuses `--grid` without `--name`.
+- All 14 WER cells reproduced **bit-identically** against the published table on a third
+  independent run; the RTF column moved by up to 3 % and was rewritten from the artifact.
+
+### Fixed — three extras were unsatisfiable on Intel macOS
+
+- **`yazses[tts]`, `yazses[silero]` and `yazses[all]` had no resolvable answer on an
+  Intel Mac.** Every `onnxruntime` from **1.24.0** onward publishes macOS **arm64 wheels
+  only** — `1.23.2` is the last release with a `macosx_13_0_x86_64` wheel — and those
+  three extras floored it at `>=1.27.0` with no marker. The same floor sat in
+  `system/features.py`, so `yazses features enable read-back` failed there too.
+- The requirement is now a PEP 508 marker fork (`>=1.23.2,<1.24` on Intel macOS,
+  `>=1.27.0` everywhere else) with a matching `[tool.uv] constraint-dependencies` entry,
+  because `useful-moonshine-onnx`, `onnx-asr` and `kokoro-onnx` also require
+  `onnxruntime` with no marker of their own and a `[project]` marker cannot reach a
+  dependency we do not declare.
+- **The base install was never affected**, and the first draft of this entry said it was.
+  `faster-whisper` asks for `onnxruntime<2,>=1.14`, so a resolver simply backtracks to
+  1.23.2; `uv pip compile --python-platform x86_64-apple-darwin` confirms the committed
+  pre-fix manifest resolving the base install cleanly. What was unsatisfiable was the
+  three extras that stated the floor themselves.
+
+### Fixed — `yazses[all]` still could not resolve on Intel macOS after that
+
+- **Two more dependencies have no Intel macOS wheel at all**, and neither is fixable by
+  choosing a version: `mediapipe` last shipped one in **0.10.21** (the `gaze` extra floors
+  it at 0.10.35) and `torch`, which `pyannote.audio` pulls in, last shipped one in
+  **2.2.2**. Resolving `yazses[all]` there failed on both.
+- `all` now carries the platform marker on `mediapipe` and `pyannote.audio`, so **"install
+  the lot" installs everything that can work on the machine asking**. `yazses[gaze]` and
+  `yazses[diarization-pyannote]` deliberately keep failing loudly on that platform: an
+  explicit request for one feature should say the feature is unavailable, not install a
+  hollow subset.
+- Gaze routing is X11-only by design (`gaze/desktop.py` returns `None` off X11), so on
+  macOS this removes a ~100 MB dependency for a feature that could not have run there
+  regardless.
+- `tests/test_the_all_extra_is_the_union_it_claims.py` now understands markers: `all` may
+  **narrow** a requirement to fewer platforms, never widen it, and never omit it.
+
+### Changed — the 300 ms silence lead-in: no value is measurably better than none
+
+- **The onset grid is now decided by a paired test, and it withdraws a claim.**
+  `bench_onset.py` records the per-utterance outcome, so each cell is compared to its own
+  row's baseline by exact McNemar. Sixteen comparisons; **none survives correction for
+  multiplicity.** The previous text called the sign change "not marginal" and cited the
+  40 ms row buying back 6–8 opening words — that row's best cell reaches only `p = 0.057`.
+- **The only replicated signal runs the other way.** Two comparisons reach uncorrected
+  `p < 0.05` in both replicates, both at 120 ms of lost speech, and both say the lead-in
+  makes the opening word *worse* (143 → 127 at a 1000 ms lead, `p = 0.011`).
+- `[accessibility] pre_speech_padding_ms` keeps its default of 300. Not vindicated —
+  there is simply no evidence on which to move it, and it costs nothing measurable when
+  the onset is intact (`p = 0.125`), which is the common case. What the grid *does*
+  establish is that **no amount of prepended silence recovers a word that was never
+  captured**: 120 ms of lost speech costs ~43 opening words in 200 and no lead-in
+  recovers them.
+- The grid itself is now the most reproducible thing on the page: **19 of 20 cells
+  identical across four runs in two sessions**, while whole-utterance WER on those same
+  rows moved by up to 0.88 points.
+
+### Changed — the plausibility guard's recall is now published, and it is 1 in 12
+
+- **The AMI test split had never been scored for whether the warning is *right*.** The
+  benchmarks page reported that its two rules "agree 16 of 16", which compares the rules
+  to each other and says nothing about either being correct. Scored properly at the
+  shipped `[meeting] cluster_threshold = 1.2`: **twelve of sixteen recordings are
+  genuinely over-split, and the guard fires on one.** Precision 1/1, specificity 4/4 —
+  every warning it gave was true and it never interrupted a correct result — and recall
+  **8%**.
+- **This is the rule's shape, not its constant.** The test asks whether half the labels
+  fall under the fragment threshold. Over-splitting in a forty-minute meeting means one
+  participant cut into two *people-sized* clusters — `EN2002b` gives 6 labels for 4
+  speakers with a smallest of 98 s, `ES2004d` gives 6 for 4 with two at 274 s and 498 s.
+  A fragmentation test cannot see a merge-shaped error, so the ~2× residual over-count
+  that ADR-v2-133's threshold change leaves behind is precisely the error its own guard
+  is blind to.
+- **The decision stands; the claim narrows.** The guard is a *catastrophe* detector — it
+  caught the 86-label and 257-label results that produced the module — and it is not a
+  check that speaker attribution is right. Both `docs/benchmarks.md` and ADR-v2-133 now
+  say so with the number beside it, rather than leaving a reader to infer coverage from
+  a false-alarm rate.
+
+### Fixed — a published finding that a second run disproved
+
+- **`docs/benchmarks.md` claimed `large-v3` "becomes the best Whisper checkpoint
+  measured" on `test-other`. Re-running the matrix disproved it.** Same instance, same
+  code, same 200 utterances: 4.86 % the first time, **7.69 %** the second — past
+  `medium.en` (5.51 %) and `small.en` (5.59 %), from best of the four to worst. The
+  companion claim that it "barely degrades" on hard audio (a 1.5× multiplier) went with
+  it; the honest figure is 1.5× *or* 2.4× depending on the run. Both runs are now
+  published side by side, because there is no basis for choosing one.
+- **The re-run is a confirmed prediction, not only a correction.** Six of the eight
+  engines returned **bit-identical** WERs. The two that moved — `tiny.en` by 0.16, and
+  `large-v3` — are exactly the two the temperature-fallback mechanism isolated on
+  `test-clean` weeks earlier, and `test-other` shares no utterance and no speaker with
+  that split. The error breakdown says the same thing: `large-v3`'s substitutions are 87
+  on both splits in both runs, while its `test-other` insertions went 89 → 184. It does
+  not mis-hear more; it invents more.
+- **This also retires the "small models are unstable" reading.** It is the smallest and
+  the largest checkpoint, with the three in between stable on both splits — not a
+  capacity effect but a first-choice decode that trips faster-whisper's
+  compression-ratio and log-probability gates, `tiny.en` by truncating and `large-v3` by
+  running on.
+- **`_common.write_result` no longer destroys the run it replaces.** Every published
+  table is keyed to a fixed filename, so the second `test-other` run overwrote the first
+  and the numbers this page had been quoting survived only in a console log on a rented
+  VM. A write that would *change* an existing file now copies the old one to
+  `paper/results/history/`, named for the instant it was measured. An identical re-run
+  archives nothing — reproducing a benchmark is the normal case and must not fill the
+  directory with copies of the same numbers, or the directory stops being a record of
+  disagreement. `tests/test_bench_result_history.py` pins all three behaviours.
+
+### Added — the results behind every published number are committed, with their logs
+
+- **`paper/results/` was gitignored.** `docs/benchmarks.md` opens on the claim that its
+  numbers can be reproduced; `paper/benchmark/` was un-ignored months ago for exactly
+  that reason, and the *results* those commands produce were still inside `paper/*`. The
+  artifact naming the CPU, the OS, the library versions and the load average behind each
+  published figure existed on one laptop and nowhere else — not citable, not comparable
+  against a later run.
+- **Provenance is stamped at the chokepoint.** `run_all.py` attached a shared block, so a
+  single bench run from the command line — the documented way to re-measure one thing —
+  wrote through `write_result` without one and overwrote the good file. Two of the seven
+  archived results had no provenance at all. `_common.write_result` now stamps one when
+  the caller did not.
+- **`paper/results/probes/`** archives the exploratory measurements from a two-day window
+  on rented compute: the diarization sweeps (including the one whose optimum turned out
+  to lie outside its own range), the first DER on real human speech, the embedding-model
+  comparison, the beam-size and lead-in grids, the plausibility-guard verdicts — each in
+  an envelope naming the host, the producing script, and where a committed harness script
+  has since replaced it. The run logs are archived beside them, redacted, because the
+  per-recording lines are the part a later reader cannot reconstruct. The probe scripts
+  themselves are committed under `paper/benchmark/probes/`: a number whose code is gone
+  is not reproducible.
+- **`tests/test_benchmark_results_are_archived.py`** fails the build on a result with no
+  provenance, on a login name or home directory in any published file — logs included,
+  since those were written on a machine where the home directory was in every path — and
+  on a bench script that has neither an archived result nor a recorded reason it cannot
+  have one.
+- **The `*.log` rule would have swallowed the run logs.** `.gitignore` ignores `*.log`
+  repository-wide, which is right everywhere except here: two of these 58 files are the
+  *only* surviving record of a measurement, because a fixed result filename let a second
+  run overwrite the first before `write_result` learned to displace into `history/`. The
+  negation is narrow (`!paper/results/probes/logs/*.log`) and the reason is written
+  beside it, so the next person to widen the global rule can see what it would cost.
+- **Two of the three enforcement points agreed the archive was public; the one that
+  decided did not.** `design/README.md` lists `paper/results/` as public and says in the
+  same breath that `.gitignore`, `.git/hooks/pre-commit` and `hooks/design_tier.py` must
+  agree, "changing one without the others is a bug". The hook still carried the
+  allow-list written before any results existed, so the entire archive was uncommittable
+  and the refusal read like a considered policy decision rather than a list that had not
+  caught up. The allow-list is now anchored on extension rather than depth — harness and
+  probe code as `.py`/`.md`/`.sh`, artifacts as `.json`/`.md`/`.log` — so a subdirectory
+  under a published tree still cannot carry audio or the manuscript out.
+  `tests/test_privacy_hook_blocks_what_it_calls_private.py` previously proved the hook
+  does not under-block; it now also proves it does not over-block, taking the set of
+  public trees from the contract table itself rather than restating it. Both directions
+  were verified by mutation.
+- **Committing the artifacts immediately caught a stale page.** The voice-activity-gate
+  section reported 40 positive clips and a 3.4× median margin; re-running the bench to
+  give `vad.json` its missing provenance produced 200 clips and 3.1×, and
+  `tests/test_benchmarks_match_results.py` failed on the mismatch. The page now matches
+  the artifact. That test could only ever compare the page against whatever happened to
+  be on the machine — which is the case for committing the artifact in one line.
+- **`bench_onset.py` records the per-utterance outcome, not only the count.** Two cells
+  of its grid differ by four utterances in 200, and whether that is an effect or
+  sampling noise is a *paired* question (McNemar over the utterances that change
+  verdict). A count cannot be paired with another count, so the first version made its
+  own smallest differences unanswerable without a full re-run.
+- `bench_diarization.py` now records the corpus **name** rather than its absolute path,
+  and writes into `paper/results/` by default; it only ever wrote where it was told to,
+  which is why no diarization artifact had ever been archived.
+
+### Added — the benchmark tables can now be asked whether a difference is real
+
+- **A grid of percentages is not a ranking, and both published grids invited one.** The
+  beam-size table's gaps are fractions of a point (4.01 against 4.07, 9.46 against 9.84)
+  and the onset grid's are four utterances in 200; at n=200 the interval on any single
+  cell is wider than every gap in its own table. Neither artifact carried what a
+  comparison actually needs.
+- **`paper/benchmark/analyze_onset.py`** — exact McNemar over the per-utterance
+  first-word outcomes, paired within an arm and a cut. Paired, because every cell
+  decodes the same 200 utterances and the ones both conditions agreed on carry no
+  information; the exact binomial rather than the chi-square approximation, because the
+  discordant count is routinely under ten and the approximation is not valid there.
+- **`paper/benchmark/analyze_beam.py`** — paired bootstrap of the WER *difference*
+  between two beam widths over shared utterance resamples (Bisani & Ney, ICASSP 2004).
+  `bench_beam.py` now records per-utterance error counts and a 95 % interval so it has
+  something to read. The pairing is the whole point and is tested as such: the guard
+  computes an unpaired bootstrap on the same input and fails if the two intervals are
+  not several times apart.
+- **Both refuse an artifact that predates their input rather than falling back.** An
+  unpaired test on two published levels would produce a number in the same confident
+  tone while answering a different question, and the number is what gets quoted.
+- **Beam search is not monotonic.** `base.en` on `test-other` scores 9.46 % at beam 5
+  and **9.84 % at beam 8** — worse, for 8 % more decode — and `small.en` on `test-clean`
+  is better greedy than at the shipped default. Whether either gap survives a paired
+  test is open until the re-run lands, and the page says so instead of ranking the rows.
+- **Every one of the twelve beam WERs reproduced bit-identically** across two runs on
+  one instance half an hour apart, in separate processes with the models re-loaded,
+  while their RTFs moved by up to 3 % — and by 23–26 % when a second job shared the
+  box. Accuracy on a fixed subset is a property of the model; throughput is a property
+  of the machine and of what else is running on it.
+- **`tests/test_benchmarks_match_results.py` skipped when a result file was absent.**
+  Correct while `paper/results/` was gitignored, a hole the moment it was committed: a
+  deleted artifact would leave the page green with nothing behind it. A missing result
+  is now a failure naming the file, and every measured beam row must appear on the page
+  with both its WER and its RTF. The first version of that check matched the RTF by
+  substring and passed `0.037` against a page saying `0.0377`.
+- **`paper/benchmark/README.md` was five scripts behind** — `bench_beam.py`,
+  `bench_onset.py`, `bench_plausibility.py`, `bench_streaming.py`,
+  `bench_throughput.py`, and `make_features_table.py` made six. A reader deciding
+  whether a published figure was reproducible would have concluded the instrument did
+  not exist. `tests/test_bench_readme_lists_every_script.py` derives the set from the
+  directory, in both directions, so the next one fails on the day it lands.
+
+- **`paper/results/MANIFEST.md`** — one row per archived artifact naming what it
+  measures, the machine it came from and when, generated by
+  `paper/benchmark/make_results_index.py` from the files themselves. Sixty-six
+  artifacts across two months, three machines and two dozen scripts had no index at
+  all: which file backs a given figure, and whether two numbers were taken on the same
+  machine, were answerable only by opening every file. Its guard checks the names
+  against the **directory** in both directions rather than only re-running the
+  generator, because a re-run-and-diff agrees with itself by construction and would
+  pass a generator that silently skipped a whole subtree.
+- **The headline WER table has no confidence interval and now says so.** The same three
+  checkpoints on the same 200 utterances score 4.82/4.07/2.59 on the reference laptop
+  and 5.18/4.01/2.66 on a 16-vCPU Xeon — every laptop figure inside the interval the
+  Xeon run reports for the same model. Two tables on one page disagreeing by a third of
+  a point reads as an error; it is the measurement, and the page now explains it.
+
+### Measured — the same code on four instruction sets
+
+- **`benchmark.yml` had never run.** Dispatched across every runner GitHub offers, it
+  answers the standing objection that a WER is partly a property of the CPU that decoded
+  it: CTranslate2 dispatches different int8 kernels per ISA and reduces partial sums in a
+  different order. On 60 stratified `test-clean` utterances, `small.en` scored **2.05 %
+  on all four** — x86_64 Linux, arm64 Linux, arm64 macOS, x86_64 Windows — while
+  `base.en` spread 0.14 points and `tiny.en` 0.49. The spread closes as the model grows,
+  which is the same pattern a thread-count experiment found on one laptop, now confirmed
+  across architectures rather than across thread counts.
+- The four runners' full artifacts are archived under `paper/results/platforms/`. Their
+  **timings are deliberately not quoted**: the macOS runner reported a one-minute load
+  average of 30.44 on three logical CPUs, which the provenance block records and a table
+  of RTFs would have hidden.
+
+### Fixed — the Intel macOS benchmark leg has never produced a number
+
+- **`benchmark.yml`'s `macos-15-intel` row died in `uv sync` on every dispatch**, and
+  `continue-on-error` turned that into a silent absence rather than a red job: a matrix
+  row that looks measured and never was. `uv.lock` is one universal resolution and pins
+  `onnxruntime` 1.28.0, which upstream publishes for macOS arm64 only — 1.23.2 was the
+  last release with an x86_64 wheel — and `faster-whisper` depends on it unconditionally,
+  so no choice of extras avoids it.
+- `scripts/build-macos.sh` already resolves that leg unlocked for this exact reason; the
+  benchmark workflow now does the same, resolving the project and the benchmark group in
+  one command so the backtrack to 1.23.2 is made once with every requirement visible.
+  Since `macos-15-intel` is the last Intel image GitHub offers (ADR-017), this is the only
+  way the architecture is ever measured at all.
+- **The workflow also cleared nothing before running.** Now that `paper/results/` is
+  committed, the checkout arrives carrying another machine's results and the job uploads
+  `paper/results/*.json` wholesale — so an artifact named for one runner would have
+  contained a laptop's numbers next to its own, with only the provenance block to tell
+  them apart.
+- **How far this is verified.** The resolution was proven without a Mac —
+  `uv pip compile --python-platform x86_64-apple-darwin` backtracks to
+  `onnxruntime==1.23.2` and exits 0 — but a `workflow_dispatch` runs the copy of the
+  workflow that is *on the branch*, so the leg itself cannot be exercised until this
+  change lands. Until a dispatch produces `paper/results/platforms/macos-15-intel/`,
+  Intel macOS remains the one architecture with no measurement, and the cross-ISA table
+  says four runners rather than five.
+
+
 ### Fixed — the macOS app crashed on `yazses doctor`, and one tuple of strings was why
 
 - **`system/doctor.py` imported `BSD_PREFIXES` from `yazses.platform.bsd`.** That module

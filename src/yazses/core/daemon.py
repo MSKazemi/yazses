@@ -3769,8 +3769,11 @@ class Daemon:
 
         It is no longer the setting that decides whether the transcript is readable --
         that was true against the old `cluster_threshold = 0.5` (84.09% DER at auto
-        against 28.55% supplied), and ADR-v2-133 reversed it: on the full AMI test split
-        auto now scores 26.71% and a supplied count scores 29.42%. It stays because the
+        against 28.55% supplied), and ADR-v2-133 closed most of that gap with the
+        default alone: auto at `1.2` scores 26.71% on the full AMI test split. It is
+        *not* known to have reversed -- the 29.42% supplied-count figure was measured at
+        the old threshold, so the two differ in two variables and cannot be compared, and
+        `1.2` with a supplied count is unmeasured. It stays because the
         clustering's estimate is still wrong in both directions -- exact on 2 of 16 AMI
         meetings -- and a user who *knows* the number deletes that error term. On this
         backend it is an exact count rather than a cap, so a user who is guessing should
@@ -3860,9 +3863,11 @@ class Daemon:
                 resp["warning"] = advice
             # A separate key, not a second `warning`: the tray renders `warning` as a
             # fault, and this is not one -- diarization will run, it will just
-            # over-split without a speaker count. Measured at 84% DER against 29%
-            # (ADR-v2-133), which is too large a difference to leave unsaid at the
-            # one moment the user is about to record for an hour.
+            # over-split without a speaker count: the clustering is exact on 2 of 16
+            # AMI meetings and +2.06 speakers out on average, and the user is about to
+            # record for an hour. (The 84%-against-29% gap this comment used to quote
+            # was measured at the pre-ADR-v2-133 `cluster_threshold = 0.5`, and the
+            # current default is not that.)
             from yazses.recimport.factory import speaker_count_advice
 
             if hint := speaker_count_advice(

@@ -71,9 +71,13 @@ else, and it wastes the one sentence a viewer will read.
 - **Don't say punctuation names** unless `[commands] voice_punctuation = true`. With the
   default (`false`), saying "comma" types the word *comma*. Whisper punctuates from your
   intonation on its own, which is why the scripts above are written with natural pauses.
-- **Pause a beat after pressing the key** before the first word. `[accessibility]
-  pre_speech_padding_ms` exists precisely because a clip starting mid-syllable clips the
-  first word, but a short beat costs nothing and removes the risk.
+- **Pause a beat after pressing the key** before the first word. This is the one that
+  is actually measured: a clip that starts mid-syllable loses that syllable, and
+  `[accessibility] pre_speech_padding_ms` does **not** put it back — prepending silence
+  cannot reconstruct audio that was never captured, and past about 40 ms of missing
+  speech it makes the opening word *less* likely to come out right (see
+  [Benchmarks](benchmarks.md#the-300-ms-of-silence-before-every-decode)). The beat costs
+  nothing and it is the whole fix.
 - **Record two or three takes.** They cost forty seconds each and you keep the best.
 
 ## Before you hit record

@@ -311,6 +311,44 @@ Three properties make it safe to change a guard that shipped hours earlier:
 What it still does not cover is unchanged: it is one-directional, so under-splitting and a
 collapse to a single cluster both pass silently. It is a floor, not a check.
 
+### Amendment (same window) — the guard's recall on AMI is 1 in 12
+
+"16 of 16 agree" above compares the two *rules* to each other. It does not say how often
+either one is right, and the AMI split had never been scored for that. It has now been,
+at the shipped `1.2`:
+
+| | recordings | genuinely over-split | fires | true positives | false alarms |
+|---|---|---|---|---|---|
+| AMI test split @ `1.2` | 16 | **12** | **1** | 1 | **0** |
+
+**Twelve of sixteen are over-split and the guard catches one.** Nine of them return 6 to 9
+labels for 4 people. Precision is 1/1 and specificity 4/4 — every warning it gave was true
+and it never interrupted a correct result — but recall is **8%**, and a reader of the
+section above would not have guessed that from "16 of 16 agree".
+
+The cause is the rule's shape, not its constant, which is why no retuning reaches it. The
+test asks whether *half* the labels fall under the fragment threshold. Over-splitting in a
+forty-minute meeting overwhelmingly means one participant cut into two **people-sized**
+clusters: `EN2002b` returns 6 labels for 4 speakers with a smallest of 98 s; `ES2004d`
+returns 6 for 4 with two of them at 274 s and 498 s. Nothing there is a fragment on any
+threshold. A fragmentation test is blind to a merge-shaped error by construction, and the
+residual ~2× over-count that remains after this ADR's threshold change is exactly that
+shape — so this ADR's own leftover error is the error its own guard cannot see.
+
+This does not change the decision. The guard was built precision-first on the explicit
+reasoning that a warning interrupting a correct transcript teaches the user to dismiss the
+next one, and 1/12 recall with 0/4 false alarms is the corner of that trade that was
+chosen deliberately. It does change what may be *claimed*: the guard is a catastrophe
+detector — it caught the 86-label and 257-label cases that produced this module — and it
+is not a check that speaker attribution is right. `docs/benchmarks.md` now carries the
+recall figure beside the false-alarm one.
+
+Catching the merge-shaped case needs a different signal: comparing cluster centroids to
+each other and warning when two are closer than the threshold that separated them, which
+reads the embedding space rather than counting seconds. That is a separate piece of work
+and is **not** a fifth option here, because it is additive to whatever threshold ships and
+would be re-measured under option 2 anyway.
+
 ### Option 2 (change the embedder) — deferred, not rejected
 
 The English sibling of the same architecture takes `IS1009a` from 90.20% to 52.89% at the
