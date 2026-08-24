@@ -3039,6 +3039,14 @@ class Daemon:
                     draft_model="",
                     high_load=cfg.high_load,
                     low_load=cfg.low_load,
+                    # The user's own `[stt] beam_size`, so the base policies return
+                    # it unchanged. Without this the governor answered every
+                    # normal-load burst with a hardcoded 5: it discarded a
+                    # configured width, and -- because `EnginePool` is keyed on
+                    # `(model, beam_size)` and `base_key` uses the configured one --
+                    # it missed the key the daemon's own engine answers to and
+                    # loaded a second copy of that same model in the background.
+                    base_beam=int(getattr(self._config.stt, "beam_size", 0) or 0),
                 ),
             )
             engine = pool.get(policy.model, policy.beam_size)

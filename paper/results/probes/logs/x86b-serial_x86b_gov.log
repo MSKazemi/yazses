@@ -1,0 +1,12 @@
+=== largev3 chain finished 2026-08-24T02:54:04Z load:3.36
+[beam] tiny.en beam=1 (test-other): WER 12.42% (95% CI 10.41-14.46)  RTF 0.0283  (39.7s)
+[beam] tiny.en beam=2 (test-other): WER 12.04% (95% CI 10.3-13.97)  RTF 0.0295  (41.5s)
+[beam] tiny.en beam=5 (test-other): WER 11.82% (95% CI 9.86-14.2)  RTF 0.0341  (47.8s)
+[beam] small.en beam=2 (test-other): WER 6.02% (95% CI 4.66-7.33)  RTF 0.0944  (132.4s)
+=== gov-other rc=0 2026-08-24T02:58:29Z load:7.70
+[beam] tiny.en beam=1 (test-clean): WER 5.53% (95% CI 4.5-6.58)  RTF 0.0236  (42.7s)
+[beam] tiny.en beam=2 (test-clean): WER 5.12% (95% CI 4.23-6.1)  RTF 0.0241  (43.5s)
+[beam] tiny.en beam=5 (test-clean): WER 4.95% (95% CI 4.04-5.93)  RTF 0.0271  (49.0s)
+[beam] small.en beam=2 (test-clean): WER 2.63% (95% CI 2.05-3.26)  RTF 0.0779  (140.9s)
+=== gov-clean rc=0 2026-08-24T03:03:09Z load:7.68
+SERIAL_X86B_GOV_DONE

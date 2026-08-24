@@ -53,7 +53,8 @@ Three rules for using these files, each learned the expensive way:
 | File | Experiment | Script |
 |---|---|---|
 | `wer*.json` | WER + RTF per engine and checkpoint — `wer.json` is `test-clean`, `wer-test-other.json` the hard split | `bench_wer.py` |
-| `beam-*.json` | `[stt] beam_size` sweep, clean and hard splits | `bench_beam.py` |
+| `beam-test-*.json` | `[stt] beam_size` sweep on the shipped default model, clean and hard splits | `bench_beam.py` |
+| `beam-governor-*.json` | the widths the **latency governor** actually picks, on the model it switches to | `bench_beam.py` |
 | `onset.json` | the silence lead-in, onset intact and onset clipped | `bench_onset.py` |
 | `latency.json` | decode P50/P95, cold start, RSS, per-stage timings | `bench_latency.py` |
 | `streaming.json` | LocalAgreement streaming vs batch | `bench_streaming.py` |
@@ -103,6 +104,17 @@ silently again.
 Read an analysis **before** quoting a difference from the measurement it reads. Two of
 the four conclusions the beam table originally carried did not survive the paired test,
 and every lead-in comparison on the onset page fell to the multiplicity correction.
+
+`beam-governor-*` is a different question from `beam-test-*` and the distinction is the
+reason it exists as its own grid. The `beam-test-*` sweep asks what `[stt] beam_size`
+should be on `base.en`, the model a user dictates with. The governor never touches that
+width -- it switches *model*, to `tiny.en`, when the machine is loaded, and narrows the
+beam at the same time. Scoring beam 1 on `base.en` therefore says nothing about the
+policy: it measures a combination the product never runs. The governor grid scores the
+widths on `tiny.en`, which is what the policy actually decodes with, and the two grids
+disagree -- beam 1 is significantly worse than beam 2 on `base.en` (p = 0.0026 hard,
+p = 0.024 clean) and not distinguishable from it on `tiny.en` (p = 0.41). Reading the
+first grid as if it settled the second is the mistake this file is here to prevent.
 
 Two scripts have no result here, and that is recorded rather than left as an absence:
 `bench_diarization.py` scores corpora that may not be committed (licence, size), and

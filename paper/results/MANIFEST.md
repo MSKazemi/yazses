@@ -16,6 +16,12 @@ Written by a committed `paper/benchmark/bench_*.py` and reproducible by re-runni
 
 | File | Measures | Machine | Taken | YazSes |
 |---|---|---|---|---|
+| `beam-governor-test-clean-significance-vs-beam2.json` | WER and RTF across `[stt] beam_size` | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T02:58:29Z | 2.29.0 |
+| `beam-governor-test-clean-significance.json` | WER and RTF across `[stt] beam_size` | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T02:58:29Z | 2.29.0 |
+| `beam-governor-test-clean.json` | WER and RTF across `[stt] beam_size` | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T02:58:29Z | 2.29.0 |
+| `beam-governor-test-other-significance-vs-beam2.json` | WER and RTF across `[stt] beam_size` | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T02:54:04Z | 2.29.0 |
+| `beam-governor-test-other-significance.json` | WER and RTF across `[stt] beam_size` | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T02:54:04Z | 2.29.0 |
+| `beam-governor-test-other.json` | WER and RTF across `[stt] beam_size` | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T02:54:04Z | 2.29.0 |
 | `beam-test-clean-significance-vs-beam2.json` | WER and RTF across `[stt] beam_size` | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T00:41:07Z | 2.29.0 |
 | `beam-test-clean-significance.json` | WER and RTF across `[stt] beam_size` | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T00:41:07Z | 2.29.0 |
 | `beam-test-clean.json` | WER and RTF across `[stt] beam_size` | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T00:41:07Z | 2.29.0 |

@@ -506,12 +506,52 @@ is the difference between "we could not tell" and "there is nothing there". Beam
 `[stt] beam_size` stays at its default of `0`, which means "let faster-whisper choose"
 and is deliberately not a pin — the upstream default is theirs to change, and freezing
 it here to match a measurement of one model on one corpus would be the same mistake in
-the opposite direction. The place this bears on directly is the Adaptive Latency
-Governor, which hardcodes 5 for its normal policy and 1 under load; on the default model
-it is paying ~8 % of decode for nothing, and its greedy fallback gives up a full point
-on hard audio where beam 2 would cost 3 % over greedy. Both are measured against
-`base.en`; whether they hold for `tiny.en` and `small.en` — the two models the governor
-actually switches between — is being measured before the constant moves.
+the opposite direction.
+
+#### The beam the latency governor picks
+
+The Adaptive Latency Governor is the one place a beam width is chosen *for* the user, so
+it is the one place this had to be settled rather than left as advice. Under high CPU
+load it switches model — `base.en` to `tiny.en` — and narrows the beam at the same time.
+It hardcoded **1** there, on the reasonable-sounding argument that a policy for a busy
+machine should buy back every cycle available.
+
+The grid above cannot answer that, and the reason is worth stating because it is the
+easy mistake: it scores beam 1 on `base.en`, a combination the governor never runs. So
+`tiny.en` was scored directly, 200 utterances per split:
+
+| Model | Split | `beam_size` | WER | RTF |
+|---|---|---|---|---|
+| `tiny.en` | test-clean | 1 | 5.53 % | 0.0236 |
+| `tiny.en` | test-clean | 2 | 5.12 % | 0.0241 |
+| `tiny.en` | test-clean | 5 | 4.95 % | 0.0271 |
+| `tiny.en` | test-other | 1 | 12.42 % | 0.0283 |
+| `tiny.en` | test-other | 2 | 12.04 % | 0.0295 |
+| `tiny.en` | test-other | 5 | 11.82 % | 0.0341 |
+| `small.en` | test-clean | 2 | 2.63 % | 0.0779 |
+| `small.en` | test-other | 2 | 6.02 % | 0.0944 |
+
+**The two grids disagree, and the disagreement is the finding.** On `base.en`, beam 1
+loses to beam 2 significantly (`p = 0.0026` hard, `p = 0.024` clean). On `tiny.en` it
+does not — `p = 0.41` and `p = 0.099` — so the constant could not be decided by carrying
+the earlier result across. What decides it is the ceiling: paired on the same
+utterances, **beam 2 is indistinguishable from beam 5 on both splits** (`p = 0.27`
+clean, `p = 0.62` hard) while **beam 1 loses to beam 5 on clean audio** by 0.58 points
+(95 % CI [+0.09, +1.14], `p = 0.023`). Beam 2 reaches the best accuracy these three
+widths show; beam 1 demonstrably does not.
+
+It costs **2.1 % more decode on clean audio and 4.2 % on hard** — against the 12–16 %
+beam 5 would cost over beam 2. And the beam was never where this policy's saving came
+from: `base.en` at beam 5 decodes the hard split at RTF 0.0426, so `tiny.en` at beam 2
+still costs 31 % less decode time. Widening 1 → 2 hands back a twelfth of that saving on
+hard audio and a twenty-seventh on clean.
+
+**The governor's light beam is now 2.** Its normal-load beam is now whatever
+`[stt] beam_size` says, which is a separate defect the measurement exposed: the policy
+returned a hardcoded 5 there, so enabling the governor silently discarded a configured
+width — and because the engine pool is keyed on `(model, beam_size)` and holds the
+daemon's own engine under the *configured* key, a request for 5 missed it on every
+normal-load burst and loaded a second copy of the model already in memory.
 
 **The WER column reproduces exactly; the RTF column does not.** Every one of these
 rows was measured twice on the same instance half an hour apart — once by hand while

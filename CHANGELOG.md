@@ -6,6 +6,45 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the latency governor discarded `[stt] beam_size` and loaded the model twice
+
+- `pick_policy` hardcoded `beam_size=5` on both of its base paths. Two things followed from
+  one line. A user who set `[stt] beam_size` got 5 anyway for as long as the governor was
+  enabled — a documented key silently overridden by an unrelated feature. And `EnginePool`
+  is keyed on `(model, beam_size)` and is handed the daemon's own engine under
+  `(stt.model, stt.beam_size)`, which for the shipped config is `(model, 0)` — "pass nothing,
+  let the engine choose". A base policy answering `(model, 5)` **missed that key on every
+  normal-load burst**, so the pool started a background load of a second copy of the model
+  already in memory. `pool.py`'s docstring names avoiding exactly that as a design goal.
+  Nothing failed and nothing was logged; the process just held two engines for the session.
+- The base paths now return `config.base_beam`, which the daemon fills from `[stt] beam_size`.
+  The regression is asserted where it bit: at normal load the pool must return the engine it
+  was constructed with and queue **no** background build, for a configured width of 0, 2 or 5.
+
+### Changed — the governor's beam under load is 2, decided on `tiny.en` rather than argued
+
+- The high-load policy narrowed the beam to **1** on the reasonable-sounding argument that a
+  policy for a busy machine should buy back every cycle available. It had never been measured
+  on the model that policy actually runs. The `[stt] beam_size` sweep in `docs/benchmarks.md`
+  could not settle it either: that grid scores `base.en`, and this policy switches to
+  `tiny.en`, so it measures a combination the product never executes.
+- **The two grids disagree, and the disagreement is the result.** On `base.en`, beam 1 loses to
+  beam 2 significantly (`p = 0.0026` hard, `p = 0.024` clean). On `tiny.en` it does not
+  (`p = 0.41`, `p = 0.099`), so the earlier finding could not simply be carried across. What
+  decides it is the ceiling: paired on the same utterances, beam 2 is **indistinguishable from
+  beam 5** on both splits (`p = 0.27`, `p = 0.62`), while beam 1 **loses to beam 5 on clean
+  audio** by 0.58 points (95 % CI [+0.09, +1.14], `p = 0.023`). Beam 2 reaches the best
+  accuracy the three widths show; beam 1 demonstrably does not.
+- It costs 2.1 % more decode on clean audio and 4.2 % on hard, against the 12–16 % beam 5 would
+  cost over beam 2 — and the beam was never where this policy's saving came from. `base.en` at
+  beam 5 decodes the hard split at RTF 0.0426, so `tiny.en` at beam 2 is still 31 % less decode
+  time. Widening 1 → 2 hands back a twelfth of that saving on hard audio.
+- The grids, the paired verdicts and the run log are archived
+  (`paper/results/beam-governor-test-{clean,other}.json`, their `-significance` and
+  `-significance-vs-beam2` companions). No new guard was needed on the published table: the
+  existing one derives its rows from every `beam-*.json` in the archive, so the eight new rows
+  were checked the moment they landed — and a one-digit mutation of any of them fails it.
+
 ### Fixed — six surfaces told users a shipped diarization backend was not shipped
 
 - The `pyannote` adapter has shipped since 2026-08-13 behind the optional

@@ -1,0 +1,55 @@
+{
+  "source": "beam-governor-test-clean.json",
+  "provenance": {
+    "timestamp": "2026-08-24T02:58:29Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.5.2",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 7.68,
+    "compute_type": "int8",
+    "device": "cpu"
+  },
+  "method": "paired bootstrap over utterances, 10000 replicates, seed 20260824",
+  "baseline_beam": 1,
+  "alpha": 0.05,
+  "comparisons": [
+    {
+      "a": "tiny.en beam=1",
+      "b": "tiny.en beam=2",
+      "split": "test-clean",
+      "a_wer": 5.53,
+      "b_wer": 5.12,
+      "diff": 0.407,
+      "diff_ci95": [
+        -0.062,
+        0.95
+      ],
+      "p": 0.0986,
+      "n_utterances": 200
+    },
+    {
+      "a": "tiny.en beam=1",
+      "b": "tiny.en beam=5",
+      "split": "test-clean",
+      "a_wer": 5.53,
+      "b_wer": 4.95,
+      "diff": 0.578,
+      "diff_ci95": [
+        0.091,
+        1.135
+      ],
+      "p": 0.0234,
+      "n_utterances": 200
+    }
+  ],
+  "n_comparisons": 2,
+  "n_significant": 1
+}

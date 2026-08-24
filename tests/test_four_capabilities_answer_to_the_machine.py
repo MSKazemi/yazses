@@ -218,10 +218,17 @@ def test_focusprofile_needs_the_focused_window_probe() -> None:
 def test_the_policy_follows_the_load() -> None:
     from yazses.latency.governor import GovernorConfig, pick_policy
 
+    from yazses.latency.governor import LIGHT_BEAM
+
     cfg = GovernorConfig(base_model="base.en", light_model="tiny.en", draft_model="")
     assert pick_policy(95.0, cfg) == pick_policy(85.0, cfg)
     assert pick_policy(95.0, cfg).model == "tiny.en"
-    assert pick_policy(95.0, cfg).beam_size == 1
+    # Asserted through the constant, not against a literal: its value is a
+    # measurement (see `governor.LIGHT_BEAM`) and moved once already. What this
+    # test is for is that the *policy* narrows the beam under load, which a
+    # literal would restate as a coincidence and re-break on the next re-measure.
+    assert pick_policy(95.0, cfg).beam_size == LIGHT_BEAM
+    assert LIGHT_BEAM < 5, "the light policy must narrow the beam, not widen it"
     assert pick_policy(10.0, cfg).model == "base.en"
     assert pick_policy(10.0, cfg).speculative is False  # no draft model is wired
 
@@ -325,6 +332,7 @@ def test_the_decode_engine_uses_the_light_model_under_load(monkeypatch) -> None:
     """The other direction: without this the fallbacks above would mean "always"."""
     import yazses.latency.load as load
     from yazses.core.daemon import Daemon
+    from yazses.latency.governor import LIGHT_BEAM
 
     cfg = Config()
     cfg.latency.enabled = True
@@ -338,7 +346,39 @@ def test_the_decode_engine_uses_the_light_model_under_load(monkeypatch) -> None:
     monkeypatch.setattr(load, "cpu_percent", lambda: 99.0)
     fake = SimpleNamespace(_config=cfg, _engine="the-loaded-engine", _governor=_Pool())
     assert Daemon._decode_engine(fake) == "engine:tiny.en"
-    assert asked == [("tiny.en", 1)]
+    assert asked == [("tiny.en", LIGHT_BEAM)]
+
+
+def test_the_base_policy_asks_the_pool_for_the_configured_beam(monkeypatch) -> None:
+    """At normal load the governor must ask for the width the user configured.
+
+    It asked for a hardcoded 5. `EnginePool` is keyed on `(model, beam_size)` and
+    is handed the daemon's own engine under `(stt.model, stt.beam_size)`, so a
+    request for a different width missed that key every burst and loaded a second
+    copy of the same model in the background -- while also discarding whatever the
+    user had set `[stt] beam_size` to.
+    """
+    import yazses.latency.load as load
+    from yazses.core.daemon import Daemon
+
+    for configured in (0, 2, 8):
+        cfg = Config()
+        cfg.latency.enabled = True
+        cfg.stt.beam_size = configured
+        asked: list[tuple[str, int]] = []
+
+        class _Pool:
+            def get(self, model, beam):
+                asked.append((model, beam))
+                return f"engine:{model}"
+
+        monkeypatch.setattr(load, "cpu_percent", lambda: 50.0)
+        fake = SimpleNamespace(_config=cfg, _engine="the-loaded-engine", _governor=_Pool())
+        Daemon._decode_engine(fake)
+        assert asked == [(cfg.stt.model, configured)], (
+            f"with [stt] beam_size = {configured} the governor asked the pool for "
+            f"{asked}, which is not the key the daemon's own engine answers to"
+        )
 
 
 def test_the_beam_width_reaches_the_decoder() -> None:
