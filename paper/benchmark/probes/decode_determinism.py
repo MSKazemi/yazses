@@ -40,7 +40,9 @@ Deliberately not a `bench_*.py`: it answers whether a decode setting should chan
 """
 from __future__ import annotations
 
+import gc
 import hashlib
+import json
 import sys
 import time
 from pathlib import Path
@@ -51,7 +53,13 @@ sys.path.insert(0, str(BENCH))
 import jiwer  # noqa: E402
 
 import bench_wer  # noqa: E402
-from _common import load_audio, librispeech_subset, percentile, write_result  # noqa: E402
+from _common import (  # noqa: E402
+    RESULTS_DIR,
+    load_audio,
+    librispeech_subset,
+    percentile,
+    write_result,
+)
 
 #: The three decode settings, and what each one is testing. `None` is "pass nothing",
 #: which is what ships -- written as an empty dict rather than omitted from the table so
@@ -84,6 +92,28 @@ def _patched(engine, extra: dict):
     return engine
 
 
+def _release(engine) -> None:
+    """Drop *engine* and the native model behind it, cycle and all.
+
+    This is not tidiness. `_patched` installs a closure on the engine that closes over
+    the engine's own bound `_decode_kwargs`, so the engine references itself, and a
+    self-referencing object is reachable only by the cycle collector -- which runs when
+    it feels like it. CTranslate2's weights are native memory freed by the model's
+    destructor, not by the last Python reference going out of scope, so a deferred
+    collection leaves ~4 GB per run resident. The first attempt at this experiment built
+    a fresh engine for each of the 15 runs, reached 64.8 GB on a 62 GB box with no swap,
+    and was OOM-killed at run 19 of 20 -- after three and a half hours, having written
+    nothing.
+
+    Rebuilding per run is kept deliberately: it is what makes "identical text" a claim
+    about the *setting* rather than about a warm model that happened not to drift.
+    """
+    engine.__dict__.pop("_decode_kwargs", None)  # break the cycle
+    engine._model = None
+    del engine
+    gc.collect()
+
+
 def _score(refs: list[str], hyps: list[str]) -> dict:
     pairs = [(r, h) for r, h in zip(refs, hyps) if r.strip()]
     m = jiwer.process_words([r for r, _ in pairs], [h for _, h in pairs])
@@ -101,7 +131,7 @@ def _digest(hyps: list[str]) -> str:
     return hashlib.sha256("\n".join(hyps).encode("utf-8")).hexdigest()[:16]
 
 
-def run(repeats: int, split: str, n: int, model: str) -> dict:
+def run(repeats: int, split: str, n: int, model: str, on_arm=None) -> dict:
     subset = librispeech_subset(n, stratified=True, split=split)
     refs = [bench_wer._normalize(ref) for _, _, ref, _ in subset]
     ids = [utt_id for utt_id, _, _, _ in subset]
@@ -144,6 +174,7 @@ def run(repeats: int, split: str, n: int, model: str) -> dict:
                     ids[i] for i, (a_, b_) in enumerate(zip(first_hyps, hyps)) if a_ != b_
                 ]
             runs.append(row)
+            _release(engine)
             print(
                 f"[det] {arm} run {r}: WER={row['wer']}% ins={row['insertions']} "
                 f"sha={row['hypothesis_sha256_16']} "
@@ -151,6 +182,11 @@ def run(repeats: int, split: str, n: int, model: str) -> dict:
                 flush=True,
             )
         out["arms"][arm] = {"runs": runs, "summary": summarise(runs)}
+        # Checkpoint after every arm rather than once at the end. Each arm is ~35 minutes
+        # of decoding, and the run this replaces lost all three of them to a kill in the
+        # last one. A partial artifact says which arms completed; nothing says nothing.
+        if on_arm is not None:
+            on_arm(out)
     return out
 
 
@@ -186,9 +222,23 @@ def main() -> None:
     split = sys.argv[2] if len(sys.argv) > 2 else "test-other"
     n = int(sys.argv[3]) if len(sys.argv) > 3 else 200
     model = sys.argv[4] if len(sys.argv) > 4 else "large-v3"
-    payload = run(repeats, split, n, model)
-    path = write_result(f"probes/decode-determinism-{model}-{split}", payload)
-    print(f"wrote {path}")
+    name = f"probes/decode-determinism-{model}-{split}"
+    # The checkpoint is written *beside* the archive, not through `write_result`, and
+    # deliberately: `write_result` files any change to an existing artifact under
+    # `results/history/` so that a re-run can never destroy a measurement. Routing three
+    # checkpoints of one run through it would fill that directory with two half-finished
+    # payloads and call them superseded measurements, which is the opposite of what the
+    # history is for. A partial is not a result; it is what survives a kill.
+    partial = RESULTS_DIR / f"{name}.partial.json"
+
+    def checkpoint(payload: dict) -> None:
+        partial.parent.mkdir(parents=True, exist_ok=True)
+        partial.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        print(f"[det] checkpoint -> {partial} ({len(payload['arms'])} arms)", flush=True)
+
+    payload = run(repeats, split, n, model, on_arm=checkpoint)
+    print(f"wrote {write_result(name, payload)}", flush=True)
+    partial.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":
