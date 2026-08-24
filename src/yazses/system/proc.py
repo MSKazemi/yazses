@@ -63,7 +63,7 @@ def _windows_alive(pid: int) -> bool:
     import ctypes
     from ctypes import wintypes
 
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
     kernel32.OpenProcess.restype = wintypes.HANDLE
     kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
     kernel32.GetExitCodeProcess.restype = wintypes.BOOL
@@ -76,7 +76,7 @@ def _windows_alive(pid: int) -> bool:
         # ERROR_ACCESS_DENIED means the process exists but belongs to someone else;
         # anything else (typically ERROR_INVALID_PARAMETER) means there is no such
         # process.
-        return ctypes.get_last_error() == _ERROR_ACCESS_DENIED
+        return ctypes.get_last_error() == _ERROR_ACCESS_DENIED  # type: ignore[attr-defined]
     try:
         code = wintypes.DWORD()
         if not kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):

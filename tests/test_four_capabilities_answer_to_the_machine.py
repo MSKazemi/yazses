@@ -216,9 +216,7 @@ def test_focusprofile_needs_the_focused_window_probe() -> None:
 
 
 def test_the_policy_follows_the_load() -> None:
-    from yazses.latency.governor import GovernorConfig, pick_policy
-
-    from yazses.latency.governor import LIGHT_BEAM
+    from yazses.latency.governor import LIGHT_BEAM, GovernorConfig, pick_policy
 
     cfg = GovernorConfig(base_model="base.en", light_model="tiny.en", draft_model="")
     assert pick_policy(95.0, cfg) == pick_policy(85.0, cfg)

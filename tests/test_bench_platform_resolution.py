@@ -146,9 +146,8 @@ def test_the_resolution_output_goes_to_a_real_path() -> None:
     """`-o /dev/null` makes uv fail writing a temporary sibling file, which is reported
     as a resolution failure and is not one. That produced a table in which every row --
     including the base install, which resolves fine -- read FAIL."""
-    import inspect
-
     import ast
+    import inspect
 
     tree = ast.parse(inspect.getsource(mod._compile).lstrip())
     fn = tree.body[0]

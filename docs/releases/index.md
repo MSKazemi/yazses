@@ -23,12 +23,11 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.30.0](v2.30.0.md)** — the release that measured its own claims. 176 commits.
-Speaker labels in meeting transcripts were scored against annotated audio for the first
-time and were mostly wrong — four people split into up to 257 clusters — and are fixed.
-Seventeen capabilities that shipped with no way to reach them are now reachable. And most
-of what YazSes told you about itself, from the example config to the extras to the store
-listing, turned out to be checked by nothing.
+**[YazSes 2.31.0](v2.31.0.md)** — the release that made its evidence reproducible. 32
+commits. Every published benchmark number now carries its result artifact, command and
+corpus identity; the latency governor no longer ignores the configured beam or loads a
+second model; and the release pipelines now test the packaged applications rather than
+only their source environments.
 Install it with:
 
 ```sh
@@ -38,6 +37,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.31.0](v2.31.0.md) — reproducible benchmark evidence; a measured latency policy; one model in memory instead of two; safer log reports; repaired Intel macOS extras and release pipelines.
 - [v2.30.0](v2.30.0.md) — the release that measured its own claims: speaker labels scored for the first time (84% DER, now 26.7%), seventeen unreachable capabilities wired, `[all]` eight extras short of all, and Flathub installing eleven releases behind what it advertised.
 - [v2.29.0](v2.29.0.md) — 43 corrections found mostly by running the product: `verify` certified a mic hearing nobody, `reflow` cut "Firstly" to "ly", `redact_patterns` scrubbed four of six fields, and a destructive-command guard could never fire.
 - [v2.28.0](v2.28.0.md) — when something breaks, YazSes now says what and what to do, and can prepare a bug report without sending one; a critical toast that outlived the process that raised it; a report that could carry your personal dictionary.

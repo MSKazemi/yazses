@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [2.31.0] — 2026-08-24
+
 ### Changed — every archived benchmark result now records *which* utterances it scored
 
 - Each file recorded `n_utterances: 200` and nothing identifying the 200. The selection is
