@@ -3725,9 +3725,9 @@ class Daemon:
     def _handle_recall(self, request: Request) -> dict[str, object]:
         """IPC: query past dictations from the corpus (Spoken Recall, ADR-v2-005)."""
         if not self._config.recall.enabled:
-            return {"ok": False, "reason": "recall disabled — set [recall] enabled = true"}
+            return {"ok": False, "reason": "recall disabled — turn it on with `yazses features enable recall`"}
         if not self._config.learning.enabled:
-            return {"ok": False, "reason": "learning corpus disabled — set [learning] enabled = true"}
+            return {"ok": False, "reason": "learning corpus disabled — turn it on with `yazses features enable learning`"}
         query = str(request.params.get("query", "")).strip()
         try:
             from yazses.learning.capture import open_store
@@ -3980,7 +3980,8 @@ class Daemon:
         if not text:
             return {"ok": False, "reason": "empty text"}
         if self._tts is None:
-            return {"ok": False, "reason": "TTS disabled — set [tts] enabled = true"}
+            return {"ok": False, "reason": "TTS disabled — turn it on with `yazses features enable read-back` "
+                                  "(it writes [tts] enabled and [accessibility] read_back)"}
         self._speak_readback(text)
         return {"ok": True, "backend": self._tts.name}
 

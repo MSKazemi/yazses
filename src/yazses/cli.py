@@ -2036,7 +2036,9 @@ def acronyms_remove(acronym: str = typer.Argument(..., help="The acronym to remo
 @acronyms_app.command(
     "expand",
     epilog=_examples(
-        'yazses acronyms expand "The API and the API"   -> expands first use only',
+        'yazses acronyms add API "Application Programming Interface"   (needed first)',
+        'yazses acronyms expand "The API and the API"',
+        "  -> The Application Programming Interface (API) and the API",
         "cat notes.txt | yazses acronyms expand           read stdin",
     ),
 )
@@ -2058,6 +2060,15 @@ def acronyms_expand(
 
     glossary = load_glossary(_acronyms_path())
     src = text if text is not None else _sys.stdin.read()
+    if not glossary:
+        # Without this the command echoes its input back unchanged and says nothing,
+        # which reads as "there was nothing to expand" rather than "the glossary this
+        # works from is empty". On stderr so a pipe still receives only the text.
+        typer.echo(
+            "Glossary is empty, so nothing was expanded. Add an entry with: "
+            "yazses acronyms add <ACR> <full form>",
+            err=True,
+        )
     typer.echo(expand_document(src, glossary))
 
 
@@ -3563,7 +3574,8 @@ def inject(text: str = typer.Argument(..., help="Text to inject into the focused
 def say(text: str = typer.Argument(..., help="Text to speak aloud.")) -> None:
     """Speak text aloud with the built-in offline voice.
 
-    Requires `[tts] enabled = true` (install the voice with `uv sync --extra tts`).
+    Requires `yazses features enable read-back`, which writes `[tts] enabled = true`
+    and installs the voice.
     Routes through the running daemon so it reuses the loaded TTS backend.
     """
     platform = get_platform()
@@ -3588,7 +3600,8 @@ def overlay() -> None:
     """Run the sonar voice-activity overlay (needs the `overlay` extra: PySide6).
 
     Draws neon rings near the cursor that pulse with your voice while dictating.
-    Normally auto-launched by the daemon when `[overlay] enabled = true`; run it
+    Normally auto-launched by the daemon when `[overlay] enabled = true`
+    (`yazses features enable overlay`); run it
     here in the foreground to preview or debug it.
     """
     from yazses.overlay.app import run as run_overlay
@@ -3659,7 +3672,7 @@ def table(
     rich_help_panel=_DICTATION,
     epilog=_examples(
         'yazses shellpipe "list files then filter for python then count lines"',
-        "  -> ls | grep 'python' | wc -l   (printed, never executed)",
+        "  -> ls | grep python | wc -l   (printed, never executed)",
     ),
 )
 def shellpipe(
@@ -4264,7 +4277,8 @@ def gaze_calibrate(
 ) -> None:
     """Calibrate the webcam so your gaze maps to screen zones.
 
-    Requires `[gaze] enabled = true` and an X11 session with `xdotool`. The webcam
+    Requires `[gaze] enabled = true` (`yazses features enable gaze --force`) and an
+    X11 session with `xdotool`. The webcam
     gaze deps (mediapipe + opencv) are installed automatically on first run into
     the running environment (skip with --no-install). You look at each on-screen
     point in turn; the fitted map is saved so the daemon can route dictation to
@@ -4507,7 +4521,8 @@ def mark_wrong(
 ) -> None:
     """Flag the last dictation as a misrecognition (a learning signal).
 
-    Requires `[learning] enabled = true`. Routes through the running daemon so
+    Requires `[learning] enabled = true` (`yazses features enable learning`). Routes
+    through the running daemon so
     the flag lands on the event it just captured.
     """
     platform = get_platform()
@@ -4538,7 +4553,8 @@ def coach(
 ) -> None:
     """Show private speaking-style analytics (filler rate, words-per-minute, vocabulary).
 
-    Reads only your local encrypted learning corpus (requires `[learning] enabled = true`).
+    Reads only your local encrypted learning corpus (requires `[learning] enabled = true`,
+    i.e. `yazses features enable learning`).
     Nothing leaves the machine.
     """
     from yazses.coach.analytics import aggregate_stats
@@ -4588,7 +4604,8 @@ def recall(
 ) -> None:
     """Search your past dictations.
 
-    Requires `[learning] enabled = true` and `[recall] enabled = true`. Reads the
+    Requires `[learning] enabled = true` and `[recall] enabled = true`
+    (`yazses features enable learning`, then `yazses features enable recall`). Reads the
     local encrypted corpus only — nothing leaves the machine.
     """
     q = " ".join(query or [])
@@ -4665,7 +4682,8 @@ def punch_in(
 ) -> None:
     """Correct the last dictation by re-speaking just the wrong phrase.
 
-    Requires `[punch_in] enabled = true`. The daemon records a short window, aligns
+    Requires `[punch_in] enabled = true` (`yazses features enable punch-in`). The
+    daemon records a short window, aligns
     the respoken phrase against the last burst it typed, then deletes that burst and
     retypes it corrected. Use --dry-run to review candidate spans first, then re-run
     with --choose N to apply a specific one.
@@ -4728,8 +4746,9 @@ def tune(
     data_dir = platform.paths.data_dir
     if not (data_dir / "corpus.db").exists():
         typer.echo(
-            "No corpus yet. Enable it with `[learning] enabled = true` in "
-            f"{platform.paths.config_file}, then dictate for a while.",
+            "No corpus yet. Enable it with `yazses features enable learning` "
+            f"(writes `[learning] enabled = true` to {platform.paths.config_file}), "
+            "then dictate for a while.",
             err=True,
         )
         raise typer.Exit(1)
