@@ -153,6 +153,23 @@ def test_the_publish_step_cannot_hang_for_the_whole_job() -> None:
     )
 
 
+def test_upload_poll_failure_cannot_skip_the_revision_release() -> None:
+    """snapcraft may accept the upload and then exit 120 after its review poll.
+
+    The revision lookup and explicit release must still run in that case.  A
+    trailing ``|| true`` did not reliably defeat the runner's ``bash -e`` and
+    v2.31.0 stopped immediately after the store created revision 388.
+    """
+    text = WORKFLOW.read_text(encoding="utf-8")
+    upload = text.index('timeout 900 snapcraft upload "$SNAP_FILE"')
+    revision_lookup = text.index("REV=\"\"", upload)
+    guarded_block = text[text.rfind("set +e", 0, upload):revision_lookup]
+
+    assert guarded_block.startswith("set +e")
+    assert "UPLOAD_STATUS=${PIPESTATUS[0]}" in guarded_block
+    assert "set -e" in guarded_block
+
+
 def test_a_publish_timeout_explains_itself() -> None:
     """A bare "timed out after 20 minutes" points at the wrong half of the problem.
 

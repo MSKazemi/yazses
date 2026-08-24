@@ -162,7 +162,18 @@ jobs:
           set -uo pipefail
           command -v snapcraft >/dev/null || sudo snap install snapcraft --classic
 
-          timeout 900 snapcraft upload "$SNAP_FILE" 2>&1 | tee upload.log || true
+          # snapcraft exits 120 when its final stdout flush loses the pipe after
+          # a long store-review poll.  `bash -e` has still aborted this step in
+          # practice despite the old trailing `|| true`, before the revision
+          # lookup below could run.  Disable errexit explicitly around the one
+          # command whose status is deliberately advisory, then restore it.
+          set +e
+          timeout 900 snapcraft upload "$SNAP_FILE" 2>&1 | tee upload.log
+          UPLOAD_STATUS=${PIPESTATUS[0]}
+          set -e
+          if (( UPLOAD_STATUS != 0 )); then
+            echo "::notice::snapcraft upload exited $UPLOAD_STATUS; checking the store for the accepted revision"
+          fi
 
           # From the filename, which the arch check above has already proved.
           VERSION=$(basename "$SNAP_FILE" | sed -E "s/^yazses_(.+)_${ARCH}\.snap$/\1/")
