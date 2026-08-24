@@ -46,6 +46,7 @@
       "version": "2.5.0",
       "purl": "pkg:pypi/absl-py@2.5.0",
       "bom-ref": "pkg:pypi/absl-py@2.5.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -59,6 +60,7 @@
       "version": "2.7.1",
       "purl": "pkg:pypi/aiohappyeyeballs@2.7.1",
       "bom-ref": "pkg:pypi/aiohappyeyeballs@2.7.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -72,6 +74,7 @@
       "version": "3.14.3",
       "purl": "pkg:pypi/aiohttp@3.14.3",
       "bom-ref": "pkg:pypi/aiohttp@3.14.3",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -85,6 +88,7 @@
       "version": "1.4.0",
       "purl": "pkg:pypi/aiosignal@1.4.0",
       "bom-ref": "pkg:pypi/aiosignal@1.4.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -98,6 +102,7 @@
       "version": "1.19.1",
       "purl": "pkg:pypi/alembic@1.19.1",
       "bom-ref": "pkg:pypi/alembic@1.19.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -111,6 +116,7 @@
       "version": "0.0.4",
       "purl": "pkg:pypi/annotated-doc@0.0.4",
       "bom-ref": "pkg:pypi/annotated-doc@0.0.4",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -124,6 +130,7 @@
       "version": "0.7.0",
       "purl": "pkg:pypi/annotated-types@0.7.0",
       "bom-ref": "pkg:pypi/annotated-types@0.7.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -137,6 +144,7 @@
       "version": "4.14.1",
       "purl": "pkg:pypi/anyio@4.14.1",
       "bom-ref": "pkg:pypi/anyio@4.14.1",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -150,6 +158,7 @@
       "version": "0.6.0",
       "purl": "pkg:pypi/ast-serialize@0.6.0",
       "bom-ref": "pkg:pypi/ast-serialize@0.6.0",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -163,6 +172,7 @@
       "version": "0.4.0",
       "purl": "pkg:pypi/asteroid-filterbanks@0.4.0",
       "bom-ref": "pkg:pypi/asteroid-filterbanks@0.4.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -176,6 +186,7 @@
       "version": "26.1.0",
       "purl": "pkg:pypi/attrs@26.1.0",
       "bom-ref": "pkg:pypi/attrs@26.1.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -189,6 +200,7 @@
       "version": "0.2.2",
       "purl": "pkg:pypi/audioop-lts@0.2.2",
       "bom-ref": "pkg:pypi/audioop-lts@0.2.2",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -202,6 +214,7 @@
       "version": "3.1.0",
       "purl": "pkg:pypi/audioread@3.1.0",
       "bom-ref": "pkg:pypi/audioread@3.1.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -215,6 +228,7 @@
       "version": "18.0.0",
       "purl": "pkg:pypi/av@18.0.0",
       "bom-ref": "pkg:pypi/av@18.0.0",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -228,6 +242,7 @@
       "version": "2.18.0",
       "purl": "pkg:pypi/babel@2.18.0",
       "bom-ref": "pkg:pypi/babel@2.18.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -241,6 +256,7 @@
       "version": "8.0",
       "purl": "pkg:pypi/backrefs@8.0",
       "bom-ref": "pkg:pypi/backrefs@8.0",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -254,6 +270,7 @@
       "version": "3.0.2",
       "purl": "pkg:pypi/bleak@3.0.2",
       "bom-ref": "pkg:pypi/bleak@3.0.2",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -266,7 +283,8 @@
       "name": "brainflow",
       "version": "5.22.2",
       "purl": "pkg:pypi/brainflow@5.22.2",
-      "bom-ref": "pkg:pypi/brainflow@5.22.2"
+      "bom-ref": "pkg:pypi/brainflow@5.22.2",
+      "scope": "optional"
     },
     {
       "type": "library",
@@ -274,6 +292,7 @@
       "version": "0.14.4",
       "purl": "pkg:pypi/cachecontrol@0.14.4",
       "bom-ref": "pkg:pypi/cachecontrol@0.14.4",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -287,6 +306,7 @@
       "version": "1.7.1",
       "purl": "pkg:pypi/cairocffi@1.7.1",
       "bom-ref": "pkg:pypi/cairocffi@1.7.1",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -300,6 +320,7 @@
       "version": "2.9.0",
       "purl": "pkg:pypi/cairosvg@2.9.0",
       "bom-ref": "pkg:pypi/cairosvg@2.9.0",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -313,6 +334,7 @@
       "version": "26.1.0",
       "purl": "pkg:pypi/cattrs@26.1.0",
       "bom-ref": "pkg:pypi/cattrs@26.1.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -326,6 +348,7 @@
       "version": "2026.6.17",
       "purl": "pkg:pypi/certifi@2026.6.17",
       "bom-ref": "pkg:pypi/certifi@2026.6.17",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -339,6 +362,7 @@
       "version": "2.1.0",
       "purl": "pkg:pypi/cffi@2.1.0",
       "bom-ref": "pkg:pypi/cffi@2.1.0",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -352,6 +376,7 @@
       "version": "3.4.9",
       "purl": "pkg:pypi/charset-normalizer@3.4.9",
       "bom-ref": "pkg:pypi/charset-normalizer@3.4.9",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -365,6 +390,7 @@
       "version": "8.4.2",
       "purl": "pkg:pypi/click@8.4.2",
       "bom-ref": "pkg:pypi/click@8.4.2",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -378,6 +404,7 @@
       "version": "0.4.6",
       "purl": "pkg:pypi/colorama@0.4.6",
       "bom-ref": "pkg:pypi/colorama@0.4.6",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -391,6 +418,7 @@
       "version": "6.12.0",
       "purl": "pkg:pypi/colorlog@6.12.0",
       "bom-ref": "pkg:pypi/colorlog@6.12.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -404,6 +432,7 @@
       "version": "1.3.3",
       "purl": "pkg:pypi/contourpy@1.3.3",
       "bom-ref": "pkg:pypi/contourpy@1.3.3",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -417,6 +446,7 @@
       "version": "7.15.0",
       "purl": "pkg:pypi/coverage@7.15.0",
       "bom-ref": "pkg:pypi/coverage@7.15.0",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -430,6 +460,7 @@
       "version": "50.0.0",
       "purl": "pkg:pypi/cryptography@50.0.0",
       "bom-ref": "pkg:pypi/cryptography@50.0.0",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -443,6 +474,7 @@
       "version": "0.9.5",
       "purl": "pkg:pypi/csscompressor@0.9.5",
       "bom-ref": "pkg:pypi/csscompressor@0.9.5",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -456,6 +488,7 @@
       "version": "0.9.0",
       "purl": "pkg:pypi/cssselect2@0.9.0",
       "bom-ref": "pkg:pypi/cssselect2@0.9.0",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -469,6 +502,7 @@
       "version": "4.1.0",
       "purl": "pkg:pypi/csvw@4.1.0",
       "bom-ref": "pkg:pypi/csvw@4.1.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -481,28 +515,32 @@
       "name": "ctranslate2",
       "version": "4.8.1",
       "purl": "pkg:pypi/ctranslate2@4.8.1",
-      "bom-ref": "pkg:pypi/ctranslate2@4.8.1"
+      "bom-ref": "pkg:pypi/ctranslate2@4.8.1",
+      "scope": "required"
     },
     {
       "type": "library",
       "name": "cuda-bindings",
       "version": "13.3.1",
       "purl": "pkg:pypi/cuda-bindings@13.3.1",
-      "bom-ref": "pkg:pypi/cuda-bindings@13.3.1"
+      "bom-ref": "pkg:pypi/cuda-bindings@13.3.1",
+      "scope": "optional"
     },
     {
       "type": "library",
       "name": "cuda-pathfinder",
       "version": "1.5.6",
       "purl": "pkg:pypi/cuda-pathfinder@1.5.6",
-      "bom-ref": "pkg:pypi/cuda-pathfinder@1.5.6"
+      "bom-ref": "pkg:pypi/cuda-pathfinder@1.5.6",
+      "scope": "optional"
     },
     {
       "type": "library",
       "name": "cuda-toolkit",
       "version": "13.0.3.0",
       "purl": "pkg:pypi/cuda-toolkit@13.0.3.0",
-      "bom-ref": "pkg:pypi/cuda-toolkit@13.0.3.0"
+      "bom-ref": "pkg:pypi/cuda-toolkit@13.0.3.0",
+      "scope": "optional"
     },
     {
       "type": "library",
@@ -510,6 +548,7 @@
       "version": "0.12.1",
       "purl": "pkg:pypi/cycler@0.12.1",
       "bom-ref": "pkg:pypi/cycler@0.12.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -523,6 +562,7 @@
       "version": "5.0.22",
       "purl": "pkg:pypi/dbus-fast@5.0.22",
       "bom-ref": "pkg:pypi/dbus-fast@5.0.22",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -536,6 +576,7 @@
       "version": "5.3.1",
       "purl": "pkg:pypi/decorator@5.3.1",
       "bom-ref": "pkg:pypi/decorator@5.3.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -549,6 +590,7 @@
       "version": "0.7.1",
       "purl": "pkg:pypi/defusedxml@0.7.1",
       "bom-ref": "pkg:pypi/defusedxml@0.7.1",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -562,6 +604,7 @@
       "version": "5.6.3",
       "purl": "pkg:pypi/diskcache@5.6.3",
       "bom-ref": "pkg:pypi/diskcache@5.6.3",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -575,6 +618,7 @@
       "version": "2.0.0",
       "purl": "pkg:pypi/dlinfo@2.0.0",
       "bom-ref": "pkg:pypi/dlinfo@2.0.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -588,6 +632,7 @@
       "version": "0.8.2",
       "purl": "pkg:pypi/einops@0.8.2",
       "bom-ref": "pkg:pypi/einops@0.8.2",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -600,7 +645,8 @@
       "name": "espeakng-loader",
       "version": "0.2.4",
       "purl": "pkg:pypi/espeakng-loader@0.2.4",
-      "bom-ref": "pkg:pypi/espeakng-loader@0.2.4"
+      "bom-ref": "pkg:pypi/espeakng-loader@0.2.4",
+      "scope": "optional"
     },
     {
       "type": "library",
@@ -608,6 +654,7 @@
       "version": "1.9.3",
       "purl": "pkg:pypi/evdev@1.9.3",
       "bom-ref": "pkg:pypi/evdev@1.9.3",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -620,7 +667,8 @@
       "name": "faster-whisper",
       "version": "1.2.1",
       "purl": "pkg:pypi/faster-whisper@1.2.1",
-      "bom-ref": "pkg:pypi/faster-whisper@1.2.1"
+      "bom-ref": "pkg:pypi/faster-whisper@1.2.1",
+      "scope": "required"
     },
     {
       "type": "library",
@@ -628,6 +676,7 @@
       "version": "3.29.7",
       "purl": "pkg:pypi/filelock@3.29.7",
       "bom-ref": "pkg:pypi/filelock@3.29.7",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -640,7 +689,8 @@
       "name": "flatbuffers",
       "version": "25.12.19",
       "purl": "pkg:pypi/flatbuffers@25.12.19",
-      "bom-ref": "pkg:pypi/flatbuffers@25.12.19"
+      "bom-ref": "pkg:pypi/flatbuffers@25.12.19",
+      "scope": "required"
     },
     {
       "type": "library",
@@ -648,6 +698,7 @@
       "version": "4.63.0",
       "purl": "pkg:pypi/fonttools@4.63.0",
       "bom-ref": "pkg:pypi/fonttools@4.63.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -661,6 +712,7 @@
       "version": "1.8.0",
       "purl": "pkg:pypi/frozenlist@1.8.0",
       "bom-ref": "pkg:pypi/frozenlist@1.8.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -674,6 +726,7 @@
       "version": "2026.6.0",
       "purl": "pkg:pypi/fsspec@2026.6.0",
       "bom-ref": "pkg:pypi/fsspec@2026.6.0",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -687,6 +740,7 @@
       "version": "2.1.0",
       "purl": "pkg:pypi/ghp-import@2.1.0",
       "bom-ref": "pkg:pypi/ghp-import@2.1.0",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -700,6 +754,7 @@
       "version": "4.0.12",
       "purl": "pkg:pypi/gitdb@4.0.12",
       "bom-ref": "pkg:pypi/gitdb@4.0.12",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -713,6 +768,7 @@
       "version": "3.1.58",
       "purl": "pkg:pypi/gitpython@3.1.58",
       "bom-ref": "pkg:pypi/gitpython@3.1.58",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -726,6 +782,7 @@
       "version": "1.75.1",
       "purl": "pkg:pypi/googleapis-common-protos@1.75.1",
       "bom-ref": "pkg:pypi/googleapis-common-protos@1.75.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -739,6 +796,7 @@
       "version": "3.5.3",
       "purl": "pkg:pypi/greenlet@3.5.3",
       "bom-ref": "pkg:pypi/greenlet@3.5.3",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -752,6 +810,7 @@
       "version": "1.83.0",
       "purl": "pkg:pypi/grpcio@1.83.0",
       "bom-ref": "pkg:pypi/grpcio@1.83.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -765,6 +824,7 @@
       "version": "0.16.0",
       "purl": "pkg:pypi/h11@0.16.0",
       "bom-ref": "pkg:pypi/h11@0.16.0",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -778,6 +838,7 @@
       "version": "1.5.1",
       "purl": "pkg:pypi/hf-xet@1.5.1",
       "bom-ref": "pkg:pypi/hf-xet@1.5.1",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -790,7 +851,8 @@
       "name": "htmlmin2",
       "version": "0.1.13",
       "purl": "pkg:pypi/htmlmin2@0.1.13",
-      "bom-ref": "pkg:pypi/htmlmin2@0.1.13"
+      "bom-ref": "pkg:pypi/htmlmin2@0.1.13",
+      "scope": "excluded"
     },
     {
       "type": "library",
@@ -798,6 +860,7 @@
       "version": "1.0.9",
       "purl": "pkg:pypi/httpcore@1.0.9",
       "bom-ref": "pkg:pypi/httpcore@1.0.9",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -811,6 +874,7 @@
       "version": "2.9.1",
       "purl": "pkg:pypi/httpcore2@2.9.1",
       "bom-ref": "pkg:pypi/httpcore2@2.9.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -824,6 +888,7 @@
       "version": "0.28.1",
       "purl": "pkg:pypi/httpx@0.28.1",
       "bom-ref": "pkg:pypi/httpx@0.28.1",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -837,6 +902,7 @@
       "version": "2.9.1",
       "purl": "pkg:pypi/httpx2@2.9.1",
       "bom-ref": "pkg:pypi/httpx2@2.9.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -850,6 +916,7 @@
       "version": "1.23.0",
       "purl": "pkg:pypi/huggingface-hub@1.23.0",
       "bom-ref": "pkg:pypi/huggingface-hub@1.23.0",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -863,6 +930,7 @@
       "version": "1.2.3",
       "purl": "pkg:pypi/hyperpyyaml@1.2.3",
       "bom-ref": "pkg:pypi/hyperpyyaml@1.2.3",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -876,6 +944,7 @@
       "version": "6.165.2",
       "purl": "pkg:pypi/hypothesis@6.165.2",
       "bom-ref": "pkg:pypi/hypothesis@6.165.2",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -889,6 +958,7 @@
       "version": "3.18",
       "purl": "pkg:pypi/idna@3.18",
       "bom-ref": "pkg:pypi/idna@3.18",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -902,6 +972,7 @@
       "version": "1.1.0",
       "purl": "pkg:pypi/indic-numtowords@1.1.0",
       "bom-ref": "pkg:pypi/indic-numtowords@1.1.0",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -915,6 +986,7 @@
       "version": "2.3.0",
       "purl": "pkg:pypi/iniconfig@2.3.0",
       "bom-ref": "pkg:pypi/iniconfig@2.3.0",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -928,6 +1000,7 @@
       "version": "0.7.2",
       "purl": "pkg:pypi/isodate@0.7.2",
       "bom-ref": "pkg:pypi/isodate@0.7.2",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -941,6 +1014,7 @@
       "version": "3.1.6",
       "purl": "pkg:pypi/jinja2@3.1.6",
       "bom-ref": "pkg:pypi/jinja2@3.1.6",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -954,6 +1028,7 @@
       "version": "4.0.0",
       "purl": "pkg:pypi/jiwer@4.0.0",
       "bom-ref": "pkg:pypi/jiwer@4.0.0",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -967,6 +1042,7 @@
       "version": "1.5.3",
       "purl": "pkg:pypi/joblib@1.5.3",
       "bom-ref": "pkg:pypi/joblib@1.5.3",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -980,6 +1056,7 @@
       "version": "3.0.1",
       "purl": "pkg:pypi/jsmin@3.0.1",
       "bom-ref": "pkg:pypi/jsmin@3.0.1",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -993,6 +1070,7 @@
       "version": "4.26.0",
       "purl": "pkg:pypi/jsonschema@4.26.0",
       "bom-ref": "pkg:pypi/jsonschema@4.26.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1006,6 +1084,7 @@
       "version": "2025.9.1",
       "purl": "pkg:pypi/jsonschema-specifications@2025.9.1",
       "bom-ref": "pkg:pypi/jsonschema-specifications@2025.9.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1019,6 +1098,7 @@
       "version": "0.2.8",
       "purl": "pkg:pypi/julius@0.2.8",
       "bom-ref": "pkg:pypi/julius@0.2.8",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1032,6 +1112,7 @@
       "version": "1.5.0",
       "purl": "pkg:pypi/kiwisolver@1.5.0",
       "bom-ref": "pkg:pypi/kiwisolver@1.5.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1045,6 +1126,7 @@
       "version": "0.5.0",
       "purl": "pkg:pypi/kokoro-onnx@0.5.0",
       "bom-ref": "pkg:pypi/kokoro-onnx@0.5.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1058,6 +1140,7 @@
       "version": "1.3.1",
       "purl": "pkg:pypi/language-tags@1.3.1",
       "bom-ref": "pkg:pypi/language-tags@1.3.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1071,6 +1154,7 @@
       "version": "0.5",
       "purl": "pkg:pypi/lazy-loader@0.5",
       "bom-ref": "pkg:pypi/lazy-loader@0.5",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1084,6 +1168,7 @@
       "version": "0.11.0",
       "purl": "pkg:pypi/librosa@0.11.0",
       "bom-ref": "pkg:pypi/librosa@0.11.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1097,6 +1182,7 @@
       "version": "0.13.0",
       "purl": "pkg:pypi/librt@0.13.0",
       "bom-ref": "pkg:pypi/librt@0.13.0",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1110,6 +1196,7 @@
       "version": "2.6.5",
       "purl": "pkg:pypi/lightning@2.6.5",
       "bom-ref": "pkg:pypi/lightning@2.6.5",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1123,6 +1210,7 @@
       "version": "0.15.3",
       "purl": "pkg:pypi/lightning-utilities@0.15.3",
       "bom-ref": "pkg:pypi/lightning-utilities@0.15.3",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1136,6 +1224,7 @@
       "version": "0.3.34",
       "purl": "pkg:pypi/llama-cpp-python@0.3.34",
       "bom-ref": "pkg:pypi/llama-cpp-python@0.3.34",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1149,6 +1238,7 @@
       "version": "0.48.0",
       "purl": "pkg:pypi/llvmlite@0.48.0",
       "bom-ref": "pkg:pypi/llvmlite@0.48.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1162,6 +1252,7 @@
       "version": "2025.0.0",
       "purl": "pkg:pypi/lsprotocol@2025.0.0",
       "bom-ref": "pkg:pypi/lsprotocol@2025.0.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1175,6 +1266,7 @@
       "version": "1.4.1",
       "purl": "pkg:pypi/mako@1.4.1",
       "bom-ref": "pkg:pypi/mako@1.4.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1188,6 +1280,7 @@
       "version": "3.10.3",
       "purl": "pkg:pypi/markdown@3.10.3",
       "bom-ref": "pkg:pypi/markdown@3.10.3",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1201,6 +1294,7 @@
       "version": "4.2.0",
       "purl": "pkg:pypi/markdown-it-py@4.2.0",
       "bom-ref": "pkg:pypi/markdown-it-py@4.2.0",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1214,6 +1308,7 @@
       "version": "3.0.3",
       "purl": "pkg:pypi/markupsafe@3.0.3",
       "bom-ref": "pkg:pypi/markupsafe@3.0.3",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1227,6 +1322,7 @@
       "version": "3.11.0",
       "purl": "pkg:pypi/matplotlib@3.11.0",
       "bom-ref": "pkg:pypi/matplotlib@3.11.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1240,6 +1336,7 @@
       "version": "2.0.0",
       "purl": "pkg:pypi/mcp@2.0.0",
       "bom-ref": "pkg:pypi/mcp@2.0.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1253,6 +1350,7 @@
       "version": "2.0.0",
       "purl": "pkg:pypi/mcp-types@2.0.0",
       "bom-ref": "pkg:pypi/mcp-types@2.0.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1266,6 +1364,7 @@
       "version": "0.1.2",
       "purl": "pkg:pypi/mdurl@0.1.2",
       "bom-ref": "pkg:pypi/mdurl@0.1.2",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1278,7 +1377,8 @@
       "name": "mediapipe",
       "version": "1.0.0",
       "purl": "pkg:pypi/mediapipe@1.0.0",
-      "bom-ref": "pkg:pypi/mediapipe@1.0.0"
+      "bom-ref": "pkg:pypi/mediapipe@1.0.0",
+      "scope": "optional"
     },
     {
       "type": "library",
@@ -1286,6 +1386,7 @@
       "version": "1.3.4",
       "purl": "pkg:pypi/mergedeep@1.3.4",
       "bom-ref": "pkg:pypi/mergedeep@1.3.4",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1299,6 +1400,7 @@
       "version": "1.6.1",
       "purl": "pkg:pypi/mkdocs@1.6.1",
       "bom-ref": "pkg:pypi/mkdocs@1.6.1",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1312,6 +1414,7 @@
       "version": "0.2.2",
       "purl": "pkg:pypi/mkdocs-get-deps@0.2.2",
       "bom-ref": "pkg:pypi/mkdocs-get-deps@0.2.2",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1325,6 +1428,7 @@
       "version": "1.5.3",
       "purl": "pkg:pypi/mkdocs-git-revision-date-localized-plugin@1.5.3",
       "bom-ref": "pkg:pypi/mkdocs-git-revision-date-localized-plugin@1.5.3",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1338,6 +1442,7 @@
       "version": "0.5.2",
       "purl": "pkg:pypi/mkdocs-glightbox@0.5.2",
       "bom-ref": "pkg:pypi/mkdocs-glightbox@0.5.2",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1351,6 +1456,7 @@
       "version": "9.7.7",
       "purl": "pkg:pypi/mkdocs-material@9.7.7",
       "bom-ref": "pkg:pypi/mkdocs-material@9.7.7",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1364,6 +1470,7 @@
       "version": "1.3.1",
       "purl": "pkg:pypi/mkdocs-material-extensions@1.3.1",
       "bom-ref": "pkg:pypi/mkdocs-material-extensions@1.3.1",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1377,6 +1484,7 @@
       "version": "0.8.0",
       "purl": "pkg:pypi/mkdocs-minify-plugin@0.8.0",
       "bom-ref": "pkg:pypi/mkdocs-minify-plugin@0.8.0",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1390,6 +1498,7 @@
       "version": "1.19.0",
       "purl": "pkg:pypi/mkdocs-rss-plugin@1.19.0",
       "bom-ref": "pkg:pypi/mkdocs-rss-plugin@1.19.0",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1403,6 +1512,7 @@
       "version": "11.1.0",
       "purl": "pkg:pypi/more-itertools@11.1.0",
       "bom-ref": "pkg:pypi/more-itertools@11.1.0",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1416,6 +1526,7 @@
       "version": "1.3.0",
       "purl": "pkg:pypi/mpmath@1.3.0",
       "bom-ref": "pkg:pypi/mpmath@1.3.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1429,6 +1540,7 @@
       "version": "1.2.1",
       "purl": "pkg:pypi/msgpack@1.2.1",
       "bom-ref": "pkg:pypi/msgpack@1.2.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1442,6 +1554,7 @@
       "version": "6.7.1",
       "purl": "pkg:pypi/multidict@6.7.1",
       "bom-ref": "pkg:pypi/multidict@6.7.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1455,6 +1568,7 @@
       "version": "2.3.0",
       "purl": "pkg:pypi/mypy@2.3.0",
       "bom-ref": "pkg:pypi/mypy@2.3.0",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1468,6 +1582,7 @@
       "version": "1.1.0",
       "purl": "pkg:pypi/mypy-extensions@1.1.0",
       "bom-ref": "pkg:pypi/mypy-extensions@1.1.0",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1481,6 +1596,7 @@
       "version": "2.23.0",
       "purl": "pkg:pypi/narwhals@2.23.0",
       "bom-ref": "pkg:pypi/narwhals@2.23.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1494,6 +1610,7 @@
       "version": "3.6.1",
       "purl": "pkg:pypi/networkx@3.6.1",
       "bom-ref": "pkg:pypi/networkx@3.6.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1507,6 +1624,7 @@
       "version": "3.0.3",
       "purl": "pkg:pypi/noisereduce@3.0.3",
       "bom-ref": "pkg:pypi/noisereduce@3.0.3",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1520,6 +1638,7 @@
       "version": "0.66.0",
       "purl": "pkg:pypi/numba@0.66.0",
       "bom-ref": "pkg:pypi/numba@0.66.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1533,6 +1652,7 @@
       "version": "2.4.6",
       "purl": "pkg:pypi/numpy@2.4.6",
       "bom-ref": "pkg:pypi/numpy@2.4.6",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1545,105 +1665,120 @@
       "name": "nvidia-cublas",
       "version": "13.1.1.3",
       "purl": "pkg:pypi/nvidia-cublas@13.1.1.3",
-      "bom-ref": "pkg:pypi/nvidia-cublas@13.1.1.3"
+      "bom-ref": "pkg:pypi/nvidia-cublas@13.1.1.3",
+      "scope": "optional"
     },
     {
       "type": "library",
       "name": "nvidia-cuda-cupti",
       "version": "13.0.85",
       "purl": "pkg:pypi/nvidia-cuda-cupti@13.0.85",
-      "bom-ref": "pkg:pypi/nvidia-cuda-cupti@13.0.85"
+      "bom-ref": "pkg:pypi/nvidia-cuda-cupti@13.0.85",
+      "scope": "optional"
     },
     {
       "type": "library",
       "name": "nvidia-cuda-nvrtc",
       "version": "13.0.88",
       "purl": "pkg:pypi/nvidia-cuda-nvrtc@13.0.88",
-      "bom-ref": "pkg:pypi/nvidia-cuda-nvrtc@13.0.88"
+      "bom-ref": "pkg:pypi/nvidia-cuda-nvrtc@13.0.88",
+      "scope": "optional"
     },
     {
       "type": "library",
       "name": "nvidia-cuda-runtime",
       "version": "13.0.96",
       "purl": "pkg:pypi/nvidia-cuda-runtime@13.0.96",
-      "bom-ref": "pkg:pypi/nvidia-cuda-runtime@13.0.96"
+      "bom-ref": "pkg:pypi/nvidia-cuda-runtime@13.0.96",
+      "scope": "optional"
     },
     {
       "type": "library",
       "name": "nvidia-cudnn-cu13",
       "version": "9.20.0.48",
       "purl": "pkg:pypi/nvidia-cudnn-cu13@9.20.0.48",
-      "bom-ref": "pkg:pypi/nvidia-cudnn-cu13@9.20.0.48"
+      "bom-ref": "pkg:pypi/nvidia-cudnn-cu13@9.20.0.48",
+      "scope": "optional"
     },
     {
       "type": "library",
       "name": "nvidia-cufft",
       "version": "12.0.0.61",
       "purl": "pkg:pypi/nvidia-cufft@12.0.0.61",
-      "bom-ref": "pkg:pypi/nvidia-cufft@12.0.0.61"
+      "bom-ref": "pkg:pypi/nvidia-cufft@12.0.0.61",
+      "scope": "optional"
     },
     {
       "type": "library",
       "name": "nvidia-cufile",
       "version": "1.15.1.6",
       "purl": "pkg:pypi/nvidia-cufile@1.15.1.6",
-      "bom-ref": "pkg:pypi/nvidia-cufile@1.15.1.6"
+      "bom-ref": "pkg:pypi/nvidia-cufile@1.15.1.6",
+      "scope": "optional"
     },
     {
       "type": "library",
       "name": "nvidia-curand",
       "version": "10.4.0.35",
       "purl": "pkg:pypi/nvidia-curand@10.4.0.35",
-      "bom-ref": "pkg:pypi/nvidia-curand@10.4.0.35"
+      "bom-ref": "pkg:pypi/nvidia-curand@10.4.0.35",
+      "scope": "optional"
     },
     {
       "type": "library",
       "name": "nvidia-cusolver",
       "version": "12.0.4.66",
       "purl": "pkg:pypi/nvidia-cusolver@12.0.4.66",
-      "bom-ref": "pkg:pypi/nvidia-cusolver@12.0.4.66"
+      "bom-ref": "pkg:pypi/nvidia-cusolver@12.0.4.66",
+      "scope": "optional"
     },
     {
       "type": "library",
       "name": "nvidia-cusparse",
       "version": "12.6.3.3",
       "purl": "pkg:pypi/nvidia-cusparse@12.6.3.3",
-      "bom-ref": "pkg:pypi/nvidia-cusparse@12.6.3.3"
+      "bom-ref": "pkg:pypi/nvidia-cusparse@12.6.3.3",
+      "scope": "optional"
     },
     {
       "type": "library",
       "name": "nvidia-cusparselt-cu13",
       "version": "0.8.1",
       "purl": "pkg:pypi/nvidia-cusparselt-cu13@0.8.1",
-      "bom-ref": "pkg:pypi/nvidia-cusparselt-cu13@0.8.1"
+      "bom-ref": "pkg:pypi/nvidia-cusparselt-cu13@0.8.1",
+      "scope": "optional"
     },
     {
       "type": "library",
       "name": "nvidia-nccl-cu13",
       "version": "2.29.7",
       "purl": "pkg:pypi/nvidia-nccl-cu13@2.29.7",
-      "bom-ref": "pkg:pypi/nvidia-nccl-cu13@2.29.7"
+      "bom-ref": "pkg:pypi/nvidia-nccl-cu13@2.29.7",
+      "scope": "optional"
     },
     {
       "type": "library",
       "name": "nvidia-nvjitlink",
       "version": "13.3.33",
       "purl": "pkg:pypi/nvidia-nvjitlink@13.3.33",
-      "bom-ref": "pkg:pypi/nvidia-nvjitlink@13.3.33"
+      "bom-ref": "pkg:pypi/nvidia-nvjitlink@13.3.33",
+      "scope": "optional"
     },
     {
       "type": "library",
       "name": "nvidia-nvshmem-cu13",
       "version": "3.4.5",
       "purl": "pkg:pypi/nvidia-nvshmem-cu13@3.4.5",
-      "bom-ref": "pkg:pypi/nvidia-nvshmem-cu13@3.4.5"
+      "bom-ref": "pkg:pypi/nvidia-nvshmem-cu13@3.4.5",
+      "scope": "optional"
     },
     {
       "type": "library",
       "name": "nvidia-nvtx",
       "version": "13.0.85",
       "purl": "pkg:pypi/nvidia-nvtx@13.0.85",
-      "bom-ref": "pkg:pypi/nvidia-nvtx@13.0.85"
+      "bom-ref": "pkg:pypi/nvidia-nvtx@13.0.85",
+      "scope": "optional"
     },
     {
       "type": "library",
@@ -1651,6 +1786,7 @@
       "version": "0.12.0",
       "purl": "pkg:pypi/onnx-asr@0.12.0",
       "bom-ref": "pkg:pypi/onnx-asr@0.12.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1663,7 +1799,8 @@
       "name": "onnxruntime",
       "version": "1.28.0",
       "purl": "pkg:pypi/onnxruntime@1.28.0",
-      "bom-ref": "pkg:pypi/onnxruntime@1.28.0"
+      "bom-ref": "pkg:pypi/onnxruntime@1.28.0",
+      "scope": "required"
     },
     {
       "type": "library",
@@ -1671,6 +1808,7 @@
       "version": "0.1.7",
       "purl": "pkg:pypi/opencc-python-reimplemented@0.1.7",
       "bom-ref": "pkg:pypi/opencc-python-reimplemented@0.1.7",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1684,6 +1822,7 @@
       "version": "5.0.0.93",
       "purl": "pkg:pypi/opencv-contrib-python@5.0.0.93",
       "bom-ref": "pkg:pypi/opencv-contrib-python@5.0.0.93",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1697,6 +1836,7 @@
       "version": "5.0.0.93",
       "purl": "pkg:pypi/opencv-python@5.0.0.93",
       "bom-ref": "pkg:pypi/opencv-python@5.0.0.93",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1710,6 +1850,7 @@
       "version": "1.44.0",
       "purl": "pkg:pypi/opentelemetry-api@1.44.0",
       "bom-ref": "pkg:pypi/opentelemetry-api@1.44.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1723,6 +1864,7 @@
       "version": "1.44.0",
       "purl": "pkg:pypi/opentelemetry-exporter-otlp@1.44.0",
       "bom-ref": "pkg:pypi/opentelemetry-exporter-otlp@1.44.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1736,6 +1878,7 @@
       "version": "1.44.0",
       "purl": "pkg:pypi/opentelemetry-exporter-otlp-proto-common@1.44.0",
       "bom-ref": "pkg:pypi/opentelemetry-exporter-otlp-proto-common@1.44.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1749,6 +1892,7 @@
       "version": "1.44.0",
       "purl": "pkg:pypi/opentelemetry-exporter-otlp-proto-grpc@1.44.0",
       "bom-ref": "pkg:pypi/opentelemetry-exporter-otlp-proto-grpc@1.44.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1762,6 +1906,7 @@
       "version": "1.44.0",
       "purl": "pkg:pypi/opentelemetry-exporter-otlp-proto-http@1.44.0",
       "bom-ref": "pkg:pypi/opentelemetry-exporter-otlp-proto-http@1.44.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1775,6 +1920,7 @@
       "version": "1.44.0",
       "purl": "pkg:pypi/opentelemetry-proto@1.44.0",
       "bom-ref": "pkg:pypi/opentelemetry-proto@1.44.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1788,6 +1934,7 @@
       "version": "1.44.0",
       "purl": "pkg:pypi/opentelemetry-sdk@1.44.0",
       "bom-ref": "pkg:pypi/opentelemetry-sdk@1.44.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1801,6 +1948,7 @@
       "version": "0.65b0",
       "purl": "pkg:pypi/opentelemetry-semantic-conventions@0.65b0",
       "bom-ref": "pkg:pypi/opentelemetry-semantic-conventions@0.65b0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1814,6 +1962,7 @@
       "version": "4.9.0",
       "purl": "pkg:pypi/optuna@4.9.0",
       "bom-ref": "pkg:pypi/optuna@4.9.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1827,6 +1976,7 @@
       "version": "26.2",
       "purl": "pkg:pypi/packaging@26.2",
       "bom-ref": "pkg:pypi/packaging@26.2",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1840,6 +1990,7 @@
       "version": "0.5.7",
       "purl": "pkg:pypi/paginate@0.5.7",
       "bom-ref": "pkg:pypi/paginate@0.5.7",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1853,6 +2004,7 @@
       "version": "3.0.5",
       "purl": "pkg:pypi/pandas@3.0.5",
       "bom-ref": "pkg:pypi/pandas@3.0.5",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1866,6 +2018,7 @@
       "version": "1.1.1",
       "purl": "pkg:pypi/pathspec@1.1.1",
       "bom-ref": "pkg:pypi/pathspec@1.1.1",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1879,6 +2032,7 @@
       "version": "3.3.2",
       "purl": "pkg:pypi/phonemizer-fork@3.3.2",
       "bom-ref": "pkg:pypi/phonemizer-fork@3.3.2",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1892,6 +2046,7 @@
       "version": "12.3.0",
       "purl": "pkg:pypi/pillow@12.3.0",
       "bom-ref": "pkg:pypi/pillow@12.3.0",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1905,6 +2060,7 @@
       "version": "4.11.0",
       "purl": "pkg:pypi/platformdirs@4.11.0",
       "bom-ref": "pkg:pypi/platformdirs@4.11.0",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1918,6 +2074,7 @@
       "version": "1.6.0",
       "purl": "pkg:pypi/pluggy@1.6.0",
       "bom-ref": "pkg:pypi/pluggy@1.6.0",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1931,6 +2088,7 @@
       "version": "1.9.0",
       "purl": "pkg:pypi/pooch@1.9.0",
       "bom-ref": "pkg:pypi/pooch@1.9.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1944,6 +2102,7 @@
       "version": "0.4.7",
       "purl": "pkg:pypi/praat-parselmouth@0.4.7",
       "bom-ref": "pkg:pypi/praat-parselmouth@0.4.7",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1957,6 +2116,7 @@
       "version": "1.3",
       "purl": "pkg:pypi/primepy@1.3",
       "bom-ref": "pkg:pypi/primepy@1.3",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1970,6 +2130,7 @@
       "version": "0.5.2",
       "purl": "pkg:pypi/propcache@0.5.2",
       "bom-ref": "pkg:pypi/propcache@0.5.2",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1983,6 +2144,7 @@
       "version": "1.6.7",
       "purl": "pkg:pypi/properdocs@1.6.7",
       "bom-ref": "pkg:pypi/properdocs@1.6.7",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -1996,6 +2158,7 @@
       "version": "7.35.1",
       "purl": "pkg:pypi/protobuf@7.35.1",
       "bom-ref": "pkg:pypi/protobuf@7.35.1",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2009,6 +2172,7 @@
       "version": "7.2.2",
       "purl": "pkg:pypi/psutil@7.2.2",
       "bom-ref": "pkg:pypi/psutil@7.2.2",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2022,6 +2186,7 @@
       "version": "4.0.7",
       "purl": "pkg:pypi/pyannote-audio@4.0.7",
       "bom-ref": "pkg:pypi/pyannote-audio@4.0.7",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2035,6 +2200,7 @@
       "version": "6.0.1",
       "purl": "pkg:pypi/pyannote-core@6.0.1",
       "bom-ref": "pkg:pypi/pyannote-core@6.0.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2048,6 +2214,7 @@
       "version": "6.1.1",
       "purl": "pkg:pypi/pyannote-database@6.1.1",
       "bom-ref": "pkg:pypi/pyannote-database@6.1.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2061,6 +2228,7 @@
       "version": "4.1",
       "purl": "pkg:pypi/pyannote-metrics@4.1",
       "bom-ref": "pkg:pypi/pyannote-metrics@4.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2074,6 +2242,7 @@
       "version": "4.0.0",
       "purl": "pkg:pypi/pyannote-pipeline@4.0.0",
       "bom-ref": "pkg:pypi/pyannote-pipeline@4.0.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2087,6 +2256,7 @@
       "version": "0.4.0",
       "purl": "pkg:pypi/pyannoteai-sdk@0.4.0",
       "bom-ref": "pkg:pypi/pyannoteai-sdk@0.4.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2100,6 +2270,7 @@
       "version": "3.0",
       "purl": "pkg:pypi/pycparser@3.0",
       "bom-ref": "pkg:pypi/pycparser@3.0",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2113,6 +2284,7 @@
       "version": "2.13.4",
       "purl": "pkg:pypi/pydantic@2.13.4",
       "bom-ref": "pkg:pypi/pydantic@2.13.4",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2126,6 +2298,7 @@
       "version": "2.46.4",
       "purl": "pkg:pypi/pydantic-core@2.46.4",
       "bom-ref": "pkg:pypi/pydantic-core@2.46.4",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2139,6 +2312,7 @@
       "version": "2.1.1",
       "purl": "pkg:pypi/pygls@2.1.1",
       "bom-ref": "pkg:pypi/pygls@2.1.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2152,6 +2326,7 @@
       "version": "2.20.0",
       "purl": "pkg:pypi/pygments@2.20.0",
       "bom-ref": "pkg:pypi/pygments@2.20.0",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2165,6 +2340,7 @@
       "version": "2.13.0",
       "purl": "pkg:pypi/pyjwt@2.13.0",
       "bom-ref": "pkg:pypi/pyjwt@2.13.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2178,6 +2354,7 @@
       "version": "11.0.1",
       "purl": "pkg:pypi/pymdown-extensions@11.0.1",
       "bom-ref": "pkg:pypi/pymdown-extensions@11.0.1",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2191,6 +2368,7 @@
       "version": "0.6.0",
       "purl": "pkg:pypi/pynvim@0.6.0",
       "bom-ref": "pkg:pypi/pynvim@0.6.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2204,6 +2382,7 @@
       "version": "12.2.1",
       "purl": "pkg:pypi/pyobjc-core@12.2.1",
       "bom-ref": "pkg:pypi/pyobjc-core@12.2.1",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2217,6 +2396,7 @@
       "version": "12.2.1",
       "purl": "pkg:pypi/pyobjc-framework-applicationservices@12.2.1",
       "bom-ref": "pkg:pypi/pyobjc-framework-applicationservices@12.2.1",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2230,6 +2410,7 @@
       "version": "12.2.1",
       "purl": "pkg:pypi/pyobjc-framework-avfoundation@12.2.1",
       "bom-ref": "pkg:pypi/pyobjc-framework-avfoundation@12.2.1",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2243,6 +2424,7 @@
       "version": "12.2.1",
       "purl": "pkg:pypi/pyobjc-framework-cocoa@12.2.1",
       "bom-ref": "pkg:pypi/pyobjc-framework-cocoa@12.2.1",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2256,6 +2438,7 @@
       "version": "12.2.1",
       "purl": "pkg:pypi/pyobjc-framework-coreaudio@12.2.1",
       "bom-ref": "pkg:pypi/pyobjc-framework-coreaudio@12.2.1",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2269,6 +2452,7 @@
       "version": "12.2.1",
       "purl": "pkg:pypi/pyobjc-framework-corebluetooth@12.2.1",
       "bom-ref": "pkg:pypi/pyobjc-framework-corebluetooth@12.2.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2282,6 +2466,7 @@
       "version": "12.2.1",
       "purl": "pkg:pypi/pyobjc-framework-coremedia@12.2.1",
       "bom-ref": "pkg:pypi/pyobjc-framework-coremedia@12.2.1",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2295,6 +2480,7 @@
       "version": "12.2.1",
       "purl": "pkg:pypi/pyobjc-framework-coretext@12.2.1",
       "bom-ref": "pkg:pypi/pyobjc-framework-coretext@12.2.1",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2308,6 +2494,7 @@
       "version": "12.2.1",
       "purl": "pkg:pypi/pyobjc-framework-libdispatch@12.2.1",
       "bom-ref": "pkg:pypi/pyobjc-framework-libdispatch@12.2.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2321,6 +2508,7 @@
       "version": "12.2.1",
       "purl": "pkg:pypi/pyobjc-framework-quartz@12.2.1",
       "bom-ref": "pkg:pypi/pyobjc-framework-quartz@12.2.1",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2334,6 +2522,7 @@
       "version": "3.3.2",
       "purl": "pkg:pypi/pyparsing@3.3.2",
       "bom-ref": "pkg:pypi/pyparsing@3.3.2",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2347,6 +2536,7 @@
       "version": "3.5",
       "purl": "pkg:pypi/pyserial@3.5",
       "bom-ref": "pkg:pypi/pyserial@3.5",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2359,28 +2549,32 @@
       "name": "pyside6",
       "version": "6.11.1",
       "purl": "pkg:pypi/pyside6@6.11.1",
-      "bom-ref": "pkg:pypi/pyside6@6.11.1"
+      "bom-ref": "pkg:pypi/pyside6@6.11.1",
+      "scope": "optional"
     },
     {
       "type": "library",
       "name": "pyside6-addons",
       "version": "6.11.1",
       "purl": "pkg:pypi/pyside6-addons@6.11.1",
-      "bom-ref": "pkg:pypi/pyside6-addons@6.11.1"
+      "bom-ref": "pkg:pypi/pyside6-addons@6.11.1",
+      "scope": "optional"
     },
     {
       "type": "library",
       "name": "pyside6-essentials",
       "version": "6.11.1",
       "purl": "pkg:pypi/pyside6-essentials@6.11.1",
-      "bom-ref": "pkg:pypi/pyside6-essentials@6.11.1"
+      "bom-ref": "pkg:pypi/pyside6-essentials@6.11.1",
+      "scope": "optional"
     },
     {
       "type": "library",
       "name": "pystray",
       "version": "0.19.5",
       "purl": "pkg:pypi/pystray@0.19.5",
-      "bom-ref": "pkg:pypi/pystray@0.19.5"
+      "bom-ref": "pkg:pypi/pystray@0.19.5",
+      "scope": "required"
     },
     {
       "type": "library",
@@ -2388,6 +2582,7 @@
       "version": "9.1.1",
       "purl": "pkg:pypi/pytest@9.1.1",
       "bom-ref": "pkg:pypi/pytest@9.1.1",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2401,6 +2596,7 @@
       "version": "7.1.0",
       "purl": "pkg:pypi/pytest-cov@7.1.0",
       "bom-ref": "pkg:pypi/pytest-cov@7.1.0",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2414,6 +2610,7 @@
       "version": "3.15.1",
       "purl": "pkg:pypi/pytest-mock@3.15.1",
       "bom-ref": "pkg:pypi/pytest-mock@3.15.1",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2427,6 +2624,7 @@
       "version": "2.9.0.post0",
       "purl": "pkg:pypi/python-dateutil@2.9.0.post0",
       "bom-ref": "pkg:pypi/python-dateutil@2.9.0.post0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2440,6 +2638,7 @@
       "version": "0.0.32",
       "purl": "pkg:pypi/python-multipart@0.0.32",
       "bom-ref": "pkg:pypi/python-multipart@0.0.32",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2453,6 +2652,7 @@
       "version": "0.33",
       "purl": "pkg:pypi/python-xlib@0.33",
       "bom-ref": "pkg:pypi/python-xlib@0.33",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2466,6 +2666,7 @@
       "version": "2.6.5",
       "purl": "pkg:pypi/pytorch-lightning@2.6.5",
       "bom-ref": "pkg:pypi/pytorch-lightning@2.6.5",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2479,6 +2680,7 @@
       "version": "2.9.0",
       "purl": "pkg:pypi/pytorch-metric-learning@2.9.0",
       "bom-ref": "pkg:pypi/pytorch-metric-learning@2.9.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2491,7 +2693,8 @@
       "name": "pywin32",
       "version": "312",
       "purl": "pkg:pypi/pywin32@312",
-      "bom-ref": "pkg:pypi/pywin32@312"
+      "bom-ref": "pkg:pypi/pywin32@312",
+      "scope": "required"
     },
     {
       "type": "library",
@@ -2499,6 +2702,7 @@
       "version": "6.0.3",
       "purl": "pkg:pypi/pyyaml@6.0.3",
       "bom-ref": "pkg:pypi/pyyaml@6.0.3",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2512,6 +2716,7 @@
       "version": "1.1",
       "purl": "pkg:pypi/pyyaml-env-tag@1.1",
       "bom-ref": "pkg:pypi/pyyaml-env-tag@1.1",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2525,6 +2730,7 @@
       "version": "3.14.5",
       "purl": "pkg:pypi/rapidfuzz@3.14.5",
       "bom-ref": "pkg:pypi/rapidfuzz@3.14.5",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2538,6 +2744,7 @@
       "version": "7.6.0",
       "purl": "pkg:pypi/rdflib@7.6.0",
       "bom-ref": "pkg:pypi/rdflib@7.6.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2551,6 +2758,7 @@
       "version": "0.37.0",
       "purl": "pkg:pypi/referencing@0.37.0",
       "bom-ref": "pkg:pypi/referencing@0.37.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2564,6 +2772,7 @@
       "version": "2026.6.28",
       "purl": "pkg:pypi/regex@2026.6.28",
       "bom-ref": "pkg:pypi/regex@2026.6.28",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2577,6 +2786,7 @@
       "version": "2.34.2",
       "purl": "pkg:pypi/requests@2.34.2",
       "bom-ref": "pkg:pypi/requests@2.34.2",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2590,6 +2800,7 @@
       "version": "0.1.4",
       "purl": "pkg:pypi/resemblyzer@0.1.4",
       "bom-ref": "pkg:pypi/resemblyzer@0.1.4",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2603,6 +2814,7 @@
       "version": "1.5.0",
       "purl": "pkg:pypi/rfc3986@1.5.0",
       "bom-ref": "pkg:pypi/rfc3986@1.5.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2616,6 +2828,7 @@
       "version": "15.0.0",
       "purl": "pkg:pypi/rich@15.0.0",
       "bom-ref": "pkg:pypi/rich@15.0.0",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2629,6 +2842,7 @@
       "version": "2026.6.3",
       "purl": "pkg:pypi/rpds-py@2026.6.3",
       "bom-ref": "pkg:pypi/rpds-py@2026.6.3",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2642,6 +2856,7 @@
       "version": "0.18.17",
       "purl": "pkg:pypi/ruamel-yaml@0.18.17",
       "bom-ref": "pkg:pypi/ruamel-yaml@0.18.17",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2655,6 +2870,7 @@
       "version": "0.2.15",
       "purl": "pkg:pypi/ruamel-yaml-clib@0.2.15",
       "bom-ref": "pkg:pypi/ruamel-yaml-clib@0.2.15",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2668,6 +2884,7 @@
       "version": "0.16.1",
       "purl": "pkg:pypi/ruff@0.16.1",
       "bom-ref": "pkg:pypi/ruff@0.16.1",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2681,6 +2898,7 @@
       "version": "0.4.0",
       "purl": "pkg:pypi/rumps@0.4.0",
       "bom-ref": "pkg:pypi/rumps@0.4.0",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2694,6 +2912,7 @@
       "version": "0.8.0",
       "purl": "pkg:pypi/safetensors@0.8.0",
       "bom-ref": "pkg:pypi/safetensors@0.8.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2707,6 +2926,7 @@
       "version": "1.9.0",
       "purl": "pkg:pypi/scikit-learn@1.9.0",
       "bom-ref": "pkg:pypi/scikit-learn@1.9.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2720,6 +2940,7 @@
       "version": "1.17.1",
       "purl": "pkg:pypi/scipy@1.17.1",
       "bom-ref": "pkg:pypi/scipy@1.17.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2733,6 +2954,7 @@
       "version": "1.18.0",
       "purl": "pkg:pypi/scipy@1.18.0",
       "bom-ref": "pkg:pypi/scipy@1.18.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2746,6 +2968,7 @@
       "version": "2.4.0",
       "purl": "pkg:pypi/segments@2.4.0",
       "bom-ref": "pkg:pypi/segments@2.4.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2759,6 +2982,7 @@
       "version": "0.4.11",
       "purl": "pkg:pypi/selectolax@0.4.11",
       "bom-ref": "pkg:pypi/selectolax@0.4.11",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2772,6 +2996,7 @@
       "version": "0.2.1",
       "purl": "pkg:pypi/sentencepiece@0.2.1",
       "bom-ref": "pkg:pypi/sentencepiece@0.2.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2785,6 +3010,7 @@
       "version": "80.10.2",
       "purl": "pkg:pypi/setuptools@80.10.2",
       "bom-ref": "pkg:pypi/setuptools@80.10.2",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2798,6 +3024,7 @@
       "version": "1.5.4",
       "purl": "pkg:pypi/shellingham@1.5.4",
       "bom-ref": "pkg:pypi/shellingham@1.5.4",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2811,6 +3038,7 @@
       "version": "1.13.6",
       "purl": "pkg:pypi/sherpa-onnx@1.13.6",
       "bom-ref": "pkg:pypi/sherpa-onnx@1.13.6",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2823,14 +3051,16 @@
       "name": "sherpa-onnx-core",
       "version": "1.13.6",
       "purl": "pkg:pypi/sherpa-onnx-core@1.13.6",
-      "bom-ref": "pkg:pypi/sherpa-onnx-core@1.13.6"
+      "bom-ref": "pkg:pypi/sherpa-onnx-core@1.13.6",
+      "scope": "optional"
     },
     {
       "type": "library",
       "name": "shiboken6",
       "version": "6.11.1",
       "purl": "pkg:pypi/shiboken6@6.11.1",
-      "bom-ref": "pkg:pypi/shiboken6@6.11.1"
+      "bom-ref": "pkg:pypi/shiboken6@6.11.1",
+      "scope": "optional"
     },
     {
       "type": "library",
@@ -2838,6 +3068,7 @@
       "version": "6.2.1",
       "purl": "pkg:pypi/silero-vad@6.2.1",
       "bom-ref": "pkg:pypi/silero-vad@6.2.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2851,6 +3082,7 @@
       "version": "1.17.0",
       "purl": "pkg:pypi/six@1.17.0",
       "bom-ref": "pkg:pypi/six@1.17.0",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2864,6 +3096,7 @@
       "version": "5.0.3",
       "purl": "pkg:pypi/smmap@5.0.3",
       "bom-ref": "pkg:pypi/smmap@5.0.3",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2877,6 +3110,7 @@
       "version": "2.4.0",
       "purl": "pkg:pypi/sortedcontainers@2.4.0",
       "bom-ref": "pkg:pypi/sortedcontainers@2.4.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2890,6 +3124,7 @@
       "version": "0.5.5",
       "purl": "pkg:pypi/sounddevice@0.5.5",
       "bom-ref": "pkg:pypi/sounddevice@0.5.5",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2903,6 +3138,7 @@
       "version": "0.14.0",
       "purl": "pkg:pypi/soundfile@0.14.0",
       "bom-ref": "pkg:pypi/soundfile@0.14.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2916,6 +3152,7 @@
       "version": "1.1.0",
       "purl": "pkg:pypi/soxr@1.1.0",
       "bom-ref": "pkg:pypi/soxr@1.1.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2929,6 +3166,7 @@
       "version": "1.1.0",
       "purl": "pkg:pypi/speechbrain@1.1.0",
       "bom-ref": "pkg:pypi/speechbrain@1.1.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2942,6 +3180,7 @@
       "version": "2.0.52",
       "purl": "pkg:pypi/sqlalchemy@2.0.52",
       "bom-ref": "pkg:pypi/sqlalchemy@2.0.52",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2955,6 +3194,7 @@
       "version": "3.4.5",
       "purl": "pkg:pypi/sse-starlette@3.4.5",
       "bom-ref": "pkg:pypi/sse-starlette@3.4.5",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2968,6 +3208,7 @@
       "version": "3.13.0",
       "purl": "pkg:pypi/standard-aifc@3.13.0",
       "bom-ref": "pkg:pypi/standard-aifc@3.13.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2981,6 +3222,7 @@
       "version": "3.13.0",
       "purl": "pkg:pypi/standard-chunk@3.13.0",
       "bom-ref": "pkg:pypi/standard-chunk@3.13.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -2994,6 +3236,7 @@
       "version": "3.13.0",
       "purl": "pkg:pypi/standard-sunau@3.13.0",
       "bom-ref": "pkg:pypi/standard-sunau@3.13.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3007,6 +3250,7 @@
       "version": "1.3.1",
       "purl": "pkg:pypi/starlette@1.3.1",
       "bom-ref": "pkg:pypi/starlette@1.3.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3020,6 +3264,7 @@
       "version": "1.14.0",
       "purl": "pkg:pypi/sympy@1.14.0",
       "bom-ref": "pkg:pypi/sympy@1.14.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3033,6 +3278,7 @@
       "version": "3.3.0",
       "purl": "pkg:pypi/termcolor@3.3.0",
       "bom-ref": "pkg:pypi/termcolor@3.3.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3046,6 +3292,7 @@
       "version": "3.0.2",
       "purl": "pkg:pypi/text2num@3.0.2",
       "bom-ref": "pkg:pypi/text2num@3.0.2",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3059,6 +3306,7 @@
       "version": "3.6.0",
       "purl": "pkg:pypi/threadpoolctl@3.6.0",
       "bom-ref": "pkg:pypi/threadpoolctl@3.6.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3072,6 +3320,7 @@
       "version": "1.5.1",
       "purl": "pkg:pypi/tinycss2@1.5.1",
       "bom-ref": "pkg:pypi/tinycss2@1.5.1",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3085,6 +3334,7 @@
       "version": "0.23.1",
       "purl": "pkg:pypi/tokenizers@0.23.1",
       "bom-ref": "pkg:pypi/tokenizers@0.23.1",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3098,6 +3348,7 @@
       "version": "2.4.1",
       "purl": "pkg:pypi/tomli@2.4.1",
       "bom-ref": "pkg:pypi/tomli@2.4.1",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3110,7 +3361,8 @@
       "name": "torch",
       "version": "2.13.0",
       "purl": "pkg:pypi/torch@2.13.0",
-      "bom-ref": "pkg:pypi/torch@2.13.0"
+      "bom-ref": "pkg:pypi/torch@2.13.0",
+      "scope": "optional"
     },
     {
       "type": "library",
@@ -3118,6 +3370,7 @@
       "version": "0.12.0",
       "purl": "pkg:pypi/torch-audiomentations@0.12.0",
       "bom-ref": "pkg:pypi/torch-audiomentations@0.12.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3131,6 +3384,7 @@
       "version": "1.2.5",
       "purl": "pkg:pypi/torch-pitch-shift@1.2.5",
       "bom-ref": "pkg:pypi/torch-pitch-shift@1.2.5",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3143,14 +3397,16 @@
       "name": "torchaudio",
       "version": "2.11.0",
       "purl": "pkg:pypi/torchaudio@2.11.0",
-      "bom-ref": "pkg:pypi/torchaudio@2.11.0"
+      "bom-ref": "pkg:pypi/torchaudio@2.11.0",
+      "scope": "optional"
     },
     {
       "type": "library",
       "name": "torchcodec",
       "version": "0.16.0",
       "purl": "pkg:pypi/torchcodec@0.16.0",
-      "bom-ref": "pkg:pypi/torchcodec@0.16.0"
+      "bom-ref": "pkg:pypi/torchcodec@0.16.0",
+      "scope": "optional"
     },
     {
       "type": "library",
@@ -3158,6 +3414,7 @@
       "version": "1.9.0",
       "purl": "pkg:pypi/torchmetrics@1.9.0",
       "bom-ref": "pkg:pypi/torchmetrics@1.9.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3171,6 +3428,7 @@
       "version": "4.68.4",
       "purl": "pkg:pypi/tqdm@4.68.4",
       "bom-ref": "pkg:pypi/tqdm@4.68.4",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3183,7 +3441,8 @@
       "name": "triton",
       "version": "3.7.1",
       "purl": "pkg:pypi/triton@3.7.1",
-      "bom-ref": "pkg:pypi/triton@3.7.1"
+      "bom-ref": "pkg:pypi/triton@3.7.1",
+      "scope": "optional"
     },
     {
       "type": "library",
@@ -3191,6 +3450,7 @@
       "version": "0.10.4",
       "purl": "pkg:pypi/truststore@0.10.4",
       "bom-ref": "pkg:pypi/truststore@0.10.4",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3204,6 +3464,7 @@
       "version": "0.27.1",
       "purl": "pkg:pypi/typer@0.27.1",
       "bom-ref": "pkg:pypi/typer@0.27.1",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3217,6 +3478,7 @@
       "version": "3.10.0.0",
       "purl": "pkg:pypi/typing@3.10.0.0",
       "bom-ref": "pkg:pypi/typing@3.10.0.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3230,6 +3492,7 @@
       "version": "4.16.0",
       "purl": "pkg:pypi/typing-extensions@4.16.0",
       "bom-ref": "pkg:pypi/typing-extensions@4.16.0",
+      "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3243,6 +3506,7 @@
       "version": "0.4.2",
       "purl": "pkg:pypi/typing-inspection@0.4.2",
       "bom-ref": "pkg:pypi/typing-inspection@0.4.2",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3256,6 +3520,7 @@
       "version": "2025.3",
       "purl": "pkg:pypi/tzdata@2025.3",
       "bom-ref": "pkg:pypi/tzdata@2025.3",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3269,6 +3534,7 @@
       "version": "4.2.0",
       "purl": "pkg:pypi/uritemplate@4.2.0",
       "bom-ref": "pkg:pypi/uritemplate@4.2.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3282,6 +3548,7 @@
       "version": "2.7.0",
       "purl": "pkg:pypi/urllib3@2.7.0",
       "bom-ref": "pkg:pypi/urllib3@2.7.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3295,6 +3562,7 @@
       "version": "20251121",
       "purl": "pkg:pypi/useful-moonshine-onnx@20251121",
       "bom-ref": "pkg:pypi/useful-moonshine-onnx@20251121",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3308,6 +3576,7 @@
       "version": "0.51.0",
       "purl": "pkg:pypi/uvicorn@0.51.0",
       "bom-ref": "pkg:pypi/uvicorn@0.51.0",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3321,6 +3590,7 @@
       "version": "6.0.0",
       "purl": "pkg:pypi/watchdog@6.0.0",
       "bom-ref": "pkg:pypi/watchdog@6.0.0",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3334,6 +3604,7 @@
       "version": "0.5.1",
       "purl": "pkg:pypi/webencodings@0.5.1",
       "bom-ref": "pkg:pypi/webencodings@0.5.1",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3347,6 +3618,7 @@
       "version": "2.0.10",
       "purl": "pkg:pypi/webrtcvad@2.0.10",
       "bom-ref": "pkg:pypi/webrtcvad@2.0.10",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3360,6 +3632,7 @@
       "version": "0.1.15",
       "purl": "pkg:pypi/whisper-normalizer@0.1.15",
       "bom-ref": "pkg:pypi/whisper-normalizer@0.1.15",
+      "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3373,6 +3646,7 @@
       "version": "3.2.1",
       "purl": "pkg:pypi/winrt-runtime@3.2.1",
       "bom-ref": "pkg:pypi/winrt-runtime@3.2.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3386,6 +3660,7 @@
       "version": "3.2.1",
       "purl": "pkg:pypi/winrt-windows-devices-bluetooth@3.2.1",
       "bom-ref": "pkg:pypi/winrt-windows-devices-bluetooth@3.2.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3399,6 +3674,7 @@
       "version": "3.2.1",
       "purl": "pkg:pypi/winrt-windows-devices-bluetooth-advertisement@3.2.1",
       "bom-ref": "pkg:pypi/winrt-windows-devices-bluetooth-advertisement@3.2.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3412,6 +3688,7 @@
       "version": "3.2.1",
       "purl": "pkg:pypi/winrt-windows-devices-bluetooth-genericattributeprofile@3.2.1",
       "bom-ref": "pkg:pypi/winrt-windows-devices-bluetooth-genericattributeprofile@3.2.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3425,6 +3702,7 @@
       "version": "3.2.1",
       "purl": "pkg:pypi/winrt-windows-devices-enumeration@3.2.1",
       "bom-ref": "pkg:pypi/winrt-windows-devices-enumeration@3.2.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3438,6 +3716,7 @@
       "version": "3.2.1",
       "purl": "pkg:pypi/winrt-windows-devices-radios@3.2.1",
       "bom-ref": "pkg:pypi/winrt-windows-devices-radios@3.2.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3451,6 +3730,7 @@
       "version": "3.2.1",
       "purl": "pkg:pypi/winrt-windows-foundation@3.2.1",
       "bom-ref": "pkg:pypi/winrt-windows-foundation@3.2.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3464,6 +3744,7 @@
       "version": "3.2.1",
       "purl": "pkg:pypi/winrt-windows-foundation-collections@3.2.1",
       "bom-ref": "pkg:pypi/winrt-windows-foundation-collections@3.2.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3477,6 +3758,7 @@
       "version": "3.2.1",
       "purl": "pkg:pypi/winrt-windows-storage-streams@3.2.1",
       "bom-ref": "pkg:pypi/winrt-windows-storage-streams@3.2.1",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
@@ -3490,6 +3772,7 @@
       "version": "1.24.5",
       "purl": "pkg:pypi/yarl@1.24.5",
       "bom-ref": "pkg:pypi/yarl@1.24.5",
+      "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",

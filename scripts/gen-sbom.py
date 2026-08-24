@@ -4,7 +4,7 @@
 Why an SBOM, for a project like this
 ------------------------------------
 "Runs entirely on your machine" is a supply-chain claim as much as a privacy one: it is
-only as true as the 228 packages underneath it. Anyone evaluating this for a hospital, a
+only as true as the packages underneath it. Anyone evaluating this for a hospital, a
 law firm, a newsroom or an air-gapped network is asked by their own policy to enumerate
 what they are installing, and today the honest answer -- "read `uv.lock`" -- fails that
 request. This produces the machine-readable inventory those reviews expect, which removes
@@ -13,6 +13,11 @@ a real blocker to installing rather than merely arguing about one.
 It reads **`uv.lock`, not the current environment**, so the output describes what a user
 actually resolves to rather than whatever happens to be installed on the machine that ran
 it. That also makes it reproducible: same lock file, byte-identical SBOM.
+
+The lock is the *development* closure, though, and a user installs a small part of it, so
+every component carries a derived CycloneDX ``scope`` -- see `classify_scopes`. Without it
+the SBOM asserted that `pytest`, `mypy` and `mkdocs` ship to users, and a reviewer running
+it through a vulnerability scanner had no way to tell.
 
 Usage
 -----
@@ -65,9 +70,114 @@ def _hashes(pkg: dict[str, Any]) -> list[dict[str, str]]:
     return []
 
 
+def _requested_extras(entry: dict[str, Any]) -> list[str]:
+    """Extras an edge asks for, as `[""]` when it asks for none.
+
+    `uv.lock` spells this two ways and both are load-bearing: a package's own dependency
+    entries say `extra = [...]`, while the root's `requires-dist`/`requires-dev` entries
+    say `extras = [...]`. Reading only the singular missed `mkdocs-material[imaging]` and
+    left its six-package image toolchain scopeless -- i.e. declared required.
+    """
+    extras = entry.get("extra") or entry.get("extras") or []
+    return list(extras) or [""]
+
+
+def classify_scopes(lock: dict[str, Any]) -> dict[str, str]:
+    """Map every locked package to a CycloneDX ``scope``.
+
+    `uv.lock` is a *development* closure: it holds the runtime dependencies, every
+    optional extra, and the `dev`/`benchmark`/`docs` groups, all flattened together.
+    Emitted without scopes, CycloneDX treats each component as **required** -- so the
+    SBOM declared that installing YazSes brings in `pytest`, `mypy`, `ruff`, `mkdocs`
+    and `jiwer`. It does not. 16 runtime dependencies are declared; 283 components
+    were published as if a user received all of them.
+
+    That is not a cosmetic overstatement. An SBOM is read to answer "what is in my
+    installation, and which advisories apply to me?" Over-declaring produces
+    advisories against a maintainer's toolchain that no user ever runs, and the
+    reviewer -- a hospital, a law firm, an air-gapped network, the audiences this
+    file was written for -- has no way to tell the difference.
+
+    * ``required`` -- reachable from a dependency with no ``extra ==`` marker. What
+      ``pip install yazses`` actually pulls in, platform markers included, because an
+      SBOM must describe every platform the artifact supports.
+    * ``optional`` -- reachable only via an extra. Real, shipped, opt-in.
+    * ``excluded`` -- reachable only from a dependency group. Present in the lock so
+      builds are reproducible; never installed by a user.
+
+    Derived from the lock rather than listed here: a new extra or group is classified
+    the day it is added, and one that is removed stops being claimed.
+    """
+    # A name can be locked more than once -- `scipy` resolves to two versions for
+    # different Python versions -- so the edges are merged rather than the later entry
+    # winning. Keying by name alone would drop one resolution's dependencies silently,
+    # and anything reachable only through it would come out unclassified, i.e. required.
+    packages: dict[str, dict[str, Any]] = {}
+    for pkg in lock.get("package", []):
+        name = pkg.get("name")
+        if not name:
+            continue
+        merged = packages.setdefault(name, {"dependencies": [], "optional-dependencies": {}})
+        merged["dependencies"] += pkg.get("dependencies") or []
+        for extra, deps in (pkg.get("optional-dependencies") or {}).items():
+            merged["optional-dependencies"].setdefault(extra, []).extend(deps)
+        if pkg.get("metadata"):
+            merged["metadata"] = pkg["metadata"]
+    root = packages.get("yazses", {}).get("metadata", {})
+
+    def closure(seeds: list[dict[str, Any]]) -> set[str]:
+        """Names reachable from `seeds`, following the extras each edge actually asks for.
+
+        A node is `(name, extra)`, not just a name: `lightning` depends on `fsspec[http]`,
+        and plain `fsspec` does not pull in `aiohttp`. Walking names alone left 23 packages
+        -- `aiohttp`, `cairosvg`, the CUDA runtime libraries -- reachable from nothing, and
+        an unclassified component is emitted with no scope, which CycloneDX reads as
+        **required**. The bug would have declared `mkdocs-material`'s image toolchain a
+        runtime dependency of a dictation daemon.
+        """
+        seen: set[str] = set()
+        visited: set[tuple[str, str]] = set()
+        stack = [(e["name"], x) for e in seeds for x in _requested_extras(e) if e.get("name")]
+        while stack:
+            name, extra = stack.pop()
+            if (name, extra) in visited or name not in packages:
+                continue
+            visited.add((name, extra))
+            seen.add(name)
+            pkg = packages[name]
+            # `pkg[extra]` installs `pkg` too, so the base list is always followed; the
+            # extra only adds. Following the extra *instead* stranded `pymdown-extensions`
+            # and three siblings, which are plain dependencies of `mkdocs-material`.
+            deps = list(pkg.get("dependencies") or [])
+            if extra:
+                deps += (pkg.get("optional-dependencies") or {}).get(extra) or []
+            stack.extend(
+                (dep["name"], x)
+                for dep in deps
+                for x in _requested_extras(dep)
+                if dep.get("name")
+            )
+        return seen
+
+    dist = root.get("requires-dist") or []
+    runtime = [e for e in dist if "extra == " not in (e.get("marker") or "")]
+    extras = [e for e in dist if "extra == " in (e.get("marker") or "")]
+    groups = [e for g in (root.get("requires-dev") or {}).values() for e in g]
+
+    required = closure(runtime)
+    optional = closure(extras) - required
+    excluded = closure(groups) - required - optional
+
+    scopes = {name: "required" for name in required}
+    scopes.update({name: "optional" for name in optional})
+    scopes.update({name: "excluded" for name in excluded})
+    return scopes
+
+
 def build_sbom(lock_text: str, version: str) -> dict[str, Any]:
     """Assemble the CycloneDX document. Pure, so it is testable without the filesystem."""
     lock = tomllib.loads(lock_text)
+    scopes = classify_scopes(lock)
     components: list[dict[str, Any]] = []
 
     for pkg in lock.get("package", []):
@@ -84,6 +194,11 @@ def build_sbom(lock_text: str, version: str) -> dict[str, Any]:
             "purl": _purl(name, pkg_version),
             "bom-ref": _purl(name, pkg_version),
         }
+        # Only emitted when known. CycloneDX defaults an absent scope to `required`,
+        # so guessing here would restate the very error this classification fixes.
+        scope = scopes.get(name)
+        if scope:
+            component["scope"] = scope
         digests = _hashes(pkg)
         if digests:
             component["hashes"] = digests

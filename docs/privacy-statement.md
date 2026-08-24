@@ -379,6 +379,19 @@ requires one before software may be installed:
   **CycloneDX 1.5** SBOM listing every resolved dependency with its version, package URL
   and, where the lock file records one, the SHA-256 of its source distribution.
 
+Every component carries a CycloneDX `scope`, so the inventory distinguishes what you
+receive from what only the maintainer builds with:
+
+| `scope` | Count | What it means for you |
+|---|---|---|
+| `required` | 52 | Installed by `pip install yazses`, across every supported platform |
+| `optional` | 179 | Installed only if you enable the matching feature (`yazses features enable …`) |
+| `excluded` | 52 | Test, type-check, benchmark and docs tooling. Never installed by a user |
+
+That distinction matters if you feed the SBOM to a vulnerability scanner: without it,
+every advisory against a test or documentation package would be reported against your
+installation, and there would be no way to tell which findings apply to you.
+
 It is generated from `uv.lock` rather than from whatever happens to be installed on a
 build machine, so it describes what *you* will actually resolve to, and a test fails if
 it drifts out of step with the lock file. Regenerate it yourself with

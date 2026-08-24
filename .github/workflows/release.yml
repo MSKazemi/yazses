@@ -215,8 +215,9 @@ jobs:
             that build did not succeed for this release; `pipx install yazses` works on
             both architectures.
 
-            On first launch, **right-click → Open** (the v0 build is unsigned;
-            signing is coming). Grant **Accessibility** + **Microphone** when prompted.
+            On first launch, **right-click → Open** (this build is not code-signed
+            yet — verify it with the attestation linked above instead). Grant
+            **Accessibility** + **Microphone** when prompted.
             Default hotkey: **Right Option**. Full guide: `docs/macos-install.md`.
 
             ## Windows
@@ -231,8 +232,9 @@ jobs:
             did not succeed for this release — use the x64 one.
 
             SmartScreen may say *"unrecognized app"* — click **More info → Run anyway**
-            (the v0 build is unsigned; signing is coming). Default hotkey: **Right
-            Ctrl**. Full guide: `docs/windows-install.md`.
+            (this build is not code-signed yet — verify it with the attestation linked
+            above instead). Default hotkey: **Right Ctrl**. Full guide:
+            `docs/windows-install.md`.
 
             ## Linux
 
