@@ -184,7 +184,9 @@ jobs:
           REV=""
           for _ in $(seq 1 10); do
             REV=$(snapcraft revisions yazses 2>/dev/null \
-                  | awk -v v="$VERSION" -v a="$ARCH" '$3 == a && $4 == v { print $1; exit }')
+                  | awk -v v="$VERSION" -v a="$ARCH" \
+                    '$3 == a && $4 == v && !found { revision = $1; found = 1 } \
+                     END { if (found) print revision }')
             [ -n "$REV" ] && break
             sleep 15
           done

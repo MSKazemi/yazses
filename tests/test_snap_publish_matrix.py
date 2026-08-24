@@ -170,6 +170,22 @@ def test_upload_poll_failure_cannot_skip_the_revision_release() -> None:
     assert "set -e" in guarded_block
 
 
+def test_revision_lookup_does_not_close_snapcraft_pipe_early() -> None:
+    """snapcraft reports a broken stdout pipe as exit 120 under pipefail.
+
+    An ``awk ... { print; exit }`` lookup found the right revision but closed
+    snapcraft's pipe before it finished writing, so the assignment itself
+    aborted and the release command was never reached.
+    """
+    text = WORKFLOW.read_text(encoding="utf-8")
+    lookup = text[text.index("REV=$(snapcraft revisions"):text.index(
+        '[ -n "$REV" ]', text.index("REV=$(snapcraft revisions")
+    )]
+
+    assert "exit" not in lookup
+    assert "END { if (found) print revision }" in lookup
+
+
 def test_a_publish_timeout_explains_itself() -> None:
     """A bare "timed out after 20 minutes" points at the wrong half of the problem.
 
