@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — every archived benchmark result now records the command that produced it
+
+- `paper/results/` opened on the claim that its numbers can be re-derived from the harness
+  and recorded, for all 83 artifacts, the producing *script* and never its arguments. The
+  arguments are the measurement: `bench_wer.py` writes one filename for `200 test-clean` and
+  for `500 test-other`, `bench_beam.py` writes one for the `base.en` and `tiny.en` grids
+  whose disagreement decided ADR-v2-073, and `bench_diarization.py` writes one with and
+  without `--max-speakers`. "Reproduce it from the harness" was an instruction that could not
+  be followed, and nothing said so.
+- Stamped at `_common.write_result`, on **both** of its paths — the branch that honours
+  `run_all.py`'s shared provenance block would otherwise have been skipped, leaving most of
+  the archive uncovered while a test of the other branch passed. Redacted before storage
+  (`$HOME`, `$USER`): this is the one provenance field copied from a path a person typed.
+  `MANIFEST.md` gained a **Command** column; a row showing `—` predates the field and a
+  re-run fills it in.
+- `MANIFEST.md` also described all seven `*-significance*.json` files with the same sentence
+  as the grid they re-read, because the description matched by prefix — so the index asserted
+  the beam grid had been measured three times per split when it was measured once and
+  bootstrapped twice. An analysis is now labelled as one.
+
 ### Fixed — the latency governor discarded `[stt] beam_size` and loaded the model twice
 
 - `pick_policy` hardcoded `beam_size=5` on both of its base paths. Two things followed from
