@@ -81,7 +81,7 @@ def test_the_archived_result_does_not_claim_more_than_it_measured():
            / "prompt-vs-no-context-small.en-test-clean.json")
     if not art.is_file():
         pytest.skip("artifact not present in this checkout")
-    f = json.loads(art.read_text())["finding"]
+    f = json.loads(art.read_text(encoding="utf-8"))["finding"]
     if not f["long_file_case_is_discriminating"]:
         assert "inconclusive" in f["reading"], (
             "the long-file case could not separate the two settings, but the recorded "
@@ -101,7 +101,7 @@ def test_the_tail_comparison_is_not_vacuous_in_the_archived_result():
     if not art.is_file():
         pytest.skip("artifact not present in this checkout")
     for name in ("long_condition_true", "long_condition_false"):
-        case = json.loads(art.read_text())["cases"][name]
+        case = json.loads(art.read_text(encoding="utf-8"))["cases"][name]
         assert case["words_after_first_window"] > 0, (
             f"{name} has no words past the 30 s boundary, so its "
             "'unchanged after the first window' result is vacuous"
