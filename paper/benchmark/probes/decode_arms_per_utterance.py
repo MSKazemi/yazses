@@ -192,6 +192,14 @@ def run(split: str, n: int, model: str, baseline_repeats: int) -> dict:
     base = median_run(per_arm["baseline"])
 
     return {
+        "probe": {
+            "measured": (
+                "Whether the decode-arm WER difference is broad or carried by a few "
+                "runaway utterances: per-utterance error counts for every arm, paired "
+                "sign test, paired bootstrap over utterances, and gain concentration."
+            ),
+            "produced_by": "paper/benchmark/probes/decode_arms_per_utterance.py",
+        },
         "config": {
             "dataset": f"LibriSpeech {split}", "n_utterances": len(subset),
             "model": model, "baseline_repeats": baseline_repeats,

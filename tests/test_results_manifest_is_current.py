@@ -154,3 +154,41 @@ def test_every_harness_row_carries_a_description(gen) -> None:
         "stem to make_results_index.MEASURES; listing a number without saying what it "
         "measures is the omission the manifest exists to close."
     )
+
+
+# ---------------------------------------------------------------------------
+# A row with no description is listed but says nothing.
+#
+# The generator deliberately lists an artifact whose filename stem it does not
+# recognise rather than dropping it -- dropping it would be the omission the
+# manifest exists to prevent. But that choice is only safe if something notices
+# the blank, and nothing did: a probe artifact was committed, the manifest was
+# regenerated, every check here passed, and the row read `| file.json |  | - |`.
+# 29 of the 30 probe artifacts carry a self-describing `probe` block; the one
+# that did not was the newest, which is exactly the direction this drifts.
+# ---------------------------------------------------------------------------
+
+
+def _undescribed(entries: list[dict]) -> list[str]:
+    return sorted(e["path"] for e in entries if not (e.get("measures") or "").strip())
+
+
+def test_every_archived_artifact_says_what_it_measured(gen) -> None:
+    blank = _undescribed(gen.rows())
+    assert not blank, (
+        "these artifacts are in the manifest with an empty description:\n  "
+        + "\n  ".join(blank)
+        + "\n\nGive the artifact a `probe` block with a `measured` field -- that is "
+        "how 29 of the 30 probe artifacts do it, and it keeps the description with "
+        "the measurement instead of in a table someone has to remember to update. "
+        "Adding a stem to MEASURES in make_results_index.py also works for a "
+        "harness result whose whole family shares one answer."
+    )
+
+
+def test_that_check_can_actually_fail(gen) -> None:
+    """Guard the guard: it must not be vacuous on a row that says nothing."""
+    assert _undescribed([{"path": "x.json", "measures": ""}]) == ["x.json"]
+    assert _undescribed([{"path": "x.json", "measures": "   "}]) == ["x.json"]
+    assert _undescribed([{"path": "x.json"}]) == ["x.json"]
+    assert _undescribed([{"path": "x.json", "measures": "what it measured"}]) == []

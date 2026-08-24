@@ -1,4 +1,11 @@
 {
+  "probe": {
+    "measured": "Whether large-v3's run-to-run instability is faster-whisper's temperature fallback, and whether turning it off costs accuracy: three decode arms, five decodes of the same 200 LibriSpeech test-other utterances each, with a hash of every run's hypotheses.",
+    "produced_by": "paper/benchmark/probes/decode_determinism.py",
+    "host": "Azure Standard_D16s_v6, westeurope (16 vCPU Xeon Platinum 8573C, 67.4 GB)",
+    "run_finished_utc": "2026-08-24T12:00:44Z",
+    "note": "This block was added after the run, because the probe did not yet emit one; it is index metadata only. Nothing under `arms` or `provenance` was touched."
+  },
   "provenance": {
     "timestamp": "2026-08-24T12:00:44Z",
     "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
