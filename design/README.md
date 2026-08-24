@@ -34,10 +34,29 @@ and a new file's status is never ambiguous.
 | `docs/` | **Public** | User-facing documentation, published to the docs site. |
 | `strategy/` | **Private** | Marketing copy, SEO analysis, vision/idea notes for features that may never ship, distribution status. Tactics lose value when public, and unbuilt ideas read as promises. |
 | `paper/` | **Private** | The manuscript, until the preprint is posted. |
+| `paper/benchmark/`, `paper/results/` | **Public** | The exception, and a deliberate one: `docs/benchmarks.md` publishes numbers and tells the reader to reproduce them. While these were private, those instructions 404'd and the page's central promise was false. Harness code and small result JSON only — no audio, no transcripts, no manuscript. |
 | `.claude/` | **Private** | Coding-agent artifacts: plans, memory, project-local skills. |
 
-Enforced in two places, both of which must agree: `.gitignore` and
-`.git/hooks/pre-commit`. Changing one without the other is a bug.
+Enforced in three places, all of which must agree: `.gitignore`,
+`.git/hooks/pre-commit`, and `hooks/design_tier.py` — the hook that mirrors this tree onto
+the documentation site. Changing one without the others is a bug.
+
+The third one used to be the odd one out, and the way it failed is worth recording. It
+carried its own list of directories to publish, so `packaging/`, `v2-cognitive-layer/`,
+`mobile/` and `meeting-mode/` — named as public in the table above, and committed to this
+public repository — were absent from the site for months because no line in the hook
+mentioned them. Nothing failed: an omission produces no warning, no broken link, no red
+build. It now publishes **everything git tracks under `design/` that is not under a private
+prefix**, which is the same rule the table states, derived rather than restated.
+
+Tracked-ness, not the filesystem, is what decides. A file that is not committed is not in
+the public repository, and the site must never be the first place it appears.
+
+| Excluded from the site today | Why |
+|---|---|
+| `design/vision/` | Unbuilt-feature idea notes. Private by the contract above, and untracked, so two independent things would have to be wrong before it could be published. |
+
+Nothing else is excluded.
 
 ### A public file must never contain a path into a private tree
 

@@ -11,8 +11,17 @@ name: Docs
 on:
   push:
     branches: ["main"]
+    # Every tree the build reads, not only the one it is named after. `design/**` and
+    # `hooks/**` were missing, and the site is built from both: `hooks/design_tier.py`
+    # injects the whole `design/` tier into the page set. So an ADR correction, or a new
+    # decision record, changed nothing on the live site until an unrelated `docs/` commit
+    # happened to trigger a rebuild -- 6 of the last 60 commits were in exactly that
+    # position. A path filter is a hand-written set; `tests/test_docs_deploy_trigger.py`
+    # derives what belongs in it from `mkdocs.yml` instead.
     paths:
       - "docs/**"
+      - "design/**"
+      - "hooks/**"
       - "mkdocs.yml"
       - "pyproject.toml"
       - ".github/workflows/docs.yml"

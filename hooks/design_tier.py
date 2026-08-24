@@ -29,25 +29,37 @@ from __future__ import annotations
 
 import logging
 import re
+import subprocess
 from pathlib import Path
 from typing import Any
 
 log = logging.getLogger("mkdocs.hooks.design_tier")
 
-#: Directories under `design/` to publish, in nav order, with the index we generate.
-_SECTIONS: list[tuple[str, str, str]] = [
-    ("adr", "Decision records",
-     "Every architectural decision, why it was made, and what would reverse it."),
-    ("specs", "Specifications",
-     "Implementation-ready designs: what gets built, and how it is judged done."),
-    ("research", "Research notes",
-     "Studies, surveys and the literature watch behind the design decisions."),
-]
+#: Written titles and blurbs for the sections that have earned one. Any other section
+#: under `design/` is still published — it takes a title from its own README and a
+#: generic blurb. This is deliberately *not* the list of what gets published: it used
+#: to be, and four whole subtrees stayed off the site for months because nobody had
+#: added a line here. See `_sections()`.
+_SECTION_META: dict[str, tuple[str, str]] = {
+    "adr": ("Decision records",
+            "Every architectural decision, why it was made, and what would reverse it."),
+    "specs": ("Specifications",
+              "Implementation-ready designs: what gets built, and how it is judged done."),
+    "research": ("Research notes",
+                 "Studies, surveys and the literature watch behind the design decisions."),
+}
 
-#: Single files at the top of `design/` worth publishing on their own.
-#:  is included because the tier documents link to it as the statement of
-#: what is public and why — the one page that explains the rest.
-_TOP_LEVEL = ["README.md", "architecture.md", "threat-model.md", "emg-protocol.md"]
+#: Order for the sections that have one; anything else follows, alphabetically.
+_SECTION_ORDER = ["adr", "specs", "research"]
+
+#: Used only when git cannot answer what is tracked — see `_tracked()`. Publishing the
+#: previously-curated set is the conservative answer there, not the complete one.
+_FALLBACK_SECTIONS = tuple(_SECTION_ORDER)
+
+#: Fallback set of single files at the top of `design/`, used only when git cannot
+#: answer. `README.md` is in it because the tier documents link to it as the statement
+#: of what is public and why — the one page that explains the rest.
+_FALLBACK_TOP_LEVEL = ["README.md", "architecture.md", "threat-model.md", "emg-protocol.md"]
 
 #: Read from the pre-commit hook so the two cannot disagree about what is private.
 _FALLBACK_PRIVATE = ("strategy", "design/vision", "design/marketing", "design/seo", ".claude")
@@ -63,6 +75,75 @@ def _private_prefixes(repo_root: Path) -> tuple[str, ...]:
     if not match:
         return _FALLBACK_PRIVATE
     return tuple(p.replace("\\", "") for p in match.group(1).split("|"))
+
+
+
+def _tracked(repo_root: Path) -> frozenset[str] | None:
+    """Repo-relative paths under `design/` that git tracks, or `None` if git cannot say.
+
+    Tracked-ness, not the filesystem, is what decides publication. A file that is not
+    committed is not in the public repository, so publishing it to the site would be the
+    first place it appeared — `design/vision/` is untracked on this machine for exactly
+    that reason. Deriving from `os.walk` instead would have published it.
+
+    `None` means git could not answer (no `.git`, no git binary, a timeout). Callers fall
+    back to the previously-curated lists: publishing a known-safe subset is the right
+    failure, and publishing everything found on disk is not.
+    """
+    try:
+        done = subprocess.run(
+            ["git", "-C", str(repo_root), "ls-files", "-z", "--", "design"],
+            capture_output=True, timeout=30, check=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return frozenset(p for p in done.stdout.decode("utf-8", "replace").split("\0") if p)
+
+
+def _publishable(repo_root: Path, private: tuple[str, ...]) -> frozenset[str] | None:
+    """Tracked `design/` paths that are not under a private prefix."""
+    tracked = _tracked(repo_root)
+    if tracked is None:
+        return None
+    return frozenset(
+        rel for rel in tracked
+        if not any(rel == p or rel.startswith(f"{p}/") for p in private)
+    )
+
+
+def _sections(publishable: frozenset[str] | None) -> list[str]:
+    """Immediate subdirectories of `design/` that have something to publish.
+
+    Derived, because the hand-written version was the defect: `design/packaging/`,
+    `design/v2-cognitive-layer/`, `design/mobile/` and `design/meeting-mode/` — 14 files,
+    every one already committed to the public repository — were absent from the site
+    purely because no line here named them, and an omission leaves no trace to notice.
+    """
+    if publishable is None:
+        return list(_FALLBACK_SECTIONS)
+    found = {rel.split("/")[1] for rel in publishable if rel.count("/") >= 2}
+    ordered = [s for s in _SECTION_ORDER if s in found]
+    return ordered + sorted(found - set(ordered))
+
+
+def _top_level(publishable: frozenset[str] | None) -> list[str]:
+    """Files directly under `design/`, README first so it reads as the entry point."""
+    if publishable is None:
+        return list(_FALLBACK_TOP_LEVEL)
+    names = sorted(
+        rel.split("/", 1)[1] for rel in publishable
+        if rel.count("/") == 1 and rel.endswith(".md")
+    )
+    return sorted(names, key=lambda n: (n.upper() != "README.MD", n))
+
+
+def _section_meta(root: Path, section: str) -> tuple[str, str]:
+    """Title and blurb for a section index — written where one exists, derived otherwise."""
+    if section in _SECTION_META:
+        return _SECTION_META[section]
+    readme = root / "README.md"
+    title = _title_of(readme) if readme.is_file() else section.replace("-", " ").capitalize()
+    return title, f"Engineering notes kept under `design/{section}/`."
 
 
 def _title_of(path: Path) -> str:
@@ -138,6 +219,9 @@ def on_files(files: Any, config: Any, **_: Any):  # noqa: ANN401 - mkdocs passes
         return files
 
     private = _private_prefixes(repo_root)
+    publishable = _publishable(repo_root, private)
+    if publishable is None:
+        log.warning("design_tier: git could not list design/ — publishing the curated subset only")
     site_dir = config["site_dir"]
     use_directory_urls = config.get("use_directory_urls", True)
     skipped = 0
@@ -159,24 +243,33 @@ def on_files(files: Any, config: Any, **_: Any):  # noqa: ANN401 - mkdocs passes
     def _is_private(rel: str) -> bool:
         return any(rel == p or rel.startswith(f"{p}/") for p in private)
 
-    for filename in _TOP_LEVEL:
+    for filename in _top_level(publishable):
         source = design / filename
-        if source.is_file():
-            _add(source)
+        if not source.is_file():
+            continue
+        if _is_private(source.relative_to(repo_root).as_posix()):
+            skipped += 1
+            continue
+        _add(source)
 
-    for section, title, blurb in _SECTIONS:
+    sections = _sections(publishable)
+    for section in sections:
         root = design / section
         if not root.is_dir():
             continue
+        title, blurb = _section_meta(root, section)
         entries: list[tuple[str, str, str]] = []
-        for source in sorted(root.rglob("*.md")):
+        # Not `*.md`: a design note may link to a sibling it ships with, and
+        # `design/meeting-mode/README.md` links to a 57-source SoA report as raw HTML.
+        # Publishing the prose and dropping the artefact it cites leaves a dead link.
+        for source in sorted(p for p in root.rglob("*") if p.is_file()):
             rel = source.relative_to(repo_root).as_posix()
-            if _is_private(rel):
+            if _is_private(rel) or (publishable is not None and rel not in publishable):
                 skipped += 1
                 continue
             relative = source.relative_to(root).as_posix()
             _add(source)
-            if source.name.upper() != "README.MD":
+            if source.suffix.lower() == ".md" and source.name.upper() != "README.MD":
                 entries.append((relative, _title_of(source), _status_of(source)))
 
         files.append(_generated(
@@ -187,7 +280,7 @@ def on_files(files: Any, config: Any, **_: Any):  # noqa: ANN401 - mkdocs passes
 
     if skipped:
         log.info("design_tier: skipped %d file(s) under a private tree", skipped)
-    log.info("design_tier: published %d section index(es)", len(_SECTIONS))
+    log.info("design_tier: published %d section index(es): %s", len(sections), ", ".join(sections))
     return files
 
 

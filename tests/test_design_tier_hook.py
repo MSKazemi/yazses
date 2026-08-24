@@ -72,14 +72,103 @@ def test_a_fallback_exists_for_a_clone_with_no_hooks(hook):
     assert hook._private_prefixes(Path("/nonexistent")) == hook._FALLBACK_PRIVATE
 
 
+def _publishable(hook):
+    return hook._publishable(ROOT, hook._private_prefixes(ROOT))
+
+
 def test_nothing_private_is_in_the_published_sections(hook):
     """Structural check: no published section may itself be a private tree."""
     private = hook._private_prefixes(ROOT)
-    for section, _title, _blurb in hook._SECTIONS:
+    for section in hook._sections(_publishable(hook)):
         path = f"design/{section}"
         assert not any(path == p or path.startswith(f"{p}/") for p in private), (
             f"{path} is published and also listed as private"
         )
+
+
+# ---- what gets published is derived, not listed ---------------------------
+#
+# It used to be listed, and that was the defect: `design/packaging/`,
+# `design/v2-cognitive-layer/`, `design/mobile/` and `design/meeting-mode/` -- 14 files,
+# every one already committed to the public repository -- were absent from the site
+# because no line in the hook named them. An omission leaves nothing to notice: no
+# warning, no broken link, no red build. Three top-level design documents were missing
+# for the same reason.
+
+
+def test_the_published_set_is_every_tracked_design_file_that_is_not_private(hook):
+    """The whole point: publication follows the repository, not a maintained list."""
+    import subprocess
+
+    tracked = set(subprocess.run(
+        ["git", "-C", str(ROOT), "ls-files", "-z", "--", "design"],
+        capture_output=True, check=True,
+    ).stdout.decode().split("\0")) - {""}
+    private = hook._private_prefixes(ROOT)
+    expected = {
+        rel for rel in tracked
+        if not any(rel == p or rel.startswith(f"{p}/") for p in private)
+    }
+    assert _publishable(hook) == expected
+
+
+def test_an_untracked_tree_is_never_published(hook, tmp_path):
+    """`design/vision/` exists on this machine and is in no commit.
+
+    Deriving from the filesystem would publish it -- the site would be the first place it
+    appeared. Deriving from `git ls-files` cannot.
+    """
+    assert hook._tracked(tmp_path) is None or "design/vision" not in " ".join(
+        sorted(hook._tracked(ROOT) or [])
+    )
+    pub = _publishable(hook)
+    assert pub is not None
+    assert not [rel for rel in pub if rel.startswith("design/vision/")]
+
+
+def test_git_being_unavailable_publishes_the_curated_subset_not_the_disk(hook, tmp_path):
+    """Fail closed. A directory that is not a repository must not widen what is published."""
+    assert hook._tracked(tmp_path) is None
+    assert hook._sections(None) == list(hook._FALLBACK_SECTIONS)
+    assert hook._top_level(None) == hook._FALLBACK_TOP_LEVEL
+
+
+def test_every_section_that_exists_today_is_published(hook):
+    """Names the four that were missing, so a regression is legible rather than a count."""
+    sections = hook._sections(_publishable(hook))
+    for expected in ("adr", "specs", "research", "packaging", "v2-cognitive-layer",
+                     "mobile", "meeting-mode"):
+        assert expected in sections, f"design/{expected}/ is tracked but not published"
+    assert sections[:3] == ["adr", "specs", "research"], "the written sections lead"
+
+
+def test_a_section_with_no_written_blurb_still_gets_a_title(hook):
+    """Otherwise a derived section would publish an index titled after nothing."""
+    title, blurb = hook._section_meta(ROOT / "design" / "packaging", "packaging")
+    assert title and blurb
+    assert "packaging" in blurb
+
+
+def test_the_readme_leads_the_top_level_files(hook):
+    top = hook._top_level(_publishable(hook))
+    assert top[0] == "README.md", f"the entry point is not first: {top[:3]}"
+    for expected in ("ci-cd-audit.md", "accessibility-and-throughput-spec.md",
+                     "troubleshooting-full-review.md"):
+        assert expected in top, f"design/{expected} is tracked but not published"
+
+
+def test_the_nav_carries_every_published_section_and_top_level_page(hook):
+    """A published page nobody can navigate to is only half-published.
+
+    The nav is hand-written YAML and cannot derive itself, so the completeness check lives
+    here: adding a `design/` subtree now fails this test until the sidebar names it.
+    """
+    nav = (ROOT / "mkdocs.yml").read_text(encoding="utf-8")
+    pub = _publishable(hook)
+    missing = [f"design/{s}/index.md" for s in hook._sections(pub)
+               if f"design/{s}/index.md" not in nav]
+    missing += [f"design/{f}" for f in hook._top_level(pub) if f"design/{f}" not in nav]
+    assert not missing, f"published but absent from the mkdocs.yml nav: {missing}"
 
 
 # ---- the link rewriting ---------------------------------------------------
@@ -233,3 +322,53 @@ def test_the_design_links_that_do_exist_point_at_files_that_exist():
                 dead.append(f"{page.relative_to(ROOT)} -> {match.group(1)}")
 
     assert not dead, "docs pages link to design files that do not exist:\n  " + "\n  ".join(dead)
+
+
+# ---- the visibility contract is a claim, so it is checked ------------------
+
+
+def _visibility_rows() -> list[tuple[str, str]]:
+    """(path, Public|Private) pairs from `design/README.md`'s contract table."""
+    import re
+
+    text = (ROOT / "design" / "README.md").read_text(encoding="utf-8")
+    rows: list[tuple[str, str]] = []
+    # A cell may name more than one path ("`paper/benchmark/`, `paper/results/`"), and
+    # capturing only the first is how the first draft of this test reported a leak that
+    # was not one -- it could not see the second half of its own Public row.
+    for cell, visibility in re.findall(r"^\|([^|]+)\| \*\*(Public|Private)\*\* \|", text, re.M):
+        rows += [(path, visibility) for path in re.findall(r"`([^`]+)`", cell)]
+    return rows
+
+
+def test_the_visibility_table_was_parsed() -> None:
+    """Otherwise the check below passes on a table that moved or changed shape."""
+    rows = _visibility_rows()
+    assert len(rows) >= 5, f"only parsed {rows} out of the contract table"
+    assert {v for _, v in rows} == {"Public", "Private"}
+
+
+def test_nothing_under_a_private_path_is_committed() -> None:
+    """`design/README.md` states which trees are private. Git is the ground truth.
+
+    The table said `paper/` was private while 18 files under it were tracked — deliberately,
+    for a good reason recorded in `.gitignore`, but the contract had not been updated to
+    say so. A visibility contract that disagrees with the repository is worse than none:
+    it is the document a reader consults to decide what is safe to write there.
+    """
+    import subprocess
+
+    rows = _visibility_rows()
+    public = [p for p, v in rows if v == "Public"]
+    leaked: dict[str, list[str]] = {}
+    for path, visibility in rows:
+        if visibility != "Private":
+            continue
+        tracked = subprocess.run(
+            ["git", "-C", str(ROOT), "ls-files", "--", path],
+            capture_output=True, check=True,
+        ).stdout.decode().split()
+        unexplained = [f for f in tracked if not any(f.startswith(q) for q in public)]
+        if unexplained:
+            leaked[path] = unexplained[:5]
+    assert not leaked, f"committed under a path the contract calls private: {leaked}"

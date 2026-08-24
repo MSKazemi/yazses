@@ -128,7 +128,7 @@ sg input -c "yazses restart"             # runs the daemon with input-group acce
 ```
 
 After a real re-login, a plain `yazses start` just works — no bridge needed. See
-[Install on Linux §1a](../docs/install-linux.md#1a-add-yourself-to-the-input-group-required).
+[Install on Linux §3b](../docs/install-linux.md#3b-add-yourself-to-the-input-group-required).
 
 ### Hotkey bound to a virtual device
 
@@ -206,7 +206,7 @@ yazses doctor      # want [OK] Injection (and [OK] ydotoold on GNOME/KDE Wayland
 ```
 
 To set it up by hand on GNOME/KDE Wayland, enable the `ydotoold` user service —
-see [Install on Linux §1b](../docs/install-linux.md#1b-wayland-keystroke-injection--ydotoold-gnomekde-wayland).
+see [Install on Linux §3c](../docs/install-linux.md#3c-wayland-keystroke-injection--ydotoold-gnomekde-wayland).
 
 ### `xdotool` present but injection fails (missing `libxdo.so.3`)
 

@@ -32,9 +32,8 @@ exclude_docs: |
 # (46 files would swamp it); the Releases index links the notable ones.
 not_in_nav: |
   /releases/v*.md
-  /design/adr/*.md
-  /design/specs/*.md
-  /design/research/**/*.md
+  /design/*.md
+  /design/**/*.md
   /mobile/adr/adr-mob-*.md
 
 # A link to a heading that does not exist was only `info` by default, so it never
@@ -378,9 +377,16 @@ nav:
           - Decision records: design/adr/index.md
           - Specifications: design/specs/index.md
           - Research notes: design/research/index.md
+          - Meeting Mode design: design/meeting-mode/index.md
+          - Mobile programme: design/mobile/index.md
+          - Packaging runbooks: design/packaging/index.md
+          - v2 cognitive layer: design/v2-cognitive-layer/index.md
           - Architecture (internal): design/architecture.md
           - Threat model: design/threat-model.md
           - EMG protocol: design/emg-protocol.md
+          - Accessibility & throughput: design/accessibility-and-throughput-spec.md
+          - CI/CD audit: design/ci-cd-audit.md
+          - Troubleshooting review: design/troubleshooting-full-review.md
       - Mobile (in design):
           - Overview: mobile/index.md
           - Android architecture: mobile/architecture.md
