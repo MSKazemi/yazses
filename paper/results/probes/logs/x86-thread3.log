@@ -1,0 +1,25 @@
+THREAD_WAITING 2026-08-24T17:27:39Z
+THREAD_START 2026-08-24T17:27:39Z
+  [thr] default run 0: WER=2.75% fallbacks=4 sha=49350ac9803792a9 14.6s
+  [thr] default run 1: WER=2.75% fallbacks=4 sha=49350ac9803792a9 14.2s
+  [thr] default run 2: WER=2.75% fallbacks=8 sha=49350ac9803792a9 16.1s
+  [thr] default run 3: WER=2.75% fallbacks=4 sha=49350ac9803792a9 14.3s
+  [thr] default run 4: WER=2.75% fallbacks=7 sha=49350ac9803792a9 15.7s
+  [thr] default run 5: WER=2.75% fallbacks=4 sha=49350ac9803792a9 15.1s
+  [thr] single run 0: WER=2.75% fallbacks=4 sha=49350ac9803792a9 31.0s
+  [thr] single run 1: WER=2.75% fallbacks=4 sha=49350ac9803792a9 31.4s
+  [thr] single run 2: WER=2.75% fallbacks=4 sha=49350ac9803792a9 31.3s
+  [thr] single run 3: WER=2.75% fallbacks=4 sha=49350ac9803792a9 30.8s
+  [thr] single run 4: WER=2.75% fallbacks=4 sha=49350ac9803792a9 30.9s
+  [thr] single run 5: WER=2.75% fallbacks=4 sha=49350ac9803792a9 31.3s
+  default_reproducible: True
+  single_thread_reproducible: True
+  pinning_threads_fixes_it: False
+  single_thread_slowdown: 2.07
+  rejection_count_varies_in: ['default']
+  sampled_rungs_only_vary_in: ['default']
+  greedy_rung_varies_in: []
+  count_varies_single_threaded: False
+  reading: Both arms are reproducible across 6 repeats on this corpus and model, so it cannot separate the two causes. A corpus that does not trigger the instability cannot say what drives it; re-run on a model and corpus that do. The rejected-attempt count varies across identical runs in: default. Split by temperature, the greedy rung at 0.0 is rejected the same number of times in every run and only the sampled rungs above it move (default). An utterance rejected greedily is re-decoded with sampling, so how far up the ladder it climbs before something passes is free to differ -- and when every rung is rejected the ladder returns the best average-logprob result it saw, which can be the deterministic temperature-0 decode. That is a moving count over unmoved text, and it needs no thread effect.
+wrote ~/yazses/paper/results/probes/thread-determinism-base.en-test-clean.json
+THREAD_DONE rc=0 2026-08-24T17:32:19Z

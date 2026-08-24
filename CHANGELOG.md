@@ -6,7 +6,51 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Nothing yet.
+### Measured — the decode defaults were put to a 2x2 and both are kept
+
+- `large-v3` decoding the same 200 `test-other` utterances five times produced five
+  different WERs (4.84-6.21 %). The obvious repair was to decode greedily
+  (`temperature=0.0`), and it was about to be recommended. Measuring the full 2x2 --
+  temperature fallback on/off, crossed with `condition_on_previous_text` on/off, five
+  decodes per arm, on `large-v3` *and* on `base.en`, the checkpoint a default install
+  actually runs -- says otherwise, and **no default changes**.
+- Greedy decoding is the **worst** arm measured anywhere: 15.26 % on `large-v3`
+  `test-other` against a 4.84-6.21 % baseline, and 10.33 % on `base.en` `test-clean`
+  against 4.01 %, almost all of it insertions (325). It is reproducible and wrong.
+- Turning conditioning off is what actually fixes `large-v3` (3.82 %, one hash across
+  five decodes) -- but it **reverses on `base.en`**, which gets worse on both splits
+  (4.01 -> 4.24 % `test-clean`, 9.46 -> 9.81 % `test-other`) and *loses* its
+  bit-reproducibility on `test-clean`. The shipped default is already the best arm on
+  the shipped model, and already reproducible.
+- The `large-v3` gain does not survive its own error bar. Scored per utterance and
+  paired: -1.05 points, 95 % bootstrap CI **[-2.59, +0.16]**, which crosses zero;
+  4 utterances better, 8 worse, 188 unchanged, exact sign test p = 0.39; and
+  **95.7 % of the gain sits in 3 clips**, 38.3 % of it in one. It is a tail-risk
+  setting for large checkpoints, and `docs/benchmarks.md` now says exactly that rather
+  than selling it as a WER win.
+- The mechanism was counted rather than argued. Conditioning was assumed to be
+  long-form-only; **no clip in either corpus exceeds one 30 s window** (longest 27.2 s)
+  and it still acts, because `seek` advances to the model's last emitted timestamp
+  rather than by a full window, so 8 of 40 `test-clean` and 16 of 200 `test-other`
+  utterances take a second pass and every one of them is handed previous-text tokens.
+  With the flag off, zero are.
+- Two hypotheses were refuted along the way and are published as such. Identical output
+  hashes are **not** evidence that the temperature fallback never fired -- a fully
+  rejected ladder returns the best average-logprob result it saw, which can be the
+  temperature-0 decode it started from; direct counting shows 4-8 rejections per run
+  where the hashes are identical. And the moving rejection count is not CTranslate2
+  thread scheduling: across 28 decodes in three sessions the count moves at
+  `cpu_threads=1` too, while the greedy rung at 0.0 is rejected exactly 3 times in
+  every run of both arms. Pinning threads costs 2.05-2.19x and buys nothing.
+- All of it is archived and re-derivable: seven new artifacts under
+  `paper/results/probes/`, two more recovered from `paper/results/history/` (where
+  `write_result` had put them when a re-run reused the same output name), their run logs,
+  two new probes -- `decode_mechanism.py` and `thread_determinism.py`, 26 tests between
+  them -- and a written-up account in `paper/results/probes/README.md` including both
+  retired inferences. `MANIFEST.md` now attributes an artifact from its recorded command
+  line when it predates the `produced_by` stamp, instead of printing an em dash beside a
+  file that names its own script.
+
 
 ## [2.31.0] — 2026-08-24
 

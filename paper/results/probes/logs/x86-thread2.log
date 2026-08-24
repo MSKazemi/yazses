@@ -1,0 +1,19 @@
+THREAD_WAITING 2026-08-24T17:23:01Z
+THREAD_START 2026-08-24T17:23:01Z
+  [thr] default run 0: WER=2.75% fallbacks=4 sha=49350ac9803792a9 14.7s
+  [thr] default run 1: WER=2.75% fallbacks=4 sha=49350ac9803792a9 14.4s
+  [thr] default run 2: WER=2.75% fallbacks=4 sha=49350ac9803792a9 14.5s
+  [thr] default run 3: WER=2.75% fallbacks=4 sha=49350ac9803792a9 14.3s
+  [thr] single run 0: WER=2.75% fallbacks=4 sha=49350ac9803792a9 30.9s
+  [thr] single run 1: WER=2.75% fallbacks=6 sha=49350ac9803792a9 31.9s
+  [thr] single run 2: WER=2.75% fallbacks=4 sha=49350ac9803792a9 30.8s
+  [thr] single run 3: WER=2.75% fallbacks=7 sha=49350ac9803792a9 33.8s
+  default_reproducible: True
+  single_thread_reproducible: True
+  pinning_threads_fixes_it: False
+  single_thread_slowdown: 2.19
+  greedy_rejections_vary: False
+  sampled_rejections_vary: False
+  reading: Both arms are reproducible across 4 repeats on this corpus and model, so it cannot separate the two causes. A corpus that does not trigger the instability cannot say what drives it; re-run on a model and corpus that do.
+wrote ~/yazses/paper/results/probes/thread-determinism-base.en-test-clean.json
+THREAD_DONE rc=0 2026-08-24T17:26:10Z

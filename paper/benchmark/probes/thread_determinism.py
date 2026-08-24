@@ -8,18 +8,28 @@ whole cause:
   fallback. Reaching a sampled step without moving is possible (a fully rejected ladder
   ends by taking the best average-logprob result it saw), so that alone is only odd.
 * Running that mechanism probe twice, unchanged, counted **6** rejected decode attempts
-  and then **4**. Nothing sampled has run at that point: the rejection happens on the
-  *first*, greedy, temperature-0 attempt. A deterministic decode cannot be rejected six
-  times in one run and four in the next.
+  and then **4**.
 
-So something below the decoder is already varying, and the temperature fallback is
-downstream of it -- an amplifier, not the source. The candidate is CTranslate2's CPU
-kernels: a multi-threaded reduction sums in whatever order the threads finish, and
-int8 accumulation makes that order visible in the low bits. Utterances sitting near the
-compression-ratio or logprob threshold then fall on different sides of it between runs,
-which is exactly a rejection count that moves without any sampling.
+The second observation is what this file was built to explain, on a premise that turned
+out to be wrong. I read the rejection as happening on the *first*, greedy, temperature-0
+attempt -- before anything is sampled -- so that a varying count meant something below
+the decoder was already varying, with CTranslate2's multi-threaded reduction order the
+obvious candidate: int8 accumulation makes thread completion order visible in the low
+bits, and an utterance sitting near the compression-ratio threshold would then fall on
+different sides of it between runs.
 
-This tests it at the one seam a user can actually set, `[stt] cpu_threads`:
+Only the *first* rejection per utterance is greedy. `generate_with_fallback` iterates
+`options.temperatures`, which begins at 0.0 and then climbs, and every rung above 0.0
+samples. So an utterance rejected at 0.0 is re-decoded **with sampling**, and how far up
+the ladder it climbs before something passes is free to differ between runs -- a moving
+count with no thread-order effect required. And if every rung is rejected the ladder
+ends by taking the best average-logprob result it saw, which can be the temperature-0
+decode, so the final text need not move at all.
+
+The measurement stands whether or not the premise did, so it is kept: it tests the
+thread hypothesis at the one seam a user can actually set, `[stt] cpu_threads`, and the
+rejection counts are now split by temperature so the two explanations are separated by
+evidence rather than by argument.
 
   default   `cpu_threads=0` -- CTranslate2 picks, which is what ships
   single    `cpu_threads=1` -- one thread, so no cross-thread reduction order to vary
@@ -27,7 +37,10 @@ This tests it at the one seam a user can actually set, `[stt] cpu_threads`:
 If pinning to one thread makes the hypotheses bit-identical across repeats while the
 default does not, the cause is thread scheduling and the fix is a config key, not a
 decode setting. If *both* are stable the corpus is simply too easy to show it, and if
-neither is, something else is varying and this file has not found it.
+neither is, something else is varying and this file has not found it. Independently: if
+the temperature-0 rejection count is constant across runs while the count above 0.0
+moves, the sampled rungs explain the variation on their own and no thread effect is
+needed.
 
 Nothing here changes a default: single-threaded decoding is much slower, and the elapsed
 time is recorded so that trade is visible rather than asserted.
@@ -88,6 +101,11 @@ def _one_run(model: str, threads: int, subset, audio, refs) -> dict:
     row = _score(refs, hyps)
     row["hypothesis_sha256_16"] = _digest(hyps)
     row["fallback_events"] = sum(counter.fallbacks.values())
+    by_temp = counter.fallbacks_by_temperature
+    row["fallback_events_by_temperature"] = dict(sorted(by_temp.items()))
+    # 0.0 is the greedy rung and is deterministic; everything above it samples.
+    row["greedy_rejections"] = by_temp.get("0.0", 0)
+    row["sampled_rejections"] = sum(v for k, v in by_temp.items() if k != "0.0")
     row["decode_seconds_total"] = round(elapsed, 1)
     return row
 
@@ -95,7 +113,13 @@ def _one_run(model: str, threads: int, subset, audio, refs) -> dict:
 def summarise(runs: list[dict]) -> dict:
     hashes = [r["hypothesis_sha256_16"] for r in runs]
     fallbacks = sorted({r["fallback_events"] for r in runs})
+    greedy = sorted({r["greedy_rejections"] for r in runs})
+    sampled = sorted({r["sampled_rejections"] for r in runs})
     return {
+        "greedy_rejections_range": [greedy[0], greedy[-1]] if greedy else [0, 0],
+        "greedy_rejections_vary": len(greedy) > 1,
+        "sampled_rejections_range": [sampled[0], sampled[-1]] if sampled else [0, 0],
+        "sampled_rejections_vary": len(sampled) > 1,
         "repeats": len(runs),
         "distinct_hypotheses": len(set(hashes)),
         "reproducible": len(set(hashes)) == 1,
@@ -130,6 +154,17 @@ def run(split: str, model: str, n: int, repeats: int) -> dict:
         arms[arm] = {"summary": summarise(runs), "runs": runs}
 
     default, single = arms["default"]["summary"], arms["single"]["summary"]
+    # Which arms showed the count moving at all. The first version asked only the
+    # default arm, and a re-run put the variation in the *single* arm instead -- where
+    # it is the stronger evidence, since a count that moves with one thread cannot be
+    # thread-reduction order. Reading one arm turned that run into "cannot separate the
+    # two causes" while it was sitting in the other column.
+    varying = [k for k, v in arms.items() if v["summary"]["fallback_events_vary"]]
+    sampled_only = [
+        k for k, v in arms.items()
+        if v["summary"]["sampled_rejections_vary"] and not v["summary"]["greedy_rejections_vary"]
+    ]
+    greedy_varying = [k for k, v in arms.items() if v["summary"]["greedy_rejections_vary"]]
     pinning_fixes_it = single["reproducible"] and not default["reproducible"]
     both_stable = single["reproducible"] and default["reproducible"]
     slowdown = (
@@ -160,6 +195,10 @@ def run(split: str, model: str, n: int, repeats: int) -> dict:
             "single_thread_reproducible": single["reproducible"],
             "pinning_threads_fixes_it": pinning_fixes_it,
             "single_thread_slowdown": slowdown,
+            "rejection_count_varies_in": varying,
+            "sampled_rungs_only_vary_in": sampled_only,
+            "greedy_rung_varies_in": greedy_varying,
+            "count_varies_single_threaded": "single" in varying,
             "reading": (
                 (
                     f"Pinning `[stt] cpu_threads = 1` makes the decode bit-reproducible "
@@ -184,12 +223,39 @@ def run(split: str, model: str, n: int, repeats: int) -> dict:
                     f"order is not the whole cause and something else is varying."
                 )
                 + (
-                    f" The rejected-attempt count itself varies across identical "
-                    f"default runs ({default['fallback_events_range'][0]}-"
-                    f"{default['fallback_events_range'][1]}), which is the observation "
-                    f"that started this: rejection happens on the greedy first attempt, "
-                    f"before anything is sampled."
-                    if default["fallback_events_vary"]
+                    f" The rejected-attempt count varies across identical runs in: "
+                    f"{', '.join(varying)}."
+                    if varying
+                    else " The rejected-attempt count was identical in every run."
+                )
+                + (
+                    " It varies with `cpu_threads=1`, where there is no cross-thread "
+                    "reduction order to differ, so thread scheduling cannot be what "
+                    "moves it."
+                    if "single" in varying
+                    else ""
+                )
+                + (
+                    (
+                        f" Split by temperature, the greedy rung at 0.0 is rejected the "
+                        f"same number of times in every run and only the sampled rungs "
+                        f"above it move ({', '.join(sampled_only)}). An utterance "
+                        f"rejected greedily is re-decoded with sampling, so how far up "
+                        f"the ladder it climbs before something passes is free to "
+                        f"differ -- and when every rung is rejected the ladder returns "
+                        f"the best average-logprob result it saw, which can be the "
+                        f"deterministic temperature-0 decode. That is a moving count "
+                        f"over unmoved text, and it needs no thread effect."
+                    )
+                    if sampled_only
+                    else ""
+                )
+                + (
+                    f" The greedy rung at temperature 0.0 is itself rejected a differing "
+                    f"number of times in {', '.join(greedy_varying)}. That rung does not "
+                    f"sample, so something below the decoder is varying there and "
+                    f"sampling cannot account for it."
+                    if greedy_varying
                     else ""
                 )
             ),

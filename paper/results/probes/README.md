@@ -113,6 +113,7 @@ mechanism rather than merely measuring it. Five decodes per arm, 200 stratified
 | `baseline` | faster-whisper defaults | 4.84-6.21 (mean 5.52) | **5 of 5** | 78-129 |
 | `greedy` | `temperature=0.0` | 15.26 | 1 | 466 |
 | `greedy_no_context` | `temperature=0.0`, `condition_on_previous_text=False` | 3.82 | 1 | 40 |
+| `no_context` | `condition_on_previous_text=False` | 3.82 | 1 | 40 |
 
 Substitutions (87) and deletions (15) are identical in **every run of every arm**. No
 decode setting changed a single one. Whatever these arms do, they do it entirely by
@@ -151,9 +152,134 @@ The fourth arm, `no_context` -- conditioning off, fallback **left on** -- was ad
 after these three ran, because they do not contain the setting YazSes would actually
 ship: `greedy_no_context` moves both knobs at once and so cannot say whether the
 safety net still earns anything once the cause is gone. It is filed separately as
-`decode-determinism-large-v3-test-other-no_context.json`. It is also the only arm whose
-determinism is genuinely open, since it keeps the sampled rescue and is therefore
-reproducible only if the fallback never fires at all.
+`decode-determinism-large-v3-test-other-no_context.json`, and it answers cleanly:
+**bit-identical five times out of five**, `3.82 %`, hash `b7d0705601ff3190` -- the same
+bytes as `greedy_no_context`. Once the cause is removed the safety net never fires, so
+the setting a large-model user would ship is both the most accurate arm measured and a
+fully reproducible one.
+
+### The win does not survive its own error bar
+
+A corpus WER is a weighted mean, and a mean over 200 utterances is moved a long way by
+one clip that emitted four hundred words of repetition. `decode_arms_per_utterance.py`
+scores every arm **per utterance** against a paired baseline (the median of five
+baseline decodes), and asks whether the difference is broad or carried by a few clips.
+It is carried by a few clips.
+
+| arm vs baseline | corpus WER | delta | 95 % CI | better / worse / unchanged | sign test p |
+|---|---|---|---|---|---|
+| `greedy` | 15.27 | +10.40 | [0.00, +25.41] | 0 / 3 / 197 | 0.25 |
+| `no_context` | 3.82 | **-1.05** | **[-2.59, +0.16]** | **4 / 8 / 188** | **0.39** |
+
+The interval crosses zero, *more* utterances got worse (8) than better (4), and
+**95.7 % of the total gain comes from three utterances** -- 38.3 % from
+`5484-24317-0004` alone. `greedy`'s ten-point loss is likewise three clips out of 200.
+
+So "3.82 % against 5.52 %, a 1.7 point win" is true arithmetic and a false claim about
+what a user gets, and it is what this directory would have published had the arms not
+been re-scored per utterance. **The honest argument is about the tail, not the mean.**
+Conditioning drives a runaway repetition on roughly 1.5 % of utterances; when it fires
+the user gets hundreds of words of garbage typed into their editor, which is not a
+one-point WER event to them. Removing it deletes those and costs a small, unresolvable
+amount on ordinary speech. That is a reason to change a setting. A WER win is not.
+
+### It reverses on the model the default install actually runs
+
+Everything above is `large-v3`. `[stt] model` ships as **`base.en`**, so none of it
+described a default install until the same 2x2 was run on that checkpoint -- five
+decodes per arm, 200 stratified utterances, both splits
+(`decode-determinism-base.en-test-{clean,other}.json`).
+
+| arm | test-clean WER | test-other WER | distinct outputs |
+|---|---|---|---|
+| **`baseline` (ships)** | **4.01** | **9.46** | 1 / 1 |
+| `greedy` | 10.33 | 9.46 | 1 / 1 |
+| `greedy_no_context` | 5.93 | 9.81 | 1 / 1 |
+| `no_context` | 4.24-4.28 | 9.81 | **5** / 1 |
+
+Three things, all pointing the same way. The **shipped default is the best arm on both
+splits** -- on test-clean `greedy` costs 6.3 points (325 insertions against 30). The
+**sign of the conditioning effect reverses with model size**: turning it off wins 1.05
+points on `large-v3` and *loses* 0.23-0.35 here. And `no_context` -- bit-identical five
+times on `large-v3` -- is the one arm that is **not** reproducible on
+`base.en`/test-clean, five decodes and five different hashes. Neither the direction of
+the effect nor the reproducibility is a property of the setting alone.
+
+On test-other `baseline` and `greedy` are the *same bytes*, as are `greedy_no_context`
+and `no_context`, so the 2x2 collapses to the conditioning factor. On test-clean it does
+not collapse at all. One split would have supported either story.
+
+### Conditioning is not confined to long files
+
+`condition_on_previous_text` is read in exactly two places in faster-whisper 1.2.1, both
+*after* a window is decoded and both only setting `prompt_reset_since` for the next one.
+That makes it provably inert on a single-pass decode -- which invites the inference that
+a hold-to-talk burst, seconds against a 30 s window, can never be affected, so all of
+this is a `yazses transcribe` and Meeting Mode concern.
+
+`decode_mechanism.py` refutes that. `seek` advances to the model's **last emitted
+timestamp**, not by a whole window, so a model that closes its final segment early
+leaves the rest for another pass:
+
+| | conditioned | `condition_on_previous_text=False` |
+|---|---|---|
+| test-clean, 40 clips, longest 27.2 s | 32x1 pass, 8x2 | 32x1, 7x2, 1x3 |
+| test-other, 200 clips, longest 20.3 s | 184x1, 16x2 | 184x1, 16x2 |
+| whose *later* pass was handed previous text | **8** and **16** | **0** and **0** |
+
+8-20 % of ordinary short utterances take a second pass, and with conditioning on that
+pass is prompted with the first pass's text. The flag acts on dictation-length audio.
+(The pass counts themselves can move -- one clip went 2 -> 3 -- because dropping the
+prompt changes what the model emits and so where `seek` lands. That is a consequence of
+the flag, not a confound: the prompt evidence is counted per pass.)
+
+### An inference that the same probe retired
+
+`base.en` produces the same hash across five `baseline` and five `greedy` decodes.
+`greedy` differs only in disabling the temperature fallback, so that reads as proof the
+fallback never fires there -- and it was about to be written up that way. Counting
+faster-whisper's own rejection log instead shows it fires 2-6 times.
+
+**Equal outputs are not evidence that a sampled step did not run.** When every rung of
+the temperature ladder is rejected, the ladder ends by taking the best average-logprob
+result it saw, which can be the temperature-0 decode it started from -- an escalation
+that leaves the output exactly where it began. The count is now measured rather than
+inferred, and split by temperature, because only the first rung (0.0) is greedy and
+every rung above it samples.
+
+That split also killed a second hypothesis. Running the mechanism probe twice, unchanged,
+counted 6 rejected attempts and then 4, which looked like proof that something *below*
+the decoder was varying -- CTranslate2's multi-threaded reduction order being the obvious
+candidate, since int8 accumulation makes thread completion order visible in the low bits.
+`thread_determinism.py` tested it at the seam a user can set, `[stt] cpu_threads`.
+
+It does not survive. Across three sessions -- 4+4, 4+4 and 6+6 repeats of 40 `test-clean`
+utterances on `base.en`, 28 decodes in all -- **every hypothesis is bit-identical**
+(`49350ac9803792a9`, WER 2.75 %) and the rejection count still moves:
+
+| session | artifact | `cpu_threads=0` | `cpu_threads=1` |
+|---|---|---|---|
+| 1 | `../history/probes-thread-determinism-base.en-test-clean-2026-08-24T15-57-24Z.json` | 4, 5, 6, 5 | 4, 4, **7**, 4 |
+| 2 | `../history/probes-thread-determinism-base.en-test-clean-2026-08-24T17-26-09Z.json` | 4, 4, 4, 4 | 4, **6**, 4, **7** |
+| 3 | `thread-determinism-base.en-test-clean.json` | 4, 4, **8**, 4, **7**, 4 | 4, 4, 4, 4, 4, 4 |
+
+The run logs are `logs/x86-thread1.log`, `logs/x86-thread2.log` and `logs/x86-thread3.log`.
+
+The count varies with a single thread in two of the three sessions, so thread reduction
+order cannot be what drives it. The temperature split says what does. Sessions 2 and 3
+carry it -- 20 runs, both arms -- and in **every one of them** the greedy rung at 0.0 is
+rejected exactly **3** times. Only the sampled rungs above it move: 1-5 in session 3's
+`cpu_threads=0` arm, and 1-4 in session 2's `cpu_threads=1` arm, which is the arm that
+was supposed to be free of the effect. An utterance rejected greedily is re-decoded with
+sampling, so how far up the ladder it climbs before something passes is free to differ
+between runs while the text it finally returns does not. Pinning threads costs
+2.05-2.19x wall-clock and buys nothing.
+
+The three sessions share one output name, and each survives only because `write_result`
+was made non-destructive: overwriting a result moves the old one into
+[`../history/`](../history/) under its own timestamp. Sessions 1 and 2 were about to be
+written up from their run logs, on the assumption they had been overwritten in place --
+the artifacts were there. Session 1 predates the temperature split and reports totals only.
 
 `largev3-instability-test-other.json` is the earlier four-repeat run that established
 the variance. Across it the substitutions (87), deletions (15) and hits (3619) are

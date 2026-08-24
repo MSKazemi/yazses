@@ -1,0 +1,17 @@
+THREAD_WAITING 2026-08-24T15:46:27Z
+THREAD_START 2026-08-24T15:54:19Z
+  [thr] default run 0: WER=2.75% fallbacks=4 sha=49350ac9803792a9 15.0s
+  [thr] default run 1: WER=2.75% fallbacks=5 sha=49350ac9803792a9 14.9s
+  [thr] default run 2: WER=2.75% fallbacks=6 sha=49350ac9803792a9 15.0s
+  [thr] default run 3: WER=2.75% fallbacks=5 sha=49350ac9803792a9 15.1s
+  [thr] single run 0: WER=2.75% fallbacks=4 sha=49350ac9803792a9 30.2s
+  [thr] single run 1: WER=2.75% fallbacks=4 sha=49350ac9803792a9 30.4s
+  [thr] single run 2: WER=2.75% fallbacks=7 sha=49350ac9803792a9 31.8s
+  [thr] single run 3: WER=2.75% fallbacks=4 sha=49350ac9803792a9 30.3s
+  default_reproducible: True
+  single_thread_reproducible: True
+  pinning_threads_fixes_it: False
+  single_thread_slowdown: 2.05
+  reading: Both arms are reproducible across 4 repeats on this corpus and model, so it cannot separate the two causes. A corpus that does not trigger the instability cannot say what drives it; re-run on a model and corpus that do. The rejected-attempt count itself varies across identical default runs (4-6), which is the observation that started this: rejection happens on the greedy first attempt, before anything is sampled.
+wrote ~/yazses/paper/results/probes/thread-determinism-base.en-test-clean.json
+THREAD_DONE rc=0 2026-08-24T15:57:24Z

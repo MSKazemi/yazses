@@ -168,7 +168,7 @@ def run(repeats: int, split: str, n: int, model: str, on_arm=None, only=None) ->
         # archive's index correct without a central list that has to be remembered.
         "probe": {
             "measured": (
-                "Whether large-v3's run-to-run instability is faster-whisper's "
+                "Whether a checkpoint's run-to-run instability is faster-whisper's "
                 "temperature fallback, and whether turning it off costs accuracy: a "
                 "2x2 over (fallback, conditioning on previous text), five decodes of "
                 "the same utterances per arm, with a hash of each run's hypotheses."

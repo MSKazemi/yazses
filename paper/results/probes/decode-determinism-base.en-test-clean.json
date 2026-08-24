@@ -1,0 +1,423 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-24T16:21:15Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 10.32,
+    "compute_type": "int8",
+    "device": "cpu",
+    "argv": "paper/benchmark/probes/decode_determinism.py 5 test-clean 200 base.en",
+    "corpus": {
+      "dataset": "LibriSpeech test-clean",
+      "requested_n": 200,
+      "n": 200,
+      "stratified": true,
+      "sha256_16": "08c500680ad493e4",
+      "first": "1089-134686-0000",
+      "last": "908-157963-0004",
+      "n_missing": 0
+    }
+  },
+  "config": {
+    "dataset": "LibriSpeech test-clean",
+    "n_utterances": 200,
+    "model": "base.en",
+    "repeats": 5,
+    "arms": {
+      "baseline": "faster-whisper defaults",
+      "greedy": {
+        "temperature": 0.0
+      },
+      "greedy_no_context": {
+        "temperature": 0.0,
+        "condition_on_previous_text": false
+      },
+      "no_context": {
+        "condition_on_previous_text": false
+      }
+    },
+    "normalizer": "whisper_normalizer.english.EnglishTextNormalizer"
+  },
+  "arms": {
+    "baseline": {
+      "runs": [
+        {
+          "wer": 4.01,
+          "substitutions": 141,
+          "deletions": 16,
+          "insertions": 30,
+          "hits": 4511,
+          "n_scored_utterances": 200,
+          "run": 0,
+          "hypothesis_sha256_16": "b80a29f1223f623d",
+          "rtf_median": 0.043,
+          "decode_seconds_total": 71.5,
+          "differs_from_run0": []
+        },
+        {
+          "wer": 4.01,
+          "substitutions": 141,
+          "deletions": 16,
+          "insertions": 30,
+          "hits": 4511,
+          "n_scored_utterances": 200,
+          "run": 1,
+          "hypothesis_sha256_16": "b80a29f1223f623d",
+          "rtf_median": 0.043,
+          "decode_seconds_total": 71.6,
+          "differs_from_run0": []
+        },
+        {
+          "wer": 4.01,
+          "substitutions": 141,
+          "deletions": 16,
+          "insertions": 30,
+          "hits": 4511,
+          "n_scored_utterances": 200,
+          "run": 2,
+          "hypothesis_sha256_16": "b80a29f1223f623d",
+          "rtf_median": 0.043,
+          "decode_seconds_total": 71.8,
+          "differs_from_run0": []
+        },
+        {
+          "wer": 4.01,
+          "substitutions": 141,
+          "deletions": 16,
+          "insertions": 30,
+          "hits": 4511,
+          "n_scored_utterances": 200,
+          "run": 3,
+          "hypothesis_sha256_16": "b80a29f1223f623d",
+          "rtf_median": 0.043,
+          "decode_seconds_total": 71.8,
+          "differs_from_run0": []
+        },
+        {
+          "wer": 4.01,
+          "substitutions": 141,
+          "deletions": 16,
+          "insertions": 30,
+          "hits": 4511,
+          "n_scored_utterances": 200,
+          "run": 4,
+          "hypothesis_sha256_16": "b80a29f1223f623d",
+          "rtf_median": 0.044,
+          "decode_seconds_total": 71.5,
+          "differs_from_run0": []
+        }
+      ],
+      "summary": {
+        "identical_text": true,
+        "distinct_outputs": 1,
+        "wer_min": 4.01,
+        "wer_max": 4.01,
+        "wer_spread": 0.0,
+        "wer_mean": 4.01,
+        "insertions_min": 30,
+        "insertions_max": 30,
+        "insertions_spread": 0,
+        "substitutions_min": 141,
+        "substitutions_max": 141,
+        "substitutions_spread": 0,
+        "deletions_min": 16,
+        "deletions_max": 16,
+        "deletions_spread": 0,
+        "n_utterances_ever_differing": 0,
+        "utterances_ever_differing": []
+      }
+    },
+    "greedy": {
+      "runs": [
+        {
+          "wer": 10.33,
+          "substitutions": 142,
+          "deletions": 15,
+          "insertions": 325,
+          "hits": 4511,
+          "n_scored_utterances": 200,
+          "run": 0,
+          "hypothesis_sha256_16": "a1c419b5e638fc67",
+          "rtf_median": 0.043,
+          "decode_seconds_total": 71.1,
+          "differs_from_run0": []
+        },
+        {
+          "wer": 10.33,
+          "substitutions": 142,
+          "deletions": 15,
+          "insertions": 325,
+          "hits": 4511,
+          "n_scored_utterances": 200,
+          "run": 1,
+          "hypothesis_sha256_16": "a1c419b5e638fc67",
+          "rtf_median": 0.043,
+          "decode_seconds_total": 71.1,
+          "differs_from_run0": []
+        },
+        {
+          "wer": 10.33,
+          "substitutions": 142,
+          "deletions": 15,
+          "insertions": 325,
+          "hits": 4511,
+          "n_scored_utterances": 200,
+          "run": 2,
+          "hypothesis_sha256_16": "a1c419b5e638fc67",
+          "rtf_median": 0.043,
+          "decode_seconds_total": 70.8,
+          "differs_from_run0": []
+        },
+        {
+          "wer": 10.33,
+          "substitutions": 142,
+          "deletions": 15,
+          "insertions": 325,
+          "hits": 4511,
+          "n_scored_utterances": 200,
+          "run": 3,
+          "hypothesis_sha256_16": "a1c419b5e638fc67",
+          "rtf_median": 0.044,
+          "decode_seconds_total": 70.8,
+          "differs_from_run0": []
+        },
+        {
+          "wer": 10.33,
+          "substitutions": 142,
+          "deletions": 15,
+          "insertions": 325,
+          "hits": 4511,
+          "n_scored_utterances": 200,
+          "run": 4,
+          "hypothesis_sha256_16": "a1c419b5e638fc67",
+          "rtf_median": 0.045,
+          "decode_seconds_total": 74.1,
+          "differs_from_run0": []
+        }
+      ],
+      "summary": {
+        "identical_text": true,
+        "distinct_outputs": 1,
+        "wer_min": 10.33,
+        "wer_max": 10.33,
+        "wer_spread": 0.0,
+        "wer_mean": 10.33,
+        "insertions_min": 325,
+        "insertions_max": 325,
+        "insertions_spread": 0,
+        "substitutions_min": 142,
+        "substitutions_max": 142,
+        "substitutions_spread": 0,
+        "deletions_min": 15,
+        "deletions_max": 15,
+        "deletions_spread": 0,
+        "n_utterances_ever_differing": 0,
+        "utterances_ever_differing": []
+      }
+    },
+    "greedy_no_context": {
+      "runs": [
+        {
+          "wer": 5.93,
+          "substitutions": 146,
+          "deletions": 19,
+          "insertions": 112,
+          "hits": 4503,
+          "n_scored_utterances": 200,
+          "run": 0,
+          "hypothesis_sha256_16": "d89b8ff0c0dbd254",
+          "rtf_median": 0.042,
+          "decode_seconds_total": 70.0,
+          "differs_from_run0": []
+        },
+        {
+          "wer": 5.93,
+          "substitutions": 146,
+          "deletions": 19,
+          "insertions": 112,
+          "hits": 4503,
+          "n_scored_utterances": 200,
+          "run": 1,
+          "hypothesis_sha256_16": "d89b8ff0c0dbd254",
+          "rtf_median": 0.042,
+          "decode_seconds_total": 69.6,
+          "differs_from_run0": []
+        },
+        {
+          "wer": 5.93,
+          "substitutions": 146,
+          "deletions": 19,
+          "insertions": 112,
+          "hits": 4503,
+          "n_scored_utterances": 200,
+          "run": 2,
+          "hypothesis_sha256_16": "d89b8ff0c0dbd254",
+          "rtf_median": 0.042,
+          "decode_seconds_total": 69.8,
+          "differs_from_run0": []
+        },
+        {
+          "wer": 5.93,
+          "substitutions": 146,
+          "deletions": 19,
+          "insertions": 112,
+          "hits": 4503,
+          "n_scored_utterances": 200,
+          "run": 3,
+          "hypothesis_sha256_16": "d89b8ff0c0dbd254",
+          "rtf_median": 0.044,
+          "decode_seconds_total": 71.2,
+          "differs_from_run0": []
+        },
+        {
+          "wer": 5.93,
+          "substitutions": 146,
+          "deletions": 19,
+          "insertions": 112,
+          "hits": 4503,
+          "n_scored_utterances": 200,
+          "run": 4,
+          "hypothesis_sha256_16": "d89b8ff0c0dbd254",
+          "rtf_median": 0.045,
+          "decode_seconds_total": 71.8,
+          "differs_from_run0": []
+        }
+      ],
+      "summary": {
+        "identical_text": true,
+        "distinct_outputs": 1,
+        "wer_min": 5.93,
+        "wer_max": 5.93,
+        "wer_spread": 0.0,
+        "wer_mean": 5.93,
+        "insertions_min": 112,
+        "insertions_max": 112,
+        "insertions_spread": 0,
+        "substitutions_min": 146,
+        "substitutions_max": 146,
+        "substitutions_spread": 0,
+        "deletions_min": 19,
+        "deletions_max": 19,
+        "deletions_spread": 0,
+        "n_utterances_ever_differing": 0,
+        "utterances_ever_differing": []
+      }
+    },
+    "no_context": {
+      "runs": [
+        {
+          "wer": 4.24,
+          "substitutions": 146,
+          "deletions": 19,
+          "insertions": 33,
+          "hits": 4503,
+          "n_scored_utterances": 200,
+          "run": 0,
+          "hypothesis_sha256_16": "63f390654957f0aa",
+          "rtf_median": 0.043,
+          "decode_seconds_total": 71.1,
+          "differs_from_run0": []
+        },
+        {
+          "wer": 4.28,
+          "substitutions": 146,
+          "deletions": 19,
+          "insertions": 35,
+          "hits": 4503,
+          "n_scored_utterances": 200,
+          "run": 1,
+          "hypothesis_sha256_16": "09282098269be9eb",
+          "rtf_median": 0.043,
+          "decode_seconds_total": 71.6,
+          "differs_from_run0": [
+            "7176-88083-0000",
+            "260-123286-0003"
+          ]
+        },
+        {
+          "wer": 4.24,
+          "substitutions": 146,
+          "deletions": 19,
+          "insertions": 33,
+          "hits": 4503,
+          "n_scored_utterances": 200,
+          "run": 2,
+          "hypothesis_sha256_16": "d507583e1740728a",
+          "rtf_median": 0.042,
+          "decode_seconds_total": 70.9,
+          "differs_from_run0": [
+            "260-123286-0003"
+          ]
+        },
+        {
+          "wer": 4.26,
+          "substitutions": 146,
+          "deletions": 19,
+          "insertions": 34,
+          "hits": 4503,
+          "n_scored_utterances": 200,
+          "run": 3,
+          "hypothesis_sha256_16": "f97d6eec1182c681",
+          "rtf_median": 0.043,
+          "decode_seconds_total": 72.3,
+          "differs_from_run0": [
+            "237-126133-0001",
+            "260-123286-0003"
+          ]
+        },
+        {
+          "wer": 4.26,
+          "substitutions": 146,
+          "deletions": 19,
+          "insertions": 34,
+          "hits": 4503,
+          "n_scored_utterances": 200,
+          "run": 4,
+          "hypothesis_sha256_16": "3194cdd31bdf31f8",
+          "rtf_median": 0.042,
+          "decode_seconds_total": 71.7,
+          "differs_from_run0": [
+            "7176-88083-0000",
+            "260-123286-0003"
+          ]
+        }
+      ],
+      "summary": {
+        "identical_text": false,
+        "distinct_outputs": 5,
+        "wer_min": 4.24,
+        "wer_max": 4.28,
+        "wer_spread": 0.04,
+        "wer_mean": 4.256,
+        "insertions_min": 33,
+        "insertions_max": 35,
+        "insertions_spread": 2,
+        "substitutions_min": 146,
+        "substitutions_max": 146,
+        "substitutions_spread": 0,
+        "deletions_min": 19,
+        "deletions_max": 19,
+        "deletions_spread": 0,
+        "n_utterances_ever_differing": 3,
+        "utterances_ever_differing": [
+          "237-126133-0001",
+          "260-123286-0003",
+          "7176-88083-0000"
+        ]
+      }
+    }
+  },
+  "probe": {
+    "measured": "Whether large-v3's run-to-run instability is faster-whisper's temperature fallback, and whether turning it off costs accuracy: a 2x2 over (fallback, conditioning on previous text), five decodes of the same utterances per arm, with a hash of each run's hypotheses.",
+    "produced_by": "paper/benchmark/probes/decode_determinism.py"
+  }
+}

@@ -1,0 +1,188 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-24T15:57:24Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 5.19,
+    "compute_type": "int8",
+    "device": "cpu",
+    "argv": "paper/benchmark/probes/thread_determinism.py test-clean base.en 40 4",
+    "corpus": {
+      "dataset": "LibriSpeech test-clean",
+      "requested_n": 40,
+      "n": 40,
+      "stratified": true,
+      "sha256_16": "e620245c2636a0fd",
+      "first": "1089-134686-0000",
+      "last": "908-157963-0000",
+      "n_missing": 0
+    }
+  },
+  "config": {
+    "dataset": "LibriSpeech test-clean",
+    "n_utterances": 40,
+    "corpus_digest": "e620245c2636a0fd",
+    "model": "base.en",
+    "repeats": 4,
+    "arms": {
+      "default": "cpu_threads=0",
+      "single": "cpu_threads=1"
+    }
+  },
+  "probe": {
+    "measured": "Whether run-to-run decode instability is CPU thread scheduling rather than the temperature fallback: the same utterances decoded repeatedly at cpu_threads=0 (shipping default) and cpu_threads=1, hashing the hypotheses and counting rejected decode attempts each time.",
+    "produced_by": "paper/benchmark/probes/thread_determinism.py"
+  },
+  "arms": {
+    "default": {
+      "summary": {
+        "repeats": 4,
+        "distinct_hypotheses": 1,
+        "reproducible": true,
+        "fallback_events_range": [
+          4,
+          6
+        ],
+        "fallback_events_vary": true,
+        "wer_range": [
+          2.75,
+          2.75
+        ],
+        "mean_decode_seconds": 15.0
+      },
+      "runs": [
+        {
+          "wer": 2.75,
+          "substitutions": 19,
+          "deletions": 3,
+          "insertions": 4,
+          "hits": 923,
+          "n_scored_utterances": 40,
+          "hypothesis_sha256_16": "49350ac9803792a9",
+          "fallback_events": 4,
+          "decode_seconds_total": 15.0,
+          "run": 0
+        },
+        {
+          "wer": 2.75,
+          "substitutions": 19,
+          "deletions": 3,
+          "insertions": 4,
+          "hits": 923,
+          "n_scored_utterances": 40,
+          "hypothesis_sha256_16": "49350ac9803792a9",
+          "fallback_events": 5,
+          "decode_seconds_total": 14.9,
+          "run": 1
+        },
+        {
+          "wer": 2.75,
+          "substitutions": 19,
+          "deletions": 3,
+          "insertions": 4,
+          "hits": 923,
+          "n_scored_utterances": 40,
+          "hypothesis_sha256_16": "49350ac9803792a9",
+          "fallback_events": 6,
+          "decode_seconds_total": 15.0,
+          "run": 2
+        },
+        {
+          "wer": 2.75,
+          "substitutions": 19,
+          "deletions": 3,
+          "insertions": 4,
+          "hits": 923,
+          "n_scored_utterances": 40,
+          "hypothesis_sha256_16": "49350ac9803792a9",
+          "fallback_events": 5,
+          "decode_seconds_total": 15.1,
+          "run": 3
+        }
+      ]
+    },
+    "single": {
+      "summary": {
+        "repeats": 4,
+        "distinct_hypotheses": 1,
+        "reproducible": true,
+        "fallback_events_range": [
+          4,
+          7
+        ],
+        "fallback_events_vary": true,
+        "wer_range": [
+          2.75,
+          2.75
+        ],
+        "mean_decode_seconds": 30.7
+      },
+      "runs": [
+        {
+          "wer": 2.75,
+          "substitutions": 19,
+          "deletions": 3,
+          "insertions": 4,
+          "hits": 923,
+          "n_scored_utterances": 40,
+          "hypothesis_sha256_16": "49350ac9803792a9",
+          "fallback_events": 4,
+          "decode_seconds_total": 30.2,
+          "run": 0
+        },
+        {
+          "wer": 2.75,
+          "substitutions": 19,
+          "deletions": 3,
+          "insertions": 4,
+          "hits": 923,
+          "n_scored_utterances": 40,
+          "hypothesis_sha256_16": "49350ac9803792a9",
+          "fallback_events": 4,
+          "decode_seconds_total": 30.4,
+          "run": 1
+        },
+        {
+          "wer": 2.75,
+          "substitutions": 19,
+          "deletions": 3,
+          "insertions": 4,
+          "hits": 923,
+          "n_scored_utterances": 40,
+          "hypothesis_sha256_16": "49350ac9803792a9",
+          "fallback_events": 7,
+          "decode_seconds_total": 31.8,
+          "run": 2
+        },
+        {
+          "wer": 2.75,
+          "substitutions": 19,
+          "deletions": 3,
+          "insertions": 4,
+          "hits": 923,
+          "n_scored_utterances": 40,
+          "hypothesis_sha256_16": "49350ac9803792a9",
+          "fallback_events": 4,
+          "decode_seconds_total": 30.3,
+          "run": 3
+        }
+      ]
+    }
+  },
+  "finding": {
+    "default_reproducible": true,
+    "single_thread_reproducible": true,
+    "pinning_threads_fixes_it": false,
+    "single_thread_slowdown": 2.05,
+    "reading": "Both arms are reproducible across 4 repeats on this corpus and model, so it cannot separate the two causes. A corpus that does not trigger the instability cannot say what drives it; re-run on a model and corpus that do. The rejected-attempt count itself varies across identical default runs (4-6), which is the observation that started this: rejection happens on the greedy first attempt, before anything is sampled."
+  }
+}

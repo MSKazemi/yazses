@@ -12,6 +12,12 @@ estimated, extrapolated, or measured on a machine chosen to flatter the result.
 These are the same measurements reported in the
 [accompanying paper](https://arxiv.org/abs/2607.28878) (arXiv:2607.28878).
 
+Every measurement ever archived — including the ones that contradicted a claim on this
+page and the runs that were later superseded — is indexed in
+[`paper/results/MANIFEST.md`](https://github.com/MSKazemi/yazses/blob/main/paper/results/MANIFEST.md),
+one row per file with what it measured, the script and command line that produced it,
+and the machine it ran on. This page is the reading; that is the evidence.
+
 !!! info "Test machine"
     13th Gen Intel Core i7-1370P · 20 logical CPUs · 33.3 GB RAM · Ubuntu 24.04.4
     · Python 3.12.3 · faster-whisper 1.2.1 · YazSes 2.12.0 · **int8 on CPU, no GPU**
@@ -253,6 +259,60 @@ that. It is variance, not a trend.
 Reproduce with `python paper/benchmark/probes/largev3_repeat.py 4 test-other 200` — the
 one probe on this page meant to be re-run rather than read. Artifact:
 [`paper/results/probes/largev3-instability-test-other.json`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/largev3-instability-test-other.json).
+
+#### Can it be turned off? Yes — and it changes nothing for the default install
+
+The obvious next question is whether a decode setting removes this. Four settings — a 2×2
+over the temperature fallback and `condition_on_previous_text` — were run five times each
+over the same 200 utterances, on `large-v3` and again on `base.en`, which is what YazSes
+actually ships.
+
+| arm | `large-v3` `test-other` | `base.en` `test-clean` | `base.en` `test-other` |
+|---|---|---|---|
+| **faster-whisper defaults (ships)** | 4.84–6.21, **5 distinct** | **4.01 %** | **9.46 %** |
+| `temperature=0.0` | 15.26 % | 10.33 % | 9.46 % |
+| `condition_on_previous_text=False` | **3.82 %**, 1 distinct | 4.24–4.28, **5 distinct** | 9.81 % |
+
+**`temperature=0.0` is the worst arm measured anywhere** — it removes the rescue and keeps
+the cause, costing 6.3 points on `base.en`/`test-clean` (325 insertions against 30). It is
+not a fix and this page recommends against it.
+
+`condition_on_previous_text=False` is the interesting one: on `large-v3` it removes the
+runaway repetition entirely and is **bit-reproducible five times out of five**. But the
+effect **reverses on the shipped model** — it costs 0.23–0.35 of a point on `base.en`, and
+on `test-clean` it is the one arm there that is *not* reproducible. Neither the direction
+of the effect nor the reproducibility is a property of the setting; both depend on the
+checkpoint.
+
+**And the `large-v3` gain is not what a corpus average makes it look like.** Scored per
+utterance against a paired baseline, the 1.05-point improvement has a 95 % interval of
+[−2.59, +0.16] — it crosses zero — *more* utterances got worse (8) than better (4), and
+**95.7 % of the whole gain comes from three clips out of 200**. What the setting actually
+does is remove a rare catastrophic failure: on roughly 1.5 % of utterances conditioning
+sends the model into a repetition loop that emits hundreds of words. For a dictation tool
+that is not a one-point WER event, it is a ruined document — which is a good reason to
+turn the setting off on a large model, and not the same claim as "it lowers WER".
+
+So: **no default changes.** `base.en` is already the best of the four arms on both splits
+and is already bit-reproducible. If you have configured a large checkpoint and care more
+about never getting a runaway than about a tenth of a point, `condition_on_previous_text`
+is the knob — but YazSes does not expose it as config today, and on this evidence the
+better answer for most people is to stay on the default model.
+
+One last thing worth knowing, because it decides who is affected: conditioning is *not*
+confined to long recordings. It is only consulted between 30-second windows, so a
+hold-to-talk burst looks immune — but faster-whisper advances its read position to the
+model's **last emitted timestamp**, not by a whole window, so 8–20 % of ordinary
+sub-30-second utterances take a second pass whose prompt is the first pass's text. The
+behaviour reaches dictation, not just `yazses transcribe` and Meeting Mode.
+
+Artifacts:
+[`decode-determinism-large-v3-test-other.json`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-determinism-large-v3-test-other.json),
+[`-no_context.json`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-determinism-large-v3-test-other-no_context.json),
+[`base.en-test-clean`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-determinism-base.en-test-clean.json),
+[`base.en-test-other`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-determinism-base.en-test-other.json),
+[`decode-arms-per-utterance`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-arms-per-utterance-large-v3-test-other.json),
+[`decode-mechanism-base.en-test-other`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-mechanism-base.en-test-other.json).
 
 ### The same code on four instruction sets
 

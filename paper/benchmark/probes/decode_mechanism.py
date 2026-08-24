@@ -50,6 +50,7 @@ sampled step in the pipeline at all.
 from __future__ import annotations
 
 import logging
+import re
 import sys
 from pathlib import Path
 
@@ -78,6 +79,13 @@ FALLBACK_MARKERS = (
     "Log probability threshold is not met",
 )
 
+#: Both rejection messages end "... with temperature %.1f (...)". The temperature is
+#: what separates the two kinds of rejection: `options.temperatures` starts at 0.0,
+#: which is greedy and deterministic, and every later rung samples. A rejection count
+#: that moves between runs therefore says nothing on its own -- it says something only
+#: once split by this.
+_TEMPERATURE = re.compile(r"with temperature (\d+(?:\.\d+)?)")
+
 ARMS: dict[str, dict] = {
     "conditioned": {},
     "no_context": {"condition_on_previous_text": False},
@@ -92,6 +100,7 @@ class _PassCounter(logging.Handler):
         self.current: str = ""
         self.passes: dict[str, int] = {}
         self.fallbacks: dict[str, int] = {}
+        self.fallbacks_by_temperature: dict[str, int] = {}
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
@@ -100,6 +109,11 @@ class _PassCounter(logging.Handler):
                 self.passes[self.current] = self.passes.get(self.current, 0) + 1
             elif any(m in msg for m in FALLBACK_MARKERS):
                 self.fallbacks[self.current] = self.fallbacks.get(self.current, 0) + 1
+                found = _TEMPERATURE.search(msg)
+                temp = found.group(1) if found else "unknown"
+                self.fallbacks_by_temperature[temp] = (
+                    self.fallbacks_by_temperature.get(temp, 0) + 1
+                )
         except Exception:  # a probe must never break the decode it observes
             pass
 

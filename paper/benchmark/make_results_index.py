@@ -29,6 +29,29 @@ RESULTS = Path(__file__).resolve().parents[1] / "results"
 #: an empty description, because dropping it would be the omission this exists to
 #: prevent.
 MEASURES = {
+    # Keys are tried longest-first, so a full stem names exactly one file. This one is
+    # here because it was produced before `decode_determinism.py` learned to describe
+    # itself: the run had already imported the module when the `probe` block was added,
+    # so re-generating the description would mean re-decoding 200 utterances on
+    # `large-v3` five times. Every other decode-determinism artifact carries its own
+    # block and is deliberately left to it -- a generic `decode-determinism` key would
+    # match them all and replace four specific descriptions with one vague one.
+    "decode-determinism-large-v3-test-other-no_context": (
+        "the fourth decode arm on its own -- conditioning off, temperature fallback "
+        "left on, five decodes -- which is the setting a large-model user would ship "
+        "and the only arm whose reproducibility was genuinely open"
+    ),
+    # `_describe` truncates the stem at the first dot, so `base.en-test-clean` and
+    # `base.en-test-other` both reduce to this one key -- which is right here, since
+    # they are the same 2x2 on the same checkpoint over the two splits. Both were
+    # produced while the probe block still named `large-v3` (the question it was first
+    # asked about), and re-running the model the default install actually uses is
+    # exactly what they are.
+    "decode-determinism-base": (
+        "the decode 2x2 -- temperature fallback x conditioning on previous text, five "
+        "decodes per arm -- on `base.en`, the checkpoint a default install runs, to "
+        "test whether the `large-v3` result generalises to the shipped model"
+    ),
     "beam": "WER and RTF across `[stt] beam_size`",
     "commands": "command-grammar accuracy and false-positive rate",
     "diarization": "diarization DER, miss, false alarm, confusion",
@@ -99,10 +122,30 @@ def rows(results: Path = RESULTS) -> list[dict]:
             "when": prov.get("timestamp", ""),
             "yazses": prov.get("yazses", ""),
             "command": prov.get("argv", ""),
-            "produced_by": probe.get("produced_by", ""),
+            "produced_by": probe.get("produced_by", "") or _script_from_argv(prov),
             "superseded_by": probe.get("superseded_by", ""),
         })
     return out
+
+
+
+def _script_from_argv(prov: dict) -> str:
+    """Name the script from the recorded command line when no probe block does.
+
+    `write_result` stamps `probe.produced_by`, but artifacts written before that
+    chokepoint existed carry only `provenance.argv` -- and an unattributed row in a
+    manifest whose whole purpose is attribution reads as "nobody knows", when the
+    command line is sitting right there. Only the first token is taken, and only if
+    it looks like a path to a script this repo could hold; a bare interpreter or a
+    shell pipeline is left unattributed rather than guessed at.
+    """
+    argv = prov.get("argv", "")
+    if not isinstance(argv, str) or not argv.strip():
+        return ""
+    first = argv.split()[0]
+    if not first.endswith(".py") or first.startswith("-"):
+        return ""
+    return first
 
 
 def render(entries: list[dict]) -> str:

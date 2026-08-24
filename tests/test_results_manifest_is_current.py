@@ -192,3 +192,64 @@ def test_that_check_can_actually_fail(gen) -> None:
     assert _undescribed([{"path": "x.json", "measures": "   "}]) == ["x.json"]
     assert _undescribed([{"path": "x.json"}]) == ["x.json"]
     assert _undescribed([{"path": "x.json", "measures": "what it measured"}]) == []
+
+
+def test_an_artifact_without_a_probe_block_is_attributed_from_its_command_line(gen) -> None:
+    """An unattributed row in an attribution table reads as "nobody knows".
+
+    `write_result` stamps `probe.produced_by`, but artifacts written before that
+    chokepoint existed carry the script only in `provenance.argv`. The manifest
+    printed those rows with an em dash while the command line naming the script sat
+    in the same file.
+    """
+    assert gen._script_from_argv(
+        {"argv": "paper/benchmark/probes/decode_determinism.py 5 test-other 200 large-v3"}
+    ) == "paper/benchmark/probes/decode_determinism.py"
+
+
+@pytest.mark.parametrize("argv", ["", "   ", "python", "uv run pytest", "-m pytest tests/"])
+def test_a_command_line_that_names_no_script_is_left_unattributed(gen, argv: str) -> None:
+    """Guessing is worse than an em dash.
+
+    A bare interpreter, a shell pipeline or a flag is not a script this repo holds,
+    and printing one in the `produced_by` column would send a reader after a file
+    that cannot be opened.
+    """
+    assert gen._script_from_argv({"argv": argv}) == ""
+
+
+def test_a_missing_or_non_string_argv_does_not_raise(gen) -> None:
+    """The fallback runs over every archived artifact, including hand-written ones."""
+    assert gen._script_from_argv({}) == ""
+    assert gen._script_from_argv({"argv": None}) == ""
+    assert gen._script_from_argv({"argv": ["a.py"]}) == ""
+
+
+def test_a_probe_block_still_wins_over_the_command_line(gen, tmp_path: Path) -> None:
+    """The fallback must not overwrite a stamped attribution.
+
+    `argv` records how the run was invoked, which can be a wrapper; `produced_by` is
+    what the chokepoint recorded. Where they disagree the stamp is the answer, and
+    this is driven through `rows()` over a real directory so it fails if the fallback
+    is ever wired ahead of the stamp rather than behind it.
+    """
+    import json
+
+    probes = tmp_path / "probes"
+    probes.mkdir()
+    (probes / "x.json").write_text(
+        json.dumps(
+            {
+                "provenance": {"argv": "wrapper.py --run", "timestamp": "t"},
+                "probe": {"produced_by": "real_probe.py", "measured": "m"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (probes / "y.json").write_text(
+        json.dumps({"provenance": {"argv": "fallback_probe.py --run", "timestamp": "t"}}),
+        encoding="utf-8",
+    )
+    by = {e["path"]: e["produced_by"] for e in gen.rows(tmp_path)}
+    assert by["probes/x.json"] == "real_probe.py"
+    assert by["probes/y.json"] == "fallback_probe.py"
