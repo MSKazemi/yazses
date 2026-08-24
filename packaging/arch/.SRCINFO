@@ -1,6 +1,6 @@
 pkgbase = yazses
 	pkgdesc = Offline hold-to-talk voice dictation that types into the focused app - local faster-whisper, no cloud
-	pkgver = 2.30.0
+	pkgver = 2.31.0
 	pkgrel = 1
 	url = https://github.com/MSKazemi/yazses
 	install = yazses.install
@@ -27,7 +27,7 @@ pkgbase = yazses
 	optdepends = xclip: clipboard fallback on X11
 	optdepends = wl-clipboard: clipboard fallback on Wayland
 	optdepends = python-sherpa-onnx: speaker labels for `yazses transcribe --diarize` (AUR)
-	source = https://files.pythonhosted.org/packages/source/y/yazses/yazses-2.30.0.tar.gz
-	sha256sums = 4bd2d6f1e3661f703b17ef1d7d939372f7f3f716c1597719406f1a8f6fb04189
+	source = https://files.pythonhosted.org/packages/source/y/yazses/yazses-2.31.0.tar.gz
+	sha256sums = 688ef1175f67e5900a499874a04ab9a54d9b1c6384aa26723b6cd253b325fe8e
 
 pkgname = yazses
