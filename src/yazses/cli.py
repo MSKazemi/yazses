@@ -14,6 +14,7 @@ from yazses import branding
 from yazses.hotkeys.names import SETTABLE_HOTKEYS, SUPPORTED_HOTKEYS, canonical
 from yazses.ipc.client import IpcUnreachableError
 from yazses.platform import get_paths, get_platform
+from yazses.system.logtail import tail_records
 from yazses.system.outcomes import describe_outcomes
 from yazses.system.relaunch import Mode, command_for
 
@@ -3526,7 +3527,10 @@ def logs(
         typer.echo(f"No log yet at {log_file} -- start the daemon first.")
         raise typer.Exit(code=1)
     content = log_file.read_text(encoding="utf-8", errors="replace").splitlines()
-    for line in content[-lines:]:
+    kept, note = tail_records(content, lines)
+    if note:
+        typer.echo(note)
+    for line in kept:
         typer.echo(line)
     typer.echo(f"\n({log_file} -- follow live with: tail -f {log_file})")
 

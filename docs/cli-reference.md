@@ -605,6 +605,11 @@ for what `DEBUG` adds.
 **Options:** `--lines` / `-n N` (show the last `N` lines; default 40) · `--path`
 (print the log file path and exit — `~/.local/state/yazses/log/daemon.log`).
 
+A log record is not always one line — an exception is a header plus its traceback. If
+the last `N` lines would begin part-way through one, the window is moved to the record
+boundary so the output never opens on an orphaned stack fragment, and the first line
+says how it was adjusted. Expect a few lines more or fewer than `N` when that happens.
+
 ```bash
 yazses logs          # last 40 log lines
 yazses logs -n 100   # last 100 lines
