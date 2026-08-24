@@ -384,8 +384,8 @@ receive from what only the maintainer builds with:
 
 | `scope` | Count | What it means for you |
 |---|---|---|
-| `required` | 52 | Installed by `pip install yazses`, across every supported platform |
-| `optional` | 179 | Installed only if you enable the matching feature (`yazses features enable …`) |
+| `required` | 57 | Installed by `pip install yazses`, across every supported platform |
+| `optional` | 177 | Installed only if you enable the matching feature (`yazses features enable …`) |
 | `excluded` | 52 | Test, type-check, benchmark and docs tooling. Never installed by a user |
 
 That distinction matters if you feed the SBOM to a vulnerability scanner: without it,

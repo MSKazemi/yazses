@@ -44,6 +44,19 @@ def _extras() -> dict[str, list[str]]:
     return tomllib.loads(raw)["project"]["optional-dependencies"]
 
 
+def _split(req: str) -> tuple[str, str]:
+    """`"mediapipe>=0.10.35; sys_platform != 'darwin'"` -> the requirement and its marker.
+
+    `all` is allowed to carry a marker its owning extra does not, and only in one
+    direction -- see `test_all_may_narrow_a_requirement_to_fewer_platforms`. Comparing
+    the raw strings would forbid that; comparing only the requirement half would stop
+    noticing a pin bumped in one place and not the other. So the two halves are checked
+    separately.
+    """
+    req, _, marker = req.partition(";")
+    return req.strip(), marker.strip()
+
+
 def _union() -> dict[str, list[str]]:
     """Requirement string -> the extras that state it, excluding `all` itself."""
     out: dict[str, list[str]] = {}
@@ -97,7 +110,8 @@ def test_the_exclusions_are_explained_where_the_list_lives():
 def test_all_contains_every_other_extras_requirements():
     """The silent-omission direction: an extra was added and `all` was not updated."""
     union = _union()
-    missing = sorted(set(union) - set(_extras()["all"]))
+    in_all = {_split(r)[0] for r in _extras()["all"]}
+    missing = sorted(req for req in union if _split(req)[0] not in in_all)
     assert not missing, (
         "`yazses[all]` does not install "
         + ", ".join(f"{req} (from {'/'.join(union[req])})" for req in missing)
@@ -109,7 +123,8 @@ def test_all_contains_every_other_extras_requirements():
 def test_all_states_no_pin_of_its_own():
     """The drift direction: `all` copies pins by hand, so it can fall behind one."""
     union = _union()
-    orphans = sorted(set(_extras()["all"]) - set(union))
+    owned = {_split(r)[0] for r in union}
+    orphans = sorted(r for r in _extras()["all"] if _split(r)[0] not in owned)
     assert not orphans, (
         f"{orphans} appears in `all` and in no other extra. Either a pin was bumped in "
         "one place only — `all` now resolves a different version than the extra that "
@@ -130,3 +145,98 @@ def test_the_excluded_extra_loses_no_capability():
         "`voiceprint-resemblyzer` is excluded from `all` on the grounds that the default "
         "voiceprint backend is already there — and now it is not"
     )
+
+
+# --- `all` may narrow, never widen ---------------------------------------------------
+#
+# Three dependencies have stopped publishing macOS x86_64 wheels and cannot be resolved
+# there at any version: `mediapipe` after 0.10.21, and `torch` -- which `pyannote.audio`
+# pulls in -- after 2.2.2. Before this, `uv pip compile --python-platform
+# x86_64-apple-darwin --extra all` failed outright, so "install the lot" was the one
+# install instruction the docs give that no Intel Mac could follow.
+#
+# `all` therefore carries a platform marker that `gaze` and `diarization-pyannote` do
+# not. That divergence is deliberate and directional: **`yazses[all]` means "everything
+# that can work on this machine", while `yazses[gaze]` is an explicit request for one
+# feature and must fail loudly rather than install a hollow subset of it.** What must
+# never happen is the reverse -- `all` offering a requirement on *more* platforms than
+# its owning extra does, which would resolve something the owner already knows is broken.
+
+#: Requirement name -> the reason `all` states a marker its owning extra does not.
+NARROWED = {
+    "mediapipe": "no macOS x86_64 wheel after 0.10.21; gaze routing is X11-only anyway",
+    "pyannote.audio": "pulls in torch, which has no macOS x86_64 wheel after 2.2.2",
+}
+
+
+def _name(req: str) -> str:
+    import re
+    return re.split(r"[\[<>=!~;\s]", req, maxsplit=1)[0].strip()
+
+
+def test_all_may_narrow_a_requirement_to_fewer_platforms():
+    """Every marker divergence must be listed in NARROWED with its reason."""
+    union = _union()
+    by_req = {_split(r)[0]: _split(r)[1] for r in union}
+    undocumented = []
+    for req in _extras()["all"]:
+        base, marker = _split(req)
+        owner_marker = by_req.get(base)
+        if owner_marker is not None and marker != owner_marker and _name(req) not in NARROWED:
+            undocumented.append(req)
+    assert not undocumented, (
+        f"{undocumented} carries a marker in `all` that its owning extra does not, and "
+        "no reason is recorded in NARROWED. A divergence nobody wrote down is drift."
+    )
+
+
+def test_all_never_widens_a_requirement_to_more_platforms():
+    """The dangerous direction, and the one no reason could justify.
+
+    An unmarked requirement in `all` where the owning extra states a marker would install,
+    on a platform the owner has already ruled out, precisely the thing that does not work
+    there. Checked structurally: an empty marker in `all` against a non-empty one in the
+    owning extra.
+    """
+    by_req = {_split(r)[0]: _split(r)[1] for r in _union()}
+    widened = []
+    for req in _extras()["all"]:
+        base, marker = _split(req)
+        owner = by_req.get(base)
+        if owner and not marker:
+            widened.append(f"{req} (owner states `{owner}`)")
+    assert not widened, f"`all` offers on more platforms than its owner allows: {widened}"
+
+
+def test_every_narrowed_requirement_is_actually_narrowed():
+    """A stale exemption is a hole. If a marker is dropped from `all`, the entry here
+    stops describing anything and must go rather than sit ready to excuse the next one."""
+    markers = {_name(r): _split(r)[1] for r in _extras()["all"]}
+    stale = sorted(n for n in NARROWED if not markers.get(n))
+    assert not stale, (
+        f"{stale} is listed in NARROWED but states no marker in `all` any more — "
+        "delete the entry, or restore the marker it was written for"
+    )
+
+
+def test_the_narrowing_marker_actually_excludes_intel_macos():
+    """The reason is platform-specific, so assert the marker *is* the platform.
+
+    A marker that had drifted to, say, `python_version` would still count as a
+    divergence and still be exempted by NARROWED, while silently no longer keeping the
+    unresolvable wheel off the platform that cannot take it.
+    """
+    from packaging.markers import Marker
+
+    intel_mac = {"sys_platform": "darwin", "platform_machine": "x86_64",
+                 "os_name": "posix", "platform_system": "Darwin"}
+    apple_silicon = dict(intel_mac, platform_machine="arm64")
+    linux = {"sys_platform": "linux", "platform_machine": "x86_64",
+             "os_name": "posix", "platform_system": "Linux"}
+    for req in _extras()["all"]:
+        if _name(req) not in NARROWED:
+            continue
+        marker = Marker(_split(req)[1])
+        assert not marker.evaluate(intel_mac), f"{req} still resolves on Intel macOS"
+        assert marker.evaluate(apple_silicon), f"{req} no longer resolves on Apple silicon"
+        assert marker.evaluate(linux), f"{req} no longer resolves on Linux"

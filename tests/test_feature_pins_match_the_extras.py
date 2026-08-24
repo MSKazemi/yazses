@@ -129,17 +129,70 @@ def test_no_feature_pin_sits_below_its_extra(slug: str, requirement: str) -> Non
 
 def test_one_package_is_pinned_the_same_way_by_every_feature_that_installs_it() -> None:
     """`diarize` said `sherpa-onnx>=1.10` while `recimport`/`meeting` said `>=1.13.4`
-    -- so which floor you got depended on which capability you enabled first."""
-    by_dist: dict[str, dict[str, set[str]]] = {}
+    -- so which floor you got depended on which capability you enabled first.
+
+    Compared as the *set* of requirement strings a feature states for a distribution,
+    not as one string per distribution. One package can legitimately need more than one
+    line: `onnxruntime` stopped publishing an Intel macOS wheel after 1.23.2, so it is
+    stated twice under mutually exclusive environment markers, and exactly one of them
+    applies on any given machine. Flattening those into "two different floors" reported
+    a correct pin as drift -- and the fix a reader would reach for, deleting one line,
+    is the bug.
+    """
+    by_dist: dict[str, dict[str, frozenset[str]]] = {}
     for slug, req in PINS:
-        by_dist.setdefault(_distribution(req), {}).setdefault(req, set()).add(slug)
-    split = {d: v for d, v in by_dist.items() if len(v) > 1}
+        by_dist.setdefault(_distribution(req), {})
+        by_dist[_distribution(req)][slug] = frozenset(
+            r for s, r in PINS if s == slug and _distribution(r) == _distribution(req)
+        )
+    split = {d: v for d, v in by_dist.items() if len(set(v.values())) > 1}
     assert not split, (
         "the same package is installed at different floors depending on the feature: "
         + "; ".join(
-            f"{d}: " + ", ".join(f"{r} ({', '.join(sorted(s))})" for r, s in v.items())
+            f"{d}: " + ", ".join(f"{slug} -> {sorted(reqs)}" for slug, reqs in sorted(v.items()))
             for d, v in sorted(split.items())
         )
+    )
+
+
+def test_a_marker_split_is_not_mistaken_for_drift_and_real_drift_still_fails() -> None:
+    """Both halves, because the fix above widened what passes.
+
+    The first case is `onnxruntime` as it is actually declared; the second is the
+    `sherpa-onnx` drift that produced this file, re-stated so that widening the rule
+    cannot have quietly stopped catching it.
+    """
+    def split_of(pins: list[tuple[str, str]]) -> dict:
+        by_dist: dict[str, dict[str, frozenset[str]]] = {}
+        for slug, req in pins:
+            d = _distribution(req)
+            by_dist.setdefault(d, {})[slug] = frozenset(
+                r for s, r in pins if s == slug and _distribution(r) == d
+            )
+        return {d: v for d, v in by_dist.items() if len(set(v.values())) > 1}
+
+    marker_split = [
+        ("read-back", "onnxruntime>=1.27.0; sys_platform != 'darwin'"),
+        ("read-back", "onnxruntime>=1.23.2,<1.24; sys_platform == 'darwin'"),
+        ("readback_clone", "onnxruntime>=1.27.0; sys_platform != 'darwin'"),
+        ("readback_clone", "onnxruntime>=1.23.2,<1.24; sys_platform == 'darwin'"),
+    ]
+    assert not split_of(marker_split), "a marker split is one pin, not two floors"
+
+    real_drift = [
+        ("diarize", "sherpa-onnx>=1.10"),
+        ("recimport", "sherpa-onnx>=1.13.4"),
+    ]
+    assert split_of(real_drift), "the drift this file exists to catch stopped failing"
+
+    half_applied = [
+        ("read-back", "onnxruntime>=1.27.0; sys_platform != 'darwin'"),
+        ("read-back", "onnxruntime>=1.23.2,<1.24; sys_platform == 'darwin'"),
+        ("readback_clone", "onnxruntime>=1.27.0; sys_platform != 'darwin'"),
+    ]
+    assert split_of(half_applied), (
+        "one feature carrying only half the marker pair leaves the other platform "
+        "unresolvable and must still fail"
     )
 
 

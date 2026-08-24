@@ -177,7 +177,14 @@ chinese = [
 ]
 tts = [
     "kokoro-onnx>=0.5.0",
-    "onnxruntime>=1.27.0",
+    "onnxruntime>=1.27.0; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    # Intel macOS: onnxruntime stopped publishing an x86_64 wheel after 1.23.0
+    # (1.24 through 1.28 are macosx_14_0_arm64 only; 1.23.2 is the last with
+    # macosx_13_0_x86_64). A bare `>=1.27` floor is not a
+    # preference there, it is an install failure -- uv reports "no source
+    # distribution or wheel for the current platform", which reads like a broken
+    # package rather than a dropped platform. See `[tool.uv]` below.
+    "onnxruntime>=1.23.2,<1.24; sys_platform == 'darwin' and platform_machine == 'x86_64'",
     "soundfile>=0.14.0",
 ]
 # EMG device breadth (#103). BrainFlow is MIT, offline and Linux-native, and
@@ -281,7 +288,14 @@ notes = [
 # "silero"`. ONNX path (no torch). Absent → the calibrated RMS gate is used instead.
 silero = [
     "silero-vad>=5.1.2",
-    "onnxruntime>=1.27.0",
+    "onnxruntime>=1.27.0; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    # Intel macOS: onnxruntime stopped publishing an x86_64 wheel after 1.23.0
+    # (1.24 through 1.28 are macosx_14_0_arm64 only; 1.23.2 is the last with
+    # macosx_13_0_x86_64). A bare `>=1.27` floor is not a
+    # preference there, it is an install failure -- uv reports "no source
+    # distribution or wheel for the current platform", which reads like a broken
+    # package rather than a dropped platform. See `[tool.uv]` below.
+    "onnxruntime>=1.23.2,<1.24; sys_platform == 'darwin' and platform_machine == 'x86_64'",
 ]
 # v2.0.0 Wave B — Voice-to-Tool / offline Spoken MCP (ADR-v2-006). Heavy; opt-in.
 # The MCP client is imported lazily only when [agent] enabled; absent → dormant.
@@ -329,19 +343,26 @@ all = [
     "PySide6>=6.11.1",
     "praat-parselmouth>=0.4.7",
     "kokoro-onnx>=0.5.0",
-    "onnxruntime>=1.27.0",
+    "onnxruntime>=1.27.0; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    # Intel macOS: onnxruntime stopped publishing an x86_64 wheel after 1.23.0
+    # (1.24 through 1.28 are macosx_14_0_arm64 only; 1.23.2 is the last with
+    # macosx_13_0_x86_64). A bare `>=1.27` floor is not a
+    # preference there, it is an install failure -- uv reports "no source
+    # distribution or wheel for the current platform", which reads like a broken
+    # package rather than a dropped platform. See `[tool.uv]` below.
+    "onnxruntime>=1.23.2,<1.24; sys_platform == 'darwin' and platform_machine == 'x86_64'",
     "soundfile>=0.14.0",
     "speechbrain>=1.1",
     "onnx-asr[cpu,hub]>=0.12",
     "sherpa-onnx>=1.13.6",
     "sherpa-onnx-core>=1.13.6",
-    "mediapipe>=0.10.35",
+    "mediapipe>=0.10.35; sys_platform != 'darwin' or platform_machine != 'x86_64'",
     "opencv-python>=5.0",
     "opencc-python-reimplemented>=0.1.7",
     "brainflow>=5.22.2",
     "noisereduce>=3.0.3",
     "useful-moonshine-onnx>=20251121",
-    "pyannote.audio>=4.0.7",
+    "pyannote.audio>=4.0.7; sys_platform != 'darwin' or platform_machine != 'x86_64'",
     "silero-vad>=5.1.2",
     "mcp>=1.28.1",
 ]
@@ -481,3 +502,17 @@ disable_error_code = ["attr-defined"]
 # — without the force-include that double-added overlay/__init__.py and broke the build.
 packages = ["src/yazses"]
 artifacts = ["src/yazses/overlay/**"]
+
+[tool.uv]
+# `useful-moonshine-onnx`, `onnx-asr` and `kokoro-onnx` all depend on `onnxruntime`
+# without a version marker, so uv resolves one version for every platform and picks the
+# newest -- which has no Intel macOS wheel. That is what broke the `macOS x86_64 (Intel)`
+# leg of `benchmark.yml`: `uv sync` resolved 284 packages and then refused to install
+# `onnxruntime==1.28.0` on `macosx_15_0_x86_64`. Constraining it here makes uv fork the
+# resolution rather than leaving one platform unresolvable, and it does so for
+# dependencies we do not declare, which a marker in `[project]` cannot reach.
+#
+# Not a pin: everything except Intel macOS still resolves to the newest release.
+constraint-dependencies = [
+    "onnxruntime<1.24; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+]

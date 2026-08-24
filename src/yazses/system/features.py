@@ -1017,6 +1017,14 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
 # (`yazses features enable <name>`). slug → (import names to probe, packages to
 # install). Only features whose deps are declared pip extras appear here; the
 # many pure-logic features install nothing. Keep in sync with pyproject extras.
+#: The two requirement strings that together cover every platform, kept in one
+#: place because they are used by two features and must stay identical to the
+#: `tts` extra. See the note on `read-back` below.
+_ONNXRUNTIME = (
+    "onnxruntime>=1.27.0; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    "onnxruntime>=1.23.2,<1.24; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+)
+
 _FEATURE_DEPS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     "gaze": (("cv2", "mediapipe"), ("mediapipe>=0.10.35", "opencv-python>=5.0")),
     "overlay": (("PySide6",), ("PySide6>=6.11.1",)),
@@ -1034,10 +1042,16 @@ _FEATURE_DEPS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     "denoise": (("noisereduce",), ("noisereduce>=3.0.3",)),
     "prosody": (("parselmouth",), ("praat-parselmouth>=0.4.7",)),
     "voicehealth": (("parselmouth",), ("praat-parselmouth>=0.4.7",)),
+    # onnxruntime carries an environment marker rather than one floor: it stopped
+    # publishing an Intel macOS wheel after 1.23.2, so a bare `>=1.27` is not a
+    # preference on that platform but an install that cannot resolve at all. The two
+    # strings are the `tts` extra's, character for character -- which
+    # `tests/test_feature_pins_match_the_extras.py` enforces, and which is why they
+    # are spelled out here instead of being simplified to one.
     "read-back": (("kokoro_onnx", "onnxruntime", "soundfile"),
-                  ("kokoro-onnx>=0.5.0", "onnxruntime>=1.27.0", "soundfile>=0.14.0")),
+                  ("kokoro-onnx>=0.5.0", *_ONNXRUNTIME, "soundfile>=0.14.0")),
     "readback_clone": (("kokoro_onnx", "onnxruntime", "soundfile"),
-                       ("kokoro-onnx>=0.5.0", "onnxruntime>=1.27.0", "soundfile>=0.14.0")),
+                       ("kokoro-onnx>=0.5.0", *_ONNXRUNTIME, "soundfile>=0.14.0")),
     "llm-cleanup": (("llama_cpp",), ("llama-cpp-python>=0.3.33",)),
     "agent": (("mcp",), ("mcp>=1.28.1",)),
     "cocktail": (("speechbrain",), ("speechbrain>=1.1",)),

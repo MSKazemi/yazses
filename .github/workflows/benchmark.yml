@@ -89,7 +89,39 @@ jobs:
           version: "latest"
 
       - name: Install dependencies
+        if: matrix.os != 'macos-15-intel'
         run: uv sync --group benchmark
+
+      # Intel macOS cannot install the locked dependency set, and this is the
+      # documented reason rather than a surprise: `uv.lock` is one universal
+      # resolution and pins onnxruntime 1.28.0, which upstream publishes for
+      # macOS arm64 only -- 1.23.2 was the last release with an x86_64 wheel.
+      # faster-whisper depends on onnxruntime unconditionally, so no choice of
+      # extras avoids it, and `uv sync` installs exactly what the lock says.
+      #
+      # `scripts/build-macos.sh` already resolves this leg unlocked for the same
+      # reason. This workflow did not, so the Intel job died in the install step
+      # every time -- and `continue-on-error` turned that into a silent absence:
+      # a matrix row that has never once produced a number. Since `macos-15-intel`
+      # is the last Intel image GitHub offers (ADR-017), an unlocked resolution
+      # now is the only way this architecture is ever measured at all.
+      #
+      # The cost is stated rather than hidden: these numbers come from a fresh
+      # resolution, not the locked one, so the library versions in the result's
+      # provenance block are the ones to read -- not uv.lock.
+      - name: Install dependencies (Intel macOS, unlocked)
+        if: matrix.os == 'macos-15-intel'
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv venv
+          # One command, not two: a second `uv pip install` resolves against what
+          # is already there and could quietly pull onnxruntime forward again to
+          # satisfy a new constraint. Resolving the project and the benchmark
+          # group together means the backtrack to onnxruntime 1.23.2 -- the last
+          # release with a macOS x86_64 wheel -- is made once, with every
+          # requirement visible.
+          uv pip install . jiwer psutil matplotlib soundfile whisper-normalizer
 
       - name: Cache LibriSpeech test-clean
         id: cache-librispeech
@@ -130,11 +162,26 @@ jobs:
           echo "speakers: $(ls paper/data/LibriSpeech/test-clean | wc -l)"
           echo "flac    : $(find paper/data/LibriSpeech/test-clean -name '*.flac' | wc -l)"
 
+      # `paper/results/` is committed now (it is the archive behind every published
+      # figure). That makes the checkout arrive carrying results from another
+      # machine, and this job uploads `paper/results/*.json` wholesale -- so an
+      # artifact called `results-macos-latest` would have contained a laptop's
+      # `beam-test-clean.json` next to the runner's own numbers, with nothing but
+      # the provenance block to tell them apart. Clear the slate first: what this
+      # runner uploads must be what this runner measured.
+      - name: Clear results carried in by the checkout
+        shell: bash
+        run: rm -f paper/results/*.json
+
       - name: Run the benchmark suite
         shell: bash
         run: |
           set -euo pipefail
-          uv run python paper/benchmark/run_all.py \
+          # --no-sync: `uv run` re-syncs from the lock by default, which on the
+          # Intel leg would undo the unlocked resolution above and fail exactly
+          # where `uv sync` did. Everywhere else the sync has already happened,
+          # so it is a no-op.
+          uv run --no-sync python paper/benchmark/run_all.py \
             --wer-n "${{ inputs.wer_n }}" \
             --lat-n "${{ inputs.lat_n }}" \
             --vad-n "${{ inputs.vad_n }}" \
@@ -147,7 +194,7 @@ jobs:
         # so every number has to arrive naming the host that produced it.
         shell: bash
         run: |
-          uv run python -c "
+          uv run --no-sync python -c "
           import json, pathlib
           p = pathlib.Path('paper/results/index.json')
           prov = json.loads(p.read_text())['provenance']
