@@ -1,0 +1,120 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-24T05:02:53Z",
+    "cpu_model": "13th Gen Intel(R) Core(TM) i7-1370P",
+    "logical_cpus": 20,
+    "ram_gb": 33.3,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "7.0.0-30-generic",
+    "python": "3.14.6",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.30.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 0.93,
+    "compute_type": "int8",
+    "device": "cpu",
+    "argv": "paper/benchmark/analyze_diarization.py paper/results/diarization-ami16_corpus-der.json paper/results/diarization-ami16_corpus-maxspk4.json"
+  },
+  "result": {
+    "strict": {
+      "a": {
+        "path": "diarization-ami16_corpus-der.json",
+        "argv": ""
+      },
+      "b": {
+        "path": "diarization-ami16_corpus-maxspk4.json",
+        "argv": "paper/benchmark/bench_diarization.py $HOME/ami16_corpus $HOME/diarization-ami16-meeting-maxspk4.json --profile meeting --max-speakers 4"
+      },
+      "collar": "strict",
+      "n_recordings": 16,
+      "per_meeting_delta": {
+        "EN2002a": 6.28,
+        "EN2002b": 2.57,
+        "EN2002c": -15.99,
+        "EN2002d": -4.68,
+        "ES2004a": -0.57,
+        "ES2004b": -1.29,
+        "ES2004c": 0.0,
+        "ES2004d": 15.48,
+        "IS1009a": 0.0,
+        "IS1009b": -1.01,
+        "IS1009c": -0.04,
+        "IS1009d": -1.14,
+        "TS3003a": 0.21,
+        "TS3003b": 28.72,
+        "TS3003c": 9.79,
+        "TS3003d": 5.06
+      },
+      "b_better_on": 7,
+      "b_worse_on": 7,
+      "unchanged_on": 2,
+      "sign_test_p": 1.0,
+      "delta_min": -15.99,
+      "delta_max": 28.72,
+      "mean_delta": 2.71,
+      "mean_delta_ci95": [
+        -1.64,
+        7.6
+      ],
+      "time_weighted_delta": 1.96,
+      "time_weighted_delta_ci95": [
+        -3.39,
+        7.69
+      ],
+      "n_bootstrap": 10000,
+      "seed": 20260824,
+      "verdict": "no difference the sample can resolve"
+    },
+    "collar250ms": {
+      "a": {
+        "path": "diarization-ami16_corpus-der.json",
+        "argv": ""
+      },
+      "b": {
+        "path": "diarization-ami16_corpus-maxspk4.json",
+        "argv": "paper/benchmark/bench_diarization.py $HOME/ami16_corpus $HOME/diarization-ami16-meeting-maxspk4.json --profile meeting --max-speakers 4"
+      },
+      "collar": "collar250ms",
+      "n_recordings": 16,
+      "per_meeting_delta": {
+        "EN2002a": 9.03,
+        "EN2002b": 3.35,
+        "EN2002c": -15.77,
+        "EN2002d": -4.89,
+        "ES2004a": -0.66,
+        "ES2004b": -0.77,
+        "ES2004c": 0.0,
+        "ES2004d": 17.61,
+        "IS1009a": 0.0,
+        "IS1009b": -0.43,
+        "IS1009c": 0.44,
+        "IS1009d": -0.47,
+        "TS3003a": 0.12,
+        "TS3003b": 30.74,
+        "TS3003c": 10.5,
+        "TS3003d": 6.6
+      },
+      "b_better_on": 6,
+      "b_worse_on": 8,
+      "unchanged_on": 2,
+      "sign_test_p": 0.7905,
+      "delta_min": -15.77,
+      "delta_max": 30.74,
+      "mean_delta": 3.46,
+      "mean_delta_ci95": [
+        -1.15,
+        8.65
+      ],
+      "time_weighted_delta": 2.84,
+      "time_weighted_delta_ci95": [
+        -2.93,
+        9.09
+      ],
+      "n_bootstrap": 10000,
+      "seed": 20260824,
+      "verdict": "no difference the sample can resolve"
+    }
+  }
+}

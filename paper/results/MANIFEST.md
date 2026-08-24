@@ -36,6 +36,8 @@ in. The arguments are not decoration -- `bench_wer.py` writes one filename for
 | `beam-test-other.json` | WER and RTF across `[stt] beam_size` | — | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T00:51:03Z | 2.29.0 |
 | `commands.json` | command-grammar accuracy and false-positive rate | — | 13th Gen Intel Core i7-1370P (20 vCPU) | 2026-07-30T20:47:09Z | 2.12.0.dev4 |
 | `diarization-ami16_corpus-der.json` | diarization DER, miss, false alarm, confusion | — | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T02:39:46Z | 2.29.0 |
+| `diarization-ami16_corpus-maxspk4-vs-der-significance.json` | paired bootstrap over the same utterances -- an analysis of the grid file of the same name, not a second measurement (diarization DER, miss, false alarm, confusion) | `paper/benchmark/analyze_diarization.py paper/results/diarization-ami16_corpus-der.json paper/results/diarization-ami16_corpus-maxspk4.json` | 13th Gen Intel Core i7-1370P (20 vCPU) | 2026-08-24T05:02:53Z | 2.30.0 |
+| `diarization-ami16_corpus-maxspk4.json` | diarization DER, miss, false alarm, confusion | `paper/benchmark/bench_diarization.py $HOME/ami16_corpus $HOME/diarization-ami16-meeting-maxspk4.json --profile meeting --max-speakers 4` | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T04:52:55Z | 2.29.0 |
 | `index.json` | roll-up written by `run_all.py` (a snapshot, superseded by the per-bench files) | — | 13th Gen Intel Core i7-1370P (20 vCPU) | 2026-07-30T21:17:57Z | 2.12.0.dev4 |
 | `latency.json` | decode P50/P95, cold start, RSS, per-stage timings | — | 13th Gen Intel Core i7-1370P (20 vCPU) | 2026-07-30T20:47:09Z | 2.12.0.dev4 |
 | `meta.json` | dysfluency gate, model footprint, engineering scale | — | 13th Gen Intel Core i7-1370P (20 vCPU) | 2026-07-30T20:47:09Z | 2.12.0.dev4 |

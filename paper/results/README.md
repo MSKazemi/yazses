@@ -79,9 +79,31 @@ Four rules for using these files, each learned the expensive way:
 | `commands.json` | command-grammar accuracy and false-positive rate | `bench_commands.py` |
 | `plausibility-*.json` | how often the attribution warning fires, and is right | `bench_plausibility.py` |
 | `diarization-*-der.json` | speaker-diarization DER per recording and over the corpus, at the profile's shipped `cluster_threshold` | `bench_diarization.py` |
+| `diarization-*-maxspk4.json` | the same corpus with the speaker count **pinned** to four — the cell that decided whether `--speakers` helps | `bench_diarization.py` |
+| `diarization-*-significance.json` | paired sign test + bootstrap over the *recordings*, for two diarization runs of the same corpus | `analyze_diarization.py` |
 | `meta.json` | dysfluency gate, model footprint, engineering scale | `bench_meta.py` |
 | `index.json` | the provenance + summary of one `run_all.py` sweep | `run_all.py` |
 | `platform-resolution.json` | which extras resolve on which OS/arch, and what blocks the rest | `bench_platform_resolution.py` |
+
+### The pinned-count pair, and the one thing it proves outright
+
+`diarization-ami16_corpus-maxspk4.json` (threshold 1.2, cap 4) and
+`probes/ami16-maxspk.json` (threshold **0.5**, cap 4) are **bit-identical on all sixteen
+recordings**. That is not redundancy, it is the finding: `sherpa_onnx.FastClusteringConfig`
+uses its `threshold` only when `num_clusters` is unset, so pinning the speaker count makes
+`cluster_threshold` inert — and `cluster_threshold` is the setting ADR-v2-133 moved from
+0.5 to 1.2 for a 48-point DER improvement. None of that improvement reaches a user who
+passes `--speakers`. `tests/test_pinned_speaker_count_voids_the_threshold.py` asserts the
+equality, so if a future version makes the threshold matter under a pinned count, the
+warning that now says otherwise fails a test instead of misleading someone.
+
+Against the *unpinned* run at the same threshold, the pair resolves nothing: 7 recordings
+better, 7 worse, 2 unchanged, exact sign test p = 1.0, and both bootstrap intervals cross
+zero. The +2.71-point mean is carried by two of sixteen recordings. **Read
+`diarization-ami16_corpus-maxspk4-vs-der-significance.json` before quoting either corpus
+figure against the other** — this is the archive's clearest case of a mean that moves
+while the sample says nothing, and of why the per-recording rows are stored rather than
+summarised away.
 
 ### Two DERs, and why both are reported
 

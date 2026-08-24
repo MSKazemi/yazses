@@ -838,7 +838,7 @@ two of the rows differed in both — see the reading below.
 | defaults **before v2.30** | 0.5 | estimated | **75.21%** | **+155.19** | 0 / 16 |
 | the same, count supplied | 0.5 | `max_speakers = 4` | 29.42% | +0.06 | 16 / 16 |
 | defaults **now** (`[meeting]`) | **1.2** | estimated | **26.71%** | +2.06 | 2 / 16 |
-| threshold 1.2 **and** the count | 1.2 | `max_speakers = 4` | *not yet measured* | | |
+| threshold 1.2 **and** the count | 1.2 | `max_speakers = 4` | 29.42% | +0.06 | 16 / 16 |
 
 Per recording the old default ran from 53.7% to 92.0% DER, finding between **81 and 272**
 speakers in rooms holding four people. The threshold change is
@@ -855,10 +855,65 @@ opposite: at threshold 0.5, supplying the count takes DER from 75.21% to 29.42%,
 
 What the four rows do support is the reason the default moved: **raising the threshold
 achieved more than supplying the count did, and without having to ask the user
-anything.** Whether the count still helps *at the new threshold* is the fourth row, and
-it had never been run — 0.5-with-count was measured, 1.2-without-count was measured, and
-1.2-with-count was assumed. It is being measured now; until it lands, the pre-run hint
-about `--speakers` claims nothing either way.
+anything.**
+
+#### Supplying the count makes `cluster_threshold` inert
+
+Rows 2 and 4 are not two measurements. They are **bit-identical on all sixteen
+recordings** — every DER, every miss, every false alarm, to the second decimal. Two runs
+two weeks and one config change apart do not agree that closely by chance, and the code
+says why: `sherpa_onnx.FastClusteringConfig` takes a `num_clusters` *and* a `threshold`
+and uses the threshold **only when the count is unset**. Pin the count and the
+agglomeration stops at that many clusters; the threshold decides nothing.
+
+So **none of ADR-v2-133 reaches a user who supplies a speaker count.** The 75.21 % →
+26.71 % improvement is the threshold's, and `--speakers 4` or `[meeting] max_speakers = 4`
+switches the threshold off. Both settings sit in the same config table and nothing said
+so, which is now a `WARNING` on the run
+(`recimport/diarizer.py::warn_pinned_count`) rather than a fact you had to measure to
+discover. Artifacts: [`probes/ami16-maxspk.json`][a1] (0.5) and
+[`diarization-ami16_corpus-maxspk4.json`][a2] (1.2).
+
+[a1]: https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/ami16-maxspk.json
+[a2]: https://github.com/MSKazemi/yazses/blob/main/paper/results/diarization-ami16_corpus-maxspk4.json
+
+#### Does the count help at the new threshold? The sample cannot say
+
+The withdrawn claim is **not** replaced by its opposite. Rows 3 and 4 are a properly
+paired comparison — same sixteen meetings, same segmentation (identical `missed_pct` of
+8.66 % and an identical 30 714.0 s of scored reference time, as it must be, since the cap
+touches only clustering) — and per recording it is a coin flip with a very long tail:
+
+| | strict (collar 0) | collar 250 ms |
+|---|---|---|
+| recordings the cap improved | 7 | 6 |
+| recordings the cap worsened | 7 | 8 |
+| unchanged (the cap never bound) | 2 | 2 |
+| exact sign test | *p* = 1.0 | *p* = 0.79 |
+| mean Δ DER | +2.71 [−1.64, +7.60] | +3.46 [−1.15, +8.65] |
+| time-weighted Δ DER | +1.96 [−3.39, +7.69] | +2.84 [−2.93, +9.09] |
+| worst single recording | **+28.72** (TS3003b) | +30.74 |
+| best single recording | **−15.99** (EN2002c) | −15.77 |
+
+Both intervals cross zero and the sign test is flat, so the honest verdict is *no
+difference this sample can resolve* — the +2.71 mean is carried by two of sixteen
+recordings. Brackets are 95 % paired-bootstrap intervals over the recordings, 10 000
+resamples, seed 20260824, from
+[`analyze_diarization.py`](https://github.com/MSKazemi/yazses/blob/main/paper/benchmark/analyze_diarization.py).
+
+**The mechanism is worth knowing, because it says when to use the flag.** Free clustering
+*over*-splits: 6 to 9 clusters in a four-person room. Over-splitting is cheap under DER —
+after the Hungarian mapping, a speaker split in two loses only the smaller fragment. A
+*forced merge* is not cheap: capping TS3003b at four took it from 15.53 % to 44.25 %,
+because two real speakers collapsed into one cluster and every frame of one of them is
+now confusion. That asymmetry is the whole result. Note also ES2004a, where free
+clustering found **two** speakers for four — a *maximum* cannot fix under-splitting, so
+the cap is not even a safety net in the direction people expect.
+
+**What the count reliably buys is the count**, not the transcript: mean speaker-count
+error 2.06 → 0.06, right in 16 of 16 recordings against 2 of 16. If a downstream step
+needs "exactly four speakers", ask for it. If you want the better diarization, leave it
+alone and keep the tuned threshold.
 
 #### The four-meeting subset, at the old defaults
 

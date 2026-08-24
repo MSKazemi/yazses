@@ -66,6 +66,7 @@ uv run python paper/benchmark/make_figures.py
 | `bench_throughput.py` | dictation words/minute against typing the same prompts | needs a human at the keyboard; no archived result |
 | `analyze_beam.py` | paired bootstrap of the WER difference between two beam widths | reads `../results/beam-*.json` |
 | `analyze_onset.py` | exact McNemar between two cells of the onset grid | reads `../results/onset.json` |
+| `analyze_diarization.py` | exact sign test + paired bootstrap over the *recordings*, for two diarization runs of one corpus | reads two `../results/diarization-*.json` |
 | `bench_meta.py` | dysfluency gate, model on-disk size, test/ADR/SLOC counts | `stt.filters.disfluency`, HF cache scan |
 | `run_all.py` | orchestrates all of the above + provenance + optional coverage | — |
 | `make_features_table.py` | capability-surface table + prose macros for the paper, from the live registry | `system.features` (the registry behind `yazses features`) |
