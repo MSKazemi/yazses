@@ -317,7 +317,14 @@ def test_every_result_taken_since_the_cutover_records_its_command(path: Path) ->
 # and last id, so that conclusion stands. `test-other` exists on only one of them,
 # which is why every `test-other` number in the archive comes from one box.
 
-CORPUS_STAMPED_FROM = "2026-08-24T12:00:00Z"
+#: Deliberately later than the field's own commit. A measurement already running on a
+#: rented box had imported `_common` hours earlier, so it writes through the version of
+#: the module that was loaded then and cannot stamp a field added after it started —
+#: copying the new file onto that host mid-run changes nothing, because the import has
+#: happened. An artifact that genuinely predates the code must skip this guard rather
+#: than be back-filled by hand: a hand-edited provenance block is worth less than an
+#: absent one, because it cannot be told apart from a measured one.
+CORPUS_STAMPED_FROM = "2026-08-25T00:00:00Z"
 
 #: The digest all three hosts agreed on. Pinned so that a change to the *selection*
 #: -- a different stratification, a different sort, a silently truncated corpus --
