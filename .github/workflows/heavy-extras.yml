@@ -1,0 +1,83 @@
+name: Heavy optional extras
+
+# The two tests that had never executed anywhere.
+#
+# `test_shipped_backends.py` guards one test on `diarization-pyannote` and one on
+# `voiceprint-resemblyzer` being importable. Neither extra is installed by any job in
+# `test.yml` — both pull torch, ~2 GB — so both tests skipped in every run on every
+# platform since they were written, and the comment in `test.yml`'s `extras` job records
+# that gap rather than hiding it.
+#
+# On 2026-08-24 they were run by hand on a rented 16-vCPU box and both passed, so the
+# gap is now closeable and this closes it. What they check cannot be checked any other
+# way:
+#
+#   * the pyannote test binds the adapter's real call against the real
+#     `Pipeline.from_pretrained` signature. That is what catches an upstream rename —
+#     3.x `use_auth_token` became 4.x `token`, and the adapter shipped calling the old
+#     name. A mocked signature cannot catch it, because the mock is written from the
+#     same reading of the docs that produced the bug.
+#   * the resemblyzer test embeds two lengths of synthetic noise through the real
+#     encoder. Its first hand-run failure was `ModuleNotFoundError: No module named
+#     'pkg_resources'` when the package was installed by *bare name* — which is what
+#     the `setuptools<81` pin inside the extra exists to prevent, and the first evidence
+#     that the pin does anything. Installing the extra, as here, is what tests the ship.
+#
+# Neither needs a token, a model, or the network at test time.
+#
+# **Weekly, not per-push.** What this catches is an upstream API change, which arrives on
+# upstream's schedule and not with a commit here; paying 2 GB of wheels on every pull
+# request to look for it would be a poor trade. `workflow_dispatch` is here so it can be
+# run against a branch on demand when either adapter is touched.
+#
+# `notes`/`slm` (llama-cpp-python) is still not covered: it compiles a C++ inference
+# engine rather than downloading a wheel. That gap stays named here rather than closed.
+
+on:
+  schedule:
+    # Mondays, 05:17 UTC. Off the hour on purpose — the top of the hour is when every
+    # scheduled workflow on GitHub queues at once and starts late.
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  heavy-extras:
+    name: pyannote + resemblyzer
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+
+      - name: Install dependencies (with the two heavy extras)
+        run: uv sync --extra diarization-pyannote --extra voiceprint-resemblyzer
+
+      - name: Both extras must actually be importable
+        # Without this the guarded tests skip and the job passes green having tested
+        # nothing — the precise failure mode this workflow exists to end. `resemblyzer`
+        # is imported rather than merely located because that is where it broke: the
+        # package installs fine and then raises on `import pkg_resources`.
+        run: |
+          uv run python -c "import pyannote.audio; print('pyannote.audio ok')"
+          uv run python -c "from resemblyzer import VoiceEncoder; print('resemblyzer ok')"
+
+      - name: Run the tests that only exist when the extras are installed
+        shell: bash
+        run: |
+          set -o pipefail
+          uv run python -m pytest -v -rs tests/test_shipped_backends.py 2>&1 | tee heavy-tests.txt
+
+      - name: No extra-guarded test may be silently skipped
+        shell: bash
+        run: |
+          if grep -q "^SKIPPED" heavy-tests.txt; then
+            echo "::error::A test guarded by a heavy extra was skipped — it guards nothing here."
+            grep "^SKIPPED" heavy-tests.txt
+            exit 1
+          fi
+          echo "No extra-guarded test was skipped."

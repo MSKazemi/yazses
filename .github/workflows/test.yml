@@ -255,11 +255,15 @@ jobs:
     # eleven assertions about Simplified vs Traditional output that had never
     # executed, on a code path a user in Taipei hits on every utterance.
     #
-    # DELIBERATELY NOT COVERED, and named so the gap is visible rather than
-    # forgotten: `notes`/`slm` (llama-cpp-python compiles a C++ inference engine),
-    # `diarization-pyannote` and `voiceprint-resemblyzer` (both pull torch, ~2 GB).
-    # Those three tests stay skipped everywhere. That is a real gap — it is
-    # recorded here instead of being hidden behind a green tick.
+    # NOT COVERED HERE, and named so the gap is visible rather than forgotten:
+    # `notes`/`slm` (llama-cpp-python compiles a C++ inference engine), and
+    # `diarization-pyannote` / `voiceprint-resemblyzer` (both pull torch, ~2 GB).
+    #
+    # The torch pair is now covered *weekly* by `heavy-extras.yml` rather than on
+    # every push: both were run by hand on 2026-08-24 and passed, and what they
+    # catch is an upstream API change — which arrives on upstream's schedule, not
+    # with a commit here. `notes`/`slm` stays skipped everywhere. That is a real
+    # gap — it is recorded here instead of being hidden behind a green tick.
     #
     # Linux only: these extras are pure Python or platform-independent, and the
     # OS matrix in the main job already covers the code around them.
