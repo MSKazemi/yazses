@@ -256,7 +256,7 @@ jobs:
             *Traceback*) echo "FAIL: doctor raised inside the bundle"; exit 1 ;;
           esac
           case "${DOC}" in
-            *"Input Monitoring"*) echo "    ok: the row is rendered" ;;
+            *"Input monitoring"*) echo "    ok: the row is rendered" ;;
             *) echo "FAIL: doctor never mentions Input Monitoring. That permission being"
                echo "      silently absent -- not denied, not requested, not named -- is"
                echo "      exactly how #182 presented."; exit 1 ;;
