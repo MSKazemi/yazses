@@ -26,9 +26,10 @@ capability that has a design and a place in the registry but **no runtime code i
 build**, so `yazses features enable <name>` refuses it outright:
 
 ```
-$ yazses features enable snippets
-Voice Snippets is designed but not yet wired into this build — enabling it would
+$ yazses features enable bookmarks
+Session Bookmarks is designed but not yet wired into this build — enabling it would
 change nothing (no runtime code reads its config yet).
+It stays listed so contributors can pick it up; see the matching design/adr/ entry.
 ```
 
 They stay listed because that is where a contributor picks one up — each has a matching
@@ -189,7 +190,7 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Voice Unit Conversion** | `convert` | "twenty miles in kilometers" → "32.19 kilometers", offline. |
 | **Spoken Temporal Normalizer** | `temporal` | "next Friday" → a concrete date, from the local clock. |
 | **Mid-Utterance Self-Repair** | `self_repair` | "email Sarah no I mean Sara" → "email Sara" before typing. |
-| **Spoken Spreadsheet** | `spreadsheet` | Grid navigation by voice ("next row", "next cell", "top of column"). Cell addressing ("go to B7") is **not** wired: it needs an app-specific Go To binding, and Excel and Calc do not agree on one. |
+| **Spoken Spreadsheet** | `spreadsheet` | Grid navigation by voice ("next row", "next cell", "top of column"). Cell addressing ("go to B7") is **not implemented**: it needs an app-specific Go To binding, and Excel and Calc do not agree on one. |
 | **Clipboard-History by Voice** | `cliphistory` | Recall recent copies by voice ("the second thing I copied"). |
 | ◌ **Ambient Audio-Event Guard** | `audioguard` | Auto-pause/alert on a doorbell, phone, alarm or your name. |
 | **On-Device Condense** | `condense` | Insert a tightened summary of your own long dictation. |

@@ -92,7 +92,7 @@ Related capabilities worth knowing about:
 | Capability | Enable with | What it gives you |
 |---|---|---|
 | Chorded Shortcut Synthesis | `yazses features enable chords` | Speak a modifier chord instead of contorting your hand |
-| Voice Snippets | `yazses features enable snippets` *(planned — not yet wired)* | Expand a spoken trigger into boilerplate |
+| Voice Snippets | `yazses features enable snippets` | Say *"insert \<trigger\>"* to expand it into boilerplate |
 | Voice Git Choreographer | `yazses features enable gitvoice` | Drive git by voice, with a spoken confirm before anything destructive |
 | Spoken Shell Pipeline Builder | `yazses features enable shellpipe` | Compose a shell pipeline by speaking it |
 | Terminal Command Safety Gate | `yazses features enable cmdsafety` | Catch destructive commands before they run |

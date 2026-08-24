@@ -1459,7 +1459,7 @@ so "Save file." works the same as "save". Spelled-out numbers ("delete the last
 
 Don't see a command you want? Tell us — the grammar is easily extended.
 Natural-language commands beyond this fixed list would need the Tier 2 SLM router,
-which is designed but **not wired** — there is no switch that turns it on today, and
+which is designed but has **no caller** — there is no switch that turns it on today, and
 `[commands] slm_model_path` is read by nothing.
 
 ### Voice punctuation (opt-in)

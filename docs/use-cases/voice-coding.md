@@ -99,7 +99,7 @@ capabilities extend this for development work:
 | Voice Jump-to-Symbol | `yazses features enable jump` | Jump to a symbol by name |
 | Voice Fuzzy File Open | `yazses features enable fileopen` | Open a file by speaking part of its name |
 | Spoken Shell Pipeline Builder | `yazses features enable shellpipe` | Compose a shell pipeline by voice |
-| Spoken Regex Builder | `yazses features enable spokenregex` *(planned — not yet wired)* | Describe a regex in words |
+| Spoken Regex Builder | `yazses features enable spokenregex` | Say *"regex \<description\>"* and get the pattern |
 | Auto-Pairing & Wrap | `yazses features enable autopair` | Balance brackets and quotes |
 | Voice Case Transform | `yazses features enable casetransform` | Re-case an identifier by voice |
 

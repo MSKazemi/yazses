@@ -40,24 +40,104 @@ wins.
 
 ## What makes YazSes different
 
-- **Fully offline & private by default.** Audio is transcribed on-device with CPU
-  faster-whisper (int8). No GPU, no network, no account — nothing you say leaves
-  the machine.
-- **Dictation *and* voice commands.** Speak to type, or use a fast regex command
-  grammar that maps
-  *"undo that"*, *"save file"*, *"go to line 42"* to real key sequences.
-- **Hold-to-talk.** Natural push-to-talk that types into whatever app has focus —
-  editor, browser, terminal, chat.
-- **Linux-first, cross-platform.** Works on X11 and Wayland, plus macOS and Windows.
-- **Built for accessibility.** VAD calibration, a dysfluency-friendly mode for
-  stuttered/dysarthric speech, and an optional EMG muscle-sensor trigger for
-  hands-free use.
-- **Self-improving on your terms.** An opt-in, encrypted, on-device learning corpus
-  lets `yazses tune` propose accuracy fixes from your own corrections.
-- **One tool for three jobs.** The same install and the same downloaded model do
-  live dictation, offline transcription of existing recordings
-  (`yazses transcribe`), and whole-meeting capture with speaker labels
-  (`yazses meeting`). Every other tool on this page does one of the three.
+Ten differences. Each one names the tool it is a difference *from*, and each ends
+with something you can check yourself instead of taking on trust — a file in the
+public repository, or a command you can run. Nothing here is a claim about the
+future.
+
+**1. Nothing you say leaves the machine — and the exceptions are enumerated, not
+asserted.** Wispr Flow and Willow Voice send your audio to a server; that is their
+design, not a flaw. Handy, TalkType and nerd-dictation are genuinely offline — but
+"offline" is a claim you have to believe. YazSes publishes the list instead: five
+distinct *mechanisms* by which bytes could leave (importing a socket, spawning a
+program, handing a URL to your browser, asking a library to load a model **by
+name**, and a Unix socket that cannot reach a network at all), and exactly **two**
+code paths that can carry what you dictated. Both are constrained — the optional
+LLM cleanup is pinned to loopback, and `yazses remote` reaches only the host you
+typed on the command line.
+*Check it:* [ADR-019](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-019-egress-inventory-and-escalation.md)
+and `tests/test_egress_inventory.py`, which **fails the build** if any module under
+`src/yazses/` grows a new outbound primitive without being registered.
+
+**2. A dependency list that says which parts you actually receive.** Every project
+on this page has a large optional dependency tree; a vulnerability scanner reading
+one cannot tell what a normal install contains. YazSes ships a CycloneDX SBOM in
+which every component declares its scope — `required` for a plain install,
+`optional` for a feature extra you may never enable, `excluded` for build and test
+tooling that is never installed alongside the app. The scopes are derived from
+`uv.lock` by walking the real resolution graph, not hand-listed.
+*Check it:* `sbom.cdx.json` in the repository root, and the counts published in the
+[privacy statement](privacy-statement.md).
+
+**3. Three guards stand between the transcript and your keyboard.** A dictation
+tool normally types whatever the model returned. YazSes stops in three cases: a
+dictated **destructive command** (`rm -rf`, `mkfs`, `dd of=`, a force-push) is held
+until you say a confirm word; a dictated **number that fails its own check digit**
+(Luhn, ISBN, Verhoeff) is held the same way, through the same gate, so you learn
+one release phrase rather than one per guard; and text with **no editable target**
+in focus goes to your clipboard with a notification instead of into the wrong
+window. Each is judged on how *rarely* it fires — a guard that interrupts a house
+number teaches you to dismiss it.
+*Check it:* `src/yazses/cmdsafety/`, `src/yazses/checkdigit/`, `src/yazses/inject/target.py`.
+
+**4. A broken config file cannot stop it starting.** One bad line in a TOML file is
+enough to make most daemons refuse to run, which is the worst possible moment to
+lose your dictation. Config loading here is *total*: a repairable value is repaired
+(`"0.004"` → `0.004`), anything else falls back to the documented default, unknown
+keys are dropped, and unparseable TOML still yields a working daemon. Every
+decision becomes a problem report that the daemon lists at start-up and
+`yazses doctor` shows.
+*Check it:* `uv run yazses doctor` and its **Config validity** row; the logic is in
+`src/yazses/configcheck.py`.
+
+**5. It can tell you which link in the chain is broken.** `yazses doctor` proves
+the prerequisites (a mic exists, an injector is installed, the model is
+downloaded). `yazses verify` proves the *function*: it records, gates, transcribes
+and optionally injects for real, and names the **first** thing that broke with its
+fix rather than cascading. `yazses report` bundles versions, daemon state, a
+redacted config and a metadata-only log tail — locally; nothing is uploaded.
+*Check it:* `uv run yazses verify` and `uv run yazses report` on your own machine.
+
+**6. One install, three jobs.** The same package and the same downloaded model do
+live dictation, offline transcription of recordings you already have
+(`yazses transcribe`), and whole-meeting capture with speaker labels
+(`yazses meeting`). Handy and TalkType are dictation tools, as their own sections below say;
+Otter-style meeting tools do meetings and are cloud services.
+*Check it:* `uv run yazses transcribe --help` and `uv run yazses meeting --help`.
+
+**7. Built for the people a hotkey excludes.** Against every tool in the table:
+VAD calibration you run rather than guess at (`yazses mic-level`), a
+disfluency-friendly filter for stuttered and dysarthric speech, an on-device
+learning loop that adapts to *your* corrections, and a USB-serial or Bluetooth EMG
+muscle sensor as an alternative to pressing a key at all.
+*Check it:* `uv run yazses mic-level`, `src/yazses/stt/filters/disfluency.py`,
+`src/yazses/platform/emg/`.
+
+**8. Dictation and voice commands from one grammar.** Handy has no voice commands;
+Voice In and Google voice typing have none; Windows, Apple and Wispr Flow dictation
+have a limited set (see the table above). Here, the same burst can type
+prose or fire *"undo that"*, *"save file"*, *"go to line 42"* as real key
+sequences, with per-editor grammar profiles and a personal dictionary for words
+Whisper keeps mis-hearing.
+*Check it:* `src/yazses/commands/grammar.py`, and `uv run yazses vocab add <word>`.
+
+**9. Self-improving, on your terms and on your disk.** The learning corpus is
+**off by default**, encrypted with a machine-bound key, capped by size and
+retention, and never leaves the machine. Turned on, `yazses tune` re-transcribes
+your own audio with a larger model offline and *proposes* config changes — a
+vocabulary entry, a silence threshold — which you approve before anything is
+written.
+*Check it:* `uv run yazses corpus status`, `uv run yazses tune` (proposals only
+without `--apply`).
+
+**10. It builds and ships like infrastructure, not like a script.** Cross-platform
+CI on Linux, macOS and Windows, on Python 3.11 through 3.14 and on arm64; a
+`.deb`, a `.dmg`, a
+Windows installer, a snap and PyPI from one tag; and build-provenance attestations
+on the release artifacts, so you can verify that the file you downloaded came from
+this repository's workflow.
+*Check it:* `gh attestation verify <file> --repo MSKazemi/yazses` on any release
+artifact, and the workflows in `.github/workflows/`.
 
 ## The difference that is not a feature
 
@@ -97,11 +177,16 @@ tool can add later without becoming a different program.
 
     This page's honesty rule applies here too, so to be precise about the state of
     it: the **EMG serial and BLE backends exist and work** as a hold-to-talk
-    trigger, and **gaze window-targeting works on X11**. The modality role router
-    that assigns *commands* to one channel and *dictation* to another is written
-    and unit-tested but **not yet wired into the daemon**, and the seam still only
-    carries "start" and "stop" — a decoder that recognises a *word* cannot express
-    it yet. Both are tracked in the open
+    trigger, **gaze window-targeting works on X11**, and the **modality role
+    router is wired** — with `[modality]` enabled the daemon resolves a role map
+    at start-up, `yazses doctor` prints it, and the *command* role is what then
+    decides whether an EMG squeeze speaks a command or dictates prose, overriding
+    `[emg] mode`. It is off by default, and it arbitrates between the channels you
+    have rather than inventing one.
+
+    What is still missing is the **width of the seam**: an activation backend
+    emits only "start" and "stop", so a decoder that recognises a *word* has
+    nowhere to put it. That is tracked in the open
     [Silent input milestone](https://github.com/MSKazemi/yazses/milestone/11).
 
     If you need silent commands working today, none of the tools on this page —

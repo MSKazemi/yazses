@@ -46,7 +46,15 @@ DOCS = Path(__file__).resolve().parents[1] / "docs"
 SKIP_TREES = {"releases"}
 
 _MENTION = re.compile(r"slm[ _-]?router|tier[ -]?2 slm", re.IGNORECASE)
-_QUALIFIER = re.compile(r"not wired|not yet wired|designed, not", re.IGNORECASE)
+#: "no caller" and "nothing constructs" are the project's own words for the same
+#: state, and they are here because the two docs guards collided: writing "not
+#: wired" next to a capability that *is* wired now fails
+#: `test_docs_do_not_deny_wired_features.py`, and `cli-reference.md` says
+#: "the Tier 2 SLM router ... is designed but has **no caller**" for exactly that
+#: reason. A caveat this test cannot spell is a caveat that gets deleted.
+_QUALIFIER = re.compile(
+    r"not wired|not yet wired|designed, not|no caller|nothing constructs", re.IGNORECASE
+)
 
 
 def _pages() -> list[Path]:

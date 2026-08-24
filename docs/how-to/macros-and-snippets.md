@@ -7,22 +7,21 @@ description: Say a trigger phrase to expand canned boilerplate or a stored templ
 
 If you type the same boilerplate over and over — a signature, a standard reply, a
 code stub — you can bind it to a spoken **trigger phrase**. Say the trigger and
-YazSes types the expansion. Two features do this; both are **off by default**, and
-one of them is **not wired yet** — which is a different thing, so it is called out
-where it matters below.
+YazSes types the expansion. Two features do this, both **off by default**, and they
+are invoked differently — one matches the trigger on its own, the other needs a
+verb in front of it. That difference is called out where it matters below.
 
 - **Say-Macro (`macros`)** — the fuller mechanism: triggers live in a dedicated
   `macros.toml`, support `text` and `snippet` expansions, and can place the caret
   with a `${cursor}` marker and substitute `${clipboard}`, `${date}`, `${time}`,
   and `${author}`.
 - **Voice Snippets (`snippets`)** — a lightweight inline expander: trigger →
-  template pairs configured directly in `config.toml` under `[snippets]`.
-  **Planned — designed and tested, not yet wired**, so `features enable` refuses it
-  and the `[snippets]` block below has no effect yet. Say-Macro is the one that works
-  today.
+  template pairs configured directly in `config.toml` under `[snippets]`. It runs
+  through the spoken-command router, so you say **`insert <trigger>`** (or
+  `expand <trigger>`, or `snippet <trigger>`) rather than the trigger on its own.
 
-Both match on **whole-utterance exact match**, so a trigger appearing inside
-ordinary prose never fires mid-dictation.
+Both match on the **whole utterance**, anchored at both ends, so a trigger
+appearing inside ordinary prose never fires mid-dictation.
 
 ## Say-Macro
 
@@ -83,9 +82,7 @@ A broken macro entry is skipped and logged — it never breaks the daemon.
 ## Voice Snippets
 
 For simple text expansions without a separate file, use `[snippets]` in
-`config.toml`. **Planned — designed and tested, not yet wired**, so `features enable`
-refuses it for now ([#164](https://github.com/MSKazemi/yazses/issues/164) is where it
-gets wired):
+`config.toml`:
 
 ```bash
 yazses features enable snippets
@@ -96,7 +93,7 @@ yazses features enable snippets
 [snippets]
 enabled = true
 [snippets.entries]
-"insert my signature" = "Best regards,\nMohsen"
+"my signature" = "Best regards,\nMohsen"
 "my address" = "1 Example Street, Bologna"
 ```
 
@@ -104,7 +101,17 @@ enabled = true
 yazses restart
 ```
 
-Say `insert my signature` and YazSes types the stored template.
+Say **`insert my signature`** and YazSes types the stored template.
+
+!!! warning "Write the trigger *without* the verb"
+
+    The verb is part of how you invoke a snippet, not part of the trigger. YazSes
+    strips a leading `insert`, `expand`, `snippet` or `paste snippet` and matches
+    what is left, so an entry keyed `"insert my signature"` can never fire — you
+    would have to say *"insert insert my signature"*. Key it `"my signature"`.
+
+    The verb is also required: saying `my signature` on its own dictates those two
+    words, which is what stops a snippet trigger from firing inside ordinary prose.
 
 ## See also
 
