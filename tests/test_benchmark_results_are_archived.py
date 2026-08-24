@@ -298,3 +298,125 @@ def test_every_result_taken_since_the_cutover_records_its_command(path: Path) ->
         "carries none. It was produced by something that bypassed "
         "`_common.write_result`, which is the only place that stamps it."
     )
+
+
+# --------------------------------------------------------------------------------
+# 6. Which utterances were scored, not merely how many.
+# --------------------------------------------------------------------------------
+#
+# Every artifact recorded `n_utterances: 200` and nothing identifying the 200.
+# `librispeech_subset` is deterministic given the corpus, but `_entry` returns `None`
+# for an utterance whose `.flac` is absent and the round-robin simply carries on --
+# so a host with a partially extracted corpus scores a *different* set and still
+# reports 200. These numbers were taken on a laptop, two rented x86 boxes and three CI
+# runners, and "WER is reproducible across CPUs" was concluded from exactly that kind
+# of cross-host comparison.
+#
+# It is now checkable, and was checked: all three Linux hosts return
+# `08c500680ad493e4` for 200 stratified `test-clean` utterances, with the same first
+# and last id, so that conclusion stands. `test-other` exists on only one of them,
+# which is why every `test-other` number in the archive comes from one box.
+
+CORPUS_STAMPED_FROM = "2026-08-24T12:00:00Z"
+
+#: The digest all three hosts agreed on. Pinned so that a change to the *selection*
+#: -- a different stratification, a different sort, a silently truncated corpus --
+#: fails here rather than quietly renumbering every WER in `docs/benchmarks.md`.
+TEST_CLEAN_200_SHA16 = "08c500680ad493e4"
+
+
+def test_the_digest_is_order_sensitive(common) -> None:
+    """Two runs that score the same utterances in a different order are not the same
+    measurement: the subset order is the decode order, and `condition_on_previous_text`
+    makes the decode of one utterance depend on what came before it."""
+    a = common.subset_digest(["1-1-0001", "1-1-0002"])
+    b = common.subset_digest(["1-1-0002", "1-1-0001"])
+    assert a != b
+    assert a == common.subset_digest(["1-1-0001", "1-1-0002"]), "not stable"
+
+
+def test_a_dropped_utterance_is_counted_rather_than_hidden(common) -> None:
+    """`tried` exceeding the kept count is the signature of an incomplete corpus."""
+    entries = [("1-1-0001", None, "a", 1.0), ("1-1-0002", None, "b", 1.0)]
+    common._record_subset(entries, 5, "test-clean", stratified=True, tried=4)
+    rec = common._LAST_SUBSET
+    assert rec["n"] == 2 and rec["requested_n"] == 5
+    assert rec["n_missing"] == 2, "two `.flac` files were absent and nothing said so"
+
+
+def test_a_complete_subset_reports_nothing_missing(common) -> None:
+    entries = [("1-1-0001", None, "a", 1.0)]
+    common._record_subset(entries, 1, "test-clean", stratified=True, tried=1)
+    assert common._LAST_SUBSET["n_missing"] == 0
+
+
+def test_an_empty_subset_does_not_raise(common) -> None:
+    """A missing corpus must fail with `FileNotFoundError` upstream, not an IndexError
+    inside the bookkeeping."""
+    common._record_subset([], 10, "test-other", stratified=False, tried=0)
+    assert common._LAST_SUBSET["n"] == 0
+    assert common._LAST_SUBSET["first"] == ""
+
+
+def test_the_chokepoint_stamps_the_corpus(common, tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(common, "RESULTS_DIR", tmp_path)
+    monkeypatch.setattr(
+        common, "_LAST_SUBSET",
+        {"dataset": "LibriSpeech test-clean", "n": 200, "sha256_16": "deadbeefdeadbeef"},
+    )
+    path = common.write_result("x", {"config": {}})
+    prov = json.loads(path.read_text(encoding="utf-8"))["provenance"]
+    assert prov["corpus"]["sha256_16"] == "deadbeefdeadbeef"
+
+
+def test_the_sweep_path_is_stamped_with_the_corpus_too(common, tmp_path, monkeypatch) -> None:
+    """`run_all.py` attaches a shared provenance block; the corpus is not shared in the
+    same way, and stamping only the other branch would leave every sweep-written
+    artifact without the one field that says what was scored."""
+    monkeypatch.setattr(common, "RESULTS_DIR", tmp_path)
+    monkeypatch.setattr(common, "_LAST_SUBSET", {"n": 200, "sha256_16": "abc123abc123abc1"})
+    path = common.write_result("y", {"provenance": {"timestamp": "z", "argv": "kept"}})
+    prov = json.loads(path.read_text(encoding="utf-8"))["provenance"]
+    assert prov["corpus"]["sha256_16"] == "abc123abc123abc1"
+    assert prov["argv"] == "kept", "filling one field must not overwrite another"
+
+
+def test_a_caller_that_recorded_its_own_corpus_keeps_it(common, tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(common, "RESULTS_DIR", tmp_path)
+    monkeypatch.setattr(common, "_LAST_SUBSET", {"sha256_16": "new"})
+    path = common.write_result("z", {"provenance": {"timestamp": "t", "corpus": {"sha256_16": "old"}}})
+    prov = json.loads(path.read_text(encoding="utf-8"))["provenance"]
+    assert prov["corpus"]["sha256_16"] == "old"
+
+
+def test_the_pinned_test_clean_digest_still_describes_the_corpus(common) -> None:
+    """Skips where LibriSpeech is absent; fails where it is present and disagrees."""
+    try:
+        subset = common.librispeech_subset(200, stratified=True, split="test-clean")
+    except FileNotFoundError as exc:
+        pytest.skip(str(exc).split(".")[0])
+    digest = common.subset_digest([e[0] for e in subset])
+    assert digest == TEST_CLEAN_200_SHA16, (
+        f"200 stratified test-clean utterances now digest to {digest}, not "
+        f"{TEST_CLEAN_200_SHA16}. Either the corpus on this host is incomplete or the "
+        "selection changed — in both cases every WER in docs/benchmarks.md was measured "
+        "on a different set than a fresh run would use."
+    )
+    assert common._LAST_SUBSET["n_missing"] == 0
+
+
+@pytest.mark.parametrize("path", _results(), ids=lambda p: p.name)
+def test_every_result_taken_since_the_cutover_records_its_corpus(path: Path) -> None:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    prov = payload.get("provenance") or {}
+    when = prov.get("timestamp", "")
+    if not when or when < CORPUS_STAMPED_FROM:
+        pytest.skip(f"taken {when or 'at an unrecorded time'}; predates the field")
+    dataset = str((payload.get("config") or {}).get("dataset", ""))
+    if "LibriSpeech" not in dataset:
+        pytest.skip(f"not a LibriSpeech measurement ({dataset or 'no dataset'})")
+    assert (prov.get("corpus") or {}).get("sha256_16"), (
+        f"{path.name} scores LibriSpeech and does not say which utterances. It was "
+        "produced by something that bypassed `_common.librispeech_subset`, which is "
+        "the only place that records them."
+    )

@@ -139,6 +139,18 @@ class Provenance:
     #: told only the script name cannot re-run any of them, so "reproduce it from the
     #: harness" was an instruction that could not be followed.
     argv: str = ""
+    #: Which utterances were scored, not merely how many.
+    #:
+    #: Every artifact recorded `n_utterances: 200` and nothing about *which* 200.
+    #: `librispeech_subset` is deterministic given the corpus -- sorted ids, sorted
+    #: speakers, round-robin, no RNG -- but it skips an utterance whose `.flac` is
+    #: absent and keeps going, so a host with a partially extracted corpus scores a
+    #: *different* set and still reports 200. These numbers were taken on a laptop,
+    #: two rented x86 boxes and three CI runners, and "reproducible across CPUs" was
+    #: published off exactly that kind of cross-host comparison. A digest of the
+    #: selected ids makes a divergence visible instead of silent; `n_missing` names
+    #: its cause when it happens.
+    corpus: dict | None = None
 
 
 def _redact(text: str) -> str:
@@ -203,6 +215,7 @@ def provenance(timestamp: str) -> dict:
         omp_num_threads=os.environ.get("OMP_NUM_THREADS", "unset"),
         load_average_1m=_load_average(),
         argv=_argv(),
+        corpus=_LAST_SUBSET,
     )
     return asdict(p)
 
@@ -241,6 +254,20 @@ def load_audio(flac_path: Path) -> np.ndarray:
         audio = audio.mean(axis=1)
     assert sr == SAMPLE_RATE, f"expected {SAMPLE_RATE} Hz, got {sr}"
     return audio
+
+
+#: Set by `librispeech_subset` and read by `provenance()`. A module-level record
+#: rather than a return value on purpose: eight `__main__` blocks would each have to
+#: remember to thread it through, and that arrangement is what already failed for
+#: `provenance` itself and again for `argv`. Stamping happens where the data is.
+_LAST_SUBSET: dict | None = None
+
+
+def subset_digest(utt_ids) -> str:
+    """Stable 16-hex digest of an ordered utterance list."""
+    import hashlib
+
+    return hashlib.sha256("\n".join(utt_ids).encode("utf-8")).hexdigest()[:16]
 
 
 def librispeech_subset(
@@ -293,6 +320,7 @@ def librispeech_subset(
                 entries.append(e)
             if len(entries) >= n:
                 break
+        _record_subset(entries, n, split, stratified=False, tried=len(entries))
         return entries
 
     # Speaker-stratified round-robin (deterministic).
@@ -302,12 +330,14 @@ def librispeech_subset(
     speakers = sorted(by_speaker)
     out: list[tuple[str, Path, str, float]] = []
     idx = 0
+    tried = 0
     while len(out) < n:
         progressed = False
         for spk in speakers:
             bucket = by_speaker[spk]
             if idx < len(bucket):
                 progressed = True
+                tried += 1
                 e = _entry(bucket[idx])
                 if e is not None:
                     out.append(e)
@@ -316,7 +346,26 @@ def librispeech_subset(
         if not progressed:  # exhausted every speaker
             break
         idx += 1
+    _record_subset(out, n, split, stratified=True, tried=tried)
     return out
+
+
+def _record_subset(entries, requested: int, split: str, *, stratified: bool, tried: int) -> None:
+    """Remember what the last subset actually was, for `provenance()` to stamp."""
+    global _LAST_SUBSET
+    ids = [e[0] for e in entries]
+    _LAST_SUBSET = {
+        "dataset": f"LibriSpeech {split}",
+        "requested_n": requested,
+        "n": len(ids),
+        "stratified": stratified,
+        "sha256_16": subset_digest(ids),
+        "first": ids[0] if ids else "",
+        "last": ids[-1] if ids else "",
+        # Non-zero means the corpus on this host is not the corpus the digest of a
+        # peer artifact was taken over -- the failure this field exists to name.
+        "n_missing": max(0, tried - len(ids)),
+    }
 
 
 def percentile(values: list[float], q: float) -> float:
@@ -354,8 +403,14 @@ def write_result(name: str, payload: dict) -> Path:
         # it. Filled in rather than overwritten, so a caller that already recorded a
         # more precise command keeps it.
         prov = payload["provenance"]
-        if isinstance(prov, dict) and not prov.get("argv"):
-            payload = {**payload, "provenance": {**prov, "argv": _argv()}}
+        if isinstance(prov, dict):
+            fill = {}
+            if not prov.get("argv"):
+                fill["argv"] = _argv()
+            if not prov.get("corpus") and _LAST_SUBSET:
+                fill["corpus"] = _LAST_SUBSET
+            if fill:
+                payload = {**payload, "provenance": {**prov, **fill}}
     path = RESULTS_DIR / f"{name}.json"
     text = json.dumps(payload, indent=2, sort_keys=False)
     _archive_previous(path, text)
