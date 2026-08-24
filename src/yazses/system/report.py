@@ -28,6 +28,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from yazses.system.logtail import starts_record, tail_records
+
 # Config keys whose values are paths, addresses or identifiers rather than settings. The
 # value is replaced, not the key: knowing that a socket is configured is diagnostic, and
 # knowing where it points is nobody's business.
@@ -397,14 +399,39 @@ def _log_tail(log_file: Path, lines: int) -> list[str]:
         content = log_file.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError as exc:
         return [f"<unreadable: {exc}>"]
-    tail = content[-lines:]
-    kept = [line for line in tail if f" {_CONTENT_LEVEL} " not in line]
-    dropped = len(tail) - len(kept)
-    out = [redact_text(line) for line in kept]
+    # Drop whole *records*, not lines. A log record is not one line: every `exc_info=True`
+    # call writes a header plus a traceback, and a filter that tests each line drops the
+    # header -- the only line carrying the level -- while keeping the body, which carries
+    # the frames and the exception message. Reproduced on a synthetic log: two DEBUG
+    # headers removed, five of their own lines emitted, and the bundle reported "2 omitted".
+    # A record whose level was judged unsafe cannot have a safe remainder.
+    tail, _note = tail_records(content, lines)
+    kept: list[str] = []
+    dropped = 0
+    # Conservative until a header proves otherwise: a continuation line at the very start
+    # of the window belongs to a record whose level we cannot see, so it cannot be shown
+    # to be safe. `tail_records` makes that rare -- it survives only a rotation that cut
+    # the header away -- but the default has to be the safe one either way.
+    #
+    # Unless the window carries no record headers at all. Then it is not this format --
+    # a plain-text log, or a rotation that kept only bodies -- and there are no
+    # level-tagged records for the filter to protect against. Defaulting to unsafe there
+    # would empty the bundle rather than protect it, so the filter stands down and
+    # `redact_text` remains the guard, exactly as before.
+    unsafe = any(starts_record(line) for line in tail)
+    for line in tail:
+        if starts_record(line):
+            unsafe = f" {_CONTENT_LEVEL} " in line
+        if unsafe:
+            dropped += 1
+        else:
+            kept.append(redact_text(line))
+    out = kept
     if dropped:
         out.append(
-            f"<{dropped} DEBUG line(s) omitted: they can contain dictated text, and this "
-            f"bundle is meant to be shareable. Attach the log yourself if you need them.>"
+            f"<{dropped} line(s) omitted: whole DEBUG records, which can contain dictated "
+            f"text, and this bundle is meant to be shareable. Attach the log yourself if "
+            f"you need them.>"
         )
     return out
 

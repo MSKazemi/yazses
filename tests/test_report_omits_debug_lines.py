@@ -62,7 +62,7 @@ def test_the_omission_is_stated(tmp_path) -> None:
     out = _tail(tmp_path, [INFO, DEBUG, DEBUG, WARN])
     note = [line for line in out if "omitted" in line]
     assert note, "DEBUG lines vanished with no mention"
-    assert "2 DEBUG line(s)" in note[0]
+    assert "2 line(s)" in note[0] and "DEBUG" in note[0]
 
 
 def test_nothing_is_said_when_there_is_nothing_to_say(tmp_path) -> None:
