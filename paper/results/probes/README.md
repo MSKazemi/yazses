@@ -233,6 +233,45 @@ pass is prompted with the first pass's text. The flag acts on dictation-length a
 prompt changes what the model emits and so where `seek` lands. That is a consequence of
 the flag, not a confound: the prompt evidence is counted per pass.)
 
+### Where the benefit changes sign
+
+`base.en` and `large-v3` are the two ends of a ladder with nothing measured between
+them, which is a thin basis for a config key's guidance. Two arms, five decodes each,
+same 200 `test-other` utterances (`7a567011f21916c1`):
+
+| model | conditioning on | conditioning off | effect | distinct outputs |
+|---|---|---|---|---|
+| `base.en` | **9.46 %** | 9.81 % | helps by 0.35 | 1 / 1 |
+| `small.en` | **5.59 %** | 5.70 % | helps by 0.11 | 1 / 1 |
+| `medium.en` | 5.51 % | 5.51 % | **one hash across all ten decodes** | 1 |
+| `large-v3` | 4.84-6.21 % | **3.82 %** | hurts by ~1.05 | 5 / 1 |
+
+Monotone, and zero is reached exactly at `medium.en` -- both arms return
+`58f46b414140b432`, so the flag did not change a single token in 200 utterances.
+`test-clean` agrees at lower amplitude: `base.en` 4.01 against 4.24-4.28 %, `small.en`
+2.66 against 2.72 %.
+
+The pass counts explain the shape but not the whole of it. The share of utterances
+taking a second decode pass -- the only ones a prompt can reach at all -- falls with the
+checkpoint: **8 % on `base.en` (16/200), 1.5 % on `small.en` (3/200), 0.5 % on
+`medium.en` (1/200)**. If that were the whole story `medium.en` would show a small
+effect, not none. Its one multi-pass utterance **was** handed previous text, with
+`later_pass_prompted_utterances: 1`, and the output is identical anyway. So two things
+shrink together: how often the prompt is delivered, and how much the model is moved when
+it is. Only at `large-v3` does the second one turn around.
+
+The fallback counts fall too, which is why these arms are reproducible at all:
+`base.en` rejects 2 decode attempts over the 200, `small.en` and `medium.en` reject
+**none**. A model that never reaches the sampled step is bit-reproducible whatever the
+temperature ladder is configured to do -- and that is a measured statement here, not the
+inference the next section describes retiring.
+
+Two cross-checks arrived free. `small.en` 5.59 % and `medium.en` 5.51 % reproduce
+`../wer-test-other.json` **exactly**, from a different probe on a different day. And
+`small.en` `test-clean` 2.66 % reproduces the Xeon figure `docs/benchmarks.md` already
+prints against the reference laptop's 2.59 % -- the per-ISA int8 kernel difference that
+page documents, which I was one paragraph from filing as a new disagreement.
+
 ### An inference that the same probe retired
 
 `base.en` produces the same hash across five `baseline` and five `greedy` decodes.

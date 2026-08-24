@@ -6,6 +6,17 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — Snap publishing no longer aborts after finding an accepted revision
+
+- Both architectures in the v2.31.0 publish run uploaded successfully, but the
+  revision lookup piped live `snapcraft revisions` output into an `awk` program
+  that exited on its first match. Under `pipefail`, Snapcraft reported the closed
+  stdout pipe as exit 120 and the workflow never reached `snapcraft release`.
+- The workflow now captures the complete revision table before parsing it, while
+  retaining the bounded upload wait, architecture-qualified lookup, explicit
+  `stable,edge` release, and channel read-back. A regression test locks the
+  producer/consumer boundary that failed in production.
+
 ### Added — `[stt] condition_on_previous_text`, the knob the 2x2 found had no way to be reached
 
 - The decode measurement below found a failure mode a user could not turn off: conditioning
@@ -25,6 +36,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Config-only for now: it is not in the Settings window, which carries the value settings
   a person changes often, and this is one for a user who has already configured a large
   checkpoint by hand.
+
+### Measured — where the conditioning benefit changes sign, so the new key has a rule
+
+- `[stt] condition_on_previous_text` shipped with `base.en` at one end of the evidence and
+  `large-v3` at the other and nothing in between, which is a thin basis for guidance. Both
+  arms were run five times each on `small.en` and `medium.en`, same 200 `test-other`
+  utterances: **9.46 → 9.81 % (`base.en`), 5.59 → 5.70 % (`small.en`), 5.51 → 5.51 %
+  (`medium.en`), 4.84-6.21 → 3.82 % (`large-v3`)**. The benefit shrinks monotonically and
+  reaches exactly zero at `medium.en` — all ten decodes, both arms, return one hash, so the
+  flag did not change a single token. `test-clean` agrees at lower amplitude.
+- Counting decode passes says why, and not for the obvious reason. The share of utterances
+  taking a second pass — the only ones a prompt can reach — falls with the checkpoint too:
+  8 % on `base.en`, 1.5 % on `small.en`, 0.5 % on `medium.en`. But `medium.en`'s one
+  multi-pass utterance *was* handed the previous text and the output is identical anyway.
+  Two things shrink together: how often the prompt is delivered, and how much the model is
+  moved when it is.
+- **So the guidance is a size rule, not a preference**, and `docs/benchmarks.md` and the
+  config comment now say it: leave it alone on `base.en` and `small.en`, it changes nothing
+  on `medium.en`, set it `false` on `large-v3` and above.
+- Two cross-checks arrived free. `small.en` 5.59 % and `medium.en` 5.51 % reproduce
+  `paper/results/wer-test-other.json` exactly, from a different probe on a different day.
+  And `small.en` `test-clean` 2.66 % reproduces the Xeon figure this page already prints
+  against the laptop's 2.59 % — the per-ISA int8 kernel difference already documented, not
+  a new disagreement.
 
 ### Fixed — `[stt] model` told users the larger checkpoints were a marginal gain
 

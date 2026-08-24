@@ -34,6 +34,11 @@ class SttConfig:
     # wait, set small.en. medium.en costs 2.6x small.en for 0.08 of a point and
     # is not worth it. large-v3 is *worse* than both on hard audio (7.69%) and
     # decodes a different answer each run -- see condition_on_previous_text below.
+    #
+    # Read the ordering, not the digits: CTranslate2 picks different int8 kernels
+    # per instruction set, so the same decode on another CPU lands a few hundredths
+    # away (this laptop's 2.59% for small.en is 2.66% on a Xeon). The ranking is
+    # stable; the third significant figure is not.
     model: str = "base.en"
     # Spoken language, as a Whisper code ("en", "de", "fr", "es", "fa", …).
     # Empty string = let Whisper auto-detect per utterance, which costs an extra
@@ -84,6 +89,12 @@ class SttConfig:
     # to the model's last emitted timestamp rather than by a whole 30s window, so
     # 8-20% of ordinary sub-30-second utterances take a second pass that carries the
     # first pass's text.
+    #
+    # Measured across the checkpoint ladder on test-other, the benefit shrinks and
+    # then reverses: base.en 9.46% on against 9.81% off, small.en 5.59% against
+    # 5.70%, medium.en identical output byte for byte, large-v3 4.84-6.21% against
+    # 3.82%. So it is a size rule, not a preference -- leave it alone on base.en and
+    # small.en, it changes nothing on medium.en, set it false on large-v3 and above.
     condition_on_previous_text: bool = True
     # Optional vocabulary/context primed into Whisper as initial_prompt. Helps it
     # spell domain terms and proper nouns it otherwise mis-transcribes. `yazses

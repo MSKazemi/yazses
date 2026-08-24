@@ -317,12 +317,48 @@ model's **last emitted timestamp**, not by a whole window, so 8–20 % of ordina
 sub-30-second utterances take a second pass whose prompt is the first pass's text. The
 behaviour reaches dictation, not just `yazses transcribe` and Meeting Mode.
 
+#### Where the benefit changes sign
+
+Two checkpoints do not make a ladder, and the new key shipped with `base.en` at one end
+and `large-v3` at the other and nothing in between. So the two arms were run five times
+each on `small.en` and `medium.en` as well, same 200 `test-other` utterances:
+
+| model | conditioning on | conditioning off | effect |
+|---|---|---|---|
+| `base.en` | **9.46 %** | 9.81 % | helps by 0.35 |
+| `small.en` | **5.59 %** | 5.70 % | helps by 0.11 |
+| `medium.en` | 5.51 % | 5.51 % | **identical output, byte for byte** |
+| `large-v3` | 4.84–6.21 % | **3.82 %** | hurts, and costs reproducibility |
+
+The benefit shrinks monotonically with the checkpoint and reaches exactly zero at
+`medium.en` — not a small difference, *no* difference: all ten decodes, both arms,
+return one hash. `test-clean` says the same thing more quietly (`base.en` 4.01 against
+4.24–4.28 %, `small.en` 2.66 against 2.72 %).
+
+Counting decode passes says why, and it is not the obvious reason. The share of
+utterances taking a second pass — the only ones a prompt can reach — falls with the
+checkpoint too: **8 % on `base.en`, 1.5 % on `small.en`, 0.5 % on `medium.en`**. But
+`medium.en`'s one multi-pass utterance *was* handed the previous text, and the output
+is identical anyway. The prompt arrives and the model is not swayed by it. A stronger
+acoustic model needs the context less, right up until `large-v3`, where the context
+stops being a hint and becomes something to run away with.
+
+**So the guidance is a size rule, not a preference.** On `base.en` and `small.en`, leave
+`condition_on_previous_text` alone — it is earning its keep. On `medium.en` it makes no
+difference at all. Set it to `false` only on `large-v3` and above, where the failure it
+prevents is a repetition loop rather than a tenth of a point.
+
 Artifacts:
 [`decode-determinism-large-v3-test-other.json`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-determinism-large-v3-test-other.json),
 [`-no_context.json`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-determinism-large-v3-test-other-no_context.json),
 [`base.en-test-clean`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-determinism-base.en-test-clean.json),
 [`base.en-test-other`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-determinism-base.en-test-other.json),
 [`decode-arms-per-utterance`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-arms-per-utterance-large-v3-test-other.json),
+[`small.en-test-other`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-determinism-small.en-test-other-baseline-no_context.json),
+[`small.en-test-clean`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-determinism-small.en-test-clean-baseline-no_context.json),
+[`medium.en-test-other`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-determinism-medium.en-test-other-baseline-no_context.json),
+[`decode-mechanism-small.en`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-mechanism-small.en-test-other.json),
+[`decode-mechanism-medium.en`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-mechanism-medium.en-test-other.json),
 [`decode-mechanism-base.en-test-other`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/decode-mechanism-base.en-test-other.json).
 
 ### The same code on four instruction sets
