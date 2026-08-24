@@ -1,0 +1,318 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-24T12:00:44Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.30.0",
+    "numpy": "2.5.2",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 5.21,
+    "compute_type": "int8",
+    "device": "cpu",
+    "argv": "paper/benchmark/probes/decode_determinism.py 5 test-other 200 large-v3"
+  },
+  "config": {
+    "dataset": "LibriSpeech test-other",
+    "n_utterances": 200,
+    "model": "large-v3",
+    "repeats": 5,
+    "arms": {
+      "baseline": "faster-whisper defaults",
+      "greedy": {
+        "temperature": 0.0
+      },
+      "greedy_no_context": {
+        "temperature": 0.0,
+        "condition_on_previous_text": false
+      }
+    },
+    "normalizer": "whisper_normalizer.english.EnglishTextNormalizer"
+  },
+  "arms": {
+    "baseline": {
+      "runs": [
+        {
+          "wer": 5.11,
+          "substitutions": 87,
+          "deletions": 15,
+          "insertions": 88,
+          "hits": 3619,
+          "n_scored_utterances": 200,
+          "run": 0,
+          "hypothesis_sha256_16": "fe1ef36b23d4b1e2",
+          "rtf_median": 0.595,
+          "decode_seconds_total": 841.0,
+          "differs_from_run0": []
+        },
+        {
+          "wer": 6.1,
+          "substitutions": 87,
+          "deletions": 15,
+          "insertions": 125,
+          "hits": 3619,
+          "n_scored_utterances": 200,
+          "run": 1,
+          "hypothesis_sha256_16": "08c9247ccf20e16a",
+          "rtf_median": 0.594,
+          "decode_seconds_total": 814.6,
+          "differs_from_run0": [
+            "1998-15444-0002",
+            "4294-14317-0002"
+          ]
+        },
+        {
+          "wer": 5.35,
+          "substitutions": 87,
+          "deletions": 15,
+          "insertions": 97,
+          "hits": 3619,
+          "n_scored_utterances": 200,
+          "run": 2,
+          "hypothesis_sha256_16": "8947d99c1a7372ac",
+          "rtf_median": 0.585,
+          "decode_seconds_total": 802.8,
+          "differs_from_run0": [
+            "1998-15444-0002",
+            "4294-14317-0002"
+          ]
+        },
+        {
+          "wer": 6.21,
+          "substitutions": 87,
+          "deletions": 15,
+          "insertions": 129,
+          "hits": 3619,
+          "n_scored_utterances": 200,
+          "run": 3,
+          "hypothesis_sha256_16": "f59c3ccb76678ef1",
+          "rtf_median": 0.587,
+          "decode_seconds_total": 847.6,
+          "differs_from_run0": [
+            "1998-15444-0002",
+            "4294-14317-0002"
+          ]
+        },
+        {
+          "wer": 4.84,
+          "substitutions": 87,
+          "deletions": 15,
+          "insertions": 78,
+          "hits": 3619,
+          "n_scored_utterances": 200,
+          "run": 4,
+          "hypothesis_sha256_16": "c52ecc742de3f2e0",
+          "rtf_median": 0.586,
+          "decode_seconds_total": 840.2,
+          "differs_from_run0": [
+            "1998-15444-0002",
+            "4294-14317-0002"
+          ]
+        }
+      ],
+      "summary": {
+        "identical_text": false,
+        "distinct_outputs": 5,
+        "wer_min": 4.84,
+        "wer_max": 6.21,
+        "wer_spread": 1.37,
+        "wer_mean": 5.522,
+        "insertions_min": 78,
+        "insertions_max": 129,
+        "insertions_spread": 51,
+        "substitutions_min": 87,
+        "substitutions_max": 87,
+        "substitutions_spread": 0,
+        "deletions_min": 15,
+        "deletions_max": 15,
+        "deletions_spread": 0,
+        "n_utterances_ever_differing": 2,
+        "utterances_ever_differing": [
+          "1998-15444-0002",
+          "4294-14317-0002"
+        ]
+      }
+    },
+    "greedy": {
+      "runs": [
+        {
+          "wer": 15.26,
+          "substitutions": 87,
+          "deletions": 15,
+          "insertions": 466,
+          "hits": 3619,
+          "n_scored_utterances": 200,
+          "run": 0,
+          "hypothesis_sha256_16": "0f159281c2b100b9",
+          "rtf_median": 0.594,
+          "decode_seconds_total": 742.6,
+          "differs_from_run0": []
+        },
+        {
+          "wer": 15.26,
+          "substitutions": 87,
+          "deletions": 15,
+          "insertions": 466,
+          "hits": 3619,
+          "n_scored_utterances": 200,
+          "run": 1,
+          "hypothesis_sha256_16": "0f159281c2b100b9",
+          "rtf_median": 0.585,
+          "decode_seconds_total": 740.4,
+          "differs_from_run0": []
+        },
+        {
+          "wer": 15.26,
+          "substitutions": 87,
+          "deletions": 15,
+          "insertions": 466,
+          "hits": 3619,
+          "n_scored_utterances": 200,
+          "run": 2,
+          "hypothesis_sha256_16": "0f159281c2b100b9",
+          "rtf_median": 0.591,
+          "decode_seconds_total": 739.9,
+          "differs_from_run0": []
+        },
+        {
+          "wer": 15.26,
+          "substitutions": 87,
+          "deletions": 15,
+          "insertions": 466,
+          "hits": 3619,
+          "n_scored_utterances": 200,
+          "run": 3,
+          "hypothesis_sha256_16": "0f159281c2b100b9",
+          "rtf_median": 0.582,
+          "decode_seconds_total": 726.5,
+          "differs_from_run0": []
+        },
+        {
+          "wer": 15.26,
+          "substitutions": 87,
+          "deletions": 15,
+          "insertions": 466,
+          "hits": 3619,
+          "n_scored_utterances": 200,
+          "run": 4,
+          "hypothesis_sha256_16": "0f159281c2b100b9",
+          "rtf_median": 0.588,
+          "decode_seconds_total": 726.0,
+          "differs_from_run0": []
+        }
+      ],
+      "summary": {
+        "identical_text": true,
+        "distinct_outputs": 1,
+        "wer_min": 15.26,
+        "wer_max": 15.26,
+        "wer_spread": 0.0,
+        "wer_mean": 15.26,
+        "insertions_min": 466,
+        "insertions_max": 466,
+        "insertions_spread": 0,
+        "substitutions_min": 87,
+        "substitutions_max": 87,
+        "substitutions_spread": 0,
+        "deletions_min": 15,
+        "deletions_max": 15,
+        "deletions_spread": 0,
+        "n_utterances_ever_differing": 0,
+        "utterances_ever_differing": []
+      }
+    },
+    "greedy_no_context": {
+      "runs": [
+        {
+          "wer": 3.82,
+          "substitutions": 87,
+          "deletions": 15,
+          "insertions": 40,
+          "hits": 3619,
+          "n_scored_utterances": 200,
+          "run": 0,
+          "hypothesis_sha256_16": "b7d0705601ff3190",
+          "rtf_median": 0.576,
+          "decode_seconds_total": 706.7,
+          "differs_from_run0": []
+        },
+        {
+          "wer": 3.82,
+          "substitutions": 87,
+          "deletions": 15,
+          "insertions": 40,
+          "hits": 3619,
+          "n_scored_utterances": 200,
+          "run": 1,
+          "hypothesis_sha256_16": "b7d0705601ff3190",
+          "rtf_median": 0.572,
+          "decode_seconds_total": 704.2,
+          "differs_from_run0": []
+        },
+        {
+          "wer": 3.82,
+          "substitutions": 87,
+          "deletions": 15,
+          "insertions": 40,
+          "hits": 3619,
+          "n_scored_utterances": 200,
+          "run": 2,
+          "hypothesis_sha256_16": "b7d0705601ff3190",
+          "rtf_median": 0.58,
+          "decode_seconds_total": 702.8,
+          "differs_from_run0": []
+        },
+        {
+          "wer": 3.82,
+          "substitutions": 87,
+          "deletions": 15,
+          "insertions": 40,
+          "hits": 3619,
+          "n_scored_utterances": 200,
+          "run": 3,
+          "hypothesis_sha256_16": "b7d0705601ff3190",
+          "rtf_median": 0.566,
+          "decode_seconds_total": 703.7,
+          "differs_from_run0": []
+        },
+        {
+          "wer": 3.82,
+          "substitutions": 87,
+          "deletions": 15,
+          "insertions": 40,
+          "hits": 3619,
+          "n_scored_utterances": 200,
+          "run": 4,
+          "hypothesis_sha256_16": "b7d0705601ff3190",
+          "rtf_median": 0.578,
+          "decode_seconds_total": 709.4,
+          "differs_from_run0": []
+        }
+      ],
+      "summary": {
+        "identical_text": true,
+        "distinct_outputs": 1,
+        "wer_min": 3.82,
+        "wer_max": 3.82,
+        "wer_spread": 0.0,
+        "wer_mean": 3.82,
+        "insertions_min": 40,
+        "insertions_max": 40,
+        "insertions_spread": 0,
+        "substitutions_min": 87,
+        "substitutions_max": 87,
+        "substitutions_spread": 0,
+        "deletions_min": 15,
+        "deletions_max": 15,
+        "deletions_spread": 0,
+        "n_utterances_ever_differing": 0,
+        "utterances_ever_differing": []
+      }
+    }
+  }
+}

@@ -95,21 +95,72 @@ LibriSpeech, which downloads itself.
 
 `decode_determinism.py` is the other, and it is the follow-up: `largev3_repeat.py`
 established that only the insertions move, and this tests *why* and *whether it can be
-turned off*, by running the same 200 utterances through three decode settings -- what
-ships, `temperature=0.0`, and `temperature=0.0` with `condition_on_previous_text=False`
--- five times each. It records a SHA-256 of each run's concatenated hypotheses, because
-two runs that trade one insertion for another score the same WER and are not the same
-text, and the ids of the utterances that differ, because a spread says the model is
-noisy while a list of ids says where. Run it as
-`python paper/benchmark/probes/decode_determinism.py 5 test-other 200 large-v3`.
+turned off*, by running the same 200 utterances through four decode settings -- a 2x2
+over (temperature fallback, conditioning on previous text) -- five times each. It
+records a SHA-256 of each run's concatenated hypotheses, because two runs that trade
+one insertion for another score the same WER and are not the same text, and the ids of
+the utterances that differ, because a spread says the model is noisy while a list of
+ids says where. Run it as
+`python paper/benchmark/probes/decode_determinism.py 5 test-other 200 large-v3`, or
+name a subset of arms as a fifth argument.
 
-Its first result is `largev3-instability-test-other.json`, and it is the one number on
-this page worth re-deriving yourself, because it is a claim about *variance*. Across
-five decodes of the same 200 utterances the substitutions (87), deletions (15) and hits
-(3619) are bit-identical and only the insertions move (101 → 184), so every WER is
-exactly `(102 + insertions) / 3721`. Four repeats are enough to refute a trend — the
-first three fell monotonically and the fourth did not — and nowhere near enough to
-put an interval on the spread. That is what a re-run adds.
+`decode-determinism-large-v3-test-other.json` is the result, and it identifies the
+mechanism rather than merely measuring it. Five decodes per arm, 200 stratified
+`test-other` utterances, `large-v3` int8 on CPU:
+
+| arm | decode kwargs | WER | distinct outputs | insertions |
+|---|---|---|---|---|
+| `baseline` | faster-whisper defaults | 4.84-6.21 (mean 5.52) | **5 of 5** | 78-129 |
+| `greedy` | `temperature=0.0` | 15.26 | 1 | 466 |
+| `greedy_no_context` | `temperature=0.0`, `condition_on_previous_text=False` | 3.82 | 1 | 40 |
+
+Substitutions (87) and deletions (15) are identical in **every run of every arm**. No
+decode setting changed a single one. Whatever these arms do, they do it entirely by
+adding text that was never spoken -- which is the failure mode that matters for a
+dictation daemon, because a dropped word is visible on screen and a fluent inserted
+clause is not.
+
+The two fixed arms differ in exactly one keyword, and that isolates the cause.
+`greedy` -- sampling off, conditioning left on -- emits **466** insertions against
+`greedy_no_context`'s **40**. So conditioning on the previously emitted text is what
+drives the model into runaway repetition, and the temperature fallback is the rescue
+that exists for it: the baseline's 78-129 insertions are that rescue working, on a
+problem the other setting creates. It works by *sampling*, which is why it produces a
+different sentence every time and why the baseline is the only arm that is not
+reproducible. This matches the documented behaviour of the parameter upstream, where
+disabling conditioning is described as making the model less prone to a failure loop.
+
+The instability is also narrower than a corpus spread suggests: across five baseline
+decodes only **two** utterances ever differed (`1998-15444-0002`, `4294-14317-0002`),
+and those two move corpus WER by 1.37 points. A user meets this as a rare burst that
+comes out differently each time, not as uniform noise.
+
+Turning conditioning off is *also* slightly cheaper -- 705 s per decode against the
+baseline's 829 s -- while the **median** RTF is indistinguishable across all three arms
+(0.566-0.595). The saving is entirely the fallback re-decodes it avoids, concentrated
+in the few utterances that trigger them, so a median hides it and a total shows it.
+
+Two limits are load-bearing before any of this becomes a default. This ran with
+`numpy 2.5.2`, where `largev3-instability-test-other.json` ran with `2.4.6`, so the two
+artifacts' absolute WERs are **not** comparable -- the arms here are comparable with
+each other, which is the question asked. And 3.82 % is a 200-utterance stratified
+subset, not full `test-other`, so it should not be read against published full-set
+figures. What the four arms support is a statement about *this corpus on this host*.
+
+The fourth arm, `no_context` -- conditioning off, fallback **left on** -- was added
+after these three ran, because they do not contain the setting YazSes would actually
+ship: `greedy_no_context` moves both knobs at once and so cannot say whether the
+safety net still earns anything once the cause is gone. It is filed separately as
+`decode-determinism-large-v3-test-other-no_context.json`. It is also the only arm whose
+determinism is genuinely open, since it keeps the sampled rescue and is therefore
+reproducible only if the fallback never fires at all.
+
+`largev3-instability-test-other.json` is the earlier four-repeat run that established
+the variance. Across it the substitutions (87), deletions (15) and hits (3619) are
+bit-identical and only the insertions move (101 -> 184), so every WER is exactly
+`(102 + insertions) / 3721`. Four repeats are enough to refute a trend -- the first
+three fell monotonically and the fourth did not -- and nowhere near enough to put an
+interval on the spread.
 
 Note the artifact's `summary` was recomputed after the run by the committed
 `summarise()`, because the measurement host was carrying the version of the probe from
