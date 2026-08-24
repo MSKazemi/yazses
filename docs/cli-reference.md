@@ -1234,7 +1234,7 @@ and most other ffmpeg-decodable media.
 | `--diarize` / `--no-diarize` | Tag who said what with local speaker models (needs the `diarization` extra). |
 | `--speakers <N>` | Force an exact speaker count (`0` = auto-detect). |
 | `--max-speakers <N>` | ⚠ On the shipped `sherpa` diarizer this forces an **exact** count, it does not cap one: `6` on a three-person recording manufactures six by splitting real speakers apart. `0` (default) auto-detects. |
-| `--min-speakers <N>` | ⚠ **Ignored** by the shipped diarizer — only the pyannote adapter reads it, and this build does not ship it. The command says so before transcribing rather than silently ignoring the floor. |
+| `--min-speakers <N>` | ⚠ **Ignored** by the default `sherpa` diarizer — only the pyannote backend reads a lower bound, and that is an optional extra (`diarization-pyannote`, plus a gated Hugging Face model). The command says so before transcribing rather than silently ignoring the floor. |
 | `--names "Alice,Bob"` | Comma list mapped to speakers in order of first appearance. |
 | `--rename speaker_0=Alice` | Explicit speaker→name map, repeatable. |
 | `--download-models` | Fetch the ~45 MB sherpa diarization models, then exit (no transcription). |

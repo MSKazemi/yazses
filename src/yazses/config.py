@@ -1330,7 +1330,8 @@ class RecimportConfig:
     # against sherpa-onnx 1.13.5 on two well-separated speakers: num_clusters=2 gave
     # 2 clusters, 4 gave 4, and 6 gave 6 -- it splits real speakers to reach the
     # number. So a generous "at most 6" invents six people. 0 auto-detects, which is
-    # why it is the default. Only the (unshipped) pyannote backend treats it as a cap.
+    # why it is the default. Only the pyannote backend -- optional, behind the
+    # `diarization-pyannote` extra -- treats it as a cap.
     max_speakers: int = 0              # EXACT count on sherpa, not a cap; 0 auto-detects
     min_speakers: int = 0
     # Complete-linkage dendrogram CUT HEIGHT, so higher is more permissive -- backwards
@@ -1960,8 +1961,25 @@ def _apply_presets(cfg: Config) -> Config:
     """Apply convenience presets that flip several keys from one switch.
 
     Dysfluency-Friendly Mode (ADR-015): enable the disfluency collapse pass and
-    widen pre-speech padding for delayed voice onset. It does NOT alter
-    endpointing — YazSes is hold-to-talk, so the user controls utterance end.
+    widen pre-speech padding. It does NOT alter endpointing — YazSes is hold-to-talk,
+    so the user controls utterance end.
+
+    The padding widening was written for delayed voice onset and **that is not what it
+    does**, which is worth saying where it happens rather than leaving it for someone to
+    rediscover. `pre_speech_padding_ms` sizes two things: a ring buffer of real
+    pre-keypress audio, which is deliberately never fed (see
+    `tests/test_pre_speech_buffer_is_never_fed.py` — feeding it means listening while
+    the key is up), and a block of synthetic silence prepended before decode, which was
+    measured on 200 utterances and does nothing when the onset is intact
+    (`docs/benchmarks.md`). A soft, slow onset after the key goes down is *captured*;
+    nothing is missing, so there is nothing for padding to restore. What actually helps
+    that user is the gate the quiet speech has to clear — `[accessibility]
+    vad_threshold`, which `yazses mic-level --set` and the enrollment wizard tune, and
+    which `adaptive_vad` lowers on its own when a run of bursts is discarded.
+
+    The widening is kept because it is harmless and because narrowing an accessibility
+    preset on the strength of one corpus of read speech would be the wrong direction to
+    be wrong in.
     """
     if cfg.accessibility.dysfluency_friendly:
         cfg.filters.disfluency.collapse_repetitions = True

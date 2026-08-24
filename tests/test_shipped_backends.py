@@ -187,8 +187,13 @@ class _Annotation:
             yield _Segment(start, end), None, label
 
 
-def _fake_pyannote(monkeypatch, tracks, *, pipeline_is_none=False):
-    """Install fake ``torch`` and ``pyannote.audio`` modules; return the call log."""
+def _fake_pyannote(monkeypatch, tracks, *, pipeline_is_none=False, raises=None):
+    """Install fake ``torch`` and ``pyannote.audio`` modules; return the call log.
+
+    ``raises`` makes ``from_pretrained`` raise instead of returning, which is what
+    huggingface_hub actually does when ``token=True`` finds no stored token — the
+    path that reaches a real user first.
+    """
     calls: dict[str, object] = {}
 
     class _Pipeline:
@@ -205,6 +210,8 @@ def _fake_pyannote(monkeypatch, tracks, *, pipeline_is_none=False):
         def from_pretrained(name, token=None):
             calls["model"] = name
             calls["token"] = token
+            if raises is not None:
+                raise raises
             return None if pipeline_is_none else _Pipeline()
 
     torch_mod = types.ModuleType("torch")
@@ -288,15 +295,109 @@ def test_speaker_bounds_translate_the_zero_means_auto_convention(
     assert calls["kwargs"] == expected
 
 
+def _assert_names_the_whole_remedy(message):
+    """Both gated repos, the acceptance step, and a way to authenticate."""
+    from yazses.recimport.pyannote_backend import PIPELINE_ID, SEGMENTATION_ID
+
+    assert "conditions" in message, message
+    assert PIPELINE_ID in message, message
+    # The near-miss this exists for: accepting the pipeline and not the
+    # segmentation model it loads, which fails with an error naming neither.
+    assert SEGMENTATION_ID in message, message
+    assert "HF_TOKEN" in message and "hf auth login" in message, message
+
+
 def test_a_gated_model_without_a_token_explains_the_two_fixes(monkeypatch):
-    """from_pretrained returns None (not raises) for a gated repo — say why."""
+    """from_pretrained returns None (not raises) for some gated cases — say why."""
     _fake_pyannote(monkeypatch, [], pipeline_is_none=True)
     from yazses.recimport.pyannote_backend import PyannoteDiarizer
 
     with pytest.raises(RuntimeError) as excinfo:
         PyannoteDiarizer(_DiarCfg())
-    message = str(excinfo.value)
-    assert "conditions" in message and "HF_TOKEN" in message
+    _assert_names_the_whole_remedy(str(excinfo.value))
+
+
+# Each of these is a real shape huggingface_hub answers a gated repo with. The
+# first is the one every new user hits: `_auth_token()` returns True to use the
+# stored login, and hub raises rather than returning None when there is none.
+@pytest.mark.parametrize(
+    ("name", "text"),
+    [
+        ("LocalTokenNotFoundError", "Token is required (`token=True`), but no token found."),
+        ("GatedRepoError", "403 Client Error. Access to model is restricted."),
+        ("RepositoryNotFoundError", "401 Client Error. Repository Not Found"),
+        ("HfHubHTTPError", "Your request to access model is awaiting a review"),
+    ],
+)
+def test_a_raised_access_failure_gets_the_same_remedy(monkeypatch, name, text):
+    """The remedy used to be unreachable whenever hub raised instead of returning.
+
+    A user with no token saw huggingface_hub's own text, which names the token
+    and never the acceptance — so the message read as if the token were wrong.
+    """
+    exc = type(name, (OSError,), {})(text)
+    _fake_pyannote(monkeypatch, [], raises=exc)
+    from yazses.recimport.pyannote_backend import PyannoteDiarizer
+
+    with pytest.raises(RuntimeError) as excinfo:
+        PyannoteDiarizer(_DiarCfg())
+    _assert_names_the_whole_remedy(str(excinfo.value))
+    # The original text is kept, not swallowed: it is the only part that says
+    # which of the several access failures this actually was.
+    assert text in str(excinfo.value)
+    assert excinfo.value.__cause__ is exc
+
+
+def test_a_failure_that_is_not_about_access_is_not_relabelled(monkeypatch):
+    """A disk or network fault must not be reported as a licence problem.
+
+    The predicate is deliberately narrow: telling someone to accept model
+    conditions when their disk is full sends them to a web page for an hour.
+    """
+    exc = OSError("No space left on device")
+    _fake_pyannote(monkeypatch, [], raises=exc)
+    from yazses.recimport.pyannote_backend import PyannoteDiarizer
+
+    with pytest.raises(OSError) as excinfo:
+        PyannoteDiarizer(_DiarCfg())
+    assert excinfo.value is exc
+    assert "conditions" not in str(excinfo.value)
+
+
+def test_the_predicate_binds_against_the_real_huggingface_error_classes():
+    """The names are matched as strings — so prove they are still the real names.
+
+    ``huggingface_hub`` ships with ``faster_whisper``, so it is always installed
+    even without the diarization extra. Matching on the type name rather than
+    importing the classes keeps this adapter importable without the extra, but it
+    means an upstream rename would silently turn the remedy back into the raw
+    error. This is what notices.
+    """
+    from huggingface_hub import errors
+
+    from yazses.recimport.pyannote_backend import (
+        _ACCESS_ERROR_TYPES,
+        _is_access_failure,
+    )
+
+    for name in _ACCESS_ERROR_TYPES:
+        cls = getattr(errors, name, None)
+        assert cls is not None, f"huggingface_hub.errors no longer has {name}"
+        assert _is_access_failure(cls.__new__(cls))
+
+
+def test_the_login_command_is_the_one_that_still_exists():
+    """`huggingface-cli` is a deprecation shim in huggingface_hub 1.x.
+
+    Naming it first sends a user to a command that prints a deprecation notice
+    today and will not exist at all in the version this project already depends
+    on. The old spelling stays in the message only as a parenthetical for people
+    on an older hub.
+    """
+    from yazses.recimport.pyannote_backend import _gated_model_error
+
+    message = str(_gated_model_error())
+    assert message.index("hf auth login") < message.index("huggingface-cli login")
 
 
 def test_the_backend_is_dormant_without_the_dependency(monkeypatch):

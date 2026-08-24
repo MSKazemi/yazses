@@ -130,12 +130,19 @@ def speaker_count_advice(config, remedy: str) -> str | None:
 
     **The reason changed when the threshold did, and the wording had to change with it.**
     This advice was written against `cluster_threshold = 0.5`, where auto-count scored
-    84.09% DER on AMI and giving the count scored 28.55% — a gap so large that "set this
-    one flag" was simply correct. ADR-v2-133 raised the defaults, and on the full AMI test
-    split (16 recordings, 543.7 min) the ordering **reverses**: auto-count at `1.2` scores
-    **26.71%** and `max_speakers = 4` scores **29.42%**. Telling every user to pin the
-    count would now make the average result slightly worse, so this no longer claims to be
-    the largest improvement available.
+    84.09% DER on the four-meeting AMI subset and giving the count scored 28.55% — a gap
+    so large that "set this one flag" was simply correct. ADR-v2-133 raised the default to
+    `1.2`, and at that threshold auto-count scores **26.71%** on the full AMI test split
+    (16 recordings, 543.7 min) — better than the 29.42% a supplied count reached *at the
+    old threshold*, which is to say the default change achieved more than the flag did,
+    without asking the user for anything.
+
+    That is deliberately **not** the claim "supplying the count is now worse". This
+    docstring used to make it, and it does not follow: 29.42% was measured at `0.5` and
+    26.71% at `1.2`, so the two differ in the threshold as well as in the count.
+    Threshold `1.2` *with* a supplied count has not been measured. The hint therefore
+    stops recommending the flag rather than starting to warn against it — the honest
+    position when the deciding experiment has not been run.
 
     What survives the change is that the estimate is still *wrong*, in both directions and
     without saying so: exact on 2 of 16 AMI meetings (+2.06 on average), and on VoxConverse

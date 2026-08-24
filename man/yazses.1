@@ -316,7 +316,7 @@ Start recording a meeting (hands-free \(em no key to hold).
 .RS
 .TP
 \fB\-\-speakers, \-s\fR
-How many people are in the room. Worth more than every other setting: 84% DER at auto vs 29% when the count is given, on the AMI test split. 0 = use [meeting] max_speakers.
+How many people are in the room. On this backend it is an exact count, not a maximum, so leave it at 0 unless you know the number. 0 = use [meeting] max_speakers.
 .RE
 .TP
 \fByazses meeting status\fR
@@ -541,7 +541,7 @@ Tag who said what with local speaker models (needs the diarization extra).
 Force an exact speaker count (0 = auto-detect).
 .TP
 \fB\-\-min\-speakers\fR
-IGNORED by the shipped sherpa diarizer (only the unshipped pyannote adapter reads it) \(em the run warns and continues. Use --speakers to constrain the count.
+Ignored by the default sherpa diarizer \(em only the pyannote backend reads a lower bound (optional `diarization-pyannote` extra). The run warns and continues. Use --speakers to constrain the count.
 .TP
 \fB\-\-max\-speakers\fR
 Force exactly this many speakers on the shipped diarizer (same as --speakers). 0 = auto-detect.

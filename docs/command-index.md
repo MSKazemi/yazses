@@ -328,7 +328,7 @@ Fix speaker labels — merge two clusters and/or rename them — and re-render.
 
 Start recording a meeting (hands-free — no key to hold).
 
-- `--speakers`, `-s` — How many people are in the room. Worth more than every other setting: 84% DER at auto vs 29% when the count is given, on the AMI test split. 0 = use [meeting] max_speakers.
+- `--speakers`, `-s` — How many people are in the room. On this backend it is an exact count, not a maximum, so leave it at 0 unless you know the number. 0 = use [meeting] max_speakers.
 
 ### `yazses meeting status`
 
@@ -559,7 +559,7 @@ Transcribe an audio file to text — fully offline, on your machine.
 - `--format`, `-f` — Output format: txt (default) | md | srt | vtt | json (srt/vtt add timestamps).
 - `--diarize`, `--no-diarize` — Tag who said what with local speaker models (needs the diarization extra).
 - `--speakers` — Force an exact speaker count (0 = auto-detect).
-- `--min-speakers` — IGNORED by the shipped sherpa diarizer (only the unshipped pyannote adapter reads it) — the run warns and continues. Use --speakers to constrain the count.
+- `--min-speakers` — Ignored by the default sherpa diarizer — only the pyannote backend reads a lower bound (optional `diarization-pyannote` extra). The run warns and continues. Use --speakers to constrain the count.
 - `--max-speakers` — Force exactly this many speakers on the shipped diarizer (same as --speakers). 0 = auto-detect.
 - `--names` — Comma list mapped to speakers in order of first appearance: 'Alice,Bob,Carol'.
 - `--rename` — Explicit speaker→name map, repeatable: --rename speaker_0=Alice --rename speaker_1=Bob.

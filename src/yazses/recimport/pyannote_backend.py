@@ -69,9 +69,15 @@ log = logging.getLogger(__name__)
 # transcript should not shift because an upstream default moved.
 PIPELINE_ID = "pyannote/speaker-diarization-3.1"
 
+# The pipeline loads this internally, and it is gated *separately*. Accepting
+# only the pipeline's conditions still fails, with an error that names neither
+# repo — which is why this id is spelled out in the remedy below rather than
+# left for the user to discover from a stack trace.
+SEGMENTATION_ID = "pyannote/segmentation-3.0"
+
 # Checked in order; the first non-empty wins. These are the names the
 # huggingface_hub tooling itself honours, so a user who has already run
-# `huggingface-cli login` needs no extra setup.
+# `hf auth login` needs no extra setup.
 _TOKEN_ENV = ("HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "HUGGINGFACE_HUB_TOKEN")
 
 
@@ -99,10 +105,66 @@ def _auth_token() -> str | bool:
         value = os.environ.get(name, "").strip()
         if value:
             return value
-    # True tells huggingface_hub to use the token stored by `huggingface-cli
-    # login`. Returning None instead would silently attempt an anonymous fetch
-    # of a gated repo and fail with a bare 401.
+    # True tells huggingface_hub to use the token stored by `hf auth login`.
+    # Returning None instead would silently attempt an anonymous fetch of a
+    # gated repo and fail with a bare 401. It does mean huggingface_hub raises
+    # LocalTokenNotFoundError when nothing is stored, which __init__ translates.
     return True
+
+
+# Hugging Face refuses a gated repo in several unrelated shapes, and the class
+# has moved between upstream modules twice, so this matches on the exception's
+# type *name* and text rather than importing the error classes — the adapter has
+# to be able to explain the failure without an import that exists only once the
+# optional extra is installed.
+_ACCESS_ERROR_TYPES = (
+    "LocalTokenNotFoundError",   # token=True with nothing stored: what _auth_token asks for
+    "GatedRepoError",            # authenticated, conditions not accepted
+    "RepositoryNotFoundError",   # what a gated repo looks like to an unauthorised caller
+)
+_ACCESS_ERROR_MARKERS = (
+    "token is required",
+    "gated",
+    "awaiting a review",
+    "401 client error",
+    "403 client error",
+    "unauthorized",
+)
+
+
+def _is_access_failure(exc: BaseException) -> bool:
+    """Is *exc* Hugging Face withholding the pipeline, rather than a real fault?
+
+    ``RepositoryNotFoundError`` counts because the repo id here is a pinned
+    constant: it cannot be a typo, and HF answers 404 for a gated repo to a
+    caller who may not see it. A genuine network or disk failure matches none of
+    these and is left to propagate with its own message.
+    """
+    names = {cls.__name__ for cls in type(exc).__mro__}
+    if names.intersection(_ACCESS_ERROR_TYPES):
+        return True
+    text = str(exc).lower()
+    return any(marker in text for marker in _ACCESS_ERROR_MARKERS)
+
+
+def _gated_model_error(cause: str = "") -> RuntimeError:
+    """The one remedy message, shared by both ways the gate can present itself.
+
+    Hugging Face's own error names the token and stops there. The step people
+    actually miss is the acceptance — a perfectly valid token still fails until
+    the conditions are accepted, and the resulting message reads as if the token
+    were wrong. Both repos are named because accepting one of them is the more
+    common near-miss than accepting neither.
+    """
+    detail = f" {cause.strip()}" if cause.strip() else ""
+    return RuntimeError(
+        f"Could not load {PIPELINE_ID}.{detail} It is a gated model, so a token "
+        f"alone is not enough: accept the conditions at https://hf.co/{PIPELINE_ID} "
+        f"*and* at https://hf.co/{SEGMENTATION_ID} (the pipeline loads both) with "
+        "the same Hugging Face account, then run `hf auth login` (older installs: "
+        "`huggingface-cli login`) or set HF_TOKEN. The download happens once; "
+        "diarization itself runs offline."
+    )
 
 
 class PyannoteDiarizer:
@@ -124,20 +186,22 @@ class PyannoteDiarizer:
         # Cache-first (see `system/hfcache.py`). It matters most here: this is the one
         # fetch in the project that carries a credential, so the request it avoids is
         # the request that says which account is diarizing (ADR-019).
-        pipeline = load_cache_first(
-            lambda: Pipeline.from_pretrained(PIPELINE_ID, token=_auth_token()),
-            what=f"the diarization pipeline '{PIPELINE_ID}'",
-        )
-        if pipeline is None:
-            # from_pretrained returns None (rather than raising) when the repo is
-            # gated and the token is missing or has not accepted the conditions.
-            # Say which of those it is, because the fixes are different.
-            raise RuntimeError(
-                f"Could not load {PIPELINE_ID}. Accept the model conditions at "
-                f"https://hf.co/{PIPELINE_ID} with your Hugging Face account, then "
-                "either run `huggingface-cli login` or set HF_TOKEN. The download "
-                "happens once; diarization itself runs offline."
+        # The gate presents itself two ways and only one of them was handled.
+        # `from_pretrained` returns None for some gated cases, but huggingface_hub
+        # raises before that whenever `token=True` finds nothing stored — which is
+        # the *first* thing a new user hits — so the remedy below was unreachable
+        # on the commonest path and the raw HF text went to the log instead.
+        try:
+            pipeline = load_cache_first(
+                lambda: Pipeline.from_pretrained(PIPELINE_ID, token=_auth_token()),
+                what=f"the diarization pipeline '{PIPELINE_ID}'",
             )
+        except Exception as exc:
+            if _is_access_failure(exc):
+                raise _gated_model_error(str(exc)) from exc
+            raise
+        if pipeline is None:
+            raise _gated_model_error()
         # CPU is explicit for the same reason as the voiceprint backends: this
         # project is CPU-only by design and should not silently claim a GPU.
         self._pipeline = pipeline.to(torch.device("cpu"))

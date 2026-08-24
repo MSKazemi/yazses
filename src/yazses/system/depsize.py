@@ -86,8 +86,10 @@ _MODEL_FETCHERS: dict[str, tuple[float | None, tuple[str, ...]]] = {
     "yazses/voiceprint/ecapa.py": (20.0, ("cocktail",)),
     # pyannote maps to no slug for the same reason as `stt/download.py`: it is chosen
     # by `[recimport] backend = "pyannote"`, a config value rather than a capability,
-    # and `system/backends.py` classes the adapter as not shipped in this build. The
-    # sherpa models that the shipped path does fetch are priced above.
+    # so no `features enable` ever prices it. (The adapter itself does ship, behind
+    # the `diarization-pyannote` extra -- an earlier version of this comment said
+    # otherwise, citing `system/backends.py`, which says the opposite.) The sherpa
+    # models that the default path fetches are priced above.
     "yazses/recimport/pyannote_backend.py": (None, ()),
 }
 

@@ -230,8 +230,8 @@ def fileopen(
 def meeting_start(
     speakers: int = typer.Option(
         0, "--speakers", "-s",
-        help="How many people are in the room. Worth more than every other setting: "
-             "84% DER at auto vs 29% when the count is given, on the AMI test split. "
+        help="How many people are in the room. On this backend it is an exact count, "
+             "not a maximum, so leave it at 0 unless you know the number. "
              "0 = use [meeting] max_speakers."),
 ) -> None:
     """Start recording a meeting (hands-free — no key to hold).
@@ -4857,9 +4857,9 @@ def transcribe(
         0, "--speakers", help="Force an exact speaker count (0 = auto-detect)."),
     min_speakers: int = typer.Option(
         0, "--min-speakers",
-        help="IGNORED by the shipped sherpa diarizer (only the unshipped pyannote "
-             "adapter reads it) — the run warns and continues. Use --speakers to "
-             "constrain the count."),
+        help="Ignored by the default sherpa diarizer — only the pyannote backend "
+             "reads a lower bound (optional `diarization-pyannote` extra). The run "
+             "warns and continues. Use --speakers to constrain the count."),
     max_speakers: int = typer.Option(
         0, "--max-speakers",
         help="Force exactly this many speakers on the shipped diarizer (same as "
@@ -4959,16 +4959,19 @@ def transcribe(
         language=language or ri.language,
     )
 
-    # `--min-speakers` is read only by recimport/pyannote_backend.py, which is one of
-    # the adapters this build does not ship (system/backends.py calls that class out
-    # separately from "the optional dependency is missing"). The default `sherpa`
-    # diarizer reads max_speakers alone, so a lower bound silently does nothing --
-    # said here, before a long transcription, rather than discovered after it.
+    # `--min-speakers` is read only by recimport/pyannote_backend.py, which ships
+    # behind the optional `diarization-pyannote` extra rather than by default. (An
+    # earlier version of this comment said the adapter was not shipped at all, and
+    # so did the message below -- it has shipped since 90c801f. Telling someone no
+    # backend honours a floor stops them installing the one that does.) The default
+    # `sherpa` diarizer reads max_speakers alone, so a lower bound silently does
+    # nothing -- said here, before a long transcription, rather than after it.
     if want_diarize and min_speakers and (eff.backend or "sherpa").strip().lower() != "pyannote":
         typer.echo(
             f"Note: --min-speakers is ignored by the '{eff.backend}' diarizer; only the "
-            "pyannote backend honours a lower bound, and it is not shipped in this "
-            "build. Use --speakers to force an exact count.", err=True)
+            "pyannote backend honours a lower bound. Install the optional "
+            "'diarization-pyannote' extra and set [recimport] backend = \"pyannote\" "
+            "to use one, or use --speakers to force an exact count.", err=True)
 
     # Said here rather than after the transcription, for the same reason as the note
     # above: on a long recording the run is measured in minutes, and advice that

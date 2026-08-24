@@ -71,16 +71,30 @@ def test_the_command_contains_no_way_to_execute_anything() -> None:
     """
     from yazses.cli import shellpipe
 
-    tree = ast.parse(inspect.cleandoc(inspect.getsource(shellpipe)))
+    # Where the source came from, reported on failure. This assertion reads a live
+    # object through `inspect`, and it failed once in a full-suite run and passed both
+    # in isolation and on an identically-ordered repeat, leaving no way to tell whether
+    # a real call had appeared or `getsource` had handed back something else entirely.
+    # An assertion about parsed source that does not say what it parsed cannot be
+    # diagnosed after the fact, and a security guard is the worst place to be guessing.
+    origin = inspect.getsourcefile(shellpipe)
+    source = inspect.getsource(shellpipe)
+    tree = ast.parse(inspect.cleandoc(source))
     called = {
         getattr(n.func, "attr", getattr(n.func, "id", ""))
         for n in ast.walk(tree)
         if isinstance(n, ast.Call)
     }
+    assert source.lstrip().startswith(("def shellpipe", "@")), (
+        f"inspect.getsource() did not return the shellpipe command — it returned "
+        f"{source.splitlines()[:1]} from {origin}. Nothing has been proved about the "
+        f"command; treat this as a broken check, not as a passing one."
+    )
     for forbidden in ("run", "Popen", "call", "check_call", "check_output", "system"):
         assert forbidden not in called, (
             f"`yazses shellpipe` now calls {forbidden}() — it used to promise it never "
-            f"executes anything, and the catalog wording depends on that"
+            f"executes anything, and the catalog wording depends on that. Parsed from "
+            f"{origin}; calls seen: {sorted(called)}"
         )
 
 

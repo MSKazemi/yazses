@@ -121,15 +121,49 @@ def daemon_interpreter_differs(lifecycle=None) -> str | None:
         # argv[0] is the venv's own python, which is the thing that differs.
         raw = Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0")
         argv0 = raw[0].decode() if raw and raw[0] else ""
+        # argv[0] is whatever was typed, so it is routinely *relative* -- a
+        # `.venv/bin/python` or `./venv/bin/yazses-daemon` started from a
+        # checkout. Resolving it needs the process's own working directory, not
+        # ours, and the two are not the same process.
+        cwd = os.readlink(f"/proc/{pid}/cwd")
     except Exception:
         return None
     if not argv0:
         return None
-    # `<env>/bin/python` -> `<env>`, which is what sys.prefix reports for ours.
-    daemon_prefix = os.path.dirname(os.path.dirname(argv0))
-    if not daemon_prefix or daemon_prefix == sys.prefix:
+    daemon_prefix = _env_prefix(argv0, cwd)
+    if not daemon_prefix or daemon_prefix == _norm(sys.prefix):
         return None
     return argv0
+
+
+def _norm(path: str) -> str:
+    """Absolute and normalised, but **not** symlink-resolved.
+
+    `realpath` would defeat the whole check: a venv's `python` is a symlink to a
+    base interpreter, so two different virtualenvs on the same base collapse to
+    one path and the mismatch never fires.
+    """
+    import os
+
+    return os.path.normpath(os.path.abspath(path))
+
+
+def _env_prefix(argv0: str, cwd: str) -> str:
+    """`<env>/bin/python` -> `<env>`, as an absolute path. Pure.
+
+    Split out and made cwd-relative because the naive version compared a
+    *relative* `dirname(dirname(argv0))` -- `.venv` -- against an absolute
+    `sys.prefix`, which can never be equal. Every daemon started by typing a
+    relative path was therefore reported as a different interpreter, and
+    `features enable` told the user to install into `.venv/bin/python`: a path
+    that means something different in every directory, and nothing in most.
+    """
+    import os
+
+    if not os.path.dirname(argv0):
+        return ""  # a bare name found on PATH says nothing about an environment
+    absolute = argv0 if os.path.isabs(argv0) else os.path.join(cwd, argv0)
+    return _norm(os.path.dirname(os.path.dirname(absolute)))
 
 
 def install_packages(packages: Sequence[str], *, echo=print) -> bool:

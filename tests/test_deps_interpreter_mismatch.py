@@ -32,7 +32,15 @@ def test_a_daemon_with_no_pid_is_not_guessed_at():
 
 
 def test_our_own_process_is_not_reported_as_different():
-    """The common case — one install — must stay silent."""
+    """The common case — one install — must stay silent.
+
+    Note this test reads the host: its `argv[0]` is however the suite happened to
+    be launched. It passed for a year under `uv run python -m pytest` (absolute)
+    and failed the first time the suite was run as `.venv/bin/python -m pytest`
+    (relative) — the bug was in the product, but only one way of invoking pytest
+    could see it. `test_a_relative_argv0_is_the_same_environment` below is the
+    version that does not depend on that, and is the one to trust.
+    """
     import os
 
     assert deps.daemon_interpreter_differs(_lifecycle(True, os.getpid())) is None
@@ -56,3 +64,63 @@ def test_the_warning_names_both_interpreters(monkeypatch, capsys):
     assert "/opt/other/bin/python" in text
     assert sys.executable in text
     assert "pip install sherpa-onnx" in text, "must give the command that fixes it"
+
+
+# --- the environment prefix, decided on strings rather than on this host --------
+#
+# `_env_prefix` is pure over (argv0, cwd), which is what lets these cases be
+# stated exactly instead of depending on how the suite was launched.
+
+
+def test_a_relative_argv0_is_the_same_environment():
+    """The regression. `.venv/bin/python` from the repo root *is* this venv.
+
+    `dirname(dirname(".venv/bin/python"))` is `.venv`, which cannot equal an
+    absolute `sys.prefix`, so every daemon started by typing a relative path was
+    reported as a different interpreter — and `features enable` then told the
+    user to install into `.venv/bin/python`, a path that means something
+    different in every directory and nothing in most.
+    """
+    assert deps._env_prefix(".venv/bin/python", "/home/u/proj") == "/home/u/proj/.venv"
+    assert deps._env_prefix("./venv/bin/python", "/home/u/proj") == "/home/u/proj/venv"
+    assert deps._env_prefix("../other/bin/python", "/home/u/proj") == "/home/u/other"
+
+
+def test_an_absolute_argv0_ignores_the_working_directory():
+    assert deps._env_prefix("/opt/yz/bin/python", "/anywhere") == "/opt/yz"
+
+
+def test_a_bare_name_on_path_says_nothing_about_an_environment():
+    """`python3` resolved from PATH names no prefix; guessing one would warn wrongly."""
+    assert deps._env_prefix("python3", "/home/u/proj") == ""
+
+
+def test_two_venvs_on_one_base_interpreter_still_differ():
+    """The property the original comment protects: no symlink resolution.
+
+    A venv's `python` is a symlink to a shared base, so `realpath` would collapse
+    these two to one path and the check would never fire — which is the bug this
+    whole function was written for.
+    """
+    a = deps._env_prefix("/home/u/a/.venv/bin/python", "/")
+    b = deps._env_prefix("/home/u/b/.venv/bin/python", "/")
+    assert a != b
+
+
+def test_a_relative_daemon_path_is_resolved_against_the_daemons_cwd(monkeypatch):
+    """End to end through /proc, with the daemon in a *different* directory.
+
+    Resolving against our own cwd would be a plausible-looking fix that is wrong
+    whenever the daemon was started somewhere else — which is the normal case.
+    """
+    import os
+
+    monkeypatch.setattr(
+        deps.Path, "read_bytes", lambda self: b".venv/bin/python\0-m\0yazses\0"
+    )
+    monkeypatch.setattr(os, "readlink", lambda path: "/srv/elsewhere")
+    other = deps.daemon_interpreter_differs(_lifecycle(True, 4242))
+    assert other == ".venv/bin/python", (
+        "a daemon in /srv/elsewhere is genuinely a different environment from "
+        f"{sys.prefix} and must be reported"
+    )
