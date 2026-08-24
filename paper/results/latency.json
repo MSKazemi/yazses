@@ -1,0 +1,79 @@
+{
+  "provenance": {
+    "timestamp": "2026-07-30T20:47:09Z",
+    "cpu_model": "13th Gen Intel(R) Core(TM) i7-1370P",
+    "logical_cpus": 20,
+    "ram_gb": 33.3,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "7.0.0-28-generic",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.12.0.dev4",
+    "numpy": "2.4.6",
+    "compute_type": "int8",
+    "device": "cpu"
+  },
+  "config": {
+    "n_latency_utterances": 30,
+    "audio_duration_median_s": 7.28,
+    "audio_duration_p95_s": 14.9,
+    "pure_stage_reps": 2000
+  },
+  "memory": {
+    "baseline_rss_mb": 820.4
+  },
+  "models": {
+    "tiny.en": {
+      "cold_start_load_s": 0.6,
+      "decode_median_ms": 889.8,
+      "decode_p95_ms": 1608.5,
+      "rss_after_load_mb": 857.4,
+      "rss_peak_mb": 872.9,
+      "model_rss_delta_mb": 37.0
+    },
+    "base.en": {
+      "cold_start_load_s": 0.85,
+      "decode_median_ms": 1561.1,
+      "decode_p95_ms": 3529.7,
+      "rss_after_load_mb": 873.5,
+      "rss_peak_mb": 892.1,
+      "model_rss_delta_mb": 53.2
+    },
+    "small.en": {
+      "cold_start_load_s": 1.63,
+      "decode_median_ms": 5053.4,
+      "decode_p95_ms": 8970.3,
+      "rss_after_load_mb": 1340.1,
+      "rss_peak_mb": 1340.2,
+      "model_rss_delta_mb": 519.7
+    }
+  },
+  "pipeline_stages": {
+    "vad_gate": {
+      "median_ms": 0.0626,
+      "p95_ms": 0.0756,
+      "mean_ms": 0.0832
+    },
+    "clean_text": {
+      "median_ms": 0.0054,
+      "p95_ms": 0.0057,
+      "mean_ms": 0.0053
+    },
+    "disfluency_filter": {
+      "median_ms": 0.1465,
+      "p95_ms": 0.1701,
+      "mean_ms": 0.1413
+    },
+    "grammar_classify_dictation": {
+      "median_ms": 0.0745,
+      "p95_ms": 0.0931,
+      "mean_ms": 0.0744
+    },
+    "grammar_classify_command": {
+      "median_ms": 0.0435,
+      "p95_ms": 0.0489,
+      "mean_ms": 0.0429
+    }
+  },
+  "non_decode_overhead_median_ms": 0.289
+}

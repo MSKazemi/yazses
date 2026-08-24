@@ -1,0 +1,25 @@
++ export PATH=$HOME/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
++ PATH=$HOME/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
++ cd $HOME/yazses
++ uv run yazses transcribe --download-models
++ tail -6
+Downloading segmentation model → $HOME/.local/share/yazses/diarization/sherpa-onnx-pyannote-segmentation-3-0.onnx …
+Downloading embedding model → $HOME/.local/share/yazses/diarization/3dspeaker-eres2net-base.onnx …
+Diarization models ready.
++ uv run python paper/benchmark/bench_diarization.py $HOME/meeting_corpus $HOME/der.json
+[der] meeting00: DER=22.08% (collar250=15.4%) speakers 4/2
+[der] meeting01: DER=17.02% (collar250=13.61%) speakers 5/3
+[der] meeting02: DER=23.6% (collar250=19.02%) speakers 8/4
+[der] meeting03: DER=28.35% (collar250=25.26%) speakers 12/5
+[der] meeting04: DER=19.15% (collar250=15.08%) speakers 8/6
+[der] meeting05: DER=10.5% (collar250=5.49%) speakers 5/2
+[der] meeting06: DER=40.65% (collar250=36.88%) speakers 7/3
+[der] meeting07: DER=20.79% (collar250=16.4%) speakers 7/4
+{
+  "der_strict": 22.77,
+  "der_collar250ms": 18.39,
+  "missed_pct": 10.27,
+  "false_alarm_pct": 0.35,
+  "confusion_pct": 12.14,
+  "mean_speaker_count_error": 3.38
+}

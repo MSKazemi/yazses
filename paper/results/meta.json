@@ -1,0 +1,35 @@
+{
+  "provenance": {
+    "timestamp": "2026-07-30T20:47:09Z",
+    "cpu_model": "13th Gen Intel(R) Core(TM) i7-1370P",
+    "logical_cpus": 20,
+    "ram_gb": 33.3,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "7.0.0-28-generic",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.12.0.dev4",
+    "numpy": "2.4.6",
+    "compute_type": "int8",
+    "device": "cpu"
+  },
+  "dysfluency_gate": {
+    "n_clean_control": 33,
+    "n_dysfluent": 28,
+    "false_collapse_rate_pct": 0.0,
+    "recall_pct": 92.86,
+    "pre_registered_gate": "false-collapse < 2% AND recall >= 60% (ADR-015 LOFA-1)"
+  },
+  "model_footprint_mb": {
+    "tiny.en": 78.1,
+    "base.en": 147.8,
+    "small.en": 486.1
+  },
+  "engineering_scale": {
+    "test_files": 201,
+    "test_functions": 1639,
+    "adr_files": 147,
+    "src_python_files": 403,
+    "src_lines": 30306
+  }
+}

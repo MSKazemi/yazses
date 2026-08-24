@@ -1,0 +1,18 @@
+=== serial_x86b finished 2026-08-24T00:41:07Z load:8.90
+[beam] base.en beam=1 (test-clean): WER 4.39% (95% CI 3.58-5.29)  RTF 0.0314  (56.9s)
+[beam] base.en beam=2 (test-clean): WER 4.01% (95% CI 3.25-4.79)  RTF 0.0332  (60.0s)
+[beam] base.en beam=3 (test-clean): WER 4.07% (95% CI 3.29-4.95)  RTF 0.0373  (67.4s)
+[beam] base.en beam=5 (test-clean): WER 4.01% (95% CI 3.21-4.87)  RTF 0.037  (66.8s)
+[beam] base.en beam=8 (test-clean): WER 4.01% (95% CI 3.24-4.84)  RTF 0.0385  (69.7s)
+[beam] small.en beam=1 (test-clean): WER 2.53% (95% CI 1.95-3.14)  RTF 0.0703  (127.1s)
+[beam] small.en beam=5 (test-clean): WER 2.66% (95% CI 2.05-3.28)  RTF 0.078  (141.1s)
+=== beam-clean-paired rc=0 2026-08-24T00:51:03Z load:6.35
+[beam] base.en beam=1 (test-other): WER 10.56% (95% CI 8.65-12.9)  RTF 0.0382  (53.6s)
+[beam] base.en beam=2 (test-other): WER 9.49% (95% CI 8.03-11.18)  RTF 0.0395  (55.4s)
+[beam] base.en beam=3 (test-other): WER 9.51% (95% CI 7.98-11.32)  RTF 0.0403  (56.6s)
+[beam] base.en beam=5 (test-other): WER 9.46% (95% CI 7.92-11.17)  RTF 0.0426  (59.8s)
+[beam] base.en beam=8 (test-other): WER 9.84% (95% CI 8.17-11.75)  RTF 0.0469  (65.7s)
+[beam] small.en beam=1 (test-other): WER 6.18% (95% CI 4.77-7.61)  RTF 0.0856  (120.1s)
+[beam] small.en beam=5 (test-other): WER 5.59% (95% CI 4.44-6.8)  RTF 0.0932  (130.7s)
+=== beam-other-paired rc=0 2026-08-24T01:00:11Z load:8.39
+SERIAL_X86B_NEXT_DONE

@@ -1,0 +1,12 @@
+=== IS1009a only: does ANY threshold recover 4 speakers? ===
+[sweep] threshold=0.5  DER=90.2%  count_err=+82.00  exact=0/1
+[sweep] threshold=0.7  DER=76.49%  count_err=+52.00  exact=0/1
+[sweep] threshold=0.9  DER=51.68%  count_err=+24.00  exact=0/1
+[sweep] threshold=1.0  DER=31.89%  count_err=+17.00  exact=0/1
+[sweep] threshold=1.1  DER=28.14%  count_err=+6.00  exact=0/1
+[sweep] threshold=1.2  DER=21.89%  count_err=+0.00  exact=1/1
+[sweep] threshold=1.3  DER=45.45%  count_err=-3.00  exact=0/1
+[sweep] threshold=1.5  DER=45.45%  count_err=-3.00  exact=0/1
+[sweep] threshold=1.7  DER=45.45%  count_err=-3.00  exact=0/1
+[sweep] threshold=2.0  DER=45.45%  count_err=-3.00  exact=0/1
+WIDE_DONE

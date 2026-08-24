@@ -1,0 +1,106 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-23T22:52:22Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.5.2",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 11.34,
+    "compute_type": "int8",
+    "device": "cpu",
+    "captured": "after the run, on the same host, which was not reconfigured between the two"
+  },
+  "probe": {
+    "measured": "WER and RTF against beam_size on test-clean -- does the shipped beam earn its latency?",
+    "produced_by": "probes/beam_probe.py",
+    "host": "Azure Standard_D16s_v6, westeurope (16 vCPU Xeon Platinum 8573C, 67 GB)",
+    "run_finished_utc": "2026-08-23T20:00:58Z",
+    "superseded_by": "paper/benchmark/bench_beam.py"
+  },
+  "result": {
+    "config": {
+      "n_utterances": 200,
+      "total_audio_seconds": 1808.5,
+      "split": "test-clean"
+    },
+    "rows": [
+      {
+        "model": "base.en",
+        "beam_size": 1,
+        "wer": 4.39,
+        "sub": 151,
+        "del": 26,
+        "ins": 28,
+        "decode_seconds": 56.1,
+        "rtf": 0.031
+      },
+      {
+        "model": "base.en",
+        "beam_size": 2,
+        "wer": 4.01,
+        "sub": 142,
+        "del": 14,
+        "ins": 31,
+        "decode_seconds": 58.3,
+        "rtf": 0.0322
+      },
+      {
+        "model": "base.en",
+        "beam_size": 3,
+        "wer": 4.07,
+        "sub": 145,
+        "del": 16,
+        "ins": 29,
+        "decode_seconds": 62.9,
+        "rtf": 0.0348
+      },
+      {
+        "model": "base.en",
+        "beam_size": 5,
+        "wer": 4.01,
+        "sub": 141,
+        "del": 16,
+        "ins": 30,
+        "decode_seconds": 65.2,
+        "rtf": 0.0361
+      },
+      {
+        "model": "base.en",
+        "beam_size": 8,
+        "wer": 4.01,
+        "sub": 143,
+        "del": 16,
+        "ins": 28,
+        "decode_seconds": 68.2,
+        "rtf": 0.0377
+      },
+      {
+        "model": "small.en",
+        "beam_size": 1,
+        "wer": 2.53,
+        "sub": 97,
+        "del": 12,
+        "ins": 9,
+        "decode_seconds": 119.9,
+        "rtf": 0.0663
+      },
+      {
+        "model": "small.en",
+        "beam_size": 5,
+        "wer": 2.66,
+        "sub": 100,
+        "del": 16,
+        "ins": 8,
+        "decode_seconds": 138.3,
+        "rtf": 0.0765
+      }
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+Traceback (most recent call last):
+  File "$HOME/guard_corpus.py", line 15, in <module>
+    manifest = bd._read_manifest(corpus)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "$HOME/yazses/paper/benchmark/bench_diarization.py", line 147, in _read_manifest
+    manifest = json.loads((corpus / "manifest.json").read_text(encoding="utf-8"))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1029, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1015, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '$HOME/ami/wav/manifest.json'

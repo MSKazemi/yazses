@@ -1,0 +1,16 @@
+=== independent scoring of the AMI hypothesis (IS1009a, shipped defaults) ===
+--- NIST md-eval-22.pl, collar 0, overlap scored ---
+SCORED SPEAKER TIME =695.900000 secs
+MISSED SPEAKER TIME =53.715000 secs
+FALARM SPEAKER TIME =39.801000 secs
+SPEAKER ERROR TIME =528.216000 secs
+ OVERALL SPEAKER DIARIZATION ERROR = 89.34 percent of scored speaker time  `(ALL)
+--- NIST md-eval-22.pl, collar 0.25 ---
+ OVERALL SPEAKER DIARIZATION ERROR = 82.76 percent of scored speaker time  `(ALL)
+--- pyannote.metrics 4.1 ---
+$HOME/pmetrics/lib/python3.12/site-packages/pyannote/metrics/utils.py:200: UserWarning: 'uem' was approximated by the union of 'reference' and 'hypothesis' extents.
+  warnings.warn(
+collar=0.0  DER=90.20%  miss=7.72%  fa=6.58%  conf=75.90%
+collar=0.25  DER=86.31%  miss=6.03%  fa=4.34%  conf=75.94%
+ref speakers: 4  hyp speakers: 86
+=== done ===

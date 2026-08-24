@@ -1,0 +1,155 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-23T22:49:06Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 1.0,
+    "compute_type": "int8",
+    "device": "cpu",
+    "captured": "after the run, on the same host, which was not reconfigured between the two"
+  },
+  "probe": {
+    "measured": "DER on four real AMI meetings.",
+    "produced_by": "paper/benchmark/bench_diarization.py",
+    "host": "Azure Standard_D16s_v6, westeurope (16 vCPU Xeon Platinum 8573C, 67 GB)",
+    "run_finished_utc": "2026-08-23T14:23:45Z"
+  },
+  "result": {
+    "config": {
+      "corpus": "$HOME/ami_corpus",
+      "corpus_kind": "human-annotated RTTM from pyannote/AMI-diarization-setup (only_words, test split) over the AMI headset mix",
+      "caveat": "real four-person meetings in real rooms: a genuine DER for Meeting Mode's target domain, not a floor. Headset mix is cleaner than a single table microphone, so a far-field recording scores worse. Not comparable with the synthetic-corpus figure; the two are different measurements.",
+      "backend": "sherpa-onnx (pyannote segmentation-3.0 + 3D-Speaker ERes2Net)",
+      "frame_s": 0.01,
+      "scoring": "frame-based, Hungarian one-to-one mapping (md-eval semantics)",
+      "n_meetings": 4
+    },
+    "summary": {
+      "der_strict": 84.09,
+      "der_collar250ms": 78.32,
+      "missed_pct": 10.88,
+      "false_alarm_pct": 4.73,
+      "confusion_pct": 68.49,
+      "mean_speaker_count_error": 126.5
+    },
+    "meetings": [
+      {
+        "id": "EN2002a",
+        "duration_s": 2142.71,
+        "true_speakers": 4,
+        "strict": {
+          "der": 90.47,
+          "missed_pct": 12.8,
+          "false_alarm_pct": 4.3,
+          "confusion_pct": 73.37,
+          "n_ref_speakers": 4,
+          "n_hyp_speakers": 257,
+          "speaker_count_error": 253,
+          "scored_seconds": 2530.3,
+          "collar_s": 0.0
+        },
+        "collar250ms": {
+          "der": 85.54,
+          "missed_pct": 9.31,
+          "false_alarm_pct": 2.19,
+          "confusion_pct": 74.04,
+          "n_ref_speakers": 4,
+          "n_hyp_speakers": 257,
+          "speaker_count_error": 253,
+          "scored_seconds": 1721.8,
+          "collar_s": 0.25
+        }
+      },
+      {
+        "id": "ES2004a",
+        "duration_s": 1049.35,
+        "true_speakers": 4,
+        "strict": {
+          "der": 74.02,
+          "missed_pct": 12.24,
+          "false_alarm_pct": 4.25,
+          "confusion_pct": 57.53,
+          "n_ref_speakers": 4,
+          "n_hyp_speakers": 81,
+          "speaker_count_error": 77,
+          "scored_seconds": 923.4,
+          "collar_s": 0.0
+        },
+        "collar250ms": {
+          "der": 67.56,
+          "missed_pct": 7.87,
+          "false_alarm_pct": 2.13,
+          "confusion_pct": 57.56,
+          "n_ref_speakers": 4,
+          "n_hyp_speakers": 81,
+          "speaker_count_error": 77,
+          "scored_seconds": 660.2,
+          "collar_s": 0.25
+        }
+      },
+      {
+        "id": "IS1009a",
+        "duration_s": 838.83,
+        "true_speakers": 4,
+        "strict": {
+          "der": 90.2,
+          "missed_pct": 7.72,
+          "false_alarm_pct": 6.58,
+          "confusion_pct": 75.9,
+          "n_ref_speakers": 4,
+          "n_hyp_speakers": 86,
+          "speaker_count_error": 82,
+          "scored_seconds": 695.9,
+          "collar_s": 0.0
+        },
+        "collar250ms": {
+          "der": 83.6,
+          "missed_pct": 5.03,
+          "false_alarm_pct": 3.22,
+          "confusion_pct": 75.35,
+          "n_ref_speakers": 4,
+          "n_hyp_speakers": 86,
+          "speaker_count_error": 82,
+          "scored_seconds": 511.2,
+          "collar_s": 0.25
+        }
+      },
+      {
+        "id": "TS3003a",
+        "duration_s": 1505.64,
+        "true_speakers": 4,
+        "strict": {
+          "der": 81.67,
+          "missed_pct": 10.74,
+          "false_alarm_pct": 3.78,
+          "confusion_pct": 67.15,
+          "n_ref_speakers": 4,
+          "n_hyp_speakers": 98,
+          "speaker_count_error": 94,
+          "scored_seconds": 1026.0,
+          "collar_s": 0.0
+        },
+        "collar250ms": {
+          "der": 76.57,
+          "missed_pct": 7.94,
+          "false_alarm_pct": 1.94,
+          "confusion_pct": 66.7,
+          "n_ref_speakers": 4,
+          "n_hyp_speakers": 98,
+          "speaker_count_error": 94,
+          "scored_seconds": 852.0,
+          "collar_s": 0.25
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-23T22:56:46Z",
+    "cpu_model": "AMD EPYC 7763 64-Core Processor",
+    "logical_cpus": 4,
+    "ram_gb": 17.2,
+    "os": "Windows-2025Server-10.0.26100-SP0",
+    "kernel": "2025Server",
+    "python": "3.12.10",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.30.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": -1.0,
+    "compute_type": "int8",
+    "device": "cpu"
+  },
+  "config": {
+    "n_latency_utterances": 15,
+    "audio_duration_median_s": 10.44,
+    "audio_duration_p95_s": 23.95,
+    "pure_stage_reps": 2000
+  },
+  "memory": {
+    "baseline_rss_mb": 58.4
+  },
+  "models": {
+    "tiny.en": {
+      "cold_start_load_s": 0.3,
+      "decode_median_ms": 579.0,
+      "decode_p95_ms": 1175.6,
+      "rss_after_load_mb": 124.3,
+      "rss_peak_mb": 113.1,
+      "model_rss_delta_mb": 65.9
+    },
+    "base.en": {
+      "cold_start_load_s": 0.48,
+      "decode_median_ms": 1047.0,
+      "decode_p95_ms": 2179.4,
+      "rss_after_load_mb": 159.7,
+      "rss_peak_mb": 148.1,
+      "model_rss_delta_mb": 101.3
+    },
+    "small.en": {
+      "cold_start_load_s": 1.19,
+      "decode_median_ms": 3156.0,
+      "decode_p95_ms": 5707.5,
+      "rss_after_load_mb": 328.1,
+      "rss_peak_mb": 307.5,
+      "model_rss_delta_mb": 269.7
+    }
+  },
+  "pipeline_stages": {
+    "vad_gate": {
+      "median_ms": 0.0206,
+      "p95_ms": 0.0212,
+      "mean_ms": 0.0211
+    },
+    "clean_text": {
+      "median_ms": 0.0015,
+      "p95_ms": 0.0019,
+      "mean_ms": 0.0016
+    },
+    "disfluency_filter": {
+      "median_ms": 0.0461,
+      "p95_ms": 0.0487,
+      "mean_ms": 0.047
+    },
+    "grammar_classify_dictation": {
+      "median_ms": 0.0137,
+      "p95_ms": 0.014,
+      "mean_ms": 0.0141
+    },
+    "grammar_classify_command": {
+      "median_ms": 0.0078,
+      "p95_ms": 0.0079,
+      "mean_ms": 0.008
+    }
+  },
+  "non_decode_overhead_median_ms": 0.0819
+}

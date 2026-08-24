@@ -1,0 +1,227 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-23T18:32:44Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "4",
+    "load_average_1m": 17.18,
+    "compute_type": "int8",
+    "device": "cpu"
+  },
+  "probe": {
+    "measured": "WER and RTF for every shipped STT engine and model size on 200 stratified LibriSpeech test-clean utterances, measured on an idle dedicated box.",
+    "produced_by": "paper/benchmark/bench_wer.py (matrix mode, all engines)",
+    "host": "Azure Standard_D16s_v6, westeurope (16 vCPU Xeon Platinum 8573C, 67 GB)",
+    "run_finished_utc": "2026-08-23T18:32:44Z"
+  },
+  "result": {
+    "config": {
+      "dataset": "LibriSpeech test-clean",
+      "dataset_source": "https://www.openslr.org/resources/12/test-clean.tar.gz",
+      "citation": "Panayotov et al., ICASSP 2015",
+      "n_utterances": 200,
+      "n_speakers": 40,
+      "total_audio_seconds": 1808.5,
+      "normalizer": "whisper_normalizer.english.EnglishTextNormalizer",
+      "selection": "deterministic speaker-stratified round-robin across all test-clean speakers",
+      "engines": [
+        "faster-whisper",
+        "moonshine",
+        "parakeet"
+      ],
+      "engine_versions": {
+        "onnx_asr": "0.12.0",
+        "useful_moonshine_onnx": "20251121"
+      },
+      "cpu_threads": 4,
+      "rtf_is_contended": true,
+      "contention_note": "6 concurrent single-core diarization jobs on the same 16-core VM; the decode was pinned to 4 dedicated cores. WER is unaffected by contention, RTF is not -- read RTF from an uncontended run, never from this one."
+    },
+    "models": {
+      "tiny.en": {
+        "engine": "faster-whisper",
+        "engine_class": "FasterWhisperEngine",
+        "model": "tiny.en",
+        "wer": 4.95,
+        "wer_ci95": [
+          4.04,
+          5.93
+        ],
+        "n_scored_utterances": 200,
+        "mer": 4.9,
+        "substitutions": 166,
+        "deletions": 23,
+        "insertions": 42,
+        "hits": 4479,
+        "load_seconds": 1.18,
+        "rtf_median": 0.053,
+        "rtf_p95": 0.115,
+        "rtf_mean": 0.062,
+        "decode_seconds_total": 89.4,
+        "realtime_speedup_median": 19.0
+      },
+      "base.en": {
+        "engine": "faster-whisper",
+        "engine_class": "FasterWhisperEngine",
+        "model": "base.en",
+        "wer": 4.01,
+        "wer_ci95": [
+          3.21,
+          4.87
+        ],
+        "n_scored_utterances": 200,
+        "mer": 3.98,
+        "substitutions": 141,
+        "deletions": 16,
+        "insertions": 30,
+        "hits": 4511,
+        "load_seconds": 0.25,
+        "rtf_median": 0.082,
+        "rtf_p95": 0.183,
+        "rtf_mean": 0.099,
+        "decode_seconds_total": 143.0,
+        "realtime_speedup_median": 12.2
+      },
+      "small.en": {
+        "engine": "faster-whisper",
+        "engine_class": "FasterWhisperEngine",
+        "model": "small.en",
+        "wer": 2.66,
+        "wer_ci95": [
+          2.05,
+          3.28
+        ],
+        "n_scored_utterances": 200,
+        "mer": 2.65,
+        "substitutions": 100,
+        "deletions": 16,
+        "insertions": 8,
+        "hits": 4552,
+        "load_seconds": 0.61,
+        "rtf_median": 0.2,
+        "rtf_p95": 0.421,
+        "rtf_mean": 0.232,
+        "decode_seconds_total": 330.8,
+        "realtime_speedup_median": 5.0
+      },
+      "medium.en": {
+        "engine": "faster-whisper",
+        "engine_class": "FasterWhisperEngine",
+        "model": "medium.en",
+        "wer": 3.28,
+        "wer_ci95": [
+          2.09,
+          5.01
+        ],
+        "n_scored_utterances": 200,
+        "mer": 3.25,
+        "substitutions": 86,
+        "deletions": 27,
+        "insertions": 40,
+        "hits": 4555,
+        "load_seconds": 1.55,
+        "rtf_median": 0.499,
+        "rtf_p95": 1.103,
+        "rtf_mean": 0.586,
+        "decode_seconds_total": 814.1,
+        "realtime_speedup_median": 2.0
+      },
+      "large-v3": {
+        "engine": "faster-whisper",
+        "engine_class": "FasterWhisperEngine",
+        "model": "large-v3",
+        "wer": 3.41,
+        "wer_ci95": [
+          1.98,
+          5.47
+        ],
+        "n_scored_utterances": 200,
+        "mer": 3.34,
+        "substitutions": 62,
+        "deletions": 8,
+        "insertions": 89,
+        "hits": 4598,
+        "load_seconds": 2.74,
+        "rtf_median": 0.896,
+        "rtf_p95": 2.204,
+        "rtf_mean": 1.229,
+        "decode_seconds_total": 2002.8,
+        "realtime_speedup_median": 1.1
+      },
+      "parakeet-tdt-0.6b-v2": {
+        "engine": "parakeet",
+        "engine_class": "ParakeetEngine",
+        "model": "nemo-parakeet-tdt-0.6b-v2",
+        "wer": 2.06,
+        "wer_ci95": [
+          1.54,
+          2.68
+        ],
+        "n_scored_utterances": 200,
+        "mer": 2.05,
+        "substitutions": 73,
+        "deletions": 12,
+        "insertions": 11,
+        "hits": 4583,
+        "load_seconds": 1.56,
+        "rtf_median": 0.112,
+        "rtf_p95": 0.155,
+        "rtf_mean": 0.114,
+        "decode_seconds_total": 181.8,
+        "realtime_speedup_median": 8.9
+      },
+      "moonshine/tiny": {
+        "engine": "moonshine",
+        "engine_class": "MoonshineEngine",
+        "model": "moonshine/tiny",
+        "wer": 4.2,
+        "wer_ci95": [
+          3.42,
+          5.06
+        ],
+        "n_scored_utterances": 200,
+        "mer": 4.17,
+        "substitutions": 152,
+        "deletions": 16,
+        "insertions": 28,
+        "hits": 4500,
+        "load_seconds": 0.03,
+        "rtf_median": 0.036,
+        "rtf_p95": 0.059,
+        "rtf_mean": 0.039,
+        "decode_seconds_total": 62.3,
+        "realtime_speedup_median": 27.7
+      },
+      "moonshine/base": {
+        "engine": "moonshine",
+        "engine_class": "MoonshineEngine",
+        "model": "moonshine/base",
+        "wer": 3.17,
+        "wer_ci95": [
+          2.49,
+          4.02
+        ],
+        "n_scored_utterances": 200,
+        "mer": 3.15,
+        "substitutions": 110,
+        "deletions": 15,
+        "insertions": 23,
+        "hits": 4543,
+        "load_seconds": 0.01,
+        "rtf_median": 0.064,
+        "rtf_p95": 0.089,
+        "rtf_mean": 0.066,
+        "decode_seconds_total": 109.1,
+        "realtime_speedup_median": 15.7
+      }
+    }
+  }
+}

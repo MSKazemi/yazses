@@ -1,0 +1,41 @@
+=== fetch NIST md-eval ===
+md-eval fetched
+md-eval-22.pl syntax OK
+=== isolated pyannote.metrics venv (no torch) ===
+pyannote.metrics 4.1
+=== re-score synthetic corpus, dumping hypothesis RTTMs ===
+[der] meeting04: DER=19.15% (collar250=15.08%) speakers 8/6
+[der] meeting05: DER=10.5% (collar250=5.49%) speakers 5/2
+[der] meeting06: DER=40.65% (collar250=36.88%) speakers 7/3
+[der] meeting07: DER=20.79% (collar250=16.4%) speakers 7/4
+{
+  "der_strict": 22.77,
+  "der_collar250ms": 18.39,
+  "missed_pct": 10.27,
+  "false_alarm_pct": 0.35,
+  "confusion_pct": 12.14,
+  "mean_speaker_count_error": 3.38
+}
+ref turns: 165  hyp turns: 250
+=== NIST md-eval-22.pl, collar 0 ===
+SCORED SPEAKER TIME =1341.894000 secs
+MISSED SPEAKER TIME =139.569000 secs
+FALARM SPEAKER TIME =4.621000 secs
+SPEAKER ERROR TIME =157.621000 secs
+ OVERALL SPEAKER DIARIZATION ERROR = 22.49 percent of scored speaker time  `(ALL)
+=== NIST md-eval-22.pl, collar 0.25 ===
+ OVERALL SPEAKER DIARIZATION ERROR = 18.33 percent of scored speaker time  `(ALL)
+=== pyannote.metrics, collar 0 ===
+$HOME/pmetrics/lib/python3.12/site-packages/pyannote/metrics/utils.py:200: UserWarning: 'uem' was approximated by the union of 'reference' and 'hypothesis' extents.
+  warnings.warn(
+  meeting00: DER=22.09%
+  meeting01: DER=17.01%
+  meeting02: DER=23.61%
+  meeting03: DER=28.36%
+  meeting04: DER=19.14%
+  meeting05: DER=10.51%
+  meeting06: DER=40.67%
+  meeting07: DER=20.81%
+pyannote.metrics mean per-file DER = 22.77%
+pyannote.metrics corpus-aggregated DER = 22.49%
+VALIDATE_DONE

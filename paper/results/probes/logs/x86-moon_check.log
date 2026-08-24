@@ -1,0 +1,13 @@
+start 17:28:28Z
+specs: [('moonshine/tiny', 'moonshine', 'moonshine/tiny'), ('moonshine/base', 'moonshine', 'moonshine/base')]
+[wer] loading moonshine/tiny (engine=moonshine) ...
+[0;93m2026-08-23 17:28:28.758766434 [W:onnxruntime:Default, device_discovery.cc:134 GetPciBusId] Skipping pci_bus_id for PCI path at "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/ACPI0004:00/MSFT1000:00/5620e0c7-8062-4dce-aeb7-520c7ef76171" because filename "5620e0c7-8062-4dce-aeb7-520c7ef76171" did not match expected pattern of [0-9a-f]+:[0-9a-f]+:[0-9a-f]+[.][0-9a-f]+[m
+  moonshine/tiny: 25/25
+[wer] moonshine/tiny: WER=2.86% (95% CI 1.3-4.95)  RTF median=0.05 (~20.2x realtime)  load=0.06s
+[wer] loading moonshine/base (engine=moonshine) ...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+  moonshine/base: 25/25
+[wer] moonshine/base: WER=2.7% (95% CI 1.24-4.6)  RTF median=0.078 (~12.8x realtime)  load=0.02s
+[moon] moonshine/tiny: WER=2.86%  ins=4 sub=13 del=1
+[moon] moonshine/base: WER=2.7%  ins=4 sub=13 del=0
+MOON_DONE 17:29:11Z

@@ -1,0 +1,225 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-23T19:18:32Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 15.42,
+    "compute_type": "int8",
+    "device": "cpu"
+  },
+  "probe": {
+    "measured": "The same matrix re-run to test whether the numbers reproduce on the same host across a restart.",
+    "produced_by": "paper/benchmark/bench_wer.py (matrix mode, all engines)",
+    "host": "Azure Standard_D16s_v6, westeurope (16 vCPU Xeon Platinum 8573C, 67 GB)",
+    "run_finished_utc": "2026-08-23T19:18:32Z"
+  },
+  "result": {
+    "config": {
+      "dataset": "LibriSpeech test-clean",
+      "dataset_source": "https://www.openslr.org/resources/12/test-clean.tar.gz",
+      "citation": "Panayotov et al., ICASSP 2015",
+      "n_utterances": 200,
+      "n_speakers": 40,
+      "total_audio_seconds": 1808.5,
+      "normalizer": "whisper_normalizer.english.EnglishTextNormalizer",
+      "selection": "deterministic speaker-stratified round-robin across all test-clean speakers",
+      "engines": [
+        "faster-whisper",
+        "moonshine",
+        "parakeet"
+      ],
+      "engine_versions": {
+        "onnx_asr": "0.12.0",
+        "useful_moonshine_onnx": "20251121"
+      },
+      "cpu_threads": 0
+    },
+    "models": {
+      "tiny.en": {
+        "engine": "faster-whisper",
+        "engine_class": "FasterWhisperEngine",
+        "model": "tiny.en",
+        "wer": 5.18,
+        "wer_ci95": [
+          4.22,
+          6.31
+        ],
+        "n_scored_utterances": 200,
+        "mer": 5.12,
+        "substitutions": 165,
+        "deletions": 22,
+        "insertions": 55,
+        "hits": 4481,
+        "load_seconds": 0.44,
+        "rtf_median": 0.028,
+        "rtf_p95": 0.073,
+        "rtf_mean": 0.036,
+        "decode_seconds_total": 46.9,
+        "realtime_speedup_median": 35.4
+      },
+      "base.en": {
+        "engine": "faster-whisper",
+        "engine_class": "FasterWhisperEngine",
+        "model": "base.en",
+        "wer": 4.01,
+        "wer_ci95": [
+          3.21,
+          4.87
+        ],
+        "n_scored_utterances": 200,
+        "mer": 3.98,
+        "substitutions": 141,
+        "deletions": 16,
+        "insertions": 30,
+        "hits": 4511,
+        "load_seconds": 0.23,
+        "rtf_median": 0.042,
+        "rtf_p95": 0.11,
+        "rtf_mean": 0.052,
+        "decode_seconds_total": 70.5,
+        "realtime_speedup_median": 24.1
+      },
+      "small.en": {
+        "engine": "faster-whisper",
+        "engine_class": "FasterWhisperEngine",
+        "model": "small.en",
+        "wer": 2.66,
+        "wer_ci95": [
+          2.05,
+          3.28
+        ],
+        "n_scored_utterances": 200,
+        "mer": 2.65,
+        "substitutions": 100,
+        "deletions": 16,
+        "insertions": 8,
+        "hits": 4552,
+        "load_seconds": 0.53,
+        "rtf_median": 0.092,
+        "rtf_p95": 0.228,
+        "rtf_mean": 0.113,
+        "decode_seconds_total": 151.2,
+        "realtime_speedup_median": 10.9
+      },
+      "medium.en": {
+        "engine": "faster-whisper",
+        "engine_class": "FasterWhisperEngine",
+        "model": "medium.en",
+        "wer": 3.28,
+        "wer_ci95": [
+          2.09,
+          5.01
+        ],
+        "n_scored_utterances": 200,
+        "mer": 3.25,
+        "substitutions": 86,
+        "deletions": 27,
+        "insertions": 40,
+        "hits": 4555,
+        "load_seconds": 1.31,
+        "rtf_median": 0.246,
+        "rtf_p95": 0.592,
+        "rtf_mean": 0.305,
+        "decode_seconds_total": 407.2,
+        "realtime_speedup_median": 4.1
+      },
+      "large-v3": {
+        "engine": "faster-whisper",
+        "engine_class": "FasterWhisperEngine",
+        "model": "large-v3",
+        "wer": 3.23,
+        "wer_ci95": [
+          1.95,
+          5.0
+        ],
+        "n_scored_utterances": 200,
+        "mer": 3.18,
+        "substitutions": 62,
+        "deletions": 8,
+        "insertions": 81,
+        "hits": 4598,
+        "load_seconds": 2.73,
+        "rtf_median": 0.451,
+        "rtf_p95": 1.092,
+        "rtf_mean": 0.578,
+        "decode_seconds_total": 888.1,
+        "realtime_speedup_median": 2.2
+      },
+      "parakeet-tdt-0.6b-v2": {
+        "engine": "parakeet",
+        "engine_class": "ParakeetEngine",
+        "model": "nemo-parakeet-tdt-0.6b-v2",
+        "wer": 2.06,
+        "wer_ci95": [
+          1.54,
+          2.68
+        ],
+        "n_scored_utterances": 200,
+        "mer": 2.05,
+        "substitutions": 73,
+        "deletions": 12,
+        "insertions": 11,
+        "hits": 4583,
+        "load_seconds": 1.27,
+        "rtf_median": 0.05,
+        "rtf_p95": 0.086,
+        "rtf_mean": 0.056,
+        "decode_seconds_total": 88.2,
+        "realtime_speedup_median": 19.8
+      },
+      "moonshine/tiny": {
+        "engine": "moonshine",
+        "engine_class": "MoonshineEngine",
+        "model": "moonshine/tiny",
+        "wer": 4.2,
+        "wer_ci95": [
+          3.42,
+          5.06
+        ],
+        "n_scored_utterances": 200,
+        "mer": 4.17,
+        "substitutions": 152,
+        "deletions": 16,
+        "insertions": 28,
+        "hits": 4500,
+        "load_seconds": 0.02,
+        "rtf_median": 0.016,
+        "rtf_p95": 0.027,
+        "rtf_mean": 0.018,
+        "decode_seconds_total": 27.3,
+        "realtime_speedup_median": 62.6
+      },
+      "moonshine/base": {
+        "engine": "moonshine",
+        "engine_class": "MoonshineEngine",
+        "model": "moonshine/base",
+        "wer": 3.17,
+        "wer_ci95": [
+          2.49,
+          4.02
+        ],
+        "n_scored_utterances": 200,
+        "mer": 3.15,
+        "substitutions": 110,
+        "deletions": 15,
+        "insertions": 23,
+        "hits": 4543,
+        "load_seconds": 0.01,
+        "rtf_median": 0.023,
+        "rtf_p95": 0.034,
+        "rtf_mean": 0.025,
+        "decode_seconds_total": 39.9,
+        "realtime_speedup_median": 42.6
+      }
+    }
+  }
+}

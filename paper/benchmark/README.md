@@ -58,8 +58,18 @@ uv run python paper/benchmark/make_figures.py
 | `bench_commands.py` | grammar action-accuracy, false-positive rate, per-call ms | `commands.grammar.classify` + existing fixtures |
 | `bench_vad.py` | speech-detection / silence-rejection at the default threshold | `audio.vad_calibrated.is_silent_calibrated` |
 | `bench_diarization.py` | diarization DER / miss / false-alarm / confusion + speaker-count error | `recimport.diarizer.SherpaDiarizer`, a corpus from `scripts/gen-meeting-corpus.py` |
+| `bench_beam.py` | WER + RTF across `beam_size`, with per-utterance error counts | `stt.factory.build_engine`, `bench_wer._bootstrap_wer_ci`, jiwer |
+| `bench_onset.py` | first-word accuracy against the silence lead-in, with per-utterance outcomes | `stt.factory.build_engine`, whisper-normalizer, jiwer |
+| `bench_streaming.py` | partial-hypothesis latency and rewrite rate | `stt.streaming.StreamingEngine` |
+| `bench_platform_resolution.py` | whether each extra can be installed at all, per platform, and why not | `uv pip compile`, PyPI file lists |
+| `bench_plausibility.py` | how often the implausible-attribution warning fires, and on what | `recimport.diarizer`, `meeting` plausibility policy |
+| `bench_throughput.py` | dictation words/minute against typing the same prompts | needs a human at the keyboard; no archived result |
+| `analyze_beam.py` | paired bootstrap of the WER difference between two beam widths | reads `../results/beam-*.json` |
+| `analyze_onset.py` | exact McNemar between two cells of the onset grid | reads `../results/onset.json` |
 | `bench_meta.py` | dysfluency gate, model on-disk size, test/ADR/SLOC counts | `stt.filters.disfluency`, HF cache scan |
 | `run_all.py` | orchestrates all of the above + provenance + optional coverage | — |
+| `make_features_table.py` | capability-surface table + prose macros for the paper, from the live registry | `system.features` (the registry behind `yazses features`) |
+| `make_results_index.py` | `../results/MANIFEST.md` — what every archived artifact is and which machine it came from | reads `../results/**/*.json` |
 | `make_figures.py` | `results/*.json` -> `figures/{numbers,tab_main,tab_pipeline}.tex`, `wer.pdf`, `latency.pdf` | — |
 
 ## Other machines and other architectures

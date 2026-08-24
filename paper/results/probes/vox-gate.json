@@ -1,0 +1,36 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-23T17:06:17Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 9.01,
+    "compute_type": "int8",
+    "device": "cpu"
+  },
+  "probe": {
+    "measured": "VoxConverse scored at the AMI-derived threshold -- does 1.2 generalise off the corpus it was tuned on?",
+    "produced_by": "paper/benchmark/bench_diarization.py --sweep",
+    "host": "Azure Standard_D16s_v6, westeurope (16 vCPU Xeon Platinum 8573C, 67 GB)",
+    "run_finished_utc": "2026-08-23T17:06:17Z"
+  },
+  "result": {
+    "sweep": [
+      {
+        "cluster_threshold": 1.2,
+        "der": 42.13,
+        "mean_speaker_count_error": -6.4,
+        "meetings_with_exact_count": 1,
+        "n_meetings": 15
+      }
+    ]
+  }
+}

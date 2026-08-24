@@ -1,0 +1,82 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-23T22:56:41Z",
+    "cpu_model": "Neoverse-N2",
+    "logical_cpus": 4,
+    "ram_gb": 16.7,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.30.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 0.52,
+    "compute_type": "int8",
+    "device": "cpu"
+  },
+  "config": {
+    "n_utterances": 6,
+    "audio_duration_median_s": 10.58,
+    "chunk_ms": 100,
+    "partial_interval_ms": 300,
+    "feed": "real-time (1x); audio is paced as a microphone delivers it"
+  },
+  "models": {
+    "tiny.en": {
+      "batch_speech_end_to_text_s": {
+        "median": 0.662,
+        "p95": 0.71,
+        "mean": 0.647,
+        "n": 6
+      },
+      "streaming_speech_end_to_final_s": {
+        "median": 0.998,
+        "p95": 1.109,
+        "mean": 0.93,
+        "n": 6
+      },
+      "streaming_time_to_first_text_s": {
+        "median": 3.15,
+        "p95": 4.95,
+        "mean": 3.367,
+        "n": 6
+      },
+      "streaming_visible_at_release_pct": {
+        "median": 72.442,
+        "p95": 88.345,
+        "mean": 74.268,
+        "n": 6
+      },
+      "utterances_with_no_partial_before_release": 0
+    },
+    "base.en": {
+      "batch_speech_end_to_text_s": {
+        "median": 1.088,
+        "p95": 2.048,
+        "mean": 1.361,
+        "n": 6
+      },
+      "streaming_speech_end_to_final_s": {
+        "median": 2.304,
+        "p95": 4.987,
+        "mean": 2.744,
+        "n": 6
+      },
+      "streaming_time_to_first_text_s": {
+        "median": 3.5,
+        "p95": 9.4,
+        "mean": 5.36,
+        "n": 5
+      },
+      "streaming_visible_at_release_pct": {
+        "median": 61.997,
+        "p95": 79.53,
+        "mean": 56.174,
+        "n": 6
+      },
+      "utterances_with_no_partial_before_release": 1
+    }
+  }
+}

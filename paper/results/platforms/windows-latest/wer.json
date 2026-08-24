@@ -1,0 +1,103 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-23T22:56:46Z",
+    "cpu_model": "AMD EPYC 7763 64-Core Processor",
+    "logical_cpus": 4,
+    "ram_gb": 17.2,
+    "os": "Windows-2025Server-10.0.26100-SP0",
+    "kernel": "2025Server",
+    "python": "3.12.10",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.30.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": -1.0,
+    "compute_type": "int8",
+    "device": "cpu"
+  },
+  "config": {
+    "dataset": "LibriSpeech test-clean",
+    "dataset_source": "https://www.openslr.org/resources/12/test-clean.tar.gz",
+    "citation": "Panayotov et al., ICASSP 2015",
+    "n_utterances": 60,
+    "n_speakers": 40,
+    "total_audio_seconds": 544.0,
+    "normalizer": "whisper_normalizer.english.EnglishTextNormalizer",
+    "selection": "deterministic speaker-stratified round-robin across all test-clean speakers",
+    "engines": [
+      "faster-whisper"
+    ],
+    "engine_versions": {},
+    "cpu_threads": 0
+  },
+  "models": {
+    "tiny.en": {
+      "engine": "faster-whisper",
+      "engine_class": "FasterWhisperEngine",
+      "model": "tiny.en",
+      "wer": 3.88,
+      "wer_ci95": [
+        2.57,
+        5.39
+      ],
+      "n_scored_utterances": 60,
+      "mer": 3.86,
+      "substitutions": 40,
+      "deletions": 7,
+      "insertions": 8,
+      "hits": 1369,
+      "load_seconds": 3.98,
+      "rtf_median": 0.065,
+      "rtf_p95": 0.157,
+      "rtf_mean": 0.079,
+      "decode_seconds_total": 34.9,
+      "realtime_speedup_median": 15.5
+    },
+    "base.en": {
+      "engine": "faster-whisper",
+      "engine_class": "FasterWhisperEngine",
+      "model": "base.en",
+      "wer": 3.39,
+      "wer_ci95": [
+        2.33,
+        4.72
+      ],
+      "n_scored_utterances": 60,
+      "mer": 3.38,
+      "substitutions": 35,
+      "deletions": 9,
+      "insertions": 4,
+      "hits": 1372,
+      "load_seconds": 1.81,
+      "rtf_median": 0.128,
+      "rtf_p95": 0.373,
+      "rtf_mean": 0.176,
+      "decode_seconds_total": 74.8,
+      "realtime_speedup_median": 7.8
+    },
+    "small.en": {
+      "engine": "faster-whisper",
+      "engine_class": "FasterWhisperEngine",
+      "model": "small.en",
+      "wer": 2.05,
+      "wer_ci95": [
+        1.21,
+        2.94
+      ],
+      "n_scored_utterances": 60,
+      "mer": 2.04,
+      "substitutions": 23,
+      "deletions": 3,
+      "insertions": 3,
+      "hits": 1390,
+      "load_seconds": 4.12,
+      "rtf_median": 0.395,
+      "rtf_p95": 0.963,
+      "rtf_mean": 0.477,
+      "decode_seconds_total": 203.1,
+      "realtime_speedup_median": 2.5
+    }
+  },
+  "failed": {}
+}

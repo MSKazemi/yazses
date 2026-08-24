@@ -1,0 +1,330 @@
+{
+  "config": {
+    "corpus": "ami16_corpus",
+    "corpus_source": "AMI Meeting Corpus, headset mix, official test split",
+    "cluster_threshold": 1.2,
+    "flat_fragment_seconds": 20.0
+  },
+  "summary": {
+    "recordings": 16,
+    "genuinely_over_split": 12,
+    "flat": {
+      "fires": 1,
+      "correct": 1,
+      "false_alarms": 0
+    },
+    "scaled": {
+      "fires": 1,
+      "correct": 1,
+      "false_alarms": 0
+    },
+    "verdicts_agree": 16
+  },
+  "rows": [
+    {
+      "id": "EN2002a",
+      "true_speakers": 4,
+      "labels_found": 8,
+      "total_speech_seconds": 2310.4,
+      "over_split": true,
+      "scaled_threshold_seconds": 20.0,
+      "fires_flat": false,
+      "fires_scaled": false,
+      "label_seconds": {
+        "speaker_0": 125.3,
+        "speaker_1": 392.9,
+        "speaker_2": 462.4,
+        "speaker_3": 378.6,
+        "speaker_4": 881.3,
+        "speaker_5": 14.2,
+        "speaker_6": 20.1,
+        "speaker_7": 35.6
+      }
+    },
+    {
+      "id": "EN2002b",
+      "true_speakers": 4,
+      "labels_found": 6,
+      "total_speech_seconds": 1800.1,
+      "over_split": true,
+      "scaled_threshold_seconds": 20.0,
+      "fires_flat": false,
+      "fires_scaled": false,
+      "label_seconds": {
+        "speaker_0": 261.9,
+        "speaker_1": 281.7,
+        "speaker_2": 98.3,
+        "speaker_3": 106.4,
+        "speaker_4": 392.5,
+        "speaker_5": 659.3
+      }
+    },
+    {
+      "id": "EN2002c",
+      "true_speakers": 3,
+      "labels_found": 8,
+      "total_speech_seconds": 2973.1,
+      "over_split": true,
+      "scaled_threshold_seconds": 20.0,
+      "fires_flat": false,
+      "fires_scaled": false,
+      "label_seconds": {
+        "speaker_0": 848.6,
+        "speaker_1": 98.5,
+        "speaker_2": 1033.4,
+        "speaker_3": 36.7,
+        "speaker_4": 475.5,
+        "speaker_5": 469.2,
+        "speaker_6": 10.7,
+        "speaker_7": 0.5
+      }
+    },
+    {
+      "id": "EN2002d",
+      "true_speakers": 4,
+      "labels_found": 7,
+      "total_speech_seconds": 2409.4,
+      "over_split": true,
+      "scaled_threshold_seconds": 20.0,
+      "fires_flat": false,
+      "fires_scaled": false,
+      "label_seconds": {
+        "speaker_0": 807.6,
+        "speaker_1": 58.1,
+        "speaker_2": 86.0,
+        "speaker_3": 599.7,
+        "speaker_4": 21.0,
+        "speaker_5": 126.8,
+        "speaker_6": 710.1
+      }
+    },
+    {
+      "id": "ES2004a",
+      "true_speakers": 4,
+      "labels_found": 2,
+      "total_speech_seconds": 849.8,
+      "over_split": false,
+      "scaled_threshold_seconds": 17.0,
+      "fires_flat": false,
+      "fires_scaled": false,
+      "label_seconds": {
+        "speaker_0": 475.0,
+        "speaker_1": 374.8
+      }
+    },
+    {
+      "id": "ES2004b",
+      "true_speakers": 4,
+      "labels_found": 3,
+      "total_speech_seconds": 2189.2,
+      "over_split": false,
+      "scaled_threshold_seconds": 20.0,
+      "fires_flat": false,
+      "fires_scaled": false,
+      "label_seconds": {
+        "speaker_0": 393.0,
+        "speaker_1": 532.5,
+        "speaker_2": 1263.7
+      }
+    },
+    {
+      "id": "ES2004c",
+      "true_speakers": 4,
+      "labels_found": 4,
+      "total_speech_seconds": 2248.6,
+      "over_split": false,
+      "scaled_threshold_seconds": 20.0,
+      "fires_flat": false,
+      "fires_scaled": false,
+      "label_seconds": {
+        "speaker_0": 583.5,
+        "speaker_1": 422.4,
+        "speaker_2": 449.9,
+        "speaker_3": 792.8
+      }
+    },
+    {
+      "id": "ES2004d",
+      "true_speakers": 4,
+      "labels_found": 6,
+      "total_speech_seconds": 1956.5,
+      "over_split": true,
+      "scaled_threshold_seconds": 20.0,
+      "fires_flat": false,
+      "fires_scaled": false,
+      "label_seconds": {
+        "speaker_0": 498.0,
+        "speaker_1": 554.3,
+        "speaker_2": 274.1,
+        "speaker_3": 597.7,
+        "speaker_4": 27.0,
+        "speaker_5": 5.4
+      }
+    },
+    {
+      "id": "IS1009a",
+      "true_speakers": 4,
+      "labels_found": 4,
+      "total_speech_seconds": 687.6,
+      "over_split": false,
+      "scaled_threshold_seconds": 13.8,
+      "fires_flat": false,
+      "fires_scaled": false,
+      "label_seconds": {
+        "speaker_0": 165.3,
+        "speaker_1": 73.8,
+        "speaker_2": 412.7,
+        "speaker_3": 35.6
+      }
+    },
+    {
+      "id": "IS1009b",
+      "true_speakers": 4,
+      "labels_found": 8,
+      "total_speech_seconds": 1929.6,
+      "over_split": true,
+      "scaled_threshold_seconds": 20.0,
+      "fires_flat": false,
+      "fires_scaled": false,
+      "label_seconds": {
+        "speaker_0": 353.7,
+        "speaker_1": 3.1,
+        "speaker_2": 569.0,
+        "speaker_3": 488.5,
+        "speaker_4": 19.2,
+        "speaker_5": 10.1,
+        "speaker_6": 22.5,
+        "speaker_7": 463.4
+      }
+    },
+    {
+      "id": "IS1009c",
+      "true_speakers": 4,
+      "labels_found": 6,
+      "total_speech_seconds": 1593.3,
+      "over_split": true,
+      "scaled_threshold_seconds": 20.0,
+      "fires_flat": false,
+      "fires_scaled": false,
+      "label_seconds": {
+        "speaker_0": 447.6,
+        "speaker_1": 24.6,
+        "speaker_2": 20.0,
+        "speaker_3": 14.6,
+        "speaker_4": 876.4,
+        "speaker_5": 210.1
+      }
+    },
+    {
+      "id": "IS1009d",
+      "true_speakers": 4,
+      "labels_found": 6,
+      "total_speech_seconds": 1720.0,
+      "over_split": true,
+      "scaled_threshold_seconds": 20.0,
+      "fires_flat": true,
+      "fires_scaled": true,
+      "label_seconds": {
+        "speaker_0": 50.3,
+        "speaker_1": 1028.1,
+        "speaker_2": 599.1,
+        "speaker_3": 11.2,
+        "speaker_4": 12.5,
+        "speaker_5": 18.8
+      }
+    },
+    {
+      "id": "TS3003a",
+      "true_speakers": 4,
+      "labels_found": 5,
+      "total_speech_seconds": 954.1,
+      "over_split": true,
+      "scaled_threshold_seconds": 19.1,
+      "fires_flat": false,
+      "fires_scaled": false,
+      "label_seconds": {
+        "speaker_0": 3.6,
+        "speaker_1": 122.0,
+        "speaker_2": 798.6,
+        "speaker_3": 25.6,
+        "speaker_4": 4.3
+      }
+    },
+    {
+      "id": "TS3003b",
+      "true_speakers": 4,
+      "labels_found": 7,
+      "total_speech_seconds": 1852.0,
+      "over_split": true,
+      "scaled_threshold_seconds": 20.0,
+      "fires_flat": false,
+      "fires_scaled": false,
+      "label_seconds": {
+        "speaker_0": 44.1,
+        "speaker_1": 724.9,
+        "speaker_2": 4.0,
+        "speaker_3": 6.7,
+        "speaker_4": 189.2,
+        "speaker_5": 599.1,
+        "speaker_6": 284.0
+      }
+    },
+    {
+      "id": "TS3003c",
+      "true_speakers": 4,
+      "labels_found": 7,
+      "total_speech_seconds": 1848.0,
+      "over_split": true,
+      "scaled_threshold_seconds": 20.0,
+      "fires_flat": false,
+      "fires_scaled": false,
+      "label_seconds": {
+        "speaker_0": 28.8,
+        "speaker_1": 8.8,
+        "speaker_2": 688.6,
+        "speaker_3": 413.3,
+        "speaker_4": 478.9,
+        "speaker_5": 15.0,
+        "speaker_6": 214.5
+      }
+    },
+    {
+      "id": "TS3003d",
+      "true_speakers": 4,
+      "labels_found": 9,
+      "total_speech_seconds": 1965.7,
+      "over_split": true,
+      "scaled_threshold_seconds": 20.0,
+      "fires_flat": false,
+      "fires_scaled": false,
+      "label_seconds": {
+        "speaker_0": 21.3,
+        "speaker_1": 944.6,
+        "speaker_2": 377.9,
+        "speaker_3": 84.3,
+        "speaker_4": 224.8,
+        "speaker_5": 23.6,
+        "speaker_6": 234.5,
+        "speaker_7": 47.8,
+        "speaker_8": 6.9
+      }
+    }
+  ],
+  "provenance": {
+    "timestamp": "2026-08-23T22:23:41Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 1.02,
+    "compute_type": "int8",
+    "device": "cpu"
+  }
+}

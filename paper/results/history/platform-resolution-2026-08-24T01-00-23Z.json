@@ -1,0 +1,699 @@
+{
+  "config": {
+    "python_version": "3.11",
+    "platforms": {
+      "x86_64-unknown-linux-gnu": "manylinux_2_28",
+      "aarch64-apple-darwin": "macosx_13_0",
+      "x86_64-apple-darwin": "macosx_13_0",
+      "x86_64-pc-windows-msvc": "win_amd64"
+    },
+    "classified": true
+  },
+  "rows": [
+    {
+      "extra": "(base)",
+      "platform": "x86_64-unknown-linux-gnu",
+      "assumed_os_floor": "manylinux_2_28",
+      "resolves": true,
+      "seconds": 0.1
+    },
+    {
+      "extra": "agent",
+      "platform": "x86_64-unknown-linux-gnu",
+      "assumed_os_floor": "manylinux_2_28",
+      "resolves": true,
+      "seconds": 0.3
+    },
+    {
+      "extra": "all",
+      "platform": "x86_64-unknown-linux-gnu",
+      "assumed_os_floor": "manylinux_2_28",
+      "resolves": false,
+      "seconds": 0.1,
+      "blocked_by": "pyside6",
+      "classification": "os_floor"
+    },
+    {
+      "extra": "ble",
+      "platform": "x86_64-unknown-linux-gnu",
+      "assumed_os_floor": "manylinux_2_28",
+      "resolves": true,
+      "seconds": 0.1
+    },
+    {
+      "extra": "chinese",
+      "platform": "x86_64-unknown-linux-gnu",
+      "assumed_os_floor": "manylinux_2_28",
+      "resolves": true,
+      "seconds": 0.1
+    },
+    {
+      "extra": "denoise",
+      "platform": "x86_64-unknown-linux-gnu",
+      "assumed_os_floor": "manylinux_2_28",
+      "resolves": true,
+      "seconds": 0.1
+    },
+    {
+      "extra": "desktop",
+      "platform": "x86_64-unknown-linux-gnu",
+      "assumed_os_floor": "manylinux_2_28",
+      "resolves": false,
+      "seconds": 0.1,
+      "blocked_by": "pyside6",
+      "classification": "os_floor"
+    },
+    {
+      "extra": "diarization",
+      "platform": "x86_64-unknown-linux-gnu",
+      "assumed_os_floor": "manylinux_2_28",
+      "resolves": true,
+      "seconds": 0.1
+    },
+    {
+      "extra": "diarization-pyannote",
+      "platform": "x86_64-unknown-linux-gnu",
+      "assumed_os_floor": "manylinux_2_28",
+      "resolves": true,
+      "seconds": 0.4
+    },
+    {
+      "extra": "emg",
+      "platform": "x86_64-unknown-linux-gnu",
+      "assumed_os_floor": "manylinux_2_28",
+      "resolves": true,
+      "seconds": 0.1
+    },
+    {
+      "extra": "emg-band",
+      "platform": "x86_64-unknown-linux-gnu",
+      "assumed_os_floor": "manylinux_2_28",
+      "resolves": true,
+      "seconds": 0.1
+    },
+    {
+      "extra": "gaze",
+      "platform": "x86_64-unknown-linux-gnu",
+      "assumed_os_floor": "manylinux_2_28",
+      "resolves": true,
+      "seconds": 0.1
+    },
+    {
+      "extra": "lsp",
+      "platform": "x86_64-unknown-linux-gnu",
+      "assumed_os_floor": "manylinux_2_28",
+      "resolves": true,
+      "seconds": 0.1
+    },
+    {
+      "extra": "moonshine",
+      "platform": "x86_64-unknown-linux-gnu",
+      "assumed_os_floor": "manylinux_2_28",
+      "resolves": true,
+      "seconds": 0.1
+    },
+    {
+      "extra": "notes",
+      "platform": "x86_64-unknown-linux-gnu",
+      "assumed_os_floor": "manylinux_2_28",
+      "resolves": true,
+      "seconds": 0.1
+    },
+    {
+      "extra": "overlay",
+      "platform": "x86_64-unknown-linux-gnu",
+      "assumed_os_floor": "manylinux_2_28",
+      "resolves": false,
+      "seconds": 0.1,
+      "blocked_by": "pyside6",
+      "classification": "os_floor"
+    },
+    {
+      "extra": "parakeet",
+      "platform": "x86_64-unknown-linux-gnu",
+      "assumed_os_floor": "manylinux_2_28",
+      "resolves": true,
+      "seconds": 0.1
+    },
+    {
+      "extra": "prosody",
+      "platform": "x86_64-unknown-linux-gnu",
+      "assumed_os_floor": "manylinux_2_28",
+      "resolves": true,
+      "seconds": 0.1
+    },
+    {
+      "extra": "silero",
+      "platform": "x86_64-unknown-linux-gnu",
+      "assumed_os_floor": "manylinux_2_28",
+      "resolves": true,
+      "seconds": 0.1
+    },
+    {
+      "extra": "slm",
+      "platform": "x86_64-unknown-linux-gnu",
+      "assumed_os_floor": "manylinux_2_28",
+      "resolves": true,
+      "seconds": 0.1
+    },
+    {
+      "extra": "tts",
+      "platform": "x86_64-unknown-linux-gnu",
+      "assumed_os_floor": "manylinux_2_28",
+      "resolves": true,
+      "seconds": 0.1
+    },
+    {
+      "extra": "voiceprint",
+      "platform": "x86_64-unknown-linux-gnu",
+      "assumed_os_floor": "manylinux_2_28",
+      "resolves": true,
+      "seconds": 1.0
+    },
+    {
+      "extra": "voiceprint-resemblyzer",
+      "platform": "x86_64-unknown-linux-gnu",
+      "assumed_os_floor": "manylinux_2_28",
+      "resolves": true,
+      "seconds": 0.7
+    },
+    {
+      "extra": "(base)",
+      "platform": "aarch64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.4
+    },
+    {
+      "extra": "agent",
+      "platform": "aarch64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 1.6
+    },
+    {
+      "extra": "all",
+      "platform": "aarch64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": false,
+      "seconds": 0.3,
+      "blocked_by": "onnxruntime",
+      "classification": "os_floor"
+    },
+    {
+      "extra": "ble",
+      "platform": "aarch64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.3
+    },
+    {
+      "extra": "chinese",
+      "platform": "aarch64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.4
+    },
+    {
+      "extra": "denoise",
+      "platform": "aarch64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.8
+    },
+    {
+      "extra": "desktop",
+      "platform": "aarch64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.3
+    },
+    {
+      "extra": "diarization",
+      "platform": "aarch64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.4
+    },
+    {
+      "extra": "diarization-pyannote",
+      "platform": "aarch64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 1.2
+    },
+    {
+      "extra": "emg",
+      "platform": "aarch64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.2
+    },
+    {
+      "extra": "emg-band",
+      "platform": "aarch64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.2
+    },
+    {
+      "extra": "gaze",
+      "platform": "aarch64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.1
+    },
+    {
+      "extra": "lsp",
+      "platform": "aarch64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.2
+    },
+    {
+      "extra": "moonshine",
+      "platform": "aarch64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.8
+    },
+    {
+      "extra": "notes",
+      "platform": "aarch64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.2
+    },
+    {
+      "extra": "overlay",
+      "platform": "aarch64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.1
+    },
+    {
+      "extra": "parakeet",
+      "platform": "aarch64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.1
+    },
+    {
+      "extra": "prosody",
+      "platform": "aarch64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.1
+    },
+    {
+      "extra": "silero",
+      "platform": "aarch64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": false,
+      "seconds": 0.1,
+      "blocked_by": "onnxruntime",
+      "classification": "os_floor"
+    },
+    {
+      "extra": "slm",
+      "platform": "aarch64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.3
+    },
+    {
+      "extra": "tts",
+      "platform": "aarch64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": false,
+      "seconds": 0.2,
+      "blocked_by": "onnxruntime",
+      "classification": "os_floor"
+    },
+    {
+      "extra": "voiceprint",
+      "platform": "aarch64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.7
+    },
+    {
+      "extra": "voiceprint-resemblyzer",
+      "platform": "aarch64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.7
+    },
+    {
+      "extra": "(base)",
+      "platform": "x86_64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.4
+    },
+    {
+      "extra": "agent",
+      "platform": "x86_64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.7
+    },
+    {
+      "extra": "all",
+      "platform": "x86_64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 1.0
+    },
+    {
+      "extra": "ble",
+      "platform": "x86_64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.3
+    },
+    {
+      "extra": "chinese",
+      "platform": "x86_64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.4
+    },
+    {
+      "extra": "denoise",
+      "platform": "x86_64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.5
+    },
+    {
+      "extra": "desktop",
+      "platform": "x86_64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.3
+    },
+    {
+      "extra": "diarization",
+      "platform": "x86_64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.3
+    },
+    {
+      "extra": "diarization-pyannote",
+      "platform": "x86_64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": false,
+      "seconds": 0.8,
+      "blocked_by": "torch",
+      "classification": "os_floor"
+    },
+    {
+      "extra": "emg",
+      "platform": "x86_64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.3
+    },
+    {
+      "extra": "emg-band",
+      "platform": "x86_64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.2
+    },
+    {
+      "extra": "gaze",
+      "platform": "x86_64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": false,
+      "seconds": 0.3,
+      "blocked_by": "mediapipe",
+      "classification": "os_floor"
+    },
+    {
+      "extra": "lsp",
+      "platform": "x86_64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.4
+    },
+    {
+      "extra": "moonshine",
+      "platform": "x86_64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.5
+    },
+    {
+      "extra": "notes",
+      "platform": "x86_64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.4
+    },
+    {
+      "extra": "overlay",
+      "platform": "x86_64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.5
+    },
+    {
+      "extra": "parakeet",
+      "platform": "x86_64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.5
+    },
+    {
+      "extra": "prosody",
+      "platform": "x86_64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.3
+    },
+    {
+      "extra": "silero",
+      "platform": "x86_64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.5
+    },
+    {
+      "extra": "slm",
+      "platform": "x86_64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.3
+    },
+    {
+      "extra": "tts",
+      "platform": "x86_64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.5
+    },
+    {
+      "extra": "voiceprint",
+      "platform": "x86_64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.4
+    },
+    {
+      "extra": "voiceprint-resemblyzer",
+      "platform": "x86_64-apple-darwin",
+      "assumed_os_floor": "macosx_13_0",
+      "resolves": true,
+      "seconds": 0.5
+    },
+    {
+      "extra": "(base)",
+      "platform": "x86_64-pc-windows-msvc",
+      "assumed_os_floor": "win_amd64",
+      "resolves": true,
+      "seconds": 0.4
+    },
+    {
+      "extra": "agent",
+      "platform": "x86_64-pc-windows-msvc",
+      "assumed_os_floor": "win_amd64",
+      "resolves": true,
+      "seconds": 0.6
+    },
+    {
+      "extra": "all",
+      "platform": "x86_64-pc-windows-msvc",
+      "assumed_os_floor": "win_amd64",
+      "resolves": true,
+      "seconds": 1.6
+    },
+    {
+      "extra": "ble",
+      "platform": "x86_64-pc-windows-msvc",
+      "assumed_os_floor": "win_amd64",
+      "resolves": true,
+      "seconds": 0.3
+    },
+    {
+      "extra": "chinese",
+      "platform": "x86_64-pc-windows-msvc",
+      "assumed_os_floor": "win_amd64",
+      "resolves": true,
+      "seconds": 0.3
+    },
+    {
+      "extra": "denoise",
+      "platform": "x86_64-pc-windows-msvc",
+      "assumed_os_floor": "win_amd64",
+      "resolves": true,
+      "seconds": 0.5
+    },
+    {
+      "extra": "desktop",
+      "platform": "x86_64-pc-windows-msvc",
+      "assumed_os_floor": "win_amd64",
+      "resolves": true,
+      "seconds": 0.4
+    },
+    {
+      "extra": "diarization",
+      "platform": "x86_64-pc-windows-msvc",
+      "assumed_os_floor": "win_amd64",
+      "resolves": true,
+      "seconds": 0.3
+    },
+    {
+      "extra": "diarization-pyannote",
+      "platform": "x86_64-pc-windows-msvc",
+      "assumed_os_floor": "win_amd64",
+      "resolves": true,
+      "seconds": 0.7
+    },
+    {
+      "extra": "emg",
+      "platform": "x86_64-pc-windows-msvc",
+      "assumed_os_floor": "win_amd64",
+      "resolves": true,
+      "seconds": 0.4
+    },
+    {
+      "extra": "emg-band",
+      "platform": "x86_64-pc-windows-msvc",
+      "assumed_os_floor": "win_amd64",
+      "resolves": true,
+      "seconds": 0.4
+    },
+    {
+      "extra": "gaze",
+      "platform": "x86_64-pc-windows-msvc",
+      "assumed_os_floor": "win_amd64",
+      "resolves": true,
+      "seconds": 0.4
+    },
+    {
+      "extra": "lsp",
+      "platform": "x86_64-pc-windows-msvc",
+      "assumed_os_floor": "win_amd64",
+      "resolves": true,
+      "seconds": 0.4
+    },
+    {
+      "extra": "moonshine",
+      "platform": "x86_64-pc-windows-msvc",
+      "assumed_os_floor": "win_amd64",
+      "resolves": true,
+      "seconds": 0.5
+    },
+    {
+      "extra": "notes",
+      "platform": "x86_64-pc-windows-msvc",
+      "assumed_os_floor": "win_amd64",
+      "resolves": true,
+      "seconds": 0.3
+    },
+    {
+      "extra": "overlay",
+      "platform": "x86_64-pc-windows-msvc",
+      "assumed_os_floor": "win_amd64",
+      "resolves": true,
+      "seconds": 0.3
+    },
+    {
+      "extra": "parakeet",
+      "platform": "x86_64-pc-windows-msvc",
+      "assumed_os_floor": "win_amd64",
+      "resolves": true,
+      "seconds": 0.3
+    },
+    {
+      "extra": "prosody",
+      "platform": "x86_64-pc-windows-msvc",
+      "assumed_os_floor": "win_amd64",
+      "resolves": true,
+      "seconds": 0.2
+    },
+    {
+      "extra": "silero",
+      "platform": "x86_64-pc-windows-msvc",
+      "assumed_os_floor": "win_amd64",
+      "resolves": true,
+      "seconds": 0.4
+    },
+    {
+      "extra": "slm",
+      "platform": "x86_64-pc-windows-msvc",
+      "assumed_os_floor": "win_amd64",
+      "resolves": true,
+      "seconds": 0.3
+    },
+    {
+      "extra": "tts",
+      "platform": "x86_64-pc-windows-msvc",
+      "assumed_os_floor": "win_amd64",
+      "resolves": true,
+      "seconds": 0.4
+    },
+    {
+      "extra": "voiceprint",
+      "platform": "x86_64-pc-windows-msvc",
+      "assumed_os_floor": "win_amd64",
+      "resolves": true,
+      "seconds": 0.3
+    },
+    {
+      "extra": "voiceprint-resemblyzer",
+      "platform": "x86_64-pc-windows-msvc",
+      "assumed_os_floor": "win_amd64",
+      "resolves": true,
+      "seconds": 0.4
+    }
+  ],
+  "summary": {
+    "targets_per_platform": 23,
+    "total": 92,
+    "resolving": 84,
+    "failing": 8,
+    "no_wheel": 0,
+    "os_floor": 8
+  },
+  "provenance": {
+    "timestamp": "2026-08-24T01:00:23Z",
+    "cpu_model": "13th Gen Intel(R) Core(TM) i7-1370P",
+    "logical_cpus": 20,
+    "ram_gb": 33.3,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "7.0.0-30-generic",
+    "python": "3.14.6",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.30.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 22.97,
+    "compute_type": "int8",
+    "device": "cpu"
+  }
+}

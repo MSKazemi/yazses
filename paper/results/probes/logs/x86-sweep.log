@@ -1,0 +1,6 @@
+thr=0.4  DER=28.43%  count_err=+6.25  exact=0/8
+thr=0.5  DER=22.77%  count_err=+3.38  exact=0/8
+thr=0.6  DER=20.18%  count_err=+2.00  exact=0/8
+thr=0.7  DER=15.98%  count_err=+0.62  exact=6/8
+thr=0.8  DER=14.72%  count_err=+0.12  exact=6/8
+thr=0.9  DER=15.79%  count_err=-0.25  exact=7/8

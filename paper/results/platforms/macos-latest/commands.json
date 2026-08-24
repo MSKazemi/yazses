@@ -1,0 +1,40 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-23T22:56:49Z",
+    "cpu_model": "Apple M1 (Virtual)",
+    "logical_cpus": 3,
+    "ram_gb": 7.5,
+    "os": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+    "kernel": "25.5.0",
+    "python": "3.14.6",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.30.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 30.44,
+    "compute_type": "int8",
+    "device": "cpu"
+  },
+  "config": {
+    "command_fixture": "tests/fixtures/commands/command_phrases.json",
+    "dictation_fixture": "tests/fixtures/commands/dictation_corpus.txt",
+    "n_command_phrases": 71,
+    "n_dictation_lines": 80
+  },
+  "precision": {
+    "action_accuracy_pct": 100.0,
+    "classified_as_command_pct": 93.0,
+    "action_hits": 71,
+    "misfires": []
+  },
+  "false_positive": {
+    "false_positive_rate_pct": 0.0,
+    "false_positives": []
+  },
+  "runtime": {
+    "per_call_median_ms": 0.0092,
+    "per_call_p95_ms": 0.0115,
+    "n_calls": 3020
+  }
+}

@@ -1,0 +1,9 @@
+[sweep] threshold=0.5  DER=22.77%  count_err=+3.38  exact=0/8
+[sweep] threshold=0.7  DER=15.98%  count_err=+0.62  exact=6/8
+[sweep] threshold=0.9  DER=15.79%  count_err=-0.25  exact=7/8
+[sweep] threshold=1.0  DER=28.33%  count_err=-1.12  exact=3/8
+[sweep] threshold=1.1  DER=37.58%  count_err=-1.62  exact=3/8
+[sweep] threshold=1.2  DER=63.61%  count_err=-2.62  exact=0/8
+[sweep] threshold=1.3  DER=63.61%  count_err=-2.62  exact=0/8
+[sweep] threshold=1.4  DER=63.61%  count_err=-2.62  exact=0/8
+[sweep] threshold=1.6  DER=63.61%  count_err=-2.62  exact=0/8

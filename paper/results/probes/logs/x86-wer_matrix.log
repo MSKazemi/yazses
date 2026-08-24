@@ -1,0 +1,102 @@
+start 16:08:00Z
+### fetch phase (network on: model weights only)
+[fetch] OK   tiny.en (faster-whisper)
+[fetch] OK   base.en (faster-whisper)
+[fetch] OK   small.en (faster-whisper)
+[fetch] OK   medium.en (faster-whisper)
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+[fetch] OK   large-v3 (faster-whisper)
+[0;93m2026-08-23 16:08:31.068514845 [W:onnxruntime:Default, device_discovery.cc:134 GetPciBusId] Skipping pci_bus_id for PCI path at "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/ACPI0004:00/MSFT1000:00/5620e0c7-8062-4dce-aeb7-520c7ef76171" because filename "5620e0c7-8062-4dce-aeb7-520c7ef76171" did not match expected pattern of [0-9a-f]+:[0-9a-f]+:[0-9a-f]+[.][0-9a-f]+[m
+
+Fetching 4 files:   0%|          | 0/4 [00:00<?, ?it/s]
+Fetching 4 files:  25%|██▌       | 1/4 [00:00<00:00,  9.10it/s]
+Fetching 4 files:  50%|█████     | 2/4 [00:01<00:01,  1.41it/s]
+Fetching 4 files:  75%|███████▌  | 3/4 [00:11<00:04,  4.86s/it]
+Fetching 4 files: 100%|██████████| 4/4 [00:11<00:00,  2.76s/it]
+[fetch] OK   parakeet-tdt-0.6b-v2 (parakeet)
+[fetch] OK   moonshine/tiny (moonshine)
+[fetch] OK   moonshine/base (moonshine)
+### matrix phase. load:  16:08:44 up  2:10,  6 users,  load average: 9.77, 6.22, 4.90
+[wer] loading tiny.en (engine=faster-whisper) ...
+  tiny.en: 25/200
+  tiny.en: 50/200
+  tiny.en: 75/200
+  tiny.en: 100/200
+  tiny.en: 125/200
+  tiny.en: 150/200
+  tiny.en: 175/200
+  tiny.en: 200/200
+[wer] tiny.en: WER=4.93% (95% CI 4.01-5.93)  RTF median=0.054 (~18.6x realtime)  load=1.22s
+[wer] loading base.en (engine=faster-whisper) ...
+  base.en: 25/200
+  base.en: 50/200
+  base.en: 75/200
+  base.en: 100/200
+  base.en: 125/200
+  base.en: 150/200
+  base.en: 175/200
+  base.en: 200/200
+[wer] base.en: WER=4.01% (95% CI 3.21-4.87)  RTF median=0.086 (~11.7x realtime)  load=0.25s
+[wer] loading small.en (engine=faster-whisper) ...
+  small.en: 25/200
+  small.en: 50/200
+  small.en: 75/200
+  small.en: 100/200
+  small.en: 125/200
+  small.en: 150/200
+  small.en: 175/200
+  small.en: 200/200
+[wer] small.en: WER=2.66% (95% CI 2.05-3.28)  RTF median=0.2 (~5.0x realtime)  load=0.62s
+[wer] loading medium.en (engine=faster-whisper) ...
+  medium.en: 25/200
+  medium.en: 50/200
+  medium.en: 75/200
+  medium.en: 100/200
+  medium.en: 125/200
+  medium.en: 150/200
+  medium.en: 175/200
+  medium.en: 200/200
+[wer] medium.en: WER=3.28% (95% CI 2.09-5.01)  RTF median=0.587 (~1.7x realtime)  load=1.55s
+[wer] loading large-v3 (engine=faster-whisper) ...
+  large-v3: 25/200
+  large-v3: 50/200
+  large-v3: 75/200
+  large-v3: 100/200
+  large-v3: 125/200
+  large-v3: 150/200
+  large-v3: 175/200
+  large-v3: 200/200
+[wer] large-v3: WER=3.98% (95% CI 2.07-6.88)  RTF median=0.908 (~1.1x realtime)  load=2.87s
+[wer] loading parakeet-tdt-0.6b-v2 (engine=parakeet) ...
+[0;93m2026-08-23 17:06:29.241042826 [W:onnxruntime:Default, device_discovery.cc:134 GetPciBusId] Skipping pci_bus_id for PCI path at "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/ACPI0004:00/MSFT1000:00/5620e0c7-8062-4dce-aeb7-520c7ef76171" because filename "5620e0c7-8062-4dce-aeb7-520c7ef76171" did not match expected pattern of [0-9a-f]+:[0-9a-f]+:[0-9a-f]+[.][0-9a-f]+[m
+  parakeet-tdt-0.6b-v2: 25/200
+  parakeet-tdt-0.6b-v2: 50/200
+  parakeet-tdt-0.6b-v2: 75/200
+  parakeet-tdt-0.6b-v2: 100/200
+  parakeet-tdt-0.6b-v2: 125/200
+  parakeet-tdt-0.6b-v2: 150/200
+  parakeet-tdt-0.6b-v2: 175/200
+  parakeet-tdt-0.6b-v2: 200/200
+[wer] parakeet-tdt-0.6b-v2: WER=2.06% (95% CI 1.54-2.68)  RTF median=0.128 (~7.8x realtime)  load=1.58s
+[wer] loading moonshine/tiny (engine=moonshine) ...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Traceback (most recent call last):
+  File "<stdin>", line 6, in <module>
+  File "$HOME/yazses/paper/benchmark/bench_wer.py", line 187, in run
+    hyp = engine.transcribe(audio)
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "$HOME/yazses/src/yazses/stt/moonshine.py", line 94, in transcribe
+    return self._decode(audio, sample_rate)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "$HOME/yazses/src/yazses/stt/moonshine.py", line 150, in _decode
+    return self._decode_one(audio, sample_rate)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "$HOME/yazses/src/yazses/stt/moonshine.py", line 156, in _decode_one
+    result = moonshine_onnx.transcribe(waveform, self._load())
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "$HOME/yazses/.venv/lib/python3.12/site-packages/moonshine_onnx/transcribe.py", line 32, in transcribe
+    assert_audio_size(audio)
+  File "$HOME/yazses/.venv/lib/python3.12/site-packages/moonshine_onnx/transcribe.py", line 17, in assert_audio_size
+    assert len(audio.shape) == 2, "audio should be of shape [batch, samples]"
+           ^^^^^^^^^^^^^^^^^^^^^
+AssertionError: audio should be of shape [batch, samples]

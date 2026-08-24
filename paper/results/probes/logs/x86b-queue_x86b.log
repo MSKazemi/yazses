@@ -1,0 +1,7 @@
+=== onset done 2026-08-23T23:03:02Z ===
+[beam] base.en beam=1 (test-clean): WER 4.39%  RTF 0.0387  (70.0s)
+[beam] base.en beam=2 (test-clean): WER 4.01%  RTF 0.0405  (73.3s)
+[beam] base.en beam=3 (test-clean): WER 4.07%  RTF 0.0429  (77.5s)
+[beam] base.en beam=5 (test-clean): WER 4.01%  RTF 0.0453  (82.0s)
+[beam] base.en beam=8 (test-clean): WER 4.01%  RTF 0.0464  (83.9s)
+[beam] small.en beam=1 (test-clean): WER 2.53%  RTF 0.083  (150.1s)

@@ -1,0 +1,46 @@
+=== benchmark group ===
+ - webrtcvad==2.0.10
+ + whisper-normalizer==0.1.15
+ - yarl==1.24.5
+=== librispeech test-clean ===
+358M	LibriSpeech
+=== full engine matrix, idle host ===
+start 14:27:19Z
+$HOME/yazses/.venv/lib/python3.12/site-packages/whisper_normalizer/basic.py:97: SyntaxWarning: invalid escape sequence '\X'
+  """
+[wer] loading tiny.en (engine=faster-whisper) ...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+  tiny.en: 25/200
+  tiny.en: 50/200
+  tiny.en: 75/200
+  tiny.en: 100/200
+  tiny.en: 125/200
+  tiny.en: 150/200
+  tiny.en: 175/200
+  tiny.en: 200/200
+[wer] tiny.en: WER=5.25% (95% CI 4.19-6.42)  RTF median=0.027 (~36.4x realtime)  load=6.31s
+[wer] loading base.en (engine=faster-whisper) ...
+  base.en: 25/200
+  base.en: 50/200
+  base.en: 75/200
+  base.en: 100/200
+  base.en: 125/200
+  base.en: 150/200
+  base.en: 175/200
+  base.en: 200/200
+[wer] base.en: WER=4.01% (95% CI 3.21-4.87)  RTF median=0.043 (~23.5x realtime)  load=0.94s
+[wer] loading small.en (engine=faster-whisper) ...
+  small.en: 25/200
+  small.en: 50/200
+  small.en: 75/200
+  small.en: 100/200
+  small.en: 125/200
+  small.en: 150/200
+  small.en: 175/200
+  small.en: 200/200
+[wer] small.en: WER=2.66% (95% CI 2.05-3.28)  RTF median=0.093 (~10.8x realtime)  load=6.15s
+[wer] loading medium.en (engine=faster-whisper) ...
+  medium.en: 25/200
+  medium.en: 50/200
+  medium.en: 75/200
+  medium.en: 100/200

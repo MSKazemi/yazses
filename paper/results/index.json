@@ -1,0 +1,74 @@
+{
+  "provenance": {
+    "timestamp": "2026-07-30T21:17:57Z",
+    "cpu_model": "13th Gen Intel(R) Core(TM) i7-1370P",
+    "logical_cpus": 20,
+    "ram_gb": 33.3,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "7.0.0-28-generic",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.12.0.dev4",
+    "numpy": "2.4.6",
+    "compute_type": "int8",
+    "device": "cpu"
+  },
+  "results": {
+    "wer": {
+      "config": {
+        "dataset": "LibriSpeech test-clean",
+        "dataset_source": "https://www.openslr.org/resources/12/test-clean.tar.gz",
+        "citation": "Panayotov et al., ICASSP 2015",
+        "n_utterances": 200,
+        "n_speakers": 40,
+        "total_audio_seconds": 1808.5,
+        "normalizer": "whisper_normalizer.english.EnglishTextNormalizer",
+        "selection": "deterministic speaker-stratified round-robin across all test-clean speakers"
+      },
+      "models": {
+        "tiny.en": {
+          "wer": 4.82,
+          "mer": 4.78,
+          "substitutions": 159,
+          "deletions": 27,
+          "insertions": 39,
+          "hits": 4482,
+          "load_seconds": 0.77,
+          "rtf_median": 0.154,
+          "rtf_p95": 0.364,
+          "rtf_mean": 0.188,
+          "decode_seconds_total": 269.3,
+          "realtime_speedup_median": 6.5
+        },
+        "base.en": {
+          "wer": 4.07,
+          "mer": 4.05,
+          "substitutions": 145,
+          "deletions": 17,
+          "insertions": 28,
+          "hits": 4506,
+          "load_seconds": 0.96,
+          "rtf_median": 0.283,
+          "rtf_p95": 0.816,
+          "rtf_mean": 0.361,
+          "decode_seconds_total": 486.3,
+          "realtime_speedup_median": 3.5
+        },
+        "small.en": {
+          "wer": 2.59,
+          "mer": 2.59,
+          "substitutions": 98,
+          "deletions": 15,
+          "insertions": 8,
+          "hits": 4555,
+          "load_seconds": 1.49,
+          "rtf_median": 0.52,
+          "rtf_p95": 1.503,
+          "rtf_mean": 0.668,
+          "decode_seconds_total": 882.2,
+          "realtime_speedup_median": 1.9
+        }
+      }
+    }
+  }
+}

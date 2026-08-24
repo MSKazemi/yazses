@@ -44,6 +44,16 @@ be worse than this** — a real microphone in a real room with spontaneous speec
 harder problem than the benchmark. Treat these as a comparison *between models*, not
 as a promise about your desk.
 
+**And treat the third decimal as noise.** These three rows were measured on the
+reference laptop; the engine matrix in the next section measures the same three
+checkpoints on the same 200 utterances on a 16-vCPU Xeon, and gets 5.18 %, 4.01 % and
+2.66 % instead of 4.82 %, 4.07 % and 2.59 %. Nothing is wrong with either run — int8
+kernels differ per instruction set and the thread count changes the order partial sums
+are reduced in, so a decode is reproducible on one machine and not across two. Every one
+of those three laptop figures falls inside the 95 % interval the Xeon run reports for the
+same model, which is exactly what an interval is for and exactly what this table, having
+none, cannot tell you. **The ordering is the finding here; the digits are not.**
+
 ## Every engine, measured against every other
 
 The table above is the three default Whisper checkpoints on the reference laptop. This
@@ -101,7 +111,7 @@ same machine, same method.
 | Engine / model | `test-clean` | `test-other` | Multiplier |
 |---|---|---|---|
 | `parakeet-tdt-0.6b-v2` | 2.06 % | **2.88 %** | **1.4×** |
-| `large-v3` | 3.23 % | 4.86 % | 1.5× |
+| `large-v3` | 3.23 % | 4.86 % / **7.69 %** ⚠ | 1.5× / 2.4× |
 | `small.en` | 2.66 % | 5.59 % | 2.1× |
 | `medium.en` | 3.28 % | 5.51 % | 1.7× |
 | `moonshine/base` | 3.17 % | 8.04 % | 2.5× |
@@ -109,38 +119,65 @@ same machine, same method.
 | `moonshine/tiny` | 4.20 % | 10.35 % | 2.5× |
 | `tiny.en` | 5.18 % | 11.61 % | 2.2× |
 
+⚠ **The `large-v3` cell is two measurements, not one.** The whole matrix was run twice
+on the same instance, same code, same 200 utterances. Six of the eight engines returned
+**bit-identical** WERs; `tiny.en` moved 0.16 of a point; `large-v3` moved **2.83**. Both of
+its numbers are shown because there is no basis for choosing one — see
+[the reproducibility section](#the-same-number-measured-twice-is-not-the-same-number),
+which turns out to predict exactly these two models and no others.
+
 **Take the right lesson from the multiplier.** `test-other` is still read speech from a
 recording session; it is not you dictating into a laptop microphone with a fan running.
 So this is not a prediction of your desk — it is a lower bound on how far a number from
 this page can move when only the audio gets harder. On the default model that is 4 % to
 9.5 %, which is the difference between "occasional fix" and "one word in ten".
 
-**The ranking is not stable across the two splits.** On clean audio `small.en` beats
-both `medium.en` and `large-v3`; on harder audio it falls behind both, and `large-v3`
-becomes the best Whisper checkpoint measured. The reason is visible in the error
-breakdown: `large-v3`'s substitutions barely move (87 on clean, 87 on other) while
-`small.en`'s rise from 100 to 161. The big model's recognition advantage was always real
-and was simply outweighed, on easy audio, by the words it invents. Make the audio harder
-and the trade flips.
+**The ranking is not stable across the two splits, and `large-v3` cannot be ranked at
+all.** On clean audio `small.en` beats `medium.en`; on harder audio it falls behind. That
+much is solid — both models are bit-reproducible on both splits. `large-v3` is a different
+matter: at 4.86 % it is the best Whisper checkpoint here, at 7.69 % it is the *worst of the
+four English-capable Whisper models*, behind `medium.en` (5.51 %) and `small.en` (5.59 %),
+and this page has no way to say which run to believe. **An earlier version of this section
+claimed the first of those as a finding. It was one run, and the second run disproved it.**
 
-**Two models barely degrade at all** — Parakeet (1.4×) and `large-v3` (1.5×), the
-non-Whisper engine and the largest Whisper checkpoint. Everything else lands between
-1.7× and 2.5×, with `base.en` and both Moonshine models at the top of that range.
-If you are choosing a model for conditions you cannot control, this column matters more
-than the `test-clean` one.
+The error breakdown says what moved. `large-v3`'s substitutions are the same number on both
+splits and in both runs — **87** every time, the fewest of anything measured, and its
+recognition advantage is real. Its *insertions* went 89 → 184 between the two `test-other`
+runs while deletions barely moved. The model does not mis-hear more on the second run; it
+invents more. That is the temperature-fallback mechanism documented below, and it is the
+same failure that makes `tiny.en` unstable, arriving at the opposite end of the size range.
+
+**One model barely degrades** — Parakeet, 2.88 % against 2.06 %, a 1.4× multiplier, and it
+is bit-reproducible across runs on both splits. Everything else lands between 1.7× and
+2.5×, with `base.en` and both Moonshine models at the top of that range. `large-v3` is
+1.5× or 2.4× depending on the run, which is another way of saying this column does not
+describe it. If you are choosing a model for conditions you cannot control, this column
+matters more than the `test-clean` one — and a model whose multiplier moves by a whole
+point between identical runs is not a model to choose for conditions you cannot control.
 
 ### The same number, measured twice, is not the same number
 
-Repeating the whole matrix on the same box, same code, same 200 utterances:
+Repeating the whole matrix on the same box, same code, same 200 utterances — on **both**
+splits:
 
-| Model | Measurements across repeated runs |
-|---|---|
-| `tiny.en` | 4.93 %, 4.95 %, 5.18 %, 5.25 % |
-| `large-v3` | 3.23 %, 3.41 %, 3.98 % |
-| `base.en`, `small.en`, `medium.en`, `parakeet`, both `moonshine` | identical every time |
+| Model | `test-clean`, repeated runs | `test-other`, repeated runs |
+|---|---|---|
+| `tiny.en` | 4.93 %, 4.95 %, 5.18 %, 5.25 % | 11.61 %, 11.77 % |
+| `large-v3` | 3.23 %, 3.41 %, 3.98 % | 4.86 %, **7.69 %** |
+| `base.en`, `small.en`, `medium.en`, `parakeet`, both `moonshine` | identical every time | identical every time |
 
-So two of the eight are unstable by up to three quarters of a point, and the rest do not
-move at all. That is not the machine. Decoding the same subset **twice inside one
+So two of the eight are unstable and the other six do not move at all — **the same two on
+both splits**, which is the part worth pausing on. `test-other` was measured after the
+mechanism below had already been isolated on `test-clean`, and it is an independent corpus:
+different speakers, different recordings, no utterance in common. It moved exactly the two
+models the mechanism predicts and none of the six it does not. That is the closest thing
+this page has to a confirmed prediction rather than a described observation.
+
+It is also much bigger on hard audio. Three quarters of a point on `test-clean`; **2.83
+points** for `large-v3` on `test-other` — larger than the entire gap between the best and
+worst Whisper checkpoint on clean audio. The second run's own 95 % interval is
+[3.52, 14.63], four times as wide as any other row in the matrix: the bootstrap can see
+that a handful of utterances are carrying the damage. That is not the machine. Decoding the same subset **twice inside one
 process** — same loaded weights, same threads, same instruction set — still produced one
 differing utterance in two hundred, and seeding CTranslate2's RNG changed nothing.
 
@@ -162,14 +199,140 @@ sentence for a deterministic one-word truncation.
 
 Run against `base.en` and `small.en`, the same clip gives **1 distinct output in 40**,
 with the fallback on or off. The instability is not general — it is what happens when a
-model is small enough that its first-choice decode fails the quality check, and on this
-corpus that is `tiny.en` and `large-v3` and nothing else.
+model's first-choice decode fails the quality check on some clip, and on these two corpora
+that is `tiny.en` and `large-v3` and nothing else. Note that this is **not** a size effect,
+which is how it first looked on `test-clean` alone: it is the smallest and the largest
+checkpoint, with the three in between stable on both splits. What the two share is not
+capacity but a first-choice decode that trips the compression-ratio and log-probability
+gates — `tiny.en` because it truncates, `large-v3` because it runs on, its `test-other`
+insertions ranging from 101 to 184 across repeated runs while its 87 substitutions did not
+move at all.
 
-Two things follow. The second decimal place on the `tiny.en` and `large-v3` rows above is
-noise, and the first is not entirely safe either. And it is a **product** behaviour, not
+Two things follow. On `test-clean`, the second decimal place on the `tiny.en` and
+`large-v3` rows above is noise and the first is not entirely safe either; on `test-other`,
+`large-v3`'s **units** digit is not safe, which is enough to reorder it against three other
+models. Treat every `large-v3` figure on this page as a draw from a distribution — one that
+has now been measured, immediately below. And it is a **product** behaviour, not
 only a benchmark artefact: on `tiny.en`, dictating one long sentence twice can return two
 different transcripts, or one word. YazSes' default is `base.en`, which on this evidence
 does not do it.
+
+#### The distribution, measured
+
+`paper/benchmark/probes/largev3_repeat.py` decoded the same 200 `test-other` utterances
+four more times, one process per repeat, on a box carrying a steady load average of ~4 on
+16 vCPUs. The shape is sharper than "it moves":
+
+| run | WER | insertions | substitutions | deletions | hits |
+|---|---|---|---|---|---|
+| repeat 1 | 6.53 % | 141 | 87 | 15 | 3619 |
+| repeat 2 | 6.07 % | 124 | 87 | 15 | 3619 |
+| repeat 3 | **5.46 %** | **101** | 87 | 15 | 3619 |
+| repeat 4 | 6.61 % | 144 | 87 | 15 | 3619 |
+| the matrix run tabled above | **7.69 %** | **184** | 87 | 15 | 3619 |
+
+**Four of those five columns never move.** Across five independent decodes the
+substitutions, the deletions and the hits are *bit-identical* — not close, identical — so
+all 3721 reference words are aligned the same way every single time. The only quantity
+that changes is how much extra text the model emits, and it changes by a factor of **1.8**.
+
+Every WER in that column is therefore exactly `(102 + insertions) / 3721`: substitutions
+and deletions contribute a constant 102 errors to all five runs, and the whole 2.2-point
+spread is the insertion count and nothing else. That is a stronger claim than the one this
+page made before the probe ran. `large-v3` is not unreliable at recognising the words that
+were said. It is unreliable at **stopping**.
+
+Two cautions on reading the table. The 7.69 % run is included because it is the number
+this page published, but it was decoded on a *saturated* box (load average 15.97 against
+~4 for the repeats) and it is the extreme of the five; whether the saturation is why is
+not something five runs can decide, and the honest within-condition figure is the repeats'
+own **1.15-point** spread, 5.46 % to 6.61 %. And the fall across repeats 1–3 (141 → 124 →
+101) looked at the time like a warm-up artefact of the harness; repeat 4's 144 refutes
+that. It is variance, not a trend.
+
+Reproduce with `python paper/benchmark/probes/largev3_repeat.py 4 test-other 200` — the
+one probe on this page meant to be re-run rather than read. Artifact:
+[`paper/results/probes/largev3-instability-test-other.json`](https://github.com/MSKazemi/yazses/blob/main/paper/results/probes/largev3-instability-test-other.json).
+
+### The same code on four instruction sets
+
+Everything above was measured on one machine. The natural objection is that a WER is
+partly a property of the CPU it was decoded on — CTranslate2 dispatches different int8
+kernels per ISA and reduces partial sums in a different order — so `benchmark.yml` was
+dispatched across every runner GitHub offers. Same 60 utterances, same checkpoints,
+CTranslate2 4.8.1 everywhere:
+
+| Model | Linux x86_64 | Linux arm64 | macOS arm64 | Windows x86_64 | spread |
+|---|---|---|---|---|---|
+| | AMD EPYC 9V74 | Neoverse-N2 | Apple M1 | AMD EPYC 7763 | |
+| `tiny.en` | 3.39 % | 3.60 % | 3.74 % | 3.88 % | 0.49 |
+| `base.en` | 3.32 % | 3.32 % | 3.25 % | 3.39 % | 0.14 |
+| `small.en` | **2.05 %** | **2.05 %** | **2.05 %** | **2.05 %** | **0.00** |
+
+The spread closes as the model grows, and on `small.en` it closes completely: four
+instruction sets, two operating-system families, one number to three significant
+figures. That is the same pattern the thread-count experiment found on one laptop,
+which makes it a property of the models rather than of that laptop — and it puts a
+figure on how far a `tiny.en` number may be trusted when it was measured somewhere
+else.
+
+**The timings from that dispatch are not comparable and are not quoted here.** The
+macOS runner reported a one-minute load average of **30.44** on three logical CPUs. The
+provenance block is what says so; a table of RTFs would not have.
+
+The full artifacts, one directory per runner, are in
+[`paper/results/platforms/`](https://github.com/MSKazemi/yazses/tree/main/paper/results/platforms).
+The workflow had never run before this dispatch, and its Intel-macOS leg had never
+installed at all. `uv sync` there resolves the `all` extra, and three separate
+dependencies have stopped publishing macOS x86_64 wheels: [`onnxruntime`](https://pypi.org/project/onnxruntime/#files)
+after 1.23.2, [`mediapipe`](https://pypi.org/project/mediapipe/#files) after 0.10.21, and
+[`torch`](https://pypi.org/project/torch/#files) — which `pyannote.audio` pulls in —
+after 2.2.2. Only the first was a version floor that could be lowered; see
+[what installs where](#what-installs-where).
+
+### What installs where
+
+Every test in this repository runs on a machine where the install already succeeded, so
+an extra that cannot be resolved at all is invisible to the suite — and in CI it looks
+like an infrastructure flake rather than a defect. It is therefore measured:
+[`bench_platform_resolution.py`](https://github.com/MSKazemi/yazses/blob/main/paper/benchmark/bench_platform_resolution.py)
+resolves the base install and all 22 extras against each supported platform with
+`uv pip compile --python-platform`, which needs no machine of that kind and installs
+nothing. **92 combinations; 84 resolve.**
+
+The eight that do not divide into two kinds that look identical in a resolver's output
+and mean opposite things:
+
+| platform | target | blocked by | last version with a wheel | kind |
+|---|---|---|---|---|
+| Intel macOS | `gaze` | `mediapipe>=0.10.35` | **0.10.21** | floor above the last supported version |
+| Intel macOS | `diarization-pyannote` | `torch>=2.8.0` | **2.2.2** | floor above the last supported version |
+| Apple silicon | `tts`, `silero`, `all` | `onnxruntime>=1.27.0` | 1.29.0 | wants macOS 14+ |
+| Linux x86-64 | `overlay`, `desktop`, `all` | `pyside6>=6.11.1` | 6.11.2 | wants glibc 2.34+ |
+
+**The bottom two rows are not defects and not fixable here.** They are wheels that
+exist, satisfy the declared floor, and want a newer OS than this probe assumes
+(`manylinux_2_28`, `macosx_13_0`) — every mainstream Linux distribution and every
+supported macOS is newer. They are listed because the distinction is the whole point:
+reading one of them as a manifest error is how a correct manifest gets "fixed" into a
+wrong one. What they do say honestly is that **`yazses[tts]` needs macOS 14 or newer**,
+including on Apple silicon.
+
+**The top two rows are real, and they are deliberate.** `mediapipe` and `torch` have
+stopped publishing Intel macOS wheels entirely, so nothing this repository declares can
+make those two extras installable there. `yazses[all]` therefore carries a platform
+marker on both and installs everything else, while `yazses[gaze]` and
+`yazses[diarization-pyannote]` keep failing loudly: **asking for everything means
+everything that can work on this machine, but asking for one feature by name should say
+the feature is unavailable rather than install a hollow subset of it.** Gaze routing is
+X11-only by design in any case, so on macOS this removes a ~100 MB dependency for
+something that could not have run.
+
+**A third dependency was a real defect and is fixed.** `onnxruntime` was floored at
+`>=1.27.0` while `1.23.2` was the last release with an x86_64 macOS wheel, which made
+`tts`, `silero` and `all` unsatisfiable on Intel macOS — the reason that CI leg had never
+produced a number. The base install was never affected: `faster-whisper` asks only for
+`onnxruntime<2,>=1.14`, so a resolver backtracks to 1.23.2 on its own.
 
 ### The 300 ms of silence before every decode
 
@@ -187,45 +350,80 @@ first word of the reference is the first word of the hypothesis — WER is given
 but it is the whole-utterance number and mostly measures things this setting cannot
 touch.
 
-**With the onset intact, the lead-in does nothing.**
+**The full grid.** Five lead-ins × four clipping severities, each run end to end
+twice. The cell is how often the first reference word is the first hypothesis word,
+out of 200.
 
-| lead-in | WER | first word right |
-|---|---|---|
-| 0 ms | 3.92 % | 186 / 200 |
-| 100 ms | 4.09 % | 190 / 200 |
-| **300 ms (default)** | **3.92 %** | **189 / 200** |
-| 600 ms | 4.01 % | 190 / 200 |
-| 1000 ms | 4.09 % | 190 / 200 |
+| speech removed | lead 0 ms | 100 ms | **300 ms (default)** | 600 ms | 1000 ms |
+|---|---|---|---|---|---|
+| none (onset intact) | 186 | 190 | **189** | 190 | 190 |
+| 40 ms | 176 | **184** | 182 | 182 | 180 |
+| 120 ms | **143** | 130 | 132 | 129 | 127 |
+| 240 ms | **83** | 78 | 79 | 78 | 79 |
 
-Every cell is inside the run-to-run band measured [just above](#the-same-number-measured-twice-is-not-the-same-number).
-Whisper does not need a run-up.
+**The grid reproduces; the paired test still refuses to call it.** The table above was
+run twice, and it has since been run twice more in a separate session on the same
+instance. **19 of the 20 cells came out identical in all four runs.** The exception is
+the 240 ms row's baseline, which moved by one utterance (83, then 84). Whole-utterance
+WER is a different story: between the two runs of the newer session it moved by as much
+as **0.88 points** on cells whose first-word count did not move at all — the decoder's
+temperature fallback re-rolls the tail of an utterance while the onset stays put. That is
+an argument for the metric, not against the result: the thing this setting acts on is
+measured far more stably than the headline number usually quoted next to it.
 
-**With the onset clipped, it helps in one narrow case and hurts in the others.**
+**The paired test.** With `first_word_hits` now recorded, each cell is compared to its
+own row's lead-0 baseline by exact McNemar — throwing away the ~180 utterances both
+conditions got the same and asking only about the handful whose verdict moved.
+[`analyze_onset.py`](https://github.com/MSKazemi/yazses/blob/main/paper/benchmark/analyze_onset.py)
+produces [`onset-significance.json`](https://github.com/MSKazemi/yazses/blob/main/paper/results/onset-significance.json).
+Sixteen distinct comparisons were asked, each measured twice. **None survives correction
+for multiplicity** (Bonferroni threshold 0.0031). Two reach uncorrected `p < 0.05` in
+*both* replicates, and both say the same thing:
 
-| speech removed | lead 0 ms | lead 300 ms | lead 600 ms |
-|---|---|---|---|
-| none | 186 / 200 | 189 / 200 | 190 / 200 |
-| 40 ms | 176 / 200 | **182 / 200** | **182 / 200** |
-| 120 ms | **143 / 200** | 132 / 200 | 129 / 200 |
-| 240 ms | **83 / 200** | 79 / 200 | 78 / 200 |
+| comparison | first-word count | baseline wins | cell wins | p (both runs) |
+|---|---|---|---|---|
+| 120 ms clipped, lead 600 ms | 143 → 129 | 26 | 12 | 0.0336 |
+| 120 ms clipped, lead 1000 ms | 143 → 127 | 26 | 10 | 0.0113 |
 
-Compare across a row — one clipping severity at three lead-ins. The three clipped
-rows were run end to end twice, and **all nine first-word counts reproduced exactly**
-while WER moved by up to 1.0 point in the same cells; the `none` row is carried over
-from the sweep above and was measured once. So the effect is real, and it changes
-sign. Lose 40 ms — a fraction of one phoneme — and the lead-in buys back 6 opening
-words in 200. Lose 120 ms and it costs 11. The likely reason is that silence gives the decoder a clean word boundary
-at a point that is *not* a word boundary, so it commits to an onset that was never
-there; an abrupt start leaves it readier to recover.
+The correction is taken over the sixteen *conditions*, not the thirty-two rows. Running
+the same comparison twice on the same 200 utterances with a near-deterministic decoder
+produces a replicate, not a second test; counting it as one would both over-correct the
+threshold and let a single lucky cell be quoted as two findings.
 
-**What this does not say.** It does not say the setting is useless — 300 ms is the
-better half of the trade in the case a hold-to-talk user is most often in (the key
-caught slightly late), and it costs nothing measurable when the onset is intact. It
-does say the stated mechanism is narrower than the note claimed, and that no amount
-of prepended silence recovers a word that was not captured. The mechanism that could
-recover one — retaining real audio from *before* the key went down — exists in
-`audio/padding.py` and is deliberately never fed, because feeding it means listening
-while the key is up. That trade is [pinned as a test](https://github.com/MSKazemi/yazses/blob/main/tests/test_pre_speech_buffer_is_never_fed.py),
+**So the sign change is real in direction and unproven in size.** The earlier version of
+this section said the sign change was "not marginal", and cited the 40 ms row buying back
+6 to 8 opening words. The paired test does not support that half: the best cell in that
+row, lead 100 ms, reaches `p = 0.057`, and the shipped 300 ms reaches `p = 0.18`. **The
+only side of the trade with any replicated support is the side where the lead-in hurts** —
+at 120 ms of lost speech, and still not past a corrected threshold. Every direction in the
+grid is consistent across replicates, which is why the shape is quoted at all; no single
+cell of it may be quoted as an established effect.
+
+The mechanism suggested for the sign change stands as a hypothesis and nothing more:
+silence plausibly gives the decoder a clean word boundary at a point that is *not* a word
+boundary, so it commits to an onset that was never there, while an abrupt start leaves it
+readier to recover. Nothing here tests that explanation.
+
+**300 ms is not the best cell in its own row**, and the paired test agrees it does not
+matter. At 40 ms clipping the best lead-in measured is 100 ms (184) against the shipped
+300 ms (182); paired, that pair is nowhere near significant. Changing a shipped default on
+a two-in-200 difference from one sample of read audiobook speech would be exactly the kind
+of move this page exists to prevent.
+
+**What this does not say.** It does not say the setting is useless, and it does not say
+the setting helps. It says that on 200 utterances of read audiobook speech, **no lead-in
+value is measurably better than no lead-in at all**, in either direction, once the
+comparison is made properly. It costs nothing measurable when the onset is intact
+(`p = 0.125`), which is the overwhelmingly common case, so the default is left where it is
+— not because it was vindicated, but because there is no evidence on which to move it.
+
+What the grid does establish, and establishes clearly, is the thing the setting was
+supposed to fix: **no amount of prepended silence recovers a word that was not captured.**
+Losing 120 ms of speech costs about 43 opening words in 200 and losing 240 ms costs about
+103, and no lead-in value recovers any of them. The mechanism that could — retaining real
+audio from *before* the key went down — exists in `audio/padding.py` and is deliberately
+never fed, because feeding it means listening while the key is up. That trade is
+[pinned as a test](https://github.com/MSKazemi/yazses/blob/main/tests/test_pre_speech_buffer_is_never_fed.py),
 not left to a future tidy-up.
 
 ## Speed — how long until the text appears
@@ -262,35 +460,89 @@ had never been measured. It is now, on the same 200-utterance subsets and the sa
 
 | Model | Split | `beam_size` | WER | RTF |
 |---|---|---|---|---|
-| `base.en` | `test-clean` | 1 | 4.39 % | 0.0310 |
-| `base.en` | `test-clean` | 2 | **4.01 %** | 0.0322 |
-| `base.en` | `test-clean` | 3 | 4.07 % | 0.0348 |
-| `base.en` | `test-clean` | 5 *(default)* | **4.01 %** | 0.0361 |
-| `base.en` | `test-clean` | 8 | **4.01 %** | 0.0377 |
-| `base.en` | `test-other` | 1 | 10.56 % | 0.0376 |
-| `base.en` | `test-other` | 2 | 9.49 % | 0.0388 |
-| `base.en` | `test-other` | 5 *(default)* | **9.46 %** | 0.0417 |
-| `small.en` | `test-clean` | 1 | **2.53 %** | 0.0663 |
-| `small.en` | `test-clean` | 5 *(default)* | 2.66 % | 0.0765 |
-| `small.en` | `test-other` | 1 | 6.18 % | 0.0823 |
-| `small.en` | `test-other` | 5 *(default)* | **5.59 %** | 0.0919 |
+| `base.en` | `test-clean` | 1 | 4.39 % | 0.0314 |
+| `base.en` | `test-clean` | 2 | **4.01 %** | 0.0332 |
+| `base.en` | `test-clean` | 3 | 4.07 % | 0.0373 |
+| `base.en` | `test-clean` | 5 *(default)* | **4.01 %** | 0.0370 |
+| `base.en` | `test-clean` | 8 | **4.01 %** | 0.0385 |
+| `base.en` | `test-other` | 1 | 10.56 % | 0.0382 |
+| `base.en` | `test-other` | 2 | 9.49 % | 0.0395 |
+| `base.en` | `test-other` | 3 | 9.51 % | 0.0403 |
+| `base.en` | `test-other` | 5 *(default)* | **9.46 %** | 0.0426 |
+| `base.en` | `test-other` | 8 | 9.84 % | 0.0469 |
+| `small.en` | `test-clean` | 1 | **2.53 %** | 0.0703 |
+| `small.en` | `test-clean` | 5 *(default)* | 2.66 % | 0.0780 |
+| `small.en` | `test-other` | 1 | 6.18 % | 0.0856 |
+| `small.en` | `test-other` | 5 *(default)* | **5.59 %** | 0.0932 |
 
-**"Faster" is 11–16 %, not a category change.** Greedy decoding sounds like it should
+**"Faster" is 9–18 %, not a category change.** Greedy decoding sounds like it should
 be several times quicker. It is not: the beam is not where a Whisper decode spends its
-time. On a five-second utterance the whole saving is about 20 ms.
+time. On a five-second utterance the whole saving is 22–38 ms.
 
-**"Worse" depends on the model and the audio, and once reverses.** Greedy costs
-`base.en` 0.38 points on clean audio and 1.07 on hard audio — the harder the audio, the
-more the search is worth. On `small.en` and clean audio greedy is *better* (2.53 %
-against 2.66 %) and faster, and on hard audio it is worse again. So the cost of greedy
-is a property of the pairing, not of beam search.
+**"Worse" depends on the model and the audio.** Greedy costs `base.en` 0.38 points on
+clean audio (`p = 0.024`) and 1.10 on hard audio (`p = 0.0010`) — the harder the audio,
+the more the search is worth, and both of those hold up paired. The apparent *reversal*
+on `small.en` and clean audio, where greedy scored better (2.53 % against 2.66 %), does
+not: paired, that gap is 0.13 points with `p = 0.15`. It is reported because it is what
+the table says, and it is no longer offered as evidence that the sign of the effect
+changes.
 
-**Everything beam 5 buys, beam 2 already has.** On `base.en` beams 2, 5 and 8 score
-identically on clean audio, and beam 2 is within 0.03 points on hard audio, for 8–11 %
-less decode. The default stays at 5 anyway: 20 ms on a burst is not perceptible, and 5
-is the setting the rest of the world runs. What this table is for is the Adaptive
-Latency Governor, which drops to greedy on a loaded machine — it can now say what that
-costs instead of guessing.
+**More beam is not monotonically better — but that ordering is not established.**
+`base.en` on hard audio scores 9.46 % at beam 5 and 9.84 % at beam 8, and an earlier
+version of this section presented the reversal as a finding. Paired against beam 2, beam
+8 is 0.35 points worse with a 95 % interval of [−1.18, +0.34] and `p = 0.40`: the
+direction is consistently negative across both splits, and the size is not
+distinguishable from noise on 200 utterances. What survives is the weaker, sufficient
+statement — **a wider beam buys nothing here, and costs 16–19 % more decode than beam 2.**
+
+**Everything beam 5 buys, beam 2 already has — and this one is settled.** Paired on the
+same utterances, `base.en` at beam 2 against beam 5 differs by **0.000 points on clean
+audio** (95 % CI [−0.21, +0.18], `p = 1.00`) and **0.03 points on hard audio** (95 % CI
+[−0.33, +0.40], `p = 0.96`). Those intervals do not merely straddle zero; they are tight
+enough to **exclude a benefit larger than about 0.4 points in either direction**, which
+is the difference between "we could not tell" and "there is nothing there". Beam 5 costs
+7.8 % more decode than beam 2 on hard audio and 11.4 % more on clean.
+
+`[stt] beam_size` stays at its default of `0`, which means "let faster-whisper choose"
+and is deliberately not a pin — the upstream default is theirs to change, and freezing
+it here to match a measurement of one model on one corpus would be the same mistake in
+the opposite direction. The place this bears on directly is the Adaptive Latency
+Governor, which hardcodes 5 for its normal policy and 1 under load; on the default model
+it is paying ~8 % of decode for nothing, and its greedy fallback gives up a full point
+on hard audio where beam 2 would cost 3 % over greedy. Both are measured against
+`base.en`; whether they hold for `tiny.en` and `small.en` — the two models the governor
+actually switches between — is being measured before the constant moves.
+
+**The WER column reproduces exactly; the RTF column does not.** Every one of these
+rows was measured twice on the same instance half an hour apart — once by hand while
+the question was being scoped, once by the committed harness, in separate processes
+with the models re-loaded. All twelve overlapping WER figures came back
+**bit-identical**, to the second decimal. The RTF figures moved by up to 3 % between
+the two runs, and by 23–26 % when a second job shared the box. That is run-to-run
+repeatability on one machine; for the cross-machine version see the four-runner
+comparison below, and the third-decimal note under the headline table. Accuracy on a
+fixed subset is a property of the model and the audio; throughput is a property of the
+machine and of what else is running on it, and only the first kind of number should be
+carried between reports.
+
+**What settled it.** The gaps at stake are fractions of a point, and at 200 utterances
+the 95 % interval on any single row here is wider than every gap in the grid — so two
+published percentages could not settle whether 9.46 beats 9.84. The comparison that can
+is a bootstrap **paired on the utterances both settings decoded**, which throws away the
+variance the two conditions share, and it needs per-utterance error counts that the
+first artifacts did not record. `bench_beam.py` now writes them and
+[`analyze_beam.py`](https://github.com/MSKazemi/yazses/blob/main/paper/benchmark/analyze_beam.py)
+reads them, against beam 1 by default and against any other width with `--baseline=N`;
+the verdicts are in
+[`beam-test-clean-significance.json`](https://github.com/MSKazemi/yazses/tree/main/paper/results)
+and its `test-other` and `-vs-beam2` companions.
+
+Of the four conclusions this section drew from the bare grid, **two survived the paired
+test and two did not.** Beam search earning its cost against greedy survived on both
+splits; beam 2 matching beam 5 survived and got sharper. The beam-8 reversal and the
+`small.en` sign flip did not, and are now written as observations rather than findings.
+That ratio is the argument for the method: the two that failed are exactly the two that
+read most like discoveries.
 
 ### Everything that isn't the model is free
 
@@ -370,18 +622,18 @@ model. This is the honest cost of a Python daemon — it is why the requirements
 
 ## Voice-activity gate
 
-The gate that decides whether a recording contains speech at all, tested against 40
+The gate that decides whether a recording contains speech at all, tested against 200
 LibriSpeech clips as positives and 5 negatives — digital silence plus Gaussian noise at
 0.1×, 0.25×, 0.5× and 0.75× the threshold:
 
 | Metric | Result |
 |---|---|
-| Speech detected | 100 % (40/40) |
+| Speech detected | 100 % (200/200) |
 | Silence rejected | 100 % (5/5) |
 | Balanced accuracy | 100 % |
-| Median speech level vs threshold | 3.4× margin |
+| Median speech level vs threshold | 3.1× margin |
 
-The 3.4× margin is why `yazses mic-level --set` matters: the default threshold works
+The 3.1× margin is why `yazses mic-level --set` matters: the default threshold works
 because typical speech sits well above it, but a quiet voice or a low-gain
 microphone can fall below it — which shows up as `Silent audio -- discarding` in the
 log rather than as an error.
@@ -518,6 +770,19 @@ That is a deliberate choice (a 40-minute meeting should not drown out three shor
 ones) and it is a different number from the corpus-aggregated DER most papers quote,
 so it is named here rather than left for a reader to assume.
 
+**Both are now reported, because only one of them is comparable to a paper.** NIST
+`md-eval`, and every published AMI and DIHARD table, aggregates error time over scored
+speech time. On the AMI test split below that is **27.37 %** (20.51 % at a 250 ms
+collar) across 30 714 s — 8.5 hours — of scored speech, against the per-recording mean
+of 26.71 %. Quote the time-weighted figure when placing this beside published work and
+the mean when asking how a meeting will go; they are 0.66 points apart here and need
+not be, on a corpus whose recordings differ in length by 3.5x. Both come from the same
+`meetings` rows in
+[`paper/results/diarization-ami16_corpus-der.json`](https://github.com/MSKazemi/yazses/blob/main/paper/results/diarization-ami16_corpus-der.json),
+which is also the first artifact to carry the 26.71 % headline **per recording**: it
+had previously been quoted from a sweep row that could not be decomposed, re-aggregated
+or bootstrapped.
+
 ### On real meetings: AMI — the number that matters
 
 The **whole AMI test split**: 16 recordings, 543.7 minutes of real four-person meetings
@@ -525,11 +790,15 @@ in real rooms, headset mix, scored against the human reference RTTMs published b
 `pyannote/AMI-diarization-setup` (`only_words`, test split). This is what Meeting Mode is
 actually pointed at.
 
-| | DER (collar 0) | mean speaker-count error | exact count |
-|---|---|---|---|
-| defaults **before v2.30** (`cluster_threshold = 0.5`) | **75.21%** | **+155.19** | 0 / 16 |
-| defaults **now** (`[meeting] cluster_threshold = 1.2`) | **26.71%** | +2.06 | 2 / 16 |
-| `max_speakers = 4` (count supplied) | 29.42% | +0.06 | 16 / 16 |
+Every row names **both** settings that decide the result. They used to name one, and
+two of the rows differed in both — see the reading below.
+
+| | `cluster_threshold` | speaker count | DER (collar 0) | mean speaker-count error | exact count |
+|---|---|---|---|---|---|
+| defaults **before v2.30** | 0.5 | estimated | **75.21%** | **+155.19** | 0 / 16 |
+| the same, count supplied | 0.5 | `max_speakers = 4` | 29.42% | +0.06 | 16 / 16 |
+| defaults **now** (`[meeting]`) | **1.2** | estimated | **26.71%** | +2.06 | 2 / 16 |
+| threshold 1.2 **and** the count | 1.2 | `max_speakers = 4` | *not yet measured* | | |
 
 Per recording the old default ran from 53.7% to 92.0% DER, finding between **81 and 272**
 speakers in rooms holding four people. The threshold change is
@@ -537,10 +806,19 @@ speakers in rooms holding four people. The threshold change is
 the rest of this section is the evidence behind it, kept because the old numbers were
 published and deleting them would be the wrong kind of tidy.
 
-Note the third row. **Supplying the exact speaker count is now worse than letting the
-clustering estimate it** — 29.42% against 26.71% — which is the reverse of what the
-four-meeting subset below showed at the old threshold, and is why the pre-run hint about
-`--speakers` no longer claims to be a large win.
+**A claim this table used to make has been withdrawn.** It read: *"Supplying the exact
+speaker count is now worse than letting the clustering estimate it — 29.42% against
+26.71%."* Those two runs differ in the threshold **and** in the speaker count, so that
+comparison cannot separate the two, and within its own condition the data says the
+opposite: at threshold 0.5, supplying the count takes DER from 75.21% to 29.42%, a
+45.8-point improvement and the largest single effect on this page.
+
+What the four rows do support is the reason the default moved: **raising the threshold
+achieved more than supplying the count did, and without having to ask the user
+anything.** Whether the count still helps *at the new threshold* is the fourth row, and
+it had never been run — 0.5-with-count was measured, 1.2-without-count was measured, and
+1.2-with-count was assumed. It is being measured now; until it lands, the pre-run hint
+about `--speakers` claims nothing either way.
 
 #### The four-meeting subset, at the old defaults
 
@@ -680,6 +958,7 @@ against the same corpora, at the **shipped** defaults, after it had already ship
 |---|---|---|---|---|
 | VoxConverse @ `0.9` | 15 | 11 | 8 | 7 |
 | VoxConverse @ `1.0` — `[recimport]` default | 15 | 5 | **7** | **4** |
+| AMI @ `1.2` — `[meeting]` default | 16 | **12** | **1** | **1** |
 
 **Seven firings in fifteen recordings, three of them wrong.** And wrong in the way that
 matters: `aisvi` found 8 speakers where there were 8, `epdpg` 9 where there were 12,
@@ -706,6 +985,28 @@ That AMI claim was then measured rather than left as arithmetic. Scoring the who
 derived threshold clamps to the 20 s ceiling on twelve, and on the four shorter sessions
 where it does drop (13.8–19.1 s) no verdict moves. One recording fires under either rule
 — `IS1009d`, 6 labels for 4 speakers — and it is a genuine over-split.
+
+**On real meetings the guard almost never fires, and that is the honest headline.** Twelve
+of the sixteen AMI recordings *are* over-split at the shipped threshold — nine of them
+produce 6 to 9 labels for 4 people — and the guard catches **one**. Zero false alarms on
+the four that are not over-split, so every warning it did give was true; but recall is
+1 in 12, not something a reader should discover by installing it.
+
+The reason is structural rather than a bad constant, and it is worth stating because no
+retuning fixes it. The rule asks whether *half* the labels are shorter than the fragment
+threshold. What over-splitting actually looks like in a forty-minute meeting is one
+speaker cut into two clusters of several minutes each — `EN2002b` has 6 labels for 4
+speakers and its smallest is 98 s, `ES2004d` has 6 for 4 and two of them run 274 s and
+498 s. Those are not fragments by any threshold; they are people-sized pieces of the wrong
+person. A shape test for *fragmentation* is blind to them by construction, and residual
+2× over-counting therefore passes silently.
+
+That is a deliberate trade, not an oversight to be fixed by loosening the rule. The guard
+is precision-first: a warning that interrupts a correct transcript teaches the user to
+dismiss the next one, and a dismissed guard catches nothing at all. 1/12 recall with 0/4
+false alarms is the corner of that trade this project chose. Detecting the merge-sized
+error needs a different signal — comparing cluster centroids to each other rather than
+counting short labels — which is a separate piece of work, not a constant to retune.
 
 ### Scoring cross-check
 

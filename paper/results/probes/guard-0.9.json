@@ -1,0 +1,37 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-23T18:04:22Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 9.9,
+    "compute_type": "int8",
+    "device": "cpu"
+  },
+  "probe": {
+    "measured": "Guard firing rate at cluster_threshold=0.9.",
+    "produced_by": "probes/guard_probe.py",
+    "host": "Azure Standard_D16s_v6, westeurope (16 vCPU Xeon Platinum 8573C, 67 GB)",
+    "run_finished_utc": "2026-08-23T18:04:22Z",
+    "superseded_by": "paper/benchmark/bench_plausibility.py"
+  },
+  "result": {
+    "sweep": [
+      {
+        "cluster_threshold": 0.9,
+        "der": 51.68,
+        "mean_speaker_count_error": 24.0,
+        "meetings_with_exact_count": 0,
+        "n_meetings": 1
+      }
+    ]
+  }
+}

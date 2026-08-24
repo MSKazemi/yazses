@@ -1,0 +1,299 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-23T22:56:49Z",
+    "cpu_model": "Apple M1 (Virtual)",
+    "logical_cpus": 3,
+    "ram_gb": 7.5,
+    "os": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+    "kernel": "25.5.0",
+    "python": "3.14.6",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.30.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 30.44,
+    "compute_type": "int8",
+    "device": "cpu"
+  },
+  "results": {
+    "commands": {
+      "config": {
+        "command_fixture": "tests/fixtures/commands/command_phrases.json",
+        "dictation_fixture": "tests/fixtures/commands/dictation_corpus.txt",
+        "n_command_phrases": 71,
+        "n_dictation_lines": 80
+      },
+      "precision": {
+        "action_accuracy_pct": 100.0,
+        "classified_as_command_pct": 93.0,
+        "action_hits": 71,
+        "misfires": []
+      },
+      "false_positive": {
+        "false_positive_rate_pct": 0.0,
+        "false_positives": []
+      },
+      "runtime": {
+        "per_call_median_ms": 0.0092,
+        "per_call_p95_ms": 0.0115,
+        "n_calls": 3020
+      }
+    },
+    "vad": {
+      "config": {
+        "vad_threshold": 0.01,
+        "metric": "mean(|audio|) < threshold => silent (gated out)",
+        "n_speech_clips": 120,
+        "n_silence_clips": 5,
+        "dataset_positives": "LibriSpeech test-clean",
+        "negatives": "digital silence + Gaussian noise at 0.1/0.25/0.5/0.75x threshold"
+      },
+      "results": {
+        "speech_detection_rate_pct": 100.0,
+        "silence_rejection_rate_pct": 100.0,
+        "balanced_accuracy_pct": 100.0,
+        "speech_rms_median": 0.03169,
+        "speech_rms_p05": 0.01599,
+        "speech_rms_to_threshold_margin_x": 3.2
+      }
+    },
+    "wer": {
+      "config": {
+        "dataset": "LibriSpeech test-clean",
+        "dataset_source": "https://www.openslr.org/resources/12/test-clean.tar.gz",
+        "citation": "Panayotov et al., ICASSP 2015",
+        "n_utterances": 60,
+        "n_speakers": 40,
+        "total_audio_seconds": 544.0,
+        "normalizer": "whisper_normalizer.english.EnglishTextNormalizer",
+        "selection": "deterministic speaker-stratified round-robin across all test-clean speakers",
+        "engines": [
+          "faster-whisper"
+        ],
+        "engine_versions": {},
+        "cpu_threads": 0
+      },
+      "models": {
+        "tiny.en": {
+          "engine": "faster-whisper",
+          "engine_class": "FasterWhisperEngine",
+          "model": "tiny.en",
+          "wer": 3.74,
+          "wer_ci95": [
+            2.51,
+            5.16
+          ],
+          "n_scored_utterances": 60,
+          "mer": 3.72,
+          "substitutions": 38,
+          "deletions": 5,
+          "insertions": 10,
+          "hits": 1373,
+          "load_seconds": 4.61,
+          "rtf_median": 0.073,
+          "rtf_p95": 0.138,
+          "rtf_mean": 0.08,
+          "decode_seconds_total": 36.2,
+          "realtime_speedup_median": 13.6
+        },
+        "base.en": {
+          "engine": "faster-whisper",
+          "engine_class": "FasterWhisperEngine",
+          "model": "base.en",
+          "wer": 3.25,
+          "wer_ci95": [
+            2.09,
+            4.66
+          ],
+          "n_scored_utterances": 60,
+          "mer": 3.24,
+          "substitutions": 34,
+          "deletions": 8,
+          "insertions": 4,
+          "hits": 1374,
+          "load_seconds": 2.56,
+          "rtf_median": 0.149,
+          "rtf_p95": 0.36,
+          "rtf_mean": 0.19,
+          "decode_seconds_total": 88.3,
+          "realtime_speedup_median": 6.7
+        },
+        "small.en": {
+          "engine": "faster-whisper",
+          "engine_class": "FasterWhisperEngine",
+          "model": "small.en",
+          "wer": 2.05,
+          "wer_ci95": [
+            1.24,
+            2.95
+          ],
+          "n_scored_utterances": 60,
+          "mer": 2.04,
+          "substitutions": 23,
+          "deletions": 3,
+          "insertions": 3,
+          "hits": 1390,
+          "load_seconds": 5.59,
+          "rtf_median": 0.376,
+          "rtf_p95": 0.981,
+          "rtf_mean": 0.441,
+          "decode_seconds_total": 185.8,
+          "realtime_speedup_median": 2.7
+        }
+      },
+      "failed": {}
+    },
+    "latency": {
+      "config": {
+        "n_latency_utterances": 15,
+        "audio_duration_median_s": 10.44,
+        "audio_duration_p95_s": 23.95,
+        "pure_stage_reps": 2000
+      },
+      "memory": {
+        "baseline_rss_mb": 599.2
+      },
+      "models": {
+        "tiny.en": {
+          "cold_start_load_s": 0.25,
+          "decode_median_ms": 566.2,
+          "decode_p95_ms": 1055.4,
+          "rss_after_load_mb": 694.7,
+          "rss_peak_mb": 764.1,
+          "model_rss_delta_mb": 95.5
+        },
+        "base.en": {
+          "cold_start_load_s": 0.37,
+          "decode_median_ms": 910.1,
+          "decode_p95_ms": 2410.9,
+          "rss_after_load_mb": 868.9,
+          "rss_peak_mb": 895.6,
+          "model_rss_delta_mb": 269.7
+        },
+        "small.en": {
+          "cold_start_load_s": 1.1,
+          "decode_median_ms": 2652.1,
+          "decode_p95_ms": 4411.4,
+          "rss_after_load_mb": 968.7,
+          "rss_peak_mb": 1047.1,
+          "model_rss_delta_mb": 369.5
+        }
+      },
+      "pipeline_stages": {
+        "vad_gate": {
+          "median_ms": 0.0089,
+          "p95_ms": 0.0241,
+          "mean_ms": 0.0112
+        },
+        "clean_text": {
+          "median_ms": 0.0005,
+          "p95_ms": 0.0007,
+          "mean_ms": 0.0007
+        },
+        "disfluency_filter": {
+          "median_ms": 0.0159,
+          "p95_ms": 0.0209,
+          "mean_ms": 0.018
+        },
+        "grammar_classify_dictation": {
+          "median_ms": 0.0081,
+          "p95_ms": 0.0104,
+          "mean_ms": 0.0092
+        },
+        "grammar_classify_command": {
+          "median_ms": 0.0046,
+          "p95_ms": 0.0065,
+          "mean_ms": 0.0054
+        }
+      },
+      "non_decode_overhead_median_ms": 0.0334
+    },
+    "streaming": {
+      "config": {
+        "n_utterances": 6,
+        "audio_duration_median_s": 10.58,
+        "chunk_ms": 100,
+        "partial_interval_ms": 300,
+        "feed": "real-time (1x); audio is paced as a microphone delivers it"
+      },
+      "models": {
+        "tiny.en": {
+          "batch_speech_end_to_text_s": {
+            "median": 0.445,
+            "p95": 0.48,
+            "mean": 0.432,
+            "n": 6
+          },
+          "streaming_speech_end_to_final_s": {
+            "median": 0.629,
+            "p95": 0.733,
+            "mean": 0.614,
+            "n": 6
+          },
+          "streaming_time_to_first_text_s": {
+            "median": 2.726,
+            "p95": 3.787,
+            "mean": 2.634,
+            "n": 6
+          },
+          "streaming_visible_at_release_pct": {
+            "median": 84.773,
+            "p95": 94.099,
+            "mean": 85.903,
+            "n": 6
+          },
+          "utterances_with_no_partial_before_release": 0
+        },
+        "base.en": {
+          "batch_speech_end_to_text_s": {
+            "median": 0.854,
+            "p95": 1.474,
+            "mean": 0.988,
+            "n": 6
+          },
+          "streaming_speech_end_to_final_s": {
+            "median": 1.249,
+            "p95": 4.199,
+            "mean": 1.849,
+            "n": 6
+          },
+          "streaming_time_to_first_text_s": {
+            "median": 3.477,
+            "p95": 10.18,
+            "mean": 5.138,
+            "n": 5
+          },
+          "streaming_visible_at_release_pct": {
+            "median": 59.545,
+            "p95": 63.926,
+            "mean": 48.634,
+            "n": 6
+          },
+          "utterances_with_no_partial_before_release": 1
+        }
+      }
+    },
+    "meta": {
+      "dysfluency_gate": {
+        "n_clean_control": 33,
+        "n_dysfluent": 28,
+        "false_collapse_rate_pct": 0.0,
+        "recall_pct": 92.86,
+        "pre_registered_gate": "false-collapse < 2% AND recall >= 60% (ADR-015 LOFA-1)"
+      },
+      "model_footprint_mb": {
+        "base.en": 147.8,
+        "small.en": 486.1,
+        "tiny.en": 78.1
+      },
+      "engineering_scale": {
+        "test_files": 583,
+        "test_functions": 5670,
+        "adr_files": 159,
+        "src_python_files": 503,
+        "src_lines": 59952
+      }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+one-meeting corpus: [{'id': 'IS1009a', 'duration_s': 838.83, 'n_speakers': 4}]
+[der] IS1009a: DER=90.2% (collar250=83.6%) speakers 86/4
+{
+  "der_strict": 90.2,
+  "der_collar250ms": 83.6,
+  "missed_pct": 7.72,
+  "false_alarm_pct": 6.58,
+  "confusion_pct": 75.9,
+  "mean_speaker_count_error": 82.0
+}
+=== cluster anatomy ===
+reference : 195 turns, 4 speakers, 696s speech
+hypothesis: 190 turns, 86 speakers, 688s speech
+turn duration: min=0.30s median=2.21s max=16.79s
+  turns shorter than 0.5s: 22/190 (12%)
+  turns shorter than 1.0s: 54/190 (28%)
+  turns shorter than 2.0s: 87/190 (46%)
+  clusters with < 1.0s TOTAL speech: 13/86 (15%)
+  clusters with < 3.0s TOTAL speech: 40/86 (47%)
+  clusters with < 5.0s TOTAL speech: 51/86 (59%)
+  top 6 clusters by total speech: ['speaker_13=60s', 'speaker_91=48s', 'speaker_24=47s', 'speaker_99=38s', 'speaker_9=38s', 'speaker_92=31s']
+  speech in the 4 largest clusters: 28% of hypothesis speech
+DIAG_DONE

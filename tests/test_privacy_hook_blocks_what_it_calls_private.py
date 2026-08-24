@@ -108,3 +108,122 @@ def test_the_public_part_of_design_is_still_committable() -> None:
     pattern = _blocked_re(_hook_text())
     for path in ("design/adr/adr-001.md", "design/architecture.md", "design/README.md"):
         assert not re.search(pattern, path), f"{path} is public and must stay committable"
+
+
+# ── The other direction: what the contract calls PUBLIC must be committable ──
+#
+# `design/README.md` carries the visibility table and says in the same breath that
+# three mechanisms enforce it and "changing one without the others is a bug". The
+# table declared `paper/results/` public from the day the harness was published.
+# The hook's allow-list still read `^paper/benchmark/[^/]+\.(py|md)$`, so the
+# entire results archive — the artifacts behind every number on a public page —
+# was uncommittable, and the block message read like a considered policy decision
+# rather than a list that had not caught up. Nothing failed until someone tried.
+#
+# The tests above prove the hook does not under-block. These prove it does not
+# over-block, and they take the set of public trees from the contract itself,
+# because a literal list here would be a fourth place to forget.
+
+TABLE_ROW = re.compile(r"^\|\s*(`[^|]+`)\s*\|\s*\*\*(Public|Private)\*\*\s*\|", re.M)
+
+
+def _contract_trees(visibility: str) -> tuple[str, ...]:
+    """Directories the visibility table in design/README.md gives `visibility`.
+
+    A row may name more than one directory (`paper/benchmark/`, `paper/results/`),
+    so each cell is split on the comma and every backticked path is returned.
+    """
+    text = (ROOT / "design" / "README.md").read_text(encoding="utf-8")
+    trees: list[str] = []
+    for cell, kind in TABLE_ROW.findall(text):
+        if kind != visibility:
+            continue
+        trees.extend(re.findall(r"`([^`]+)`", cell))
+    return tuple(trees)
+
+
+def _allowed_re(text: str) -> str:
+    m = re.search(r"allowed_re='([^']+)'", text)
+    assert m, "cannot find allowed_re in the hook — its shape changed"
+    return m.group(1)
+
+
+def _committable(hook: str, path: str) -> bool:
+    """What the hook actually decides for one staged path: blocked unless the
+    narrow allow-list rescues it. Mirrors the two greps in section 2."""
+    if not re.search(_blocked_re(hook), path):
+        return True
+    return bool(re.search(_allowed_re(hook), path))
+
+
+def test_the_contract_table_is_parseable() -> None:
+    """Guard the guard, again: an unparseable table must not read as agreement."""
+    public = _contract_trees("Public")
+    private = _contract_trees("Private")
+    assert len(public) >= 3, f"only {public} parsed as public out of design/README.md"
+    assert len(private) >= 3, f"only {private} parsed as private out of design/README.md"
+    assert not set(public) & set(private), "a directory is listed as both"
+
+
+@pytest.mark.parametrize(
+    ("tree", "name"),
+    [
+        ("design/", "adr/adr-001.md"),
+        ("docs/", "benchmarks.md"),
+        ("paper/benchmark/", "bench_wer.py"),
+        ("paper/benchmark/", "probes/largev3_repeat.py"),
+        ("paper/benchmark/", "probes/drivers/x86-bootstrap.sh"),
+        ("paper/results/", "wer.json"),
+        ("paper/results/", "README.md"),
+        ("paper/results/", "probes/logs/x86b-serial_chain.log"),
+    ],
+)
+def test_every_tree_called_public_can_actually_be_committed(tree: str, name: str) -> None:
+    """The property that was violated, in the direction nothing was checking.
+
+    The `tree` is asserted to be public *by the contract* rather than assumed, so
+    quietly reclassifying one fails here instead of silently retiring a case.
+    """
+    assert tree in _contract_trees("Public"), (
+        f"{tree!r} is no longer listed as public in design/README.md's visibility "
+        f"table. If that is deliberate, this case and the hook must change together."
+    )
+    path = f"{tree}{name}"
+    assert _committable(_hook_text(), path), (
+        f"design/README.md calls {tree} public, but .git/hooks/pre-commit refuses to "
+        f"commit {path}. The contract says all three enforcement points must agree; "
+        f"this is the one that does not."
+    )
+
+
+# Two of these probes are split across a tuple rather than written as one string,
+# and the seam is the point. Section 3 of the hook forbids a *public* file from
+# containing a path into a private tree, and this file is public. Written whole,
+# an agent-artifact path would trip that check on the way in — correctly, since
+# the rule cannot tell a test fixture from a live link, and the exception that
+# would let it through is exactly the exception that leaks a filename later.
+@pytest.mark.parametrize(
+    ("prefix", "rest"),
+    [
+        ("paper/", "main.tex"),                     # the manuscript
+        ("paper/", "corpus/ami/ES2004a.wav"),       # licensed audio
+        ("paper/", "references/whisper.pdf"),       # a third-party paper
+        ("paper/benchmark/", "corpus/train.wav"),   # audio smuggled under the harness
+        ("paper/results/", "corpus/ES2004a.flac"),  # audio smuggled under the archive
+        ("strategy", "/launch.md"),
+        (".claude", "/plans/today.md"),
+    ],
+)
+def test_widening_the_allow_list_did_not_let_the_private_half_through(
+    prefix: str, rest: str
+) -> None:
+    """The allow-list is anchored on extension, not on depth, precisely so that a
+    subdirectory under a published tree cannot carry audio or a manuscript out.
+    `paper/` is private *except* for code and small artifacts, and that exception
+    has to stay an exception."""
+    path = prefix + rest
+    assert not _committable(_hook_text(), path), (
+        f"{path} would be committable to a public repository. The paper/ exception "
+        f"is for harness code (.py/.md/.sh) and result artifacts (.json/.md/.log) "
+        f"only — no audio, no transcripts, no manuscript."
+    )

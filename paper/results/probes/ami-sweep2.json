@@ -1,0 +1,79 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-23T22:49:06Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 1.0,
+    "compute_type": "int8",
+    "device": "cpu",
+    "captured": "after the run, on the same host, which was not reconfigured between the two"
+  },
+  "probe": {
+    "measured": "cluster_threshold sweep on four AMI meetings over the range the wide sweep identified. This is the measurement the shipped 1.2 default rests on.",
+    "produced_by": "paper/benchmark/bench_diarization.py --sweep",
+    "host": "Azure Standard_D16s_v6, westeurope (16 vCPU Xeon Platinum 8573C, 67 GB)",
+    "run_finished_utc": "2026-08-23T17:18:13Z"
+  },
+  "result": {
+    "sweep": [
+      {
+        "cluster_threshold": 0.9,
+        "der": 46.28,
+        "mean_speaker_count_error": 35.0,
+        "meetings_with_exact_count": 0,
+        "n_meetings": 4
+      },
+      {
+        "cluster_threshold": 1.0,
+        "der": 33.58,
+        "mean_speaker_count_error": 22.0,
+        "meetings_with_exact_count": 0,
+        "n_meetings": 4
+      },
+      {
+        "cluster_threshold": 1.1,
+        "der": 30.11,
+        "mean_speaker_count_error": 7.75,
+        "meetings_with_exact_count": 0,
+        "n_meetings": 4
+      },
+      {
+        "cluster_threshold": 1.2,
+        "der": 27.07,
+        "mean_speaker_count_error": 0.75,
+        "meetings_with_exact_count": 1,
+        "n_meetings": 4
+      },
+      {
+        "cluster_threshold": 1.3,
+        "der": 40.37,
+        "mean_speaker_count_error": -2.0,
+        "meetings_with_exact_count": 0,
+        "n_meetings": 4
+      },
+      {
+        "cluster_threshold": 1.4,
+        "der": 49.87,
+        "mean_speaker_count_error": -3.0,
+        "meetings_with_exact_count": 0,
+        "n_meetings": 4
+      },
+      {
+        "cluster_threshold": 1.6,
+        "der": 49.87,
+        "mean_speaker_count_error": -3.0,
+        "meetings_with_exact_count": 0,
+        "n_meetings": 4
+      }
+    ]
+  }
+}

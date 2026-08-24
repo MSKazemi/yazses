@@ -1,0 +1,6 @@
+[beam] base.en beam=1 (test-clean): WER 4.39%  RTF 0.0375  (67.9s)
+[beam] base.en beam=2 (test-clean): WER 4.01%  RTF 0.0405  (73.2s)
+[beam] base.en beam=3 (test-clean): WER 4.07%  RTF 0.0449  (81.2s)
+[beam] base.en beam=5 (test-clean): WER 4.01%  RTF 0.045  (81.4s)
+[beam] base.en beam=8 (test-clean): WER 4.01%  RTF 0.0468  (84.7s)
+[beam] small.en beam=1 (test-clean): WER 2.53%  RTF 0.0824  (149.1s)

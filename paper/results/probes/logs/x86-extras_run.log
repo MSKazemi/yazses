@@ -1,0 +1,15 @@
++ export PATH=$HOME/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
++ PATH=$HOME/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
++ export QT_QPA_PLATFORM=offscreen
++ QT_QPA_PLATFORM=offscreen
++ cd $HOME/yazses
++ uv run pytest tests/ -v
++ echo PYTEST_EXIT=1
++ tee -a $HOME/x86_extras_pytest.log
+PYTEST_EXIT=1
++ echo '=== the three tests the CI comment names as never-run ==='
+=== the three tests the CI comment names as never-run ===
++ uv run pytest tests/test_shipped_backends.py tests/test_meeting_notes.py -v
++ echo THREE_EXIT=1
++ tee -a $HOME/x86_three.log
+THREE_EXIT=1

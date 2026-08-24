@@ -1,0 +1,35 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-23T22:56:46Z",
+    "cpu_model": "AMD EPYC 7763 64-Core Processor",
+    "logical_cpus": 4,
+    "ram_gb": 17.2,
+    "os": "Windows-2025Server-10.0.26100-SP0",
+    "kernel": "2025Server",
+    "python": "3.12.10",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.30.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": -1.0,
+    "compute_type": "int8",
+    "device": "cpu"
+  },
+  "config": {
+    "vad_threshold": 0.01,
+    "metric": "mean(|audio|) < threshold => silent (gated out)",
+    "n_speech_clips": 120,
+    "n_silence_clips": 5,
+    "dataset_positives": "LibriSpeech test-clean",
+    "negatives": "digital silence + Gaussian noise at 0.1/0.25/0.5/0.75x threshold"
+  },
+  "results": {
+    "speech_detection_rate_pct": 100.0,
+    "silence_rejection_rate_pct": 100.0,
+    "balanced_accuracy_pct": 100.0,
+    "speech_rms_median": 0.03169,
+    "speech_rms_p05": 0.01599,
+    "speech_rms_to_threshold_margin_x": 3.2
+  }
+}

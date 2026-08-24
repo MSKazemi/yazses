@@ -1,0 +1,11 @@
+[clip] 200 clips; base trim median 290 ms
+[clip] cut=  40ms lead=   0ms  WER  4.63%  first word 176/200
+[clip] cut=  40ms lead= 300ms  WER  4.22%  first word 182/200
+[clip] cut=  40ms lead= 600ms  WER  3.96%  first word 182/200
+[clip] cut= 120ms lead=   0ms  WER  5.78%  first word 143/200
+[clip] cut= 120ms lead= 300ms  WER  6.11%  first word 132/200
+[clip] cut= 120ms lead= 600ms  WER  5.76%  first word 129/200
+[clip] cut= 240ms lead=   0ms  WER  8.14%  first word 83/200
+[clip] cut= 240ms lead= 300ms  WER  8.29%  first word 79/200
+[clip] cut= 240ms lead= 600ms  WER  8.05%  first word 78/200
+CLIP_PROBE_DONE

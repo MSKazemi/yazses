@@ -1,0 +1,141 @@
+### PART 1 -- authoritative engine matrix. load:  18:49:41 up  4:51,  3 users,  load average: 2.02, 3.09, 5.30
+start 18:49:41Z
+[wer] loading tiny.en (engine=faster-whisper) ...
+  tiny.en: 25/200
+  tiny.en: 50/200
+  tiny.en: 75/200
+  tiny.en: 100/200
+  tiny.en: 125/200
+  tiny.en: 150/200
+  tiny.en: 175/200
+  tiny.en: 200/200
+[wer] tiny.en: WER=5.18% (95% CI 4.22-6.31)  RTF median=0.028 (~35.4x realtime)  load=0.44s
+[wer] loading base.en (engine=faster-whisper) ...
+  base.en: 25/200
+  base.en: 50/200
+  base.en: 75/200
+  base.en: 100/200
+  base.en: 125/200
+  base.en: 150/200
+  base.en: 175/200
+  base.en: 200/200
+[wer] base.en: WER=4.01% (95% CI 3.21-4.87)  RTF median=0.042 (~24.1x realtime)  load=0.23s
+[wer] loading small.en (engine=faster-whisper) ...
+  small.en: 25/200
+  small.en: 50/200
+  small.en: 75/200
+  small.en: 100/200
+  small.en: 125/200
+  small.en: 150/200
+  small.en: 175/200
+  small.en: 200/200
+[wer] small.en: WER=2.66% (95% CI 2.05-3.28)  RTF median=0.092 (~10.9x realtime)  load=0.53s
+[wer] loading medium.en (engine=faster-whisper) ...
+  medium.en: 25/200
+  medium.en: 50/200
+  medium.en: 75/200
+  medium.en: 100/200
+  medium.en: 125/200
+  medium.en: 150/200
+  medium.en: 175/200
+  medium.en: 200/200
+[wer] medium.en: WER=3.28% (95% CI 2.09-5.01)  RTF median=0.246 (~4.1x realtime)  load=1.31s
+[wer] loading large-v3 (engine=faster-whisper) ...
+  large-v3: 25/200
+  large-v3: 50/200
+  large-v3: 75/200
+  large-v3: 100/200
+  large-v3: 125/200
+  large-v3: 150/200
+  large-v3: 175/200
+  large-v3: 200/200
+[wer] large-v3: WER=3.23% (95% CI 1.95-5.0)  RTF median=0.451 (~2.2x realtime)  load=2.73s
+[wer] loading parakeet-tdt-0.6b-v2 (engine=parakeet) ...
+[0;93m2026-08-23 19:15:53.844343079 [W:onnxruntime:Default, device_discovery.cc:134 GetPciBusId] Skipping pci_bus_id for PCI path at "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/ACPI0004:00/MSFT1000:00/5620e0c7-8062-4dce-aeb7-520c7ef76171" because filename "5620e0c7-8062-4dce-aeb7-520c7ef76171" did not match expected pattern of [0-9a-f]+:[0-9a-f]+:[0-9a-f]+[.][0-9a-f]+[m
+  parakeet-tdt-0.6b-v2: 25/200
+  parakeet-tdt-0.6b-v2: 50/200
+  parakeet-tdt-0.6b-v2: 75/200
+  parakeet-tdt-0.6b-v2: 100/200
+  parakeet-tdt-0.6b-v2: 125/200
+  parakeet-tdt-0.6b-v2: 150/200
+  parakeet-tdt-0.6b-v2: 175/200
+  parakeet-tdt-0.6b-v2: 200/200
+[wer] parakeet-tdt-0.6b-v2: WER=2.06% (95% CI 1.54-2.68)  RTF median=0.05 (~19.8x realtime)  load=1.27s
+[wer] loading moonshine/tiny (engine=moonshine) ...
+  moonshine/tiny: 25/200
+  moonshine/tiny: 50/200
+  moonshine/tiny: 75/200
+  moonshine/tiny: 100/200
+  moonshine/tiny: 125/200
+  moonshine/tiny: 150/200
+  moonshine/tiny: 175/200
+  moonshine/tiny: 200/200
+[wer] moonshine/tiny: WER=4.2% (95% CI 3.42-5.06)  RTF median=0.016 (~62.6x realtime)  load=0.02s
+[wer] loading moonshine/base (engine=moonshine) ...
+  moonshine/base: 25/200
+  moonshine/base: 50/200
+  moonshine/base: 75/200
+  moonshine/base: 100/200
+  moonshine/base: 125/200
+  moonshine/base: 150/200
+  moonshine/base: 175/200
+  moonshine/base: 200/200
+[wer] moonshine/base: WER=3.17% (95% CI 2.49-4.02)  RTF median=0.023 (~42.6x realtime)  load=0.01s
+end 19:18:32Z
+### PART 2 -- is WER reproducible on one host? tiny.en, same 200 utterances
+[wer] loading tiny.en (engine=faster-whisper) ...
+  tiny.en: 25/200
+  tiny.en: 50/200
+  tiny.en: 75/200
+  tiny.en: 100/200
+  tiny.en: 125/200
+  tiny.en: 150/200
+  tiny.en: 175/200
+  tiny.en: 200/200
+[wer] tiny.en: WER=4.95% (95% CI 4.04-5.93)  RTF median=0.027 (~36.5x realtime)  load=0.44s
+REPRO threads=default subset=08c500680ad493e4 {"wer": 4.95, "substitutions": 165, "deletions": 23, "insertions": 43, "hits": 4480}
+[wer] loading tiny.en (engine=faster-whisper) ...
+  tiny.en: 25/200
+  tiny.en: 50/200
+  tiny.en: 75/200
+  tiny.en: 100/200
+  tiny.en: 125/200
+  tiny.en: 150/200
+  tiny.en: 175/200
+  tiny.en: 200/200
+[wer] tiny.en: WER=4.95% (95% CI 4.04-5.93)  RTF median=0.033 (~30.1x realtime)  load=0.44s
+REPRO threads=default subset=08c500680ad493e4 {"wer": 4.95, "substitutions": 166, "deletions": 23, "insertions": 42, "hits": 4479}
+[wer] loading tiny.en (engine=faster-whisper) ...
+  tiny.en: 25/200
+  tiny.en: 50/200
+  tiny.en: 75/200
+  tiny.en: 100/200
+  tiny.en: 125/200
+  tiny.en: 150/200
+  tiny.en: 175/200
+  tiny.en: 200/200
+[wer] tiny.en: WER=4.93% (95% CI 4.01-5.93)  RTF median=0.046 (~21.6x realtime)  load=0.52s
+REPRO threads=1 subset=08c500680ad493e4 {"wer": 4.93, "substitutions": 165, "deletions": 23, "insertions": 42, "hits": 4480}
+[wer] loading tiny.en (engine=faster-whisper) ...
+  tiny.en: 25/200
+  tiny.en: 50/200
+  tiny.en: 75/200
+  tiny.en: 100/200
+  tiny.en: 125/200
+  tiny.en: 150/200
+  tiny.en: 175/200
+  tiny.en: 200/200
+[wer] tiny.en: WER=5.25% (95% CI 4.19-6.42)  RTF median=0.022 (~44.7x realtime)  load=0.53s
+REPRO threads=4 subset=08c500680ad493e4 {"wer": 5.25, "substitutions": 165, "deletions": 39, "insertions": 41, "hits": 4464}
+[wer] loading tiny.en (engine=faster-whisper) ...
+  tiny.en: 25/200
+  tiny.en: 50/200
+  tiny.en: 75/200
+  tiny.en: 100/200
+  tiny.en: 125/200
+  tiny.en: 150/200
+  tiny.en: 175/200
+  tiny.en: 200/200
+[wer] tiny.en: WER=4.95% (95% CI 4.04-5.93)  RTF median=0.118 (~8.5x realtime)  load=0.44s
+REPRO threads=16 subset=08c500680ad493e4 {"wer": 4.95, "substitutions": 164, "deletions": 23, "insertions": 44, "hits": 4481}
+### CLEAN_WER DONE 19:25:51Z

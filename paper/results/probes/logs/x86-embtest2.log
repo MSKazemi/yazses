@@ -1,0 +1,25 @@
+  shipped: eres2net zh-cn    thr=1.0  DER= 31.89%  speakers=  21/4  conf=17.8%
+  shipped: eres2net zh-cn    thr=1.2  DER= 21.89%  speakers=   4/4  conf=8.0%
+  shipped: eres2net zh-cn    thr=1.4  DER= 45.45%  speakers=   1/4  conf=26.8%
+  shipped: eres2net zh-cn    thr=1.6  DER= 45.45%  speakers=   1/4  conf=26.8%
+  eres2net EN voxceleb       thr=1.0  DER= 30.61%  speakers=  14/4  conf=16.4%
+  eres2net EN voxceleb       thr=1.2  DER= 39.00%  speakers=   3/4  conf=24.7%
+  eres2net EN voxceleb       thr=1.4  DER= 45.45%  speakers=   1/4  conf=26.8%
+  eres2net EN voxceleb       thr=1.6  DER= 45.45%  speakers=   1/4  conf=26.8%
+  campplus EN voxceleb       thr=1.0  DER= 51.06%  speakers=   6/4  conf=36.6%
+  campplus EN voxceleb       thr=1.2  DER= 51.83%  speakers=   3/4  conf=37.5%
+  campplus EN voxceleb       thr=1.4  DER= 45.45%  speakers=   1/4  conf=26.8%
+  campplus EN voxceleb       thr=1.6  DER= 45.45%  speakers=   1/4  conf=26.8%
+  campplus zh+en advanced    thr=1.0  DER= 30.77%  speakers=  12/4  conf=16.7%
+  campplus zh+en advanced    thr=1.2  DER= 24.65%  speakers=   3/4  conf=10.7%
+  campplus zh+en advanced    thr=1.4  DER= 45.45%  speakers=   1/4  conf=26.8%
+  campplus zh+en advanced    thr=1.6  DER= 45.45%  speakers=   1/4  conf=26.8%
+  wespeaker EN CAM++         thr=1.0  DER= 53.88%  speakers=   3/4  conf=39.4%
+  wespeaker EN CAM++         thr=1.2  DER= 45.45%  speakers=   1/4  conf=26.8%
+  wespeaker EN CAM++         thr=1.4  DER= 45.45%  speakers=   1/4  conf=26.8%
+  wespeaker EN CAM++         thr=1.6  DER= 45.45%  speakers=   1/4  conf=26.8%
+  nemo EN titanet_small      thr=1.0  DER= 27.71%  speakers=  17/4  conf=13.6%
+  nemo EN titanet_small      thr=1.2  DER= 27.08%  speakers=   4/4  conf=13.2%
+  nemo EN titanet_small      thr=1.4  DER= 45.45%  speakers=   1/4  conf=26.8%
+  nemo EN titanet_small      thr=1.6  DER= 45.45%  speakers=   1/4  conf=26.8%
+EMB_TEST_DONE

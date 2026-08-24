@@ -1,0 +1,28 @@
+[vox] extracting
+[vox] wav dir: $HOME/vox/audio (216 files)
+[vox] rttm dir: ~/vox/rttm (216 files)
+[voxconverse] abjxc: 68.38s, 1 speakers
+[voxconverse] afjiv: 151.25s, 5 speakers
+[voxconverse] ahnss: 664.29s, 4 speakers
+[voxconverse] aisvi: 469.08s, 8 speakers
+[voxconverse] akthc: 114.52s, 2 speakers
+[voxconverse] ampme: 148.32s, 3 speakers
+[voxconverse] bdopb: 954.34s, 7 speakers
+[voxconverse] cjfer: 634.28s, 15 speakers
+[voxconverse] czlvt: 944.56s, 11 speakers
+[voxconverse] edixl: 311.69s, 6 speakers
+[voxconverse] epdpg: 536.74s, 12 speakers
+[voxconverse] fkvvo: 541.2s, 9 speakers
+[voxconverse] hgdez: 953.76s, 10 speakers
+[voxconverse] kdfqk: 1032.58s, 20 speakers
+[voxconverse] vmaiq: 739.51s, 17 speakers
+
+15 of 216 recordings, 137.7 min -> $HOME/vox_corpus
+=== VoxConverse: does 1.2 generalise off AMI? ===
+[sweep] threshold=0.5  DER=41.72%  count_err=+31.73  exact=1/15
+[sweep] threshold=0.7  DER=24.39%  count_err=+16.20  exact=2/15
+[sweep] threshold=0.9  DER=16.3%  count_err=+5.20  exact=4/15
+[sweep] threshold=1.0  DER=17.34%  count_err=+0.73  exact=3/15
+[sweep] threshold=1.1  DER=24.99%  count_err=-3.27  exact=2/15
+Terminated
+VOX_DONE

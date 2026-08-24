@@ -1,0 +1,37 @@
+{
+  "provenance": {
+    "timestamp": "2026-07-30T20:47:09Z",
+    "cpu_model": "13th Gen Intel(R) Core(TM) i7-1370P",
+    "logical_cpus": 20,
+    "ram_gb": 33.3,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "7.0.0-28-generic",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.12.0.dev4",
+    "numpy": "2.4.6",
+    "compute_type": "int8",
+    "device": "cpu"
+  },
+  "config": {
+    "command_fixture": "tests/fixtures/commands/command_phrases.json",
+    "dictation_fixture": "tests/fixtures/commands/dictation_corpus.txt",
+    "n_command_phrases": 68,
+    "n_dictation_lines": 80
+  },
+  "precision": {
+    "action_accuracy_pct": 100.0,
+    "classified_as_command_pct": 92.6,
+    "action_hits": 68,
+    "misfires": []
+  },
+  "false_positive": {
+    "false_positive_rate_pct": 0.0,
+    "false_positives": []
+  },
+  "runtime": {
+    "per_call_median_ms": 0.0215,
+    "per_call_p95_ms": 0.0518,
+    "n_calls": 2960
+  }
+}

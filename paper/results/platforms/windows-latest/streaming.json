@@ -1,0 +1,82 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-23T22:56:46Z",
+    "cpu_model": "AMD EPYC 7763 64-Core Processor",
+    "logical_cpus": 4,
+    "ram_gb": 17.2,
+    "os": "Windows-2025Server-10.0.26100-SP0",
+    "kernel": "2025Server",
+    "python": "3.12.10",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.30.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": -1.0,
+    "compute_type": "int8",
+    "device": "cpu"
+  },
+  "config": {
+    "n_utterances": 6,
+    "audio_duration_median_s": 10.58,
+    "chunk_ms": 100,
+    "partial_interval_ms": 300,
+    "feed": "real-time (1x); audio is paced as a microphone delivers it"
+  },
+  "models": {
+    "tiny.en": {
+      "batch_speech_end_to_text_s": {
+        "median": 0.602,
+        "p95": 0.972,
+        "mean": 0.669,
+        "n": 6
+      },
+      "streaming_speech_end_to_final_s": {
+        "median": 0.766,
+        "p95": 1.258,
+        "mean": 0.875,
+        "n": 6
+      },
+      "streaming_time_to_first_text_s": {
+        "median": 2.899,
+        "p95": 4.055,
+        "mean": 3.083,
+        "n": 6
+      },
+      "streaming_visible_at_release_pct": {
+        "median": 78.697,
+        "p95": 85.974,
+        "mean": 79.338,
+        "n": 6
+      },
+      "utterances_with_no_partial_before_release": 0
+    },
+    "base.en": {
+      "batch_speech_end_to_text_s": {
+        "median": 1.062,
+        "p95": 1.778,
+        "mean": 1.206,
+        "n": 6
+      },
+      "streaming_speech_end_to_final_s": {
+        "median": 1.625,
+        "p95": 5.055,
+        "mean": 2.305,
+        "n": 6
+      },
+      "streaming_time_to_first_text_s": {
+        "median": 5.211,
+        "p95": 7.527,
+        "mean": 5.287,
+        "n": 6
+      },
+      "streaming_visible_at_release_pct": {
+        "median": 49.883,
+        "p95": 71.68,
+        "mean": 50.675,
+        "n": 6
+      },
+      "utterances_with_no_partial_before_release": 0
+    }
+  }
+}

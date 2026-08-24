@@ -1,0 +1,36 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-23T18:11:44Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 9.12,
+    "compute_type": "int8",
+    "device": "cpu"
+  },
+  "probe": {
+    "measured": "The sixteen-meeting set scored at cluster_threshold=1.2.",
+    "produced_by": "paper/benchmark/bench_diarization.py --sweep",
+    "host": "Azure Standard_D16s_v6, westeurope (16 vCPU Xeon Platinum 8573C, 67 GB)",
+    "run_finished_utc": "2026-08-23T18:11:44Z"
+  },
+  "result": {
+    "sweep": [
+      {
+        "cluster_threshold": 1.2,
+        "der": 26.71,
+        "mean_speaker_count_error": 2.06,
+        "meetings_with_exact_count": 2,
+        "n_meetings": 16
+      }
+    ]
+  }
+}

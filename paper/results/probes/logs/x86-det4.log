@@ -1,0 +1,32 @@
+[p3] model=base.en 7176-88083-0001  16.57s
+[p3] ref: THE MERGANSER HAD A CRESTED HEAD OF IRIDESCENT GREEN BLACK A BROAD COLLAR OF LUSTROUS WHITE BLACK BACK BLACK AND WHITE W
+
+[p3] defaults: 1 distinct output(s) in 40 decodes
+       40x  The regancer had a crested head of iridescent green black, a broad collar of lustrous white, black back, black
+
+[p3] temperature=0 (no fallback): 1 distinct output(s) in 40 decodes
+       40x  The regancer had a crested head of iridescent green black, a broad collar of lustrous white, black back, black
+
+[p3] no prev-text conditioning: 1 distinct output(s) in 40 decodes
+       40x  The regancer had a crested head of iridescent green black, a broad collar of lustrous white, black back, black
+
+[p3] beam_size=1: 1 distinct output(s) in 40 decodes
+       40x  The Mregancer had a crested head of iridescent green-black, a broad collar of lustrous white, black back, blac
+
+P3_DONE
+[p3] model=small.en 7176-88083-0001  16.57s
+[p3] ref: THE MERGANSER HAD A CRESTED HEAD OF IRIDESCENT GREEN BLACK A BROAD COLLAR OF LUSTROUS WHITE BLACK BACK BLACK AND WHITE W
+
+[p3] defaults: 1 distinct output(s) in 40 decodes
+       40x  The mergancer had a crested head of iridescent green-black, a broad collar of lustrous white, black back, blac
+
+[p3] temperature=0 (no fallback): 1 distinct output(s) in 40 decodes
+       40x  The mergancer had a crested head of iridescent green-black, a broad collar of lustrous white, black back, blac
+
+[p3] no prev-text conditioning: 1 distinct output(s) in 40 decodes
+       40x  The mergancer had a crested head of iridescent green-black, a broad collar of lustrous white, black back, blac
+
+[p3] beam_size=1: 1 distinct output(s) in 40 decodes
+       40x  The mergancer had a crested head of iridescent green-black, a broad collar of lustrous white, black back, blac
+
+P3_DONE

@@ -1,0 +1,12 @@
+[lead] 200 clips; leading silence trimmed: median 290 ms, max 610 ms
+[lead] trimmed   lead=   0ms  WER  3.92%  first word 186/200  empty 0
+[lead] trimmed   lead= 100ms  WER  4.09%  first word 190/200  empty 0
+[lead] trimmed   lead= 300ms  WER  3.92%  first word 189/200  empty 0
+[lead] trimmed   lead= 600ms  WER  4.01%  first word 190/200  empty 0
+[lead] trimmed   lead=1000ms  WER  4.09%  first word 190/200  empty 0
+[lead] untrimmed lead=   0ms  WER  4.01%  first word 190/200  empty 0
+[lead] untrimmed lead= 100ms  WER  3.92%  first word 191/200  empty 0
+[lead] untrimmed lead= 300ms  WER  3.94%  first word 189/200  empty 0
+[lead] untrimmed lead= 600ms  WER  3.98%  first word 190/200  empty 0
+[lead] untrimmed lead=1000ms  WER  4.03%  first word 188/200  empty 0
+LEADIN_PROBE_DONE

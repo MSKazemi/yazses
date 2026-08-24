@@ -1,0 +1,25 @@
+staged 3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k.onnx
+staged 3dspeaker_speech_eres2net_sv_en_voxceleb_16k.onnx
+staged 3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx
+staged 3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced.onnx
+staged wespeaker_en_voxceleb_CAM++.onnx
+staged nemo_en_titanet_small.onnx
+  shipped: eres2net zh-cn    thr=0.5  DER= 90.20%  speakers=  86/4  conf=75.9%
+  shipped: eres2net zh-cn    thr=0.7  DER= 76.49%  speakers=  56/4  conf=62.2%
+  shipped: eres2net zh-cn    thr=0.9  DER= 51.68%  speakers=  28/4  conf=37.7%
+  eres2net EN voxceleb       thr=0.5  DER= 52.89%  speakers=  62/4  conf=38.5%
+  eres2net EN voxceleb       thr=0.7  DER= 41.96%  speakers=  46/4  conf=27.6%
+  eres2net EN voxceleb       thr=0.9  DER= 32.87%  speakers=  25/4  conf=18.5%
+  campplus EN voxceleb       thr=0.5  DER= 74.16%  speakers=  36/4  conf=59.0%
+  campplus EN voxceleb       thr=0.7  DER= 73.49%  speakers=  20/4  conf=58.6%
+  campplus EN voxceleb       thr=0.9  DER= 72.27%  speakers=   9/4  conf=57.5%
+  campplus zh+en advanced    thr=0.5  DER= 74.88%  speakers=  68/4  conf=60.7%
+  campplus zh+en advanced    thr=0.7  DER= 53.03%  speakers=  43/4  conf=38.8%
+  campplus zh+en advanced    thr=0.9  DER= 30.86%  speakers=  24/4  conf=16.7%
+  wespeaker EN CAM++         thr=0.5  DER= 81.47%  speakers=  22/4  conf=66.1%
+  wespeaker EN CAM++         thr=0.7  DER= 69.70%  speakers=   8/4  conf=54.6%
+  wespeaker EN CAM++         thr=0.9  DER= 53.11%  speakers=   4/4  conf=38.8%
+  nemo EN titanet_small      thr=0.5  DER= 78.47%  speakers=  67/4  conf=63.9%
+  nemo EN titanet_small      thr=0.7  DER= 34.20%  speakers=  46/4  conf=20.1%
+  nemo EN titanet_small      thr=0.9  DER= 27.96%  speakers=  29/4  conf=13.8%
+EMB_TEST_DONE

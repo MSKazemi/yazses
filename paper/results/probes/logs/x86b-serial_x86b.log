@@ -1,0 +1,141 @@
+=== START 2026-08-23T23:13:30Z load:8.22
+[beam] base.en beam=1 (test-clean): WER 4.39%  RTF 0.0306  (55.3s)
+[beam] base.en beam=2 (test-clean): WER 4.01%  RTF 0.033  (59.7s)
+[beam] base.en beam=3 (test-clean): WER 4.07%  RTF 0.0358  (64.7s)
+[beam] base.en beam=5 (test-clean): WER 4.01%  RTF 0.037  (66.9s)
+[beam] base.en beam=8 (test-clean): WER 4.01%  RTF 0.0379  (68.6s)
+[beam] small.en beam=1 (test-clean): WER 2.53%  RTF 0.0662  (119.7s)
+[beam] small.en beam=5 (test-clean): WER 2.66%  RTF 0.076  (137.4s)
+=== beam-clean rc=0 2026-08-23T23:23:08Z load:5.66
+[beam] base.en beam=1 (test-other): WER 10.56%  RTF 0.0376  (52.7s)
+[beam] base.en beam=2 (test-other): WER 9.49%  RTF 0.0386  (54.2s)
+[beam] base.en beam=3 (test-other): WER 9.51%  RTF 0.0395  (55.4s)
+[beam] base.en beam=5 (test-other): WER 9.46%  RTF 0.0416  (58.4s)
+[beam] base.en beam=8 (test-other): WER 9.84%  RTF 0.045  (63.1s)
+[beam] small.en beam=1 (test-other): WER 6.18%  RTF 0.0809  (113.5s)
+[beam] small.en beam=5 (test-other): WER 5.59%  RTF 0.0911  (127.8s)
+=== beam-other rc=0 2026-08-23T23:31:59Z load:7.09
+[wer] loading tiny.en (engine=faster-whisper) ...
+  tiny.en: 25/200
+  tiny.en: 50/200
+  tiny.en: 75/200
+  tiny.en: 100/200
+  tiny.en: 125/200
+  tiny.en: 150/200
+  tiny.en: 175/200
+  tiny.en: 200/200
+[wer] tiny.en: WER=11.77% (95% CI 9.86-14.02)  RTF median=0.034 (~29.6x realtime)  load=0.42s
+[wer] loading base.en (engine=faster-whisper) ...
+  base.en: 25/200
+  base.en: 50/200
+  base.en: 75/200
+  base.en: 100/200
+  base.en: 125/200
+  base.en: 150/200
+  base.en: 175/200
+  base.en: 200/200
+[wer] base.en: WER=9.46% (95% CI 7.92-11.17)  RTF median=0.049 (~20.5x realtime)  load=0.22s
+[wer] loading small.en (engine=faster-whisper) ...
+  small.en: 25/200
+  small.en: 50/200
+  small.en: 75/200
+  small.en: 100/200
+  small.en: 125/200
+  small.en: 150/200
+  small.en: 175/200
+  small.en: 200/200
+[wer] small.en: WER=5.59% (95% CI 4.44-6.8)  RTF median=0.104 (~9.6x realtime)  load=0.52s
+[wer] loading medium.en (engine=faster-whisper) ...
+  medium.en: 25/200
+  medium.en: 50/200
+  medium.en: 75/200
+  medium.en: 100/200
+  medium.en: 125/200
+  medium.en: 150/200
+  medium.en: 175/200
+  medium.en: 200/200
+[wer] medium.en: WER=5.51% (95% CI 4.39-6.72)  RTF median=0.272 (~3.7x realtime)  load=1.32s
+[wer] loading large-v3 (engine=faster-whisper) ...
+  large-v3: 25/200
+  large-v3: 50/200
+  large-v3: 75/200
+  large-v3: 100/200
+  large-v3: 125/200
+  large-v3: 150/200
+  large-v3: 175/200
+  large-v3: 200/200
+[wer] large-v3: WER=7.69% (95% CI 3.52-14.63)  RTF median=0.49 (~2.0x realtime)  load=2.29s
+[wer] loading parakeet-tdt-0.6b-v2 (engine=parakeet) ...
+[0;93m2026-08-23 23:53:24.127351645 [W:onnxruntime:Default, device_discovery.cc:146 GetPciBusId] Skipping pci_bus_id for PCI path at "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/ACPI0004:00/MSFT1000:00/5620e0c7-8062-4dce-aeb7-520c7ef76171" because filename "5620e0c7-8062-4dce-aeb7-520c7ef76171" did not match expected pattern of [0-9a-f]+:[0-9a-f]+:[0-9a-f]+[.][0-9a-f]+[m
+  parakeet-tdt-0.6b-v2: 25/200
+  parakeet-tdt-0.6b-v2: 50/200
+  parakeet-tdt-0.6b-v2: 75/200
+  parakeet-tdt-0.6b-v2: 100/200
+  parakeet-tdt-0.6b-v2: 125/200
+  parakeet-tdt-0.6b-v2: 150/200
+  parakeet-tdt-0.6b-v2: 175/200
+  parakeet-tdt-0.6b-v2: 200/200
+[wer] parakeet-tdt-0.6b-v2: WER=2.88% (95% CI 2.2-3.63)  RTF median=0.053 (~18.9x realtime)  load=1.29s
+[wer] loading moonshine/tiny (engine=moonshine) ...
+  moonshine/tiny: 25/200
+  moonshine/tiny: 50/200
+  moonshine/tiny: 75/200
+  moonshine/tiny: 100/200
+  moonshine/tiny: 125/200
+  moonshine/tiny: 150/200
+  moonshine/tiny: 175/200
+  moonshine/tiny: 200/200
+[wer] moonshine/tiny: WER=10.35% (95% CI 8.74-12.0)  RTF median=0.017 (~59.5x realtime)  load=0.02s
+[wer] loading moonshine/base (engine=moonshine) ...
+  moonshine/base: 25/200
+  moonshine/base: 50/200
+  moonshine/base: 75/200
+  moonshine/base: 100/200
+  moonshine/base: 125/200
+  moonshine/base: 150/200
+  moonshine/base: 175/200
+  moonshine/base: 200/200
+[wer] moonshine/base: WER=8.04% (95% CI 6.68-9.47)  RTF median=0.023 (~43.1x realtime)  load=0.01s
+=== wer-other rc=0 2026-08-23T23:55:32Z load:15.97
+[onset] run0 intact  cut=   0ms lead=   0ms  WER  4.61%  first word 186/200
+[onset] run0 intact  cut=   0ms lead= 100ms  WER  4.09%  first word 190/200
+[onset] run0 intact  cut=   0ms lead= 300ms  WER  3.92%  first word 189/200
+[onset] run0 intact  cut=   0ms lead= 600ms  WER  4.01%  first word 190/200
+[onset] run0 intact  cut=   0ms lead=1000ms  WER  4.09%  first word 190/200
+[onset] run0 clipped cut=  40ms lead=   0ms  WER  4.63%  first word 176/200
+[onset] run0 clipped cut=  40ms lead= 100ms  WER  4.31%  first word 184/200
+[onset] run0 clipped cut=  40ms lead= 300ms  WER  4.22%  first word 182/200
+[onset] run0 clipped cut=  40ms lead= 600ms  WER  3.96%  first word 182/200
+[onset] run0 clipped cut=  40ms lead=1000ms  WER  4.46%  first word 180/200
+[onset] run0 clipped cut= 120ms lead=   0ms  WER  5.78%  first word 143/200
+[onset] run0 clipped cut= 120ms lead= 100ms  WER  5.63%  first word 130/200
+[onset] run0 clipped cut= 120ms lead= 300ms  WER  5.51%  first word 132/200
+[onset] run0 clipped cut= 120ms lead= 600ms  WER  6.17%  first word 129/200
+[onset] run0 clipped cut= 120ms lead=1000ms  WER  5.89%  first word 127/200
+[onset] run0 clipped cut= 240ms lead=   0ms  WER  8.14%  first word 83/200
+[onset] run0 clipped cut= 240ms lead= 100ms  WER  8.57%  first word 78/200
+[onset] run0 clipped cut= 240ms lead= 300ms  WER  9.32%  first word 79/200
+[onset] run0 clipped cut= 240ms lead= 600ms  WER  8.05%  first word 78/200
+[onset] run0 clipped cut= 240ms lead=1000ms  WER  8.29%  first word 79/200
+[onset] run1 intact  cut=   0ms lead=   0ms  WER  3.92%  first word 186/200
+[onset] run1 intact  cut=   0ms lead= 100ms  WER  4.24%  first word 190/200
+[onset] run1 intact  cut=   0ms lead= 300ms  WER  3.92%  first word 189/200
+[onset] run1 intact  cut=   0ms lead= 600ms  WER  4.01%  first word 190/200
+[onset] run1 intact  cut=   0ms lead=1000ms  WER  4.09%  first word 190/200
+[onset] run1 clipped cut=  40ms lead=   0ms  WER  4.80%  first word 176/200
+[onset] run1 clipped cut=  40ms lead= 100ms  WER  4.31%  first word 184/200
+[onset] run1 clipped cut=  40ms lead= 300ms  WER  4.22%  first word 182/200
+[onset] run1 clipped cut=  40ms lead= 600ms  WER  3.96%  first word 182/200
+[onset] run1 clipped cut=  40ms lead=1000ms  WER  4.46%  first word 180/200
+[onset] run1 clipped cut= 120ms lead=   0ms  WER  5.78%  first word 143/200
+[onset] run1 clipped cut= 120ms lead= 100ms  WER  5.63%  first word 130/200
+[onset] run1 clipped cut= 120ms lead= 300ms  WER  5.51%  first word 132/200
+[onset] run1 clipped cut= 120ms lead= 600ms  WER  5.48%  first word 129/200
+[onset] run1 clipped cut= 120ms lead=1000ms  WER  5.89%  first word 127/200
+[onset] run1 clipped cut= 240ms lead=   0ms  WER  8.12%  first word 84/200
+[onset] run1 clipped cut= 240ms lead= 100ms  WER  8.50%  first word 78/200
+[onset] run1 clipped cut= 240ms lead= 300ms  WER  8.44%  first word 79/200
+[onset] run1 clipped cut= 240ms lead= 600ms  WER  8.05%  first word 78/200
+[onset] run1 clipped cut= 240ms lead=1000ms  WER  8.14%  first word 79/200
+=== onset-paired rc=0 2026-08-24T00:41:04Z load:9.67
+SERIAL_X86B_DONE

@@ -1,0 +1,263 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-23T22:49:06Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 1.0,
+    "compute_type": "int8",
+    "device": "cpu",
+    "captured": "after the run, on the same host, which was not reconfigured between the two"
+  },
+  "probe": {
+    "measured": "First diarization DER for Meeting Mode, on the synthetic Azure-TTS meeting corpus.",
+    "produced_by": "paper/benchmark/bench_diarization.py",
+    "host": "Azure Standard_D16s_v6, westeurope (16 vCPU Xeon Platinum 8573C, 67 GB)",
+    "run_finished_utc": "2026-08-23T12:27:57Z"
+  },
+  "result": {
+    "config": {
+      "corpus": "$HOME/meeting_corpus",
+      "corpus_kind": "synthetic (Azure neural TTS); ground truth exact by construction",
+      "caveat": "clean synthetic speech -- a floor, not a real-room DER",
+      "backend": "sherpa-onnx (pyannote segmentation-3.0 + 3D-Speaker ERes2Net)",
+      "frame_s": 0.01,
+      "scoring": "frame-based, Hungarian one-to-one mapping (md-eval semantics)",
+      "n_meetings": 8
+    },
+    "summary": {
+      "der_strict": 22.77,
+      "der_collar250ms": 18.39,
+      "missed_pct": 10.27,
+      "false_alarm_pct": 0.35,
+      "confusion_pct": 12.14,
+      "mean_speaker_count_error": 3.38
+    },
+    "meetings": [
+      {
+        "id": "meeting00",
+        "duration_s": 106.58,
+        "true_speakers": 2,
+        "strict": {
+          "der": 22.08,
+          "missed_pct": 9.29,
+          "false_alarm_pct": 0.0,
+          "confusion_pct": 12.79,
+          "n_ref_speakers": 2,
+          "n_hyp_speakers": 4,
+          "speaker_count_error": 2,
+          "scored_seconds": 99.3,
+          "collar_s": 0.0
+        },
+        "collar250ms": {
+          "der": 15.4,
+          "missed_pct": 1.85,
+          "false_alarm_pct": 0.0,
+          "confusion_pct": 13.55,
+          "n_ref_speakers": 2,
+          "n_hyp_speakers": 4,
+          "speaker_count_error": 2,
+          "scored_seconds": 87.2,
+          "collar_s": 0.25
+        }
+      },
+      {
+        "id": "meeting01",
+        "duration_s": 213.88,
+        "true_speakers": 3,
+        "strict": {
+          "der": 17.02,
+          "missed_pct": 10.92,
+          "false_alarm_pct": 0.16,
+          "confusion_pct": 5.94,
+          "n_ref_speakers": 3,
+          "n_hyp_speakers": 5,
+          "speaker_count_error": 2,
+          "scored_seconds": 208.1,
+          "collar_s": 0.0
+        },
+        "collar250ms": {
+          "der": 13.61,
+          "missed_pct": 7.55,
+          "false_alarm_pct": 0.17,
+          "confusion_pct": 5.89,
+          "n_ref_speakers": 3,
+          "n_hyp_speakers": 5,
+          "speaker_count_error": 2,
+          "scored_seconds": 194.4,
+          "collar_s": 0.25
+        }
+      },
+      {
+        "id": "meeting02",
+        "duration_s": 173.27,
+        "true_speakers": 4,
+        "strict": {
+          "der": 23.6,
+          "missed_pct": 10.72,
+          "false_alarm_pct": 0.24,
+          "confusion_pct": 12.64,
+          "n_ref_speakers": 4,
+          "n_hyp_speakers": 8,
+          "speaker_count_error": 4,
+          "scored_seconds": 168.0,
+          "collar_s": 0.0
+        },
+        "collar250ms": {
+          "der": 19.02,
+          "missed_pct": 6.26,
+          "false_alarm_pct": 0.27,
+          "confusion_pct": 12.49,
+          "n_ref_speakers": 4,
+          "n_hyp_speakers": 8,
+          "speaker_count_error": 4,
+          "scored_seconds": 151.8,
+          "collar_s": 0.25
+        }
+      },
+      {
+        "id": "meeting03",
+        "duration_s": 191.8,
+        "true_speakers": 5,
+        "strict": {
+          "der": 28.35,
+          "missed_pct": 10.8,
+          "false_alarm_pct": 0.32,
+          "confusion_pct": 17.24,
+          "n_ref_speakers": 5,
+          "n_hyp_speakers": 12,
+          "speaker_count_error": 7,
+          "scored_seconds": 185.3,
+          "collar_s": 0.0
+        },
+        "collar250ms": {
+          "der": 25.26,
+          "missed_pct": 7.13,
+          "false_alarm_pct": 0.34,
+          "confusion_pct": 17.79,
+          "n_ref_speakers": 5,
+          "n_hyp_speakers": 12,
+          "speaker_count_error": 7,
+          "scored_seconds": 172.3,
+          "collar_s": 0.25
+        }
+      },
+      {
+        "id": "meeting04",
+        "duration_s": 222.28,
+        "true_speakers": 6,
+        "strict": {
+          "der": 19.15,
+          "missed_pct": 11.26,
+          "false_alarm_pct": 0.04,
+          "confusion_pct": 7.85,
+          "n_ref_speakers": 6,
+          "n_hyp_speakers": 8,
+          "speaker_count_error": 2,
+          "scored_seconds": 215.0,
+          "collar_s": 0.0
+        },
+        "collar250ms": {
+          "der": 15.08,
+          "missed_pct": 7.54,
+          "false_alarm_pct": 0.04,
+          "confusion_pct": 7.5,
+          "n_ref_speakers": 6,
+          "n_hyp_speakers": 8,
+          "speaker_count_error": 2,
+          "scored_seconds": 199.2,
+          "collar_s": 0.25
+        }
+      },
+      {
+        "id": "meeting05",
+        "duration_s": 161.93,
+        "true_speakers": 2,
+        "strict": {
+          "der": 10.5,
+          "missed_pct": 6.52,
+          "false_alarm_pct": 0.37,
+          "confusion_pct": 3.62,
+          "n_ref_speakers": 2,
+          "n_hyp_speakers": 5,
+          "speaker_count_error": 3,
+          "scored_seconds": 154.8,
+          "collar_s": 0.0
+        },
+        "collar250ms": {
+          "der": 5.49,
+          "missed_pct": 1.73,
+          "false_alarm_pct": 0.4,
+          "confusion_pct": 3.35,
+          "n_ref_speakers": 2,
+          "n_hyp_speakers": 5,
+          "speaker_count_error": 3,
+          "scored_seconds": 141.5,
+          "collar_s": 0.25
+        }
+      },
+      {
+        "id": "meeting06",
+        "duration_s": 160.76,
+        "true_speakers": 3,
+        "strict": {
+          "der": 40.65,
+          "missed_pct": 12.37,
+          "false_alarm_pct": 1.16,
+          "confusion_pct": 27.11,
+          "n_ref_speakers": 3,
+          "n_hyp_speakers": 7,
+          "speaker_count_error": 4,
+          "scored_seconds": 151.2,
+          "collar_s": 0.0
+        },
+        "collar250ms": {
+          "der": 36.88,
+          "missed_pct": 8.3,
+          "false_alarm_pct": 1.07,
+          "confusion_pct": 27.5,
+          "n_ref_speakers": 3,
+          "n_hyp_speakers": 7,
+          "speaker_count_error": 4,
+          "scored_seconds": 139.9,
+          "collar_s": 0.25
+        }
+      },
+      {
+        "id": "meeting07",
+        "duration_s": 170.4,
+        "true_speakers": 4,
+        "strict": {
+          "der": 20.79,
+          "missed_pct": 10.3,
+          "false_alarm_pct": 0.54,
+          "confusion_pct": 9.95,
+          "n_ref_speakers": 4,
+          "n_hyp_speakers": 7,
+          "speaker_count_error": 3,
+          "scored_seconds": 160.1,
+          "collar_s": 0.0
+        },
+        "collar250ms": {
+          "der": 16.4,
+          "missed_pct": 6.17,
+          "false_alarm_pct": 0.47,
+          "confusion_pct": 9.76,
+          "n_ref_speakers": 4,
+          "n_hyp_speakers": 7,
+          "speaker_count_error": 3,
+          "scored_seconds": 148.3,
+          "collar_s": 0.25
+        }
+      }
+    ]
+  }
+}

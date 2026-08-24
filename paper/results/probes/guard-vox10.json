@@ -1,0 +1,245 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-23T22:49:06Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 1.0,
+    "compute_type": "int8",
+    "device": "cpu",
+    "captured": "after the run, on the same host, which was not reconfigured between the two"
+  },
+  "probe": {
+    "measured": "Guard verdicts on VoxConverse at 1.0.",
+    "produced_by": "probes/guard_corpus.py",
+    "host": "Azure Standard_D16s_v6, westeurope (16 vCPU Xeon Platinum 8573C, 67 GB)",
+    "run_finished_utc": "2026-08-23T20:14:32Z",
+    "superseded_by": "paper/benchmark/bench_plausibility.py"
+  },
+  "result": {
+    "abjxc": {
+      "true_speakers": 1,
+      "totals": {
+        "speaker_0": 63.24750319682062
+      }
+    },
+    "afjiv": {
+      "true_speakers": 5,
+      "totals": {
+        "speaker_0": 35.75812387466431,
+        "speaker_1": 41.93437576293945,
+        "speaker_2": 58.70812225341797
+      }
+    },
+    "ahnss": {
+      "true_speakers": 4,
+      "totals": {
+        "speaker_0": 35.538731491193175,
+        "speaker_2": 260.3137798309326,
+        "speaker_4": 131.84440994262695,
+        "speaker_6": 5.7881317138671875,
+        "speaker_7": 140.29876708984375,
+        "speaker_5": 0.371246337890625,
+        "speaker_8": 8.218185424804688,
+        "speaker_11": 131.1188507080078,
+        "speaker_3": 6.024383544921875,
+        "speaker_10": 0.556884765625
+      }
+    },
+    "aisvi": {
+      "true_speakers": 8,
+      "totals": {
+        "speaker_0": 178.09876624308527,
+        "speaker_1": 10.141852378845215,
+        "speaker_2": 0.7762489318847656,
+        "speaker_3": 11.255619049072266,
+        "speaker_4": 1.1643753051757812,
+        "speaker_5": 23.27062225341797,
+        "speaker_6": 14.208755493164062,
+        "speaker_7": 213.50254821777344
+      }
+    },
+    "akthc": {
+      "true_speakers": 2,
+      "totals": {
+        "speaker_0": 107.07187358103693,
+        "speaker_1": 0.7425003051757812
+      }
+    },
+    "ampme": {
+      "true_speakers": 3,
+      "totals": {
+        "speaker_0": 117.58501330576837,
+        "speaker_1": 20.857513427734375
+      }
+    },
+    "bdopb": {
+      "true_speakers": 7,
+      "totals": {
+        "speaker_0": 94.39869967661798,
+        "speaker_2": 14.394378662109375,
+        "speaker_3": 34.08750915527344,
+        "speaker_5": 1.3331222534179688,
+        "speaker_4": 3.459381103515625,
+        "speaker_6": 53.73004913330078,
+        "speaker_7": 387.3824005126953,
+        "speaker_8": 164.26123046875,
+        "speaker_1": 0.438751220703125,
+        "speaker_11": 126.98434448242188,
+        "speaker_10": 2.750640869140625,
+        "speaker_14": 7.0875244140625,
+        "speaker_12": 35.724365234375,
+        "speaker_9": 0.84375
+      }
+    },
+    "cjfer": {
+      "true_speakers": 15,
+      "totals": {
+        "speaker_0": 132.73871314525604,
+        "speaker_1": 49.241299629211426,
+        "speaker_3": 12.284980773925781,
+        "speaker_5": 5.096248626708984,
+        "speaker_7": 39.116241455078125,
+        "speaker_9": 82.5861701965332,
+        "speaker_12": 22.224380493164062,
+        "speaker_13": 66.77439880371094,
+        "speaker_14": 121.01058959960938,
+        "speaker_11": 2.699981689453125,
+        "speaker_16": 118.27688598632812,
+        "speaker_2": 7.12127685546875,
+        "speaker_10": 7.678131103515625,
+        "speaker_8": 3.84747314453125
+      }
+    },
+    "czlvt": {
+      "true_speakers": 11,
+      "totals": {
+        "speaker_0": 186.8062581177801,
+        "speaker_1": 48.51559829711914,
+        "speaker_2": 13.601242065429688,
+        "speaker_3": 35.977500915527344,
+        "speaker_4": 255.53810119628906,
+        "speaker_5": 91.59748840332031,
+        "speaker_6": 199.0406723022461,
+        "speaker_7": 0.438751220703125,
+        "speaker_8": 105.68815612792969,
+        "speaker_9": 30.76318359375,
+        "speaker_12": 4.38751220703125,
+        "speaker_13": 3.03753662109375
+      }
+    },
+    "edixl": {
+      "true_speakers": 6,
+      "totals": {
+        "speaker_0": 87.10875165462494,
+        "speaker_1": 84.89812469482422,
+        "speaker_3": 52.12687683105469,
+        "speaker_4": 52.56562805175781,
+        "speaker_2": 33.463104248046875
+      }
+    },
+    "epdpg": {
+      "true_speakers": 12,
+      "totals": {
+        "speaker_0": 360.8043399453163,
+        "speaker_2": 37.73249816894531,
+        "speaker_1": 4.8431243896484375,
+        "speaker_4": 5.180625915527344,
+        "speaker_3": 13.651885986328125,
+        "speaker_5": 58.33686828613281,
+        "speaker_6": 4.151268005371094,
+        "speaker_7": 16.402496337890625,
+        "speaker_8": 9.787506103515625
+      }
+    },
+    "fkvvo": {
+      "true_speakers": 9,
+      "totals": {
+        "speaker_0": 214.8525523301214,
+        "speaker_1": 53.54439449310303,
+        "speaker_4": 63.38246536254883,
+        "speaker_6": 69.71063232421875,
+        "speaker_8": 48.49876403808594,
+        "speaker_10": 98.36436462402344,
+        "speaker_3": 2.345611572265625,
+        "speaker_2": 0.52313232421875
+      }
+    },
+    "hgdez": {
+      "true_speakers": 10,
+      "totals": {
+        "speaker_0": 276.17610446177423,
+        "speaker_2": 10.226224899291992,
+        "speaker_3": 244.09686088562012,
+        "speaker_4": 3.0543746948242188,
+        "speaker_6": 101.7393569946289,
+        "speaker_8": 5.7543792724609375,
+        "speaker_9": 40.618133544921875,
+        "speaker_10": 3.96563720703125,
+        "speaker_12": 34.745635986328125,
+        "speaker_13": 3.6618804931640625,
+        "speaker_15": 21.600006103515625,
+        "speaker_14": 2.834991455078125,
+        "speaker_11": 2.311920166015625,
+        "speaker_17": 1.67059326171875,
+        "speaker_18": 31.8599853515625,
+        "speaker_1": 13.34814453125,
+        "speaker_16": 106.835693359375,
+        "speaker_7": 0.47247314453125
+      }
+    },
+    "kdfqk": {
+      "true_speakers": 20,
+      "totals": {
+        "speaker_0": 492.42954865656793,
+        "speaker_1": 66.77434539794922,
+        "speaker_2": 59.501304626464844,
+        "speaker_5": 12.9769287109375,
+        "speaker_6": 4.589996337890625,
+        "speaker_7": 54.556854248046875,
+        "speaker_11": 28.83935546875,
+        "speaker_13": 31.7081298828125,
+        "speaker_15": 13.78692626953125,
+        "speaker_14": 27.236328125,
+        "speaker_16": 1.9068603515625,
+        "speaker_10": 26.88189697265625,
+        "speaker_3": 11.34002685546875,
+        "speaker_17": 11.28936767578125,
+        "speaker_9": 1.012451171875,
+        "speaker_18": 14.84991455078125,
+        "speaker_19": 3.40875244140625,
+        "speaker_20": 21.85308837890625,
+        "speaker_21": 0.67498779296875,
+        "speaker_8": 1.9237060546875,
+        "speaker_22": 1.85626220703125
+      }
+    },
+    "vmaiq": {
+      "true_speakers": 17,
+      "totals": {
+        "speaker_0": 111.83057013712823,
+        "speaker_2": 18.1068696975708,
+        "speaker_3": 129.43123817443848,
+        "speaker_5": 3.678750991821289,
+        "speaker_1": 29.548160552978516,
+        "speaker_6": 25.68375015258789,
+        "speaker_8": 18.69750213623047,
+        "speaker_9": 10.715656280517578,
+        "speaker_7": 0.404998779296875,
+        "speaker_12": 216.57363891601562,
+        "speaker_13": 159.73886108398438,
+        "speaker_15": 0.99560546875,
+        "speaker_14": 6.969390869140625,
+        "speaker_4": 6.8511962890625
+      }
+    }
+  }
+}

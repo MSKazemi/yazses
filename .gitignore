@@ -120,6 +120,22 @@ design/seo/
 paper/*
 !paper/benchmark/
 paper/benchmark/__pycache__/
+# The RESULTS are the other half of that promise. docs/benchmarks.md publishes numbers
+# and points at the harness that produced them; while paper/results/ was ignored, the
+# artifacts those numbers came from -- the provenance block naming the CPU, the OS, the
+# library versions and the load average, plus every per-row figure that did not fit on
+# the page -- existed on one laptop and nowhere else. That is not reproducible and it is
+# not citable. They are small JSON (tens of KB), carry no audio, no transcripts and no
+# hostname or username (tests/test_benchmark_results_are_archived.py fails the build if
+# one appears), so they are published with the harness.
+!paper/results/
+# ...including the per-run logs, which the global `*.log` rule above would
+# otherwise swallow. Two of them are the ONLY surviving record of a measurement:
+# the test-other engine matrix ran twice on one box, the second run overwrote the
+# first, and they disagreed by 2.83 WER points on large-v3. paper/results/probes/
+# README.md names which log is which run. 300 KB of console text, scanned for
+# paths and login names by tests/test_benchmark_results_are_archived.py.
+!paper/results/probes/logs/*.log
 
 # Private-only docs — deliberately not published.
 # Delete a line here to publish that doc. Only the master-reference PDF stays

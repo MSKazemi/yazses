@@ -1,0 +1,164 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-23T22:49:06Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 1.0,
+    "compute_type": "int8",
+    "device": "cpu",
+    "captured": "after the run, on the same host, which was not reconfigured between the two"
+  },
+  "probe": {
+    "measured": "Whether a larger speaker-embedding model changes the clustering verdict.",
+    "produced_by": "probes/embmodel_test.py",
+    "host": "Azure Standard_D16s_v6, westeurope (16 vCPU Xeon Platinum 8573C, 67 GB)",
+    "run_finished_utc": "2026-08-23T14:55:14Z"
+  },
+  "result": {
+    "meeting": "IS1009a",
+    "true_speakers": 4,
+    "results": [
+      {
+        "model": "shipped: eres2net zh-cn",
+        "file": "3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k.onnx",
+        "thr0.5": {
+          "der": 90.2,
+          "spk": 86,
+          "conf": 75.9,
+          "s": 168.5
+        },
+        "thr0.7": {
+          "der": 76.49,
+          "spk": 56,
+          "conf": 62.19,
+          "s": 178.1
+        },
+        "thr0.9": {
+          "der": 51.68,
+          "spk": 28,
+          "conf": 37.68,
+          "s": 181.9
+        }
+      },
+      {
+        "model": "eres2net EN voxceleb",
+        "file": "3dspeaker_speech_eres2net_sv_en_voxceleb_16k.onnx",
+        "thr0.5": {
+          "der": 52.89,
+          "spk": 62,
+          "conf": 38.52,
+          "s": 176.9
+        },
+        "thr0.7": {
+          "der": 41.96,
+          "spk": 46,
+          "conf": 27.62,
+          "s": 172.1
+        },
+        "thr0.9": {
+          "der": 32.87,
+          "spk": 25,
+          "conf": 18.46,
+          "s": 165.8
+        }
+      },
+      {
+        "model": "campplus EN voxceleb",
+        "file": "3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx",
+        "thr0.5": {
+          "der": 74.16,
+          "spk": 36,
+          "conf": 59.02,
+          "s": 69.9
+        },
+        "thr0.7": {
+          "der": 73.49,
+          "spk": 20,
+          "conf": 58.56,
+          "s": 69.8
+        },
+        "thr0.9": {
+          "der": 72.27,
+          "spk": 9,
+          "conf": 57.49,
+          "s": 70.1
+        }
+      },
+      {
+        "model": "campplus zh+en advanced",
+        "file": "3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced.onnx",
+        "thr0.5": {
+          "der": 74.88,
+          "spk": 68,
+          "conf": 60.67,
+          "s": 71.7
+        },
+        "thr0.7": {
+          "der": 53.03,
+          "spk": 43,
+          "conf": 38.8,
+          "s": 70.7
+        },
+        "thr0.9": {
+          "der": 30.86,
+          "spk": 24,
+          "conf": 16.68,
+          "s": 71.2
+        }
+      },
+      {
+        "model": "wespeaker EN CAM++",
+        "file": "wespeaker_en_voxceleb_CAM++.onnx",
+        "thr0.5": {
+          "der": 81.47,
+          "spk": 22,
+          "conf": 66.13,
+          "s": 71.0
+        },
+        "thr0.7": {
+          "der": 69.7,
+          "spk": 8,
+          "conf": 54.62,
+          "s": 73.1
+        },
+        "thr0.9": {
+          "der": 53.11,
+          "spk": 4,
+          "conf": 38.79,
+          "s": 73.5
+        }
+      },
+      {
+        "model": "nemo EN titanet_small",
+        "file": "nemo_en_titanet_small.onnx",
+        "thr0.5": {
+          "der": 78.47,
+          "spk": 67,
+          "conf": 63.85,
+          "s": 73.1
+        },
+        "thr0.7": {
+          "der": 34.2,
+          "spk": 46,
+          "conf": 20.08,
+          "s": 73.6
+        },
+        "thr0.9": {
+          "der": 27.96,
+          "spk": 29,
+          "conf": 13.84,
+          "s": 73.5
+        }
+      }
+    ]
+  }
+}

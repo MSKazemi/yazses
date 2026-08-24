@@ -1,0 +1,96 @@
+{
+  "source": "beam-test-other.json",
+  "provenance": {
+    "timestamp": "2026-08-24T00:51:03Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.5.2",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 8.39,
+    "compute_type": "int8",
+    "device": "cpu"
+  },
+  "method": "paired bootstrap over utterances, 10000 replicates, seed 20260824",
+  "alpha": 0.05,
+  "comparisons": [
+    {
+      "a": "base.en beam=1",
+      "b": "base.en beam=2",
+      "split": "test-other",
+      "a_wer": 10.56,
+      "b_wer": 9.49,
+      "diff": 1.075,
+      "diff_ci95": [
+        0.263,
+        2.328
+      ],
+      "p": 0.0026,
+      "n_utterances": 200
+    },
+    {
+      "a": "base.en beam=1",
+      "b": "base.en beam=3",
+      "split": "test-other",
+      "a_wer": 10.56,
+      "b_wer": 9.51,
+      "diff": 1.048,
+      "diff_ci95": [
+        0.35,
+        1.996
+      ],
+      "p": 0.0004,
+      "n_utterances": 200
+    },
+    {
+      "a": "base.en beam=1",
+      "b": "base.en beam=5",
+      "split": "test-other",
+      "a_wer": 10.56,
+      "b_wer": 9.46,
+      "diff": 1.102,
+      "diff_ci95": [
+        0.305,
+        2.196
+      ],
+      "p": 0.001,
+      "n_utterances": 200
+    },
+    {
+      "a": "base.en beam=1",
+      "b": "base.en beam=8",
+      "split": "test-other",
+      "a_wer": 10.56,
+      "b_wer": 9.84,
+      "diff": 0.726,
+      "diff_ci95": [
+        -0.122,
+        1.6
+      ],
+      "p": 0.0972,
+      "n_utterances": 200
+    },
+    {
+      "a": "small.en beam=1",
+      "b": "small.en beam=5",
+      "split": "test-other",
+      "a_wer": 6.18,
+      "b_wer": 5.59,
+      "diff": 0.591,
+      "diff_ci95": [
+        0.0,
+        1.269
+      ],
+      "p": 0.053,
+      "n_utterances": 200
+    }
+  ],
+  "n_comparisons": 5,
+  "n_significant": 3
+}

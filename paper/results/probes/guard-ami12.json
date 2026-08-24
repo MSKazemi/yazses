@@ -1,0 +1,205 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-23T22:49:06Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 1.0,
+    "compute_type": "int8",
+    "device": "cpu",
+    "captured": "after the run, on the same host, which was not reconfigured between the two"
+  },
+  "probe": {
+    "measured": "Guard verdicts on sixteen AMI meetings at the shipped 1.2 -- the flat 20 s fragment rule against the duration-scaled one. 16/16 agreement.",
+    "produced_by": "probes/guard_corpus.py",
+    "host": "Azure Standard_D16s_v6, westeurope (16 vCPU Xeon Platinum 8573C, 67 GB)",
+    "run_finished_utc": "2026-08-23T21:31:25Z",
+    "superseded_by": "paper/benchmark/bench_plausibility.py"
+  },
+  "result": {
+    "EN2002a": {
+      "true_speakers": 4,
+      "totals": {
+        "speaker_1": 392.88389960490167,
+        "speaker_0": 125.34753370285034,
+        "speaker_2": 462.44293117523193,
+        "speaker_4": 881.2640600204468,
+        "speaker_3": 378.60658264160156,
+        "speaker_5": 14.174850463867188,
+        "speaker_7": 35.639923095703125,
+        "speaker_6": 20.06439208984375
+      }
+    },
+    "EN2002b": {
+      "true_speakers": 4,
+      "totals": {
+        "speaker_0": 261.9169225692749,
+        "speaker_1": 281.7111644744873,
+        "speaker_2": 98.31352615356445,
+        "speaker_3": 106.36293411254883,
+        "speaker_5": 659.2892951965332,
+        "speaker_4": 392.4787139892578
+      }
+    },
+    "EN2002c": {
+      "true_speakers": 3,
+      "totals": {
+        "speaker_2": 1033.3746509552002,
+        "speaker_1": 98.51610946655273,
+        "speaker_0": 848.576099395752,
+        "speaker_5": 469.22637939453125,
+        "speaker_4": 475.5207290649414,
+        "speaker_3": 36.68629455566406,
+        "speaker_6": 10.69879150390625,
+        "speaker_7": 0.506103515625
+      }
+    },
+    "EN2002d": {
+      "true_speakers": 4,
+      "totals": {
+        "speaker_0": 807.6031551361084,
+        "speaker_1": 58.13447570800781,
+        "speaker_3": 599.6537132263184,
+        "speaker_5": 126.8496208190918,
+        "speaker_2": 85.96167755126953,
+        "speaker_6": 710.1495208740234,
+        "speaker_4": 21.043060302734375
+      }
+    },
+    "ES2004a": {
+      "true_speakers": 4,
+      "totals": {
+        "speaker_0": 474.99782848358154,
+        "speaker_1": 374.82735443115234
+      }
+    },
+    "ES2004b": {
+      "true_speakers": 4,
+      "totals": {
+        "speaker_0": 393.00113528966904,
+        "speaker_1": 532.5246105194092,
+        "speaker_2": 1263.6676788330078
+      }
+    },
+    "ES2004c": {
+      "true_speakers": 4,
+      "totals": {
+        "speaker_0": 583.453765546903,
+        "speaker_2": 449.9375801086426,
+        "speaker_1": 422.36363983154297,
+        "speaker_3": 792.8043746948242
+      }
+    },
+    "ES2004d": {
+      "true_speakers": 4,
+      "totals": {
+        "speaker_0": 498.0320291519165,
+        "speaker_2": 274.06696701049805,
+        "speaker_3": 597.6612854003906,
+        "speaker_4": 27.00006103515625,
+        "speaker_1": 554.3092041015625,
+        "speaker_5": 5.4168701171875
+      }
+    },
+    "IS1009a": {
+      "true_speakers": 4,
+      "totals": {
+        "speaker_0": 165.3412628173828,
+        "speaker_2": 412.74584770202637,
+        "speaker_1": 73.84497451782227,
+        "speaker_3": 35.62316131591797
+      }
+    },
+    "IS1009b": {
+      "true_speakers": 4,
+      "totals": {
+        "speaker_0": 353.73404693603516,
+        "speaker_2": 568.9911346435547,
+        "speaker_3": 488.49767303466797,
+        "speaker_4": 19.17010498046875,
+        "speaker_6": 22.544952392578125,
+        "speaker_5": 10.124755859375,
+        "speaker_7": 463.353759765625,
+        "speaker_1": 3.13873291015625
+      }
+    },
+    "IS1009c": {
+      "true_speakers": 4,
+      "totals": {
+        "speaker_0": 447.5758056640625,
+        "speaker_1": 24.586902618408203,
+        "speaker_3": 14.647506713867188,
+        "speaker_4": 876.42041015625,
+        "speaker_2": 19.996826171875,
+        "speaker_5": 210.0767822265625
+      }
+    },
+    "IS1009d": {
+      "true_speakers": 4,
+      "totals": {
+        "speaker_0": 50.25416055880487,
+        "speaker_1": 1028.143562555313,
+        "speaker_2": 599.1301536560059,
+        "speaker_5": 18.815521240234375,
+        "speaker_3": 11.188140869140625,
+        "speaker_4": 12.453857421875
+      }
+    },
+    "TS3003a": {
+      "true_speakers": 4,
+      "totals": {
+        "speaker_2": 798.5583877563477,
+        "speaker_0": 3.577528953552246,
+        "speaker_3": 25.633071899414062,
+        "speaker_4": 4.269287109375,
+        "speaker_1": 122.04023742675781
+      }
+    },
+    "TS3003b": {
+      "true_speakers": 4,
+      "totals": {
+        "speaker_1": 724.9331498146057,
+        "speaker_0": 44.06061029434204,
+        "speaker_3": 6.716464996337891,
+        "speaker_4": 189.20245742797852,
+        "speaker_5": 599.0958938598633,
+        "speaker_6": 283.95550537109375,
+        "speaker_2": 4.01611328125
+      }
+    },
+    "TS3003c": {
+      "true_speakers": 4,
+      "totals": {
+        "speaker_0": 28.82185125350952,
+        "speaker_1": 8.82574462890625,
+        "speaker_2": 688.5843124389648,
+        "speaker_3": 413.33641052246094,
+        "speaker_4": 478.8948669433594,
+        "speaker_5": 15.035400390625,
+        "speaker_6": 214.49847412109375
+      }
+    },
+    "TS3003d": {
+      "true_speakers": 4,
+      "totals": {
+        "speaker_0": 21.262553215026855,
+        "speaker_2": 377.89839935302734,
+        "speaker_1": 944.5786762237549,
+        "speaker_3": 84.32376480102539,
+        "speaker_4": 224.80886840820312,
+        "speaker_6": 234.47776794433594,
+        "speaker_5": 23.608428955078125,
+        "speaker_7": 47.79010009765625,
+        "speaker_8": 6.9188232421875
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+[der] EN2002a: DER=35.42% (collar250=30.58%) speakers 4/4
+[der] ES2004a: DER=38.82% (collar250=32.97%) speakers 4/4
+[der] IS1009a: DER=21.89% (collar250=13.37%) speakers 4/4
+[der] TS3003a: DER=18.08% (collar250=11.94%) speakers 4/4
+{
+  "der_strict": 28.55,
+  "der_collar250ms": 22.21,
+  "missed_pct": 10.7,
+  "false_alarm_pct": 4.44,
+  "confusion_pct": 13.41,
+  "mean_speaker_count_error": 0.0
+}

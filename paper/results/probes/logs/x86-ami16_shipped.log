@@ -1,0 +1,24 @@
+[der] EN2002a: DER=90.47% (collar250=85.54%) speakers 257/4
+[der] EN2002b: DER=84.16% (collar250=79.1%) speakers 198/4
+[der] EN2002c: DER=84.74% (collar250=81.54%) speakers 256/3
+[der] EN2002d: DER=92.01% (collar250=88.34%) speakers 272/4
+[der] ES2004a: DER=74.02% (collar250=67.56%) speakers 81/4
+[der] ES2004b: DER=61.94% (collar250=54.23%) speakers 118/4
+[der] ES2004c: DER=60.12% (collar250=52.24%) speakers 125/4
+[der] ES2004d: DER=82.99% (collar250=76.12%) speakers 196/4
+[der] IS1009a: DER=90.2% (collar250=83.6%) speakers 86/4
+[der] IS1009b: DER=53.69% (collar250=44.98%) speakers 135/4
+[der] IS1009c: DER=53.94% (collar250=45.89%) speakers 99/4
+[der] IS1009d: DER=81.53% (collar250=73.76%) speakers 152/4
+[der] TS3003a: DER=81.67% (collar250=76.57%) speakers 98/4
+[der] TS3003b: DER=55.41% (collar250=47.3%) speakers 110/4
+[der] TS3003c: DER=68.32% (collar250=61.46%) speakers 122/4
+[der] TS3003d: DER=88.2% (collar250=81.55%) speakers 241/4
+{
+  "der_strict": 75.21,
+  "der_collar250ms": 68.74,
+  "missed_pct": 8.75,
+  "false_alarm_pct": 4.77,
+  "confusion_pct": 61.69,
+  "mean_speaker_count_error": 155.19
+}

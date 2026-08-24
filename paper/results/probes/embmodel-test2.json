@@ -1,0 +1,200 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-23T22:49:06Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 1.0,
+    "compute_type": "int8",
+    "device": "cpu",
+    "captured": "after the run, on the same host, which was not reconfigured between the two"
+  },
+  "probe": {
+    "measured": "The same comparison on a second meeting.",
+    "produced_by": "probes/embmodel_test2.py",
+    "host": "Azure Standard_D16s_v6, westeurope (16 vCPU Xeon Platinum 8573C, 67 GB)",
+    "run_finished_utc": "2026-08-23T15:56:15Z"
+  },
+  "result": {
+    "meeting": "IS1009a",
+    "true_speakers": 4,
+    "results": [
+      {
+        "model": "shipped: eres2net zh-cn",
+        "file": "3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k.onnx",
+        "thr1.0": {
+          "der": 31.89,
+          "spk": 21,
+          "conf": 17.77,
+          "s": 183.0
+        },
+        "thr1.2": {
+          "der": 21.89,
+          "spk": 4,
+          "conf": 7.99,
+          "s": 180.3
+        },
+        "thr1.4": {
+          "der": 45.45,
+          "spk": 1,
+          "conf": 26.75,
+          "s": 180.8
+        },
+        "thr1.6": {
+          "der": 45.45,
+          "spk": 1,
+          "conf": 26.75,
+          "s": 179.8
+        }
+      },
+      {
+        "model": "eres2net EN voxceleb",
+        "file": "3dspeaker_speech_eres2net_sv_en_voxceleb_16k.onnx",
+        "thr1.0": {
+          "der": 30.61,
+          "spk": 14,
+          "conf": 16.44,
+          "s": 179.3
+        },
+        "thr1.2": {
+          "der": 39.0,
+          "spk": 3,
+          "conf": 24.71,
+          "s": 179.3
+        },
+        "thr1.4": {
+          "der": 45.45,
+          "spk": 1,
+          "conf": 26.75,
+          "s": 178.3
+        },
+        "thr1.6": {
+          "der": 45.45,
+          "spk": 1,
+          "conf": 26.75,
+          "s": 176.4
+        }
+      },
+      {
+        "model": "campplus EN voxceleb",
+        "file": "3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx",
+        "thr1.0": {
+          "der": 51.06,
+          "spk": 6,
+          "conf": 36.57,
+          "s": 75.7
+        },
+        "thr1.2": {
+          "der": 51.83,
+          "spk": 3,
+          "conf": 37.5,
+          "s": 75.4
+        },
+        "thr1.4": {
+          "der": 45.45,
+          "spk": 1,
+          "conf": 26.75,
+          "s": 75.3
+        },
+        "thr1.6": {
+          "der": 45.45,
+          "spk": 1,
+          "conf": 26.75,
+          "s": 75.4
+        }
+      },
+      {
+        "model": "campplus zh+en advanced",
+        "file": "3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced.onnx",
+        "thr1.0": {
+          "der": 30.77,
+          "spk": 12,
+          "conf": 16.67,
+          "s": 78.1
+        },
+        "thr1.2": {
+          "der": 24.65,
+          "spk": 3,
+          "conf": 10.69,
+          "s": 77.4
+        },
+        "thr1.4": {
+          "der": 45.45,
+          "spk": 1,
+          "conf": 26.75,
+          "s": 75.7
+        },
+        "thr1.6": {
+          "der": 45.45,
+          "spk": 1,
+          "conf": 26.75,
+          "s": 75.5
+        }
+      },
+      {
+        "model": "wespeaker EN CAM++",
+        "file": "wespeaker_en_voxceleb_CAM++.onnx",
+        "thr1.0": {
+          "der": 53.88,
+          "spk": 3,
+          "conf": 39.37,
+          "s": 76.1
+        },
+        "thr1.2": {
+          "der": 45.45,
+          "spk": 1,
+          "conf": 26.75,
+          "s": 76.3
+        },
+        "thr1.4": {
+          "der": 45.45,
+          "spk": 1,
+          "conf": 26.75,
+          "s": 76.6
+        },
+        "thr1.6": {
+          "der": 45.45,
+          "spk": 1,
+          "conf": 26.75,
+          "s": 76.0
+        }
+      },
+      {
+        "model": "nemo EN titanet_small",
+        "file": "nemo_en_titanet_small.onnx",
+        "thr1.0": {
+          "der": 27.71,
+          "spk": 17,
+          "conf": 13.63,
+          "s": 76.2
+        },
+        "thr1.2": {
+          "der": 27.08,
+          "spk": 4,
+          "conf": 13.15,
+          "s": 76.4
+        },
+        "thr1.4": {
+          "der": 45.45,
+          "spk": 1,
+          "conf": 26.75,
+          "s": 76.4
+        },
+        "thr1.6": {
+          "der": 45.45,
+          "spk": 1,
+          "conf": 26.75,
+          "s": 76.5
+        }
+      }
+    ]
+  }
+}

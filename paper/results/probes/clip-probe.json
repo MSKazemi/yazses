@@ -1,0 +1,117 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-23T22:52:22Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.5.2",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 11.34,
+    "compute_type": "int8",
+    "device": "cpu",
+    "captured": "after the run, on the same host, which was not reconfigured between the two"
+  },
+  "probe": {
+    "measured": "The same, with the speech onset deliberately clipped to simulate a late keypress. This is where the lead-in changes sign.",
+    "produced_by": "probes/leadin_probe2.py",
+    "host": "Azure Standard_D16s_v6, westeurope (16 vCPU Xeon Platinum 8573C, 67 GB)",
+    "run_finished_utc": "2026-08-23T21:47:58Z",
+    "superseded_by": "paper/benchmark/bench_onset.py"
+  },
+  "result": {
+    "config": {
+      "n": 200,
+      "model": "base.en",
+      "leads_ms": [
+        0,
+        300,
+        600
+      ],
+      "clips_ms": [
+        40,
+        120,
+        240
+      ]
+    },
+    "rows": [
+      {
+        "clip_ms": 40,
+        "lead_ms": 0,
+        "wer": 4.63,
+        "first_word_ok": 176,
+        "n": 200,
+        "empty_hyps": 0
+      },
+      {
+        "clip_ms": 40,
+        "lead_ms": 300,
+        "wer": 4.22,
+        "first_word_ok": 182,
+        "n": 200,
+        "empty_hyps": 0
+      },
+      {
+        "clip_ms": 40,
+        "lead_ms": 600,
+        "wer": 3.96,
+        "first_word_ok": 182,
+        "n": 200,
+        "empty_hyps": 0
+      },
+      {
+        "clip_ms": 120,
+        "lead_ms": 0,
+        "wer": 5.78,
+        "first_word_ok": 143,
+        "n": 200,
+        "empty_hyps": 0
+      },
+      {
+        "clip_ms": 120,
+        "lead_ms": 300,
+        "wer": 6.11,
+        "first_word_ok": 132,
+        "n": 200,
+        "empty_hyps": 0
+      },
+      {
+        "clip_ms": 120,
+        "lead_ms": 600,
+        "wer": 5.76,
+        "first_word_ok": 129,
+        "n": 200,
+        "empty_hyps": 0
+      },
+      {
+        "clip_ms": 240,
+        "lead_ms": 0,
+        "wer": 8.14,
+        "first_word_ok": 83,
+        "n": 200,
+        "empty_hyps": 0
+      },
+      {
+        "clip_ms": 240,
+        "lead_ms": 300,
+        "wer": 8.29,
+        "first_word_ok": 79,
+        "n": 200,
+        "empty_hyps": 0
+      },
+      {
+        "clip_ms": 240,
+        "lead_ms": 600,
+        "wer": 8.05,
+        "first_word_ok": 78,
+        "n": 200,
+        "empty_hyps": 0
+      }
+    ]
+  }
+}

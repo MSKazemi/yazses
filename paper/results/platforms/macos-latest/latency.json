@@ -1,0 +1,82 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-23T22:56:49Z",
+    "cpu_model": "Apple M1 (Virtual)",
+    "logical_cpus": 3,
+    "ram_gb": 7.5,
+    "os": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+    "kernel": "25.5.0",
+    "python": "3.14.6",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.30.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 30.44,
+    "compute_type": "int8",
+    "device": "cpu"
+  },
+  "config": {
+    "n_latency_utterances": 15,
+    "audio_duration_median_s": 10.44,
+    "audio_duration_p95_s": 23.95,
+    "pure_stage_reps": 2000
+  },
+  "memory": {
+    "baseline_rss_mb": 599.2
+  },
+  "models": {
+    "tiny.en": {
+      "cold_start_load_s": 0.25,
+      "decode_median_ms": 566.2,
+      "decode_p95_ms": 1055.4,
+      "rss_after_load_mb": 694.7,
+      "rss_peak_mb": 764.1,
+      "model_rss_delta_mb": 95.5
+    },
+    "base.en": {
+      "cold_start_load_s": 0.37,
+      "decode_median_ms": 910.1,
+      "decode_p95_ms": 2410.9,
+      "rss_after_load_mb": 868.9,
+      "rss_peak_mb": 895.6,
+      "model_rss_delta_mb": 269.7
+    },
+    "small.en": {
+      "cold_start_load_s": 1.1,
+      "decode_median_ms": 2652.1,
+      "decode_p95_ms": 4411.4,
+      "rss_after_load_mb": 968.7,
+      "rss_peak_mb": 1047.1,
+      "model_rss_delta_mb": 369.5
+    }
+  },
+  "pipeline_stages": {
+    "vad_gate": {
+      "median_ms": 0.0089,
+      "p95_ms": 0.0241,
+      "mean_ms": 0.0112
+    },
+    "clean_text": {
+      "median_ms": 0.0005,
+      "p95_ms": 0.0007,
+      "mean_ms": 0.0007
+    },
+    "disfluency_filter": {
+      "median_ms": 0.0159,
+      "p95_ms": 0.0209,
+      "mean_ms": 0.018
+    },
+    "grammar_classify_dictation": {
+      "median_ms": 0.0081,
+      "p95_ms": 0.0104,
+      "mean_ms": 0.0092
+    },
+    "grammar_classify_command": {
+      "median_ms": 0.0046,
+      "p95_ms": 0.0065,
+      "mean_ms": 0.0054
+    }
+  },
+  "non_decode_overhead_median_ms": 0.0334
+}

@@ -269,7 +269,70 @@ def percentile(values: list[float], q: float) -> float:
 
 
 def write_result(name: str, payload: dict) -> Path:
+    """Write one result, stamping provenance if the caller did not.
+
+    `run_all.py` attaches a *shared* block so every file in one sweep names the same
+    machine and the same instant, and that stays. But a single bench run straight from
+    the command line -- the documented way to re-measure one thing -- went through here
+    without one, and overwrote the good file with an anonymous one. `vad.json` and
+    `streaming.json` were both sitting in `paper/results/` with no record of the CPU,
+    the OS or the library versions they came from, which makes them numbers rather than
+    measurements. Stamping at the single chokepoint is what stops the next one; asking
+    eight `__main__` blocks to remember is the arrangement that already failed.
+    """
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    if "provenance" not in payload:
+        import time
+
+        payload = {
+            "provenance": provenance(time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())),
+            **payload,
+        }
     path = RESULTS_DIR / f"{name}.json"
-    path.write_text(json.dumps(payload, indent=2, sort_keys=False))
+    text = json.dumps(payload, indent=2, sort_keys=False)
+    _archive_previous(path, text)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
     return path
+
+
+def _archive_previous(path: Path, new_text: str) -> Path | None:
+    """Copy `path` under `results/history/` when `new_text` would change it.
+
+    **A re-run must never destroy the previous measurement.** Every published table is
+    keyed to a fixed filename, so a second run of the same benchmark overwrites the first
+    -- fine when the numbers agree, and silently destructive when they do not. They did
+    not: re-running the `test-other` matrix moved `large-v3` by 2.83 points, and by then
+    the run this page had been quoting survived only in a console log on a VM. Identical
+    content is *not* archived, because re-running a reproducible benchmark is the normal
+    case and should not accumulate copies of the same numbers.
+
+    The timestamp comes from the displaced file's own provenance rather than the clock,
+    so the copy is named for when it was measured, not for when it was moved aside.
+
+    Never raises into a benchmark: losing an archive copy is bad, losing a two-hour
+    decode because the archive step tripped over a permission is worse.
+    """
+    try:
+        if not path.exists():
+            return None
+        old_text = path.read_text(encoding="utf-8")
+        if old_text == new_text:
+            return None
+        stamp = "unstamped"
+        try:
+            stamp = json.loads(old_text).get("provenance", {}).get("timestamp") or stamp
+        except (ValueError, AttributeError):
+            pass
+        stamp = "".join(c if c.isalnum() else "-" for c in str(stamp))
+        history = RESULTS_DIR / "history"
+        history.mkdir(parents=True, exist_ok=True)
+        # `name` may carry a subdirectory (`probes/x`); flatten it so `history/` stays one
+        # level deep and a nested name cannot write outside it.
+        flat = path.relative_to(RESULTS_DIR).as_posix().removesuffix(".json").replace("/", "-")
+        dest = history / f"{flat}-{stamp}.json"
+        if not dest.exists():
+            dest.write_text(old_text, encoding="utf-8")
+        return dest
+    except OSError:
+        return None

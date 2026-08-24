@@ -121,6 +121,35 @@ def score(ref_turns, hyp_turns, collar: float = 0.0) -> dict:
     }
 
 
+
+def time_weighted_der(per_meeting: list[dict], key: str = "strict") -> float:
+    """Corpus-aggregated DER: total error time over total scored reference time.
+
+    The summary's headline is the **unweighted mean across recordings**, and that is a
+    deliberate product choice -- a forty-minute meeting should not drown out three short
+    ones when the question is "how well does Meeting Mode do on a meeting". It is also
+    *not* the number the diarization literature quotes. NIST `md-eval` and every AMI and
+    DIHARD table aggregate over speech time, so a reader comparing this page to a
+    published AMI DER without noticing would be comparing two different quantities.
+
+    Both are therefore reported. Neither is a correction of the other; they answer
+    "per meeting" and "per second of speech", and on a corpus whose recordings differ
+    in length by 3x they do not have to agree.
+
+    Pure over the per-meeting rows, which already carry `scored_seconds` (md-eval's
+    denominator), so this can be re-derived from an artifact that predates it rather
+    than costing another nine hours of decode. Reconstructing error time as
+    ``der% x scored_seconds`` inherits the rounding of a figure stored to two decimals
+    -- under a tenth of a second per recording against error times in the hundreds, so
+    below the second decimal of the result.
+    """
+    scored = sum(m[key]["scored_seconds"] for m in per_meeting)
+    if not scored:
+        return 0.0
+    error = sum(m[key]["der"] / 100.0 * m[key]["scored_seconds"] for m in per_meeting)
+    return round(error / scored * 100, 2)
+
+
 def _load_wav(path: Path) -> np.ndarray:
     import wave
 
@@ -176,13 +205,33 @@ def write_rttm(path: Path, file_id: str, turns) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def run(corpus: Path, max_speakers: int = 0, dump_rttm: Path | None = None) -> dict:
-    """Diarize every meeting in *corpus* and score it against its own RTTM."""
-    from yazses.config import RecimportConfig
+#: The two shipped clustering defaults, by the feature that owns them. They differ
+#: (ADR-v2-133: `[recimport]` 1.0, `[meeting]` 1.2) because they are aimed at different
+#: audio -- arbitrary files against one room, one microphone, forty minutes -- and the
+#: threshold is the single setting that decides the result.
+#:
+#: This harness used to read `RecimportConfig()` unconditionally, so scoring AMI, which
+#: is *the* Meeting Mode corpus, measured a threshold Meeting Mode does not ship. The
+#: artifact still recorded the value it used, which is what makes it recoverable rather
+#: than wrong -- but "DER on AMI at the shipped default" would have named 1.0, and the
+#: published 26.71% is 1.2.
+PROFILES = {"recimport": "RecimportConfig", "meeting": "MeetingConfig"}
+
+
+def run(corpus: Path, max_speakers: int = 0, dump_rttm: Path | None = None,
+        profile: str = "recimport") -> dict:
+    """Diarize every meeting in *corpus* and score it against its own RTTM.
+
+    `profile` selects which feature's shipped default is under test; it is never a bare
+    number, so a result cannot record a threshold that nothing ships.
+    """
+    import yazses.config as _config
     from yazses.recimport.diarizer import SherpaDiarizer
 
+    if profile not in PROFILES:
+        raise SystemExit(f"unknown profile {profile!r}; expected one of {sorted(PROFILES)}")
     manifest = _read_manifest(corpus)
-    cfg = RecimportConfig()
+    cfg = getattr(_config, PROFILES[profile])()
     # max_speakers=0 leaves sherpa's clustering to decide the count, which is the
     # honest setting: Meeting Mode does not know how many people are in the room.
     diarizer_cfg = (
@@ -218,7 +267,11 @@ def run(corpus: Path, max_speakers: int = 0, dump_rttm: Path | None = None) -> d
 
     return {
         "config": {
-            "corpus": str(corpus),
+            # The *name*, not the path. These results are published, and an absolute
+            # path is a login name and a directory layout in an artifact that git
+            # history does not forget. The name is what identifies the corpus; the
+            # manifest's `source`, carried below, is what makes it citable.
+            "corpus": corpus.name,
             "corpus_kind": manifest["ground_truth"],
             "caveat": manifest["caveat"],
             "backend": "sherpa-onnx (pyannote segmentation-3.0 + 3D-Speaker ERes2Net)",
@@ -227,6 +280,7 @@ def run(corpus: Path, max_speakers: int = 0, dump_rttm: Path | None = None) -> d
             # The two settings that decide the result, recorded because the first
             # real-audio run found the shipped `cluster_threshold` responsible for
             # essentially all of the error -- a DER quoted without it says nothing.
+            "profile": profile,
             "cluster_threshold": diarizer_cfg.cluster_threshold,
             "max_speakers": diarizer_cfg.max_speakers,
             "n_meetings": len(per_meeting),
@@ -234,6 +288,11 @@ def run(corpus: Path, max_speakers: int = 0, dump_rttm: Path | None = None) -> d
         "summary": {
             "der_strict": _mean("strict", "der"),
             "der_collar250ms": _mean("collar250ms", "der"),
+            # Same measurements, aggregated the way the literature aggregates them.
+            "der_strict_time_weighted": time_weighted_der(per_meeting, "strict"),
+            "der_collar250ms_time_weighted": time_weighted_der(per_meeting, "collar250ms"),
+            "scored_seconds_total": round(
+                sum(m["strict"]["scored_seconds"] for m in per_meeting), 1),
             "missed_pct": _mean("strict", "missed_pct"),
             "false_alarm_pct": _mean("strict", "false_alarm_pct"),
             "confusion_pct": _mean("strict", "confusion_pct"),
@@ -335,14 +394,32 @@ if __name__ == "__main__":
         i = argv.index("--dump-rttm")
         dump_dir = Path(argv[i + 1])
         del argv[i:i + 2]
+    # Which feature's default is being measured. Explicit rather than inferred from the
+    # corpus name: a corpus can be scored under either, and guessing would put a
+    # threshold in the artifact that nobody chose.
+    profile = "recimport"
+    if "--profile" in argv:
+        i = argv.index("--profile")
+        profile = argv[i + 1]
+        del argv[i:i + 2]
     args = [a for a in argv if a != "--sweep"]
     corpus_dir = Path(args[0])
     if "--sweep" in sys.argv:
         out = {"sweep": sweep(corpus_dir, thresholds)}
     else:
-        out = run(corpus_dir, max_speakers=max_speakers, dump_rttm=dump_dir)
+        out = run(corpus_dir, max_speakers=max_speakers, dump_rttm=dump_dir,
+                  profile=profile)
         print(json.dumps(out["summary"], indent=2))
     if len(args) > 1:
         Path(args[1]).write_text(
             json.dumps(with_provenance(out), indent=2) + "\n", encoding="utf-8"
         )
+    else:
+        # Into the archive by default. This script wrote only where it was told to,
+        # so every diarization number on the page came from a file that lived on one
+        # machine under an ad-hoc name and reached `paper/results/` never. The corpus
+        # cannot be committed; the result can, and it is the result the page cites.
+        from _common import write_result
+
+        kind = "sweep" if "--sweep" in sys.argv else "der"
+        write_result(f"diarization-{corpus_dir.name}-{kind}", with_provenance(out))

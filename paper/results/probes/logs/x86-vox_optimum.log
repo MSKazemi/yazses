@@ -1,0 +1,4 @@
+start 17:07:48Z
+[sweep] threshold=0.6  DER=31.61%  count_err=+22.80  exact=1/15
+[sweep] threshold=0.8  DER=19.19%  count_err=+10.33  exact=3/15
+Terminated

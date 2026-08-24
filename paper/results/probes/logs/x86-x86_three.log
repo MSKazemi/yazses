@@ -1,0 +1,88 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.1.1, pluggy-1.6.0 -- $HOME/yazses/.venv/bin/python3
+cachedir: .pytest_cache
+hypothesis profile 'default'
+rootdir: $HOME/yazses
+configfile: pyproject.toml
+plugins: anyio-4.14.1, hypothesis-6.165.2, mock-3.15.1, cov-7.1.0
+collecting ... collected 34 items
+
+tests/test_shipped_backends.py::test_factory_builds_the_resemblyzer_backend PASSED [  2%]
+tests/test_shipped_backends.py::test_resemblyzer_asks_for_cpu_explicitly PASSED [  5%]
+tests/test_shipped_backends.py::test_long_audio_uses_embed_utterance PASSED [  8%]
+tests/test_shipped_backends.py::test_short_audio_bypasses_the_zero_padding_path PASSED [ 11%]
+tests/test_shipped_backends.py::test_resample_is_requested_only_when_the_rate_differs PASSED [ 14%]
+tests/test_shipped_backends.py::test_silence_trimmed_to_nothing_yields_a_droppable_embedding PASSED [ 17%]
+tests/test_shipped_backends.py::test_missing_resemblyzer_names_its_own_extra PASSED [ 20%]
+tests/test_shipped_backends.py::test_factory_builds_the_pyannote_diarizer PASSED [ 23%]
+tests/test_shipped_backends.py::test_pyannote_labels_are_normalised_to_the_sherpa_shape PASSED [ 26%]
+tests/test_shipped_backends.py::test_pyannote_turns_are_sorted_by_start PASSED [ 29%]
+tests/test_shipped_backends.py::test_speaker_bounds_translate_the_zero_means_auto_convention[0-0-expected0] PASSED [ 32%]
+tests/test_shipped_backends.py::test_speaker_bounds_translate_the_zero_means_auto_convention[2-0-expected1] PASSED [ 35%]
+tests/test_shipped_backends.py::test_speaker_bounds_translate_the_zero_means_auto_convention[0-4-expected2] PASSED [ 38%]
+tests/test_shipped_backends.py::test_speaker_bounds_translate_the_zero_means_auto_convention[3-5-expected3] PASSED [ 41%]
+tests/test_shipped_backends.py::test_speaker_bounds_translate_the_zero_means_auto_convention[3-3-expected4] PASSED [ 44%]
+tests/test_shipped_backends.py::test_a_gated_model_without_a_token_explains_the_two_fixes PASSED [ 47%]
+tests/test_shipped_backends.py::test_the_backend_is_dormant_without_the_dependency PASSED [ 50%]
+tests/test_shipped_backends.py::test_pyannote_telemetry_is_disabled_before_the_package_is_imported PASSED [ 52%]
+tests/test_shipped_backends.py::test_telemetry_is_disabled_even_if_the_user_exported_it_on PASSED [ 55%]
+tests/test_shipped_backends.py::test_missing_pyannote_names_its_own_extra PASSED [ 58%]
+tests/test_shipped_backends.py::test_pyannote_adapter_call_binds_against_the_real_signature PASSED [ 61%]
+tests/test_shipped_backends.py::test_real_resemblyzer_returns_a_unit_vector_at_both_lengths FAILED [ 64%]
+tests/test_shipped_backends.py::test_status_probes_pyannote_not_sherpa_when_pyannote_is_configured PASSED [ 67%]
+tests/test_shipped_backends.py::test_status_reports_not_ready_when_the_gated_model_is_uncached PASSED [ 70%]
+tests/test_shipped_backends.py::test_status_is_never_ready_for_backend_none PASSED [ 73%]
+tests/test_shipped_backends.py::test_status_does_not_import_the_heavy_backend PASSED [ 76%]
+tests/test_meeting_notes.py::test_window_turns_splits PASSED             [ 79%]
+tests/test_meeting_notes.py::test_generate_minutes_single_window PASSED  [ 82%]
+tests/test_meeting_notes.py::test_generate_minutes_map_reduce PASSED     [ 85%]
+tests/test_meeting_notes.py::test_dormant_without_llm_returns_none PASSED [ 88%]
+tests/test_meeting_notes.py::test_parses_json_inside_prose_and_fences PASSED [ 91%]
+tests/test_meeting_notes.py::test_minutes_gbnf_is_closed_and_rooted PASSED [ 94%]
+tests/test_meeting_notes.py::test_minutes_gbnf_parses_with_llama_when_available PASSED [ 97%]
+tests/test_meeting_notes.py::test_render_minutes_md PASSED               [100%]
+
+=================================== FAILURES ===================================
+_________ test_real_resemblyzer_returns_a_unit_vector_at_both_lengths __________
+
+    @pytest.mark.skipif(
+        importlib.util.find_spec("resemblyzer") is None,
+        reason="the voiceprint-resemblyzer extra is not installed",
+    )
+    def test_real_resemblyzer_returns_a_unit_vector_at_both_lengths():
+        """Both paths must produce the same kind of object: a 256-d L2-normed vector.
+    
+        The short path reimplements what embed_utterance does for one partial, so
+        this pins that it did not drift into returning an unnormalised embedding —
+        which would still "work" but silently change every cosine threshold.
+        """
+        from yazses.voiceprint.resemblyzer_backend import ResemblyzerEmbedder
+    
+>       embedder = ResemblyzerEmbedder(_VpCfg())
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_shipped_backends.py:433: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/yazses/voiceprint/resemblyzer_backend.py:61: in __init__
+    from resemblyzer import VoiceEncoder  # optional extra
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/resemblyzer/__init__.py:3: in <module>
+    from resemblyzer.audio import preprocess_wav, wav_to_mel_spectrogram, trim_long_silences, \
+.venv/lib/python3.12/site-packages/resemblyzer/audio.py:6: in <module>
+    import webrtcvad
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+>   import pkg_resources
+E   ModuleNotFoundError: No module named 'pkg_resources'
+
+.venv/lib/python3.12/site-packages/webrtcvad.py:1: ModuleNotFoundError
+=============================== warnings summary ===============================
+tests/test_shipped_backends.py::test_real_resemblyzer_returns_a_unit_vector_at_both_lengths
+  $HOME/yazses/.venv/lib/python3.12/site-packages/resemblyzer/audio.py:1: DeprecationWarning: Please import `binary_dilation` from the `scipy.ndimage` namespace; the `scipy.ndimage.morphology` namespace is deprecated and will be removed in SciPy 2.0.0.
+    from scipy.ndimage.morphology import binary_dilation
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_shipped_backends.py::test_real_resemblyzer_returns_a_unit_vector_at_both_lengths
+=================== 1 failed, 33 passed, 1 warning in 4.02s ====================
+THREE_EXIT=1

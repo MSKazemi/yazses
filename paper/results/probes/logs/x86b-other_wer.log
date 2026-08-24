@@ -1,0 +1,92 @@
+start 19:17:15Z
+$HOME/yazses/.venv/lib/python3.12/site-packages/whisper_normalizer/basic.py:97: SyntaxWarning: invalid escape sequence '\X'
+  """
+[wer] loading tiny.en (engine=faster-whisper) ...
+  tiny.en: 25/200
+  tiny.en: 50/200
+  tiny.en: 75/200
+  tiny.en: 100/200
+  tiny.en: 125/200
+  tiny.en: 150/200
+  tiny.en: 175/200
+  tiny.en: 200/200
+[wer] tiny.en: WER=11.61% (95% CI 9.81-13.65)  RTF median=0.035 (~28.7x realtime)  load=2.84s
+[wer] loading base.en (engine=faster-whisper) ...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+  base.en: 25/200
+  base.en: 50/200
+  base.en: 75/200
+  base.en: 100/200
+  base.en: 125/200
+  base.en: 150/200
+  base.en: 175/200
+  base.en: 200/200
+[wer] base.en: WER=9.46% (95% CI 7.92-11.17)  RTF median=0.047 (~21.2x realtime)  load=2.37s
+[wer] loading small.en (engine=faster-whisper) ...
+  small.en: 25/200
+  small.en: 50/200
+  small.en: 75/200
+  small.en: 100/200
+  small.en: 125/200
+  small.en: 150/200
+  small.en: 175/200
+  small.en: 200/200
+[wer] small.en: WER=5.59% (95% CI 4.44-6.8)  RTF median=0.103 (~9.7x realtime)  load=5.25s
+[wer] loading medium.en (engine=faster-whisper) ...
+  medium.en: 25/200
+  medium.en: 50/200
+  medium.en: 75/200
+  medium.en: 100/200
+  medium.en: 125/200
+  medium.en: 150/200
+  medium.en: 175/200
+  medium.en: 200/200
+[wer] medium.en: WER=5.51% (95% CI 4.39-6.72)  RTF median=0.264 (~3.8x realtime)  load=15.34s
+[wer] loading large-v3 (engine=faster-whisper) ...
+  large-v3: 25/200
+  large-v3: 50/200
+  large-v3: 75/200
+  large-v3: 100/200
+  large-v3: 125/200
+  large-v3: 150/200
+  large-v3: 175/200
+  large-v3: 200/200
+[wer] large-v3: WER=4.86% (95% CI 3.24-6.71)  RTF median=0.49 (~2.0x realtime)  load=23.87s
+[wer] loading parakeet-tdt-0.6b-v2 (engine=parakeet) ...
+[0;93m2026-08-23 19:39:42.002928093 [W:onnxruntime:Default, device_discovery.cc:146 GetPciBusId] Skipping pci_bus_id for PCI path at "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/ACPI0004:00/MSFT1000:00/5620e0c7-8062-4dce-aeb7-520c7ef76171" because filename "5620e0c7-8062-4dce-aeb7-520c7ef76171" did not match expected pattern of [0-9a-f]+:[0-9a-f]+:[0-9a-f]+[.][0-9a-f]+[m
+
+Fetching 4 files:   0%|          | 0/4 [00:00<?, ?it/s]
+Fetching 4 files:  25%|██▌       | 1/4 [00:00<00:00,  8.28it/s]
+Fetching 4 files:  75%|███████▌  | 3/4 [00:00<00:00,  3.41it/s]
+Fetching 4 files: 100%|██████████| 4/4 [00:10<00:00,  3.45s/it]
+Fetching 4 files: 100%|██████████| 4/4 [00:10<00:00,  2.56s/it]
+  parakeet-tdt-0.6b-v2: 25/200
+  parakeet-tdt-0.6b-v2: 50/200
+  parakeet-tdt-0.6b-v2: 75/200
+  parakeet-tdt-0.6b-v2: 100/200
+  parakeet-tdt-0.6b-v2: 125/200
+  parakeet-tdt-0.6b-v2: 150/200
+  parakeet-tdt-0.6b-v2: 175/200
+  parakeet-tdt-0.6b-v2: 200/200
+[wer] parakeet-tdt-0.6b-v2: WER=2.88% (95% CI 2.2-3.63)  RTF median=0.054 (~18.7x realtime)  load=11.9s
+[wer] loading moonshine/tiny (engine=moonshine) ...
+  moonshine/tiny: 25/200
+  moonshine/tiny: 50/200
+  moonshine/tiny: 75/200
+  moonshine/tiny: 100/200
+  moonshine/tiny: 125/200
+  moonshine/tiny: 150/200
+  moonshine/tiny: 175/200
+  moonshine/tiny: 200/200
+[wer] moonshine/tiny: WER=10.35% (95% CI 8.74-12.0)  RTF median=0.017 (~59.4x realtime)  load=0.02s
+[wer] loading moonshine/base (engine=moonshine) ...
+  moonshine/base: 25/200
+  moonshine/base: 50/200
+  moonshine/base: 75/200
+  moonshine/base: 100/200
+  moonshine/base: 125/200
+  moonshine/base: 150/200
+  moonshine/base: 175/200
+  moonshine/base: 200/200
+[wer] moonshine/base: WER=8.04% (95% CI 6.68-9.47)  RTF median=0.023 (~43.2x realtime)  load=0.01s
+OTHER_DONE 19:42:17Z

@@ -1,0 +1,477 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-24T02:39:46Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 1.02,
+    "compute_type": "int8",
+    "device": "cpu"
+  },
+  "config": {
+    "corpus": "ami16_corpus",
+    "corpus_kind": "human-annotated RTTM from pyannote/AMI-diarization-setup (only_words, test split) over the AMI headset mix",
+    "caveat": "real four-person meetings in real rooms: a genuine DER for Meeting Mode's target domain, not a floor. Headset mix is cleaner than a single table microphone, so a far-field recording scores worse. Not comparable with the synthetic-corpus figure; the two are different measurements.",
+    "backend": "sherpa-onnx (pyannote segmentation-3.0 + 3D-Speaker ERes2Net)",
+    "frame_s": 0.01,
+    "scoring": "frame-based, Hungarian one-to-one mapping (md-eval semantics)",
+    "profile": "meeting",
+    "cluster_threshold": 1.2,
+    "max_speakers": 0,
+    "n_meetings": 16
+  },
+  "summary": {
+    "der_strict": 26.71,
+    "der_collar250ms": 19.93,
+    "missed_pct": 8.66,
+    "false_alarm_pct": 4.5,
+    "confusion_pct": 13.54,
+    "mean_speaker_count_error": 2.06,
+    "der_strict_time_weighted": 27.37,
+    "der_collar250ms_time_weighted": 20.51,
+    "scored_seconds_total": 30714.0
+  },
+  "meetings": [
+    {
+      "id": "EN2002a",
+      "duration_s": 2142.71,
+      "true_speakers": 4,
+      "strict": {
+        "der": 29.14,
+        "missed_pct": 12.72,
+        "false_alarm_pct": 4.03,
+        "confusion_pct": 12.38,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 8,
+        "speaker_count_error": 4,
+        "scored_seconds": 2530.3,
+        "collar_s": 0.0
+      },
+      "collar250ms": {
+        "der": 21.55,
+        "missed_pct": 9.34,
+        "false_alarm_pct": 2.03,
+        "confusion_pct": 10.18,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 8,
+        "speaker_count_error": 4,
+        "scored_seconds": 1721.8,
+        "collar_s": 0.25
+      }
+    },
+    {
+      "id": "EN2002b",
+      "duration_s": 1786.85,
+      "true_speakers": 4,
+      "strict": {
+        "der": 30.2,
+        "missed_pct": 11.01,
+        "false_alarm_pct": 3.64,
+        "confusion_pct": 15.55,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 6,
+        "speaker_count_error": 2,
+        "scored_seconds": 1943.4,
+        "collar_s": 0.0
+      },
+      "collar250ms": {
+        "der": 23.67,
+        "missed_pct": 8.53,
+        "false_alarm_pct": 1.94,
+        "confusion_pct": 13.2,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 6,
+        "speaker_count_error": 2,
+        "scored_seconds": 1413.1,
+        "collar_s": 0.25
+      }
+    },
+    {
+      "id": "EN2002c",
+      "duration_s": 2972.26,
+      "true_speakers": 3,
+      "strict": {
+        "der": 34.83,
+        "missed_pct": 12.79,
+        "false_alarm_pct": 1.71,
+        "confusion_pct": 20.34,
+        "n_ref_speakers": 3,
+        "n_hyp_speakers": 8,
+        "speaker_count_error": 5,
+        "scored_seconds": 3343.6,
+        "collar_s": 0.0
+      },
+      "collar250ms": {
+        "der": 31.16,
+        "missed_pct": 11.0,
+        "false_alarm_pct": 0.91,
+        "confusion_pct": 19.25,
+        "n_ref_speakers": 3,
+        "n_hyp_speakers": 8,
+        "speaker_count_error": 5,
+        "scored_seconds": 2613.5,
+        "collar_s": 0.25
+      }
+    },
+    {
+      "id": "EN2002d",
+      "duration_s": 2209.9,
+      "true_speakers": 4,
+      "strict": {
+        "der": 37.81,
+        "missed_pct": 13.76,
+        "false_alarm_pct": 3.8,
+        "confusion_pct": 20.25,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 7,
+        "speaker_count_error": 3,
+        "scored_seconds": 2675.9,
+        "collar_s": 0.0
+      },
+      "collar250ms": {
+        "der": 32.27,
+        "missed_pct": 11.62,
+        "false_alarm_pct": 2.12,
+        "confusion_pct": 18.53,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 7,
+        "speaker_count_error": 3,
+        "scored_seconds": 1887.6,
+        "collar_s": 0.25
+      }
+    },
+    {
+      "id": "ES2004a",
+      "duration_s": 1049.35,
+      "true_speakers": 4,
+      "strict": {
+        "der": 39.39,
+        "missed_pct": 11.99,
+        "false_alarm_pct": 4.01,
+        "confusion_pct": 23.39,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 2,
+        "speaker_count_error": -2,
+        "scored_seconds": 923.4,
+        "collar_s": 0.0
+      },
+      "collar250ms": {
+        "der": 33.63,
+        "missed_pct": 7.77,
+        "false_alarm_pct": 1.98,
+        "confusion_pct": 23.88,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 2,
+        "speaker_count_error": -2,
+        "scored_seconds": 660.2,
+        "collar_s": 0.25
+      }
+    },
+    {
+      "id": "ES2004b",
+      "duration_s": 2345.49,
+      "true_speakers": 4,
+      "strict": {
+        "der": 37.22,
+        "missed_pct": 6.11,
+        "false_alarm_pct": 4.14,
+        "confusion_pct": 26.97,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 3,
+        "speaker_count_error": -1,
+        "scored_seconds": 2233.1,
+        "collar_s": 0.0
+      },
+      "collar250ms": {
+        "der": 33.05,
+        "missed_pct": 2.69,
+        "false_alarm_pct": 2.15,
+        "confusion_pct": 28.21,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 3,
+        "speaker_count_error": -1,
+        "scored_seconds": 1770.2,
+        "collar_s": 0.25
+      }
+    },
+    {
+      "id": "ES2004c",
+      "duration_s": 2334.37,
+      "true_speakers": 4,
+      "strict": {
+        "der": 13.58,
+        "missed_pct": 5.06,
+        "false_alarm_pct": 5.24,
+        "confusion_pct": 3.28,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 4,
+        "speaker_count_error": 0,
+        "scored_seconds": 2244.5,
+        "collar_s": 0.0
+      },
+      "collar250ms": {
+        "der": 6.71,
+        "missed_pct": 2.33,
+        "false_alarm_pct": 2.86,
+        "confusion_pct": 1.52,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 4,
+        "speaker_count_error": 0,
+        "scored_seconds": 1765.3,
+        "collar_s": 0.25
+      }
+    },
+    {
+      "id": "ES2004d",
+      "duration_s": 2222.29,
+      "true_speakers": 4,
+      "strict": {
+        "der": 26.21,
+        "missed_pct": 8.31,
+        "false_alarm_pct": 5.79,
+        "confusion_pct": 12.11,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 6,
+        "speaker_count_error": 2,
+        "scored_seconds": 2006.8,
+        "collar_s": 0.0
+      },
+      "collar250ms": {
+        "der": 16.99,
+        "missed_pct": 4.54,
+        "false_alarm_pct": 3.26,
+        "confusion_pct": 9.19,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 6,
+        "speaker_count_error": 2,
+        "scored_seconds": 1443.6,
+        "collar_s": 0.25
+      }
+    },
+    {
+      "id": "IS1009a",
+      "duration_s": 838.83,
+      "true_speakers": 4,
+      "strict": {
+        "der": 21.89,
+        "missed_pct": 7.55,
+        "false_alarm_pct": 6.35,
+        "confusion_pct": 7.99,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 4,
+        "speaker_count_error": 0,
+        "scored_seconds": 695.9,
+        "collar_s": 0.0
+      },
+      "collar250ms": {
+        "der": 13.37,
+        "missed_pct": 4.95,
+        "false_alarm_pct": 2.94,
+        "confusion_pct": 5.48,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 4,
+        "speaker_count_error": 0,
+        "scored_seconds": 511.2,
+        "collar_s": 0.25
+      }
+    },
+    {
+      "id": "IS1009b",
+      "duration_s": 2052.33,
+      "true_speakers": 4,
+      "strict": {
+        "der": 15.37,
+        "missed_pct": 6.02,
+        "false_alarm_pct": 3.33,
+        "confusion_pct": 6.02,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 8,
+        "speaker_count_error": 4,
+        "scored_seconds": 1983.0,
+        "collar_s": 0.0
+      },
+      "collar250ms": {
+        "der": 7.21,
+        "missed_pct": 2.92,
+        "false_alarm_pct": 1.03,
+        "confusion_pct": 3.26,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 8,
+        "speaker_count_error": 4,
+        "scored_seconds": 1579.6,
+        "collar_s": 0.25
+      }
+    },
+    {
+      "id": "IS1009c",
+      "duration_s": 1820.83,
+      "true_speakers": 4,
+      "strict": {
+        "der": 30.59,
+        "missed_pct": 3.51,
+        "false_alarm_pct": 4.07,
+        "confusion_pct": 23.01,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 6,
+        "speaker_count_error": 2,
+        "scored_seconds": 1584.5,
+        "collar_s": 0.0
+      },
+      "collar250ms": {
+        "der": 24.4,
+        "missed_pct": 1.9,
+        "false_alarm_pct": 1.25,
+        "confusion_pct": 21.24,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 6,
+        "speaker_count_error": 2,
+        "scored_seconds": 1351.2,
+        "collar_s": 0.25
+      }
+    },
+    {
+      "id": "IS1009d",
+      "duration_s": 1944.5,
+      "true_speakers": 4,
+      "strict": {
+        "der": 33.03,
+        "missed_pct": 6.61,
+        "false_alarm_pct": 5.54,
+        "confusion_pct": 20.88,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 6,
+        "speaker_count_error": 2,
+        "scored_seconds": 1738.6,
+        "collar_s": 0.0
+      },
+      "collar250ms": {
+        "der": 24.99,
+        "missed_pct": 3.51,
+        "false_alarm_pct": 2.43,
+        "confusion_pct": 19.05,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 6,
+        "speaker_count_error": 2,
+        "scored_seconds": 1300.5,
+        "collar_s": 0.25
+      }
+    },
+    {
+      "id": "TS3003a",
+      "duration_s": 1505.64,
+      "true_speakers": 4,
+      "strict": {
+        "der": 17.87,
+        "missed_pct": 10.46,
+        "false_alarm_pct": 3.45,
+        "confusion_pct": 3.95,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 5,
+        "speaker_count_error": 1,
+        "scored_seconds": 1026.0,
+        "collar_s": 0.0
+      },
+      "collar250ms": {
+        "der": 11.82,
+        "missed_pct": 7.81,
+        "false_alarm_pct": 1.67,
+        "confusion_pct": 2.35,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 5,
+        "speaker_count_error": 1,
+        "scored_seconds": 852.0,
+        "collar_s": 0.25
+      }
+    },
+    {
+      "id": "TS3003b",
+      "duration_s": 2210.3,
+      "true_speakers": 4,
+      "strict": {
+        "der": 15.53,
+        "missed_pct": 4.34,
+        "false_alarm_pct": 6.07,
+        "confusion_pct": 5.12,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 7,
+        "speaker_count_error": 3,
+        "scored_seconds": 1820.5,
+        "collar_s": 0.0
+      },
+      "collar250ms": {
+        "der": 8.58,
+        "missed_pct": 1.72,
+        "false_alarm_pct": 3.66,
+        "confusion_pct": 3.2,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 7,
+        "speaker_count_error": 3,
+        "scored_seconds": 1527.5,
+        "collar_s": 0.25
+      }
+    },
+    {
+      "id": "TS3003c",
+      "duration_s": 2570.0,
+      "true_speakers": 4,
+      "strict": {
+        "der": 15.67,
+        "missed_pct": 7.29,
+        "false_alarm_pct": 4.85,
+        "confusion_pct": 3.53,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 7,
+        "speaker_count_error": 3,
+        "scored_seconds": 1894.2,
+        "collar_s": 0.0
+      },
+      "collar250ms": {
+        "der": 9.71,
+        "missed_pct": 5.09,
+        "false_alarm_pct": 2.56,
+        "confusion_pct": 2.06,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 7,
+        "speaker_count_error": 3,
+        "scored_seconds": 1617.1,
+        "collar_s": 0.25
+      }
+    },
+    {
+      "id": "TS3003d",
+      "duration_s": 2618.2,
+      "true_speakers": 4,
+      "strict": {
+        "der": 28.97,
+        "missed_pct": 11.04,
+        "false_alarm_pct": 5.98,
+        "confusion_pct": 11.95,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 9,
+        "speaker_count_error": 5,
+        "scored_seconds": 2070.3,
+        "collar_s": 0.0
+      },
+      "collar250ms": {
+        "der": 19.8,
+        "missed_pct": 7.52,
+        "false_alarm_pct": 2.73,
+        "confusion_pct": 9.55,
+        "n_ref_speakers": 4,
+        "n_hyp_speakers": 9,
+        "speaker_count_error": 5,
+        "scored_seconds": 1514.7,
+        "collar_s": 0.25
+      }
+    }
+  ],
+  "derived_after_the_run": "The measurement host ran bench_diarization.py as it stood before time_weighted_der() was added. `meetings` is untouched, straight from the host; der_strict_time_weighted, der_collar250ms_time_weighted and scored_seconds_total were computed here by the committed time_weighted_der() over those same rows, which is pure and needs only the scored_seconds each row already carries."
+}

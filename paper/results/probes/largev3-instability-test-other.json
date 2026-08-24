@@ -1,0 +1,147 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-24T01:54:13Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.5.2",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 3.95,
+    "compute_type": "int8",
+    "device": "cpu"
+  },
+  "probe": {
+    "measured": "run-to-run spread of large-v3 WER and its error breakdown on LibriSpeech test-other, 4 full repeats",
+    "produced_by": "probes/largev3_repeat.py",
+    "host": "INTEL(R) XEON(R) PLATINUM 8573C (16 vCPU), Ubuntu 24.04.4 LTS",
+    "run_finished_utc": "2026-08-24T01:54:13Z",
+    "summary_rederived": "The measurement host ran the probe as it stood before deletion tracking was added to summarise(). `runs` is untouched, straight from the host; `summary` was recomputed here by the committed summarise() over those same rows, which is pure. Every key the host's own summary carried is bit-identical to the recomputed one -- the difference is the three deletions_* keys and the non_insertion_errors_constant flag, which it did not yet emit."
+  },
+  "result": {
+    "config": {
+      "model": "large-v3",
+      "split": "test-other",
+      "n_utterances": 200,
+      "repeats": 4
+    },
+    "runs": [
+      {
+        "engine": "faster-whisper",
+        "engine_class": "FasterWhisperEngine",
+        "model": "large-v3",
+        "wer": 6.53,
+        "wer_ci95": [
+          3.79,
+          10.45
+        ],
+        "n_scored_utterances": 200,
+        "mer": 6.29,
+        "substitutions": 87,
+        "deletions": 15,
+        "insertions": 141,
+        "hits": 3619,
+        "load_seconds": 3.01,
+        "rtf_median": 0.494,
+        "rtf_p95": 0.996,
+        "rtf_mean": 0.592,
+        "decode_seconds_total": 710.4,
+        "realtime_speedup_median": 2.0,
+        "run": 0,
+        "started_utc": "2026-08-24T01:06:37Z"
+      },
+      {
+        "engine": "faster-whisper",
+        "engine_class": "FasterWhisperEngine",
+        "model": "large-v3",
+        "wer": 6.07,
+        "wer_ci95": [
+          3.85,
+          8.68
+        ],
+        "n_scored_utterances": 200,
+        "mer": 5.88,
+        "substitutions": 87,
+        "deletions": 15,
+        "insertions": 124,
+        "hits": 3619,
+        "load_seconds": 2.31,
+        "rtf_median": 0.497,
+        "rtf_p95": 0.952,
+        "rtf_mean": 0.592,
+        "decode_seconds_total": 722.2,
+        "realtime_speedup_median": 2.0,
+        "run": 1,
+        "started_utc": "2026-08-24T01:18:31Z"
+      },
+      {
+        "engine": "faster-whisper",
+        "engine_class": "FasterWhisperEngine",
+        "model": "large-v3",
+        "wer": 5.46,
+        "wer_ci95": [
+          3.46,
+          7.75
+        ],
+        "n_scored_utterances": 200,
+        "mer": 5.31,
+        "substitutions": 87,
+        "deletions": 15,
+        "insertions": 101,
+        "hits": 3619,
+        "load_seconds": 2.17,
+        "rtf_median": 0.497,
+        "rtf_p95": 0.967,
+        "rtf_mean": 0.597,
+        "decode_seconds_total": 721.2,
+        "realtime_speedup_median": 2.0,
+        "run": 2,
+        "started_utc": "2026-08-24T01:30:36Z"
+      },
+      {
+        "engine": "faster-whisper",
+        "engine_class": "FasterWhisperEngine",
+        "model": "large-v3",
+        "wer": 6.61,
+        "wer_ci95": [
+          3.47,
+          11.54
+        ],
+        "n_scored_utterances": 200,
+        "mer": 6.36,
+        "substitutions": 87,
+        "deletions": 15,
+        "insertions": 144,
+        "hits": 3619,
+        "load_seconds": 2.16,
+        "rtf_median": 0.5,
+        "rtf_p95": 0.975,
+        "rtf_mean": 0.581,
+        "decode_seconds_total": 689.9,
+        "realtime_speedup_median": 2.0,
+        "run": 3,
+        "started_utc": "2026-08-24T01:42:40Z"
+      }
+    ],
+    "summary": {
+      "wer_min": 5.46,
+      "wer_max": 6.61,
+      "wer_spread": 1.15,
+      "insertions_min": 101,
+      "insertions_max": 144,
+      "insertions_spread": 43,
+      "substitutions_min": 87,
+      "substitutions_max": 87,
+      "substitutions_spread": 0,
+      "deletions_min": 15,
+      "deletions_max": 15,
+      "deletions_spread": 0,
+      "non_insertion_errors_constant": true
+    }
+  }
+}

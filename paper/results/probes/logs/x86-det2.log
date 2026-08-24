@@ -1,0 +1,9 @@
+[det2] tiny.en: 200 utts, seed=20260823, ct2=4.8.1
+[det2] seeded pass 0: 54.4s
+[det2] seeded pass 1: 47.1s
+[det2] SEEDED: 1/200 utterances differ
+    7176-88083-0001
+      a: The
+      b: The Morgan cancer had a crested head of ear decent green black, a broad collar of lustrous white, black back, black and white wings, white b
+[det2] CONTROL (unseeded pass vs seeded): 1/200 differ
+DET2_DONE

@@ -1,0 +1,92 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-23T16:02:27Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 5.73,
+    "compute_type": "int8",
+    "device": "cpu"
+  },
+  "probe": {
+    "measured": "The sweep widened after the first range's optimum turned out to sit outside it -- a sweep cannot report that its own range is wrong.",
+    "produced_by": "paper/benchmark/bench_diarization.py --sweep",
+    "host": "Azure Standard_D16s_v6, westeurope (16 vCPU Xeon Platinum 8573C, 67 GB)",
+    "run_finished_utc": "2026-08-23T16:02:27Z"
+  },
+  "result": {
+    "sweep": [
+      {
+        "cluster_threshold": 0.5,
+        "der": 22.77,
+        "mean_speaker_count_error": 3.38,
+        "meetings_with_exact_count": 0,
+        "n_meetings": 8
+      },
+      {
+        "cluster_threshold": 0.7,
+        "der": 15.98,
+        "mean_speaker_count_error": 0.62,
+        "meetings_with_exact_count": 6,
+        "n_meetings": 8
+      },
+      {
+        "cluster_threshold": 0.9,
+        "der": 15.79,
+        "mean_speaker_count_error": -0.25,
+        "meetings_with_exact_count": 7,
+        "n_meetings": 8
+      },
+      {
+        "cluster_threshold": 1.0,
+        "der": 28.33,
+        "mean_speaker_count_error": -1.12,
+        "meetings_with_exact_count": 3,
+        "n_meetings": 8
+      },
+      {
+        "cluster_threshold": 1.1,
+        "der": 37.58,
+        "mean_speaker_count_error": -1.62,
+        "meetings_with_exact_count": 3,
+        "n_meetings": 8
+      },
+      {
+        "cluster_threshold": 1.2,
+        "der": 63.61,
+        "mean_speaker_count_error": -2.62,
+        "meetings_with_exact_count": 0,
+        "n_meetings": 8
+      },
+      {
+        "cluster_threshold": 1.3,
+        "der": 63.61,
+        "mean_speaker_count_error": -2.62,
+        "meetings_with_exact_count": 0,
+        "n_meetings": 8
+      },
+      {
+        "cluster_threshold": 1.4,
+        "der": 63.61,
+        "mean_speaker_count_error": -2.62,
+        "meetings_with_exact_count": 0,
+        "n_meetings": 8
+      },
+      {
+        "cluster_threshold": 1.6,
+        "der": 63.61,
+        "mean_speaker_count_error": -2.62,
+        "meetings_with_exact_count": 0,
+        "n_meetings": 8
+      }
+    ]
+  }
+}

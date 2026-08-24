@@ -1,0 +1,30 @@
+[onset] run0 intact  cut=   0ms lead=   0ms  WER  3.92%  first word 186/200
+[onset] run0 intact  cut=   0ms lead= 100ms  WER  4.09%  first word 190/200
+[onset] run0 intact  cut=   0ms lead= 300ms  WER  3.92%  first word 189/200
+[onset] run0 intact  cut=   0ms lead= 600ms  WER  4.01%  first word 190/200
+[onset] run0 intact  cut=   0ms lead=1000ms  WER  4.09%  first word 190/200
+[onset] run0 clipped cut=  40ms lead=   0ms  WER  4.63%  first word 176/200
+[onset] run0 clipped cut=  40ms lead= 100ms  WER  4.31%  first word 184/200
+[onset] run0 clipped cut=  40ms lead= 300ms  WER  4.22%  first word 182/200
+[onset] run0 clipped cut=  40ms lead= 600ms  WER  3.96%  first word 182/200
+[onset] run0 clipped cut=  40ms lead=1000ms  WER  4.46%  first word 180/200
+[onset] run0 clipped cut= 120ms lead=   0ms  WER  5.78%  first word 143/200
+[onset] run0 clipped cut= 120ms lead= 100ms  WER  5.63%  first word 130/200
+[onset] run0 clipped cut= 120ms lead= 300ms  WER  5.51%  first word 132/200
+[onset] run0 clipped cut= 120ms lead= 600ms  WER  5.76%  first word 129/200
+[onset] run0 clipped cut= 120ms lead=1000ms  WER  5.89%  first word 127/200
+[onset] run0 clipped cut= 240ms lead=   0ms  WER  8.14%  first word 83/200
+[onset] run0 clipped cut= 240ms lead= 100ms  WER  8.57%  first word 78/200
+[onset] run0 clipped cut= 240ms lead= 300ms  WER  8.29%  first word 79/200
+[onset] run0 clipped cut= 240ms lead= 600ms  WER  8.05%  first word 78/200
+[onset] run0 clipped cut= 240ms lead=1000ms  WER  8.31%  first word 79/200
+[onset] run1 intact  cut=   0ms lead=   0ms  WER  3.92%  first word 186/200
+[onset] run1 intact  cut=   0ms lead= 100ms  WER  4.09%  first word 190/200
+[onset] run1 intact  cut=   0ms lead= 300ms  WER  3.92%  first word 189/200
+[onset] run1 intact  cut=   0ms lead= 600ms  WER  4.01%  first word 190/200
+[onset] run1 intact  cut=   0ms lead=1000ms  WER  4.09%  first word 190/200
+[onset] run1 clipped cut=  40ms lead=   0ms  WER  4.63%  first word 176/200
+[onset] run1 clipped cut=  40ms lead= 100ms  WER  4.31%  first word 184/200
+[onset] run1 clipped cut=  40ms lead= 300ms  WER  4.22%  first word 182/200
+[onset] run1 clipped cut=  40ms lead= 600ms  WER  3.96%  first word 182/200
+[onset] run1 clipped cut=  40ms lead=1000ms  WER  4.46%  first word 180/200

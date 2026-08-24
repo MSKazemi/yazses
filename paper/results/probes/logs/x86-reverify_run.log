@@ -1,0 +1,29 @@
++ export PATH=$HOME/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
++ PATH=$HOME/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
++ export QT_QPA_PLATFORM=offscreen
++ QT_QPA_PLATFORM=offscreen
++ cd $HOME/yazses
++ rm -rf .venv
++ tail -4
++ uv sync --all-extras
+ + uvicorn==0.51.0
+ + webrtcvad==2.0.10
+ + yarl==1.24.5
+ + yazses==2.29.0 (from file://$HOME/yazses)
++ echo '=== SYNC_EXIT 0 ==='
+=== SYNC_EXIT 0 ===
++ uv run python -c 'import setuptools;print("setuptools",setuptools.__version__)'
+setuptools 80.10.2
++ uv run python -c 'import pkg_resources;print("pkg_resources present")'
+<string>:1: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+pkg_resources present
++ uv run python -c 'from resemblyzer import VoiceEncoder; print("RESEMBLYZER IMPORTS OK")'
+$HOME/yazses/.venv/lib/python3.12/site-packages/webrtcvad.py:1: UserWarning: pkg_resources is deprecated as an API. See https://setupt$HOME/reverify.sh: line 10: syntax error near unexpected token `\"RESEMBLYZER'
+$HOME/reverify.sh: line 10: `nt(\"RESEMBLYZER IMPORTS OK\")"'
+ptools<81.
+  import pkg_resources
+RESEMBLYZER IMPORTS OK
++ uv run pytest tests/ -q -rs
++ echo REVERIFY_EXIT=1
++ tee -a $HOME/x86_reverify.log
+REVERIFY_EXIT=1

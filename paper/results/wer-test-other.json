@@ -1,0 +1,218 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-23T23:55:32Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.5.2",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 15.97,
+    "compute_type": "int8",
+    "device": "cpu"
+  },
+  "config": {
+    "dataset": "LibriSpeech test-other",
+    "dataset_source": "https://www.openslr.org/resources/12/test-other.tar.gz",
+    "citation": "Panayotov et al., ICASSP 2015",
+    "n_utterances": 200,
+    "n_speakers": 33,
+    "total_audio_seconds": 1403.1,
+    "normalizer": "whisper_normalizer.english.EnglishTextNormalizer",
+    "selection": "deterministic speaker-stratified round-robin across all test-other speakers",
+    "engines": [
+      "faster-whisper",
+      "moonshine",
+      "parakeet"
+    ],
+    "engine_versions": {
+      "onnx_asr": "0.12.0",
+      "useful_moonshine_onnx": "20251121"
+    },
+    "cpu_threads": 0
+  },
+  "models": {
+    "tiny.en": {
+      "engine": "faster-whisper",
+      "engine_class": "FasterWhisperEngine",
+      "model": "tiny.en",
+      "wer": 11.77,
+      "wer_ci95": [
+        9.86,
+        14.02
+      ],
+      "n_scored_utterances": 200,
+      "mer": 11.54,
+      "substitutions": 318,
+      "deletions": 47,
+      "insertions": 73,
+      "hits": 3356,
+      "load_seconds": 0.42,
+      "rtf_median": 0.034,
+      "rtf_p95": 0.066,
+      "rtf_mean": 0.037,
+      "decode_seconds_total": 42.7,
+      "realtime_speedup_median": 29.6
+    },
+    "base.en": {
+      "engine": "faster-whisper",
+      "engine_class": "FasterWhisperEngine",
+      "model": "base.en",
+      "wer": 9.46,
+      "wer_ci95": [
+        7.92,
+        11.17
+      ],
+      "n_scored_utterances": 200,
+      "mer": 9.32,
+      "substitutions": 259,
+      "deletions": 38,
+      "insertions": 55,
+      "hits": 3424,
+      "load_seconds": 0.22,
+      "rtf_median": 0.049,
+      "rtf_p95": 0.091,
+      "rtf_mean": 0.052,
+      "decode_seconds_total": 58.4,
+      "realtime_speedup_median": 20.5
+    },
+    "small.en": {
+      "engine": "faster-whisper",
+      "engine_class": "FasterWhisperEngine",
+      "model": "small.en",
+      "wer": 5.59,
+      "wer_ci95": [
+        4.44,
+        6.8
+      ],
+      "n_scored_utterances": 200,
+      "mer": 5.55,
+      "substitutions": 161,
+      "deletions": 17,
+      "insertions": 30,
+      "hits": 3543,
+      "load_seconds": 0.52,
+      "rtf_median": 0.104,
+      "rtf_p95": 0.209,
+      "rtf_mean": 0.117,
+      "decode_seconds_total": 129.5,
+      "realtime_speedup_median": 9.6
+    },
+    "medium.en": {
+      "engine": "faster-whisper",
+      "engine_class": "FasterWhisperEngine",
+      "model": "medium.en",
+      "wer": 5.51,
+      "wer_ci95": [
+        4.39,
+        6.72
+      ],
+      "n_scored_utterances": 200,
+      "mer": 5.47,
+      "substitutions": 150,
+      "deletions": 30,
+      "insertions": 25,
+      "hits": 3541,
+      "load_seconds": 1.32,
+      "rtf_median": 0.272,
+      "rtf_p95": 0.519,
+      "rtf_mean": 0.3,
+      "decode_seconds_total": 336.7,
+      "realtime_speedup_median": 3.7
+    },
+    "large-v3": {
+      "engine": "faster-whisper",
+      "engine_class": "FasterWhisperEngine",
+      "model": "large-v3",
+      "wer": 7.69,
+      "wer_ci95": [
+        3.52,
+        14.63
+      ],
+      "n_scored_utterances": 200,
+      "mer": 7.32,
+      "substitutions": 87,
+      "deletions": 15,
+      "insertions": 184,
+      "hits": 3619,
+      "load_seconds": 2.29,
+      "rtf_median": 0.49,
+      "rtf_p95": 0.967,
+      "rtf_mean": 0.589,
+      "decode_seconds_total": 709.7,
+      "realtime_speedup_median": 2.0
+    },
+    "parakeet-tdt-0.6b-v2": {
+      "engine": "parakeet",
+      "engine_class": "ParakeetEngine",
+      "model": "nemo-parakeet-tdt-0.6b-v2",
+      "wer": 2.88,
+      "wer_ci95": [
+        2.2,
+        3.63
+      ],
+      "n_scored_utterances": 200,
+      "mer": 2.87,
+      "substitutions": 87,
+      "deletions": 11,
+      "insertions": 9,
+      "hits": 3623,
+      "load_seconds": 1.29,
+      "rtf_median": 0.053,
+      "rtf_p95": 0.086,
+      "rtf_mean": 0.057,
+      "decode_seconds_total": 71.0,
+      "realtime_speedup_median": 18.9
+    },
+    "moonshine/tiny": {
+      "engine": "moonshine",
+      "engine_class": "MoonshineEngine",
+      "model": "moonshine/tiny",
+      "wer": 10.35,
+      "wer_ci95": [
+        8.74,
+        12.0
+      ],
+      "n_scored_utterances": 200,
+      "mer": 10.22,
+      "substitutions": 289,
+      "deletions": 50,
+      "insertions": 46,
+      "hits": 3382,
+      "load_seconds": 0.02,
+      "rtf_median": 0.017,
+      "rtf_p95": 0.026,
+      "rtf_mean": 0.018,
+      "decode_seconds_total": 22.5,
+      "realtime_speedup_median": 59.5
+    },
+    "moonshine/base": {
+      "engine": "moonshine",
+      "engine_class": "MoonshineEngine",
+      "model": "moonshine/base",
+      "wer": 8.04,
+      "wer_ci95": [
+        6.68,
+        9.47
+      ],
+      "n_scored_utterances": 200,
+      "mer": 7.97,
+      "substitutions": 239,
+      "deletions": 30,
+      "insertions": 30,
+      "hits": 3452,
+      "load_seconds": 0.01,
+      "rtf_median": 0.023,
+      "rtf_p95": 0.033,
+      "rtf_mean": 0.025,
+      "decode_seconds_total": 31.8,
+      "realtime_speedup_median": 43.1
+    }
+  },
+  "failed": {}
+}

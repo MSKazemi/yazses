@@ -1,0 +1,702 @@
+{
+  "source": "onset.json",
+  "provenance": {
+    "timestamp": "2026-08-23T23:55:32Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.5.2",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 9.67,
+    "compute_type": "int8",
+    "device": "cpu"
+  },
+  "alpha": 0.05,
+  "comparisons": [
+    {
+      "a": "clipped cut=40 lead=0",
+      "b": "clipped cut=40 lead=100",
+      "a_ok": 176,
+      "b_ok": 184,
+      "n": 200,
+      "only_a": 3,
+      "only_b": 11,
+      "discordant": 14,
+      "p": 0.0574
+    },
+    {
+      "a": "clipped cut=40 lead=0",
+      "b": "clipped cut=40 lead=300",
+      "a_ok": 176,
+      "b_ok": 182,
+      "n": 200,
+      "only_a": 4,
+      "only_b": 10,
+      "discordant": 14,
+      "p": 0.1796
+    },
+    {
+      "a": "clipped cut=40 lead=0",
+      "b": "clipped cut=40 lead=600",
+      "a_ok": 176,
+      "b_ok": 182,
+      "n": 200,
+      "only_a": 4,
+      "only_b": 10,
+      "discordant": 14,
+      "p": 0.1796
+    },
+    {
+      "a": "clipped cut=40 lead=0",
+      "b": "clipped cut=40 lead=1000",
+      "a_ok": 176,
+      "b_ok": 180,
+      "n": 200,
+      "only_a": 6,
+      "only_b": 10,
+      "discordant": 16,
+      "p": 0.4545
+    },
+    {
+      "a": "clipped cut=120 lead=0",
+      "b": "clipped cut=120 lead=100",
+      "a_ok": 143,
+      "b_ok": 130,
+      "n": 200,
+      "only_a": 27,
+      "only_b": 14,
+      "discordant": 41,
+      "p": 0.0596
+    },
+    {
+      "a": "clipped cut=120 lead=0",
+      "b": "clipped cut=120 lead=300",
+      "a_ok": 143,
+      "b_ok": 132,
+      "n": 200,
+      "only_a": 26,
+      "only_b": 15,
+      "discordant": 41,
+      "p": 0.1173
+    },
+    {
+      "a": "clipped cut=120 lead=0",
+      "b": "clipped cut=120 lead=600",
+      "a_ok": 143,
+      "b_ok": 129,
+      "n": 200,
+      "only_a": 26,
+      "only_b": 12,
+      "discordant": 38,
+      "p": 0.0336
+    },
+    {
+      "a": "clipped cut=120 lead=0",
+      "b": "clipped cut=120 lead=1000",
+      "a_ok": 143,
+      "b_ok": 127,
+      "n": 200,
+      "only_a": 26,
+      "only_b": 10,
+      "discordant": 36,
+      "p": 0.0113
+    },
+    {
+      "a": "clipped cut=240 lead=0",
+      "b": "clipped cut=240 lead=100",
+      "a_ok": 83,
+      "b_ok": 78,
+      "n": 200,
+      "only_a": 10,
+      "only_b": 5,
+      "discordant": 15,
+      "p": 0.3018
+    },
+    {
+      "a": "clipped cut=240 lead=0",
+      "b": "clipped cut=240 lead=300",
+      "a_ok": 83,
+      "b_ok": 79,
+      "n": 200,
+      "only_a": 10,
+      "only_b": 6,
+      "discordant": 16,
+      "p": 0.4545
+    },
+    {
+      "a": "clipped cut=240 lead=0",
+      "b": "clipped cut=240 lead=600",
+      "a_ok": 83,
+      "b_ok": 78,
+      "n": 200,
+      "only_a": 11,
+      "only_b": 6,
+      "discordant": 17,
+      "p": 0.3323
+    },
+    {
+      "a": "clipped cut=240 lead=0",
+      "b": "clipped cut=240 lead=1000",
+      "a_ok": 83,
+      "b_ok": 79,
+      "n": 200,
+      "only_a": 12,
+      "only_b": 8,
+      "discordant": 20,
+      "p": 0.5034
+    },
+    {
+      "a": "intact cut=0 lead=0",
+      "b": "intact cut=0 lead=100",
+      "a_ok": 186,
+      "b_ok": 190,
+      "n": 200,
+      "only_a": 0,
+      "only_b": 4,
+      "discordant": 4,
+      "p": 0.125
+    },
+    {
+      "a": "intact cut=0 lead=0",
+      "b": "intact cut=0 lead=300",
+      "a_ok": 186,
+      "b_ok": 189,
+      "n": 200,
+      "only_a": 1,
+      "only_b": 4,
+      "discordant": 5,
+      "p": 0.375
+    },
+    {
+      "a": "intact cut=0 lead=0",
+      "b": "intact cut=0 lead=600",
+      "a_ok": 186,
+      "b_ok": 190,
+      "n": 200,
+      "only_a": 0,
+      "only_b": 4,
+      "discordant": 4,
+      "p": 0.125
+    },
+    {
+      "a": "intact cut=0 lead=0",
+      "b": "intact cut=0 lead=1000",
+      "a_ok": 186,
+      "b_ok": 190,
+      "n": 200,
+      "only_a": 0,
+      "only_b": 4,
+      "discordant": 4,
+      "p": 0.125
+    },
+    {
+      "a": "clipped cut=40 lead=0",
+      "b": "clipped cut=40 lead=100",
+      "a_ok": 176,
+      "b_ok": 184,
+      "n": 200,
+      "only_a": 3,
+      "only_b": 11,
+      "discordant": 14,
+      "p": 0.0574
+    },
+    {
+      "a": "clipped cut=40 lead=0",
+      "b": "clipped cut=40 lead=300",
+      "a_ok": 176,
+      "b_ok": 182,
+      "n": 200,
+      "only_a": 4,
+      "only_b": 10,
+      "discordant": 14,
+      "p": 0.1796
+    },
+    {
+      "a": "clipped cut=40 lead=0",
+      "b": "clipped cut=40 lead=600",
+      "a_ok": 176,
+      "b_ok": 182,
+      "n": 200,
+      "only_a": 4,
+      "only_b": 10,
+      "discordant": 14,
+      "p": 0.1796
+    },
+    {
+      "a": "clipped cut=40 lead=0",
+      "b": "clipped cut=40 lead=1000",
+      "a_ok": 176,
+      "b_ok": 180,
+      "n": 200,
+      "only_a": 6,
+      "only_b": 10,
+      "discordant": 16,
+      "p": 0.4545
+    },
+    {
+      "a": "clipped cut=120 lead=0",
+      "b": "clipped cut=120 lead=100",
+      "a_ok": 143,
+      "b_ok": 130,
+      "n": 200,
+      "only_a": 27,
+      "only_b": 14,
+      "discordant": 41,
+      "p": 0.0596
+    },
+    {
+      "a": "clipped cut=120 lead=0",
+      "b": "clipped cut=120 lead=300",
+      "a_ok": 143,
+      "b_ok": 132,
+      "n": 200,
+      "only_a": 26,
+      "only_b": 15,
+      "discordant": 41,
+      "p": 0.1173
+    },
+    {
+      "a": "clipped cut=120 lead=0",
+      "b": "clipped cut=120 lead=600",
+      "a_ok": 143,
+      "b_ok": 129,
+      "n": 200,
+      "only_a": 26,
+      "only_b": 12,
+      "discordant": 38,
+      "p": 0.0336
+    },
+    {
+      "a": "clipped cut=120 lead=0",
+      "b": "clipped cut=120 lead=1000",
+      "a_ok": 143,
+      "b_ok": 127,
+      "n": 200,
+      "only_a": 26,
+      "only_b": 10,
+      "discordant": 36,
+      "p": 0.0113
+    },
+    {
+      "a": "clipped cut=240 lead=0",
+      "b": "clipped cut=240 lead=100",
+      "a_ok": 84,
+      "b_ok": 78,
+      "n": 200,
+      "only_a": 11,
+      "only_b": 5,
+      "discordant": 16,
+      "p": 0.2101
+    },
+    {
+      "a": "clipped cut=240 lead=0",
+      "b": "clipped cut=240 lead=300",
+      "a_ok": 84,
+      "b_ok": 79,
+      "n": 200,
+      "only_a": 11,
+      "only_b": 6,
+      "discordant": 17,
+      "p": 0.3323
+    },
+    {
+      "a": "clipped cut=240 lead=0",
+      "b": "clipped cut=240 lead=600",
+      "a_ok": 84,
+      "b_ok": 78,
+      "n": 200,
+      "only_a": 12,
+      "only_b": 6,
+      "discordant": 18,
+      "p": 0.2379
+    },
+    {
+      "a": "clipped cut=240 lead=0",
+      "b": "clipped cut=240 lead=1000",
+      "a_ok": 84,
+      "b_ok": 79,
+      "n": 200,
+      "only_a": 13,
+      "only_b": 8,
+      "discordant": 21,
+      "p": 0.3833
+    },
+    {
+      "a": "intact cut=0 lead=0",
+      "b": "intact cut=0 lead=100",
+      "a_ok": 186,
+      "b_ok": 190,
+      "n": 200,
+      "only_a": 0,
+      "only_b": 4,
+      "discordant": 4,
+      "p": 0.125
+    },
+    {
+      "a": "intact cut=0 lead=0",
+      "b": "intact cut=0 lead=300",
+      "a_ok": 186,
+      "b_ok": 189,
+      "n": 200,
+      "only_a": 1,
+      "only_b": 4,
+      "discordant": 5,
+      "p": 0.375
+    },
+    {
+      "a": "intact cut=0 lead=0",
+      "b": "intact cut=0 lead=600",
+      "a_ok": 186,
+      "b_ok": 190,
+      "n": 200,
+      "only_a": 0,
+      "only_b": 4,
+      "discordant": 4,
+      "p": 0.125
+    },
+    {
+      "a": "intact cut=0 lead=0",
+      "b": "intact cut=0 lead=1000",
+      "a_ok": 186,
+      "b_ok": 190,
+      "n": 200,
+      "only_a": 0,
+      "only_b": 4,
+      "discordant": 4,
+      "p": 0.125
+    }
+  ],
+  "n_comparisons": 32,
+  "n_significant": 4,
+  "distinct": [
+    {
+      "comparison": "clipped cut=120 lead=100",
+      "baseline": "clipped cut=120 lead=0",
+      "runs": 2,
+      "p_per_run": [
+        0.0596,
+        0.0596
+      ],
+      "p_max": 0.0596,
+      "significant_runs": 0,
+      "baseline_wins_per_run": [
+        27,
+        27
+      ],
+      "cell_wins_per_run": [
+        14,
+        14
+      ],
+      "direction_consistent": true
+    },
+    {
+      "comparison": "clipped cut=120 lead=1000",
+      "baseline": "clipped cut=120 lead=0",
+      "runs": 2,
+      "p_per_run": [
+        0.0113,
+        0.0113
+      ],
+      "p_max": 0.0113,
+      "significant_runs": 2,
+      "baseline_wins_per_run": [
+        26,
+        26
+      ],
+      "cell_wins_per_run": [
+        10,
+        10
+      ],
+      "direction_consistent": true
+    },
+    {
+      "comparison": "clipped cut=120 lead=300",
+      "baseline": "clipped cut=120 lead=0",
+      "runs": 2,
+      "p_per_run": [
+        0.1173,
+        0.1173
+      ],
+      "p_max": 0.1173,
+      "significant_runs": 0,
+      "baseline_wins_per_run": [
+        26,
+        26
+      ],
+      "cell_wins_per_run": [
+        15,
+        15
+      ],
+      "direction_consistent": true
+    },
+    {
+      "comparison": "clipped cut=120 lead=600",
+      "baseline": "clipped cut=120 lead=0",
+      "runs": 2,
+      "p_per_run": [
+        0.0336,
+        0.0336
+      ],
+      "p_max": 0.0336,
+      "significant_runs": 2,
+      "baseline_wins_per_run": [
+        26,
+        26
+      ],
+      "cell_wins_per_run": [
+        12,
+        12
+      ],
+      "direction_consistent": true
+    },
+    {
+      "comparison": "clipped cut=240 lead=100",
+      "baseline": "clipped cut=240 lead=0",
+      "runs": 2,
+      "p_per_run": [
+        0.3018,
+        0.2101
+      ],
+      "p_max": 0.3018,
+      "significant_runs": 0,
+      "baseline_wins_per_run": [
+        10,
+        11
+      ],
+      "cell_wins_per_run": [
+        5,
+        5
+      ],
+      "direction_consistent": true
+    },
+    {
+      "comparison": "clipped cut=240 lead=1000",
+      "baseline": "clipped cut=240 lead=0",
+      "runs": 2,
+      "p_per_run": [
+        0.5034,
+        0.3833
+      ],
+      "p_max": 0.5034,
+      "significant_runs": 0,
+      "baseline_wins_per_run": [
+        12,
+        13
+      ],
+      "cell_wins_per_run": [
+        8,
+        8
+      ],
+      "direction_consistent": true
+    },
+    {
+      "comparison": "clipped cut=240 lead=300",
+      "baseline": "clipped cut=240 lead=0",
+      "runs": 2,
+      "p_per_run": [
+        0.4545,
+        0.3323
+      ],
+      "p_max": 0.4545,
+      "significant_runs": 0,
+      "baseline_wins_per_run": [
+        10,
+        11
+      ],
+      "cell_wins_per_run": [
+        6,
+        6
+      ],
+      "direction_consistent": true
+    },
+    {
+      "comparison": "clipped cut=240 lead=600",
+      "baseline": "clipped cut=240 lead=0",
+      "runs": 2,
+      "p_per_run": [
+        0.3323,
+        0.2379
+      ],
+      "p_max": 0.3323,
+      "significant_runs": 0,
+      "baseline_wins_per_run": [
+        11,
+        12
+      ],
+      "cell_wins_per_run": [
+        6,
+        6
+      ],
+      "direction_consistent": true
+    },
+    {
+      "comparison": "clipped cut=40 lead=100",
+      "baseline": "clipped cut=40 lead=0",
+      "runs": 2,
+      "p_per_run": [
+        0.0574,
+        0.0574
+      ],
+      "p_max": 0.0574,
+      "significant_runs": 0,
+      "baseline_wins_per_run": [
+        3,
+        3
+      ],
+      "cell_wins_per_run": [
+        11,
+        11
+      ],
+      "direction_consistent": true
+    },
+    {
+      "comparison": "clipped cut=40 lead=1000",
+      "baseline": "clipped cut=40 lead=0",
+      "runs": 2,
+      "p_per_run": [
+        0.4545,
+        0.4545
+      ],
+      "p_max": 0.4545,
+      "significant_runs": 0,
+      "baseline_wins_per_run": [
+        6,
+        6
+      ],
+      "cell_wins_per_run": [
+        10,
+        10
+      ],
+      "direction_consistent": true
+    },
+    {
+      "comparison": "clipped cut=40 lead=300",
+      "baseline": "clipped cut=40 lead=0",
+      "runs": 2,
+      "p_per_run": [
+        0.1796,
+        0.1796
+      ],
+      "p_max": 0.1796,
+      "significant_runs": 0,
+      "baseline_wins_per_run": [
+        4,
+        4
+      ],
+      "cell_wins_per_run": [
+        10,
+        10
+      ],
+      "direction_consistent": true
+    },
+    {
+      "comparison": "clipped cut=40 lead=600",
+      "baseline": "clipped cut=40 lead=0",
+      "runs": 2,
+      "p_per_run": [
+        0.1796,
+        0.1796
+      ],
+      "p_max": 0.1796,
+      "significant_runs": 0,
+      "baseline_wins_per_run": [
+        4,
+        4
+      ],
+      "cell_wins_per_run": [
+        10,
+        10
+      ],
+      "direction_consistent": true
+    },
+    {
+      "comparison": "intact cut=0 lead=100",
+      "baseline": "intact cut=0 lead=0",
+      "runs": 2,
+      "p_per_run": [
+        0.125,
+        0.125
+      ],
+      "p_max": 0.125,
+      "significant_runs": 0,
+      "baseline_wins_per_run": [
+        0,
+        0
+      ],
+      "cell_wins_per_run": [
+        4,
+        4
+      ],
+      "direction_consistent": true
+    },
+    {
+      "comparison": "intact cut=0 lead=1000",
+      "baseline": "intact cut=0 lead=0",
+      "runs": 2,
+      "p_per_run": [
+        0.125,
+        0.125
+      ],
+      "p_max": 0.125,
+      "significant_runs": 0,
+      "baseline_wins_per_run": [
+        0,
+        0
+      ],
+      "cell_wins_per_run": [
+        4,
+        4
+      ],
+      "direction_consistent": true
+    },
+    {
+      "comparison": "intact cut=0 lead=300",
+      "baseline": "intact cut=0 lead=0",
+      "runs": 2,
+      "p_per_run": [
+        0.375,
+        0.375
+      ],
+      "p_max": 0.375,
+      "significant_runs": 0,
+      "baseline_wins_per_run": [
+        1,
+        1
+      ],
+      "cell_wins_per_run": [
+        4,
+        4
+      ],
+      "direction_consistent": true
+    },
+    {
+      "comparison": "intact cut=0 lead=600",
+      "baseline": "intact cut=0 lead=0",
+      "runs": 2,
+      "p_per_run": [
+        0.125,
+        0.125
+      ],
+      "p_max": 0.125,
+      "significant_runs": 0,
+      "baseline_wins_per_run": [
+        0,
+        0
+      ],
+      "cell_wins_per_run": [
+        4,
+        4
+      ],
+      "direction_consistent": true
+    }
+  ],
+  "n_distinct": 16,
+  "n_distinct_significant": 2,
+  "bonferroni_alpha": 0.00313
+}

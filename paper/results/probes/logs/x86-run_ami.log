@@ -1,0 +1,16 @@
+=== AMI: shipped default (cluster_threshold=0.5) ===
+start 14:05:16Z
+[der] EN2002a: DER=90.47% (collar250=85.54%) speakers 257/4
+[der] ES2004a: DER=74.02% (collar250=67.56%) speakers 81/4
+[der] IS1009a: DER=90.2% (collar250=83.6%) speakers 86/4
+[der] TS3003a: DER=81.67% (collar250=76.57%) speakers 98/4
+{
+  "der_strict": 84.09,
+  "der_collar250ms": 78.32,
+  "missed_pct": 10.88,
+  "false_alarm_pct": 4.73,
+  "confusion_pct": 68.49,
+  "mean_speaker_count_error": 126.5
+}
+done 14:23:46Z
+=== AMI: cluster_threshold sweep ===
