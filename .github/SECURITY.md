@@ -111,8 +111,10 @@ that to reach this project, and none is:
    exclusions to bypass, and hatchling's file selection is configured in
    `pyproject.toml` by a different mechanism entirely.
 3. **Installing setuptools does not run the vulnerable path.** It is a build-time
-   code path. `setuptools` reaches an ordinary install only as a runtime
-   dependency of `ctranslate2` and `torch`; nothing in YazSes builds an sdist.
+   code path, reached by *building* a source distribution — not by having the
+   package present. `setuptools` is on an ordinary install because `ctranslate2`
+   declares it as a runtime requirement (it arrives under `faster-whisper`, a base
+   dependency); nothing in YazSes ever builds an sdist.
 
 The pin itself is `setuptools<81`, scoped to the `voiceprint-resemblyzer` extra,
 and it exists for an unrelated and load-bearing reason: `resemblyzer` requires
