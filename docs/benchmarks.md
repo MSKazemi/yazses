@@ -1203,12 +1203,49 @@ speakers and its smallest is 98 s, `ES2004d` has 6 for 4 and two of them run 274
 person. A shape test for *fragmentation* is blind to them by construction, and residual
 2× over-counting therefore passes silently.
 
-That is a deliberate trade, not an oversight to be fixed by loosening the rule. The guard
-is precision-first: a warning that interrupts a correct transcript teaches the user to
-dismiss the next one, and a dismissed guard catches nothing at all. 1/12 recall with 0/4
-false alarms is the corner of that trade this project chose. Detecting the merge-sized
-error needs a different signal — comparing cluster centroids to each other rather than
-counting short labels — which is a separate piece of work, not a constant to retune.
+The guard is precision-first, and deliberately so: a warning that interrupts a correct
+transcript teaches the user to dismiss the next one, and a dismissed guard catches nothing
+at all. So the fix had to keep false alarms at zero or not happen.
+
+#### What a second rule recovers: 1/12 → 10/12, still zero false alarms
+
+The paragraph above used to end here, concluding that no retuning could help and that the
+merge-sized error needed a different signal entirely. That was **half right, and the half
+that was wrong was a generalisation from one recording.** `EN2002b` really is invisible to
+any shape test — 6 labels for 4 people and its smallest holds 98 s — but ten of the twelve
+are not like `EN2002b` at all. They were being missed because the rule is **absolute** and
+these recordings are **long**, which are two different problems that happened to look the
+same from the corpus average.
+
+Over-splitting a forty-minute meeting produces a tail: a few labels carrying the
+discussion and several holding a small share each. That is scale-free, so the second arm
+compares every label with the *mean* label rather than with a constant, and applies only
+above 15 minutes of speech — below that an uneven distribution is ordinary, which is
+exactly what the flat 20 s constant was already caught assuming about VoxConverse.
+
+| rule | recall | false alarms | AMI @ `1.2` |
+|---|---|---|---|
+| absolute only (what shipped) | 39.3% | 0 | 1 / 12 |
+| **+ relative arm on long recordings** | **78.6%** | **0** | **10 / 12** |
+
+Measured over all 46 scored results — 16 AMI meetings plus 15 VoxConverse recordings at
+two clustering thresholds, 28 of them genuinely over-split. False alarms stay at zero on
+every corpus, and the 15-minute gate is a real gate rather than a way of spelling "AMI":
+three VoxConverse recordings sit above it and none of them false-alarms.
+
+Two cases remain, and both are honest limits rather than tuning headroom. `EN2002b` is the
+merge the original paragraph described, and it still needs centroid comparison, not label
+counting. `TS3003a` produces 5 labels and is refused by `MIN_LABELS = 6` before any shape
+is examined — lowering that floor to reach one recording would put four-person calls with
+one-word answers back in range, which is the trade this guard exists to refuse.
+
+One more constraint came from a test rather than from either corpus. A long meeting where
+several people genuinely say one word each has the same label count and the same tail size
+as an over-split one; what separates them is that an over-split does not *invent* speech,
+it takes it from the real speakers. Its tail holds 1.6–6.9% of all speech, against 0.44%
+for four one-word answers — so the tail must carry at least 1% of the meeting before the
+warning fires. Neither corpus contains that case; the existing regression test did, and it
+failed the moment the arm was added.
 
 ### Scoring cross-check
 

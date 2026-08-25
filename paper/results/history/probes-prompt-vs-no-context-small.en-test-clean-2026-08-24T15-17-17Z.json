@@ -1,0 +1,95 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-24T15:17:17Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 1.04,
+    "compute_type": "int8",
+    "device": "cpu",
+    "argv": "paper/benchmark/probes/prompt_survives_no_context.py test-clean small.en"
+  },
+  "config": {
+    "dataset": "LibriSpeech test-clean",
+    "model": "small.en",
+    "bias_prompt": "Glorbax Zindalor Kweepthorne Vanterix.",
+    "window_seconds": 30.0,
+    "question": "does initial_prompt still reach the decoder when condition_on_previous_text=False?"
+  },
+  "probe": {
+    "measured": "Whether turning off condition_on_previous_text silently disables YazSes's personal-vocabulary initial_prompt, by testing whether a biasing prompt still changes the decoded text -- on a single-window clip (a hold-to-talk burst) and on a multi-window one.",
+    "produced_by": "paper/benchmark/probes/prompt_survives_no_context.py"
+  },
+  "cases": {
+    "short_condition_true": {
+      "utterance": "1089-134686-0000",
+      "seconds": 10.44,
+      "windows_expected": 1,
+      "prompt_changed_output": true,
+      "prompt_changed_opening": false,
+      "prompt_changed_tail": true,
+      "text_without_prompt": "He hoped there would be stew for dinner, turnips and carrots and bruised potatoes, and fat mutton pieces to be ladled out in thick, peppered, flour-fat and sauce.",
+      "text_with_prompt": "He hoped there would be stew for dinner, turnips and carrots and bruised potatoes and fat mutton pieces to be ladled out in thick peppered flour-fat and sauce."
+    },
+    "short_condition_false": {
+      "utterance": "1089-134686-0000",
+      "seconds": 10.44,
+      "windows_expected": 1,
+      "prompt_changed_output": true,
+      "prompt_changed_opening": false,
+      "prompt_changed_tail": true,
+      "text_without_prompt": "He hoped there would be stew for dinner, turnips and carrots and bruised potatoes, and fat mutton pieces to be ladled out in thick, peppered, flour-fat and sauce.",
+      "text_with_prompt": "He hoped there would be stew for dinner, turnips and carrots and bruised potatoes and fat mutton pieces to be ladled out in thick peppered flour-fat and sauce."
+    },
+    "long_condition_true": {
+      "utterances": [
+        "1089-134686-0000",
+        "1089-134686-0001",
+        "1089-134686-0002",
+        "1089-134686-0003",
+        "1089-134686-0004",
+        "1089-134686-0005",
+        "1089-134686-0006"
+      ],
+      "seconds": 48.42,
+      "windows_expected": 2,
+      "prompt_changed_output": true,
+      "prompt_changed_opening": false,
+      "prompt_changed_tail": true,
+      "text_without_prompt": "He hoped there would be stew for dinner, turnips and carrots and bruised potatoes and fat mutton pieces to be ladled out in thick, peppered, flour-fat and sauce. Stuff it into you, his belly counseled him. After early nightfall the yellow lamps would light up here and there the squalid quarter of the brothels. Hello, Bertie, any good in your mind? Number ten! Fresh Nellie is waiting on you. Good night, husband. The music came nearer and he recalled the words, the words of Shelley's fragment upon the moon wandering companionless, pale for weariness. The dull light fell more faintly upon the page whereon another equation began to unfold itself slowly and to spread abroad its widening tale.",
+      "text_with_prompt": "He hoped there would be stew for dinner, turnips and carrots and bruised potatoes, and fat mutton pieces to be ladled out in thick, peppered, flour-fat and sauce. Stuff it into you, his belly counseled him. After early nightfall the yellow lamps would light up here and there the squalid quarter of the brothels. Hello, Bertie, any good in your mind? Number ten! Fresh Nellie is waiting on you. Good night, husband. The music came nearer and he recalled the words, the words of Shelley's fragment upon the moon wandering companionless, pale for weariness. The dull light fell more faintly upon the page whereon another equation began to unfold itself slowly and to spread abroad its widening tale."
+    },
+    "long_condition_false": {
+      "utterances": [
+        "1089-134686-0000",
+        "1089-134686-0001",
+        "1089-134686-0002",
+        "1089-134686-0003",
+        "1089-134686-0004",
+        "1089-134686-0005",
+        "1089-134686-0006"
+      ],
+      "seconds": 48.42,
+      "windows_expected": 2,
+      "prompt_changed_output": true,
+      "prompt_changed_opening": false,
+      "prompt_changed_tail": true,
+      "text_without_prompt": "He hoped there would be stew for dinner, turnips and carrots and bruised potatoes and fat mutton pieces to be ladled out in thick, peppered, flour-fat and sauce. Stuff it into you, his belly counseled him. After early nightfall the yellow lamps would light up here and there the squalid quarter of the brothels. Hello, Bertie, any good in your mind? Number ten! Fresh Nellie is waiting on you. Good night, husband. The music came nearer and he recalled the words, the words of Shelly's fragment upon the moon wandering companionless, pale for weariness. The dull light fell more faintly upon the page whereon another equation began to unfold itself slowly and to spread abroad its widening tale.",
+      "text_with_prompt": "He hoped there would be stew for dinner, turnips and carrots and bruised potatoes, and fat mutton pieces to be ladled out in thick, peppered, flour-fat and sauce. Stuff it into you, his belly counseled him. After early nightfall the yellow lamps would light up here and there the squalid quarter of the brothels. Hello, Bertie, any good in your mind? Number ten! Fresh Nellie is waiting on you. Good night, husband. The music came nearer and he recalled the words, the words of Shelley's fragment upon the moon wandering companionless, pale for weariness. The dull light fell more faintly upon the page, whereon another equation began to unfold itself slowly and to spread abroad its widening tale."
+    }
+  },
+  "finding": {
+    "prompt_still_applies_to_a_single_window": true,
+    "prompt_still_applies_to_the_opening_of_a_long_file": false,
+    "prompt_still_applies_to_the_tail_of_a_long_file": true,
+    "reading": "Measured behaviour does not match the source reading -- see cases."
+  }
+}

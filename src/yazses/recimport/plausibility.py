@@ -63,6 +63,55 @@ MIN_LABELS = 6
 # the output mostly consists of.
 FRAGMENT_RATIO = 0.5
 
+# --- the second arm: over-splitting a long meeting ------------------------------------
+#
+# Everything above is an *absolute* rule -- a label is a fragment if it holds less than
+# so many seconds -- and measurement showed that on the domain this guard was written
+# for, it is very nearly inert. Scored against human annotations on 16 real AMI meetings
+# at the shipped clustering threshold, 12 were genuinely over-split and the rule fired on
+# **one** of them: 8.3% recall, 0 false alarms. It was not mistuned. The failure is
+# structural: a half-hour meeting over-split into eight labels still gives every spurious
+# label well over twenty seconds of accumulated speech, so nothing counts as a fragment,
+# and FRAGMENT_RATIO then asks whether the output is *mostly* fragments -- a question
+# that describes a shattered three-minute clip and not an over-split meeting at all.
+#
+# The two failures have different shapes, so they need different rules. Over-splitting a
+# long recording shows up as a *distribution*: a few labels carrying the meeting and a
+# tail carrying a small share each. That is scale-free, so this arm compares each label
+# with the mean label instead of with a constant.
+#
+# Calibrated on the two corpora together (16 AMI meetings, 15 VoxConverse recordings
+# scored at two clustering thresholds -- 46 scored results, 28 genuinely over-split).
+# Adding this arm takes recall from 39.3% to 78.6% and leaves false alarms at **zero** on
+# all three sets; on AMI alone it goes from 1/12 to 10/12. It is not a knife-edge: false
+# alarms stay at zero for any gate from 750 s to 1800 s and any ratio from 0.25 to 0.4.
+#
+# The gate is a real gate and not a way of saying "AMI": three VoxConverse recordings sit
+# above it and none of them false-alarms.
+LONG_RECORDING_SECONDS = 900.0
+
+# A label below a quarter of the mean label is a tail label, not a participant, however
+# long the recording is.
+RELATIVE_FRAGMENT_FRACTION = 0.25
+
+# Lower than FRAGMENT_RATIO on purpose. The absolute arm asks whether the result is
+# mostly fragments; this one asks whether it has a *tail*, and an over-split meeting is
+# mostly real speakers with some spurious ones hanging off it.
+RELATIVE_FRAGMENT_RATIO = 0.3
+
+# ...and the tail has to actually hold some of the meeting. Without this, a long meeting
+# where several people genuinely say one word each looks exactly like an over-split one:
+# same label count, same share of labels in the tail. What separates them is how much
+# speech the tail carries, because an over-split does not invent speech, it *takes* it
+# from the real speakers. Measured on the AMI meetings that are genuinely over-split the
+# tail holds 1.61% to 6.85% of all speech; for four one-word answers among six speakers
+# it holds 0.44%. The floor sits between them with room on both sides.
+#
+# This case came from `test_one_word_answers_in_a_long_meeting_are_not_enough_to_flag_it`,
+# not from the corpora -- neither AMI nor VoxConverse contains it, so the calibration
+# could not have found it. The test predates the arm and failed the moment it was added.
+RELATIVE_TAIL_SPEECH_FRACTION = 0.01
+
 
 def speech_by_speaker(turns) -> dict[str, float]:
     """Total speech seconds per speaker label. Pure; tolerates unsorted, overlapping turns."""
@@ -106,13 +155,42 @@ def attribution_problem(
     totals = speech_by_speaker(turns)
     if len(totals) < min_labels:
         return None
+    derived = fragment_seconds is None
     if fragment_seconds is None:
         fragment_seconds = fragment_threshold(sum(totals.values()))
     fragments = [s for s in totals.values() if s < fragment_seconds]
-    if len(fragments) < fragment_ratio * len(totals):
+    if len(fragments) >= fragment_ratio * len(totals):
+        return (
+            f"Speaker attribution looks unreliable: {len(totals)} speakers were found and "
+            f"{len(fragments)} of them speak for under {fragment_seconds:.0f}s in total, "
+            f"which is a person's worth of speech split apart rather than that many people."
+        )
+    # An explicit `fragment_seconds` means the caller is scoring one specific absolute
+    # rule, so it gets that rule and nothing else.
+    if not derived:
+        return None
+    return _long_recording_problem(totals)
+
+
+def _long_recording_problem(totals: dict[str, float]) -> str | None:
+    """The second arm: a long recording whose labels have a small-share tail. Pure.
+
+    Only long recordings, because on a short one an uneven distribution is ordinary and
+    this would fire on results that are perfectly correct -- which is exactly what the
+    absolute arm was already caught doing on VoxConverse.
+    """
+    speech = sum(totals.values())
+    if speech < LONG_RECORDING_SECONDS:
+        return None
+    mean = speech / len(totals)
+    tail = [s for s in totals.values() if s < RELATIVE_FRAGMENT_FRACTION * mean]
+    if len(tail) < RELATIVE_FRAGMENT_RATIO * len(totals):
+        return None
+    if sum(tail) < RELATIVE_TAIL_SPEECH_FRACTION * speech:
         return None
     return (
-        f"Speaker attribution looks unreliable: {len(totals)} speakers were found and "
-        f"{len(fragments)} of them speak for under {fragment_seconds:.0f}s in total, "
-        f"which is a person's worth of speech split apart rather than that many people."
+        f"Speaker attribution looks unreliable: {len(totals)} speakers were found in "
+        f"{speech / 60:.0f} minutes of speech, and {len(tail)} of them hold under a "
+        f"quarter of an average speaker's share, which is one person's speech split "
+        f"off rather than that many people."
     )

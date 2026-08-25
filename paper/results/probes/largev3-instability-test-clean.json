@@ -1,0 +1,142 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-24T02:53:46Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.5.2",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 4.69,
+    "compute_type": "int8",
+    "device": "cpu"
+  },
+  "probe": {
+    "measured": "run-to-run spread of large-v3 WER and its error breakdown on LibriSpeech test-clean, 4 full repeats",
+    "produced_by": "probes/largev3_repeat.py",
+    "host": "INTEL(R) XEON(R) PLATINUM 8573C (16 vCPU), Ubuntu 24.04.4 LTS",
+    "run_finished_utc": "2026-08-24T02:53:46Z"
+  },
+  "result": {
+    "config": {
+      "model": "large-v3",
+      "split": "test-clean",
+      "n_utterances": 200,
+      "repeats": 4
+    },
+    "runs": [
+      {
+        "engine": "faster-whisper",
+        "engine_class": "FasterWhisperEngine",
+        "model": "large-v3",
+        "wer": 5.44,
+        "wer_ci95": [
+          2.78,
+          8.87
+        ],
+        "n_scored_utterances": 200,
+        "mer": 5.23,
+        "substitutions": 62,
+        "deletions": 8,
+        "insertions": 184,
+        "hits": 4598,
+        "load_seconds": 3.03,
+        "rtf_median": 0.462,
+        "rtf_p95": 1.155,
+        "rtf_mean": 0.594,
+        "decode_seconds_total": 902.1,
+        "realtime_speedup_median": 2.2,
+        "run": 0,
+        "started_utc": "2026-08-24T01:54:13Z"
+      },
+      {
+        "engine": "faster-whisper",
+        "engine_class": "FasterWhisperEngine",
+        "model": "large-v3",
+        "wer": 4.24,
+        "wer_ci95": [
+          1.95,
+          8.22
+        ],
+        "n_scored_utterances": 200,
+        "mer": 4.13,
+        "substitutions": 62,
+        "deletions": 8,
+        "insertions": 128,
+        "hits": 4598,
+        "load_seconds": 2.51,
+        "rtf_median": 0.454,
+        "rtf_p95": 1.134,
+        "rtf_mean": 0.605,
+        "decode_seconds_total": 922.0,
+        "realtime_speedup_median": 2.2,
+        "run": 1,
+        "started_utc": "2026-08-24T02:09:19Z"
+      },
+      {
+        "engine": "faster-whisper",
+        "engine_class": "FasterWhisperEngine",
+        "model": "large-v3",
+        "wer": 5.14,
+        "wer_ci95": [
+          2.53,
+          8.66
+        ],
+        "n_scored_utterances": 200,
+        "mer": 4.96,
+        "substitutions": 62,
+        "deletions": 8,
+        "insertions": 170,
+        "hits": 4598,
+        "load_seconds": 2.33,
+        "rtf_median": 0.458,
+        "rtf_p95": 1.126,
+        "rtf_mean": 0.58,
+        "decode_seconds_total": 860.7,
+        "realtime_speedup_median": 2.2,
+        "run": 2,
+        "started_utc": "2026-08-24T02:24:44Z"
+      },
+      {
+        "engine": "faster-whisper",
+        "engine_class": "FasterWhisperEngine",
+        "model": "large-v3",
+        "wer": 4.67,
+        "wer_ci95": [
+          2.47,
+          7.71
+        ],
+        "n_scored_utterances": 200,
+        "mer": 4.53,
+        "substitutions": 62,
+        "deletions": 8,
+        "insertions": 148,
+        "hits": 4598,
+        "load_seconds": 2.31,
+        "rtf_median": 0.443,
+        "rtf_p95": 1.096,
+        "rtf_mean": 0.57,
+        "decode_seconds_total": 875.9,
+        "realtime_speedup_median": 2.3,
+        "run": 3,
+        "started_utc": "2026-08-24T02:39:08Z"
+      }
+    ],
+    "summary": {
+      "wer_min": 4.24,
+      "wer_max": 5.44,
+      "wer_spread": 1.2,
+      "insertions_min": 128,
+      "insertions_max": 184,
+      "insertions_spread": 56,
+      "substitutions_min": 62,
+      "substitutions_max": 62,
+      "substitutions_spread": 0
+    }
+  }
+}

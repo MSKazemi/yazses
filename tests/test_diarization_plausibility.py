@@ -17,6 +17,7 @@ from dataclasses import dataclass
 
 import pytest
 
+from yazses.recimport import plausibility
 from yazses.recimport.plausibility import (
     FRAGMENT_FLOOR_SECONDS,
     FRAGMENT_SECONDS,
@@ -201,3 +202,83 @@ def test_the_ami_catastrophe_this_guard_was_built_for_is_untouched():
     ami = {f"s{i}": 1800.0 / 257 for i in range(257)}
     assert fragment_threshold(1800.0) == FRAGMENT_SECONDS
     assert attribution_problem(_turns(ami)) is not None
+
+
+# --- the second arm: over-splitting a long meeting ------------------------------------
+#
+# These distributions are measured, not invented: they are what the shipped diarizer
+# returned for four-person AMI meetings at the shipped clustering threshold, rescued from
+# the sweep that produced `paper/results/plausibility-ami16-1.2.json`.
+
+TS3003D_OVER_SPLIT = {  # 9 labels for 4 people, 33 minutes
+    "speaker_0": 21.3, "speaker_1": 944.6, "speaker_2": 377.9, "speaker_3": 84.3,
+    "speaker_4": 224.8, "speaker_5": 23.6, "speaker_6": 234.5, "speaker_7": 47.8,
+    "speaker_8": 6.9,
+}
+IS1009C_OVER_SPLIT = {  # 6 labels for 4 people, 27 minutes
+    "speaker_0": 447.6, "speaker_1": 24.6, "speaker_2": 20.0, "speaker_3": 14.6,
+    "speaker_4": 876.4, "speaker_5": 210.1,
+}
+ES2004C_CORRECT = {  # 4 labels for 4 people — must stay silent
+    "speaker_0": 583.5, "speaker_1": 422.4, "speaker_2": 449.9, "speaker_3": 792.8,
+}
+
+
+def test_an_over_split_long_meeting_is_caught_though_no_label_is_a_fragment():
+    """The defect this arm exists for. Every one of these nine labels holds more than
+    the 20 s ceiling's worth of speech somewhere in a 33-minute meeting, so the absolute
+    rule sees zero fragments and stays silent — on a result that found nine speakers in a
+    room of four. Measured over 16 real AMI meetings, the absolute rule alone caught 1 of
+    the 12 that were genuinely over-split."""
+    assert attribution_problem(_turns(TS3003D_OVER_SPLIT), fragment_seconds=20.0) is None
+    assert attribution_problem(_turns(TS3003D_OVER_SPLIT)) is not None
+    assert attribution_problem(_turns(IS1009C_OVER_SPLIT)) is not None
+
+
+def test_a_correctly_diarized_long_meeting_stays_silent():
+    """Four labels for four people across 37 minutes. A guard that fired here would be
+    warning about the outcome it wants."""
+    assert attribution_problem(_turns(ES2004C_CORRECT)) is None
+
+
+def test_the_same_shape_in_a_short_recording_does_not_fire():
+    """The arm is gated on length because on a short recording an uneven distribution is
+    ordinary — which is exactly what the absolute constant was already caught doing to
+    VoxConverse. Scaling this meeting down to four minutes must silence it, with the
+    proportions held exactly fixed so length is the only thing that changed."""
+    scale = 240.0 / sum(TS3003D_OVER_SPLIT.values())
+    short = {k: v * scale for k, v in TS3003D_OVER_SPLIT.items()}
+    assert attribution_problem(_turns(short)) is None
+
+
+def test_a_tail_that_holds_no_speech_is_brief_attendees_not_an_over_split():
+    """An over-split does not invent speech, it takes it from the real speakers, so its
+    tail carries a real share of the meeting. People who genuinely say one word carry
+    almost none. Both look identical on label count and on tail size, so the share of
+    speech is the only thing separating them."""
+    one_word = {f"big{i}": 300.0 for i in range(6)}
+    one_word.update({f"tiny{i}": 2.0 for i in range(4)})
+    assert attribution_problem(_turns(one_word)) is None
+
+    # Same label count, same 4-in-10 tail, but the tail now holds a measured over-split's
+    # worth of speech. The only change is how much the small labels hold.
+    real_split = {f"big{i}": 300.0 for i in range(6)}
+    real_split.update({f"tiny{i}": 18.0 for i in range(4)})
+    assert attribution_problem(_turns(real_split)) is not None
+
+
+def test_an_explicit_fragment_seconds_scores_only_the_absolute_rule():
+    """`bench_plausibility.py` and the calibration probes pass a threshold in to score
+    one specific rule. If the new arm ran anyway, those numbers would silently stop
+    measuring what their column header says."""
+    assert attribution_problem(_turns(TS3003D_OVER_SPLIT), fragment_seconds=20.0) is None
+
+
+@pytest.mark.parametrize("gate", [750.0, 900.0, 1200.0, 1800.0])
+def test_the_calibration_is_not_a_knife_edge(gate, monkeypatch):
+    """False alarms stayed at zero across a 2.4x range of the gate when this was
+    calibrated. If a later edit makes the constant load-bearing to one decimal place,
+    that is worth knowing here rather than from a user."""
+    monkeypatch.setattr(plausibility, "LONG_RECORDING_SECONDS", gate)
+    assert attribution_problem(_turns(ES2004C_CORRECT)) is None
+    assert attribution_problem(_turns(TS3003D_OVER_SPLIT)) is not None
