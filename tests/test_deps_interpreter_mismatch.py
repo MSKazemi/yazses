@@ -13,6 +13,7 @@ the same real path and a `/proc/PID/exe` comparison silently never fires.
 
 from __future__ import annotations
 
+import os
 import sys
 import types
 
@@ -72,6 +73,19 @@ def test_the_warning_names_both_interpreters(monkeypatch, capsys):
 # stated exactly instead of depending on how the suite was launched.
 
 
+def _abs(*parts: str) -> str:
+    """An absolute path spelled the way *this host* spells one.
+
+    `_env_prefix` returns `os.path.normpath(os.path.abspath(...))`, so on Windows it
+    answers `D:\\home\\u\\proj\\.venv` where POSIX answers `/home/u/proj/.venv`.
+    Both are correct and neither equals a hardcoded POSIX literal, which is what kept
+    the Windows leg of CI red while Linux and macOS stayed green. Building the expected
+    value from the same primitives states the intent — *this directory, joined that way*
+    — instead of one platform's rendering of it.
+    """
+    return os.path.normpath(os.path.join(os.path.abspath(os.sep), *parts))
+
+
 def test_a_relative_argv0_is_the_same_environment():
     """The regression. `.venv/bin/python` from the repo root *is* this venv.
 
@@ -81,13 +95,22 @@ def test_a_relative_argv0_is_the_same_environment():
     user to install into `.venv/bin/python`, a path that means something
     different in every directory and nothing in most.
     """
-    assert deps._env_prefix(".venv/bin/python", "/home/u/proj") == "/home/u/proj/.venv"
-    assert deps._env_prefix("./venv/bin/python", "/home/u/proj") == "/home/u/proj/venv"
-    assert deps._env_prefix("../other/bin/python", "/home/u/proj") == "/home/u/other"
+    proj = _abs("home", "u", "proj")
+    assert deps._env_prefix(os.path.join(".venv", "bin", "python"), proj) == _abs(
+        "home", "u", "proj", ".venv"
+    )
+    assert deps._env_prefix(os.path.join(".", "venv", "bin", "python"), proj) == _abs(
+        "home", "u", "proj", "venv"
+    )
+    assert deps._env_prefix(os.path.join("..", "other", "bin", "python"), proj) == _abs(
+        "home", "u", "other"
+    )
 
 
 def test_an_absolute_argv0_ignores_the_working_directory():
-    assert deps._env_prefix("/opt/yz/bin/python", "/anywhere") == "/opt/yz"
+    assert deps._env_prefix(
+        _abs("opt", "yz", "bin", "python"), _abs("anywhere")
+    ) == _abs("opt", "yz")
 
 
 def test_a_bare_name_on_path_says_nothing_about_an_environment():
