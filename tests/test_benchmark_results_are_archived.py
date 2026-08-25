@@ -417,13 +417,52 @@ def test_every_result_taken_since_the_cutover_records_its_corpus(path: Path) -> 
     payload = json.loads(path.read_text(encoding="utf-8"))
     prov = payload.get("provenance") or {}
     when = prov.get("timestamp", "")
-    if not when or when < CORPUS_STAMPED_FROM:
-        pytest.skip(f"taken {when or 'at an unrecorded time'}; predates the field")
     dataset = str((payload.get("config") or {}).get("dataset", ""))
     if "LibriSpeech" not in dataset:
         pytest.skip(f"not a LibriSpeech measurement ({dataset or 'no dataset'})")
+    # Grandfathering is by *absence of the field*, not by date. Keying it off the
+    # timestamp alone exempted every artifact older than the cutover including the ones
+    # that do record their corpus, so the check could not have noticed one of them
+    # losing it -- 209 of the archive skipped, and the reason given for skipping them
+    # ("predates the field") was untrue of the ones that carry it.
+    if not (prov.get("corpus") or {}).get("sha256_16") and (not when or when < CORPUS_STAMPED_FROM):
+        pytest.skip(f"taken {when or 'at an unrecorded time'}; predates the field")
     assert (prov.get("corpus") or {}).get("sha256_16"), (
         f"{path.name} scores LibriSpeech and does not say which utterances. It was "
         "produced by something that bypassed `_common.librispeech_subset`, which is "
         "the only place that records them."
     )
+
+
+#: How many published LibriSpeech artifacts predate `provenance.corpus` and so cannot say
+#: which utterances they scored. It is a **ratchet**: the number may fall as old artifacts
+#: are re-run, and must never rise. Without it the grandfather clause is a hole rather
+#: than a boundary -- an artifact old enough to be exempt could lose the field, or gain a
+#: LibriSpeech `dataset` without the corpus block, and the suite would report a skip.
+#: Proven by mutation: deleting `sha256_16` from a pre-cutover artifact turns a pass into
+#: a *skip*, which is why the per-file check alone could not hold this line.
+UNSTAMPED_LIBRISPEECH_ARTIFACTS = 11
+
+
+def test_the_set_of_results_that_cannot_name_their_corpus_never_grows() -> None:
+    unstamped = []
+    for path in _results():
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        dataset = str((payload.get("config") or {}).get("dataset", ""))
+        if "LibriSpeech" not in dataset:
+            continue
+        prov = payload.get("provenance") or {}
+        if not (prov.get("corpus") or {}).get("sha256_16"):
+            unstamped.append(path.name)
+    assert len(unstamped) <= UNSTAMPED_LIBRISPEECH_ARTIFACTS, (
+        f"{len(unstamped)} published LibriSpeech results cannot name the utterances they "
+        f"scored, up from {UNSTAMPED_LIBRISPEECH_ARTIFACTS}: "
+        f"{sorted(unstamped)}. Every new measurement must go through "
+        "`_common.librispeech_subset`, which records them."
+    )
+    if len(unstamped) < UNSTAMPED_LIBRISPEECH_ARTIFACTS:
+        pytest.fail(
+            f"only {len(unstamped)} results now lack a corpus digest, not "
+            f"{UNSTAMPED_LIBRISPEECH_ARTIFACTS}. Lower UNSTAMPED_LIBRISPEECH_ARTIFACTS to "
+            f"{len(unstamped)} so the ratchet keeps holding."
+        )
