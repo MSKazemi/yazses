@@ -31,7 +31,7 @@ uv run mypy src                     # types — clean today, advisory, see below
 success from a change looking correct. The suite is offline and mocks audio and model
 layers, so no microphone, network, or Whisper model download is required.
 
-**mypy is clean and advisory.** `uv run mypy src` currently reports **no issues across 433
+**mypy is clean and advisory.** `uv run mypy src` currently reports **no issues across 505
 source files**, so if it reports an error, you almost certainly just introduced it — fix it
 rather than reporting it as pre-existing. It is not a CI gate (only `ruff` and `pytest`
 are), but do not leave the count above zero.
@@ -78,8 +78,10 @@ uv run python -m pytest -k "pattern"
    OS, implement every Protocol under `src/yazses/platform/<os>/` and register it in
    `platform/factory.py`.
 7. **Tests come with the change**, in the same PR. New behaviour without a test is not done.
-8. **No attribution lines** in commit messages — no `Co-Authored-By` trailers and no
-   "generated with" footers.
+8. **No AI attribution anywhere.** Never credit Codex, GPT, ChatGPT, AI, or an automated
+   assistant as an author, co-author, contributor, or generator in commits, issues, pull
+   requests, release notes, or any other project artifact. In particular, do not add
+   `Co-Authored-By` trailers or "generated with" footers.
 9. **A guard is judged on how rarely it fires.** `cmdsafety`, `checkdigit` and the
    no-text-target guard all interrupt the user. One that fires on a house number teaches
    people to dismiss it, and a dismissed guard costs attention and catches nothing — so

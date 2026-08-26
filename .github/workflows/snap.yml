@@ -136,16 +136,15 @@ jobs:
           SNAP_FILE: ${{ steps.snap-build.outputs.snap }}
           ARCH: ${{ matrix.arch }}
         # This used to be `snapcore/action-publish` with `release: stable,edge`,
-        # i.e. `snapcraft upload <snap> --release stable,edge`. That command does
-        # two things and only the first one has ever worked here.
+        # i.e. `snapcraft upload <snap> --release stable,edge`. That form is back,
+        # but it is NOT what this job relies on -- see the note below the failure
+        # analysis before changing either half.
         #
         # The transfer finishes in about a minute and the store assigns a revision
         # straight away. The client then polls the store's scan for a verdict, and
         # for this ~474 MB snap the verdict does not arrive: run 32221079405
         # printed `Status: processing` 988 times over nineteen unbroken minutes and
-        # was killed with the release never applied. Because `--release` is an
-        # argument to the command that is still blocked, killing the client kills
-        # the release too — the revision lands and no channel ever points at it.
+        # was killed before it could report the result.
         #
         # The snapcraft.io build service fails from the other side of the same
         # wall: Launchpad reports `store_upload_status: Failed to upload` on builds
@@ -154,10 +153,24 @@ jobs:
         # Ten consecutive tagged releases died here. `latest/stable` served 2.19.0
         # while the project shipped 2.29.0.
         #
-        # So: upload, do NOT wait for the verdict, then read the revision number
-        # back out of the store and apply the channel release as its own call. The
-        # release is what the blocked poll was holding hostage; it does not need
-        # the scan to have reported.
+        # So: bound the client-side wait, then read the revision number back out of
+        # the store and apply the channel release as its own call. That second call
+        # is the mechanism this job depends on, and it is the half that has actually
+        # been observed to work -- it does not need the scan to have reported.
+        #
+        # `--release=stable,edge` is passed on the upload as well, deliberately as a
+        # belt-and-braces hint and NOT as a mechanism. The claim that the store
+        # records the requested channels and applies them once review passes is
+        # PLAUSIBLE AND UNVERIFIED here: the evidence from revisions 388/389 shows
+        # only the negative (no `--release` => no channel), which does not establish
+        # the positive. Nothing downstream may assume a deferred release happened,
+        # and no message may tell a reader that one is pending. If it does work it
+        # costs nothing; if it does not, the explicit release above is unaffected.
+        #
+        # Note also what actually unblocked this area: the snapcraft.io build service
+        # was building every commit to main and wedging the store's review queue. It
+        # is disconnected, which makes this workflow the only publisher -- and the
+        # only fallback if it breaks.
         run: |
           set -uo pipefail
           command -v snapcraft >/dev/null || sudo snap install snapcraft --classic
@@ -168,7 +181,7 @@ jobs:
           # lookup below could run.  Disable errexit explicitly around the one
           # command whose status is deliberately advisory, then restore it.
           set +e
-          timeout 900 snapcraft upload "$SNAP_FILE" 2>&1 | tee upload.log
+          timeout 900 snapcraft upload "$SNAP_FILE" --release=stable,edge 2>&1 | tee upload.log
           UPLOAD_STATUS=${PIPESTATUS[0]}
           set -e
           if (( UPLOAD_STATUS != 0 )); then
@@ -183,10 +196,18 @@ jobs:
           # revision exists whether or not the client lived to be told about it.
           REV=""
           for _ in $(seq 1 10); do
-            REV=$(snapcraft revisions yazses 2>/dev/null \
-                  | awk -v v="$VERSION" -v a="$ARCH" \
+            # Capture first, parse second.  `set -e` is back on by this point,
+            # and under it a failing command substitution in an assignment aborts
+            # the step -- so with `pipefail`, one transient nonzero exit from
+            # `snapcraft revisions` (a store blip, a lost pipe on its final flush,
+            # the exit 120 described above) killed the release on the first pass of
+            # the very loop written to retry it.  Assigning the raw output through
+            # `if` makes that failure a skipped iteration instead of a dead job.
+            if REVISION_ROWS=$(snapcraft revisions yazses 2>/dev/null); then
+              REV=$(awk -v v="$VERSION" -v a="$ARCH" \
                     '$3 == a && $4 == v && !found { revision = $1; found = 1 } \
-                     END { if (found) print revision }')
+                     END { if (found) print revision }' <<<"$REVISION_ROWS")
+            fi
             [ -n "$REV" ] && break
             sleep 15
           done
@@ -216,11 +237,11 @@ jobs:
       # reason ten releases went unpublished while every run looked like an
       # infrastructure hiccup somebody else would clear.
       #
-      # Now the upload is allowed to time out and the channel release is a separate
-      # call, so reaching this step means one of two things that are worth telling
-      # apart: the store holds no revision at all (the upload really failed), or the
-      # revision exists and `snapcraft release` refused it -- which is the case that
-      # points at the store's review of the revision rather than at this workflow.
+      # Now the upload is allowed to time out and the channel release is retried as
+      # a separate call, so reaching this step means one of two things that are worth
+      # telling apart: the store holds no revision at all (the upload really failed),
+      # or the revision exists and `snapcraft release` refused it -- which points at
+      # store review rather than at this workflow.
       #
       # The job still FAILS, deliberately. Nothing reached `latest/stable`, and a
       # green workflow that published nothing is the exact failure this whole area
@@ -234,6 +255,7 @@ jobs:
           revision was found and 'snapcraft release' or the channel read-back failed \
           -- the upload is fine and the store's review of the revision is what is \
           holding it; repeated 'Status: processing' in the upload log is the same \
-          signal, and it no longer blocks the release on its own. See \
+          signal, and it no longer blocks the release on its own. Nothing is \
+          published; do not wait for a deferred release to appear. See \
           https://snapcraft.io/yazses/releases . Nothing reached latest/stable, \
           which is why this job is red."

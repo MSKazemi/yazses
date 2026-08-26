@@ -14,7 +14,9 @@ and the suite fails here rather than in a user's `snap install`.
 """
 from __future__ import annotations
 
+import os
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -49,6 +51,16 @@ def _declared_platforms() -> set[str]:
 def _matrix_arches() -> set[str]:
     """Architectures the publish workflow actually builds a job for."""
     return set(re.findall(r"^\s*-\s*arch:\s*([A-Za-z0-9_-]+)\s*$", WORKFLOW.read_text(encoding="utf-8"), re.M))
+
+
+def _publish_script() -> str:
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    return next(
+        step["run"]
+        for job in workflow["jobs"].values()
+        for step in job.get("steps", [])
+        if step.get("id") == "publish"
+    )
 
 
 def test_snapcraft_declares_the_expected_platforms() -> None:
@@ -97,10 +109,18 @@ def test_matrix_does_not_fail_fast() -> None:
 
 
 def test_publish_targets_stable() -> None:
-    """If this ever drops to edge-only, every architecture stops reaching users."""
-    assert re.search(r"release:\s*stable,edge", WORKFLOW.read_text(encoding="utf-8")), (
-        "the snap publish step no longer releases to stable"
-    )
+    """Both the upload hint and the explicit release call target stable.
+
+    The explicit ``snapcraft release`` is the mechanism -- it is the half that has
+    been observed to publish. ``--release`` on the upload is a belt-and-braces hint
+    whose effect after a timed-out review poll is **unverified**: revisions 388/389
+    establish only that omitting it leaves no channel, which does not establish that
+    including it defers one. Pinned here so neither half is dropped by accident, not
+    as a claim that the deferred path works.
+    """
+    script = _publish_script()
+    assert 'snapcraft upload "$SNAP_FILE" --release=stable,edge' in script
+    assert 'snapcraft release yazses "$REV" stable,edge' in script
 
 
 def test_artifact_name_is_arch_qualified() -> None:
@@ -161,7 +181,7 @@ def test_upload_poll_failure_cannot_skip_the_revision_release() -> None:
     v2.31.0 stopped immediately after the store created revision 388.
     """
     text = WORKFLOW.read_text(encoding="utf-8")
-    upload = text.index('timeout 900 snapcraft upload "$SNAP_FILE"')
+    upload = text.index('timeout 900 snapcraft upload "$SNAP_FILE" --release=stable,edge')
     revision_lookup = text.index("REV=\"\"", upload)
     guarded_block = text[text.rfind("set +e", 0, upload):revision_lookup]
 
@@ -170,20 +190,102 @@ def test_upload_poll_failure_cannot_skip_the_revision_release() -> None:
     assert "set -e" in guarded_block
 
 
-def test_revision_lookup_does_not_close_snapcraft_pipe_early() -> None:
-    """snapcraft reports a broken stdout pipe as exit 120 under pipefail.
+def test_revision_lookup_captures_before_parsing() -> None:
+    """One transient failure must skip an iteration, not kill the retry loop.
 
-    An ``awk ... { print; exit }`` lookup found the right revision but closed
-    snapcraft's pipe before it finished writing, so the assignment itself
-    aborted and the release command was never reached.
+    `set -e` is back on at this point, so a failing command substitution inside an
+    assignment aborts the whole step.  The earlier form assigned the pipeline
+    directly, so a single nonzero exit from ``snapcraft revisions`` -- a store
+    blip, or a lost pipe on its final flush surfacing as 120 under ``pipefail`` --
+    killed the job on the first pass of the very loop written to retry it.
+    Measured: ``REV=$(false | awk ...)`` in this loop dies on iteration 1, while
+    ``if ROWS=$(false); then`` runs all ten.
+
+    Note the awk program itself reads to EOF -- it guards with ``!found`` and
+    prints in ``END`` -- so it never closes the producer's stdout early.  Guard
+    the assignment, not the reader.
     """
     text = WORKFLOW.read_text(encoding="utf-8")
-    lookup = text[text.index("REV=$(snapcraft revisions"):text.index(
-        '[ -n "$REV" ]', text.index("REV=$(snapcraft revisions")
-    )]
+    lookup_start = text.index('REV=""')
+    lookup = text[lookup_start:text.index('[ -n "$REV" ]', lookup_start)]
 
-    assert "exit" not in lookup
+    assert "if REVISION_ROWS=$(snapcraft revisions yazses 2>/dev/null); then" in lookup
+    assert not re.search(r"snapcraft revisions[^\n]*\|", lookup)
+    assert '<<<"$REVISION_ROWS"' in lookup
     assert "END { if (found) print revision }" in lookup
+
+
+@pytest.mark.parametrize("arch", ["amd64", "arm64"])
+def test_publish_recovers_after_upload_poll_timeout(tmp_path: Path, arch: str) -> None:
+    """Exercise the workflow shell, including the production failure boundary.
+
+    The fake upload exits 124 after acceptance, and the revision command emits
+    enough output to exceed a pipe buffer after putting the match first. The old
+    live-pipe lookup died there; capture-then-parse must reach release and verify
+    the stable channel for both matrix architectures.
+    """
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    calls = tmp_path / "snapcraft-calls"
+    snapcraft = fake_bin / "snapcraft"
+    snapcraft.write_text(
+        """#!/bin/sh
+set -eu
+case "$1" in
+  upload)
+    printf '%s\\n' "$*" >> "$SNAPCRAFT_CALLS"
+    echo "Status: processing"
+    exit 124
+    ;;
+  revisions)
+    printf '388 uploaded %s 2.31.0 -\\n' "$ARCH"
+    i=0
+    while [ "$i" -lt 5000 ]; do
+      printf '%s uploaded other 0.0.0 -\\n' "$i"
+      i=$((i + 1))
+    done
+    ;;
+  release)
+    printf '%s\\n' "$*" >> "$SNAPCRAFT_CALLS"
+    ;;
+  status)
+    printf 'yazses %s stable 2.31.0\\n' "$ARCH"
+    ;;
+  *)
+    exit 2
+    ;;
+esac
+""",
+        encoding="utf-8",
+    )
+    snapcraft.chmod(0o755)
+    env = os.environ.copy()
+    env.update(
+        {
+            "ARCH": arch,
+            "PATH": f"{fake_bin}{os.pathsep}{env['PATH']}",
+            "SNAPCRAFT_CALLS": str(calls),
+            "SNAPCRAFT_STORE_CREDENTIALS": "test-only",
+            "SNAP_FILE": f"yazses_2.31.0_{arch}.snap",
+        }
+    )
+
+    result = subprocess.run(
+        ["bash", "-e", "-c", _publish_script()],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert calls.read_text(encoding="utf-8") == (
+        f"upload yazses_2.31.0_{arch}.snap --release=stable,edge\n"
+        "release yazses 388 stable,edge\n"
+    )
+    assert f"latest/stable is 2.31.0 on {arch} (revision 388)" in result.stdout
 
 
 def test_a_publish_timeout_explains_itself() -> None:
