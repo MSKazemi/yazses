@@ -27,6 +27,8 @@ import subprocess
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
+from yazses.system.snap import in_strict_snap
+
 # The robust superset of Debian/Ubuntu runtime packages. We install all of them
 # so dictation works whether the user logs into X11 or Wayland later; at runtime
 # YazSes auto-selects the right backend (inject/auto.py).
@@ -70,6 +72,11 @@ class SetupPlan:
     setup_ydotoold: bool = False
     session: str = "unknown"  # "x11" | "wayland" | "headless"
     notes: list[str] = field(default_factory=list)
+    # True inside a strictly confined snap, where every lever below belongs to
+    # snapd rather than to us. Carried separately from `is_noop` because "there
+    # is nothing I am allowed to do" and "this machine is already provisioned"
+    # are opposite facts that would otherwise print the same reassuring line.
+    confined: bool = False
 
     @property
     def is_noop(self) -> bool:
@@ -118,6 +125,37 @@ def build_plan(
     env = os.environ if env is None else env
     user = user or _current_user()
     plan = SetupPlan(session=detect_session(env))
+
+    # 0. Strict snap confinement invalidates all three fixes below, so the honest
+    #    plan is an empty one plus the reason.
+    #
+    #    * `sudo` cannot be exec'd at all — AppArmor denies it, which is the
+    #      `PermissionError: [Errno 13] Permission denied: 'sudo'` a real install
+    #      hit on Ubuntu;
+    #    * the package manager is not in the snap's mount namespace, and neither
+    #      is the host's /usr/bin — so `which` here answers about the snap's own
+    #      read-only payload, never about the machine, and a host install would
+    #      not be visible to us even if we could perform one;
+    #    * `/dev/input` is gated by snapd, not by the `input` group. Proposing
+    #      `usermod -aG input` sends the user round a loop that cannot succeed
+    #      (issue #44) — the loop `system/snap.py` was written to eliminate, and
+    #      which this planner reintroduced by never asking it.
+    #
+    #    Classic/devmode snaps are deliberately excluded: they have the host
+    #    filesystem and no sandbox, so the ordinary plan is correct there.
+    if in_strict_snap(env):
+        plan.confined = True
+        plan.notes.append(
+            "This is a strictly confined snap, so `yazses setup` cannot provision "
+            "this machine: it has no package manager, cannot run `sudo`, and cannot "
+            "grant itself device access."
+        )
+        plan.notes.append(
+            "What the snap needs instead is its interfaces connected — see the "
+            "checklist below. Joining the `input` group cannot grant the hotkey "
+            "inside confinement, so `yazses setup` no longer suggests it."
+        )
+        return plan
 
     # 1. Missing apt packages. libportaudio2 has no binary, probe the lib loader;
     #    the rest map 1:1 to a CLI binary of the same name.
@@ -365,6 +403,7 @@ def next_steps(
     *,
     plan: SetupPlan | None = None,
     mic_pending: bool | None = None,
+    rawinput_pending: bool | None = None,
     pending_relogin: bool | None = None,
 ) -> list[ManualStep]:
     """The ordered list of manual actions the user must complete to finish
@@ -377,7 +416,11 @@ def next_steps(
     env = os.environ if env is None else env
     plan = build_plan(env) if plan is None else plan
     mic_pending = snap_mic_pending(env) if mic_pending is None else mic_pending
+    rawinput_pending = (
+        snap_rawinput_pending(env) if rawinput_pending is None else rawinput_pending
+    )
     pending = input_group_pending_relogin() if pending_relogin is None else pending_relogin
+    snap_name = env.get("SNAP_INSTANCE_NAME") or env.get("SNAP_NAME") or "yazses"
 
     steps: list[ManualStep] = []
 
@@ -385,12 +428,26 @@ def next_steps(
     if mic_pending:
         steps.append(ManualStep(
             "Grant microphone access (connect your voice)",
-            "sudo snap connect yazses:audio-record",
+            f"sudo snap connect {snap_name}:audio-record",
             "the strictly-confined snap can't hear you until this interface is connected.",
         ))
 
-    # 2. Join the `input` group if not a member yet.
-    if plan.add_to_input_group:
+    # 1b. Connect the hotkey (snap only). The counterpart to the microphone and
+    #     the more confusing of the two: with a mic but no `raw-input` the daemon
+    #     starts, reports healthy, and simply never notices the key. `preflight_hints`
+    #     had warned about it since issue #44 while this checklist — the place a
+    #     user is actually told what to do — omitted it entirely and offered
+    #     `usermod -aG input` instead, which cannot grant it inside confinement.
+    if rawinput_pending:
+        steps.append(ManualStep(
+            "Grant hold-to-talk access (connect the hotkey)",
+            f"sudo snap connect {snap_name}:raw-input",
+            "inside confinement only this interface can read the key — the `input` group cannot.",
+        ))
+
+    # 2. Join the `input` group if not a member yet. Never inside a strict snap:
+    #    there the group is not the barrier, so the advice is a loop (issue #44).
+    if plan.add_to_input_group and not plan.confined:
         steps.append(ManualStep(
             "Join the `input` group",
             "sudo usermod -aG input $USER",
@@ -399,7 +456,7 @@ def next_steps(
 
     # 3. Re-login when membership won't be live until a fresh session (either we
     #    just added the user, or /etc/group lists them but this session predates it).
-    if plan.add_to_input_group or pending:
+    if (plan.add_to_input_group or pending) and not plan.confined:
         steps.append(ManualStep(
             "Log out and back in (or reboot)",
             "",
@@ -441,20 +498,58 @@ def write_ydotoold_service() -> str:
     return path
 
 
-def apply_plan(plan: SetupPlan, *, runner=subprocess.run, echo=print) -> bool:
-    """Execute *plan*. Returns True on success. Best-effort, idempotent."""
+def apply_plan(
+    plan: SetupPlan, *, runner=subprocess.run, echo=print, has_apt=_has_apt
+) -> bool:
+    """Execute *plan*. Returns True on success. Best-effort, idempotent, total.
+
+    **Never raises.** `check=False` suppresses a non-zero *exit status*; it does
+    nothing about a command that cannot be executed in the first place, because
+    `Popen` fails before any exit status exists. That distinction is not academic:
+    a strictly confined snap gets `PermissionError: [Errno 13]` on `sudo` from
+    AppArmor, and a minimal container gets `FileNotFoundError`. Either one used to
+    escape as a full traceback out of the single command whose entire job is
+    repairing a machine that does not work yet.
+
+    `snap_interface_pending` in this same module had guarded its `snapctl` call
+    with `except (FileNotFoundError, OSError)` all along — the guard existed, just
+    not on the function that runs everything.
+    """
+    if plan.confined:
+        # Nothing here is ours to do; the caller prints the manual checklist.
+        for note in plan.notes:
+            echo(f"! {note}")
+        return False
+
     if plan.is_noop:
         echo("All Linux requirements already satisfied — nothing to do.")
         return True
 
     ok = True
 
+    def run(argv: list[str], *, why: str) -> bool:
+        """Run *argv*, returning True only on a clean exit. Absorbs exec failure."""
+        try:
+            r = runner(argv, check=False)
+        except OSError as exc:
+            detail = getattr(exc, "strerror", None) or str(exc)
+            echo(f"  warning: could not run `{' '.join(argv)}` — {detail}.")
+            echo(f"  {why}")
+            return False
+        return getattr(r, "returncode", 0) == 0
+
     if plan.apt_packages:
-        if _has_apt():
+        if has_apt():
             echo(f"Installing system packages: {' '.join(plan.apt_packages)}")
-            runner(["sudo", "apt-get", "update", "-qq"], check=False)
-            r = runner(["sudo", "apt-get", "install", "-y", *plan.apt_packages], check=False)
-            if getattr(r, "returncode", 0) != 0:
+            unprivileged = (
+                "Run it yourself with the privileges it needs, or install the "
+                "packages with your package manager."
+            )
+            run(["sudo", "apt-get", "update", "-qq"], why=unprivileged)
+            if not run(
+                ["sudo", "apt-get", "install", "-y", *plan.apt_packages],
+                why=unprivileged,
+            ):
                 ok = False
                 echo("  warning: some packages failed to install — see output above.")
         else:
@@ -467,21 +562,30 @@ def apply_plan(plan: SetupPlan, *, runner=subprocess.run, echo=print) -> bool:
     if plan.add_to_input_group:
         user = _current_user()
         echo(f"Adding {user} to the `input` group (keyboard + uinput access)...")
-        r = runner(["sudo", "usermod", "-aG", "input", user], check=False)
-        if getattr(r, "returncode", 0) != 0:
+        if not run(
+            ["sudo", "usermod", "-aG", "input", user],
+            why=f"Add yourself by hand:  sudo usermod -aG input {user}",
+        ):
             ok = False
-            echo("  warning: usermod failed.")
+            echo("  warning: could not join the `input` group.")
 
     if plan.setup_ydotoold:
-        path = write_ydotoold_service()
-        echo(f"Configured ydotoold user service: {path}")
-        runner(["systemctl", "--user", "daemon-reload"], check=False)
-        r = runner(["systemctl", "--user", "enable", "--now", "ydotoold.service"], check=False)
-        if getattr(r, "returncode", 0) != 0:
-            echo(
-                "  note: could not start ydotoold now (likely needs a fresh login "
-                "for `input`-group access to /dev/uinput). It will start on next login."
-            )
+        try:
+            path = write_ydotoold_service()
+        except OSError as exc:
+            ok = False
+            echo(f"  warning: could not write the ydotoold user service — {exc}.")
+        else:
+            echo(f"Configured ydotoold user service: {path}")
+            run(["systemctl", "--user", "daemon-reload"], why="Reload it yourself later.")
+            if not run(
+                ["systemctl", "--user", "enable", "--now", "ydotoold.service"],
+                why="Start it yourself:  systemctl --user enable --now ydotoold.service",
+            ):
+                echo(
+                    "  note: could not start ydotoold now (likely needs a fresh login "
+                    "for `input`-group access to /dev/uinput). It will start on next login."
+                )
 
     for note in plan.notes:
         echo(f"! {note}")

@@ -3166,14 +3166,30 @@ def quickstart() -> None:
         # two printed a ✓ that had checked nothing. `None` keeps them apart, and the
         # unknown case borrows the wording the non-Linux branch already uses.
         needs_setup: bool | None = None
+        confined = False
         try:
             from yazses.system import setup as _setup
 
-            needs_setup = not _setup.build_plan().is_noop
+            _plan = _setup.build_plan()
+            confined = _plan.confined
+            if confined:
+                # A fourth outcome. Inside a strict snap the plan is empty by
+                # design -- nothing there is ours to do -- so `is_noop` is True
+                # while the machine may be entirely unusable. Its prerequisites
+                # are the two interfaces, which the plan cannot express.
+                needs_setup = _setup.snap_mic_pending() or _setup.snap_rawinput_pending()
+            else:
+                needs_setup = not _plan.is_noop
         except Exception:
             needs_setup = None
         if needs_setup is None:
             _say_step("Check prerequisites", "Run:  yazses doctor")
+        elif needs_setup and confined:
+            _say_step(
+                "Grant the snap its permissions",
+                "Run:  yazses setup",
+                "(prints the `snap connect` commands — a confined snap cannot grant itself access)",
+            )
         elif needs_setup:
             _say_step(
                 "Install the prerequisites",
@@ -4130,12 +4146,27 @@ def setup(
 
     plan = _setup.build_plan()
     mic_pending = _setup.snap_mic_pending()
+    rawinput_pending = _setup.snap_rawinput_pending()
     typer.echo(f"Session: {plan.session}")
-    if plan.is_noop and not mic_pending:
+
+    # A strictly confined snap: there is nothing to apply and nothing to ask
+    # about. Printing a plan we cannot execute is what produced a `sudo`
+    # traceback on a real install; the interfaces are the whole answer here.
+    if plan.confined:
+        for note in plan.notes:
+            typer.secho(f"\n{note}", fg=typer.colors.YELLOW)
+        _print_next_steps(_setup.next_steps(
+            plan=plan, mic_pending=mic_pending, rawinput_pending=rawinput_pending,
+        ))
+        raise typer.Exit(0)
+
+    if plan.is_noop and not mic_pending and not rawinput_pending:
         typer.echo("All Linux requirements already satisfied.")
         # Nothing to provision, but a fresh user still benefits from calibrating
         # their voice and starting the daemon — surface those as next steps.
-        _print_next_steps(_setup.next_steps(plan=plan, mic_pending=mic_pending))
+        _print_next_steps(_setup.next_steps(
+            plan=plan, mic_pending=mic_pending, rawinput_pending=rawinput_pending,
+        ))
         raise typer.Exit(0)
 
     typer.echo("Plan:")
@@ -4151,10 +4182,16 @@ def setup(
         typer.echo("  • grant the snap microphone access (run this yourself, once):")
         typer.secho("      sudo snap connect yazses:audio-record",
                     fg=typer.colors.BRIGHT_WHITE, bg=typer.colors.RED, bold=True)
+    if rawinput_pending:
+        typer.echo("  • grant the snap hold-to-talk access (run this yourself, once):")
+        typer.secho("      sudo snap connect yazses:raw-input",
+                    fg=typer.colors.BRIGHT_WHITE, bg=typer.colors.RED, bold=True)
 
     if dry_run:
         typer.echo("\n(dry run — no changes made)")
-        _print_next_steps(_setup.next_steps(plan=plan, mic_pending=mic_pending))
+        _print_next_steps(_setup.next_steps(
+            plan=plan, mic_pending=mic_pending, rawinput_pending=rawinput_pending,
+        ))
         return
 
     typer.echo("")
@@ -4170,7 +4207,9 @@ def setup(
     # Ordered checklist of everything the user must still do themselves (the parts
     # a confined/unprivileged process can't do): connect the mic, re-login, tune
     # the voice, start dictating. Single source of truth: setup.next_steps().
-    _print_next_steps(_setup.next_steps(plan=plan, mic_pending=mic_pending))
+    _print_next_steps(_setup.next_steps(
+            plan=plan, mic_pending=mic_pending, rawinput_pending=rawinput_pending,
+        ))
 
     # Offer to "connect to voice" now — run the mic calibration interactively when
     # we have a terminal and nothing blocks recording (mic granted, no re-login due).

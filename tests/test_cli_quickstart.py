@@ -1,11 +1,10 @@
 """`yazses quickstart` onboarding + actionable status/stop messages."""
 from __future__ import annotations
 
-import types
-
 from typer.testing import CliRunner
 
 import yazses.cli as cli
+from yazses.system.setup import SetupPlan
 
 runner = CliRunner()
 
@@ -164,7 +163,7 @@ def test_quickstart_adapts_when_already_running(monkeypatch):
     # No prerequisites work needed on a machine that's already provisioned.
     monkeypatch.setattr(
         "yazses.system.setup.build_plan",
-        lambda: types.SimpleNamespace(is_noop=True),
+        lambda: SetupPlan(session="x11"),
     )
     result = runner.invoke(cli.app, ["quickstart"])
     assert result.exit_code == 0
@@ -178,12 +177,50 @@ def test_quickstart_on_unprovisioned_machine_points_at_setup(monkeypatch):
     monkeypatch.setattr("sys.platform", "linux")
     monkeypatch.setattr(
         "yazses.system.setup.build_plan",
-        lambda: types.SimpleNamespace(is_noop=False),
+        lambda: SetupPlan(add_to_input_group=True, session="x11"),
     )
     result = runner.invoke(cli.app, ["quickstart"])
     assert result.exit_code == 0
     assert "yazses setup" in result.output
     assert "input" in result.output.lower()  # mentions the input-group step
+
+
+def test_quickstart_in_a_confined_snap_still_points_at_setup(monkeypatch):
+    """A strict snap's plan is empty by design, so `is_noop` is True while the
+    machine may be completely unusable — its prerequisites are the two snap
+    interfaces, which the plan cannot express. Reading `is_noop` alone printed
+    "Prerequisites — already set up ✓" on a snap that could neither hear the
+    user nor see the hotkey."""
+    plat = _Platform(running=False)
+    _patch(monkeypatch, plat)
+    monkeypatch.setattr("sys.platform", "linux")
+    monkeypatch.setattr(
+        "yazses.system.setup.build_plan",
+        lambda: SetupPlan(session="wayland", confined=True),
+    )
+    monkeypatch.setattr("yazses.system.setup.snap_mic_pending", lambda env=None: True)
+    monkeypatch.setattr("yazses.system.setup.snap_rawinput_pending", lambda env=None: True)
+    result = runner.invoke(cli.app, ["quickstart"])
+    assert result.exit_code == 0
+    assert "yazses setup" in result.output
+    assert "already set up" not in result.output.lower()
+
+
+def test_quickstart_in_a_connected_snap_reports_it_is_ready(monkeypatch):
+    """The other half: once both interfaces are connected there is nothing left
+    to do, and the confined branch must not nag forever."""
+    plat = _Platform(running=False)
+    _patch(monkeypatch, plat)
+    monkeypatch.setattr("sys.platform", "linux")
+    monkeypatch.setattr(
+        "yazses.system.setup.build_plan",
+        lambda: SetupPlan(session="wayland", confined=True),
+    )
+    monkeypatch.setattr("yazses.system.setup.snap_mic_pending", lambda env=None: False)
+    monkeypatch.setattr("yazses.system.setup.snap_rawinput_pending", lambda env=None: False)
+    result = runner.invoke(cli.app, ["quickstart"])
+    assert result.exit_code == 0
+    assert "already set up" in result.output.lower()
 
 
 def test_quickstart_changes_nothing(monkeypatch):
