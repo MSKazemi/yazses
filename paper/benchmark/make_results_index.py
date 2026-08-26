@@ -52,6 +52,12 @@ MEASURES = {
         "decodes per arm -- on `base.en`, the checkpoint a default install runs, to "
         "test whether the `large-v3` result generalises to the shipped model"
     ),
+    # Keyed on the two-word prefix, not `centroid`, so a future centroid measurement
+    # of something else cannot inherit this description by accident.
+    "centroid-merge": (
+        "whether cluster-centroid cosine separates two clusters of one speaker from "
+        "two real speakers -- the merge-shaped diarization error ADR-v2-133 could not see"
+    ),
     "beam": "WER and RTF across `[stt] beam_size`",
     "commands": "command-grammar accuracy and false-positive rate",
     "diarization": "diarization DER, miss, false alarm, confusion",

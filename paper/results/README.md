@@ -104,6 +104,7 @@ Four rules for using these files, each learned the expensive way:
 | `diarization-*-der.json` | speaker-diarization DER per recording and over the corpus, at the profile's shipped `cluster_threshold` | `bench_diarization.py` |
 | `diarization-*-maxspk4.json` | the same corpus with the speaker count **pinned** to four — the cell that decided whether `--speakers` helps | `bench_diarization.py` |
 | `diarization-*-significance.json` | paired sign test + bootstrap over the *recordings*, for two diarization runs of the same corpus | `analyze_diarization.py` |
+| `centroid-merge-*.json` | per-cluster embedding centroids and every cluster-pair cosine, labelled by whether the pair is really one speaker — the merge-shaped error a fragment test cannot see (ADR-v2-133 addendum) | `probes/centroid_merge.py` → `analyze_centroid.py` |
 | `meta.json` | dysfluency gate, model footprint, engineering scale | `bench_meta.py` |
 | `index.json` | the provenance + summary of one `run_all.py` sweep | `run_all.py` |
 | `platform-resolution.json` | which extras resolve on which OS/arch, and what blocks the rest | `bench_platform_resolution.py` |
