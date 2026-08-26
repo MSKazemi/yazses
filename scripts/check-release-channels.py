@@ -363,6 +363,28 @@ def run(version: str, core_only: bool, ci_only: bool = False) -> list[Result]:
     return results
 
 
+def regressions(new: list[Result], old: list[Result]) -> list[Result]:
+    """Channels that carried the previous release and do not carry this one.
+
+    "Missing" and "regressed" are different findings and only the second one is
+    actionable on a schedule. Six of this project's channels (Flathub, nixpkgs,
+    the AUR, winget, Chocolatey, Homebrew) have no credential wired up, so they
+    are absent for EVERY version -- a daily watcher reporting them would file the
+    same seven-channel issue forever and teach its reader to close it unread.
+
+    The distinction is derived rather than listed. A hand-written set of "the
+    channels that count" is wrong the day a credential is added and wrong again
+    the day one lapses, and nothing would say so; asking "did the previous
+    release reach this channel?" answers it from the store itself, which is the
+    only place that knows.
+
+    A channel that is UNREACHABLE now is never called a regression: not being
+    able to ask is not an answer (see ``_get``). It is reported separately.
+    """
+    was_published = {r.key for r in old if r.ok is True}
+    return [r for r in new if r.ok is False and r.key in was_published]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--version", required=True, help="version without the leading v")
@@ -379,6 +401,13 @@ def main() -> int:
         "container image) -- used to wait for CI to finish before reporting, so "
         "an in-flight channel is never named as missing",
     )
+    ap.add_argument(
+        "--compare-with",
+        metavar="VERSION",
+        help="report only channels that carried VERSION and not --version, i.e. "
+        "channels that went BACKWARDS. Used by the scheduled drift watch, where "
+        "a channel this project has never published to is not news.",
+    )
     ap.add_argument("--format", choices=("markdown", "json"), default="markdown")
     args = ap.parse_args()
 
@@ -387,13 +416,22 @@ def main() -> int:
     # Rolling them together is what made one dropped connection to the AUR read as
     # an unpublished package -- and "publish it again" is the wrong repair for a
     # network blip.
+    if args.compare_with:
+        previous = run(args.compare_with, args.core_only, args.ci_only)
+        results = regressions(results, previous) + [
+            r for r in results if r.ok is UNKNOWN
+        ]
+
     missing = [r for r in results if r.ok is False]
     unknown = [r for r in results if r.ok is UNKNOWN]
 
     if args.format == "json":
         print(json.dumps([r.__dict__ for r in results], indent=2))
     else:
-        print(f"## Release completeness — v{args.version}\n")
+        headline = f"## Release completeness — v{args.version}"
+        if args.compare_with:
+            headline += f" (channels that carried v{args.compare_with})"
+        print(headline + "\n")
         print("| Channel | Published | Detail |")
         print("|---|---|---|")
         for r in results:
@@ -409,7 +447,13 @@ def main() -> int:
                 + " — unreachable, not known to be absent."
             )
         if not missing and not unknown:
-            print("**Every checked channel has this version.**")
+            if args.compare_with:
+                print(
+                    f"**Every channel that carried v{args.compare_with} also has "
+                    f"v{args.version}.**"
+                )
+            else:
+                print("**Every checked channel has this version.**")
 
     # Both are failures: one says a channel is behind, the other says we cannot
     # prove it is not. Neither should be reported as a complete release.

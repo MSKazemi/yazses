@@ -494,3 +494,63 @@ def test_ci_only_covers_the_container_image_and_core_only_does_not(crc, response
     ci_keys = {r.key for r in crc.run("2.18.2", core_only=False, ci_only=True)}
     assert "docker" not in core_keys, f"--core-only must not gate on the image: {core_keys}"
     assert "docker" in ci_keys, f"--ci-only must wait for the image: {ci_keys}"
+
+
+# --- regression comparison ---------------------------------------------------
+#
+# The scheduled drift watch (.github/workflows/channel-drift.yml) asks a
+# different question from the tag-time completeness gate: not "is every channel
+# published?" but "did a channel that used to work stop working?". Six of this
+# project's channels have no credential wired up and are absent for every
+# version, so a daily report of plain absence is a standing complaint nobody
+# reads. `regressions()` is what makes the difference, and it derives the answer
+# from the previous release rather than from a hand-written list of channels
+# that count -- a list that would be wrong the day a credential is added and
+# wrong again the day one lapses, with nothing to say so.
+
+
+def _r(crc, key, ok):
+    return crc.Result(key, key.upper(), ok, "")
+
+
+def test_a_channel_that_carried_the_previous_release_and_not_this_one_is_a_regression(crc):
+    new = [_r(crc, "snap", False), _r(crc, "pypi", True)]
+    old = [_r(crc, "snap", True), _r(crc, "pypi", True)]
+    assert [r.key for r in crc.regressions(new, old)] == ["snap"]
+
+
+def test_a_channel_that_never_carried_anything_is_not_reported(crc):
+    """Flathub, nixpkgs and the AUR are absent for every version by design."""
+    new = [_r(crc, "flathub", False), _r(crc, "nix", False)]
+    old = [_r(crc, "flathub", False), _r(crc, "nix", False)]
+    assert crc.regressions(new, old) == []
+
+
+def test_an_unreachable_channel_is_never_called_a_regression(crc):
+    """Not being able to ask is not an answer -- the `_get` lesson, again.
+
+    A dropped connection to the AUR once made this script report an unpublished
+    package; the repair for that is not "publish it again".
+    """
+    new = [_r(crc, "aur", crc.UNKNOWN)]
+    old = [_r(crc, "aur", True)]
+    assert crc.regressions(new, old) == []
+
+
+def test_a_channel_that_only_appeared_in_the_new_release_is_not_a_regression(crc):
+    """A newly wired-up credential must not read as a fault the day before."""
+    new = [_r(crc, "choco", True)]
+    old = [_r(crc, "choco", False)]
+    assert crc.regressions(new, old) == []
+
+
+def test_an_empty_previous_release_reports_nothing_rather_than_everything(crc):
+    """The empty-collection trap: a comparison with nothing must not be a pass.
+
+    It reports no regressions, which is correct -- but the *workflow* must then
+    fall back to the plain completeness report rather than treating "no previous
+    release" as "all clear". That fallback is asserted in
+    tests/test_channel_drift_watch.py; this records the half that lives here.
+    """
+    new = [_r(crc, "snap", False), _r(crc, "pypi", False)]
+    assert crc.regressions(new, []) == []

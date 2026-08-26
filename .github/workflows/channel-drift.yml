@@ -1,0 +1,168 @@
+name: Channel drift watch
+
+# Why this exists
+# ---------------
+# `release-complete.yml` runs on the tag push and answers "did this release
+# ship?" at the one moment the answer is guaranteed to be no for the slow
+# channels. The Snap Store in particular assigns a revision in about a minute
+# and then reviews it for anywhere between a few minutes and, on 2026-08-24,
+# more than two days -- so a tag-time verdict about `latest/stable` is not a
+# verdict about anything.
+#
+# Nothing ever asked again. That is how the store served 2.19.0 while the
+# project shipped 2.29.0, and how 2.31.0 sat APPROVED and unreleased on both
+# architectures for two days with every dashboard green: revision #390 wedged
+# the store's in-order review queue, revisions #391-#404 stacked up behind it,
+# and no signal reached the repository at all.
+#
+# This job is that second question, asked every day. The grace period below is
+# the whole point of it: a channel that is behind an hour-old tag is in flight,
+# and a channel still behind a tag from two days ago is stalled. Those look
+# identical to a tag-time check and completely different to this one.
+
+on:
+  schedule:
+    # Daily. The exact time is arbitrary; it is offset from the hour because
+    # GitHub delays cron runs that pile up on :00.
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to check (default: the newest release)"
+        required: false
+        type: string
+      grace_hours:
+        description: "Hours a channel is allowed to be in flight before this reports it"
+        required: false
+        default: "24"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: channel-drift
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write # the report is an issue, kept current rather than reposted
+    env:
+      GH_TOKEN: ${{ github.token }}
+      # No checkout has happened when this is evaluated, and `gh` cannot infer a
+      # repository without one. State it, the way release-complete.yml does.
+      GH_REPO: ${{ github.repository }}
+      LABEL: channel-drift
+      ISSUE_TITLE: "Distribution channels are behind the newest release"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Resolve the release to check
+        id: target
+        run: |
+          set -euo pipefail
+          TAG="${{ inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            TAG=$(gh release view --json tagName -q .tagName)
+          fi
+          PUBLISHED=$(gh release view "$TAG" --json publishedAt -q .publishedAt)
+          # The release BEFORE this one, which is what turns "absent" into
+          # "regressed" further down. Drafts and pre-releases are excluded: a
+          # dev tag was never published to a package channel, so comparing
+          # against one would find every channel already "missing" and report
+          # nothing. `.[1]` after filtering, not `.[1]` of the raw list.
+          PREVIOUS=$(gh api "repos/${GH_REPO}/releases" --paginate \
+            --jq '[.[] | select(.draft == false and .prerelease == false) | .tag_name]' \
+            | jq -r --arg t "$TAG" '[.[] | select(. != $t)] | .[0] // empty')
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "previous=${PREVIOUS#v}" >> "$GITHUB_OUTPUT"
+          echo "published=$PUBLISHED" >> "$GITHUB_OUTPUT"
+          echo "Newest release $TAG (published $PUBLISHED), previous ${PREVIOUS:-none}"
+
+      - name: Is it still in flight?
+        id: age
+        run: |
+          set -euo pipefail
+          GRACE="${{ inputs.grace_hours || '24' }}"
+          PUBLISHED_TS=$(date -u -d "${{ steps.target.outputs.published }}" +%s)
+          AGE_H=$(( ( $(date -u +%s) - PUBLISHED_TS ) / 3600 ))
+          echo "age_hours=$AGE_H" >> "$GITHUB_OUTPUT"
+          if (( AGE_H < GRACE )); then
+            echo "in_flight=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::${{ steps.target.outputs.tag }} is ${AGE_H}h old (grace ${GRACE}h) -- channels still publishing, not reporting."
+          else
+            echo "in_flight=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Ask every channel
+        id: check
+        if: steps.age.outputs.in_flight == 'false'
+        # The script exits 1 when a channel is missing OR unreachable. That is a
+        # finding here, not a job failure -- the failure this workflow reports is
+        # about the store, and a red X on the workflow itself would say nothing
+        # the issue does not say better. `continue-on-error` would still paint the
+        # run red, so the status is captured instead.
+        run: |
+          set -uo pipefail
+          # --compare-with is what keeps this from crying wolf. Six channels have
+          # no credential wired up and are absent for every version; asking only
+          # about channels the PREVIOUS release actually reached turns a standing
+          # seven-channel complaint into the one channel that went backwards.
+          # Without a previous release there is nothing to compare against, so
+          # fall back to the plain completeness report.
+          PREV="${{ steps.target.outputs.previous }}"
+          ARGS=(--version "${{ steps.target.outputs.version }}")
+          [ -n "$PREV" ] && ARGS+=(--compare-with "$PREV")
+          python3 scripts/check-release-channels.py "${ARGS[@]}" > report.md
+          echo "drift=$?" >> "$GITHUB_OUTPUT"
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Report or clear
+        if: steps.age.outputs.in_flight == 'false'
+        run: |
+          set -euo pipefail
+          gh label create "$LABEL" --color B60205 \
+            --description "A published release has not reached every channel" 2>/dev/null || true
+
+          # `.[0].number` on an empty array prints the string "null", which is
+          # truthy to `[ -n ... ]` and would send every `gh issue edit` at an
+          # issue numbered "null". `// empty` is what makes absence empty.
+          EXISTING=$(gh issue list --state open --label "$LABEL" \
+                       --json number -q '.[0].number // empty' || true)
+
+          if [ "${{ steps.check.outputs.drift }}" = "0" ]; then
+            if [ -n "$EXISTING" ]; then
+              gh issue comment "$EXISTING" --body \
+                "Every channel now carries ${{ steps.target.outputs.tag }}. Closing."
+              gh issue close "$EXISTING"
+            fi
+            echo "All channels carry ${{ steps.target.outputs.tag }}."
+            exit 0
+          fi
+
+          {
+            echo "\`${{ steps.target.outputs.tag }}\` was published \
+          ${{ steps.age.outputs.age_hours }} hours ago and has not reached every channel."
+            echo
+            cat report.md
+            echo
+            echo "---"
+            echo "Kept current by [channel-drift.yml](../blob/main/.github/workflows/channel-drift.yml);"
+            echo "it closes itself when every channel catches up. Re-run it with \`workflow_dispatch\`"
+            echo "after fixing a channel rather than waiting for tomorrow."
+          } > body.md
+
+          # The body is EDITED rather than a comment appended, and the title
+          # carries no version. One issue, always showing the current answer:
+          # a daily comment on a stall that lasts a week is a thread nobody
+          # reads, and a per-version title leaves the previous one open forever.
+          if [ -n "$EXISTING" ]; then
+            gh issue edit "$EXISTING" --title "$ISSUE_TITLE" --body-file body.md
+            echo "Updated #$EXISTING"
+          else
+            gh issue create --title "$ISSUE_TITLE" --label "$LABEL" --body-file body.md
+          fi
