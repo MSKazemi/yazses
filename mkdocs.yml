@@ -126,6 +126,9 @@ extra_css:
 # what a reader actually sees (which Google requires, and which a hand-written
 # duplicate block would eventually violate).
 hooks:
+  # MkDocs otherwise stamps every sitemap URL with the build date. Derive
+  # truthful per-page dates from git, and omit the field for generated pages.
+  - hooks/sitemap_dates.py
   - hooks/faq_schema.py
   # `research_schema` does the same for the research section: it derives
   # ScholarlyArticle JSON-LD (including the `citation` list) from each page's own
