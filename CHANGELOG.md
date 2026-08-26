@@ -6,6 +6,98 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a meeting no longer disappears into a collapsed transcript
+
+A real 41-minute meeting finalized as `status: "done"`, `capture: "ok"`, with a
+`transcript.md` that was 93 repetitions of "Hello, hello, hello." The batch decode had
+collapsed into a repetition loop — a known decoder failure — and every guard passed it:
+`capture_state` asks whether audio was *heard* (it was), `attribution_suspect` asks who
+said what (there was one speaker). Because the post-pass raised nothing, the recording
+was deleted as a successful consumption and the meeting became unrecoverable. Its only
+surviving record was `live.jsonl`, which nothing rendered and nothing mentioned.
+
+- **Every meeting is now transcribed twice, and both are kept.** The rolling live decode
+  is rendered to `live-transcript.md` on the way out — *before* the batch pass runs, so a
+  finalize that dies still leaves it — and is never deleted.
+- **The batch transcript is judged, and the verdict is written down.** A new pure
+  `meeting/quality.py` measures repetition share, distinct-phrase ratio, longest
+  back-to-back repeat, words-per-minute, and — the strongest signal, needing no threshold
+  — how far the batch pass disagrees with the live decode of the same audio. Thresholds
+  were measured against five real stored meetings; on that corpus the check catches the
+  collapsed one (97% one phrase, 3.5% distinct, 16× live disagreement) and fires on none
+  of the four healthy ones. Metrics land in `quality.json` for every meeting, healthy or
+  not, so a verdict can be read next to the numbers it did *not* fire on.
+- **The recording is kept when the verdict is bad**, regardless of `[meeting]
+  retain_audio`. Deleting on "no exception" is what made the original meeting
+  unrecoverable; the recording is the only input that can produce a better transcript.
+- **The minutes pass is skipped on a collapsed transcript**, as it already was for a
+  recording holding no speech. A summary of invented words reads exactly like a real
+  one. `yazses meeting notes --force` overrides.
+- **`yazses meeting recover` now accepts a meeting that finished badly**, not only one
+  that never finished — previously `status: "done"` ended the conversation, so the
+  meeting that most needed a retry was the one that could not have one. It archives the
+  previous outputs to `attempts/<n>/` rather than overwriting them, and `--force`
+  re-runs a meeting that finished cleanly.
+- **Nothing is ever deleted.** No transcript, JSON, or markdown file is overwritten in
+  place by a retry.
+
+### Added — `yazses meeting summary`, and an end-of-meeting readout
+
+- New `yazses meeting summary [<id>]` (omit the id for the most recent): what the meeting
+  produced, where each file is, what each file is *for*, and — first, above the file list
+  — anything that should stop you reading the transcript as a record. Exits `2` when the
+  transcript is not usable.
+- The same readout is written into the meeting folder as `summary.md` at stop and shown
+  as a desktop notification when the post-pass finishes. Meeting Mode has no key held and
+  no terminal watched, and its post-pass ends long after the user has walked away; a
+  post-pass that *fails* now notifies too, rather than reporting only to the log.
+- The verdict reaches meetings recorded **before** the check existed: `meeting summary`
+  computes it from the stored transcript and writes it back, so the fix applies backwards
+  to meetings that already happened.
+- `yazses meeting list` marks an unusable transcript `⚠ BAD TRANSCRIPT` and points at
+  `live-transcript.md`. A finished-but-bad meeting is no longer described as
+  `unfinished` — it ran to the end, and `recoverable` had quietly become a synonym for
+  something it no longer meant.
+- `yazses meeting stop` now names the three files that will appear and the command that
+  explains them.
+
+### Fixed — Snap setup and instructions now respect confinement
+
+- `yazses setup` now detects a strictly confined snap and prints the two required
+  `snap connect` commands instead of trying to execute `sudo` and crashing with
+  `PermissionError`.
+- The Snap Store description and installation docs no longer present `yazses setup`
+  as a host-provisioning step inside the strictly confined snap, where executing
+  `sudo`, installing host packages, changing groups, and configuring `ydotoold`
+  cannot work.
+- Snap dictation is now labelled X11-only everywhere it is offered. Wayland pages use
+  the universal Linux installer, while X11 Snap instructions explicitly connect both
+  required interfaces before running `yazses doctor`.
+- The install checklist now carries `snap connect yazses:raw-input`. It had only ever
+  offered the microphone interface and then `usermod -aG input` — the loop that cannot
+  succeed inside confinement ([#44](https://github.com/MSKazemi/yazses/issues/44)) —
+  so the one screen telling a user what to do omitted the only step that grants the
+  hotkey, while `yazses start`'s warning had known about it all along.
+- `yazses quickstart` no longer reports "Prerequisites — already set up ✓" inside a
+  snap whose interfaces are unconnected. A confined plan is empty because nothing in
+  it is the app's to do, which is the opposite of a provisioned machine.
+- `yazses setup` no longer exits with a traceback when a command cannot be executed
+  at all. `check=False` suppresses a non-zero exit status, not a failure to `exec`,
+  so a sandbox denial or a missing binary escaped as `PermissionError`/`FileNotFoundError`
+  out of the one command whose job is repairing a machine that does not work yet.
+
+### Improved — search and answer-engine discovery
+
+- The Linux use-case page now answers the actual phrases appearing in Search Console
+  (Linux voice typing, offline speech-to-text, Ubuntu and Wayland) in its title, opening
+  answer and a concise question section, without changing the product claims.
+- The homepage's structured data now connects the software entity to its canonical
+  website and web page, and every page advertises the compact `llms.txt` product guide
+  alongside its existing Markdown twin for machine readers.
+- Sitemap entries now use each source page's latest committed date instead of claiming
+  that all 478 pages changed on every build. Four duplicated design-index URLs caused
+  by publishing a section README and its generated replacement were removed.
+
 ### Fixed — Snap publishing no longer aborts after finding an accepted revision
 
 - Both architectures in the v2.31.0 publish run uploaded successfully, but the
@@ -14,8 +106,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   stdout pipe as exit 120 and the workflow never reached `snapcraft release`.
 - The workflow now captures the complete revision table before parsing it, while
   retaining the bounded upload wait, architecture-qualified lookup, explicit
-  `stable,edge` release, and channel read-back. A regression test locks the
-  producer/consumer boundary that failed in production.
+  `stable,edge` release, and channel read-back. The original upload also records
+  `stable,edge`, so a revision that is still awaiting review can publish when it
+  is approved instead of requiring another upload. A regression test executes
+  the real workflow shell for both architectures and locks both failure boundaries.
 
 ### Added — `[stt] condition_on_previous_text`, the knob the 2x2 found had no way to be reached
 

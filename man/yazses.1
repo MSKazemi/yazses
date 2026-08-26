@@ -296,6 +296,11 @@ Write notes even for a recording that holds no speech.
 .TP
 \fByazses meeting recover\fR \fIMEETING_ID\fR
 Re-run the post-pass on a meeting whose finalize never completed.
+.RS
+.TP
+\fB\-\-force\fR
+Re-run even a meeting that finished cleanly (its outputs are archived, never overwritten).
+.RE
 .TP
 \fByazses meeting relabel\fR \fIMEETING_ID\fR
 Fix speaker labels \(em merge two clusters and/or rename them \(em and re-render.
@@ -324,6 +329,9 @@ Show the running meeting (elapsed + live transcript) or recent meetings.
 .TP
 \fByazses meeting stop\fR
 Stop the recording and generate the speaker-labelled transcript (and notes).
+.TP
+\fByazses meeting summary\fR \fIMEETING_ID\fR
+Show what a meeting produced, where each file is, and what not to trust.
 .SS "yazses mic-level"
 Measure mic speech level and recommend (or set) the VAD threshold.
 .RS

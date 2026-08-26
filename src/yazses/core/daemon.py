@@ -3926,7 +3926,6 @@ class Daemon:
             self._meeting_finalizing = True
             self._state.state = TrayState.TRANSCRIBING
 
-        cfg = self._config.meeting
         try:
             if recorder is not None:
                 recorder.stop()
@@ -3954,17 +3953,32 @@ class Daemon:
                 info = controller.finalize(audio)
                 log.info("Meeting finalized: %s (%d speakers)",
                          info["id"], info["num_speakers"])
-                if not cfg.retain_audio:
+                # `audio_kept` is the controller's decision, not `retain_audio` read a
+                # second time here. A post-pass can *succeed* and still return a
+                # transcript that is not a record of the meeting -- a decode that
+                # collapsed into a repetition loop returns cleanly, and deleting the
+                # recording on the strength of "no exception" is what made one real
+                # 41-minute meeting unrecoverable. The recording is the only input that
+                # can produce a better transcript on a retry, so a pass the quality
+                # check will not vouch for keeps it regardless of the config.
+                if not info.get("audio_kept"):
                     try:
                         wav_path.unlink()
                     except OSError:
                         pass
+                else:
+                    log.info("Recording KEPT at %s (retry: `yazses meeting recover %s`)",
+                             wav_path, info["id"])
+                self._announce_meeting_result(info)
             except Exception:
                 log.exception(
                     "Meeting finalize failed — the recording has been KEPT at %s "
                     "so it can be retried; it is not deleted until finalize succeeds",
                     wav_path,
                 )
+                # The stop call returned `ok: True` minutes ago and the user has walked
+                # away; without this the only report of a lost meeting is a log line.
+                self._notify_meeting_failure(controller.meeting_id, controller.dir)
             finally:
                 with self._lock:
                     self._meeting_finalizing = False
@@ -3974,6 +3988,56 @@ class Daemon:
         threading.Thread(target=_finalize, name="meeting-finalize", daemon=True).start()
         return {"ok": True, "meeting_id": controller.meeting_id,
                 "dir": str(controller.dir), "finalizing": True}
+
+    def _announce_meeting_result(self, info: dict) -> None:
+        """Tell the user how the meeting came out, and where. Never raises.
+
+        Meeting Mode is the one capability with no key held and no terminal watched: the
+        post-pass finishes minutes to hours after ``meeting stop`` returned, long after
+        the user closed the laptop lid on a call. Everything the daemon learned about the
+        result — that the decode collapsed, that the recording was kept, which of the two
+        transcripts to read — reaches them here or nowhere.
+
+        The full readout is already on disk as ``summary.md``; a toast has room for the
+        verdict and the folder, so it carries those and points at the rest.
+        """
+        try:
+            from yazses.system.notify import notify
+
+            mid = info.get("id", "")
+            warning = str(info.get("quality_warning") or "")
+            if warning:
+                title = "YazSes — meeting transcript is NOT reliable"
+                body = f"{warning}\n{info.get('dir', '')}"
+            else:
+                speakers = info.get("num_speakers") or 0
+                title = f"YazSes — meeting {mid} ready"
+                body = (
+                    f"{'Speaker-labelled t' if info.get('diarized') else 'T'}ranscript"
+                    f"{f' ({speakers} speakers)' if speakers else ''}"
+                    f"{' + notes' if info.get('has_notes') else ''} in\n{info.get('dir', '')}"
+                )
+            notify(title, body)
+        except Exception:  # pragma: no cover - a toast never costs a finished meeting
+            log.debug("Could not announce the meeting result", exc_info=True)
+
+    def _notify_meeting_failure(self, meeting_id: str, meeting_dir) -> None:
+        """Tell the user the post-pass died and what survived it. Never raises."""
+        try:
+            from yazses.meeting import store
+            from yazses.system.notify import notify
+
+            live = len(store.read_live_lines(meeting_dir))
+            survives = (
+                f"The live transcript ({live} lines) and the recording were kept."
+                if live else "The recording was kept."
+            )
+            notify(
+                "YazSes — meeting post-pass failed",
+                f"{survives}\nRetry: yazses meeting recover {meeting_id}\n{meeting_dir}",
+            )
+        except Exception:  # pragma: no cover - defensive
+            log.debug("Could not announce the meeting failure", exc_info=True)
 
     def _auto_stop_meeting(self) -> None:
         """Auto-stop hook fired from the controller when ``max_minutes`` is reached.

@@ -1296,10 +1296,11 @@ clustering**, not pitch. Off by default — enable with `yazses features enable 
 | `yazses meeting start` | Start recording hands-free (no key to hold). Requires `[meeting] enabled = true`. |
 | `yazses meeting stop` | Stop; run the diarization post-pass and write the speaker-labelled transcript (and notes if enabled). |
 | `yazses meeting status` | Show the running meeting (elapsed + live transcript), or recent meetings. Says so plainly when Meeting Mode is off. |
-| `yazses meeting list` | List stored meetings on this machine (no daemon required). |
+| `yazses meeting list` | List stored meetings on this machine (no daemon required). Marks any meeting whose transcript failed its quality check `⚠ BAD TRANSCRIPT`. |
+| `yazses meeting summary [<id>]` | Show what a meeting produced, where each file is, and what not to trust. Omit the id for the most recent meeting. Exits `2` when the transcript is not a usable record. |
 | `yazses meeting relabel <id>` | Fix speaker labels and re-render: `--merge SPEAKER_2=speaker_1` folds clusters, `--rename speaker_1=Alice` names one (both repeatable); `--format`/`-f` picks the re-render format (default `md`). |
 | `yazses meeting notes <id>` | Generate minutes (summary, decisions, action items) from a stored transcript. Needs `[meeting] notes = true` and a local `notes_model` GGUF; runs locally (slow on CPU). |
-| `yazses meeting recover <id>` | Re-run the post-pass on a meeting whose finalize never completed. The recording is deleted only *after* a successful post-pass, so a crash leaves the whole meeting on disk; this transcribes, diarizes and names it and writes the same outputs. Never deletes the recording; refuses a meeting that already finished. |
+| `yazses meeting recover <id>` | Re-run the post-pass on a meeting whose finalize never completed **or whose transcript failed its quality check**. The recording is kept whenever either is true, so a crash — and a decode that collapsed — leaves the whole meeting on disk; this transcribes, diarizes and names it and writes the same outputs. Never deletes the recording, and archives the previous outputs to `attempts/<n>/` rather than overwriting them. `--force` re-runs a meeting that finished cleanly. |
 | `yazses meeting enroll <id> --speaker <cluster> --name <name>` | Enroll one speaker from a stored meeting as a named voiceprint, so they are auto-named next time. Both flags are required. Needs the recording to still exist — i.e. the meeting ran with `[meeting] retain_audio = true`. |
 
 ```bash
@@ -1313,7 +1314,48 @@ yazses meeting relabel <id> --rename speaker_1=Alice --merge speaker_2=speaker_1
 yazses meeting notes <id>          # local-LLM minutes (needs notes_model)
 yazses meeting enroll <id> --speaker speaker_1 --name Alice   # name them for good
 yazses meeting recover 20260812-140310   # a meeting that crashed: re-run the post-pass
+yazses meeting summary             # where are my notes? (most recent meeting)
+yazses meeting summary 20260812-140310
 ```
+
+### Where the notes are, and whether to believe them
+
+`meeting summary` is the answer to "I had a meeting — where is the transcript?". It prints
+the folder, every artefact in it with what that artefact is *for*, and — first, before the
+file list — anything about the result that should stop you reading it as a record:
+
+```text
+Meeting 20260826-100205
+  Duration: 41m 39s
+  ⚠ transcript.md collapsed into a repetition loop — do NOT read it as a record.
+      · one phrase is 97% of the transcript (a healthy decode stays under 20%)
+      · the live transcript of the same audio holds 4553 words against this pass's 284 (16.0x)
+  Speakers: not separated (diarization off or unavailable)
+  Files:
+    ✅ live-transcript.md — live transcript streamed during the meeting (4553 words) — READ THIS ONE
+       transcript.md — batch transcript ⚠ UNRELIABLE
+       transcript.json — word-level timings + speakers (machine-readable)
+       live.jsonl — raw live-decode records
+       quality.json — decode-quality metrics for this meeting
+       audio.wav — recording KEPT (re-run: `yazses meeting recover 20260826-100205`)
+  Folder: /home/you/.local/share/yazses/meetings/20260826-100205
+```
+
+The same text is written into the meeting folder as `summary.md` at stop, and shown as a
+desktop notification when the post-pass finishes — a meeting has no key held and no
+terminal watched, and its post-pass ends long after you have walked away.
+
+**Every meeting is transcribed twice.** `live-transcript.md` is the rolling decode written
+line by line *during* the meeting; `transcript.md` is the accurate batch pass at stop. They
+are independent, and neither is ever deleted. When they disagree sharply, the batch pass has
+usually collapsed — a well-known decoder failure where it emits one phrase for the rest of
+the file — and the live transcript is the better record. `quality.json` records the numbers
+behind that judgement for every meeting, healthy or not.
+
+A transcript that fails its quality check changes three things: the recording is **kept**
+regardless of `[meeting] retain_audio`, the minutes pass is skipped (a summary of invented
+words reads exactly like a real one — `meeting notes --force` overrides), and the meeting is
+offered for `meeting recover` even though it finished.
 
 Each stored meeting lists as `id · length · speakers · directory`, and the length is the
 column that tells them apart — a real meeting sits among the accidental starts that a

@@ -10,8 +10,11 @@ injectable; with fakes the whole flow is unit-testable with no model download.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
+
+# Pure stdlib, no models: safe to import eagerly beside the lazy heavy backends.
+from yazses.meeting.quality import TranscriptQuality, assess
 
 if TYPE_CHECKING:
     # Annotation-only imports: the real modules are imported lazily inside
@@ -22,6 +25,7 @@ if TYPE_CHECKING:
     from yazses.recimport.pipeline import TranscriptResult
 
 
+
 log = logging.getLogger(__name__)
 
 
@@ -29,6 +33,10 @@ log = logging.getLogger(__name__)
 class MeetingResult:
     transcript: TranscriptResult
     minutes: Minutes | None
+    # Whether the batch decode is worth believing. Computed here rather than by the
+    # caller so every finalize path -- the live one and `meeting recover` -- gets the
+    # same verdict from the same numbers, and so the notes decision below can read it.
+    quality: TranscriptQuality = field(default_factory=TranscriptQuality)
 
 
 def finalize_meeting(
@@ -44,8 +52,14 @@ def finalize_meeting(
     profiles=None,
     llm=None,
     progress=None,
+    live_words: int = 0,
 ) -> MeetingResult:
-    """Transcribe + diarize the recording and (opt-in) generate minutes."""
+    """Transcribe + diarize the recording and (opt-in) generate minutes.
+
+    ``live_words`` is the word count of the rolling ``live.jsonl`` decode of this same
+    audio. It is the second opinion the collapse check leans on hardest, and it has to
+    be passed in because this function is deliberately filesystem-free.
+    """
     from yazses.recimport.pipeline import transcribe_file
 
     result = transcribe_file(
@@ -84,7 +98,32 @@ def finalize_meeting(
     if suspect:
         log.warning("%s The transcript's words are unaffected.", suspect)
 
-    if getattr(config, "notes", False) and not unusable:
+    # How long the recording actually was, from the audio rather than from a caller's
+    # bookkeeping: `recover` reconstructs duration from the WAV and the live path from a
+    # sample count, and a quality verdict that depended on which one asked would be two
+    # different guards wearing one name.
+    try:
+        duration_s = len(audio) / float(sample_rate or 16000)
+    except (TypeError, ZeroDivisionError):  # pragma: no cover - defensive
+        duration_s = 0.0
+    quality = assess(getattr(result, "text", "") or "", duration_s, live_words)
+    if quality.suspect:
+        log.warning(
+            "Meeting transcript quality is %s: %s",
+            quality.verdict, "; ".join(quality.reasons) or "no detail",
+        )
+
+    # A collapsed or near-empty decode is skipped for the same reason `unusable` is:
+    # minutes are a local LLM reading the transcript back, and asked to summarise 41
+    # minutes of "Hello, hello, hello" it will produce confident bullet points about a
+    # meeting that did not happen -- the one artefact nobody can audit afterwards.
+    # Deliberately *not* extended to `live_disagrees` alone: there the batch transcript
+    # is short but real, and the notes over it are merely incomplete, not invented.
+    collapsed = quality.verdict in ("degenerate", "thin")
+    if collapsed:
+        log.warning("Skipping the notes pass: the transcript is not a usable record.")
+
+    if getattr(config, "notes", False) and not unusable and not collapsed:
         from yazses.meeting.notes import generate_minutes
 
         # The transcript is the expensive, irreplaceable half: an hour of audio decoded
@@ -105,4 +144,4 @@ def finalize_meeting(
         except Exception:  # noqa: BLE001 - an optional extra never costs the transcript
             log.exception("Minutes generation failed; keeping the transcript.")
             minutes = None
-    return MeetingResult(transcript=result, minutes=minutes)
+    return MeetingResult(transcript=result, minutes=minutes, quality=quality)

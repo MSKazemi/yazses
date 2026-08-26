@@ -314,6 +314,7 @@ Generate meeting minutes (summary, decisions, action items) from the transcript.
 Re-run the post-pass on a meeting whose finalize never completed.
 
 - **Arguments:** `meeting_id`
+- `--force` — Re-run even a meeting that finished cleanly (its outputs are archived, never overwritten).
 
 ### `yazses meeting relabel`
 
@@ -337,6 +338,12 @@ Show the running meeting (elapsed + live transcript) or recent meetings.
 ### `yazses meeting stop`
 
 Stop the recording and generate the speaker-labelled transcript (and notes).
+
+### `yazses meeting summary`
+
+Show what a meeting produced, where each file is, and what not to trust.
+
+- **Arguments:** `meeting_id`
 
 ## `yazses mic-level`
 

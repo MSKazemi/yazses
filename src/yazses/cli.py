@@ -293,7 +293,11 @@ def meeting_stop() -> None:
     if result.get("ok"):
         typer.echo(f"Stopped meeting {result['meeting_id']}. Transcribing + finding speakers…")
         typer.echo(f"  Results will appear in: {result['dir']}")
+        typer.echo("    transcript.md       — the batch transcript (speaker-labelled)")
+        typer.echo("    live-transcript.md  — the live decode, written as you spoke")
+        typer.echo("    summary.md          — what came out, and what to distrust")
         typer.echo("  Check progress: yazses meeting status")
+        typer.echo(f"  Read the summary:  yazses meeting summary {result['meeting_id']}")
     else:
         typer.echo(f"Could not stop meeting: {result.get('reason')}", err=True)
         raise typer.Exit(1)
@@ -397,7 +401,11 @@ def _speaker_summary(m: dict) -> str:
     "this meeting never finished". The recovery line below says what happened;
     this must not contradict it.
     """
-    if m.get("recoverable"):
+    # `recoverable` is no longer a synonym for "unfinished": a meeting that finished
+    # and produced an unusable transcript is offered for recovery too, and calling it
+    # unfinished is a false statement about a meeting that ran to the end. The status
+    # is the fact; recoverability is a consequence, and only one of them belongs here.
+    if m.get("recoverable") and m.get("status") != "done":
         return "unfinished"
     if m.get("diarized") is False:
         return "not diarized"
@@ -423,6 +431,11 @@ def _meeting_row(m: dict) -> str:
     if length := store.duration_summary(m):
         parts.append(length)
     parts.append(_speaker_summary(m) + (" +notes" if m.get("has_notes") else ""))
+    # Loud, and in the columns rather than only in the advice below the row: a meeting
+    # whose transcript is not a record of the meeting must not read like the others in a
+    # list that is skimmed.
+    if m.get("quality_suspect"):
+        parts.append("⚠ BAD TRANSCRIPT")
     parts.append(str(m.get("dir", "")))
     return "  ".join(parts)
 
@@ -506,6 +519,11 @@ def meeting_relabel(
 @meeting_app.command("recover")
 def meeting_recover(
     meeting_id: str = typer.Argument(..., help="Meeting id (see `yazses meeting list`)."),
+    force: bool = typer.Option(
+        False, "--force",
+        help="Re-run even a meeting that finished cleanly (its outputs are archived, "
+             "never overwritten).",
+    ),
 ) -> None:
     """Re-run the post-pass on a meeting whose finalize never completed.
 
@@ -524,15 +542,79 @@ def meeting_recover(
 
     cfg = load_config(get_platform().paths.config_file)
     d = _meeting_dir(meeting_id)
-    if (reason := recovery_refusal(d, store.read_meta(d))):
+    if (reason := recovery_refusal(d, store.read_meta(d), force=force)):
         typer.echo(reason, err=True)
         raise typer.Exit(1)
     typer.echo(f"Recovering {meeting_id} from {d / 'audio.wav'}… (this can take a while)")
     info = recover_meeting(d, cfg.meeting)
+    if archived := info.get("archived_previous"):
+        typer.echo(f"Previous outputs archived to {archived} (nothing was deleted).")
     for name, path in info["files"].items():
         typer.echo(f"Wrote {path}  ({name})")
+    typer.echo("")
+    for line in info.get("summary", []):
+        typer.echo(line)
     if (warning := store.capture_warning(info)):
         typer.echo(f"\n{warning}", err=True)
+    # A retry can collapse the same way the first pass did — the input has not changed.
+    # Exiting 0 on that would report a repair that did not happen.
+    if info.get("quality_suspect"):
+        typer.echo(f"\n{info.get('quality_warning', '')}", err=True)
+        raise typer.Exit(1)
+
+
+@meeting_app.command("summary")
+def meeting_summary(
+    meeting_id: str = typer.Argument(
+        "", help="Meeting id (see `yazses meeting list`). Omit for the most recent."
+    ),
+) -> None:
+    """Show what a meeting produced, where each file is, and what not to trust.
+
+    The answer to "I had a meeting — where are the notes?". Rendered from
+    `meeting.json` + `quality.json` through the same function that writes `summary.md`
+    at finalize, rather than by printing that file: a meeting recorded before summaries
+    existed has no `summary.md` and is still described exactly like a new one, and the
+    two surfaces cannot drift into describing one meeting differently.
+    """
+    from yazses.config import load_config
+    from yazses.meeting import store
+
+    cfg = load_config(get_platform().paths.config_file)
+    meetings = store.list_meetings(cfg.meeting)
+    if not meetings:
+        typer.echo("No meetings found.")
+        raise typer.Exit(1)
+    if meeting_id:
+        match = [m for m in meetings if m.get("id") == meeting_id]
+        if not match:
+            typer.echo(f"No meeting {meeting_id}. See `yazses meeting list`.", err=True)
+            raise typer.Exit(1)
+        meta = match[0]
+    else:
+        meta = meetings[0]
+
+    d = _meeting_dir(str(meta.get("id", "")))
+    # `ensure_quality`, not `read_quality`: a meeting recorded before the quality check
+    # existed has no verdict, and the meeting that motivated the check is one of them.
+    # It is computed from the stored transcript here and written back, so asking about
+    # an old meeting repairs its record instead of reporting a blank.
+    quality = store.ensure_quality(d, meta)
+    # Rendering an old meeting must not describe it as healthy just because its
+    # `meeting.json` predates the field; the freshly computed verdict wins.
+    meta = {**meta, "quality_suspect": bool(quality.get("suspect"))} if quality else meta
+    if store.write_live_transcript(d, str(meta.get("id", ""))):
+        meta["live_transcript_path"] = str(d / "live-transcript.md")
+    lines = store.summary_lines(
+        meta, live_lines=len(store.read_live_lines(d)), quality=quality,
+    )
+    store.write_summary(d, lines)
+    for line in lines:
+        typer.echo(line)
+    # Exit non-zero on a meeting whose transcript is not a record of the meeting, so a
+    # script that checks meetings does not have to parse prose to notice.
+    if meta.get("quality_suspect"):
+        raise typer.Exit(2)
 
 
 @meeting_app.command("notes")
@@ -566,6 +648,24 @@ def meeting_notes(
     # this is the same rule on the path that regenerates them by hand. Overridable,
     # because a speech detector can be wrong about a very quiet talker and the
     # transcript is right there to judge.
+    # Same rule as the capture check below and for the same reason: minutes generated
+    # from a collapsed decode are a confident write-up of a meeting that did not happen,
+    # and no reader can tell them from a real one. `finalize` already skips the notes
+    # pass for these; this is that rule on the by-hand path.
+    quality_note = store.read_quality(d)
+    if quality_note.get("suspect") and not force:
+        from yazses.meeting.quality import warning_from_dict
+
+        typer.echo(
+            warning_from_dict(quality_note)
+            or "⚠ this transcript did not pass its quality check.", err=True,
+        )
+        typer.echo(
+            "\nRefusing to write minutes from it. Read the transcript first; pass "
+            "--force if it really does hold the meeting.", err=True,
+        )
+        raise typer.Exit(1)
+
     capture_note = store.capture_warning(store.read_meta(d))
     if capture_note and not force:
         typer.echo(f"{capture_note}\n", err=True)

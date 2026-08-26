@@ -164,32 +164,48 @@ def test_the_verdict_is_written_into_meeting_json(tmp_path):
     assert store.capture_warning(store.read_meta(tmp_path))
 
 
-def test_the_controller_records_the_verdict_it_was_given():
-    """AST, not a live controller: building one needs an audio session. What is
-    pinned is that the field reaches `write_meta` at all -- it was computed and
-    dropped everywhere else for a year."""
-    import ast
-    import pathlib
+def test_the_controller_records_the_verdict_it_was_given(tmp_path):
+    """Drive a real controller and read `meeting.json` back off disk.
 
-    src = pathlib.Path("src/yazses/meeting/controller.py").read_text(encoding="utf-8")
-    tree = ast.parse(src)
-    writes = [
-        node
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and node.func.attr == "write_meta"
-    ]
-    assert writes, "write_meta is gone from the controller -- update this guard"
-    keys = [
-        k.value
-        for call in writes
-        for arg in call.args
-        if isinstance(arg, ast.Dict)
-        for k in arg.keys
-        if isinstance(k, ast.Constant)
-    ]
-    assert "capture" in keys, "the finalized meeting no longer records what its audio held"
+    This was an AST probe for a ``"capture"`` key in a dict literal at the
+    ``write_meta`` call, on the stated grounds that "building one needs an audio
+    session". It does not — a fake engine and a numpy array are enough — and the probe
+    went red the first time the dict was assigned to a name before being passed, which
+    is a refactor, not a regression. What it was defending is real (the field was
+    computed and dropped for a year); this defends the same thing by observing it.
+    """
+    import dataclasses
+
+    import numpy as np
+
+    from yazses.config import MeetingConfig
+    from yazses.meeting.controller import MeetingController
+    from yazses.postprocess.prosody import Word
+
+    class _Engine:
+        def transcribe(self, audio, sample_rate=16000):
+            return "live line"
+
+        def transcribe_words(self, audio, sample_rate=16000, initial_prompt=None, task=None):
+            text = " ".join(f"word{'a' * i}" for i in range(600))
+            words = [Word(w, i * 0.5, i * 0.5 + 0.4, 0.9) for i, w in enumerate(text.split())]
+            return text, words
+
+    cfg = dataclasses.replace(MeetingConfig(output_dir=str(tmp_path), diarize=False))
+    d = store.new_meeting(cfg, "m1")
+    ctl = MeetingController(
+        cfg, d, "m1", engine=_Engine(),
+        is_silent=lambda chunk: not np.asarray(chunk).any(), sample_rate=1000,
+    )
+    ctl.start()
+    ctl.feed(np.ones(300, dtype="float32"))
+    ctl.feed(np.zeros(900, dtype="float32"))
+    ctl.stop_capture()
+    ctl.finalize(np.ones(1000 * 300, dtype="float32"))
+
+    on_disk = json.loads((d / "meeting.json").read_text(encoding="utf-8"))
+    assert "capture" in on_disk, "the finalized meeting no longer records what its audio held"
+    assert on_disk["capture"] == store.CAPTURE_OK
 
 
 # --- the commands -------------------------------------------------------------

@@ -21,6 +21,7 @@ import threading
 from yazses.meeting import store
 from yazses.meeting.finalize import finalize_meeting
 from yazses.meeting.notes import render_minutes_md
+from yazses.meeting.quality import warning as quality_warning
 from yazses.meeting.segmenter import UtteranceSegmenter
 from yazses.meeting.session import MeetingSession
 
@@ -165,15 +166,23 @@ class MeetingController:
             profiles.update(self._participants)
             embedder = self._embedder
 
+        # Rendered BEFORE the batch pass runs, not after. This is the copy that has to
+        # survive the post-pass failing, and a finalize that raises (an out-of-memory
+        # decode, a killed daemon) would never reach a line placed below it.
+        store.write_live_transcript(self._session.dir, self.meeting_id)
+        live_words = store.live_word_count(self._session.dir)
+
         result = finalize_meeting(
             audio, self._config, sample_rate=self._sr, engine=self._engine,
             diarizer=self._diarizer, embedder=embedder, profiles=profiles, llm=self._llm,
+            live_words=live_words,
         )
         notes_md = render_minutes_md(result.minutes) if result.minutes else None
         written = store.write_outputs(
             self._session.dir, result.transcript,
             fmt=getattr(self._config, "output_format", "md"), notes_md=notes_md,
         )
+        store.write_quality(self._session.dir, result.quality)
         speakers = sorted(set(result.transcript.speaker_names.values()))
         # What the audio turned out to hold. `transcribe_file` has always answered
         # this and only `yazses transcribe` ever read it, so a meeting recorded
@@ -185,7 +194,14 @@ class MeetingController:
         # Stored rather than only logged: finalize runs long after `meeting stop`
         # returned, so the log line is the one place the user is not looking.
         suspect = getattr(result.transcript, "attribution_suspect", "")
-        store.write_meta(self._session.dir, {
+        # `audio_kept` is decided here and obeyed by the daemon, rather than the daemon
+        # deciding it from `retain_audio` alone. The recording is the only thing that can
+        # produce a *better* transcript on a retry, so a pass the quality check does not
+        # vouch for keeps it whatever the config says -- and `describe_files` can then
+        # name it, which it could not when the caller deleted it afterwards.
+        quality = result.quality
+        audio_kept = bool(getattr(self._config, "retain_audio", False)) or quality.suspect
+        meta = {
             "id": self.meeting_id,
             "duration_s": round(self._session.duration_s(), 1),
             "diarized": result.transcript.diarized,
@@ -194,8 +210,23 @@ class MeetingController:
             "has_notes": notes_md is not None,
             "capture": capture,
             "attribution_suspect": suspect,
+            "quality": quality.verdict,
+            "quality_suspect": quality.suspect,
+            "audio_kept": audio_kept,
             "status": "done",
-        })
+        }
+        store.write_meta(self._session.dir, meta)
+
+        # The readout is built from the metadata that was just written, so the file on
+        # disk, the line the CLI prints and the desktop notification cannot describe the
+        # same meeting differently.
+        lines = store.summary_lines(
+            {**meta, "dir": str(self._session.dir)},
+            live_lines=len(store.read_live_lines(self._session.dir)),
+            quality=quality.as_dict(),
+        )
+        store.write_summary(self._session.dir, lines)
+
         return {
             "id": self.meeting_id,
             "dir": str(self._session.dir),
@@ -205,5 +236,10 @@ class MeetingController:
             "has_notes": notes_md is not None,
             "capture": capture,
             "attribution_suspect": suspect,
+            "quality": quality.verdict,
+            "quality_suspect": quality.suspect,
+            "quality_warning": quality_warning(quality) or "",
+            "audio_kept": audio_kept,
+            "summary": lines,
             "files": {k: str(v) for k, v in written.items()},
         }
