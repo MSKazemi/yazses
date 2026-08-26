@@ -67,6 +67,7 @@ uv run python paper/benchmark/make_figures.py
 | `analyze_beam.py` | paired bootstrap of the WER difference between two beam widths | reads `../results/beam-*.json` |
 | `analyze_onset.py` | exact McNemar between two cells of the onset grid | reads `../results/onset.json` |
 | `analyze_diarization.py` | exact sign test + paired bootstrap over the *recordings*, for two diarization runs of one corpus | reads two `../results/diarization-*.json` |
+| `analyze_centroid.py` | pooled cosine separation between cluster-centroid pairs that share a true speaker and pairs that do not, with a bootstrap interval and a merge-threshold sweep | reads the shards written by `probes/centroid_merge.py` |
 | `bench_meta.py` | dysfluency gate, model on-disk size, test/ADR/SLOC counts | `stt.filters.disfluency`, HF cache scan |
 | `run_all.py` | orchestrates all of the above + provenance + optional coverage | — |
 | `make_features_table.py` | capability-surface table + prose macros for the paper, from the live registry | `system.features` (the registry behind `yazses features`) |
