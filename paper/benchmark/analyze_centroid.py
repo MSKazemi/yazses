@@ -23,14 +23,30 @@ from pathlib import Path
 import numpy as np
 
 
-def load(paths: list[Path]) -> tuple[list[dict], list[dict], dict]:
+def load(paths: list[Path]) -> tuple[list[dict], list[dict], dict, dict]:
+    """Merge the shards, and carry their provenance rather than this machine's.
+
+    The numbers were produced on the measurement host; this analysis is a pure
+    derivation and may run anywhere. Stamping the laptop that reduced the data would
+    name the wrong machine. Every shard's `argv` is kept, because a result that records
+    the script but not the arguments it was given is not reproducible.
+    """
     pairs, meetings, config = [], [], {}
+    prov: dict = {}
+    argvs: list[str] = []
     for p in sorted(paths):
         d = json.loads(p.read_text(encoding="utf-8"))
         pairs.extend(d["pairs"])
         meetings.extend(d["meetings"])
         config = config or d.get("config", {})
-    return pairs, meetings, config
+        shard_prov = d.get("provenance") or {}
+        prov = prov or dict(shard_prov)
+        if shard_prov.get("argv"):
+            argvs.append(shard_prov["argv"])
+    if prov:
+        prov["argv"] = f"{len(argvs)} shards, analysed by analyze_centroid.py"
+        prov["shard_argv"] = argvs
+    return pairs, meetings, config, prov
 
 
 def sweep(pairs: list[dict]) -> list[dict]:
@@ -79,7 +95,7 @@ def main() -> None:
     ap.add_argument("--out", type=Path)
     a = ap.parse_args()
 
-    pairs, meetings, config = load(a.shards)
+    pairs, meetings, config, prov = load(a.shards)
     rows = sweep(pairs)
     gap = bootstrap_gap(pairs)
 
@@ -107,7 +123,7 @@ def main() -> None:
 
     if a.out:
         a.out.write_text(json.dumps(
-            {"config": config, "separation": gap, "sweep": rows,
+            {"provenance": prov, "config": config, "separation": gap, "sweep": rows,
              "meetings": meetings, "pairs": pairs}, indent=2), encoding="utf-8")
         print(f"wrote {a.out}")
 

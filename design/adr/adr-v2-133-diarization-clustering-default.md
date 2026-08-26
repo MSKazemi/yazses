@@ -399,3 +399,79 @@ is published whether or not the fix lands in the same release.
   cheap regression fixture and stops being evidence for a default.
 * **Nothing is re-tuned for the embedder that is actually shipped.** If option 2 lands, all
   of this is measured again.
+
+---
+
+## Addendum 2026-08-26 — the merge-shaped error, measured. A centroid rule does not fix it.
+
+This ADR closed on an error its own guard cannot see: one speaker cut into two
+people-sized clusters, which no fragment-duration threshold reaches. It said detecting
+that needs **cluster centroids**, and that no centroid survived in any published artifact.
+It does now: `paper/benchmark/probes/centroid_merge.py` recomputes the per-cluster
+embedding centroids with the same ERes2Net file the diarizer clusters with, and
+`analyze_centroid.py` scores them. Both results are archived
+(`paper/results/centroid-merge-ami16_corpus-{meeting,recimport}.json`).
+
+Which clusters are *wrongly* split is decided by the reference RTTM, not by the embeddings
+— each hypothesis cluster is mapped to the true speaker it overlaps most. Deciding it from
+the embeddings and then scoring the embeddings against that would be circular.
+
+### EN2002b reproduces exactly, and a merge would fix it — by 0.008
+
+At the shipped `[meeting]` threshold of 1.2, `EN2002b` returns **6 clusters for 4 true
+speakers**, the figure this ADR recorded. Both over-counts are genuine splits:
+
+| clusters | true speaker | centroid cosine |
+|---|---|---|
+| `speaker_0` + `speaker_2` | FEO070 | **0.7912** |
+| `speaker_1` + `speaker_3` | MEE071 | **0.8923** |
+| highest *different*-speaker pair in the same meeting | — | 0.7834 |
+
+So on this meeting a cut anywhere in (0.7834, 0.7912] repairs both splits and recovers
+exactly 4 speakers. **The margin is 0.008.** A constant chosen on one meeting with that
+much room is a constant chosen on noise.
+
+### Across the corpus it does not survive
+
+16 AMI meetings, 255 cluster pairs, 45 of them splits:
+
+| | |
+|---|---|
+| separation gap (min same-speaker − max different-speaker cosine) | **−0.9694**, 95% CI **[−0.9694, −0.6206]** |
+| lowest threshold with **zero** wrong merges | 0.84 — repairs **7 of 45** splits (15.6%) |
+| threshold reaching 89% recall (0.40) | **139 wrong merges** against 40 repairs |
+
+The interval lies entirely below zero: the two populations are not separable. Same-speaker
+centroids run as low as −0.14 cosine while different speakers reach 0.83.
+
+**A false merge is not the symmetric counterpart of a missed one.** Leaving a speaker split
+shows up as one person listed twice, which a reader can see and `relabel` can repair.
+Merging two people puts one person's words in another's mouth, silently and
+unrecoverably. At any threshold that repairs most splits, wrong merges outnumber repairs
+better than three to one.
+
+### The error is two-sided, so a merge-only pass is the wrong shape
+
+| | meetings |
+|---|---|
+| over-counting | 11 |
+| exactly right | 2 |
+| **under**-counting | **3** (`ES2004a` returns **2** clusters for 4 speakers) |
+
+Mean over-count is **+1.88** speakers, not the ~2× this ADR's prose implies — 5.81 clusters
+against 3.94 true, a factor of 1.48. A merge pass can only *reduce* the count. On three of
+sixteen meetings it cannot help and can only harm.
+
+### Decision
+
+**No centroid-merge post-pass.** Not deferred pending a better constant — the measurement
+says the discriminator does not separate the classes, and the failure mode it would
+introduce is the unrecoverable one. Recorded here so the next reader does not spend the
+campaign again.
+
+**Limitation, stated rather than buried.** Cluster→speaker assignment is by maximum
+overlap, so a cluster dominated by overlapped speech or noise is assigned somewhat
+arbitrarily and inflates the split count with pairs that are not really one person. Cluster
+durations were not recorded, so that fraction cannot be bounded from these artifacts. It
+would make the true separation *better* than measured, not worse — but the EN2002b margin
+of 0.008 is small enough that it would have to be very much better to change the decision.

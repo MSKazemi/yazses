@@ -1,0 +1,2809 @@
+{
+  "provenance": {
+    "timestamp": "2026-08-26T14:33:25Z",
+    "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 16,
+    "ram_gb": 67.4,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1022-azure",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.29.0",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 8.97,
+    "compute_type": "int8",
+    "device": "cpu",
+    "argv": "8 shards, analysed by analyze_centroid.py",
+    "corpus": null,
+    "shard_argv": [
+      "paper/benchmark/probes/centroid_merge.py --corpus $HOME/ami16_corpus --profile meeting --shard 0/8 --out $HOME/cmeet_0.json",
+      "paper/benchmark/probes/centroid_merge.py --corpus $HOME/ami16_corpus --profile meeting --shard 1/8 --out $HOME/cmeet_1.json",
+      "paper/benchmark/probes/centroid_merge.py --corpus $HOME/ami16_corpus --profile meeting --shard 2/8 --out $HOME/cmeet_2.json",
+      "paper/benchmark/probes/centroid_merge.py --corpus $HOME/ami16_corpus --profile meeting --shard 3/8 --out $HOME/cmeet_3.json",
+      "paper/benchmark/probes/centroid_merge.py --corpus $HOME/ami16_corpus --profile meeting --shard 4/8 --out $HOME/cmeet_4.json",
+      "paper/benchmark/probes/centroid_merge.py --corpus $HOME/ami16_corpus --profile meeting --shard 5/8 --out $HOME/cmeet_5.json",
+      "paper/benchmark/probes/centroid_merge.py --corpus $HOME/ami16_corpus --profile meeting --shard 6/8 --out $HOME/cmeet_6.json",
+      "paper/benchmark/probes/centroid_merge.py --corpus $HOME/ami16_corpus --profile meeting --shard 7/8 --out $HOME/cmeet_7.json"
+    ]
+  },
+  "config": {
+    "corpus": "ami16_corpus",
+    "corpus_kind": "human-annotated RTTM from pyannote/AMI-diarization-setup (only_words, test split) over the AMI headset mix",
+    "caveat": "real four-person meetings in real rooms: a genuine DER for Meeting Mode's target domain, not a floor. Headset mix is cleaner than a single table microphone, so a far-field recording scores worse. Not comparable with the synthetic-corpus figure; the two are different measurements.",
+    "profile": "meeting",
+    "cluster_threshold": 1.2,
+    "max_speakers": 0,
+    "backend": "sherpa-onnx (pyannote segmentation-3.0 + 3D-Speaker ERes2Net)",
+    "embedding_model": "same ERes2Net file the diarizer clusters with",
+    "min_turn_s": 1.0,
+    "n_meetings": 2
+  },
+  "separation": {
+    "gap": -0.9694,
+    "ci95": [
+      -0.9694,
+      -0.6206
+    ],
+    "n_same": 45,
+    "n_diff": 210,
+    "same_min": -0.1421,
+    "same_max": 0.9766,
+    "diff_min": -0.0432,
+    "diff_max": 0.8273
+  },
+  "sweep": [
+    {
+      "threshold": 0.3,
+      "merged_splits": 40,
+      "missed_splits": 5,
+      "wrong_merges": 178,
+      "left_alone": 32,
+      "recall": 0.889,
+      "precision": 0.183
+    },
+    {
+      "threshold": 0.32,
+      "merged_splits": 40,
+      "missed_splits": 5,
+      "wrong_merges": 171,
+      "left_alone": 39,
+      "recall": 0.889,
+      "precision": 0.19
+    },
+    {
+      "threshold": 0.34,
+      "merged_splits": 40,
+      "missed_splits": 5,
+      "wrong_merges": 162,
+      "left_alone": 48,
+      "recall": 0.889,
+      "precision": 0.198
+    },
+    {
+      "threshold": 0.36,
+      "merged_splits": 40,
+      "missed_splits": 5,
+      "wrong_merges": 154,
+      "left_alone": 56,
+      "recall": 0.889,
+      "precision": 0.206
+    },
+    {
+      "threshold": 0.38,
+      "merged_splits": 40,
+      "missed_splits": 5,
+      "wrong_merges": 147,
+      "left_alone": 63,
+      "recall": 0.889,
+      "precision": 0.214
+    },
+    {
+      "threshold": 0.4,
+      "merged_splits": 40,
+      "missed_splits": 5,
+      "wrong_merges": 139,
+      "left_alone": 71,
+      "recall": 0.889,
+      "precision": 0.223
+    },
+    {
+      "threshold": 0.42,
+      "merged_splits": 40,
+      "missed_splits": 5,
+      "wrong_merges": 135,
+      "left_alone": 75,
+      "recall": 0.889,
+      "precision": 0.229
+    },
+    {
+      "threshold": 0.44,
+      "merged_splits": 39,
+      "missed_splits": 6,
+      "wrong_merges": 120,
+      "left_alone": 90,
+      "recall": 0.867,
+      "precision": 0.245
+    },
+    {
+      "threshold": 0.46,
+      "merged_splits": 39,
+      "missed_splits": 6,
+      "wrong_merges": 109,
+      "left_alone": 101,
+      "recall": 0.867,
+      "precision": 0.264
+    },
+    {
+      "threshold": 0.48,
+      "merged_splits": 37,
+      "missed_splits": 8,
+      "wrong_merges": 96,
+      "left_alone": 114,
+      "recall": 0.822,
+      "precision": 0.278
+    },
+    {
+      "threshold": 0.5,
+      "merged_splits": 36,
+      "missed_splits": 9,
+      "wrong_merges": 84,
+      "left_alone": 126,
+      "recall": 0.8,
+      "precision": 0.3
+    },
+    {
+      "threshold": 0.52,
+      "merged_splits": 36,
+      "missed_splits": 9,
+      "wrong_merges": 74,
+      "left_alone": 136,
+      "recall": 0.8,
+      "precision": 0.327
+    },
+    {
+      "threshold": 0.54,
+      "merged_splits": 33,
+      "missed_splits": 12,
+      "wrong_merges": 65,
+      "left_alone": 145,
+      "recall": 0.733,
+      "precision": 0.337
+    },
+    {
+      "threshold": 0.56,
+      "merged_splits": 31,
+      "missed_splits": 14,
+      "wrong_merges": 59,
+      "left_alone": 151,
+      "recall": 0.689,
+      "precision": 0.344
+    },
+    {
+      "threshold": 0.58,
+      "merged_splits": 29,
+      "missed_splits": 16,
+      "wrong_merges": 51,
+      "left_alone": 159,
+      "recall": 0.644,
+      "precision": 0.362
+    },
+    {
+      "threshold": 0.6,
+      "merged_splits": 28,
+      "missed_splits": 17,
+      "wrong_merges": 46,
+      "left_alone": 164,
+      "recall": 0.622,
+      "precision": 0.378
+    },
+    {
+      "threshold": 0.62,
+      "merged_splits": 28,
+      "missed_splits": 17,
+      "wrong_merges": 36,
+      "left_alone": 174,
+      "recall": 0.622,
+      "precision": 0.438
+    },
+    {
+      "threshold": 0.64,
+      "merged_splits": 27,
+      "missed_splits": 18,
+      "wrong_merges": 29,
+      "left_alone": 181,
+      "recall": 0.6,
+      "precision": 0.482
+    },
+    {
+      "threshold": 0.66,
+      "merged_splits": 26,
+      "missed_splits": 19,
+      "wrong_merges": 25,
+      "left_alone": 185,
+      "recall": 0.578,
+      "precision": 0.51
+    },
+    {
+      "threshold": 0.68,
+      "merged_splits": 25,
+      "missed_splits": 20,
+      "wrong_merges": 17,
+      "left_alone": 193,
+      "recall": 0.556,
+      "precision": 0.595
+    },
+    {
+      "threshold": 0.7,
+      "merged_splits": 25,
+      "missed_splits": 20,
+      "wrong_merges": 13,
+      "left_alone": 197,
+      "recall": 0.556,
+      "precision": 0.658
+    },
+    {
+      "threshold": 0.72,
+      "merged_splits": 23,
+      "missed_splits": 22,
+      "wrong_merges": 10,
+      "left_alone": 200,
+      "recall": 0.511,
+      "precision": 0.697
+    },
+    {
+      "threshold": 0.74,
+      "merged_splits": 21,
+      "missed_splits": 24,
+      "wrong_merges": 9,
+      "left_alone": 201,
+      "recall": 0.467,
+      "precision": 0.7
+    },
+    {
+      "threshold": 0.76,
+      "merged_splits": 19,
+      "missed_splits": 26,
+      "wrong_merges": 6,
+      "left_alone": 204,
+      "recall": 0.422,
+      "precision": 0.76
+    },
+    {
+      "threshold": 0.78,
+      "merged_splits": 16,
+      "missed_splits": 29,
+      "wrong_merges": 6,
+      "left_alone": 204,
+      "recall": 0.356,
+      "precision": 0.727
+    },
+    {
+      "threshold": 0.8,
+      "merged_splits": 13,
+      "missed_splits": 32,
+      "wrong_merges": 4,
+      "left_alone": 206,
+      "recall": 0.289,
+      "precision": 0.765
+    },
+    {
+      "threshold": 0.82,
+      "merged_splits": 9,
+      "missed_splits": 36,
+      "wrong_merges": 2,
+      "left_alone": 208,
+      "recall": 0.2,
+      "precision": 0.818
+    },
+    {
+      "threshold": 0.84,
+      "merged_splits": 7,
+      "missed_splits": 38,
+      "wrong_merges": 0,
+      "left_alone": 210,
+      "recall": 0.156,
+      "precision": 1.0
+    },
+    {
+      "threshold": 0.86,
+      "merged_splits": 7,
+      "missed_splits": 38,
+      "wrong_merges": 0,
+      "left_alone": 210,
+      "recall": 0.156,
+      "precision": 1.0
+    },
+    {
+      "threshold": 0.88,
+      "merged_splits": 6,
+      "missed_splits": 39,
+      "wrong_merges": 0,
+      "left_alone": 210,
+      "recall": 0.133,
+      "precision": 1.0
+    },
+    {
+      "threshold": 0.9,
+      "merged_splits": 4,
+      "missed_splits": 41,
+      "wrong_merges": 0,
+      "left_alone": 210,
+      "recall": 0.089,
+      "precision": 1.0
+    },
+    {
+      "threshold": 0.92,
+      "merged_splits": 3,
+      "missed_splits": 42,
+      "wrong_merges": 0,
+      "left_alone": 210,
+      "recall": 0.067,
+      "precision": 1.0
+    },
+    {
+      "threshold": 0.94,
+      "merged_splits": 2,
+      "missed_splits": 43,
+      "wrong_merges": 0,
+      "left_alone": 210,
+      "recall": 0.044,
+      "precision": 1.0
+    },
+    {
+      "threshold": 0.96,
+      "merged_splits": 1,
+      "missed_splits": 44,
+      "wrong_merges": 0,
+      "left_alone": 210,
+      "recall": 0.022,
+      "precision": 1.0
+    },
+    {
+      "threshold": 0.98,
+      "merged_splits": 0,
+      "missed_splits": 45,
+      "wrong_merges": 0,
+      "left_alone": 210,
+      "recall": 0.0,
+      "precision": null
+    },
+    {
+      "threshold": 1.0,
+      "merged_splits": 0,
+      "missed_splits": 45,
+      "wrong_merges": 0,
+      "left_alone": 210,
+      "recall": 0.0,
+      "precision": null
+    }
+  ],
+  "meetings": [
+    {
+      "id": "EN2002a",
+      "true_speakers": 4,
+      "hyp_clusters": 8,
+      "over_count": 4,
+      "pairs": 28,
+      "splits": 5
+    },
+    {
+      "id": "IS1009a",
+      "true_speakers": 4,
+      "hyp_clusters": 4,
+      "over_count": 0,
+      "pairs": 6,
+      "splits": 0
+    },
+    {
+      "id": "EN2002b",
+      "true_speakers": 4,
+      "hyp_clusters": 6,
+      "over_count": 2,
+      "pairs": 15,
+      "splits": 2
+    },
+    {
+      "id": "IS1009b",
+      "true_speakers": 4,
+      "hyp_clusters": 8,
+      "over_count": 4,
+      "pairs": 28,
+      "splits": 5
+    },
+    {
+      "id": "EN2002c",
+      "true_speakers": 3,
+      "hyp_clusters": 7,
+      "over_count": 4,
+      "pairs": 21,
+      "splits": 5
+    },
+    {
+      "id": "IS1009c",
+      "true_speakers": 4,
+      "hyp_clusters": 6,
+      "over_count": 2,
+      "pairs": 15,
+      "splits": 2
+    },
+    {
+      "id": "EN2002d",
+      "true_speakers": 4,
+      "hyp_clusters": 7,
+      "over_count": 3,
+      "pairs": 21,
+      "splits": 6
+    },
+    {
+      "id": "IS1009d",
+      "true_speakers": 4,
+      "hyp_clusters": 6,
+      "over_count": 2,
+      "pairs": 15,
+      "splits": 4
+    },
+    {
+      "id": "ES2004a",
+      "true_speakers": 4,
+      "hyp_clusters": 2,
+      "over_count": -2,
+      "pairs": 1,
+      "splits": 0
+    },
+    {
+      "id": "TS3003a",
+      "true_speakers": 4,
+      "hyp_clusters": 3,
+      "over_count": -1,
+      "pairs": 3,
+      "splits": 0
+    },
+    {
+      "id": "ES2004b",
+      "true_speakers": 4,
+      "hyp_clusters": 3,
+      "over_count": -1,
+      "pairs": 3,
+      "splits": 0
+    },
+    {
+      "id": "TS3003b",
+      "true_speakers": 4,
+      "hyp_clusters": 7,
+      "over_count": 3,
+      "pairs": 21,
+      "splits": 3
+    },
+    {
+      "id": "ES2004c",
+      "true_speakers": 4,
+      "hyp_clusters": 4,
+      "over_count": 0,
+      "pairs": 6,
+      "splits": 0
+    },
+    {
+      "id": "TS3003c",
+      "true_speakers": 4,
+      "hyp_clusters": 7,
+      "over_count": 3,
+      "pairs": 21,
+      "splits": 4
+    },
+    {
+      "id": "ES2004d",
+      "true_speakers": 4,
+      "hyp_clusters": 6,
+      "over_count": 2,
+      "pairs": 15,
+      "splits": 2
+    },
+    {
+      "id": "TS3003d",
+      "true_speakers": 4,
+      "hyp_clusters": 9,
+      "over_count": 5,
+      "pairs": 36,
+      "splits": 7
+    }
+  ],
+  "pairs": [
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_0",
+      "b": "speaker_1",
+      "cosine": 0.5428,
+      "same_true_speaker": false,
+      "true_a": "FEO070",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_0",
+      "b": "speaker_2",
+      "cosine": 0.6647,
+      "same_true_speaker": false,
+      "true_a": "FEO070",
+      "true_b": "MEE071"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_0",
+      "b": "speaker_3",
+      "cosine": 0.7631,
+      "same_true_speaker": true,
+      "true_a": "FEO070",
+      "true_b": "FEO070"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_0",
+      "b": "speaker_4",
+      "cosine": 0.7137,
+      "same_true_speaker": false,
+      "true_a": "FEO070",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_0",
+      "b": "speaker_5",
+      "cosine": 0.6785,
+      "same_true_speaker": false,
+      "true_a": "FEO070",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_0",
+      "b": "speaker_6",
+      "cosine": 0.7465,
+      "same_true_speaker": false,
+      "true_a": "FEO070",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_0",
+      "b": "speaker_7",
+      "cosine": 0.662,
+      "same_true_speaker": false,
+      "true_a": "FEO070",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_1",
+      "b": "speaker_2",
+      "cosine": 0.4405,
+      "same_true_speaker": false,
+      "true_a": "MEE073",
+      "true_b": "MEE071"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_1",
+      "b": "speaker_3",
+      "cosine": 0.4277,
+      "same_true_speaker": false,
+      "true_a": "MEE073",
+      "true_b": "FEO070"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_1",
+      "b": "speaker_4",
+      "cosine": 0.3905,
+      "same_true_speaker": false,
+      "true_a": "MEE073",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_1",
+      "b": "speaker_5",
+      "cosine": 0.4683,
+      "same_true_speaker": false,
+      "true_a": "MEE073",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_1",
+      "b": "speaker_6",
+      "cosine": 0.4705,
+      "same_true_speaker": false,
+      "true_a": "MEE073",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_1",
+      "b": "speaker_7",
+      "cosine": 0.8236,
+      "same_true_speaker": true,
+      "true_a": "MEE073",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_2",
+      "b": "speaker_3",
+      "cosine": 0.5589,
+      "same_true_speaker": false,
+      "true_a": "MEE071",
+      "true_b": "FEO070"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_2",
+      "b": "speaker_4",
+      "cosine": 0.4897,
+      "same_true_speaker": false,
+      "true_a": "MEE071",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_2",
+      "b": "speaker_5",
+      "cosine": 0.4913,
+      "same_true_speaker": false,
+      "true_a": "MEE071",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_2",
+      "b": "speaker_6",
+      "cosine": 0.4969,
+      "same_true_speaker": false,
+      "true_a": "MEE071",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_2",
+      "b": "speaker_7",
+      "cosine": 0.6176,
+      "same_true_speaker": false,
+      "true_a": "MEE071",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_3",
+      "b": "speaker_4",
+      "cosine": 0.5866,
+      "same_true_speaker": false,
+      "true_a": "FEO070",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_3",
+      "b": "speaker_5",
+      "cosine": 0.5978,
+      "same_true_speaker": false,
+      "true_a": "FEO070",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_3",
+      "b": "speaker_6",
+      "cosine": 0.7525,
+      "same_true_speaker": false,
+      "true_a": "FEO070",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_3",
+      "b": "speaker_7",
+      "cosine": 0.4822,
+      "same_true_speaker": false,
+      "true_a": "FEO070",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_4",
+      "b": "speaker_5",
+      "cosine": 0.5842,
+      "same_true_speaker": true,
+      "true_a": "FEO072",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_4",
+      "b": "speaker_6",
+      "cosine": 0.8007,
+      "same_true_speaker": true,
+      "true_a": "FEO072",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_4",
+      "b": "speaker_7",
+      "cosine": 0.5082,
+      "same_true_speaker": false,
+      "true_a": "FEO072",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_5",
+      "b": "speaker_6",
+      "cosine": 0.6272,
+      "same_true_speaker": true,
+      "true_a": "FEO072",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_5",
+      "b": "speaker_7",
+      "cosine": 0.5489,
+      "same_true_speaker": false,
+      "true_a": "FEO072",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "EN2002a",
+      "a": "speaker_6",
+      "b": "speaker_7",
+      "cosine": 0.5396,
+      "same_true_speaker": false,
+      "true_a": "FEO072",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "IS1009a",
+      "a": "speaker_0",
+      "b": "speaker_1",
+      "cosine": 0.4572,
+      "same_true_speaker": false,
+      "true_a": "FIO089",
+      "true_b": "FIO087"
+    },
+    {
+      "meeting": "IS1009a",
+      "a": "speaker_0",
+      "b": "speaker_2",
+      "cosine": 0.6316,
+      "same_true_speaker": false,
+      "true_a": "FIO089",
+      "true_b": "FIE088"
+    },
+    {
+      "meeting": "IS1009a",
+      "a": "speaker_0",
+      "b": "speaker_3",
+      "cosine": 0.3608,
+      "same_true_speaker": false,
+      "true_a": "FIO089",
+      "true_b": "FIO084"
+    },
+    {
+      "meeting": "IS1009a",
+      "a": "speaker_1",
+      "b": "speaker_2",
+      "cosine": 0.6028,
+      "same_true_speaker": false,
+      "true_a": "FIO087",
+      "true_b": "FIE088"
+    },
+    {
+      "meeting": "IS1009a",
+      "a": "speaker_1",
+      "b": "speaker_3",
+      "cosine": 0.6549,
+      "same_true_speaker": false,
+      "true_a": "FIO087",
+      "true_b": "FIO084"
+    },
+    {
+      "meeting": "IS1009a",
+      "a": "speaker_2",
+      "b": "speaker_3",
+      "cosine": 0.5053,
+      "same_true_speaker": false,
+      "true_a": "FIE088",
+      "true_b": "FIO084"
+    },
+    {
+      "meeting": "EN2002b",
+      "a": "speaker_0",
+      "b": "speaker_1",
+      "cosine": 0.6193,
+      "same_true_speaker": false,
+      "true_a": "FEO070",
+      "true_b": "MEE071"
+    },
+    {
+      "meeting": "EN2002b",
+      "a": "speaker_0",
+      "b": "speaker_2",
+      "cosine": 0.7912,
+      "same_true_speaker": true,
+      "true_a": "FEO070",
+      "true_b": "FEO070"
+    },
+    {
+      "meeting": "EN2002b",
+      "a": "speaker_0",
+      "b": "speaker_3",
+      "cosine": 0.6879,
+      "same_true_speaker": false,
+      "true_a": "FEO070",
+      "true_b": "MEE071"
+    },
+    {
+      "meeting": "EN2002b",
+      "a": "speaker_0",
+      "b": "speaker_4",
+      "cosine": 0.7834,
+      "same_true_speaker": false,
+      "true_a": "FEO070",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002b",
+      "a": "speaker_0",
+      "b": "speaker_5",
+      "cosine": 0.5212,
+      "same_true_speaker": false,
+      "true_a": "FEO070",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "EN2002b",
+      "a": "speaker_1",
+      "b": "speaker_2",
+      "cosine": 0.5781,
+      "same_true_speaker": false,
+      "true_a": "MEE071",
+      "true_b": "FEO070"
+    },
+    {
+      "meeting": "EN2002b",
+      "a": "speaker_1",
+      "b": "speaker_3",
+      "cosine": 0.8923,
+      "same_true_speaker": true,
+      "true_a": "MEE071",
+      "true_b": "MEE071"
+    },
+    {
+      "meeting": "EN2002b",
+      "a": "speaker_1",
+      "b": "speaker_4",
+      "cosine": 0.5617,
+      "same_true_speaker": false,
+      "true_a": "MEE071",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002b",
+      "a": "speaker_1",
+      "b": "speaker_5",
+      "cosine": 0.4386,
+      "same_true_speaker": false,
+      "true_a": "MEE071",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "EN2002b",
+      "a": "speaker_2",
+      "b": "speaker_3",
+      "cosine": 0.668,
+      "same_true_speaker": false,
+      "true_a": "FEO070",
+      "true_b": "MEE071"
+    },
+    {
+      "meeting": "EN2002b",
+      "a": "speaker_2",
+      "b": "speaker_4",
+      "cosine": 0.6433,
+      "same_true_speaker": false,
+      "true_a": "FEO070",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002b",
+      "a": "speaker_2",
+      "b": "speaker_5",
+      "cosine": 0.4635,
+      "same_true_speaker": false,
+      "true_a": "FEO070",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "EN2002b",
+      "a": "speaker_3",
+      "b": "speaker_4",
+      "cosine": 0.6102,
+      "same_true_speaker": false,
+      "true_a": "MEE071",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002b",
+      "a": "speaker_3",
+      "b": "speaker_5",
+      "cosine": 0.5955,
+      "same_true_speaker": false,
+      "true_a": "MEE071",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "EN2002b",
+      "a": "speaker_4",
+      "b": "speaker_5",
+      "cosine": 0.4423,
+      "same_true_speaker": false,
+      "true_a": "FEO072",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_0",
+      "b": "speaker_1",
+      "cosine": 0.2911,
+      "same_true_speaker": false,
+      "true_a": "FIO087",
+      "true_b": "FIO084"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_0",
+      "b": "speaker_2",
+      "cosine": 0.2177,
+      "same_true_speaker": false,
+      "true_a": "FIO087",
+      "true_b": "FIO089"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_0",
+      "b": "speaker_3",
+      "cosine": 0.3563,
+      "same_true_speaker": false,
+      "true_a": "FIO087",
+      "true_b": "FIE088"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_0",
+      "b": "speaker_4",
+      "cosine": 0.4468,
+      "same_true_speaker": false,
+      "true_a": "FIO087",
+      "true_b": "FIO084"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_0",
+      "b": "speaker_5",
+      "cosine": 0.523,
+      "same_true_speaker": false,
+      "true_a": "FIO087",
+      "true_b": "FIE088"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_0",
+      "b": "speaker_6",
+      "cosine": 0.3894,
+      "same_true_speaker": false,
+      "true_a": "FIO087",
+      "true_b": "FIO089"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_0",
+      "b": "speaker_7",
+      "cosine": 0.4331,
+      "same_true_speaker": false,
+      "true_a": "FIO087",
+      "true_b": "FIO084"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_1",
+      "b": "speaker_2",
+      "cosine": 0.1268,
+      "same_true_speaker": false,
+      "true_a": "FIO084",
+      "true_b": "FIO089"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_1",
+      "b": "speaker_3",
+      "cosine": 0.0587,
+      "same_true_speaker": false,
+      "true_a": "FIO084",
+      "true_b": "FIE088"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_1",
+      "b": "speaker_4",
+      "cosine": 0.1481,
+      "same_true_speaker": true,
+      "true_a": "FIO084",
+      "true_b": "FIO084"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_1",
+      "b": "speaker_5",
+      "cosine": 0.2093,
+      "same_true_speaker": false,
+      "true_a": "FIO084",
+      "true_b": "FIE088"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_1",
+      "b": "speaker_6",
+      "cosine": 0.1811,
+      "same_true_speaker": false,
+      "true_a": "FIO084",
+      "true_b": "FIO089"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_1",
+      "b": "speaker_7",
+      "cosine": 0.0798,
+      "same_true_speaker": true,
+      "true_a": "FIO084",
+      "true_b": "FIO084"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_2",
+      "b": "speaker_3",
+      "cosine": 0.5027,
+      "same_true_speaker": false,
+      "true_a": "FIO089",
+      "true_b": "FIE088"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_2",
+      "b": "speaker_4",
+      "cosine": 0.3169,
+      "same_true_speaker": false,
+      "true_a": "FIO089",
+      "true_b": "FIO084"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_2",
+      "b": "speaker_5",
+      "cosine": 0.4317,
+      "same_true_speaker": false,
+      "true_a": "FIO089",
+      "true_b": "FIE088"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_2",
+      "b": "speaker_6",
+      "cosine": 0.7241,
+      "same_true_speaker": true,
+      "true_a": "FIO089",
+      "true_b": "FIO089"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_2",
+      "b": "speaker_7",
+      "cosine": 0.3377,
+      "same_true_speaker": false,
+      "true_a": "FIO089",
+      "true_b": "FIO084"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_3",
+      "b": "speaker_4",
+      "cosine": 0.5156,
+      "same_true_speaker": false,
+      "true_a": "FIE088",
+      "true_b": "FIO084"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_3",
+      "b": "speaker_5",
+      "cosine": 0.7122,
+      "same_true_speaker": true,
+      "true_a": "FIE088",
+      "true_b": "FIE088"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_3",
+      "b": "speaker_6",
+      "cosine": 0.6273,
+      "same_true_speaker": false,
+      "true_a": "FIE088",
+      "true_b": "FIO089"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_3",
+      "b": "speaker_7",
+      "cosine": 0.464,
+      "same_true_speaker": false,
+      "true_a": "FIE088",
+      "true_b": "FIO084"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_4",
+      "b": "speaker_5",
+      "cosine": 0.5033,
+      "same_true_speaker": false,
+      "true_a": "FIO084",
+      "true_b": "FIE088"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_4",
+      "b": "speaker_6",
+      "cosine": 0.4302,
+      "same_true_speaker": false,
+      "true_a": "FIO084",
+      "true_b": "FIO089"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_4",
+      "b": "speaker_7",
+      "cosine": 0.5579,
+      "same_true_speaker": true,
+      "true_a": "FIO084",
+      "true_b": "FIO084"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_5",
+      "b": "speaker_6",
+      "cosine": 0.5414,
+      "same_true_speaker": false,
+      "true_a": "FIE088",
+      "true_b": "FIO089"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_5",
+      "b": "speaker_7",
+      "cosine": 0.3613,
+      "same_true_speaker": false,
+      "true_a": "FIE088",
+      "true_b": "FIO084"
+    },
+    {
+      "meeting": "IS1009b",
+      "a": "speaker_6",
+      "b": "speaker_7",
+      "cosine": 0.3529,
+      "same_true_speaker": false,
+      "true_a": "FIO089",
+      "true_b": "FIO084"
+    },
+    {
+      "meeting": "EN2002c",
+      "a": "speaker_0",
+      "b": "speaker_1",
+      "cosine": 0.5847,
+      "same_true_speaker": false,
+      "true_a": "MEE073",
+      "true_b": "MEE071"
+    },
+    {
+      "meeting": "EN2002c",
+      "a": "speaker_0",
+      "b": "speaker_2",
+      "cosine": 0.5237,
+      "same_true_speaker": false,
+      "true_a": "MEE073",
+      "true_b": "MEE071"
+    },
+    {
+      "meeting": "EN2002c",
+      "a": "speaker_0",
+      "b": "speaker_3",
+      "cosine": 0.5736,
+      "same_true_speaker": false,
+      "true_a": "MEE073",
+      "true_b": "MEE071"
+    },
+    {
+      "meeting": "EN2002c",
+      "a": "speaker_0",
+      "b": "speaker_4",
+      "cosine": 0.4094,
+      "same_true_speaker": false,
+      "true_a": "MEE073",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002c",
+      "a": "speaker_0",
+      "b": "speaker_5",
+      "cosine": 0.4403,
+      "same_true_speaker": false,
+      "true_a": "MEE073",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002c",
+      "a": "speaker_0",
+      "b": "speaker_6",
+      "cosine": 0.5281,
+      "same_true_speaker": true,
+      "true_a": "MEE073",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "EN2002c",
+      "a": "speaker_1",
+      "b": "speaker_2",
+      "cosine": 0.7997,
+      "same_true_speaker": true,
+      "true_a": "MEE071",
+      "true_b": "MEE071"
+    },
+    {
+      "meeting": "EN2002c",
+      "a": "speaker_1",
+      "b": "speaker_3",
+      "cosine": 0.8145,
+      "same_true_speaker": true,
+      "true_a": "MEE071",
+      "true_b": "MEE071"
+    },
+    {
+      "meeting": "EN2002c",
+      "a": "speaker_1",
+      "b": "speaker_4",
+      "cosine": 0.5285,
+      "same_true_speaker": false,
+      "true_a": "MEE071",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002c",
+      "a": "speaker_1",
+      "b": "speaker_5",
+      "cosine": 0.5603,
+      "same_true_speaker": false,
+      "true_a": "MEE071",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002c",
+      "a": "speaker_1",
+      "b": "speaker_6",
+      "cosine": 0.6805,
+      "same_true_speaker": false,
+      "true_a": "MEE071",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "EN2002c",
+      "a": "speaker_2",
+      "b": "speaker_3",
+      "cosine": 0.8048,
+      "same_true_speaker": true,
+      "true_a": "MEE071",
+      "true_b": "MEE071"
+    },
+    {
+      "meeting": "EN2002c",
+      "a": "speaker_2",
+      "b": "speaker_4",
+      "cosine": 0.4807,
+      "same_true_speaker": false,
+      "true_a": "MEE071",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002c",
+      "a": "speaker_2",
+      "b": "speaker_5",
+      "cosine": 0.5164,
+      "same_true_speaker": false,
+      "true_a": "MEE071",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002c",
+      "a": "speaker_2",
+      "b": "speaker_6",
+      "cosine": 0.6755,
+      "same_true_speaker": false,
+      "true_a": "MEE071",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "EN2002c",
+      "a": "speaker_3",
+      "b": "speaker_4",
+      "cosine": 0.6004,
+      "same_true_speaker": false,
+      "true_a": "MEE071",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002c",
+      "a": "speaker_3",
+      "b": "speaker_5",
+      "cosine": 0.6337,
+      "same_true_speaker": false,
+      "true_a": "MEE071",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002c",
+      "a": "speaker_3",
+      "b": "speaker_6",
+      "cosine": 0.7274,
+      "same_true_speaker": false,
+      "true_a": "MEE071",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "EN2002c",
+      "a": "speaker_4",
+      "b": "speaker_5",
+      "cosine": 0.9766,
+      "same_true_speaker": true,
+      "true_a": "FEO072",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002c",
+      "a": "speaker_4",
+      "b": "speaker_6",
+      "cosine": 0.4544,
+      "same_true_speaker": false,
+      "true_a": "FEO072",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "EN2002c",
+      "a": "speaker_5",
+      "b": "speaker_6",
+      "cosine": 0.4822,
+      "same_true_speaker": false,
+      "true_a": "FEO072",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "IS1009c",
+      "a": "speaker_0",
+      "b": "speaker_1",
+      "cosine": 0.3797,
+      "same_true_speaker": false,
+      "true_a": "FIE088",
+      "true_b": "FIO089"
+    },
+    {
+      "meeting": "IS1009c",
+      "a": "speaker_0",
+      "b": "speaker_2",
+      "cosine": 0.3772,
+      "same_true_speaker": false,
+      "true_a": "FIE088",
+      "true_b": "FIO087"
+    },
+    {
+      "meeting": "IS1009c",
+      "a": "speaker_0",
+      "b": "speaker_3",
+      "cosine": 0.5486,
+      "same_true_speaker": true,
+      "true_a": "FIE088",
+      "true_b": "FIE088"
+    },
+    {
+      "meeting": "IS1009c",
+      "a": "speaker_0",
+      "b": "speaker_4",
+      "cosine": 0.367,
+      "same_true_speaker": false,
+      "true_a": "FIE088",
+      "true_b": "FIO084"
+    },
+    {
+      "meeting": "IS1009c",
+      "a": "speaker_0",
+      "b": "speaker_5",
+      "cosine": 0.334,
+      "same_true_speaker": false,
+      "true_a": "FIE088",
+      "true_b": "FIO089"
+    },
+    {
+      "meeting": "IS1009c",
+      "a": "speaker_1",
+      "b": "speaker_2",
+      "cosine": 0.5223,
+      "same_true_speaker": false,
+      "true_a": "FIO089",
+      "true_b": "FIO087"
+    },
+    {
+      "meeting": "IS1009c",
+      "a": "speaker_1",
+      "b": "speaker_3",
+      "cosine": 0.4753,
+      "same_true_speaker": false,
+      "true_a": "FIO089",
+      "true_b": "FIE088"
+    },
+    {
+      "meeting": "IS1009c",
+      "a": "speaker_1",
+      "b": "speaker_4",
+      "cosine": 0.4976,
+      "same_true_speaker": false,
+      "true_a": "FIO089",
+      "true_b": "FIO084"
+    },
+    {
+      "meeting": "IS1009c",
+      "a": "speaker_1",
+      "b": "speaker_5",
+      "cosine": 0.5255,
+      "same_true_speaker": true,
+      "true_a": "FIO089",
+      "true_b": "FIO089"
+    },
+    {
+      "meeting": "IS1009c",
+      "a": "speaker_2",
+      "b": "speaker_3",
+      "cosine": 0.503,
+      "same_true_speaker": false,
+      "true_a": "FIO087",
+      "true_b": "FIE088"
+    },
+    {
+      "meeting": "IS1009c",
+      "a": "speaker_2",
+      "b": "speaker_4",
+      "cosine": 0.4526,
+      "same_true_speaker": false,
+      "true_a": "FIO087",
+      "true_b": "FIO084"
+    },
+    {
+      "meeting": "IS1009c",
+      "a": "speaker_2",
+      "b": "speaker_5",
+      "cosine": 0.326,
+      "same_true_speaker": false,
+      "true_a": "FIO087",
+      "true_b": "FIO089"
+    },
+    {
+      "meeting": "IS1009c",
+      "a": "speaker_3",
+      "b": "speaker_4",
+      "cosine": 0.4608,
+      "same_true_speaker": false,
+      "true_a": "FIE088",
+      "true_b": "FIO084"
+    },
+    {
+      "meeting": "IS1009c",
+      "a": "speaker_3",
+      "b": "speaker_5",
+      "cosine": 0.0914,
+      "same_true_speaker": false,
+      "true_a": "FIE088",
+      "true_b": "FIO089"
+    },
+    {
+      "meeting": "IS1009c",
+      "a": "speaker_4",
+      "b": "speaker_5",
+      "cosine": 0.1899,
+      "same_true_speaker": false,
+      "true_a": "FIO084",
+      "true_b": "FIO089"
+    },
+    {
+      "meeting": "EN2002d",
+      "a": "speaker_0",
+      "b": "speaker_1",
+      "cosine": 0.7998,
+      "same_true_speaker": false,
+      "true_a": "MEE071",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "EN2002d",
+      "a": "speaker_0",
+      "b": "speaker_2",
+      "cosine": 0.8195,
+      "same_true_speaker": false,
+      "true_a": "MEE071",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "EN2002d",
+      "a": "speaker_0",
+      "b": "speaker_3",
+      "cosine": 0.6701,
+      "same_true_speaker": false,
+      "true_a": "MEE071",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002d",
+      "a": "speaker_0",
+      "b": "speaker_4",
+      "cosine": 0.7099,
+      "same_true_speaker": true,
+      "true_a": "MEE071",
+      "true_b": "MEE071"
+    },
+    {
+      "meeting": "EN2002d",
+      "a": "speaker_0",
+      "b": "speaker_5",
+      "cosine": 0.9274,
+      "same_true_speaker": true,
+      "true_a": "MEE071",
+      "true_b": "MEE071"
+    },
+    {
+      "meeting": "EN2002d",
+      "a": "speaker_0",
+      "b": "speaker_6",
+      "cosine": 0.605,
+      "same_true_speaker": false,
+      "true_a": "MEE071",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "EN2002d",
+      "a": "speaker_1",
+      "b": "speaker_2",
+      "cosine": 0.8645,
+      "same_true_speaker": true,
+      "true_a": "MEE073",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "EN2002d",
+      "a": "speaker_1",
+      "b": "speaker_3",
+      "cosine": 0.6575,
+      "same_true_speaker": false,
+      "true_a": "MEE073",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002d",
+      "a": "speaker_1",
+      "b": "speaker_4",
+      "cosine": 0.562,
+      "same_true_speaker": false,
+      "true_a": "MEE073",
+      "true_b": "MEE071"
+    },
+    {
+      "meeting": "EN2002d",
+      "a": "speaker_1",
+      "b": "speaker_5",
+      "cosine": 0.8273,
+      "same_true_speaker": false,
+      "true_a": "MEE073",
+      "true_b": "MEE071"
+    },
+    {
+      "meeting": "EN2002d",
+      "a": "speaker_1",
+      "b": "speaker_6",
+      "cosine": 0.7437,
+      "same_true_speaker": true,
+      "true_a": "MEE073",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "EN2002d",
+      "a": "speaker_2",
+      "b": "speaker_3",
+      "cosine": 0.6733,
+      "same_true_speaker": false,
+      "true_a": "MEE073",
+      "true_b": "FEO072"
+    },
+    {
+      "meeting": "EN2002d",
+      "a": "speaker_2",
+      "b": "speaker_4",
+      "cosine": 0.6369,
+      "same_true_speaker": false,
+      "true_a": "MEE073",
+      "true_b": "MEE071"
+    },
+    {
+      "meeting": "EN2002d",
+      "a": "speaker_2",
+      "b": "speaker_5",
+      "cosine": 0.8122,
+      "same_true_speaker": false,
+      "true_a": "MEE073",
+      "true_b": "MEE071"
+    },
+    {
+      "meeting": "EN2002d",
+      "a": "speaker_2",
+      "b": "speaker_6",
+      "cosine": 0.7232,
+      "same_true_speaker": true,
+      "true_a": "MEE073",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "EN2002d",
+      "a": "speaker_3",
+      "b": "speaker_4",
+      "cosine": 0.4755,
+      "same_true_speaker": false,
+      "true_a": "FEO072",
+      "true_b": "MEE071"
+    },
+    {
+      "meeting": "EN2002d",
+      "a": "speaker_3",
+      "b": "speaker_5",
+      "cosine": 0.634,
+      "same_true_speaker": false,
+      "true_a": "FEO072",
+      "true_b": "MEE071"
+    },
+    {
+      "meeting": "EN2002d",
+      "a": "speaker_3",
+      "b": "speaker_6",
+      "cosine": 0.433,
+      "same_true_speaker": false,
+      "true_a": "FEO072",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "EN2002d",
+      "a": "speaker_4",
+      "b": "speaker_5",
+      "cosine": 0.6618,
+      "same_true_speaker": true,
+      "true_a": "MEE071",
+      "true_b": "MEE071"
+    },
+    {
+      "meeting": "EN2002d",
+      "a": "speaker_4",
+      "b": "speaker_6",
+      "cosine": 0.4832,
+      "same_true_speaker": false,
+      "true_a": "MEE071",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "EN2002d",
+      "a": "speaker_5",
+      "b": "speaker_6",
+      "cosine": 0.6045,
+      "same_true_speaker": false,
+      "true_a": "MEE071",
+      "true_b": "MEE073"
+    },
+    {
+      "meeting": "IS1009d",
+      "a": "speaker_0",
+      "b": "speaker_1",
+      "cosine": 0.7838,
+      "same_true_speaker": true,
+      "true_a": "FIE088",
+      "true_b": "FIE088"
+    },
+    {
+      "meeting": "IS1009d",
+      "a": "speaker_0",
+      "b": "speaker_2",
+      "cosine": 0.4578,
+      "same_true_speaker": false,
+      "true_a": "FIE088",
+      "true_b": "FIO089"
+    },
+    {
+      "meeting": "IS1009d",
+      "a": "speaker_0",
+      "b": "speaker_3",
+      "cosine": 0.2369,
+      "same_true_speaker": false,
+      "true_a": "FIE088",
+      "true_b": "FIO089"
+    },
+    {
+      "meeting": "IS1009d",
+      "a": "speaker_0",
+      "b": "speaker_4",
+      "cosine": 0.5019,
+      "same_true_speaker": false,
+      "true_a": "FIE088",
+      "true_b": "FIO084"
+    },
+    {
+      "meeting": "IS1009d",
+      "a": "speaker_0",
+      "b": "speaker_5",
+      "cosine": 0.6219,
+      "same_true_speaker": false,
+      "true_a": "FIE088",
+      "true_b": "FIO089"
+    },
+    {
+      "meeting": "IS1009d",
+      "a": "speaker_1",
+      "b": "speaker_2",
+      "cosine": 0.3512,
+      "same_true_speaker": false,
+      "true_a": "FIE088",
+      "true_b": "FIO089"
+    },
+    {
+      "meeting": "IS1009d",
+      "a": "speaker_1",
+      "b": "speaker_3",
+      "cosine": 0.2342,
+      "same_true_speaker": false,
+      "true_a": "FIE088",
+      "true_b": "FIO089"
+    },
+    {
+      "meeting": "IS1009d",
+      "a": "speaker_1",
+      "b": "speaker_4",
+      "cosine": 0.5282,
+      "same_true_speaker": false,
+      "true_a": "FIE088",
+      "true_b": "FIO084"
+    },
+    {
+      "meeting": "IS1009d",
+      "a": "speaker_1",
+      "b": "speaker_5",
+      "cosine": 0.7037,
+      "same_true_speaker": false,
+      "true_a": "FIE088",
+      "true_b": "FIO089"
+    },
+    {
+      "meeting": "IS1009d",
+      "a": "speaker_2",
+      "b": "speaker_3",
+      "cosine": 0.5244,
+      "same_true_speaker": true,
+      "true_a": "FIO089",
+      "true_b": "FIO089"
+    },
+    {
+      "meeting": "IS1009d",
+      "a": "speaker_2",
+      "b": "speaker_4",
+      "cosine": 0.3205,
+      "same_true_speaker": false,
+      "true_a": "FIO089",
+      "true_b": "FIO084"
+    },
+    {
+      "meeting": "IS1009d",
+      "a": "speaker_2",
+      "b": "speaker_5",
+      "cosine": 0.23,
+      "same_true_speaker": true,
+      "true_a": "FIO089",
+      "true_b": "FIO089"
+    },
+    {
+      "meeting": "IS1009d",
+      "a": "speaker_3",
+      "b": "speaker_4",
+      "cosine": 0.3154,
+      "same_true_speaker": false,
+      "true_a": "FIO089",
+      "true_b": "FIO084"
+    },
+    {
+      "meeting": "IS1009d",
+      "a": "speaker_3",
+      "b": "speaker_5",
+      "cosine": 0.2067,
+      "same_true_speaker": true,
+      "true_a": "FIO089",
+      "true_b": "FIO089"
+    },
+    {
+      "meeting": "IS1009d",
+      "a": "speaker_4",
+      "b": "speaker_5",
+      "cosine": 0.4663,
+      "same_true_speaker": false,
+      "true_a": "FIO084",
+      "true_b": "FIO089"
+    },
+    {
+      "meeting": "ES2004a",
+      "a": "speaker_0",
+      "b": "speaker_1",
+      "cosine": 0.6136,
+      "same_true_speaker": false,
+      "true_a": "FEE013",
+      "true_b": "FEE016"
+    },
+    {
+      "meeting": "TS3003a",
+      "a": "speaker_1",
+      "b": "speaker_2",
+      "cosine": 0.3686,
+      "same_true_speaker": false,
+      "true_a": "MTD012ME",
+      "true_b": "MTD009PM"
+    },
+    {
+      "meeting": "TS3003a",
+      "a": "speaker_1",
+      "b": "speaker_3",
+      "cosine": 0.3223,
+      "same_true_speaker": false,
+      "true_a": "MTD012ME",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003a",
+      "a": "speaker_2",
+      "b": "speaker_3",
+      "cosine": 0.4253,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "ES2004b",
+      "a": "speaker_0",
+      "b": "speaker_1",
+      "cosine": 0.3529,
+      "same_true_speaker": false,
+      "true_a": "MEO015",
+      "true_b": "MEE014"
+    },
+    {
+      "meeting": "ES2004b",
+      "a": "speaker_0",
+      "b": "speaker_2",
+      "cosine": 0.7525,
+      "same_true_speaker": false,
+      "true_a": "MEO015",
+      "true_b": "FEE013"
+    },
+    {
+      "meeting": "ES2004b",
+      "a": "speaker_1",
+      "b": "speaker_2",
+      "cosine": 0.2777,
+      "same_true_speaker": false,
+      "true_a": "MEE014",
+      "true_b": "FEE013"
+    },
+    {
+      "meeting": "TS3003b",
+      "a": "speaker_0",
+      "b": "speaker_1",
+      "cosine": 0.8995,
+      "same_true_speaker": true,
+      "true_a": "MTD009PM",
+      "true_b": "MTD009PM"
+    },
+    {
+      "meeting": "TS3003b",
+      "a": "speaker_0",
+      "b": "speaker_2",
+      "cosine": 0.5452,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD0010ID"
+    },
+    {
+      "meeting": "TS3003b",
+      "a": "speaker_0",
+      "b": "speaker_3",
+      "cosine": 0.4396,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003b",
+      "a": "speaker_0",
+      "b": "speaker_4",
+      "cosine": 0.5778,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD0010ID"
+    },
+    {
+      "meeting": "TS3003b",
+      "a": "speaker_0",
+      "b": "speaker_5",
+      "cosine": 0.4779,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD012ME"
+    },
+    {
+      "meeting": "TS3003b",
+      "a": "speaker_0",
+      "b": "speaker_6",
+      "cosine": 0.2388,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003b",
+      "a": "speaker_1",
+      "b": "speaker_2",
+      "cosine": 0.4931,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD0010ID"
+    },
+    {
+      "meeting": "TS3003b",
+      "a": "speaker_1",
+      "b": "speaker_3",
+      "cosine": 0.4484,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003b",
+      "a": "speaker_1",
+      "b": "speaker_4",
+      "cosine": 0.6827,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD0010ID"
+    },
+    {
+      "meeting": "TS3003b",
+      "a": "speaker_1",
+      "b": "speaker_5",
+      "cosine": 0.3145,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD012ME"
+    },
+    {
+      "meeting": "TS3003b",
+      "a": "speaker_1",
+      "b": "speaker_6",
+      "cosine": 0.1793,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003b",
+      "a": "speaker_2",
+      "b": "speaker_3",
+      "cosine": 0.2692,
+      "same_true_speaker": false,
+      "true_a": "MTD0010ID",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003b",
+      "a": "speaker_2",
+      "b": "speaker_4",
+      "cosine": 0.5681,
+      "same_true_speaker": true,
+      "true_a": "MTD0010ID",
+      "true_b": "MTD0010ID"
+    },
+    {
+      "meeting": "TS3003b",
+      "a": "speaker_2",
+      "b": "speaker_5",
+      "cosine": 0.303,
+      "same_true_speaker": false,
+      "true_a": "MTD0010ID",
+      "true_b": "MTD012ME"
+    },
+    {
+      "meeting": "TS3003b",
+      "a": "speaker_2",
+      "b": "speaker_6",
+      "cosine": 0.0823,
+      "same_true_speaker": false,
+      "true_a": "MTD0010ID",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003b",
+      "a": "speaker_3",
+      "b": "speaker_4",
+      "cosine": 0.3095,
+      "same_true_speaker": false,
+      "true_a": "MTD011UID",
+      "true_b": "MTD0010ID"
+    },
+    {
+      "meeting": "TS3003b",
+      "a": "speaker_3",
+      "b": "speaker_5",
+      "cosine": 0.3871,
+      "same_true_speaker": false,
+      "true_a": "MTD011UID",
+      "true_b": "MTD012ME"
+    },
+    {
+      "meeting": "TS3003b",
+      "a": "speaker_3",
+      "b": "speaker_6",
+      "cosine": -0.1421,
+      "same_true_speaker": true,
+      "true_a": "MTD011UID",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003b",
+      "a": "speaker_4",
+      "b": "speaker_5",
+      "cosine": 0.2989,
+      "same_true_speaker": false,
+      "true_a": "MTD0010ID",
+      "true_b": "MTD012ME"
+    },
+    {
+      "meeting": "TS3003b",
+      "a": "speaker_4",
+      "b": "speaker_6",
+      "cosine": 0.0926,
+      "same_true_speaker": false,
+      "true_a": "MTD0010ID",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003b",
+      "a": "speaker_5",
+      "b": "speaker_6",
+      "cosine": -0.0176,
+      "same_true_speaker": false,
+      "true_a": "MTD012ME",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "ES2004c",
+      "a": "speaker_0",
+      "b": "speaker_1",
+      "cosine": 0.4384,
+      "same_true_speaker": false,
+      "true_a": "FEE013",
+      "true_b": "MEO015"
+    },
+    {
+      "meeting": "ES2004c",
+      "a": "speaker_0",
+      "b": "speaker_2",
+      "cosine": 0.6027,
+      "same_true_speaker": false,
+      "true_a": "FEE013",
+      "true_b": "FEE016"
+    },
+    {
+      "meeting": "ES2004c",
+      "a": "speaker_0",
+      "b": "speaker_3",
+      "cosine": 0.1822,
+      "same_true_speaker": false,
+      "true_a": "FEE013",
+      "true_b": "MEE014"
+    },
+    {
+      "meeting": "ES2004c",
+      "a": "speaker_1",
+      "b": "speaker_2",
+      "cosine": 0.3809,
+      "same_true_speaker": false,
+      "true_a": "MEO015",
+      "true_b": "FEE016"
+    },
+    {
+      "meeting": "ES2004c",
+      "a": "speaker_1",
+      "b": "speaker_3",
+      "cosine": 0.2425,
+      "same_true_speaker": false,
+      "true_a": "MEO015",
+      "true_b": "MEE014"
+    },
+    {
+      "meeting": "ES2004c",
+      "a": "speaker_2",
+      "b": "speaker_3",
+      "cosine": 0.1909,
+      "same_true_speaker": false,
+      "true_a": "FEE016",
+      "true_b": "MEE014"
+    },
+    {
+      "meeting": "TS3003c",
+      "a": "speaker_0",
+      "b": "speaker_1",
+      "cosine": 0.5682,
+      "same_true_speaker": true,
+      "true_a": "MTD009PM",
+      "true_b": "MTD009PM"
+    },
+    {
+      "meeting": "TS3003c",
+      "a": "speaker_0",
+      "b": "speaker_2",
+      "cosine": 0.8228,
+      "same_true_speaker": true,
+      "true_a": "MTD009PM",
+      "true_b": "MTD009PM"
+    },
+    {
+      "meeting": "TS3003c",
+      "a": "speaker_0",
+      "b": "speaker_3",
+      "cosine": 0.4075,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD012ME"
+    },
+    {
+      "meeting": "TS3003c",
+      "a": "speaker_0",
+      "b": "speaker_4",
+      "cosine": 0.214,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003c",
+      "a": "speaker_0",
+      "b": "speaker_5",
+      "cosine": 0.4284,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003c",
+      "a": "speaker_0",
+      "b": "speaker_6",
+      "cosine": 0.3682,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD0010ID"
+    },
+    {
+      "meeting": "TS3003c",
+      "a": "speaker_1",
+      "b": "speaker_2",
+      "cosine": 0.6493,
+      "same_true_speaker": true,
+      "true_a": "MTD009PM",
+      "true_b": "MTD009PM"
+    },
+    {
+      "meeting": "TS3003c",
+      "a": "speaker_1",
+      "b": "speaker_3",
+      "cosine": 0.4242,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD012ME"
+    },
+    {
+      "meeting": "TS3003c",
+      "a": "speaker_1",
+      "b": "speaker_4",
+      "cosine": 0.2275,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003c",
+      "a": "speaker_1",
+      "b": "speaker_5",
+      "cosine": 0.3367,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003c",
+      "a": "speaker_1",
+      "b": "speaker_6",
+      "cosine": 0.6719,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD0010ID"
+    },
+    {
+      "meeting": "TS3003c",
+      "a": "speaker_2",
+      "b": "speaker_3",
+      "cosine": 0.3223,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD012ME"
+    },
+    {
+      "meeting": "TS3003c",
+      "a": "speaker_2",
+      "b": "speaker_4",
+      "cosine": 0.2107,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003c",
+      "a": "speaker_2",
+      "b": "speaker_5",
+      "cosine": 0.3878,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003c",
+      "a": "speaker_2",
+      "b": "speaker_6",
+      "cosine": 0.522,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD0010ID"
+    },
+    {
+      "meeting": "TS3003c",
+      "a": "speaker_3",
+      "b": "speaker_4",
+      "cosine": -0.0432,
+      "same_true_speaker": false,
+      "true_a": "MTD012ME",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003c",
+      "a": "speaker_3",
+      "b": "speaker_5",
+      "cosine": -0.0182,
+      "same_true_speaker": false,
+      "true_a": "MTD012ME",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003c",
+      "a": "speaker_3",
+      "b": "speaker_6",
+      "cosine": 0.3167,
+      "same_true_speaker": false,
+      "true_a": "MTD012ME",
+      "true_b": "MTD0010ID"
+    },
+    {
+      "meeting": "TS3003c",
+      "a": "speaker_4",
+      "b": "speaker_5",
+      "cosine": 0.7602,
+      "same_true_speaker": true,
+      "true_a": "MTD011UID",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003c",
+      "a": "speaker_4",
+      "b": "speaker_6",
+      "cosine": 0.0447,
+      "same_true_speaker": false,
+      "true_a": "MTD011UID",
+      "true_b": "MTD0010ID"
+    },
+    {
+      "meeting": "TS3003c",
+      "a": "speaker_5",
+      "b": "speaker_6",
+      "cosine": 0.1183,
+      "same_true_speaker": false,
+      "true_a": "MTD011UID",
+      "true_b": "MTD0010ID"
+    },
+    {
+      "meeting": "ES2004d",
+      "a": "speaker_0",
+      "b": "speaker_1",
+      "cosine": 0.6591,
+      "same_true_speaker": false,
+      "true_a": "FEE013",
+      "true_b": "FEE016"
+    },
+    {
+      "meeting": "ES2004d",
+      "a": "speaker_0",
+      "b": "speaker_2",
+      "cosine": 0.8213,
+      "same_true_speaker": false,
+      "true_a": "FEE013",
+      "true_b": "MEO015"
+    },
+    {
+      "meeting": "ES2004d",
+      "a": "speaker_0",
+      "b": "speaker_3",
+      "cosine": 0.2267,
+      "same_true_speaker": false,
+      "true_a": "FEE013",
+      "true_b": "MEE014"
+    },
+    {
+      "meeting": "ES2004d",
+      "a": "speaker_0",
+      "b": "speaker_4",
+      "cosine": 0.4934,
+      "same_true_speaker": true,
+      "true_a": "FEE013",
+      "true_b": "FEE013"
+    },
+    {
+      "meeting": "ES2004d",
+      "a": "speaker_0",
+      "b": "speaker_5",
+      "cosine": 0.3853,
+      "same_true_speaker": false,
+      "true_a": "FEE013",
+      "true_b": "MEE014"
+    },
+    {
+      "meeting": "ES2004d",
+      "a": "speaker_1",
+      "b": "speaker_2",
+      "cosine": 0.611,
+      "same_true_speaker": false,
+      "true_a": "FEE016",
+      "true_b": "MEO015"
+    },
+    {
+      "meeting": "ES2004d",
+      "a": "speaker_1",
+      "b": "speaker_3",
+      "cosine": 0.3431,
+      "same_true_speaker": false,
+      "true_a": "FEE016",
+      "true_b": "MEE014"
+    },
+    {
+      "meeting": "ES2004d",
+      "a": "speaker_1",
+      "b": "speaker_4",
+      "cosine": 0.4515,
+      "same_true_speaker": false,
+      "true_a": "FEE016",
+      "true_b": "FEE013"
+    },
+    {
+      "meeting": "ES2004d",
+      "a": "speaker_1",
+      "b": "speaker_5",
+      "cosine": 0.2851,
+      "same_true_speaker": false,
+      "true_a": "FEE016",
+      "true_b": "MEE014"
+    },
+    {
+      "meeting": "ES2004d",
+      "a": "speaker_2",
+      "b": "speaker_3",
+      "cosine": 0.4824,
+      "same_true_speaker": false,
+      "true_a": "MEO015",
+      "true_b": "MEE014"
+    },
+    {
+      "meeting": "ES2004d",
+      "a": "speaker_2",
+      "b": "speaker_4",
+      "cosine": 0.7195,
+      "same_true_speaker": false,
+      "true_a": "MEO015",
+      "true_b": "FEE013"
+    },
+    {
+      "meeting": "ES2004d",
+      "a": "speaker_2",
+      "b": "speaker_5",
+      "cosine": 0.5791,
+      "same_true_speaker": false,
+      "true_a": "MEO015",
+      "true_b": "MEE014"
+    },
+    {
+      "meeting": "ES2004d",
+      "a": "speaker_3",
+      "b": "speaker_4",
+      "cosine": 0.5835,
+      "same_true_speaker": false,
+      "true_a": "MEE014",
+      "true_b": "FEE013"
+    },
+    {
+      "meeting": "ES2004d",
+      "a": "speaker_3",
+      "b": "speaker_5",
+      "cosine": 0.4731,
+      "same_true_speaker": true,
+      "true_a": "MEE014",
+      "true_b": "MEE014"
+    },
+    {
+      "meeting": "ES2004d",
+      "a": "speaker_4",
+      "b": "speaker_5",
+      "cosine": 0.5054,
+      "same_true_speaker": false,
+      "true_a": "FEE013",
+      "true_b": "MEE014"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_0",
+      "b": "speaker_1",
+      "cosine": 0.4837,
+      "same_true_speaker": false,
+      "true_a": "MTD012ME",
+      "true_b": "MTD009PM"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_0",
+      "b": "speaker_2",
+      "cosine": 0.7723,
+      "same_true_speaker": true,
+      "true_a": "MTD012ME",
+      "true_b": "MTD012ME"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_0",
+      "b": "speaker_3",
+      "cosine": 0.5296,
+      "same_true_speaker": false,
+      "true_a": "MTD012ME",
+      "true_b": "MTD009PM"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_0",
+      "b": "speaker_4",
+      "cosine": 0.359,
+      "same_true_speaker": false,
+      "true_a": "MTD012ME",
+      "true_b": "MTD0010ID"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_0",
+      "b": "speaker_5",
+      "cosine": 0.5754,
+      "same_true_speaker": false,
+      "true_a": "MTD012ME",
+      "true_b": "MTD009PM"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_0",
+      "b": "speaker_6",
+      "cosine": 0.3101,
+      "same_true_speaker": false,
+      "true_a": "MTD012ME",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_0",
+      "b": "speaker_7",
+      "cosine": 0.3385,
+      "same_true_speaker": false,
+      "true_a": "MTD012ME",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_0",
+      "b": "speaker_8",
+      "cosine": 0.347,
+      "same_true_speaker": false,
+      "true_a": "MTD012ME",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_1",
+      "b": "speaker_2",
+      "cosine": 0.4769,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD012ME"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_1",
+      "b": "speaker_3",
+      "cosine": 0.9406,
+      "same_true_speaker": true,
+      "true_a": "MTD009PM",
+      "true_b": "MTD009PM"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_1",
+      "b": "speaker_4",
+      "cosine": 0.6932,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD0010ID"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_1",
+      "b": "speaker_5",
+      "cosine": 0.8005,
+      "same_true_speaker": true,
+      "true_a": "MTD009PM",
+      "true_b": "MTD009PM"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_1",
+      "b": "speaker_6",
+      "cosine": 0.4265,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_1",
+      "b": "speaker_7",
+      "cosine": 0.4672,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_1",
+      "b": "speaker_8",
+      "cosine": 0.5578,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_2",
+      "b": "speaker_3",
+      "cosine": 0.4976,
+      "same_true_speaker": false,
+      "true_a": "MTD012ME",
+      "true_b": "MTD009PM"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_2",
+      "b": "speaker_4",
+      "cosine": 0.4107,
+      "same_true_speaker": false,
+      "true_a": "MTD012ME",
+      "true_b": "MTD0010ID"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_2",
+      "b": "speaker_5",
+      "cosine": 0.4676,
+      "same_true_speaker": false,
+      "true_a": "MTD012ME",
+      "true_b": "MTD009PM"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_2",
+      "b": "speaker_6",
+      "cosine": 0.0875,
+      "same_true_speaker": false,
+      "true_a": "MTD012ME",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_2",
+      "b": "speaker_7",
+      "cosine": 0.1754,
+      "same_true_speaker": false,
+      "true_a": "MTD012ME",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_2",
+      "b": "speaker_8",
+      "cosine": 0.3903,
+      "same_true_speaker": false,
+      "true_a": "MTD012ME",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_3",
+      "b": "speaker_4",
+      "cosine": 0.6394,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD0010ID"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_3",
+      "b": "speaker_5",
+      "cosine": 0.7556,
+      "same_true_speaker": true,
+      "true_a": "MTD009PM",
+      "true_b": "MTD009PM"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_3",
+      "b": "speaker_6",
+      "cosine": 0.4081,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_3",
+      "b": "speaker_7",
+      "cosine": 0.4349,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_3",
+      "b": "speaker_8",
+      "cosine": 0.4648,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_4",
+      "b": "speaker_5",
+      "cosine": 0.5034,
+      "same_true_speaker": false,
+      "true_a": "MTD0010ID",
+      "true_b": "MTD009PM"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_4",
+      "b": "speaker_6",
+      "cosine": 0.3529,
+      "same_true_speaker": false,
+      "true_a": "MTD0010ID",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_4",
+      "b": "speaker_7",
+      "cosine": 0.3893,
+      "same_true_speaker": false,
+      "true_a": "MTD0010ID",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_4",
+      "b": "speaker_8",
+      "cosine": 0.339,
+      "same_true_speaker": false,
+      "true_a": "MTD0010ID",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_5",
+      "b": "speaker_6",
+      "cosine": 0.4374,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_5",
+      "b": "speaker_7",
+      "cosine": 0.434,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_5",
+      "b": "speaker_8",
+      "cosine": 0.4484,
+      "same_true_speaker": false,
+      "true_a": "MTD009PM",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_6",
+      "b": "speaker_7",
+      "cosine": 0.9189,
+      "same_true_speaker": true,
+      "true_a": "MTD011UID",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_6",
+      "b": "speaker_8",
+      "cosine": 0.4205,
+      "same_true_speaker": true,
+      "true_a": "MTD011UID",
+      "true_b": "MTD011UID"
+    },
+    {
+      "meeting": "TS3003d",
+      "a": "speaker_7",
+      "b": "speaker_8",
+      "cosine": 0.476,
+      "same_true_speaker": true,
+      "true_a": "MTD011UID",
+      "true_b": "MTD011UID"
+    }
+  ]
+}
