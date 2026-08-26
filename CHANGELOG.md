@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.32.0] - 2026-08-26
+
 ### Fixed — a meeting no longer disappears into a collapsed transcript
 
 A real 41-minute meeting finalized as `status: "done"`, `capture: "ok"`, with a
@@ -82,7 +84,10 @@ was unreadable until it ended.
 
 - `yazses setup` now detects a strictly confined snap and prints the two required
   `snap connect` commands instead of trying to execute `sudo` and crashing with
-  `PermissionError`.
+  `PermissionError`. Reproduced from the published 2.31.0 snap in a clean LXD
+  container, which is the only way to meet the condition on purpose: a developer
+  machine runs from a checkout and never enters confinement, which is why the
+  crash reached a user before it reached a test.
 - The Snap Store description and installation docs no longer present `yazses setup`
   as a host-provisioning step inside the strictly confined snap, where executing
   `sudo`, installing host packages, changing groups, and configuring `ydotoold`
@@ -112,21 +117,28 @@ was unreadable until it ended.
   website and web page, and every page advertises the compact `llms.txt` product guide
   alongside its existing Markdown twin for machine readers.
 - Sitemap entries now use each source page's latest committed date instead of claiming
-  that all 478 pages changed on every build. Four duplicated design-index URLs caused
+  that all 475 pages changed on every build. Four duplicated design-index URLs caused
   by publishing a section README and its generated replacement were removed.
 
 ### Fixed — Snap publishing no longer aborts after finding an accepted revision
 
 - Both architectures in the v2.31.0 publish run uploaded successfully, but the
-  revision lookup piped live `snapcraft revisions` output into an `awk` program
-  that exited on its first match. Under `pipefail`, Snapcraft reported the closed
-  stdout pipe as exit 120 and the workflow never reached `snapcraft release`.
-- The workflow now captures the complete revision table before parsing it, while
-  retaining the bounded upload wait, architecture-qualified lookup, explicit
-  `stable,edge` release, and channel read-back. The original upload also records
-  `stable,edge`, so a revision that is still awaiting review can publish when it
-  is approved instead of requiring another upload. A regression test executes
-  the real workflow shell for both architectures and locks both failure boundaries.
+  revision lookup never reached `snapcraft release`. By that point in the script
+  `set -e` has been restored, and under it a failing command substitution in an
+  assignment aborts the step -- so a single transient non-zero exit from
+  `snapcraft revisions` killed the job on the first pass of the very loop written
+  to retry it.
+- The workflow now captures the revision table into a variable through an `if`,
+  so a failed query is a skipped iteration rather than a dead job, and parses it
+  afterwards. The bounded upload wait, architecture-qualified lookup and channel
+  read-back are unchanged. A regression test executes the real workflow shell for
+  both architectures and locks both failure boundaries.
+- The upload passes `--release=stable,edge` as a hint, **not** as the mechanism:
+  the explicit `snapcraft release` call remains what publishing depends on.
+  Whether the store applies those channels once a pending review passes is
+  plausible but has not been demonstrated here — revisions 388/389 establish only
+  that omitting the flag leaves no channel, which does not establish the converse.
+  Do not wait for a deferred release to appear; re-run the publish.
 
 ### Added — `[stt] condition_on_previous_text`, the knob the 2x2 found had no way to be reached
 

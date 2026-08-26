@@ -23,11 +23,12 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.31.0](v2.31.0.md)** — the release that made its evidence reproducible. 32
-commits. Every published benchmark number now carries its result artifact, command and
-corpus identity; the latency governor no longer ignores the configured beam or loads a
-second model; and the release pipelines now test the packaged applications rather than
-only their source environments.
+**[YazSes 2.32.0](v2.32.0.md)** — the release that stopped trusting a clean return. 33
+commits. A meeting post-pass deleted the recording for a transcript that was 93
+repetitions of one word, a confined snap crashed on the first command it told users to
+run, and a publish found its revision and threw it away — each finished without raising.
+Meetings are now transcribed twice and judged, `yazses setup` respects confinement, and
+the decode defaults were put to a 2×2 that kept both.
 Install it with:
 
 ```sh
@@ -37,6 +38,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.32.0](v2.32.0.md) — a collapsed meeting transcript that deleted its own recording; a confined snap that crashed on `yazses setup`; a publish that discarded the revision it found; and a 2×2 that kept both decode defaults.
 - [v2.31.0](v2.31.0.md) — reproducible benchmark evidence; a measured latency policy; one model in memory instead of two; safer log reports; repaired Intel macOS extras and release pipelines.
 - [v2.30.0](v2.30.0.md) — the release that measured its own claims: speaker labels scored for the first time (84% DER, now 26.7%), seventeen unreachable capabilities wired, `[all]` eight extras short of all, and Flathub installing eleven releases behind what it advertised.
 - [v2.29.0](v2.29.0.md) — 43 corrections found mostly by running the product: `verify` certified a mic hearing nobody, `reflow` cut "Firstly" to "ly", `redact_patterns` scrubbed four of six fields, and a destructive-command guard could never fire.

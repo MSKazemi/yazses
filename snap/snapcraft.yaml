@@ -7,7 +7,7 @@ base: core24
 # committed, and nothing rewrites anything for it. This line sat at 2.17.0 while
 # the project shipped 2.29.0, so all 188 of its builds were stamped with a
 # version twelve releases old and *lower* than what `latest/stable` served.
-version: "2.31.0"
+version: "2.32.0"
 summary: Local, offline-by-default voice dictation for Linux
 description: |
   YazSes is offline-by-default, on-device voice dictation. Hold a key (Space by
