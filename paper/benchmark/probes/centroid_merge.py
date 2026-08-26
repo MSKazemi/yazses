@@ -34,7 +34,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from bench_diarization import read_rttm, _load_wav, _read_manifest, score  # noqa: E402
+from bench_diarization import _load_wav, _read_manifest, read_rttm  # noqa: E402
 
 MIN_TURN_S = 1.0   # ECAPA-style embedders are unreliable below ~1 s (see cocktail filter)
 FRAME = 0.01
@@ -42,7 +42,8 @@ FRAME = 0.01
 
 def _extractor(config):
     import sherpa_onnx
-    from yazses.recimport.diarizer import model_dir, _EMB_MODEL
+
+    from yazses.recimport.diarizer import _EMB_MODEL, model_dir
     emb = model_dir(config) / _EMB_MODEL
     cfg = sherpa_onnx.SpeakerEmbeddingExtractorConfig(model=str(emb), num_threads=4)
     if not cfg.validate():
@@ -99,9 +100,10 @@ def _dominant_true_speaker(hyp_turns, ref_turns, label: str) -> tuple[str | None
 
 
 def run(corpus: Path, profile: str = "recimport", shard: str = "") -> dict:
+    from bench_diarization import PROFILES
+
     import yazses.config as _config
     from yazses.recimport.diarizer import SherpaDiarizer
-    from bench_diarization import PROFILES
 
     cfg = getattr(_config, PROFILES[profile])()
     diarizer = SherpaDiarizer(cfg)
