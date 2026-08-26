@@ -392,6 +392,40 @@ _NEGATIONS_BEFORE_TRIGGER = (
 )
 
 
+# The same evidence, for the two phrase types a *verb* guard cannot see. Both were
+# still losing their first half after #302 was closed, because that fix reached only
+# triggers governed by a verb.
+#
+# A determiner or possessive requires a noun head, so the trigger after one is part
+# of a noun phrase and cannot be an interjection: "the no wait policy applies to
+# walk-ins" became "policy applies to walk-ins", and "your delete that habit worries
+# me" became "habit worries me". Nobody says "the scratch that".
+#
+# A reporting verb makes the trigger *quoted* rather than performed -- the speaker is
+# describing a correction somebody else made: "she said no wait for the second batch"
+# became "for the second batch".
+#
+# A copula covers the residue where the trigger heads a predicate noun phrase and the
+# determiner sits inside the trigger itself, as in "there is no wait time at this
+# branch" -- the word before "no wait" is "is", not a determiner.
+#
+# Every entry biases the filter toward *not* rolling back, which is the direction this
+# module already chose: a missed rollback is a visible extra sentence the user can fix,
+# while a wrong one silently destroys meaning.
+_PHRASE_CONTEXT_BEFORE_TRIGGER = (
+    # Articles and possessives only. Demonstratives are deliberately absent: "this"
+    # and "that" are as often the *object* of the preceding verb as a determiner on
+    # the trigger, and "please do this strike that please do that" is a real
+    # correction that a demonstrative entry would suppress.
+    "the", "a", "an", "my", "your", "our", "their", "its", "his", "her",
+    # reporting verbs -- the trigger is quoted, not performed
+    "said", "says", "say", "saying", "told", "tells", "tell", "asked", "asks",
+    "wrote", "writes", "replied", "answered", "shouted", "yelled", "whispered",
+    # copulas
+    "is", "are", "was", "were", "be", "been", "being",
+)
+
+
 def _trigger_is_negated(lower: str, idx: int) -> bool:
     """True when the trigger at *idx* is governed by a preceding verb phrase.
 
@@ -403,7 +437,11 @@ def _trigger_is_negated(lower: str, idx: int) -> bool:
     before = lower[:idx].rstrip(" ,")
     if not before:
         return False
-    return before.rsplit(" ", 1)[-1] in _NEGATIONS_BEFORE_TRIGGER
+    preceding = before.rsplit(" ", 1)[-1]
+    return (
+        preceding in _NEGATIONS_BEFORE_TRIGGER
+        or preceding in _PHRASE_CONTEXT_BEFORE_TRIGGER
+    )
 
 
 def _has_text_to_roll_back(text: str, start: int, end: int) -> bool:

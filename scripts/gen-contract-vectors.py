@@ -693,8 +693,10 @@ CASES: dict[str, list[dict[str, Any]]] = {
          "description": "Rule C with no preceding sentence to roll back to",
          "input": "scratch that send it to Alice"},
         {"id": "self-correction-trigger-inside-quote",
-         "description": "the trigger phrase can appear in genuine speech; documents whatever "
-                        "the shipped behaviour is so both platforms agree",
+         "description": "a reporting verb makes the trigger quoted rather than performed, so "
+                        "the sentence is prose and survives whole. This vector used to record "
+                        "the opposite as 'whatever the shipped behaviour is', which froze a "
+                        "meaning-destroying rollback into the contract every platform copies",
          "input": "he said never mind the cost and left"},
         {"id": "collapse-repetitions-off-by-default",
          "description": "ADR-015 collapse is opt-in; a stutter survives by default",

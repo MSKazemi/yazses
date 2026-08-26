@@ -91,7 +91,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | **`[filters.disfluency]`** | | | | |
 | `disfluency.enabled` | bool | `true` |  |  |
 | `disfluency.filler_words` | list | `['um', 'uh', 'er', 'ah', 'hmm', 'you know', 'i mean', 'okay so', 'so um', 'so uh']` |  |  |
-| `disfluency.self_correction_triggers` | list | `['no wait', 'delete that', 'scratch that', 'never mind', 'forget that', 'strike that']` |  |  |
+| `disfluency.self_correction_triggers` | list | `['no wait', 'delete that', 'scratch that', 'never mind', 'forget that', 'strike that']` |  | Saying one of these discards everything before it in the same burst. They are also ordinary English, so a trigger is treated as prose -- and the sentence is typed whole -- when the word immediately before it is a negation ("do not delete that branch"), a governing verb ("you should never mind the warning"), an article or possessive ("the no wait policy", "your delete that habit"), a reporting verb ("she said no wait for the batch"), or a copula ("there is no wait time"). Only that one word is consulted, so "they told me scratch that plan" is still rolled back. Remove a phrase from this list if you dictate it in prose more often than you use it to correct yourself. |
 | `disfluency.collapse_repetitions` | bool | `false` |  | b-b-because / b b because / the the the |
 | `disfluency.collapse_prolongations` | bool | `false` |  | sooo -> so |
 | `disfluency.prolongation_min_run` | int | `3` |  | letter-run length that triggers collapse |

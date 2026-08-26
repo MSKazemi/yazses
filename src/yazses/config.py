@@ -290,7 +290,15 @@ class DisfluencyConfig:
     self_correction_triggers: list[str] = field(default_factory=lambda: [
         "no wait", "delete that", "scratch that", "never mind",
         "forget that", "strike that",
-    ])
+    ])  # Saying one of these discards everything before it in the same burst. They are
+        # also ordinary English, so a trigger is treated as prose -- and the sentence is
+        # typed whole -- when the word immediately before it is a negation ("do not
+        # delete that branch"), a governing verb ("you should never mind the warning"),
+        # an article or possessive ("the no wait policy", "your delete that habit"), a
+        # reporting verb ("she said no wait for the batch"), or a copula ("there is no
+        # wait time"). Only that one word is consulted, so "they told me scratch that
+        # plan" is still rolled back. Remove a phrase from this list if you dictate it
+        # in prose more often than you use it to correct yourself.
     # v0.8.0 — Dysfluency-Friendly Mode collapse pass (ADR-015); off by default.
     collapse_repetitions: bool = False      # b-b-because / b b because / the the the
     collapse_prolongations: bool = False    # sooo -> so
