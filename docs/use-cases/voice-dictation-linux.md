@@ -1,17 +1,17 @@
 ---
-title: Offline voice dictation on Linux — speech to text on X11 and Wayland
+title: Linux voice typing — offline dictation on X11 and Wayland
 description: How to get working voice typing on Linux without the cloud. Offline speech-to-text that types into any application on both X11 and Wayland, with a hold-to-talk hotkey, running locally on CPU.
 ---
 
-# Offline voice dictation on Linux
+# Linux voice typing and offline dictation
 
-**Short answer:** Linux has no built-in dictation comparable to Windows Speech
-Recognition or macOS Dictation. YazSes fills that gap with hold-to-talk voice
-typing that runs entirely on your own CPU, works on **both X11 and Wayland**, and
-types into any focused application — editor, browser, terminal or chat.
+**Short answer:** Yes, offline voice typing works on Linux. YazSes provides
+hold-to-talk speech-to-text that runs entirely on your own CPU, works on **both
+X11 and Wayland**, and types into any focused application — editor, browser,
+terminal or chat. Linux itself has no equivalent built-in system-wide dictation.
 
 ```sh
-sudo snap install yazses    # or: pipx install yazses
+bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)
 yazses doctor               # check mic, keyboard access and text injection
 yazses enroll               # calibrate to your voice and room (~30 s)
 yazses start                # hold the hotkey, speak, release
@@ -67,17 +67,17 @@ In brief:
     bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)
     ```
 
-=== "Any distro (snap)"
-
-    ```sh
-    sudo snap install yazses
-    ```
-
 === "Any distro (pipx)"
 
     ```sh
     pipx install yazses
     ```
+
+!!! warning "The Snap is X11-only"
+    The strictly confined Snap cannot perform Wayland keystroke injection and
+    cannot run `yazses setup` to configure host packages or services. Use the
+    installer, APT, or `pipx` for Wayland. On X11, follow the
+    [Snap-specific steps](../install-linux.md#1-install--one-command).
 
 !!! warning "Two Linux-specific gotchas"
     - `libportaudio2` is required for microphone capture and is **not** pulled in
@@ -122,6 +122,27 @@ yazses features info code  # what one capability does, with an example
 - **Voice scripting is not the goal.** If you want to program your desktop with a
   deep voice-scripting ecosystem, see Talon in the
   [comparison](../comparison.md).
+
+## Common questions about Linux voice typing
+
+### Can Linux do voice typing without the cloud?
+
+Yes. After its one-time model download, YazSes transcribes speech locally with
+faster-whisper. It does not send audio or dictated text to a cloud service by
+default, so it keeps working without an internet connection.
+
+### Does voice dictation work on Ubuntu and Wayland?
+
+Yes. Ubuntu on X11 uses `xdotool`; Ubuntu on Wayland can use `ydotool` or
+`wtype`. The [Linux install guide](../install-linux.md) and `yazses setup`
+provision the required backend, while `yazses doctor` verifies it.
+
+### Can speech-to-text type into any Linux application?
+
+YazSes injects the result at the operating-system level, so it works in focused
+editors, browsers, chat apps and terminals rather than only inside one editor or
+browser extension. The selected X11 or Wayland injection backend determines how
+the text reaches that application.
 
 ## Related
 

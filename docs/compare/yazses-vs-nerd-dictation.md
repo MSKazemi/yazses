@@ -99,7 +99,7 @@ you decide, as long as you do not bind them to the same key.
 1. **Install.**
 
     ```sh
-    pipx install yazses     # or: sudo snap install yazses
+    pipx install yazses
     ```
 
 2. **Check the three things that actually break.** Microphone capture, keyboard

@@ -113,7 +113,7 @@ Whisper 会**逐句**自行决定输出简体还是繁体，而且并不一致�
 | **Linux**（Debian/Ubuntu，APT） | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)` |
 | **任意系统**（Python ≥ 3.11） | `pipx install yazses` |
 
-**推荐**的一行命令会：按需安装 `uv`，安装最新版 YazSes，配置所有系统依赖（音频、按键注入、剪贴板、`input` 用户组、Wayland 的 `ydotoold`），最后运行 **`yazses doctor`**，让缺失的工具在安装过程中就暴露出来。APT 与 `pipx` 安装的是最近一次发布的版本。YazSes 也已上架 [Snap Store](https://snapcraft.io/yazses)（`sudo snap install yazses`）。
+**推荐**的一行命令会：按需安装 `uv`，安装最新版 YazSes，配置所有系统依赖（音频、按键注入、剪贴板、`input` 用户组、Wayland 的 `ydotoold`），最后运行 **`yazses doctor`**，让缺失的工具在安装过程中就暴露出来。APT 与 `pipx` 安装的是最近一次发布的版本。[Snap Store](https://snapcraft.io/yazses) 版本仅支持 X11 下的听写；Wayland 用户请使用推荐的 Linux 安装脚本。
 
 > **不放心把网上的脚本直接管道给 shell？** 完全合理。加上 `--dry-run`，它会检查你的机器、打印出所有将要做的改动，然后退出且不做任何修改：
 > `bash <(curl -fsSL .../install.sh) --dry-run`

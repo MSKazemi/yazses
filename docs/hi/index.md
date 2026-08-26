@@ -88,7 +88,8 @@ transcription के बाद हटा दिया जाता है, ज�
 हर system prerequisite (audio, keystroke injection, clipboard, `input` group, Wayland
 `ydotoold`) तैयार करता है, और अंत में **`yazses doctor`** चलाता है ताकि कोई missing tool install के
 दौरान ही सामने आ जाए। APT और `pipx` तरीके अंतिम tagged release इंस्टॉल करते हैं। YazSes
-[Snap Store](https://snapcraft.io/yazses) पर भी उपलब्ध है (`sudo snap install yazses`)।
+[Snap Store](https://snapcraft.io/yazses) पर केवल X11 के लिए उपलब्ध है; Wayland पर
+अनुशंसित Linux installer का उपयोग करें।
 
 
 **Shell completion:** `yazses --install-completion` (या script print करने के लिए `yazses --show-completion`)। [CLI reference](../cli-reference.md) देखें।
@@ -407,16 +408,18 @@ pipx install yazses
 # group so you can test before logging out).
 bash scripts/dev-install.sh
 
-# Snap Store — https://snapcraft.io/yazses
-# All four lines are required. A snap cannot connect its own interfaces, and the
+# Snap Store — X11 only; use the Linux installer or pipx on Wayland.
+# All three privileged lines are required. A snap cannot connect its own interfaces, and the
 # daemon starts and looks healthy without them — it just never hears you, or never
 # sees the key.
 sudo snap install yazses
 sudo snap connect yazses:audio-record   # microphone; without it, no audio
 sudo snap connect yazses:raw-input      # hold-to-talk key; without it, nothing fires
-yazses setup                            # provisions the rest
 yazses doctor                           # says if anything is still missing
 ```
+
+`yazses setup` is not required inside the snap. Strict confinement prevents host
+package, group, or service changes, so it can only print the permission checklist.
 
 ### macOS
 

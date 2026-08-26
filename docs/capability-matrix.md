@@ -45,8 +45,8 @@ every platform, and audio is the channel that works when the tray is not being l
 anyway.
 
 ¹ Wayland needs `ydotool` **and** a running `ydotoold`; `wtype` works only on
-wlroots compositors and is blocked on GNOME and KDE. `yazses setup` installs and
-enables the right one.
+wlroots compositors and is blocked on GNOME and KDE. For a non-Snap install,
+`yazses setup` installs and enables the right one.
 ² Needs `python3-pyatspi` + `gir1.2-atspi-2.0` from your package manager (not pip).
 Without it the guard still works, but by best-effort window heuristics.
 
@@ -70,11 +70,11 @@ yazses doctor               # reports the same, plus the injector it will use
 
 ## Known platform-specific traps
 
-- **Linux** — hold-to-talk reads the keyboard through evdev, so your user must be
-  in the `input` group, and the change needs a **full logout**, not a new
-  terminal. `yazses doctor` says when that is pending. The Snap **cannot** do
-  hold-to-talk at all: strict confinement blocks raw reads of `/dev/input/event*`
-  and there is no interface to grant it — install with `pipx`/`uv tool` instead.
+- **Linux** — hold-to-talk reads the keyboard through evdev, so a non-Snap install
+  needs the `input` group and a **full logout**, not a new terminal. `yazses doctor`
+  says when that is pending. The Snap instead needs its `raw-input` interface
+  connected manually and supports dictation on X11 only; use the universal
+  installer, APT, or `pipx` on Wayland.
 - **macOS** — Accessibility and Microphone permissions are per-binary. An update
   that changes the app's identity re-prompts.
 - **Windows** — an app running **as administrator** does not receive input from a

@@ -17,7 +17,7 @@ the APT repo serves **2.18.2**, signed, `InRelease` 200.
 | Channel | Published? | In-repo artefact | State |
 |---|---|---|---|
 | PyPI | ✅ live | — | `pipx install yazses` |
-| Snap Store | ⚠ amd64 only on stable | `../snap/` | amd64 stable **2.18.2**; arm64 is **edge-only and three releases behind (2.17.0)** — see below |
+| Snap Store | ✅ live on amd64 + arm64 | `../snap/` | stable **2.29.0** on both architectures (checked 2026-08-26); dictation is X11-only under strict confinement — see below |
 | APT repo | ✅ live | `../scripts/update-apt-repo.sh` | signed |
 | GitHub Releases | ✅ live | — | `.dmg`, `.exe`, `.deb` |
 | **Homebrew** | ✅ live | `homebrew/yazses.rb` | tap at [MSKazemi/homebrew-yazses](https://github.com/MSKazemi/homebrew-yazses), synced to **2.18.2 (real sha)**, **arm64 only** — see the macOS section ([#6](https://github.com/MSKazemi/yazses/issues/6)) |
@@ -56,35 +56,25 @@ Rust binary** distribution. The releases they point at (`v1.0.0`, `v1.0.0-dev.1`
 checksums are still `PLACEHOLDER_…`. They are marked at the top of each file. **The
 canonical cask is `homebrew/yazses.rb`.**
 
-### Snap: `snap install yazses` does not work on arm64
+### Snap: both architectures are live, but dictation is X11-only
 
-The table used to say "incl. arm64", which reads as *arm64 users are covered*. They are
-not. Measured 2026-08-13 from `api.snapcraft.io`:
+Measured 2026-08-26 from `api.snapcraft.io`:
 
 | Track/risk | Arch | Revision | Version |
 |---|---|---|---|
-| `latest/stable` | amd64 | 118 | 2.18.2 |
-| `latest/edge` | amd64 | 118 | 2.18.2 |
-| `latest/edge` | **arm64** | 116 | **2.17.0** |
+| `latest/stable` | amd64 | 348 | 2.29.0 |
+| `latest/stable` | arm64 | 347 | 2.29.0 |
+| `latest/edge` | amd64 | 385 | 2.30.0 |
+| `latest/edge` | arm64 | 387 | 2.30.0 |
 
-There is **no arm64 revision on `stable`**. `snap install yazses` resolves stable, so on
-a Raspberry Pi or an arm64 VM it fails to find a revision at all — the arm64 build exists
-only on `edge`.
+Architecture availability does not mean full desktop compatibility. The package uses
+strict confinement: with `audio-record` and `raw-input` connected manually, hold-to-talk
+dictation works on **X11**. Wayland keystroke injection requires host access that the snap
+does not have, and `yazses setup` cannot acquire it from inside confinement. Public install
+instructions must direct Wayland users to the universal installer, APT, or `pipx`, and must
+never present `yazses setup` as a host-provisioning step for Snap users.
 
-Note the second problem in that table: amd64 moved 2.18.0 → 2.18.2 while arm64 stayed at
-**2.17.0**. The gap is not static, it widens with every release, because whatever promotes
-amd64 is not promoting arm64.
-
-Two consequences worth stating plainly:
-
-- Anyone writing "works on arm64" in launch copy would be wrong. The honest line is
-  *"amd64 on stable; arm64 on `--edge` only"*.
-- The contributor task for verifying the Snap arm64 install (`campaign/tasks.json`) asked
-  someone to verify a path that cannot succeed with the documented command. Reworded to
-  name `--edge` — the same defect #216 had for Intel macOS.
-
-To fix properly, promote an arm64 build to stable in the Snap Store release channels, then
-change this row. Query it without a browser:
+Query the live channel map without a browser:
 
 ```sh
 curl -H 'Snap-Device-Series: 16' \

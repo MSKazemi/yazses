@@ -52,8 +52,8 @@ fails the build in either direction.
 
 | CPU | `pipx` / `uv tool` (PyPI) | Universal script | APT repo | Snap | `.deb` asset |
 |---|---|---|---|---|---|
-| **x86_64** (`amd64`) | ✅ | ✅ | ✅ | ✅ `stable` | ✅ |
-| **aarch64** (`arm64`) | ✅ | ✅ | ✅ | ✅ `stable` | ✅ |
+| **x86_64** (`amd64`) | ✅ | ✅ | ✅ | ✅ `stable` (X11 dictation only) | ✅ |
+| **aarch64** (`arm64`) | ✅ | ✅ | ✅ | ✅ `stable` (X11 dictation only) | ✅ |
 | `armhf`, `i386`, `ppc64el`, `s390x`, `riscv64` | ❌ | ❌ | ❌ | ❌ | ❌ |
 
 **Every Linux channel works on arm64 today.** This page said otherwise until it was
@@ -74,7 +74,7 @@ install:
 - **The snap is on `stable` for arm64**, not edge-only. The Snap Store API answers
   `stable arm64` directly — the command is in [Verifying this page](#verifying-this-page-yourself).
   What *is* true is that the whole snap, both architectures, sits two releases
-  behind the tag — at the time of writing `stable` is 2.19.0 against a 2.21.0
+  behind the tag — at the time of writing `stable` is 2.29.0 against a 2.31.0
   release. That is a publishing gap, not an architecture gap, and it affects x86_64
   users equally.
 - **The `.deb` and the APT repo are architecture-independent by construction.** The

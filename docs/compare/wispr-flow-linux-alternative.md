@@ -81,7 +81,7 @@ Said plainly, so there are no surprises:
 ## Trying it
 
 ```sh
-sudo snap install yazses      # or: pipx install yazses
+bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)
 yazses doctor
 yazses enroll
 yazses start

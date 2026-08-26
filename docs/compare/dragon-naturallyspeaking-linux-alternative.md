@@ -82,7 +82,7 @@ leaves the machine.
 ## Getting started on Linux
 
 ```sh
-sudo snap install yazses      # or: pipx install yazses
+bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)
 yazses doctor                 # checks mic, keyboard access and text injection
 yazses enroll                 # ~30 s calibration to your voice and room
 yazses start

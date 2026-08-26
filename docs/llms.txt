@@ -57,8 +57,11 @@ pipx install yazses
 # Linux (Debian/Ubuntu)
 bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)
 
-# Any distro (snap)
+# Snap (X11 dictation only; use the Linux installer on Wayland)
 sudo snap install yazses
+sudo snap connect yazses:audio-record
+sudo snap connect yazses:raw-input
+# `yazses setup` is not required; it cannot provision the host from a snap.
 
 # First run
 yazses doctor     # check mic, injection backend, permissions
@@ -74,7 +77,8 @@ yazses start      # start the dictation daemon
 
 **What GPU do I need?** None — it runs on CPU. 4 GB RAM minimum, 8 GB comfortable.
 
-**Does it work with Wayland?** Yes, via wtype or ydotool.
+**Does it work with Wayland?** Yes, via wtype or ydotool when installed with the
+universal installer, APT, or pipx. The strictly confined Snap is X11-only.
 
 **Is it a replacement for Talon?** YazSes focuses on offline dictation plus a practical command grammar. Talon has far more advanced scripting. They can coexist.
 

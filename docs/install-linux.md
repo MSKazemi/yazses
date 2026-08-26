@@ -1,6 +1,6 @@
 ---
 title: Install offline voice dictation on Linux (Ubuntu, Debian, Fedora, Arch)
-description: Step-by-step install of YazSes offline voice dictation on Linux — apt, snap or pipx, microphone calibration, hotkey setup, and text injection on both X11 and Wayland.
+description: Step-by-step install of YazSes offline voice dictation on Linux — the recommended installer, apt, X11-only snap, or pipx, with microphone, hotkey, and text-injection setup.
 ---
 
 # Installing YazSes on Linux
@@ -40,7 +40,7 @@ That is the whole install. Skip to [§2](#2-finish-setup).
 |---|---|---|
 | **Universal script** (recommended) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)` | Latest code from git. Installs `uv` if absent. Provisions everything. |
 | **APT** (Debian/Ubuntu) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)` | Last tagged release. The script adds the YazSes apt repo, installs the runtime deps, joins you to the `input` group and sets up `ydotoold`; the `.deb`'s post-install step then `pipx`-installs the Python package and enables the user service. |
-| **Snap** | `sudo snap install yazses`<br>`sudo snap connect yazses:audio-record`<br>`sudo snap connect yazses:raw-input`<br>`yazses setup` | **All four lines are required.** A snap cannot connect its own interfaces, so without `audio-record` it has no microphone and without `raw-input` the hold-to-talk key does nothing at all ([#44](https://github.com/MSKazemi/yazses/issues/44)) — the daemon still starts and looks healthy either way. `yazses setup` then provisions the rest; `yazses doctor` tells you if anything is still missing. A snap also ships a **fixed** set of libraries — see [what the snap can and cannot do](#3e-what-the-snap-can-and-cannot-do). |
+| **Snap (X11 only)** | `sudo snap install yazses`<br>`sudo snap connect yazses:audio-record`<br>`sudo snap connect yazses:raw-input`<br>`yazses doctor` | **Do not use this channel on Wayland.** All three privileged commands are required: a snap cannot connect its own interfaces, so without `audio-record` it has no microphone and without `raw-input` the hold-to-talk key does nothing ([#44](https://github.com/MSKazemi/yazses/issues/44)). `yazses setup` is not required: confinement blocks host package, group, and service changes, while the snap already bundles its X11 dependencies. See [what the snap can and cannot do](#3e-what-the-snap-can-and-cannot-do). |
 | **pipx** (any distro, Python ≥ 3.11) | `pipx install yazses` | Installs **only** the Python package — needs `build-essential python3-dev` to compile `evdev`, and you must then run `yazses setup` yourself ([§3](#3-installing-by-hand-what-the-installer-did-for-you)). |
 
 Already installed and want the newest release?
@@ -50,22 +50,6 @@ pipx upgrade yazses          # or: yazses update
 ```
 
 </details>
-
-!!! warning "On arm64 (Raspberry Pi, Ampere, arm64 VMs), don't use the snap yet"
-
-    `snap install yazses` resolves the **stable** channel, and stable currently has an
-    **amd64 revision only** — on arm64 it fails to find a revision at all. An arm64 build
-    exists on `edge`, but it is a release behind:
-
-    ```bash
-    sudo snap install yazses --edge   # arm64: the only channel with a build today
-    ```
-
-    The publishing workflow now builds and releases arm64 to `stable` alongside amd64, so
-    this clears at the next tagged release ([#267](https://github.com/MSKazemi/yazses/issues/267)).
-    Until then the **universal script** (`install.sh`) and **pipx** are the recommended
-    arm64 paths — PyPI ships `aarch64` wheels for the whole runtime stack, so both work
-    today.
 
 ## 2. Finish setup
 
@@ -220,6 +204,20 @@ Working on YazSes itself? Clone the repo and run `bash scripts/dev-install.sh` �
 an editable install plus provisioning plus start, in one command.
 
 ### 3e. What the snap can and cannot do
+
+A strictly confined snap cannot install packages on the host, change group
+membership, or configure the host's `ydotoold` service. Therefore:
+
+- hold-to-talk dictation is supported on **X11 only**, after manually connecting
+  both `audio-record` and `raw-input` as shown in [§1](#1-install--one-command);
+- Wayland users must use the universal installer, APT, or `pipx`;
+- `yazses setup` cannot provision a Snap install; current builds only use it to
+  print the manual interface checklist.
+
+Only the three `snap install`/`snap connect` commands require `sudo`. Run
+`yazses doctor`, `yazses start`, and every other YazSes command as your normal
+desktop user; `sudo yazses …` loses the session environment and reports the
+wrong display type.
 
 A snap ships a **fixed** set of Python libraries. Its files are read-only, so
 `yazses features enable <name>` cannot download anything into it the way the

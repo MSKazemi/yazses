@@ -69,7 +69,7 @@ and editing transcripts and for translation, YazSes for dictating into your edit
 browser and terminal all day. They do not compete for the same moment.
 
 ```sh
-sudo snap install yazses      # or: pipx install yazses
+bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)
 yazses doctor
 yazses enroll
 yazses start

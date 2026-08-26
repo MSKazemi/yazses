@@ -16,6 +16,8 @@ hide:
       "applicationCategory": "UtilitiesApplication",
       "applicationSubCategory": "Voice dictation / speech-to-text",
       "operatingSystem": "Linux, macOS, Windows",
+      "inLanguage": "en",
+      "keywords": "offline voice dictation, Linux voice typing, offline speech-to-text, Wayland dictation, local transcription, voice commands",
       "description": "Offline, on-device hold-to-talk voice dictation for Linux, macOS and Windows. Hold a key, speak, release — speech is transcribed locally with faster-whisper and typed into any focused app, plus voice commands and macros. No cloud, no API key, no subscription.",
       "url": "https://mskazemi.com/yazses/",
       "downloadUrl": "https://pypi.org/project/yazses/",
@@ -40,8 +42,30 @@ hide:
         "EMG/USB muscle-sensor trigger for hands-free accessibility use"
       ],
       "softwareVersion": "2.31.0",
+      "mainEntityOfPage": { "@id": "https://mskazemi.com/yazses/index.html#webpage" },
       "author": { "@id": "https://orcid.org/0000-0002-1166-6559" },
       "publisher": { "@id": "https://orcid.org/0000-0002-1166-6559" }
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://mskazemi.com/yazses/#website",
+      "url": "https://mskazemi.com/yazses/",
+      "name": "YazSes",
+      "description": "Official documentation for YazSes offline voice dictation.",
+      "inLanguage": "en",
+      "about": { "@id": "https://mskazemi.com/yazses/#software" },
+      "publisher": { "@id": "https://orcid.org/0000-0002-1166-6559" }
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://mskazemi.com/yazses/index.html#webpage",
+      "url": "https://mskazemi.com/yazses/index.html",
+      "name": "YazSes — offline voice dictation for Linux, macOS & Windows",
+      "description": "Hold a key, speak, release — your words are transcribed on-device and typed into any focused app.",
+      "inLanguage": "en",
+      "isPartOf": { "@id": "https://mskazemi.com/yazses/#website" },
+      "about": { "@id": "https://mskazemi.com/yazses/#software" },
+      "mainEntity": { "@id": "https://mskazemi.com/yazses/#software" }
     },
     {
       "@type": "Person",
@@ -209,23 +233,25 @@ focused app. **No cloud. No API key. No subscription. Nothing leaves your machin
     ```
 
 !!! warning "Not the snap"
-    Strict confinement blocks raw keyboard reads, so hold-to-talk never fires on
-    a snap install out of the box — use the APT script or `pipx` above.
+    The strictly confined snap supports dictation on **X11 only**. On Wayland,
+    use the APT script or `pipx` above because the snap cannot configure or use
+    the host `ydotoold` service needed for keystroke injection.
 
-    The snap now declares the `raw-input` interface, which is what grants that
-    access, but snapd does **not** connect it automatically. From the next
-    published snap build you can try:
+    On X11, connect both required interfaces after installing:
 
     ```sh
+    sudo snap install yazses
+    sudo snap connect yazses:audio-record
     sudo snap connect yazses:raw-input
-    yazses restart && yazses doctor        # expect: Keyboard capture: ok
+    yazses doctor
     ```
 
-    Wayland keystroke *injection* stays unavailable under confinement either
-    way. If you need Wayland, or want it to work without extra steps, install
-    via APT or `pipx`.
+    `yazses setup` is not required for the snap. Confinement prevents it from
+    installing host packages, changing groups, or configuring host services, so
+    it can only print the manual permission checklist; the snap already bundles
+    its X11 dependencies.
 
-**Linux only — provision the system in one command** (the `install-apt.sh` / APT path does it automatically):
+**Non-Snap Linux installs — provision the system in one command** (the `install-apt.sh` / APT path does it automatically):
 
 ```sh
 yazses setup        # installs audio + injection deps, joins the input group, sets up ydotoold
@@ -326,7 +352,9 @@ a real [asciinema](https://asciinema.org) recording of `-h` → `about` → `qui
 
 **What GPU do I need?** None. It runs on CPU; 4 GB RAM minimum, 8 GB comfortable.
 
-**Does it work on Wayland?** Yes via the APT or pipx install (uses wtype/ydotool). Use one of those, not the snap — strict confinement stops the snap from reading the keyboard, so the hold-to-talk hotkey never fires.
+**Does it work on Wayland?** Yes via the APT or pipx install (uses wtype/ydotool).
+Use one of those, not the snap — strict confinement prevents the Snap from using
+the host injection service, so it cannot type the result into Wayland applications.
 
 **Is it a replacement for Talon?** YazSes focuses on offline dictation plus a practical command grammar. Talon has far more advanced scripting. They can coexist.
 

@@ -54,7 +54,7 @@ Not sure yet? **[Try it without installing](https://mskazemi.com/yazses/try-with
 [![Open Source Helpers](https://www.codetriage.com/mskazemi/yazses/badges/users.svg)](https://www.codetriage.com/mskazemi/yazses)
 [![All Contributors](https://img.shields.io/badge/all_contributors-16-orange.svg?style=flat-square)](#contributors)
 
-[![Get it from the Snap Store](https://snapcraft.io/en/light/install.svg)](https://snapcraft.io/yazses)
+[![Get it from the Snap Store](https://snapcraft.io/en/light/install.svg)](https://snapcraft.io/yazses) **X11 only — use the Linux installer on Wayland.**
 
 **No audio, no text, nothing leaves your machine by default.** Offline voice dictation that types into any app, transcribes a recording, or captures a whole meeting with speaker names and minutes — all on your own CPU. No cloud. No API key. No subscription.
 
@@ -117,8 +117,9 @@ provisions every system prerequisite (audio, keystroke injection, clipboard, `in
 Wayland `ydotoold`), and finishes by running **`yazses doctor`** so any missing tool surfaces
 *during* install. The APT script
 (`bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)`)
-and `pipx` paths install the last tagged release. YazSes is also on the
-[Snap Store](https://snapcraft.io/yazses) (`sudo snap install yazses`).
+and `pipx` paths install the last tagged release. An X11-only build is also on the
+[Snap Store](https://snapcraft.io/yazses); Wayland users should use the recommended
+Linux installer instead.
 
 **Just want to transcribe a recording?** There is a container for that — no install at
 all: `docker run --rm -v "$PWD:/data" ghcr.io/mskazemi/yazses transcribe /data/talk.m4a
@@ -138,7 +139,7 @@ dictation, which needs a real desktop session; see [the Docker page](https://msk
 
 **Shell completion:** `yazses --install-completion` (or `yazses --show-completion` to print the script). See the [CLI reference](docs/cli-reference.md).
 
-**Step 2 — Provision the system** *(Linux — one command; the APT install does it automatically)*
+**Step 2 — Provision the system** *(non-Snap Linux installs — the APT install does it automatically)*
 
 ```sh
 yazses setup        # installs audio + injection deps, joins the input group, sets up ydotoold
@@ -504,16 +505,21 @@ pipx install yazses
 # group so you can test before logging out).
 bash scripts/dev-install.sh
 
-# Snap Store — https://snapcraft.io/yazses
-# All four lines are required. A snap cannot connect its own interfaces, and the
+# Snap Store — X11 only; use the APT script or pipx on Wayland.
+# All three privileged lines are required. A snap cannot connect its own interfaces, and the
 # daemon starts and looks healthy without them — it just never hears you, or never
 # sees the key.
 sudo snap install yazses
 sudo snap connect yazses:audio-record   # microphone; without it, no audio
 sudo snap connect yazses:raw-input      # hold-to-talk key; without it, nothing fires
-yazses setup                            # provisions the rest
 yazses doctor                           # says if anything is still missing
 ```
+
+`yazses setup` is not required for a Snap install. Strict confinement prevents it
+from changing host packages, groups, or services, so current builds only use it to
+print the manual permission checklist; the snap already bundles its X11 dependencies.
+Run `yazses doctor` and all other YazSes commands as your normal desktop user,
+never through `sudo`.
 
 ### macOS
 

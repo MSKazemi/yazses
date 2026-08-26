@@ -95,7 +95,7 @@ The two can be installed at the same time while you decide — just do not bind 
 to the same key.
 
 ```sh
-sudo snap install yazses      # or: pipx install yazses
+bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)
 yazses doctor
 yazses hotkey set <key>
 yazses enroll

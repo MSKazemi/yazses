@@ -21,20 +21,24 @@ description: |
   - Personal vocabulary and multi-step macros
   - Works in any focused text field — editors, browsers, terminals, chat
 
-  Note: this is a strictly-confined snap; keystroke injection works on X11
-  sessions. For Wayland or full input access, install via pipx instead:
-  https://pypi.org/project/yazses/
+  Important: this strictly-confined snap supports hold-to-talk dictation on X11
+  only. Wayland keystroke injection is unavailable. On Wayland, use the Linux
+  installer instead:
+  https://mskazemi.com/yazses/install-linux.html
 
-  Install — all four steps are required. A snap cannot connect its own
+  Install on X11 — all three commands are required. A snap cannot connect its own
   interfaces, and the daemon starts and looks healthy without them; it simply
   never hears you, or never sees the key:
 
     sudo snap install yazses
     sudo snap connect yazses:audio-record   # microphone; without it, no audio
     sudo snap connect yazses:raw-input      # hold-to-talk key; without it, nothing fires
-    yazses setup                            # provisions the rest
 
-  Then run `yazses doctor`, which reports anything still missing.
+  `yazses setup` is not an installation step for the snap: strict confinement
+  prevents host package, group, or service changes, so it can only print the
+  manual permission checklist. The snap already bundles its X11 dependencies.
+  Run `yazses doctor` as your normal desktop user after connecting the interfaces.
+  Never run YazSes itself with sudo; doing so loses the desktop session environment.
 
 title: YazSes
 icon: snap/gui/yazses.png

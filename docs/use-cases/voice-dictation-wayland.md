@@ -12,10 +12,16 @@ kernel `uinput` layer instead of through the display server — so dictated text
 lands in GNOME, KDE Plasma, sway and Hyprland, terminals included.
 
 ```sh
-sudo snap install yazses     # or: pipx install yazses
+bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)
 yazses doctor                # reports your session type and which backend was picked
 yazses start                 # hold the hotkey, speak, release
 ```
+
+!!! warning "Do not use the Snap on Wayland"
+    Strict confinement prevents the Snap from configuring or using the host
+    `ydotoold` service required for reliable keystroke injection. The Snap is a
+    supported dictation install on X11 only. Running `yazses setup` inside it
+    cannot remove that limitation.
 
 ## Why does dictation break on Wayland?
 
