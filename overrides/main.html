@@ -43,4 +43,9 @@
         href="{{ config.site_url }}feed_rss_created.xml">
   <link rel="alternate" type="application/feed+json" title="YazSes releases (JSON Feed)"
         href="{{ config.site_url }}feed_json_created.json">
+  {#- A compact, canonical product brief for answer engines that support the
+      llms.txt convention. Per-page Markdown alternates remain the primary
+      machine-readable surface; this link makes the site-level map discoverable. -#}
+  <link rel="alternate" type="text/plain" title="YazSes — answer-engine guide"
+        href="{{ config.site_url }}llms.txt">
 {% endblock %}
