@@ -21,7 +21,18 @@ strict confinement it owns nothing.
 
 from __future__ import annotations
 
+import os
+
 import pytest
+
+# `apply_plan`'s `input`-group step resolves the login name through `_current_user`,
+# which imports the Unix-only `pwd`. The module is deliberately importable on Windows
+# (`yazses setup` returns early there), so the step itself is POSIX-only -- the same
+# split `tests/test_setup.py` already draws.
+posix_only = pytest.mark.skipif(
+    os.name != "posix",
+    reason="the `input`-group step resolves a POSIX login name (`pwd`)",
+)
 
 from yazses.system import setup
 
@@ -61,15 +72,18 @@ def test_apply_plan_survives_a_command_it_cannot_execute(exc):
         raise exc
 
     said: list[str] = []
-    plan = setup.SetupPlan(add_to_input_group=True, session="x11")
-    ok = setup.apply_plan(plan, runner=runner, echo=said.append)
+    plan = setup.SetupPlan(apt_packages=["libportaudio2"], session="x11")
+    ok = setup.apply_plan(
+        plan, runner=runner, echo=said.append, has_apt=lambda: True
+    )
 
     assert ok is False, "a step that could not run is not a success"
-    assert any("sudo" in line for line in said), (
+    assert any("apt-get" in line for line in said), (
         f"the failure must name the command that could not run: {said}"
     )
 
 
+@posix_only
 def test_apply_plan_reports_every_failed_step_not_just_the_first():
     """A plan is best-effort: one un-exec'able command must not abort the rest."""
     attempted: list[str] = []
