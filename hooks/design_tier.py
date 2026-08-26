@@ -268,8 +268,13 @@ def on_files(files: Any, config: Any, **_: Any):  # noqa: ANN401 - mkdocs passes
                 skipped += 1
                 continue
             relative = source.relative_to(root).as_posix()
+            # The generated section index replaces a top-level README. Adding both
+            # maps README.md and index.md to the same index.html, which used to put
+            # duplicate URLs (and conflicting freshness data) in the sitemap.
+            if relative.upper() == "README.MD":
+                continue
             _add(source)
-            if source.suffix.lower() == ".md" and source.name.upper() != "README.MD":
+            if source.suffix.lower() == ".md":
                 entries.append((relative, _title_of(source), _status_of(source)))
 
         files.append(_generated(

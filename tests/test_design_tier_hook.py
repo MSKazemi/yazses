@@ -171,6 +171,26 @@ def test_the_nav_carries_every_published_section_and_top_level_page(hook):
     assert not missing, f"published but absent from the mkdocs.yml nav: {missing}"
 
 
+def test_generated_section_indexes_have_unique_site_urls(hook, tmp_path):
+    """A section README and its generated index must not both become index.html.
+
+    MkDocs accepts duplicate destination URLs without warning, then writes both into
+    sitemap.xml. Search crawlers see two records for one page, potentially with different
+    freshness signals, even though the strict docs build is green.
+    """
+    files = []
+    hook.on_files(files, {
+        "docs_dir": str(ROOT / "docs"),
+        "site_dir": str(tmp_path),
+        "use_directory_urls": False,
+    })
+    destinations = [file.dest_uri for file in files]
+    duplicates = sorted({dest for dest in destinations if destinations.count(dest) > 1})
+    assert duplicates == []
+    for section in ("adr", "specs", "meeting-mode", "mobile"):
+        assert destinations.count(f"design/{section}/index.html") == 1
+
+
 # ---- the link rewriting ---------------------------------------------------
 
 
