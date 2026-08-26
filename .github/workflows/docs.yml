@@ -73,6 +73,14 @@ jobs:
           key: mkdocs-privacy-${{ hashFiles('mkdocs.yml') }}
           restore-keys: mkdocs-privacy-
 
+      # `hooks/design_tier.py` imports mkdocs, so its unit tests only run where the
+      # docs group is installed -- which is here and nowhere else. The test job runs a
+      # bare `uv sync`, so a guard left to it alone would skip in every CI job and
+      # protect nothing. Run before the build: these are the hook's own decisions, and
+      # a failure here explains a broken site better than the build's output does.
+      - name: Design-tier hook unit tests
+        run: uv run --group docs python -m pytest tests/test_design_tier_hook.py -q
+
       - name: Build site (strict)
         run: uv run --group docs mkdocs build --strict
 

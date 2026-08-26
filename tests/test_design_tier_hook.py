@@ -177,7 +177,22 @@ def test_generated_section_indexes_have_unique_site_urls(hook, tmp_path):
     MkDocs accepts duplicate destination URLs without warning, then writes both into
     sitemap.xml. Search crawlers see two records for one page, potentially with different
     freshness signals, even though the strict docs build is green.
+
+    `on_files` builds real `mkdocs.structure.files.File` objects, and the whole point of
+    the assertion is the `dest_uri` MkDocs derives -- README.md and index.md collapsing
+    onto one index.html is MkDocs' mapping, not this hook's. Stubbing `File` would mean
+    asserting against a local reimplementation of that mapping, which is the thing most
+    likely to drift away from the behaviour being guarded.
+
+    So this needs the real package, which lives in the `docs` dependency group. The test
+    and release jobs run a bare `uv sync` and do not have it. Skipping alone would leave
+    the guard running nowhere, so `docs.yml` -- which already syncs `--group docs` --
+    runs this file explicitly; see the "Design-tier hook unit tests" step there.
     """
+    pytest.importorskip(
+        "mkdocs",
+        reason="needs the docs dependency group; docs.yml runs this file with it",
+    )
     files = []
     hook.on_files(files, {
         "docs_dir": str(ROOT / "docs"),
