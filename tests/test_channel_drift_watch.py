@@ -160,7 +160,9 @@ def _run_step(steps: list[dict], name_fragment: str, tmp_path, **outputs):
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     shim = bin_dir / "python3"
-    shim.write_text('#!/bin/sh\nprintf "%s\\n" "$@" > "$ARGV_LOG"\nexit 0\n')
+    shim.write_text(
+        '#!/bin/sh\nprintf "%s\\n" "$@" > "$ARGV_LOG"\nexit 0\n', encoding="utf-8"
+    )
     shim.chmod(shim.stat().st_mode | stat.S_IEXEC)
 
     argv_log = tmp_path / "argv"
@@ -175,7 +177,7 @@ def _run_step(steps: list[dict], name_fragment: str, tmp_path, **outputs):
         ["bash", "-c", body], cwd=tmp_path, env=env, capture_output=True, text=True
     )
     assert proc.returncode == 0, proc.stderr
-    return argv_log.read_text().splitlines()
+    return argv_log.read_text(encoding="utf-8").splitlines()
 
 
 posix_only = pytest.mark.skipif(
