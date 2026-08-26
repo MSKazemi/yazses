@@ -466,3 +466,53 @@ def test_the_set_of_results_that_cannot_name_their_corpus_never_grows() -> None:
             f"{UNSTAMPED_LIBRISPEECH_ARTIFACTS}. Lower UNSTAMPED_LIBRISPEECH_ARTIFACTS to "
             f"{len(unstamped)} so the ratchet keeps holding."
         )
+
+
+# The corpus checks above are LibriSpeech-shaped: they key off `config.dataset` and skip
+# anything without it, which is *every* diarization result -- 83 artifacts skipped with
+# "not a LibriSpeech measurement (no dataset)", including the AMI and VoxConverse runs
+# behind the plausibility-guard recall figures in `docs/benchmarks.md`. Those artifacts do
+# name their corpus, under `config.corpus`; nothing enforced that they keep doing so.
+#
+# Stated as a plain invariant rather than a ratchet because it currently holds for every
+# published diarization result (6 of 6), and a ratchet on a set with no exceptions is a
+# grandfather clause with nobody in it.
+
+
+def _published_diarization_results() -> list[Path]:
+    """Diarization results published at the top level, identified by the diarizer's knob.
+
+    `cluster_threshold` is a positive property of the payload -- it is the parameter the
+    diarizer is scored against -- so the set derives itself. Matching on filenames, or on
+    any key that merely *appears* in a diarization run, sweeps in the `index.json`
+    aggregators and WER artifacts and then needs a hand-written exclusion list, which is
+    the failure this guard exists to prevent.
+    """
+    found = []
+    for path in RESULTS.glob("*.json"):
+        config = json.loads(path.read_text(encoding="utf-8")).get("config") or {}
+        if "cluster_threshold" in config:
+            found.append(path)
+    return sorted(found)
+
+
+def test_every_published_diarization_result_names_its_corpus() -> None:
+    published = _published_diarization_results()
+    # A guard that iterates is green on an empty set. If a rename or a move empties this
+    # one, that is the guard failing, not the archive passing.
+    assert published, (
+        "no published diarization results carry `config.cluster_threshold`. Either they "
+        "moved out of paper/results/ or the field was renamed -- in both cases this "
+        "check silently stopped covering the DER and guard-recall artifacts."
+    )
+    unnamed = [
+        p.name
+        for p in published
+        if not str((json.loads(p.read_text(encoding="utf-8")).get("config") or {}).get("corpus", ""))
+    ]
+    assert not unnamed, (
+        f"{unnamed} score a diarization corpus without saying which one. DER and guard "
+        "recall are meaningless without it: AMI headset-mix and VoxConverse dev disagree "
+        "by more than any change ever measured on either. Set `config.corpus` (and "
+        "`config.corpus_source` for the exact split and annotation source)."
+    )
