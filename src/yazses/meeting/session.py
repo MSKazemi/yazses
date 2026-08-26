@@ -63,10 +63,12 @@ class MeetingSession:
         started_at: float = 0.0,
         sink=None,
         clock: Callable[[], float] | None = None,
+        live_markdown: bool = True,
     ) -> None:
         self.meeting_id = meeting_id
         self.dir = Path(meeting_dir)
         self.sample_rate = sample_rate
+        self.live_markdown = live_markdown
         self.started_at = started_at
         self.ended_at: float | None = None
         self._clock = clock
@@ -86,15 +88,24 @@ class MeetingSession:
     def add_live_line(self, text: str) -> None:
         """Append a finalized live-transcript line for the status view.
 
-        Also streams the line to ``<dir>/live.jsonl`` so a crash mid-meeting leaves a
-        partial transcript on disk (recovery artefact, separate from ``transcript.json``).
+        Also streams the line to **two** files, so a crash mid-meeting leaves a partial
+        transcript on disk (recovery artefacts, separate from the ``transcript.json``
+        the batch post-pass writes at stop): ``<dir>/live.jsonl``, the machine-readable
+        source of truth, and ``<dir>/live-transcript.md``, the same content in the form
+        a person can open, tail, or preview while the meeting is still running.
+
+        Both writes are best-effort inside ``store`` and cannot raise into the live
+        worker — capture outranks either copy.
         """
         text = (text or "").strip()
         if text:
             self.live_lines.append(text)
             from yazses.meeting import store
 
-            store.append_live_line(self.dir, text, self.elapsed_s())
+            elapsed = self.elapsed_s()
+            store.append_live_line(self.dir, text, elapsed)
+            if self.live_markdown:
+                store.append_live_markdown(self.dir, text, elapsed, self.meeting_id)
 
     def duration_s(self) -> float:
         """Captured audio duration in seconds (from sample count, clock-independent)."""

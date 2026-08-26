@@ -13,7 +13,7 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 
 **Match the Type column exactly.** In TOML only `str` values take quotes; `int`, `float` and `bool` must be bare. Writing `vad_threshold = "0.004"` instead of `vad_threshold = 0.004` loads without complaint and then fails at runtime, because the value stays a string where a number is expected. See [Troubleshooting](troubleshooting.md#dictation-stopped-working-right-after-i-edited-configtoml).
 
-**60 of these 450 keys are inert**, and they are marked ⚠️ inert in the Status column. The loader accepts them, `configcheck` validates them and they have a documented default — but no code reads them, so setting one loads without complaint and changes nothing. Most belong to capabilities that are registered but not yet wired; see [`yazses features`](cli-reference.md) for what is actually switchable. Both numbers here are counted at generation time, and the list of inert keys is the same one the test suite gates on, so neither can quietly fall out of date.
+**60 of these 451 keys are inert**, and they are marked ⚠️ inert in the Status column. The loader accepts them, `configcheck` validates them and they have a documented default — but no code reads them, so setting one loads without complaint and changes nothing. Most belong to capabilities that are registered but not yet wired; see [`yazses features`](cli-reference.md) for what is actually switchable. Both numbers here are counted at generation time, and the list of inert keys is the same one the test suite gates on, so neither can quietly fall out of date.
 
 This has bitten before: `[injection] fallback_to_clipboard` was documented in seventeen places and defaulted to `true` while nothing read it, so anyone who turned it off was silently overruled.
 
@@ -864,6 +864,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `output_dir` | str | `""` |  | "" => <data_dir>/meetings |
 | `retain_audio` | bool | `false` |  | keep audio.wav after finalize (else deleted) |
 | `live_transcript` | bool | `true` |  | stream a rolling transcript for `meeting status` |
+| `live_markdown` | bool | `true` |  | append live-transcript.md during the meeting |
 | `diarize` | bool | `true` |  | attribute speakers at stop |
 | `backend` | str | `"sherpa"` |  | sherpa (default, ONNX/no torch) \| pyannote (accuracy; needs the `diarization-pyannote` extra + a one-time gated HF model download) \| none |
 | `max_speakers` | int | `0` |  | EXACT count on sherpa, not a cap; 0 auto-detects |

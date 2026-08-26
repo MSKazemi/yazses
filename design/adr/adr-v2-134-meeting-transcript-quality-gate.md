@@ -79,6 +79,16 @@ is rendered to `live-transcript.md`, timestamped, **before** the batch pass runs
 that dies never reaches a line placed after it. It is written for every meeting and deleted by
 nothing.
 
+*Extended 2026-08-26:* the same file is now **appended to as each utterance is decoded**, not
+only rendered at stop. The recovery guarantee was already met by `live.jsonl`; what was missing
+is that nobody reads newline-delimited JSON, so a transcript that existed throughout a two-hour
+meeting was unreadable until it ended. The incremental writer and the whole-file re-render must
+produce byte-identical output for the same records (`_live_markdown_block` is the shared unit,
+and `test_appending_matches_a_full_re_render` holds them together) — otherwise every finalize
+silently rewrites the file the user has been reading, and "what I watched" and "what was saved"
+differ for no reason anyone could explain. `live.jsonl` stays the source of truth precisely so
+the re-render can *repair* an append torn by a crash. Off with `[meeting] live_markdown = false`.
+
 **4. Deletion is gated on the verdict, not on the absence of an exception.** The recording is
 kept whenever the transcript is suspect, regardless of `retain_audio`. This narrows the ADR-011
 privacy default in exactly one direction and only in the case where the alternative is

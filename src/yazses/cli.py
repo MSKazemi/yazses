@@ -259,6 +259,12 @@ def meeting_start(
             typer.echo(f"Note: {result['hint']}", err=True)
         typer.echo(f"Recording meeting {result['meeting_id']}.")
         typer.echo(f"  Folder: {result['dir']}")
+        # Named at start, not only at stop. The transcript is being written to this file
+        # as the meeting runs, and a path handed over afterwards is a path the user could
+        # not have followed along with -- which is the entire point of writing it live.
+        live_md = f"{result['dir']}/live-transcript.md"
+        typer.echo(f"  Live transcript (written as you speak): {live_md}")
+        typer.echo(f"  Follow it: tail -f {live_md}")
         typer.echo("  Watch it:  yazses meeting status")
         typer.echo("  Finish it: yazses meeting stop")
     else:
@@ -318,6 +324,10 @@ def meeting_status() -> None:
                    f"{result['line_count']} utterances")
         for line in result.get("live_lines", []):
             typer.echo(f"    {line}")
+        # Only the last few utterances are shown above; the file holds all of them and
+        # is being appended to right now. An older daemon does not send this key.
+        if live_md := result.get("live_transcript_path"):
+            typer.echo(f"  Full live transcript so far: {live_md}")
     elif result.get("finalizing"):
         typer.echo("Finalizing the last meeting (transcribing + diarizing)…")
     else:

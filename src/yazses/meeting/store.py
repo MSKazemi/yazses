@@ -26,11 +26,13 @@ _META = "meeting.json"
 _CANONICAL = "transcript.json"
 _LIVE = "live.jsonl"
 _AUDIO = "audio.wav"
-# Rendered from `live.jsonl` at every finalize and every recovery, unconditionally.
-# `live.jsonl` has existed since Meeting Mode shipped and is the artefact that saved a
-# real 41-minute meeting whose batch pass collapsed -- but it is newline-delimited JSON,
-# which is not a thing anyone reads after a meeting. Rendering it costs nothing and
-# turns a recovery format into a second, independent transcript.
+# Appended to line-by-line *during* the meeting, and re-rendered whole from `live.jsonl`
+# at every finalize and every recovery. `live.jsonl` has existed since Meeting Mode
+# shipped and is the artefact that saved a real 41-minute meeting whose batch pass
+# collapsed -- but it is newline-delimited JSON, which is nothing a person reads during
+# a meeting or after one. This file is the same content as it happens, readable and
+# tailable; `live.jsonl` stays the source of truth, so a torn append is repaired by the
+# next whole-file render rather than living on in the copy people actually open.
 _LIVE_MD = "live-transcript.md"
 _QUALITY = "quality.json"
 _SUMMARY = "summary.md"
@@ -244,8 +246,8 @@ def list_meetings(config) -> list[dict]:
                 meta["audio_path"] = str(wav)
             elif (d / _LIVE).exists():
                 meta["recoverable"] = True
-        if (d / _LIVE_MD).exists():
-            meta["live_transcript_path"] = str(d / _LIVE_MD)
+        if (live_md := live_markdown_path(d)).exists():
+            meta["live_transcript_path"] = str(live_md)
         out.append(meta)
     out.sort(key=lambda m: m.get("id", ""), reverse=True)
     return out
@@ -430,36 +432,109 @@ def live_word_count(meeting_dir: str | Path) -> int:
     return len(tokenize(live_text(meeting_dir)))
 
 
-def render_live_transcript(records: list[dict], meeting_id: str = "") -> str:
-    """``live.jsonl`` records → readable markdown. Pure.
+def live_markdown_path(meeting_dir: str | Path) -> Path:
+    """Where the readable live transcript lives, whether or not it exists yet.
+
+    Public so the listing, the status view and the writers all name the same file. They
+    each carried the constant separately, which is how two surfaces end up disagreeing
+    about which file a user was told to open.
+    """
+    return Path(meeting_dir) / _LIVE_MD
+
+
+def live_markdown_header(meeting_id: str = "") -> str:
+    """The opening block of ``live-transcript.md``. Pure; written once per meeting."""
+    head = f"# Live transcript{f' — {meeting_id}' if meeting_id else ''}"
+    return "\n".join([
+        head,
+        "",
+        "_Streamed incrementally during the meeting, one line per decoded utterance. "
+        "This is an independent decode of the same audio as `transcript.md`; when the "
+        "two disagree, `quality.json` says which one to trust._",
+    ]) + "\n"
+
+
+def live_markdown_line(record: dict) -> str | None:
+    """One ``live.jsonl`` record → its markdown line, or ``None`` when it has no text.
 
     Timestamps are kept on every line because this file's whole job is to be readable
     when the batch transcript — the one with word-level timing — cannot be trusted.
     """
-    head = f"# Live transcript{f' — {meeting_id}' if meeting_id else ''}"
-    lines = [
-        head,
-        "",
-        "_Streamed incrementally during the meeting. This is an independent decode of "
-        "the same audio as `transcript.md`; when the two disagree, `quality.json` says "
-        "which one to trust._",
-        "",
-    ]
+    text = str(record.get("text", "")).strip()
+    if not text:
+        return None
+    t = record.get("t")
+    stamp = ""
+    if t is not None:
+        try:
+            total = int(float(t))
+        except (TypeError, ValueError):
+            total = -1
+        if total >= 0:
+            stamp = f"[{total // 60:02d}:{total % 60:02d}] "
+    return f"{stamp}{text}"
+
+
+def _live_markdown_block(line: str) -> str:
+    """One rendered line as it sits in the file — the unit both writers emit.
+
+    A leading rather than a trailing blank line, so appending is a pure concatenation:
+    the file after N appends is byte-identical to a full re-render of the same N
+    records, and ``test_appending_matches_a_full_re_render`` holds the two together.
+    A trailing blank would leave the appended file one newline longer than the
+    rendered one, and the finalize re-render would then silently rewrite every
+    meeting folder it touched.
+    """
+    return f"\n{line}\n"
+
+
+def render_live_transcript(records: list[dict], meeting_id: str = "") -> str:
+    """``live.jsonl`` records → readable markdown. Pure.
+
+    The whole-file render. It runs at finalize and at recovery over ``live.jsonl``,
+    which stays the source of truth — so a torn or missing incremental append is
+    repaired by the next render rather than persisting into the readable copy.
+    """
+    parts = [live_markdown_header(meeting_id)]
     for r in records:
-        text = str(r.get("text", "")).strip()
-        if not text:
-            continue
-        t = r.get("t")
-        stamp = ""
-        if t is not None:
-            try:
-                total = int(float(t))
-                stamp = f"[{total // 60:02d}:{total % 60:02d}] "
-            except (TypeError, ValueError):
-                stamp = ""
-        lines.append(f"{stamp}{text}")
-        lines.append("")
-    return "\n".join(lines).rstrip() + "\n"
+        line = live_markdown_line(r)
+        if line is not None:
+            parts.append(_live_markdown_block(line))
+    return "".join(parts)
+
+
+def append_live_markdown(
+    meeting_dir: str | Path, text: str, t: float | None = None, meeting_id: str = "",
+) -> None:
+    """Append one decoded utterance to ``live-transcript.md`` *during* the meeting.
+
+    ``live.jsonl`` already made the transcript crash-proof, but it is newline-delimited
+    JSON — nothing a person watches, and nothing an editor renders. This writes the same
+    utterance to the readable file as it is decoded, so the meeting can be followed (and
+    tailed, and opened in any markdown previewer) while it is still running, instead of
+    only existing once finalize has completed minutes after everyone has left.
+
+    The header is written on the first line rather than at session start: a meeting that
+    decodes nothing then leaves no file at all, which is what the listing and
+    ``describe_files`` already mean by "there is no live transcript".
+
+    Best effort, and never raises — this is on the live-decode worker, and a read-only
+    disk must cost the readable copy, never the capture.
+    """
+    line = live_markdown_line({"text": text, "t": t})
+    if line is None:
+        return
+    p = live_markdown_path(meeting_dir)
+    try:
+        # Size, not existence: a zero-byte file left by a crash between `open` and the
+        # first write would otherwise be appended to and never get its header.
+        started = p.exists() and p.stat().st_size > 0
+        with p.open("a", encoding="utf-8") as fh:
+            if not started:
+                fh.write(live_markdown_header(meeting_id))
+            fh.write(_live_markdown_block(line))
+    except OSError:  # pragma: no cover - disk-full/permission; capture must not crash
+        pass
 
 
 def write_live_transcript(meeting_dir: str | Path, meeting_id: str = "") -> Path | None:
@@ -471,7 +546,7 @@ def write_live_transcript(meeting_dir: str | Path, meeting_id: str = "") -> Path
     records = read_live_lines(meeting_dir)
     if not records:
         return None
-    p = Path(meeting_dir) / _LIVE_MD
+    p = live_markdown_path(meeting_dir)
     try:
         p.write_text(render_live_transcript(records, meeting_id), encoding="utf-8")
     except OSError:  # pragma: no cover - disk-full / read-only mount

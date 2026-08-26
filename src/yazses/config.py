@@ -1438,6 +1438,11 @@ class MeetingConfig:
     output_dir: str = ""               # "" => <data_dir>/meetings
     retain_audio: bool = False         # keep audio.wav after finalize (else deleted)
     live_transcript: bool = True       # stream a rolling transcript for `meeting status`
+    # Write `live-transcript.md` as the meeting runs, not only at stop. `live.jsonl` was
+    # already crash-proof but is newline-delimited JSON; this is the same content in a
+    # form a person can open or `tail -f` mid-meeting. Costs one appended line per
+    # decoded utterance and is repaired by the whole-file re-render at finalize.
+    live_markdown: bool = True         # append live-transcript.md during the meeting
     # --- diarization (batch post-pass; RecimportConfig-compatible) ---
     diarize: bool = True               # attribute speakers at stop
     # sherpa (default, ONNX/no torch) | pyannote (accuracy; needs the

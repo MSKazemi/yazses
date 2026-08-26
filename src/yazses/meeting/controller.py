@@ -69,6 +69,7 @@ class MeetingController:
         self._session = session or MeetingSession(
             meeting_id, meeting_dir, sample_rate=sample_rate,
             started_at=started_at, clock=clock,
+            live_markdown=bool(getattr(config, "live_markdown", True)),
         )
         self._seg = (
             UtteranceSegmenter(is_silent, sample_rate=sample_rate)
@@ -130,12 +131,18 @@ class MeetingController:
                 log.warning("Live transcription failed (%s).", exc)
 
     def status(self) -> dict:
+        # The readable live transcript is reported only once it exists. Naming a path
+        # that has not been created yet reads as "your meeting is being written there"
+        # for a meeting that has decoded nothing -- which is the one case where the
+        # user most needs to know something is wrong, not to be reassured.
+        live_md = store.live_markdown_path(self._session.dir)
         return {
             "id": self.meeting_id,
             "elapsed_s": round(self._session.elapsed_s(), 1),
             "duration_s": round(self._session.duration_s(), 1),
             "live_lines": list(self._session.live_lines[-8:]),
             "line_count": len(self._session.live_lines),
+            "live_transcript_path": str(live_md) if live_md.exists() else "",
         }
 
     def stop_capture(self):

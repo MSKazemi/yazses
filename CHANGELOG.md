@@ -41,6 +41,23 @@ surviving record was `live.jsonl`, which nothing rendered and nothing mentioned.
 - **Nothing is ever deleted.** No transcript, JSON, or markdown file is overwritten in
   place by a retry.
 
+### Added — follow a meeting's transcript while it is still running
+
+`live-transcript.md` is now appended to as each utterance is decoded, instead of being
+rendered once at stop. The transcript was already crash-proof — `live.jsonl` has been
+written incrementally since Meeting Mode shipped — but newline-delimited JSON is not
+something a person opens mid-meeting, so a record that existed throughout a two-hour call
+was unreadable until it ended.
+
+- `yazses meeting start` prints the file's path and the `tail -f` command for it;
+  `yazses meeting status` names the same file alongside the last few utterances.
+- The incremental writer and the whole-file re-render produce byte-identical output, so
+  the finalize pass never rewrites the file you have been reading. `live.jsonl` stays the
+  source of truth: the re-render at stop and at every `meeting recover` repairs an append
+  torn by a crash.
+- Off with `[meeting] live_markdown = false` (default `true`), which restores the
+  previous behaviour of writing the file once at stop.
+
 ### Added — `yazses meeting summary`, and an end-of-meeting readout
 
 - New `yazses meeting summary [<id>]` (omit the id for the most recent): what the meeting

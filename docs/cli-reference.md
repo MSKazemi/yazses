@@ -1352,6 +1352,22 @@ usually collapsed — a well-known decoder failure where it emits one phrase for
 the file — and the live transcript is the better record. `quality.json` records the numbers
 behind that judgement for every meeting, healthy or not.
 
+#### Reading the transcript while the meeting is still running
+
+`live-transcript.md` is appended to as each utterance is decoded, so it can be opened,
+previewed or tailed mid-meeting rather than only existing once the post-pass has finished:
+
+```bash
+yazses meeting start          # prints the path, and the tail command for it
+tail -f ~/.local/share/yazses/meetings/<id>/live-transcript.md
+```
+
+`yazses meeting status` shows the last few utterances and names the same file, which holds
+all of them. The machine-readable `live.jsonl` remains the source of truth: the whole file
+is re-rendered from it at stop and at every `meeting recover`, so a write torn by a crash
+is repaired rather than left in the copy you read. Turn the incremental write off with
+`[meeting] live_markdown = false` — the file is then written once at stop, as before.
+
 A transcript that fails its quality check changes three things: the recording is **kept**
 regardless of `[meeting] retain_audio`, the minutes pass is skipped (a summary of invented
 words reads exactly like a real one — `meeting notes --force` overrides), and the meeting is
