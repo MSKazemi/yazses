@@ -131,3 +131,51 @@ def test_the_platform_branch_is_actually_read() -> None:
     assert any(
         isinstance(n, ast.Constant) and n.value == "darwin" for n in ast.walk(fn)
     ), "detect_install_method no longer looks at the platform"
+
+
+def test_no_test_leaves_the_frozen_platform_to_the_runner() -> None:
+    """A frozen classification without `platform=` asserts about the runner, not the code.
+
+    Two tests in `test_updater.py` asserted `windows-installer` for a frozen bundle
+    and inherited `sys.platform`. That was correct on every leg until the frozen
+    branch learned about darwin — at which point both macOS legs went red for a
+    reason that has nothing to do with macOS, on a Windows-only assertion. The
+    path argument is a Windows path *literal*; the platform has to be stated too,
+    or the test is only pinned on the OS that happens to run it.
+
+    Only `frozen=True` calls are checked: a non-frozen classification never
+    reaches the platform branch. The scoop test states both platforms explicitly,
+    which is stronger than an exemption — its branch sits *above* the frozen one,
+    and asserting it twice is what pins that ordering.
+    """
+    offenders: list[str] = []
+    for path in sorted(pathlib.Path(__file__).parent.glob("test_*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+                continue
+            if node.func.attr != "detect_install_method":
+                continue
+            frozen = next((k for k in node.keywords if k.arg == "frozen"), None)
+            named = {k.arg for k in node.keywords}
+            # Only a *frozen* call reaches the platform branch. `frozen=False` is
+            # decided by the path substrings alone and is platform-independent.
+            if frozen is None or "platform" in named:
+                continue
+            if not (isinstance(frozen.value, ast.Constant) and frozen.value.value):
+                continue
+            offenders.append(f"{path.name}:{node.lineno}")
+    assert not offenders, (
+        "detect_install_method(frozen=...) without platform= inherits sys.platform, "
+        "so the assertion changes meaning per CI runner: " + ", ".join(offenders)
+    )
+
+
+def test_the_guard_above_would_have_caught_the_red_legs() -> None:
+    """Vacuity check: the shape it looks for is the shape that actually broke CI."""
+    tree = ast.parse(
+        'updater.detect_install_method(_WIN_EXE, frozen=True, choco=False)'
+    )
+    call = next(n for n in ast.walk(tree) if isinstance(n, ast.Call))
+    kw = {k.arg for k in call.keywords}
+    assert "frozen" in kw and "platform" not in kw

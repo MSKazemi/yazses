@@ -43,18 +43,31 @@ _WIN_EXE = r"C:\Users\m\AppData\Local\Programs\YazSes\_internal\yazses\__init__.
 
 
 def test_detect_windows_installer_from_frozen_bundle():
-    assert updater.detect_install_method(_WIN_EXE, frozen=True, choco=False) == "windows-installer"
+    # `platform` is stated rather than inherited: the frozen branch answers
+    # `macos-app` on darwin, so leaving it to `sys.platform` made this assertion
+    # depend on the runner and turned both macOS legs red.
+    assert updater.detect_install_method(
+        _WIN_EXE, frozen=True, choco=False, platform="win32"
+    ) == "windows-installer"
 
 
 def test_detect_chocolatey_from_its_package_marker():
     # Chocolatey installs the same .exe to the same place; the marker is the only
     # on-disk difference, so it is what distinguishes the two.
-    assert updater.detect_install_method(_WIN_EXE, frozen=True, choco=True) == "choco"
+    assert updater.detect_install_method(
+        _WIN_EXE, frozen=True, choco=True, platform="win32"
+    ) == "choco"
 
 
 def test_detect_scoop_from_its_app_tree():
+    # Asserted on both platforms rather than on whichever one runs the test: the
+    # scoop branch sits *above* the frozen one and is decided by the path alone,
+    # and stating it twice is what pins that ordering.
     p = r"C:\Users\m\scoop\apps\yazses\current\yazses\__init__.py"
-    assert updater.detect_install_method(p, frozen=True, choco=False) == "scoop"
+    for platform in ("win32", "darwin"):
+        assert updater.detect_install_method(
+            p, frozen=True, choco=False, platform=platform
+        ) == "scoop"
 
 
 def test_pip_install_on_windows_is_still_pip():
