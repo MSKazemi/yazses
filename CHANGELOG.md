@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.33.0] - 2026-08-27
+
 ### Fixed — two workflow-shell test files asked the wrong question about the host
 
 `test_checksums_workflow_waits_for_builds.py` and `test_snap_publish_matrix.py` execute a
