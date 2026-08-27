@@ -58,18 +58,20 @@ scoop install yazses
 `SHA256SUMS.txt` that every release publishes, so the version and its checksum move
 together rather than the checksum going stale.
 
-**Status, honestly.** The Scoop bucket is served from this repo
-([`bucket/yazses.json`](https://github.com/MSKazemi/yazses/blob/main/bucket/yazses.json))
-and the winget manifests
+**Status, honestly.** **Scoop works** — the bucket is served straight from this repo
+([`bucket/yazses.json`](https://github.com/MSKazemi/yazses/blob/main/bucket/yazses.json)),
+carries both x64 and ARM64, and has been installed end-to-end on a clean Windows
+host: `yazses update --check` correctly reports the install as `via scoop` and
+offers `scoop update yazses`. The direct installer above is verified the same way
+(`via windows-installer`).
+
+**winget is not available yet.** The manifests
 ([`packaging/winget/`](https://github.com/MSKazemi/yazses/tree/main/packaging/winget))
-are written and versioned here, but neither has been installed end-to-end on a
-clean Windows machine yet, and the winget submission to
-`microsoft/winget-pkgs` is still open. Until someone confirms them, the installer
-above is the path we can vouch for. If you have a Windows box and try one,
-[issue #79](https://github.com/MSKazemi/yazses/issues/79) (Scoop) and
-[#78](https://github.com/MSKazemi/yazses/issues/78) (winget) are where to say what
-happened — that report is the only thing standing between these and being
-recommended here.
+are written and versioned here and pass every winget validation check, but the
+submission to `microsoft/winget-pkgs` is still waiting on a community moderator, so
+`winget install MSKazemi.YazSes` does not resolve yet. Progress is tracked in
+[issue #78](https://github.com/MSKazemi/yazses/issues/78); Scoop notes go in
+[#79](https://github.com/MSKazemi/yazses/issues/79).
 
 The `.exe` is not code-signed yet, so SmartScreen warns on first launch whichever
 route you take.

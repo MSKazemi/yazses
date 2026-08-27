@@ -132,7 +132,34 @@ def render_cask(version: str, dmg: Asset, previous: str) -> str:
     return out
 
 
-def render_winget(version: str, exe: Asset, release_date: str) -> dict[str, str]:
+def render_winget(
+    version: str, exe: Asset, release_date: str, arm: Asset | None = None
+) -> dict[str, str]:
+    """Render the three winget manifests, x64 plus arm64 when the release has one.
+
+    The arm64 entry was missing entirely: this renderer took the x64 asset and
+    nothing else, while Scoop's took both. So a Windows-on-ARM machine could
+    install from the Scoop bucket and **not** from winget -- which is the channel
+    that is built into the OS and needs no setup, i.e. exactly the one an ARM
+    laptop owner is most likely to reach for.
+
+    Conditional for the same reason Scoop's is: the arm64 build leg is
+    `continue-on-error`, so a release may legitimately ship x64 alone, and an
+    entry left pointing at the previous version's URL would fail its hash check
+    at install time rather than at publish time.
+    """
+    installers = [
+        f"""  - Architecture: x64
+    InstallerUrl: {exe.url}
+    InstallerSha256: {exe.sha256.upper()}"""
+    ]
+    if arm is not None:
+        installers.append(
+            f"""  - Architecture: arm64
+    InstallerUrl: {arm.url}
+    InstallerSha256: {arm.sha256.upper()}"""
+        )
+    installer_entries = "\n".join(installers)
     installer = f"""# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
 PackageIdentifier: MSKazemi.YazSes
 PackageVersion: {version}
@@ -147,9 +174,7 @@ ProductCode: '{INNO_PRODUCT_CODE}'
 MinimumOSVersion: 10.0.19041.0
 ReleaseDate: {release_date}
 Installers:
-  - Architecture: x64
-    InstallerUrl: {exe.url}
-    InstallerSha256: {exe.sha256.upper()}
+{installer_entries}
 ManifestType: installer
 ManifestVersion: 1.6.0
 """
@@ -356,7 +381,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  {dmg.name}  {dmg.sha256}")
     print(f"  {exe.name}  {exe.sha256}")
     if arm is None:
-        print(f"  {arm_name}  -- not in this release; Scoop's arm64 entry is dropped")
+        print(f"  {arm_name}  -- not in this release; the Scoop and winget arm64 entries are dropped")
     else:
         print(f"  {arm.name}  {arm.sha256}")
 
@@ -364,7 +389,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  PyPI sdist                    {sdist_sha}")
 
     cask_text = render_cask(version, dmg, CASK.read_text(encoding="utf-8"))
-    winget_files = render_winget(version, exe, release_date)
+    winget_files = render_winget(version, exe, release_date, arm)
     winget_target = WINGET_DIR / version
     # Scoop and Arch were hand-maintained and therefore drifted: at v2.18.2 both
     # still pointed at an older release. The Scoop bucket is served straight out
