@@ -46,6 +46,27 @@ def about_lines() -> list[str]:
 BALLOON_LIMIT = 255
 
 
+#: Usable characters in a Windows balloon *title*. ``NOTIFYICONDATA.szInfoTitle``
+#: is a 64-wide-character buffer including the terminator (Win32 ``shellapi.h``),
+#: the same family of fixed buffer as ``szInfo``. No title YazSes ships today comes
+#: close — the longest is 47 characters — so this is hardening, not a repair: the
+#: body overrun shipped twice in the same file, and the title is the one remaining
+#: unbounded field on the same call.
+BALLOON_TITLE_LIMIT = 63
+
+
+def fit_balloon_title(title: str, limit: int = BALLOON_TITLE_LIMIT) -> str:
+    """Trim a notification title to the szInfoTitle buffer. Single line, no newlines.
+
+    A newline in a title is not a length problem but it is a rendering one, and the
+    daemon relays titles built elsewhere, so it is flattened here too.
+    """
+    flat = " ".join(title.split())
+    if len(flat) <= limit:
+        return flat
+    return flat[: max(0, limit - 1)] + "…"
+
+
 def fit_balloon(text: str, limit: int = BALLOON_LIMIT) -> str:
     """Trim any notification body to fit the balloon, keeping the first line.
 

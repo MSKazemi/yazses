@@ -13,7 +13,13 @@ from collections.abc import Callable
 from typing import Any
 
 from yazses.platform.base import TrayModel
-from yazses.tray.about import about_title, balloon_body, fit_balloon, help_links
+from yazses.tray.about import (
+    about_title,
+    balloon_body,
+    fit_balloon,
+    fit_balloon_title,
+    help_links,
+)
 from yazses.tray.menu import (
     ABOUT_LABEL,
     HELP_LABEL,
@@ -89,7 +95,7 @@ class WindowsTray:
             # That has shipped twice (About, then Check for updates), so the fix
             # belongs where it cannot be forgotten by the next entry.
             try:
-                icon.notify(fit_balloon(body), title)
+                icon.notify(fit_balloon(body), fit_balloon_title(title))
             except Exception:
                 log.debug("tray notification failed", exc_info=True)
 
@@ -216,7 +222,7 @@ class WindowsTray:
                 # relayed daemon messages carry a fix in prose (the mic auto-heal
                 # names the device and what to do), so they are the longest bodies
                 # the tray shows and the likeliest to be silently discarded.
-                self._icon.notify(fit_balloon(body), title)
+                self._icon.notify(fit_balloon(body), fit_balloon_title(title))
             except Exception:
                 log.debug("tray notification failed", exc_info=True)
 

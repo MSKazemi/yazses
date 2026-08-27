@@ -53,10 +53,25 @@ RECOVERY_URL = "https://mskazemi.com/yazses/how-to/update-did-nothing.html"
 # They share a version source (the GitHub release) and a manual upgrade story.
 WINDOWS_METHODS = ("windows-installer", "choco", "winget", "scoop")
 
+# The macOS .app, installed from the .dmg. It needs its own name for one reason:
+# `detect_install_method` classified *anything frozen* as `windows-installer`, so a
+# Mac user opening "Check for updates" was told to download a
+# `YazSes-<version>-windows-<arch>.exe`. Not a silent failure — a confident wrong
+# instruction, which is worse, because it sends someone to a file that will not run
+# on their machine and offers no hint that the advice itself is the problem.
+MACOS_METHODS = ("macos-app",)
+
+# Methods whose version comes from the GitHub release rather than PyPI, because the
+# artifact *is* a release asset. Keep this separate from WINDOWS_METHODS: that tuple
+# also selects Windows-specific prose, and folding the two together is how the .app
+# came to be described as an .exe in the first place.
+GITHUB_METHODS = (*WINDOWS_METHODS, *MACOS_METHODS)
+
 
 @dataclass
 class UpdateStatus:
-    # snap | uv | pipx | pip | windows-installer | choco | winget | scoop | unknown
+    # snap | uv | pipx | pip | windows-installer | choco | winget | scoop
+    # | macos-app | unknown
     method: str
     current: str
     latest: str | None
@@ -86,6 +101,7 @@ def detect_install_method(
     *,
     frozen: bool | None = None,
     choco: bool | None = None,
+    platform: str | None = None,
 ) -> str:
     """Infer how YazSes was installed from the package's on-disk location.
 
@@ -95,7 +111,12 @@ def detect_install_method(
     are injectable so the classification is testable on any OS.
 
     Returns ``snap`` | ``uv`` | ``pipx`` | ``pip`` | ``windows-installer`` |
-    ``choco`` | ``winget`` | ``scoop``.
+    ``choco`` | ``winget`` | ``scoop`` | ``macos-app``.
+
+    ``platform`` defaults to ``sys.platform`` and exists for the same reason the
+    others do: the frozen branch used to answer ``windows-installer`` on **any**
+    platform, so every macOS ``.app`` was told to download a Windows ``.exe``. A
+    bundle is not a Windows bundle; it is a bundle on whichever OS is running it.
     """
     path = package_file if package_file is not None else __file__
     p = path.replace("\\", "/")
@@ -106,6 +127,13 @@ def detect_install_method(
     if "/scoop/apps/" in p:
         return "scoop"
     if frozen if frozen is not None else bool(getattr(sys, "frozen", False)):
+        if (platform if platform is not None else sys.platform) == "darwin":
+            # The .dmg .app. Homebrew installs the same bundle, and the two are not
+            # distinguishable from inside the process without probing the Caskroom —
+            # so rather than guess, `brew upgrade --cask` is offered as an
+            # alternative in the steps. A wrong command that exits 0 having done
+            # nothing is the failure this whole module keeps being written against.
+            return "macos-app"
         # One .exe, several channels that ship it. Chocolatey is distinguishable
         # from a marker on disk; winget is not without querying its database, so
         # it is offered as an alternative in the manual steps instead of being
@@ -236,7 +264,7 @@ def _latest_for_method(method: str, package: str) -> str | None:
     """Resolve the latest version from the source matching the install method."""
     if method == "snap":
         return latest_snap_version(package)
-    if method in WINDOWS_METHODS:
+    if method in GITHUB_METHODS:
         return latest_github_release()
     return latest_pypi_version(package)
 
@@ -245,7 +273,7 @@ def source_name(method: str) -> str:
     """Human name of the source a `method` install is checked against."""
     if method == "snap":
         return "the snap store"
-    if method in WINDOWS_METHODS:
+    if method in GITHUB_METHODS:
         return "github.com"
     return "PyPI"
 
@@ -255,9 +283,10 @@ def source_name(method: str) -> str:
 def upgrade_command(method: str, package: str = "yazses") -> list[str] | None:
     """The shell command that upgrades a `method`-style install (None if unknown).
 
-    ``windows-installer`` deliberately has no command. The upgrade is a new .exe
-    that has to be downloaded and run, and there is nothing safe to shell out to —
-    so that method answers None and callers fall back to :func:`manual_update_steps`.
+    ``windows-installer`` and ``macos-app`` deliberately have no command. The
+    upgrade is a new .exe or .dmg that has to be downloaded and run, and there is
+    nothing safe to shell out to — so those methods answer None and callers fall
+    back to :func:`manual_update_steps`.
     """
     if method == "snap":
         return ["sudo", "snap", "refresh", package]
@@ -285,14 +314,23 @@ _WINDOWS_ALTERNATIVES = [
 ]
 
 
+# Homebrew ships the same .app as the .dmg, and nothing inside the running bundle
+# distinguishes the two without probing the Caskroom. It is offered as an
+# alternative rather than detected, for the same reason winget is above.
+_MACOS_ALTERNATIVES = [
+    "If you installed with Homebrew:  brew upgrade --cask yazses",
+]
+
+
 def manual_update_steps(method: str, package: str = "yazses") -> list[str]:
     """Step-by-step instructions for updating by hand, for the cases a command can't.
 
-    Two of them, and both are ordinary rather than exceptional: the Windows
-    installer (there is no command to run — the upgrade is a downloaded .exe), and
-    a machine whose outbound network is blocked (a firewall, an offline site, a
-    proxy). Neither is a reason to leave the user with an error and nothing else,
-    which is what "could not determine the latest version" used to be.
+    Three of them, and all are ordinary rather than exceptional: the Windows
+    installer (there is no command to run — the upgrade is a downloaded .exe), the
+    macOS .app (the same, with a .dmg), and a machine whose outbound network is
+    blocked (a firewall, an offline site, a proxy). None is a reason to leave the
+    user with an error and nothing else, which is what "could not determine the
+    latest version" used to be.
     """
     if method in WINDOWS_METHODS:
         steps = [
@@ -304,6 +342,15 @@ def manual_update_steps(method: str, package: str = "yazses") -> list[str]:
         # A Chocolatey/winget/Scoop install can also upgrade through its own
         # package manager; list those rather than assuming the direct download.
         return steps + [""] + _WINDOWS_ALTERNATIVES
+    if method in MACOS_METHODS:
+        return [
+            f"Open the releases page:  {RELEASES_URL}",
+            "Download the newest YazSes-<version>-macos-<arch>.dmg",
+            "Open it and drag YazSes.app to Applications, replacing the old one",
+            "Restart YazSes (tray → Restart daemon, or `yazses restart`)",
+            "",
+            *_MACOS_ALTERNATIVES,
+        ]
     command = upgrade_command(method, package)
     if command:
         return [
@@ -469,6 +516,15 @@ def pinned_install_hint(method: str, command: list[str] | None) -> str:
         # No shell command upgrades the .exe channel — the upgrade *is* a download.
         # Quoting one would be the same class of untruth as trusting the exit code.
         escape = f"Download and run the current installer:\n    {RELEASES_URL}"
+    elif method in MACOS_METHODS:
+        # Same shape as the installer: the upgrade is a download, not a command.
+        # Homebrew is named because a cask install is the one case where a command
+        # exists — and the tap publishes after a release, so it can lag.
+        escape = (
+            "Download and open the current .dmg, replacing YazSes.app in "
+            f"Applications:\n    {RELEASES_URL}\n"
+            "If you installed with Homebrew:  brew upgrade --cask yazses"
+        )
     elif method in WINDOWS_METHODS:
         # choco/winget/scoop each carry their own manifest, and those are published
         # after the release rather than with it — they were still on 2.19.0 for a

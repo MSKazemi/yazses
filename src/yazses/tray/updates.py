@@ -47,8 +47,9 @@ def describe_update(current: str | None = None, *, opener=None) -> tuple[str, st
     The difference from :func:`check_and_describe` is the one thing the user was
     asking for when they clicked the entry. Some installs have no upgrade command
     at all — a ``windows-installer`` install upgrades by downloading and running a
-    new ``.exe``, and ``updater.upgrade_command`` deliberately answers ``None``
-    rather than shelling out to something that cannot work. The tray's only
+    new ``.exe``, a ``macos-app`` one by opening a new ``.dmg``, and
+    ``updater.upgrade_command`` deliberately answers ``None`` for both rather than
+    shelling out to something that cannot work. The tray's only
     response was to print the releases URL into a balloon, where it is not a link
     and cannot be clicked, so the honest reading of the entry was "it finds nothing
     and does nothing".
@@ -61,7 +62,7 @@ def describe_update(current: str | None = None, *, opener=None) -> tuple[str, st
     Never raises, like everything else in this module — a menu click must always end
     in something readable.
     """
-    from yazses.system.updater import RELEASES_URL
+    from yazses.system.updater import MACOS_METHODS, RELEASES_URL
     from yazses.tray.about import update_message
 
     status = check_updates(current)
@@ -83,7 +84,16 @@ def describe_update(current: str | None = None, *, opener=None) -> tuple[str, st
     # from the end, so a line added last is the first one dropped — and the whole
     # point is that this line survives.
     headline = body.split("\n", 1)[0]
-    return title, (
-        f"{headline}\n\nOpening the download page in your browser.\n"
-        "Run the installer — it upgrades in place and keeps your settings and models."
-    )
+    # What to do with the download is not the same on the two bundled platforms,
+    # and this text is the last thing the user reads before acting on it. A macOS
+    # .app has no installer to run; saying "run the installer" there would repeat,
+    # in miniature, the very bug that made `macos-app` a separate method.
+    if status.method in MACOS_METHODS:
+        follow = (
+            "Open the .dmg and drag YazSes to Applications, replacing the old one."
+        )
+    else:
+        follow = (
+            "Run the installer — it upgrades in place and keeps your settings and models."
+        )
+    return title, f"{headline}\n\nOpening the download page in your browser.\n{follow}"

@@ -23,12 +23,12 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.34.0](v2.34.0.md)** — Windows and macOS never had a GUI at all. Three gates
-decided whether a desktop exists by reading `DISPLAY` and `WAYLAND_DISPLAY`, which those
-platforms set neither of and never have, so the Settings window, the sonar overlay and
-the tray icon were suppressed on every Windows and macOS install ever produced. The tray
-also polled too slowly to see a short dictation, and every Scoop install had silently
-failed to create its Start Menu shortcut.
+**[YazSes 2.35.0](v2.35.0.md)** — the update check could not report an update. A Windows
+balloon over 255 characters is discarded whole, so the two messages that carried
+information — "a new version is available" and "the check failed" — were exactly the two
+that vanished, leaving only "you are up to date". And a frozen macOS `.app` was classified
+as a Windows install, so Mac users were told, in confident detail, to download a
+`windows-<arch>.exe`.
 Install it with:
 
 ```sh
@@ -38,6 +38,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.35.0](v2.35.0.md) — the update check could not report an update: a Windows balloon over 255 characters is discarded whole, so only "you are up to date" could ever render; a macOS `.app` was told to download a Windows `.exe`.
 - [v2.34.0](v2.34.0.md) — Windows and macOS never had a GUI at all: Settings, the sonar overlay and the tray were gated on X11 variables those platforms never set; the tray polled too slowly to see a short dictation; every Scoop install silently had no Start Menu entry.
 - [v2.33.0](v2.33.0.md) — the bundled `.exe` and `.app` ran a different CLI from the one we ship; a host with no audio device could not import YazSes; a Windows account name left in clear; CI red on every leg for a correct hook; Scoop on ARM64.
 - [v2.32.0](v2.32.0.md) — a collapsed meeting transcript that deleted its own recording; a confined snap that crashed on `yazses setup`; a publish that discarded the revision it found; and a 2×2 that kept both decode defaults.

@@ -124,3 +124,45 @@ def test_a_single_oversized_line_is_truncated_rather_than_dropped():
     fitted = fit_balloon("y" * 400)
     assert len(fitted) <= BALLOON_LIMIT
     assert fitted.endswith("…")
+
+
+def test_a_title_is_fitted_to_its_own_buffer() -> None:
+    """`szInfoTitle` is 64 wide chars including the terminator (Win32 shellapi.h).
+
+    Nothing YazSes ships today comes close — the longest title literal in `src/` is
+    47 characters — so this is the class being closed rather than a live overrun.
+    The body overrun shipped twice in this same file; the title is the one remaining
+    unbounded field on the same call.
+    """
+    from yazses.tray.about import BALLOON_TITLE_LIMIT, fit_balloon_title
+
+    assert BALLOON_TITLE_LIMIT == 63
+    fitted = fit_balloon_title("Y" * 200)
+    assert len(fitted) <= BALLOON_TITLE_LIMIT
+    assert fitted.endswith("…")
+
+
+def test_a_short_title_is_returned_unchanged() -> None:
+    from yazses.tray.about import fit_balloon_title
+
+    assert fit_balloon_title("Update available") == "Update available"
+
+
+def test_a_title_is_flattened_to_one_line() -> None:
+    from yazses.tray.about import fit_balloon_title
+
+    assert fit_balloon_title("YazSes\nmic recovered") == "YazSes mic recovered"
+
+
+def test_every_windows_notify_call_fits_its_title() -> None:
+    """The AST guard for the title, matching the one for the body above."""
+    for call in _notify_calls():
+        assert call.args, "a notify() call with no arguments"
+        title = call.args[1] if len(call.args) > 1 else None
+        assert isinstance(title, ast.Call) and getattr(title.func, "id", "") == (
+            "fit_balloon_title"
+        ), (
+            "a Windows tray notify() passes a title straight to Shell_NotifyIcon; "
+            "szInfoTitle is a fixed 64-wide-char buffer, so wrap it in "
+            "fit_balloon_title()"
+        )

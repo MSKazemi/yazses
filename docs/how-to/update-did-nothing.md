@@ -102,6 +102,25 @@ detected.
     scoop update yazses
     ```
 
+=== "macOS"
+
+    Like the Windows installer, there is no command that upgrades the `.app` — the
+    upgrade **is** a download. Get the current
+    `YazSes-<version>-macos-<arch>.dmg` from the
+    [releases page](https://github.com/MSKazemi/yazses/releases/latest), open it, and
+    drag YazSes to Applications, replacing the copy that is there. Your settings,
+    models and vocabulary live outside the bundle and are untouched.
+
+    If you installed with **Homebrew**:
+
+    ```bash
+    brew upgrade --cask yazses
+    ```
+
+    The tap publishes after a release rather than with it, so `brew` reporting
+    nothing to do shortly after a new version ships is the tap lagging, not your
+    install — the `.dmg` above gets you the current release now.
+
 === "pipx / something else"
 
     Reinstall the way you first installed it, then confirm with `yazses --version` in a

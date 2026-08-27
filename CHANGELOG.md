@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.35.0] - 2026-08-27
+
 ### Fixed — "Check for updates" on Windows never showed an update
 
 Reported from a Windows desktop: the tray's **Check for updates…** never announced a
@@ -42,9 +44,41 @@ models, which is what makes the uninstall-first workaround unnecessary. Download
 running the installer automatically is deliberately not done: that is executing a fetched
 binary on the user's behalf, and it waits on code signing.
 
-⚠ Unrelated but found next to it: a frozen macOS `.app` is classified as
-`windows-installer` by `updater.detect_install_method`, so its manual update steps tell a
-Mac user to download a `windows-<arch>.exe`. Not fixed here.
+### Fixed — a macOS `.app` was told to update itself with a Windows `.exe`
+
+Found next to the balloon bug, in the same function. `updater.detect_install_method`
+classified **anything** with `sys.frozen` set as `windows-installer`, because the frozen
+branch was written when Windows was the only bundled build. The `.dmg` `.app` is frozen
+too, so every Mac user who opened **Check for updates…** was told, confidently and in
+step-by-step detail, to download a `YazSes-<version>-windows-<arch>.exe` — a file that
+cannot run on their machine, in a message with nothing to suggest the advice itself was
+the problem. A wrong instruction stated with certainty is worse than a silent failure,
+because the reader has no reason to doubt it.
+
+A bundle is not a Windows bundle; it is a bundle on whichever OS is running it. There is
+now a `macos-app` method with its own steps (open the current `.dmg`, drag YazSes to
+Applications), its own recovery hint, and Homebrew named as the alternative — `brew
+upgrade --cask yazses` — rather than guessed at, since a cask install and a direct `.dmg`
+install are the same bundle and are not distinguishable from inside it.
+
+Like the Windows installer, `macos-app` has no upgrade command on purpose: the upgrade
+*is* a download. Its version therefore comes from the GitHub release rather than PyPI
+(PyPI carries no `.dmg`), and the macOS tray's **Check for updates…** now opens the
+download page for the same reason the Windows one does. `yazses update --check` on a
+`.app` also stops exiting 1 with *"no automatic upgrade is available"* — the method is
+recognised, so it prints real steps and exits 0.
+
+The docs' [update did nothing](docs/how-to/update-did-nothing.md) page gained the macOS
+tab it never had.
+
+### Hardened — the balloon *title* is now bounded too
+
+`NOTIFYICONDATA.szInfoTitle` is a 64-wide-character buffer, the same family of fixed
+buffer as the `szInfo` body above. No title YazSes ships comes close — the longest is 47
+characters — so this is the class being closed rather than a live overrun, and the same
+structural test now covers both fields of every `notify()` call in the Windows tray. The
+body overrun shipped twice in that one file; the title was the last unbounded field on
+the same call.
 
 
 ## [2.34.0] - 2026-08-27

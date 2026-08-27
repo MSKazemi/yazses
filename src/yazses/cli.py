@@ -3469,14 +3469,15 @@ def update(
 
     typer.echo(f"\nUpdate available: {current} → {status.latest}")
     if not status.command:
-        # No command for this method — the Windows installer is the live case
-        # (the upgrade is a downloaded .exe, with nothing safe to shell out to).
+        # No command for this method — the Windows installer and the macOS .app
+        # are the live cases (the upgrade is a downloaded .exe or .dmg, with
+        # nothing safe to shell out to).
         # Exact steps for a channel we recognise is a success; for a method we
         # have no recipe for, the generic advice is still printed but the exit
         # code stays non-zero, because we genuinely could not do what was asked.
-        from yazses.system.updater import WINDOWS_METHODS
+        from yazses.system.updater import GITHUB_METHODS
 
-        known = status.method in WINDOWS_METHODS
+        known = status.method in GITHUB_METHODS
         if known:
             typer.echo(f"There's no one-command upgrade for a {status.method} install. Do this:")
         else:

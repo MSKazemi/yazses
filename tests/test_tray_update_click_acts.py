@@ -125,3 +125,27 @@ def test_the_windows_tray_uses_the_acting_variant():
         "check_and_describe only describes, so an install with no upgrade command is "
         "left with a URL printed into a balloon where it is not clickable"
     )
+
+
+def test_a_mac_click_is_not_told_to_run_an_installer(monkeypatch):
+    """The follow-up line has to match the artifact the page will hand over.
+
+    A `macos-app` install downloads a .dmg; "run the installer — it upgrades in
+    place" describes the Windows .exe and nothing a Mac user is about to see.
+    """
+    monkeypatch.setattr(
+        tray_updates, "check_updates",
+        lambda *_a, **_k: _status(
+            method="macos-app", steps=manual_update_steps("macos-app")
+        ),
+    )
+    _title, body = tray_updates.describe_update(opener=lambda _u: True)
+    assert ".dmg" in body
+    assert "installer" not in body
+
+
+def test_a_windows_click_still_says_run_the_installer(monkeypatch):
+    monkeypatch.setattr(tray_updates, "check_updates", lambda *_a, **_k: _status())
+    _title, body = tray_updates.describe_update(opener=lambda _u: True)
+    assert "Run the installer" in body
+    assert ".dmg" not in body

@@ -33,7 +33,7 @@ from yazses.tray.menu import (
     TROUBLESHOOTING_LABEL,
     UPDATE_LABEL,
 )
-from yazses.tray.updates import check_and_describe
+from yazses.tray.updates import describe_update
 
 log = logging.getLogger(__name__)
 
@@ -148,7 +148,12 @@ class MacosTray:
                 rumps.notification("YazSes", "", "Checking for updates…")
 
                 def _work() -> None:
-                    title, body = check_and_describe()
+                    # `describe_update`, not `check_and_describe`: a .app install has
+                    # no upgrade command — the upgrade is a downloaded .dmg — so the
+                    # describing variant ends at a URL inside a notification, where it
+                    # is not clickable. This opens the download page, which is the
+                    # smallest thing that makes the click mean something.
+                    title, body = describe_update()
                     rumps.notification("YazSes", title, body)
 
                 threading.Thread(
