@@ -6,6 +6,39 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses report` left a Windows account name in clear
+
+The diagnostic bundle redacts the account name because it identifies the machine's
+owner, and a Bluetooth microphone carries it (`Ada's AirPods Pro`). The matcher was
+`re.compile(rf"\b{re.escape(name)}\b")`, and `\b` asserts a *transition*: placed next
+to a non-word character it demands a word character on the other side. For an account
+called `yz-win2$` the pattern is `\byz\-win2\$\b`, and in
+
+```
+yz-win2$'s AirPods Pro
+```
+
+the `'` after the `$` is not a word character either, so the pattern could not match
+and the name went into the report unredacted. On Windows this is not a corner case — a
+machine account is `<hostname>$` by convention. Names ending in `.` or `-` failed the
+same way.
+
+The boundary is now applied only at an edge that is a word character, so `ada` still
+does not match inside `adam` and `yz-win2$` is redacted. The test that should have
+caught this was itself the reason it did not: it took the name back out of
+`pattern.pattern`, feeding in the *escaped* form, and so asserted that a string which
+never appears in a report was redacted.
+
+### Added — Scoop installs the native build on Windows on ARM
+
+The release has shipped `YazSes-<version>-windows-arm64.exe` since v2.22.0, and the
+Scoop manifest listed only `64bit`, so `scoop install yazses` handed every ARM machine
+the x64 build to run under emulation. `refresh-package-manifests.py` now writes the
+arm64 entry — and *removes* it when a release has no arm64 asset, since that leg is
+`continue-on-error` in `build-windows.yml`: an entry left pointing at the previous
+version would 404 instead of falling back to x64, and absent means "use 64bit" while
+wrong means "cannot install".
+
 ### Fixed — two test files could abandon the whole Windows suite at collection
 
 With the recorder's import fixed, the suite still stopped at `2 errors during

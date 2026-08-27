@@ -260,13 +260,44 @@ def pypi_sdist_sha256(version: str) -> str:
     raise SystemExit(f"yazses {version} has no sdist on PyPI -- cannot refresh the AUR package")
 
 
-def render_scoop(version: str, exe: Asset, previous: str) -> str:
-    """Rewrite only version/url/hash; the notes and bin/shortcut wiring are prose."""
+def render_scoop(version: str, exe: Asset, arm: Asset | None, previous: str) -> str:
+    """Rewrite only version/url/hash; the notes and bin/shortcut wiring are prose.
+
+    The arm64 entry is written only when the release actually carries an arm64
+    installer. That leg is `continue-on-error` in build-windows.yml, so a release can
+    ship x64 alone -- and an arm64 entry left pointing at the previous version's URL
+    is worse than none at all: `scoop install yazses` on an ARM machine would 404
+    instead of falling back to the x64 build, which Windows on ARM runs under
+    emulation. Absent means "use 64bit"; wrong means "cannot install".
+    """
     data = json.loads(previous)
     data["version"] = version
     arch = data["architecture"]["64bit"]
     arch["url"] = f"{exe.url}#/setup.exe"
     arch["hash"] = exe.sha256
+
+    auto = data["autoupdate"]["architecture"]
+    if arm is None:
+        data["architecture"].pop("arm64", None)
+        auto.pop("arm64", None)
+    else:
+        data["architecture"]["arm64"] = {
+            "url": f"{arm.url}#/setup.exe",
+            "hash": arm.sha256,
+        }
+        auto["arm64"] = {
+            "url": (
+                "https://github.com/MSKazemi/yazses/releases/download/"
+                "v$version/YazSes-$version-windows-arm64.exe#/setup.exe"
+            ),
+            "hash": {
+                "url": (
+                    "https://github.com/MSKazemi/yazses/releases/download/"
+                    "v$version/SHA256SUMS.txt"
+                ),
+                "regex": "$sha256\\s+YazSes-$version-windows-arm64.exe",
+            },
+        }
     return json.dumps(data, indent=4) + "\n"
 
 
@@ -305,6 +336,9 @@ def main(argv: list[str] | None = None) -> int:
     # looks like the project is broken.
     dmg_name = f"YazSes-{version}-macos-arm64.dmg"
     exe_name = f"YazSes-{version}-windows-x64.exe"
+    # Optional on purpose -- the arm64 leg is continue-on-error, so a release may
+    # legitimately ship without it. See render_scoop.
+    arm_name = f"YazSes-{version}-windows-arm64.exe"
     problems: list[str] = []
 
     for needed in (dmg_name, exe_name):
@@ -318,8 +352,13 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Hashing the released assets for v{version} (about 200 MB)…")
     dmg = fetch_digest(dmg_name, *assets[dmg_name])
     exe = fetch_digest(exe_name, *assets[exe_name])
+    arm = fetch_digest(arm_name, *assets[arm_name]) if arm_name in assets else None
     print(f"  {dmg.name}  {dmg.sha256}")
     print(f"  {exe.name}  {exe.sha256}")
+    if arm is None:
+        print(f"  {arm_name}  -- not in this release; Scoop's arm64 entry is dropped")
+    else:
+        print(f"  {arm.name}  {arm.sha256}")
 
     sdist_sha = pypi_sdist_sha256(version)
     print(f"  PyPI sdist                    {sdist_sha}")
@@ -331,7 +370,7 @@ def main(argv: list[str] | None = None) -> int:
     # still pointed at an older release. The Scoop bucket is served straight out
     # of this repository, so a stale manifest means `scoop update yazses` keeps
     # installing the previous version indefinitely.
-    scoop_text = render_scoop(version, exe, SCOOP.read_text(encoding="utf-8"))
+    scoop_text = render_scoop(version, exe, arm, SCOOP.read_text(encoding="utf-8"))
     simple = {
         SCOOP: scoop_text,
         SCOOP_REVIEWED: scoop_text,

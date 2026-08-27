@@ -186,7 +186,13 @@ def test_a_microphone_named_after_its_owner_is_redacted(tmp_path):
     account = R._account_pattern()
     if account is None:
         return  # a generic account name is not worth hiding; nothing to assert here.
-    name = account.pattern.strip("\\b")
+    # The real account name, not the pattern's spelling of it. Taking it back out of
+    # `account.pattern` fed the *escaped* form in, so on a Windows machine account
+    # (`yz-win2$`) this asserted that `yz\-win2\$` was redacted -- a string that
+    # never appears in a report -- and the leak it exists to catch went unnoticed.
+    import getpass
+
+    name = getpass.getuser().strip()
 
     d = _daemon()
     d._state.input_device = f"{name}'s AirPods Pro"
@@ -268,3 +274,46 @@ def test_redact_status_leaves_none_alone():
 # change what a boolean comes out as — a test for it could never go red, and a test
 # that cannot fail is decoration. The branch is documentation of intent; the facts that
 # actually have to survive are asserted in `test_the_facts_that_explain_a_failure_all_survive`.
+
+
+def test_an_account_name_ending_in_a_symbol_is_still_redacted(tmp_path, monkeypatch):
+    r"""The Windows machine-account shape, which `\b` alone could never match.
+
+    `re.compile(rf"\b{re.escape(name)}\b")` for `yz-win2$` is `\byz\-win2\$\b`, and
+    `\b` asserts a *transition*: next to the non-word `$` it demands a word character
+    on the other side. In `yz-win2$'s AirPods Pro` the following `'` is not one, so
+    the pattern could not match and the account name went into the report in clear.
+
+    Not a corner case on Windows -- a machine account is `<hostname>$` by convention.
+    Parameterised over the other non-word endings an account name really has.
+    """
+    import getpass
+    import re
+
+    for name in ("yz-win2$", "mohsen.", "svc-account-"):
+        monkeypatch.setattr(getpass, "getuser", lambda n=name: n)
+        pattern = R._account_pattern()
+        assert pattern is not None, name
+        assert pattern.search(f"{name}'s AirPods Pro"), (
+            f"{name!r} is not redacted; pattern was {pattern.pattern!r}"
+        )
+        assert re.compile(
+            rf"\b{re.escape(name)}\b", re.IGNORECASE
+        ).search(f"{name}'s AirPods Pro") is None, (
+            f"{name!r} no longer demonstrates the bug -- this test has stopped testing it"
+        )
+
+
+def test_a_short_name_still_does_not_match_inside_a_longer_word(monkeypatch):
+    """Guards the fix in the other direction.
+
+    Relaxing the boundary everywhere would redact `ada` out of `adam`, shredding the
+    surrounding log -- the failure mode the module comment already warns about.
+    """
+    import getpass
+
+    monkeypatch.setattr(getpass, "getuser", lambda: "ada")
+    pattern = R._account_pattern()
+    assert pattern is not None
+    assert pattern.search("adam is here") is None
+    assert pattern.search("ada is here") is not None

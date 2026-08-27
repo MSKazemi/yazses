@@ -152,3 +152,91 @@ def test_every_versioned_manifest_has_a_renderer():
         refresh.SRCINFO, refresh.NUSPEC, refresh.CHOCO_INSTALL, refresh.METAINFO,
     ):
         assert path.exists(), f"{path} is referenced by the refresher but absent"
+
+
+# ---- scoop, and the architecture it never listed -----------------------
+
+
+@pytest.fixture
+def arm():
+    return refresh.Asset(
+        name="YazSes-9.9.9-windows-arm64.exe",
+        url=(
+            "https://github.com/MSKazemi/yazses/releases/download/v9.9.9/"
+            "YazSes-9.9.9-windows-arm64.exe"
+        ),
+        size=1234,
+        sha256="b" * 64,
+    )
+
+
+def _scoop(exe, arm):
+    import json
+
+    return json.loads(
+        refresh.render_scoop(
+            "9.9.9", exe, arm, (refresh.ROOT / "bucket" / "yazses.json").read_text("utf-8")
+        )
+    )
+
+
+def test_an_arm64_release_reaches_the_bucket(exe, arm):
+    """The release has shipped a native Windows-on-ARM installer since v2.22.0 and the
+    bucket listed only 64bit, so `scoop install yazses` handed every ARM machine the
+    x64 build to run under emulation."""
+    data = _scoop(exe, arm)
+    assert data["architecture"]["arm64"]["hash"] == "b" * 64
+    assert data["architecture"]["arm64"]["url"].endswith("windows-arm64.exe#/setup.exe")
+
+
+def test_the_x64_entry_is_untouched_by_the_addition(exe, arm):
+    """The architecture that already worked must not move."""
+    data = _scoop(exe, arm)
+    assert data["architecture"]["64bit"]["hash"] == "a" * 64
+    assert "windows-x64.exe" in data["architecture"]["64bit"]["url"]
+
+
+def test_a_release_without_an_arm64_build_drops_the_entry(exe, arm):
+    """`build-windows.yml` runs the arm64 leg `continue-on-error`, so a release can
+    legitimately ship x64 alone.
+
+    A stale arm64 entry is worse than none: Scoop would 404 on an ARM machine instead
+    of falling back to the x64 build, which Windows on ARM runs under emulation.
+    Absent means "use 64bit"; wrong means "cannot install".
+    """
+    with_arm = _scoop(exe, arm)
+    assert "arm64" in with_arm["architecture"]  # anchors the premise
+
+    data = _scoop(exe, None)
+    assert "arm64" not in data["architecture"]
+    assert "arm64" not in data["autoupdate"]["architecture"]
+    assert data["architecture"]["64bit"]["hash"] == "a" * 64
+
+
+def test_autoupdate_reads_the_arm64_hash_out_of_the_release_checksums(exe, arm):
+    """Scoop's own updater must not be left hashing nothing.
+
+    The regex names the arm64 asset specifically -- pointed at the x64 line it would
+    install an emulated build under an arm64 key, which is the failure this entry
+    exists to end.
+    """
+    auto = _scoop(exe, arm)["autoupdate"]["architecture"]["arm64"]
+    assert auto["hash"]["url"].endswith("SHA256SUMS.txt")
+    assert auto["hash"]["regex"] == r"$sha256\s+YazSes-$version-windows-arm64.exe"
+    assert "$version" in auto["url"]
+
+
+def test_the_committed_bucket_matches_the_released_arm64_asset():
+    """The bucket is served straight out of this repository, so a hand-edit that
+    forgets one architecture ships immediately."""
+    import json
+
+    data = json.loads((refresh.ROOT / "bucket" / "yazses.json").read_text("utf-8"))
+    version = data["version"]
+    for key, tag in (("64bit", "x64"), ("arm64", "arm64")):
+        entry = data["architecture"][key]
+        assert entry["url"] == (
+            f"https://github.com/MSKazemi/yazses/releases/download/v{version}/"
+            f"YazSes-{version}-windows-{tag}.exe#/setup.exe"
+        )
+        assert len(entry["hash"]) == 64

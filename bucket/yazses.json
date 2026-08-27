@@ -12,6 +12,10 @@
         "64bit": {
             "url": "https://github.com/MSKazemi/yazses/releases/download/v2.32.0/YazSes-2.32.0-windows-x64.exe#/setup.exe",
             "hash": "699a963fd3255a2e94fd4699a83236a297e81c57feec57b4f9a2654604296906"
+        },
+        "arm64": {
+            "url": "https://github.com/MSKazemi/yazses/releases/download/v2.32.0/YazSes-2.32.0-windows-arm64.exe#/setup.exe",
+            "hash": "34ef2abf7d89d5dec525b27c4802c59ff5be4dfc5d0a63aba0f75c22f79d1195"
         }
     },
     "innosetup": true,
@@ -37,6 +41,13 @@
                 "hash": {
                     "url": "https://github.com/MSKazemi/yazses/releases/download/v$version/SHA256SUMS.txt",
                     "regex": "$sha256\\s+YazSes-$version-windows-x64.exe"
+                }
+            },
+            "arm64": {
+                "url": "https://github.com/MSKazemi/yazses/releases/download/v$version/YazSes-$version-windows-arm64.exe#/setup.exe",
+                "hash": {
+                    "url": "https://github.com/MSKazemi/yazses/releases/download/v$version/SHA256SUMS.txt",
+                    "regex": "$sha256\\s+YazSes-$version-windows-arm64.exe"
                 }
             }
         }

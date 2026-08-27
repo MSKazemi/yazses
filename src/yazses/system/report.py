@@ -64,8 +64,31 @@ _GENERIC_ACCOUNTS = frozenset({
 })
 
 
+def _is_word_char(ch: str) -> bool:
+    return ch.isalnum() or ch == "_"
+
+
 def _account_pattern() -> re.Pattern[str] | None:
-    """A word-boundary matcher for this account name, or None if not worth hiding."""
+    r"""A word-boundary matcher for this account name, or None if not worth hiding.
+
+    The boundary is applied only at an edge that is a word character, because `\b`
+    asserts a *transition* — put it next to a non-word character and it demands a word
+    character on the other side, which is the opposite of what is wanted. An account
+    called `yz-win2$` produced `\byz\-win2\$\b`, and in
+
+        yz-win2$'s AirPods Pro
+
+    the `'` after the `$` is not a word character either, so the pattern could not
+    match and the name went into the report in clear. Found on a Windows host, where
+    it is not a corner case: a machine account is `<hostname>$` by convention, and a
+    Bluetooth microphone is named after its owner.
+
+    Dropping the boundary at a non-word edge over-matches a longer token
+    (`yz-win2$extra`) — which contains the account name, so redacting it is right.
+    For a privacy filter the safe direction is to redact more, not less; the `\b` is
+    kept wherever it does its real job, which is stopping `ada` matching inside
+    `adam`.
+    """
     try:
         import getpass
 
@@ -74,7 +97,9 @@ def _account_pattern() -> re.Pattern[str] | None:
         return None
     if len(name) < 3 or name.lower() in _GENERIC_ACCOUNTS:
         return None
-    return re.compile(rf"\b{re.escape(name)}\b", re.IGNORECASE)
+    head = r"\b" if _is_word_char(name[0]) else ""
+    tail = r"\b" if _is_word_char(name[-1]) else ""
+    return re.compile(rf"{head}{re.escape(name)}{tail}", re.IGNORECASE)
 
 
 _ACCOUNT = _account_pattern()
