@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the Windows signing path could never have worked
+
+The SignPath signing steps in `build-windows.yml` are gated on four `SIGNPATH_*`
+secrets that have never been set, so they have never executed once. Reviewing them
+before applying to the SignPath Foundation programme found that
+`github-artifact-id` was passed `${{ github.run_id }}` — the id of the workflow
+*run*, not of the uploaded *artifact*, which is what the action's own input
+description asks for. SignPath would have looked up an artifact that does not exist,
+and the first signed release would have been the release that discovered it.
+
+The upload step now carries an `id` and the signing step reads its `artifact-id`
+output. The signing wait also rises from the action's 600 s default to 1800 s,
+because a Foundation signing policy may require a human to approve each request and
+ten minutes is not enough to notice a mail and click approve; 30 min still fits
+inside the 45-minute producer wait in `checksums.yml`, so `SHA256SUMS.txt` continues
+to cover both installers.
+
+`tests/test_signpath_signing_wiring.py` reads the workflow directly, so the wiring is
+checked without the secrets — including that the signed binary replaces the unsigned
+one *before* anything hashes, attests or uploads it.
+
 ## [2.35.0] - 2026-08-27
 
 ### Fixed — "Check for updates" on Windows never showed an update

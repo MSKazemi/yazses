@@ -137,6 +137,9 @@ jobs:
       # Upload the unsigned .exe to SignPath, which signs it and returns the
       # signed binary as a separate artefact named "$name.signed".
       - name: Upload to SignPath for signing
+        # `id` is load-bearing: the signing step below needs this step's
+        # `artifact-id` output, and a step with no id cannot be referenced.
+        id: upload-unsigned
         if: steps.sign.outputs.sign == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -152,8 +155,22 @@ jobs:
           organization-id: ${{ env.SIGNPATH_ORGANIZATION_ID }}
           project-slug: ${{ env.SIGNPATH_PROJECT_SLUG }}
           signing-policy-slug: ${{ env.SIGNPATH_SIGNING_POLICY }}
-          github-artifact-id: ${{ github.run_id }}
+          # The ARTIFACT id, not the run id. The action's own input description says
+          # "Use `steps.<step-id>.outputs.artifact-id` from the preceding
+          # actions/upload-artifact step" — this passed ${{ github.run_id }}, a
+          # different number that identifies the workflow run. SignPath would have
+          # looked up an artifact that does not exist. It could never have been
+          # caught by a build, because the whole signing path is gated on four
+          # secrets that have never been set, so these lines have never executed.
+          github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
           wait-for-completion: true
+          # Default is 600 s. A SignPath Foundation signing policy may require a
+          # human to approve each signing request in SignPath's web UI, and ten
+          # minutes is not enough time to notice an email and click approve — the
+          # job would fail and the release would ship with no Windows installer at
+          # all. 30 min also stays inside the 45-minute window checksums.yml waits
+          # for producer workflows, so SHA256SUMS.txt still covers both .exe.
+          wait-for-completion-timeout-in-seconds: 1800
           output-artifact-directory: dist-signed
           parameters: |
             Version: ${{ github.ref_name }}
