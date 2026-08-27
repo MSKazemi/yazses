@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
   <metadata>
     <id>yazses</id>
-    <version>2.31.0</version>
+    <version>2.32.0</version>
     <packageSourceUrl>https://github.com/MSKazemi/yazses/tree/main/packaging/chocolatey</packageSourceUrl>
     <owners>MSKazemi</owners>
     <title>YazSes (Install)</title>
@@ -35,7 +35,7 @@ a whole meeting into a speaker-labelled transcript with locally generated minute
 * The Windows build is **not code-signed yet**, so SmartScreen may warn on first launch.
 * Installs per-user (no administrator rights required).
 ]]></description>
-    <releaseNotes>https://github.com/MSKazemi/yazses/releases/tag/v2.31.0</releaseNotes>
+    <releaseNotes>https://github.com/MSKazemi/yazses/releases/tag/v2.32.0</releaseNotes>
   </metadata>
   <files>
     <file src="tools\**" target="tools" />
