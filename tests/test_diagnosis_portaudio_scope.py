@@ -39,9 +39,10 @@ from __future__ import annotations
 
 import pytest
 
+from tests.conftest import sounddevice_or_skip
 from yazses.system.diagnosis import CAPTURE, diagnose
 
-pytest.importorskip("sounddevice")
+sounddevice_or_skip(allow_module_level=True)
 
 
 def _pa(code: int):

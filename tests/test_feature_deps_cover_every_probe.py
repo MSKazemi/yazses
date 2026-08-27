@@ -42,9 +42,28 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def _tracked_sources() -> list[Path]:
-    out = subprocess.run(
-        ["git", "ls-files", "src/*.py"], cwd=ROOT, capture_output=True, text=True, check=True
-    ).stdout
+    """Every source file to scan for probes -- from git where there is one.
+
+    The walk is the fallback rather than the default because git knows what is
+    actually shipped. But `git` is not guaranteed: on a Windows host without it,
+    `subprocess.run` raises `FileNotFoundError: [WinError 2]` *at collection time*,
+    which took the entire suite down with "2 errors during collection" -- a
+    repository-hygiene guard silencing 13675 unrelated results.
+
+    Falling back to a walk is safe for this guard specifically: it asserts that
+    *every* probe has an installable remedy, so a superset of files can only make it
+    stricter, never let a probe through unexamined.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "ls-files", "src/*.py"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return sorted((ROOT / "src").rglob("*.py"))
     return sorted({ROOT / line for line in out.splitlines() if line})
 
 

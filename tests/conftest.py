@@ -349,3 +349,33 @@ def _no_test_may_write_the_users_real_config():
         "too, then assert `get_paths().config_dir` really is under tmp_path. See the "
         "`scratch` fixture in tests/test_features_core_is_not_unknown.py."
     )
+
+
+def sounddevice_or_skip(*, allow_module_level: bool = False):
+    """The real sounddevice module, or a skip that says why.
+
+    `pytest.importorskip("sounddevice")` is not enough. sounddevice runs
+    `Pa_Initialize()` during the import itself, and on a host with no usable audio
+    system that raises
+
+        sounddevice.PortAudioError: Error initializing PortAudio:
+        Internal PortAudio error [PaErrorCode -9986]
+
+    which is not an ImportError, so `importorskip` lets it through as a collection
+    error and pytest then abandons the whole run. Measured on a Windows Server 2022
+    VM with no audio device: that is exactly what happened, and the suite reported
+    "2 errors during collection" instead of its 13675 results.
+
+    The same shape as `_ctranslate2_or_skip` in
+    tests/test_settings_decode_controls.py: a compiled or device-backed dependency
+    can fail at *load* rather than at resolution, and a test file that merely needs
+    it should skip rather than take the run down with it.
+    """
+    try:
+        import sounddevice
+    except Exception as exc:  # noqa: BLE001 -- PortAudioError, OSError, ImportError
+        pytest.skip(
+            f"sounddevice is unusable on this host ({type(exc).__name__}: {exc})",
+            allow_module_level=allow_module_level,
+        )
+    return sounddevice

@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import pytest
 
+from tests.conftest import sounddevice_or_skip
 from yazses.system.diagnosis import CAPTURE, diagnose
 
 
@@ -91,7 +92,7 @@ def test_portaudio_codes_are_what_this_assumes() -> None:
 
     Skipped where PortAudio is absent, since the claim is about that library.
     """
-    sd = pytest.importorskip("sounddevice")
+    sd = sounddevice_or_skip()
     try:
         text = sd._ffi.string(sd._lib.Pa_GetErrorText(-9996)).decode()
     except Exception:  # pragma: no cover - binding shape varies

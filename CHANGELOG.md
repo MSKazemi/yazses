@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — two test files could abandon the whole Windows suite at collection
+
+With the recorder's import fixed, the suite still stopped at `2 errors during
+collection`, and pytest abandons the run rather than reporting the other 13675 results.
+Both errors were a dependency failing at *load* rather than at resolution, which is the
+case `pytest.importorskip` does not cover — it catches `ImportError`, and neither of
+these is one:
+
+- `test_diagnosis_portaudio_scope.py` guarded itself with
+  `pytest.importorskip("sounddevice")`, but sounddevice raises `PortAudioError` from
+  `Pa_Initialize()` during the import. `tests/conftest.py` now offers
+  `sounddevice_or_skip()`, which skips on *any* failure and says which one.
+- `test_feature_deps_cover_every_probe.py` shells out to `git ls-files` to decide what to
+  scan, and git is not installed on a stock Windows host: `FileNotFoundError:
+  [WinError 2]`. It now falls back to walking `src/`, which for this guard is strictly
+  safer — it asserts every probe has an installable remedy, so a superset of files can
+  only make it stricter.
+
+A repository-hygiene guard and an audio-diagnosis test are both things a Windows user
+never runs; silencing 13675 unrelated results is how a real regression stays invisible.
+
 ### Fixed — a machine with no audio device could not import YazSes at all
 
 `import sounddevice` runs `Pa_Initialize()` during the import itself, and where there is
