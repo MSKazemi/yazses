@@ -6,6 +6,39 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the release checksum could describe a binary that no longer existed
+
+v2.32.0 published a `SHA256SUMS.txt` that matched **neither** Windows installer. The
+release had been run twice for the same tag; on the second run every asset already
+existed from the first, so `checksums.yml`'s "wait for the assets to appear" loop —
+which counts *names* — was satisfied on its first poll, hashed the previous run's
+binaries, and the still-running Windows build overwrote both `.exe` two to three minutes
+later. The `.deb` and `.dmg` matched only because their builds happened to finish ten
+seconds earlier. A name is not a file, and no amount of extra waiting fixes a check that
+is already true. The same shape had already cost v2.20.0.
+
+Windows builds are unsigned, so that hash is the only integrity signal a Windows user
+has — `docs/code-signing.md` tells them to verify it, and a wrong value there reads as
+"your download was tampered with". Chocolatey and Scoop derive their manifests from the
+same file, so `choco upgrade yazses` refused to install at all.
+
+- The workflow now waits on the producer **workflow runs** — the only thing that knows
+  whether an asset is still being written — before it hashes anything.
+- After uploading, it proves no artifact was written *after* `SHA256SUMS.txt`. That
+  check makes no timing assumption, costs one API call, and fails the run red instead of
+  publishing a wrong hash nobody looks at until an upgrade breaks.
+- The set of workflows waited for is derived from the workflow files in the test suite,
+  so a fourth producer cannot be added without being waited for.
+
+### Fixed — `yazses doctor` told Windows and macOS users to run `apt`
+
+The "Text-target guard" row offered `apt install python3-pyatspi gir1.2-atspi-2.0` as the
+route to precision, un-gated by platform, so every Windows and macOS install got it —
+observed verbatim in the `doctor` output from a real Windows machine. AT-SPI is a Linux
+desktop technology; off Linux the precise path is not a missing package, it is
+unreachable, and no command can move that row. It now says the guard is best-effort and
+that precision is Linux-only, and keeps the remedy on the platform where it works.
+
 ## [2.32.0] - 2026-08-26
 
 ### Fixed — a meeting no longer disappears into a collapsed transcript

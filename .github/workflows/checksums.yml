@@ -82,6 +82,53 @@ jobs:
           # work it clears, or it reports on something else.
           gh api "repos/$GH_REPO" --jq .name
 
+      - name: Wait for the builds that produce the assets to finish
+        # The step below waits for asset *names*, and a name is not a file.
+        #
+        # v2.32.0: the release was run twice for the same tag. On the second run
+        # every asset already existed from the first, so the name count was
+        # satisfied on the very first poll -- this job hashed the previous run's
+        # binaries and the still-running Windows build overwrote both .exe two to
+        # three minutes later. The published SHA256SUMS.txt matched NEITHER Windows
+        # installer, and Windows builds are unsigned, so that hash is the only
+        # integrity signal a Windows user has. `docs/code-signing.md` tells them to
+        # check it; a wrong value there reads as "your download was tampered with",
+        # and Chocolatey/Scoop, whose manifests are derived from this file, simply
+        # refuse to install. The .deb and .dmg matched by luck -- their builds
+        # happened to finish ten seconds before the hashing step.
+        #
+        # Presence cannot express freshness, so ask the only thing that can: are the
+        # workflows that write those assets still running? A leg with no run for this
+        # tag returns an empty list, which is the right answer for one that was never
+        # triggered, and a failed leg is `completed` -- so neither can hang this job.
+        run: |
+          set -euo pipefail
+          deadline=$(( SECONDS + 2700 ))   # 45 minutes
+          # These are the workflows that attach a .deb/.dmg/.exe to the release.
+          # `tests/test_checksums_workflow_waits_for_builds.py` derives that set from
+          # the workflow files themselves and fails if a fourth producer appears
+          # without being listed here -- a hand-written set is only safe while
+          # something else is checking it.
+          producers="release.yml build-macos.yml build-windows.yml"
+          while (( SECONDS < deadline )); do
+            busy=""
+            for wf in $producers; do
+              # `branch` filters on head_branch, which for a tag push is the tag name.
+              states=$(gh api \
+                "repos/$GH_REPO/actions/workflows/$wf/runs?branch=$TAG&per_page=30" \
+                --jq '.workflow_runs[].status' 2>/dev/null || true)
+              if grep -qE '^(queued|in_progress|requested|waiting|pending)$' <<<"$states"; then
+                busy="$busy $wf"
+              fi
+            done
+            if [ -z "$busy" ]; then
+              echo "No producer build is still running for $TAG."
+              break
+            fi
+            echo "still building:$busy (${SECONDS}s elapsed)"
+            sleep 60
+          done
+
       - name: Wait for platform builds to attach their assets
         # release.yml creates the Release as soon as the .deb is built, but the
         # macOS and Windows builds are still running at that point. Poll rather
@@ -158,3 +205,32 @@ jobs:
 
       - name: Attach SHA256SUMS.txt to the release
         run: gh release upload "$TAG" dist/SHA256SUMS.txt --clobber
+
+      - name: Prove SHA256SUMS.txt describes the assets that are attached
+        # The last line of defence, and the one that makes no timing assumption: an
+        # asset written AFTER the checksum file cannot possibly be described by it.
+        # One API call, no downloads. This is `scripts/verify-release-assets.py
+        # --quick`, inlined so the job keeps its no-checkout property; that script
+        # predicted both v2.32.0 mismatches from these timestamps alone, and hashing
+        # the binaries confirmed it.
+        #
+        # Failing red here is the point. The alternative is what actually shipped:
+        # a green run and a wrong hash that nobody looks at until a user's
+        # `choco upgrade` refuses to install.
+        run: |
+          set -euo pipefail
+          json=$(gh release view "$TAG" --json assets)
+          sums_at=$(jq -r '.assets[] | select(.name=="SHA256SUMS.txt") | .updatedAt' <<<"$json")
+          if [ -z "$sums_at" ]; then
+            echo "::error::SHA256SUMS.txt is not attached to $TAG"
+            exit 1
+          fi
+          newer=$(jq -r --arg t "$sums_at" \
+            '.assets[] | select(.name|test("\\.(exe|dmg|deb)$")) | select(.updatedAt > $t) | .name' \
+            <<<"$json")
+          if [ -n "$newer" ]; then
+            echo "::error::written AFTER SHA256SUMS.txt, so it cannot describe them:"
+            echo "$newer"
+            exit 1
+          fi
+          echo "ok: no artifact is newer than SHA256SUMS.txt"
