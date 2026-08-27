@@ -46,28 +46,42 @@ def about_lines() -> list[str]:
 BALLOON_LIMIT = 255
 
 
-def balloon_body(limit: int = BALLOON_LIMIT) -> str:
-    """The About text, trimmed to fit a fixed-size notification.
+def fit_balloon(text: str, limit: int = BALLOON_LIMIT) -> str:
+    """Trim any notification body to fit the balloon, keeping the first line.
 
     Drops whole lines from the end rather than cutting mid-URL: a half-printed link
     is worse than an absent one, because it looks clickable and is not. The first
-    line always survives — the version is the single thing About is opened for, and
-    a body that omits it has failed at the only job it had.
+    line always survives — every body fitted here leads with the one fact it was
+    opened for (the version, or ``2.33.0 → 2.34.0``), and a body that omits it has
+    failed at the only job it had.
+
+    Generic rather than About-specific because the same overrun shipped **twice** in
+    ``platform/windows/tray.py``: About was fixed, and *Check for updates…* — six
+    lines below it — was not. An "update available" body on a Windows-installer
+    install measures 512 characters and an offline one 623, so the two cases that
+    carry information were exactly the two that vanished, leaving only "you are up
+    to date" able to render. Every balloon now passes through here at the single
+    point that calls the Windows API, so a new menu entry inherits the fix instead
+    of repeating the bug.
     """
+    lines = text.split("\n")
+    while len(lines) > 1 and len("\n".join(lines).rstrip()) > limit:
+        lines.pop()
+
+    body = "\n".join(lines).rstrip()
+    if len(body) > limit:
+        # One line and still too long. Truncating beats handing the API something
+        # it discards wholesale — which is the failure being fixed here.
+        body = body[: max(0, limit - 1)] + "…"
+    return body
+
+
+def balloon_body(limit: int = BALLOON_LIMIT) -> str:
+    """The About text, trimmed to fit a fixed-size notification."""
     lines = [ln for ln in about_lines() if ln.strip()]
     if not lines:
         return ""
-
-    kept = list(lines)
-    while len(kept) > 1 and len("\n".join(kept)) > limit:
-        kept.pop()
-
-    body = "\n".join(kept)
-    if len(body) > limit:
-        # One line and still too long: a version string this size is not realistic,
-        # but truncating beats handing the API something it will reject wholesale.
-        body = body[: max(0, limit - 1)] + "…"
-    return body
+    return fit_balloon("\n".join(lines), limit)
 
 
 def about_html() -> str:

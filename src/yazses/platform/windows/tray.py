@@ -13,7 +13,7 @@ from collections.abc import Callable
 from typing import Any
 
 from yazses.platform.base import TrayModel
-from yazses.tray.about import about_title, balloon_body, help_links
+from yazses.tray.about import about_title, balloon_body, fit_balloon, help_links
 from yazses.tray.menu import (
     ABOUT_LABEL,
     HELP_LABEL,
@@ -24,7 +24,7 @@ from yazses.tray.menu import (
     icon_spec,
     status_from_model,
 )
-from yazses.tray.updates import check_and_describe
+from yazses.tray.updates import describe_update
 
 log = logging.getLogger(__name__)
 
@@ -81,20 +81,23 @@ class WindowsTray:
         def _quit_clicked(icon, _item) -> None:  # noqa: ANN001
             icon.stop()
 
+        def _notify(icon, title: str, body: str) -> None:  # noqa: ANN001
+            # `fit_balloon` here rather than at the call sites, because this is the
+            # single point that reaches Shell_NotifyIcon: a body over 255 wide chars
+            # overruns `NOTIFYICONDATA.szInfo` and Windows drops the balloon whole —
+            # no exception, nothing to log, a menu entry that silently does nothing.
+            # That has shipped twice (About, then Check for updates), so the fix
+            # belongs where it cannot be forgotten by the next entry.
+            try:
+                icon.notify(fit_balloon(body), title)
+            except Exception:
+                log.debug("tray notification failed", exc_info=True)
+
         def _settings_clicked(icon, _item) -> None:  # noqa: ANN001
             # A menu click with no visible effect reads as a frozen tray, so a
             # failed launch is reported rather than swallowed.
             if not launch_settings():
-                try:
-                    icon.notify("Could not open Settings — is `yazses` on PATH?", "YazSes")
-                except Exception:
-                    log.debug("tray notification failed", exc_info=True)
-
-        def _notify(icon, title: str, body: str) -> None:  # noqa: ANN001
-            try:
-                icon.notify(body, title)
-            except Exception:
-                log.debug("tray notification failed", exc_info=True)
+                _notify(icon, "YazSes", "Could not open Settings — is `yazses` on PATH?")
 
         def _link_clicked(url: str):
             def _handler(icon, _item) -> None:  # noqa: ANN001
@@ -116,7 +119,7 @@ class WindowsTray:
             _notify(icon, "YazSes", "Checking for updates…")
 
             def _work() -> None:
-                title, body = check_and_describe()
+                title, body = describe_update()
                 _notify(icon, title, body)
 
             threading.Thread(target=_work, name="tray-update-check", daemon=True).start()
@@ -209,7 +212,11 @@ class WindowsTray:
             if self._icon is None:
                 return
             try:
-                self._icon.notify(body, title)
+                # Fitted for the same reason as the menu's own notifier: these
+                # relayed daemon messages carry a fix in prose (the mic auto-heal
+                # names the device and what to do), so they are the longest bodies
+                # the tray shows and the likeliest to be silently discarded.
+                self._icon.notify(fit_balloon(body), title)
             except Exception:
                 log.debug("tray notification failed", exc_info=True)
 

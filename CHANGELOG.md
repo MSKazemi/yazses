@@ -6,6 +6,47 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — "Check for updates" on Windows never showed an update
+
+Reported from a Windows desktop: the tray's **Check for updates…** never announced a
+new version and never updated anything, so upgrading meant uninstalling and installing
+the new build by hand.
+
+Windows gives a balloon body a 256-wide-character buffer (`NOTIFYICONDATA.szInfo`) and
+**discards an oversized balloon whole** — no truncation, no exception, nothing in a log.
+Measured against the real messages:
+
+| Case | Body |
+|---|---:|
+| Windows installer, update available | **512** — dropped |
+| check failed / offline | **623** — dropped |
+| up to date | 40 — shown |
+| Scoop / Chocolatey / winget, update available | 60–79 — shown |
+
+So the two cases that carry information were exactly the two that vanished, and the only
+message able to render was *"YazSes is up to date"*. The entry looked like it could never
+find anything.
+
+This had already been found and fixed for **About**, six lines above in the same file,
+and the update path was not covered. The fitting now happens inside the one function that
+reaches the Windows notification API, so every balloon — including the daemon's relayed
+self-healing messages, which are the longest the tray shows — inherits it, and a
+structural test fails the build if any call bypasses it. A test pinning one path would
+have passed on the other bug, which is how this shipped twice.
+
+**And the click now does something.** A Windows-installer install has no upgrade command
+by design — the upgrade is a downloaded `.exe` — so the tray's whole response was to
+print the releases URL into a balloon, where it is text rather than a link. It now opens
+the download page, and says the installer upgrades in place and keeps your settings and
+models, which is what makes the uninstall-first workaround unnecessary. Downloading and
+running the installer automatically is deliberately not done: that is executing a fetched
+binary on the user's behalf, and it waits on code signing.
+
+⚠ Unrelated but found next to it: a frozen macOS `.app` is classified as
+`windows-installer` by `updater.detect_install_method`, so its manual update steps tell a
+Mac user to download a `windows-<arch>.exe`. Not fixed here.
+
+
 ## [2.34.0] - 2026-08-27
 
 ### Fixed — Settings opened nothing and dictation showed no sign of running, on Windows and macOS

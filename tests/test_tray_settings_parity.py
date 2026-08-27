@@ -63,7 +63,8 @@ ENTRY_HANDLERS = {
     "About": ("about_html", "about_lines", "_on_about", "_about_clicked"),
     "Help links": ("open_url", "open_link", "_open", "_link_clicked", "_on_open_url"),
     "Check for updates…": (
-        "check_and_describe", "check_updates", "_on_check_updates", "_update_clicked",
+        "check_and_describe", "describe_update", "check_updates", "_on_check_updates",
+        "_update_clicked",
     ),
     # One name each, because Start and Stop must not collapse onto a single handler:
     # a tray that wired both to "start" would look right in every source-text check
