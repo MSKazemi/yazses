@@ -6,6 +6,24 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — two workflow-shell test files asked the wrong question about the host
+
+`test_checksums_workflow_waits_for_builds.py` and `test_snap_publish_matrix.py` execute a
+GitHub Actions `run:` block verbatim, and guarded themselves with
+`shutil.which("bash")`. Presence is not capability, in two different ways that were both
+red in CI:
+
+- On a GitHub **Windows** runner `bash` resolves to `C:\Windows\System32\bash.exe` — the
+  WSL launcher. With no distribution installed it exits 1 with *"Windows Subsystem for
+  Linux has no installed distributions."* in UTF-16, so the guard passed and all six
+  tests failed.
+- **macOS** has a real bash and still cannot run the snap step, because it calls
+  `timeout 900` — GNU coreutils, absent there. That is why both macOS legs were red.
+
+The condition is now the one the workflow itself states: these steps are Linux `run:`
+blocks, so they run on Linux. A companion test asserts the job's `runs-on` really is
+ubuntu, so a permanently-skipped file cannot go unnoticed if that changes.
+
 ### Fixed — CI was red on all eight legs for a hook that is entirely correct
 
 `test_sitemap_dates_hook.py` failed on every matrix leg from the day it landed and

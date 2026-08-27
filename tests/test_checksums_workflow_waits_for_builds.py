@@ -25,9 +25,9 @@ manifests from it, so a wrong value stops `choco upgrade` outright.
 from __future__ import annotations
 
 import os
-import shutil
 import stat
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -38,9 +38,21 @@ _WORKFLOWS = Path(__file__).resolve().parents[1] / ".github" / "workflows"
 _CHECKSUMS = _WORKFLOWS / "checksums.yml"
 _ARTIFACT_SUFFIXES = (".exe", ".dmg", ".deb")
 
-_needs_shell = pytest.mark.skipif(
-    not (shutil.which("bash") and shutil.which("jq")),
-    reason="the workflow's own shell needs bash and jq",
+# The step under test is a GitHub Actions `run:` block on `ubuntu-latest`, and these
+# tests execute it verbatim. It is Linux shell, not portable shell, and asking whether
+# the *host* could run it is the wrong question in two ways that both bit:
+#
+#   * `shutil.which("bash")` is truthy on a GitHub Windows runner, where it resolves to
+#     `C:\Windows\System32\bash.exe` -- the WSL launcher. With no distribution
+#     installed it exits 1 with "Windows Subsystem for Linux has no installed
+#     distributions." in UTF-16, so the guard passed and every test failed.
+#   * macOS has a real bash and still cannot run these steps: `snap.yml` calls
+#     `timeout 900`, which is GNU coreutils and does not exist there.
+#
+# So the condition is the one the workflow itself states: this runs on Linux.
+_needs_the_workflow_runner = pytest.mark.skipif(
+    not sys.platform.startswith("linux"),
+    reason="the step under test is a Linux `run:` block (see runs-on in the workflow)",
 )
 
 
@@ -140,7 +152,7 @@ _ASSETS = """{{"assets":[
 ]}}"""
 
 
-@_needs_shell
+@_needs_the_workflow_runner
 def test_the_proof_fails_on_an_asset_written_after_the_checksum_file(tmp_path) -> None:
     """The exact v2.32.0 shape: the .exe was rewritten minutes after the hashing."""
     _shim(tmp_path, "gh", f"cat <<'JSON'\n{_ASSETS.format(exe='2026-08-26T13:43:00Z')}\nJSON\n")
@@ -150,7 +162,7 @@ def test_the_proof_fails_on_an_asset_written_after_the_checksum_file(tmp_path) -
     assert "yazses_2.32.0_amd64.deb" not in out.stdout, "flagged an asset that is older"
 
 
-@_needs_shell
+@_needs_the_workflow_runner
 def test_the_proof_passes_when_every_asset_predates_the_checksum_file(tmp_path) -> None:
     """The other direction -- a check that always fails would be no check at all."""
     _shim(tmp_path, "gh", f"cat <<'JSON'\n{_ASSETS.format(exe='2026-08-26T13:30:00Z')}\nJSON\n")
@@ -159,7 +171,7 @@ def test_the_proof_passes_when_every_asset_predates_the_checksum_file(tmp_path) 
     assert "ok:" in out.stdout
 
 
-@_needs_shell
+@_needs_the_workflow_runner
 def test_the_proof_fails_when_the_checksum_file_is_absent(tmp_path) -> None:
     """A missing SHA256SUMS.txt must not read as "nothing is newer than it"."""
     _shim(tmp_path, "gh", 'cat <<\'JSON\'\n{"assets":[]}\nJSON\n')
@@ -168,7 +180,7 @@ def test_the_proof_fails_when_the_checksum_file_is_absent(tmp_path) -> None:
     assert "not attached" in out.stdout
 
 
-@_needs_shell
+@_needs_the_workflow_runner
 def test_the_wait_blocks_while_a_producer_run_is_still_going(tmp_path) -> None:
     """The whole point: a second poll only happens if the first one did not proceed.
 
@@ -190,7 +202,7 @@ def test_the_wait_blocks_while_a_producer_run_is_still_going(tmp_path) -> None:
     assert "still building" in out.stdout
 
 
-@_needs_shell
+@_needs_the_workflow_runner
 def test_the_wait_proceeds_when_nothing_is_running(tmp_path) -> None:
     """A finished (or never-triggered) leg must not cost the release 45 minutes."""
     _shim(tmp_path, "gh", "echo completed\n")
@@ -200,7 +212,7 @@ def test_the_wait_proceeds_when_nothing_is_running(tmp_path) -> None:
     assert not (tmp_path / "sleeps").exists(), "waited even though nothing was running"
 
 
-@_needs_shell
+@_needs_the_workflow_runner
 def test_an_unreachable_api_does_not_hang_the_release(tmp_path) -> None:
     """A gh failure must read as "no run", not as "still running" forever.
 
@@ -211,3 +223,10 @@ def test_an_unreachable_api_does_not_hang_the_release(tmp_path) -> None:
     out = _run("Wait for the builds", tmp_path, TAG="v2.32.0", TMPD=str(tmp_path), GH_REPO="MSKazemi/yazses")
     assert out.returncode == 0, out.stdout + out.stderr
     assert not (tmp_path / "sleeps").exists()
+
+
+def test_the_workflow_really_does_run_on_linux() -> None:
+    """Anchors the skip above. If the job moved to another runner the guard is wrong,
+    and a permanently-skipped test file is worse than a failing one."""
+    doc = yaml.safe_load(_CHECKSUMS.read_text(encoding="utf-8"))
+    assert str(doc["jobs"]["checksums"]["runs-on"]).startswith("ubuntu")
