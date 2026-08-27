@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — every Scoop install silently had no Start Menu entry
+
+`scoop install yazses` printed
+
+```
+Creating shortcut for YazSes (yazses.exe) failed:
+    Couldn't find C:\scoop\apps\yazses\current\yazses.exe
+```
+
+and then reported success. There is no `yazses.exe` in the bundle and there never
+was: the Windows build produces `YazSesApp.exe` (windowed — the tray and daemon) and
+`yazses-cli.exe` (console — the CLI, shimmed onto `PATH` as `yazses`). The manifest's
+`bin` entry named the second one correctly, which is why the CLI always worked and
+this stayed invisible; the `shortcuts` entry named a file that does not exist, so the
+Start Menu entry was never created — while the manifest's own notes tell the user to
+"launch the tray app from the Start Menu".
+
+The shortcut now points at `YazSesApp.exe`. A new guard reads the executable names out
+of the PyInstaller spec and fails if any `bin` or `shortcuts` target is not one the
+installer actually ships, so renaming a binary breaks the test rather than the
+shortcut. Found by installing the published build on a clean Windows host and reading
+the installer output rather than its exit code.
+
+
 ## [2.33.0] - 2026-08-27
 
 ### Fixed — two workflow-shell test files asked the wrong question about the host
