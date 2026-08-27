@@ -6,6 +6,35 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses doctor > log.txt` crashed on Windows
+
+Measured on a real Windows Server 2022 host: `sys.stdout.encoding` is `cp1252` whenever
+stdout is not a console — a redirect, a pipe, a CI capture, `yazses report` — and three
+commands aborted mid-output with `UnicodeEncodeError: 'charmap' codec can't encode
+characters`:
+
+```
+CRASH  rc=1  yazses doctor
+CRASH  rc=1  yazses features
+CRASH  rc=1  yazses quickstart
+```
+
+Those are the three commands somebody runs when something is already wrong, and then
+pastes into an issue. The characters are not decoration in a rare branch: `→` appears 437
+times across 166 modules — the arrow in nearly every "fix it like this" line — alongside
+`⚠`, the `─` that frames a panel, and the `●`/`★` markers `yazses audio devices` uses for
+the default and pinned microphone. Even where cp1252 *can* encode a character the result
+was wrong: an em dash left as the single byte `0x97`, which a console on code page 437
+draws as `ù` — observed piping `doctor` through `findstr` on the same machine.
+
+`system/streams.py` now switches stdout and stderr to UTF-8 with `errors="replace"` at
+the CLI entry point, and only when the current encoding cannot carry those characters —
+so every UTF-8 machine, which is every normal Linux and macOS install, is left byte-for-
+byte as it was. The replacement half matters as much: a diagnostic command that meets one
+unmappable character prints `?` and keeps going instead of aborting halfway through the
+report. The same failure occurs on a Linux container with no locale set, where the
+answer is ASCII, and is fixed by the same code.
+
 ### Fixed — `doctor` called a Windows install healthy while nothing could be transcribed
 
 On a real Windows host `yazses doctor` reported exactly two problems, and neither was

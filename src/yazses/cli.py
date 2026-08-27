@@ -5436,6 +5436,13 @@ def main() -> None:
     """
     from yazses.cli_help import apply as escape_help_sections
     from yazses.platform.base import UnsupportedPlatformError
+    from yazses.system.streams import ensure_printable_streams
+
+    # Before anything prints. On Windows a redirected stdout is cp1252, which cannot
+    # encode the arrow, the warning sign or the box rule this CLI prints everywhere --
+    # so `yazses doctor > log.txt` and `yazses features | findstr x` aborted with
+    # UnicodeEncodeError on a real Windows host. See the function's own docstring.
+    ensure_printable_streams()
 
     # Rich parses `[meeting]` in a help string as a style tag and drops it, so twelve
     # commands named a config key without naming its section. Escaped here rather
