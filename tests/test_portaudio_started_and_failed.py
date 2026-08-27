@@ -95,11 +95,27 @@ def test_a_subclass_of_portaudio_error_is_recognised(monkeypatch) -> None:
     assert portaudio_state() == "uninitialised"
 
 
-def test_a_working_import_is_ok() -> None:
-    """`sounddevice` is a hard dependency, so this asserts the real answer."""
-    assert portaudio_state() == "ok"
-    assert portaudio_missing() is False
-    assert portaudio_uninitialised() is False
+def test_the_real_answer_is_self_consistent() -> None:
+    """`sounddevice` is a hard dependency, so this asserts the real answer.
+
+    It used to assert `"ok"` flatly, which is only the real answer on a machine that
+    has a sound card. On a Windows Server host with no audio device the honest answer
+    is `"uninitialised"` -- PortAudio loaded and `Pa_Initialize()` failed -- and the
+    test reported a broken product where the product was right. What must hold on
+    every host is that the state and the two predicates derived from it agree, and
+    that an importable sounddevice means `"ok"`.
+    """
+    state = portaudio_state()
+    assert state in {"ok", "missing", "uninitialised"}
+    assert portaudio_missing() is (state == "missing")
+    assert portaudio_uninitialised() is (state == "uninitialised")
+
+    try:
+        import sounddevice  # noqa: F401
+    except Exception:  # noqa: BLE001 -- the no-audio host this test now tolerates
+        assert state != "ok"
+    else:
+        assert state == "ok"
 
 
 @pytest.mark.parametrize("platform_name", PLATFORMS)

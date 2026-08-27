@@ -175,7 +175,7 @@ def _scoop(exe, arm):
 
     return json.loads(
         refresh.render_scoop(
-            "9.9.9", exe, arm, (refresh.ROOT / "bucket" / "yazses.json").read_text("utf-8")
+            "9.9.9", exe, arm, (refresh.ROOT / "bucket" / "yazses.json").read_text(encoding="utf-8")
         )
     )
 
@@ -231,7 +231,7 @@ def test_the_committed_bucket_matches_the_released_arm64_asset():
     forgets one architecture ships immediately."""
     import json
 
-    data = json.loads((refresh.ROOT / "bucket" / "yazses.json").read_text("utf-8"))
+    data = json.loads((refresh.ROOT / "bucket" / "yazses.json").read_text(encoding="utf-8"))
     version = data["version"]
     for key, tag in (("64bit", "x64"), ("arm64", "arm64")):
         entry = data["architecture"][key]

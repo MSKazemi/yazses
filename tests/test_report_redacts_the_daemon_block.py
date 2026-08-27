@@ -31,6 +31,7 @@ existed, the daemon block simply never went through them.
 from __future__ import annotations
 
 import ast
+import getpass
 import json
 import pathlib
 
@@ -181,18 +182,20 @@ def test_a_path_in_last_error_is_redacted(tmp_path):
     )
 
 
-def test_a_microphone_named_after_its_owner_is_redacted(tmp_path):
-    """Bluetooth microphones are named by their owner, and the name is the identifier."""
-    account = R._account_pattern()
-    if account is None:
-        return  # a generic account name is not worth hiding; nothing to assert here.
-    # The real account name, not the pattern's spelling of it. Taking it back out of
-    # `account.pattern` fed the *escaped* form in, so on a Windows machine account
-    # (`yz-win2$`) this asserted that `yz\-win2\$` was redacted -- a string that
-    # never appears in a report -- and the leak it exists to catch went unnoticed.
-    import getpass
+def test_a_microphone_named_after_its_owner_is_redacted(tmp_path, monkeypatch):
+    r"""Bluetooth microphones are named by their owner, and the name is the identifier.
 
-    name = getpass.getuser().strip()
+    The account name is patched rather than read. It used to be taken back out of
+    `_account_pattern().pattern`, which is the *escaped* spelling: on a Windows machine
+    account (`yz-win2$`) that asserted `yz\-win2\$` was redacted -- a string that never
+    appears in a report -- so the leak this test exists to catch went unnoticed for as
+    long as the test existed. Reading `getpass.getuser()` instead would only move the
+    problem: on CI the account is `runner`, which `_GENERIC_ACCOUNTS` deliberately
+    leaves alone, so the test would assert nothing there.
+    """
+    name = "ada-tester"
+    monkeypatch.setattr(getpass, "getuser", lambda: name)
+    monkeypatch.setattr(R, "_ACCOUNT", R._account_pattern())
 
     d = _daemon()
     d._state.input_device = f"{name}'s AirPods Pro"
@@ -287,7 +290,6 @@ def test_an_account_name_ending_in_a_symbol_is_still_redacted(tmp_path, monkeypa
     Not a corner case on Windows -- a machine account is `<hostname>$` by convention.
     Parameterised over the other non-word endings an account name really has.
     """
-    import getpass
     import re
 
     for name in ("yz-win2$", "mohsen.", "svc-account-"):
@@ -310,8 +312,6 @@ def test_a_short_name_still_does_not_match_inside_a_longer_word(monkeypatch):
     Relaxing the boundary everywhere would redact `ada` out of `adam`, shredding the
     surrounding log -- the failure mode the module comment already warns about.
     """
-    import getpass
-
     monkeypatch.setattr(getpass, "getuser", lambda: "ada")
     pattern = R._account_pattern()
     assert pattern is not None

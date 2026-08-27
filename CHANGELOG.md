@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the last twelve Windows test failures were the test host, not the product
+
+With collection repaired the Windows suite ran end to end for the first time: **13445
+passed, 12 failed**. None of the twelve was a product defect, and all twelve failed for
+a reason that says something about the tests themselves:
+
+- Six earcon tests and one PortAudio test reached `mocker.patch("sounddevice.play")`,
+  which has to import the module to find the attribute. They now go through
+  `sounddevice_or_skip()`; `earcon/play.py` itself imports it inside the function it
+  plays from, so the product was never exposed.
+- `test_a_working_import_is_ok` asserted `portaudio_state() == "ok"` flatly. On a host
+  with no audio device the honest answer is `"uninitialised"` — PortAudio loaded and
+  `Pa_Initialize()` failed — so the test reported a broken product where the product was
+  right. It now asserts that the state and the two predicates derived from it agree, and
+  that an importable sounddevice means `"ok"`.
+- Two snap tests execute the publish workflow's own POSIX shell, which needs a real
+  bash. That step runs on `ubuntu-latest`; they skip where there is none.
+- `test_a_microphone_named_after_its_owner_is_redacted` read `getpass.getuser()`, so it
+  meant something different on every machine — and nothing at all on CI, where the
+  account is the deliberately-exempt `runner`. It patches the name now.
+
 ### Fixed — `yazses report` left a Windows account name in clear
 
 The diagnostic bundle redacts the account name because it identifies the machine's

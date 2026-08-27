@@ -134,4 +134,16 @@ def test_the_recorder_still_actually_uses_sounddevice() -> None:
 
     source = Path(recorder.__file__).read_text(encoding="utf-8")
     assert "import sounddevice" in source, "the recorder no longer opens a microphone at all"
+
+
+def test_the_seam_returns_the_real_module() -> None:
+    """`_sd()` must be the module, not a stub -- but only where it can be imported.
+
+    Separated from the test above so the no-audio host this whole file is about can
+    still assert the source-level rule, which is the half that matters there.
+    """
+    from tests.conftest import sounddevice_or_skip
+    from yazses.audio import recorder
+
+    sounddevice_or_skip()
     assert recorder._sd() is importlib.import_module("sounddevice")

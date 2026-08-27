@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -25,6 +26,17 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 SNAPCRAFT = ROOT / "snap" / "snapcraft.yaml"
 WORKFLOW = ROOT / ".github" / "workflows" / "snap.yml"
+
+
+#: The workflow step under test *is* POSIX shell, and it runs on `ubuntu-latest`.
+#: Executing it needs a real bash and a `#!/bin/sh` fake on PATH, neither of which a
+#: stock Windows host has -- git-for-windows keeps bash in `Git\bin`, off the PATH its
+#: installer sets. Skipping there is honest: the same test runs on every CI Linux leg,
+#: and the alternative is two permanent red lines that teach a contributor to ignore
+#: the file.
+needs_posix_shell = pytest.mark.skipif(
+    shutil.which("bash") is None, reason="no bash on PATH; the publish step is POSIX shell"
+)
 
 
 def _declared_platforms() -> set[str]:
@@ -215,6 +227,7 @@ def test_revision_lookup_captures_before_parsing() -> None:
     assert "END { if (found) print revision }" in lookup
 
 
+@needs_posix_shell
 @pytest.mark.parametrize("arch", ["amd64", "arm64"])
 def test_publish_recovers_after_upload_poll_timeout(tmp_path: Path, arch: str) -> None:
     """Exercise the workflow shell, including the production failure boundary.

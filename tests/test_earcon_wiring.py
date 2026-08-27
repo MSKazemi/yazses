@@ -18,22 +18,37 @@ from dataclasses import replace
 
 import pytest
 
+from tests.conftest import sounddevice_or_skip
 from yazses.config import Config, EarconConfig
 from yazses.core.daemon import Daemon
 from yazses.earcon.play import EarconPlayer
 from yazses.platform import get_platform
 
+
+@pytest.fixture
+def audio():
+    """Skip when sounddevice cannot be imported, rather than fail.
+
+    The six tests below patch `sounddevice.play`, and `mock.patch` has to import the
+    module to reach the attribute. On a host with no audio system that import raises
+    `PortAudioError` from `Pa_Initialize()` -- not something these tests are about,
+    and not something the earcon player would ever do, since `earcon/play.py` imports
+    sounddevice inside the function it plays from.
+    """
+    return sounddevice_or_skip()
+
+
 # ---- it must never get in the way ------------------------------------------
 
 
-def test_disabled_player_does_nothing_at_all(mocker):
+def test_disabled_player_does_nothing_at_all(mocker, audio):
     """The default. It must not import an audio library, let alone open a device."""
     played = mocker.patch("sounddevice.play")
     EarconPlayer(enabled=False).play("recording_start")
     played.assert_not_called()
 
 
-def test_a_broken_audio_device_never_reaches_the_caller(mocker):
+def test_a_broken_audio_device_never_reaches_the_caller(mocker, audio):
     """No speakers, a busy device, a container, an SSH session — all ordinary, none of
     them may interrupt someone's dictation."""
     mocker.patch("sounddevice.play", side_effect=OSError("no such device"))
@@ -42,7 +57,7 @@ def test_a_broken_audio_device_never_reaches_the_caller(mocker):
     _settle()
 
 
-def test_playback_does_not_block_the_caller(mocker):
+def test_playback_does_not_block_the_caller(mocker, audio):
     """`_on_hold_start` is the hot path: the user has pressed the key and is about to
     speak. A blocking cue would swallow the first word."""
     started = threading.Event()
@@ -63,7 +78,7 @@ def test_playback_does_not_block_the_caller(mocker):
     _settle()   # do not leave a thread to call into the next test's mock
 
 
-def test_a_second_cue_is_dropped_rather_than_queued(mocker):
+def test_a_second_cue_is_dropped_rather_than_queued(mocker, audio):
     """Hold, release, hold again in quick succession must not stack three motifs.
 
     Dropping is deliberate: an earcon that arrives late describes a state the daemon has
@@ -99,7 +114,7 @@ def test_a_second_cue_is_dropped_rather_than_queued(mocker):
     assert len(calls) == 1, f"{len(calls)} cues played concurrently; expected 1"
 
 
-def test_the_slot_is_released_after_a_failure(mocker):
+def test_the_slot_is_released_after_a_failure(mocker, audio):
     """A failed cue must not wedge the player silent forever."""
     mocker.patch("sounddevice.play", side_effect=OSError("boom"))
     player = EarconPlayer(enabled=True)
@@ -109,7 +124,7 @@ def test_the_slot_is_released_after_a_failure(mocker):
     player._busy.release()
 
 
-def test_an_unknown_event_falls_back_to_the_idle_motif(mocker):
+def test_an_unknown_event_falls_back_to_the_idle_motif(mocker, audio):
     """`earcon_for` never returns nothing — an unrecognised event gets the idle tone.
 
     That is the pure layer's documented contract and the right one for it: a caller
