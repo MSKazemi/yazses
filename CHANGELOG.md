@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `doctor` called a Windows install healthy while nothing could be transcribed
+
+On a real Windows host `yazses doctor` reported exactly two problems, and neither was
+that dictation could never run there. It printed *"[WARN] STT model: base.en not
+downloaded — fetched automatically on first dictation"* while, in the same virtualenv,
+`import ctranslate2` was failing with `FileNotFoundError: Could not find module
+'...\ctranslate2\ctranslate2.dll' (or one of its dependencies)` — the Microsoft Visual
+C++ runtime, which [CTranslate2's installation
+docs](https://opennmt.net/CTranslate2/installation.html) list as a Windows requirement
+and a fresh Windows image does not always carry.
+
+- **A new `STT engine` row asks whether the decoder loads at all**, and is printed above
+  the model row, because a model that has not downloaded yet is a warning while a decoder
+  that will not load is the reason nothing will ever be typed. It separates a missing
+  package (`pip install`) from a library that will not load (the C++ runtime, linked), so
+  neither answer sends the user in a circle. CTranslate2 is probed whatever `[stt] engine`
+  says, since `stt/factory.py` falls back to faster-whisper for every other engine.
+- **The suite now names the same condition.** It previously surfaced as three failures in
+  `tests/test_settings_decode_controls.py` — a file about dropdown contents, and the only
+  place that imports ctranslate2 directly — which is not what "this machine cannot
+  transcribe anything" should look like. Those three skip and say where to look;
+  `tests/test_the_decoder_can_load.py` fails under its own name with the fix.
+- `docs/windows-install.md` documents the symptom and the remedy.
+
 ### Fixed — the release checksum could describe a binary that no longer existed
 
 v2.32.0 published a `SHA256SUMS.txt` that matched **neither** Windows installer. The

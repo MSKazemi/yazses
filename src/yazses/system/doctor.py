@@ -317,6 +317,68 @@ def _daemon_check(platform) -> tuple[_Check, dict]:
         return ("Daemon", "OK", f"{_RUNNING_PREFIX} (PID {pid}; IPC not ready)"), {}
 
 
+_VC_REDIST_URL = "https://aka.ms/vs/17/release/vc_redist.x64.exe"
+
+
+def _stt_engine_check(engine: str) -> _Check:
+    """Can the thing that turns speech into text actually load?
+
+    Every other STT row answers a question one layer above this one. On a real Windows
+    host doctor reported exactly two problems, and neither was that dictation could
+    never run there: it printed "[WARN] STT model: base.en not downloaded -- fetched
+    automatically on first dictation" while `import ctranslate2` was dying with
+
+        FileNotFoundError: Could not find module '...\\ctranslate2\\ctranslate2.dll'
+        (or one of its dependencies)
+
+    A model that will be fetched on first use is fine. A decoder that cannot load is
+    not, and the first hold of the key -- with no terminal open and a traceback naming
+    a DLL path -- is the worst possible place to find out.
+
+    CTranslate2 is probed whatever `[stt] engine` says, because `stt/factory.py` falls
+    back to faster-whisper whenever the configured engine cannot be built. It is the
+    decoder every path can land on, so it is the one whose absence is unconditional.
+
+    A compiled extension fails at *load*, not at resolution, and the two need different
+    fixes, so they are reported differently: a missing package is a `pip install`, while
+    a DLL that will not load is (on Windows) the Microsoft Visual C++ runtime, which
+    CTranslate2's own installation docs list as a requirement and which a fresh Windows
+    image does not always carry. Naming the wrong one costs a wasted reinstall.
+
+    Costs ~0.2 s, which is the price of the one check that says whether YazSes can do
+    the thing it is for.
+    """
+    label = "STT engine"
+    name = (engine or "").strip().lower() or "faster-whisper"
+    # Whatever is configured, this is what will be decoding if that engine cannot build.
+    via = "" if name == "faster-whisper" else f" \u2014 also the fallback for [stt] engine = {name}"
+    try:
+        import ctranslate2  # type: ignore[import-untyped]
+    except ModuleNotFoundError:
+        return (
+            label,
+            "FAIL",
+            "ctranslate2 is not installed, so nothing can be transcribed. "
+            "Fix: pip install --force-reinstall ctranslate2",
+        )
+    except Exception as exc:
+        fix = (
+            f"install the Microsoft Visual C++ Redistributable (x64) from {_VC_REDIST_URL}, "
+            "or if that is already present the install is partial: "
+            "pip install --force-reinstall ctranslate2"
+        ) if sys.platform == "win32" else (
+            "the C++ runtime it links against is missing or mismatched \u2014 "
+            "reinstall it with: pip install --force-reinstall ctranslate2"
+        )
+        return (
+            label,
+            "FAIL",
+            f"ctranslate2 is installed but will not load ({type(exc).__name__}: {exc}) "
+            f"\u2014 dictation cannot transcribe anything. Fix: {fix}",
+        )
+    return (label, "OK", f"faster-whisper ready (ctranslate2 {ctranslate2.__version__}){via}")
+
+
 def _model_check(model: str, hf_cache: Path) -> _Check:
     """Report whether the configured STT model is available locally.
 
@@ -1231,6 +1293,13 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
 
     hf_cache = hub_cache_dir()
     checks.append(("Model cache", "OK" if hf_cache.exists() else "WARN", str(hf_cache)))
+
+    # Whether the decoder can load at all. Deliberately *before* the model row: a
+    # model that is merely not downloaded yet is a warning, an engine that will not
+    # load is the reason nothing will ever be typed, and the order they are read in is
+    # the order they should be fixed in.
+    if cfg is not None:
+        checks.append(_stt_engine_check(getattr(cfg.stt, "engine", "")))
 
     # Configured STT model availability (downloaded vs fetched-on-first-use).
     if cfg is not None:

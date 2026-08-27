@@ -75,6 +75,37 @@ def _controller(cfg: _Cfg | None = None, writes: list | None = None):
 
 # ---- compute type ----------------------------------------------------------
 
+def _ctranslate2_or_skip():
+    """The real probe, or a skip that says why -- never a failure in this file.
+
+    A compiled extension can fail at *load* rather than at resolution, and on a real
+    Windows host importing it raised
+
+        FileNotFoundError: Could not find module '...\\ctranslate2\\ctranslate2.dll'
+        (or one of its dependencies)
+
+    because the Microsoft Visual C++ runtime was missing. The three tests below are the
+    only ones here that import it, so that machine reported "three failures in the
+    settings-controls tests" when what was true was "this install cannot transcribe
+    anything". Undoing that misnaming cost a rescued log from a deleted VM.
+
+    `pytest.importorskip` does not cover it -- it catches ImportError, and this is not
+    one. The condition itself is asserted by `tests/test_the_decoder_can_load.py`, which
+    fails loudly under its own name, and reported to the user by `yazses doctor`. Here it
+    is someone else's failure, and `compute_type_choices` has its own tested fallback for
+    exactly this case a few tests below.
+    """
+    try:
+        import ctranslate2 as ct2
+    except Exception as exc:
+        pytest.skip(
+            f"ctranslate2 will not load here ({type(exc).__name__}: {exc}) -- see "
+            "tests/test_the_decoder_can_load.py, which is the test for that"
+        )
+    return ct2
+
+
+
 
 def test_the_compute_list_is_what_this_machine_reports():
     """Asked of ctranslate2, not hardcoded — the answer depends on the CPU.
@@ -82,7 +113,7 @@ def test_the_compute_list_is_what_this_machine_reports():
     A fixed list would offer values that load on the developer's box and fail on the
     user's, which is the whole failure this setting is meant to prevent.
     """
-    import ctranslate2
+    ctranslate2 = _ctranslate2_or_skip()
 
     expected = sorted(ctranslate2.get_supported_compute_types("cpu"))
     assert compute_type_choices("cpu") == expected
@@ -97,7 +128,7 @@ def test_the_list_really_comes_from_the_probe_and_not_a_constant(mocker):
     pass whichever branch runs. Feeding the probe an answer no fallback would ever
     contain is the only way to prove the call happens at all.
     """
-    import ctranslate2
+    ctranslate2 = _ctranslate2_or_skip()
 
     mocker.patch.object(
         ctranslate2, "get_supported_compute_types", return_value={"int4_imaginary"}
@@ -112,7 +143,7 @@ def test_a_failing_probe_yields_a_usable_list_instead_of_raising(mocker):
     machine. The settings window must still open there — every other setting works,
     and a window that will not open is worse than one whose dropdown is conservative.
     """
-    import ctranslate2
+    ctranslate2 = _ctranslate2_or_skip()
 
     from yazses.settingsui.controls import _FALLBACK_COMPUTE_TYPES
 

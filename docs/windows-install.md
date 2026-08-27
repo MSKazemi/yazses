@@ -203,6 +203,37 @@ instead of dying, and `yazses model download base.en` fetches it when you unbloc
 
 ## Troubleshooting
 
+**"Nothing is ever typed, and the log names a `.dll`."** If dictation records but
+produces no text and you see something like
+
+```
+FileNotFoundError: Could not find module '...\ctranslate2\ctranslate2.dll'
+(or one of its dependencies).
+```
+
+the speech-to-text engine cannot load. YazSes decodes through CTranslate2, which is a
+compiled library, and on Windows it needs the **Microsoft Visual C++ Redistributable
+(x64)** — see [CTranslate2's installation
+notes](https://opennmt.net/CTranslate2/installation.html). Most machines already have
+it; a fresh Windows install or a Windows Server image often does not. Install it from
+<https://aka.ms/vs/17/release/vc_redist.x64.exe> and restart the daemon.
+
+Note the wording: Windows says *"or one of its dependencies"* even when the file it
+names is present, which is why this reads like a missing file when it is a missing
+runtime. If the redistributable is already installed, the package itself is incomplete —
+`pip install --force-reinstall ctranslate2`.
+
+`yazses doctor` checks this directly and prints the fix:
+
+```
+  [FAIL] STT engine: ctranslate2 is installed but will not load (FileNotFoundError: ...)
+         - dictation cannot transcribe anything. Fix: install the Microsoft Visual C++
+         Redistributable (x64) from https://aka.ms/vs/17/release/vc_redist.x64.exe ...
+```
+
+Mostly relevant to `pip`/`uv`/from-source installs; the `.exe` installer ships its own
+copies of the libraries it needs.
+
 **"My antivirus flagged YazSes."** These builds are unsigned, which trips
 conservative AV heuristics — especially because the daemon installs a
 low-level keyboard hook. Either build from source
