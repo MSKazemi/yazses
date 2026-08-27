@@ -6,6 +6,31 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — CI was red on all eight legs for a hook that is entirely correct
+
+`test_sitemap_dates_hook.py` failed on every matrix leg from the day it landed and
+passed in every local checkout. `hooks/sitemap_dates.py` asks
+
+```
+git log -1 --format=%cs -- docs/index.md
+```
+
+and the test job checked out with `filter: tree:0`. A **treeless** clone cannot answer a
+path-limited `git log`: deciding which commits touched a path needs the commit trees, so
+git falls back to fetching them one at a time from the promisor remote, the hook's 10 s
+timeout expires, and the date comes back `""`. Measured against real clones of this
+repository:
+
+```
+--filter=tree:0     fatal: could not fetch <tree> from promisor remote
+--filter=blob:none  2026-08-26
+```
+
+The filter is now `blob:none`, which keeps the trees and skips the file contents — where
+nearly all of the size is. `fetch-depth: 0` stays: it is a separate requirement (the
+packaging guards compare manifests against the latest release *tag*) and was not what
+broke this.
+
 ### Fixed — the bundled `.exe` and `.app` entered a different CLI from the one shipped
 
 `pyproject.toml` binds the `yazses` console script to `yazses.cli:main`, and `main` does

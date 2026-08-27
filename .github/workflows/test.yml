@@ -113,7 +113,16 @@ jobs:
           # silently -- so the guard meant to stop a stale manifest reaching a
           # package manager has never once been enforced in CI.
           fetch-depth: 0
-          filter: tree:0
+          # blob:none, NOT tree:0. A treeless clone cannot answer a path-limited
+          # `git log -- <file>`: deciding which commits touched a path needs the
+          # trees, so git falls back to fetching them one at a time from the
+          # promisor remote. `hooks/sitemap_dates.py` runs that query with a 10 s
+          # timeout, gets nothing, and returns "" -- which is how
+          # test_sitemap_dates_hook.py failed on all eight legs while passing on
+          # every developer machine. Measured against real clones of this
+          # repository: tree:0 cannot produce the date at all, blob:none returns
+          # it. Skipping blobs keeps nearly all of the speed.
+          filter: blob:none
 
       - name: Install system dependencies (Linux)
         if: runner.os == 'Linux'
