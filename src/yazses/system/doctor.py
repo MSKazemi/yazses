@@ -562,10 +562,22 @@ def _config_summary(
             precise = AtspiFocusTracker.available()
         except Exception:
             precise = False
-        detail = (
-            f"{guard} (AT-SPI precise)" if precise
-            else f"{guard} (best-effort; apt install python3-pyatspi gir1.2-atspi-2.0 for precision)"
-        )
+        # The remedy is Linux-only, and so is the thing it buys. `AtspiFocusTracker`
+        # needs pyatspi and an accessibility bus, so on Windows and macOS precision is
+        # not merely absent, it is unreachable -- yet this row told a real Windows host
+        # to run `apt install python3-pyatspi gir1.2-atspi-2.0` (seen in the 2026-08-23
+        # `yazses doctor` output from that machine). Same rule as the "Input device" row
+        # above and as `system/backends.py`: never send the user after a fix that cannot
+        # apply here. Off Linux the row says the guard is best-effort and stops there.
+        if precise:
+            detail = f"{guard} (AT-SPI precise)"
+        elif sys.platform == "linux":
+            detail = (
+                f"{guard} (best-effort; apt install python3-pyatspi "
+                "gir1.2-atspi-2.0 for precision)"
+            )
+        else:
+            detail = f"{guard} (best-effort; AT-SPI precision is Linux-only)"
         out.append(("Text-target guard", "OK", detail))
     # Every source `core/daemon.py::_effective_initial_prompt` merges, not just the
     # config key -- this row read "app name only" on a machine with 24 words in its
