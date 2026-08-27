@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a machine with no audio device could not import YazSes at all
+
+`import sounddevice` runs `Pa_Initialize()` during the import itself, and where there is
+no usable audio system that raises rather than returning an empty device list:
+
+```
+sounddevice.PortAudioError: Error initializing PortAudio:
+Internal PortAudio error [PaErrorCode -9986]
+```
+
+`audio/recorder.py` imported it at module scope and `core/daemon.py` imports the recorder
+at *its* module scope, so `import yazses.core.daemon` was itself impossible on such a
+host — an unhandled traceback from a line nobody called. Measured on a Windows Server
+2022 VM with no audio device: **45 of the 46 test-collection errors** in the suite were
+this one import, which is a large part of why regressions kept reaching Windows unseen.
+
+It is not an exotic state. A stopped Windows Audio service, an RDP session without audio
+redirection, a container and a CI runner all look identical to PortAudio — and
+`yazses transcribe`, which needs no microphone at all, is exactly the command such a
+machine is most likely to want. `audio/devices.py` already imported sounddevice inside
+each function for this reason, which is why `yazses doctor` and `yazses audio devices`
+*report* the problem instead of dying of it; the recorder now follows the same rule.
+Opening a microphone may fail, importing a module may not.
+
 ### Fixed — `yazses doctor > log.txt` crashed on Windows
 
 Measured on a real Windows Server 2022 host: `sys.stdout.encoding` is `cp1252` whenever

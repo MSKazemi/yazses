@@ -1,11 +1,44 @@
+from __future__ import annotations
+
 import logging
 import time
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import numpy as np
-import sounddevice as sd
+
+if TYPE_CHECKING:  # annotations only -- never imported at runtime by this block
+    import sounddevice as sd
 
 log = logging.getLogger(__name__)
+
+
+def _sd():
+    """Import sounddevice on first use, not at import time.
+
+    `import sounddevice` calls `Pa_Initialize()` **during the import**, and on a host
+    with no usable audio system that raises rather than returning an empty device list:
+
+        sounddevice.PortAudioError: Error initializing PortAudio:
+        Internal PortAudio error [PaErrorCode -9986]
+
+    Because `core/daemon.py` imports this module at its own module scope, that made
+    `import yazses.core.daemon` itself impossible there -- an unhandled traceback from a
+    line nobody called, on a machine that may only ever have wanted `yazses transcribe`,
+    which needs no microphone at all. Measured on a Windows Server 2022 host with no
+    audio device: **45 test files could not even be collected**, which is a large part
+    of why regressions keep reaching Windows unseen. A stopped Windows Audio service, an
+    RDP session without audio redirection, a container and a CI runner all look the same
+    way to PortAudio.
+
+    `audio/devices.py` already imports it inside each function for this reason, which is
+    why `yazses doctor` and `yazses audio devices` report the problem instead of dying of
+    it. This is the same rule applied to the module that was the exception: the failure
+    belongs to whoever asks to open a microphone, not to whoever imports the file.
+    """
+    import sounddevice as sd
+
+    return sd
 
 # Opening the mic can fail transiently when the audio server (PipeWire/Pulse)
 # is briefly busy — e.g. another stream is being torn down. Retrying after a
@@ -76,7 +109,7 @@ class AudioRecorder:
 
             if index is None:
                 return current_default_input_name()
-            info = sd.query_devices(index)
+            info = _sd().query_devices(index)
             return str(info.get("name")) if info else None
         except Exception:
             return None
@@ -89,7 +122,7 @@ class AudioRecorder:
         last_exc: Exception | None = None
         for attempt in range(1, _OPEN_ATTEMPTS + 1):
             try:
-                stream = sd.InputStream(
+                stream = _sd().InputStream(
                     samplerate=self._sample_rate,
                     channels=1,
                     dtype="float32",

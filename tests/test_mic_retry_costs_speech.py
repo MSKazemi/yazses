@@ -40,6 +40,19 @@ def _no_sleep(mocker):
 def _stream(mocker):
     return mocker.MagicMock()
 
+def _set_input_stream(mocker, **kwargs):
+    """Point the recorder's lazily-imported sounddevice at a fake InputStream.
+
+    The recorder imports sounddevice on first use rather than at module scope, so
+    that a host with no audio system can still *import* YazSes (see
+    tests/test_no_audio_device_is_not_an_import_error.py). Patching the `_sd` seam
+    keeps these tests runnable on such a host too.
+    """
+    fake = mocker.MagicMock(name="sounddevice")
+    fake.InputStream.configure_mock(**kwargs)
+    mocker.patch.object(recorder, "_sd", return_value=fake)
+    return fake.InputStream
+
 
 # --- the schedule itself -------------------------------------------------------
 
@@ -74,17 +87,14 @@ def test_there_is_still_a_pause_for_every_retry():
 # --- what start() actually waits ------------------------------------------------
 
 def test_a_first_time_open_waits_for_nothing(mocker, _no_sleep):
-    mocker.patch.object(recorder.sd, "InputStream", return_value=_stream(mocker))
+    _set_input_stream(mocker, return_value=_stream(mocker))
     AudioRecorder().start()
     _no_sleep.assert_not_called()
 
 
 def test_one_failure_costs_only_the_short_pause(mocker, _no_sleep):
     good = _stream(mocker)
-    mocker.patch.object(
-        recorder.sd, "InputStream",
-        side_effect=[RuntimeError("Error querying device -1"), good],
-    )
+    _set_input_stream(mocker, side_effect=[RuntimeError("Error querying device -1"), good])
     AudioRecorder().start()
     assert [c.args[0] for c in _no_sleep.call_args_list] == [
         recorder._OPEN_RETRY_DELAYS_S[0]
@@ -94,10 +104,7 @@ def test_one_failure_costs_only_the_short_pause(mocker, _no_sleep):
 
 def test_a_second_failure_falls_back_to_the_long_pause(mocker, _no_sleep):
     good = _stream(mocker)
-    mocker.patch.object(
-        recorder.sd, "InputStream",
-        side_effect=[RuntimeError("busy"), RuntimeError("busy"), good],
-    )
+    _set_input_stream(mocker, side_effect=[RuntimeError("busy"), RuntimeError("busy"), good])
     AudioRecorder().start()
     assert [c.args[0] for c in _no_sleep.call_args_list] == list(
         recorder._OPEN_RETRY_DELAYS_S
@@ -105,7 +112,7 @@ def test_a_second_failure_falls_back_to_the_long_pause(mocker, _no_sleep):
 
 
 def test_the_last_attempt_does_not_pause_before_giving_up(mocker, _no_sleep):
-    mocker.patch.object(recorder.sd, "InputStream", side_effect=RuntimeError("busy"))
+    _set_input_stream(mocker, side_effect=RuntimeError("busy"))
     with pytest.raises(RuntimeError, match="Could not open microphone"):
         AudioRecorder().start()
     assert _no_sleep.call_count == recorder._OPEN_ATTEMPTS - 1
@@ -114,10 +121,7 @@ def test_the_last_attempt_does_not_pause_before_giving_up(mocker, _no_sleep):
 # --- what the log says it cost ---------------------------------------------------
 
 def test_the_warning_says_the_speech_is_gone(mocker, caplog):
-    mocker.patch.object(
-        recorder.sd, "InputStream",
-        side_effect=[RuntimeError("Error querying device -1"), _stream(mocker)],
-    )
+    _set_input_stream(mocker, side_effect=[RuntimeError("Error querying device -1"), _stream(mocker)])
     with caplog.at_level(logging.WARNING, logger="yazses.audio.recorder"):
         AudioRecorder().start()
     first = caplog.records[0].getMessage()
@@ -126,7 +130,7 @@ def test_the_warning_says_the_speech_is_gone(mocker, caplog):
 
 
 def test_the_final_warning_promises_no_retry_it_will_not_make(mocker, caplog):
-    mocker.patch.object(recorder.sd, "InputStream", side_effect=RuntimeError("busy"))
+    _set_input_stream(mocker, side_effect=RuntimeError("busy"))
     with caplog.at_level(logging.WARNING, logger="yazses.audio.recorder"):
         with pytest.raises(RuntimeError):
             AudioRecorder().start()
@@ -136,10 +140,7 @@ def test_the_final_warning_promises_no_retry_it_will_not_make(mocker, caplog):
 
 
 def test_the_warning_still_names_the_attempt_and_the_cause(mocker, caplog):
-    mocker.patch.object(
-        recorder.sd, "InputStream",
-        side_effect=[RuntimeError("Error querying device -1"), _stream(mocker)],
-    )
+    _set_input_stream(mocker, side_effect=[RuntimeError("Error querying device -1"), _stream(mocker)])
     with caplog.at_level(logging.WARNING, logger="yazses.audio.recorder"):
         AudioRecorder().start()
     first = caplog.records[0].getMessage()
@@ -151,10 +152,7 @@ def test_the_warning_still_names_the_attempt_and_the_cause(mocker, caplog):
 
 def test_the_diagnosis_still_recognises_the_reworded_warning(mocker, caplog):
     """The wording carries a cause `system/diagnosis.py` matches on; keep them agreeing."""
-    mocker.patch.object(
-        recorder.sd, "InputStream",
-        side_effect=[RuntimeError("Error querying device -1"), _stream(mocker)],
-    )
+    _set_input_stream(mocker, side_effect=[RuntimeError("Error querying device -1"), _stream(mocker)])
     with caplog.at_level(logging.WARNING, logger="yazses.audio.recorder"):
         AudioRecorder().start()
     assert diagnose(caplog.records[0].getMessage(), where=CAPTURE).slug == (
