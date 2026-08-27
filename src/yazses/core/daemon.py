@@ -116,16 +116,24 @@ def _running_version() -> str:
 
 
 
-def should_launch_overlay(config: Config, env: Mapping[str, str]) -> bool:
+def should_launch_overlay(
+    config: Config, env: Mapping[str, str], *, platform: str | None = None
+) -> bool:
     """Whether the daemon should auto-spawn the voice-activity overlay.
 
-    Only when explicitly enabled in config AND a graphical session is present
-    (``DISPLAY`` for X11 or ``WAYLAND_DISPLAY``). Headless servers and the test
-    suite therefore never spawn it.
+    Only when enabled in ``[overlay]`` AND a graphical session is present. The second
+    half used to be a bare ``DISPLAY``/``WAYLAND_DISPLAY`` test -- an X11/Wayland
+    question, not a desktop one -- so the sonar overlay was never spawned on Windows
+    or macOS, on any install, while dictation itself worked perfectly. A suppressed
+    overlay is indistinguishable from one the user switched off, which is why it went
+    unreported for so long. See :mod:`yazses.system.graphical`. Headless servers and
+    the test suite still never spawn it.
     """
+    from yazses.system.graphical import has_graphical_session
+
     if not config.overlay.enabled:
         return False
-    return bool(env.get("DISPLAY") or env.get("WAYLAND_DISPLAY"))
+    return has_graphical_session(env, platform=platform)
 
 
 def overlay_dependency_available() -> bool:

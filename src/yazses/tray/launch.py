@@ -16,15 +16,23 @@ from pathlib import Path
 from yazses.config import Config
 
 
-def should_launch_tray(config: Config, env: Mapping[str, str]) -> bool:
+def should_launch_tray(
+    config: Config, env: Mapping[str, str], *, platform: str | None = None
+) -> bool:
     """Whether the daemon should auto-spawn the tray icon.
 
-    Only when enabled in ``[tray]`` AND a graphical session is present (``DISPLAY``
-    for X11 or ``WAYLAND_DISPLAY``). Headless servers and the test suite never spawn it.
+    Only when enabled in ``[tray]`` AND a graphical session is present. The second
+    half used to be a bare ``DISPLAY``/``WAYLAND_DISPLAY`` test, which is an
+    X11/Wayland question rather than a desktop one, so the daemon never auto-spawned
+    the tray on Windows or macOS -- see
+    :mod:`yazses.system.graphical`. Headless servers and the test suite still never
+    spawn it.
     """
+    from yazses.system.graphical import has_graphical_session
+
     if not config.tray.enabled:
         return False
-    return bool(env.get("DISPLAY") or env.get("WAYLAND_DISPLAY"))
+    return has_graphical_session(env, platform=platform)
 
 
 def settings_command(

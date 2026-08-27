@@ -185,7 +185,10 @@ def test_the_page_states_the_idle_poll_rates_the_code_actually_uses():
     text = DOC.read_text(encoding="utf-8")
     expected = {
         "device monitor": (_hz(AudioConfig().device_poll_interval_s), "0.33 Hz"),
-        "tray": (_hz(tray_app._POLL_INTERVAL_S), "1 Hz"),
+        # 4 Hz since the tray's idle poll was raised from 1 Hz: at 1 Hz a short
+        # hold could start and finish between two samples, so the icon never turned
+        # green. See tests/test_tray_poll_can_observe_a_burst.py.
+        "tray": (_hz(tray_app._POLL_INTERVAL_S), "4 Hz"),
         "overlay": (_hz(poller._SLOW_INTERVAL_S), "4 Hz"),
     }
     for who, (rate, printed) in expected.items():

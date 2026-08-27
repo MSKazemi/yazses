@@ -11,12 +11,16 @@ def test_wayland_session_has_a_display():
 
 
 def test_bare_ssh_session_has_none():
-    """No DISPLAY = Qt would abort() with a plugin dump; we must refuse first."""
-    assert has_display({"TERM": "xterm", "SSH_CONNECTION": "..."}) is False
+    """No DISPLAY = Qt would abort() with a plugin dump; we must refuse first.
+
+    Pinned to Linux: on Windows and macOS the absence of these variables says
+    nothing at all, which is the bug tests/test_graphical_session_gate.py covers.
+    """
+    assert has_display({"TERM": "xterm", "SSH_CONNECTION": "..."}, platform="linux") is False
 
 
 def test_empty_display_does_not_count():
-    assert has_display({"DISPLAY": "", "WAYLAND_DISPLAY": ""}) is False
+    assert has_display({"DISPLAY": "", "WAYLAND_DISPLAY": ""}, platform="linux") is False
 
 
 def test_explicit_qt_platform_is_honoured():

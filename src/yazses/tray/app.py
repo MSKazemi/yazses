@@ -26,9 +26,17 @@ from yazses.tray.menu import _RECORDING_STATES
 log = logging.getLogger(__name__)
 
 
-_POLL_INTERVAL_S = 1.0
-# Poll faster while recording so the icon reflects the burst (green ↔ yellow when there's
-# no text target) during a short hold, instead of lagging a full second behind.
+# 0.25 s, not 1.0 s. This is the rate at which a *transition* is caught, not the rate
+# at which a steady state is refreshed, and hold-to-talk bursts are 1-2 s long: at 1.0 s
+# a short burst could begin and end between two samples and never be observed at all,
+# so the icon stayed blue through a dictation that worked. Reported first-hand from
+# Windows as "the colour does not change". The overlay -- the other process polling the
+# same status RPC for the same transition -- already used 0.25 s for exactly this
+# reason; the tray was deciding it independently and getting it wrong.
+_POLL_INTERVAL_S = 0.25
+# Poll faster once recording is observed so the icon tracks changes *within* the burst
+# (green ↔ yellow when there's no text target). This rate can only ever refine what the
+# rate above has already caught, which is why the one above is the load-bearing one.
 _FAST_POLL_INTERVAL_S = 0.15
 # Imported, not restated. This file and `tray/menu.py` each held an identical
 # four-element copy, and the two decide the same thing: `menu.py` picks the icon

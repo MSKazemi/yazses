@@ -22,19 +22,23 @@ def test_overlay_enabled_by_default():
 
 
 def test_should_launch_overlay_disabled():
-    assert should_launch_overlay(_cfg(False), {"DISPLAY": ":0"}) is False
+    assert should_launch_overlay(_cfg(False), {"DISPLAY": ":0"}, platform="linux") is False
 
 
 def test_should_launch_overlay_enabled_with_x11():
-    assert should_launch_overlay(_cfg(True), {"DISPLAY": ":1"}) is True
+    assert should_launch_overlay(_cfg(True), {"DISPLAY": ":1"}, platform="linux") is True
 
 
 def test_should_launch_overlay_enabled_with_wayland():
-    assert should_launch_overlay(_cfg(True), {"WAYLAND_DISPLAY": "wayland-0"}) is True
+    assert should_launch_overlay(
+        _cfg(True), {"WAYLAND_DISPLAY": "wayland-0"}, platform="linux"
+    ) is True
 
 
 def test_should_launch_overlay_enabled_but_headless():
-    assert should_launch_overlay(_cfg(True), {}) is False
+    """Headless means headless *on Linux/BSD*; Windows and macOS are covered by
+    tests/test_graphical_session_gate.py, where the answer is the opposite."""
+    assert should_launch_overlay(_cfg(True), {}, platform="linux") is False
 
 
 def test_status_exposes_audio_level_and_threshold():

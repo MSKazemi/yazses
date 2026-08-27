@@ -10,16 +10,17 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 
-def has_display(env: Mapping[str, str]) -> bool:
-    """Whether a graphical session is present (``DISPLAY`` for X11, or Wayland).
+def has_display(env: Mapping[str, str], *, platform: str | None = None) -> bool:
+    """Whether a graphical session is present, so the window has somewhere to open.
 
-    ``QT_QPA_PLATFORM`` is honoured too: an explicit platform (``offscreen``,
-    ``vnc``, ``minimal``, …) means the caller knows what they are doing — that is
-    how the headless smoke tests drive the window.
+    Delegates to :func:`yazses.system.graphical.has_graphical_session`. This used to
+    test ``DISPLAY``/``WAYLAND_DISPLAY`` directly, which is an X11/Wayland question:
+    Windows and macOS set neither, so the Settings window refused to open on both,
+    and said so by printing to a console a windowed binary does not have.
     """
-    if env.get("QT_QPA_PLATFORM"):
-        return True
-    return bool(env.get("DISPLAY") or env.get("WAYLAND_DISPLAY"))
+    from yazses.system.graphical import has_graphical_session
+
+    return has_graphical_session(env, platform=platform)
 
 
 def pyside_available() -> bool:

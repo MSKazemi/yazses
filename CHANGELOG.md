@@ -6,6 +6,44 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — Settings opened nothing and dictation showed no sign of running, on Windows and macOS
+
+Two defects reported first-hand from a Windows machine: clicking **Settings…** in the
+tray did nothing at all, and holding the hotkey produced correct text with no visible
+indication anything was happening — no sonar overlay, and a tray icon that stayed the
+same colour.
+
+**One cause for the first and half of the second.** Three separate gates decided "is
+there a graphical session?" with the same two lines — `DISPLAY` or `WAYLAND_DISPLAY`.
+Those are X11 and Wayland concepts. Windows and macOS set neither and never have, so
+all three answered *headless* on every Windows and macOS install there has ever been:
+
+- the Settings window refused to open,
+- the daemon never spawned the voice-activity overlay (the sonar rings),
+- the daemon never auto-spawned the tray.
+
+Reproduced against the shipped 2.33.0 binary on a clean Windows host — `yazses-cli.exe
+--settings` exits 1 with *"needs a graphical session — no DISPLAY or WAYLAND_DISPLAY is
+set"*. From the windowed `YazSesApp.exe` that explanation has no console to print to,
+which is why the button looked inert rather than broken. PySide6 is present in the
+bundle; the gate was the only thing stopping it.
+
+The predicate now lives in one module and takes the platform as an argument, because
+the honest answer differs: on Windows and macOS an interactive process has a desktop by
+construction and no variable says so, while on Linux and the BSDs those variables are
+the only evidence there is. A guard fails the build if any module decides it again on
+its own — matched precisely enough to still permit `inject/target.py`, which asks the
+genuinely different question "is this *plain X11*?" for xdotool.
+
+**The tray colour was a second, independent defect.** The tray polled the daemon once a
+second at rest and only dropped to 0.15 s *after* it had seen a recording state — a
+chicken-and-egg, since the fast rate exists to track a burst the slow rate has to catch
+first. A one-to-two-second hold could begin and end between two samples and never be
+observed, so the icon stayed blue through a dictation that worked. The overlay, polling
+the same RPC for the same transition, already used 0.25 s and said why. The tray now
+does too.
+
+
 ### Fixed — every Scoop install silently had no Start Menu entry
 
 `scoop install yazses` printed
