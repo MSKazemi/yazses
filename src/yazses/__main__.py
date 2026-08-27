@@ -110,15 +110,35 @@ def _handle_interpreter_reentry() -> bool:
 
 
 def _run_cli(args: list[str]) -> None:
-    """Dispatch to the Typer CLI, with printable streams guaranteed first."""
+    """Dispatch to the Typer CLI exactly the way the console script does.
+
+    Through ``cli.main`` and **not** ``cli.app``. The two are not the same entry:
+    ``main`` is what ``pyproject.toml`` binds ``yazses`` to, and everything it does
+    before handing over to Typer was silently absent from every bundled ``.exe`` and
+    ``.app`` while this called ``app()`` directly --
+
+    * ``ensure_printable_streams()`` -- a redirected stdout on Windows is cp1252,
+      which cannot encode the arrow, the warning sign or the box rule this CLI prints
+      everywhere. `yazses doctor` from the Scoop-installed v2.32.0 binary died with
+      ``UnicodeEncodeError: 'charmap' codec can't encode character '\u2717'`` after
+      printing most of its report;
+    * ``escape_help_sections(app)`` -- Rich reads ``[meeting]`` in a help string as a
+      style tag and drops it, so twelve commands named a config key without its
+      section;
+    * the ``UnsupportedPlatformError`` handler, which turns "no backend for this OS"
+      into a sentence instead of a traceback.
+
+    ``ensure_streams()`` still runs first and separately: it answers "is there a
+    stream at all", which the windowed binary can fail before anything is printable.
+    """
     from yazses.system.wincon import ensure_streams
 
     ensure_streams()
 
-    from yazses.cli import app
+    from yazses.cli import main as run_cli
 
     sys.argv = [sys.argv[0]] + args
-    app()
+    run_cli()
 
 
 def default_mode(argv0: str) -> str:

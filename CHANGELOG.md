@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the bundled `.exe` and `.app` entered a different CLI from the one shipped
+
+`pyproject.toml` binds the `yazses` console script to `yazses.cli:main`, and `main` does
+three things before handing over to Typer. `src/yazses/__main__.py` — the PyInstaller
+entry point for every Windows and macOS bundle — called `cli.app()` directly, so a
+bundled user got **none** of them:
+
+- `ensure_printable_streams()`. Reproduced end to end on a real Windows host by
+  installing v2.32.0 from the Scoop bucket: `yazses doctor` printed most of its report
+  and then died with `UnicodeEncodeError: 'charmap' codec can't encode character '✗'`.
+  Redirecting a diagnostic command is exactly what somebody does when filing an issue.
+- `escape_help_sections(app)`. Rich reads `[meeting]` in a help string as a style tag
+  and drops it, so twelve commands named a config key without naming its section.
+- The `UnsupportedPlatformError` handler, which turns "no backend for this OS" into a
+  sentence instead of a traceback.
+
+The bundle now enters through `cli.main` like everything else. `wincon.ensure_streams()`
+still runs first and separately: it answers "is there a stream at all", which the
+windowed binary can fail before anything is printable.
+
+The shape is what made it survive — two entry points into one CLI, one of them reachable
+only from a build artifact no test suite imports. `tests/test_bundled_cli_is_the_same_cli.py`
+now pins them together in both directions.
+
 ### Fixed — the last twelve Windows test failures were the test host, not the product
 
 With collection repaired the Windows suite ran end to end for the first time: **13445
