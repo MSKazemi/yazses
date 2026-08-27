@@ -309,6 +309,34 @@ def sandbox_paths(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _no_test_may_read_the_users_real_config(tmp_path_factory, monkeypatch):
+    """A test must not read the machine it runs on either.
+
+    The write guard below is only half the relationship. `load_config(None)` means
+    *the defaults* everywhere in this suite -- several call sites say so in a comment
+    (`# defaults: macros.enabled is False`) -- and it actually meant *whatever is in
+    the developer's own `~/.config/yazses/config.toml`*, which the daemon's own
+    first-run seeding writes.
+
+    It cost a release gate. `test_doctor_names_every_prompt_source` asserts that with
+    no configuration the STT-prompt row reads "app name only"; it passed for months,
+    then failed twice in one afternoon on an unchanged tree, because starting the
+    daemon on this laptop had seeded `[context] enabled = true` between two runs. The
+    failure is worse than the flake: the suite's meaning silently depends on the
+    machine, so a test can pass here and fail in CI, or -- much worse -- pass in CI
+    while asserting nothing about the case it names.
+
+    Pointing at a path inside a session-scoped tmp dir rather than at `Path.home()`:
+    a nonexistent file is exactly the "no config" case, `load_config` is total and
+    returns dataclass defaults for it, and unlike `HOME`/`XDG_CONFIG_HOME` it works
+    the same on Windows and macOS, where `Path.home()` does not read those at all.
+    """
+    empty = tmp_path_factory.mktemp("no-user-config") / "config.toml"
+    monkeypatch.setattr("yazses.config.default_config_path", lambda: empty)
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _no_test_may_write_the_users_real_config():
     """A test must not reach out of the sandbox and edit the machine it runs on.
 

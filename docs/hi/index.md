@@ -506,7 +506,7 @@ installed, or depended on by anything here.
 | | **Python** · `main` | **Rust HCI exploration** · `archive/rust-hci-v1` |
 |---|---|---|
 | What it is | The shipping app — dictation, file transcription, Meeting Mode, voice commands, macros | An early-stage rewrite exploring deeper **human–computer interaction**: an on-device *agent* (LLM tool-use, personal memory, editor awareness) |
-| Status | ✅ **Active — current product** (v2.33.0, installed & maintained) | ⏸️ **Paused / archived** — not shipped, not installable |
+| Status | ✅ **Active — current product** (v2.34.0, installed & maintained) | ⏸️ **Paused / archived** — not shipped, not installable |
 | Offline STT | ✅ faster-whisper (CPU int8) | ✅ Whisper + Moonshine v2 (~9 ms) |
 | Voice commands | ✅ regex grammar → key sequences | ✅ via LLM tool-calls |
 | Voice macros · Mid-Thought Undo · Punch-In · Prosody Ink · Ghost Ahead | ✅ | ❌ |

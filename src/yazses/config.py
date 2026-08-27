@@ -1966,6 +1966,20 @@ def _load_emg(data: dict) -> EmgConfig:
     )
 
 
+def default_config_path() -> Path:
+    """Where the config is read from when no path is given.
+
+    A named seam rather than an expression inlined into ``load_config_checked``, for
+    two reasons. It was copied by hand into ``system/firstrun.py`` with a docstring
+    saying it "mirrors ``config.load_config``'s default" — a comment is not a
+    mechanism, and the seeding path and the loading path drifting apart would leave a
+    daemon reading a file nothing writes. And the whole test suite calls
+    ``load_config(None)`` meaning *the defaults*, which silently meant *whatever is on
+    the developer's machine* until a fixture could point this somewhere empty.
+    """
+    return Path.home() / ".config" / "yazses" / "config.toml"
+
+
 @dataclass(frozen=True)
 class LoadedConfig:
     """A config, plus everything that was wrong with the file it came from."""
@@ -1987,7 +2001,7 @@ def load_config_checked(path: Path | None = None) -> LoadedConfig:
     day it is added rather than the day someone remembers to update this function.
     """
     if path is None:
-        path = Path.home() / ".config" / "yazses" / "config.toml"
+        path = default_config_path()
     problems: list[ConfigProblem] = []
     if not path.exists():
         return LoadedConfig(Config(), problems, None)

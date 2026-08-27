@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.34.0] - 2026-08-27
+
 ### Fixed — Settings opened nothing and dictation showed no sign of running, on Windows and macOS
 
 Two defects reported first-hand from a Windows machine: clicking **Settings…** in the
@@ -66,6 +68,28 @@ of the PyInstaller spec and fails if any `bin` or `shortcuts` target is not one 
 installer actually ships, so renaming a binary breaks the test rather than the
 shortcut. Found by installing the published build on a clean Windows host and reading
 the installer output rather than its exit code.
+
+
+### Fixed — the test suite read the developer's own config file
+
+`load_config(None)` means *the defaults*, and several call sites say so in a comment
+(`# defaults: macros.enabled is False`). It actually resolved to
+`~/.config/yazses/config.toml` — the real one, on whatever machine the suite happened to
+run on, written by the daemon's own first-run seeding.
+
+It was caught by failing a release gate rather than by any review: a test asserting that
+with no configuration `doctor` reports *"STT prompt: app name only"* passed for months,
+then failed on an unchanged tree, because starting the daemon on that laptop between two
+runs had seeded `[context] enabled = true`. The flake is the mild part. A suite whose
+meaning depends on the host asserts nothing reliable about the case it names — it can
+pass in CI while being vacuous, which is the failure mode that does not announce itself.
+
+The default is now a named function, `config.default_config_path()`, and a session fixture
+points it at an empty directory for the whole suite — the mirror of the existing guard
+that stops a test *writing* the user's config. `system/firstrun.py` had hand-copied the
+same path with a docstring claiming it "mirrors `config.load_config`'s default"; it now
+delegates, and a test fails the build if either end restates it. Seeding a config the
+loader does not read is a first run that appears to have done nothing.
 
 
 ## [2.33.0] - 2026-08-27

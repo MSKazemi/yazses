@@ -23,12 +23,12 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.33.0](v2.33.0.md)** — the release found by running what we shipped. 18
-commits, almost all Windows correctness. Every `.exe` and `.app` entered a different CLI
-from the one the tests exercise, so three released fixes reached nobody who installed a
-bundle; a machine with no sound card could not import YazSes at all; and `yazses report`
-left a Windows account name in clear. Two of the three were found by installing the
-published build on a clean Windows host and running it.
+**[YazSes 2.34.0](v2.34.0.md)** — Windows and macOS never had a GUI at all. Three gates
+decided whether a desktop exists by reading `DISPLAY` and `WAYLAND_DISPLAY`, which those
+platforms set neither of and never have, so the Settings window, the sonar overlay and
+the tray icon were suppressed on every Windows and macOS install ever produced. The tray
+also polled too slowly to see a short dictation, and every Scoop install had silently
+failed to create its Start Menu shortcut.
 Install it with:
 
 ```sh
@@ -38,6 +38,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.34.0](v2.34.0.md) — Windows and macOS never had a GUI at all: Settings, the sonar overlay and the tray were gated on X11 variables those platforms never set; the tray polled too slowly to see a short dictation; every Scoop install silently had no Start Menu entry.
 - [v2.33.0](v2.33.0.md) — the bundled `.exe` and `.app` ran a different CLI from the one we ship; a host with no audio device could not import YazSes; a Windows account name left in clear; CI red on every leg for a correct hook; Scoop on ARM64.
 - [v2.32.0](v2.32.0.md) — a collapsed meeting transcript that deleted its own recording; a confined snap that crashed on `yazses setup`; a publish that discarded the revision it found; and a 2×2 that kept both decode defaults.
 - [v2.31.0](v2.31.0.md) — reproducible benchmark evidence; a measured latency policy; one model in memory instead of two; safer log reports; repaired Intel macOS extras and release pipelines.

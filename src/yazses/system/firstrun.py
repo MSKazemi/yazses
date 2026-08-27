@@ -19,8 +19,14 @@ from pathlib import Path
 
 
 def default_config_path() -> Path:
-    """The config path the daemon loads (mirrors ``config.load_config``'s default)."""
-    return Path.home() / ".config" / "yazses" / "config.toml"
+    """The config path the daemon loads.
+
+    Delegates to ``config.default_config_path`` rather than restating it: seeding a
+    file the loader does not read is a first run that appears to do nothing.
+    """
+    from yazses.config import default_config_path as _loader_default
+
+    return _loader_default()
 
 
 def ensure_recommended_config(path: Path | None = None) -> bool:
