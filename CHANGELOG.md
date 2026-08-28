@@ -6,6 +6,78 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a distribution channel that stayed broken became its own baseline
+
+The daily channel-drift watch runs `check-release-channels.py --compare-with <previous
+release>`, reporting only channels that went *backwards*. That was deliberate: six
+channels have no credential wired up and are absent for every version, so naming them
+daily teaches the reader to close the issue unread.
+
+The blind spot is permanent. Comparing against the previous release catches a channel the
+moment it breaks and never again — once it has missed two releases running it did not
+carry the previous one either, so it becomes its own baseline and drops out of the
+comparison for good.
+
+The Homebrew tap fell into it. `TAP_TOKEN` is not set, so the `homebrew` job in
+`publish-channels.yml` takes its skip branch and reports **success**; the tap has never
+published automatically and froze at 2.18.2 on 2026-08-13. The watcher was written on
+2026-08-26 — by which point the tap was already stale, therefore already baseline — so it
+never once flagged it, printing "every channel that carried v2.34.0 also has v2.35.0" and
+exiting 0 while `brew install --cask yazses` served a build seventeen releases old.
+
+That was not theoretical. Both macOS fixes — `3bffc07` (the `.app` could not name its own
+version) and `7b039fb` (`CGEventTap` needs Input Monitoring) — landed after 2.18.2, so
+every Homebrew user was installing a build from before either existed. A contributor did
+exactly that and reported those already-fixed bugs as live.
+
+A channel is now regressed if **either** the previous release reached it and this one did
+not, **or** it is serving a concrete version that is not this one. The second rule needs
+no history: the channel is asked what it serves now. Absence is still not staleness — a
+channel answering "HTTP 404" or "not in AUR" reports no version and stays suppressed, so
+the six unwired channels are as quiet as before.
+
+This makes the next breakage visible; it does not republish the tap. That still requires
+`TAP_TOKEN`.
+
+### Fixed — the setup-report linter demanded a Linux display server from Windows and macOS
+
+`check-compatibility.py` requires every `SHOWCASE.md` entry to name X11 or Wayland. On
+Linux that is load-bearing: the two behave differently enough that a report omitting the
+session cannot be acted on. The rule was applied unconditionally — and X11 and Wayland are
+Linux/BSD display servers that Windows and macOS do not have.
+
+So the first Windows entry and the first macOS entry this project ever received were both
+rejected as malformed, on a project whose scarcest evidence is Windows and macOS testing.
+The linter was refusing precisely the reports it most needed, and telling the contributor
+their correct report was wrong. The rule is narrowed, not removed: still required of
+anything that is not Windows or macOS.
+
+Also fixed: the assertion that hid it. `tests/test_campaign.py` checked
+`assert capsys.readouterr().out or capsys.readouterr().err`, and `readouterr()` **drains**
+the buffer — so the second call always returns empty and the assertion collapses to
+`out or ""`. A script reporting only on stderr could never satisfy it, which is why this
+surfaced as a campaign-harness failure naming no script rather than as the linter
+rejecting an entry.
+
+### Fixed — the Homebrew cask told macOS users to grant one permission of the two
+
+A `CGEventTap` needs **Input Monitoring** as well as Accessibility, and either one being
+off produces the identical symptom: the dictation key dead in every application while the
+Accessibility toggle sits there enabled. `7b039fb` taught the app to request Input
+Monitoring, and both `docs/macos-install.md` and `platform/macos/permissions.py` were
+updated to say so.
+
+The cask was not, and the cask's `caveats` are the *only* instructions a
+`brew install --cask` user ever sees. Six version-bump refreshes touched that file
+afterwards and none noticed, because a refresh rewrites `version` and `sha256` and reads
+nothing else.
+
+The caveats now walk both grants in order, explain that an app is absent from the Input
+Monitoring pane until it has asked (so `+` cannot add it first), tie the microphone prompt
+to the key actually working, and note that an unsigned upgrade drops **both** grants. A
+test guards the content, so the next refresh cannot quietly drop it again.
+
+
 ### Fixed — in command mode, `run <destructive>` skipped the safety gate
 
 The Command Safety Gate (ADR-v2-065) was wired onto the **dictation** branch of

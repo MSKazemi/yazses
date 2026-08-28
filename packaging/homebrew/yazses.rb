@@ -68,12 +68,25 @@ cask "yazses" do
   ]
 
   caveats <<~EOS
-    YazSes listens for the dictation hotkey using macOS's Accessibility
-    API. After install, grant access in:
+    YazSes needs TWO permissions to hear the dictation key, not one. Granting
+    only Accessibility leaves the key dead in every application, with the
+    Accessibility toggle sitting there enabled — the single most common way a
+    working install looks broken.
 
-        System Settings → Privacy & Security → Accessibility → YazSes
+      1. System Settings → Privacy & Security → Accessibility → enable YazSes
+      2. Launch YazSes and hold the dictation key once. macOS then prompts for
+         Input Monitoring; enable YazSes there too, and relaunch the app.
+      3. Holding the key again prompts for Microphone access. Allow it.
 
-    On first dictation, macOS will also prompt for Microphone access. Allow it.
+    Not in the Input Monitoring list? An app only appears there once it has
+    asked. Hold the key once and look again — the + button cannot add it first.
+
+    No microphone prompt either? That is the same problem upstream: YazSes only
+    records while the key is held, so a key dead for want of Input Monitoring
+    never records, never prompts, and never reaches the Microphone pane.
+
+    `yazses doctor` reports Accessibility and Input Monitoring as two rows,
+    because they are two switches and either one being off kills the key.
 
     Default hotkey: Right Option. Configurable in:
         ~/Library/Application Support/yazses/config.toml
@@ -82,8 +95,8 @@ cask "yazses" do
     app, right-click YazSes.app and choose Open the first time.
 
     Because it is unsigned, macOS treats the app as a new identity whenever
-    its hash changes, so you may have to re-grant Accessibility after an
-    upgrade.
+    its hash changes, so you may have to re-grant BOTH Accessibility and Input
+    Monitoring after an upgrade.
 
     On an Intel Mac this cask will refuse to install: it tracks the Apple Silicon
     build. An Intel .dmg is now produced as well, and this cask will offer it once
