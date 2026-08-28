@@ -2,7 +2,33 @@
 
 **Version:** v1.0 (Rust core)  
 **Last updated:** 2026-05-19  
-**Status:** Living document — update when architecture changes or new threats are identified.
+**Status:** **ARCHIVED — models the Rust core, not the shipping Python app.**
+
+---
+
+> ## ⚠ Archived: this models an architecture that is not on `main`
+>
+> This document was written against the v1.0 Rust core, which was moved to the
+> `archive/rust-hci-v1` branch and paused — the same status
+> [`architecture.md`](architecture.md) carries. `main` is the Python app. It is kept
+> for reference and for the reasoning in it that still transfers, but **it must not be
+> read as a current statement of YazSes's security properties**, and it is not a
+> substitute for reading the code.
+>
+> A worked example of the drift, so the gap is concrete rather than a general warning:
+> **§6.3 analyses a `VSCodeBridge` "listening on loopback TCP 127.0.0.1:57843"**, with a
+> residual-risk paragraph about a local process racing to bind that port. The Python
+> `VSCodeBridge` (`src/yazses/commands/lsp_context.py`) **opens no socket at all** — it
+> reads a JSON file from the platformdirs cache directory, and the port number appears
+> nowhere in `src/`. So that section models an attack surface that does not exist, and
+> is silent on the one that does: any process running as the same user can write that
+> cache file and feed arbitrary context to the LLM.
+>
+> Re-modelling this against the Python implementation is open work, not done here. Until
+> it is, the current security posture is stated in [ADR-011](adr/) (nothing leaves the
+> machine), [ADR-019](adr/) (the enumerated outbound connections, with
+> `tests/test_egress_inventory.py` failing the build on an unregistered eighth), and the
+> guards described in `CLAUDE.md`.
 
 ---
 
