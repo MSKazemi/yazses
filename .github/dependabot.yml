@@ -22,6 +22,26 @@ updates:
     commit-message:
       prefix: "chore(deps)"
     labels: ["dependencies"]
+    ignore:
+      # setuptools >= 81 is not a bump this project can take, and the reason is
+      # written into pyproject.toml beside the pin: the `voiceprint-resemblyzer`
+      # extra needs `pkg_resources`, which setuptools 83.0.0 removed entirely.
+      # Resemblyzer requires `webrtcvad`, whose first line is `import
+      # pkg_resources`, so the extra installs and then cannot import -- which is
+      # how it once shipped.
+      #
+      # Without this, the monthly sweep re-proposes it forever: #316 raised it to
+      # 83.0.0 and failed all eight test legs, because `tests/
+      # test_dependency_advisories.py` pins the pin on purpose. That is the guard
+      # working, but a PR that cannot ever be green is pure noise for a small
+      # maintainer pool, and each round spends CI on proving the same thing.
+      #
+      # Scoped to `>=81` rather than the whole dependency: a patch inside the
+      # supported range is still worth taking, and blanket-ignoring a package is
+      # how a real security bump gets silently skipped. Lifting this needs
+      # `webrtcvad` fixed upstream, not a version edit here.
+      - dependency-name: "setuptools"
+        versions: [">=81"]
 
   # GitHub Actions — pinned action versions go stale silently and are a real
   # supply-chain surface for a project that publishes signed artifacts.
