@@ -808,3 +808,87 @@ def test_check_task_survives_a_diff_full_of_non_ascii(monkeypatch):
         lambda cmd, **kw: sp.CompletedProcess(cmd, 0, stdout=None, stderr=None),
     )
     assert mod.working_diff("origin/main") == "\n"
+
+
+# --- The cached-endpoint false positive ------------------------------------------------
+#
+# `/contributors` is a cached statistic, not a live query. Every author merged before the
+# cache refreshed appeared in it; the only two missing were the two merged that day -- so
+# the guard reported a gap for exactly the people who had just been credited, and told the
+# maintainer to contact them about a commit email that was linked all along. These lock the
+# resolver in: without it the guard fires on the action it exists to encourage.
+
+
+def test_a_same_day_contributor_is_not_a_gap_when_github_resolves_them(stats):
+    """The regression. `bob` merged today, so the cached list cannot know him yet --
+    but GitHub maps his commits to his account, which is the actual question."""
+    gaps = stats.attribution_gaps(
+        merged_authors=["alice", "bob"],
+        contributor_logins=["alice"],  # cache is behind; bob is missing from it
+        resolves=lambda login: login == "bob",
+    )
+    assert gaps == [], "bob's commits resolve, so nothing is unattributed"
+
+
+def test_a_genuinely_unlinked_author_is_still_reported(stats):
+    """The other direction, and the reason the guard exists at all: GitHub cannot map
+    this person's commit email to any account, so their work shows no credit."""
+    gaps = stats.attribution_gaps(
+        merged_authors=["alice", "bob"],
+        contributor_logins=["alice"],
+        resolves=lambda login: False,
+    )
+    assert gaps == ["bob"]
+
+
+def test_the_resolver_is_consulted_only_for_candidates(stats):
+    """A green run must not cost one request per merged author. Everyone already in the
+    cached list is settled, and asking again would spend the rate limit on a known answer."""
+    asked: list[str] = []
+
+    def resolves(login: str) -> bool:
+        asked.append(login)
+        return True
+
+    stats.attribution_gaps(
+        merged_authors=["alice", "carol", "bob", "alice"],
+        contributor_logins=["alice", "carol"],
+        resolves=resolves,
+    )
+    assert asked == ["bob"], "only the one name the cache could not account for"
+
+
+def test_without_a_resolver_the_old_set_difference_is_kept(stats):
+    """Offline there is no better answer available, and over-reporting is the safe
+    direction: a name a human reads and dismisses beats a contributor lost in silence."""
+    assert stats.attribution_gaps(["alice", "bob"], ["alice"]) == ["bob"]
+
+
+def test_a_failed_lookup_reports_the_candidate_rather_than_going_quiet(stats, monkeypatch):
+    """`github_attributes_commits` swallows network errors, and the direction it fails in
+    matters: returning True would erase the finding whenever the API was unreachable."""
+
+    def boom(path):
+        raise TimeoutError("no network")
+
+    monkeypatch.setattr(stats, "_get", boom)
+    assert stats.github_attributes_commits("bob") is False
+
+
+def test_an_attributed_login_is_detected_from_a_nonempty_commit_list(stats, monkeypatch):
+    monkeypatch.setattr(stats, "_get", lambda path: [{"sha": "abc123"}])
+    assert stats.github_attributes_commits("bob") is True
+
+
+def test_a_login_with_no_resolved_commits_is_not_attributed(stats, monkeypatch):
+    monkeypatch.setattr(stats, "_get", lambda path: [])
+    assert stats.github_attributes_commits("bob") is False
+
+
+def test_the_login_is_url_encoded_into_the_query(stats, monkeypatch):
+    """A login cannot contain a space, but it reaches this function from API data rather
+    than from a validated field, and an unescaped value would build a malformed URL."""
+    seen: list[str] = []
+    monkeypatch.setattr(stats, "_get", lambda path: seen.append(path) or [])
+    stats.github_attributes_commits("a b")
+    assert "author=a%20b" in seen[0]

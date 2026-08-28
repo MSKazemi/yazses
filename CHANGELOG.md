@@ -6,6 +6,25 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the attribution guard fired on the act of crediting someone
+
+`scripts/campaign_stats.py::attribution_gaps` answered "is GitHub attributing this
+person's work?" with a set difference against the `/contributors` API. That endpoint is a
+**cached statistic**, not a live query, and it lags a merge by hours — so every author
+merged that same day was reported as unattributed. The guard therefore turned CI red on
+the very commit that added two contributors to the wall, and the failure text sent the
+maintainer to contact them privately about a commit email that was linked all along.
+Verified against the repository's own history: every author merged before that day was
+present in the cached list, and the only two missing were the two merged that day, while
+GitHub resolved both accounts from their commits immediately.
+
+It now asks GitHub whether it can attribute the commits (`/commits?author=`, computed per
+request rather than served from the statistics cache), and only for the candidates the
+cache could not account for — so a green run costs no extra requests. With no network the
+old set difference is kept, and a failed lookup reports the candidate rather than going
+quiet: over-reporting shows a name a human dismisses, while under-reporting loses a
+contributor in silence, which is the failure nobody ever reports.
+
 ### Fixed — a distribution channel that stayed broken became its own baseline
 
 The daily channel-drift watch runs `check-release-channels.py --compare-with <previous

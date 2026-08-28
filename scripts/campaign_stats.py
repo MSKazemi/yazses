@@ -40,7 +40,9 @@ import os
 import re
 import subprocess
 import urllib.error
+import urllib.parse
 import urllib.request
+from collections.abc import Callable
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -93,19 +95,39 @@ def cohort_of(pr_body: str | None) -> str | None:
     return m.group(1).lower() if m else None
 
 
-def attribution_gaps(merged_authors: list[str], contributor_logins: list[str]) -> list[str]:
-    """Merged human PR authors who are absent from the contributors API.
+def attribution_gaps(
+    merged_authors: list[str],
+    contributor_logins: list[str],
+    resolves: Callable[[str], bool] | None = None,
+) -> list[str]:
+    """Merged human PR authors whose commits GitHub is not attributing to them.
 
     Each name here is a person whose work is in `main` and who the project is currently
     showing no credit for. That is a bug in the project, not in them.
+
+    `/contributors` alone cannot answer this. It is a **cached statistic**, not a live
+    query: it lags a merge by hours, so a plain set difference against it names every
+    same-day contributor -- precisely the people someone has just finished crediting.
+    That made the guard fire on the one action it exists to encourage, and sent the
+    maintainer to contact them about an unlinked commit email they did not have.
+
+    `resolves(login)` is the question the cached endpoint is standing in for: has GitHub
+    mapped this person's commit email to their account? It is consulted **only** for
+    candidates, so the common green run costs no extra requests, and when it is absent
+    the old set difference is kept -- a caller with no network must still get an answer,
+    and over-reporting is the safe direction for a guard a human reads.
     """
     known = {c.lower() for c in contributor_logins}
     out: list[str] = []
     for author in merged_authors:
         if not author or is_bot(author):
             continue
-        if author.lower() not in known and author not in out:
-            out.append(author)
+        if author.lower() in known or author in out:
+            continue
+        # Only now is a request worth making, and only for this one person.
+        if resolves is not None and resolves(author):
+            continue
+        out.append(author)
     return out
 
 
@@ -159,8 +181,9 @@ def summarize(
     merged_authors: list[str],
     prs: list[dict],
     baseline: int = 10,
+    resolves: Callable[[str], bool] | None = None,
 ) -> dict:
-    gaps = attribution_gaps(merged_authors, contributors)
+    gaps = attribution_gaps(merged_authors, contributors, resolves)
     merged_humans = {a for a in merged_authors if a and not is_bot(a)}
     summary = {
         "repo": REPO,
@@ -240,6 +263,25 @@ def _get(path: str) -> list[dict]:
     return out
 
 
+def github_attributes_commits(login: str) -> bool:
+    """True when GitHub resolves at least one commit on the default branch to `login`.
+
+    `?author=` is matched server-side against the account GitHub has mapped the commit
+    email to, which is exactly the condition the guard reports on, and -- unlike
+    `/contributors` -- it is computed per request rather than served from a statistics
+    cache, so it is correct the moment a pull request merges.
+
+    A failed request returns False, keeping the candidate reported: the guard's job is to
+    surface a name for a human to look at, and going quiet because the network did is the
+    one outcome that loses a contributor silently.
+    """
+    try:
+        commits = _get(f"/repos/{REPO}/commits?author={urllib.parse.quote(login)}&per_page=1")
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError, ValueError):
+        return False
+    return bool(commits)
+
+
 def contributors_from_git() -> list[str]:
     """Offline fallback: distinct commit author names on the current branch.
 
@@ -289,7 +331,13 @@ def main(argv: list[str] | None = None) -> int:
         (p.get("user") or {}).get("login", "") for p in prs if p.get("merged_at")
     ]
     summary = summarize(
-        contributors=contributors, merged_authors=merged_authors, prs=prs, baseline=args.baseline
+        contributors=contributors,
+        merged_authors=merged_authors,
+        prs=prs,
+        baseline=args.baseline,
+        # Offline, every candidate stands: `contributors_from_git` is already the local
+        # answer, and a second guess from the same missing network adds nothing.
+        resolves=None if degraded else github_attributes_commits,
     )
 
     if args.attribution_gaps:

@@ -64,6 +64,12 @@ jobs:
           # A different failure from the one above: the person IS on the wall, but their
           # commit email is not connected to their GitHub account, so the contributor graph
           # shows nothing. Only they can fix it, and only if someone tells them.
+          #
+          # This asks GitHub whether it can attribute their commits, rather than diffing
+          # against `/contributors` -- a cached statistic that lags a merge by hours. The
+          # set difference alone named every same-day contributor, so crediting someone
+          # turned this job red on the very commit that credited them, and the advice below
+          # sent the maintainer to contact them about an email that was linked all along.
           if python3 scripts/campaign_stats.py --attribution-gaps; then
             echo "✓ no attribution gaps" >> "$GITHUB_STEP_SUMMARY"
           else
