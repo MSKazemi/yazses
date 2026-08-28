@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `doctor` now says the update watcher exists
+
+`[general] update_check` is off by default and must stay that way: it is the only
+part of YazSes that opens an outbound connection, and "nothing leaves the machine"
+is the product, not a setting. But off was also *invisible*. The watcher appeared in
+`yazses features` among some sixty other rows and nowhere else, so someone running a
+build with a since-fixed bug had no path from "this is broken" to "a newer release
+exists" — the fix shipped and never reached them.
+
+`yazses doctor` now carries one row directly under **Version**, because "what am I
+running" and "is there anything newer" are one question to a user and only the first
+half was answerable. When the watcher is off the row is a dim `[SKIP]` carrying the
+exact command (`yazses features enable update-check`); when it is on it says so and
+restates that nothing about the user is sent.
+
+It is `SKIP`, not `WARN`, on purpose. Nothing is broken — this is the documented,
+privacy-preserving default — and a report that warns about a deliberate default is
+how people learn to skim past the failures that matter.
+
+The default did not change, `firstrun` still does not seed it, and no new outbound
+connection was added.
+
+
 ### Fixed — the Windows signing path could never have worked
 
 The SignPath signing steps in `build-windows.yml` are gated on four `SIGNPATH_*`
