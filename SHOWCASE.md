@@ -31,4 +31,11 @@ Any setup is welcome — beginner or power user. 💛
   and long-form prose. The tray icon + mic-change auto-heal mean it "just works" even when a
   USB-C monitor tries to steal the mic. Tip: run `yazses mic-level --set` once after any mic change.
 
+### @jayavandhiniMK
+- **OS / desktop:** Windows 11 Home
+- **Mic:** Laptop built-in microphone
+- **Apps you dictate into:** VS Code, terminal, GitHub
+- **How you use YazSes:** I use YazSes for coding, writing, and everyday text input.
+  It helps me dictate quickly while working on projects and open-source contributions.
+
 <!-- Add your entry above this line's section by appending a new ### block at the end. -->
