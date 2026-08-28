@@ -363,26 +363,82 @@ def run(version: str, core_only: bool, ci_only: bool = False) -> list[Result]:
     return results
 
 
+# A detail of the form "<label>=<version>" is a channel telling us what it is
+# actually serving right now; anything else ("HTTP 404", "not listed", "not in
+# AUR", "cask HTTP 404") is a channel that has nothing to serve. That format is
+# produced by the checks in this same module -- `_evidence` and its siblings --
+# so reading it back is an internal contract rather than prose-parsing, and
+# `test_every_versioned_channel_reports_what_it_serves` fails the build if a
+# check stops honouring it.
+#
+# One uniform rule, not a per-channel table: a hand-written list of "channels
+# that report a version" would be wrong the day a channel is added, and nothing
+# would say so.
+_SERVING_RE = re.compile(r"^[a-z-]+=(\S+)")
+
+# `_evidence` prints "<label>=none" for an index it read successfully that
+# contained no versions, and check_homebrew prints "cask=?" when the cask parses
+# but carries no version line. Neither is a version being served.
+_NOT_A_VERSION = {"none", "?"}
+
+
+def serving(result: Result) -> str | None:
+    """The version this channel says it is serving, or None if it has none.
+
+    This is what separates "never wired up" from "published once and then
+    frozen" WITHOUT consulting history -- the channel itself is asked, which is
+    the only place that knows.
+    """
+    m = _SERVING_RE.match(result.detail)
+    if not m:
+        return None
+    value = m.group(1).split(",")[0]
+    return None if value in _NOT_A_VERSION else value
+
+
 def regressions(new: list[Result], old: list[Result]) -> list[Result]:
-    """Channels that carried the previous release and do not carry this one.
+    """Channels that have gone backwards: they should carry this release and do not.
 
     "Missing" and "regressed" are different findings and only the second one is
-    actionable on a schedule. Six of this project's channels (Flathub, nixpkgs,
-    the AUR, winget, Chocolatey, Homebrew) have no credential wired up, so they
-    are absent for EVERY version -- a daily watcher reporting them would file the
-    same seven-channel issue forever and teach its reader to close it unread.
+    actionable on a schedule. Several of this project's channels (Flathub,
+    nixpkgs, winget, Chocolatey) have no credential wired up, so they are absent
+    for EVERY version -- a daily watcher reporting them would file the same
+    standing issue forever and teach its reader to close it unread.
 
-    The distinction is derived rather than listed. A hand-written set of "the
-    channels that count" is wrong the day a credential is added and wrong again
-    the day one lapses, and nothing would say so; asking "did the previous
-    release reach this channel?" answers it from the store itself, which is the
-    only place that knows.
+    A channel qualifies as regressed two ways, and the second one exists because
+    the first has a blind spot that hid a real fault for seventeen releases:
 
-    A channel that is UNREACHABLE now is never called a regression: not being
-    able to ask is not an answer (see ``_get``). It is reported separately.
+    1. The previous release reached it and this one did not. This catches a
+       channel the moment it breaks.
+
+    2. It is serving a concrete version that is not this one. This catches a
+       channel that broke and STAYED broken -- which (1) cannot, because the
+       previous release did not reach it either, so it becomes its own baseline
+       and drops out of the comparison permanently.
+
+    (2) is not hypothetical. The Homebrew tap froze at 2.18.2 on 2026-08-13
+    because `TAP_TOKEN` was never set, so the publish job took its skip branch
+    and reported success. This watcher was written on 2026-08-26 -- by which
+    time the tap was already stale, hence already baseline -- and so it reported
+    "every channel that carried v2.34.0 also has v2.35.0" every single day while
+    `brew install --cask yazses` served a build seventeen releases old. A user
+    installed it and reported the macOS bugs that had been fixed in between as
+    still broken, which is how this was finally noticed.
+
+    Note the two rules use different evidence on purpose: (1) is historical and
+    (2) is present-tense. A channel that reports no version at all ("HTTP 404",
+    "not in AUR") is never called stale by (2) -- absence is not staleness.
+
+    A channel that is UNREACHABLE now is never called a regression by either
+    rule: not being able to ask is not an answer (see ``_get``). It is reported
+    separately.
     """
     was_published = {r.key for r in old if r.ok is True}
-    return [r for r in new if r.ok is False and r.key in was_published]
+    return [
+        r
+        for r in new
+        if r.ok is False and (r.key in was_published or serving(r) is not None)
+    ]
 
 
 def main() -> int:

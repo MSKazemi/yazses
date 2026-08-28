@@ -554,3 +554,102 @@ def test_an_empty_previous_release_reports_nothing_rather_than_everything(crc):
     """
     new = [_r(crc, "snap", False), _r(crc, "pypi", False)]
     assert crc.regressions(new, []) == []
+
+
+# ---------------------------------------------------------------------------
+# The blind spot in "report regressions, not absences".
+#
+# Comparing against the PREVIOUS release catches a channel the moment it breaks
+# and never again: once it has missed two releases in a row it did not carry the
+# previous one either, so it becomes its own baseline and drops out of the
+# comparison for good. That is not a hypothetical -- it hid a frozen Homebrew
+# tap for seventeen releases while the daily watcher reported all clear, and a
+# user installed the stale build and reported already-fixed macOS bugs as live.
+#
+# The second rule closes it by asking the channel what it is serving right now.
+# ---------------------------------------------------------------------------
+
+
+def _rd(crc, key, ok, detail):
+    """A Result that carries the evidence string a real check would produce."""
+    return crc.Result(key, key.upper(), ok, detail)
+
+
+def test_a_channel_frozen_since_before_the_comparison_window_is_still_a_regression(crc):
+    """The Homebrew case: stale in BOTH releases, so the old rule sees nothing."""
+    new = [_rd(crc, "homebrew", False, "cask=2.18.2")]
+    old = [_rd(crc, "homebrew", False, "cask=2.18.2")]
+    # Rule 1 alone reports nothing here -- the previous release did not reach it.
+    assert {r.key for r in old if r.ok is True} == set()
+    assert [r.key for r in crc.regressions(new, old)] == ["homebrew"]
+
+
+def test_a_channel_that_serves_nothing_is_still_not_reported(crc):
+    """Absence is not staleness -- the six unwired channels stay suppressed."""
+    new = [
+        _rd(crc, "flathub", False, "appstream HTTP 404"),
+        _rd(crc, "nix", False, "nixpkgs HTTP 404"),
+        _rd(crc, "winget", False, "winget-pkgs HTTP 404"),
+        _rd(crc, "choco", False, "not listed"),
+        _rd(crc, "aur", False, "not in AUR"),
+    ]
+    assert crc.regressions(new, new) == []
+
+
+def test_a_channel_that_could_not_be_read_is_not_called_stale(crc):
+    """`cask HTTP 404` names a label but is not a version being served."""
+    new = [_rd(crc, "homebrew", False, "cask HTTP 404")]
+    assert crc.regressions(new, new) == []
+
+
+def test_sentinel_details_are_not_mistaken_for_a_served_version(crc):
+    """`_evidence` prints `<label>=none`; check_homebrew prints `cask=?`."""
+    assert crc.serving(_rd(crc, "apt", False, "apt=none")) is None
+    assert crc.serving(_rd(crc, "homebrew", False, "cask=?")) is None
+
+
+def test_serving_reads_the_first_of_several_reported_versions(crc):
+    """`_evidence` emits a comma-separated list with a trailing "(+n more)"."""
+    r = _rd(crc, "docker", False, "tags=2.34.0,2.33.0 (+31 more)")
+    assert crc.serving(r) == "2.34.0"
+
+
+def test_an_unreachable_channel_is_not_a_regression_even_when_it_names_a_version(crc):
+    """Rule 2 must not resurrect the UNKNOWN mistake rule 1 was careful about."""
+    new = [_rd(crc, "homebrew", crc.UNKNOWN, "cask=2.18.2")]
+    old = [_rd(crc, "homebrew", True, "cask=2.34.0")]
+    assert crc.regressions(new, old) == []
+
+
+def test_every_versioned_channel_reports_what_it_serves(crc, responses):
+    """Locks the detail format rule 2 reads back.
+
+    A check that stops emitting `<label>=<version>` would silently disable
+    staleness detection for its channel while every test above still passed.
+    """
+    responses(
+        {
+            "homebrew-yazses": (200, b'cask "yazses" do\n  version "2.18.2"\nend\n'),
+            "bucket/yazses.json": (200, _body({"version": "2.18.2"})),
+            "gh-pages/apt/Packages": (200, b"Package: yazses\nVersion: 2.18.2\n"),
+            "aur.archlinux.org": (200, _body({"results": [{"Version": "2.18.2-1"}]})),
+            "api.snapcraft.io": (
+                200,
+                _body(
+                    {"channel-map": [{"channel": {"name": "stable"}, "version": "2.18.2"}]}
+                ),
+            ),
+        }
+    )
+    for key, fn in (
+        ("homebrew", crc.check_homebrew),
+        ("scoop", crc.check_scoop),
+        ("apt", crc.check_apt),
+        ("aur", crc.check_aur),
+        ("snap", crc.check_snap),
+    ):
+        ok, detail = fn("2.35.0")
+        assert ok is False, key
+        served = crc.serving(crc.Result(key, key, ok, detail))
+        assert served is not None, f"{key} reports no served version: {detail!r}"
+        assert served.startswith("2.18.2"), (key, detail)
