@@ -35,5 +35,13 @@ Any setup is welcome — beginner or power user. 💛
 - **OS / desktop:** macOS (Apple silicon)
 - **Mic:** MacBook Air built-in microphone
 - **Apps you dictate into:** TextEdit
-- **How you use YazSes:** Tested the Homebrew cask install for #182. Installation and Gatekeeper override succeeded, but the app did not remain running, no YazSes menu-bar icon appeared, and macOS did not show Accessibility, Input Monitoring, or Microphone permission prompts. Holding the default Right Option hotkey produced no text in TextEdit. The bundled `doctor` reported keyboard capture and microphone access as denied.
+- **How you use YazSes:** Tested the Homebrew cask install for
+  [#182](https://github.com/MSKazemi/yazses/issues/182). Install and the Gatekeeper override
+  succeeded, but the app did not stay running, no menu-bar icon appeared, macOS showed no
+  Accessibility / Input Monitoring / Microphone prompt, the Right Option hotkey produced no
+  text, and `doctor` reported keyboard capture and microphone access denied.
+  **Diagnosis: the tap was serving 2.18.2** — frozen since 2026-08-13 because `TAP_TOKEN` was
+  never set — so this run predates both macOS fixes (`3bffc07`, `7b039fb`) and is not the
+  current build's behaviour. This report is what surfaced the frozen tap, which no dashboard
+  was reporting.
 <!-- Add your entry above this line's section by appending a new ### block at the end. -->
