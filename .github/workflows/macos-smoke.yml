@@ -1,0 +1,92 @@
+# Two of the three macOS regressions this project has shipped are checkable
+# headlessly on the free `macos-latest` runner; the third is not, and this job
+# says so rather than implying coverage it does not have.
+#
+# It exists because #182 otherwise depends on a volunteer owning a Mac. The two
+# defects a real user hit — a bundle that could not name its own version, and a
+# bundle that re-entered its own argv dispatch as an interpreter — both reproduce
+# without a GUI, without permissions, and without anyone clicking Allow.
+#
+# WHAT THIS CANNOT PROVE — stated so a green tick is not read as more than it is:
+#   Accessibility / Input Monitoring / Microphone prompts. TCC needs a real GUI
+#   login session and a human. `IOHIDCheckAccess` returns denied on a runner
+#   whether or not the code asks correctly, so a check here would pass on a build
+#   that never calls `IOHIDRequestAccess` — the precise defect 7b039fb fixed. A
+#   test that cannot fail on the bug it names is worse than no test.
+#   Gatekeeper, notarisation, real dictation and the menu-bar icon are likewise
+#   out of reach. #182 stays open until hardware says otherwise.
+
+name: macOS smoke test
+
+on:
+  pull_request:
+    paths:
+      - 'src/yazses/platform/macos/**'
+      - 'src/yazses/__main__.py'
+      - 'packaging/macos/**'
+      - 'scripts/build-macos.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: macos-latest          # Apple silicon, free for public repos
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+
+      - name: Install create-dmg
+        # `build-macos.sh` exits 1 without it, and the GitHub macOS image does not
+        # carry it. The .dmg wrap is not what this job is testing, but the build
+        # script is run whole on purpose: a smoke test that reimplemented half of
+        # it would stop testing the thing that actually ships.
+        run: brew install create-dmg
+
+      - name: Build the .app
+        run: ./scripts/build-macos.sh
+
+      - name: The bundle can name its own version
+        # Guards 3bffc07. A frozen bundle carries no .dist-info unless the spec
+        # asks for it, and `importlib.metadata.version` then raises
+        # PackageNotFoundError — which is what a real user's `doctor` printed.
+        #
+        # Compared against the REAL version: asserting "it printed something"
+        # would pass on the error fallback, which is the bug.
+        run: |
+          set -euo pipefail
+          EXPECTED=$(python3 -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          GOT=$(dist/YazSes.app/Contents/MacOS/YazSes --cli --version 2>&1 | tr -d '\r')
+          echo "expected=$EXPECTED got=$GOT"
+          grep -qF "$EXPECTED" <<<"$GOT"
+
+      - name: No command re-enters the bundle as an interpreter
+        # Guards 7b039fb. In a PyInstaller bundle `sys.executable` IS the bundle,
+        # and multiprocessing's resource tracker relaunches it with `-B -c ...`,
+        # which re-entered our own argv dispatch and died with "No such option: -B".
+        # `doctor` starts the tracker, so it exercises the path.
+        run: |
+          set -euo pipefail
+          OUT=$(dist/YazSes.app/Contents/MacOS/YazSes --cli doctor 2>&1 || true)
+          echo "$OUT"
+          if grep -qE "No such option: -B" <<<"$OUT"; then
+            echo "::error::the bundle re-entered its own argv dispatch as an interpreter"
+            exit 1
+          fi
+
+      - name: Say what was NOT covered
+        if: always()
+        run: |
+          {
+            echo "### macOS smoke test — coverage boundary"
+            echo
+            echo "Checked: the bundle names its own version; no interpreter re-entry."
+            echo
+            echo "**Not** checked: TCC permission prompts (Accessibility, Input"
+            echo "Monitoring, Microphone), Gatekeeper, notarisation, real dictation,"
+            echo "menu-bar icon — each needs a GUI login session and a human."
+            echo
+            echo "Issue #182 is **not** closed by this job."
+          } >> "$GITHUB_STEP_SUMMARY"
