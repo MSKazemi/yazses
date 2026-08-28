@@ -84,15 +84,25 @@ class _Platform:
 
 @pytest.fixture
 def calibrate(tmp_path, monkeypatch):
-    """Drive the real `_calibrate_mic` with a loud sample and a fake daemon."""
+    """Drive the real `_calibrate_mic` with a quiet room, a loud voice, and a fake daemon.
+
+    `_calibrate_mic` records TWICE — the room, then the voice — so a stub returning one
+    constant level models a user who never spoke, which the command now (correctly)
+    refuses. The two levels below are the median room and a comfortably typical voice
+    from the corpus figures in `test_miclevel_measures_twice.py`.
+    """
     cfg = tmp_path / "config.toml"
     cfg.write_text("[accessibility]\nvad_threshold = 0.004\n", encoding="utf-8")
 
     from yazses import cli
     from yazses.system import miclevel
 
-    monkeypatch.setattr(miclevel, "record",
-                        lambda seconds, sr: np.full(int(sr * seconds), 0.02, dtype=np.float32))
+    levels = iter((0.00692, 0.03938))   # corpus medians: room, then voice
+
+    def _record(seconds, sr, device=None):
+        return np.full(int(sr * seconds), next(levels), dtype=np.float32)
+
+    monkeypatch.setattr(miclevel, "record", _record)
 
     def run(payload):
         monkeypatch.setattr(cli, "get_platform", lambda: _Platform(cfg, payload))

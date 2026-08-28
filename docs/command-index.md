@@ -347,9 +347,9 @@ Show what a meeting produced, where each file is, and what not to trust.
 
 ## `yazses mic-level`
 
-Measure mic speech level and recommend (or set) the VAD threshold.
+Measure your room and your voice, and put the VAD threshold between them.
 
-- `--seconds`, `-s` — Seconds to record while you speak.
+- `--seconds`, `-s` — Seconds to record while you SPEAK (the room is measured for half this).
 - `--set` — Write the recommended vad_threshold to config.
 
 ## `yazses model`

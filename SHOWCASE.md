@@ -31,6 +31,13 @@ Any setup is welcome — beginner or power user. 💛
   and long-form prose. The tray icon + mic-change auto-heal mean it "just works" even when a
   USB-C monitor tries to steal the mic. Tip: run `yazses mic-level --set` once after any mic change.
 
+### @jayavandhiniMK
+- **OS / desktop:** Windows 11 Home
+- **Mic:** Laptop built-in microphone
+- **Apps you dictate into:** VS Code, terminal, GitHub
+- **How you use YazSes:** I use YazSes for coding, writing, and everyday text input.
+  It helps me dictate quickly while working on projects and open-source contributions.
+
 ### @hoti-code
 - **OS / desktop:** macOS (Apple silicon)
 - **Mic:** MacBook Air built-in microphone
@@ -44,4 +51,5 @@ Any setup is welcome — beginner or power user. 💛
   never set — so this run predates both macOS fixes (`3bffc07`, `7b039fb`) and is not the
   current build's behaviour. This report is what surfaced the frozen tap, which no dashboard
   was reporting.
+
 <!-- Add your entry above this line's section by appending a new ### block at the end. -->

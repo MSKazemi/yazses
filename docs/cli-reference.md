@@ -399,7 +399,7 @@ debugging. This is the entry point `yazses start` supervises in the background.
 | `yazses verify` | Record, transcribe and **prove** dictation works end to end; names the first broken link. |
 | `yazses report` | Write a redacted diagnostic file you can attach to an issue. Nothing is uploaded. |
 | `yazses autostart` | Start YazSes automatically at login, so it survives a reboot. |
-| `yazses mic-level` | Measure your mic speech level and recommend (or set) the VAD threshold. |
+| `yazses mic-level` | Measure your room and your voice, and put the VAD threshold between them. |
 | `yazses logs` | Show the daemon's diagnostic log (metadata only unless `log_level` is `DEBUG`). |
 | `yazses setup` | Provision all Linux runtime requirements so dictation works out of the box. |
 | `yazses enroll` | Accessibility enrollment wizard: calibrate VAD thresholds to your voice. |
@@ -578,9 +578,17 @@ yazses autostart disable   # stop launching it at login
 
 ### `yazses mic-level`
 
-Records a few seconds while you speak, reports your average mic level vs the
-`vad_threshold` in `config.toml`, and recommends a threshold. Use it when dictation
-logs `Silent audio -- discarding`.
+Records **twice** — the room while you stay quiet, then your voice while you speak —
+reports both levels against the `vad_threshold` in `config.toml`, and recommends a
+threshold that sits between them. Use it when dictation logs
+`Silent audio -- discarding`.
+
+The second recording is what makes the answer trustworthy. With one recording the
+command cannot tell speech from room tone (measured on a real corpus, no acoustic
+property of a single clip separates the two populations), so a quiet room produced a
+confident recommendation *below* its own noise. When the two recordings are less than
+3x apart there is no gate that sits above the room and below the voice, and the command
+says so rather than writing a number.
 
 If a daemon is running and is gating at a *different* threshold — which is what any
 change without a `yazses restart` leaves behind, since the daemon reads the value once

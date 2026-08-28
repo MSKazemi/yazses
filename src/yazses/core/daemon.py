@@ -48,7 +48,7 @@ from yazses.audio.recorder import AudioRecorder
 from yazses.audio.vad_calibrated import is_silent_calibrated
 from yazses.cmdsafety.classify import ConfirmGate
 from yazses.commands.dispatch import dispatch as cmd_dispatch
-from yazses.commands.grammar import IntentType, classify
+from yazses.commands.grammar import CommandIntent, IntentType, classify
 from yazses.commands.macros import MacroContext, build_macro_table
 from yazses.commands.revise import DictationLedger, parse_revise
 from yazses.config import Config, load_config
@@ -280,6 +280,13 @@ class Daemon:
         # stays inert unless [cmdsafety] enabled, which keeps `_on_hold_end` free of
         # a None check on the hot path.
         self._cmdsafety = ConfirmGate()
+        # When the held thing came from COMMAND mode rather than dictation, the intent
+        # is kept beside it so a confirm re-dispatches the command — pressing Return —
+        # instead of typing the released text as words. Without this the gate could
+        # still protect the command path, but confirming would leave the command sitting
+        # unexecuted on the prompt, which is a different feature from the one the user
+        # asked for.
+        self._cmdsafety_intent: CommandIntent | None = None
         # When the mic guard last asked something, so a spoken answer can be
         # scoped to an open question rather than to the whole session.
         self._mic_prompt = MicPrompt()
@@ -1522,6 +1529,15 @@ class Daemon:
                 event["command_mode"] = True
                 event["intent_type"] = intent.intent.value
                 event["intent_action"] = intent.action
+                # A held command's release word arrives as an ordinary burst, and in
+                # command mode an unclassifiable burst is discarded — so "confirm"
+                # would be dropped as `command_unmatched` before anything saw it.
+                # Checked ahead of every handler for that reason.
+                if self._config.cmdsafety.enabled and self._cmdsafety.pending is not None:
+                    if self._cmdsafety_answer(text, event):
+                        if stream_injector is not None:
+                            stream_injector.cancel()
+                        return
                 if intent.intent == IntentType.DICTATE:
                     # Gaze deixis: "close this" / "focus that" acts on the window
                     # the gaze snapshot says you are looking at. Tried first —
@@ -1977,6 +1993,12 @@ class Daemon:
                 assert intent is not None
                 if use_streaming and stream_injector is not None:
                     stream_injector.cancel()
+                # Command Safety Gate (ADR-v2-065) on the branch that EXECUTES.
+                # `_run_terminal` types the payload and presses Return, so this is the
+                # only dispatch that runs something rather than typing it.
+                if self._config.cmdsafety.enabled:
+                    if not self._cmdsafety_command_gate(intent, event):
+                        return
                 cmd_dispatch(intent, injector,
                              macro_table=self._macro_table,
                              macro_context=self._build_macro_context())
@@ -2589,8 +2611,13 @@ class Daemon:
                 event["cmdsafety_action"] = "confirm"
                 log.info("Command safety: confirmed, running the held command.")
                 self._notify_cmdsafety("Confirmed — running the held command.")
+                if self._cmdsafety_dispatch_held():
+                    # It came from command mode, so it has been re-dispatched with its
+                    # Return. Nothing is left to type.
+                    return None
                 return released
             self._cmdsafety.cancel()
+            self._cmdsafety_intent = None
             if control == "cancel":
                 event["cmdsafety_action"] = "cancel"
                 log.info("Command safety: cancelled the held command.")
@@ -2614,6 +2641,108 @@ class Daemon:
             )
             return None
         return text
+
+    def _cmdsafety_command_gate(self, intent: CommandIntent, event: dict) -> bool:
+        """Should this COMMAND dispatch, or wait for a spoken confirm? (ADR-v2-065)
+
+        The gate was wired only onto the dictation branch of `_on_hold_end`, so it was
+        never consulted for a command. That left the one path that *executes*
+        unprotected: `_run_terminal` types `run_command`'s payload AND presses Return,
+        while `assess_command("rm -rf build")` returns **dangerous** on both routes and
+        only the dictation route asked.
+
+        The argument for leaving it was that command mode is itself the confirmation.
+        It is not a sufficient one: holding the key says *"this is a command"*, and the
+        gate exists because a **misheard** command is as dangerous as an unintended one.
+        Holding a key does not protect against mishearing.
+
+        Scoped to `run_command` deliberately. `run_tests` and `run_build` expand to fixed
+        strings this project chose (`pytest`, `make build`) rather than to anything the
+        user said, so gating them would be friction that protects nobody. `run_last`
+        presses Up+Return and re-runs whatever the shell last had — genuinely risky, and
+        genuinely unassessable, since the daemon cannot see the shell's history. It is
+        left alone rather than guarded by a check that could only ever guess.
+
+        Returns True when dispatch may proceed, False when the command is held.
+        """
+        from yazses.cmdsafety.classify import assess_command
+
+        if intent.action != "run_command":
+            return True
+        cmd = intent.args.get("cmd", "")
+        if not cmd:
+            return True
+        if self._cmdsafety.submit(cmd) is not None:
+            return True
+
+        # Held. Keep the intent beside the text so a confirm re-runs it as a command.
+        self._cmdsafety_intent = intent
+        risk = assess_command(cmd)
+        event["cmdsafety_action"] = "held"
+        event["cmdsafety_reason"] = risk.reason
+        log.warning("Command safety: holding a dangerous command (%s).", risk.reason)
+        self._notify_cmdsafety(f"Held: {risk.reason}. Say \u201cconfirm\u201d to run it.")
+        return False
+
+    def _cmdsafety_dispatch_held(self) -> bool:
+        """Run the held COMMAND, if the held thing was one. True when it dispatched.
+
+        Confirming a command must press Return, the way running it would have. Returning
+        the released text to the dictation injector instead would type the command onto
+        the prompt and stop — safer, but a different feature than the one being confirmed,
+        and one the user has no way to tell apart from the gate having failed.
+        """
+        intent, self._cmdsafety_intent = self._cmdsafety_intent, None
+        if intent is None:
+            return False
+        cmd_dispatch(intent, self._active_injector(),
+                     macro_table=self._macro_table,
+                     macro_context=self._build_macro_context())
+        return True
+
+    def _cmdsafety_answer(self, text: str, event: dict) -> bool:
+        """In COMMAND mode, is this burst the answer to a held command? (ADR-v2-065)
+
+        Needed because command mode discards what it cannot classify. "confirm" is not a
+        command, so it reaches `classify()` as DICTATE, falls through every handler and
+        is dropped as `command_unmatched` — the release word swallowed by the very mode
+        the user was in when the command was held. So the held state is checked before
+        those handlers run.
+
+        Mirrors `_cmdsafety_gate`'s three outcomes, including the implicit cancel: any
+        other utterance discards the held command rather than leaving the daemon modal.
+        Losing a dangerous command costs one re-dictation; running one by accident does
+        not have a bounded cost.
+
+        Returns True when this burst was consumed as an answer.
+        """
+        from yazses.cmdsafety.spoken import match_control
+
+        if self._cmdsafety.pending is None:
+            return False
+        control = match_control(
+            text,
+            self._config.cmdsafety.confirm_words,
+            self._config.cmdsafety.cancel_words,
+        )
+        if control == "confirm":
+            self._cmdsafety.confirm()
+            event["cmdsafety_action"] = "confirm"
+            log.info("Command safety: confirmed, running the held command.")
+            self._notify_cmdsafety("Confirmed \u2014 running the held command.")
+            self._cmdsafety_dispatch_held()
+            return True
+        self._cmdsafety.cancel()
+        self._cmdsafety_intent = None
+        if control == "cancel":
+            event["cmdsafety_action"] = "cancel"
+            log.info("Command safety: cancelled the held command.")
+            self._notify_cmdsafety("Cancelled \u2014 the command was not run.")
+            return True
+        event["cmdsafety_action"] = "implicit_cancel"
+        log.info("Command safety: discarded the held command (not confirmed).")
+        self._notify_cmdsafety("Discarded the held command \u2014 it was not confirmed.")
+        return False
 
     def _checkdigit_gate(self, text: str, event: dict) -> str | None:
         """Checksum-Validated Entry (ADR-021). The text to type, or None when it waits.

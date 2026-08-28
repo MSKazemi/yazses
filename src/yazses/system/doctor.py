@@ -221,6 +221,42 @@ def _version_check() -> _Check:
         return ("Version", "WARN", "yazses version metadata not found")
 
 
+def _update_check_check(enabled: bool) -> _Check:
+    """Is the release watcher on — and when it is not, say how to turn it on.
+
+    This is the only feature in YazSes that opens an outbound connection, so it
+    ships off (ADR-011) and ``firstrun`` never seeds it. That default is right and
+    is not revisited here. The problem it created is that "off" was also
+    *invisible*: someone running a build with a since-fixed bug had no way to
+    learn a newer release existed, because nothing in the product ever mentioned
+    the watcher. It appears in ``yazses features`` among ~60 other entries, and
+    nowhere else — and nobody reads a 60-row table looking for a row they do not
+    know is there.
+
+    So the remedy is discoverability, not a changed default: one line in the
+    report a user already runs, carrying the exact command.
+
+    ``SKIP`` rather than ``WARN`` is deliberate. Off is the documented,
+    privacy-preserving default and nothing is broken; a check that nags about a
+    deliberate default is how people learn to skim past the whole report, which
+    costs far more than this line gains. SKIP renders dim, so it informs without
+    competing with a real failure.
+    """
+    if enabled:
+        return (
+            "Update check",
+            "OK",
+            "on — one notification per new release; it asks for a version "
+            "number and sends nothing about you",
+        )
+    return (
+        "Update check",
+        "SKIP",
+        "off — nothing reaches the network. To be told once when a new "
+        "release ships:\n    yazses features enable update-check",
+    )
+
+
 def _stale_daemon_note(daemon_version: str) -> str:
     """Is the running daemon a different build from the CLI asking? Pure.
 
@@ -1193,6 +1229,12 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     else:
         checks.append(("Platform", "OK", platform.name))
     checks.append(_version_check())
+    # Sits directly under Version on purpose: "what am I running" and "is there
+    # anything newer" are one question to the user, and the second half was
+    # unanswerable from anywhere in the product.
+    checks.append(_update_check_check(
+        bool(getattr(getattr(cfg, "general", None), "update_check", False))
+    ))
     daemon_row, daemon_info = _daemon_check(platform)
     checks.append(daemon_row)
     autostart = _autostart_check(platform)

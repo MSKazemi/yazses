@@ -21,6 +21,16 @@ _MIN_THRESHOLD = 0.002
 # Fraction of the measured speech level to place the threshold at, leaving
 # headroom so quieter words in the same register still pass the gate.
 _HEADROOM = 0.5
+# How far above the measured room the gate must sit. Room level is not a constant --
+# a fan spins up, a window opens -- so a gate placed *at* the measured floor is cleared
+# by the same room a minute later.
+_AMBIENT_MARGIN = 1.5
+
+#: The separation two-phase calibration needs, DERIVED rather than chosen: the gate must
+#: be at least `_AMBIENT_MARGIN x ambient` and at most `_HEADROOM x speech`, so a usable
+#: band exists only when `speech / ambient >= _AMBIENT_MARGIN / _HEADROOM`. Changing
+#: either margin moves this with it, which is why it is not a third constant.
+MIN_SEPARATION = _AMBIENT_MARGIN / _HEADROOM
 
 
 @dataclass
@@ -99,6 +109,100 @@ def analyze(audio: np.ndarray, sample_rate: int) -> LevelStats:
         recommended_threshold=recommended,
         is_silent=is_silent,
         clamped=clamped,
+    )
+
+
+@dataclass
+class Calibration:
+    """Where the gate belongs, given a room measurement and a speech measurement.
+
+    ``recommended_threshold`` is only meaningful when ``ok``; on a refusal it carries
+    the floor, so a caller that ignores ``ok`` writes a constant rather than a wrong
+    measurement.
+    """
+
+    ambient: LevelStats
+    speech: LevelStats
+    recommended_threshold: float
+    ok: bool
+    #: Why it refused, in one clause. Empty when ``ok``.
+    reason: str = ""
+    #: ``speech / ambient``. ``inf`` when the room measured exactly zero.
+    separation: float = 0.0
+    #: The band the gate had to land in: ``(lo, hi)``. ``hi < lo`` is the refusal.
+    band: tuple[float, float] = (0.0, 0.0)
+
+
+def calibrate(ambient: LevelStats, speech: LevelStats) -> Calibration:
+    """Place the VAD gate between a measured room and a measured voice. Pure.
+
+    One clip cannot do this. ``analyze`` recommends ``mean x _HEADROOM`` and has no way
+    to know the clip was speech -- recording an empty room four times on the author's
+    laptop measured 0.0036-0.0050 and recommended 0.002-0.0025, every one of them BELOW
+    the room level that produced it. Applied with ``--set`` that is the state where room
+    tone clears the gate, reaches the decoder, and comes back as an invented word.
+
+    The obvious rescue -- classify the single clip acoustically -- is disproved and
+    stays disproved: measured on this project's own corpus the peak-to-mean ratios of
+    speech and of no-text clips overlap, and the no-text p90 sits *above* the speech
+    p90 (see ``test_miclevel_cannot_hear_whether_you_spoke.py``). So the second
+    measurement is not a refinement, it is the only thing that supplies the missing
+    fact: which of the two recordings was the room.
+
+    The band is the whole design. The gate must sit at least ``_AMBIENT_MARGIN`` above
+    the room (room level drifts; a gate placed *at* the floor is cleared by the same
+    room a minute later) and at most ``_HEADROOM`` of the voice (quieter words in the
+    same register must still pass). Those two bounds cross when the recordings are not
+    far enough apart, and that crossing IS the refusal -- no separate threshold is
+    tuned for it, which is why an empty room cannot produce a recommendation however
+    the constants move.
+
+    Within the band it takes the geometric mean of the two levels: equidistant from
+    room and voice in dB, which is the scale hearing and this metric both work on.
+
+    Measured against the 1646-event corpus on the author's machine, for scale: clips
+    that produced text have ``mean(|audio|)`` median 0.0394 (p05 0.0138), and clips
+    that cleared the gate but decoded to nothing have median 0.0069 (p95 0.0140) -- a
+    5.7x separation between the populations, comfortably above the 3.0x this needs.
+    """
+    a = ambient.mean_abs
+    s = speech.mean_abs
+    separation = (s / a) if a > 0 else math.inf
+    lo = round(max(_MIN_THRESHOLD, a * _AMBIENT_MARGIN), 4)
+    hi = round(s * _HEADROOM, 4)
+
+    def refuse(reason: str) -> Calibration:
+        return Calibration(
+            ambient=ambient,
+            speech=speech,
+            recommended_threshold=_MIN_THRESHOLD,
+            ok=False,
+            reason=reason,
+            separation=separation,
+            band=(lo, hi),
+        )
+
+    if speech.is_silent:
+        return refuse(
+            "the second recording is silent, so there is no voice to calibrate against"
+        )
+    if hi < lo:
+        # The two recordings are too close together for any gate to sit between them.
+        # Overwhelmingly this is nobody having spoken in the second one, which is the
+        # exact failure this function exists to refuse.
+        return refuse(
+            f"the two recordings are only {separation:.1f}x apart and need "
+            f"{MIN_SEPARATION:.1f}x, so no gate fits above the room and below the voice"
+        )
+
+    midpoint = round(math.sqrt(a * s), 4)
+    return Calibration(
+        ambient=ambient,
+        speech=speech,
+        recommended_threshold=min(max(midpoint, lo), hi),
+        ok=True,
+        separation=separation,
+        band=(lo, hi),
     )
 
 

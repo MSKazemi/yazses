@@ -42,12 +42,15 @@ role `test_phonetic_needs_a_known_wordlist.py` plays for edit distance.
 So the assumption is stated rather than hidden, for every reading and not just the clamped
 band: the judgement goes to the person who knows whether they were speaking.
 
-## Not done here
+## Done since: the fix this file asked for
 
-A real fix measures twice — ambient, then speech — and puts the gate between them. The
-product already records ambient in `yazses doctor --mic` and never combines the two. That
-changes an interactive flow and the meaning of `--set`, so it is written up rather than
-slipped in.
+`mic-level` now measures twice — the room, then the voice — and places the gate between
+them, so the assumption below is a measurement. See
+`test_miclevel_measures_twice.py`, which carries the design and the corpus evidence.
+
+Everything above still holds and is still tested here: `analyze` is unchanged, the
+one-clip band still exists for every other caller of it, and the peak-to-mean negative
+result is still the reason a second recording is needed rather than a cleverer first one.
 """
 
 from __future__ import annotations
@@ -110,25 +113,32 @@ def test_the_cli_refuses_to_write_a_floor_only_value() -> None:
     # import block, above everything, so a bare `index` compares against that and can
     # never fail. This is the third time today the same anchor mistake produced a
     # test that could not go red — see test_meeting_notes_reason.py.
-    guard = source.index("if stats.clamped:")
+    guard = source.index("if not result.ok:")
     write = source.index("update_threshold_in_config(platform")
-    assert guard < write, "the clamp check must run before --set writes anything"
-    assert "too quiet to calibrate" in source
+    assert guard < write, "the refusal must run before --set writes anything"
+    assert "cannot calibrate" in source
 
 
-def test_the_cli_states_the_assumption_for_every_reading() -> None:
-    """The clamp guard only covers a narrow band; the assumption holds for all of them.
+def test_the_cli_no_longer_assumes_the_recording_was_speech() -> None:
+    """The assumption became a measurement, so asserting it is *stated* is now wrong.
 
-    Four real runs of an empty room measured 0.0036 to 0.0050 — only the first fell in
-    the band, and all four produced a recommendation below their own room noise.
+    This test used to require the caveat "that assumes the Ns above was you speaking".
+    The caveat was the best available answer while the command recorded once; it is the
+    wrong answer now that it records the room too. What replaces it is the stronger
+    property: two recordings reach `calibrate`, and its verdict gates the write.
     """
     import inspect
 
     from yazses.cli import _calibrate_mic
 
     source = inspect.getsource(_calibrate_mic)
-    assert "was you speaking" in source
-    assert "quiet room" in source
+    assert "calibrate(ambient, speech)" in source, (
+        "the two measurements must reach the pure core — a CLI that re-derives the gate "
+        "itself is the untested path this whole file is about"
+    )
+    assert "was you speaking" not in source, (
+        "the caveat is back, which means the second recording went away"
+    )
 
 
 #: Peak-to-mean percentiles measured on this project's own 1619-event learning corpus.

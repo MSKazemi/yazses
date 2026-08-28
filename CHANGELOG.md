@@ -6,6 +6,117 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — in command mode, `run <destructive>` skipped the safety gate
+
+The Command Safety Gate (ADR-v2-065) was wired onto the **dictation** branch of
+`_on_hold_end`. A `TERMINAL` intent goes to `cmd_dispatch` on the *other* branch, so the
+gate was never consulted for it — and `dispatch._run_terminal` types `run_command`'s
+payload **and presses Return**. `assess_command("rm -rf build")` returns `dangerous` on
+both routes; only one of them asked. The one path that *runs* a command rather than
+typing one was the unguarded path.
+
+The argument for leaving it alone was that command mode is itself the confirmation, and
+that a second confirmation trains dismissal. That argument is real but insufficient:
+holding the key says *"this is a command"*, not *"and I accept this particular one"*, and
+the gate exists because a **misheard** command is as dangerous as an unintended one.
+Holding a key does not protect against mishearing. The friction is near-zero — measured
+on this project's own corpus, `assess_command` fires on 0 of 1422 real dictations.
+
+Confirming re-dispatches the held intent **as a command**, so Return is pressed the way
+running it would have. Typing the released text onto the prompt instead would be safer
+and is a different feature, one a user cannot tell apart from the gate having failed.
+
+Fixed in the same change, because the first fix would otherwise have created it: command
+mode discards what it cannot classify, and "confirm" is not a command — it classifies as
+dictation, falls through every handler, and was dropped as `command_unmatched`. A gate
+that held the command but let command mode swallow the release word would be strictly
+worse than no gate, since the command is lost *and* the user cannot tell why. The held
+state is now checked before those handlers run.
+
+`run_tests` and `run_build` are deliberately not gated: they expand to fixed strings the
+project chose (`pytest`, `make build`), not to anything the user said, so gating them
+would be friction protecting nobody. `run_last` presses Up+Return and re-runs whatever
+the shell last had — risky, but unassessable, since the daemon cannot see the shell's
+history, so it is left alone rather than guarded by a check that could only guess.
+
+`[cmdsafety]` remains off by default; nothing changes for an install that never enables it.
+
+### Fixed — `mic-level` calibrated to an empty room and called it a recommendation
+
+`yazses mic-level` recorded once and assumed the clip was speech. It has no way to know
+that. Recording a quiet room four times measured 0.0036–0.0050 and recommended
+0.002–0.0025 — every one of them *below* the room noise that produced it. Written with
+`--set`, that is the gate ambient noise clears: near-silence reaches the decoder and
+comes back as a confident invented word.
+
+It now records **twice** — stay quiet for the first, speak for the second — and places
+the threshold between the two levels. The second recording is not a refinement; it
+supplies the one fact a single clip cannot carry, which is which of the recordings was
+the room. Classifying one clip acoustically was tried and stays disproved: on this
+project's own corpus the peak-to-mean populations of speech and no-text audio overlap,
+with the no-text p90 *above* the speech p90.
+
+When the two recordings are closer than **3×** apart, it says so instead of recommending
+a number. That requirement is derived, not tuned: the gate must sit at least 1.5× above
+the room and at most 0.5× of the voice, and those bounds cross below 3×. So an empty room
+cannot be made to calibrate by nudging a constant — there is no separate constant. At
+that separation no usable gate exists at any margin: it is either at the room level,
+where the room clears it, or at the voice level, where it discards the voice. The right
+answer is that the microphone or the room is the problem, and the command now says that.
+
+The 3× requirement is measured against the 1646-event learning corpus, where real speech
+and real no-text audio sit 5.7× apart (medians 0.0394 vs 0.0069) — comfortably clear of
+it. Two independent measurements of the same room agree: the corpus no-text p10–p25 is
+0.0039–0.0054, against the four direct empty-room readings of 0.0036–0.0050.
+
+Also fixed while here: `_calibrate_mic` never passed the pinned `[audio] device` to the
+recorder, so on a machine with a pinned microphone it measured whatever the OS default
+happened to be — the opposite of what `record`'s own docstring says the pinning is for.
+
+### Added — `doctor` now says the update watcher exists
+
+`[general] update_check` is off by default and must stay that way: it is the only
+part of YazSes that opens an outbound connection, and "nothing leaves the machine"
+is the product, not a setting. But off was also *invisible*. The watcher appeared in
+`yazses features` among some sixty other rows and nowhere else, so someone running a
+build with a since-fixed bug had no path from "this is broken" to "a newer release
+exists" — the fix shipped and never reached them.
+
+`yazses doctor` now carries one row directly under **Version**, because "what am I
+running" and "is there anything newer" are one question to a user and only the first
+half was answerable. When the watcher is off the row is a dim `[SKIP]` carrying the
+exact command (`yazses features enable update-check`); when it is on it says so and
+restates that nothing about the user is sent.
+
+It is `SKIP`, not `WARN`, on purpose. Nothing is broken — this is the documented,
+privacy-preserving default — and a report that warns about a deliberate default is
+how people learn to skim past the failures that matter.
+
+The default did not change, `firstrun` still does not seed it, and no new outbound
+connection was added.
+
+
+### Fixed — the Windows signing path could never have worked
+
+The SignPath signing steps in `build-windows.yml` are gated on four `SIGNPATH_*`
+secrets that have never been set, so they have never executed once. Reviewing them
+before applying to the SignPath Foundation programme found that
+`github-artifact-id` was passed `${{ github.run_id }}` — the id of the workflow
+*run*, not of the uploaded *artifact*, which is what the action's own input
+description asks for. SignPath would have looked up an artifact that does not exist,
+and the first signed release would have been the release that discovered it.
+
+The upload step now carries an `id` and the signing step reads its `artifact-id`
+output. The signing wait also rises from the action's 600 s default to 1800 s,
+because a Foundation signing policy may require a human to approve each request and
+ten minutes is not enough to notice a mail and click approve; 30 min still fits
+inside the 45-minute producer wait in `checksums.yml`, so `SHA256SUMS.txt` continues
+to cover both installers.
+
+`tests/test_signpath_signing_wiring.py` reads the workflow directly, so the wiring is
+checked without the secrets — including that the signed binary replaces the unsigned
+one *before* anything hashes, attests or uploads it.
+
 ## [2.35.0] - 2026-08-27
 
 ### Fixed — "Check for updates" on Windows never showed an update
