@@ -3530,12 +3530,21 @@ def update(
 
 
 def _calibrate_mic(*, seconds: float = 4.0, set_threshold: bool = False) -> bool:
-    """Record a short clip, report the speech level, and (optionally) write the
-    recommended VAD threshold. Shared by `yazses mic-level` and `yazses setup`'s
-    "connect to voice" step. Returns False when no speech was detected."""
+    """Measure the room, then measure the voice, and put the gate between them.
+
+    Shared by `yazses mic-level` and `yazses setup`'s "connect to voice" step. Returns
+    False when the two recordings cannot produce a usable gate.
+
+    This used to record ONCE and assume the clip was speech. It cannot know that --
+    recording an empty room measured 0.0036-0.0050 and confidently recommended a
+    threshold below its own room noise, and no acoustic property of a single clip
+    separates the two populations. So it asks for the room explicitly, and the
+    ambient/speech gap becomes a measurement rather than an assumption.
+    """
     from yazses.config import load_config
     from yazses.system.miclevel import (
         analyze,
+        calibrate,
         live_threshold_note,
         record,
         update_threshold_in_config,
@@ -3544,51 +3553,52 @@ def _calibrate_mic(*, seconds: float = 4.0, set_threshold: bool = False) -> bool
     platform = get_platform()
     cfg = load_config(platform.paths.config_file)
     sr = cfg.audio.sample_rate
+    # The room needs less time than the voice: it is stationary, while a speech average
+    # is only representative once it has covered a few words and the gaps between them.
+    ambient_seconds = max(1.0, seconds / 2)
 
-    typer.echo(f"Recording {seconds:.0f}s -- speak normally now...")
-    stats = analyze(record(seconds, sr), sr)
+    typer.secho(f"1/2  Stay quiet — measuring the room for {ambient_seconds:.0f}s...",
+                fg=typer.colors.BRIGHT_CYAN, bold=True)
+    ambient = analyze(record(ambient_seconds, sr, device=cfg.audio.device or None), sr)
+    typer.echo(f"  room level:            {ambient.mean_abs:.4f}")
 
-    typer.echo(f"  mean level:            {stats.mean_abs:.4f}")
-    typer.echo(f"  peak level:            {stats.peak:.4f}")
+    typer.secho(f"\n2/2  Now speak normally for {seconds:.0f}s...",
+                fg=typer.colors.BRIGHT_CYAN, bold=True)
+    speech = analyze(record(seconds, sr, device=cfg.audio.device or None), sr)
+
+    typer.echo(f"  speech level:          {speech.mean_abs:.4f}")
+    typer.echo(f"  peak level:            {speech.peak:.4f}")
     typer.echo(f"  vad_threshold in config: {cfg.accessibility.vad_threshold}")
     drift = live_threshold_note(cfg.accessibility.vad_threshold, _live_vad_threshold(platform))
     if drift:
         typer.secho(f"  ⚠ {drift}", fg=typer.colors.YELLOW)
 
-    if stats.is_silent:
-        typer.echo("No speech detected -- check the microphone and try again.")
+    result = calibrate(ambient, speech)
+    if not result.ok:
+        # Refusing costs a re-run. Writing costs a gate on the wrong side of the room,
+        # where room tone clears it, reaches the decoder, and returns an invented word.
+        typer.secho(f"  cannot calibrate: {result.reason}.",
+                    fg=typer.colors.YELLOW)
+        if speech.is_silent:
+            typer.echo(
+                "Nothing was captured in the second recording — check the microphone:  "
+                "yazses audio status"
+            )
+        else:
+            typer.echo(
+                "Re-run and speak at your normal dictation volume during step 2. If the "
+                "two stay this close while you speak, the microphone is not hearing you:  "
+                "yazses audio status"
+            )
         return False
 
-    rec = stats.recommended_threshold
-    if stats.clamped:
-        # The floor won, so `rec` is a constant rather than anything measured. This
-        # printed as "recommended:" with no caveat, and `--set` wrote it -- on this
-        # machine that means a gate BELOW the room noise that produced it, which is
-        # the state where room tone clears the gate and the model answers it with an
-        # invented word. Refusing costs a re-run; writing it costs silent nonsense.
-        typer.echo(
-            f"  too quiet to calibrate: {stats.mean_abs:.4f} is near the floor "
-            f"({rec}), so that number is the floor and not a measurement of you."
-        )
-        typer.echo(
-            "Re-run and speak at your normal dictation volume. If the level stays "
-            "this low while you speak, the microphone is the problem:  "
-            "yazses audio status"
-        )
-        return False
+    rec = result.recommended_threshold
     typer.echo(f"  recommended:           {rec}")
-    # Every number above assumes the recording was you speaking, and the command has no
-    # way to check that -- measured against 1114 real clips from a corpus, the
-    # peak-to-mean ratio of speech (p10 8.5, median 11.9, p90 17.3) overlaps that of
-    # clips that produced no text (p10 6.7, median 8.6, p90 21.8), so no acoustic ratio
-    # separates them. Four seconds of an empty room measures 0.0036-0.0050 on this
-    # laptop and yields a confident "recommended" well below its own room noise.
-    #
-    # So the assumption is stated instead of hidden, the same way `yazses verify` hands
-    # the "is that what you said" judgement to the person who knows.
     typer.echo(
-        f"That assumes the {stats.duration_s:.0f}s above was you speaking. If it was a "
-        "quiet room, this is calibrated to the room and dictation will decode noise."
+        f"That sits {rec / ambient.mean_abs:.1f}x above your room and "
+        f"{speech.mean_abs / rec:.1f}x below your voice."
+        if ambient.mean_abs > 0
+        else f"Your room measured silent, so the gate is the floor ({rec})."
     )
 
     if set_threshold:
@@ -3626,18 +3636,24 @@ def _print_next_steps(steps) -> None:
     epilog=_examples(
         "yazses mic-level             measure and recommend a threshold",
         "yazses mic-level --set       measure and write it to config.toml",
-        "yazses mic-level -s 6        record for 6 seconds instead of 4",
+        "yazses mic-level -s 6        speak for 6 seconds instead of 4",
     ),
 )
 def mic_level(
-    seconds: float = typer.Option(4.0, "--seconds", "-s", help="Seconds to record while you speak."),
+    seconds: float = typer.Option(4.0, "--seconds", "-s", help="Seconds to record while you SPEAK (the room is measured for half this)."),
     set_threshold: bool = typer.Option(False, "--set", help="Write the recommended vad_threshold to config."),
 ) -> None:
-    """Measure mic speech level and recommend (or set) the VAD threshold.
+    """Measure your room and your voice, and put the VAD threshold between them.
 
-    Speak in a normal voice for the whole countdown. The daemon discards a clip
-    when its average level is below vad_threshold, so if dictation shows
-    "Silent audio -- discarding", run this to find a level that fits your voice.
+    Two recordings: stay quiet for the first, then speak normally for the second.
+    The daemon discards a clip when its average level is below vad_threshold, so if
+    dictation shows "Silent audio -- discarding", run this to find a level that fits
+    your voice.
+
+    Measuring the room is what makes the answer trustworthy: with only one recording
+    the command cannot tell speech from room tone, and recording a quiet room used to
+    yield a confident threshold BELOW that room's own noise. When the two recordings
+    are too close together, it now says so instead of recommending a number.
     """
     if not _calibrate_mic(seconds=seconds, set_threshold=set_threshold):
         raise typer.Exit(code=1)

@@ -37,21 +37,34 @@ nothing was recorded at all.
 yazses mic-level
 ```
 
-Real output from the machine above, recorded in a quiet room **without speaking**:
+It records **twice**: stay quiet for the first, then speak normally for the second.
+The gate has to sit above your room and below your voice, and one recording cannot
+tell those apart — so the command measures both and puts the threshold between them.
+
+Real output from the machine above, in a quiet room **without speaking in step 2**:
 
 ```
-Recording 4s -- speak normally now...
-  mean level:            0.0101
-  peak level:            0.0866
-  vad_threshold in config: 0.0005
-  recommended:           0.0051
+1/2  Stay quiet — measuring the room for 2s...
+  room level:            0.0020
+
+2/2  Now speak normally for 3s...
+  speech level:          0.0022
+  peak level:            0.0101
+  vad_threshold in config: 0.002
+  cannot calibrate: the two recordings are only 1.1x apart and need 3.0x, so no gate
+  fits above the room and below the voice.
 ```
 
-Read it as three facts:
+That refusal is the point: nobody spoke, so there is no voice to calibrate against, and
+the command says so rather than recommending a number. Speak in step 2 and it reports a
+`recommended:` value instead.
 
-- **mean level** — what the microphone actually heard.
+Read a successful run as four facts:
+
+- **room level** — what the microphone hears with nobody speaking.
+- **speech level** — what it hears while you speak.
 - **vad_threshold in config** — the line your speech has to clear.
-- **recommended** — half the measured mean, which is what `--set` would write.
+- **recommended** — a threshold between the two, which is what `--set` would write.
 
 !!! warning "If a daemon is running, it may be gating somewhere else"
 
@@ -68,21 +81,23 @@ Read it as three facts:
     If you see it, restart first and measure again. Editing the file changes nothing
     about the process that is currently discarding your audio.
 
-!!! warning "Speak during the four seconds"
+!!! warning "Speak during step 2"
 
-    The recommendation is computed from whatever it heard. The run above is what
-    happens when you *don't* speak: it measured room noise and recommended a
-    threshold *below* it, which would make ambient noise trigger recording. If your
-    recommended value looks implausibly low, you measured your room, not your voice.
+    Older versions recorded once and assumed the clip was speech. Recording a quiet
+    room then produced a confident recommendation *below* that room's own noise — a
+    gate ambient noise clears, so the model gets handed near-silence and answers with
+    an invented word. The second recording is what removed that failure: if you do not
+    speak, the two measurements land on top of each other and the command refuses.
 
 ## Step 2 — decide which case you are in
 
 | What `mic-level` shows | What it means | Fix |
 |---|---|---|
-| mean level **well above** the threshold | your voice is getting in; the discard is something else | see step 4 |
+| speech level **well above** the threshold | your voice is getting in; the discard is something else | see step 4 |
 | the log says **`Empty transcription`**, not `Silent audio` | audio cleared the gate and the model still returned nothing | step 5 |
-| mean level **below** the threshold | the gate is set above your voice | step 3 |
-| mean level ≈ **0.0000** | nothing is being recorded at all | step 4 |
+| speech level **below** the threshold | the gate is set above your voice | step 3 |
+| speech level ≈ **0.0000** | nothing is being recorded at all | step 4 |
+| **`cannot calibrate`**, and you did speak | your room is nearly as loud as your voice — no threshold can separate them | step 4 |
 
 ## Step 3 — the gate is too high
 

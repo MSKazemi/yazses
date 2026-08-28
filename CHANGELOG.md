@@ -6,6 +6,38 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `mic-level` calibrated to an empty room and called it a recommendation
+
+`yazses mic-level` recorded once and assumed the clip was speech. It has no way to know
+that. Recording a quiet room four times measured 0.0036–0.0050 and recommended
+0.002–0.0025 — every one of them *below* the room noise that produced it. Written with
+`--set`, that is the gate ambient noise clears: near-silence reaches the decoder and
+comes back as a confident invented word.
+
+It now records **twice** — stay quiet for the first, speak for the second — and places
+the threshold between the two levels. The second recording is not a refinement; it
+supplies the one fact a single clip cannot carry, which is which of the recordings was
+the room. Classifying one clip acoustically was tried and stays disproved: on this
+project's own corpus the peak-to-mean populations of speech and no-text audio overlap,
+with the no-text p90 *above* the speech p90.
+
+When the two recordings are closer than **3×** apart, it says so instead of recommending
+a number. That requirement is derived, not tuned: the gate must sit at least 1.5× above
+the room and at most 0.5× of the voice, and those bounds cross below 3×. So an empty room
+cannot be made to calibrate by nudging a constant — there is no separate constant. At
+that separation no usable gate exists at any margin: it is either at the room level,
+where the room clears it, or at the voice level, where it discards the voice. The right
+answer is that the microphone or the room is the problem, and the command now says that.
+
+The 3× requirement is measured against the 1646-event learning corpus, where real speech
+and real no-text audio sit 5.7× apart (medians 0.0394 vs 0.0069) — comfortably clear of
+it. Two independent measurements of the same room agree: the corpus no-text p10–p25 is
+0.0039–0.0054, against the four direct empty-room readings of 0.0036–0.0050.
+
+Also fixed while here: `_calibrate_mic` never passed the pinned `[audio] device` to the
+recorder, so on a machine with a pinned microphone it measured whatever the OS default
+happened to be — the opposite of what `record`'s own docstring says the pinning is for.
+
 ### Added — `doctor` now says the update watcher exists
 
 `[general] update_check` is off by default and must stay that way: it is the only

@@ -1,4 +1,4 @@
-.TH YAZSES 1 "2026-08-24" "yazses 2.31.0" "User Commands"
+.TH YAZSES 1 "2026-08-27" "yazses 2.35.0" "User Commands"
 .SH NAME
 yazses \- Local, offline-by-default voice dictation \(em hold a key, speak, release.
 .SH SYNOPSIS
@@ -333,11 +333,11 @@ Stop the recording and generate the speaker-labelled transcript (and notes).
 \fByazses meeting summary\fR \fIMEETING_ID\fR
 Show what a meeting produced, where each file is, and what not to trust.
 .SS "yazses mic-level"
-Measure mic speech level and recommend (or set) the VAD threshold.
+Measure your room and your voice, and put the VAD threshold between them.
 .RS
 .TP
 \fB\-\-seconds, \-s\fR
-Seconds to record while you speak.
+Seconds to record while you SPEAK (the room is measured for half this).
 .TP
 \fB\-\-set\fR
 Write the recommended vad_threshold to config.
