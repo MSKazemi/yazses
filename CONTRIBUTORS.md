@@ -56,6 +56,15 @@ found defects that no amount of reading the code here would have surfaced.
   deprecated `depends_on macos:` warning upstream. Notably declined to claim `doctor`
   output that could not be captured from a sandbox — a report that says where it stops
   is worth more than one that guesses.
+- [@hoti-code](https://github.com/hoti-code) — ran the Homebrew cask on an M5 and reported
+  every symptom precisely: no Accessibility, Input Monitoring or Microphone prompt, no
+  menu-bar icon, a dead hotkey, and `doctor` unable to name its own version
+  ([#318](https://github.com/MSKazemi/yazses/pull/318)). They read as the two macOS fixes
+  having failed. They were not — the tap had been serving **2.18.2 since 2026-08-13**, so
+  the build predated both. The report is what surfaced a distribution channel frozen for
+  seventeen releases that no dashboard was reporting, because the drift watch compares
+  against the previous release and a permanently-stale channel is its own baseline. A
+  faithful list of symptoms was worth more here than a diagnosis would have been.
 
 ## Contributors
 - [@4nmus](https://github.com/4nmus) — Russian README translation, the project's first in
@@ -63,6 +72,8 @@ found defects that no amount of reading the code here would have surfaced.
 - [@AshSgDe29071999](https://github.com/AshSgDe29071999)
 - [@HeaTTap](https://github.com/HeaTTap)
 - [@jackie-cqz](https://github.com/jackie-cqz)
+- [@jayavandhiniMK](https://github.com/jayavandhiniMK) (Jayavandhini M K) — Windows 11
+  showcase entry ([#317](https://github.com/MSKazemi/yazses/pull/317))
 - [@lntutor](https://github.com/lntutor)
 - [@Maqbool61](https://github.com/Maqbool61)
 - [@mercael91](https://github.com/mercael91) — went after the FreeBSD CI job nobody had looked

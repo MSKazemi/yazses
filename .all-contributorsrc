@@ -169,6 +169,26 @@
         "bug",
         "userTesting"
       ]
+    },
+    {
+      "login": "hoti-code",
+      "name": "hoti-code",
+      "avatar_url": "https://avatars.githubusercontent.com/u/320443384?v=4?s=100",
+      "profile": "https://github.com/hoti-code",
+      "contributions": [
+        "userTesting",
+        "bug",
+        "platform"
+      ]
+    },
+    {
+      "login": "jayavandhiniMK",
+      "name": "Jayavandhini M K",
+      "avatar_url": "https://avatars.githubusercontent.com/u/221181058?v=4?s=100",
+      "profile": "https://github.com/jayavandhiniMK",
+      "contributions": [
+        "doc"
+      ]
     }
   ]
 }
