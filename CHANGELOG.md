@@ -6,6 +6,41 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — in command mode, `run <destructive>` skipped the safety gate
+
+The Command Safety Gate (ADR-v2-065) was wired onto the **dictation** branch of
+`_on_hold_end`. A `TERMINAL` intent goes to `cmd_dispatch` on the *other* branch, so the
+gate was never consulted for it — and `dispatch._run_terminal` types `run_command`'s
+payload **and presses Return**. `assess_command("rm -rf build")` returns `dangerous` on
+both routes; only one of them asked. The one path that *runs* a command rather than
+typing one was the unguarded path.
+
+The argument for leaving it alone was that command mode is itself the confirmation, and
+that a second confirmation trains dismissal. That argument is real but insufficient:
+holding the key says *"this is a command"*, not *"and I accept this particular one"*, and
+the gate exists because a **misheard** command is as dangerous as an unintended one.
+Holding a key does not protect against mishearing. The friction is near-zero — measured
+on this project's own corpus, `assess_command` fires on 0 of 1422 real dictations.
+
+Confirming re-dispatches the held intent **as a command**, so Return is pressed the way
+running it would have. Typing the released text onto the prompt instead would be safer
+and is a different feature, one a user cannot tell apart from the gate having failed.
+
+Fixed in the same change, because the first fix would otherwise have created it: command
+mode discards what it cannot classify, and "confirm" is not a command — it classifies as
+dictation, falls through every handler, and was dropped as `command_unmatched`. A gate
+that held the command but let command mode swallow the release word would be strictly
+worse than no gate, since the command is lost *and* the user cannot tell why. The held
+state is now checked before those handlers run.
+
+`run_tests` and `run_build` are deliberately not gated: they expand to fixed strings the
+project chose (`pytest`, `make build`), not to anything the user said, so gating them
+would be friction protecting nobody. `run_last` presses Up+Return and re-runs whatever
+the shell last had — risky, but unassessable, since the daemon cannot see the shell's
+history, so it is left alone rather than guarded by a check that could only guess.
+
+`[cmdsafety]` remains off by default; nothing changes for an install that never enables it.
+
 ### Fixed — `mic-level` calibrated to an empty room and called it a recommendation
 
 `yazses mic-level` recorded once and assumed the clip was speech. It has no way to know
