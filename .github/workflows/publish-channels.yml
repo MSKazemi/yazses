@@ -263,15 +263,46 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         if: env.HAVE_SECRET == 'yes'
 
+      - name: The key must authenticate before 200 MB is hashed
+        # Auth goes first because it is the cheapest thing to check and the
+        # likeliest thing to be wrong. Previously the job spent every run
+        # downloading and hashing every release asset, and only then failed on a
+        # bare `git clone` error — which reads as a packaging problem when it is
+        # a credential one. Checking here costs three seconds and names the fix.
+        #
+        # `Permission denied (publickey)` is matched by text, not by exit code:
+        # the AUR's git shell refuses an interactive session even for a VALID
+        # key, so a non-zero exit cannot tell a working credential from a
+        # rejected one.
+        if: env.HAVE_SECRET == 'yes'
+        env:
+          AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
+        run: |
+          set -uo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$AUR_SSH_KEY" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          ssh-keyscan -H aur.archlinux.org >> ~/.ssh/known_hosts 2>/dev/null
+          OUT=$(ssh -T -i ~/.ssh/aur -o IdentitiesOnly=yes -o BatchMode=yes \
+                    -o ConnectTimeout=20 aur@aur.archlinux.org 2>&1 || true)
+          echo "$OUT"
+          if grep -qF "Permission denied (publickey)" <<<"$OUT"; then
+            echo "::error::The AUR rejected AUR_SSH_KEY. The secret is not necessarily wrong: an SSH key only works once its PUBLIC half is registered on an AUR account. Sign in at https://aur.archlinux.org, open My Account, and paste the matching public key into 'SSH Public Key'. No later step in this job can succeed until that is done."
+            exit 1
+          fi
+
       - name: Push PKGBUILD to the AUR
         if: env.HAVE_SECRET == 'yes'
         env:
           AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
           # refresh-package-manifests.py shells out to `gh release view` to read
           # the published assets. Without these it dies with "set the GH_TOKEN
-          # environment variable" — which is why the AUR push has never once
-          # succeeded, and why it read as a missing AUR credential when the
-          # credential was fine. The winget and homebrew jobs already set both.
+          # environment variable"; the winget and homebrew jobs already set both.
+          # Supplying them was necessary and not sufficient — it moved the
+          # failure from the manifest step to the SSH auth now checked above,
+          # which is where it had been all along. The comment here used to say
+          # the credential was fine. It was not: the key has been rejected on
+          # every run since the secret was added.
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
