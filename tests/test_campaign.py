@@ -607,7 +607,12 @@ def test_each_script_runs_end_to_end(script, argv, capsys):
     spec.loader.exec_module(mod)
     rc = mod.main(argv)
     assert rc in (0, 1), f"{script} returned {rc}; expected a clean 0 or 1"
-    assert capsys.readouterr().out or capsys.readouterr().err
+    # ONE readouterr(): it DRAINS the buffer, so calling it twice compares the
+    # second (now empty) capture and the assertion collapses to `out or ''`.
+    # A script that reports only on stderr could then never satisfy it -- which
+    # is how check-compatibility.py failed here while behaving correctly.
+    captured = capsys.readouterr()
+    assert captured.out or captured.err
 
 
 def test_the_task_finder_lists_every_open_task_in_the_html_itself(campaign, tasks):

@@ -32,6 +32,13 @@ SHOWCASE = ROOT / "SHOWCASE.md"
 #: microphone cannot be compared against another machine.
 REQUIRED_FIELDS = ("OS / desktop", "Mic", "Apps you dictate into", "How you use YazSes")
 
+#: X11 and Wayland are Linux/BSD display servers. Windows and macOS have neither, so
+#: asking those entries to name one rejects a *correct* report -- which is exactly what
+#: happened on the day the first Windows and macOS setups arrived, on a project whose
+#: scarcest evidence is Windows and macOS testing. The session question is put only to
+#: the platforms that can answer it; the requirement itself is unchanged for Linux.
+SESSIONLESS_OS_RE = re.compile(r"\b(windows|macos|mac ?os ?x?|osx|darwin)\b", re.I)
+
 ENTRY_RE = re.compile(r"^###\s+(.+?)\s*$", re.M)
 #: The instructions contain a fenced template that looks exactly like a real entry.
 FENCE_RE = re.compile(r"```.*?```", re.S)
@@ -62,7 +69,11 @@ def check_entry(heading: str, body: str) -> list[str]:
             )
 
     session = re.search(r"\*\*OS / desktop:\*\*(.*)", body)
-    if session and not re.search(r"\b(x11|wayland)\b", session.group(1), re.I):
+    if (
+        session
+        and not SESSIONLESS_OS_RE.search(session.group(1))
+        and not re.search(r"\b(x11|wayland)\b", session.group(1), re.I)
+    ):
         problems.append(
             f"{heading}: the OS/desktop line does not say X11 or Wayland. They behave "
             "differently enough that a report omitting it cannot be acted on."
