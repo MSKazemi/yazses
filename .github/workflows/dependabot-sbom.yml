@@ -1,0 +1,81 @@
+# Regenerate the committed SBOM on a Dependabot lockfile PR.
+#
+# `sbom.cdx.json` is generated from `uv.lock` and committed, because
+# docs/privacy-statement.md and docs/comparison.md point people at it as a file
+# they can read in the repository. `tests/test_sbom.py` fails when the two drift,
+# and that guard is right: a stale SBOM is worse than none, because it is trusted.
+#
+# The consequence nobody wired up: Dependabot edits `uv.lock` and nothing else, so
+# **every** uv update PR fails that guard the moment it is opened. #320 and #321 both
+# died on exactly one assertion out of 13,805 tests. A PR that cannot be green without
+# a human pushing a follow-up commit is a PR that does not land, which is how a
+# dependency backlog builds up while the automation looks like it is working.
+#
+# So regenerate it here and push it onto Dependabot's own branch, before the reviewer
+# ever sees red.
+#
+# `pull_request_target` rather than `pull_request` on purpose: GitHub gives a
+# Dependabot-triggered workflow a **read-only** token, so the `pull_request` form
+# cannot push the fix it just computed. `pull_request_target` runs in the base-branch
+# context with a normal token. That form is a known footgun when it runs untrusted
+# code, so this job is gated on the PR author being Dependabot itself -- an identity
+# no outside contributor can forge, because only GitHub's own Dependabot can open a
+# PR as `dependabot[bot]` -- and it runs exactly one stdlib-only script.
+name: Dependabot SBOM refresh
+
+on:
+  pull_request_target:
+    paths:
+      - "uv.lock"
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-sbom:
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # The PR's own branch: this job's whole purpose is to add a commit to it.
+          # Dependabot branches live in this repository, never in a fork.
+          ref: ${{ github.event.pull_request.head.ref }}
+          # A token that can push back. The default checkout token is scoped to the
+          # workflow run; `persist-credentials` keeps it for the `git push` below.
+          persist-credentials: true
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      # stdlib only, by design -- `gen-sbom.py` parses `uv.lock` with tomllib and
+      # writes JSON, so this needs no dependency install and cannot be poisoned by
+      # the very lockfile change it is reacting to.
+      - name: Regenerate sbom.cdx.json from the lockfile in this PR
+        run: python scripts/gen-sbom.py
+
+      - name: Commit it to the pull request, if it moved
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- sbom.cdx.json; then
+            echo "sbom.cdx.json already matches uv.lock — nothing to push."
+            exit 0
+          fi
+          # Sole author of every commit in this repository, CI included.
+          git config user.name  "Mohsen Seyedkazemi Ardebili"
+          git config user.email "mohsen.seyedkazemi@gmail.com"
+          # Named pathspec, never a bare `git commit`: this job must add the SBOM and
+          # nothing else, even if some future step leaves something else in the tree.
+          git commit -m "chore(deps): regenerate sbom.cdx.json for this lockfile" -- sbom.cdx.json
+          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+          # ⚠ Known and accepted: a push made with GITHUB_TOKEN does not start a new
+          # workflow run, by design (GitHub's recursion guard). So `test.yml` will not
+          # re-run itself on the commit this step just pushed, and the PR keeps showing
+          # the check result from the head it had on arrival. That is tolerable here and
+          # nowhere near tolerable in general: this repository has no required checks
+          # (Scorecard reports Branch-Protection 3/10), so nothing merges on the strength
+          # of a green tick — the maintainer reads the run. What the push buys is that
+          # the *next* run, whenever it is triggered, starts from a lockfile and an SBOM
+          # that agree. If required checks are ever turned on, this needs a PAT or an app
+          # token instead, and the stale result stops being cosmetic.
