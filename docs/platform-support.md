@@ -258,17 +258,35 @@ real FreeBSD VM in CI, and **the transcription stack still is not, because it
 cannot be installed there at all.** `doctor` prints a `[WARN]` saying so rather
 than a reassuring `[OK]`.
 
-What is actually verified, as of 2026-08-15: a CI job boots a FreeBSD guest and
-runs `tests/test_platform_bsd_and_fallback.py` natively — 48 tests, green — where
-`sys.platform` genuinely *is* `freebsdN` rather than monkeypatched. That covers
-platform detection, the composed backend, path resolution, and the
-OS-independent commands (`reflow`, `table`, `shellpipe`, `transcribe`) that must
-work on a platform with no backend at all.
+What is actually verified: a CI job boots a FreeBSD guest and runs the test suite
+natively, where `sys.platform` genuinely *is* `freebsdN` rather than
+monkeypatched. That covers platform detection, the composed backend, path
+resolution, and the OS-independent commands (`reflow`, `table`, `shellpipe`,
+`transcribe`) that must work on a platform with no backend at all.
 
 That job spent weeks failing before a single test ran, on the dependency install
 described above, and being `continue-on-error` it reported success every time — so
 the gap was invisible in a green workflow. It now installs `--no-deps` and only
-what those tests need, which is why the evidence above exists.
+what the suite needs, which is why the evidence above exists.
+
+Until 2026-08-29 the job ran **one file** — 48 tests out of the roughly 13,800
+this project has — on the stated grounds that the rest need the decoder. That
+reason turned out to be mostly wrong: with the decoder stack absent and every
+other dependency present, 13,707 of those tests pass, so the job was reporting on
+0.35% of the suite while reading as FreeBSD coverage. It now runs `tests/`
+whole, and the tests that genuinely cannot run without the decoder say so
+themselves with `pytest.importorskip` rather than being excluded by a
+hand-maintained list in the workflow — a list cannot notice a new decoder test
+that should have been on it.
+
+Widening it immediately paid for itself: it surfaced a **shipped** defect nobody
+had hit, because nobody had run that code on a BSD. `inject/ydotool.py` imported
+`evdev` — Linux-only, and deliberately not installed here — inside the function
+that turns a key combo into ydotool tokens, so every spoken command, every
+backspace correction and the clipboard paste raised `ModuleNotFoundError` on
+FreeBSD. The keycodes it needed are a frozen kernel ABI, so they are now a
+committed table (`src/yazses/inject/keycodes.py`) that `tests/test_ydotool_keycodes.py`
+re-derives against `evdev` wherever `evdev` exists.
 
 **What is still unverified is the part you actually came for.** Nobody has
 dictated a word with YazSes on BSD hardware, and CI cannot try: `ctranslate2` has

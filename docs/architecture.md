@@ -475,6 +475,22 @@ level through `uinput` (via its helper daemon `ydotoold`), which is why it is th
 one reliable path for keystroke injection on modern Wayland desktops. `yazses setup`
 provisions `ydotoold` for you; see the [Linux install guide](install-linux.md).
 
+**Why the keycodes are a committed table.** `ydotool key` accepts only **numeric**
+`<keycode>:<state>` tokens and silently ignores symbolic names — `ydotool key ctrl+v`
+emits no events at all — so a combo like `ctrl+v` has to be turned into `29:1 47:1
+47:0 29:0` somewhere. That resolution used to happen by importing `evdev` inside
+`ydotool_key_args`. `evdev` is a C extension compiled against `<linux/input.h>`,
+Linux-only, and deliberately not installed on the BSDs — which the BSD backend
+reaches, since it composes the Linux injectors. The result was that every spoken
+command, every backspace correction and the clipboard paste raised
+`ModuleNotFoundError` there. `src/yazses/inject/keycodes.py` now holds the whole
+keyboard range (codes 1–255) as a table; codes above 255 (media, brightness, vendor
+keys) still resolve through `evdev` where it exists, so nothing that worked on Linux
+stopped working. Freezing them is safe because `input-event-codes.h` is a kernel
+ABI whose numbers cannot change without breaking every existing binary, and
+`tests/test_ydotool_keycodes.py` re-derives the table from `evdev` on any machine
+that has it, so it cannot drift unnoticed.
+
 ## The remote path
 
 YazSes can dictate into an application running on a **different machine** over

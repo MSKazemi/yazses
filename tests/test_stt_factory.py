@@ -11,6 +11,13 @@ import sys
 
 import pytest
 
+# The transcription stack cannot be installed on every platform this project runs on:
+# `ctranslate2` (via faster-whisper) publishes no FreeBSD wheel and no sdist at all, so
+# `pip install -e .` cannot bring it in there. Skipping here rather than keeping a
+# hand-maintained ignore list in the CI job means a new decoder test that forgets this
+# line fails loudly on that platform instead of silently reducing coverage (#306).
+pytest.importorskip("faster_whisper", reason="the decoder stack has no FreeBSD build")
+
 from yazses.config import SttConfig
 from yazses.stt.base import SttEngine
 from yazses.stt.factory import build_engine

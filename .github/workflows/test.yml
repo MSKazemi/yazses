@@ -369,8 +369,12 @@ jobs:
             pkg install -y python3 portaudio rust
             PYV=$(python3 -c 'import sys; print(f"{sys.version_info[0]}{sys.version_info[1]}")')
             python3 -V
+            # yaml/pillow/scipy join the list because the job now runs the whole
+            # suite rather than one file, and those three are what the rest of it
+            # reaches for. All are binary ports, so they cost seconds, not a build.
             pkg install -y "py${PYV}-pip" "py${PYV}-sqlite3" \
-                           "py${PYV}-numpy" "py${PYV}-sounddevice"
+                           "py${PYV}-numpy" "py${PYV}-sounddevice" \
+                           "py${PYV}-yaml" "py${PYV}-pillow" "py${PYV}-scipy"
           run: |
             set -e
             python3 -V
@@ -395,20 +399,42 @@ jobs:
             # `platform/bsd/` is composed from the Linux backend, and the claim
             # under test is that FreeBSD really selects and builds it — that needs
             # `sys.platform` to genuinely be `freebsdN`, not the transcription
-            # stack. Measured: the 48 tests below pass with numpy, platformdirs
-            # and typer alone.
+            # stack.
             python -m pip install -e . --no-deps
             python -m pip install platformdirs typer pytest pytest-mock hypothesis
-            # The point of the job: platform selection, natively, where
-            # sys.platform really is freebsdN rather than monkeypatched. This
-            # also covers the OS-independent commands (reflow, table, shellpipe,
-            # transcribe) that must work on a platform with no backend at all.
-            python -m pytest tests/test_platform_bsd_and_fallback.py -v
-            # Deliberately NOT `pytest tests/` — most of the suite imports the
-            # transcription stack, which cannot be installed here at all. Running
-            # it would re-introduce the permanent red this job just stopped being.
-            # Widening the FreeBSD surface needs a FreeBSD build of ctranslate2
-            # upstream, not a change here.
+            # `cryptography` is the learning corpus's AES-256-GCM cipher, and 151
+            # tests reach it. There is no FreeBSD wheel, so it builds through
+            # maturin — which is what the `rust` package above is for — in about
+            # five minutes. Ports carries py-cryptography 48.0.1 against this
+            # project's `>=50.0.0`, so the binary port cannot stand in for it;
+            # re-check when ports catches up and this line can become a `pkg`.
+            python -m pip install cryptography
+            # Run the whole suite, not one file.
+            #
+            # This used to be `pytest tests/test_platform_bsd_and_fallback.py`,
+            # on the reasoning that most of the suite imports the transcription
+            # stack. That reasoning was measured and is mostly wrong: the decoder
+            # is reached by a *small* set of files, and they now carry
+            # `pytest.importorskip("faster_whisper")` so they skip here and run
+            # everywhere else (#306). With the dependency set above, a local
+            # simulation of exactly this environment — every module FreeBSD cannot
+            # supply made unimportable — ran **13,707 of the suite's ~13,800 tests
+            # to a pass**, against the **48** this job was executing. Forty-eight
+            # tests on one file is close enough to no coverage that the ⚗️ row in
+            # docs/platform-support.md was resting on very little.
+            #
+            # ⚠ Expect some red on the first real run, and read it rather than
+            # muting it. The simulation cannot fake `sys.platform == "freebsdN"`,
+            # so tests gated on the real platform value ran there and will skip
+            # here, and vice versa — the number above is an estimate from a Linux
+            # host, not a prediction. The job stays `continue-on-error` until a
+            # real run has been read; that is what advisory is for.
+            #
+            # It has already paid for itself: widening this is what surfaced
+            # `ydotool_key_args` importing evdev — a Linux-only C extension — on a
+            # path `platform/bsd/` reaches, which broke every spoken command and
+            # every backspace on a FreeBSD Wayland desktop.
+            python -m pytest tests/ -q -rf
 
   # The benchmark harness's own tests. `uv sync` installs the base dependencies
   # only, so `psutil`, `jiwer` and `whisper-normalizer` -- all in the `benchmark`

@@ -1,5 +1,25 @@
 import subprocess
 
+from yazses.inject.keycodes import KEYCODES
+
+
+def _keycode_from_evdev(name: str) -> int | None:
+    """Resolve a ``KEY_*`` name outside the keyboard range (code > 255).
+
+    The committed table covers 1-255, which is every key a keyboard emits. The rest
+    -- media, brightness, vendor keys -- stay behind evdev rather than being frozen
+    into a table nothing verifies, so anything that resolved on Linux before still
+    resolves. evdev is Linux-only (`sys_platform == "linux"` in pyproject.toml, and
+    it does not build on the BSDs), so its absence is an ordinary answer of "no",
+    never an error: on those platforms the table above is the whole answer.
+    """
+    try:
+        from evdev import ecodes
+    except ImportError:
+        return None
+    code = getattr(ecodes, name, None)
+    return code if isinstance(code, int) else None
+
 
 def ydotool_key_args(combo: str) -> list[str]:
     """Convert a key combo into ydotool 1.x ``key`` tokens.
@@ -13,10 +33,6 @@ def ydotool_key_args(combo: str) -> list[str]:
     return the press-in-order / release-in-reverse keycode tokens, e.g.
     ``["29:1", "47:1", "47:0", "29:0"]`` for Ctrl+V.
     """
-    # Imported lazily: evdev is Linux-only, but this module is imported on every
-    # platform via inject.auto. The function only ever runs on Linux.
-    from evdev import ecodes
-
     aliases = {
         "ctrl": "KEY_LEFTCTRL", "control": "KEY_LEFTCTRL",
         "shift": "KEY_LEFTSHIFT", "alt": "KEY_LEFTALT",
@@ -37,7 +53,9 @@ def ydotool_key_args(combo: str) -> list[str]:
             name = part.upper()
         else:
             name = f"KEY_{part.upper()}"
-        code = getattr(ecodes, name, None)
+        code = KEYCODES.get(name)
+        if code is None:
+            code = _keycode_from_evdev(name)
         if code is None:
             raise ValueError(f"ydotool: unknown key {part!r} (resolved to {name})")
         codes.append(code)
