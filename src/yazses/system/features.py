@@ -748,11 +748,10 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
         # those live far away in `_EXAMPLES`/`_USE_CASES`, so "move window left half"
         # and "workspace 3" survived the correction in the two lines printed directly
         # underneath it by `yazses features info`.
-        _Def("windowctl", "Voice Window Focus", "[windowctl] — focus a window by name", OPTIONAL,
-             "Say 'focus the browser' or 'switch to my editor' to raise a window by "
-             "name. X11 only (Wayland does not let one app focus another). "
-             "Rearranging windows by voice is designed but not connected yet. "
-             "Off by default.",
+        _Def("windowctl", "Voice Window Control", "[windowctl] — focus and arrange windows", OPTIONAL,
+             "Say 'focus the browser' to raise a window by name, or 'move window left "
+             "half', 'maximize', 'workspace 3' to arrange them. X11 only (Wayland does "
+             "not let one app focus or move another's window). Off by default.",
              lambda c: c.windowctl.enabled, wc_on, wc_off),
         _Def("markup", "Structured-Markup Dictation", "[markup] — speak lists & tables", OPTIONAL,
              "Speak structure and get Markdown/org: 'bullet list: apples; oranges' → a list; "
@@ -1271,7 +1270,7 @@ _EXAMPLES: dict[str, str] = {
     "cite": "Say 'cite Vaswani 2017' to insert a citation from your .bib.",
     "langroute": "Switch languages mid-session and the right model loads automatically.",
     "hotwords": "Add 'Kubernetes' to vocab and it stops being mis-heard.",
-    "windowctl": "Say 'focus the browser' and the browser window is raised.",
+    "windowctl": "Say 'focus the browser' to raise it, or 'move window left half' / 'workspace 3' to arrange.",
     "rewrite": "Select a paragraph, hold the command key, say 'make this shorter'.",
     "markup": "Say 'bullet list: apples; oranges; pears' to type a Markdown list.",
     "findreplace": "Say 'replace every utilise with use' to edit the whole document.",
@@ -1436,7 +1435,7 @@ _USE_CASES: dict[str, str] = {
     "cite": "When writing a paper by voice and you want citations pulled from your local BibTeX library.",
     "langroute": "When you switch spoken languages during a session and don't want to toggle models by hand.",
     "hotwords": "When rare names or jargon keep getting mis-transcribed despite a vocabulary prompt.",
-    "windowctl": "When you want to raise a window by name without reaching for the mouse or Alt-Tab.",
+    "windowctl": "When you want to raise, snap or resize a window without reaching for the mouse or Alt-Tab.",
     "rewrite": "When you edit prose all day and want an offline alternative to the cloud voice-editing tools.",
     "markup": "When dictating notes that need real lists or tables, not a flat paragraph.",
     "findreplace": "When you need to change a word across the whole document, not just the last utterance.",

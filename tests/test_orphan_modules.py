@@ -43,10 +43,6 @@ ENTRY_MODULES = {
 #: The known orphans, each with what is missing. An entry here is a debt that has
 #: been *looked at and written down*, not one that is hidden.
 KNOWN_ORPHANS = {
-    "windowctl.commands":
-        "The spoken window grammar (WmAction). windowctl reports wired=True because "
-        "doctor.py imports windowctl.focus, so `features enable windowctl` succeeds "
-        "and the commands do nothing. The clearest false-positive in the registry.",
     "commands.slm_router":
         "Tier-2 SLM intent fallback. commands/grammar.py takes an `slm_router` "
         "parameter and nothing ever constructs one — a plumbed seam never filled.",

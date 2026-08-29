@@ -31,6 +31,8 @@ from dataclasses import dataclass
 from typing import Callable, Protocol, runtime_checkable
 
 from yazses.fileopen.match import fuzzy_rank
+from yazses.windowctl.actions import Screen, UnsupportedAction, plan
+from yazses.windowctl.commands import WmAction
 
 log = logging.getLogger(__name__)
 
@@ -58,6 +60,21 @@ class WindowBackend(Protocol):
 
     def focus(self, window_id: str) -> bool:
         """Raise and focus a window. True on success."""
+
+    def perform(self, action: WmAction) -> bool:
+        """Carry out a layout/workspace action on the active window.
+
+        The half of this protocol that did not exist. `windowctl/commands.py` has
+        parsed "move window left half" into a `WmAction` since ADR-v2-070 and there
+        was no method here that could execute one, so `yazses features enable
+        windowctl` succeeded and every layout example it printed did nothing.
+
+        Takes the `WmAction` whole rather than one method per verb: the grammar can
+        grow a kind without every backend having to grow a method it would only
+        raise from, and `windowctl/actions.py` is the single place that decides what
+        a kind means. False when the action could not be carried out — including
+        when this backend does not support that kind.
+        """
 
 
 # ── grammar ──────────────────────────────────────────────────────────────────
@@ -168,6 +185,67 @@ class XdotoolWindows:
         except Exception:
             log.debug("xdotool windowactivate failed", exc_info=True)
             return False
+
+    # ── layout / workspace actions ───────────────────────────────────────────
+    #
+    # Every probe below is a separate xdotool call that can fail on its own, and a
+    # failure here must be reported rather than swallowed: the caller falls back to
+    # typing the phrase as text, which is the right answer when the action did not
+    # happen. Returning True on a no-op is how this feature was broken before.
+
+    def _active_window(self) -> str | None:
+        try:
+            wid = self._run(["xdotool", "getactivewindow"]).strip()
+        except Exception:
+            log.debug("xdotool getactivewindow failed", exc_info=True)
+            return None
+        return wid or None
+
+    def _screen(self) -> Screen | None:
+        try:
+            out = self._run(["xdotool", "getdisplaygeometry"]).split()
+            return Screen(width=int(out[0]), height=int(out[1]))
+        except Exception:
+            log.debug("xdotool getdisplaygeometry failed", exc_info=True)
+            return None
+
+    def _current_desktop(self) -> int | None:
+        try:
+            return int(self._run(["xdotool", "get_desktop"]).strip())
+        except Exception:
+            # Not every window manager implements _NET_CURRENT_DESKTOP. That makes
+            # "next workspace" unavailable, not broken -- absolute "workspace 3"
+            # does not come through here and still works.
+            log.debug("xdotool get_desktop failed", exc_info=True)
+            return None
+
+    def perform(self, action: WmAction) -> bool:
+        """Run a WmAction against the active window. See WindowBackend.perform."""
+        # `workspace` acts on the desktop, not on a window, so it must not require
+        # one -- switching workspaces with no window focused is perfectly ordinary.
+        needs_window = action.kind not in ("workspace", "workspace_rel")
+        window = self._active_window() if needs_window else ""
+        if needs_window and not window:
+            return False
+        try:
+            steps = plan(
+                action,
+                window or "",
+                screen=self._screen() if action.kind in ("snap", "center") else None,
+                current_desktop=(
+                    self._current_desktop() if action.kind == "workspace_rel" else None
+                ),
+            )
+        except UnsupportedAction as exc:
+            log.info("windowctl: cannot perform %s: %s", action, exc)
+            return False
+        for argv in steps:
+            try:
+                self._run(argv)
+            except Exception:
+                log.debug("windowctl step failed: %s", argv, exc_info=True)
+                return False
+        return True
 
 
 def wayland_limitation() -> str:

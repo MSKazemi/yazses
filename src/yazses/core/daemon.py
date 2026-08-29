@@ -1548,6 +1548,16 @@ class Daemon:
                             if stream_injector is not None:
                                 stream_injector.cancel()
                             return
+                    # "move window left half" / "workspace 3" (#164). Must come
+                    # BEFORE _try_window_focus: the focus grammar accepts "go to
+                    # ...", so "go to workspace 3" parses as focusing a window
+                    # titled "workspace 3". Every other phrase is claimed by
+                    # exactly one of the two (verified in
+                    # tests/test_windowctl_actions.py).
+                    if self._try_window_action(text, event):
+                        if stream_injector is not None:
+                            stream_injector.cancel()
+                        return
                     # "focus the browser" (#39). Whole-utterance grammar, so it
                     # cannot shadow dictation containing the word "focus".
                     if self._try_window_focus(text, event):
@@ -3719,6 +3729,52 @@ class Daemon:
                 log.debug("focus notification failed", exc_info=True)
             return True
         log.info("Voice focus: activated %r (%s).", window.title, window.id)
+        return True
+
+    def _try_window_action(self, phrase: str, event: dict) -> bool:
+        """Act on a spoken layout/workspace command ("maximize", "workspace 3").
+
+        Returns True when the phrase was consumed, so it is never also typed.
+
+        This is the half of `windowctl` that was designed, tested and never
+        connected (#164): `windowctl/commands.py::parse_wm_command` existed from
+        ADR-v2-070 and no caller imported it, so `yazses features enable windowctl`
+        succeeded and every layout example the feature printed did nothing.
+
+        Consumes the phrase only when the action was actually carried out. A failed
+        action returns False and the words are dictated normally -- which is the
+        honest outcome, and the opposite of what a silent no-op did: with nothing
+        typed and nothing moved, there was no way to tell the feature apart from a
+        misrecognition.
+
+        X11 only, for the same reason as focus: `self._window_backend` is None on
+        Wayland and when the feature is off, and both cases land here as False.
+        """
+        try:
+            from yazses.windowctl.commands import parse_wm_command
+        except Exception:
+            return False
+        action = parse_wm_command(phrase)
+        if action is None:
+            return False
+        backend = self._window_backend
+        if backend is None:
+            return False
+        event["intent_type"] = "window_action"
+        event["intent_action"] = action.kind
+        perform = getattr(backend, "perform", None)
+        if perform is None:
+            # A backend from before `perform` existed. Say so rather than claiming
+            # the action happened -- getattr keeps this from being an AttributeError
+            # inside a hold-release, where nothing would surface it.
+            log.info("windowctl: backend %s cannot perform layout actions.",
+                     type(backend).__name__)
+            return False
+        if not perform(action):
+            event["discard_reason"] = "window_action_failed"
+            log.info("windowctl: %s could not be carried out.", action)
+            return False
+        log.info("windowctl: performed %s.", action)
         return True
 
     def _try_deixis(self, phrase: str, event: dict) -> bool:

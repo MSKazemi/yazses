@@ -75,6 +75,11 @@ CAPTURE_PROVING_DISCARDS = frozenset({
     "revise_no_text_target",
     "no_target",
     "window_focus_no_match",
+    # A layout command parsed and the window manager would not carry it out (no
+    # active window, xdotool refused a step). The microphone was heard and the
+    # phrase decoded well enough to match a grammar — everything that failed is
+    # downstream of capture.
+    "window_action_failed",
     "deixis_no_target",
     # A spoken capability (ADR-v2-131) produced text and a policy declined to type it:
     # the safety gate held it for a confirm, or the injector refused it. Both mean the

@@ -6,6 +6,64 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — window layout by voice, the half of `windowctl` that was never connected
+
+`windowctl/commands.py::parse_wm_command` has turned "move window left half",
+"maximize" and "workspace 3" into a `WmAction` since ADR-v2-070, and **nothing in
+`src/` imported it**. The `WindowBackend` protocol offered `list_windows()` and
+`focus()` only, so there was not even a method that could have executed one. The
+result was a feature that enabled cleanly and then did nothing — `yazses features
+enable windowctl` reported success, `yazses features info windowctl` printed the three
+examples, and saying them typed the words as text.
+
+Now wired end to end: `windowctl/actions.py` plans a `WmAction` into xdotool argv,
+`XdotoolWindows.perform()` runs it, and `core/daemon.py::_try_window_action` calls it
+in command mode. Snap (halves and quarters), maximize, minimize, fullscreen, center,
+close, and absolute or relative workspace switching. X11 only, like focus.
+
+Three things worth knowing:
+
+- **xdotool only, no new dependency.** `wmctrl` is the usual tool for this; everything
+  needed is expressible in xdotool ≥ 3.0 (`windowstate`, `set_desktop`, `windowclose`),
+  which `build_window_backend` already requires.
+- **A failed action is reported as failed**, and the phrase is dictated as text
+  instead. Returning success on a no-op is exactly what made the original defect
+  invisible: nothing typed and nothing moved is indistinguishable from a
+  misrecognition.
+- **"go to workspace 3" is the one phrase both grammars claim** — the focus grammar
+  accepts "go to …", so it parses as focusing a window *titled* "workspace 3". The
+  layout handler therefore runs first, and a test pins that order.
+
+Also fixed while building it: a snap now un-maximizes before it moves (a window
+manager accepts `windowmove` on a maximized window and ignores it), "workspace 3"
+maps to xdotool's 0-based desktop 2 rather than 3, and snap rectangles are computed
+from edges so two halves tile exactly instead of leaving a one-pixel strip of desktop
+showing on an odd-width screen.
+
+### Added — `doctor` warns Intel Mac users before a Python upgrade breaks the install
+
+macOS on Intel now has a wheel ceiling that is nobody's decision here: `onnxruntime`
+published no `x86_64` macOS wheel after **1.23.2** (built for CPython 3.10–3.13), and
+`faster-whisper` requires it, so the **base** install cannot resolve on Python 3.14.
+`torch` published none after **2.4.1** (CPython 3.12), so `yazses[all]` already cannot
+resolve on 3.13. Measured against the live index, per Python version, not assumed.
+
+The failure mode is the problem: nothing breaks while you are running: it breaks the
+*next* install, with a resolver backtrace that names `onnxruntime` and reads like a
+YazSes packaging bug. `yazses doctor` now prints an **Intel macOS** row showing where
+you sit against the ceiling, so it is visible while things still work. The row appears
+on Intel Macs only, and never as `FAIL` — the copy printing it demonstrably resolved.
+
+### Fixed — the docs promised Intel Mac users a fallback that no longer always works
+
+`docs/macos-install.md` said PyPI "is architecture independent and always works", and
+`packaging/README.md` said the Intel `.dmg` still needed a CI job that had not been paid
+for. Both were out of date: the Intel build has existed since v2.22.0
+(`macos-15-intel`), and the pipx fallback now needs **Python 3.11–3.13** on Intel, or
+3.11–3.12 for `[all]`. Both pages now state the ceiling, its upstream cause, and the
+`--python python3.13` workaround, and `tests/test_intel_macos_ceiling.py` ties the
+numbers to the markers in `pyproject.toml` so they cannot drift apart. Context: #264.
+
 ### Fixed — every spoken command crashed on FreeBSD, and the comment said it could not
 
 `inject/ydotool.py::ydotool_key_args` read its keycodes from `evdev.ecodes` at call

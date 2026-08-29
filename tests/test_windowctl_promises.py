@@ -44,6 +44,7 @@ tested Wayland path: the phrase is dictated as text instead of consumed.
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 from yazses.config import Config
 from yazses.system.features import grouped_features
@@ -53,8 +54,17 @@ from yazses.windowctl.focus import WindowBackend
 #: backend protocol can do. Focusing and raising are fine: those work.
 LAYOUT_VERBS = ("move window", "maximize", "maximise", "workspace", "tile", "snap to")
 
-#: What a backend method would plausibly be called if someone implemented it.
-LAYOUT_METHODS = ("move", "resize", "maximize", "maximise", "tile", "workspace", "set_geometry")
+#: The backend method that executes a layout action, plus the names this list
+#: guessed at before one existed. `perform` is the real one: `WindowBackend.perform`
+#: takes a whole `WmAction` rather than exposing one method per verb, so the grammar
+#: can grow a kind without every backend growing a method it would only raise from.
+#:
+#: The rest are kept because a future backend may well split them out, and a guard
+#: that only accepts today's spelling fails the next correct implementation.
+LAYOUT_METHODS = (
+    "perform",
+    "move", "resize", "maximize", "maximise", "tile", "workspace", "set_geometry",
+)
 
 
 def _windowctl_entry():
@@ -242,3 +252,45 @@ def test_wayland_is_reported_before_the_toggle() -> None:
         assert status == "SKIP"
         assert "wayland" in detail.lower()
         assert "features enable" not in detail
+
+
+def test_the_shipped_backend_really_implements_the_executor() -> None:
+    """A method on the Protocol and nothing behind it is the same defect, moved.
+
+    `test_no_layout_verb_is_promised_without_a_backend_that_can_do_it` reads
+    `dir(WindowBackend)`, and a Protocol will happily declare a method whose body is
+    a docstring. That would let the description promise "maximize" again while the
+    only concrete backend still cannot do it — the original bug with an extra step.
+    So check the class that actually ships, and check it is not inheriting the
+    Protocol's empty stub.
+    """
+    from yazses.windowctl.focus import XdotoolWindows
+
+    implemented = [m for m in LAYOUT_METHODS if callable(getattr(XdotoolWindows, m, None))]
+    assert implemented, (
+        f"XdotoolWindows implements none of {LAYOUT_METHODS} — the protocol may "
+        f"declare a layout method but nothing carries it out."
+    )
+    for name in implemented:
+        method = getattr(XdotoolWindows, name)
+        assert method.__qualname__.startswith("XdotoolWindows"), (
+            f"XdotoolWindows.{name} is inherited, not implemented here"
+        )
+
+
+def test_the_executor_is_reachable_from_the_daemon() -> None:
+    """The grammar existed for a release with no caller. Pin the caller too.
+
+    This is the specific shape of #164: a designed, tested, documented capability
+    whose only defect was that nothing invoked it. A guard on the description alone
+    would pass on a parser nothing calls.
+    """
+    daemon = (
+        Path(__file__).resolve().parent.parent
+        / "src" / "yazses" / "core" / "daemon.py"
+    ).read_text(encoding="utf-8")
+    assert "parse_wm_command" in daemon, (
+        "core/daemon.py no longer imports parse_wm_command — the layout grammar is "
+        "back to being parsed by nobody, which is what this feature shipped as."
+    )
+    assert "_try_window_action" in daemon

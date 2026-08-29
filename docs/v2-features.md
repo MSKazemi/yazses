@@ -208,7 +208,7 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Structured-Markup Dictation** | `markup` | Speak lists/tables → Markdown/org ("bullet list: apples; oranges"). |
 | **Document Find-and-Replace** | `findreplace` | Edit the whole document by voice ("replace every utilise with use"). |
 | ◌ **Hard Contextual Biasing** | `hotwords` | Biases recognition toward your vocabulary with a hotword trie so rare names win. |
-| **Voice Window Focus** | `windowctl` | Raise a window by name ("focus the browser"). X11 only. |
+| **Voice Window Control** | `windowctl` | Raise a window by name ("focus the browser"), or arrange it ("move window left half", "workspace 3"). X11 only. |
 | **Citation-by-Voice** | `cite` | "cite Vaswani 2017" → a formatted citation from your local .bib, offline. |
 | ◌ **Per-Language Auto Switching** | `langroute` | Detects the language you speak and hot-swaps to its model + ITN. |
 | **Adaptive Latency Governor** | `latency` | Decodes with a lighter model at a greedy beam while the load average is high. POSIX only; speculative decoding not built. |
