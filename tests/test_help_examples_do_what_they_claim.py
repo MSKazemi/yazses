@@ -72,11 +72,79 @@ def _claims() -> list[tuple[str, str, str]]:
 # Accounting: an example this suite does not execute must say why, here.
 # --------------------------------------------------------------------------------------
 
-_UNRUN: dict[str, str] = {
-    "yazses gitvoice --run --yes":
-        "the example's whole point is that it runs the git command for real; executing it "
-        "in a test would push.",
-}
+_UNRUN: dict[str, str] = {}
+
+
+def _epilog_lines() -> list[tuple[str, str]]:
+    """``(command_path, line)`` for every epilog line in the app, claim or not.
+
+    `_claims()` above keeps only lines carrying a ``->`` promise. An armed example
+    does not need to promise anything, so the safety check below reads every line.
+    """
+    root = typer.main.get_command(app)
+    out: list[tuple[str, str]] = []
+
+    def walk(cmd: object, path: str) -> None:
+        for ln in (getattr(cmd, "epilog", None) or "").splitlines():
+            ln = _MARKUP.sub("", ln).strip()
+            if ln:
+                out.append((path, ln))
+        for name, sub in (getattr(cmd, "commands", None) or {}).items():
+            walk(sub, f"{path} {name}")
+
+    walk(root, "yazses")
+    return out
+
+
+def test_no_shipped_example_is_a_copy_pasteable_irreversible_command():
+    """A ``--help`` example is something a user pastes into the shell as-is.
+
+    `gitvoice` shipped `yazses gitvoice "force push" --run --yes   -> actually runs
+    it` as its last example. Read the examples in order — which is what a user does —
+    and the final one force-pushes whatever repository you are standing in. There is
+    no undo for that.
+
+    The suite already knew. This file's `_UNRUN` carried that exact invocation with
+    the reason *"executing it in a test would push"*, so CI was protected from the
+    example while users' terminals were not. That asymmetry is the bug: a line too
+    dangerous for the test suite to run is too dangerous to hand someone as a sample.
+
+    So the rule is not "document it in `_UNRUN`" but "do not ship it". The gate
+    itself is still taught, by the `--run` example that shows the refusal — which is
+    the instructive half, and is safe to paste.
+    """
+    from yazses.gitvoice.plan import build_git_argv, reversibility
+
+    armed: list[str] = []
+    for path, line in _epilog_lines():
+        if "yazses " not in line:
+            continue
+        # The invocation ends at the first run of 2+ spaces; what follows is the aside
+        # to the reader. Reading the whole line instead flags the *refusal* example,
+        # whose prose ("refuses: destructive, needs --yes") names the very flag it is
+        # demonstrating the absence of.
+        invocation = re.split(r"\s{2,}", line.partition("->")[0].strip())[0].strip()
+        if "--run" not in invocation or "--yes" not in invocation:
+            continue
+        try:
+            parts = shlex.split(invocation)
+        except ValueError:
+            continue
+        if "gitvoice" not in parts:
+            armed.append(f"{path}: {invocation}  (has --run --yes)")
+            continue
+        spoken = next(
+            (p for p in parts[parts.index("gitvoice") + 1:] if not p.startswith("-")), ""
+        )
+        argv = build_git_argv(spoken)
+        if argv and reversibility(argv) == "confirm":
+            armed.append(f"{path}: {invocation}  -> {' '.join(argv)}")
+    assert not armed, (
+        "these --help examples are copy-pasteable commands that run an irreversible "
+        "git operation:\n  " + "\n  ".join(armed)
+        + "\n\nShow the refusal instead. `--yes` is explained in the command's own "
+        "docstring; it does not need an armed demonstration."
+    )
 
 # Claims phrased as a description of the output rather than the output itself. Each one is
 # still executed -- only the comparison is relaxed to the substring named here, so the

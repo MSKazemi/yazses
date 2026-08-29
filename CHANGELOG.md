@@ -6,6 +6,33 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `gitvoice --help` shipped a copy-pasteable force push
+
+`yazses gitvoice --help` ended with two example lines, and the second was
+`yazses gitvoice "force push" --run --yes  -> actually runs it`. Every part of that
+is armed: `--run` executes the resolved git command, `--yes` is the flag that clears
+the destructive-action refusal, and the aside promises it works. A `--help` example is
+the one piece of documentation people paste without reading twice, and the outcome of
+pasting this one is a force push against whatever repository the shell happens to be
+sitting in.
+
+The confirmation that this was known is in the project's own test suite.
+`tests/test_help_examples_do_what_they_claim.py` runs every documented example and
+checks it does what the text beside it says; that line sat in its `_UNRUN` exclusion
+list with the reason *"the example's whole point is that it runs the git command for
+real; executing it in a test would push."* CI was protected from the example while
+users were handed it.
+
+The armed line is replaced with a printed-only one
+(`yazses gitvoice "push to origin main"  -> git push origin main`), which demonstrates
+the same resolution without executing anything, and the refusal example above it is
+kept, since showing that destructive commands are refused is the point worth making.
+`_UNRUN` is now empty: every shipped example is actually run by the suite. A new
+guard, `test_no_shipped_example_is_a_copy_pasteable_irreversible_command`, resolves
+each example through `gitvoice.plan.build_git_argv` and fails any whose plan is
+irreversible and whose invocation carries both `--run` and `--yes` — so the next
+armed example cannot be added by simply extending the exclusion list.
+
 ### Security — a pin inside one opt-in extra was holding every install below a patch
 
 `pyproject.toml`'s `voiceprint-resemblyzer` extra pinned `setuptools<81`, because

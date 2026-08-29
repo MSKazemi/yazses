@@ -3848,8 +3848,8 @@ def shellpipe(
     epilog=_examples(
         "yazses gitvoice \"commit with message fix the parser\"   -> git commit -m 'fix the parser'",
         'yazses gitvoice "create branch feature slash login"     -> git checkout -b feature/login',
+        'yazses gitvoice "push to origin main"                  -> git push origin main',
         'yazses gitvoice "force push" --run                     refuses: destructive, needs --yes',
-        'yazses gitvoice "force push" --run --yes                -> actually runs it',
     ),
 )
 def gitvoice(
