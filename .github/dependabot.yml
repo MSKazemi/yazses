@@ -1,7 +1,17 @@
 # Dependabot version updates.
 #
-# Security updates are enabled separately in repo settings and are NOT limited by
-# this file — they always open a PR. This file is for routine version bumps.
+# ⚠ An `ignore` entry below silences a **security** pull request too, not only a
+# routine bump. This file used to claim the opposite — "security updates are enabled
+# separately in repo settings and are NOT limited by this file" — which is wrong, and
+# wrong in the direction that hides a vulnerability rather than one that adds noise.
+# GitHub's own reference is unambiguous: you can configure Dependabot to ignore
+# dependencies "when it opens pull requests for version updates **and security
+# updates**". Only `update-types` is exempt; `versions:` is not.
+#   https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/controlling-dependencies-updated
+#
+# So every `ignore` here is a decision to go without a fix for the range it names, and
+# it has to be worth that. Add one only when the bump genuinely cannot be taken, scope
+# it to the versions that cannot be taken, and say why beside it.
 #
 # Deliberately conservative: monthly, grouped, and capped, because an OSS project
 # with a small maintainer pool is hurt more by PR noise than by being a few weeks
@@ -40,8 +50,40 @@ updates:
       # supported range is still worth taking, and blanket-ignoring a package is
       # how a real security bump gets silently skipped. Lifting this needs
       # `webrtcvad` fixed upstream, not a version edit here.
+      #
+      # ⚠ Stated plainly, per the note at the top: this also suppresses a *security*
+      # PR for setuptools >= 81. That is accepted knowingly, because such a PR could
+      # not be merged anyway — the range it would move to is the range the extra
+      # cannot import. The exposure is bounded to `voiceprint-resemblyzer`, which is
+      # opt-in, excluded from `[all]`, and installs no code that parses untrusted
+      # input at runtime; setuptools there is a build-time leftover. Re-check this
+      # sentence whenever the advisory changes, rather than assuming it still holds.
       - dependency-name: "setuptools"
         versions: [">=81"]
+      # ⚠ `onnxruntime` is deliberately NOT ignored, and the monthly `uv` job is
+      # expected to report one handled error because of it (#322). Read this before
+      # "fixing" the red — the obvious fix is the wrong one.
+      #
+      # Dependabot checks a bump by pinning the target version for the whole
+      # resolution: `uv lock --upgrade-package onnxruntime==<new>`. That pin has no
+      # environment marker, so it also lands in the Intel-macOS fork, where
+      # pyproject.toml caps onnxruntime below 1.24 because upstream published no
+      # x86_64 macOS wheel after 1.23.2. A global `==` and a per-marker `<` are a
+      # contradiction, so the resolution is unsatisfiable by construction.
+      #
+      # Measured locally against this exact lockfile, not reasoned about — the same
+      # error appears whether the cap sits in `[project]`, in `[tool.uv]
+      # constraint-dependencies`, or in `override-dependencies`, and it goes away only
+      # when the cap is gone. Removing it is a support decision (drop Intel macOS),
+      # not a config change: a fresh Intel resolution of `yazses[all]` still succeeds
+      # today on Python 3.11 and 3.12 (onnxruntime 1.23.2, torch 2.2.2) and already
+      # fails on 3.13+ for an unrelated reason (torch ships no Intel macOS wheel).
+      #
+      # Ignoring `onnxruntime >= 1.24` would stop the red, and would also stop every
+      # onnxruntime update — including a security one, per the note at the top of this
+      # file — on Linux, Windows and Apple silicon, which is where the users are. The
+      # error is handled per-dependency, so every other update in the sweep still
+      # opens. One explained red beats a silent gap; bump onnxruntime by hand.
 
   # GitHub Actions — pinned action versions go stale silently and are a real
   # supply-chain surface for a project that publishes signed artifacts.

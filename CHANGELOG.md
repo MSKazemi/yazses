@@ -6,6 +6,106 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — every spoken command crashed on FreeBSD, and the comment said it could not
+
+`inject/ydotool.py::ydotool_key_args` read its keycodes from `evdev.ecodes` at call
+time, under a comment reading *"evdev is Linux-only, but this module is imported on
+every platform via inject.auto. The function only ever runs on Linux."* The first
+sentence is right and the second is not. `platform/bsd/` composes itself from
+`LinuxInjector`, and `inject/auto.py` selects ydotool on **any** Wayland session where
+the binary and ydotoold's socket exist — it never asks which OS it is on. FreeBSD ships
+ydotool in ports and runs Wayland compositors, and it cannot have python-evdev, which
+`pyproject.toml` marks `sys_platform == "linux"` because it is a C extension against
+`<linux/input.h>`.
+
+So on a FreeBSD Wayland desktop, dictation typed fine and everything else raised
+`ModuleNotFoundError: evdev` from inside the injector: every spoken command (Enter, Tab,
+an arrow key, any Ctrl combination), every backspace — which is correction-on-commit and
+"scratch that" — and the clipboard backend's own Ctrl+V paste.
+
+The numbers were never the Linux-only part. They are `input-event-codes.h`, a frozen
+kernel ABI that FreeBSD's evdev implements identically, and this file already hardcoded a
+dozen of them. They now live in `inject/keycodes.py`, generated from `evdev.ecodes` for
+the whole keyboard range (1–255) and re-derived against it by
+`tests/test_ydotool_keycodes.py` wherever evdev is importable, so a hand-written table
+cannot drift into pressing the wrong key. Names above that range still resolve through
+evdev, so nothing that worked on Linux stops working.
+
+### Fixed — the FreeBSD job ran 48 tests out of ~13,800
+
+The advisory `freebsd` job existed to check that a real FreeBSD selects and builds
+`platform/bsd/` rather than a monkeypatched `sys.platform`. It ran exactly one test file,
+on the reasoning that most of the suite imports the transcription stack — which
+`ctranslate2` makes genuinely impossible there, since it publishes 35 wheels and no
+source distribution at all.
+
+Measured rather than assumed, that reasoning covers a small set of files, not the suite.
+Simulating exactly this job's environment — every module FreeBSD cannot supply made
+unimportable — **13,707 tests pass**. The decoder-bound files now carry
+`pytest.importorskip("faster_whisper")`, so they skip where the decoder cannot exist and
+run everywhere else; a new decoder test that forgets the line fails loudly on FreeBSD
+rather than quietly reducing coverage. The job installs the three binary ports the rest
+of the suite reaches for (`yaml`, `pillow`, `scipy`) and builds `cryptography` through
+the Rust toolchain it was already installing, and then runs `pytest tests/`.
+
+It stays `continue-on-error`: the simulation ran on a Linux host and cannot fake
+`sys.platform == "freebsdN"`, so the first real run is expected to differ and is there to
+be read, not muted. It has already earned its place — widening it is what surfaced the
+`ydotool_key_args` defect above. (#306)
+
+### Fixed — every Dependabot lockfile PR was red on arrival
+
+`sbom.cdx.json` is generated from `uv.lock` and committed, because the privacy statement
+and the comparison page point people at it as a file they can read.
+`tests/test_sbom.py` fails when the two drift, which is right — a stale SBOM is worse
+than none, because it is trusted. Nothing wired up the other half: Dependabot edits
+`uv.lock` and nothing else, so every uv update PR failed that one assertion out of
+13,805 the moment it opened. #320 (17 grouped updates) and #321 (evdev 2.0.0) both died
+there, on a generated file the bot cannot regenerate rather than on any incompatibility.
+
+A new `dependabot-sbom.yml` regenerates it and commits it to Dependabot's own branch. It
+uses `pull_request_target` because GitHub hands a Dependabot-triggered `pull_request`
+workflow a read-only token — it would compute the right file and then fail to push it —
+and it is gated on the pull request's author being `dependabot[bot]`, an identity no
+outside contributor can forge. `tests/test_bot_prs_can_go_green.py` holds the pairing:
+as long as a bot opens lockfile PRs and a test fails on a stale SBOM, something automated
+has to close the gap, with a write permission, a bot gate, and the repository's own
+commit author.
+
+### Fixed — dependabot.yml claimed an `ignore` rule was free, and it is not
+
+The file said security updates "are enabled separately in repo settings and are NOT
+limited by this file — they always open a PR." GitHub's reference says the opposite:
+Dependabot can be configured to ignore dependencies "when it opens pull requests for
+version updates **and** security updates". Only `update-types` is exempt; `versions:` is
+not. The claim was wrong in the direction that hides a vulnerability rather than the one
+that adds noise, and the `setuptools >= 81` rule was written under it — that rule stands,
+because the range it would move to is the range `voiceprint-resemblyzer` cannot import,
+but it now says out loud what it costs.
+
+`tests/test_dependabot_ignores_are_honest.py` holds two properties: an ignore must name
+the versions it cannot take rather than the whole package, and `onnxruntime` must not
+have quietly acquired one.
+
+### Documented — why the monthly Dependabot `uv` job is red, and why the obvious fix is wrong
+
+Dependabot checks a bump by pinning the target version across the whole resolution
+(`uv lock --upgrade-package onnxruntime==<new>`). That pin carries no environment marker,
+so it lands in the Intel-macOS fork too, where the project caps onnxruntime below 1.24
+because upstream published no x86_64 macOS wheel after 1.23.2. A global `==` and a
+per-marker `<` are a contradiction, so the resolution is unsatisfiable by construction.
+
+Reproduced locally against this exact lockfile and confirmed in four arrangements: the
+same error appears whether the cap sits in `[project]`, in `[tool.uv]
+constraint-dependencies`, or in `override-dependencies`, and it goes away only when the
+cap is gone. Removing it is a support decision, not a config change — a fresh Intel
+resolution of `yazses[all]` still succeeds today on Python 3.11 and 3.12 (onnxruntime
+1.23.2, torch 2.2.2), and already fails on 3.13+ for an unrelated reason, since torch
+ships no Intel macOS wheel either. Ignoring `onnxruntime >= 1.24` would stop the red and
+also stop every onnxruntime update, security ones included, on Linux, Windows and Apple
+silicon — which is where the users are. The reasoning is written beside the ignore list
+so the monthly red is not mistaken for new breakage. (#322)
+
 ### Fixed — the attribution guard fired on the act of crediting someone
 
 `scripts/campaign_stats.py::attribution_gaps` answered "is GitHub attributing this
