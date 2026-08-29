@@ -211,24 +211,36 @@ voiceprint = [
 # model stack they never load.
 voiceprint-resemblyzer = [
     "resemblyzer>=0.1.4",
-    # Not a stray build tool -- without it this extra installs and then cannot
-    # import, which is how it shipped. Resemblyzer requires `webrtcvad>=2.0.10`,
-    # whose first line is `import pkg_resources`; setuptools removed that package
-    # (83.0.0 ships no `pkg_resources` at all), so `from resemblyzer import
-    # VoiceEncoder` raises ModuleNotFoundError on any current environment. Pinning
-    # below the removal is upstream's own advice -- the deprecation warning reads
-    # "pin to Setuptools<81" verbatim -- and it is the only option here: the
-    # maintained fork `webrtcvad-wheels` fixes the import but installs a *second*
-    # distribution owning the `webrtcvad` module name alongside the one resemblyzer
-    # pulls in by name, and two dists owning one module is a worse failure than the
-    # one being fixed.
+    # ⚠ This extra needs `pkg_resources` and there is deliberately NO `setuptools<81`
+    # pin here any more. Resemblyzer requires `webrtcvad`, whose first line is
+    # `import pkg_resources`; setuptools removed that package outright (verified:
+    # 80.10.2 has it, 83.0.0 and 84.0.0 do not), so `from resemblyzer import
+    # VoiceEncoder` raises ModuleNotFoundError on a current setuptools.
     #
-    # Scoped to this extra on purpose: a base install never sees the pin. Found by
-    # building a `uv sync --all-extras` box, which no CI job does -- and it stayed
-    # invisible because the probe behind the honesty message answers from
-    # `find_spec`, which reports the package present on disk and never that it
-    # fails to import. See tests/test_voiceprint_message_is_not_self_contradictory.py.
-    "setuptools<81",
+    # The pin was here and had to go, because `uv.lock` is a **universal**
+    # resolution: one version per package for the whole workspace. A pin inside an
+    # opt-in extra is not confined to that extra — it held the *base* install down
+    # too. `uv export --no-dev` (no extras at all) emitted `setuptools==80.10.2`,
+    # because core `ctranslate2` requires setuptools and there is only one entry to
+    # satisfy. `scripts/build-macos.sh` and `scripts/build-windows.ps1` build the
+    # shipped .dmg and .exe from that lock, so it went into release artifacts.
+    # Without the pin the lock takes 84.0.0, above the 83.0.0 that patches
+    # Dependabot alert #9.
+    #
+    # What the extra loses is nothing silent: `voiceprint/factory.py` already
+    # distinguishes "installed but cannot import" from "absent" and reports the
+    # ModuleNotFoundError, so a user who deliberately installs this backend is told
+    # what happened and can `pip install "setuptools<81"` in their own environment.
+    # A self-describing failure in one opt-in alternative backend is worth more than
+    # holding every install and every shipped bundle below a security patch.
+    # Pinning below the removal is upstream's own advice -- the deprecation
+    # warning reads "pin to Setuptools<81" verbatim -- and the maintained fork
+    # `webrtcvad-wheels` is not an alternative: it installs a *second* distribution
+    # owning the `webrtcvad` module name alongside the one resemblyzer pulls in by
+    # name, and two dists owning one module is a worse failure than the one being
+    # fixed. So the advice is correct and it simply cannot be taken *here*, in a
+    # file whose pins are resolved for everybody. It belongs in the environment of
+    # whoever chooses this backend, and `docs/` and the factory's message say so.
 ]
 # Pluggable STT — NVIDIA Parakeet TDT via onnx-asr (`[stt] engine = "parakeet"`,
 # `yazses features enable stt-parakeet`). onnxruntime only, no torch, no NeMo;
@@ -325,12 +337,15 @@ gaze = [
 #
 # THE EXCLUSION LIST -- add here only with a reason that survives being read out loud:
 #
-#   voiceprint-resemblyzer -- it pins `setuptools<81` for the *whole environment* (see
-#     its own comment above for why it must). An install that asked for "everything"
-#     should not silently hold an unrelated build tool back for every other package.
-#     No capability is lost: this is the alternative backend behind `[voiceprint]
-#     backend`, and its default (ECAPA, via `speechbrain`) is already here. Ask for
-#     `yazses[all,voiceprint-resemblyzer]` to add it deliberately.
+#   voiceprint-resemblyzer -- it needs `pkg_resources`, which no current setuptools
+#     ships, so on a modern environment it installs and cannot import. It used to
+#     carry a `setuptools<81` pin to prevent that; the pin is gone because a
+#     universal lock resolves one setuptools for everyone, so it was holding the
+#     base install and both shipped bundles below a security patch (see its comment
+#     above). No capability is lost by the exclusion either way: this is the
+#     alternative backend behind `[voiceprint] backend`, and its default (ECAPA, via
+#     `speechbrain`) is already here. Ask for `yazses[all,voiceprint-resemblyzer]`
+#     to add it deliberately, and pin setuptools yourself in that environment.
 #
 # Pins are copied verbatim from the owning extra; the guard fails on any drift, so a
 # version bump happens in one place and is checked here rather than remembered.

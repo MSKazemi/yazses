@@ -32,6 +32,7 @@ If either changes, the published assessment is wrong and this test says so.
 from __future__ import annotations
 
 import ast
+import re
 import tomllib
 from pathlib import Path
 
@@ -159,8 +160,9 @@ def test_the_assessment_is_actually_published(marker):
 # later packaging change flips without anyone rereading the security policy.
 # ---------------------------------------------------------------------------
 
-#: Extras allowed to hold setuptools below the patched release.
-SETUPTOOLS_PIN_EXTRA = "voiceprint-resemblyzer"
+#: The release that patches Dependabot alert #9. The lock must resolve at or above
+#: it — not merely avoid naming a pin.
+SETUPTOOLS_PATCHED = (83, 0, 0)
 
 
 def test_the_project_is_not_built_with_setuptools():
@@ -186,27 +188,48 @@ def test_there_is_no_manifest_in_to_bypass():
     )
 
 
-def test_the_setuptools_pin_stays_inside_the_one_extra_that_needs_it():
-    """Fact 3: a base install must never be held below the patched release.
+def _locked_version(package: str) -> tuple[int, ...]:
+    """The version `uv.lock` resolves for `package`, as a comparable tuple."""
+    text = (ROOT / "uv.lock").read_text(encoding="utf-8")
+    for block in re.split(r"\n\[\[package\]\]\n", text):
+        if re.search(rf'^name = "{re.escape(package)}"$', block, re.M):
+            m = re.search(r'^version = "([^"]+)"', block, re.M)
+            assert m, f"{package} block in uv.lock has no version"
+            return tuple(int(p) for p in re.findall(r"\d+", m.group(1))[:3])
+    raise AssertionError(f"{package} is not in uv.lock at all")
 
-    The pin buys an import fix for `resemblyzer`; letting it escape into
-    `project.dependencies` would hold every user below a security patch to solve
-    a problem only that extra has.
+
+def test_the_resolved_setuptools_is_at_or_above_the_patched_release():
+    """Fact 3, and it has to be asked of the **resolution**, not the declaration.
+
+    This test used to read `project.dependencies` and `optional-dependencies` and
+    assert that only the `voiceprint-resemblyzer` extra named a setuptools pin. Its
+    docstring stated the property correctly — *"a base install must never be held
+    below the patched release"* — and then checked something that cannot establish
+    it, so it passed for the entire time the property was false.
+
+    `uv.lock` is a **universal** resolution: one version per package for the whole
+    workspace, with no notion of "only inside that extra". The extra's `setuptools<81`
+    therefore held everybody. `uv export --no-dev` — no extras at all — emitted
+    `setuptools==80.10.2`, because core `ctranslate2` requires setuptools and there
+    was a single entry to satisfy. `scripts/build-macos.sh` and
+    `scripts/build-windows.ps1` build the shipped .dmg and .exe from that lock, so it
+    reached release artifacts too.
+
+    Three documents asserted the opposite in three different words — pyproject.toml
+    ("a base install never sees the pin"), `.github/dependabot.yml` ("the exposure is
+    bounded to voiceprint-resemblyzer"), and `.github/SECURITY.md` ("not one YazSes
+    creates"). All three were written from the declaration, which is exactly what the
+    old test read. A guard cannot catch a mistake it shares.
     """
-    pp = _pyproject()["project"]
-    base = [d for d in pp.get("dependencies", []) if "setuptools" in d]
-    assert not base, (
-        f"setuptools is pinned in base dependencies ({base}). That holds every "
-        "install below the patched 83.0.0 for the sake of one optional extra."
-    )
-    pinned_in = sorted(
-        name for name, deps in pp.get("optional-dependencies", {}).items()
-        if any("setuptools" in d for d in deps)
-    )
-    assert pinned_in == [SETUPTOOLS_PIN_EXTRA], (
-        f"extras pinning setuptools are {pinned_in}, expected only "
-        f"[{SETUPTOOLS_PIN_EXTRA!r}]. Each extra that pins below 83.0.0 needs its "
-        "own line in the security policy saying why."
+    got = _locked_version("setuptools")
+    assert got >= SETUPTOOLS_PATCHED, (
+        f"uv.lock resolves setuptools {'.'.join(map(str, got))}, below the patched "
+        f"{'.'.join(map(str, SETUPTOOLS_PATCHED))} (Dependabot #9). A pin anywhere "
+        "in this workspace — including inside an opt-in extra — lands on every "
+        "install and in the shipped macOS and Windows bundles, because the lock is "
+        "one resolution for everything. If an extra truly needs an older setuptools, "
+        "it belongs in that user's environment, not in this file."
     )
 
 

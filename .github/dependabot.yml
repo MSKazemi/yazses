@@ -32,34 +32,30 @@ updates:
     commit-message:
       prefix: "chore(deps)"
     labels: ["dependencies"]
-    ignore:
-      # setuptools >= 81 is not a bump this project can take, and the reason is
-      # written into pyproject.toml beside the pin: the `voiceprint-resemblyzer`
-      # extra needs `pkg_resources`, which setuptools 83.0.0 removed entirely.
-      # Resemblyzer requires `webrtcvad`, whose first line is `import
-      # pkg_resources`, so the extra installs and then cannot import -- which is
-      # how it once shipped.
+    # ⚠ There is deliberately NO `ignore:` key on this ecosystem any more, and
+    # removing it was a security fix rather than housekeeping.
+    #
+    # ⚠ There is deliberately NO setuptools entry here any more, and removing it was
+      # a security fix rather than housekeeping.
       #
-      # Without this, the monthly sweep re-proposes it forever: #316 raised it to
-      # 83.0.0 and failed all eight test legs, because `tests/
-      # test_dependency_advisories.py` pins the pin on purpose. That is the guard
-      # working, but a PR that cannot ever be green is pure noise for a small
-      # maintainer pool, and each round spends CI on proving the same thing.
+      # The old rule ignored `setuptools >= 81` because the `voiceprint-resemblyzer`
+      # extra pinned `setuptools<81` for `pkg_resources`, and it justified suppressing
+      # the *security* PR with: "The exposure is bounded to `voiceprint-resemblyzer`,
+      # which is opt-in, excluded from `[all]`."
       #
-      # Scoped to `>=81` rather than the whole dependency: a patch inside the
-      # supported range is still worth taking, and blanket-ignoring a package is
-      # how a real security bump gets silently skipped. Lifting this needs
-      # `webrtcvad` fixed upstream, not a version edit here.
+      # That was false. `uv.lock` is a universal resolution — one version per package
+      # for the whole workspace — so a pin inside an opt-in extra is not confined to
+      # it. `uv export --no-dev`, with no extras at all, emitted `setuptools==80.10.2`,
+      # because core `ctranslate2` requires setuptools and there was one entry to
+      # satisfy. `scripts/build-macos.sh` and `scripts/build-windows.ps1` build the
+      # shipped .dmg and .exe from that lock, so it went out in release artifacts too.
+      # The reasoning had been copied into three files and checked by a test that read
+      # the *declaration* rather than the resolution, so nothing could catch it.
       #
-      # ⚠ Stated plainly, per the note at the top: this also suppresses a *security*
-      # PR for setuptools >= 81. That is accepted knowingly, because such a PR could
-      # not be merged anyway — the range it would move to is the range the extra
-      # cannot import. The exposure is bounded to `voiceprint-resemblyzer`, which is
-      # opt-in, excluded from `[all]`, and installs no code that parses untrusted
-      # input at runtime; setuptools there is a build-time leftover. Re-check this
-      # sentence whenever the advisory changes, rather than assuming it still holds.
-      - dependency-name: "setuptools"
-        versions: [">=81"]
+      # The pin is gone, the lock resolves 84.0.0, and
+      # `tests/test_dependency_advisories.py::
+      # test_the_resolved_setuptools_is_at_or_above_the_patched_release` now asserts
+      # the resolved version. An `ignore` here would silence the next one.
       # ⚠ `onnxruntime` is deliberately NOT ignored, and the monthly `uv` job is
       # expected to report one handled error because of it (#322). Read this before
       # "fixing" the red — the obvious fix is the wrong one.

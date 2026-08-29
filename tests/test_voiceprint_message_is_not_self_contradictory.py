@@ -88,6 +88,34 @@ def test_it_reports_the_actual_exception_instead(installed_but_broken, caplog):
     assert "pkg_resources" in _warn_text(caplog)
 
 
+def test_it_names_the_setuptools_remedy_now_that_nothing_pins_it(
+    installed_but_broken, caplog
+):
+    """The exception alone stopped being enough when the pin was removed.
+
+    `pyproject.toml` used to carry `setuptools<81` inside the
+    `voiceprint-resemblyzer` extra so this could not happen. That pin had to go:
+    `uv.lock` resolves one version per package for the whole workspace, so it held
+    the *base* install -- and the shipped .dmg and .exe, which are built from that
+    lock -- below the 83.0.0 that patches Dependabot alert #9.
+
+    Removing it makes this failure the *expected* state for anyone who installs the
+    backend on a current setuptools, rather than a rare all-extras-box accident. A
+    bare `ModuleNotFoundError: pkg_resources` leaves that user to rediscover a cause
+    the project already knows, so the message has to carry the fix.
+    """
+    cfg = replace(VoiceprintConfig(), enabled=True, backend="resemblyzer")
+    with caplog.at_level(logging.WARNING):
+        installed_but_broken.build_embedder(cfg)
+    msg = _warn_text(caplog)
+    assert "setuptools<81" in msg, (
+        f"the message names no remedy, only the symptom: {msg}"
+    )
+    assert "ecapa" in msg.lower(), (
+        "the message should also point at the default backend, which needs no pin"
+    )
+
+
 def test_it_still_degrades_to_dormant_rather_than_raising(
     installed_but_broken, caplog
 ):

@@ -81,6 +81,23 @@ def _unavailable_detail(backend: str, exc: Exception) -> str:
                 # current setuptools and the user was told the backend was
                 # available. `recimport/factory.py` already guards this; the two
                 # were written from the same shape and only one got the fix.
+                #
+                # The remedy is named here rather than left to the traceback,
+                # because `pyproject.toml` no longer pins setuptools for this
+                # extra and cannot: `uv.lock` resolves one version for the whole
+                # workspace, so the pin held every install -- and both shipped
+                # bundles, built from that lock -- below the 83.0.0 that patches
+                # Dependabot #9. So this is now the *expected* state for anyone who
+                # installs the backend on a current setuptools, and a bare
+                # ModuleNotFoundError would leave them to rediscover the cause.
+                if "pkg_resources" in str(exc):
+                    return (
+                        f"{exc} -- `resemblyzer` needs `webrtcvad`, which imports "
+                        "`pkg_resources`; setuptools removed it in 81.0.0. Run "
+                        '`pip install "setuptools<81"` in this environment, or use '
+                        "the default `[voiceprint] backend = \"ecapa\"`, which "
+                        "needs no such pin."
+                    )
                 return str(exc)
             if status.implemented or status.missing:
                 return status.message

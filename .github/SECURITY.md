@@ -92,38 +92,39 @@ want, so please open an issue rather than assuming.
 
 ### `setuptools` < 83.0.0 — `MANIFEST.in` exclusion bypass when building an sdist
 
-**Not exploitable in YazSes as shipped.** A patched release *does* exist (83.0.0),
-which makes this different from the advisory above: the alert stays open because
-one optional extra deliberately pins below it, not because there is nothing to
-upgrade to.
+**Resolved — the lock now takes 84.0.0.** This entry is kept rather than deleted
+because the way it was *wrongly* assessed is the useful part.
 
 The vulnerability is in setuptools' **sdist builder** — on a case-insensitive,
 Unicode-normalising filesystem (macOS APFS/HFS+) an NFC/NFD collision can defeat a
-`MANIFEST.in` exclusion, so a file you told the packager to leave out is included
-in the source distribution anyway. Three things would each have to be true for
-that to reach this project, and none is:
+`MANIFEST.in` exclusion, so a file you told the packager to leave out is included in
+the source distribution anyway. Two facts still stand and are still guarded by tests:
+YazSes is built with **hatchling**, not setuptools (`[build-system]`), and there is
+**no `MANIFEST.in`** in this repository for the bypass to act on.
 
-1. **YazSes is not built with setuptools.** `[build-system]` declares
-   `requires = ["hatchling"]` and `build-backend = "hatchling.build"`. The
-   vulnerable code path is not the one that produces the YazSes sdist or wheel.
-2. **There is no `MANIFEST.in` in this repository.** The advisory is a bypass *of
-   exclusion rules written in that file*. With no such file there are no
-   exclusions to bypass, and hatchling's file selection is configured in
-   `pyproject.toml` by a different mechanism entirely.
-3. **Installing setuptools does not run the vulnerable path.** It is a build-time
-   code path, reached by *building* a source distribution — not by having the
-   package present. `setuptools` is on an ordinary install because `ctranslate2`
-   declares it as a runtime requirement (it arrives under `faster-whisper`, a base
-   dependency); nothing in YazSes ever builds an sdist.
+What did not stand was the third claim. The alert had been left open because the
+`voiceprint-resemblyzer` extra pinned `setuptools<81` — `resemblyzer` needs
+`webrtcvad`, whose first line is `import pkg_resources`, which setuptools removed
+(80.10.2 has it; 83.0.0 and 84.0.0 do not). Three files said, in three different
+wordings, that the pin was confined to that opt-in extra. It was not:
 
-The pin itself is `setuptools<81`, scoped to the `voiceprint-resemblyzer` extra,
-and it exists for an unrelated and load-bearing reason: `resemblyzer` requires
-`webrtcvad`, whose first line is `import pkg_resources`, and setuptools removed
-`pkg_resources` in 81. Without the pin that extra installs and then cannot import
-— which is how it once shipped. So taking the security patch in that extra would
-trade a build-time issue this project cannot reach for a runtime break every user
-of the extra *would* hit.
+* `uv.lock` is a **universal** resolution — one version per package for the entire
+  workspace. It has no way to hold a package back "only inside an extra".
+* `uv export --no-dev`, asking for no extras at all, emitted `setuptools==80.10.2`,
+  because core `ctranslate2` requires setuptools and there was a single entry to
+  satisfy every consumer.
+* `scripts/build-macos.sh` and `scripts/build-windows.ps1` build the shipped `.dmg`
+  and `.exe` from that lock, so the held-back version reached release artifacts.
 
-If you build source distributions of **your own** packages on macOS in an
-environment where YazSes pinned setuptools for you, upgrade setuptools there —
-that is a real exposure, it is simply not one YazSes creates or can fix for you.
+The pin has therefore been removed from `pyproject.toml`, and the `ignore` rule that
+was suppressing the security PR has been removed from `.github/dependabot.yml`. The
+remedy for that one extra now lives where the choice is made: install it and, in that
+environment, `pip install "setuptools<81"`. `voiceprint/factory.py` already
+distinguishes "installed but cannot import" from "absent" and reports the real
+`ModuleNotFoundError`, so the failure is self-describing rather than silent, and
+`.github/workflows/heavy-extras.yml` applies the same remedy weekly — which is what
+proves the instruction works.
+
+The guard that should have caught this read `project.dependencies` and
+`optional-dependencies`. Both are *declarations*; the property being claimed was
+about the *resolution*. It now asserts the version `uv.lock` actually resolves.

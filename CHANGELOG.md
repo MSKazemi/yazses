@@ -6,6 +6,45 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security — a pin inside one opt-in extra was holding every install below a patch
+
+`pyproject.toml`'s `voiceprint-resemblyzer` extra pinned `setuptools<81`, because
+`resemblyzer` needs `webrtcvad`, whose first line is `import pkg_resources` — removed
+from setuptools in 81 (verified: 80.10.2 has it, 83.0.0 and 84.0.0 do not). Three files
+said in three different wordings that this was confined to that opt-in extra:
+pyproject.toml ("a base install never sees the pin"), `.github/dependabot.yml` ("the
+exposure is bounded to `voiceprint-resemblyzer`, which is opt-in, excluded from
+`[all]`"), and `.github/SECURITY.md` ("not one YazSes creates").
+
+It was not confined. `uv.lock` is a **universal** resolution — one version per package
+for the whole workspace, with no way to hold a package back only inside an extra.
+`uv export --no-dev`, asking for no extras at all, emitted `setuptools==80.10.2`,
+because core `ctranslate2` requires setuptools and there was a single entry to satisfy
+every consumer. `scripts/build-macos.sh` and `scripts/build-windows.ps1` build the
+shipped `.dmg` and `.exe` from that lock, so it went out in release artifacts too.
+
+The lock now resolves **84.0.0**, above the 83.0.0 that patches Dependabot alert #9.
+
+The guard that should have caught it is the interesting part. It read
+`project.dependencies` and `optional-dependencies` and asserted that only that one
+extra named a setuptools pin — while its own docstring stated the real property, *"a
+base install must never be held below the patched release"*. Declarations cannot
+establish that; the resolution can. It now asserts the version `uv.lock` resolves, and
+fails against the old lockfile.
+
+The `ignore` rule that was suppressing the security PR is gone from
+`.github/dependabot.yml` (an `ignore` silences security updates too, not just routine
+bumps). The remedy for that one extra moved to where the choice is made: install it,
+then `pip install "setuptools<81"` in that environment. `voiceprint/factory.py` already
+told apart "installed but cannot import" from "absent"; it now also names the fix
+instead of only reporting `ModuleNotFoundError`, and the weekly `heavy-extras`
+workflow applies the same remedy — which is what proves the instruction works.
+
+The other open advisory, `diskcache` ≤ 5.6.3, was re-checked and its published
+assessment still holds: nothing in `src/` calls `Llama.set_cache`, constructs
+`LlamaDiskCache`, or imports `diskcache`, and an AST scan in the test suite enforces
+that. No upstream patch exists, so it stays open with reasoning rather than silenced.
+
 ### Added — Tier 2 intent routing is reachable, and `[emg] ble_address` connects something
 
 Two settings that were documented, validated, defaulted, and read by nothing.

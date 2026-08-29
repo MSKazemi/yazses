@@ -19,9 +19,11 @@ name: Heavy optional extras
 #     same reading of the docs that produced the bug.
 #   * the resemblyzer test embeds two lengths of synthetic noise through the real
 #     encoder. Its first hand-run failure was `ModuleNotFoundError: No module named
-#     'pkg_resources'` when the package was installed by *bare name* — which is what
-#     the `setuptools<81` pin inside the extra exists to prevent, and the first evidence
-#     that the pin does anything. Installing the extra, as here, is what tests the ship.
+#     'pkg_resources'` when the package was installed by *bare name*. That is what the
+#     `setuptools<81` pin inside the extra used to prevent — and the pin has since been
+#     removed, because a universal lock applies it to everyone (see the step below).
+#     The job now applies the same remedy in its own environment, so it still tests the
+#     ship and additionally proves the instruction given to users is a working one.
 #
 # Neither needs a token, a model, or the network at test time.
 #
@@ -56,6 +58,19 @@ jobs:
 
       - name: Install dependencies (with the two heavy extras)
         run: uv sync --extra diarization-pyannote --extra voiceprint-resemblyzer
+
+      # `resemblyzer` -> `webrtcvad` -> `import pkg_resources`, which setuptools
+      # removed (80.10.2 has it; 83.0.0 and 84.0.0 do not). `pyproject.toml` used to
+      # carry `setuptools<81` inside the extra to prevent that, and the pin had to go:
+      # `uv.lock` is a universal resolution, so a pin in an opt-in extra held the base
+      # install -- and both shipped bundles, which are built from that lock -- below
+      # the 83.0.0 that patches Dependabot #9.
+      #
+      # The remedy now lives where the backend is chosen, and this step is what proves
+      # the documented remedy actually works rather than merely being written down.
+      # Deliberately AFTER `uv sync`, which would otherwise resolve it straight back up.
+      - name: Pin setuptools for resemblyzer, the way the docs tell a user to
+        run: uv pip install "setuptools<81"
 
       - name: Both extras must actually be importable
         # Without this the guarded tests skip and the job passes green having tested
