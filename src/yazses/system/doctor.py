@@ -8,6 +8,7 @@ when Mac and Windows ship they grow their own extras blocks.
 from __future__ import annotations
 
 import os
+import platform as platform_module  # `platform` is a local in run_doctor (the Platform bundle)
 import shutil
 import sys
 from importlib.metadata import PackageNotFoundError
@@ -22,6 +23,7 @@ from yazses.platform.base import (
     WINDOWS_PLATFORM_NAME,
 )
 from yazses.system import streams
+from yazses.system.intel_macos import ceiling_advice
 from yazses.system.miclevel import LevelStats
 from yazses.system.snap import in_strict_snap, keyboard_capture_advice
 
@@ -1229,6 +1231,15 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     else:
         checks.append(("Platform", "OK", platform.name))
     checks.append(_version_check())
+    # Only ever a row on an Intel Mac, where the dependencies -- not YazSes -- have
+    # begun dropping x86_64 wheels, and each one that drops takes a Python version
+    # with it. Placed next to Version because it is the same question asked forwards:
+    # what am I running, and what will still install tomorrow. Nothing else in the
+    # product can raise this, because the failure happens during a *re*-install,
+    # after the running copy is gone. See system/intel_macos.py (#264).
+    intel_row = ceiling_advice(sys.platform, platform_module.machine(), sys.version_info[:2])
+    if intel_row is not None:
+        checks.append(intel_row)
     # Sits directly under Version on purpose: "what am I running" and "is there
     # anything newer" are one question to the user, and the second half was
     # unanswerable from anywhere in the product.

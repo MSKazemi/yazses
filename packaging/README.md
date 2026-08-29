@@ -192,15 +192,28 @@ bundle's `Info.plist` straight out of the image and confirmed the version fix la
 universal binary when every bundled native dependency is itself universal, and
 `ctranslate2` (via `faster-whisper`) publishes separate arm64 and x86_64 macOS wheels.
 
-Intel coverage therefore needs a **second CI job on an Intel runner**. GitHub retired
-the free Intel image; Intel is now only `-large`/`-intel` labels, which are billed
-**even for public repositories**. That is a spend decision, so it is documented rather
-than assumed. Until it is made:
+Intel coverage therefore needs a **second CI job on an Intel runner**, and since
+v2.22.0 it has one: `macos-15-intel` in the `build-macos.yml` matrix, producing a
+second `…-macos-x86_64.dmg` per release. It is `continue-on-error`, so a release can
+still ship without it. `macos-15-intel` is the **last** x86_64 image GitHub Actions
+will offer, available until **August 2027** (ADR-017); `macos-13` was retired on
+2025-12-04. When it goes, pipx is the only Intel path left.
+
+Alongside that:
 
 - the cask declares `depends_on arch: :arm64`, so Homebrew refuses cleanly on Intel
   instead of installing an app that cannot start;
-- `docs/macos-install.md` routes Intel users to `pipx install yazses`, which is
-  architecture independent.
+- `docs/macos-install.md` routes Intel users to `pipx install yazses`.
+
+⚠ **That pipx route is no longer architecture independent, which this file used to
+claim.** Measured against the live index: on Intel macOS the base install resolves
+only on **Python 3.11–3.13** (`onnxruntime` shipped no x86_64 macOS wheel after
+1.23.2, which has no cp314 build, and `faster-whisper` requires it), and `[all]`
+only on **3.11–3.12** (`torch` shipped none after 2.4.1/cp312). So the fallback for
+a missing Intel `.dmg` has an expiry date of its own, arriving from upstream rather
+than from Apple or from GitHub. `src/yazses/system/intel_macos.py` turns this into a
+`yazses doctor` row, and `tests/test_intel_macos_ceiling.py` ties the numbers to the
+markers in `pyproject.toml` so they cannot drift apart. Context: #264.
 
 ⚠ **Three open issues invite contributors to test on hardware that cannot work.**
 [#216](https://github.com/MSKazemi/yazses/issues/216) ("Test YazSes on macOS (Intel)")

@@ -529,7 +529,7 @@ brew tap MSKazemi/yazses
 brew trust MSKazemi/yazses          # required: Homebrew now gates third-party taps
 brew install --cask yazses
 
-# pipx (Python ≥ 3.11) — works on Apple Silicon and Intel
+# pipx — Apple Silicon: Python ≥ 3.11.  Intel: Python 3.11–3.13 (see below)
 pipx install yazses
 
 # App bundle (.dmg) — unsigned developer preview; separate Apple Silicon and Intel builds
@@ -541,6 +541,15 @@ pipx install yazses
 > `…-macos-arm64.dmg` and `…-macos-x86_64.dmg`. The **cask** is still Apple Silicon
 > only: it declares `arch: :arm64` and refuses rather than installing a broken app.
 > Details in [docs/macos-install.md](docs/macos-install.md).
+>
+> ⚠ **Intel Macs have a Python ceiling, and it is not ours.** `pipx install yazses`
+> needs **Python 3.11–3.13** there, and `yazses[all]` needs **3.11–3.12**. Upstream
+> stopped building Intel macOS wheels: `onnxruntime` published none after 1.23.2
+> (which has no Python 3.14 build) and `torch` none after 2.4.1 (no 3.13 build).
+> On Python 3.14 the install fails with a resolver error naming `onnxruntime` — it
+> looks like a YazSes bug and is not one. `yazses doctor` prints your position
+> against this ceiling on an Intel Mac, so you learn it *before* an upgrade, not
+> after. Apple Silicon is unaffected.
 
 ### Windows
 

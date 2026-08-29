@@ -76,10 +76,11 @@ The **Homebrew cask** is still Apple Silicon only: it declares
 rather than installing something that cannot start.
 
 ⚠ The Intel leg is `continue-on-error` in CI, so a release *can* ship without it. If
-you do not see an `x86_64` asset on a given release, PyPI is architecture independent
-and always works:
+you do not see an `x86_64` asset on a given release, install from PyPI instead — but
+**check your Python version first**:
 
 ```sh
+python3 --version     # must be 3.11, 3.12 or 3.13 on an Intel Mac
 pipx install yazses
 yazses quickstart
 ```
@@ -88,9 +89,40 @@ You get the same daemon and CLI; what you do not get is the `.app` bundle and
 its tray icon. Everything below about Accessibility and Microphone permissions
 still applies — grant them to your **terminal** app instead of to YazSes.app.
 
+#### The Intel Python ceiling — upstream's, not ours
+
+This page used to say PyPI "is architecture independent and always works". That is
+no longer true, and the way it fails is misleading, so it is worth the paragraph.
+
+| What you install | Python versions that work on Intel macOS |
+|---|---|
+| `pipx install yazses` (base) | **3.11 – 3.13** |
+| `yazses[all]` | **3.11 – 3.12** |
+| Anything, on Apple Silicon | 3.11 and up — unaffected |
+
+The cause is upstream wheel publishing, not YazSes packaging:
+
+- **`onnxruntime`** published no `x86_64` macOS wheel after **1.23.2**, and 1.23.2
+  was built for CPython 3.10–3.13 only. `faster-whisper` requires `onnxruntime` and
+  is not optional here, so on Python 3.14 the **base** install cannot resolve.
+- **`torch`** published no Intel macOS wheel after **2.4.1** (CPython 3.12), so the
+  `voiceprint` extra — and therefore `[all]` — already cannot resolve on 3.13.
+
+On Python 3.14 you will see a long resolver backtrace ending in something like
+*"onnxruntime>=1.14.0,<=1.23.2 has no wheels with a matching Python ABI tag
+(cp314)"*. It names `onnxruntime` and reads like a YazSes bug. It is not: pin your
+interpreter to 3.13 (`pipx install --python python3.13 yazses`) and it installs.
+
+**Already installed and working?** Nothing breaks today — but a Python upgrade will
+break your *next* install rather than your current one, which is the worst possible
+time to find out. `yazses doctor` prints an **Intel macOS** row showing where you
+sit against this ceiling, so you can see it while things still work.
+
 > This page previously said an Intel `.dmg` "would need a second CI job" that had not
 > been paid for. That job exists now (`macos-15-intel` in the build matrix) and has
-> shipped Intel bundles since v2.22.0.
+> shipped Intel bundles since v2.22.0. Note that `macos-15-intel` is the **last**
+> x86_64 image GitHub Actions will offer, available until **August 2027**; when it
+> goes, pipx becomes the only Intel path.
 
 ## First launch — Gatekeeper bypass
 
