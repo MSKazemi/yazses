@@ -6,6 +6,53 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — every Dependabot `uv` run failed on `onnxruntime`, and the diagnosis was wrong (#322)
+
+The monthly dependency-update job has failed on every run since it was written. It was
+documented as expected and unfixable: `pyproject.toml` caps `onnxruntime` below 1.24 on
+Intel macOS, because upstream published no `x86_64` macOS wheel after 1.23.0, and the
+recorded conclusion was that the only remedies were a blanket `ignore` (which would
+also drop every onnxruntime update — security ones included — on Linux, Windows and
+Apple silicon, where essentially all users are) or dropping Intel macOS support
+outright. The advice was to leave the job red and bump onnxruntime by hand.
+
+The mechanism written down was wrong, and uv's own error message had been saying so:
+
+```
+Because yazses[all] depends on onnxruntime{platform_machine == 'x86_64'
+and sys_platform == 'darwin'}<1.24 and onnxruntime{...}==1.29.0 ...
+```
+
+The offending requirement is **marker-scoped**. The note claimed Dependabot pins the
+target version for the whole resolution with no environment marker — a global pin would
+have printed without the `{…}`. What was actually happening: the Intel range was stated
+**twice**, once in `[tool.uv] constraint-dependencies` and again as a second
+`onnxruntime>=1.23.2,<1.24; darwin+x86_64` requirement beside each `>=1.27` floor in the
+`tts`, `silero` and `all` extras. Dependabot rewrites `[project]` requirements and never
+touches `[tool.uv]`, so proposing 1.29.0 turned the duplicate into `>=1.29.0` sitting
+next to the table's `<1.24`. The claim that the failure "goes away only when the cap is
+gone" was tested by moving the cap between tables while leaving that duplicate in place.
+
+The range is now stated once, in the table Dependabot cannot rewrite. The extras still
+declare `onnxruntime` for Intel macOS — leaning on `kokoro-onnx`/`onnx-asr` to pull it
+in transitively would work today and break silently the day an upstream vendors its own
+runtime — but they declare it with **no specifier**, which Dependabot's uv handler
+treats as non-updatable and returns unchanged
+([dependabot-core#12273](https://github.com/dependabot/dependabot-core/issues/12273)).
+
+Reproduced end to end before and after: rewriting every `[project]` floor to `>=1.29.0`,
+exactly as a bump does, previously produced "yazses[all]'s requirements are
+unsatisfiable" and now resolves 287 packages with Intel macOS on 1.23.2 and everything
+else on 1.29.0. `uv.lock` is byte-identical in the versions it resolves. Nothing was
+given up: no ignore rule, no dropped platform, no hand-bumping — and because the job
+aborts as a whole, the fifteen unrelated bumps grouped with onnxruntime were being lost
+each month too.
+
+`tests/test_dependabot_ignores_are_honest.py::test_no_platform_version_range_is_stated_in_both_places`
+compares each `[project]` requirement's marker against the constraint table's by
+evaluating both over the supported platform grid, so an equivalent marker written a
+different way is caught as well; it fails against the previous `pyproject.toml`.
+
 ### Fixed — `gitvoice --help` shipped a copy-pasteable force push
 
 `yazses gitvoice --help` ended with two example lines, and the second was
