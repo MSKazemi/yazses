@@ -1389,7 +1389,23 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
                 f"{port} {'accessible' if port.exists() else 'not found'}",
             ))
         if cfg.emg.ble_address:
-            checks.append(("EMG BLE address", "OK", cfg.emg.ble_address))
+            # This row used to print a flat OK for the configured address, which was
+            # a claim about nothing: `_build_activation_sources` read only
+            # `device_port`, so a BLE armband was configured, reported healthy, and
+            # never connected. The wiring exists now, and the one thing that can
+            # still make it a no-op is a missing `bleak` -- BLEEMGBackend.run()
+            # logs and returns in that case, which nobody watching a hotkey would
+            # see. An address alone is not a working device, so do not say OK for one.
+            from importlib.util import find_spec
+
+            has_bleak = find_spec("bleak") is not None
+            checks.append((
+                "EMG BLE address",
+                "OK" if has_bleak else "WARN",
+                cfg.emg.ble_address if has_bleak else
+                f"{cfg.emg.ble_address} — bleak is not installed, so nothing will "
+                f"connect. Install it with: pip install 'yazses[ble]'",
+            ))
         prosody = _prosody_check(cfg.prosody.enabled)
         if prosody is not None:
             checks.append(prosody)

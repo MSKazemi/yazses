@@ -289,9 +289,13 @@ Stage by stage:
 8. **Command classification.** A fast **Tier 1 regex grammar** decides whether the
    utterance is plain dictation or a command like *"undo that"* or *"go to line 42"*
    (`src/yazses/commands/grammar.py`). A **Tier 2 small-language-model router**
-   (`slm_router.py`) was designed for the unsure case and is **not wired** —
-   `grammar.classify()` accepts an `slm_router` argument and nothing constructs one,
-   which `tests/test_orphan_modules.py` records. Tier 1 decides every utterance.
+   (`slm_router.py`) handles the unsure case: when Tier 1 returns plain dictation and
+   `[commands] slm_model_path` names a local GGUF model, the router gets a second look
+   and its answer is accepted above `slm_confidence_threshold`. **Off unless that model
+   path is set** — Tier 1 alone decides every utterance otherwise, which is what every
+   install without a model does. Few-shot examples mined by `yazses tune` are loaded
+   from `few_shots.toml` if present. A router that fails or raises falls back to Tier 1
+   rather than losing the burst.
 9. **Dispatch and inject.** Plain dictation goes to text injection; commands go to
    a key sequence (`src/yazses/commands/dispatch.py`). For dictation only, two
    optional finishing steps run first: an offline **LLM cleanup** pass that lightly
@@ -428,6 +432,22 @@ or plain hold-to-talk dictation (`mode = "full_text"`). Each activation source
 runs in its own background thread beside the keyboard hook and is stopped at
 shutdown; the same seam is where future non-keyboard triggers (wake word,
 switch access) plug in.
+
+**Bluetooth is the second transport through the same seam.** `platform/emg/ble_backend.py`
+(`BLEEMGBackend`) speaks the same YESP protocol over the Nordic UART Service and
+duck-types the same `HotkeyBackend` with the same two callbacks, so `[emg] ble_address`
+builds a source exactly as `device_port` does, and `[emg] mode` routes both
+identically — deliberately one decision shared rather than one per transport, since a
+squeeze that dictates over Bluetooth and runs a command over USB is the kind of drift
+nobody would think to test. Setting both is allowed and logs a warning: they are two
+physical devices, and choosing one for the user would be a guess.
+
+⚠ Until v2.36 `ble_address` was read by nothing. It was a documented config key that
+`_build_activation_sources` never looked at, and `yazses doctor` printed it as a flat
+`OK` — so a paired armband was configured, reported healthy, and never connected. There
+is no symptom to notice, because a hotkey that fails is silent and so is one you are
+not pressing. `doctor` now reports `WARN` when `bleak` is absent, since an address
+without the transport library cannot connect.
 
 ### Reaching the app grid
 

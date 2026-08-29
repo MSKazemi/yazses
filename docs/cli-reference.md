@@ -671,12 +671,12 @@ yazses enroll-voice    # record a sample → save your speaker voiceprint
 
 Manage the Tier 2 SLM intent-routing models.
 
-!!! warning "Tier 2 is designed, not wired"
+!!! note "Tier 2 is opt-in"
 
-    Nothing loads an SLM router today — `grammar.classify()` accepts one and no
-    code constructs it, so Tier 1 decides every utterance and downloading a GGUF
-    gains you nothing. The command is still the right way to pre-fetch a *speech*
-    model behind a firewall.
+    Downloading a model does not switch Tier 2 on. Point `[commands] slm_model_path`
+    at the GGUF and restart the daemon; until then Tier 1 decides every utterance,
+    which is the default and costs no inference. The command is also the right way
+    to pre-fetch a *speech* model behind a firewall.
 
 | Command | Description |
 |---|---|
@@ -1529,9 +1529,11 @@ so "Save file." works the same as "save". Spelled-out numbers ("delete the last
     it is the only one gated this way.
 
 Don't see a command you want? Tell us — the grammar is easily extended.
-Natural-language commands beyond this fixed list would need the Tier 2 SLM router,
-which is designed but has **no caller** — there is no switch that turns it on today, and
-`[commands] slm_model_path` is read by nothing.
+Natural-language commands beyond this fixed list go through the Tier 2 SLM router,
+which is **off unless you point `[commands] slm_model_path` at a local GGUF model** and
+have `llama-cpp-python` installed. It is consulted only when the Tier 1 grammar decides
+an utterance is plain dictation, and its answer is taken only above
+`[commands] slm_confidence_threshold`.
 
 ### Voice punctuation (opt-in)
 

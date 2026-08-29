@@ -196,6 +196,15 @@ _TONE_INSTRUCTIONS: dict[str, str] = {
 class Daemon:
     """The dictation daemon. Holds a hotkey listener and an IPC server."""
 
+    #: Tier 2 SLM intent router, or None (the default, and what almost every
+    #: install runs). Declared on the class, not only in `__init__`, because
+    #: `_on_hold_end` reads it on the dictation path and a good deal of the suite
+    #: exercises that path against a deliberately partial daemon — nine tests went
+    #: red on `'Daemon' object has no attribute '_slm_router'` the moment this was
+    #: an instance-only attribute. A missing router must degrade to Tier 1, and an
+    #: AttributeError raised mid-burst does the opposite: it loses the words.
+    _slm_router = None
+
     def __init__(
         self,
         config: Config | None = None,
@@ -800,6 +809,9 @@ class Daemon:
 
         # Optional non-keyboard activation sources (EMG squeeze via [emg]).
         self._extra_activations = self._build_activation_sources(cfg)
+        # Tier 2 natural-language intent fallback (ADR: commands/slm_router.py).
+        # None unless `[commands] slm_model_path` names a usable model.
+        self._slm_router = self._build_slm_router(cfg)
 
         # Opt-in self-improvement corpus (ADR-012). Dormant unless enabled.
         self._corpus = build_writer(self._platform.paths.data_dir, cfg.learning)
@@ -988,32 +1000,116 @@ class Daemon:
         """
         sources: list = []
         port = (cfg.emg.device_port or "").strip()
-        if not port:
+        address = (cfg.emg.ble_address or "").strip()
+        if not port and not address:
             return sources
-        try:
-            from yazses.platform.emg.backend import EMGBackend
 
-            # The modality router, when enabled, is what decides whether EMG owns
-            # commands — that is the arbitration ADR-v2-011 describes, and the
-            # runtime read that takes `modality` out of _UNWIRED. With it off,
-            # `[emg] mode` alone decides, exactly as before.
-            mode = cfg.emg.mode
-            roles = getattr(self, "_modality_roles", {})
-            if roles:
-                mode = "command" if roles.get("command") == "emg" else "full_text"
-                if mode != cfg.emg.mode:
-                    log.info("Modality router set EMG to %s mode (config said %s).",
-                             mode, cfg.emg.mode)
-            if mode == "command":
-                start, end = self._on_command_hold_start, self._on_command_hold_end
-            else:
-                start, end = self._on_hold_start, self._on_hold_end
-            sources.append(EMGBackend(port, cfg.emg.baud_rate, start, end))
-            log.info("EMG activation source enabled on %s (%s mode).", port, mode)
-        except Exception:
-            log.warning("EMG activation source init failed; continuing without.",
-                        exc_info=True)
+        # The modality router, when enabled, is what decides whether EMG owns
+        # commands — that is the arbitration ADR-v2-011 describes, and the
+        # runtime read that takes `modality` out of _UNWIRED. With it off,
+        # `[emg] mode` alone decides, exactly as before.
+        mode = cfg.emg.mode
+        roles = getattr(self, "_modality_roles", {})
+        if roles:
+            mode = "command" if roles.get("command") == "emg" else "full_text"
+            if mode != cfg.emg.mode:
+                log.info("Modality router set EMG to %s mode (config said %s).",
+                         mode, cfg.emg.mode)
+        if mode == "command":
+            start, end = self._on_command_hold_start, self._on_command_hold_end
+        else:
+            start, end = self._on_hold_start, self._on_hold_end
+
+        if port:
+            try:
+                from yazses.platform.emg.backend import EMGBackend
+
+                sources.append(EMGBackend(port, cfg.emg.baud_rate, start, end))
+                log.info("EMG activation source enabled on %s (%s mode).", port, mode)
+            except Exception:
+                log.warning("EMG activation source init failed; continuing without.",
+                            exc_info=True)
+
+        # `[emg] ble_address` was a documented, `doctor`-reported setting that
+        # nothing read: this factory looked only at `device_port`, so an armband
+        # paired over Bluetooth was configured, reported OK, and never connected.
+        # BLEEMGBackend duck-types the same HotkeyBackend and takes the same two
+        # callbacks, so it is the same wiring with a different transport.
+        if address:
+            try:
+                from yazses.platform.emg.ble_backend import BLEEMGBackend
+
+                sources.append(BLEEMGBackend(address, start, end))
+                log.info("EMG BLE activation source enabled for %s (%s mode).",
+                         address, mode)
+            except Exception:
+                log.warning("EMG BLE activation source init failed; continuing "
+                            "without.", exc_info=True)
+
+        # Both transports configured is allowed rather than silently resolved:
+        # they are two physical devices, and picking one for the user would be a
+        # guess. Say so, because a stray squeeze from a forgotten second armband
+        # is otherwise very hard to attribute.
+        if port and address:
+            log.warning("Both [emg] device_port and ble_address are set — running "
+                        "BOTH activation sources. Clear one if that is not intended.")
         return sources
+
+    def _build_slm_router(self, cfg):
+        """Tier 2 SLM intent router, or None (#164).
+
+        `commands/grammar.py::classify` has taken an `slm_router` parameter since
+        v0.4.0 and no caller ever passed one, so `[commands] slm_model_path` and
+        `slm_confidence_threshold` were documented settings that did nothing —
+        Tier 2 could not run however they were set. `yazses tune` even wrote
+        `few_shots.toml` for it, which nothing then read.
+
+        Off unless a model path is configured, and `SLMRouter` disables itself
+        when the file is absent or llama-cpp-python is not installed, so an
+        unreachable model degrades to Tier-1-only rather than failing a burst.
+        Constructed once here rather than per utterance: loading a GGUF on the
+        hot path would add seconds to the first command after every hold.
+        """
+        # Plain attribute reads, not getattr(): `CommandsConfig` guarantees both
+        # fields and `configcheck` fills them, so the defensive form buys nothing —
+        # and `scripts/config_status.py` finds a key's readers by walking the AST for
+        # attribute access, so a getattr with a string literal reads as *unread* and
+        # leaves the key marked "⚠️ inert" in the generated reference.
+        path = (cfg.commands.slm_model_path or "").strip()
+        if not path:
+            return None
+        try:
+            from yazses.commands.slm_router import SLMRouter
+            from yazses.learning.analysis import load_few_shots
+
+            # Few-shot lines mined by `yazses tune` from the local corpus. Best
+            # effort: a missing or malformed file must not cost the user Tier 2.
+            examples: list[str] = []
+            try:
+                examples = load_few_shots(self._platform.paths.data_dir / "few_shots.toml")
+            except Exception:
+                log.debug("few_shots.toml unreadable; continuing without", exc_info=True)
+
+            router = SLMRouter(
+                path,
+                threshold=cfg.commands.slm_confidence_threshold,
+                extra_examples=examples,
+            )
+            if not getattr(router, "_enabled", False):
+                # SLMRouter reports its own reason at debug level and then answers
+                # None forever. Say so once at info, because a configured model
+                # that silently never runs is the state this whole change exists
+                # to end.
+                log.info("Tier 2 SLM router configured (%s) but inactive — the "
+                         "model file or llama-cpp-python is missing.", path)
+                return None
+            log.info("Tier 2 SLM intent router active (%s, %d tuned examples).",
+                     path, len(examples))
+            return router
+        except Exception:
+            log.warning("SLM router init failed; continuing with Tier 1 only.",
+                        exc_info=True)
+            return None
 
     def _build_gaze_targeter(self, cfg):
         """Build the look-to-pane targeter, or None when any piece is missing.
@@ -1525,6 +1621,7 @@ class Daemon:
             intent = None
             if command_mode:
                 intent = classify(text, self._config.commands.profile,
+                                  slm_router=self._slm_router,
                                   macro_table=self._macro_table)
                 event["command_mode"] = True
                 event["intent_type"] = intent.intent.value
@@ -1641,6 +1738,7 @@ class Daemon:
             else:
                 if self._config.commands.enabled:
                     intent = classify(text, self._config.commands.profile,
+                                       slm_router=self._slm_router,
                                        macro_table=self._macro_table)
                     event["intent_type"] = intent.intent.value
                     event["intent_action"] = intent.action

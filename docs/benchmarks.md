@@ -800,9 +800,10 @@ Tested on 68 command phrases and 80 lines of ordinary dictation:
 The zero false-positive rate is the number that matters. A dictation tool that
 occasionally interprets your sentence as "delete the last three words" is worse than
 one that occasionally fails to recognise a command — the remaining 7.4 % of commands
-get typed as text, which is annoying but harmless. A Tier-2 SLM router was designed
-to catch those and is **not wired** — Tier 1 decides every utterance today, so the
-number above is what you get.
+get typed as text, which is annoying but harmless. The optional Tier-2 SLM router can
+catch some of those, but it contributes nothing to the numbers above: this benchmark
+runs Tier 1 alone, which is also what every install that sets no
+`[commands] slm_model_path` runs. Treat the table as the floor, not the ceiling.
 
 ## Dysfluency-Friendly Mode
 

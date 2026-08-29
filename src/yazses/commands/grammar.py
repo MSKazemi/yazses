@@ -1,10 +1,13 @@
 """Code command grammar classifier — detects voice commands in transcribed text."""
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Protocol
+
+log = logging.getLogger(__name__)
 
 
 class IntentType(str, Enum):
@@ -174,7 +177,22 @@ def classify(
             return CommandIntent(intent=intent, action=action, args=args, raw_text=text)
 
     if slm_router is not None:
-        slm_result = slm_router.classify(text, profile)
+        # Tier 2 runs a local language model through llama-cpp-python — a native
+        # extension doing inference on the dictation path. Tier 1 has already
+        # decided this is dictation, so the *only* thing an exception here can
+        # achieve is losing words the user already said. Falling through to
+        # DICTATE is strictly better than propagating: the burst is typed, which
+        # is what would have happened with no router at all.
+        #
+        # This was unreachable until the daemon started passing a router (#164) —
+        # the parameter existed and nothing filled it — so the seam had never had
+        # to survive a backend failure.
+        try:
+            slm_result = slm_router.classify(text, profile)
+        except Exception:
+            log.warning("Tier 2 SLM router failed; treating as dictation.",
+                        exc_info=True)
+            slm_result = None
         if slm_result is not None:
             return slm_result
 

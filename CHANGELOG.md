@@ -6,6 +6,41 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Tier 2 intent routing is reachable, and `[emg] ble_address` connects something
+
+Two settings that were documented, validated, defaulted, and read by nothing.
+
+**`[commands] slm_model_path` / `slm_confidence_threshold`.** `grammar.classify()` has
+accepted an `slm_router` parameter since v0.4.0 and **no caller ever passed one**, so
+Tier 2 could not run however those keys were set — the architecture reference marked
+both "inert", and `yazses tune` mined few-shot examples into a `few_shots.toml` that
+nothing read. `core/daemon.py::_build_slm_router` now builds the router when a model
+path is set, feeds it those tuned examples, and passes it to *both* `classify()` call
+sites (command mode and the dictation path — wiring one and not the other is a shape
+this project has shipped before). It stays completely absent for anyone who configures
+no model: no GGUF is loaded and no inference runs on the dictation path.
+
+Filling the seam exposed a defect in it. Nothing had ever failed there, so
+`classify()` had no guard around the Tier 2 call — a llama-cpp crash mid-utterance
+would have propagated out and lost words the user had already said. It now falls back
+to typing them, which is what would have happened with no router at all.
+
+**`[emg] ble_address`.** `_build_activation_sources` read `device_port` and stopped, so
+an armband paired over Bluetooth was configured and never connected — and `yazses
+doctor` printed a flat `OK` beside the address, because the address was indeed valid.
+There is no symptom to notice either: a hotkey that does not fire is silent, which is
+also what a hotkey you are not pressing does. Both transports now build, each in its
+own try/except so a missing USB device cannot take the Bluetooth one down with it, and
+the `[emg] mode` routing is decided once and shared rather than reimplemented per
+transport. `doctor` reports WARN when `bleak` is not installed.
+
+Documentation caught up in the same commit: five pages still said Tier 2 was "designed,
+not wired", including the CLI reference for `yazses model` and the benchmark page that
+put the claim next to a command-recognition number Tier 1 produced alone. The guard
+that used to *demand* those caveats now forbids them, and separately requires every
+page to say the router needs a local model — under-claiming is the cheaper error but
+the more durable one, since nobody re-reads a caveat when the code catches up.
+
 ### Added — window layout by voice, the half of `windowctl` that was never connected
 
 `windowctl/commands.py::parse_wm_command` has turned "move window left half",

@@ -22,7 +22,7 @@ that the log records *"metadata only … never your dictated text"*. `docs/cli-r
 was the single page that already told the truth — *"The actual transcript text is logged
 only when `general.log_level = "DEBUG"`"* — which is also what makes it the shape to copy.
 
-## Page-level, like `test_docs_qualify_the_unwired_slm_router.py`
+## Page-level, like `test_docs_describe_the_slm_router_honestly.py`
 
 The caveat lands in different places relative to the claim on different pages — an
 admonition below a paragraph, a clause inside a table cell, a sentence after a code block —

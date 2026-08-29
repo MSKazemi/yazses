@@ -43,22 +43,24 @@ Two tiers, and the second one is optional:
 - **Tier 1 — regex grammar.** Fast, deterministic and offline. It handles the
   phrasings above with no model inference at all, which is why commands feel
   instant.
-- **Tier 2 — optional SLM router.** When Tier 1's confidence falls below a
-  threshold, a small (~0.5B) language model can be consulted to catch phrasings
-  the grammar did not anticipate. Dormant unless you point
-  `[commands] slm_model_path` at weights.
+- **Tier 2 — optional SLM router.** When Tier 1 finds no command at all, a small
+  (~0.5B) language model can be consulted to catch phrasings the grammar did not
+  anticipate. Dormant unless you point `[commands] slm_model_path` at a local GGUF.
 
 ```toml
 [commands]
-slm_model_path = ""            # reserved — see below
-slm_confidence_threshold = 0.6 # reserved — see below
+slm_model_path = ""            # a local GGUF; empty means Tier 1 only
+slm_confidence_threshold = 0.6 # below this, the router's answer is discarded
 ```
 
-!!! warning "Tier 2 is designed, not wired"
+!!! note "Tier 2 is off until you give it a model"
 
-    Nothing constructs the router these two keys configure, so setting them changes
-    nothing today: **Tier 1 decides every utterance**. They are documented here
-    because they exist in the config schema, not because they do anything yet.
+    Leave `slm_model_path` empty and **Tier 1 decides every utterance** — no model
+    is loaded and no inference runs on the dictation path. That is the default, and
+    it is what the command-recognition benchmark measures. Set the path and the
+    router is consulted only for utterances Tier 1 classified as plain dictation;
+    its answer is taken only above `slm_confidence_threshold`, and a router that
+    fails or raises falls back to typing the words rather than losing them.
 
 ### When you want to be certain it types, not acts
 
@@ -144,7 +146,8 @@ works in your editor and in your browser without you re-learning phrasing.
   [comparison](../comparison.md).
 - **Command phrasing is finite.** Tier 1 recognises the patterns it was written
   for. Macros let you add your own, but there is no open-ended natural-language
-  understanding — and the SLM router that would widen this is designed, not wired.
+  understanding unless you enable the Tier 2 SLM router (`[commands] slm_model_path`),
+  which needs a local GGUF model and `llama-cpp-python`.
 - **Some capabilities in the table are `optional` rather than `recommended`**, and
   a few desktop-control ones need X11. `yazses features` always states the tier.
 

@@ -43,9 +43,6 @@ ENTRY_MODULES = {
 #: The known orphans, each with what is missing. An entry here is a debt that has
 #: been *looked at and written down*, not one that is hidden.
 KNOWN_ORPHANS = {
-    "commands.slm_router":
-        "Tier-2 SLM intent fallback. commands/grammar.py takes an `slm_router` "
-        "parameter and nothing ever constructs one — a plumbed seam never filled.",
     "commands.profiles":
         "Per-editor grammar config. commands/dispatch.py has a comment pointing at "
         "this module and still never imports it; load_profiles would return an "
@@ -57,9 +54,6 @@ KNOWN_ORPHANS = {
         "gaze is wired through targeter/route/zones; this module is not on that path.",
     "personalize.adapter_gate":
         "personalize is wired through prompt_builder; the P2 LoRA gate is not.",
-    "platform.emg.ble_backend":
-        "The BLE transport for the EMG armband. _build_activation_sources constructs "
-        "the serial backend only.",
     "platform.emg.brainflow_source":
         "A second EMG source, tested but never constructed by the factory.",
 }
