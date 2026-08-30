@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the Dependabot SBOM refresh could not reach the two PRs it was written for
+
+`dependabot-sbom.yml` regenerates the committed SBOM on a bot lockfile branch, because
+`test_sbom.py` fails on a stale one and Dependabot cannot run the generator. It triggers
+on `pull_request_target`, which fires on a pull-request *event* — and #320 and #321 were
+already open when it was added, so no further event will ever reach them. They stayed red
+on the single assertion the workflow exists to clear, with only a `@dependabot rebase`
+comment or a close-and-reopen (which discards the review history) as remedies.
+
+Added a `workflow_dispatch` entry point taking a PR number.
+
+That moves where the author gate has to live. The job-level
+`if: github.event.pull_request.user.login == 'dependabot[bot]'` is vacuous on a dispatch —
+there is no pull request in the payload, only a number someone typed — so the job now
+resolves the PR through the API and refuses unless it was opened by `dependabot[bot]`, has
+its head in this repository, and is still open. That check runs **before** the checkout,
+because the checkout keeps a push-capable token (`persist-credentials`), and the head
+repository is now verified rather than assumed: checking out a fork's head with that token
+would hand it to code from outside the repository.
+
+Confirmed against the previous file: the new "there is a manual entry point" check fails
+on it, and the ordering check correctly stays silent there, since without a manual path
+the job-level `if` really is the gate.
+
 ### Fixed — 14 pages on the docs site shared one search snippet
 
 `tests/test_docs_frontmatter.py` checked that a page's `description:` survives being

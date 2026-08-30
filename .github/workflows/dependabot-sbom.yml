@@ -23,24 +23,81 @@
 # PR as `dependabot[bot]` -- and it runs exactly one stdlib-only script.
 name: Dependabot SBOM refresh
 
+#
+# `workflow_dispatch` exists because `pull_request_target` only fires on a pull-request
+# event, and a pull request opened *before* this workflow existed will never see one
+# again -- no rebase, no new commit, no trigger. #320 and #321 were both in exactly that
+# state: open, red on the SBOM assertion alone, and unreachable by the fix written for
+# them. Without a manual entry point the only remedies are a `@dependabot rebase` comment
+# or closing and reopening the PR, which throws away its review history.
 on:
   pull_request_target:
     paths:
       - "uv.lock"
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "Number of an open Dependabot lockfile PR to refresh."
+        required: true
+        type: string
 
 permissions:
   contents: write
+  pull-requests: read
 
 jobs:
   refresh-sbom:
-    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
+      # Resolve *and authorise* the target before anything is checked out. On the
+      # `pull_request_target` path the job-level `if` has already established the
+      # author; on the dispatch path it cannot, because there is no pull request in
+      # the event payload -- only a number somebody typed. Both are re-checked here
+      # against the API rather than the payload, so the branch this job is about to
+      # check out with a writable token is known to be Dependabot's own.
+      #
+      # `head.repo.full_name` is checked too: Dependabot's branches live in this
+      # repository, and checking out a fork's head with `persist-credentials` would
+      # hand a push-capable token to code from outside it.
+      - name: Resolve and authorise the pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event_name == 'workflow_dispatch' && inputs.pr || github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          case "$NUMBER" in
+            ''|*[!0-9]*) echo "::error::'$NUMBER' is not a pull request number."; exit 1 ;;
+          esac
+          # Captured first, then split on tabs only: with the default IFS a `read`
+          # would also split on spaces, and under `set -e` a `read` that hits EOF
+          # without a trailing newline would abort the step rather than report.
+          meta=$(gh api "repos/${{ github.repository }}/pulls/$NUMBER" \
+            --jq '[.user.login, .head.repo.full_name, .head.ref, .state] | @tsv')
+          IFS=$'\t' read -r author head_repo head_ref state <<<"$meta"
+          if [ "$author" != "dependabot[bot]" ]; then
+            echo "::error::PR #$NUMBER was opened by '$author', not dependabot[bot]."
+            exit 1
+          fi
+          if [ "$head_repo" != "${{ github.repository }}" ]; then
+            echo "::error::PR #$NUMBER's head is in '$head_repo', not this repository."
+            exit 1
+          fi
+          if [ "$state" != "open" ]; then
+            echo "::error::PR #$NUMBER is $state; nothing to push to."
+            exit 1
+          fi
+          echo "ref=$head_ref" >> "$GITHUB_OUTPUT"
+          echo "Refreshing the SBOM on #$NUMBER ($head_ref)."
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # The PR's own branch: this job's whole purpose is to add a commit to it.
-          # Dependabot branches live in this repository, never in a fork.
-          ref: ${{ github.event.pull_request.head.ref }}
+          # Verified above to be a Dependabot branch in this repository.
+          ref: ${{ steps.pr.outputs.ref }}
           # A token that can push back. The default checkout token is scoped to the
           # workflow run; `persist-credentials` keeps it for the `git push` below.
           persist-credentials: true
@@ -68,7 +125,7 @@ jobs:
           # Named pathspec, never a bare `git commit`: this job must add the SBOM and
           # nothing else, even if some future step leaves something else in the tree.
           git commit -m "chore(deps): regenerate sbom.cdx.json for this lockfile" -- sbom.cdx.json
-          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+          git push origin "HEAD:${{ steps.pr.outputs.ref }}"
           # ⚠ Known and accepted: a push made with GITHUB_TOKEN does not start a new
           # workflow run, by design (GitHub's recursion guard). So `test.yml` will not
           # re-run itself on the commit this step just pushed, and the PR keeps showing
