@@ -1067,6 +1067,25 @@ CASES: dict[str, list[dict[str, Any]]] = {
                         "matched it anywhere would fire a keystroke instead of "
                         "typing the instruction (#235)",
          "input": "undo the last three commits before you deploy"},
+        {"id": "comment-this-line-is-a-command",
+         "description": "the phrasing people actually use. `comment` alone was the "
+                        "only form Android accepted, and in command mode an "
+                        "unmatched utterance is discarded — so the phrase did "
+                        "nothing at all: no comment, no text, no error",
+         "input": "comment this line"},
+        {"id": "comment-the-line-is-a-command",
+         "description": "the determiner variant of the same phrase; a grammar that "
+                        "takes one and not the other is unlearnable",
+         "input": "comment the line"},
+        {"id": "comment-this-selection-is-a-command",
+         "description": "the third late-added phrasing, held so a port cannot "
+                        "regain the narrow rule by copy-paste",
+         "input": "comment this selection"},
+        {"id": "comment-inside-a-sentence-is-dictation",
+         "description": "the anchoring that makes the widening safe: 'comment' is "
+                        "an ordinary noun and verb, and only the whole utterance "
+                        "may be the command",
+         "input": "comment the line about the retry budget"},
         {"id": "run-alone-is-a-terminal-command",
          "description": "`run <anything>` is a real command — the daemon gates it "
                         "to command mode, but the grammar still recognises it",

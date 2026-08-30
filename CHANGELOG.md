@@ -6,6 +6,44 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — "comment this line" did nothing at all on Android
+
+`37997ae` widened the desktop's `comment` rule so the phrasing people actually use
+stopped being typed into the file. That was three days after `c5bd487` ported the
+narrow form to Kotlin, and nothing carried the fix across. On Android the rule only
+accepted `comment`, `comment this`, `comment line`, `comment selection` and
+`comment out` — so `"comment this line"` matched no rule, and an utterance that
+matches no rule in command mode is **discarded**: no comment, no text, no error.
+
+Two things let it ship. The 228-vector contract corpus — ADR-MOB-008's stated
+mechanism for keeping the ports in step — did not name `comment` in either
+direction. And the failure is silent by construction, so there was nothing for a
+user to report but "it ignored me".
+
+Fixed by comparing the **tables** rather than adding examples, the lesson of the
+disfluency port where a corpus of examples named 1 of 33 missing words:
+`tests/test_kotlin_port_shares_the_command_grammar.py` parses `Grammar.kt` and
+imports `grammar.py`, and holds all 39 rules — pattern text, intent, action,
+argument names, and **order**, since both classifiers take the first match and the
+table deliberately puts `run tests` ahead of the catch-all `run (.+)`. Four vectors
+record the three phrasings and the anchoring that keeps the widening safe
+(`"comment the line about the retry budget"` is still dictation); contract
+6.6.0 → 6.7.0.
+
+### Fixed — a contract-only change reported the previous run's pass
+
+`:core:contract-test` received the vector directory as a system property and never
+declared it as a task **input**. Gradle keys up-to-date checks and the build cache on
+declared inputs, so amending the contract left every input identical and the task
+returned the earlier result: reproduced locally as a `FROM-CACHE` pass reporting
+`tests="228"` against a 232-case corpus, with only `--rerun-tasks` running the new
+cases. `gradle/actions/setup-gradle` restores that cache between CI runs.
+
+This defeated precisely the guard it was paired with — `android-test.yml` triggers on
+`contract/**` because amending the contract can break the port, and a contract-only
+change is the single case where every other input is unchanged, so it was the case
+guaranteed to hit the cache. The directory is now `inputs.dir(...)`.
+
 ### Fixed — "they never mind the noise" lost its first half
 
 The self-correction guard asks whether the single word before a trigger makes that

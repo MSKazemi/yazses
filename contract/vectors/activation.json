@@ -1,6 +1,6 @@
 {
   "unit": "sources.activation",
-  "contract_version": "6.6.0",
+  "contract_version": "6.7.0",
   "source": "src/yazses/activation/intent.py::validate + src/yazses/activation/confirm.py::decide",
   "cases": [
     {

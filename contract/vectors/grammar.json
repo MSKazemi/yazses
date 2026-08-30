@@ -1,6 +1,6 @@
 {
   "unit": "commands.grammar",
-  "contract_version": "6.6.0",
+  "contract_version": "6.7.0",
   "source": "src/yazses/commands/grammar.py::classify",
   "cases": [
     {
@@ -73,6 +73,54 @@
         "action": "inject",
         "args": {},
         "raw_text": "undo the last three commits before you deploy"
+      }
+    },
+    {
+      "id": "comment-this-line-is-a-command",
+      "description": "the phrasing people actually use. `comment` alone was the only form Android accepted, and in command mode an unmatched utterance is discarded — so the phrase did nothing at all: no comment, no text, no error",
+      "options": {},
+      "input": "comment this line",
+      "expected": {
+        "intent": "edit",
+        "action": "comment",
+        "args": {},
+        "raw_text": "comment this line"
+      }
+    },
+    {
+      "id": "comment-the-line-is-a-command",
+      "description": "the determiner variant of the same phrase; a grammar that takes one and not the other is unlearnable",
+      "options": {},
+      "input": "comment the line",
+      "expected": {
+        "intent": "edit",
+        "action": "comment",
+        "args": {},
+        "raw_text": "comment the line"
+      }
+    },
+    {
+      "id": "comment-this-selection-is-a-command",
+      "description": "the third late-added phrasing, held so a port cannot regain the narrow rule by copy-paste",
+      "options": {},
+      "input": "comment this selection",
+      "expected": {
+        "intent": "edit",
+        "action": "comment",
+        "args": {},
+        "raw_text": "comment this selection"
+      }
+    },
+    {
+      "id": "comment-inside-a-sentence-is-dictation",
+      "description": "the anchoring that makes the widening safe: 'comment' is an ordinary noun and verb, and only the whole utterance may be the command",
+      "options": {},
+      "input": "comment the line about the retry budget",
+      "expected": {
+        "intent": "dictate",
+        "action": "inject",
+        "args": {},
+        "raw_text": "comment the line about the retry budget"
       }
     },
     {

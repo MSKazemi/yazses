@@ -70,7 +70,14 @@ private val RULES: List<Rule> = listOf(
     rule("""^save(?:\s+file)?(?:\s+now)?$""", IntentType.EDIT, "save"),
     rule("""^copy(?:\s+(?:that|this|line|selection))?$""", IntentType.EDIT, "copy"),
     rule("""^paste(?:\s+here)?$""", IntentType.EDIT, "paste"),
-    rule("""^comment(?:\s+(?:this|line|selection|out))?$""", IntentType.EDIT, "comment"),
+    // The two-word forms are the ones people actually say. Without them "comment
+    // this line" matched no rule, and an unmatched utterance in command mode is
+    // discarded -- so the phrase silently did nothing (desktop: 37997ae).
+    rule(
+        """^comment(?:\s+(?:this\s+line|the\s+line|this\s+selection|this|line|selection|out))?$""",
+        IntentType.EDIT,
+        "comment",
+    ),
     rule("""^select\s+(\d+)\s+lines?$""", IntentType.EDIT, "select_lines", "n"),
     rule("""^select\s+(?:to\s+)?end$""", IntentType.EDIT, "select_to_end"),
     rule("""^select\s+all$""", IntentType.EDIT, "select_all"),
