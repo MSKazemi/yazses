@@ -90,6 +90,68 @@ If you enable a local LLM feature *and* configure llama-cpp's disk cache
 yourself, that assessment no longer covers you — that is a supported thing to
 want, so please open an issue rather than assuming.
 
+### `lightning` ≤ 2.6.5 (CVE-2026-58659) — code execution from a checkpoint
+
+**Reachable in principle, and bounded by three things this repository controls.**
+No patched release exists: 2.6.5 is the newest on PyPI and the fix is an
+unreleased upstream commit, so this one cannot be closed by a version bump.
+
+This entry is deliberately worded less comfortably than the `diskcache` one above,
+because the honest answer is different. `diskcache` is unreachable — nothing here
+ever constructs the object that would unpickle. This code path *is* executed, by
+the pyannote diarization backend, and what stands between it and an exploit is a
+precondition rather than an absence.
+
+The vulnerability is in `lightning/pytorch/core/saving.py::_load_state`. A
+checkpoint's hyperparameters may carry an `_instantiator` string; lightning
+imports that dotted path and calls it. It is plain text in the hparams, so
+`weights_only=True` does not stop it. `pyannote.audio` reaches it —
+`Pipeline.from_pretrained` → `Model.from_pretrained` → `load_from_checkpoint`.
+
+What bounds it:
+
+1. **No shipped artifact contains it.** `pyannote.audio` is in the
+   `diarization-pyannote` and `all` extras only. Verified against the lockfile
+   rather than the declaration, because a `uv.lock` is a *universal* resolution
+   and this project has already been wrong about exactly that (see the
+   `setuptools` entry below): a default `uv export --no-dev` emits no
+   `lightning`, no `pyannote`, and no `torch`, and neither does `--extra
+   diarization`. The Docker image installs `yazses[diarization]`, the `.deb`
+   installs `yazses[desktop]`, and the snap bundles `sherpa-onnx` and
+   deliberately bundles nothing from the torch family. You get this dependency
+   only by asking for it by name.
+2. **It is not the default backend.** Diarization defaults to `sherpa` — ONNX
+   Runtime, no torch, no lightning. `backend = "pyannote"` is a choice.
+3. **The checkpoint is not attacker-selectable.** `PIPELINE_ID` and
+   `SEGMENTATION_ID` in `yazses/recimport/pyannote_backend.py` are hardcoded
+   module constants. There is no config key that redirects them, and nothing in
+   YazSes loads a user-supplied `.ckpt` from anywhere. So the malicious
+   checkpoint has to arrive *as* `pyannote/speaker-diarization-3.1` or
+   `pyannote/segmentation-3.0` — which means compromising those gated
+   repositories on Hugging Face, not handing you a file.
+
+Fact 3 is the load-bearing one and the one most likely to be broken by a future
+change, so it is the one the tests pin: adding a `[meeting] pyannote_model`
+config key would be an ordinary-looking feature that silently converts a
+supply-chain precondition into "point it at a repo". The suite fails if the ids
+stop being literals, if the loader is called with anything else, or if
+`pyannote.audio` becomes a base dependency.
+
+**Residual risk, stated plainly.** If those upstream repositories are compromised,
+you execute their code. That is true here *independently of this CVE* — pyannote
+reads its pipeline class name out of the downloaded `config.yaml` and imports it —
+so the honest summary is that trusting the model is part of using pyannote, and
+this advisory does not change the trust boundary so much as make it explicit.
+Passing `revision=` to pin the model to a known commit is the obvious next
+hardening and is **not implemented**: pyannote propagates a parent revision only
+to `$model/`-style child references, and `pyannote/segmentation-3.0` is a
+separately gated repository, so how far a pin actually reaches could not be
+verified without accepting the gated licence. It is written down here rather than
+guessed at.
+
+If you do not use pyannote diarization — which is the default — none of this is
+installed on your machine.
+
 ### `setuptools` < 83.0.0 — `MANIFEST.in` exclusion bypass when building an sdist
 
 **Resolved — the lock now takes 84.0.0.** This entry is kept rather than deleted

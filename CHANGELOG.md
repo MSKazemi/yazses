@@ -6,6 +6,59 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security — a reachable RCE advisory in the diarization stack had no assessment
+
+`lightning` ≤ 2.6.5 (CVE-2026-58659) executes arbitrary code from a checkpoint:
+`_load_state` imports and calls whatever dotted path sits in the checkpoint's
+`_instantiator` hyperparameter, which is plain text and so not covered by
+`weights_only=True`. There is no patched release — 2.6.5 is the newest on PyPI and
+the fix is an unreleased upstream commit — so no bump can close it.
+
+It reaches this project through `pyannote.audio`, and it is *reachable* rather than
+merely present: `Pipeline.from_pretrained` → `Model.from_pretrained` →
+`load_from_checkpoint` is the code the pyannote diarization backend runs. That makes
+it different in kind from the two advisories already assessed in
+`.github/SECURITY.md`, both of which are answered with "this project never executes
+that path". This one could not be answered that way, and had not been answered at
+all — it appears in the repository's OpenSSF Scorecard `Vulnerabilities` check as an
+OSV id and nowhere else.
+
+The published assessment now states what actually bounds it, and each bound is
+verified rather than argued:
+
+* No shipped artifact contains it. Checked against the *resolution*, not the
+  declaration — `uv.lock` is a universal resolution and this repository has already
+  been wrong about exactly that once (the `setuptools` entry records it). A default
+  `uv export --no-dev` emits no `lightning`, no `pyannote` and no `torch`, and
+  neither does `--extra diarization`. The Docker image installs
+  `yazses[diarization]`, the `.deb` installs `yazses[desktop]`, the snap bundles
+  `sherpa-onnx` and nothing from the torch family.
+* It is not the default backend. Diarization defaults to sherpa-onnx.
+* The checkpoint is not attacker-selectable: `PIPELINE_ID` and `SEGMENTATION_ID` are
+  hardcoded constants, no config key redirects them, and nothing here loads a
+  user-supplied `.ckpt`.
+
+The third bound is the fragile one, and it is the one now pinned by tests. A
+`[meeting] pyannote_model` config key would read as an ordinary convenience while
+converting "compromise a specific gated Hugging Face repository" into "point it at
+any repository" — the vulnerability is code execution from checkpoint metadata, so
+whoever chooses the repo chooses the code. `tests/test_dependency_advisories.py`
+therefore guards the *shape* of the call rather than its presence: the loader may be
+called, but only with a literal or a module-level constant, anywhere in `src/`. Each
+of the six new guards was proved by sabotage, and the lockfile walk is anchored
+against reaching an empty set — the failure mode that would make it report "no
+lightning here" forever.
+
+Residual risk is stated plainly rather than minimised: pyannote also imports its
+pipeline class by name out of the downloaded `config.yaml`, so trusting the model
+repository is already part of using pyannote and this CVE makes that explicit rather
+than creating it. Pinning `revision=` is the obvious next hardening and is
+deliberately **not** implemented — pyannote propagates a parent revision only to
+`$model/`-style child references and `pyannote/segmentation-3.0` is separately
+gated, so how far a pin reaches could not be verified without accepting the gated
+licence. Written down instead of guessed at.
+
+
 ### Fixed — every release told Ubuntu users to add a PPA that does not exist
 
 The GitHub release notes carried, under **Launchpad PPA (Ubuntu)**:
