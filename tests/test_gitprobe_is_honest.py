@@ -36,13 +36,51 @@ def _forget_the_probe():
     gitprobe._probe.cache_clear()
 
 
-def _stub_git(directory: pathlib.Path, body: str) -> None:
-    """Put a fake `git` first on PATH. A stub rather than a monkeypatched
-    `subprocess.run`: the thing being tested is what happens when the real mechanism --
-    PATH lookup, exit status, stderr -- behaves the way it did on FreeBSD, and a patched
-    `run` would only prove that the test's own double behaves as written."""
-    (directory / "git").write_text(body, encoding="utf-8")
-    (directory / "git").chmod(0o755)
+def _break_git(
+    monkeypatch: pytest.MonkeyPatch,
+    directory: pathlib.Path,
+    message: str,
+    code: int,
+) -> None:
+    """Make `git` fail the way it failed on FreeBSD: exit *code*, print *message*.
+
+    Two mechanisms, because Windows cannot run the good one.
+
+    Everywhere else this writes an executable `git` first on PATH, which exercises the
+    real chain -- PATH lookup, process start, exit status, stderr -- rather than the
+    test's own double. That is what the first version of this file did on every
+    platform, and it turned both Windows legs red: a `#!/bin/sh` file named `git` is
+    not executable there, and `subprocess.run(["git", ...])` reaches `CreateProcess`,
+    which appends `.exe` to an extensionless name and does not consult `PATHEXT` -- so
+    a `git.cmd` shim is not found either. The stub was simply absent, the probe
+    correctly reported "no git on PATH", and the assertion about git's *stderr* had
+    nothing to assert against.
+
+    So on Windows the failure is injected at `subprocess.run` instead. That covers
+    less: it proves the message is built from what git said, not that the process
+    machinery behaves as expected. The half it does cover is the half these tests are
+    about, and the POSIX legs -- including the FreeBSD one this whole guard exists for
+    -- still run the real thing.
+    """
+    if sys.platform != "win32":
+        shim = directory / "git"
+        body = "#!/bin/sh\n"
+        if message:
+            body += f"echo '{message}' >&2\n"
+        body += f"exit {code}\n"
+        shim.write_text(body, encoding="utf-8")
+        shim.chmod(0o755)
+        monkeypatch.setenv("PATH", str(directory))
+        return
+
+    real = subprocess.run
+
+    def fake(cmd, *args, **kwargs):  # noqa: ANN001, ANN202 - mirrors subprocess.run
+        if cmd and cmd[0] == "git":
+            return subprocess.CompletedProcess(cmd, code, stdout="", stderr=message)
+        return real(cmd, *args, **kwargs)
+
+    monkeypatch.setattr(gitprobe.subprocess, "run", fake)
 
 
 def test_a_working_git_is_not_reported_as_a_problem() -> None:
@@ -56,11 +94,7 @@ def test_a_working_git_is_not_reported_as_a_problem() -> None:
 def test_a_git_that_exits_nonzero_fails_and_quotes_what_git_said(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    _stub_git(
-        tmp_path,
-        "#!/bin/sh\necho 'fatal: detected dubious ownership in repository' >&2\nexit 128\n",
-    )
-    monkeypatch.setenv("PATH", str(tmp_path))
+    _break_git(monkeypatch, tmp_path, "fatal: detected dubious ownership in repository", 128)
     with pytest.raises(AssertionError) as caught:
         gitprobe.require_git()
     message = str(caught.value)
@@ -87,8 +121,7 @@ def test_a_silent_failure_still_produces_a_message(
 ) -> None:
     """A git that fails and prints nothing is the case where a naive implementation
     formats an empty string into its message and says nothing at all."""
-    _stub_git(tmp_path, "#!/bin/sh\nexit 129\n")
-    monkeypatch.setenv("PATH", str(tmp_path))
+    _break_git(monkeypatch, tmp_path, "", 129)
     with pytest.raises(AssertionError) as caught:
         gitprobe.require_git()
     assert "129" in str(caught.value)
@@ -108,7 +141,19 @@ def test_the_guarded_tests_fail_rather_than_skip_when_git_cannot_run(
     """
     bindir = tmp_path / "bin"
     bindir.mkdir()
-    _stub_git(bindir, "#!/bin/sh\necho 'fatal: not a git repository' >&2\nexit 128\n")
+    # A child process cannot inherit a monkeypatched `subprocess.run`, so this one has
+    # to break git through the environment. On Windows an executable stub is not
+    # available (see `_break_git`), so git is made *absent* instead of *refusing* --
+    # a different cause reaching the same code path, which is the right substitution
+    # here because the property under test is what the guard does about a git that
+    # cannot answer, not which way it failed to answer.
+    expected = "no `git` on PATH"
+    if sys.platform != "win32":
+        shim = bindir / "git"
+        shim.write_text("#!/bin/sh\necho 'fatal: not a git repository' >&2\nexit 128\n",
+                        encoding="utf-8")
+        shim.chmod(0o755)
+        expected = "not a git repository"
     # PATH is the stub directory *plus* the interpreter's own, and nothing else: the
     # stub must shadow the real git, and the child must still be able to find python.
     child = _inherited_env()
@@ -132,8 +177,9 @@ def test_the_guarded_tests_fail_rather_than_skip_when_git_cannot_run(
     assert "skipped" not in done.stdout.split("=")[-1], (
         "the private-tier guard skipped instead of failing:\n" + done.stdout
     )
-    assert "not a git repository" in done.stdout, (
-        "the failure did not reach the caller with git's own words:\n" + done.stdout
+    assert expected in done.stdout, (
+        "the failure did not reach the caller naming why git could not answer:\n"
+        + done.stdout
     )
 
 
@@ -141,5 +187,8 @@ def _inherited_env() -> dict[str, str]:
     """The few variables the child genuinely needs. Deliberately not `os.environ` --
     the point of the child is that its PATH is controlled, and copying the parent's
     environment wholesale is how a real git finds its way back in."""
-    keep = ("SYSTEMROOT", "TEMP", "TMP", "TMPDIR", "VIRTUAL_ENV", "PYTHONPATH", "LANG")
+    keep = (
+        "SYSTEMROOT", "SystemRoot", "TEMP", "TMP", "TMPDIR", "VIRTUAL_ENV",
+        "PYTHONPATH", "LANG", "COMSPEC", "PATHEXT", "USERPROFILE",
+    )
     return {k: v for k, v in os.environ.items() if k in keep}
