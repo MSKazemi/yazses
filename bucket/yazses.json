@@ -1,5 +1,5 @@
 {
-    "version": "2.35.0",
+    "version": "2.36.0",
     "description": "Offline voice dictation and speech-to-text - hold a key, speak, release. Runs on your own CPU with no cloud, no API key and no subscription.",
     "homepage": "https://mskazemi.com/yazses/",
     "license": "Apache-2.0",
@@ -10,12 +10,12 @@
     ],
     "architecture": {
         "64bit": {
-            "url": "https://github.com/MSKazemi/yazses/releases/download/v2.35.0/YazSes-2.35.0-windows-x64.exe#/setup.exe",
-            "hash": "9d07af8615f554de3ee641fc4ef611378bbbe7f2f4ad382b5eb8786df37a876c"
+            "url": "https://github.com/MSKazemi/yazses/releases/download/v2.36.0/YazSes-2.36.0-windows-x64.exe#/setup.exe",
+            "hash": "6de31b891d20bb35e531b0d47cb057b5b561920d9ae8140a95a2f50cf36b1204"
         },
         "arm64": {
-            "url": "https://github.com/MSKazemi/yazses/releases/download/v2.35.0/YazSes-2.35.0-windows-arm64.exe#/setup.exe",
-            "hash": "de85ff3e98db88bca8f2a2d69a09d317a2680d79d03504e76ede7233e7c8fc64"
+            "url": "https://github.com/MSKazemi/yazses/releases/download/v2.36.0/YazSes-2.36.0-windows-arm64.exe#/setup.exe",
+            "hash": "187a31129f3102c3e06f81526fb19e7a3c804bc55d84d8d74daf208da2df5c02"
         }
     },
     "innosetup": true,
