@@ -32,24 +32,25 @@ runner = CliRunner()
 
 
 @pytest.fixture
-def config_dir(tmp_path: pathlib.Path, monkeypatch) -> pathlib.Path:
+def config_dir(sandbox_paths) -> pathlib.Path:
     """A machine where YazSes has never written anything — the state a fresh install
-    is in, and the one `vocab remove` crashed on."""
-    from yazses.platform.factory import get_paths, get_platform
+    is in, and the one `vocab remove` crashed on.
 
-    home = tmp_path / "config"
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(home))
-    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
-    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
-    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
-    # `get_platform`/`get_paths` are `lru_cache(maxsize=1)`, so the first test in the
-    # file would pin its own tmp_path for every later one and they would all read a
-    # directory that no longer exists.
-    get_platform.cache_clear()
-    get_paths.cache_clear()
-    yield home / "yazses"
-    get_platform.cache_clear()
-    get_paths.cache_clear()
+    Sandboxed through `sandbox_paths`, which patches `build_paths()`, rather than by
+    setting the XDG variables. Those are a Linux answer to a cross-platform question:
+    `platformdirs` resolves the Windows folders through the OS and never reads them,
+    so on both Windows legs the CLI wrote the *runner's own*
+    `%APPDATA%\\yazses\\vocabulary.txt` while the assertions read a temporary
+    directory that stayed empty — `assert [] == ['Kubernetes']`, on every run since
+    this file was added in d075588, which is where `main`'s Windows legs went red.
+
+    The red leg is the lesser half. A test that edits the machine it runs on would
+    have appended `Kubernetes` and `EuroHPC` to a real person's personal dictionary,
+    where they then reach Whisper's `initial_prompt` on every burst. `conftest.py`
+    watches `config.toml` and the pid file for exactly that and did not watch this
+    file, so nothing on a green platform would ever have said so.
+    """
+    return sandbox_paths.config_dir
 
 
 def test_removing_from_a_dictionary_that_does_not_exist_yet(config_dir) -> None:

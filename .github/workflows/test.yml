@@ -369,12 +369,23 @@ jobs:
             pkg install -y python3 portaudio rust
             PYV=$(python3 -c 'import sys; print(f"{sys.version_info[0]}{sys.version_info[1]}")')
             python3 -V
-            # yaml/pillow/scipy join the list because the job now runs the whole
-            # suite rather than one file, and those three are what the rest of it
-            # reaches for. All are binary ports, so they cost seconds, not a build.
+            # These four are the ones a source build would make unaffordable or
+            # impossible, so they come from pkg and a missing one must fail loudly.
             pkg install -y "py${PYV}-pip" "py${PYV}-sqlite3" \
-                           "py${PYV}-numpy" "py${PYV}-sounddevice" \
-                           "py${PYV}-yaml" "py${PYV}-pillow" "py${PYV}-scipy"
+                           "py${PYV}-numpy" "py${PYV}-sounddevice"
+            # pillow and scipy only widen coverage, so they are installed one at a
+            # time and allowed to be absent -- `pkg install` is all-or-nothing, and
+            # one unavailable name in a combined command aborts `prepare` and ends
+            # the job before a single test runs. That is not hypothetical: this list
+            # carried `py${PYV}-yaml`, which ports MOVED renamed to py-pyyaml on
+            # 2024-07-07, and the stale name took the whole FreeBSD leg down with
+            # "No packages available to install matching" -- a port rename reported
+            # as though the platform itself were broken. Every test that needs
+            # Pillow already goes through `importorskip`, so a rename here now costs
+            # a few skips instead of the run.
+            for opt in "py${PYV}-pillow" "py${PYV}-scipy"; do
+              pkg install -y "$opt" || echo "optional port $opt unavailable -- the tests that need it will skip"
+            done
           run: |
             set -e
             python3 -V
@@ -401,7 +412,12 @@ jobs:
             # `sys.platform` to genuinely be `freebsdN`, not the transcription
             # stack.
             python -m pip install -e . --no-deps
-            python -m pip install platformdirs typer pytest pytest-mock hypothesis
+            # PyYAML comes from pip rather than pkg deliberately: thirteen test files
+            # `import yaml` at module scope, so a missing one is thirteen COLLECTION
+            # ERRORS rather than thirteen skips -- it is not optional here, and pinning
+            # it to a ports name is what broke this job once already. The sdist is
+            # pure-Python when libyaml is absent and builds in seconds either way.
+            python -m pip install platformdirs typer pytest pytest-mock hypothesis pyyaml
             # `cryptography` is the learning corpus's AES-256-GCM cipher, and 151
             # tests reach it. There is no FreeBSD wheel, so it builds through
             # maturin — which is what the `rust` package above is for — in about

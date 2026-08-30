@@ -160,6 +160,14 @@ def _resolve_watched_host_files() -> dict[str, Path]:
     return {
         "config file": Path(dirs.user_config_dir) / "config.toml",
         "pid file": Path(dirs.user_data_dir) / "daemon.pid",
+        # The personal dictionary joined the list after a test wrote it. It is the
+        # third file in this program a person hand-edits and expects to stay theirs,
+        # and unlike the corpus below nothing writes it in the background -- only
+        # `yazses vocab`, by hand -- so watching it cannot cry wolf. It also has a
+        # consequence the other two do not: every word in it is fed to Whisper as
+        # `initial_prompt` on every burst, so a stray entry biases transcription
+        # rather than merely sitting there.
+        "vocabulary file": Path(dirs.user_config_dir) / "vocabulary.txt",
     }
 
 
@@ -370,12 +378,14 @@ def _no_test_may_write_the_users_real_config():
         changed.remove("pid file")
     assert not changed, (
         f"this test modified the real {' and '.join(changed)} on this machine. "
-        "Point the platform paths at tmp_path and clear the `get_platform`/`get_paths` "
-        "lru_caches, or mock the lifecycle backend. Two reasons XDG_CONFIG_HOME alone "
-        "is not enough: the caches ignore it once warm, and platformdirs never reads "
-        "it off Linux at all — set APPDATA/LOCALAPPDATA (Windows) and HOME (macOS) "
-        "too, then assert `get_paths().config_dir` really is under tmp_path. See the "
-        "`scratch` fixture in tests/test_features_core_is_not_unknown.py."
+        "Take the `sandbox_paths` fixture above, or mock the lifecycle backend. Do "
+        "not reach for environment variables: setting XDG_CONFIG_HOME fixes nothing "
+        "once the `get_platform`/`get_paths` lru_caches are warm, and adding "
+        "APPDATA/LOCALAPPDATA/HOME on top does not help either — platformdirs "
+        "resolves the Windows folders through the OS and never reads them, which is "
+        "why the vocabulary CLI tests passed on Linux while writing the runner's own "
+        "dictionary on both Windows legs. `sandbox_paths` patches `build_paths()`, "
+        "the seam every backend goes through, and asserts the redirection took."
     )
 
 
