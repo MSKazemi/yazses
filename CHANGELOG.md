@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a wrapped log call carried a transcript straight past the privacy gate
+
+`checkNoContentLogging` (ADR-MOB-007) fails the Android build when a log call
+mentions a transcript or raw audio, because logcat is readable by the user, by any
+bug report, and by anything holding `READ_LOGS`. It scanned one line at a time, so
+it saw only the leaks that fit on one line:
+
+    Log.d("tag", "got $transcript")          // caught
+    Log.d(                                   // was not caught
+        "tag",
+        "got $transcript",
+    )
+
+Those are the same leak, and the second is what a log call becomes the moment it
+passes a line-length rule — these sources already wrap 26 calls, so the formatting
+most likely to appear was the formatting the gate could not see.
+
+It now scans the *statement*: the argument list is taken by a balanced-paren walk
+that treats string literals and raw strings as opaque, since one `)` inside a
+message would otherwise end the scan early and read every later call in the file at
+the wrong offset. Verified against the real task in five cases — the wrapped leak
+now fails, the single-line one still fails, a `)` in the message no longer truncates,
+metadata-only logging still passes, and the repository still passes.
+
 ### Fixed — "comment this line" did nothing at all on Android
 
 `37997ae` widened the desktop's `comment` rule so the phrasing people actually use

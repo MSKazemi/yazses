@@ -193,6 +193,63 @@ val contentIdentifiers = listOf(
     "spokenText", "rawText", "finalText", "pcm", "samples", "audioBuffer",
 )
 
+/**
+ * The argument list of every log call in [text], with the line the call starts on.
+ *
+ * Scanned as a statement rather than a line, because a leak does not care about
+ * formatting and this codebase already wraps 26 calls. These are the same leak:
+ *
+ *     Log.d("tag", "got $transcript")          // caught
+ *     Log.d(                                   // was not caught
+ *         "tag",
+ *         "got $transcript",
+ *     )
+ *
+ * A wrapped call is not an unusual shape -- it is what a log line with a tag and an
+ * interpolated message becomes the moment it passes a line-length rule, so the
+ * formatting most likely to appear is the formatting the gate could not see.
+ *
+ * Parentheses inside string literals do not nest (`"a )"` closes nothing) and raw
+ * strings are opaque, so the scan tracks both. Without that, one `")"` in a message
+ * would end the argument list early and every later call in the file would be read
+ * at the wrong offset.
+ */
+fun logCallArguments(text: String): List<Pair<Int, String>> {
+    val logCall = Regex("""\b(?:Log\.[vdiwe]|logger\.\w+|println)\s*\(""")
+    val out = mutableListOf<Pair<Int, String>>()
+    for (match in logCall.findAll(text)) {
+        val open = match.range.last
+        var index = open + 1
+        var depth = 1
+        var inRawString = false
+        var inString = false
+        while (index < text.length && depth > 0) {
+            val char = text[index]
+            when {
+                inRawString -> if (text.startsWith("\"\"\"", index)) {
+                    inRawString = false
+                    index += 2
+                }
+                inString -> when (char) {
+                    '\\' -> index++
+                    '"' -> inString = false
+                }
+                text.startsWith("\"\"\"", index) -> {
+                    inRawString = true
+                    index += 2
+                }
+                char == '"' -> inString = true
+                char == '(' -> depth++
+                char == ')' -> depth--
+            }
+            index++
+        }
+        val line = text.substring(0, match.range.first).count { it == '\n' } + 1
+        out += line to text.substring(open + 1, (index - 1).coerceIn(open + 1, text.length))
+    }
+    return out
+}
+
 val checkNoContentLogging by tasks.registering {
     group = "verification"
     description = "Forbids transcript text or raw audio in a log statement."
@@ -205,11 +262,10 @@ val checkNoContentLogging by tasks.registering {
     doLast {
         val problems = mutableListOf<String>()
         sources.forEach { (path, file) ->
-            file.readLines().forEachIndexed { i, line ->
-                if (!logCall.containsMatchIn(line)) return@forEachIndexed
+            logCallArguments(file.readText()).forEach { (line, arguments) ->
                 contentIdentifiers.forEach { identifier ->
-                    if (Regex("""\b$identifier\b""", RegexOption.IGNORE_CASE).containsMatchIn(line)) {
-                        problems += "${file.relativeTo(rootProject.projectDir)}:${i + 1} ($path) logs `$identifier`"
+                    if (Regex("""\b$identifier\b""", RegexOption.IGNORE_CASE).containsMatchIn(arguments)) {
+                        problems += "${file.relativeTo(rootProject.projectDir)}:$line ($path) logs `$identifier`"
                     }
                 }
             }
