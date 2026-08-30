@@ -53,9 +53,9 @@ updates:
     # `tests/test_dependency_advisories.py::
     # test_the_resolved_setuptools_is_at_or_above_the_patched_release` now asserts
     # the resolved version. An `ignore` here would silence the next one.
-    # ⚠ `onnxruntime` is deliberately NOT ignored, and the monthly `uv` job is
-    # expected to report one handled error because of it (#322). Read this before
-    # "fixing" the red — the obvious fix is the wrong one.
+    # ⚠ `onnxruntime` IS ignored, and the shape of that ignore is load-bearing —
+    # `update-types` and no `versions:` range. Read all of the following before
+    # "tightening" it, because the obvious tightening is the wrong one (#322).
     #
     # Dependabot checks a bump by pinning the target version for the whole
     # resolution: `uv lock --upgrade-package onnxruntime==<new>`. That pin has no
@@ -72,11 +72,35 @@ updates:
     # today on Python 3.11 and 3.12 (onnxruntime 1.23.2, torch 2.2.2) and already
     # fails on 3.13+ for an unrelated reason (torch ships no Intel macOS wheel).
     #
-    # Ignoring `onnxruntime >= 1.24` would stop the red, and would also stop every
-    # onnxruntime update — including a security one, per the note at the top of this
-    # file — on Linux, Windows and Apple silicon, which is where the users are. The
-    # error is handled per-dependency, so every other update in the sweep still
-    # opens. One explained red beats a silent gap; bump onnxruntime by hand.
+    # Ignoring `onnxruntime >= 1.24` — an ignore with a `versions:` range — would stop
+    # the red, and would also stop every onnxruntime update *including a security one*,
+    # per the note at the top of this file, on Linux, Windows and Apple silicon, which
+    # is where the users are. That trade was refused (#322).
+    #
+    # There is a third option, and it is the one below, because `update-types` is the
+    # single ignore key GitHub exempts:
+    #
+    #   "update-types only affects *version* updates, not *security* updates. Security
+    #    updates will always be created regardless of the update-types setting."
+    #   https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/controlling-dependencies-updated
+    #
+    # So an ignore that names *only* update-types, and no `versions:` range, does
+    # exactly what is wanted: Dependabot stops proposing onnxruntime **version** bumps
+    # — and therefore stops attempting the resolution that cannot succeed — while a
+    # security advisory for onnxruntime still opens a pull request. The cost is the one
+    # #322 had already accepted as the status quo: routine onnxruntime bumps are done
+    # by hand. What is bought is that the monthly job's red means something again.
+    #
+    # ⚠ The three levels below are exhaustive on purpose. Every version update is
+    # classified as patch, minor or major, so naming all three is what makes this
+    # "no version updates"; omitting one would let that one through and the failure
+    # back with it.
+    ignore:
+      - dependency-name: "onnxruntime"
+        update-types:
+          - "version-update:semver-patch"
+          - "version-update:semver-minor"
+          - "version-update:semver-major"
 
   # GitHub Actions — pinned action versions go stale silently and are a real
   # supply-chain surface for a project that publishes signed artifacts.

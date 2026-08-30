@@ -9,8 +9,18 @@ entry here does not merely quiet the monthly noise, it removes a class of alert.
   https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/controlling-dependencies-updated
 
 These tests hold the two properties that keep that survivable: an ignore must name the
-versions it cannot take rather than the whole package, and the one dependency whose red
-job invites a blanket ignore (#322) must not have acquired one quietly.
+versions it cannot take rather than the whole package, and `onnxruntime` -- the one
+dependency whose monthly red job invites a blanket ignore (#322) -- must never acquire a
+`versions:` range.
+
+That last distinction is the whole point and it is easy to lose. `onnxruntime` *is*
+ignored now, and correctly: an entry naming only `update-types` stops Dependabot
+proposing version bumps -- and so stops the resolution that cannot succeed against the
+Intel-macOS cap -- while GitHub still opens a security pull request for it, because
+`update-types` is the one ignore key exempted from suppressing security updates. Adding
+a `versions:` range to that same entry would look like a tightening and would in fact
+drop onnxruntime security alerts on Linux, Windows and Apple silicon, where essentially
+all users are.
 """
 
 from __future__ import annotations
@@ -24,11 +34,12 @@ ROOT = Path(__file__).resolve().parent.parent
 DEPENDABOT = ROOT / ".github/dependabot.yml"
 
 #: onnxruntime's Intel-macOS cap makes Dependabot's global `==<version>` pin
-#: unsatisfiable, so the monthly `uv` job reports one handled error. The tempting fix
-#: is `ignore: onnxruntime >= 1.24`, which would also drop every onnxruntime update on
-#: Linux, Windows and Apple silicon -- where the users are. See #322 and the comment
-#: beside the ignore list.
-MUST_NOT_BE_IGNORED = {"onnxruntime"}
+#: unsatisfiable, so the monthly `uv` job used to report one handled error every month.
+#: The tempting fix is `ignore: onnxruntime >= 1.24`, which would also drop every
+#: onnxruntime *security* update on Linux, Windows and Apple silicon -- where the users
+#: are. These may be ignored by `update-types` only. See #322 and the comment beside
+#: the ignore list.
+SECURITY_UPDATES_MUST_SURVIVE = {"onnxruntime"}
 
 
 def _updates() -> list[dict]:
@@ -62,15 +73,50 @@ def test_an_ignore_names_the_versions_it_cannot_take(case: tuple[str, dict]) -> 
     )
 
 
-@pytest.mark.parametrize("name", sorted(MUST_NOT_BE_IGNORED))
-def test_the_known_red_dependency_was_not_quietly_silenced(name: str) -> None:
-    ignored = {entry["dependency-name"] for _, entry in _ignores() if entry}
-    assert name not in ignored, (
-        f"{name} has been added to dependabot.yml's ignore list. That stops the "
-        "monthly red, and it also stops every legitimate update on the platforms "
-        "essentially all users are on. The red is expected and explained in the file; "
-        "the fix is a support decision about Intel macOS, not an ignore rule (#322)."
-    )
+@pytest.mark.parametrize("name", sorted(SECURITY_UPDATES_MUST_SURVIVE))
+def test_a_dependency_that_must_keep_its_security_alerts_is_ignored_by_update_type_only(
+    name: str,
+) -> None:
+    """`update-types` is exempt from suppressing security updates; `versions:` is not.
+
+    So the difference between an ignore that quiets a broken monthly resolution and an
+    ignore that hides a CVE is one key -- and the second looks, in a diff, like someone
+    being *more* specific.
+    """
+    entries = [entry for _, entry in _ignores() if entry.get("dependency-name") == name]
+    for entry in entries:
+        assert not entry.get("versions"), (
+            f"{name} is ignored with a `versions:` range. That suppresses its security "
+            "pull requests as well as its version updates, on Linux, Windows and Apple "
+            "silicon, where essentially all users are. Only `update-types` is exempt "
+            "from GitHub's suppression of security updates -- use that alone (#322)."
+        )
+        assert entry.get("update-types"), (
+            f"{name} is ignored with neither `versions:` nor `update-types:`, which "
+            "silences it entirely, security advisories included."
+        )
+
+
+def test_ignoring_a_version_update_type_means_ignoring_all_three() -> None:
+    """A partial `update-types` list is the failure mode that looks like a fix.
+
+    Every version update is classified as patch, minor or major. An entry naming two of
+    the three still lets the third through -- and with it the resolution failure the
+    entry was written to stop -- while reading in a diff as though onnxruntime were
+    handled.
+    """
+    levels = {"version-update:semver-patch",
+              "version-update:semver-minor",
+              "version-update:semver-major"}
+    for ecosystem, entry in _ignores():
+        declared = set(entry.get("update-types") or [])
+        if not declared or entry.get("versions"):
+            continue
+        assert declared == levels, (
+            f"{ecosystem}:{entry['dependency-name']} ignores {sorted(declared)} but not "
+            f"{sorted(levels - declared)}. A version bump at the missing level still "
+            "opens, so this entry does not do what it looks like it does."
+        )
 
 
 def test_the_file_does_not_repeat_the_claim_that_was_wrong() -> None:

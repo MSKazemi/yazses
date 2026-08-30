@@ -6,6 +6,37 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — Dependabot's monthly red, without giving up onnxruntime's security alerts
+
+The monthly `uv` job failed every run on `onnxruntime`. `pyproject.toml` declares it
+twice, split on an environment marker, because upstream published no x86_64 macOS wheel
+after 1.23.2 — and Dependabot checks a bump by pinning the target version for the *whole*
+resolution (`uv lock --upgrade-package onnxruntime==<new>`), a global `==` that
+contradicts the per-marker `<` by construction.
+
+#322 examined two options and took neither: ignore `onnxruntime >= 1.24`, which stops the
+red and also stops every onnxruntime **security** update on Linux, Windows and Apple
+silicon where essentially all users are; or leave the job red forever. Both are bad, and
+the second is worse than it looks — a check that is always red is a check nobody reads.
+
+There is a third option, and it turns on the one ignore key GitHub exempts:
+
+> `update-types` only affects *version* updates, not *security* updates. Security updates
+> will always be created regardless of the `update-types` setting.
+
+So an `ignore` naming **only** `update-types`, with no `versions:` range, stops Dependabot
+proposing onnxruntime version bumps — and therefore stops it attempting the resolution
+that cannot succeed — while a security advisory for onnxruntime still opens a pull
+request. The cost is the one #322 had already accepted as the status quo: routine
+onnxruntime bumps are done by hand. What it buys is a monthly job whose red means
+something again.
+
+`tests/test_dependabot_ignores_are_honest.py` now guards the distinction, because in a
+diff `versions: [">=1.24"]` added to that entry reads as someone being *more* specific
+while actually dropping the security channel. It also fails a partial `update-types`
+list: every version update is patch, minor or major, so naming two of the three lets the
+third through — and the failure back with it — while looking handled.
+
 ### Fixed — the FreeBSD leg reported 96 defects, 46 of which were missing programs
 
 The advisory `freebsd` job runs the suite on a real VM, and its first whole-suite run
