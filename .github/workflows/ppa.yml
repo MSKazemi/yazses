@@ -9,7 +9,25 @@ on:
       # Rust line was archived -- so no tag has matched this pattern since, and the
       # Launchpad PPA has had no publisher at all. Credentials were never set up
       # either (see design/packaging/ppa-setup.md), so widening the glob would only
-      # convert silence into a failing job. Nothing advertises a PPA to users.
+      # convert silence into a failing job.
+      #
+      # ⚠ CORRECTION (2026-08-30): the line that used to end this note --
+      # "Nothing advertises a PPA to users" -- was wrong, and it was the half that
+      # mattered. `release.yml`'s notes template carried a **Launchpad PPA
+      # (Ubuntu)** section telling every reader to run
+      # `sudo add-apt-repository ppa:mskazemi/yazses`, and it had done so in the
+      # notes of every release since v1.0.0. There is no such PPA: Launchpad
+      # answers 404 for `~mskazemi/+archive/ubuntu/yazses`, and 404 for the person
+      # `~mskazemi` as well, so the account the archive would belong to does not
+      # exist either. The instruction could never have worked for anybody.
+      #
+      # The dead trigger and the advertisement were two halves of one fault and
+      # only the half visible from this file had been found. The section is gone
+      # from the template, and `tests/test_release_notes_channels_are_real.py`
+      # now fails the build if the notes advertise an install channel that no
+      # workflow in this repository publishes -- which is the check that would
+      # have caught it, and the reason it went unnoticed for two years of tags is
+      # that nothing compared the two documents.
       - "v0.*"  # Python v0.x only — v1.x was to be handled by rust-release.yml
 
 env:

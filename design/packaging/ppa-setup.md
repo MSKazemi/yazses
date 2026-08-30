@@ -1,5 +1,19 @@
 # Launchpad PPA Setup (One-Time)
 
+> **Status as of 2026-08-30: not done, and nothing here has been executed.**
+> `https://launchpad.net/~mskazemi/+archive/ubuntu/yazses` answers 404, and so does
+> the Launchpad person `~mskazemi` -- the account in step 1 has never been created.
+> `PPA_GPG_PRIVATE_KEY` and `PPA_GPG_KEY_ID` are not set, and
+> `.github/workflows/ppa.yml` has never run: it triggers on `v0.*` tags only and this
+> project passed v1.0.0 long ago.
+>
+> This mattered outside the packaging plan. The release-notes template in
+> `release.yml` carried the snippet in §5 as a live install instruction, so every
+> GitHub release since v1.0.0 told Ubuntu users to add a PPA that does not exist. The
+> section has been removed and `tests/test_release_notes_channels_are_real.py` now
+> fails the build if the notes advertise a channel nothing publishes. Restore the
+> section in the same change that finishes the steps below -- not before.
+
 ## 1. Create a Launchpad account
 
 Register at https://launchpad.net/+login

@@ -6,6 +6,40 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — every release told Ubuntu users to add a PPA that does not exist
+
+The GitHub release notes carried, under **Launchpad PPA (Ubuntu)**:
+
+```bash
+sudo add-apt-repository ppa:mskazemi/yazses
+```
+
+There is no such PPA. `https://launchpad.net/~mskazemi/+archive/ubuntu/yazses`
+answers 404 — and so does the Launchpad person `~mskazemi`, so the account the
+archive would have belonged to was never created either. The command could not have
+worked for anybody, and it shipped in the notes of every release since v1.0.0.
+
+`ppa.yml` was the intended publisher and had been dead just as long: it triggers on
+`v0.*` tags only and handed off to a `rust-release.yml` that was deleted when the
+Rust line was archived, so no tag has matched it since.
+
+Both halves were individually invisible, which is why this lasted. Reading `ppa.yml`
+shows a workflow that never runs — indistinguishable from a channel nobody has
+released to lately, and GitHub lists it as `active` either way; its own comment
+concluded, in good faith, "Nothing advertises a PPA to users". Reading the notes
+template shows an ordinary install instruction. The fault only exists between the
+two documents, and nothing compared them.
+
+`tests/test_release_notes_channels_are_real.py` is now that comparison: it lifts
+every advertised channel out of the notes template and requires a publisher for it,
+naming both the file and what must still be in it — so a channel whose publisher
+quietly stopped fails too, not only one that never had a publisher. It also fails if
+the guard itself parses fewer than four channels, because a template rewrite that
+made it read nothing would otherwise pass silently.
+
+`design/packaging/ppa-setup.md` now says at the top that none of its steps have been
+run, instead of reading as a completed setup.
+
 ### Security — the one executable binary in the tree was checked by nothing
 
 `android/gradle/wrapper/gradle-wrapper.jar` is 43 KB of compiled Java committed to

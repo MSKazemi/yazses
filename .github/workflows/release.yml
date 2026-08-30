@@ -254,14 +254,6 @@ jobs:
             systemctl --user enable --now yazses.service
             ```
 
-            **Launchpad PPA (Ubuntu):**
-            ```bash
-            sudo add-apt-repository ppa:mskazemi/yazses
-            sudo apt update && sudo apt install yazses
-            sudo usermod -aG input $USER && logout
-            systemctl --user enable --now yazses.service
-            ```
-
             **Snap:**
             ```bash
             sudo snap install yazses --classic
