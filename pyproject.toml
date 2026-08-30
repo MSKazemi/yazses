@@ -178,10 +178,13 @@ chinese = [
 tts = [
     "kokoro-onnx>=0.5.0",
     "onnxruntime>=1.27.0; sys_platform != 'darwin' or platform_machine != 'x86_64'",
-    # Intel macOS gets the requirement but NOT the version range: the range lives in
-    # `[tool.uv] constraint-dependencies`, and the reason is Dependabot. See the note
-    # on that table -- a specifier here is what made every update run fail.
-    "onnxruntime; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    # Intel macOS: onnxruntime stopped publishing an x86_64 wheel after 1.23.0
+    # (1.24 through 1.28 are macosx_14_0_arm64 only; 1.23.2 is the last with
+    # macosx_13_0_x86_64). A bare `>=1.27` floor is not a
+    # preference there, it is an install failure -- uv reports "no source
+    # distribution or wheel for the current platform", which reads like a broken
+    # package rather than a dropped platform. See `[tool.uv]` below.
+    "onnxruntime>=1.23.2,<1.24; sys_platform == 'darwin' and platform_machine == 'x86_64'",
     "soundfile>=0.14.0",
 ]
 # EMG device breadth (#103). BrainFlow is MIT, offline and Linux-native, and
@@ -298,10 +301,13 @@ notes = [
 silero = [
     "silero-vad>=5.1.2",
     "onnxruntime>=1.27.0; sys_platform != 'darwin' or platform_machine != 'x86_64'",
-    # Intel macOS gets the requirement but NOT the version range: the range lives in
-    # `[tool.uv] constraint-dependencies`, and the reason is Dependabot. See the note
-    # on that table -- a specifier here is what made every update run fail.
-    "onnxruntime; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    # Intel macOS: onnxruntime stopped publishing an x86_64 wheel after 1.23.0
+    # (1.24 through 1.28 are macosx_14_0_arm64 only; 1.23.2 is the last with
+    # macosx_13_0_x86_64). A bare `>=1.27` floor is not a
+    # preference there, it is an install failure -- uv reports "no source
+    # distribution or wheel for the current platform", which reads like a broken
+    # package rather than a dropped platform. See `[tool.uv]` below.
+    "onnxruntime>=1.23.2,<1.24; sys_platform == 'darwin' and platform_machine == 'x86_64'",
 ]
 # v2.0.0 Wave B — Voice-to-Tool / offline Spoken MCP (ADR-v2-006). Heavy; opt-in.
 # The MCP client is imported lazily only when [agent] enabled; absent → dormant.
@@ -353,10 +359,13 @@ all = [
     "praat-parselmouth>=0.4.7",
     "kokoro-onnx>=0.5.0",
     "onnxruntime>=1.27.0; sys_platform != 'darwin' or platform_machine != 'x86_64'",
-    # Intel macOS gets the requirement but NOT the version range: the range lives in
-    # `[tool.uv] constraint-dependencies`, and the reason is Dependabot. See the note
-    # on that table -- a specifier here is what made every update run fail.
-    "onnxruntime; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    # Intel macOS: onnxruntime stopped publishing an x86_64 wheel after 1.23.0
+    # (1.24 through 1.28 are macosx_14_0_arm64 only; 1.23.2 is the last with
+    # macosx_13_0_x86_64). A bare `>=1.27` floor is not a
+    # preference there, it is an install failure -- uv reports "no source
+    # distribution or wheel for the current platform", which reads like a broken
+    # package rather than a dropped platform. See `[tool.uv]` below.
+    "onnxruntime>=1.23.2,<1.24; sys_platform == 'darwin' and platform_machine == 'x86_64'",
     "soundfile>=0.14.0",
     "speechbrain>=1.1",
     "onnx-asr[cpu,hub]>=0.12",
@@ -519,32 +528,6 @@ artifacts = ["src/yazses/overlay/**"]
 # dependencies we do not declare, which a marker in `[project]` cannot reach.
 #
 # Not a pin: everything except Intel macOS still resolves to the newest release.
-#
-# The Intel *version range* lives here and ONLY here, and that is load-bearing rather
-# than tidiness (#322). It used to be written twice -- once here and once as a second
-# `onnxruntime>=1.23.2,<1.24; darwin+x86_64` declaration beside each `>=1.27` floor --
-# and the duplicate made every Dependabot run fail, permanently. Dependabot rewrites
-# every `[project]` requirement for the package it is bumping and does not touch
-# `[tool.uv]`, so proposing onnxruntime 1.29.0 turned the second declaration into
-# `>=1.29.0; darwin+x86_64` sitting next to this `<1.24`, and uv answered
-# "yazses[all]'s requirements are unsatisfiable". The whole update job aborts on that,
-# so the fifteen unrelated bumps grouped with it never landed either.
-#
-# The extras still *declare* onnxruntime for Intel macOS -- dropping the declaration
-# and leaning on kokoro-onnx / onnx-asr to pull it transitively would work today and
-# break silently the day an upstream vendors its own runtime. They declare it with no
-# specifier, which is the part Dependabot cannot trip over: its uv handler treats an
-# unconstrained requirement as non-updatable and returns it unchanged
-# (dependabot/dependabot-core#12273). The range that a specifier would have carried is
-# right here, and applies to the transitive requesters too, which a `[project]` marker
-# could never reach. `tests/test_dependabot_ignores_are_honest.py` fails the build if a
-# version range is ever written in both places again.
-#
-# Why the ceiling at all: onnxruntime stopped publishing an x86_64 wheel after 1.23.0
-# (1.24 through 1.28 are macosx_14_0_arm64 only; 1.23.2 is the last with
-# macosx_13_0_x86_64). A bare `>=1.27` floor there is not a preference, it is an
-# install failure -- uv reports "no source distribution or wheel for the current
-# platform", which reads like a broken package rather than a dropped platform.
 constraint-dependencies = [
-    "onnxruntime>=1.23.2,<1.24; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "onnxruntime<1.24; sys_platform == 'darwin' and platform_machine == 'x86_64'",
 ]

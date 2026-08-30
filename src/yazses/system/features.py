@@ -1021,14 +1021,7 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
 #: `tts` extra. See the note on `read-back` below.
 _ONNXRUNTIME = (
     "onnxruntime>=1.27.0; sys_platform != 'darwin' or platform_machine != 'x86_64'",
-    # No version range on the Intel-macOS branch, and that is deliberate rather than
-    # an omission: the range lives in `[tool.uv] constraint-dependencies`, because
-    # stating it in `[project]` as well is what made every Dependabot run fail (#322 --
-    # see the note on that table). These strings must stay identical to the `tts`
-    # extra's, so this one follows. `pip`/`uv pip` still land on 1.23.2 there: 1.24
-    # through 1.29 publish no x86_64 macOS wheel and onnxruntime ships no sdist, so a
-    # resolver has nothing else it can pick.
-    "onnxruntime; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "onnxruntime>=1.23.2,<1.24; sys_platform == 'darwin' and platform_machine == 'x86_64'",
 )
 
 _FEATURE_DEPS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
@@ -1053,9 +1046,7 @@ _FEATURE_DEPS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     # preference on that platform but an install that cannot resolve at all. The two
     # strings are the `tts` extra's, character for character -- which
     # `tests/test_feature_pins_match_the_extras.py` enforces, and which is why they
-    # are spelled out here instead of being simplified to one. That guard is also what
-    # caught this map when the extra changed for #322: the two are kept in step by a
-    # test rather than by whoever remembers both places.
+    # are spelled out here instead of being simplified to one.
     "read-back": (("kokoro_onnx", "onnxruntime", "soundfile"),
                   ("kokoro-onnx>=0.5.0", *_ONNXRUNTIME, "soundfile>=0.14.0")),
     "readback_clone": (("kokoro_onnx", "onnxruntime", "soundfile"),

@@ -21,7 +21,7 @@ resolution-markers = [
 ]
 
 [manifest]
-constraints = [{ name = "onnxruntime", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'", specifier = ">=1.23.2,<1.24" }]
+constraints = [{ name = "onnxruntime", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'", specifier = "<1.24" }]
 
 [[package]]
 name = "absl-py"
@@ -6842,9 +6842,9 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.4.6" },
     { name = "onnx-asr", extras = ["cpu", "hub"], marker = "extra == 'all'", specifier = ">=0.12" },
     { name = "onnx-asr", extras = ["cpu", "hub"], marker = "extra == 'parakeet'", specifier = ">=0.12" },
-    { name = "onnxruntime", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin' and extra == 'all'" },
-    { name = "onnxruntime", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin' and extra == 'silero'" },
-    { name = "onnxruntime", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin' and extra == 'tts'" },
+    { name = "onnxruntime", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin' and extra == 'all'", specifier = ">=1.23.2,<1.24" },
+    { name = "onnxruntime", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin' and extra == 'silero'", specifier = ">=1.23.2,<1.24" },
+    { name = "onnxruntime", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin' and extra == 'tts'", specifier = ">=1.23.2,<1.24" },
     { name = "onnxruntime", marker = "(platform_machine != 'x86_64' and extra == 'all') or (sys_platform != 'darwin' and extra == 'all')", specifier = ">=1.27.0" },
     { name = "onnxruntime", marker = "(platform_machine != 'x86_64' and extra == 'silero') or (sys_platform != 'darwin' and extra == 'silero')", specifier = ">=1.27.0" },
     { name = "onnxruntime", marker = "(platform_machine != 'x86_64' and extra == 'tts') or (sys_platform != 'darwin' and extra == 'tts')", specifier = ">=1.27.0" },

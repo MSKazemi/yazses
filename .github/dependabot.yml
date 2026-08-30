@@ -56,46 +56,30 @@ updates:
       # `tests/test_dependency_advisories.py::
       # test_the_resolved_setuptools_is_at_or_above_the_patched_release` now asserts
       # the resolved version. An `ignore` here would silence the next one.
-      # ⚠ `onnxruntime` is deliberately NOT ignored (#322). The monthly `uv` job used
-      # to fail on it every single run; it should now be green, and if it is red again
-      # the fix is still not an ignore rule. Read on before reaching for one.
+      # ⚠ `onnxruntime` is deliberately NOT ignored, and the monthly `uv` job is
+      # expected to report one handled error because of it (#322). Read this before
+      # "fixing" the red — the obvious fix is the wrong one.
       #
-      # What actually happened, and it is not what this comment used to say. The old
-      # text blamed an unmarked global pin — "Dependabot checks a bump by pinning the
-      # target version for the whole resolution … that pin has no environment marker"
-      # — and concluded the failure "goes away only when the cap is gone", i.e. only by
-      # dropping Intel macOS support. Both halves were wrong, and the error message was
-      # already saying so: uv named the offending requirement as
-      # `onnxruntime{platform_machine == 'x86_64' and sys_platform == 'darwin'}==1.29.0`.
-      # A global pin has no `{…}` marker on it. Dependabot was rewriting the *marked
-      # `[project]` declaration*, because pyproject.toml stated the Intel range twice —
-      # once in `[tool.uv] constraint-dependencies` and once as a second
-      # `onnxruntime>=1.23.2,<1.24; darwin+x86_64` requirement beside each `>=1.27`
-      # floor. Dependabot rewrites `[project]` requirements and never touches
-      # `[tool.uv]`, so a bump turned the duplicate into `>=1.29.0` sitting next to the
-      # table's `<1.24`.
+      # Dependabot checks a bump by pinning the target version for the whole
+      # resolution: `uv lock --upgrade-package onnxruntime==<new>`. That pin has no
+      # environment marker, so it also lands in the Intel-macOS fork, where
+      # pyproject.toml caps onnxruntime below 1.24 because upstream published no
+      # x86_64 macOS wheel after 1.23.2. A global `==` and a per-marker `<` are a
+      # contradiction, so the resolution is unsatisfiable by construction.
       #
-      # So the range is now stated once, in the table Dependabot cannot rewrite, and
-      # the `[project]` requirement for that platform carries no specifier at all —
-      # which its uv handler treats as non-updatable and returns unchanged
-      # (dependabot/dependabot-core#12273). Reproduced locally end to end: rewriting
-      # every `[project]` floor to `>=1.29.0`, exactly as a bump does, resolved 287
-      # packages with Intel macOS still on 1.23.2 and everything else on 1.29.0.
-      # Nothing was given up — no ignore, no dropped platform, no hand-bumping — and
-      # `tests/test_dependabot_ignores_are_honest.py::
-      # test_no_platform_version_range_is_stated_in_both_places` fails the build if the
-      # duplicate range comes back.
+      # Measured locally against this exact lockfile, not reasoned about — the same
+      # error appears whether the cap sits in `[project]`, in `[tool.uv]
+      # constraint-dependencies`, or in `override-dependencies`, and it goes away only
+      # when the cap is gone. Removing it is a support decision (drop Intel macOS),
+      # not a config change: a fresh Intel resolution of `yazses[all]` still succeeds
+      # today on Python 3.11 and 3.12 (onnxruntime 1.23.2, torch 2.2.2) and already
+      # fails on 3.13+ for an unrelated reason (torch ships no Intel macOS wheel).
       #
-      # For the record, since the old note's conclusion was a support decision: a fresh
-      # Intel resolution of `yazses[all]` still succeeds on Python 3.11 and 3.12
-      # (onnxruntime 1.23.2, torch 2.2.2) and already fails on 3.13+ for an unrelated
-      # reason — torch ships no Intel macOS wheel. That decision is still open, and it
-      # is no longer forced by this.
-      #
-      # Ignoring `onnxruntime >= 1.24` would stop every onnxruntime update — including
-      # a security one, per the note at the top of this file — on Linux, Windows and
-      # Apple silicon, which is where the users are. It would now also be buying
-      # nothing.
+      # Ignoring `onnxruntime >= 1.24` would stop the red, and would also stop every
+      # onnxruntime update — including a security one, per the note at the top of this
+      # file — on Linux, Windows and Apple silicon, which is where the users are. The
+      # error is handled per-dependency, so every other update in the sweep still
+      # opens. One explained red beats a silent gap; bump onnxruntime by hand.
 
   # GitHub Actions — pinned action versions go stale silently and are a real
   # supply-chain surface for a project that publishes signed artifacts.
