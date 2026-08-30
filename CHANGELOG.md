@@ -30,6 +30,38 @@ syntax error, while a real one still is. `system/configedit.py` reads `utf-8-sig
 `features enable` / `hotkey set` / `audio use` repair a file that already had a BOM
 instead of writing it back.
 
+### Fixed — meeting minutes could quietly leave out part of the meeting
+
+The minutes map-reduce split the transcript into windows of 40 **turns**. A turn is
+one word or a five-minute monologue, so nothing bounded the prompt, and llama.cpp
+fails at two sizes in two ways:
+
+* At `len(prompt_tokens) >= n_ctx` it raises. `generate_minutes` caught that, logged
+  it, and carried on — so that slice of the meeting was **absent from the minutes**
+  and the document did not say so.
+* Below that but above `n_ctx - max_tokens` it does not raise at all: it silently
+  clips `max_tokens` to whatever is left. With the GBNF grammar on, the model is then
+  cut off mid-object and the JSON never closes.
+
+The second band was reachable with the shipped defaults on ordinary meetings. Of the
+meetings stored on the author's machine, both with a real transcript peaked at ~3676
+and ~3459 estimated tokens per 40-turn window — past `4096 - 1024 = 3072`, one of them
+at 90% of the hard limit after fifteen minutes.
+
+Windows are now bounded by size as well as turn count, against a budget derived from
+the context (`[meeting] notes_ctx_tokens`, default 4096) minus the generation cap, so
+the model keeps room to finish its answer. A turn longer than a whole window is split
+on whitespace rather than dropped — a monologue is exactly what minutes must not lose
+— and the per-line `"Name: "` label is measured rather than assumed, because forty
+lines of a real full name is a kilobyte the old arithmetic never counted. Short
+meetings window exactly as before.
+
+Windows that still fail are no longer invisible: the minutes carry an explicit
+`INCOMPLETE` note naming how many were lost and pointing at the transcript. Minutes
+that quietly omit part of a meeting are worse than none — the reader cannot tell which
+part is missing, and the transcript they would check against is the thing they were
+trying not to read.
+
 ### Fixed — a large vocabulary erased the one word the prompt exists to prime
 
 Whisper's `initial_prompt` has a window. `WhisperModel.max_length` is 448 and

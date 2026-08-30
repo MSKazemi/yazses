@@ -1476,8 +1476,9 @@ class MeetingConfig:
     notes_model: str = ""              # path to a local GGUF; "" = dormant
     # Recommended GGUF (Q4_K_M, CPU-fit): Phi-4-mini-instruct or Qwen2.5-3B-Instruct.
     notes_grammar: bool = True         # constrain minutes JSON with a GBNF grammar (falls back to tolerant parse)
-    notes_window_turns: int = 40       # map-reduce window size (utterance turns)
+    notes_window_turns: int = 40       # map-reduce window size (utterance turns, upper bound)
     notes_max_tokens: int = 1024       # per-window generation cap
+    notes_ctx_tokens: int = 4096       # the GGUF context llama.cpp is opened with
 
 
 @dataclass

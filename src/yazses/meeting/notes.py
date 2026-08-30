@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 log = logging.getLogger(__name__)
 
@@ -48,16 +48,133 @@ def format_turns(utterances, speaker_names=None) -> str:
     return "\n".join(lines)
 
 
-def window_turns(utterances, size: int):
-    """Split utterances into contiguous windows of at most ``size`` turns. Pure."""
-    size = max(1, int(size))
-    return [utterances[i:i + size] for i in range(0, len(utterances), size)]
+#: real width once it knows the display names, because "Mohsen Seyedkazemi Ardebili"
+#: is not 16 characters and 40 of those per window is not a rounding error.
+_LINE_OVERHEAD_CHARS = 16
 
+
+def line_overhead_chars(speaker_names=None) -> int:
+    """Width of the longest ``"Name: "`` prefix :func:`format_turns` will emit. Pure."""
+    labels = [str(v) for v in (speaker_names or {}).values() if str(v)]
+    if not labels:
+        return _LINE_OVERHEAD_CHARS
+    return max(_LINE_OVERHEAD_CHARS, max(len(label) for label in labels) + 3)
+
+
+#: Conservative characters-per-token for a llama.cpp BPE on meeting prose.
+#:
+#: English prose runs ~3.6-4.0 chars/token on Llama-family vocabularies, so 3.0
+#: under-counts on purpose. Erring small only costs an extra window, and an extra
+#: window is merged away by the reduce step; erring large costs a whole slice of
+#: the meeting. The two directions are not symmetric, so the estimate is not
+#: centred.
+CHARS_PER_TOKEN = 3.0
+
+#: Prompt boilerplate plus the ``Name: `` prefixes, in tokens. Rounded up.
+_PROMPT_OVERHEAD_TOKENS = 200
+
+
+def window_budget_chars(ctx_tokens: int, max_output_tokens: int) -> int:
+    """How many characters of transcript may go into one map-step prompt. Pure.
+
+    llama.cpp gives no room to be optimistic here, and it fails in two different
+    ways at two different sizes:
+
+    * At ``len(prompt_tokens) >= n_ctx`` it raises ``ValueError``. The caller logs a
+      warning and moves on, so **that slice of the meeting is simply missing from
+      the minutes** and the document does not say so.
+    * Below that but above ``n_ctx - max_tokens`` it does not raise: it silently
+      clips ``max_tokens`` to whatever is left. With the GBNF grammar on, the model
+      is then cut off mid-object and the JSON never closes.
+
+    Both bands were reachable with the shipped defaults, because the window was
+    sized in **turns** (40) and a turn is one word or a five-minute monologue.
+    Measured over the meetings stored on the author's machine, the two with a real
+    transcript peak at ~3650 and ~3440 estimated tokens per 40-turn window --- both
+    inside the silent-clipping band (``4096 - 1024 = 3072``), one of them at 89% of
+    the hard limit on a 15-minute meeting.
+    """
+    usable = int(ctx_tokens) - int(max_output_tokens) - _PROMPT_OVERHEAD_TOKENS
+    return max(1, int(usable * CHARS_PER_TOKEN))
+
+
+def _split_long_text(text: str, budget: int) -> list:
+    """Break one over-long turn on whitespace so it can fit a window at all. Pure."""
+    words, out, current = text.split(), [], ""
+    for word in words:
+        candidate = f"{current} {word}".strip()
+        if current and len(candidate) > budget:
+            out.append(current)
+            current = word
+        else:
+            current = candidate
+    if current:
+        out.append(current)
+    return out or [text[:budget]]
+
+
+def window_turns(utterances, size: int, max_chars: int | None = None,
+                 line_overhead: int = _LINE_OVERHEAD_CHARS):
+    """Split utterances into contiguous windows of at most ``size`` turns, and at
+    most ``max_chars`` characters of rendered text. Pure.
+
+    ``size`` alone was the whole bound and it does not bound anything the model
+    cares about --- see :func:`window_budget_chars`. ``max_chars`` is the real
+    limit; the turn count stays as a secondary cap so existing behaviour is
+    unchanged for short turns.
+
+    A single turn longer than ``max_chars`` is split on whitespace rather than
+    dropped: it cannot fit any window otherwise, and a monologue is exactly the
+    turn a set of minutes must not lose.
+    """
+    size = max(1, int(size))
+    if not max_chars or max_chars <= 0:
+        return [utterances[i:i + size] for i in range(0, len(utterances), size)]
+
+    windows: list = []
+    current: list = []
+    used = 0
+    for utterance in utterances:
+        pieces = [utterance]
+        # Against the text budget, not the window budget: `format_turns` puts a
+        # `"Name: "` label in front of every line, so a chunk of exactly `max_chars`
+        # renders longer than `max_chars`.
+        text_budget = max(1, max_chars - line_overhead)
+        rendered = len(getattr(utterance, "text", "") or "")
+        if rendered > text_budget:
+            try:
+                pieces = [
+                    replace(utterance, text=chunk)
+                    for chunk in _split_long_text(utterance.text, text_budget)
+                ]
+            except TypeError:
+                # Not a dataclass. The rest of this module duck-types utterances, so
+                # a caller may pass something else; give the over-long turn a window
+                # to itself rather than refusing to window at all.
+                pieces = [utterance]
+        for piece in pieces:
+            cost = len(getattr(piece, "text", "") or "") + line_overhead
+            if current and (len(current) >= size or used + cost > max_chars):
+                windows.append(current)
+                current, used = [], 0
+            current.append(piece)
+            used += cost
+    if current:
+        windows.append(current)
+    return windows
+
+
+#: Default allowance for the ``"Name: "`` label and the newline that
+#: :func:`format_turns` puts between lines. `generate_minutes` replaces it with the
 
 _WINDOW_PROMPT = (
     "You are taking minutes for a meeting. Summarise this transcript excerpt. "
     "Return ONLY JSON: {{\"summary\": str, \"decisions\": [str], "
     "\"action_items\": [{{\"owner\": str, \"task\": str}}]}}.\n\nTranscript:\n{body}"
+)
+_GAP_NOTE = (
+    "INCOMPLETE: {skipped} of {total} transcript windows could not be summarised, so "
+    "part of this meeting is missing from these minutes. See live-transcript.md."
 )
 _REDUCE_PROMPT = (
     "Combine these partial meeting summaries into final minutes. Deduplicate and keep the "
@@ -81,17 +198,35 @@ def generate_minutes(utterances, config, *, llm=None, speaker_names=None):
         return None
 
     size = int(getattr(config, "notes_window_turns", 40) or 40)
-    windows = window_turns(utterances, size)
-    partials = []
+    budget = window_budget_chars(
+        int(getattr(config, "notes_ctx_tokens", 4096) or 4096),
+        int(getattr(config, "notes_max_tokens", 1024) or 1024),
+    )
+    windows = window_turns(
+        utterances, size, budget, line_overhead_chars(speaker_names)
+    )
+    partials, skipped = [], 0
     for w in windows:
         body = format_turns(w, speaker_names)
         try:
             partials.append(_parse_minutes(llm(_WINDOW_PROMPT.format(body=body))))
         except Exception as exc:  # pragma: no cover - model-dependent
+            skipped += 1
             log.warning("Minutes window failed (%s); skipping.", exc)
 
     if not partials:
         return None
+    if skipped:
+        # Minutes that quietly omit part of the meeting are worse than none: nobody
+        # reading them can tell which part is missing, and the transcript they would
+        # check against is the thing they were trying not to read.
+        log.warning(
+            "%d of %d minutes windows failed; the notes are incomplete.",
+            skipped, len(windows),
+        )
+        partials.append(Minutes(summary=_GAP_NOTE.format(
+            skipped=skipped, total=len(windows),
+        )))
     if len(partials) == 1:
         return partials[0]
 
@@ -309,7 +444,12 @@ def _build_llm(config):
     try:  # pragma: no cover - heavy, exercised only when a real model is configured
         from llama_cpp import Llama
 
-        llm = Llama(model_path=model_path, n_ctx=4096, verbose=False)
+        # The same number `generate_minutes` budgets its windows against. Two
+        # constants for one context is how the budget silently stops matching the
+        # model: raising `[meeting] notes_ctx_tokens` alone would have grown the
+        # windows while llama.cpp stayed at 4096.
+        n_ctx = int(getattr(config, "notes_ctx_tokens", 4096) or 4096)
+        llm = Llama(model_path=model_path, n_ctx=n_ctx, verbose=False)
         max_tokens = int(getattr(config, "notes_max_tokens", 1024) or 1024)
 
         grammar = None
