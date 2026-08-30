@@ -23,12 +23,12 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.35.0](v2.35.0.md)** — the update check could not report an update. A Windows
-balloon over 255 characters is discarded whole, so the two messages that carried
-information — "a new version is available" and "the check failed" — were exactly the two
-that vanished, leaving only "you are up to date". And a frozen macOS `.app` was classified
-as a Windows install, so Mac users were told, in confident detail, to download a
-`windows-<arch>.exe`.
+**[YazSes 2.36.0](v2.36.0.md)** — the failures that reported success. A UTF-8 byte-order
+mark — what Windows PowerShell writes by default — threw away every setting in
+`config.toml` and blamed a line that looks correct on screen. A one-letter typo in
+`[redaction] mode` fell through to not redacting, so the setting that removes a secret was
+the one that shipped it. And a dictated `rm -rf` skipped its confirmation gate in the one
+mode that presses Return.
 Install it with:
 
 ```sh
@@ -38,6 +38,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.36.0](v2.36.0.md) — the failures that reported success: a UTF-8 BOM discarded every setting in `config.toml` and blamed line 1; a typo in `[redaction] mode` shipped the secret it hides; a dictated `rm -rf` skipped its gate in command mode; the mic-change watcher could not fire on ALSA/PipeWire; the PPA advertised for two years never existed.
 - [v2.35.0](v2.35.0.md) — the update check could not report an update: a Windows balloon over 255 characters is discarded whole, so only "you are up to date" could ever render; a macOS `.app` was told to download a Windows `.exe`.
 - [v2.34.0](v2.34.0.md) — Windows and macOS never had a GUI at all: Settings, the sonar overlay and the tray were gated on X11 variables those platforms never set; the tray polled too slowly to see a short dictation; every Scoop install silently had no Start Menu entry.
 - [v2.33.0](v2.33.0.md) — the bundled `.exe` and `.app` ran a different CLI from the one we ship; a host with no audio device could not import YazSes; a Windows account name left in clear; CI red on every leg for a correct hook; Scoop on ARM64.

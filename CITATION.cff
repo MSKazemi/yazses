@@ -19,8 +19,8 @@ url: https://mskazemi.com/yazses/
 # a per-version DOI (10.5281/zenodo.21859949 is v2.17.0 only); that pins every future
 # citation to one old release.
 doi: 10.5281/zenodo.21856271
-version: 2.35.0
-date-released: 2026-08-27
+version: 2.36.0
+date-released: 2026-08-30
 identifiers:
   - type: doi
     value: 10.5281/zenodo.21856271

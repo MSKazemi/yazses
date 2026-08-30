@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.36.0] - 2026-08-30
+
 ### Fixed — the heavy-extras gate asked for something no run could give it
 
 Dispatching `heavy-extras.yml` after repairing its `uv run` pin got it past the two
@@ -1721,6 +1723,18 @@ to cover both installers.
 `tests/test_signpath_signing_wiring.py` reads the workflow directly, so the wiring is
 checked without the secrets — including that the signed binary replaces the unsigned
 one *before* anything hashes, attests or uploads it.
+
+### Fixed — Flathub was still building the release before last
+
+`packaging/flatpak/python3-yazses.json` pinned the `yazses` wheel at 2.34.0. The pin is
+the one line in that generated manifest that has to move with every release, and cutting
+2.35.0 did not move it, so Flathub would have built a version two releases behind while
+the AppStream metadata beside it advertised the current one.
+
+`tests/test_flatpak_metainfo.py::test_the_pinned_wheel_is_the_project_version_or_the_one_before_it`
+allows the previous release as well as the current one, because a release is cut before
+its wheel exists on PyPI. That window is one publish wide on purpose: it is wide enough
+to cut a release and narrow enough that skipping a release fails the build.
 
 ## [2.35.0] - 2026-08-27
 
