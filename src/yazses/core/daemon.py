@@ -756,11 +756,19 @@ class Daemon:
         # headset stealing capture) is surfaced + auto-healed. Polls only while idle,
         # so PortAudio is never re-initialised mid-recording. Dormant when disabled.
         if cfg.audio.device_change_notify and cfg.audio.device_poll_interval_s > 0:
-            from yazses.audio.devices import current_default_input_name, reinit_portaudio
+            from yazses.audio.devices import effective_default_input_name, reinit_portaudio
 
             def _poll_default() -> str | None:
                 reinit_portaudio()  # refresh so hotplugged devices are visible
-                return current_default_input_name()
+                # Not `current_default_input_name` directly: on ALSA/PipeWire that
+                # answers `default`, a route rather than a microphone, so comparing
+                # it over time compared `default` with `default` for ever and this
+                # watcher could never fire on the setup most Linux users have. The
+                # resolver reads through the alias with `wpctl` -- already used by
+                # `audio status` and `doctor`, no new dependency -- and returns None
+                # rather than the alias when it cannot, so a host without `wpctl`
+                # stays quiet instead of oscillating between the two spellings.
+                return effective_default_input_name()
 
             self._device_monitor = DeviceMonitor(
                 poll_fn=_poll_default,

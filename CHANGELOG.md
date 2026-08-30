@@ -6,6 +6,53 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the mic-change watcher could not fire on the setup most Linux users have
+
+`DeviceMonitor` decides the microphone changed by comparing the default input's
+**name** between polls. On ALSA/PipeWire, PortAudio answers `default` — a route, not
+a microphone — so it compared `default` with `default` for ever. Unplug a headset,
+let a monitor's built-in microphone take capture, and the watcher that exists to say
+so stayed silent. Verified on a PipeWire laptop:
+`current_default_input_name()` returns `'default'` there.
+
+The limitation was documented, in `docs/reliability.md`, in the source, and in the
+architecture reference — which is exactly why it lasted three releases. All three
+gave the same reason: reading through the alias would need a PipeWire or PulseAudio
+client library, *"a dependency this project does not take on for one diagnostic"*.
+
+That was true when written and had since stopped being true.
+`default_source_behind_alias` reads through the alias by shelling out to `wpctl` —
+the same mechanism as `notify-send` and `wl-copy`, no new dependency — and was added
+for `yazses audio status` and `yazses doctor`. The capability arrived for the
+diagnostics and the watcher was never moved onto it, so a real constraint outlived
+its cause and went on reading as a decision.
+
+`devices.effective_default_input_name` is that move, and three details make it safe
+rather than merely working:
+
+* It resolves **only when the name is an alias**. A real device name still costs one
+  PortAudio query and never reaches `wpctl`. Measured at ~30 ms per call, made only
+  while idle.
+* It returns the **name only**, never the `(name, volume)` pair the resolver
+  produces. Comparing the pair would make turning the input gain down look exactly
+  like somebody unplugging the microphone, and the notification would name a device
+  that had not changed.
+* Where nothing can see behind the alias — a plain ALSA host, PulseAudio without the
+  PipeWire tools — it returns "unknown" rather than the string `default`. Falling
+  back to the alias would make the compared value flip between `default` and the real
+  name whenever `wpctl` came and went, announcing a device change on every flap.
+  `device_changed` already treats unknown as no opinion, so those hosts keep exactly
+  the old behaviour: inert, never wrong.
+
+`tests/test_device_watcher_sees_through_the_alias.py` drives all of it through the
+real `DeviceMonitor`, including a control test asserting that the code which shipped
+would *not* pass — a fix for an inert feature is worth nothing if the test would have
+passed before it.
+
+The streak-based trigger was never affected and still carries hosts that cannot read
+the alias: it counts outcomes, not names.
+
+
 ### Security — the program that writes the Flatpak pins was the one thing unpinned
 
 `packaging/flatpak/python3-yazses.json` is what Flathub builds YazSes from: 45

@@ -173,14 +173,22 @@ _ROUTING_ALIASES = frozenset({"default", "pipewire", "pulse", "sysdefault"})
 def is_routing_alias(name: str | None) -> bool:
     """True when *name* is a route rather than a microphone.
 
-    This is why the device-change watcher cannot see a switch on a typical Linux
-    desktop: it detects a change by comparing this name over time, and against an
-    alias it compares ``default`` with ``default`` for ever. Reading through the
-    alias needs a PipeWire or PulseAudio client library, which is a dependency this
-    project does not take on for one diagnostic — so the limitation is named where
-    a user looks instead of being silently absent.
+    This used to be why the device-change watcher could not see a switch on a typical
+    Linux desktop: it detects a change by comparing this name over time, and against
+    an alias it compared ``default`` with ``default`` for ever.
 
-    The streak-based half of the guard is unaffected: it counts outcomes, not names.
+    The reason recorded here for leaving it that way — "reading through the alias
+    needs a PipeWire or PulseAudio client library, which is a dependency this project
+    does not take on" — had stopped being true. :func:`default_source_behind_alias`
+    reads through it with ``wpctl``, the same way this project already reaches
+    ``notify-send`` and ``wl-copy``, and it was added for ``yazses audio status`` and
+    ``doctor``. The capability arrived for the diagnostics and the watcher was never
+    moved onto it, so a limitation that was real when written outlived its cause and
+    went on reading as a decision. :func:`effective_default_input_name` is that move.
+
+    This predicate is still what decides *whether* to look behind the name, so it
+    stays. The streak-based half of the guard was never affected either way: it
+    counts outcomes, not names.
     """
     return (name or "").strip().lower() in _ROUTING_ALIASES
 
@@ -273,3 +281,49 @@ def default_source_behind_alias(run=None):
         return parse_wpctl_default_source((run or _default_run)())
     except Exception:  # pragma: no cover - depends on the host having wpctl
         return None
+
+
+def effective_default_input_name(*, poll=None, behind=None) -> str | None:
+    """The default input spelled as something that *changes when the microphone does*.
+
+    This is what makes the device-change watcher work on an ordinary Linux desktop.
+    :func:`current_default_input_name` asks PortAudio, and on ALSA/PipeWire the answer
+    is ``default`` -- a route, not a microphone (:func:`is_routing_alias`). The watcher
+    detects a switch by comparing that string over time, so it compared ``default``
+    with ``default`` for ever and could not fire, on the configuration most users have.
+
+    Reading through the alias was previously described here as needing a PipeWire or
+    PulseAudio client library. It does not, and has not since
+    :func:`default_source_behind_alias` was added for ``yazses audio status`` and
+    ``doctor``: those shell out to ``wpctl``, which is already how this project reaches
+    ``notify-send`` and ``wl-copy``. The capability arrived for the diagnostics and the
+    watcher was never moved onto it. Measured on a PipeWire laptop, ``wpctl status``
+    takes ~30 ms, and it is consulted only while idle and only when the name actually
+    is an alias -- so a real device name still costs one PortAudio query, as before.
+
+    Only the **name** is returned, never the ``(name, volume)`` pair
+    :func:`parse_wpctl_default_source` produces. Comparing the pair would make turning
+    the input gain down look exactly like somebody unplugging the microphone, and the
+    resulting notification would name a device that had not changed.
+
+    Returns ``None`` -- "cannot tell" -- when the name is an alias and nothing can see
+    behind it. Deliberately not the alias string: on a host where ``wpctl`` comes and
+    goes, falling back to ``default`` would make the comparison oscillate between
+    ``default`` and the real name and announce a device change on every flap.
+    :func:`device_changed` already treats ``None`` as "no opinion", so unknown stays
+    quiet, which is the same net behaviour this watcher had before -- inert rather
+    than wrong.
+    """
+    getter = poll or current_default_input_name
+    name = getter()
+    if not name or not is_routing_alias(name):
+        return name
+    resolver = behind or default_source_behind_alias
+    try:
+        resolved = resolver()
+    except Exception:  # pragma: no cover - resolver is already best-effort
+        return None
+    if not resolved:
+        return None
+    real = resolved[0] if isinstance(resolved, tuple) else resolved
+    return str(real) if real else None

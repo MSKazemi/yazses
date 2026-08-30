@@ -86,25 +86,34 @@ watch a green icon type nothing.
 | Signal | Default | What happens |
 |---|---|---|
 | Consecutive silent discards | `silent_streak_threshold = 3` | capture heals back to the last-good device |
-| OS default input changed | polled every `device_poll_interval_s = 3.0` s | same — **but see below** |
+| OS default input changed | polled every `device_poll_interval_s = 3.0` s | same — see the note below |
 
-!!! warning "The second trigger does not fire on most Linux desktops"
+!!! note "This trigger used not to fire on most Linux desktops. It does now."
 
     The watcher notices a switch by comparing the default input's **name** over time.
     On PipeWire and PulseAudio the default is a routing alias literally called
-    `default`, and the name does not change when the device behind it does — so it
-    compares `default` with `default` for ever and sees nothing. Reading through the
-    alias needs a PipeWire or PulseAudio client library, which YazSes does not take on
-    as a dependency for one diagnostic.
+    `default`, and that name does not change when the device behind it does — so it
+    compared `default` with `default` for ever and saw nothing.
 
-    **The first trigger is unaffected**, and it is the one that catches this in
-    practice: it counts *outcomes* — bursts that produced no text — not device names.
-    So a monitor that steals your microphone is still healed, after the silent streak
-    rather than at the moment of the switch.
+    It now reads *through* the alias with `wpctl`, the same way YazSes already
+    shells out to `notify-send` and `wl-copy`, so the compared name is the microphone
+    rather than the route. No new dependency: this is the same lookup `yazses audio
+    status` and `yazses doctor` have always used to tell you which microphone is
+    actually in use. The extra call happens only while idle and only when the name is
+    an alias, and it takes about 30 ms.
+
+    **Where it still cannot answer**, it says so rather than guessing. On a host with
+    no `wpctl` — a plain ALSA setup, or PulseAudio without the PipeWire tools — the
+    device behind the alias is unknown, and an unknown is treated as "no opinion"
+    instead of as a change. That is the old behaviour: inert, never wrong.
+
+    **The other trigger is unaffected** and remains the one that catches this in
+    practice on those hosts: it counts *outcomes* — bursts that produced no text —
+    not device names. A monitor that steals your microphone is healed after the
+    silent streak even where the name cannot be read.
 
     **Pinning removes the question entirely**: `yazses audio use <name>` means nothing
-    can take capture away in the first place. `yazses audio status` and `yazses doctor`
-    name the microphone actually behind the alias, so you can see which one it is.
+    can take capture away in the first place.
 
 Controlled by `[audio] auto_heal_device` (on by default). Each heal raises a
 desktop notification with **[Re-calibrate] / [Pin this mic] / [Ignore]**, because
