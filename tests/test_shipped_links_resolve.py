@@ -46,6 +46,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.gitprobe import require_git
+
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src" / "yazses"
 DOCS = ROOT / "docs"
@@ -249,6 +251,7 @@ def _tracked_text_files() -> list[Path]:
     draft — cannot fail the build, and so a file that is tracked cannot be missed by a
     pattern nobody remembered to update.
     """
+    require_git()
     listing = subprocess.run(
         ["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True
     ).stdout.split()

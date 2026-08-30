@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.gitprobe import require_git
+
 ROOT = Path(__file__).resolve().parent.parent
 HOOK = ROOT / "hooks/sitemap_dates.py"
 
@@ -33,6 +35,10 @@ class _Page:
 
 
 def test_a_tracked_page_uses_its_latest_commit_date(hook):
+    # The hook returns an empty date when `git log` cannot run, so without this the
+    # failure is `assert None` against an empty string -- true, and silent about the
+    # fact that git, not the hook, is what did not work.
+    require_git()
     page = _Page(ROOT / "docs/index.md")
     assert hook.on_page_markdown("content", page) == "content"
     assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", page.update_date)

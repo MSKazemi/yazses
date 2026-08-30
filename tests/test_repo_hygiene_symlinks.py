@@ -20,6 +20,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+from tests.gitprobe import require_git
+
 ROOT = Path(__file__).resolve().parent.parent
 
 # git's mode for a symlink. Regular files are 100644/100755.
@@ -33,6 +35,7 @@ NEVER_TRACKED = {".venv", "venv", "node_modules", "site", "dist", "build", "__py
 
 def _tracked_entries() -> list[tuple[str, str, str]]:
     """(mode, object, path) for everything in the index."""
+    require_git()
     out = subprocess.run(
         ["git", "ls-files", "-s"], cwd=ROOT, capture_output=True, text=True, check=True
     ).stdout

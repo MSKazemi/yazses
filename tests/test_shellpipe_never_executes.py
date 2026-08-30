@@ -122,10 +122,24 @@ def test_the_dry_run_helper_is_still_unwired() -> None:
     """
     import subprocess
 
-    hits = subprocess.run(
+    probe = subprocess.run(
         ["git", "grep", "-l", "dryrun_wrap", "--", "src/"],
         capture_output=True, text=True, check=False,
-    ).stdout.split()
+    )
+    # `git grep` exits 1 when it matches nothing and 0 when it matches, so those two
+    # are the only codes this test can read as an answer. Anything else means the
+    # probe did not run, and an unrun probe returns an empty stdout that is
+    # indistinguishable from "no references found" -- which is a *finding*, and the
+    # opposite of the truth. On the FreeBSD leg every git invocation exited 128 and
+    # this test duly reported "dryrun_wrap is now referenced from []", an assertion
+    # about the source tree produced by a git that never looked at it.
+    if probe.returncode not in (0, 1):
+        raise AssertionError(
+            f"`git grep` could not run (exit {probe.returncode}), so this guard has no "
+            f"answer to give -- it is not evidence either way. git said: "
+            f"{(probe.stderr or '<no stderr>').strip()}"
+        )
+    hits = probe.stdout.split()
     assert hits == ["src/yazses/shellpipe/build.py"], (
         f"dryrun_wrap is now referenced from {hits} — if the run path exists, drop the "
         f"'(orphan)' note in its docstring and this test"

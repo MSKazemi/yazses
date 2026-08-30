@@ -6,6 +6,45 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — twenty guards reported findings about a repository they never read
+
+Widening the FreeBSD leg from one file to the whole suite left 20 failures and 4
+collection errors. Every one of them had the same cause and none of them said so.
+`git` exited 128 for every invocation in the guest, and the guards that ask git
+questions answered in the vocabulary of their own subject:
+
+```
+dryrun_wrap is now referenced from []
+design/packaging/ is tracked but not published
+design/ci-cd-audit.md is tracked but not published
+assert None is not None
+```
+
+Four findings about the source tree, all false, from a git that never looked at it.
+The rest raised `CalledProcessError: ... exit status 128` — honest, and naming no
+cause, because 128 is git's catch-all and `capture_output=True` had already
+swallowed the line that would have named it.
+
+The distinction that was missing is that **an unrun probe and a probe that ran and
+found nothing return the same empty result, and they mean opposite things**.
+`tests/gitprobe.py::require_git()` asks git one question first and, if git cannot
+answer, fails with what git actually said. Twenty confusing findings become twenty
+copies of one true sentence, with the cause in the first line of the first failure.
+
+It fails rather than skips, deliberately. `test_no_private_path_is_tracked` is what
+stands between a private marketing tree and a public repository; a broken git that
+turned it into a skip would report green for a run with no private-tier guard at
+all. `test_gitprobe_is_honest.py` asserts that policy by running the real guard
+under a stubbed `git` in a child process and failing if it skips — proved by
+sabotage, where changing the raise to a skip turns it red.
+
+Reproduced locally with a stub `git` that exits 128, which gives exactly the CI
+count — 20 failed, 4 errors — so the classification is measured rather than
+inferred. The FreeBSD leg now also prints git's own complaint once before the suite
+runs, and adds the workspace as a `safe.directory` inside the guest: the host
+runner's checkout does this for its own git, and the guest has a different git, a
+different global config, and a workspace rsynced in under another owner.
+
 ### Fixed — Dependabot's monthly red, without giving up onnxruntime's security alerts
 
 The monthly `uv` job failed every run on `onnxruntime`. `pyproject.toml` declares it

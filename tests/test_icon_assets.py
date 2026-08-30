@@ -19,6 +19,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.gitprobe import require_git
+
 _REPO = Path(__file__).resolve().parents[1]
 _ICO = _REPO / "assets" / "yazses.ico"
 _ICNS = _REPO / "assets" / "yazses.icns"
@@ -313,6 +315,7 @@ class TestLinuxIconsMatchTheMark:
         diagrams, the social preview, a simplified favicon -- while an SVG anywhere else
         is an app icon a store renders.
         """
+        require_git()
         tracked = subprocess.run(
             ["git", "ls-files", "*.svg"],
             cwd=_REPO,

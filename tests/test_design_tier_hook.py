@@ -22,6 +22,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.gitprobe import require_git
+
 ROOT = Path(__file__).resolve().parent.parent
 HOOK = ROOT / "hooks/design_tier.py"
 
@@ -73,6 +75,14 @@ def test_a_fallback_exists_for_a_clone_with_no_hooks(hook):
 
 
 def _publishable(hook):
+    # `design_tier._tracked()` returns `None` when git cannot answer, and the hook
+    # then publishes a small curated fallback so a docs build never dies on a broken
+    # checkout. That is right for the build and wrong for a test: every assertion
+    # below compares the published set against the repository, so on a machine where
+    # git is broken they report the *fallback* as a defect -- "design/packaging/ is
+    # tracked but not published" -- which is a statement about this hook that is not
+    # true. `require_git()` makes the environment the finding instead.
+    require_git()
     return hook._publishable(ROOT, hook._private_prefixes(ROOT))
 
 

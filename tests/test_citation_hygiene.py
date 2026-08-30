@@ -27,6 +27,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.gitprobe import require_git
+
 ROOT = Path(__file__).resolve().parent.parent
 
 #: Trees whose contents are published as documentation.
@@ -55,6 +57,7 @@ _KNOWN: dict[str, str] = {
 
 
 def _tracked(paths: tuple[str, ...]) -> list[str]:
+    require_git()
     out = subprocess.run(
         ["git", "ls-files", *paths], cwd=ROOT, capture_output=True, text=True, check=True
     ).stdout

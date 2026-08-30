@@ -23,6 +23,8 @@ import re
 import subprocess
 from pathlib import Path
 
+from tests.gitprobe import require_git
+
 ROOT = Path(__file__).resolve().parent.parent
 
 # Long enough to be a real test name rather than a fragment like `test_x`.
@@ -38,6 +40,7 @@ def _tracked(pattern: str) -> list[Path]:
     each file twice — which is how the first run of this check reported its one
     offender twice over.
     """
+    require_git()
     out = subprocess.run(
         ["git", "ls-files", pattern], cwd=ROOT, capture_output=True, text=True, check=True
     ).stdout
