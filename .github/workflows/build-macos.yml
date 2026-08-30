@@ -323,7 +323,7 @@ jobs:
 
       - name: Attest build provenance for the .dmg
         id: attest
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v2
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           # dist/, not the repo root. Every other step in this job addresses the
           # artifact as dist/YazSes-*.dmg; this one globbed the workspace root,
@@ -341,7 +341,7 @@ jobs:
 
       - name: Attach to release (tag builds only)
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           files: |
             dist/YazSes-*.dmg

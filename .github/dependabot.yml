@@ -92,6 +92,24 @@ updates:
       prefix: "chore(ci)"
     labels: ["dependencies"]
 
+  # Docker — the base image of the published container.
+  #
+  # This entry is what makes the digest pin in `packaging/docker/Dockerfile` safe.
+  # `FROM python:3.12-slim` is a moving pointer: pinning it to a digest is the whole
+  # point (a tag cannot say which image a release was built from, so neither the
+  # release nor its build-provenance attestation can either), but a digest with no
+  # updater behind it stops receiving Debian and CPython security patches on the day
+  # it is written. Pinning without this entry trades a reproducibility problem for a
+  # patching one, which is the worse of the two.
+  - package-ecosystem: "docker"
+    directory: "/packaging/docker"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    labels: ["dependencies"]
+
   # Android (Gradle) — uncomment when android/ has a real Gradle build (issue #84).
   # - package-ecosystem: "gradle"
   #   directory: "/android"
