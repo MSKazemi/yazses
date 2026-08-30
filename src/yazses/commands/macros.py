@@ -19,6 +19,8 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+from yazses import tomlio
+
 log = logging.getLogger(__name__)
 
 _VALID_TYPES = ("text", "snippet", "actions")
@@ -122,8 +124,7 @@ def load_macros(path: Path | str | None) -> MacroTable:
     if not p.exists():
         return MacroTable(macros)
     try:
-        with open(p, "rb") as f:
-            data = tomllib.load(f)
+        data = tomlio.read(p)
     except (tomllib.TOMLDecodeError, OSError) as exc:
         log.error("could not parse macros file %s: %s", p, exc)
         return MacroTable(macros)

@@ -20,6 +20,7 @@ import re
 import tomllib
 from pathlib import Path
 
+from yazses import tomlio
 from yazses.styleguard.rules import Rule, load_stylerules
 
 log = logging.getLogger(__name__)
@@ -61,8 +62,7 @@ def load_rules_file(path: Path | str | None) -> list[Rule]:
     if not p.exists():
         return []
     try:
-        with open(p, "rb") as f:
-            data = tomllib.load(f)
+        data = tomlio.read(p)
     except (tomllib.TOMLDecodeError, OSError, ValueError) as exc:
         log.error("could not parse style-rules file %s: %s", p, exc)
         return []

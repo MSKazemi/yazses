@@ -336,8 +336,7 @@ def redact_status(status: dict) -> dict:
 def collect(*, config_file: Path, log_file: Path, data_dir: Path,
             status: dict | None, log_lines: int = 200) -> dict:
     """Gather the report as a plain dict, so it can be inspected before it is written."""
-    import tomllib
-
+    from yazses import tomlio
     from yazses.config import load_config_checked
 
     report: dict = {"generated_by": "yazses report"}
@@ -362,8 +361,7 @@ def collect(*, config_file: Path, log_file: Path, data_dir: Path,
 
     if config_file.exists():
         try:
-            with open(config_file, "rb") as fh:
-                report["config"] = redact_config(tomllib.load(fh))
+            report["config"] = redact_config(tomlio.read(config_file))
         except Exception as exc:  # noqa: BLE001
             report["config"] = {"error": f"unreadable: {exc}"}
         try:

@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a byte-order mark threw away every setting in `config.toml`
+
+`tomllib` rejects a leading BOM. A TOML document parses as a whole, so the failure was
+not the first line — it was the **entire file**: `load_config` fell back to defaults
+for the model, the hotkey, the VAD threshold, the injector, everything, and reported
+
+    could not be read (Invalid statement (at line 1, column 1))
+
+about a line that looks perfectly correct on screen, because the bytes are invisible.
+Dictation then behaves as though the user had never configured it.
+
+This is an ordinary Windows file. Windows PowerShell 5.1 — the default shell there —
+writes UTF-8 **with** a BOM from `Set-Content` and `Out-File`, and "UTF-8 with BOM" is
+still an offered encoding in Notepad and Visual Studio.
+
+Every hand-edited TOML the project reads was affected: `config.toml`, the macros file,
+the style-rules file, and the copy `yazses report` puts in a diagnostic bundle — the
+last being what someone sends when nothing works, so it would have pointed every
+reader at the wrong problem. All four now go through `yazses.tomlio`, which strips a
+leading BOM and changes nothing else: an invisible encoding artefact stops being a
+syntax error, while a real one still is. `system/configedit.py` reads `utf-8-sig`, so
+`features enable` / `hotkey set` / `audio use` repair a file that already had a BOM
+instead of writing it back.
+
 ### Fixed — the egress inventory listed transports and no installers
 
 ADR-019 exists because "nothing leaves this machine" is only as strong as a complete

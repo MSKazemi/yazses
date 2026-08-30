@@ -5,6 +5,7 @@ import typing
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from yazses import tomlio
 from yazses.configcheck import ConfigProblem, build_section
 
 log = logging.getLogger(__name__)
@@ -2007,8 +2008,7 @@ def load_config_checked(path: Path | None = None) -> LoadedConfig:
         return LoadedConfig(Config(), problems, None)
 
     try:
-        with open(path, "rb") as f:
-            data = tomllib.load(f)
+        data = tomlio.read(path)
     except (tomllib.TOMLDecodeError, OSError, ValueError) as exc:
         # Unparseable file: still start, on defaults, and say so loudly. Refusing to run
         # would turn a typo into "my dictation is gone" with no way to hear why.

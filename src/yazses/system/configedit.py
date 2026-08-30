@@ -88,7 +88,9 @@ def set_config_key(path, section: str, key: str, value, *, quote: bool | None = 
         p.write_text(f"[{section}]\n{line}\n", encoding="utf-8")
         return f"created {p} with [{section}] {line}"
 
-    text = p.read_text(encoding="utf-8")
+    # utf-8-sig: a BOM written by an earlier editor is dropped rather than carried
+    # into the rewritten file, where it would keep the whole config unparseable.
+    text = p.read_text(encoding="utf-8-sig")
     header = re.search(rf"(?m)^\[{re.escape(section)}\]\s*$", text)
     if not header:
         sep = "" if (not text or text.endswith("\n")) else "\n"
