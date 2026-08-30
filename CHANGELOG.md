@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — 14 pages on the docs site shared one search snippet
+
+`tests/test_docs_frontmatter.py` checked that a page's `description:` survives being
+rendered into a meta tag — but it built its case list from the pages that *have* one. A
+page declaring no description simply dropped out of the parametrization and was checked
+by nothing, which is also what an unquoted colon does to a whole front-matter block.
+
+The build cannot notice either: MkDocs falls back to `site_description`, so every such
+page still renders a `<meta name=description>` tag and `mkdocs build --strict` stays
+green. Measured: **14 pages reachable from the site nav** declared none, so all 14 shipped
+the identical sentence the home page uses as their search snippet — indistinguishable to
+a search engine and to a person scanning a results list.
+
+All 14 now describe themselves. Two of them (`contribute/tasks.md`,
+`contribute/built.md`) are generated, so the description was added to
+`scripts/campaign.py` — a hand-added block there is overwritten on the next `--generate`
+— and only to the `docs/` copies, since the `campaign/generated/` originals are not
+published and would carry an unread YAML block.
+
+The new check derives its scope from `mkdocs.yml`'s own `nav`, so a page added to the
+site is covered the day it is added rather than when someone remembers to list it.
+
 ### Fixed — a pyannote pipeline that returns no `Annotation` failed mid-loop
 
 `PyannoteDiarizer.diarize` called `annotation.itertracks(...)` on whatever the pipeline

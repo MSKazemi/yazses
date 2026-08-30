@@ -1,3 +1,7 @@
+---
+description: "The ten binding architecture decisions for the YazSes mobile programme, public on purpose. Each records the arguments that were rejected, which is usually the most useful part."
+---
+
 # Mobile architecture decision records
 
 The ten binding decisions for the YazSes mobile programme. They are **public on purpose**:

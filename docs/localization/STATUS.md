@@ -1,3 +1,7 @@
+---
+description: "Which YazSes translations exist, who reviews each language, and how far each has drifted from the English source. Every translation is native human work, never machine-rewritten."
+---
+
 # Translation status
 
 English (`README.md`) is the source of truth. Everything else here is native human

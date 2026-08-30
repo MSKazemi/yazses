@@ -1,3 +1,7 @@
+---
+description: "Turn an existing recording — a meeting, interview, voice memo or lecture — into text entirely on your own machine with yazses transcribe, optionally labelling who said what."
+---
+
 # Transcribe recordings to text (offline)
 
 `yazses transcribe <file>` turns an existing audio or video recording into a text

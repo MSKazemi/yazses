@@ -1,3 +1,7 @@
+---
+description: "Where each YazSes desktop capability lands on Android and why, mapped to the Wave 1 milestones M0 to M4."
+---
+
 # Desktop → Android portability matrix
 
 **Status:** design · **Last updated:** 2026-08-07

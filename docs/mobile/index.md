@@ -1,3 +1,7 @@
+---
+description: "The YazSes Android programme: status, milestones, and what has to be true before the app exists. Design is complete and no code ships yet."
+---
+
 # YazSes Mobile — programme overview
 
 **Status (2026-08-07): design complete, no code yet.** Nothing in this directory ships

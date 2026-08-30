@@ -1,3 +1,7 @@
+---
+description: "Check for yourself, in about ten minutes, that YazSes keeps transcribing with networking disabled — what that demonstrates, what it does not, and how to report what you saw."
+---
+
 # The offline-inference challenge
 
 YazSes transcribes on your own machine. This page is how you check that claim

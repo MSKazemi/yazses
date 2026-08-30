@@ -1,3 +1,7 @@
+---
+description: "A recorded terminal session of the YazSes command line, playing in your browser. The output is selectable and every command can be copied straight out of it."
+---
+
 # Watch the CLI
 
 A real recording of the YazSes command line — `-h`, `about`, `quickstart`,

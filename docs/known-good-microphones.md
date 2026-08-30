@@ -1,3 +1,7 @@
+---
+description: "A community list of microphones that work well with YazSes, each with the vad_threshold that actually worked on a real machine. Adding yours takes two minutes and needs no Python."
+---
+
 # Known-good microphones
 
 Microphone quality affects transcription accuracy more than almost anything else you can

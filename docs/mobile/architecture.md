@@ -1,3 +1,7 @@
+---
+description: "Reference architecture for the YazSes Android app — the document to read after the ADRs and before a first pull request. Design stage, governed by ADR-MOB-001 to 010."
+---
+
 # YazSes for Android — architecture
 
 **Status:** design, no code yet · governed by `docs/mobile/adr/adr-mob-001..010`

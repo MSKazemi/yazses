@@ -173,3 +173,69 @@ def test_compare_description_fits_a_search_snippet(path: Path):
         f"Google truncates near {SNIPPET_LIMIT}, so the tail is cut. Put the "
         f"differentiator first and shorten."
     )
+
+
+# --------------------------------------------------------------------------
+# A page that declares no description at all is invisible to the check above
+# --------------------------------------------------------------------------
+#
+# `_pages_with_description()` filters to pages that *have* one, so a page whose
+# front matter is missing -- or silently voided, which an unquoted colon does to
+# the whole block -- simply drops out of the parametrization and is checked by
+# nothing. The build stays green either way: MkDocs falls back to the site-wide
+# `site_description`, so the page still renders a `<meta name=description>` tag.
+#
+# Measured before this was added: 14 pages reachable from the site nav declared
+# none, and all 14 therefore shipped one identical sentence as their search
+# snippet -- the same one the home page uses. A search engine cannot tell them
+# apart, and neither can a person reading a results list.
+#
+# The set is derived from `mkdocs.yml`'s own `nav` rather than from a list kept
+# here, so a page added to the site is covered the day it is added. Pages outside
+# the nav (the generated `design/` tier, translation stubs) are deliberately not
+# in scope: they are not the pages people arrive on.
+
+MKDOCS_YML = DOCS.parent / "mkdocs.yml"
+
+
+class _IgnoreUnknownTags(yaml.SafeLoader):
+    """mkdocs.yml carries `!!python/name:` tags that SafeLoader refuses."""
+
+
+_IgnoreUnknownTags.add_multi_constructor("", lambda loader, suffix, node: None)
+
+
+def _nav_pages() -> list[str]:
+    config = yaml.load(MKDOCS_YML.read_text(encoding="utf-8"), Loader=_IgnoreUnknownTags)
+
+    def walk(node):
+        if isinstance(node, str):
+            yield node
+        elif isinstance(node, list):
+            for item in node:
+                yield from walk(item)
+        elif isinstance(node, dict):
+            for value in node.values():
+                yield from walk(value)
+
+    return [p for p in walk(config.get("nav") or []) if isinstance(p, str)
+            and p.endswith(".md") and (DOCS / p).exists()]
+
+
+def test_the_nav_still_lists_pages():
+    """Guard the guard: an unparseable nav would silently check nothing."""
+    assert len(_nav_pages()) >= 100, (
+        "mkdocs.yml's nav could not be read, so every check below passes vacuously"
+    )
+
+
+@pytest.mark.parametrize("page", _nav_pages())
+def test_every_page_in_the_nav_declares_its_own_description(page: str):
+    description = _front_matter(DOCS / page).get("description")
+    assert isinstance(description, str) and description.strip(), (
+        f"docs/{page} declares no `description:` in its front matter, so MkDocs "
+        "falls back to the site-wide one and the page ships the same search "
+        "snippet as the home page. Write one sentence describing this page. "
+        "If the file is generated, set it in the generator -- a hand-added block "
+        "is overwritten on the next run (see scripts/campaign.py)."
+    )

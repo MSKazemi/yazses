@@ -520,6 +520,36 @@ say so on the issue it links to, and open the pull request.
 """
 
 
+#: A generated page cannot carry hand-added front matter -- it is overwritten on every
+#: regeneration -- so its description belongs to the generator. Without one MkDocs falls
+#: back to the site-wide description, and the page ships the same search snippet as every
+#: other page that lacks it: indistinguishable both to a search engine and to a reader
+#: scanning results. Only the `docs/` copies are published, so only they get it; the
+#: `campaign/generated/` originals would carry an unread YAML block.
+_DOCS_TASKS_DESCRIPTION = (
+    "Every open YazSes contributor task, grouped by family, with the time each takes "
+    "and whether it needs Python, a browser container or your own machine. Nothing is "
+    "assigned; pick one and say so."
+)
+_DOCS_BUILT_DESCRIPTION = (
+    "What contributors have actually built and merged in YazSes, counted by category. "
+    "It reports merged work rather than activity, and shows zeros honestly until real "
+    "work lands."
+)
+
+
+def _with_description(description: str, body: str) -> str:
+    """Prepend a MkDocs front-matter block declaring *description*.
+
+    Double quotes are rejected rather than escaped: MkDocs writes the value straight
+    into `<meta name=description content="...">` without escaping, so one would close
+    the attribute early and leak the rest of the sentence out as junk attributes --
+    with a green build (see tests/test_docs_frontmatter.py).
+    """
+    assert '"' not in description, "a double quote would truncate the rendered meta tag"
+    return f'---\ndescription: "{description}"\n---\n\n{body}'
+
+
 def generate(tasks: list[dict[str, Any]]) -> dict[Path, str]:
     """Every generated artifact, as path -> content. Written only by --generate."""
     return {
@@ -527,8 +557,12 @@ def generate(tasks: list[dict[str, Any]]) -> dict[Path, str]:
         OPEN_TASKS_MD: render_open_tasks(tasks),
         DASHBOARD_MD: render_dashboard(tasks),
         STATS_JSON: json.dumps(stats(tasks), indent=2) + "\n",
-        DOCS_TASKS_MD: render_open_tasks(tasks),
-        DOCS_BUILT_MD: render_dashboard(tasks),
+        DOCS_TASKS_MD: _with_description(
+            _DOCS_TASKS_DESCRIPTION, render_open_tasks(tasks)
+        ),
+        DOCS_BUILT_MD: _with_description(
+            _DOCS_BUILT_DESCRIPTION, render_dashboard(tasks)
+        ),
         DOCS_FINDER_MD: render_task_finder(tasks),
     }
 

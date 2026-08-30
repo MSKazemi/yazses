@@ -1,3 +1,7 @@
+---
+description: "How the YazSes Mobile Working Group builds the Android app together — a six to twelve month effort designed to be built by contributors who have never met."
+---
+
 # The YazSes Mobile Working Group — how we build this together
 
 **Status:** open for contributors · **Last updated:** 2026-08-07

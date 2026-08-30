@@ -1,3 +1,7 @@
+---
+description: "Ways to contribute to YazSes, from a one-line documentation fix to a microphone report. Issue #22 is the front door; CONTRIBUTING.md in the repository is the authoritative guide."
+---
+
 # Contributing
 
 YazSes is built by a small group of people, most of whom arrived, did one useful thing, and

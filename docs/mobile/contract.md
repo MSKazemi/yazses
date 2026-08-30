@@ -1,3 +1,7 @@
+---
+description: "The shared behaviour contract every YazSes implementation must satisfy: six units and 191 cases, live and enforced in CI, so desktop and mobile cannot silently diverge."
+---
+
 # The YazSes core contract — one behaviour, many implementations
 
 **Status:** **shipped and enforced in CI** (2026-08-07) · normative decision in
