@@ -6,6 +6,43 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — the container moves to Python 3.14, verified by running it
+
+Dependabot proposed `python:3.12-slim` → `3.14-slim` for the published image (#323).
+A base-interpreter jump is not a routine digest bump, and the checks on that PR were
+red for reasons that had nothing to do with it, so it was settled by building the
+image and using it rather than by reading the diff.
+
+Built locally from the PR's Dockerfile, then, in the resulting image: Python 3.14.7,
+`yazses --version` answers, `sherpa_onnx` / `faster_whisper` / `ctranslate2` / `av` /
+`numpy` and `yazses.recimport.pipeline` all import, `transcribe` downloads `base.en`
+and writes a transcript, `transcribe --download-models` fetches both diarization
+models, and `transcribe --diarize` completes and reports a speaker count. That is the
+whole reason this image exists, exercised end to end. `evdev` still compiles from
+source in the build stage, which is the step most likely to break on a new
+interpreter and the reason the image is multi-stage at all.
+
+The change is applied directly rather than by merging the bot's commit: a merged
+Dependabot commit carries `Signed-off-by: dependabot[bot]`, which this repository's
+pre-push guard rejects, and working around that guard is not an option.
+
+### Fixed — the two build stages could drift onto different base images
+
+`packaging/docker/Dockerfile` carries two `FROM` lines and a comment explaining that
+they are the same digest "deliberately": the first stage compiles `evdev` and builds
+a virtualenv, the second copies that virtualenv and runs it. Nothing checked it.
+
+If they drift, C extensions compiled against one CPython ABI are executed by another,
+and the failure is not a build error — the build succeeds, and the shipped image
+raises `ImportError` on someone else's machine. Two digests drift more easily than
+they look: an updater that matches one line and not the other, a hand-edited hotfix
+to the runtime stage, or a merge that takes one side of each.
+
+`test_every_build_stage_resolves_the_same_base_image` now asserts it, and refuses to
+pass vacuously on a Dockerfile that has stopped being multi-stage — both directions
+proved by sabotage.
+
+
 ### Security — a reachable RCE advisory in the diarization stack had no assessment
 
 `lightning` ≤ 2.6.5 (CVE-2026-58659) executes arbitrary code from a checkpoint:

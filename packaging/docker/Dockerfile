@@ -13,7 +13,7 @@
 # final stage carries the interpreter, the packages, and ffmpeg — nothing else.
 
 # ---- build stage -----------------------------------------------------------
-# Pinned by digest, not just by tag. `python:3.12-slim` is a moving pointer: the
+# Pinned by digest, not just by tag. `python:3.14-slim` is a moving pointer: the
 # image behind it is replaced on every Debian and CPython patch, so two builds of
 # the same commit can produce different images and neither the release nor the
 # build-provenance attestation can say which one shipped. The tag is kept in the
@@ -21,7 +21,7 @@
 # is enabled for this directory so the digest is bumped like any other dependency
 # rather than frozen -- pinning without an updater trades a reproducibility problem
 # for a patching one.
-FROM python:3.12-slim@sha256:09f7da3bc104798d0afb40bc08d23ab2da20a76130cec1f2ef170848f5d85217 AS build
+FROM python:3.14-slim@sha256:cae66f2ef0ec51a9891263eeee7f987dacf0a9879e8aa9353d5606e0530619a5 AS build
 
 # Version to install. Pinned by CI to the tag being built so the image and the
 # release cannot disagree about what is inside it; defaults to the newest release.
@@ -58,7 +58,7 @@ RUN if [ -n "$YAZSES_VERSION" ]; then \
 # Same digest as the build stage above, deliberately: two stages resolving the same
 # tag at different moments is how a build ends up with one interpreter compiling the
 # wheels and a different one running them.
-FROM python:3.12-slim@sha256:09f7da3bc104798d0afb40bc08d23ab2da20a76130cec1f2ef170848f5d85217
+FROM python:3.14-slim@sha256:cae66f2ef0ec51a9891263eeee7f987dacf0a9879e8aa9353d5606e0530619a5
 
 LABEL org.opencontainers.image.title="YazSes" \
       org.opencontainers.image.description="Offline speech-to-text and speaker diarization. Transcribe a file with no cloud, no account and no network." \

@@ -168,6 +168,35 @@ def test_the_container_base_image_is_pinned_by_digest() -> None:
 
 
 @pytest.mark.skipif(not DOCKERFILE.exists(), reason="no container is built here")
+def test_every_build_stage_resolves_the_same_base_image() -> None:
+    """The Dockerfile says this in a comment and nothing enforced it.
+
+    The image is multi-stage: the first stage installs a toolchain and compiles
+    `evdev` from source, the second copies the resulting virtualenv and runs it. If
+    the two `FROM` lines drift apart, extension modules built against one CPython
+    ABI are executed by another -- and the failure is not a build error. It is an
+    `ImportError` in the shipped image, on a machine that is not the one that built
+    it, for a user who cannot see either Dockerfile line.
+
+    Two digests drift apart more easily than they look: an updater that matches one
+    line and not the other, a hand-edited hotfix to the runtime stage, or a
+    conflict resolution that takes one side of each. A comment saying "same digest,
+    deliberately" is exactly the sort of instruction a future edit reads past.
+    """
+    images = _FROM.findall(DOCKERFILE.read_text(encoding="utf-8"))
+    assert len(images) > 1, (
+        f"{DOCKERFILE} no longer has multiple FROM lines -- if it stopped being "
+        "multi-stage, delete this guard rather than letting it pass vacuously."
+    )
+    assert len(set(images)) == 1, (
+        f"the build stages resolve different base images: {sorted(set(images))}. "
+        "The virtualenv built in the first stage is copied into the second, so a "
+        "different CPython there loads C extensions compiled against another ABI. "
+        "That fails at import time inside the published image, not during the build."
+    )
+
+
+@pytest.mark.skipif(not DOCKERFILE.exists(), reason="no container is built here")
 def test_the_pinned_base_image_still_gets_security_updates() -> None:
     """A digest pin with no updater behind it is a base image frozen on the day it was
     written, which trades a reproducibility problem for a patching one. The pin is only
