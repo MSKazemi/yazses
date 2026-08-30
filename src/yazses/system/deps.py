@@ -32,10 +32,20 @@ def missing_modules(modules: Iterable[str]) -> list[str]:
     this extra". Both outcomes mean the same thing here, so both are reported
     the same way.
 
-    ``ValueError`` covers a module already in ``sys.modules`` with no spec.
+    ``ValueError`` covers a module in ``sys.modules`` whose ``__spec__`` is None --
+    but only for one that is *not* already imported. A module present in
+    ``sys.modules`` **is** importable; that is what the name means, and `find_spec`
+    raising over its missing spec is a lookup artefact, not evidence of absence.
+    Reporting it absent broke every caller that probes an in-tree adapter module: a
+    test (or any code) that injects a stand-in with ``monkeypatch.setitem(sys.modules,
+    ...)`` builds a bare ``ModuleType`` with no spec, and the probe then answered
+    "not implemented in this build" about a module it could have imported on the
+    next line.
     """
     absent = []
     for name in modules:
+        if name in sys.modules:
+            continue
         try:
             if importlib.util.find_spec(name) is None:
                 absent.append(name)

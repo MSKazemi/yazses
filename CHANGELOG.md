@@ -6,6 +6,34 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — gaze blamed an extra that deliberately does not contain the backend
+
+`build_gaze` wrapped the whole construction in one `except Exception` and answered
+every failure with *"install the `gaze` extra"*. Two of the things under that `except`
+are not fixed by installing it, and gaze that never runs has no other symptom —
+`yazses features` still shows the capability ON, nothing is typed differently, and that
+one `log.warning` is the entire account of what happened.
+
+* `backend = "l2cs"` is **never** fixed by it. `pyproject.toml` declares the `gaze`
+  extra as mediapipe only, and says why: l2cs pulls an older torch that conflicts with
+  a unified resolution, so it is left to a manual `pip install "l2cs>=2.0"`. Advising
+  the extra sends the user after a package that cannot supply the backend they chose —
+  the same lie `system/backends.py` was written to stop telling for `resemblyzer` and
+  `pyannote`.
+* `MediapipeGazeBackend` fetches a ~3.7 MB FaceLandmarker model from Google on first
+  use, so a firewall produced "install the extra" at a user who already had it.
+
+The factory now asks `probe_backend` like the other five seams, names only a remedy
+that can actually work (nothing for l2cs but l2cs itself), reports an unknown backend
+as a typo rather than as something to install, and keeps a separate message for
+"installed and still would not start" that passes the real error through.
+
+`missing_modules` was corrected in the same pass: a module already in `sys.modules`
+**is** importable, and `find_spec` raising over its absent `__spec__` is a lookup
+artefact rather than evidence. It was reporting such a module as "not implemented in
+this build" — which every probe of an in-tree adapter inherits, and which any code that
+injects a stand-in module hits immediately.
+
 ### Fixed — a blocked voice-model download told the user to install an extra they already had
 
 Read-back that produces nothing has no other symptom, so the log line *is* the whole
