@@ -184,6 +184,70 @@ _REDUCE_PROMPT = (
 )
 
 
+def batch_partials(rendered: list, budget: int) -> list:
+    """Group rendered partials into batches that each fit ``budget``. Pure.
+
+    Returns a list of index lists. A single partial larger than the budget gets a
+    batch of its own --- it cannot be made to fit, and dropping it would lose a
+    window that decoded perfectly well.
+    """
+    batches: list = []
+    current: list = []
+    used = 0
+    for index, text in enumerate(rendered):
+        cost = len(text) + 2  # the blank line the join puts between them
+        if current and used + cost > budget:
+            batches.append(current)
+            current, used = [], 0
+        current.append(index)
+        used += cost
+    if current:
+        batches.append(current)
+    return batches
+
+
+def _reduce_once(llm, partials, budget):
+    """One reduce pass over ``partials``, in batches that fit. Returns a shorter list."""
+    rendered = [_minutes_to_json(m) for m in partials]
+    out = []
+    for batch in batch_partials(rendered, budget):
+        group = [partials[i] for i in batch]
+        if len(group) == 1:
+            out.append(group[0])
+            continue
+        body = "\n\n".join(rendered[i] for i in batch)
+        try:
+            out.append(_parse_minutes(llm(_REDUCE_PROMPT.format(body=body))))
+        except Exception as exc:  # pragma: no cover - model-dependent
+            log.warning("Minutes reduce batch failed (%s); merging it verbatim.", exc)
+            out.append(_merge_partials(group))
+    return out
+
+
+def reduce_partials(llm, partials, budget: int):
+    """Reduce ``partials`` to a single :class:`Minutes`, in as many passes as it takes.
+
+    The reduce step used to be one call over **every** partial, and it did not fit.
+    Measured on realistic per-window summaries it overflows a 4096-token context at
+    about **eight** partials --- and the meetings stored on the author's machine
+    produce eleven and three. So for anything past roughly twenty-five minutes the
+    reduce always raised, always fell back to `_merge_partials`, and the user got a
+    wall of concatenated per-window summaries with nothing deduplicated, labelled
+    "minutes". The failure was in a `log.warning` and nowhere else.
+
+    Reducing in batches and repeating collapses any number of partials in
+    ``ceil(log(n))`` passes. The loop stops if a pass makes no progress, which is the
+    only way it could spin: a single partial bigger than the whole budget.
+    """
+    while len(partials) > 1:
+        reduced = _reduce_once(llm, partials, budget)
+        if len(reduced) >= len(partials):
+            # No progress. Merging is lossless where another pass would be endless.
+            return _merge_partials(partials)
+        partials = reduced
+    return partials[0] if partials else Minutes()
+
+
 def generate_minutes(utterances, config, *, llm=None, speaker_names=None):
     """Generate :class:`Minutes` from utterances, or ``None`` when dormant/failed.
 
@@ -217,15 +281,9 @@ def generate_minutes(utterances, config, *, llm=None, speaker_names=None):
     if not partials:
         return None
 
-    if len(partials) == 1:
-        minutes = partials[0]
-    else:
-        reduce_body = "\n\n".join(_minutes_to_json(m) for m in partials)
-        try:
-            minutes = _parse_minutes(llm(_REDUCE_PROMPT.format(body=reduce_body)))
-        except Exception as exc:  # pragma: no cover - model-dependent
-            log.warning("Minutes reduce failed (%s); returning merged partials.", exc)
-            minutes = _merge_partials(partials)
+    # The reduce prompt is bounded by the same context as the map prompts, and for
+    # the same reason -- see `reduce_partials`. Room is left for the boilerplate.
+    minutes = reduce_partials(llm, partials, max(1, budget - len(_REDUCE_PROMPT)))
 
     if skipped:
         # Stamped on the FINAL minutes, not fed in as one more partial. The reduce

@@ -235,3 +235,111 @@ def test_the_budget_and_the_model_read_the_same_context_setting() -> None:
 
     budget_source = inspect.getsource(notes.generate_minutes)
     assert 'getattr(config, "notes_ctx_tokens"' in budget_source
+
+
+# --- the reduce step has the same context, and used to ignore it ----------------
+
+
+def _fat_partial(n: int) -> list:
+    """Realistically sized per-window summaries: ~600-character summary, three
+    decisions, two action items. That is what a map step actually returns."""
+    from yazses.meeting.notes import ActionItem
+
+    return [
+        Minutes(
+            summary="x" * 600,
+            decisions=["y" * 80] * 3,
+            action_items=[ActionItem("Ana", "z" * 80), ActionItem("Bo", "z" * 80)],
+        )
+        for _ in range(n)
+    ]
+
+
+def _llama_like(reply: str, limit: int):
+    """A stand-in that fails the way llama.cpp fails: over the context it raises,
+    it does not truncate. A fake that accepts any prompt cannot catch this bug —
+    which is the whole reason it survived."""
+
+    def llm(prompt: str) -> str:
+        if len(prompt) > limit:
+            raise ValueError(
+                f"Requested tokens ({len(prompt) // 3}) exceed context window of 4096"
+            )
+        return reply
+
+    return llm
+
+
+def test_the_reduce_prompt_stays_inside_the_same_context() -> None:
+    """The reduce was one call over *every* partial. On realistic summaries it
+    overflows a 4096-token context at about eight — and the meetings stored on this
+    machine produce eleven and three. So past roughly twenty-five minutes the reduce
+    always raised, always fell back to concatenation, and the user got a wall of
+    per-window summaries labelled "minutes" with a `log.warning` as the only sign."""
+    from yazses.meeting.notes import _REDUCE_PROMPT, reduce_partials
+
+    budget = window_budget_chars(4096, 1024) - len(_REDUCE_PROMPT)
+    seen: list[int] = []
+
+    inner = _llama_like(
+        '{"summary": "merged", "decisions": [], "action_items": []}',
+        window_budget_chars(4096, 1024),
+    )
+
+    def llm(prompt: str) -> str:
+        seen.append(len(prompt))
+        return inner(prompt)
+
+    result = reduce_partials(llm, _fat_partial(40), budget)
+    assert isinstance(result, Minutes)
+    assert seen, "the reduce never called the model at all"
+    for size in seen:
+        assert size <= window_budget_chars(4096, 1024), size
+
+
+def test_a_long_meeting_is_actually_reduced_not_just_concatenated() -> None:
+    """The point of the reduce is deduplication. Falling back to `_merge_partials`
+    silently turns forty summaries into one long one."""
+    from yazses.meeting.notes import _REDUCE_PROMPT, reduce_partials
+
+    budget = window_budget_chars(4096, 1024) - len(_REDUCE_PROMPT)
+
+    llm = _llama_like(
+        '{"summary": "one tight summary", "decisions": ["d"], "action_items": []}',
+        window_budget_chars(4096, 1024),
+    )
+    result = reduce_partials(llm, _fat_partial(40), budget)
+    assert result.summary == "one tight summary", result.summary[:120]
+
+
+def test_the_reduce_terminates_on_a_partial_bigger_than_the_budget() -> None:
+    """The only way batching could fail to make progress. Merging is lossless where
+    another pass would be endless."""
+    from yazses.meeting.notes import reduce_partials
+
+    huge = [Minutes(summary="x" * 5000), Minutes(summary="y" * 5000)]
+
+    def llm(prompt: str) -> str:
+        raise AssertionError("nothing fits, so nothing should be sent")
+
+    result = reduce_partials(llm, huge, 100)
+    assert "x" * 10 in result.summary and "y" * 10 in result.summary
+
+
+def test_batching_keeps_every_partial_exactly_once() -> None:
+    from yazses.meeting.notes import _minutes_to_json, batch_partials
+
+    rendered = [_minutes_to_json(m) for m in _fat_partial(37)]
+    batches = batch_partials(rendered, 4000)
+    assert sorted(i for b in batches for i in b) == list(range(37))
+    assert all(batches[i][-1] < batches[i + 1][0] for i in range(len(batches) - 1))
+
+
+def test_a_single_partial_needs_no_model_call() -> None:
+    from yazses.meeting.notes import reduce_partials
+
+    def llm(prompt: str) -> str:
+        raise AssertionError("a lone partial is already the answer")
+
+    only = Minutes(summary="done")
+    assert reduce_partials(llm, [only], 10_000) is only

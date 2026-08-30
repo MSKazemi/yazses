@@ -30,6 +30,25 @@ syntax error, while a real one still is. `system/configedit.py` reads `utf-8-sig
 `features enable` / `hotkey set` / `audio use` repair a file that already had a BOM
 instead of writing it back.
 
+### Fixed — the minutes reduce step never ran on a meeting long enough to need it
+
+The map-reduce's reduce was a single call over **every** partial, with no bound. On
+realistically sized per-window summaries that overflows a 4096-token context at about
+**eight** partials — and the meetings stored on the author's machine produce eleven and
+three. So for anything past roughly twenty-five minutes the reduce always raised, always
+fell back to `_merge_partials`, and the user got a wall of concatenated per-window
+summaries with nothing deduplicated, labelled "minutes". The only sign was a
+`log.warning` nobody reads after a meeting.
+
+Reducing is now done in batches that fit the same context the map step budgets against,
+repeated until one set of minutes is left — `ceil(log n)` passes for any number of
+partials. A pass that makes no progress (one partial larger than the whole budget)
+merges instead of spinning. A lone partial is returned without calling the model at all.
+
+The tests use a stand-in that fails the way llama.cpp fails — over the context it
+raises, it does not truncate — because a fake that accepts any prompt cannot catch this,
+which is exactly why it survived.
+
 ### Fixed — `yazses vocab add`/`remove` reported what was asked, not what happened
 
 `vocab remove` was the only writer in `system/vocabulary.py` with no `mkdir`. On a
