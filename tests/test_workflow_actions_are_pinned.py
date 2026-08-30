@@ -46,6 +46,7 @@ workflows would.
 
 from __future__ import annotations
 
+import pathlib
 import re
 from collections import defaultdict
 from pathlib import Path
@@ -181,7 +182,41 @@ def test_the_pinned_base_image_still_gets_security_updates() -> None:
         "Debian or CPython security patch."
     )
     watched = {u["directory"].rstrip("/") or "/" for u in docker}
-    wanted = "/" + str(DOCKERFILE.parent.relative_to(REPO))
+    wanted = _dependabot_directory(DOCKERFILE.parent.relative_to(REPO))
     assert wanted in watched, (
         f"Dependabot watches {sorted(watched)} but the Dockerfile is in {wanted}"
+    )
+
+
+def _dependabot_directory(relative: pathlib.PurePath) -> str:
+    """A Dependabot `directory`, spelled the way Dependabot spells it.
+
+    `.as_posix()` rather than `str()`: the value names a path *in the repository*, so
+    it is separated by forward slashes on every host, while `str()` on a `PurePath`
+    uses the separator of whatever machine is running. This is a named function only
+    so the test below can drive it with a `PureWindowsPath` and catch that difference
+    without a Windows runner.
+    """
+    return "/" + relative.as_posix()
+
+
+def test_a_repository_path_is_derived_the_same_way_on_every_operating_system() -> None:
+    """The assertion above was red on Windows alone, and green everywhere the author
+    could run it -- the failure mode that costs the most, because the tree was correct
+    and only the test's arithmetic was host-dependent.
+
+    A Dependabot `directory` names a path *in the repository*, so it is separated by
+    forward slashes on every host. `str()` on a `PurePath` uses the separator of the
+    machine running it, which on `windows-latest` turned `/packaging/docker` into
+    `/packaging\\docker` and failed a set-membership test against a correct config.
+
+    This re-runs the derivation under an explicit `PureWindowsPath`, so the mistake is
+    caught on a Linux laptop rather than ten minutes into a Windows CI leg -- and so
+    reintroducing `str()` here fails for everyone, not for one leg of the matrix.
+    """
+    rel = pathlib.PureWindowsPath("packaging", "docker")
+    assert _dependabot_directory(rel) == "/packaging/docker"
+    assert "/" + str(rel) != "/packaging/docker", (
+        "PureWindowsPath no longer separates with a backslash, so this guard now "
+        "proves nothing -- check what it was protecting before deleting it."
     )
