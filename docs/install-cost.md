@@ -143,7 +143,8 @@ needs the network again.
 You can prove that rather than trust it:
 
 ```sh
-docker run --rm --network none -v yazses-models:/models -v "$PWD:/data" yazses jfk.wav
+docker run --rm --network none -v yazses-models:/home/yazses/.cache \
+    -v "$PWD:/data" ghcr.io/mskazemi/yazses transcribe jfk.wav
 ```
 
 That transcribes with networking switched off entirely. It works.

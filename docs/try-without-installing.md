@@ -26,9 +26,9 @@ that cost you nothing and leave nothing behind.
 ```sh
 git clone https://github.com/MSKazemi/yazses.git && cd yazses
 docker build -f packaging/docker/Dockerfile -t yazses .
-docker run --rm -v yazses-models:/models \
+docker run --rm -v yazses-models:/home/yazses/.cache \
     -v "$PWD/data/librispeech-sample:/data:ro" -v /tmp:/out \
-    yazses jfk.wav -o /out/jfk-heard.txt
+    yazses transcribe jfk.wav -o /out/jfk-heard.txt
 ```
 
 That transcribes a clip that ships with the repo. Now compare the two:
@@ -65,9 +65,12 @@ real time on a CPU**, with no GPU.
 Transcribe your own file by pointing the volume at your own folder:
 
 ```sh
-docker run --rm -v yazses-models:/models -v "$PWD:/data" yazses meeting.m4a
-docker run --rm -v yazses-models:/models -v "$PWD:/data" yazses talk.mp4 -f srt
-docker run --rm -v yazses-models:/models -v "$PWD:/data" yazses talk.wav --model small.en
+docker run --rm -v yazses-models:/home/yazses/.cache -v "$PWD:/data" \
+    yazses transcribe meeting.m4a
+docker run --rm -v yazses-models:/home/yazses/.cache -v "$PWD:/data" \
+    yazses transcribe talk.mp4 -f srt
+docker run --rm -v yazses-models:/home/yazses/.cache -v "$PWD:/data" \
+    yazses transcribe talk.wav --model small.en
 ```
 
 `wav`, `mp3`, `m4a`, `ogg`, `flac`, `opus` and `mp4` all work. Output formats are
@@ -79,7 +82,8 @@ docker run --rm -v yazses-models:/models -v "$PWD:/data" yazses talk.wav --model
     in one flag.
 
     ```sh
-    docker run --rm --network none -v yazses-models:/models -v "$PWD:/data" yazses jfk.wav
+    docker run --rm --network none -v yazses-models:/home/yazses/.cache \
+        -v "$PWD:/data" yazses transcribe jfk.wav
     ```
 
 The image is **833 MB**. It deliberately drops PySide6 (the desktop overlay, ~648 MB),

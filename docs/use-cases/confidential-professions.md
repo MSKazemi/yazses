@@ -54,8 +54,8 @@ The whole claim on this page rests on "it runs locally", so do not take that on 
 a documentation page. Check it in one command:
 
 ```sh
-docker run --rm --network none \
-    -v yazses-models:/models -v "$PWD:/data" yazses interview.m4a
+docker run --rm --network none -v yazses-models:/home/yazses/.cache \
+    -v "$PWD:/data" ghcr.io/mskazemi/yazses transcribe interview.m4a
 ```
 
 `--network none` gives the container no route to the internet at all. It still produces a

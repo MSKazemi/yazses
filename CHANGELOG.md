@@ -6,6 +6,40 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the "prove we're offline" container command could not run
+
+Four pages invited the reader not to trust the offline claim but to check it, in one
+command. The command was broken in two independent ways, and had been since it was
+written:
+
+```sh
+docker run --rm --network none -v yazses-models:/models -v "$PWD:/data" yazses jfk.wav
+```
+
+The image's `ENTRYPOINT` is `yazses`, so this runs `yazses jfk.wav` — and `jfk.wav` is
+not a command. Click exits 2 having transcribed nothing. Separately, the named volume
+was mounted at `/models`, a path that appears nowhere in the image; the models cache
+into `XDG_CACHE_HOME=/home/yazses/.cache`. So the volume cached nothing, every run
+re-downloaded the model, and the `--network none` run — the whole point — had no way to
+obtain one.
+
+`docs/docker.md` and the README carried the correct form (`transcribe /data/talk.m4a`,
+`-v yazses-models:/home/yazses/.cache`) throughout, which is why it went unnoticed: the
+working version was one file away. The wrong one was on the privacy statement, the cost
+page, "try without installing", and the page written for people whose recordings are
+confidential — i.e. every page where a reader who tries the command and watches it fail
+concludes the offline claim was the false part.
+
+Verified by building the image and running the corrected commands: 44 s cold (the page
+claims 43 s on its author's machine), then 5 s with `--network none` and no route to the
+internet, transcribing the sample word for word.
+
+`tests/test_documented_docker_commands_run.py` now parses every shell block, resolves
+each container invocation against the real command tree, and checks each model-cache
+mount against the path read out of the Dockerfile's own `XDG_CACHE_HOME` — derived, not
+restated, so the guard cannot agree with the docs and disagree with the image. Both
+checks fail against the text that shipped.
+
 ### Fixed — a misspelled `[emg] mode` switched an armband from commands to dictation
 
 `configcheck` carried a note listing eight settings deliberately left out of its
