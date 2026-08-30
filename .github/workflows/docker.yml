@@ -90,37 +90,53 @@ jobs:
       # moment as this workflow. Whichever wins the race decides whether the
       # release gets a container: on v2.19.0 and v2.20.0 this job lost, pip
       # found no such version, and the tag shipped without an image until
-      # someone re-ran it by hand. Wait for the version to exist instead.
-      # This waits on what `pip install` resolves against, NOT on the JSON
-      # metadata API. On v2.24.0 the old check polled
-      # https://pypi.org/pypi/yazses/<v>/json, saw 200, and the Docker build
-      # failed SIXTEEN SECONDS later with "no matching distribution", listing
-      # versions that stopped one release short. The two surfaces are cached
-      # separately and the metadata API leads -- so the guard passed while the
-      # thing it guards was still untrue.
+      # someone re-ran it by hand.
       #
-      # The PEP 503 simple index is what pip resolves against, so waiting for the
-      # artifact to appear *there* is waiting for the thing that actually failed.
-      # Deliberately not `pip download`: that would be the most faithful test, and
-      # it silently assumes pip is installed -- a venv without it reports the same
-      # "cannot resolve" as a missing release, which is a false negative in the
-      # direction that blocks every build.
+      # THIS GUARD HAS NOW BEEN WRONG TWICE, THE SAME WAY, ONE LAYER APART.
+      #
+      # v2.24.0: it polled https://pypi.org/pypi/yazses/<v>/json, saw 200, and
+      # the build failed SIXTEEN SECONDS later with "no matching distribution".
+      # The fix was to poll the PEP 503 simple index instead, "what pip resolves
+      # against".
+      #
+      # v2.36.0: it polled the simple index with curl, printed "the index pip
+      # reads serves yazses 2.36.0", and the build failed FIFTEEN SECONDS later
+      # listing 2.35.0 as the newest version. A bare `curl` gets the HTML
+      # representation of that index; pip asks for the PEP 691 JSON one with
+      # `Accept: application/vnd.pypi.simple.v1+json`. Separate representations,
+      # separate caches — so "the index pip reads" was again not the bytes pip
+      # read.
+      #
+      # There is no third representation to move to, and the pattern is the
+      # point: every check that is *near* pip can be right while pip is wrong.
+      # So this asks pip. The objection recorded against doing that — a runner
+      # without pip reports "cannot resolve" exactly like an unpublished
+      # release, a false negative that blocks every build — is answered rather
+      # than avoided: pip is proved to exist first, with its own distinct error.
+      # `--no-cache-dir` matters too, or pip's own HTTP cache can make an early
+      # negative stick for the rest of the loop.
       - name: Wait for PyPI to serve this version to pip
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           VERSION: ${{ steps.version.outputs.value }}
         run: |
           set -uo pipefail
+          if ! python3 -m pip --version; then
+            echo "::error::python3 -m pip is unavailable on this runner, so this step cannot tell an unpublished release from a missing pip. Install pip before this step rather than weakening the check."
+            exit 1
+          fi
+          probe="${RUNNER_TEMP}/pypi-probe"
           for attempt in $(seq 1 40); do
-            if curl -fsS https://pypi.org/simple/yazses/ \
-                 | grep -q "yazses-${VERSION}-py3-none-any.whl"; then
-              echo "the index pip reads serves yazses ${VERSION} (attempt ${attempt})."
+            rm -rf "$probe"
+            if python3 -m pip download --no-deps --no-cache-dir --quiet \
+                 --disable-pip-version-check --dest "$probe" "yazses==${VERSION}"; then
+              echo "pip resolved yazses ${VERSION} (attempt ${attempt})."
               exit 0
             fi
-            echo "yazses ${VERSION} not in the simple index yet; retrying in 30s (${attempt}/40)."
+            echo "pip cannot resolve yazses ${VERSION} yet; retrying in 30s (${attempt}/40)."
             sleep 30
           done
-          echo "::error::yazses ${VERSION} never reached the simple index -- refusing to build an image that would pin the wrong version."
+          echo "::error::pip never resolved yazses ${VERSION} -- refusing to build an image that would pin the wrong version."
           exit 1
 
       - name: Build and push
