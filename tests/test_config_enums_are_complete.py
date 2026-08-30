@@ -52,6 +52,17 @@ _UNENFORCEABLE: dict[str, str] = {
         "that changes nothing. It was invisible to `scripts/config_status.py` until "
         "that detector stopped counting `from yazses.gaze.zones import ...` as a read."
     ),
+    "affect.mode": (
+        "inert: nothing in src/ reads it. Every `.mode` read in the tree belongs to "
+        "`[emg]`, `[redaction]` or `[cocktail]`; `[affect] mode` was reported as a "
+        "live setting only because those siblings spell the field the same way -- see "
+        "`AMBIGUOUS_UNREAD` in scripts/config_status.py. Enforcing the set would "
+        "validate a choice that changes nothing."
+    ),
+    "autostop.mode": (
+        "inert: nothing in src/ reads it, for the same reason as `[affect] mode` -- "
+        "the `.mode` reads in the tree all belong to other sections."
+    ),
     "polyglot.lid": (
         "inert: nothing in src/ reads it. `polyglot/router.py` imports the `lid` "
         "*module* -- which is what hid this one from the unread-key detector too -- "
@@ -76,24 +87,17 @@ _UNENFORCEABLE: dict[str, str] = {
 #: `_MAX_UNVERIFIED` ratchets: the list may shrink, never grow. A *new* enum field must be
 #: enforced, or explicitly justified in `_UNENFORCEABLE`.
 _UNVERIFIED: frozenset[str] = frozenset({
-    "affect.mode",
     "agent.confirm",
-    "autostop.mode",
     "cocktail.mode",
     "codec.backend",
-    "denoise.backend",
-    "meeting.vad_backend",
     "modality.preset",
-    "overlay.position",
     "pilot.backend",
     "prosody.format",
-    "redaction.mode",
     "scribe.backend",
     "translate.backend",
     "tts.clone_backend",
-    "tts.engine",
 })
-_MAX_UNVERIFIED = 16
+_MAX_UNVERIFIED = 9
 
 _FIELD = re.compile(r'^\s+(\w+):\s*str\s*=\s*"([^"]*)"\s*#\s*(.+?)\s*$')
 

@@ -6,6 +6,41 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a one-letter typo in `[redaction] mode` shipped the secret it was set to hide
+
+`configcheck` validated two closed sets while `config.py` documented twenty-five, so
+for the rest a misspelt value loaded clean, `yazses doctor` reported *"Config validity:
+every setting is a usable value"*, and the consequence was decided by whichever consumer
+eventually read it. Five more have now had their consumer read and their set confirmed
+against it.
+
+They share one shape: the value is compared against a single name and **everything else
+takes the other branch**, so a typo is not rejected — it silently selects the alternative.
+
+* `[redaction] mode` — `redact()` masks only on an exact `"mask"`; any other value
+  returns the text untouched. `mode = "msak"` therefore loaded without complaint and
+  typed the card number the setting exists to hide, in full. Measured through the real
+  loader: `redact("card 4111 1111 1111 1111", mode="msak")` → the digits, unmasked.
+* `[denoise] backend` — `""`/`none` passes through, `"spectral"` runs spectral, and
+  **anything else falls through to deepfilternet**, which cannot install here at all
+  (it pins `numpy<2.0`, #69). A typo warns once into a log nobody reads.
+* `[meeting] vad_backend` — Silero on an exact `"silero"`, calibrated otherwise, which
+  is indistinguishable from the extra simply being absent.
+* `[tts] engine` — Kokoro on an exact `"kokoro"`, `NullTtsBackend` otherwise, so
+  read-back goes silent. `melo`/`kitten` are documented but unimplemented and take that
+  same branch, which is what enforcing separates: not-written-yet from misspelt.
+* `[overlay] position` — `top_center` and `corner` are handled and everything else
+  returns bottom_center, so a typo moves the overlay instead of reporting anything.
+
+Each is now repaired to its documented default with the problem named. `enum_values` is
+also what the Settings window builds its choice lists from, so the five gain real
+dropdowns rather than free text.
+
+Two more left the backlog in the other direction: `[affect] mode` and `[autostop] mode`
+are **inert** — every `.mode` read in the tree belongs to `[emg]`, `[redaction]` or
+`[cocktail]` — so there is no set to enforce, and validating one would police a choice
+that changes nothing. The unverified list falls from 16 to 9.
+
 ### Fixed — thirteen config keys were documented as live because a *different* section reads a key of the same name
 
 `docs/configuration.md` marks a key inert when nothing reads it, and the detector

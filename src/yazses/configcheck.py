@@ -271,6 +271,34 @@ _ENUMS: dict[str, tuple[str, ...]] = {
     # the documented default here, and `core/daemon.py` warns if it ever sees another
     # value anyway.
     "emg.mode": ("command", "full_text"),
+    # Five more, each read at its consumer first. They share one shape: the value is
+    # compared against a single name and *everything else* takes the other branch, so a
+    # typo is not rejected, it silently selects the alternative.
+    #
+    # `redaction/scrub.py::redact` masks only on an exact `"mask"`; any other value
+    # returns the text untouched and reports what it found. So `mode = "msak"` loads
+    # clean, `doctor` says every setting is usable, and the card number the user set
+    # this key to hide is typed out in full. The most consequential of the five, and
+    # the reason the batch was not deferred.
+    "redaction.mode": ("mask", "hold"),
+    # `denoise/frontend.py` returns the input for `""`/`none`, runs spectral on an
+    # exact `"spectral"`, and falls through to **deepfilternet** for anything else --
+    # a backend that cannot install here at all (it pins numpy<2.0, #69), so the
+    # typo warns once into the daemon log and passes audio through unprocessed.
+    "denoise.backend": ("spectral", "deepfilternet", "none"),
+    # `meeting/vad.py::build_is_silent` selects Silero on an exact `"silero"` and
+    # returns the calibrated gate otherwise -- silently, since falling back to
+    # calibrated is also what a missing `silero` extra does.
+    "meeting.vad_backend": ("calibrated", "silero"),
+    # `tts/factory.py` builds Kokoro on an exact `"kokoro"` and returns
+    # `NullTtsBackend` otherwise. Read-back then produces no sound. `melo` and
+    # `kitten` are documented but unimplemented, and they take the same branch --
+    # which is the point of enforcing: it separates "not written yet" from "misspelt".
+    "tts.engine": ("kokoro", "melo", "kitten"),
+    # `overlay/position.py::place_fixed` handles `top_center` and `corner` and returns
+    # bottom_center for everything else, so a typo moves the overlay somewhere the
+    # user did not ask for rather than reporting anything.
+    "overlay.position": ("cursor", "bottom_center", "top_center", "corner"),
 }
 
 
