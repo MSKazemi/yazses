@@ -280,15 +280,41 @@ It now runs `tests/` whole:
 | | tests executed | red | measured where |
 |---|---|---|---|
 | the old one-file command | 48 | — | the VM |
-| first whole-suite run | 14,308 | **96** | the VM |
-| after the three fixes below | 14,668 | **0** | a local simulation |
+| first whole-suite run | 14,212 | **96** + 4 errors | the VM |
+| after the decoder markers and the missing programs | 14,260 | **20** + 4 errors | the VM |
+| after the `safe.directory` fix | **14,304** | **0** | the VM |
 
-The last row is labelled honestly. `scripts/simulate-missing-deps.py` makes exactly
-the modules FreeBSD cannot supply unimportable and runs the suite on this
-developer's Linux machine; it cannot fake `sys.platform == "freebsdN"`, so tests
-gated on the real platform value skip there and run on the VM, and vice versa. It
-is a close estimate, not a substitute for the job — which is why the job stays
-`continue-on-error` until a real run has been read.
+Every row is a run that happened, and every number was read out of that run's own
+pytest summary line rather than carried forward from the row above — the counts move
+between rows because a test that starts skipping stops being executed, so "executed"
+is not a constant the red column is subtracted from. The `0` row is
+[run 33320909064](https://github.com/MSKazemi/yazses/actions/runs/33320909064) —
+`14304 passed, 462 skipped in 249.16s`, job conclusion `success`. The `96` row is
+[run 33313023270](https://github.com/MSKazemi/yazses/actions/runs/33313023270)
+(`96 failed, 14212 passed, 413 skipped, 4 errors`) and the `20` row is
+[run 33319683585](https://github.com/MSKazemi/yazses/actions/runs/33319683585)
+(`20 failed, 14260 passed, 467 skipped, 4 errors`).
+
+The last twenty were one cause wearing twenty faces. Every `git` invocation in the
+guest exited 128, because the workspace is created on the Linux host as uid 1001 and
+rsynced into a guest running as root, and git refuses a repository it does not
+believe you own:
+
+```
+fatal: detected dubious ownership in repository at '/home/runner/work/yazses/yazses'
+```
+
+The host runner's checkout step adds itself as a `safe.directory` — for the *host's*
+git. The guest has its own git, its own global config, and inherits neither. The job
+now adds the workspace inside the guest and prints git's own complaint once before
+the suite, so the next version of this never has to be inferred.
+
+`scripts/simulate-missing-deps.py` remains useful for the *next* change rather than
+this one: it makes exactly the modules FreeBSD cannot supply unimportable and runs
+the suite on a Linux machine, which is how the decoder markers were checked before
+being pushed. It cannot fake `sys.platform == "freebsdN"`, so it is a close estimate
+and not a substitute for the job. The job stays `continue-on-error` until it has
+been green for a while — one green run is not yet a record.
 
 Those 96 were three causes and **not one defect between them**, which is the part
 worth knowing if you are reading this job's history:

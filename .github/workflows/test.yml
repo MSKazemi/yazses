@@ -495,7 +495,8 @@ jobs:
             #
             #   48 executed          the old one-file command
             #   14,212 pass / 96 red  first whole-suite run
-            #   14,2xx pass / 0 red   after the three fixes below
+            #   14,260 pass / 20 red  after the decoder markers + missing programs
+            #   14,304 pass /  0 red  after the safe.directory fix (run 33320909064)
             #
             # The 96 were three causes and not one defect between them:
             #   * 23 were `git` and `bash` missing from the VM image (fixed in
