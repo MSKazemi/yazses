@@ -66,9 +66,26 @@ jobs:
       # install -- and both shipped bundles, which are built from that lock -- below
       # the 83.0.0 that patches Dependabot #9.
       #
-      # The remedy now lives where the backend is chosen, and this step is what proves
-      # the documented remedy actually works rather than merely being written down.
+      # The remedy now lives where the backend is chosen -- `voiceprint/factory.py`
+      # catches the ModuleNotFoundError and tells the user, in those words, to
+      # `pip install "setuptools<81"`. This step is what proves that instruction
+      # actually works rather than merely being written down.
+      #
       # Deliberately AFTER `uv sync`, which would otherwise resolve it straight back up.
+      #
+      # ⚠ And every `uv run` below carries `--no-sync` for exactly the same reason,
+      # which is the half that was missed: a bare `uv run` re-syncs the environment
+      # against `uv.lock` before it runs anything, so it silently undid this pin one
+      # line later. Measured, not reasoned about -- in a throwaway project pinned to
+      # `packaging<25`:
+      #
+      #   uv pip install "packaging<25" ; uv run --no-sync python -c ...  -> 24.2
+      #   uv run python -c ...            -> "Uninstalled 1 package" -> 26.3
+      #
+      # So this job could never have passed. `uv run` restored setuptools 84.0.0, and
+      # the very next step imports `resemblyzer`, which is the import that needs
+      # `pkg_resources` and is the whole reason the pin exists. Red by construction,
+      # and unobserved: the workflow is weekly and had not yet reached a Monday.
       - name: Pin setuptools for resemblyzer, the way the docs tell a user to
         run: uv pip install "setuptools<81"
 
@@ -78,14 +95,14 @@ jobs:
         # is imported rather than merely located because that is where it broke: the
         # package installs fine and then raises on `import pkg_resources`.
         run: |
-          uv run python -c "import pyannote.audio; print('pyannote.audio ok')"
-          uv run python -c "from resemblyzer import VoiceEncoder; print('resemblyzer ok')"
+          uv run --no-sync python -c "import pyannote.audio; print('pyannote.audio ok')"
+          uv run --no-sync python -c "from resemblyzer import VoiceEncoder; print('resemblyzer ok')"
 
       - name: Run the tests that only exist when the extras are installed
         shell: bash
         run: |
           set -o pipefail
-          uv run python -m pytest -v -rs tests/test_shipped_backends.py 2>&1 | tee heavy-tests.txt
+          uv run --no-sync python -m pytest -v -rs tests/test_shipped_backends.py 2>&1 | tee heavy-tests.txt
 
       - name: No extra-guarded test may be silently skipped
         shell: bash

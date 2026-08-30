@@ -6,6 +6,47 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the weekly job that proves the heavy extras work could never have passed
+
+`heavy-extras.yml` exists to check something no other job does: that
+`voiceprint/factory.py`'s advice is good. When `resemblyzer` fails to import, that
+module catches the error and tells the reader, in those words, to
+`pip install "setuptools<81"` — because `resemblyzer` imports `webrtcvad`, whose first
+line is `import pkg_resources`, which setuptools removed in 81.0.0. The workflow pinned
+`setuptools<81` and then imported `resemblyzer` to show the instruction was sound.
+
+Three bare `uv run` invocations followed that pin, and `uv run` synchronises the
+environment against `uv.lock` **before** running anything. Each one put setuptools back
+to the locked 84.0.0 and then ran the import that needs the older one. The job was red
+by construction and nobody had seen it: it is weekly and had not yet reached a Monday.
+
+The comment on the pin shows exactly where the reasoning stopped — *"Deliberately AFTER
+`uv sync`, which would otherwise resolve it straight back up."* The hazard was known;
+that `uv run` does the same thing was not.
+
+Measured rather than reasoned about, in a throwaway project pinned to `packaging<25`:
+
+    uv pip install "packaging<25"
+    uv run --no-sync python -c "import packaging; print(packaging.__version__)"  -> 24.2
+    uv run          python -c "import packaging; print(packaging.__version__)"  -> 26.3
+                                                    ("Uninstalled 1 package in 1ms")
+
+and against the real dependency, with the shared virtualenv left alone by installing to
+a `--target` directory placed first on `PYTHONPATH`:
+
+    setuptools 84.0.0  -> from resemblyzer import VoiceEncoder
+                          ModuleNotFoundError: No module named 'pkg_resources'
+    setuptools 80.10.2 -> resemblyzer ok
+
+So the advice `voiceprint/factory.py` prints is correct, and only the workflow proving
+it was broken. Every `uv run` after the pin now carries `--no-sync`.
+
+`tests/test_a_pin_survives_the_next_uv_run.py` scans **every** workflow for the
+pattern rather than naming this one, so the next place a version is pinned in CI is
+covered the day it is written. A job that runs weekly is a job whose breakage is found
+late, which is the argument for a guard that reads the file instead of waiting for the
+schedule.
+
 ### Fixed — the mic-change watcher could not fire on the setup most Linux users have
 
 `DeviceMonitor` decides the microphone changed by comparing the default input's
