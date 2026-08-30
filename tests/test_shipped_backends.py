@@ -187,7 +187,13 @@ class _Annotation:
             yield _Segment(start, end), None, label
 
 
-def _fake_pyannote(monkeypatch, tracks, *, pipeline_is_none=False, raises=None):
+#: Distinguishes "no override" from an override of ``None`` -- ``None`` is a real
+#: thing a pipeline could hand back and is exactly what the guard must reject.
+_UNSET = object()
+
+
+def _fake_pyannote(monkeypatch, tracks, *, pipeline_is_none=False, raises=None,
+                   result=_UNSET):
     """Install fake ``torch`` and ``pyannote.audio`` modules; return the call log.
 
     ``raises`` makes ``from_pretrained`` raise instead of returning, which is what
@@ -203,7 +209,7 @@ def _fake_pyannote(monkeypatch, tracks, *, pipeline_is_none=False, raises=None):
         def __call__(self, payload, **kw):
             calls["payload_sr"] = payload["sample_rate"]
             calls["kwargs"] = kw
-            return _Annotation(tracks)
+            return _Annotation(tracks) if result is _UNSET else result
 
     class _PipelineFactory:
         @staticmethod
@@ -242,6 +248,33 @@ def test_factory_builds_the_pyannote_diarizer(monkeypatch):
     from yazses.recimport.factory import build_diarizer
 
     assert build_diarizer(_DiarCfg()) is not None
+
+
+def test_a_pipeline_that_returns_no_annotation_fails_by_name(monkeypatch):
+    """pyannote's `Pipeline.__call__` is typed as returning its result *or* an
+    iterator, because it also accepts an iterable of files. Only the first has
+    `itertracks`. Reading turns off the other one raises `AttributeError` from
+    inside a loop -- during a meeting's post-pass, which runs after the recording
+    has been consumed and long after the user walked away. Say what happened
+    instead."""
+    _fake_pyannote(monkeypatch, [], result=iter([]))
+
+    from yazses.recimport.pyannote_backend import PyannoteDiarizer
+
+    diarizer = PyannoteDiarizer(_DiarCfg())
+    with pytest.raises(RuntimeError) as excinfo:
+        diarizer.diarize(np.zeros(16000, dtype="float32"))
+    assert "itertracks" in str(excinfo.value)
+
+
+def test_a_normal_pipeline_result_still_produces_turns(monkeypatch):
+    """The guard must not reject the shape that actually ships."""
+    _fake_pyannote(monkeypatch, [(0.0, 1.0, "SPEAKER_00")])
+
+    from yazses.recimport.pyannote_backend import PyannoteDiarizer
+
+    turns = PyannoteDiarizer(_DiarCfg()).diarize(np.zeros(16000, dtype="float32"))
+    assert [t.speaker for t in turns] == ["speaker_0"]
 
 
 def test_pyannote_labels_are_normalised_to_the_sherpa_shape(monkeypatch):
@@ -518,9 +551,37 @@ def test_pyannote_adapter_call_binds_against_the_real_signature(monkeypatch):
     assert "token" in seen["kwargs"]
 
 
+def _resemblyzer_import_error() -> str | None:
+    """Why ``import resemblyzer`` fails here, or ``None`` when it works.
+
+    ``find_spec`` is not enough, and this file was the proof: it answers whether
+    the package is **on disk**, never whether it **imports**. Resemblyzer pulls in
+    ``webrtcvad``, whose first line is ``import pkg_resources`` -- removed from
+    setuptools in 81.0.0 -- so a *correctly installed* ``voiceprint-resemblyzer``
+    extra raises ``ModuleNotFoundError`` on any current setuptools.
+
+    That is the documented, expected state: the pin that used to hold setuptools
+    below 81 was removed because ``uv.lock`` resolves one version for the whole
+    workspace, so it held every install and both shipped bundles below a patched
+    setuptools. `voiceprint/factory.py` names the remedy at the point of failure
+    for exactly this reason.
+
+    The test below therefore has to skip on it rather than fail -- it was gated on
+    ``find_spec`` and so failed the moment the extra was installed, which is the
+    mistake the module it tests documents in a comment.
+    """
+    if importlib.util.find_spec("resemblyzer") is None:
+        return "the voiceprint-resemblyzer extra is not installed"
+    try:
+        importlib.import_module("resemblyzer")
+    except Exception as exc:  # ImportError, but a C extension can raise anything
+        return f"resemblyzer is installed but does not import here: {exc}"
+    return None
+
+
 @pytest.mark.skipif(
-    importlib.util.find_spec("resemblyzer") is None,
-    reason="the voiceprint-resemblyzer extra is not installed",
+    _resemblyzer_import_error() is not None,
+    reason=_resemblyzer_import_error() or "",
 )
 def test_real_resemblyzer_returns_a_unit_vector_at_both_lengths():
     """Both paths must produce the same kind of object: a 256-d L2-normed vector.
@@ -541,6 +602,31 @@ def test_real_resemblyzer_returns_a_unit_vector_at_both_lengths():
         assert np.isfinite(vector).all()
         assert abs(float(np.linalg.norm(vector)) - 1.0) < 1e-3
 
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("resemblyzer") is None
+    or _resemblyzer_import_error() is None,
+    reason="needs the extra installed on a setuptools that dropped pkg_resources",
+)
+def test_a_resemblyzer_that_cannot_import_names_the_remedy_and_stays_dormant(caplog):
+    """The state every user of this extra lands in on a current setuptools.
+
+    `pkg_resources` is gone from setuptools 81+, so importing the backend raises
+    three layers down with a message that names neither the extra nor the fix.
+    `build_embedder` must turn that into the remedy and return None -- a dormant
+    optional feature, not a crashed daemon.
+    """
+    from yazses.voiceprint.factory import build_embedder
+
+    with caplog.at_level("WARNING"):
+        assert build_embedder(_VpCfg()) is None
+
+    text = "\n".join(record.getMessage() for record in caplog.records)
+    assert "pkg_resources" in text, text
+    assert 'setuptools<81' in text, (
+        "the user is left with a bare ModuleNotFoundError from inside webrtcvad, "
+        "which names neither the extra they installed nor the one-line fix."
+    )
 
 # --------------------------------------------------------------------------
 # diarization_status must follow the configured backend (#71 integration)

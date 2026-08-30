@@ -233,6 +233,21 @@ class PyannoteDiarizer:
                 **self._speaker_bounds(),
             )
 
+        # pyannote's base `Pipeline.__call__` is typed as returning either the
+        # pipeline's own result or an iterator, because it also accepts an iterable
+        # of files. `SpeakerDiarization` returns an `Annotation`, and `itertracks`
+        # is what makes it one -- so narrow on that rather than casting the type
+        # checker into silence, and say so plainly if a future pyannote hands back
+        # something else. This runs inside a meeting's post-pass, which happens
+        # after the recording has been consumed and long after the user walked
+        # away; a named failure there is worth much more than an `AttributeError`
+        # from the middle of a loop.
+        if not hasattr(annotation, "itertracks"):
+            raise RuntimeError(
+                f"pyannote returned {type(annotation).__name__}, not an Annotation "
+                "with itertracks(); this adapter cannot read speaker turns from it."
+            )
+
         # pyannote labels are arbitrary strings (SPEAKER_00, SPEAKER_01, …) and
         # are not guaranteed to be dense or ordered. Map them to the dense
         # speaker_<n> ids the rest of the pipeline expects, in first-appearance

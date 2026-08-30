@@ -6,6 +6,47 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a pyannote pipeline that returns no `Annotation` failed mid-loop
+
+`PyannoteDiarizer.diarize` called `annotation.itertracks(...)` on whatever the pipeline
+returned. pyannote's `Pipeline.__call__` is typed as returning its own result **or** an
+iterator, because it also accepts an iterable of files, and only the first has
+`itertracks`. The other raises `AttributeError` from inside the loop — during a meeting's
+post-pass, which runs after the recording has been consumed and long after the user
+walked away, so the message nobody sees is also the only clue about a transcript that no
+longer has audio behind it.
+
+It now checks and raises a `RuntimeError` naming the type it actually got.
+
+This was only visible with the `diarization-pyannote` extra installed: mypy has no types
+for the pipeline without it, so `uv run mypy src` was clean in CI and reported the
+`union-attr` the moment the extra was present. The same is true of the whole
+`test_shipped_backends.py` file — its real-backend tests are the ones nothing routinely
+runs.
+
+### Fixed — a test gated on `find_spec` failed the moment its extra was installed
+
+`tests/test_shipped_backends.py` skipped its real-Resemblyzer test on
+`importlib.util.find_spec("resemblyzer") is None`, then imported the backend. Installing
+the `voiceprint-resemblyzer` extra therefore turned the skip into a **failure**:
+resemblyzer pulls in `webrtcvad`, whose first line is `import pkg_resources`, which
+setuptools removed in 81.0.0. So the test passed only while the thing it tests was
+absent.
+
+That is the exact mistake the module under test documents in a comment — "the probe
+answers from `importlib.util.find_spec`, which reports whether a package is on disk,
+never whether it imports" — written when `voiceprint/factory.py` was given the same fix.
+The test file was not.
+
+The precondition is now a real import attempt, and it skips with a reason that names the
+cause rather than claiming the extra is missing. Added
+`test_a_resemblyzer_that_cannot_import_names_the_remedy_and_stays_dormant`, which runs in
+precisely the state every user of this extra lands in on a current setuptools and asserts
+the behaviour that protects them: `build_embedder` returns `None` — dormant optional
+feature, not a crashed daemon — and the warning names `pkg_resources` and
+`pip install "setuptools<81"` instead of leaving a `ModuleNotFoundError` raised three
+layers down inside `webrtcvad`.
+
 ### Fixed — the "prove we're offline" container command could not run
 
 Four pages invited the reader not to trust the offline claim but to check it, in one
