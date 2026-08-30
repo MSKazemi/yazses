@@ -6,6 +6,25 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the analytics ban only saw dependencies a reviewer could already see
+
+`checkDependencyPolicy` forbids analytics and crash-reporting SDKs anywhere, and
+network libraries outside `:model`. Its own file opens by saying why the build has
+to decide this rather than a reviewer: "an SDK three levels down can add INTERNET
+and phone-home behaviour that no reviewer spots in a diff."
+
+It read `conf.dependencies` — the artefacts each module names in its own build
+file. So a banned SDK written into a build file failed the build, and the identical
+SDK arriving transitively did not: exactly the case the gate was written for was
+the case it could not see. Measured: `org.opentest4j` is on `:core:contract-test`'s
+runtime classpath via junit-jupiter, and banning it changed nothing.
+
+It now walks the resolved graph of every runtime classpath — those are what ships
+and what can phone home — and reports the artefact against each module carrying it.
+All 22 subprojects resolve. It also refuses to pass on nothing: a run that resolved
+no dependencies checked nothing, and reads exactly like a clean build, so it now
+fails saying so.
+
 ### Fixed — a wrapped log call carried a transcript straight past the privacy gate
 
 `checkNoContentLogging` (ADR-MOB-007) fails the Android build when a log call

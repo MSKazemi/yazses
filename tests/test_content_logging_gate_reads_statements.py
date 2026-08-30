@@ -110,3 +110,42 @@ def test_the_log_call_pattern_covers_the_forms_in_use() -> None:
             f"the log-call pattern no longer matches {form!r}, so that form of "
             "logging is exempt from the gate entirely."
         )
+
+
+def test_the_dependency_gate_walks_the_resolved_graph_not_the_declared_list() -> None:
+    """`checkDependencyPolicy` read `conf.dependencies` -- the artefacts each module
+    names in its own build file -- while the threat stated at the top of that file is
+    "an SDK three levels down can add INTERNET and phone-home behaviour that no
+    reviewer spots in a diff". A directly declared analytics library failed the build
+    and the same library arriving transitively did not.
+
+    Measured: `org.opentest4j` sits on `:core:contract-test`'s classpath via
+    junit-jupiter, and adding it to the banned list changed nothing. After the fix it
+    is reported against every module that carries it, and all 22 subprojects resolve.
+    """
+    text = PRIVACY.read_text(encoding="utf-8")
+    gate = text[text.index("val checkDependencyPolicy"):]
+    gate = gate[: gate.index("\n// ---")]
+    # Comments stripped, because the fix explains what it replaced and would
+    # otherwise read as the thing it replaced.
+    gate = re.sub(r"//[^\n]*", "", gate)
+    assert "resolutionResult" in gate, (
+        "checkDependencyPolicy no longer resolves the dependency graph. Reading the "
+        "declared list back means a transitive analytics or network SDK -- the case "
+        "the gate exists for -- passes unseen."
+    )
+    assert "conf.dependencies" not in gate, (
+        "checkDependencyPolicy is reading declared dependencies again; that is the "
+        "list a reviewer can already see in the diff."
+    )
+
+
+def test_the_dependency_gate_refuses_to_pass_on_nothing() -> None:
+    """It resolves lazily, so a configuration that stops matching yields an empty
+    set -- which reports no violations and reads exactly like a clean build."""
+    text = PRIVACY.read_text(encoding="utf-8")
+    gate = text[text.index("val checkDependencyPolicy"):]
+    assert "resolved no dependencies at all" in gate, (
+        "the empty-set guard is gone. A run that resolved nothing checked nothing, "
+        "and must say so rather than pass."
+    )

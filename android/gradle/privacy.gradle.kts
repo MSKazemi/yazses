@@ -129,25 +129,58 @@ val bannedArtefacts = listOf(
 /** Modules permitted to reach the network. Exactly one. */
 val networkAllowedModules = setOf(":model")
 
+/** Every external module reachable on a classpath, at any depth. */
+fun componentsOf(root: ResolvedComponentResult): Set<String> {
+    val found = sortedSetOf<String>()
+    val seen = mutableSetOf<ComponentIdentifier>()
+    fun walk(component: ResolvedComponentResult) {
+        if (!seen.add(component.id)) return
+        (component.id as? ModuleComponentIdentifier)?.let { found += "${it.group}:${it.module}" }
+        component.dependencies.filterIsInstance<ResolvedDependencyResult>()
+            .forEach { walk(it.selected) }
+    }
+    walk(root)
+    return found
+}
+
 val checkDependencyPolicy by tasks.registering {
     group = "verification"
     description = "No analytics SDKs anywhere; no network code outside :model."
 
-    // Resolved at configuration time into plain strings so the action is
-    // configuration-cache safe.
-    val declared: Map<String, List<String>> = rootProject.subprojects.associate { sub ->
-        sub.path to sub.configurations.flatMap { conf ->
-            conf.dependencies.mapNotNull { dep ->
-                val group = dep.group ?: return@mapNotNull null
-                "$group:${dep.name}"
-            }
-        }.distinct()
-    }
+    // The RESOLVED graph, not the declared list.
+    //
+    // This read `conf.dependencies` -- what each module writes in its own build
+    // file -- while the threat this gate exists for, stated at the top of this
+    // file, is "an SDK three levels down". A directly declared analytics library
+    // failed the build; the same library arriving transitively did not.
+    // Reproduced: `org.opentest4j` sits on :core:contract-test's classpath via
+    // junit-jupiter, and banning it changed nothing.
+    //
+    // `rootComponent` is a Provider, so the graph resolves when the task runs
+    // rather than while the build is being configured. Runtime classpaths only:
+    // they are what ships and what can phone home.
+    val graphs: List<Pair<String, Provider<ResolvedComponentResult>>> =
+        rootProject.subprojects.flatMap { sub ->
+            sub.configurations
+                .filter { it.isCanBeResolved && it.name.endsWith("RuntimeClasspath") }
+                .map { sub.path to it.incoming.resolutionResult.rootComponent }
+        }
 
     doLast {
         val problems = mutableListOf<String>()
+        val resolved: Map<String, Set<String>> = graphs
+            .groupBy({ it.first }, { componentsOf(it.second.get()) })
+            .mapValues { (_, sets) -> sets.flatten().toSet() }
 
-        declared.forEach { (path, artefacts) ->
+        // A gate that resolved nothing reports nothing, and reads exactly like a
+        // clean build. Say so instead.
+        check(resolved.values.sumOf { it.size } > 0) {
+            "checkDependencyPolicy resolved no dependencies at all, so it cannot have " +
+                "checked anything. Either no module has a runtime classpath any more, " +
+                "or resolution is failing silently — fix that before trusting a pass."
+        }
+
+        resolved.forEach { (path, artefacts) ->
             artefacts.forEach { artefact ->
                 if (bannedArtefacts.any { artefact.startsWith(it) }) {
                     problems += "$path depends on $artefact — analytics and crash reporting are never allowed"
