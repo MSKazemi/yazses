@@ -39,15 +39,16 @@ TESTS = pathlib.Path(__file__).resolve().parent
 # A distribution name is not an import name. Only entries whose package the job
 # really installs are allowed (asserted below), so this cannot drift into fiction.
 #
-# `click` is here because it is not installed by name at all: typer depends on it,
-# and `pip install typer` brings it. That is worth stating rather than leaving as a
-# coincidence -- if typer ever vendors or drops it, the one test importing click at
-# module scope becomes a collection error on this leg and nowhere else.
+# Nothing here maps a package to a module it merely pulls in transitively, and that
+# is deliberate. The first version of this table said typer provides click, on the
+# reasoning that `pip install typer` brings it -- typer 0.27.2 does not, and the
+# FreeBSD leg failed on `import click` with this guard green. A transitive is a
+# claim about someone else's dependency list, which can change between two runs of
+# the same workflow; only what the job installs by name is a fact about the job.
 _PROVIDES = {
     "pyyaml": {"yaml"},
     "pillow": {"PIL"},
     "pytest-mock": {"pytest_mock"},
-    "typer": {"typer", "click"},
 }
 
 

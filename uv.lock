@@ -6737,6 +6737,7 @@ benchmark = [
     { name = "whisper-normalizer" },
 ]
 dev = [
+    { name = "click" },
     { name = "hypothesis" },
     { name = "jiwer" },
     { name = "mypy" },
@@ -6744,6 +6745,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-mock" },
+    { name = "pyyaml" },
     { name = "ruff" },
     { name = "useful-moonshine-onnx" },
 ]
@@ -6838,6 +6840,7 @@ benchmark = [
     { name = "whisper-normalizer", specifier = ">=0.1.15" },
 ]
 dev = [
+    { name = "click", specifier = ">=8.4.2" },
     { name = "hypothesis", specifier = ">=6.165.2" },
     { name = "jiwer", specifier = ">=3.0.0" },
     { name = "mypy", specifier = ">=1.19.1" },
@@ -6845,6 +6848,7 @@ dev = [
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-cov", specifier = ">=7.1.0" },
     { name = "pytest-mock", specifier = ">=3.15.1" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "ruff", specifier = ">=0.14.5" },
     { name = "useful-moonshine-onnx", specifier = ">=20251121" },
 ]

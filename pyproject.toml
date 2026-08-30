@@ -399,6 +399,16 @@ dev = [
     # renderer and `scripts/gen-icons.py` need it on every platform so the icon
     # assets can be regenerated and unit-tested on the Linux CI leg too.
     "Pillow>=12.3.0",
+    # Declared because the suite imports them, not because anything here is new.
+    # Thirteen test files `import yaml` at module scope and one imports `click`,
+    # and both were arriving only as transitive dependencies of mkdocs and
+    # huggingface-hub -- so the whole suite's ability to *collect* rested on a
+    # docs tool's dependency list. That is not theoretical: typer dropped its
+    # click dependency at 0.27, and the FreeBSD leg -- the one environment that
+    # installs test dependencies by name rather than from this file -- went from
+    # thirteen collection errors to one the moment it stopped inheriting them.
+    "click>=8.4.2",
+    "PyYAML>=6.0.3",
 ]
 # Reproducible benchmark harness behind docs/benchmarks.md and the arXiv paper
 # (paper/benchmark/). Build-only; never shipped in the wheel. `uv sync --group

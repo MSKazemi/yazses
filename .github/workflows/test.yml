@@ -412,12 +412,16 @@ jobs:
             # `sys.platform` to genuinely be `freebsdN`, not the transcription
             # stack.
             python -m pip install -e . --no-deps
-            # PyYAML comes from pip rather than pkg deliberately: thirteen test files
-            # `import yaml` at module scope, so a missing one is thirteen COLLECTION
-            # ERRORS rather than thirteen skips -- it is not optional here, and pinning
-            # it to a ports name is what broke this job once already. The sdist is
-            # pure-Python when libyaml is absent and builds in seconds either way.
-            python -m pip install platformdirs typer pytest pytest-mock hypothesis pyyaml
+            # pyyaml and click come from pip rather than pkg, and they are named
+            # rather than inherited. Thirteen test files `import yaml` at module
+            # scope and one imports `click`, so a missing one is a COLLECTION ERROR
+            # rather than a skip -- neither is optional here. Both used to arrive as
+            # transitive dependencies and both stopped: pinning yaml to a ports name
+            # broke this job when devel/py-yaml was renamed, and click was riding on
+            # typer, which dropped it at 0.27.2. This leg is the only environment
+            # that installs test dependencies by name instead of from the `dev`
+            # group, so it is the only one where such a drop shows up as red.
+            python -m pip install platformdirs typer click pytest pytest-mock hypothesis pyyaml
             # `cryptography` is the learning corpus's AES-256-GCM cipher, and 151
             # tests reach it. There is no FreeBSD wheel, so it builds through
             # maturin — which is what the `rust` package above is for — in about
