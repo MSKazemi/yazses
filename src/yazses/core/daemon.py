@@ -316,6 +316,13 @@ class Daemon:
         self._cleaner: LlmCleaner | None = None
         # Read-Back Loop TTS backend (None when [tts] disabled — dormant).
         self._tts: TtsBackend | None = None
+        # Read-back is spoken on a worker thread and cancelled from the hotkey
+        # thread, so "which utterance did this cancel mean?" cannot be left to the
+        # scheduler. Every request claims a number; a barge-in bumps it under
+        # `_lock`; the worker takes the claim in one critical section. See
+        # `_speak_readback`. Initialised here rather than beside `build_tts` in
+        # `_build_pipeline`, which only runs under `run()`.
+        self._readback_seq = 0
         # v2 cognitive layer: speaker embedder + enrolled voiceprint (Cocktail Filter).
         # None when [voiceprint]/[cocktail] dormant or unavailable.
         self._embedder: SpeakerEmbedder | None = None
@@ -1168,8 +1175,14 @@ class Daemon:
 
     def _on_hold_start(self, leaked: int) -> None:
         # Barge-in: a new hold during read-back cancels TTS playback immediately
-        # so the user's speech is never recorded over the spoken transcript.
+        # so the user's speech is never recorded over the spoken transcript. The
+        # sequence is bumped first and under the lock, so a read-back that has been
+        # requested but whose worker has not run yet is cancelled too -- that is the
+        # common case, not the exotic one, because a user dictating a second
+        # sentence re-holds the key before the worker is ever scheduled.
         if self._tts is not None:
+            with self._lock:
+                self._readback_seq += 1
             try:
                 self._tts.cancel()
             except Exception:
@@ -4392,11 +4405,25 @@ class Daemon:
         """
         if self._tts is None:
             return
-        with self._lock:
-            self._state.state = TrayState.READBACK
         tts = self._tts
+        with self._lock:
+            seq = self._readback_seq
 
         def _run() -> None:
+            # One critical section decides whether this utterance still stands and
+            # claims the backend's barge-in flag. A cancel issued before it makes
+            # the numbers disagree; a cancel issued after it sets a flag `speak`
+            # will no longer clear. There is no window between the two.
+            with self._lock:
+                if seq != self._readback_seq:
+                    return
+                begin = getattr(tts, "begin", None)
+                if begin is not None:
+                    try:
+                        begin()
+                    except Exception:  # noqa: BLE001 - a claim must never break read-back
+                        log.debug("Read-back claim failed", exc_info=True)
+                self._state.state = TrayState.READBACK
             try:
                 tts.speak(text)
             except Exception as exc:

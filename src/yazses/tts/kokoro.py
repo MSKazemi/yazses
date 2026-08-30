@@ -32,6 +32,9 @@ class KokoroTtsBackend:
         model_path, voices_path = self._resolve_models()
         self._kokoro = Kokoro(str(model_path), str(voices_path))
         self._cancel = threading.Event()
+        # Set by `begin`, consumed by the next `speak`/`synthesize`. See `begin`.
+        self._claimed = False
+        self._claim_lock = threading.Lock()
 
     def _resolve_models(self):
         from yazses.tts.download import download_models, model_paths
@@ -49,9 +52,41 @@ class KokoroTtsBackend:
     def name(self) -> str:
         return "kokoro"
 
+    def begin(self) -> None:
+        """Claim the next utterance, clearing a barge-in meant for the previous one.
+
+        Read-back is requested on one thread and spoken on another, so the backend
+        cannot tell a cancel aimed at what is playing from one aimed at what has
+        been requested but not started. Only the caller knows that ordering, so the
+        caller claims the utterance -- inside whatever lock it uses to sequence its
+        own cancels -- and `speak` then stops clearing the flag itself. A cancel
+        arriving after the claim is therefore never lost.
+
+        Not part of the `TtsBackend` Protocol: it is duck-typed at the call site so
+        adding it cannot change what `isinstance` accepts for a backend that
+        predates it.
+        """
+        with self._claim_lock:
+            self._claimed = True
+            self._cancel.clear()
+
+    def _take_claim(self) -> None:
+        """Consume a `begin`, or self-heal for a caller that never issues one.
+
+        A caller that does not order its own cancels -- anything holding this
+        backend directly rather than through the daemon's read-back path -- would
+        otherwise be silenced permanently by a single barge-in, because nothing
+        would ever clear the flag again.
+        """
+        with self._claim_lock:
+            if not self._claimed:
+                self._cancel.clear()
+            self._claimed = False
+
     def synthesize(self, text: str) -> Iterator[bytes]:
         import numpy as np
 
+        self._take_claim()
         for chunk in sentence_chunks(text):
             if self._cancel.is_set():
                 return
@@ -63,7 +98,7 @@ class KokoroTtsBackend:
     def speak(self, text: str) -> None:
         import sounddevice as sd
 
-        self._cancel.clear()
+        self._take_claim()
         for chunk in sentence_chunks(text):
             if self._cancel.is_set():
                 break

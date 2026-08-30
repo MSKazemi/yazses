@@ -6,6 +6,39 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — barge-in lost the race against the read-back it was meant to stop
+
+Read-back speaks the finished transcript on a worker thread so playback never blocks
+the hotkey loop, and a new hold cancels it — `_on_hold_start` calls `tts.cancel()`
+"so the user's speech is never recorded over the spoken transcript".
+
+Between those two facts sat a window. `_speak_readback` spawned the worker and
+returned; the worker did not necessarily run a single bytecode before the hotkey
+thread carried on. A user who releases the key and immediately holds again — the
+ordinary way to dictate a second sentence — fired the barge-in while the worker was
+still unscheduled, and the first thing the worker did on waking was clear the flag
+that cancel had just set. The previous transcript was then spoken over the new
+dictation and the barge-in had silently done nothing.
+
+That was not the unlucky interleaving but the likely one: the hotkey thread holds the
+GIL through the rest of `_on_hold_end` and into `_on_hold_start`, so a freshly started
+thread typically waits for a switch interval before it runs at all.
+
+The ordering is now explicit instead of left to the scheduler. A read-back claims a
+sequence number when it is requested, `_on_hold_start` bumps that number under the
+same lock, and the worker takes the claim — and clears the backend's barge-in flag,
+through a new duck-typed `begin()` — inside one critical section. A cancel issued
+before that section makes the numbers disagree and the utterance is dropped; a cancel
+issued after it sets a flag `speak` no longer clears. There is no window between them.
+
+`begin()` is deliberately not on the `TtsBackend` Protocol, which is
+`@runtime_checkable`: adding a method there changes what `isinstance` accepts.
+
+The same change fixes a second, quieter fault in the streaming seam.
+`KokoroTtsBackend.synthesize` checked the barge-in flag and **never cleared it** —
+only `speak` did — so after any cancel it yielded nothing at all, on every later
+call, for the lifetime of the process.
+
 ### Fixed — a byte-order mark threw away every setting in `config.toml`
 
 `tomllib` rejects a leading BOM. A TOML document parses as a whole, so the failure was

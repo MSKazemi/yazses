@@ -16,6 +16,10 @@ class NullTtsBackend:
     def name(self) -> str:
         return "null"
 
+    def begin(self) -> None:
+        """Accept the read-back path's utterance claim; there is nothing to clear."""
+        return None
+
     def synthesize(self, text: str) -> Iterator[bytes]:
         return iter(())
 

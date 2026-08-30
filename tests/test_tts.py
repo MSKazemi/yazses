@@ -64,3 +64,65 @@ def test_factory_unknown_engine_degrades_to_null():
     backend = build_tts(TtsConfig(enabled=True, engine="does-not-exist"))
     assert backend is not None
     assert backend.name == "null"
+
+
+# --- barge-in ordering -------------------------------------------------------
+#
+# `cancel` is called from the hotkey thread while `speak` runs on a read-back
+# worker, so the backend alone cannot tell a cancel aimed at what is playing from
+# one aimed at an utterance that has been requested but not started. `begin` is how
+# a caller that knows that ordering says so. The two assertions below are the whole
+# contract, and the third is the reason `speak` still self-heals for callers that
+# do not use it.
+
+class _FakeKokoro:
+    """Stands in for the loaded model; `create` returns one silent frame."""
+
+    def __init__(self):
+        self.calls = []
+
+    def create(self, chunk, voice=None, speed=None):
+        self.calls.append(chunk)
+        return [0.0], 24000
+
+
+def _backend():
+    """A `KokoroTtsBackend` without the 340 MB model load its `__init__` performs."""
+    import threading
+
+    from yazses.tts.kokoro import KokoroTtsBackend
+
+    b = object.__new__(KokoroTtsBackend)
+    b._kokoro = _FakeKokoro()
+    b._voice = "af_heart"
+    b._speed = 1.0
+    b._cancel = threading.Event()
+    b._claimed = False
+    b._claim_lock = threading.Lock()
+    return b
+
+
+def test_a_cancel_after_the_claim_is_not_wiped_by_speak():
+    """The barge-in case: the caller claimed the utterance, then a hold cancelled it."""
+    b = _backend()
+    b.begin()
+    b.cancel()
+    assert list(b.synthesize("hello there.")) == []
+    assert b._kokoro.calls == []
+
+
+def test_a_cancel_before_the_claim_belongs_to_the_previous_utterance():
+    """Without this, a single barge-in would silence read-back for the rest of the run."""
+    b = _backend()
+    b.cancel()
+    b.begin()
+    assert list(b.synthesize("hello there.")) != []
+
+
+def test_an_unclaimed_caller_is_not_silenced_forever_by_one_cancel():
+    """`synthesize` never cleared the flag at all, so after any barge-in it yielded
+    nothing on every later call — silently, and for the lifetime of the process,
+    since only `speak` ever cleared it."""
+    b = _backend()
+    b.cancel()
+    assert list(b.synthesize("hello there.")) != []
