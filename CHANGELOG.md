@@ -78,10 +78,14 @@ lines of a real full name is a kilobyte the old arithmetic never counted. Short
 meetings window exactly as before.
 
 Windows that still fail are no longer invisible: the minutes carry an explicit
-`INCOMPLETE` note naming how many were lost and pointing at the transcript. Minutes
-that quietly omit part of a meeting are worse than none — the reader cannot tell which
-part is missing, and the transcript they would check against is the thing they were
-trying not to read.
+`INCOMPLETE` note naming how many were lost and pointing at the transcript. It is
+stamped on the **final** minutes rather than fed in as one more partial, because the
+reduce step is a language model asked to "deduplicate and keep the most important
+points" and a warning about the summariser is exactly the sort of line it drops — the
+disclosure would otherwise have survived by luck, in the one case where it must not.
+Minutes that quietly omit part of a meeting are worse than none: the reader cannot tell
+which part is missing, and the transcript they would check against is the thing they
+were trying not to read.
 
 ### Fixed — a large vocabulary erased the one word the prompt exists to prime
 

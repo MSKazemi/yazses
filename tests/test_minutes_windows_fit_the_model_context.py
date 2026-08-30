@@ -125,11 +125,33 @@ def test_minutes_say_so_when_a_window_could_not_be_summarised(caplog) -> None:
 
     assert isinstance(minutes, Minutes)
     assert len(calls) > 2, "the fixture did not produce multiple windows"
-    reduce_prompt = calls[-1]
-    assert "INCOMPLETE" in reduce_prompt, (
-        "the gap never reached the reduce step, so the minutes read as complete"
-    )
+    assert minutes.summary.startswith("INCOMPLETE"), minutes.summary
+    assert "1 of" in minutes.summary, minutes.summary
     assert any("incomplete" in r.getMessage() for r in caplog.records)
+
+
+def test_the_gap_note_is_not_left_to_the_summariser_to_preserve(caplog) -> None:
+    """The disclosure is stamped on the final minutes, never fed in as one more
+    partial. The reduce step is a model told to "deduplicate and keep the most
+    important points" — a warning about the summariser is exactly what it drops, and
+    a disclosure that survives by luck is not a disclosure."""
+    calls = {"n": 0}
+
+    def llm2(prompt: str) -> str:
+        if "Partials:" in prompt:
+            # A reduce that throws the note away, which is entirely allowed of it.
+            return '{"summary": "a tidy meeting", "decisions": [], "action_items": []}'
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise ValueError("Requested tokens (5000) exceed context window of 4096")
+        return '{"summary": "a window", "decisions": [], "action_items": []}'
+
+    minutes = generate_minutes(_turns(80, 120), _Cfg(), llm=llm2)
+    assert minutes is not None
+    assert "INCOMPLETE" in minutes.summary, (
+        "the reduce step dropped the disclosure and nothing put it back"
+    )
+    assert "a tidy meeting" in minutes.summary, "the real summary was discarded"
 
 
 def test_minutes_are_unmarked_when_every_window_succeeded() -> None:

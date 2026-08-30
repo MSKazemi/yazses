@@ -216,26 +216,33 @@ def generate_minutes(utterances, config, *, llm=None, speaker_names=None):
 
     if not partials:
         return None
+
+    if len(partials) == 1:
+        minutes = partials[0]
+    else:
+        reduce_body = "\n\n".join(_minutes_to_json(m) for m in partials)
+        try:
+            minutes = _parse_minutes(llm(_REDUCE_PROMPT.format(body=reduce_body)))
+        except Exception as exc:  # pragma: no cover - model-dependent
+            log.warning("Minutes reduce failed (%s); returning merged partials.", exc)
+            minutes = _merge_partials(partials)
+
     if skipped:
-        # Minutes that quietly omit part of the meeting are worse than none: nobody
-        # reading them can tell which part is missing, and the transcript they would
-        # check against is the thing they were trying not to read.
+        # Stamped on the FINAL minutes, not fed in as one more partial. The reduce
+        # step is a language model asked to "deduplicate and keep the most important
+        # points", and a warning about the summariser is exactly the kind of line it
+        # drops --- so the disclosure would have survived only by luck, in the one
+        # case where it must not. Minutes that quietly omit part of the meeting are
+        # worse than none: nobody reading them can tell which part is missing, and
+        # the transcript they would check against is the thing they were trying not
+        # to read.
         log.warning(
             "%d of %d minutes windows failed; the notes are incomplete.",
             skipped, len(windows),
         )
-        partials.append(Minutes(summary=_GAP_NOTE.format(
-            skipped=skipped, total=len(windows),
-        )))
-    if len(partials) == 1:
-        return partials[0]
-
-    reduce_body = "\n\n".join(_minutes_to_json(m) for m in partials)
-    try:
-        return _parse_minutes(llm(_REDUCE_PROMPT.format(body=reduce_body)))
-    except Exception as exc:  # pragma: no cover - model-dependent
-        log.warning("Minutes reduce failed (%s); returning merged partials.", exc)
-        return _merge_partials(partials)
+        note = _GAP_NOTE.format(skipped=skipped, total=len(windows))
+        minutes = replace(minutes, summary=f"{note}\n\n{minutes.summary}".strip())
+    return minutes
 
 
 def minutes_gbnf() -> str:
