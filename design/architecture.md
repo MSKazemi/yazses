@@ -433,17 +433,41 @@ CLI commands added in the v1.1.x line (all write comment-preserving config, then
 
 ## IPC methods
 
-| Method | Direction | Description |
+Registered in `core/daemon.py::_start_ipc_server`. "Reached from" is the set of callers
+in `src/` that actually send the method, not the set that could -- this table listed nine
+of the twenty-one, and three of those nine were described as `CLI -> daemon` when no CLI
+path had ever sent them. `tests/test_ipc_methods_are_documented.py` derives both columns
+from the tree, so a method added to the daemon, or a caller added or removed, fails here.
+
+| Method | Reached from | Description |
 |---|---|---|
-| `status` | CLI/tray/overlay → daemon | Current state, model, hotkey, backend, uptime; plus `audio_level` (live `mean(\|samples\|)` while recording, else 0) and `vad_threshold` for the overlay |
-| `shutdown` | CLI → daemon | Graceful shutdown |
-| `inject` | CLI → daemon | Inject text directly (debug / remote agent) |
-| `remote_start` | CLI → daemon | Start SSH remote session |
-| `remote_stop` | CLI → daemon | Disconnect remote session |
-| `remote_status` | CLI → daemon | Is remote connected? |
-| `enroll_start` | CLI → daemon | Start enrollment wizard |
-| `streaming_enable` | CLI → daemon | Enable streaming transcription |
-| `streaming_disable` | CLI → daemon | Disable streaming transcription |
+| `status` | CLI, tray, overlay, settings window, `doctor` | Current state, model, hotkey, backend, uptime; plus `audio_level` (live `mean(\|samples\|)` while recording, else 0) and `vad_threshold` for the overlay |
+| `shutdown` | tray, Windows service controller | Graceful shutdown. `yazses stop` does **not** come through here; it goes to the lifecycle backend (systemd / launchd / SCM) |
+| `inject` | CLI | Inject text directly (debug / remote agent) |
+| `staged` | CLI | `yazses staged status\|commit\|discard\|undo` -- the verb is a parameter, so this is one method rather than four |
+| `scratch` | CLI | Drop the most recent staged burst ("scratch that") |
+| `recall` | CLI | Query the recall index |
+| `punch_in` | CLI | Re-record over a selected span |
+| `readback_speak` | CLI | Speak a phrase through the read-back TTS |
+| `mark_last_wrong` | CLI | Flag the last dictation as a misrecognition (learning signal) |
+| `enroll_start` | CLI | Start the accessibility enrollment wizard |
+| `remote_start` | CLI | Start an SSH remote session |
+| `remote_stop` | CLI | Disconnect the remote session |
+| `meeting_start` | CLI, tray | Begin a meeting capture |
+| `meeting_stop` | CLI, tray | Stop it and run the post-pass |
+| `meeting_status` | CLI | Is a meeting recording, or still finalizing? |
+| `pin_mic` | tray | Pin the input device by name |
+| `recalibrate_mic` | tray | Re-run mic-level calibration |
+| `ask_human` | MCP server | Ask the person out loud and return what they say (`[mcp] ask_human`) |
+| `remote_status` | nothing | Is the tunnel connected? Redundant: `status` already carries `remote_connected`, and `yazses status` prints it |
+| `streaming_enable` | nothing | Turn streaming transcription on at runtime, building the `StreamingEngine` if it is absent |
+| `streaming_disable` | nothing | Turn it off again |
+
+The last three are registered, implemented, and unreachable: no CLI command, tray entry or
+MCP tool sends them, so they answer a hand-written JSON-RPC client and nothing else. They
+are recorded as unreachable rather than deleted, because two of them are the only runtime
+streaming toggle that exists. Before wiring one up, note that neither writes `config.toml`,
+so the change lasts until the next restart and no surface reports it.
 
 ---
 
