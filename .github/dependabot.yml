@@ -32,54 +32,51 @@ updates:
     commit-message:
       prefix: "chore(deps)"
     labels: ["dependencies"]
-    # ⚠ There is deliberately NO `ignore:` key on this ecosystem any more, and
-    # removing it was a security fix rather than housekeeping.
+    # ⚠ There is deliberately NO `ignore:` key on this ecosystem, and removing the
+    # one that used to be here was a security fix rather than housekeeping.
     #
-    # ⚠ There is deliberately NO setuptools entry here any more, and removing it was
-      # a security fix rather than housekeeping.
-      #
-      # The old rule ignored `setuptools >= 81` because the `voiceprint-resemblyzer`
-      # extra pinned `setuptools<81` for `pkg_resources`, and it justified suppressing
-      # the *security* PR with: "The exposure is bounded to `voiceprint-resemblyzer`,
-      # which is opt-in, excluded from `[all]`."
-      #
-      # That was false. `uv.lock` is a universal resolution — one version per package
-      # for the whole workspace — so a pin inside an opt-in extra is not confined to
-      # it. `uv export --no-dev`, with no extras at all, emitted `setuptools==80.10.2`,
-      # because core `ctranslate2` requires setuptools and there was one entry to
-      # satisfy. `scripts/build-macos.sh` and `scripts/build-windows.ps1` build the
-      # shipped .dmg and .exe from that lock, so it went out in release artifacts too.
-      # The reasoning had been copied into three files and checked by a test that read
-      # the *declaration* rather than the resolution, so nothing could catch it.
-      #
-      # The pin is gone, the lock resolves 84.0.0, and
-      # `tests/test_dependency_advisories.py::
-      # test_the_resolved_setuptools_is_at_or_above_the_patched_release` now asserts
-      # the resolved version. An `ignore` here would silence the next one.
-      # ⚠ `onnxruntime` is deliberately NOT ignored, and the monthly `uv` job is
-      # expected to report one handled error because of it (#322). Read this before
-      # "fixing" the red — the obvious fix is the wrong one.
-      #
-      # Dependabot checks a bump by pinning the target version for the whole
-      # resolution: `uv lock --upgrade-package onnxruntime==<new>`. That pin has no
-      # environment marker, so it also lands in the Intel-macOS fork, where
-      # pyproject.toml caps onnxruntime below 1.24 because upstream published no
-      # x86_64 macOS wheel after 1.23.2. A global `==` and a per-marker `<` are a
-      # contradiction, so the resolution is unsatisfiable by construction.
-      #
-      # Measured locally against this exact lockfile, not reasoned about — the same
-      # error appears whether the cap sits in `[project]`, in `[tool.uv]
-      # constraint-dependencies`, or in `override-dependencies`, and it goes away only
-      # when the cap is gone. Removing it is a support decision (drop Intel macOS),
-      # not a config change: a fresh Intel resolution of `yazses[all]` still succeeds
-      # today on Python 3.11 and 3.12 (onnxruntime 1.23.2, torch 2.2.2) and already
-      # fails on 3.13+ for an unrelated reason (torch ships no Intel macOS wheel).
-      #
-      # Ignoring `onnxruntime >= 1.24` would stop the red, and would also stop every
-      # onnxruntime update — including a security one, per the note at the top of this
-      # file — on Linux, Windows and Apple silicon, which is where the users are. The
-      # error is handled per-dependency, so every other update in the sweep still
-      # opens. One explained red beats a silent gap; bump onnxruntime by hand.
+    # The old rule ignored `setuptools >= 81` because the `voiceprint-resemblyzer`
+    # extra pinned `setuptools<81` for `pkg_resources`, and it justified suppressing
+    # the *security* PR with: "The exposure is bounded to `voiceprint-resemblyzer`,
+    # which is opt-in, excluded from `[all]`."
+    #
+    # That was false. `uv.lock` is a universal resolution — one version per package
+    # for the whole workspace — so a pin inside an opt-in extra is not confined to
+    # it. `uv export --no-dev`, with no extras at all, emitted `setuptools==80.10.2`,
+    # because core `ctranslate2` requires setuptools and there was one entry to
+    # satisfy. `scripts/build-macos.sh` and `scripts/build-windows.ps1` build the
+    # shipped .dmg and .exe from that lock, so it went out in release artifacts too.
+    # The reasoning had been copied into three files and checked by a test that read
+    # the *declaration* rather than the resolution, so nothing could catch it.
+    #
+    # The pin is gone, the lock resolves 84.0.0, and
+    # `tests/test_dependency_advisories.py::
+    # test_the_resolved_setuptools_is_at_or_above_the_patched_release` now asserts
+    # the resolved version. An `ignore` here would silence the next one.
+    # ⚠ `onnxruntime` is deliberately NOT ignored, and the monthly `uv` job is
+    # expected to report one handled error because of it (#322). Read this before
+    # "fixing" the red — the obvious fix is the wrong one.
+    #
+    # Dependabot checks a bump by pinning the target version for the whole
+    # resolution: `uv lock --upgrade-package onnxruntime==<new>`. That pin has no
+    # environment marker, so it also lands in the Intel-macOS fork, where
+    # pyproject.toml caps onnxruntime below 1.24 because upstream published no
+    # x86_64 macOS wheel after 1.23.2. A global `==` and a per-marker `<` are a
+    # contradiction, so the resolution is unsatisfiable by construction.
+    #
+    # Measured locally against this exact lockfile, not reasoned about — the same
+    # error appears whether the cap sits in `[project]`, in `[tool.uv]
+    # constraint-dependencies`, or in `override-dependencies`, and it goes away only
+    # when the cap is gone. Removing it is a support decision (drop Intel macOS),
+    # not a config change: a fresh Intel resolution of `yazses[all]` still succeeds
+    # today on Python 3.11 and 3.12 (onnxruntime 1.23.2, torch 2.2.2) and already
+    # fails on 3.13+ for an unrelated reason (torch ships no Intel macOS wheel).
+    #
+    # Ignoring `onnxruntime >= 1.24` would stop the red, and would also stop every
+    # onnxruntime update — including a security one, per the note at the top of this
+    # file — on Linux, Windows and Apple silicon, which is where the users are. The
+    # error is handled per-dependency, so every other update in the sweep still
+    # opens. One explained red beats a silent gap; bump onnxruntime by hand.
 
   # GitHub Actions — pinned action versions go stale silently and are a real
   # supply-chain surface for a project that publishes signed artifacts.
