@@ -6,6 +6,37 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — "they never mind the noise" lost its first half
+
+The self-correction guard asks whether the single word before a trigger makes that
+trigger part of a phrase rather than an interjection. It knew negations and modals,
+and determiners, reporting verbs and copulas. It did not know a **subject**, so an
+ordinary sentence whose verb happens to be a trigger was rolled back:
+
+    "they never mind the noise from the street"  ->  "the noise from the street"
+    "we never mind waiting for the next train"   ->  "waiting for the next train"
+
+Nominative-only pronouns (`i`, `we`, `they`, `he`, `she`) now join the guard, in both
+the Python filter and the Kotlin port. The boundary is measured, not chosen: in a
+genuine correction the word before the trigger is the object being replaced, and one
+of those is a pronoun — "i think we should ship it never mind lets wait" turns on
+`it`. So `it` and `you`, which are objects as well as subjects, are deliberately
+absent, as are the indefinites ("email everyone scratch that email bob" is real).
+Three contract vectors record both sides of that line, contract 6.5.0 → 6.6.0.
+
+**What is still wrong, recorded rather than guessed at.** A plural common noun as the
+subject reads exactly like the pronoun case and cannot be enumerated —
+`"students forget that lesson by the summer"` still becomes `"lesson by the summer"`,
+six such cases measured. A rule suppressing rollback after any noun would break real
+corrections, whose triggers follow bare nouns (`bob`, `tuesday`, `file`). The module's
+stated policy is that this residue is "tracked as a known gap rather than guessed at",
+so `tests/test_self_correction_prose_gap.py` records the six, the six that *are*
+covered, and the four real corrections that must keep rolling back — failing in both
+directions, so the list cannot grow silently or outlive its own fix.
+
+It is not in `contract/semantic/` where a `known-gap` belongs, because that layer
+requires a tracked issue URL per gap and one does not exist yet.
+
 ### Fixed — the suite's result depended on the order pytest collected files in
 
 Running the 653 test files in reverse order turned seven passing tests red. CI only

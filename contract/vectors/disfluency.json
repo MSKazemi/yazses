@@ -1,6 +1,6 @@
 {
   "unit": "filters.disfluency",
-  "contract_version": "6.5.0",
+  "contract_version": "6.6.0",
   "source": "src/yazses/stt/filters/disfluency.py::filter_transcript (.text)",
   "cases": [
     {
@@ -298,6 +298,27 @@
       "options": {},
       "input": "he said never mind the cost and left",
       "expected": "he said never mind the cost and left"
+    },
+    {
+      "id": "self-correction-trigger-after-a-subject-pronoun",
+      "description": "a nominative pronoun immediately before the trigger makes the trigger the clause's own verb, so the sentence is prose. Rolling back left 'the noise from the street' -- fluent text the user never said, with the meaning inverted",
+      "options": {},
+      "input": "they never mind the noise from the street",
+      "expected": "they never mind the noise from the street"
+    },
+    {
+      "id": "self-correction-trigger-after-we",
+      "description": "same rule, second person plural, and a gerund rather than a noun phrase after the trigger",
+      "options": {},
+      "input": "we never mind waiting for the next train",
+      "expected": "we never mind waiting for the next train"
+    },
+    {
+      "id": "self-correction-after-an-object-pronoun-still-rolls-back",
+      "description": "the boundary of the rule above, and why 'it' and 'you' are absent from the guard: they are objects as well as subjects, and here 'it' is the object being replaced by a genuine correction",
+      "options": {},
+      "input": "i think we should ship it never mind lets wait",
+      "expected": "lets wait"
     },
     {
       "id": "collapse-repetitions-off-by-default",

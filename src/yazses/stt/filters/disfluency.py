@@ -423,6 +423,18 @@ _PHRASE_CONTEXT_BEFORE_TRIGGER = (
     "wrote", "writes", "replied", "answered", "shouted", "yelled", "whispered",
     # copulas
     "is", "are", "was", "were", "be", "been", "being",
+    # Nominative-only personal pronouns. A subject immediately before the trigger
+    # makes the trigger the clause's own verb -- "they never mind the noise from the
+    # street" became "the noise from the street", and "we never mind waiting for the
+    # next train" became "waiting for the next train".
+    #
+    # Nominative *only*, and the boundary is measured rather than chosen: in real
+    # corrections the word before the trigger is the object being replaced, and one
+    # of them is a pronoun -- "i think we should ship it never mind lets wait" turns
+    # on "it". So "it" and "you", which are both subject and object, would suppress
+    # genuine corrections and are deliberately absent, as are the indefinites
+    # ("email everyone scratch that email bob" is a real correction).
+    "i", "we", "they", "he", "she",
 )
 
 

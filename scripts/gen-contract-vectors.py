@@ -698,6 +698,21 @@ CASES: dict[str, list[dict[str, Any]]] = {
                         "the opposite as 'whatever the shipped behaviour is', which froze a "
                         "meaning-destroying rollback into the contract every platform copies",
          "input": "he said never mind the cost and left"},
+        {"id": "self-correction-trigger-after-a-subject-pronoun",
+         "description": "a nominative pronoun immediately before the trigger makes the "
+                        "trigger the clause's own verb, so the sentence is prose. Rolling "
+                        "back left 'the noise from the street' -- fluent text the user "
+                        "never said, with the meaning inverted",
+         "input": "they never mind the noise from the street"},
+        {"id": "self-correction-trigger-after-we",
+         "description": "same rule, second person plural, and a gerund rather than a noun "
+                        "phrase after the trigger",
+         "input": "we never mind waiting for the next train"},
+        {"id": "self-correction-after-an-object-pronoun-still-rolls-back",
+         "description": "the boundary of the rule above, and why 'it' and 'you' are absent "
+                        "from the guard: they are objects as well as subjects, and here 'it' "
+                        "is the object being replaced by a genuine correction",
+         "input": "i think we should ship it never mind lets wait"},
         {"id": "collapse-repetitions-off-by-default",
          "description": "ADR-015 collapse is opt-in; a stutter survives by default",
          "input": "b-b-because it works"},

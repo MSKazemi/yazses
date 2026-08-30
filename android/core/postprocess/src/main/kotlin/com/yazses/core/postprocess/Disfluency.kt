@@ -88,6 +88,11 @@ private val PHRASE_CONTEXT_WORDS = setOf(
     "wrote", "writes", "replied", "answered", "shouted", "yelled", "whispered",
     // copulas
     "is", "are", "was", "were", "be", "been", "being",
+    // Nominative-only personal pronouns: a subject immediately before the trigger
+    // makes the trigger the clause's own verb. "it" and "you" are deliberately
+    // absent -- they are also objects, and a real correction turns on one of them
+    // ("i think we should ship it never mind lets wait").
+    "i", "we", "they", "he", "she",
 )
 
 private val DOUBLE_SPACE = Regex("""  +""")
