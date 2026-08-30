@@ -16,13 +16,24 @@ on:
   pull_request_target:
     types: [opened]
 
+# Read-only at the top so that the two write scopes exist only inside the job that
+# posts the comment. That matters more here than it looks: `pull_request_target` gives
+# this file a token with real write access to the tracker, and the note above forbids
+# adding a checkout step -- a top-level grant is what would make ignoring that note
+# expensive rather than merely wrong.
 permissions:
   contents: read
-  issues: write
-  pull-requests: write
 
 jobs:
   greet:
+    # Replaces the block above rather than adding to it, so `contents: read` is
+    # repeated here on purpose.
+    permissions:
+      contents: read
+      # Post the greeting on a first issue...
+      issues: write
+      # ...and on a first pull request. The action treats them as separate scopes.
+      pull-requests: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/first-interaction@1c4688942c71f71d4f5502a26ea67c331730fa4d # v3.1.0

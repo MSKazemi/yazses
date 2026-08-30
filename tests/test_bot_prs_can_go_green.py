@@ -58,6 +58,30 @@ def _refresh_workflows() -> list[tuple[Path, dict]]:
     return found
 
 
+def _pushing_jobs(doc: dict) -> list[tuple[str, dict]]:
+    """Jobs that run `git push`, paired with their *effective* permissions.
+
+    A job-level `permissions:` block **replaces** the top-level one rather than
+    merging with it, so the effective set is one or the other and never the union.
+    This used to read `doc["permissions"]` alone, which gets the answer wrong in both
+    directions: it passes a file that grants `contents: write` globally and never
+    pushes, and it fails a file that correctly scopes the grant to the single job that
+    does. The second is not hypothetical -- moving that grant off the top of
+    `dependabot-sbom.yml`, so a job added later could not inherit a writable token on
+    a `pull_request_target` trigger, is exactly what this assertion tripped on.
+    """
+    found: list[tuple[str, dict]] = []
+    for name, job in (doc.get("jobs") or {}).items():
+        steps = (job or {}).get("steps") or []
+        if not any("git push" in ((step or {}).get("run") or "") for step in steps):
+            continue
+        perms = (job or {}).get("permissions")
+        if perms is None:
+            perms = doc.get("permissions")
+        found.append((name, perms if isinstance(perms, dict) else {}))
+    return found
+
+
 def test_the_premise_still_holds() -> None:
     """If either half goes away this module is measuring nothing, so say so loudly."""
     assert (ROOT / GENERATED).is_file(), f"{GENERATED} is no longer committed"
@@ -103,9 +127,18 @@ def test_the_refresh_can_actually_push(case: tuple[Path, dict]) -> None:
         f"{path.name} pushes a commit but triggers on `pull_request`, which GitHub "
         "gives a read-only token on a Dependabot PR. Use `pull_request_target`."
     )
-    assert doc.get("permissions", {}).get("contents") == "write", (
-        f"{path.name} pushes a commit without `permissions: contents: write`."
+    pushers = _pushing_jobs(doc)
+    assert pushers, (
+        f"{path.name} was matched as a workflow that pushes, but no job in it runs "
+        "`git push` -- so the permission assertion below would check nothing."
     )
+    for job_name, perms in pushers:
+        assert perms.get("contents") == "write", (
+            f"{path.name}:{job_name} pushes a commit but its effective permissions "
+            f"are {perms or 'the repository default'}, with no `contents: write`. "
+            "Remember a job-level block replaces the top-level one instead of adding "
+            "to it, so the scope has to be listed on the job itself."
+        )
 
 
 @pytest.mark.parametrize("case", _refresh_workflows(), ids=lambda c: c[0].name)

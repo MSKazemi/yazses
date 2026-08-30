@@ -12,12 +12,20 @@ on:
   pull_request_target:
     types: [opened, synchronize, reopened]
 
+# Read-only at the top; the label write lives in the job that labels. Same reasoning
+# as the note above: this is a `pull_request_target` workflow, so the token is a real
+# one, and the narrower it is when the file grows the better.
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
   label:
+    # Job-level permissions replace the top-level block outright, so `contents: read`
+    # is listed again -- `actions/labeler` reads `.github/labeler.yml` from the base
+    # branch through the API, and without it the action fails rather than degrading.
+    permissions:
+      contents: read
+      pull-requests: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7

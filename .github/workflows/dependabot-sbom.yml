@@ -41,12 +41,26 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: write
-  pull-requests: read
+# Nothing at the top, deliberately. This workflow runs on `pull_request_target`, which
+# means its token can write to this repository, and a top-level grant hands that token
+# to *every* job in the file -- including one added later by somebody who read the job
+# they were adding and not this block. The single job that needs to push asks for it
+# itself, a few lines down.
+#
+# `{}` rather than `contents: read` so that a future job which quietly relies on
+# inheriting something fails loudly at the step that needs it, instead of half-working.
+permissions: {}
 
 jobs:
   refresh-sbom:
+    # Job-level permissions REPLACE the top-level block rather than merging with it,
+    # so everything this job uses has to be listed here.
+    permissions:
+      # The point of the job: add one commit to Dependabot's own branch.
+      contents: write
+      # Read the pull request to confirm its author, its head repository and that it
+      # is open -- checked against the API before anything is checked out.
+      pull-requests: read
     if: >-
       github.event_name == 'workflow_dispatch' ||
       github.event.pull_request.user.login == 'dependabot[bot]'

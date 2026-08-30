@@ -47,6 +47,29 @@ covered the day it is written. A job that runs weekly is a job whose breakage is
 late, which is the argument for a guard that reads the file instead of waiting for the
 schedule.
 
+### Security — three workflows granted a write token to every job in the file
+
+`dependabot-sbom.yml` carried `contents: write` at the top level, and
+`first-interaction.yml` and `labeler.yml` carried `issues`/`pull-requests: write`
+there. A top-level `permissions:` block is inherited by every job that does not
+declare its own, so those were standing grants to whatever gets added to the file
+next — and what gets added next is written by someone reading the job above it, not
+the header.
+
+All three run on `pull_request_target`, which is precisely the trigger that hands out
+a genuinely writable token; `pull_request` from a fork gets a read-only one, which is
+why each of them needs that trigger and says so in its own comments. Each write scope
+now sits on the single job that uses it, with the read scopes repeated there because a
+job-level block **replaces** the top-level one rather than merging with it.
+`dependabot-sbom.yml` is now `permissions: {}` at the top rather than `contents: read`,
+so a future job that quietly relies on inheriting something fails at the step that
+needs it instead of half-working.
+
+No job's effective permissions changed. `tests/test_workflow_yaml_is_valid.py` now
+fails any workflow with a top-level write, with a companion test asserting that some
+job still asks for one — without it the check would pass on all 29 files while
+guarding an empty set.
+
 ### Fixed — the mic-change watcher could not fire on the setup most Linux users have
 
 `DeviceMonitor` decides the microphone changed by comparing the default input's
