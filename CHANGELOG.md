@@ -30,6 +30,24 @@ syntax error, while a real one still is. `system/configedit.py` reads `utf-8-sig
 `features enable` / `hotkey set` / `audio use` repair a file that already had a BOM
 instead of writing it back.
 
+### Fixed — a byte-order mark silently disabled the first vocabulary entry
+
+The same encoding artefact, in the other hand-edited file. `~/.config/yazses/vocabulary.txt`
+is line-oriented, so a BOM costs one entry rather than the document — and it is always the
+*first* one, the word the user cared enough about to add before any other.
+
+It then fails three ways at once and looks correct in all of them. `"\ufeffKubernetes"`
+renders identically to `Kubernetes` in `yazses vocab list`; `yazses vocab remove Kubernetes`
+does not match it, so it cannot be taken out; and it reaches Whisper's `initial_prompt` as a
+token the model has never seen, so priming that word — the entire point of the file — quietly
+stops working while the entry sits there in plain sight.
+
+`load_vocab` now decodes `utf-8-sig` on both its strict and its tolerant path, and
+`parse_vocab` strips a BOM from imported text, since `yazses vocab import` reads a file
+someone else exported and sent on. Invalid bytes still warn and degrade rather than raise,
+which is what keeps dictation running. Adding a word rewrites the file without the BOM, so
+one `vocab add` repairs it.
+
 ### Fixed — the egress inventory listed transports and no installers
 
 ADR-019 exists because "nothing leaves this machine" is only as strong as a complete

@@ -120,3 +120,52 @@ def test_a_file_that_is_not_utf8_is_reported_rather_than_crashing(
     path.write_bytes(b"[stt]\nmodel = '\xff\xfe not utf-8'\n")
     loaded = load_config_checked(path)
     assert loaded.problems, "invalid bytes parsed cleanly"
+
+
+@pytest.mark.parametrize("prefix", [b"", BOM], ids=["plain", "utf-8-bom"])
+def test_the_vocabulary_file_survives_a_byte_order_mark(
+    prefix: bytes, tmp_path: pathlib.Path,
+) -> None:
+    """Line-oriented, so a BOM costs one entry rather than the file — and it is the
+    *first* entry, which is the one the user added first and cares about most.
+
+    It fails three ways at once and looks fine in all of them: `"\\ufeffKubernetes"`
+    renders identically to `Kubernetes` in `yazses vocab list`, is not matched by
+    `yazses vocab remove Kubernetes`, and reaches Whisper's `initial_prompt` as a token
+    the model has never seen, so priming that word silently stops working.
+    """
+    from yazses.system.vocabulary import load_vocab
+
+    path = tmp_path / "vocabulary.txt"
+    path.write_bytes(prefix + b"Kubernetes\nEuroHPC\n")
+    assert load_vocab(path) == ["Kubernetes", "EuroHPC"]
+
+
+def test_importing_a_vocabulary_strips_a_byte_order_mark(tmp_path: pathlib.Path) -> None:
+    """`yazses vocab import` takes text from a file someone else exported and sent on,
+    which is exactly where a foreign editor's encoding arrives."""
+    from yazses.system.vocabulary import parse_vocab
+
+    assert parse_vocab("﻿Kubernetes\nEuroHPC\n") == ["Kubernetes", "EuroHPC"]
+
+
+def test_adding_a_word_repairs_a_vocabulary_that_had_a_byte_order_mark(
+    tmp_path: pathlib.Path,
+) -> None:
+    path = tmp_path / "vocabulary.txt"
+    path.write_bytes(BOM + b"Kubernetes\n")
+    from yazses.system.vocabulary import add_vocab, load_vocab
+
+    add_vocab(path, ["Slurm"])
+    assert not path.read_bytes().startswith(BOM)
+    assert load_vocab(path) == ["Kubernetes", "Slurm"]
+
+
+def test_a_vocabulary_that_is_not_utf8_is_still_tolerated(tmp_path: pathlib.Path) -> None:
+    """The BOM fix moved the decode to `utf-8-sig`; invalid bytes must still be
+    replaced-with-a-warning rather than raising, because dictation continues."""
+    from yazses.system.vocabulary import load_vocab
+
+    path = tmp_path / "vocabulary.txt"
+    path.write_bytes(b"\xff\xfe oops\n")
+    assert load_vocab(path), "an unreadable vocabulary file now yields nothing at all"

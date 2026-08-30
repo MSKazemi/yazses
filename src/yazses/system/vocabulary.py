@@ -48,12 +48,17 @@ def load_vocab(path, *, strict: bool = False) -> list[str]:
             raise
         log.warning("could not read vocabulary file %s (%s); continuing without it", p, exc)
         return []
+    # `utf-8-sig`, not `utf-8`: an editor's BOM is not part of the first word. Read
+    # plainly it becomes "\ufeffKubernetes" -- which looks identical in `vocab list`,
+    # is not matched by `vocab remove`, and reaches Whisper's initial_prompt as a
+    # token the model has never seen, so the user's first entry silently stops
+    # working. Invalid bytes still raise, which is what the fallback below detects.
     try:
-        text = raw.decode("utf-8")
+        text = raw.decode("utf-8-sig")
     except UnicodeDecodeError:
         if strict:
             raise
-        text = raw.decode("utf-8", errors="replace")
+        text = raw.decode("utf-8-sig", errors="replace")
         log.warning(
             "vocabulary file %s is not valid UTF-8; unreadable bytes were replaced. "
             "Dictation continues -- fix the file, or re-add the affected words with "
@@ -175,7 +180,9 @@ def parse_vocab(text: str) -> list[str]:
     """
     out: list[str] = []
     seen: set[str] = set()
-    for line in (text or "").splitlines():
+    # Imported text arrives from a file someone else exported and mailed on; a BOM
+    # in front of the first entry is the same defect as in the stored file.
+    for line in (text or "").lstrip("\ufeff").splitlines():
         word = line.strip()
         if not word or word.startswith("#"):
             continue
