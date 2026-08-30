@@ -144,9 +144,27 @@ def add_vocab(path, words) -> list[str]:
 
 
 def remove_vocab(path, word) -> list[str]:
-    """Remove *word* (case-insensitive), return the remaining list."""
+    """Remove *word* (case-insensitive), return the remaining list.
+
+    Writes only when something was actually removed. That matters twice. On a machine
+    where nobody has added a word yet the config directory does not exist, and this
+    was the one writer without a ``mkdir`` --- so ``yazses vocab remove`` answered a
+    plain typo with a `FileNotFoundError` traceback, on the command whose whole job is
+    undoing a mistake. And rewriting on a no-op would create an empty dictionary file
+    as a side effect of a failed removal.
+
+    The caller can tell whether anything went by comparing lengths; the CLI does, so
+    it stops reporting "Removed 'x'" for a word that was never there --- a false
+    statement, and one that costs the user the search: they read it, believe the word
+    is gone, and are left with the mis-transcription and no reason for it.
+    """
     p = Path(path)
-    remaining = [w for w in load_vocab(p, strict=True) if w.lower() != word.strip().lower()]
+    existing = load_vocab(p, strict=True)
+    target = word.strip().lower()
+    remaining = [w for w in existing if w.lower() != target]
+    if len(remaining) == len(existing):
+        return remaining
+    p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text("\n".join(remaining) + ("\n" if remaining else ""), encoding="utf-8")
     return remaining
 

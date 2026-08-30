@@ -30,6 +30,27 @@ syntax error, while a real one still is. `system/configedit.py` reads `utf-8-sig
 `features enable` / `hotkey set` / `audio use` repair a file that already had a BOM
 instead of writing it back.
 
+### Fixed — `yazses vocab add`/`remove` reported what was asked, not what happened
+
+`vocab remove` was the only writer in `system/vocabulary.py` with no `mkdir`. On a
+machine where nobody has added a word the config directory does not exist, so a plain
+typo answered with a `FileNotFoundError` traceback — on the command whose entire job is
+undoing a mistake.
+
+Once the directory existed it was worse, because it looked fine: `vocab remove
+<not-a-word>` printed **"Removed 'x'"** and exited 0. That is a false statement with a
+cost. The user believes the word is gone, and is left with the mis-transcription and no
+reason for it — while the failed removal quietly created an empty dictionary file as a
+side effect. `vocab add ""` had the mirror image: **"Added . Dictionary now has 0
+word(s)"**, a success message for nothing, printed next to a count contradicting it.
+`add_vocab` drops blanks and case-insensitive duplicates, so echoing the argument back
+was never the same thing as reporting what landed.
+
+Both commands now name only what actually changed and exit 1 when nothing did, which
+matters beyond tidiness: these are the commands people put in a setup script when moving
+to a new machine. `remove_vocab` writes only on a real removal, so a failed one leaves
+the dictionary — and the directory — exactly as it found them.
+
 ### Fixed — meeting minutes could quietly leave out part of the meeting
 
 The minutes map-reduce split the transcript into windows of 40 **turns**. A turn is

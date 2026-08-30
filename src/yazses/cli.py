@@ -1959,12 +1959,24 @@ def vocab_add(
     Good for names, jargon, and acronyms that Whisper keeps mis-hearing. The
     words are primed into the STT prompt; they bias recognition, not force it.
     """
-    from yazses.system.vocabulary import add_vocab, vocab_path
+    from yazses.system.vocabulary import add_vocab, load_vocab, vocab_path
 
     platform = get_platform()
     path = vocab_path(platform.paths.config_file.parent)
+    before = {w.lower() for w in load_vocab(path)}
     full = add_vocab(path, words)
-    typer.echo(f"Added {', '.join(words)}. Dictionary now has {len(full)} word(s).")
+    # `add_vocab` drops blanks and case-insensitive duplicates, so what the user typed
+    # is not what was added. Echoing the argument back reported `yazses vocab add ""`
+    # as "Added . Dictionary now has 0 word(s)." -- a success message for nothing, next
+    # to a count that contradicts it.
+    added = [w for w in full if w.lower() not in before]
+    if not added:
+        typer.echo(
+            "Nothing was added: every word given was blank or already in the "
+            "dictionary. Run `yazses vocab list` to see what is."
+        )
+        raise typer.Exit(1)
+    typer.echo(f"Added {', '.join(added)}. Dictionary now has {len(full)} word(s).")
     typer.echo("In effect from your next dictation — no restart needed.")
 
 
@@ -1991,10 +2003,18 @@ def vocab_list() -> None:
 )
 def vocab_remove(word: str = typer.Argument(..., help="The word to remove.")) -> None:
     """Remove a word from your personal dictionary — no restart needed."""
-    from yazses.system.vocabulary import remove_vocab, vocab_path
+    from yazses.system.vocabulary import load_vocab, remove_vocab, vocab_path
 
     platform = get_platform()
-    remaining = remove_vocab(vocab_path(platform.paths.config_file.parent), word)
+    path = vocab_path(platform.paths.config_file.parent)
+    before = len(load_vocab(path))
+    remaining = remove_vocab(path, word)
+    if len(remaining) == before:
+        typer.echo(
+            f"{word!r} is not in your dictionary, so nothing was removed. "
+            "Run `yazses vocab list` to see what is."
+        )
+        raise typer.Exit(1)
     typer.echo(f"Removed {word!r}. Dictionary now has {len(remaining)} word(s).")
     typer.echo("In effect from your next dictation — no restart needed.")
 
