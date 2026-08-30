@@ -6,6 +6,47 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the heavy-extras gate asked for something no run could give it
+
+Dispatching `heavy-extras.yml` after repairing its `uv run` pin got it past the two
+steps that used to kill it — and straight into the contradiction underneath.
+
+`tests/test_shipped_backends.py` holds two tests that are exact opposites.
+`test_real_resemblyzer_returns_a_unit_vector_at_both_lengths` skips unless
+`import resemblyzer` works, which needs `setuptools<81`.
+`test_a_resemblyzer_that_cannot_import_names_the_remedy_and_stays_dormant` skips
+unless that same import *fails* — it asserts the failure is turned into the one-line
+remedy rather than a `ModuleNotFoundError` raised three layers down inside `webrtcvad`.
+No single environment can run both, and the job's final step demanded that **no** test
+be skipped. It was unsatisfiable, and it had survived three releases because the run
+died two steps before reaching it.
+
+The file is now run twice — once on the locked setuptools, which is what a user gets,
+and once on the documented remedy — and the gate is the satisfiable form of the same
+intent: nothing may be skipped in **both**. Phase 1 additionally asserts that
+`resemblyzer` fails *and fails on `pkg_resources`*, so if a future setuptools or
+`webrtcvad` makes the remedy unnecessary the job says so and names the advice to
+delete, rather than quietly continuing to pin.
+
+The comparison lives in `scripts/check_extras_coverage.py` rather than in shell inside
+the workflow, for two reasons. It can be run on a laptop against reports built in a
+test (`tests/test_extras_coverage_check.py`, 12 tests) instead of once a week on a
+runner. And the shell version was wrong: it read pytest's terminal output with
+`awk '$2 == "SKIPPED"'`, which silently dropped the four tests whose parametrised ids
+contain spaces —
+
+    ...::test_a_raised_access_failure_gets_the_same_remedy[GatedRepoError-403
+    Client Error. Access to model is restricted.] PASSED [ 55%]
+
+— counting 32 of 36 and reporting success. The JUnit report carries the id in an
+attribute, so there is nothing to tokenise.
+
+Controlling the script against itself found one more: the reports were held in a dict
+keyed by filename, so passing the same path twice collapsed to a single entry and
+raised `IndexError` instead of answering. Both that and the near-empty-report case now
+fail with a message, because two empty sets have an empty intersection — the check
+would otherwise pass most confidently exactly when it had learnt the least.
+
 ### Fixed — the weekly job that proves the heavy extras work could never have passed
 
 `heavy-extras.yml` exists to check something no other job does: that

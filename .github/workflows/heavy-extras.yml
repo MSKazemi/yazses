@@ -27,6 +27,19 @@ name: Heavy optional extras
 #
 # Neither needs a token, a model, or the network at test time.
 #
+# **Two runs of the same file, not one.** Those two tests cannot both execute in one
+# environment, and that is the design rather than an accident: the resemblyzer one
+# skips unless `import resemblyzer` works, which needs `setuptools<81`, and
+# `test_a_resemblyzer_that_cannot_import_names_the_remedy_and_stays_dormant` skips
+# unless that same import *fails* -- it asserts the failure is turned into the one-line
+# remedy instead of a `ModuleNotFoundError` raised three layers down inside webrtcvad.
+# So phase 1 runs the file in the environment a user actually gets, phase 2 runs it on
+# the documented remedy, and the gate is that nothing was skipped in **both**.
+#
+# The gate used to be "nothing may be skipped", which no run could satisfy. It survived
+# three releases because the job died two steps earlier, on a bare `uv run` that
+# re-synced the pin away -- so the contradiction was never reached and never seen.
+#
 # **Weekly, not per-push.** What this catches is an upstream API change, which arrives on
 # upstream's schedule and not with a commit here; paying 2 GB of wheels on every pull
 # request to look for it would be a poor trade. `workflow_dispatch` is here so it can be
@@ -86,30 +99,76 @@ jobs:
       # the very next step imports `resemblyzer`, which is the import that needs
       # `pkg_resources` and is the whole reason the pin exists. Red by construction,
       # and unobserved: the workflow is weekly and had not yet reached a Monday.
-      - name: Pin setuptools for resemblyzer, the way the docs tell a user to
-        run: uv pip install "setuptools<81"
-
-      - name: Both extras must actually be importable
-        # Without this the guarded tests skip and the job passes green having tested
-        # nothing — the precise failure mode this workflow exists to end. `resemblyzer`
-        # is imported rather than merely located because that is where it broke: the
-        # package installs fine and then raises on `import pkg_resources`.
+      # ------------------------------------------------------------------ phase 1
+      # The environment a user actually gets: whatever `uv.lock` resolves. Run the
+      # backend tests here first, because this is the state being shipped.
+      - name: pyannote must import, and resemblyzer must fail the way the docs say
         run: |
           uv run --no-sync python -c "import pyannote.audio; print('pyannote.audio ok')"
-          uv run --no-sync python -c "from resemblyzer import VoiceEncoder; print('resemblyzer ok')"
+          uv run --no-sync python - <<'PY'
+          try:
+              import resemblyzer  # noqa: F401
+          except ModuleNotFoundError as exc:
+              assert exc.name == "pkg_resources", f"failed on {exc.name}, not pkg_resources"
+              print("resemblyzer fails on pkg_resources, exactly as documented")
+          else:
+              raise SystemExit(
+                  "resemblyzer imported on the locked setuptools. That is good news and "
+                  "it makes the remedy stale: delete the advice in voiceprint/factory.py "
+                  "and the pin below rather than leaving people a fix they do not need."
+              )
+          PY
 
-      - name: Run the tests that only exist when the extras are installed
+      - name: Run the backend tests as they run for a user
         shell: bash
         run: |
           set -o pipefail
-          uv run --no-sync python -m pytest -v -rs tests/test_shipped_backends.py 2>&1 | tee heavy-tests.txt
+          uv run --no-sync python -m pytest -v -rs \
+            --junit-xml=shipped.xml tests/test_shipped_backends.py
 
-      - name: No extra-guarded test may be silently skipped
+      # ------------------------------------------------------------------ phase 2
+      # The documented remedy. `voiceprint/factory.py` catches resemblyzer's
+      # ModuleNotFoundError and tells the reader, in those words, to
+      # `pip install "setuptools<81"`. This is what proves that instruction works
+      # rather than merely being written down.
+      #
+      # Deliberately AFTER `uv sync`, which would otherwise resolve it straight back up.
+      #
+      # ⚠ And every `uv run` carries `--no-sync` for the same reason, which is the half
+      # that was missed for three releases: a bare `uv run` re-syncs the environment
+      # against `uv.lock` before running anything, so it silently undid this pin one
+      # line later. Measured, in a throwaway project pinned to `packaging<25`:
+      #
+      #   uv pip install "packaging<25" ; uv run --no-sync python -c ...  -> 24.2
+      #   uv run python -c ...                                            -> 26.3
+      #
+      # So this job could never have passed.
+      - name: Pin setuptools, the way voiceprint/factory.py tells the user to
+        run: uv pip install "setuptools<81"
+
+      - name: And now resemblyzer must import
+        run: uv run --no-sync python -c "from resemblyzer import VoiceEncoder; print('resemblyzer ok')"
+
+      - name: Run the backend tests again, on the remedy
         shell: bash
         run: |
-          if grep -q "^SKIPPED" heavy-tests.txt; then
-            echo "::error::A test guarded by a heavy extra was skipped — it guards nothing here."
-            grep "^SKIPPED" heavy-tests.txt
-            exit 1
-          fi
-          echo "No extra-guarded test was skipped."
+          set -o pipefail
+          uv run --no-sync python -m pytest -v -rs \
+            --junit-xml=remedy.xml tests/test_shipped_backends.py
+
+      # Two runs rather than one, because a single environment cannot exercise this
+      # file. `test_real_resemblyzer_returns_a_unit_vector_at_both_lengths` skips
+      # unless resemblyzer imports; `test_a_resemblyzer_that_cannot_import_names_the_
+      # remedy_and_stays_dormant` skips unless it does *not*. They are exact opposites
+      # by construction, so "no test may be skipped" was a gate no run could satisfy --
+      # unnoticed for three releases because the job died two steps before reaching it.
+      #
+      # The satisfiable form of the same intent: every test must run in at least one of
+      # the two environments. That lives in a script rather than in shell here, so it
+      # can be tested on a laptop instead of once a week on a runner
+      # (`tests/test_extras_coverage_check.py`) -- and because the shell version read
+      # pytest's terminal output with `awk '$2 == "SKIPPED"'` and silently dropped the
+      # four tests whose parametrised ids contain spaces, counting 32 of 36 and
+      # reporting success. The JUnit report carries the id in an attribute.
+      - name: No test may be skipped in BOTH environments
+        run: uv run --no-sync python scripts/check_extras_coverage.py shipped.xml remedy.xml
