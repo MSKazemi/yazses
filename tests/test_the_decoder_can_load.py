@@ -32,7 +32,10 @@ the decoder cannot load, dictation cannot work, and a green suite would be a fal
 
 from __future__ import annotations
 
+from tests.decoder_stack import needs_ctranslate2
 
+
+@needs_ctranslate2
 def test_ctranslate2_loads() -> None:
     try:
         import ctranslate2

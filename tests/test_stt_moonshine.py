@@ -15,6 +15,7 @@ import types
 import numpy as np
 import pytest
 
+from tests.decoder_stack import needs_moonshine
 from yazses.stt.factory import _build_raw_engine
 from yazses.stt.moonshine import (
     DEFAULT_MODEL,
@@ -67,6 +68,7 @@ def fake_moonshine(monkeypatch):
 # ---- the upstream contract this adapter is shaped around -------------------
 
 
+@needs_moonshine
 def test_real_package_transcribe_signature_is_what_we_call():
     """`transcribe(audio, model)` — pinned against the installed package."""
     import inspect
@@ -77,6 +79,7 @@ def test_real_package_transcribe_signature_is_what_we_call():
     assert params[:2] == ["audio", "model"]
 
 
+@needs_moonshine
 def test_real_package_enforces_the_audio_bounds_we_mirror():
     """0.1s–64s, enforced with a bare assert — hence our guards."""
     import importlib
@@ -92,6 +95,7 @@ def test_our_bounds_match_upstreams():
     assert (MIN_SECONDS, MAX_SECONDS) == (0.1, 64.0)
 
 
+@needs_moonshine
 def test_real_package_batches_the_audio_itself() -> None:
     """The contract that was never pinned, and the whole bug.
 
@@ -109,6 +113,7 @@ def test_real_package_batches_the_audio_itself() -> None:
     assert tm.load_audio(one_d.reshape(1, -1)).shape == (1, 1, 16000)
 
 
+@needs_moonshine
 def test_the_real_package_rejects_a_pre_batched_array() -> None:
     """State the failure the way the machine stated it, with no model download."""
     import importlib

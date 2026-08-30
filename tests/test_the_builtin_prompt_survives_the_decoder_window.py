@@ -24,6 +24,7 @@ import os
 
 import pytest
 
+from tests.decoder_stack import needs_faster_whisper
 from yazses.stt.vocabulary import (
     BUILTIN_PROMPT,
     PROMPT_TOKEN_BUDGET,
@@ -48,6 +49,7 @@ def test_the_builtin_phrase_is_still_present_with_no_vocabulary() -> None:
     assert merge_initial_prompt(None, "", "   ") == BUILTIN_PROMPT
 
 
+@needs_faster_whisper
 def test_the_budget_still_matches_faster_whispers_own_arithmetic() -> None:
     """A hand-copied constant is the artefact that drifts. `max_length` is a plain
     attribute set in the constructor, so it is read off the class rather than off a
@@ -120,6 +122,7 @@ def _engine():
     return engine
 
 
+@needs_faster_whisper
 def test_an_over_long_prompt_is_reported_once_not_every_burst(caplog) -> None:
     """Hold-to-talk decodes many times a minute. A warning per burst is a warning
     the user turns off, so it is emitted once per distinct prompt."""
@@ -135,6 +138,7 @@ def test_an_over_long_prompt_is_reported_once_not_every_burst(caplog) -> None:
     assert "40" in warnings[0].getMessage(), warnings[0].getMessage()
 
 
+@needs_faster_whisper
 def test_a_prompt_that_fits_says_nothing(caplog) -> None:
     engine = _engine()
     with caplog.at_level("WARNING", logger="yazses.stt.faster_whisper"):
@@ -142,6 +146,7 @@ def test_a_prompt_that_fits_says_nothing(caplog) -> None:
     assert [r.getMessage() for r in caplog.records if r.levelname == "WARNING"] == []
 
 
+@needs_faster_whisper
 def test_a_prompt_that_cannot_be_measured_is_still_passed_through(caplog) -> None:
     """The warning is a courtesy; the decode is the product. A tokenizer that
     raises, or a backend that has none, must not cost the user their prompt."""

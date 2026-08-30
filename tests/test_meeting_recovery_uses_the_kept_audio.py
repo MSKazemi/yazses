@@ -33,6 +33,7 @@ import pathlib
 
 import pytest
 
+from tests.decoder_stack import needs_faster_whisper
 from yazses.meeting import recover, store
 
 SPEECH = pathlib.Path(__file__).resolve().parent.parent / "data/librispeech-sample/jfk.wav"
@@ -246,6 +247,7 @@ def test_a_recovered_meeting_leaves_the_listing_clean(tmp_path):
     assert store.recovery_advice(listed[0], 0) == []
 
 
+@needs_faster_whisper
 def test_a_recovered_recording_that_held_no_speech_is_still_labelled(tmp_path):
     """The T48 verdict must survive the recovery path, which writes its own meta."""
     import numpy as np

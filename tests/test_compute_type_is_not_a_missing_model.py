@@ -42,6 +42,7 @@ import inspect
 
 import pytest
 
+from tests.decoder_stack import needs_ctranslate2
 from yazses.stt.errors import (
     ComputeTypeUnsupportedError,
     ModelUnavailableError,
@@ -109,6 +110,7 @@ def test_it_names_the_setting_and_the_value_to_return_to() -> None:
     assert "yazses restart" in message
 
 
+@needs_ctranslate2
 def test_it_lists_what_this_machine_can_do() -> None:
     """Read from the installed library, so the list cannot be wrong about this CPU."""
     supported = supported_compute_types("cpu")

@@ -34,6 +34,7 @@ import builtins
 
 import pytest
 
+from tests.decoder_stack import needs_ctranslate2
 from yazses.system import doctor as doctor_mod
 
 _WINDOWS_DLL_ERROR = FileNotFoundError(
@@ -54,6 +55,7 @@ def _break_the_import(mocker, exc: BaseException) -> None:
     mocker.patch.object(builtins, "__import__", _fake)
 
 
+@needs_ctranslate2
 def test_a_healthy_install_reports_ok_and_names_the_version() -> None:
     """The other direction: a check that always fails would be no check at all."""
     name, status, detail = doctor_mod._stt_engine_check("")
@@ -99,6 +101,7 @@ def test_the_decoder_is_checked_whatever_engine_is_configured(mocker, engine) ->
     assert doctor_mod._stt_engine_check(engine)[1] == "FAIL"
 
 
+@needs_ctranslate2
 def test_a_healthy_install_says_which_engine_it_is_standing_in_for() -> None:
     detail = doctor_mod._stt_engine_check("parakeet")[2]
     assert "parakeet" in detail, f"a fallback the user did not ask for must be named: {detail}"

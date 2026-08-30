@@ -23,6 +23,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from tests.decoder_stack import needs_faster_whisper
 from yazses.config import Config
 from yazses.system.features import enable_caveat, unwired_slugs
 
@@ -379,6 +380,7 @@ def test_the_base_policy_asks_the_pool_for_the_configured_beam(monkeypatch) -> N
         )
 
 
+@needs_faster_whisper
 def test_the_beam_width_reaches_the_decoder() -> None:
     """The governor's beam choice is only real if the engine passes it to Whisper."""
     from yazses.stt.faster_whisper import FasterWhisperEngine

@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.decoder_stack import needs_faster_whisper, needs_huggingface_hub
 from yazses.stt import download
 from yazses.stt.errors import (
     ModelUnavailableError,
@@ -33,6 +34,7 @@ _WINERROR_10013 = (
 # ---- the repo mapping --------------------------------------------------
 
 
+@needs_faster_whisper
 def test_mirror_matches_faster_whisper_exactly():
     """WHISPER_MODELS is a hand-mirrored copy of a private upstream dict. If
     upstream adds or repoints a model, the mirror sends users to a 404 — so the
@@ -108,6 +110,7 @@ def test_missing_cache_dir_is_not_an_error(tmp_path):
     assert not download.is_cached("base.en", tmp_path / "nope")
 
 
+@needs_huggingface_hub
 def test_hub_cache_dir_is_the_platform_default():
     """The docs claimed %LOCALAPPDATA%\\huggingface on Windows; huggingface_hub
     actually uses ~/.cache/huggingface/hub everywhere. Ask the library."""
@@ -161,6 +164,7 @@ def test_error_str_is_the_guidance():
 # ---- the load path -----------------------------------------------------
 
 
+@needs_faster_whisper
 def test_load_model_converts_a_failed_download(mocker):
     """The conversion point. _load_model tries the cache, then the network; a
     network failure has to leave as ModelUnavailableError or the daemon gets a
@@ -179,6 +183,7 @@ def test_load_model_converts_a_failed_download(mocker):
     assert isinstance(caught.value.__cause__, OSError)
 
 
+@needs_faster_whisper
 def test_load_model_still_prefers_the_cache(mocker):
     """The cache-first behaviour must survive: a cached model loads with no
     second (network) call at all."""
@@ -192,6 +197,7 @@ def test_load_model_still_prefers_the_cache(mocker):
     assert ctor.call_args.kwargs["local_files_only"] is True
 
 
+@needs_faster_whisper
 def test_load_model_falls_back_to_downloading(mocker):
     """A cache miss still downloads — the guard must not turn a first run into
     an error."""

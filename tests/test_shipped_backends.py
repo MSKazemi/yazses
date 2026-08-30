@@ -22,6 +22,7 @@ import types
 import numpy as np
 import pytest
 
+from tests.decoder_stack import needs_huggingface_hub
 from yazses.recimport.diarizer import DiarTurn
 from yazses.system.deps import missing_modules
 from yazses.voiceprint.embedding import cosine_similarity
@@ -397,6 +398,7 @@ def test_a_failure_that_is_not_about_access_is_not_relabelled(monkeypatch):
     assert "conditions" not in str(excinfo.value)
 
 
+@needs_huggingface_hub
 def test_the_predicate_binds_against_the_real_huggingface_error_classes():
     """The names are matched as strings — so prove they are still the real names.
 
@@ -508,6 +510,7 @@ def test_missing_pyannote_names_its_own_extra():
 # Real-dependency check (skipped unless the extra is actually installed)
 # --------------------------------------------------------------------------
 
+@needs_huggingface_hub
 @pytest.mark.skipif(
     # NOT `find_spec("pyannote.audio")` — that raises ModuleNotFoundError at
     # collection time when `pyannote` is absent, which is the very bug this PR

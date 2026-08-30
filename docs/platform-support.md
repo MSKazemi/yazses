@@ -269,15 +269,50 @@ described above, and being `continue-on-error` it reported success every time �
 the gap was invisible in a green workflow. It now installs `--no-deps` and only
 what the suite needs, which is why the evidence above exists.
 
-Until 2026-08-29 the job ran **one file** — 48 tests out of the roughly 13,800
+Until 2026-08-29 the job ran **one file** — 48 tests out of the roughly 14,800
 this project has — on the stated grounds that the rest need the decoder. That
-reason turned out to be mostly wrong: with the decoder stack absent and every
-other dependency present, 13,707 of those tests pass, so the job was reporting on
-0.35% of the suite while reading as FreeBSD coverage. It now runs `tests/`
-whole, and the tests that genuinely cannot run without the decoder say so
-themselves with `pytest.importorskip` rather than being excluded by a
-hand-maintained list in the workflow — a list cannot notice a new decoder test
-that should have been on it.
+reason turned out to be mostly wrong: the decoder is reached by a small set of
+files, so the job was reporting on 0.3% of the suite while reading as FreeBSD
+coverage.
+
+It now runs `tests/` whole:
+
+| | tests executed | red | measured where |
+|---|---|---|---|
+| the old one-file command | 48 | — | the VM |
+| first whole-suite run | 14,308 | **96** | the VM |
+| after the three fixes below | 14,668 | **0** | a local simulation |
+
+The last row is labelled honestly. `scripts/simulate-missing-deps.py` makes exactly
+the modules FreeBSD cannot supply unimportable and runs the suite on this
+developer's Linux machine; it cannot fake `sys.platform == "freebsdN"`, so tests
+gated on the real platform value skip there and run on the VM, and vice versa. It
+is a close estimate, not a substitute for the job — which is why the job stays
+`continue-on-error` until a real run has been read.
+
+Those 96 were three causes and **not one defect between them**, which is the part
+worth knowing if you are reading this job's history:
+
+* **23** were `git` and `bash` simply not being in the VM image. Repo-hygiene
+  guards shell out to one or the other, and a guard that cannot run its own probe
+  reported itself as an assertion failure *about the repository* — a missing
+  program dressed up as a finding.
+* **20** were `ffmpeg`. `recimport/audio_io.load_audio` decodes through
+  faster-whisper's bundled PyAV and falls back to a system `ffmpeg`; with neither
+  installed the fallback had no fallback. This is the only leg in CI where that
+  documented fallback can be exercised at all, so it is now installed and the
+  path finally has coverage somewhere.
+* **50** were the decoder stack, which genuinely cannot be installed here. Those
+  tests carry a marker from `tests/decoder_stack.py` and skip on this platform
+  alone. Deliberately per-test rather than the module-scope
+  `pytest.importorskip` used elsewhere: `test_stt_download.py` has 24 tests and 5
+  need the decoder, `test_shipped_backends.py` has 36 and needs it for 2 — a
+  whole-module skip would drop 19 and 34 *passing* FreeBSD tests to silence 5 and
+  2, trading the coverage this job exists for against a green tick.
+
+A new test that reaches the decoder and forgets the marker still fails loudly
+here, which is the property a hand-maintained exclusion list in the workflow
+could never have.
 
 Widening it immediately paid for itself: it surfaced a **shipped** defect nobody
 had hit, because nobody had run that code on a BSD. `inject/ydotool.py` imported

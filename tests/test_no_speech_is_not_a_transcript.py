@@ -44,6 +44,7 @@ import pathlib
 import numpy as np
 import pytest
 
+from tests.decoder_stack import needs_faster_whisper
 from yazses.config import RecimportConfig
 from yazses.recimport.audio_io import SIGNAL_FLOOR, carries_no_signal, holds_no_speech
 from yazses.recimport.pipeline import transcribe_file
@@ -77,15 +78,18 @@ def test_the_hiss_that_produced_a_word_is_far_above_the_peak_floor():
     assert carries_no_signal(audio) is False, "the peak test would have caught it after all"
 
 
+@needs_faster_whisper
 def test_a_quiet_room_holds_no_speech():
     assert holds_no_speech(_hiss()) is True
 
 
+@needs_faster_whisper
 def test_a_pure_tone_holds_no_speech():
     t = np.arange(16000 * 4) / 16000
     assert holds_no_speech((np.sin(2 * np.pi * 440 * t) * 0.2).astype(np.float32)) is True
 
 
+@needs_faster_whisper
 @pytest.mark.skipif(not SPEECH.exists(), reason="the committed speech sample is missing")
 def test_real_speech_holds_speech():
     """The half that matters most: a warning on a good transcript is worse than none."""
@@ -94,6 +98,7 @@ def test_real_speech_holds_speech():
     assert holds_no_speech(decode_audio(str(SPEECH))) is False
 
 
+@needs_faster_whisper
 @pytest.mark.skipif(not SPEECH.exists(), reason="the committed speech sample is missing")
 def test_speech_buried_between_two_stretches_of_hiss_still_holds_speech():
     from faster_whisper import decode_audio
@@ -131,6 +136,7 @@ def test_a_detector_that_cannot_run_declines_to_answer(monkeypatch):
 
 # --- the pipeline ------------------------------------------------------------
 
+@needs_faster_whisper
 def test_the_pipeline_flags_a_transcript_produced_from_room_noise():
     result = transcribe_file(
         "unused.wav", RecimportConfig(), engine=_FakeEngine(), audio=_hiss()
@@ -154,6 +160,7 @@ def test_digital_silence_is_still_reported_as_no_signal_and_not_as_no_speech():
     assert result.no_speech is False
 
 
+@needs_faster_whisper
 @pytest.mark.skipif(not SPEECH.exists(), reason="the committed speech sample is missing")
 def test_a_real_recording_is_flagged_neither_way():
     from faster_whisper import decode_audio
@@ -216,6 +223,7 @@ def _run(tmp_path, monkeypatch, audio, text="You"):
     return result.output, out
 
 
+@needs_faster_whisper
 def test_the_command_warns_that_the_words_were_invented(tmp_path, monkeypatch):
     output, out = _run(tmp_path, monkeypatch, _hiss())
     assert out.read_text(encoding="utf-8").strip() == "You", "the transcript is still written, not suppressed"
@@ -223,12 +231,14 @@ def test_the_command_warns_that_the_words_were_invented(tmp_path, monkeypatch):
     assert _NO_SIGNAL_NOTE not in output, "a quiet room is not a dead microphone"
 
 
+@needs_faster_whisper
 def test_the_command_still_names_a_dead_microphone_as_a_dead_microphone(tmp_path, monkeypatch):
     output, _ = _run(tmp_path, monkeypatch, np.zeros(16000 * 2, dtype=np.float32))
     assert _NO_SIGNAL_NOTE in output
     assert _NO_SPEECH_NOTE not in output
 
 
+@needs_faster_whisper
 @pytest.mark.skipif(not SPEECH.exists(), reason="the committed speech sample is missing")
 def test_a_real_recording_earns_no_note_at_all(tmp_path, monkeypatch):
     """The regression that would matter most: crying wolf over a good transcript."""
@@ -241,6 +251,7 @@ def test_a_real_recording_earns_no_note_at_all(tmp_path, monkeypatch):
         assert note not in output, f"unwanted note on a good transcript: {note}"
 
 
+@needs_faster_whisper
 def test_an_empty_transcript_keeps_its_own_note_and_gets_no_second_one(tmp_path, monkeypatch):
     """Three notes, one cause each, and the empty-output note must come first --
     it describes the file the user is holding rather than how it came to be that

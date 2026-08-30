@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import dataclasses
 
+from tests.decoder_stack import needs_faster_whisper
 from yazses.config import SttConfig
 
 
@@ -20,6 +21,7 @@ def test_the_default_leaves_the_library_alone():
     assert SttConfig().cpu_threads == 0
 
 
+@needs_faster_whisper
 def test_zero_passes_no_thread_argument_at_all():
     """Passing cpu_threads=0 explicitly is not the same as omitting it; ctranslate2
     would read 0 as a request, not as a default."""
@@ -32,6 +34,7 @@ def test_zero_passes_no_thread_argument_at_all():
     assert "extra" in source
 
 
+@needs_faster_whisper
 def test_a_positive_value_reaches_the_model(monkeypatch):
     from yazses.stt import faster_whisper as fw
 
@@ -46,6 +49,7 @@ def test_a_positive_value_reaches_the_model(monkeypatch):
     assert seen.get("cpu_threads") == 3
 
 
+@needs_faster_whisper
 def test_zero_reaches_the_model_as_nothing(monkeypatch):
     from yazses.stt import faster_whisper as fw
 
@@ -60,6 +64,7 @@ def test_zero_reaches_the_model_as_nothing(monkeypatch):
     assert "cpu_threads" not in seen
 
 
+@needs_faster_whisper
 def test_the_factory_threads_the_setting_through(monkeypatch):
     """A config key the engine never receives is a documented no-op — the exact
     shape of the `[stt] language` bug this project already had.

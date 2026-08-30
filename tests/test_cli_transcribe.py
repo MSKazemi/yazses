@@ -6,6 +6,7 @@ import json
 import numpy as np
 from typer.testing import CliRunner
 
+from tests.decoder_stack import needs_faster_whisper
 from yazses import cli
 from yazses.config import Config
 from yazses.postprocess.prosody import Word
@@ -63,6 +64,7 @@ def _audio(tmp_path):
     return f
 
 
+@needs_faster_whisper
 def test_transcribe_plain_writes_sidecar_txt(tmp_path, monkeypatch):
     _patch(monkeypatch, diarizer=None)
     f = _audio(tmp_path)
@@ -73,6 +75,7 @@ def test_transcribe_plain_writes_sidecar_txt(tmp_path, monkeypatch):
     assert out.read_text(encoding="utf-8").strip() == "hello there general"
 
 
+@needs_faster_whisper
 def test_transcribe_diarized_tags_speakers(tmp_path, monkeypatch):
     _patch(monkeypatch, diarizer=_FakeDiarizer())
     f = _audio(tmp_path)
@@ -83,6 +86,7 @@ def test_transcribe_diarized_tags_speakers(tmp_path, monkeypatch):
     assert "Speaker 2: general" in text
 
 
+@needs_faster_whisper
 def test_transcribe_names_flag(tmp_path, monkeypatch):
     _patch(monkeypatch, diarizer=_FakeDiarizer())
     f = _audio(tmp_path)
@@ -93,6 +97,7 @@ def test_transcribe_names_flag(tmp_path, monkeypatch):
     assert "Alice: hello there" in text and "Bob: general" in text
 
 
+@needs_faster_whisper
 def test_transcribe_json_format(tmp_path, monkeypatch):
     _patch(monkeypatch, diarizer=_FakeDiarizer())
     f = _audio(tmp_path)
@@ -103,6 +108,7 @@ def test_transcribe_json_format(tmp_path, monkeypatch):
     assert payload["diarized"] is True and payload["words"]
 
 
+@needs_faster_whisper
 def test_transcribe_custom_out_path(tmp_path, monkeypatch):
     _patch(monkeypatch, diarizer=None)
     f = _audio(tmp_path)
@@ -113,6 +119,7 @@ def test_transcribe_custom_out_path(tmp_path, monkeypatch):
     assert dest.exists()
 
 
+@needs_faster_whisper
 def test_transcribe_rejects_bad_format(tmp_path, monkeypatch):
     _patch(monkeypatch, diarizer=None)
     f = _audio(tmp_path)
@@ -147,6 +154,7 @@ def _patch_silent(monkeypatch):
         "yazses.stt.faster_whisper.FasterWhisperEngine", _SilentEngine, raising=True)
 
 
+@needs_faster_whisper
 def test_an_empty_transcript_says_so(tmp_path, monkeypatch):
     """"Wrote transcript.txt" over an empty file is a silent failure, on the surface
     where most people meet YazSes working for the first time.
@@ -165,6 +173,7 @@ def test_an_empty_transcript_says_so(tmp_path, monkeypatch):
     )
 
 
+@needs_faster_whisper
 def test_the_note_names_causes_the_user_can_act_on(tmp_path, monkeypatch):
     """A warning with no cause is a warning to dismiss. The English-only model is the
     one a user can neither see nor guess from an empty file."""
@@ -174,6 +183,7 @@ def test_the_note_names_causes_the_user_can_act_on(tmp_path, monkeypatch):
         assert cause in r.output, f"the note never mentions {cause!r}"
 
 
+@needs_faster_whisper
 def test_a_normal_transcript_stays_quiet(tmp_path, monkeypatch):
     """The note must not fire on success, or it becomes noise to scroll past."""
     _patch(monkeypatch, diarizer=None)
@@ -181,6 +191,7 @@ def test_a_normal_transcript_stays_quiet(tmp_path, monkeypatch):
     assert "no speech was recognised" not in r.output
 
 
+@needs_faster_whisper
 def test_the_check_is_on_utterances_not_the_rendered_text(tmp_path, monkeypatch):
     """VTT with no cues is still "WEBVTT", so a check on the rendered string would
     stay silent for exactly one of the five formats — the subtle half of this fix."""
@@ -197,6 +208,7 @@ def test_the_check_is_on_utterances_not_the_rendered_text(tmp_path, monkeypatch)
 # ---- --min-speakers is not honoured by the shipped diarizer -----------------
 
 
+@needs_faster_whisper
 def test_min_speakers_warns_that_the_shipped_diarizer_ignores_it(tmp_path, monkeypatch):
     """`--help` calls it "Lower bound on the auto-detected speaker count", and on the
     default backend it does nothing at all.
@@ -218,6 +230,7 @@ def test_min_speakers_warns_that_the_shipped_diarizer_ignores_it(tmp_path, monke
     assert "--speakers" in r.output, "a note with no alternative is a note to dismiss"
 
 
+@needs_faster_whisper
 def test_no_warning_when_no_lower_bound_was_asked_for(tmp_path, monkeypatch):
     """It must stay silent in the ordinary case, or it is noise on every run."""
     _patch(monkeypatch, diarizer=_FakeDiarizer())
@@ -226,6 +239,7 @@ def test_no_warning_when_no_lower_bound_was_asked_for(tmp_path, monkeypatch):
     assert "--min-speakers" not in r.output
 
 
+@needs_faster_whisper
 def test_no_warning_without_diarization(tmp_path, monkeypatch):
     """Speaker bounds are meaningless without `--diarize`; warning about one there
     would be answering a question nobody asked."""
@@ -238,6 +252,7 @@ def test_no_warning_without_diarization(tmp_path, monkeypatch):
     assert "--min-speakers is ignored" not in r.output
 
 
+@needs_faster_whisper
 def test_words_decoded_from_silence_are_flagged_as_invented(tmp_path, monkeypatch):
     """The failure the empty-transcript note cannot see.
 
@@ -264,6 +279,7 @@ def test_words_decoded_from_silence_are_flagged_as_invented(tmp_path, monkeypatc
     assert "muted" in r.output, "a warning with no cause is a warning to dismiss"
 
 
+@needs_faster_whisper
 def test_a_recording_with_a_noise_floor_is_not_flagged(tmp_path, monkeypatch):
     """It must stay silent on every real recording or it becomes noise to scroll past."""
     _patch(monkeypatch, diarizer=None)
