@@ -343,3 +343,65 @@ def test_a_single_partial_needs_no_model_call() -> None:
 
     only = Minutes(summary="done")
     assert reduce_partials(llm, [only], 10_000) is only
+
+
+# --- a window can fail by returning ---------------------------------------------
+
+
+TRUNCATED = '{"summary": "We agreed to ship on Frid'
+GOOD = '{"summary": "a window", "decisions": [], "action_items": []}'
+
+
+def test_truncated_model_output_parses_to_nothing() -> None:
+    """The premise. llama.cpp clips `max_tokens` to what the context leaves rather
+    than raising, so the model is cut off mid-object and the tolerant parser — which
+    exists so a chatty model still yields minutes — finds no closing brace and returns
+    an empty object. No exception is raised at any point."""
+    from yazses.meeting.notes import _parse_minutes, is_empty
+
+    assert is_empty(_parse_minutes(TRUNCATED))
+    assert is_empty(_parse_minutes(""))
+    assert is_empty(_parse_minutes("Here are the minutes: everyone agreed."))
+    assert not is_empty(_parse_minutes(GOOD))
+
+
+def test_a_window_that_returns_nothing_is_counted_as_lost(caplog) -> None:
+    """Counted as a success it is a window of the meeting that vanishes with no
+    warning and no INCOMPLETE note — the same silent loss the note exists to prevent,
+    arriving through the door the note does not watch."""
+    calls = {"n": 0}
+
+    def llm(prompt: str) -> str:
+        if "Partials:" in prompt:
+            return '{"summary": "the meeting", "decisions": [], "action_items": []}'
+        calls["n"] += 1
+        return TRUNCATED if calls["n"] == 2 else GOOD
+
+    with caplog.at_level(logging.WARNING, logger="yazses.meeting.notes"):
+        minutes = generate_minutes(_turns(80, 120), _Cfg(), llm=llm)
+
+    assert minutes is not None
+    assert "INCOMPLETE" in minutes.summary, minutes.summary
+    assert any("nothing usable" in r.getMessage() for r in caplog.records)
+
+
+def test_a_meeting_where_every_window_returns_nothing_yields_no_minutes() -> None:
+    """Empty minutes are not minutes. Returning a blank document would be the same
+    silent claim in its purest form."""
+    assert generate_minutes(_turns(80, 120), _Cfg(), llm=lambda p: TRUNCATED) is None
+
+
+def test_a_healthy_meeting_is_not_marked_incomplete(caplog) -> None:
+    """The guard must fire rarely, or it teaches the reader to ignore the word. A
+    window that summarises to anything at all counts as summarised."""
+    def llm(prompt: str) -> str:
+        if "Partials:" in prompt:
+            return '{"summary": "the meeting", "decisions": [], "action_items": []}'
+        return '{"summary": "", "decisions": ["we shipped"], "action_items": []}'
+
+    with caplog.at_level(logging.WARNING, logger="yazses.meeting.notes"):
+        minutes = generate_minutes(_turns(80, 120), _Cfg(), llm=llm)
+
+    assert minutes is not None
+    assert "INCOMPLETE" not in minutes.summary
+    assert not [r for r in caplog.records if "nothing usable" in r.getMessage()]

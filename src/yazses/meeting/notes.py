@@ -184,6 +184,21 @@ _REDUCE_PROMPT = (
 )
 
 
+def is_empty(minutes) -> bool:
+    """Whether these minutes carry nothing at all. Pure.
+
+    Not the same question as "did the call raise". A model that is cut off mid-JSON
+    returns normally and parses to an empty object, so this is the only way to tell a
+    summarised window from a lost one.
+    """
+    return not (
+        (minutes.summary or "").strip()
+        or minutes.decisions
+        or minutes.action_items
+        or minutes.per_speaker
+    )
+
+
 def batch_partials(rendered: list, budget: int) -> list:
     """Group rendered partials into batches that each fit ``budget``. Pure.
 
@@ -273,10 +288,23 @@ def generate_minutes(utterances, config, *, llm=None, speaker_names=None):
     for w in windows:
         body = format_turns(w, speaker_names)
         try:
-            partials.append(_parse_minutes(llm(_WINDOW_PROMPT.format(body=body))))
+            window_minutes = _parse_minutes(llm(_WINDOW_PROMPT.format(body=body)))
         except Exception as exc:  # pragma: no cover - model-dependent
             skipped += 1
             log.warning("Minutes window failed (%s); skipping.", exc)
+            continue
+        # A window can fail by *returning*, and that is the failure the exception
+        # handler above cannot see. llama.cpp clips `max_tokens` to whatever the
+        # context leaves rather than raising, so the model is cut off mid-object; the
+        # tolerant parser then finds no closing brace, yields `{}`, and hands back an
+        # empty Minutes. Counted as a success it is a window of the meeting that
+        # vanishes with no warning and no INCOMPLETE note --- the same silent loss the
+        # note exists to prevent, arriving through the door the note does not watch.
+        if is_empty(window_minutes):
+            skipped += 1
+            log.warning("Minutes window produced nothing usable; skipping.")
+            continue
+        partials.append(window_minutes)
 
     if not partials:
         return None

@@ -30,6 +30,24 @@ syntax error, while a real one still is. `system/configedit.py` reads `utf-8-sig
 `features enable` / `hotkey set` / `audio use` repair a file that already had a BOM
 instead of writing it back.
 
+### Fixed — a minutes window could fail by returning, and nothing counted it
+
+The `INCOMPLETE` disclosure counted windows whose model call **raised**. That is not
+the only way a window is lost, and it is not the likely one: llama.cpp clips
+`max_tokens` to whatever the context leaves rather than raising, so the model is cut
+off mid-object. The tolerant JSON parser — which exists so a chatty model still yields
+minutes — then finds no closing brace, returns `{}`, and hands back empty minutes.
+
+Counted as a success, that is a window of the meeting vanishing with no warning and no
+`INCOMPLETE` note: the same silent loss the note exists to prevent, arriving through the
+one door the note did not watch. A window that summarises to nothing at all is now
+counted as lost, and a meeting where **every** window comes back empty yields no minutes
+rather than a blank document — which would be the same silent claim in its purest form.
+
+The check is deliberately generous about what counts as summarised (any summary, any
+decision, any action item, any per-speaker note), because a guard that fires on a
+healthy meeting teaches the reader to ignore the word.
+
 ### Fixed — the minutes reduce step never ran on a meeting long enough to need it
 
 The map-reduce's reduce was a single call over **every** partial, with no bound. On
