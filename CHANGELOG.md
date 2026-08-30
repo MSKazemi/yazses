@@ -6,6 +6,97 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the FreeBSD leg reported 96 defects, 46 of which were missing programs
+
+The advisory `freebsd` job runs the suite on a real VM, and its first whole-suite run
+came back `96 failed, 14212 passed`. Ninety-six failures is not a signal anyone reads;
+it is a leg that has stopped being a leg. None of the 96 was a defect in YazSes.
+
+* **23** were `git` and `bash` not being installed in the VM image. Around twenty
+  repo-hygiene guards shell out to one or the other, and every one of them reported
+  `FileNotFoundError: 'git'` as an assertion failure *about the repository* — a missing
+  program wearing a finding's clothes. A guard that cannot run its own probe must not
+  look like a guard that ran.
+* **20** were `ffmpeg`. `recimport/audio_io.load_audio` decodes through faster-whisper's
+  bundled PyAV and falls back to a system `ffmpeg` binary; this leg has neither, so the
+  fallback had nothing to fall back to and the code correctly named its own missing
+  prerequisite while the job was read as a FreeBSD defect. It is also the **only** leg
+  in CI where that documented fallback can ever be taken — every other one has PyAV —
+  so installing it gives the path coverage it has never had anywhere.
+* **50** were the decoder stack, which genuinely has no FreeBSD build. Those tests now
+  carry a marker from the new `tests/decoder_stack.py` and skip on that platform alone.
+
+The markers are deliberately per-test, not the module-scope `pytest.importorskip` used
+in the seven files that needed nothing else: `test_stt_download.py` has 24 tests and 5
+need the decoder, `test_shipped_backends.py` has 36 and needs it for 2. A whole-module
+skip would have dropped 19 and 34 *passing* FreeBSD tests to silence 5 and 2 — trading
+the coverage the job exists for against a green tick. A new decoder test that forgets
+the marker still fails loudly there, which a hand-maintained exclusion list in the
+workflow could never do.
+
+`scripts/simulate-missing-deps.py` (new) reproduces that dependency environment on any
+machine — it inserts a `sys.meta_path` finder that raises `ModuleNotFoundError` for the
+named modules, so `importorskip` behaves exactly as it does on the real VM — and is how
+the 50 were identified and the fix verified before pushing.
+
+### Added — the text pipeline is now fuzzed by a fuzzer
+
+`fuzz/fuzz_text_pipeline.py` and `fuzz/fuzz_config.py` are Atheris (libFuzzer) harnesses
+over the two surfaces where this project takes input nobody wrote: everything between
+the decoder and the keyboard, and config loading.
+
+The first is the sharper target. A transcript is not user input in the usual sense — no
+one typed it, no one reviewed it, and a model will occasionally emit a 4,000-character
+run of one syllable, a lone combining mark, an unpaired surrogate, or Arabic embedded in
+English. Those strings pass through the cleaner, the disfluency filter, the punctuation
+substituter and the command grammar, and come out as **keystrokes on a real keyboard**.
+The second has the strongest oracle in the codebase: issue #52 makes config loading
+*total*, so "never raises" is the documented contract rather than a hope.
+
+Both ran clean before shipping — 290,802 and 143,139 executions, 840 and 243 new corpus
+units — and `.github/workflows/fuzz.yml` runs them weekly and on pushes that touch the
+fuzzed code, keeping any crashing input as an artifact.
+
+⚠ The first version of both harnesses was **useless and silent about it**. Atheris
+instruments a module as it is imported; a module already in `sys.modules` when
+`instrument_imports()` opens is never instrumented, so libFuzzer got an empty coverage
+map and degraded to uniform random input — corpus stuck at 1 entry through 262,144 runs,
+exit code 0, and a summary indistinguishable from a thorough search that found nothing.
+The project imports are now made *inside* the context manager and the CI job prints
+`-print_final_stats=1` so corpus growth is visible rather than assumed.
+
+This does not replace the Hypothesis property tests from #115, which explore a space
+someone declared; coverage-guided mutation searches a different one.
+
+### Fixed — `docker.yml` never got the supply-chain pinning the other thirteen workflows have
+
+Every action in this repository is pinned to a commit SHA, because a `@v4` tag can be
+repointed by its owner at any commit and every workflow that names it starts running the
+new code with no diff and no notification — that is `tj-actions/changed-files`
+(CVE-2025-30066) in one sentence. `docker.yml` was written later, used **seven** actions
+by floating tag, and nothing noticed, because nothing in the suite had ever looked. The
+container's base image had the same hole: `FROM python:3.12-slim` is a moving pointer, so
+two builds of the same commit could produce different images and the build-provenance
+attestation could not say which one shipped.
+
+* All seven actions in `docker.yml` are pinned, and `packaging/docker/Dockerfile` pins
+  the base image by digest — paired with a new `docker` ecosystem in
+  `.github/dependabot.yml`, because a digest with no updater behind it is an image frozen
+  on the day it was written, which trades a reproducibility problem for a patching one.
+* Six existing pins carried **lying version comments** — `# v2`, `# v4` and
+  `# release/v1` against SHAs that are v4.2.2, v7 and v1.14.2 — left behind by bumps that
+  moved the SHA and not the comment. All corrected and verified against GitHub's tag API.
+* `tests/test_workflow_actions_are_pinned.py` (new, offline) now enforces all of it, and
+  states its own limit: a comment that is *uniformly* wrong disagrees with nothing, which
+  is exactly how `# v2` survived at all three of its sites. Deciding whether a SHA really
+  is the version beside it needs the network, so `scripts/check-action-pins.py` (new)
+  does that on demand — it resolves every pin through GitHub, dereferencing annotated
+  tags, and reports 31/31 accurate today.
+
+Measured against the OpenSSF Scorecard (#116): every `Pinned-Dependencies` warning on the
+repository was one of these, so the check should move 7/10 → 10/10 on its next run.
+
+
 ### Fixed — gaze blamed an extra that deliberately does not contain the backend
 
 `build_gaze` wrapped the whole construction in one `except Exception` and answered

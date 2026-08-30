@@ -1,0 +1,3 @@
+[accessibility]
+vad_threshold = 0.004
+pre_speech_padding_ms = 300

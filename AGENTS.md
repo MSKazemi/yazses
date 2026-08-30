@@ -53,6 +53,23 @@ uv run python -m pytest tests/test_foo.py -v
 uv run python -m pytest -k "pattern"
 ```
 
+**Two things the ordinary run cannot see, and how to see them.**
+
+```sh
+uv run python scripts/simulate-missing-deps.py -- tests/ -q   # the FreeBSD dependency set
+python fuzz/fuzz_text_pipeline.py -atheris_runs=200000        # coverage-guided fuzzing
+```
+
+The first makes `faster_whisper`, `ctranslate2`, `moonshine_onnx` and `huggingface_hub`
+unimportable and runs the suite, which is what the advisory FreeBSD leg lives with. A
+test that reaches the decoder must skip there via a `tests/decoder_stack.py` marker,
+not fail — read that module before adding one.
+
+The second needs `atheris` (Linux/x86_64, CPython 3.12–3.14) and fuzzes the path between
+the decoder and the keyboard, plus the config loader's totality contract. See
+[`fuzz/README.md`](fuzz/README.md); a crash is a real defect and its input becomes a
+regression test.
+
 ## Non-negotiable project rules
 
 1. **Nothing leaves the machine.** Do not add network calls, telemetry, analytics, crash

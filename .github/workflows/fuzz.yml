@@ -1,0 +1,93 @@
+# Coverage-guided fuzzing of the text pipeline and the config loader.
+#
+# The surface is narrow and unusually worth fuzzing: everything downstream of the
+# decoder is handed a string nobody wrote and nobody reviewed, and what comes out the
+# far end is keystrokes on the user's real keyboard. See fuzz/README.md for why this
+# runs alongside the Hypothesis property tests (#115) rather than replacing them.
+#
+# Scheduled rather than blocking. A fuzzer's run time is a budget, not a verdict: a
+# clean 10-minute run proves nothing was found in 10 minutes, and making that a
+# required check would either make it too short to find anything or make every PR wait
+# on it. A crash, though, is a real defect every time -- so the job fails loudly, keeps
+# the input, and the finding becomes a regression test with the offending string in it.
+name: Fuzz
+
+on:
+  schedule:
+    # Weekly, Sunday 04:17 UTC. Off the hour on purpose: scheduled workflows are
+    # queued globally and the top of the hour is heavily contended.
+    - cron: "17 4 * * 0"
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: "Seconds to fuzz each harness"
+        required: false
+        default: "600"
+        type: string
+  push:
+    # Only when the fuzzed code itself changes -- a docs commit does not need 20
+    # minutes of CPU.
+    paths:
+      - "fuzz/**"
+      - "src/yazses/postprocess/**"
+      - "src/yazses/commands/grammar.py"
+      - "src/yazses/stt/filters/**"
+      - "src/yazses/config.py"
+      - "src/yazses/configcheck.py"
+      - "src/yazses/tomlio.py"
+      - ".github/workflows/fuzz.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    name: ${{ matrix.harness }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        harness: [fuzz_text_pipeline, fuzz_config]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          # Atheris publishes manylinux x86_64 wheels for CPython 3.12-3.14 and
+          # nothing else -- no macOS, no Windows, no arm64 -- which is why this job is
+          # ubuntu-only and pins an interpreter rather than using a version matrix.
+          python-version: "3.13"
+
+      - name: Install the project and the fuzzer
+        run: |
+          set -e
+          python -m pip install --upgrade pip
+          # `--no-deps` for the project: the harnesses touch the pure text pipeline and
+          # the config loader, neither of which needs the decoder stack, and installing
+          # it would add minutes to a job whose whole value is CPU time spent fuzzing.
+          python -m pip install -e . --no-deps
+          python -m pip install numpy platformdirs atheris
+
+      - name: Fuzz
+        env:
+          SECONDS_TO_FUZZ: ${{ inputs.seconds || '600' }}
+        run: |
+          set -e
+          mkdir -p artifacts
+          # `-artifact_prefix` is what makes a finding recoverable: libFuzzer writes the
+          # crashing input to <prefix><kind>-<sha1>, and without it the file lands in
+          # the working directory under a name the upload step cannot predict.
+          python "fuzz/${{ matrix.harness }}.py" \
+            "fuzz/corpus/${{ matrix.harness }}" \
+            -max_total_time="$SECONDS_TO_FUZZ" \
+            -artifact_prefix=artifacts/ \
+            -print_final_stats=1
+
+      - name: Keep whatever crashed
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: fuzz-${{ matrix.harness }}-findings
+          path: artifacts/
+          if-no-files-found: ignore
