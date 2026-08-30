@@ -28,12 +28,15 @@ def test_merge_includes_app_name_when_part_is_none_or_blank():
     assert "  " not in merged
 
 
-def test_merge_preserves_user_prompt_after_builtin():
+def test_merge_puts_the_builtin_phrase_after_the_user_prompt():
     merged = merge_initial_prompt("kubernetes terraform")
     assert APP_NAME in merged
     assert "kubernetes terraform" in merged
-    # Built-in context comes first, user vocabulary after it.
-    assert merged.index(APP_NAME) < merged.index("kubernetes")
+    # User vocabulary first, built-in context last. Whisper keeps only the last 223
+    # prompt tokens and drops the front without a word, so the phrase that must
+    # survive is the one nearest the audio --- see
+    # tests/test_the_builtin_prompt_survives_the_decoder_window.py.
+    assert merged.index("kubernetes") < merged.index(APP_NAME)
 
 
 def test_merge_joins_multiple_parts():

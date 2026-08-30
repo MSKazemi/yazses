@@ -1,6 +1,6 @@
 {
   "unit": "stt.vocabulary",
-  "contract_version": "6.7.0",
+  "contract_version": "6.8.0",
   "source": "src/yazses/stt/vocabulary.py::merge_initial_prompt",
   "cases": [
     {
@@ -37,7 +37,7 @@
       "input": [
         "Kubernetes, Prometheus"
       ],
-      "expected": "The app is called YazSes. Kubernetes, Prometheus"
+      "expected": "Kubernetes, Prometheus The app is called YazSes."
     },
     {
       "id": "two-parts-merged",
@@ -47,25 +47,34 @@
         "Kubernetes",
         "Grafana, Loki"
       ],
-      "expected": "The app is called YazSes. Kubernetes Grafana, Loki"
+      "expected": "Kubernetes Grafana, Loki The app is called YazSes."
     },
     {
-      "id": "app-name-comes-first",
-      "description": "the coined app name is primed AHEAD of user vocabulary so it is not mis-transcribed (see stt/vocabulary.py)",
+      "id": "app-name-comes-last",
+      "description": "the coined app name is primed AFTER user vocabulary. Whisper keeps only the last PROMPT_TOKEN_BUDGET = 223 prompt tokens and silently drops the front, so the phrase that must survive belongs at the end (see stt/vocabulary.py)",
       "options": {},
       "input": [
         "Kubernetes"
       ],
-      "expected": "The app is called YazSes. Kubernetes"
+      "expected": "Kubernetes The app is called YazSes."
+    },
+    {
+      "id": "app-name-still-primed-past-the-token-budget",
+      "description": "a personal vocabulary long enough to overflow the 223-token window must still end with the app-name preamble -- this is the case the old built-in-first order got wrong, silently",
+      "options": {},
+      "input": [
+        "Term1 Term2 Term3 Term4 Term5 Term6 Term7 Term8 Term9 Term10 Term11 Term12 Term13 Term14 Term15 Term16 Term17 Term18 Term19 Term20 Term21 Term22 Term23 Term24 Term25 Term26 Term27 Term28 Term29 Term30 Term31 Term32 Term33 Term34 Term35 Term36 Term37 Term38 Term39 Term40 Term41 Term42 Term43 Term44 Term45 Term46 Term47 Term48 Term49 Term50 Term51 Term52 Term53 Term54 Term55 Term56 Term57 Term58 Term59 Term60 Term61 Term62 Term63 Term64 Term65 Term66 Term67 Term68 Term69 Term70 Term71 Term72 Term73 Term74 Term75 Term76 Term77 Term78 Term79 Term80 Term81 Term82 Term83 Term84 Term85 Term86 Term87 Term88 Term89 Term90 Term91 Term92 Term93 Term94 Term95 Term96 Term97 Term98 Term99 Term100 Term101 Term102 Term103 Term104 Term105 Term106 Term107 Term108 Term109 Term110 Term111 Term112 Term113 Term114 Term115 Term116 Term117 Term118 Term119 Term120"
+      ],
+      "expected": "Term1 Term2 Term3 Term4 Term5 Term6 Term7 Term8 Term9 Term10 Term11 Term12 Term13 Term14 Term15 Term16 Term17 Term18 Term19 Term20 Term21 Term22 Term23 Term24 Term25 Term26 Term27 Term28 Term29 Term30 Term31 Term32 Term33 Term34 Term35 Term36 Term37 Term38 Term39 Term40 Term41 Term42 Term43 Term44 Term45 Term46 Term47 Term48 Term49 Term50 Term51 Term52 Term53 Term54 Term55 Term56 Term57 Term58 Term59 Term60 Term61 Term62 Term63 Term64 Term65 Term66 Term67 Term68 Term69 Term70 Term71 Term72 Term73 Term74 Term75 Term76 Term77 Term78 Term79 Term80 Term81 Term82 Term83 Term84 Term85 Term86 Term87 Term88 Term89 Term90 Term91 Term92 Term93 Term94 Term95 Term96 Term97 Term98 Term99 Term100 Term101 Term102 Term103 Term104 Term105 Term106 Term107 Term108 Term109 Term110 Term111 Term112 Term113 Term114 Term115 Term116 Term117 Term118 Term119 Term120 The app is called YazSes."
     },
     {
       "id": "app-name-preamble-is-unconditional",
-      "description": "the app-name preamble is prepended even when the user already listed it, so it can appear twice. Harmless for prompt priming (repetition only reinforces the spelling) and cheaper than a substring check that could false-positive",
+      "description": "the app-name preamble is appended even when the user already listed it, so it can appear twice. Harmless for prompt priming (repetition only reinforces the spelling) and cheaper than a substring check that could false-positive",
       "options": {},
       "input": [
         "YazSes, Kubernetes"
       ],
-      "expected": "The app is called YazSes. YazSes, Kubernetes"
+      "expected": "YazSes, Kubernetes The app is called YazSes."
     },
     {
       "id": "none-between-parts",
@@ -76,7 +85,7 @@
         null,
         "Grafana"
       ],
-      "expected": "The app is called YazSes. Kubernetes Grafana"
+      "expected": "Kubernetes Grafana The app is called YazSes."
     },
     {
       "id": "whitespace-part-skipped",
@@ -87,7 +96,7 @@
         "   ",
         "Grafana"
       ],
-      "expected": "The app is called YazSes. Kubernetes Grafana"
+      "expected": "Kubernetes Grafana The app is called YazSes."
     },
     {
       "id": "rtl-persian-vocabulary",
@@ -96,7 +105,7 @@
       "input": [
         "تهران، اصفهان"
       ],
-      "expected": "The app is called YazSes. تهران، اصفهان"
+      "expected": "تهران، اصفهان The app is called YazSes."
     }
   ]
 }

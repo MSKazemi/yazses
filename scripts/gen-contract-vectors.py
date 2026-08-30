@@ -1031,12 +1031,19 @@ CASES: dict[str, list[dict[str, Any]]] = {
          "input": ["Kubernetes, Prometheus"]},
         {"id": "two-parts-merged", "description": "configured prompt plus personal dictionary",
          "input": ["Kubernetes", "Grafana, Loki"]},
-        {"id": "app-name-comes-first",
-         "description": "the coined app name is primed AHEAD of user vocabulary so it is "
-                        "not mis-transcribed (see stt/vocabulary.py)",
+        {"id": "app-name-comes-last",
+         "description": "the coined app name is primed AFTER user vocabulary. Whisper keeps "
+                        "only the last PROMPT_TOKEN_BUDGET = 223 prompt tokens and silently "
+                        "drops the front, so the phrase that must survive belongs at the end "
+                        "(see stt/vocabulary.py)",
          "input": ["Kubernetes"]},
+        {"id": "app-name-still-primed-past-the-token-budget",
+         "description": "a personal vocabulary long enough to overflow the 223-token window "
+                        "must still end with the app-name preamble -- this is the case the "
+                        "old built-in-first order got wrong, silently",
+         "input": [" ".join(f"Term{i}" for i in range(1, 121))]},
         {"id": "app-name-preamble-is-unconditional",
-         "description": "the app-name preamble is prepended even when the user already "
+         "description": "the app-name preamble is appended even when the user already "
                         "listed it, so it can appear twice. Harmless for prompt priming "
                         "(repetition only reinforces the spelling) and cheaper than a "
                         "substring check that could false-positive",

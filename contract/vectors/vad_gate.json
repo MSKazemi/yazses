@@ -1,6 +1,6 @@
 {
   "unit": "audio.vad_gate",
-  "contract_version": "6.7.0",
+  "contract_version": "6.8.0",
   "source": "src/yazses/audio/vad_calibrated.py::is_silent_calibrated",
   "cases": [
     {

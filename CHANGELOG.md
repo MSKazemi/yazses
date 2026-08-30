@@ -30,6 +30,33 @@ syntax error, while a real one still is. `system/configedit.py` reads `utf-8-sig
 `features enable` / `hotkey set` / `audio use` repair a file that already had a BOM
 instead of writing it back.
 
+### Fixed — a large vocabulary erased the one word the prompt exists to prime
+
+Whisper's `initial_prompt` has a window. `WhisperModel.max_length` is 448 and
+faster-whisper splices the prompt in as `previous_tokens[-(max_length // 2 - 1):]` —
+it keeps the **last 223 tokens** and throws the front away. Nothing rejects a longer
+prompt, nothing warns, and the cut lands mid-word.
+
+`stt/vocabulary.py` composed the prompt built-in-phrase-first, which is precisely the
+end that gets cut, while its own documentation said the app name was "always primed".
+Measured with the real `base.en` tokenizer, a personal vocabulary of 120 terms
+overflows by 25 tokens and takes the whole of "The app is called YazSes." with it. So
+the users most likely to have built a vocabulary — the ones dictating jargon, which is
+what the feature is for — were the ones silently losing the priming, and losing their
+oldest entries with it.
+
+The built-in phrase now goes **last**. That fixes it for every prompt length and every
+language without estimating anything, which matters because a character or word budget
+cannot be safe here: Whisper's English BPE spends up to 8 tokens on one CJK word and
+barely 1 on a common English one. It is also the stronger position — `initial_prompt`
+is preceding context, and the tokens nearest the audio carry the most weight.
+
+Ordering saves the built-in phrase; nothing can save the user's own terms except
+telling them, since only they can choose which to drop. `FasterWhisperEngine` now
+counts the prompt with the model's own tokenizer and warns **once** per distinct
+prompt, naming how many tokens fall off the front. A prompt it cannot measure is
+passed through unchanged — the warning is a courtesy, the decode is the product.
+
 ### Fixed — a byte-order mark silently disabled the first vocabulary entry
 
 The same encoding artefact, in the other hand-edited file. `~/.config/yazses/vocabulary.txt`

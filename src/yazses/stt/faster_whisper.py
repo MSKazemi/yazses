@@ -3,6 +3,8 @@ import logging
 import numpy as np
 from faster_whisper import WhisperModel
 
+from yazses.stt.vocabulary import PROMPT_TOKEN_BUDGET
+
 log = logging.getLogger(__name__)
 
 
@@ -90,6 +92,9 @@ class FasterWhisperEngine:
     #: Same reason again. `True` is faster-whisper's own default, so a partially
     #: constructed engine decodes exactly as one built through `__init__` would.
     _condition_on_previous_text: bool = True
+    #: The last prompt we warned about, so an over-long vocabulary is reported once
+    #: rather than on every burst. Class-level for the same reason as the above.
+    _prompt_warned: str = ""
 
     def __init__(
         self,
@@ -146,6 +151,44 @@ class FasterWhisperEngine:
             kwargs["condition_on_previous_text"] = False
         return kwargs
 
+
+    def _prompt_kwargs(self, initial_prompt: str | None) -> dict:
+        """The ``initial_prompt`` kwarg, and a warning when it will not fit.
+
+        faster-whisper does not reject a long prompt and does not say anything about
+        it: `get_prompt` keeps ``previous_tokens[-(max_length // 2 - 1):]``, so the
+        **front** is dropped, mid-word, in silence. `stt/vocabulary.py` puts the
+        built-in phrase last so that it survives; nothing can make the user's own
+        vocabulary survive except being told it is too long, because only they can
+        decide which terms matter.
+
+        Never raises, and never blocks a decode: a prompt that cannot be counted is
+        passed through exactly as before.
+        """
+        if not initial_prompt:
+            return {}
+        if initial_prompt != self._prompt_warned:
+            try:
+                tokenizer = getattr(self._model, "hf_tokenizer", None)
+                count = (
+                    len(tokenizer.encode(" " + initial_prompt.strip(),
+                                         add_special_tokens=False).ids)
+                    if tokenizer is not None
+                    else 0
+                )
+                if count > PROMPT_TOKEN_BUDGET:
+                    log.warning(
+                        "The STT prompt is %d tokens; Whisper keeps only the last %d, "
+                        "so the first %d are dropped before decoding and prime nothing. "
+                        "Shorten [stt] initial_prompt or remove entries with "
+                        "`yazses vocab remove`.",
+                        count, PROMPT_TOKEN_BUDGET, count - PROMPT_TOKEN_BUDGET,
+                    )
+            except Exception:  # noqa: BLE001 - a warning must never break a decode
+                log.debug("Could not measure the STT prompt length.", exc_info=True)
+            self._prompt_warned = initial_prompt
+        return {"initial_prompt": initial_prompt}
+
     def transcribe(
         self,
         audio: np.ndarray,
@@ -156,8 +199,7 @@ class FasterWhisperEngine:
         if audio.size == 0:
             return ""
         kwargs: dict = self._decode_kwargs(task)
-        if initial_prompt:
-            kwargs["initial_prompt"] = initial_prompt
+        kwargs.update(self._prompt_kwargs(initial_prompt))
         segments, _ = self._model.transcribe(audio, **kwargs)
         return " ".join(seg.text.strip() for seg in segments).strip()
 
@@ -182,8 +224,7 @@ class FasterWhisperEngine:
             return "", []
         kwargs: dict = {"word_timestamps": True}
         kwargs.update(self._decode_kwargs(task))
-        if initial_prompt:
-            kwargs["initial_prompt"] = initial_prompt
+        kwargs.update(self._prompt_kwargs(initial_prompt))
         segments, _ = self._model.transcribe(audio, **kwargs)
         texts: list[str] = []
         words: list[Word] = []
