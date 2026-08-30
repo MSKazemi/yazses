@@ -169,6 +169,11 @@ def test_factory_builds_mediapipe_by_default(monkeypatch):
     fake_mod = types.ModuleType("yazses.gaze.mediapipe_backend")
     fake_mod.MediapipeGazeBackend = _fake_ctor
     monkeypatch.setitem(sys.modules, "yazses.gaze.mediapipe_backend", fake_mod)
+    # `build_gaze` probes the third-party requirement before it imports the adapter, so
+    # stubbing only the adapter leaves the probe to answer "mediapipe is not installed"
+    # and the routing this test is about is never reached. That is invisible on a machine
+    # with the `gaze` extra and fails on every CI runner, which installs base deps only.
+    monkeypatch.setitem(sys.modules, "mediapipe", types.ModuleType("mediapipe"))
     from yazses.gaze.factory import build_gaze
 
     assert build_gaze(GazeConfig(enabled=True)) == "MP"  # default backend == mediapipe

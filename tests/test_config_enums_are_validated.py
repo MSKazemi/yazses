@@ -166,6 +166,12 @@ def test_an_unknown_gaze_backend_disables_gaze_rather_than_picking_one(monkeypat
         module = types.ModuleType(f"yazses.gaze.{name}")
         setattr(module, cls, lambda _config: "A WORKING BACKEND")
         monkeypatch.setitem(sys.modules, f"yazses.gaze.{name}", module)
+    # The adapter is only half of what `build_gaze` needs: it probes the third-party
+    # requirement first, so without these the probe reports "mediapipe is not installed",
+    # `build_gaze` returns None for the *recognised* name too, and the assertion below
+    # fails for a reason that has nothing to do with the unknown-name branch.
+    for requirement in ("mediapipe", "l2cs"):
+        monkeypatch.setitem(sys.modules, requirement, types.ModuleType(requirement))
 
     cfg = Config()
     cfg.gaze.enabled = True
