@@ -62,6 +62,17 @@ with no run at all (a dispatched publish of an older release) is not waited on.
 shell against a stubbed `gh`, so the looping case is tested rather than assumed;
 11 of its 12 assertions fail against the workflows as they shipped.
 
+Those four execution tests are gated to POSIX. The step runs on `ubuntu-latest`,
+and the harness drops extensionless stub programs on `PATH` — which needs a shell
+that will execute them, and a Windows runner has none whatever `bash` resolves to
+there. The first version turned both Windows legs red with an empty stderr, since
+`bash` found the WSL stub and exited 1. The gate is on the platform rather than on
+probing for a shell, because presence is not ability and a half-working probe
+reports a finding about the workflow when what failed was the probe. An anchor test
+asserts the gate is open on Linux, macOS and FreeBSD, so it cannot quietly become a
+skip everywhere — which is the failure mode the eight static assertions would not
+catch, being the ones that check what the wait *says* rather than what it does.
+
 ## [2.36.0] - 2026-08-30
 
 ### Fixed — the heavy-extras gate asked for something no run could give it

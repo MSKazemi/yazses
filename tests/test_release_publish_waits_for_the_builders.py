@@ -26,6 +26,7 @@ from __future__ import annotations
 import os
 import stat
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -135,6 +136,30 @@ def test_the_producer_wait_does_not_require_the_builders_to_succeed():
 # ...and the shell actually behaves, driven against a stub `gh`
 # --------------------------------------------------------------------------
 
+# The step below runs on `ubuntu-latest`, and this harness executes its literal
+# shell against stub programs it drops on PATH. That needs a POSIX shell that
+# honours an extensionless executable file — which a Windows runner does not
+# have, whatever `bash` resolves to there: the first run of these tests turned
+# both Windows legs red with an empty stderr, because `bash` found the WSL stub.
+#
+# Gated on the platform rather than on probing for bash, because presence is not
+# ability and a probe that half-works reports a finding about the workflow when
+# what failed was the probe. The anchor below keeps this from quietly becoming a
+# skip everywhere.
+_POSIX = sys.platform != "win32"
+_needs_posix = pytest.mark.skipif(
+    not _POSIX, reason="executes the step's own /bin/sh script; the step runs on ubuntu-latest"
+)
+
+
+def test_the_shell_harness_is_not_skipped_on_the_platform_the_step_runs_on():
+    if sys.platform.startswith(("linux", "darwin", "freebsd")):
+        assert _POSIX, (
+            "the execution tests below are the only ones that check what the "
+            "wait DOES rather than what it says. A gate that skipped them here "
+            "would leave the looping case untested on every runner."
+        )
+
 
 def _harness(tmp_path: Path, gh_body: str) -> tuple[str, Path]:
     """Run the producer-wait shell with a stubbed `gh` and an instant `sleep`."""
@@ -169,6 +194,7 @@ def _harness(tmp_path: Path, gh_body: str) -> tuple[str, Path]:
     return out.stdout, counter
 
 
+@_needs_posix
 def test_it_stops_as_soon_as_every_run_has_completed(tmp_path):
     stdout, counter = _harness(tmp_path, 'echo completed; echo completed')
     assert "has finished" in stdout
@@ -177,12 +203,14 @@ def test_it_stops_as_soon_as_every_run_has_completed(tmp_path):
     assert counter.read_text(encoding="utf-8").count("call") == 2, stdout
 
 
+@_needs_posix
 def test_a_tag_with_no_run_is_not_waited_on(tmp_path):
     stdout, counter = _harness(tmp_path, "true")
     assert "not waiting on it" in stdout
     assert counter.read_text(encoding="utf-8").count("call") == 2, stdout
 
 
+@_needs_posix
 def test_it_keeps_waiting_while_any_run_is_unfinished(tmp_path):
     # in_progress on the first query for each workflow, completed thereafter.
     body = (
@@ -196,6 +224,7 @@ def test_it_keeps_waiting_while_any_run_is_unfinished(tmp_path):
     assert counter.read_text(encoding="utf-8").count("call") > 2, stdout
 
 
+@_needs_posix
 @pytest.mark.parametrize("states", ["queued", "in_progress"])
 def test_an_unfinished_state_is_never_read_as_finished(tmp_path, states):
     # Bounded by the loop, so this terminates; what matters is that it never
