@@ -44,6 +44,20 @@ _UNENFORCEABLE: dict[str, str] = {
         "inert: nothing in src/ consumes it, and its comment (auto|neovim|vscode) and "
         "the architecture reference (neovim|none) disagree, so there is no set to hold"
     ),
+    "gaze.zones": (
+        "inert: nothing in src/ reads it. The only gaze target resolution the daemon "
+        "runs is `targeter.resolve_window`, which maps the gaze point to a *window* "
+        "and never consults a grid; `zones.grid_zone` implements grid3x3/grid2x2, is "
+        "unit-tested, and has no caller. Enforcing the set would validate a choice "
+        "that changes nothing. It was invisible to `scripts/config_status.py` until "
+        "that detector stopped counting `from yazses.gaze.zones import ...` as a read."
+    ),
+    "polyglot.lid": (
+        "inert: nothing in src/ reads it. `polyglot/router.py` imports the `lid` "
+        "*module* -- which is what hid this one from the unread-key detector too -- "
+        "and picks its own primitives; the whole section stays dormant until "
+        "`[polyglot] adapter_path` names a trained adapter, which is not shipped."
+    ),
 }
 
 #: Documented closed sets not yet enforced because the consumer has not been read.
@@ -68,8 +82,6 @@ _UNVERIFIED: frozenset[str] = frozenset({
     "cocktail.mode",
     "codec.backend",
     "denoise.backend",
-    "emg.mode",
-    "gaze.zones",
     "meeting.vad_backend",
     "modality.preset",
     "overlay.position",
@@ -81,7 +93,7 @@ _UNVERIFIED: frozenset[str] = frozenset({
     "tts.clone_backend",
     "tts.engine",
 })
-_MAX_UNVERIFIED = 18
+_MAX_UNVERIFIED = 16
 
 _FIELD = re.compile(r'^\s+(\w+):\s*str\s*=\s*"([^"]*)"\s*#\s*(.+?)\s*$')
 

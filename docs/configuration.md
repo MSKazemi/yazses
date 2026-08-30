@@ -13,7 +13,7 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 
 **Match the Type column exactly.** In TOML only `str` values take quotes; `int`, `float` and `bool` must be bare. Writing `vad_threshold = "0.004"` instead of `vad_threshold = 0.004` loads without complaint and then fails at runtime, because the value stays a string where a number is expected. See [Troubleshooting](troubleshooting.md#dictation-stopped-working-right-after-i-edited-configtoml).
 
-**59 of these 451 keys are inert**, and they are marked ⚠️ inert in the Status column. The loader accepts them, `configcheck` validates them and they have a documented default — but no code reads them, so setting one loads without complaint and changes nothing. Most belong to capabilities that are registered but not yet wired; see [`yazses features`](cli-reference.md) for what is actually switchable. Both numbers here are counted at generation time, and the list of inert keys is the same one the test suite gates on, so neither can quietly fall out of date.
+**61 of these 451 keys are inert**, and they are marked ⚠️ inert in the Status column. The loader accepts them, `configcheck` validates them and they have a documented default — but no code reads them, so setting one loads without complaint and changes nothing. Most belong to capabilities that are registered but not yet wired; see [`yazses features`](cli-reference.md) for what is actually switchable. Both numbers here are counted at generation time, and the list of inert keys is the same one the test suite gates on, so neither can quietly fall out of date.
 
 This has bitten before: `[injection] fallback_to_clipboard` was documented in seventeen places and defaulted to `true` while nothing read it, so anyone who turned it off was silently overruled.
 
@@ -274,7 +274,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `enabled` | bool | `false` |  |  |
 | `backend` | str | `"mediapipe"` |  | mediapipe (light, offline) \| l2cs \| none |
 | `model_path` | str | `""` |  | override the mediapipe model asset; "" = auto-download |
-| `zones` | str | `"grid3x3"` |  | grid3x3 \| grid2x2 \| windows |
+| `zones` | str | `"grid3x3"` | ⚠️ inert | grid3x3 \| grid2x2 \| windows |
 | `camera_index` | int | `0` |  |  |
 | `calibration_points` | int | `9` |  |  |
 | `confidence_min` | float | `0.5` |  |  |
@@ -310,7 +310,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `enabled` | bool | `false` |  |  |
 | `pair` | str | `""` |  |  |
 | `adapter_path` | str | `""` |  |  |
-| `lid` | str | `"segment"` |  |  |
+| `lid` | str | `"segment"` | ⚠️ inert |  |
 | `mer_gate` | float | `0.0` |  |  |
 
 ## `[confidence]`

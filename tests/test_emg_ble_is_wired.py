@@ -178,3 +178,59 @@ def test_doctor_does_not_report_ok_for_an_address_that_cannot_connect() -> None:
     row = source.split('"EMG BLE address"')[1][:600]
     assert "bleak" in row, "the row does not consider whether bleak is installed"
     assert "WARN" in row
+
+
+# ── and the mode must not silently become the other mode ─────────────────────
+
+@pytest.mark.parametrize("typo", ["commmand", "Command", "comand", "", "full-text"])
+def test_an_unrecognised_mode_does_not_silently_dictate(
+    monkeypatch: pytest.MonkeyPatch, typo: str
+) -> None:
+    """`[emg] mode` was documented as a closed set and enforced by nothing.
+
+    The selection was `if mode == "command": ... else: <dictation>`, so every value
+    that was not exactly `"command"` -- a typo, a capital C, an empty string -- did not
+    disable EMG or fall back to anything. It switched the armband to the **other mode**,
+    and every squeeze typed a transcript into the focused window instead of running a
+    command. `cmdsafety` cannot help: it guards the command branch, which is precisely
+    the branch no longer being taken.
+
+    That made it the `[injection] target_guard = "of"` shape on the input path, and
+    `configcheck`'s note listed it among the settings excluded from `_ENUMS` *because*
+    they fail safe -- a claim no test had ever made. It is enforced now; this pins the
+    daemon's own behaviour, because a config that reaches it unchecked must still not
+    pick the opposite of what was asked.
+    """
+    _, built = _sources(monkeypatch, device_port="/dev/ttyUSB0", mode=typo)
+    start = built[0][1][-2]
+    assert start.__name__ == "_on_command_hold_start", (
+        f"[emg] mode = {typo!r} bound {start.__name__}: an unusable value selected "
+        "dictation rather than the documented default"
+    )
+
+
+def test_the_two_documented_modes_still_route_as_documented(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The regression risk of the guard above: don't collapse both modes into one."""
+    _, cmd = _sources(monkeypatch, device_port="/dev/ttyUSB0", mode="command")
+    _, txt = _sources(monkeypatch, device_port="/dev/ttyUSB0", mode="full_text")
+    assert cmd[0][1][-2].__name__ == "_on_command_hold_start"
+    assert txt[0][1][-2].__name__ == "_on_hold_start"
+
+
+def test_configcheck_repairs_the_typo_before_the_daemon_ever_sees_it(tmp_path) -> None:
+    """The other half, and the one a user actually notices: `doctor` reports it.
+
+    The daemon warning goes to a log nobody reads. `configcheck` turns the same typo
+    into a `ConfigProblem`, which `yazses doctor` surfaces under "Config validity".
+    """
+    from yazses.config import load_config_checked
+
+    path = tmp_path / "config.toml"
+    path.write_text('[emg]\nmode = "commmand"\n', encoding="utf-8")
+    loaded = load_config_checked(path)
+    assert loaded.config.emg.mode == "command"
+    assert any("emg" in str(p) and "mode" in str(p) for p in loaded.problems), (
+        "the typo was repaired silently; it must be reported so `doctor` can show it"
+    )

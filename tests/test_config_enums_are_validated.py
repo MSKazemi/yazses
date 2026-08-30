@@ -211,5 +211,43 @@ def test_the_excluded_sets_are_recorded_where_the_table_is() -> None:
     from yazses import configcheck
 
     note = inspect.getsource(configcheck)
-    for key in ("[gaze] backend", "[stt] engine", "[meeting] vad_backend"):
+    for key in ("[gaze] backend", "[stt] engine", "[meeting] vad_backend",
+                "[cocktail] mode"):
+        assert key in note, f"{key} is no longer recorded where the table is"
+
+
+def test_the_note_does_not_call_an_enforced_setting_deliberately_absent() -> None:
+    """The exclusion note went stale, and staleness here is not cosmetic.
+
+    It listed eight settings as deliberately outside `_ENUMS` "because each one already
+    fails safe and says so". Three had since been added to the table, and of the five
+    that really were absent, only three had the fail-safe property asserted anywhere.
+    Reading the two nobody had checked found the claim false both times: `[emg] mode`
+    switched to the *opposite* mode on a typo rather than disabling anything, and
+    `[gaze] zones` / `[polyglot] lid` have no consumer at all to fail safely.
+
+    A justification that names a setting the table now enforces is evidence the whole
+    justification was not re-read, so this pins the cheap half mechanically.
+    """
+    import inspect
+
+    from yazses import configcheck
+
+    note = inspect.getsource(configcheck).split("_ENUMS: dict")[0]
+    assert 'absent, because each one\n#: already fails safe and says so' not in note, (
+        "the exclusion note has regained the sentence that went stale: it listed "
+        "eight settings as deliberately outside _ENUMS on a fail-safe claim, while "
+        "three of them were already in the table and two had no consumer at all. If "
+        "settings are excluded again, name the ones excluded *today* and say which "
+        "test asserts the fail-safe behaviour for each."
+    )
+    #: The two that really are excluded must each have that assertion, by name.
+    for key, pinning in (("[cocktail] mode", None),
+                         ("[meeting] vad_backend",
+                          "test_an_unknown_meeting_vad_backend_still_returns_a_working_gate")):
         assert key in note, f"{key} is no longer recorded as a deliberate exclusion"
+        if pinning:
+            assert pinning in open(__file__, encoding="utf-8").read(), (
+                f"{key} is excluded from _ENUMS on a fail-safe claim that nothing "
+                "asserts any more"
+            )

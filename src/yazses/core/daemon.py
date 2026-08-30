@@ -1015,6 +1015,19 @@ class Daemon:
             if mode != cfg.emg.mode:
                 log.info("Modality router set EMG to %s mode (config said %s).",
                          mode, cfg.emg.mode)
+        # Chosen explicitly, and an unrecognised value logged rather than absorbed.
+        # `mode` used to pick command mode on an exact "command" and let *everything
+        # else* fall through to dictation -- so `mode = "commmand"` silently typed the
+        # transcript of every squeeze into the focused window instead of running a
+        # command, and the line below reported it as `(commmand mode)`, echoing the
+        # typo back as if it were a mode that exists. `configcheck` now repairs the
+        # value before it reaches here (`_ENUMS["emg.mode"]`); this stays because a
+        # daemon that is handed a config from somewhere else must still not pick the
+        # opposite of what was asked in silence.
+        if mode not in ("command", "full_text"):
+            log.warning("[emg] mode = %r is not a mode; using 'command'. "
+                        "Valid values: command | full_text.", mode)
+            mode = "command"
         if mode == "command":
             start, end = self._on_command_hold_start, self._on_command_hold_end
         else:

@@ -64,6 +64,16 @@ KNOWN_UNREAD = {
     "EndpointConfig.falling_window_ms",
     "EndpointConfig.prefix_stable_ms",
     "EndpointConfig.speculative_finalize",
+    # Both were hidden from this detector for as long as it existed, by an import path
+    # that spells the field name (`from yazses.gaze.zones import ...`,
+    # `from yazses.polyglot.lid import ...`); see `_IMPORT`. They are listed rather
+    # than wired because each is a real piece of work, not an oversight:
+    # `[gaze] zones` names a zone scheme (`grid3x3 | grid2x2 | windows`) and the only
+    # caller, `targeter.resolve_window`, resolves the looked-at *window* and never
+    # consults a grid at all -- `zones.grid_zone` exists, is tested, and has no caller.
+    # `[polyglot] lid` names a language-ID granularity for a router that stays dormant
+    # until `[polyglot] adapter_path` points at a trained adapter that is not shipped.
+    "GazeConfig.zones",
     "HesitationConfig.commit_ms",
     "HesitationConfig.hold_extra_ms",
     "HotkeyConfig.evdev_device",
@@ -76,6 +86,7 @@ KNOWN_UNREAD = {
     "PersonalizeConfig.lora_min_improvement",
     "PhoneticConfig.max_distance",
     "PilotConfig.confirm_ambiguous",
+    "PolyglotConfig.lid",  # see the note beside GazeConfig.zones
     "PronunciationConfig.good_threshold",
     "ProsodyConfig.experimental_pitch_question",
     "ProsodypunctConfig.comma_pause_ms",
@@ -113,15 +124,29 @@ def config_fields() -> list[tuple[str, str]]:
     ]
 
 
+#: An `import`/`from ... import ...` line. Blanked for the same reason comments are:
+#: it cannot read a config key, and its dotted module path looks exactly like one.
+#: `from yazses.gaze.zones import resolve_window` contains `.zones`, which marked
+#: `GazeConfig.zones` as read — and nothing in the tree reads it. Same for
+#: `from yazses.polyglot.lid import ...` and `PolyglotConfig.lid`. Both were reported
+#: as live settings in `docs/configuration.md` while being inert, which is precisely
+#: the state this detector exists to expose. The collision is structural rather than
+#: unlucky: config sections are named after the subsystems they configure, so a field
+#: sharing a name with a module in that subsystem is the *likely* case, not the freak
+#: one.
+_IMPORT = re.compile(r"\s*(?:from|import)\s")
+
+
 def without_comments(source: str) -> str:
-    """*source* with ``#`` comments removed, everything else untouched.
+    """*source* with ``#`` comments and ``import`` lines removed, else untouched.
 
     The match below is `[."']name` — an attribute access or a string key — which is
     a good proxy for "this key is read". Its one flaw was that it ran over the raw
     file, so **a comment mentioning a key made that key count as read**, which is
     exactly the reachability this detector exists to find. Hit for real: a comment in
     `system/report.py` noting that the snippets table is unwired was itself enough to
-    register that field as wired. A comment cannot read a config key.
+    register that field as wired. A comment cannot read a config key. Neither can an
+    import; see `_IMPORT`.
 
     Stripping only comments, rather than switching to an AST walk over attributes and
     keywords. That was tried and is worse in both directions: `channels=1` passed to
@@ -145,7 +170,10 @@ def without_comments(source: str) -> str:
     for row, col in comments:
         if 1 <= row <= len(lines):
             lines[row - 1] = lines[row - 1][:col]
-    return "\n".join(lines)
+    # Blanked, not dropped, for the same reason: line positions stay put, and a
+    # multi-line parenthesised import keeps its continuation lines intact -- those
+    # carry only imported names, never a dotted path, so they cannot collide.
+    return "\n".join("" if _IMPORT.match(ln) else ln for ln in lines)
 
 
 def unread_fields() -> set[str]:

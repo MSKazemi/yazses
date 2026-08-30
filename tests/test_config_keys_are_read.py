@@ -104,6 +104,33 @@ def test_a_comment_cannot_make_an_unread_key_look_wired():
     assert "cfg.audio.device" in stripped, "the attribute access must survive intact"
 
 
+def test_an_import_path_cannot_make_an_unread_key_look_wired():
+    """The same flaw as the comment one, and it had hidden two keys since day one.
+
+    The match is `[."']name`, and a dotted module path is spelled exactly like an
+    attribute access. `from yazses.gaze.zones import resolve_window` contains
+    `.zones`, so `GazeConfig.zones` counted as read -- while nothing in the tree reads
+    it, and the generated `docs/configuration.md` therefore presented it as a live
+    setting. `from yazses.polyglot.lid import ...` did the same for `PolyglotConfig.lid`.
+
+    The collision is structural, not bad luck: config sections are named after the
+    subsystems they configure, so a field sharing a name with a module of that
+    subsystem is the expected case. Both keys are in the ledger now, with reasons.
+    """
+    stripped = _without_comments(
+        "from yazses.gaze.zones import resolve_window\n"
+        "import yazses.polyglot.lid\n"
+        "x = cfg.audio.device\n"
+    )
+    assert ".zones" not in stripped
+    assert ".lid" not in stripped
+    assert "cfg.audio.device" in stripped, "real attribute access must survive intact"
+    assert {"GazeConfig.zones", "PolyglotConfig.lid"} <= KNOWN_UNREAD, (
+        "both keys are read by nothing; if one has been wired, remove it from the "
+        "ledger rather than leaving the entry to go stale"
+    )
+
+
 def test_stripping_comments_does_not_damage_code_or_strings():
     """Rebuilding from token strings tore `cfg.audio.device` into three lines, so
     `.device` stopped matching and forty genuinely-read keys were reported unread.

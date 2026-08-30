@@ -6,6 +6,50 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a misspelled `[emg] mode` switched an armband from commands to dictation
+
+`configcheck` carried a note listing eight settings deliberately left out of its
+validation table "because each one already fails safe and says so". Three of the eight
+had since been added to the table and the note was never corrected. Of the five really
+absent, only three had the fail-safe property asserted by any test. Reading the other
+two found the claim false both times.
+
+**`[emg] mode`.** The selection was `if mode == "command": … else: <dictation>`, so any
+value that was not exactly `"command"` — a typo, a capital `C`, an empty string — did
+not disable EMG and did not fall back to anything. It switched the armband to the
+*other* mode, and every squeeze typed a transcript into the focused window instead of
+running a command. The log line then reported `(commmand mode)`, echoing the typo back
+as though it were a mode that exists. `cmdsafety` offers no protection here: it guards
+the command branch, which is precisely the branch no longer being taken. This is the
+`[injection] target_guard = "of"` shape — a misspelling leaving the wrong behaviour
+*on* — on the input path, and it lands on an accessibility input for people who cannot
+use a keyboard. `emg.mode` is now in `_ENUMS`, so a bad value is repaired to `"command"`
+and reported under `yazses doctor`'s **Config validity**; the daemon additionally warns
+and takes the documented default rather than the opposite one.
+
+**`[gaze] zones` and `[polyglot] lid`** are not fail-safe either — they are **inert**.
+Nothing in `src/` reads either, so there is no consumer to fail safely. `zones` names a
+scheme (`grid3x3 | grid2x2 | windows`) that only `zones.grid_zone` implements, and the
+daemon's gaze path calls `targeter.resolve_window`, which resolves a *window* and never
+consults a grid; `lid` belongs to a router that stays dormant until `[polyglot]
+adapter_path` names an adapter that is not shipped.
+
+Both had been invisible to `scripts/config_status.py`, the detector that generates the
+⚠️ inert markers in `docs/configuration.md`, since it was written. It matches
+`[."']<field>` over the source, and a dotted module path is spelled exactly like an
+attribute access — `from yazses.gaze.zones import resolve_window` contains `.zones`.
+The collision is structural rather than unlucky: config sections are named after the
+subsystems they configure, so a field sharing a name with a module of that subsystem is
+the expected case. Import lines are now blanked alongside comments, which were already
+blanked for the same reason. The count on the configuration reference moves from 59
+inert keys to **61**, and both keys are marked. This is the second blind spot found in
+this detector class this cycle — the first was a `getattr` with a string literal, which
+an AST walk cannot see either.
+
+The exclusion note has been rewritten to say which settings are excluded *today*
+(`[cocktail] mode`, `[meeting] vad_backend`, both with their fail-safe behaviour
+asserted), and a test now fails if the stale sentence returns.
+
 ### Fixed — every Dependabot `uv` run failed on `onnxruntime`, and the diagnosis was wrong (#322)
 
 The monthly dependency-update job has failed on every run since it was written. It was

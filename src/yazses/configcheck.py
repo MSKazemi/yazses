@@ -202,16 +202,28 @@ def negative_is_impossible(field) -> bool:
 #: `[stt] language` is open, and a model name is whatever is downloadable -- guessing at
 #: those would reject valid configs, which is worse than accepting an invalid one.
 #:
-#: Eight further settings ARE closed sets and are deliberately absent, because each one
-#: already fails safe and says so: `[gaze] backend`, `[gaze] zones`, `[stt] engine`,
-#: `[emg] mode`, `[cocktail] mode`, `[meeting] vad_backend`, `[voiceprint] backend`,
-#: `[polyglot] lid`. An unrecognised value there disables the feature or falls back to the
-#: always-available implementation, with a log line naming what happened -- the opposite
-#: of `target_guard`, where a misspelling turned a guard ON. Adding them would be eight
-#: more chances to reject a value that works, for settings whose failure is already
-#: visible. `tests/test_config_enums_are_validated.py` pins that fail-safe behaviour, so
-#: if one of them starts falling back to something ENABLED, the exclusion stops being
-#: justified and a test says so.
+#: This list used to name eight further closed sets as deliberately absent, on the
+#: grounds that each "already fails safe and says so". Three of the eight
+#: (`[gaze] backend`, `[stt] engine`, `[voiceprint] backend`) have since been added to
+#: the table and the note was never corrected; of the remaining five, only three ever
+#: had the property asserted anywhere, and reading the other two found the claim false:
+#:
+#: * `[emg] mode` did the opposite of failing safe -- see its entry below. It is now
+#:   enforced.
+#: * `[gaze] zones` and `[polyglot] lid` are not fail-safe either; they are **inert**.
+#:   Nothing in `src/` reads either one, so there is no consumer to fail safely. They
+#:   belong with `commands.lsp_editor`, and `scripts/config_status.py` now reports them
+#:   (an import path spelling the field name -- `from yazses.gaze.zones import ...` --
+#:   had hidden both from its detector since it was written).
+#:
+#: What is left is genuinely fail-safe and genuinely excluded: `[cocktail] mode` and
+#: `[meeting] vad_backend`. An unrecognised value there disables the gate or falls back
+#: to the always-available implementation -- the opposite of `target_guard`, where a
+#: misspelling turned a guard ON. `tests/test_config_enums_are_validated.py` pins that
+#: behaviour, so if one of them starts falling back to something ENABLED, the exclusion
+#: stops being justified and a test says so. The lesson for the next exclusion: "it
+#: fails safe" is a claim about a consumer, and it is only worth what a test of that
+#: consumer is worth -- three of these five were asserted by nothing at all.
 #: Settings whose value must come from a closed set.
 #:
 #: `doctor` reports this table's verdict as **"Config validity: every setting is a usable
@@ -249,6 +261,16 @@ _ENUMS: dict[str, tuple[str, ...]] = {
     "voiceprint.backend": ("ecapa", "resemblyzer"),
     # `""` is accepted by `build_engine` as "use the default" and must stay valid.
     "stt.engine": ("", "faster-whisper", "parakeet", "moonshine"),
+    # The `target_guard = "of"` shape again, on the input path this time, and this one
+    # was listed above as fail-safe until its consumer was read. `_build_activation_sources`
+    # took command mode on an exact "command" and let every other value fall through to
+    # the dictation callbacks -- so `mode = "commmand"` did not disable EMG, it switched
+    # it to the *other* mode, and every squeeze typed a transcript into the focused
+    # window instead of running a command. `cmdsafety` does not help: it guards the
+    # command branch, which is the branch that was no longer being taken. Repaired to
+    # the documented default here, and `core/daemon.py` warns if it ever sees another
+    # value anyway.
+    "emg.mode": ("command", "full_text"),
 }
 
 
