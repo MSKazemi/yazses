@@ -13,7 +13,7 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 
 **Match the Type column exactly.** In TOML only `str` values take quotes; `int`, `float` and `bool` must be bare. Writing `vad_threshold = "0.004"` instead of `vad_threshold = 0.004` loads without complaint and then fails at runtime, because the value stays a string where a number is expected. See [Troubleshooting](troubleshooting.md#dictation-stopped-working-right-after-i-edited-configtoml).
 
-**61 of these 452 keys are inert**, and they are marked ⚠️ inert in the Status column. The loader accepts them, `configcheck` validates them and they have a documented default — but no code reads them, so setting one loads without complaint and changes nothing. Most belong to capabilities that are registered but not yet wired; see [`yazses features`](cli-reference.md) for what is actually switchable. Both numbers here are counted at generation time, and the list of inert keys is the same one the test suite gates on, so neither can quietly fall out of date.
+**74 of these 452 keys are inert**, and they are marked ⚠️ inert in the Status column. The loader accepts them, `configcheck` validates them and they have a documented default — but nothing acts on them, so setting one loads without complaint and changes nothing. Most belong to capabilities that are registered but not yet wired; see [`yazses features`](cli-reference.md) for what is actually switchable. Both numbers here are counted at generation time, and the list of inert keys is the same one the test suite gates on, so neither can quietly fall out of date.
 
 This has bitten before: `[injection] fallback_to_clipboard` was documented in seventeen places and defaulted to `true` while nothing read it, so anyone who turned it off was silently overruled.
 
@@ -39,7 +39,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 |---|---|---|---|---|
 | `key` | str | `"auto"` |  | "auto" resolves to the platform's default hold-to-talk key (Linux: right_alt, macOS: right_option, Windows: right_ctrl) — a modifier key, so it never collides with normal typing the way the space bar would. |
 | `hold_threshold_ms` | int | `500` |  |  |
-| `source` | str | `"default"` |  |  |
+| `source` | str | `"default"` | ⚠️ inert |  |
 | `evdev_device` | str | `""` | ⚠️ inert |  |
 | `command_key` | str | `""` |  | Optional dedicated *command* key. Empty = single-key mode (commands are auto-detected on the dictation key). When set to a different key, holding it forces command mode: whatever you say is parsed as a command and never typed as literal text (an unrecognised phrase is ignored, not inserted). |
 
@@ -251,7 +251,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `voice` | str | `"default"` |  |  |
 | `model_path` | str | `""` |  | override; empty => auto-resolved/downloaded |
 | `voices_path` | str | `""` |  | Kokoro voices file; empty => auto-resolved |
-| `sample_rate` | int | `24000` |  | Kokoro native rate |
+| `sample_rate` | int | `24000` | ⚠️ inert | Kokoro native rate |
 | `speed` | float | `1.0` |  |  |
 | `max_readback_chars` | int | `600` |  | truncate very long bursts with "…" |
 | `clone_voice` | bool | `false` |  | read back in a clone of the user's own voice |
@@ -339,7 +339,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `use_selection` | bool | `true` |  |  |
 | `use_clipboard` | bool | `false` |  | clipboard is the broadest signal; opt-in separately |
 | `use_lsp` | bool | `true` | ⚠️ inert |  |
-| `max_terms` | int | `48` |  |  |
+| `max_terms` | int | `48` | ⚠️ inert |  |
 
 ## `[recall]`
 
@@ -414,8 +414,8 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
 | `enabled` | bool | `false` |  |  |
-| `mode` | str | `"conservative"` |  | conservative \| expressive |
-| `min_confidence` | float | `0.6` |  |  |
+| `mode` | str | `"conservative"` | ⚠️ inert | conservative \| expressive |
+| `min_confidence` | float | `0.6` | ⚠️ inert |  |
 
 ## `[denoise]`
 
@@ -456,7 +456,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 |---|---|---|---|---|
 | `enabled` | bool | `false` |  |  |
 | `top_k` | int | `4` | ⚠️ inert |  |
-| `min_score` | float | `0.2` |  |  |
+| `min_score` | float | `0.2` | ⚠️ inert |  |
 | `embed_model` | str | `"embeddinggemma"` | ⚠️ inert | embedding backend (lazy) |
 | `store_path` | str | `""` | ⚠️ inert | sqlite-vec index; empty = disabled |
 
@@ -498,7 +498,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
 | `enabled` | bool | `false` |  |  |
-| `mode` | str | `"silence"` |  | silence \| semantic |
+| `mode` | str | `"silence"` | ⚠️ inert | silence \| semantic |
 | `silence_timeout_ms` | int | `800` |  |  |
 | `max_duration_ms` | int | `30000` |  |  |
 
@@ -621,7 +621,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
 | `enabled` | bool | `false` |  |  |
-| `source` | str | `""` |  | your spoken language (empty = autodetect) |
+| `source` | str | `""` | ⚠️ inert | your spoken language (empty = autodetect) |
 | `target` | str | `"en"` |  | language to inject |
 
 ## `[gec]`
@@ -635,7 +635,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
 | `enabled` | bool | `false` |  |  |
-| `max_terms` | int | `32` |  |  |
+| `max_terms` | int | `32` | ⚠️ inert |  |
 
 ## `[headpointer]`
 
@@ -755,14 +755,14 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 |---|---|---|---|---|
 | `enabled` | bool | `false` |  |  |
 | `bib_path` | str | `""` | ⚠️ inert |  |
-| `style` | str | `"latex"` |  |  |
+| `style` | str | `"latex"` | ⚠️ inert |  |
 
 ## `[langroute]`
 
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
 | `enabled` | bool | `false` |  |  |
-| `min_confidence` | float | `0.5` |  |  |
+| `min_confidence` | float | `0.5` | ⚠️ inert |  |
 
 ## `[latency]`
 
@@ -1128,7 +1128,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
 | `enabled` | bool | `false` |  |  |
-| `format` | str | `"markdown"` |  |  |
+| `format` | str | `"markdown"` | ⚠️ inert |  |
 
 ## `[diacritize]`
 
@@ -1147,7 +1147,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
 | `enabled` | bool | `false` |  |  |
-| `max_candidates` | int | `5` |  |  |
+| `max_candidates` | int | `5` | ⚠️ inert |  |
 
 ## `[loadguard]`
 

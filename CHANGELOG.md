@@ -6,6 +6,65 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — thirteen config keys were documented as live because a *different* section reads a key of the same name
+
+`docs/configuration.md` marks a key inert when nothing reads it, and the detector
+behind that mark searches the tree for the field name alone. A name used by two
+sections is therefore reported read in **both** the moment either one reads it. 32
+field names are shared across sections and 216 (class, key) pairs rest on that match.
+
+Thirteen were adjudicated by reading every occurrence of each name, and all thirteen
+are inert while the page said otherwise: `[hotkey] source`, `[compose] source`,
+`[affect] mode`, `[autostop] mode`, `[affect] min_confidence`,
+`[langroute] min_confidence`, `[cite] style`, `[outline] format`,
+`[context] max_terms`, `[screengrounded] max_terms`, `[rag] min_score`,
+`[wordfind] max_candidates` and `[tts] sample_rate`. `[hotkey] source` sits in a core,
+wired section, one row above an `evdev_device` that *is* marked inert — it was missed
+only because a RAG chunk elsewhere has a `.source` attribute.
+
+`[tts] sample_rate` is the odd one: `KokoroTtsBackend.__init__` assigns
+`self._sample_rate = config.sample_rate` and nothing ever reads that attribute, so
+the key is genuinely read and still does nothing. Kokoro emits at its own rate and
+`speak` uses the rate the model returns.
+
+This is the third appearance of one collision, and the first that cannot be fixed in
+the detector. A comment naming a key made it look read; a dotted module path spelled
+like an attribute did the same; both were fixable because that noise is structural. A
+sibling section's read is not — `config.format` in `postprocess/prosody.py` is a real
+read of `[prosody] format` and is character-identical to what a read of
+`[outline] format` would look like. Requiring a section-qualified `cfg.<section>.<key>`
+instead was measured and is worse: it calls `[macros] path` and `[styleguard] path`
+dead, and both are read through a short local (`mc.path`, `sg.path`). A false *inert*
+is the more damaging error, because it tells someone a working setting does nothing.
+
+So the blind spot is enumerated rather than guessed at. `AMBIGUOUS_UNREAD` carries the
+thirteen with their evidence, the reference page marks them inert alongside the rest —
+the user cannot act on the distinction — and `tests/test_shared_config_names.py`
+re-checks that none has since acquired an attributable read, so wiring one turns the
+suite red until its entry goes.
+
+### Fixed — a re-run of the snap publish uploaded a duplicate revision every time
+
+`.github/workflows/snap.yml` uploaded unconditionally. A tag is immutable and the
+version comes from the tag, so a second run of the job for the same release could
+only be re-uploading the same artifact — but it created a fresh store revision
+anyway, and each one entered the Snap Store's review queue on its own.
+
+Between them, that and the stale committed `version:` line (fixed separately, and
+guarded by `tests/test_snap_version_matches_the_project.py`) accounted for **272 of
+the store's 405 revisions**, 188 of which never took a channel. The store emails one
+"Status update for version … has been rejected" per revision, so clearing that queue
+delivered about two hundred of them in two minutes. 2.30.0 alone collected twenty
+revisions and 2.31.0 eighteen.
+
+The publish step now asks the store first. If a revision for this version *and*
+architecture already holds a channel, it releases that revision instead of uploading
+a duplicate. The guard is keyed on holding a channel rather than on merely existing,
+because `snapcraft revisions` renders "still in review" and "rejected" identically as
+`-` — keying it on existence would refuse the one case a re-run is actually for. A
+`force_upload` workflow_dispatch input is the way past it for a packaging-only rebuild
+at an unchanged version.
+
 ### Fixed — barge-in lost the race against the read-back it was meant to stop
 
 Read-back speaks the finished transcript on a worker thread so playback never blocks

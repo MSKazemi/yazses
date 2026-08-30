@@ -49,6 +49,12 @@ def _load(name: str):
 
 _status = _load("config_status")
 KNOWN_UNREAD = _status.KNOWN_UNREAD
+#: The detector finds `KNOWN_UNREAD`; it structurally cannot find `AMBIGUOUS_UNREAD`,
+#: whose keys are inert but share a field name with a section that does read it. Both
+#: reach the page, so counts taken off the page are counts of the union. The two tests
+#: above stay on `KNOWN_UNREAD` alone: they gate the *detector*, and widening them
+#: would demand it find what it cannot. See `tests/test_shared_config_names.py`.
+LEDGER = KNOWN_UNREAD | _status.AMBIGUOUS_UNREAD
 _unread = _status.unread_fields
 _without_comments = _status.without_comments
 
@@ -240,8 +246,8 @@ def test_every_ledger_entry_survives_the_translation_to_section_names():
     from yazses.config import Config
 
     dotted = _status.inert_dotted_keys(Config())
-    assert len(dotted) == len(KNOWN_UNREAD), (
-        f"{len(KNOWN_UNREAD)} ledger entries resolved to only {len(dotted)} section keys"
+    assert len(dotted) == len(LEDGER), (
+        f"{len(LEDGER)} ledger entries resolved to only {len(dotted)} section keys"
     )
 
 
@@ -251,8 +257,8 @@ def test_the_page_says_what_inert_means_and_counts_it_from_the_ledger():
     is about (ADR-019 carried a hand-written 'seven' that had been five for months).
     """
     text = REFERENCE.read_text(encoding="utf-8")
-    assert f"**{len(KNOWN_UNREAD)} of these" in text, "the legend's count is not the ledger's"
-    assert "no code reads them" in text
+    assert f"**{len(LEDGER)} of these" in text, "the legend's count is not the ledger's"
+    assert "nothing acts on them" in text
     assert "changes nothing" in text
 
 

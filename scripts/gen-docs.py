@@ -360,8 +360,9 @@ def gen_configuration() -> str:
     out.write(
         f"**{len(inert)} of these {n_keys} keys are inert**, and they are marked "
         f"{INERT_MARK} in the Status column. The loader accepts them, `configcheck` "
-        "validates them and they have a documented default — but no code reads them, "
-        "so setting one loads without complaint and changes nothing. Most belong to "
+        "validates them and they have a documented default — but nothing acts on "
+        "them, so setting one loads without complaint and changes nothing. Most "
+        "belong to "
         "capabilities that are registered but not yet wired; see "
         "[`yazses features`](cli-reference.md) for what is actually switchable. "
         "Both numbers here are counted at generation time, and the list of inert keys "

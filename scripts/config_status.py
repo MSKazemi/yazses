@@ -112,6 +112,61 @@ KNOWN_UNREAD = {
 }
 
 
+#: Keys `unread_fields` cannot see, because the match is by **name alone** and the
+#: name is shared with a field in another section. One section reading it makes it
+#: look read in every section that spells it the same way, so the detector reports a
+#: live setting and `docs/configuration.md` tells the user it works.
+#:
+#: This is the third instance of one collision. A comment naming a key made it look
+#: read; `without_comments` fixed that. A dotted module path spelled like an attribute
+#: made it look read; `_IMPORT` fixed that. Both were fixable because the noise was
+#: *structural* — a comment and an import are recognisable without knowing types. A
+#: sibling section's read is not: `config.format` in `postprocess/prosody.py` is a
+#: genuine read of `[prosody] format`, and it is character-identical to what a read of
+#: `[outline] format` would look like. Telling them apart needs the type of `config`,
+#: and the alternative that does not — demanding a section-qualified `cfg.<section>.<key>`
+#: — reports `[macros] path` and `[styleguard] path` as dead, because both are really
+#: read through a short local (`mc.path`, `sg.path`). A false *inert* is the worse
+#: error of the two: it tells someone a working knob does nothing.
+#:
+#: So the blind spot is enumerated instead of guessed at. Each entry below was read out
+#: of every occurrence of its name in the tree, and `tests/test_shared_config_names.py`
+#: re-checks that none of them has acquired an attributable read — the same discipline
+#: as `KNOWN_UNREAD`, applied to the keys that ledger structurally cannot hold.
+#:
+#: 32 field names are shared across sections and 216 (class, field) pairs rest on that
+#: match, so this set is a floor, not a census.
+AMBIGUOUS_UNREAD = {
+    # `.mode` is read for `[emg]`, `[redaction]` and `[cocktail]` only.
+    "AffectConfig.mode",
+    "AutoStopConfig.mode",
+    # `.min_confidence` belongs to two unrelated dataclasses -- `gaze.implicit`'s own
+    # field and `langroute.route.LangRegistry`, which nothing in `src/` constructs.
+    "AffectConfig.min_confidence",
+    "LangrouteConfig.min_confidence",
+    # `.style` is read once, for `[overlay]`, in `overlay/app.py`.
+    "CiteConfig.style",
+    # `.max_terms` occurs only as a local parameter of `personalize.prompt_builder`.
+    "ContextConfig.max_terms",
+    "ScreengroundedConfig.max_terms",
+    # `.format` is read once, for `[prosody]`; every other hit is `str.format`.
+    "OutlineConfig.format",
+    # `.source` is never read from any config: the hits are a RAG chunk's attribute,
+    # an AT-SPI event's, and one message string.
+    "ComposeConfig.source",
+    "HotkeyConfig.source",
+    # `.min_score` / `.max_candidates` are read for `[punch_in]`, and are default
+    # parameters of `rag.retrieve` / `postprocess.punch_in` otherwise.
+    "RagConfig.min_score",
+    "WordfindConfig.max_candidates",
+    # Read and discarded, which the detector cannot distinguish from used:
+    # `tts/kokoro.py` assigns `self._sample_rate = config.sample_rate` and nothing
+    # ever reads that attribute. Kokoro emits at its own rate and `speak` uses the
+    # rate the model returns, so setting this key changes nothing.
+    "TtsConfig.sample_rate",
+}
+
+
 def config_fields() -> list[tuple[str, str]]:
     """``(ClassName, field)`` for every annotated field in `config.py`."""
     tree = ast.parse((ROOT / "src/yazses/config.py").read_text(encoding="utf-8"))
@@ -199,11 +254,16 @@ def unread_fields() -> set[str]:
 def inert_dotted_keys(cfg: object) -> set[str]:
     """``section.key`` (TOML spelling) for every ledger entry, resolved on a live `Config`.
 
+    Both ledgers: `KNOWN_UNREAD`, which the detector finds, and `AMBIGUOUS_UNREAD`,
+    which it structurally cannot. The page makes no distinction because the user
+    cannot act on one -- either way the key does nothing.
+
     The ledger is keyed by **class** name and the reference is written in **section**
     names, so one of the two has to translate. It is done here, against a real object,
     for the reason `test_docs_config_keys_exist.py` gives for doing the same: a guessed
     section↔class mapping resolves nothing and silently marks nothing.
     """
+    ledger = KNOWN_UNREAD | AMBIGUOUS_UNREAD
     out: set[str] = set()
     for fld in dataclasses.fields(cfg):  # type: ignore[arg-type]
         inst = getattr(cfg, fld.name)
@@ -213,9 +273,9 @@ def inert_dotted_keys(cfg: object) -> set[str]:
             val = getattr(inst, sub.name)
             if dataclasses.is_dataclass(val):
                 for leaf in dataclasses.fields(val):
-                    if f"{type(val).__name__}.{leaf.name}" in KNOWN_UNREAD:
+                    if f"{type(val).__name__}.{leaf.name}" in ledger:
                         out.add(f"{fld.name}.{sub.name}.{leaf.name}")
-            elif f"{type(inst).__name__}.{sub.name}" in KNOWN_UNREAD:
+            elif f"{type(inst).__name__}.{sub.name}" in ledger:
                 out.add(f"{fld.name}.{sub.name}")
     return out
 
