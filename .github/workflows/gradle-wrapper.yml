@@ -1,0 +1,70 @@
+# Verify the checked-in Gradle wrapper JAR against Gradle's published checksums.
+#
+# `android/gradle/wrapper/gradle-wrapper.jar` is a binary committed to this
+# repository, and it is not inert data: `./gradlew` executes it, so whoever controls
+# those 43 KB controls every Android build and every CI job that runs one. It is the
+# only compiled artifact in the tree, and until this workflow existed nothing checked
+# that it was still the file Gradle published. A swapped wrapper is a supply-chain
+# attack that survives review, because a reviewer sees "gradle-wrapper.jar" in the
+# diff stat and cannot read the contents.
+#
+# `gradle/actions/wrapper-validation` hashes every gradle-wrapper.jar in the tree and
+# compares it against the SHA-256 that Gradle publishes for each release. Verified by
+# hand before wiring it up, so the gate is known to start from a genuine file rather
+# than freezing whatever happens to be committed:
+#
+#   sha256(android/gradle/wrapper/gradle-wrapper.jar)
+#     = 2db75c40782f5e8ba1fc278a5574bab070adccb2d21ca5a6e5ed840888448046
+#   https://services.gradle.org/distributions/gradle-8.10.2-wrapper.jar.sha256
+#     = 2db75c40782f5e8ba1fc278a5574bab070adccb2d21ca5a6e5ed840888448046
+#
+# ⚠ DELIBERATELY NOT PATH-FILTERED, and this is load-bearing twice over.
+#
+# `android-test.yml` is filtered to `android/**` on purpose -- a Python contributor
+# must not watch a Gradle build run on a docs typo -- and putting the validation
+# there would have inherited that filter. That is wrong for two separate reasons:
+#
+#  1. The jar is what an attacker changes *without* touching anything else, and a
+#     filter that skips the check on unrelated commits skips it on the commit where
+#     the whole tree looks unrelated.
+#  2. OpenSSF Scorecard's binary-artifacts check exempts a gradle-wrapper.jar only
+#     when a workflow using this action has a successful run whose head SHA is the
+#     *latest commit on the default branch* (`checks/raw/binary_artifact.go`,
+#     `gradleWrapperValidated`). A path-filtered workflow does not run on most
+#     commits, so the exemption would apply almost never and the score would look
+#     random rather than earned.
+#
+# The cost of running it everywhere is about fifteen seconds: the action is a node
+# action that hashes a file, so this job installs no JDK, resolves no dependency and
+# never invokes Gradle.
+name: Gradle wrapper
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gradle-wrapper-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate the wrapper JAR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # Same commit as `gradle/actions/setup-gradle` in android-test.yml -- both
+      # actions live in the `gradle/actions` repository, so the pin is one SHA.
+      - uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          # There is exactly one wrapper in this repository. The default is also 1,
+          # but stating it means adding a second Gradle project cannot silently
+          # leave its wrapper unvalidated: the count would no longer match.
+          min-wrapper-count: 1

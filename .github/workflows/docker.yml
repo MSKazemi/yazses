@@ -23,6 +23,16 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
+# The default when no `permissions:` block is present is the repository-wide
+# default, which can be write-all -- so a workflow with no top-level block is not
+# "unspecified", it is "whatever the repository setting happens to be", and that
+# setting is not visible in the file. Every other workflow here states it; this one
+# was the single omission (OpenSSF Scorecard, Token-Permissions). The build job
+# below re-declares the wider set it actually needs, and a job-level block replaces
+# the top-level one rather than adding to it, so narrowing here costs it nothing.
+permissions:
+  contents: read
+
 concurrency:
   group: docker-${{ github.ref }}
   cancel-in-progress: true

@@ -6,6 +6,38 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security — the one executable binary in the tree was checked by nothing
+
+`android/gradle/wrapper/gradle-wrapper.jar` is 43 KB of compiled Java committed to
+this repository, and it is not inert: `./gradlew` executes it, so whoever controls
+those bytes controls every Android build and every CI job that runs one. It is the
+only compiled artifact here, and until now nothing verified it was still the file
+Gradle published. A swapped wrapper survives review — a reviewer sees
+`gradle-wrapper.jar` in the diff stat and cannot read the contents.
+
+A new `gradle-wrapper` workflow runs `gradle/actions/wrapper-validation`, which
+hashes every wrapper JAR in the tree against Gradle's published SHA-256. The
+starting state was verified by hand first, so the gate begins from a genuine file
+rather than freezing whatever happened to be committed: the checked-in JAR hashes to
+`2db75c40…8046`, which is exactly what
+`https://services.gradle.org/distributions/gradle-8.10.2-wrapper.jar.sha256` says.
+
+It is deliberately **not** path-filtered, unlike `android-test.yml` next to it, and
+that is load-bearing twice. The JAR is what an attacker changes *without* touching
+anything else, so a filter that skips the check on unrelated commits skips it
+exactly on the commit where the whole tree looks unrelated. And OpenSSF Scorecard's
+binary-artifacts check exempts a wrapper JAR only when a workflow using this action
+has a successful run whose head SHA is the *latest commit on the default branch*
+(`checks/raw/binary_artifact.go`, `gradleWrapperValidated`) — a path-filtered
+workflow does not run on most commits, so the exemption would apply almost never.
+The cost is about fifteen seconds: the action is a node action that hashes a file,
+so the job installs no JDK, resolves nothing and never invokes Gradle.
+
+`docker.yml` also gained the top-level `permissions:` block every other workflow
+here already had. A workflow with no block does not get "unspecified" — it gets the
+repository-wide default, which can be write-all, and which is not visible in the
+file.
+
 ### Fixed — twenty guards reported findings about a repository they never read
 
 Widening the FreeBSD leg from one file to the whole suite left 20 failures and 4
