@@ -948,7 +948,18 @@ def _hotkey_device_check(cfg) -> _Check | None:
         )
     # The listener watches every real keyboard, so the hotkey fires no matter
     # which one you type on. Report them all.
-    return ("Hotkey device", "OK", ", ".join(f"{d.name} ({d.path})" for d in real))
+    #
+    # `d.path` is narrowed rather than formatted straight: evdev 2.0.0 widened
+    # `InputDevice.path` to `str | bytes` (the constructor now takes a path-like), and
+    # formatting a `bytes` into an f-string yields `b'/dev/input/event3'`, which reads
+    # as corruption in a diagnostic whose whole job is to be believed. `list_devices()`
+    # still yields `str`, so this is the union being honest, not a value we have seen.
+    return ("Hotkey device", "OK", ", ".join(f"{d.name} ({_path_str(d.path)})" for d in real))
+
+
+def _path_str(path: "str | bytes") -> str:
+    """A device path as text, whichever half of evdev's union it arrives as."""
+    return path.decode(errors="replace") if isinstance(path, bytes) else str(path)
 
 
 def _yazses_paths_on_path() -> list[str]:
