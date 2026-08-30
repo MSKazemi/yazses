@@ -6,6 +6,37 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the Android port rolled back a quoted correction and inverted the sentence
+
+Python's self-correction guard is two lists: verbs and negations that put a trigger
+inside a verb phrase, and — added later — the determiners, possessives, reporting verbs
+and copulas that make it part of a noun phrase or somebody else's quoted speech. Only
+the first was ever ported to Kotlin, so on Android these still lost their first half and
+left a fluent remainder the user never said:
+
+    "he said never mind the cost and left"    ->  "the cost and left"
+    "the no wait policy applies to walk-ins"  ->  "policy applies to walk-ins"
+    "there is no wait time at this branch"    ->  "time at this branch"
+
+That is the output the filter's own docstring names as the worst it can produce: it does
+not garble the meaning, it inverts it.
+
+The contract vectors are supposed to be what keeps the ports in step (ADR-MOB-008), and
+here they caught it — once. Of the 33 words in the missing list the corpus names exactly
+one, `said`, so the Android leg reported a single red for a defect with 33 instances and
+the other 32 would have survived the fix that closed it. A vector proves an *example*;
+only comparing the sets proves the *set*.
+
+So alongside the port, `tests/test_kotlin_port_shares_the_disfluency_guards.py` parses
+the Kotlin declarations and compares each against the Python constant it mirrors, in both
+directions — a word only Python knows means Android destroys meaning, and a word only
+Kotlin knows means the two platforms disagree about whether a real correction happened.
+It lives in the Python suite because that runs on every platform leg, while the Kotlin
+tests run only in the Android job.
+
+Verified by reproducing CI's exact failure locally (`225 tests completed, 1 failed`, same
+vector) and re-running it green on the fix.
+
 ### Fixed — the Dependabot SBOM refresh could not reach the two PRs it was written for
 
 `dependabot-sbom.yml` regenerates the committed SBOM on a bot lockfile branch, because

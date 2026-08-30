@@ -60,6 +60,36 @@ private val GOVERNING_WORDS = setOf(
     "do", "does", "did", "to", "please", "let", "lets", "let's",
 )
 
+/**
+ * The same evidence, for the two phrase types a *verb* guard cannot see.
+ *
+ * A determiner or possessive requires a noun head, so a trigger after one is part of
+ * a noun phrase and cannot be an interjection: "the no wait policy applies to
+ * walk-ins" became "policy applies to walk-ins". A reporting verb makes the trigger
+ * *quoted* rather than performed — the speaker is describing a correction somebody
+ * else made, so "he said never mind the cost and left" became "the cost and left". A
+ * copula covers the residue where the trigger heads a predicate noun phrase and the
+ * determiner sits inside the trigger itself, as in "there is no wait time at this
+ * branch", where the word before "no wait" is "is".
+ *
+ * Demonstratives are deliberately absent: "this" and "that" are as often the *object*
+ * of the preceding verb as a determiner on the trigger, and "please do this strike
+ * that please do that" is a real correction a demonstrative entry would suppress.
+ *
+ * Kept as a second set rather than folded into [GOVERNING_WORDS] so each half stays
+ * comparable to the Python constant it mirrors — the contract vectors name only one
+ * of these 33 words, so vector agreement cannot be what keeps the two in step.
+ */
+private val PHRASE_CONTEXT_WORDS = setOf(
+    // articles and possessives
+    "the", "a", "an", "my", "your", "our", "their", "its", "his", "her",
+    // reporting verbs — the trigger is quoted, not performed
+    "said", "says", "say", "saying", "told", "tells", "tell", "asked", "asks",
+    "wrote", "writes", "replied", "answered", "shouted", "yelled", "whispered",
+    // copulas
+    "is", "are", "was", "were", "be", "been", "being",
+)
+
 private val DOUBLE_SPACE = Regex("""  +""")
 
 private fun isProtected(token: String): Boolean =
@@ -283,7 +313,8 @@ private fun collapseDysfluencies(text: String, config: DisfluencyConfig): String
 private fun triggerIsGoverned(lower: String, idx: Int): Boolean {
     val before = lower.substring(0, idx).trimEnd(' ', ',')
     if (before.isEmpty()) return false
-    return before.substringAfterLast(' ') in GOVERNING_WORDS
+    val preceding = before.substringAfterLast(' ')
+    return preceding in GOVERNING_WORDS || preceding in PHRASE_CONTEXT_WORDS
 }
 
 /**
