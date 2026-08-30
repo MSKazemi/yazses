@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a blocked voice-model download told the user to install an extra they already had
+
+Read-back that produces nothing has no other symptom, so the log line *is* the whole
+diagnosis. `build_tts` wrapped the entire construction in one `except Exception` and
+answered every failure with *"install the `tts` extra (uv sync --extra tts)"*.
+
+Constructing the Kokoro backend does two unrelated things under that one `except`: it
+imports `kokoro_onnx`, and it **downloads a ~340 MB voice model on first use**. Only
+the first is fixed by installing an extra. A user behind a firewall — with the extra
+already installed — was told to install it again while read-back went quietly silent.
+That shape is known rather than imagined: issue #310, the first bug a real user of
+this project reported, was a blocked model download misreported as something else.
+
+`melo` and `kitten` are a third case: documented engine values with no module in this
+build, which no amount of installing produces.
+
+`system/backends.py` exists precisely to tell "never shipped" from "dependency
+missing", and was already wired into the denoise, voiceprint and diarization
+factories — read-back was the one that still collapsed them. It now asks the same
+probe, and keeps a distinct message for the case where everything is installed and the
+backend still would not start, passing the real error through and pointing at
+`docs/how-to/air-gapped.md` rather than at an extra.
+
 ### Fixed — a one-letter typo in `[redaction] mode` shipped the secret it was set to hide
 
 `configcheck` validated two closed sets while `config.py` documented twenty-five, so
