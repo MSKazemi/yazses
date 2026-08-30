@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — click 8.5.0 and speechbrain 1.1.1
+
+The monthly `python-minor-patch` group (#324). Applied to the lock and the SBOM
+directly rather than by merging the bot's commit, for the same reason as the
+container bump above: a merged Dependabot commit carries
+`Signed-off-by: dependabot[bot]`, which this repository's pre-push guard rejects.
+Regenerating `sbom.cdx.json` from the updated lock produced the same eight-line
+change the bot's PR carried, which is the check that the two paths agree.
+
+click is worth more than a green suite here — it is what typer parses arguments
+with, and this project has already been bitten once by typer's relationship to
+click (`typer` dropped its `click` dependency at 0.27.2 and only the FreeBSD leg
+noticed, because it is the one job that installs test dependencies by name). So
+the shipped console script was exercised directly, not only through the test
+harness: `--help`, `--version`, a command group, a subcommand, and the unknown-option
+error path all render correctly under click 8.5.0 with typer 0.27.1.
+
+Noted while checking: click 8.5.0 deprecates `click.__version__` (removal in 9.1).
+Nothing in `src/`, `scripts/` or `tests/` reads it, so there is nothing to change —
+recorded here so the next person who sees the warning knows it came from a probe
+rather than from this codebase.
+
+
 ### Changed — the container moves to Python 3.14, verified by running it
 
 Dependabot proposed `python:3.12-slim` → `3.14-slim` for the published image (#323).

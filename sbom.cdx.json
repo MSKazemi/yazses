@@ -387,14 +387,14 @@
     {
       "type": "library",
       "name": "click",
-      "version": "8.4.2",
-      "purl": "pkg:pypi/click@8.4.2",
-      "bom-ref": "pkg:pypi/click@8.4.2",
+      "version": "8.5.0",
+      "purl": "pkg:pypi/click@8.5.0",
+      "bom-ref": "pkg:pypi/click@8.5.0",
       "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "9a6cea6e60b17ebe0a44c5cc636d94f09bd66142c1cd7d8b4cd731c4917a15f6"
+          "content": "ba0d2089de75ea0310e2dde03160e6ca10009947fb95a182f9b54021bb272e34"
         }
       ]
     },
@@ -3115,14 +3115,14 @@
     {
       "type": "library",
       "name": "speechbrain",
-      "version": "1.1.0",
-      "purl": "pkg:pypi/speechbrain@1.1.0",
-      "bom-ref": "pkg:pypi/speechbrain@1.1.0",
+      "version": "1.1.1",
+      "purl": "pkg:pypi/speechbrain@1.1.1",
+      "bom-ref": "pkg:pypi/speechbrain@1.1.1",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "669ed0903c2aebc0d5daffc69fdbbfc822e1e2c094be45c8160ceecc9c763cd3"
+          "content": "3b69d9341662478b3c564837613f7a87bfcfd40d88cd54b4d19d2cca31e3dd3d"
         }
       ]
     },
