@@ -54,6 +54,21 @@ program was not mentioned. A second scan now covers it.
 |---|---|---|---|
 | `remote/forwarder.py` | `ssh` | **→ dictated text**, as the tunnel for `local_proxy` | `yazses remote <host>` |
 | `gitvoice/plan.py` | `git` | ← → repository content | `yazses gitvoice … --run` |
+| `system/deps.py` | `uv` / `pip` | → package names, ← **code that then runs here** | `yazses features enable <name>` |
+| `system/setup.py` | `apt-get` (as root) | → package names, ← OS packages | `yazses setup` |
+| `system/updater.py` | `snap` / `uv` / `pipx` / `pip` / `winget` / `choco` / `scoop` | ← a new version of YazSes | `yazses update`, or the tray's Install |
+
+The last three were invisible for the same reason the first two once were, one level
+further in: the scan listed *transports* — `ssh`, `curl`, `wget`, `git` — and no
+**installers**. So the two programs that fetch code and then run it were the ones no scan
+covered. `system/updater.py` already appeared under fetch for reading a version *string*;
+what was undeclared is the download that follows a yes.
+
+The scan now matches a tool name inside a list literal, which is the shape an argv has.
+Matching any string constant would have declared `windowctl/focus.py` as a spawner of
+`snap` — it compares a layout action against `("snap", "center")` — and a false row in a
+published table costs more than a narrow rule. Every module the looser rule found is
+still found.
 
 `remote/forwarder.py` is deliberately **not** counted as a third path that can send what
 you said. The remote route is one logical thing — dictation → loopback TCP → this tunnel →

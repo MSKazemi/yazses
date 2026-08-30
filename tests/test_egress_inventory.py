@@ -109,6 +109,23 @@ SHELL_OUT = {
         "`--run` (and `--yes` when destructive), so `git push` can reach the user's own "
         "remote. Carries repository content at explicit request, never dictation"
     ),
+    "system/deps.py": (
+        "runs `uv pip install` (or `python -m pip install`) so `yazses features enable "
+        "<name>` can fetch that feature's optional extras from PyPI. Sends only package "
+        "names; what comes back is **code that then runs in this interpreter**, which "
+        "is why it belongs in the inventory rather than being waved through as tooling"
+    ),
+    "system/setup.py": (
+        "runs `sudo apt-get update` and `sudo apt-get install` for the OS packages "
+        "`yazses setup` needs (ydotool, wl-clipboard). Reaches the distribution's "
+        "mirrors, with root, at the user's explicit request"
+    ),
+    "system/updater.py": (
+        "spawns the upgrade the user chose -- `snap refresh`, `uv tool upgrade`, `pipx "
+        "upgrade`, `pip install --upgrade`, winget/choco/scoop -- which downloads and "
+        "installs a new version. Its FETCH row covers reading the version *string*; "
+        "this is the much larger transfer that follows a yes"
+    ),
 }
 
 #: Reaches the network by ASKING A DEPENDENCY TO LOAD A MODEL BY NAME, not by importing a
@@ -171,9 +188,19 @@ ALLOWED = {**FETCH, **SEND, **LOCAL_IPC, **LOCAL_BOUND, **HANDOFF}
 
 #: Programs that can open an outbound connection when spawned. Conservative for the same
 #: reason as `_NETWORK_ROOTS`: a false positive costs a line in the table above.
+#:
+#: The **package managers** were added by asking this file's own question once more —
+#: what can the scan still not see? It listed transports (`ssh`, `curl`, `git`) and no
+#: installers, so the two modules that fetch and then *execute* third-party code were
+#: invisible: `system/deps.py` runs `uv pip install` when a feature is enabled, and
+#: `system/setup.py` runs `sudo apt-get install`. Downloading code to run is the largest
+#: thing that can cross this wire, and it was the one class of program the list omitted.
 _NETWORK_TOOLS = frozenset(
     {"ssh", "scp", "sftp", "rsync", "curl", "wget", "nc", "ncat", "netcat", "ftp",
-     "telnet", "git"}
+     "telnet", "git",
+     # installers: fetch a package index, then fetch and run code
+     "uv", "pip", "pip3", "pipx", "apt", "apt-get", "brew", "npm",
+     "snap", "winget", "choco", "scoop"}
 )
 
 #: Import paths that can open an outbound connection. Deliberately conservative: a false
@@ -237,12 +264,19 @@ def _modules_shelling_out_to_network_tools() -> dict[str, list[str]]:
             tree = ast.parse(text)
         except SyntaxError:  # pragma: no cover - fails elsewhere, loudly
             continue
+        # Inside a list literal, which is the shape an argv has. Any string constant
+        # would do, and did until the tool list grew: `windowctl/focus.py` compares a
+        # layout action against `("snap", "center")`, and declaring that module as a
+        # spawner of `snap` would put a false row in a table the project publishes.
+        # Every hit the looser rule found is still found -- checked, not assumed.
         hits = {
-            node.value
+            element.value
             for node in ast.walk(tree)
-            if isinstance(node, ast.Constant)
-            and isinstance(node.value, str)
-            and node.value in _NETWORK_TOOLS
+            if isinstance(node, ast.List)
+            for element in node.elts
+            if isinstance(element, ast.Constant)
+            and isinstance(element.value, str)
+            and element.value in _NETWORK_TOOLS
         }
         if hits:
             found[path.relative_to(SRC).as_posix()] = sorted(hits)
@@ -587,3 +621,51 @@ def test_a_dependency_fetch_is_not_counted_as_a_send_path():
     for module in DEPENDENCY_FETCH:
         assert module not in SEND
     assert len(SEND) == 2
+
+
+#: Every inventory in this file, so the cross-check below cannot omit one by being
+#: written per-inventory. `SEND`, `HANDOFF` and `DEPENDENCY_FETCH` each had their own
+#: ADR check; `FETCH`, `SHELL_OUT`, `LOCAL_IPC` and `LOCAL_BOUND` had none, so four of
+#: the seven could gain a module that never reached the table an auditor actually reads.
+_INVENTORIES = {
+    "FETCH": FETCH, "SEND": SEND, "LOCAL_IPC": LOCAL_IPC, "LOCAL_BOUND": LOCAL_BOUND,
+    "HANDOFF": HANDOFF, "SHELL_OUT": SHELL_OUT, "DEPENDENCY_FETCH": DEPENDENCY_FETCH,
+}
+
+
+@pytest.mark.parametrize(
+    ("inventory", "module"),
+    [(name, module) for name, entries in _INVENTORIES.items() for module in sorted(entries)],
+    ids=lambda value: value.replace("/", ".") if "/" in str(value) else value,
+)
+def test_every_declared_module_reaches_the_published_table(inventory: str, module: str) -> None:
+    """The ADR is what an auditor reads; this file is what the build enforces.
+
+    ADR-019 already records one of these drifting: a hand-written "seven" stayed after
+    the count had been five for months, and the ADR names that as "the same failure the
+    enforced inventory exists to prevent, one level up". This is the general form —
+    derived from the inventories rather than written per-inventory, so a new class of
+    egress is covered the day someone adds the dict.
+    """
+    adr = (SRC.parent.parent / "design/adr/adr-019-egress-inventory-and-escalation.md")
+    assert module in adr.read_text(encoding="utf-8"), (
+        f"{module} is declared in {inventory} here but is named nowhere in ADR-019. "
+        "The table is the artefact people audit; a module known only to the test suite "
+        "is undocumented egress with a passing build."
+    )
+
+
+def test_the_cross_check_covers_every_inventory_in_this_file() -> None:
+    """Guards the guard: a new inventory dict that nobody adds to `_INVENTORIES` would
+    be checked by nothing, and this file would still be green."""
+    declared = {
+        name for name, value in globals().items()
+        # `ALLOWED` is these dicts merged, not a source of its own; including it would
+        # make the check pass by counting the same modules twice.
+        if name.isupper() and name != "ALLOWED" and isinstance(value, dict)
+        and value and all(str(key).endswith(".py") for key in value)
+    }
+    assert declared == set(_INVENTORIES), (
+        f"these inventories are not in `_INVENTORIES` and so reach no ADR check: "
+        f"{sorted(declared - set(_INVENTORIES))}"
+    )

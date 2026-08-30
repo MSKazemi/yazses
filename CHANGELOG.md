@@ -6,6 +6,37 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the egress inventory listed transports and no installers
+
+ADR-019 exists because "nothing leaves this machine" is only as strong as a complete
+list of the exceptions, and it is enforced rather than written down: a module that
+gains an outbound primitive fails the build until it is registered and classified.
+
+Its spawn scan looked for `ssh`, `curl`, `wget`, `git` — transports. It listed no
+package manager, so the two modules that fetch code and then **run** it were invisible
+to every scan in the file:
+
+* `system/deps.py` runs `uv pip install` so `yazses features enable <name>` can fetch
+  that feature's extras from PyPI;
+* `system/setup.py` runs `sudo apt-get install` for ydotool and wl-clipboard;
+* `system/updater.py` spawns the upgrade itself — `snap refresh`, `pip install
+  --upgrade`, winget/choco/scoop. Its existing row covered reading the version
+  *string*; the download that follows a yes was undeclared.
+
+Downloading code to run is the largest thing that can cross this wire, and it was the
+one class of program the list omitted. All three are now registered and in the ADR
+table. The scan matches a tool name inside a **list literal** — the shape an argv has —
+because matching any string constant would declare `windowctl/focus.py` a spawner of
+`snap` on the strength of `("snap", "center")`, and a false row in a published table
+costs more than a narrow rule. Every module the looser rule found is still found.
+
+Four of the seven inventories — `FETCH`, `SHELL_OUT`, `LOCAL_IPC`, `LOCAL_BOUND` — had
+no check that their modules appear in the ADR at all; only `SEND`, `HANDOFF` and
+`DEPENDENCY_FETCH` did. The cross-check is now derived from the inventories rather than
+written one per inventory, with a second test that fails if a new inventory is added
+without joining it. ADR-019 already records this exact failure one level up: a
+hand-written "seven" that had been five for months.
+
 ### Fixed — the analytics ban only saw dependencies a reviewer could already see
 
 `checkDependencyPolicy` forbids analytics and crash-reporting SDKs anywhere, and
