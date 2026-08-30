@@ -6,6 +6,44 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the suite's result depended on the order pytest collected files in
+
+Running the 653 test files in reverse order turned seven passing tests red. CI only
+ever runs one order, so neither cause was visible; both polluting files carried a
+fixture whose author believed it handled exactly this.
+
+**`YAZSES_INJECTOR` leaked out of two files.** `apply_injection_config` writes that
+variable and `YAZSES_INJECT_FALLBACK` straight into the process environment — by
+design, since it is how `[injection] backend` reaches a zero-argument
+`injector_factory`. Both files guarded it with
+`monkeypatch.delenv(name, raising=False)`, which does not do what it looks like: when
+the variable is absent — the normal case — `delitem` records nothing to undo, so the
+fixture is inert and anything set during the test survives teardown. Four assertions
+in `test_auto_inject.py` then asked for an xdotool injector and got a clipboard one.
+
+**The CLI's help strings were rewritten in place.** `cli_help.apply` escapes
+`[section]` on the module-level command functions, and its own docstring states the
+contract that makes that safe — *"called from `cli.main()` and nowhere else"*, so the
+doc and man-page generators read the strings raw. That contract holds in production,
+where each invocation is a fresh process, and cannot hold in a test session where
+both share one. `test_platform_bsd_and_fallback.py` calls `main()` to prove the
+console script prints a sentence rather than a traceback, and every later test saw
+escaped help: `test_gen_docs.py`, `test_gen_man.py` and
+`test_cli_help_keeps_config_sections.py` all failed on it — the last of which already
+says in its own fixture that a test which changes another test's outcome is not a
+guard but a coin flip.
+
+Both files now save and restore explicitly, and `tests/conftest.py` grew two autouse
+guards so neither class can return: one restores and fails on a leaked injector
+variable, the other on a rewritten help string. The second resolves its witness
+command once per session and compares a single attribute per test — scanning every
+command against every config-section name on each of 14 500 tests cost a third of the
+suite's runtime.
+
+Verified both ways: reverse order was 7 failed, and is now 14489 passed / 210
+skipped; forward order is unchanged at 14499 passed / 209 skipped. Each guard was
+re-falsified against its own polluter after being made cheap.
+
 ### Fixed — the Android port rolled back a quoted correction and inverted the sentence
 
 Python's self-correction guard is two lists: verbs and negations that put a trigger

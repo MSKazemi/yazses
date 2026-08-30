@@ -261,7 +261,10 @@ def test_claimed_command_never_raises_unsupported_platform(command, as_platform,
     )
 
 
-def test_cli_entry_point_converts_the_error_to_a_message(as_platform, capsys) -> None:
+
+def test_cli_entry_point_converts_the_error_to_a_message(
+    as_platform, capsys, cli_help_restored
+) -> None:
     """`yazses.cli:main` exists to keep a traceback off the screen. Click's
     standalone mode only converts its own exception types, so without this the
     user sees a stack trace where a sentence belongs."""
@@ -269,6 +272,16 @@ def test_cli_entry_point_converts_the_error_to_a_message(as_platform, capsys) ->
 
     as_platform("haiku1")
     sys.argv = ["yazses", "doctor"]
+    # `main()` calls `cli_help.apply`, which escapes `[section]` in place on the
+    # module-level command functions. Its own docstring states the contract that
+    # makes that safe -- "called from `cli.main()` and nowhere else", so the doc and
+    # man-page generators read the strings raw -- and that contract holds only
+    # because production runs one process per invocation. Here `main()` and those
+    # generators share a session, so without putting the strings back this test
+    # rewrote help for the whole run: `test_gen_docs.py`, `test_gen_man.py` and
+    # `test_cli_help_keeps_config_sections.py` all failed on it in reverse file
+    # order. `cli_help_restored` (tests/conftest.py) puts them back; requesting it
+    # is this test declaring that it rewrites shared state on purpose.
     with pytest.raises(SystemExit) as excinfo:
         main()
     assert excinfo.value.code == 2

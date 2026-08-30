@@ -407,3 +407,169 @@ def sounddevice_or_skip(*, allow_module_level: bool = False):
             allow_module_level=allow_module_level,
         )
     return sounddevice
+
+
+# --- process-global state a test must hand back -------------------------------
+#
+# Both guards below exist because the suite's result depended on the order pytest
+# happened to collect files in. Running it reverse-ordered turned seven passing
+# tests red -- four because `YAZSES_INJECTOR` was still set from an earlier file,
+# three because the CLI's help strings had been rewritten in place. CI only ever
+# runs one order, so neither was visible, and both polluting files had a fixture
+# whose author believed it handled exactly this.
+#
+# A test that changes the outcome of another test is not a guard, it is a coin
+# flip -- `test_cli_help_keeps_config_sections.py` already says so in its own
+# fixture. These make the property hold for the whole suite rather than one file.
+
+_INJECTOR_ENV = ("YAZSES_INJECTOR", "YAZSES_INJECT_FALLBACK")
+
+
+@pytest.fixture(autouse=True)
+def _no_test_may_leak_the_injector_env():
+    """`inject.auto.apply_injection_config` writes these two variables into the
+    process environment, by design -- they are how `[injection] backend` reaches a
+    zero-argument `injector_factory`. In one process per run that is correct; in a
+    shared test process the next test inherits the setting.
+
+    `monkeypatch.delenv(name, raising=False)` does **not** protect against it. When
+    the variable is absent -- the normal case -- `delitem` records nothing to undo,
+    so the fixture is inert and whatever the test sets afterwards survives teardown.
+    Two files relied on exactly that.
+    """
+    before = {name: os.environ.get(name) for name in _INJECTOR_ENV}
+    yield
+    leaked = {
+        name: os.environ.get(name)
+        for name in _INJECTOR_ENV
+        if os.environ.get(name) != before[name]
+    }
+    for name, value in before.items():
+        if value is None:
+            os.environ.pop(name, None)
+        else:
+            os.environ[name] = value
+    assert not leaked, (
+        f"this test left {leaked} in the environment. `get_injector()` reads them, "
+        "so every later test that asks for an injector gets this one's answer -- "
+        "`test_auto_inject.py` built a ClipboardInjector where it asserted xdotool. "
+        "Save and restore them explicitly; `monkeypatch.delenv(..., raising=False)` "
+        "records nothing to undo when the variable was not already set."
+    )
+
+
+def _help_witness():
+    """The one command function whose docstring names a config section, resolved once.
+
+    `cli_help.apply` rewrites every docstring in the app in a single pass, so one
+    witness detects it and the guard below stays O(1) -- it runs on all ~14 500
+    tests, and scanning every command against every section name on each of them
+    cost the suite a third of its runtime.
+
+    Resolved by search rather than hardcoded: naming a command here would make the
+    guard silently blind the day that command is renamed or its help reworded.
+    """
+    import yazses.cli as cli_mod
+    from yazses.cli_help import config_section_names
+
+    known = config_section_names()
+    for command in getattr(cli_mod.app, "registered_commands", ()):
+        fn = getattr(command, "callback", None)
+        doc = getattr(fn, "__doc__", None) or ""
+        if any(f"[{name}]" in doc for name in known):
+            return fn, doc
+    return None, None
+
+
+def _help_slots(app):
+    """Every (object, attribute) pair `cli_help.apply` writes to, sub-apps included."""
+    slots = [(app.info, "help")]
+    for command in getattr(app, "registered_commands", ()):
+        slots.append((command, "help"))
+        fn = getattr(command, "callback", None)
+        if fn is not None:
+            slots.append((fn, "__doc__"))
+            slots += [(d, "help") for d in (fn.__defaults__ or ()) if hasattr(d, "help")]
+    info = getattr(app, "registered_callback", None)
+    if info is not None and getattr(info, "callback", None):
+        fn = info.callback
+        slots.append((fn, "__doc__"))
+        slots += [(d, "help") for d in (fn.__defaults__ or ()) if hasattr(d, "help")]
+    for group in getattr(app, "registered_groups", ()):
+        slots.append((group, "help"))
+        sub = getattr(group, "typer_instance", None)
+        if sub is not None:
+            slots += _help_slots(sub)
+    return slots
+
+
+@pytest.fixture(scope="session")
+def _cli_help_witness():
+    """(function, pristine docstring) -- resolved once for the whole session."""
+    return _help_witness()
+
+
+@pytest.fixture(scope="session")
+def _pristine_cli_help():
+    """The unescaped help text, captured once before any test can rewrite it.
+
+    Session-scoped so the walk happens a single time; the per-test guard below
+    compares one cheap sentinel and only touches this when it has actually moved.
+    """
+    import yazses.cli as cli_mod
+
+    return [(obj, attr, getattr(obj, attr, None)) for obj, attr in _help_slots(cli_mod.app)]
+
+
+@pytest.fixture(autouse=True)
+def _no_test_may_rewrite_the_cli_help_strings(_pristine_cli_help, _cli_help_witness):
+    """`cli.main()` calls `cli_help.apply`, which escapes `[section]` in place on the
+    module-level command functions -- and its own docstring states the contract that
+    makes that safe: "called from `cli.main()` and nowhere else", so the generators
+    that read the same strings raw see them unescaped.
+
+    That contract holds in production, where each invocation is a fresh process. It
+    cannot hold in a test session, where `main()` and `scripts/gen-docs.py` share
+    one. `test_platform_bsd_and_fallback.py` calls `main()` to prove the console
+    script prints a sentence instead of a traceback, and every later test saw
+    escaped help: `test_gen_docs.py`, `test_gen_man.py` and
+    `test_cli_help_keeps_config_sections.py` all failed on it.
+
+    Restores before failing, so one offending test cannot cascade into the rest of
+    the run -- the cascade is what made this expensive to diagnose.
+    """
+    witness, pristine = _cli_help_witness
+    yield
+    if witness is None or witness.__doc__ == pristine:
+        return
+    for obj, attr, value in _pristine_cli_help:
+        try:
+            setattr(obj, attr, value)
+        except (AttributeError, TypeError):
+            pass
+    raise AssertionError(
+        f"this test rewrote the CLI help strings in place ({witness.__name__}'s "
+        "docstring changed). "
+        "They are module-level singletons shared with the whole run, so "
+        "the doc and man-page generators -- which read them raw, by design -- then "
+        "diff against the committed files and fail. The originals have been put "
+        "back; if the test must call `cli.main()`, snapshot and restore them itself."
+    )
+
+
+@pytest.fixture
+def cli_help_restored(_pristine_cli_help):
+    """Opt-in restore for a test that legitimately has to call `cli.main()`.
+
+    Not autouse: walking the app is worth doing once per session, not 14 000 times.
+    Requesting it is the declaration that this test rewrites the shared help text on
+    purpose. Its teardown runs *before* the autouse guard's check -- pytest finalises
+    function-scoped fixtures in reverse setup order and autouse ones are set up
+    first -- so a test that asks for it puts the strings back and passes.
+    """
+    yield
+    for obj, attr, value in _pristine_cli_help:
+        try:
+            setattr(obj, attr, value)
+        except (AttributeError, TypeError):
+            pass

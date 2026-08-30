@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import ast
 import inspect
+import os
 from pathlib import Path
 
 import pytest
@@ -53,12 +54,33 @@ _BACKENDS = ("auto", "type", "clipboard", "wtype")
 _MIN_CASES = 12  # sessions x backends; an empty matrix must not pass as agreement
 
 
+_SESSION_ENV = ("WAYLAND_DISPLAY", "DISPLAY", "XDG_CURRENT_DESKTOP")
+_BRIDGED = ("YAZSES_INJECTOR", "YAZSES_INJECT_FALLBACK")
+
+
 @pytest.fixture(autouse=True)
 def _clean_env(monkeypatch):
-    """No test here may read this machine's session or PATH."""
-    for var in ("YAZSES_INJECTOR", "YAZSES_INJECT_FALLBACK", "WAYLAND_DISPLAY",
-                "DISPLAY", "XDG_CURRENT_DESKTOP"):
+    """No test here may read this machine's session or PATH -- or leave the two
+    variables `apply_injection_config` writes set for the next file.
+
+    The session variables go through `monkeypatch`, which the tests then override
+    with `setenv`. The two bridged ones cannot: they are written straight into
+    `os.environ` by the code under test, and `monkeypatch.delenv(..., raising=False)`
+    records nothing to undo when the variable was not already set, so it restores
+    nothing. See the same fix in
+    `tests/test_injector_config_reaches_every_caller.py`.
+    """
+    for var in _SESSION_ENV:
         monkeypatch.delenv(var, raising=False)
+    saved = {name: os.environ.get(name) for name in _BRIDGED}
+    for name in _BRIDGED:
+        os.environ.pop(name, None)
+    yield
+    for name, value in saved.items():
+        if value is None:
+            os.environ.pop(name, None)
+        else:
+            os.environ[name] = value
 
 
 def _situation(monkeypatch, *, wayland: bool, desktop: str = "sway",

@@ -29,6 +29,7 @@ in the tree that builds an injector must apply the bridge first.
 from __future__ import annotations
 
 import ast
+import os
 import pathlib
 
 import pytest
@@ -65,10 +66,30 @@ def _builders() -> list[tuple[str, str, bool]]:
     return out
 
 
+_BRIDGED = ("YAZSES_INJECTOR", "YAZSES_INJECT_FALLBACK")
+
+
 @pytest.fixture(autouse=True)
-def _clean_env(monkeypatch):
-    monkeypatch.delenv("YAZSES_INJECTOR", raising=False)
-    monkeypatch.delenv("YAZSES_INJECT_FALLBACK", raising=False)
+def _clean_env():
+    """Start clean **and** hand the environment back.
+
+    `monkeypatch.delenv(name, raising=False)` looks like it does the second half and
+    does not: when the variable is absent -- the normal case -- `delitem` records
+    nothing to undo, so the fixture is inert and anything set during the test
+    survives teardown. Every test here calls `apply_injection_config`, which writes
+    both variables straight into `os.environ`, so every one of them leaked. Running
+    the suite in reverse file order turned four assertions in `test_auto_inject.py`
+    red: they asked for an xdotool injector and got this file's clipboard one.
+    """
+    saved = {name: os.environ.get(name) for name in _BRIDGED}
+    for name in _BRIDGED:
+        os.environ.pop(name, None)
+    yield
+    for name, value in saved.items():
+        if value is None:
+            os.environ.pop(name, None)
+        else:
+            os.environ[name] = value
 
 
 # --- every builder, not the three that were wrong -------------------------------
