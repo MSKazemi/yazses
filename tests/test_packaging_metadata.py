@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import tomllib
 from pathlib import Path
 
@@ -199,3 +200,40 @@ def test_the_refresh_script_derives_both_scoop_copies():
     assert 'packaging" / "scoop"' in source
     # Both must be written from the same rendered text, not rendered twice.
     assert "SCOOP: scoop_text," in source and "SCOOP_REVIEWED: scoop_text," in source
+
+
+def test_no_tracked_file_points_at_the_retired_org():
+    """The two guards above scan `packaging/` and the winget manifests, and that is
+    exactly how a dead `novafabric/yazses` URL survived in a design document long
+    enough to be quoted in a public store-request post, where it is a reviewer's
+    first click and it 404s.
+
+    A hand-written path set answers for the paths someone remembered. This one asks
+    the repository what it tracks. It bans the *org-slug* form (the retired name
+    followed by a slash) rather than the bare word, because the word is a legitimate
+    fixture -- `yazses vocab` ships it as a sample personal-dictionary term and the
+    report redactor is tested against it. A URL is the thing that misroutes someone.
+    """
+    retired = "novafabric"
+    tracked = subprocess.run(
+        ["git", "ls-files", "-z"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split("\0")
+    paths = [ROOT / name for name in tracked if name]
+    assert paths, "git ls-files returned nothing -- guard is blind"
+
+    offenders = []
+    for path in paths:
+        if path == Path(__file__).resolve() or not path.is_file():
+            continue
+        try:
+            body = path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        for number, line in enumerate(body.splitlines(), start=1):
+            if f"{retired}/" in line.lower():
+                offenders.append(f"{path.relative_to(ROOT)}:{number}: {line.strip()}")
+    assert not offenders, "retired org still addressed as an owner:\n" + "\n".join(offenders)

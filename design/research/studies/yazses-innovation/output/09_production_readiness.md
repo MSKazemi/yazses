@@ -243,8 +243,8 @@ yazses-daemon --verbose 2>&1 | grep disfluency
 
 ### 6.6 Homebrew Tap (macOS)
 
-- [ ] Homebrew formula updated in the `novafabric/tap` repository with `version = "0.3.0"` and updated SHA256.
-- [ ] `brew install novafabric/tap/yazses` installs `0.3.0` on macOS 13 (Ventura) and macOS 14 (Sonoma).
+- [ ] Homebrew cask updated in the `MSKazemi/yazses` tap with `version = "0.3.0"` and updated SHA256.
+- [ ] `brew install --cask MSKazemi/yazses/yazses` installs `0.3.0` on macOS 13 (Ventura) and macOS 14 (Sonoma).
 - [ ] `yazses --version` from Homebrew installation outputs `YazSes 0.3.0`.
 
 ### 6.7 GitHub Release
