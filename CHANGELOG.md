@@ -73,6 +73,34 @@ asserts the gate is open on Linux, macOS and FreeBSD, so it cannot quietly becom
 skip everywhere — which is the failure mode the eight static assertions would not
 catch, being the ones that check what the wait *says* rather than what it does.
 
+### Fixed — a re-run of the snap publish uploaded a duplicate revision every time
+
+`.github/workflows/snap.yml` uploaded unconditionally. A tag is immutable and the
+version comes from the tag, so a second run of the job for the same release could
+only be re-uploading the same artifact — but it created a fresh store revision
+anyway, and each one entered the Snap Store's review queue on its own.
+
+Between them, that and the stale committed `version:` line (fixed separately, and
+guarded by `tests/test_snap_version_matches_the_project.py`) accounted for **272 of
+the store's 405 revisions**, 188 of which never took a channel. The store emails one
+"Status update for version … has been rejected" per revision, so clearing that queue
+delivered **177** of them, 175 inside three minutes (counted in the mailbox on
+2026-08-31; Gmail's own result estimate caps at "201" and had been believed). 2.30.0 alone collected twenty
+revisions and 2.31.0 eighteen.
+
+The publish step now asks the store first. If a revision for this version *and*
+architecture already holds a channel, it releases that revision instead of uploading
+a duplicate. The guard is keyed on holding a channel rather than on merely existing,
+because `snapcraft revisions` renders "still in review" and "rejected" identically as
+`-` — keying it on existence would refuse the one case a re-run is actually for. A
+`force_upload` workflow_dispatch input is the way past it for a packaging-only rebuild
+at an unchanged version.
+
+This entry was written under `[2.36.0]` while the code implementing it sat
+uncommitted in the working tree, so that release's notes described a guard the
+release did not contain. It is recorded here, against the version that actually
+ships it, rather than left where it was untrue.
+
 ## [2.36.0] - 2026-08-30
 
 ### Fixed — the heavy-extras gate asked for something no run could give it
@@ -734,28 +762,6 @@ thirteen with their evidence, the reference page marks them inert alongside the 
 the user cannot act on the distinction — and `tests/test_shared_config_names.py`
 re-checks that none has since acquired an attributable read, so wiring one turns the
 suite red until its entry goes.
-
-### Fixed — a re-run of the snap publish uploaded a duplicate revision every time
-
-`.github/workflows/snap.yml` uploaded unconditionally. A tag is immutable and the
-version comes from the tag, so a second run of the job for the same release could
-only be re-uploading the same artifact — but it created a fresh store revision
-anyway, and each one entered the Snap Store's review queue on its own.
-
-Between them, that and the stale committed `version:` line (fixed separately, and
-guarded by `tests/test_snap_version_matches_the_project.py`) accounted for **272 of
-the store's 405 revisions**, 188 of which never took a channel. The store emails one
-"Status update for version … has been rejected" per revision, so clearing that queue
-delivered about two hundred of them in two minutes. 2.30.0 alone collected twenty
-revisions and 2.31.0 eighteen.
-
-The publish step now asks the store first. If a revision for this version *and*
-architecture already holds a channel, it releases that revision instead of uploading
-a duplicate. The guard is keyed on holding a channel rather than on merely existing,
-because `snapcraft revisions` renders "still in review" and "rejected" identically as
-`-` — keying it on existence would refuse the one case a re-run is actually for. A
-`force_upload` workflow_dispatch input is the way past it for a packaging-only rebuild
-at an unchanged version.
 
 ### Fixed — barge-in lost the race against the read-back it was meant to stop
 

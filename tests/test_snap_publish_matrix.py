@@ -219,13 +219,20 @@ def test_revision_lookup_captures_before_parsing() -> None:
     prints in ``END`` -- so it never closes the producer's stdout early.  Guard
     the assignment, not the reader.
     """
-    text = WORKFLOW.read_text(encoding="utf-8")
-    lookup_start = text.index('REV=""')
-    lookup = text[lookup_start:text.index('[ -n "$REV" ]', lookup_start)]
+    script = _publish_script()
+    start = script.index("store_revision() {")
+    lookup = script[start:script.index("\n}", start)]
 
-    assert "if REVISION_ROWS=$(snapcraft revisions yazses 2>/dev/null); then" in lookup
-    assert not re.search(r"snapcraft revisions[^\n]*\|", lookup)
-    assert '<<<"$REVISION_ROWS"' in lookup
+    assert "rows=$(snapcraft revisions yazses 2>/dev/null) || return 0" in lookup, (
+        "the store query must be captured into a variable and its status swallowed; "
+        "assigning the pipeline directly kills the step on the first transient failure"
+    )
+    # A single `|` only. The lookarounds exclude the `||` of `|| return 0`, which
+    # is the very construct that swallows the status this test is here to protect.
+    assert not re.search(r"snapcraft revisions[^\n]*(?<!\|)\|(?!\|)", lookup), (
+        "`snapcraft revisions` must not be piped into awk — that is the form that died"
+    )
+    assert '<<<"$rows"' in lookup
     assert "END { if (found) print revision }" in lookup
 
 
@@ -348,3 +355,165 @@ def test_the_explanation_does_not_turn_a_failed_publish_green() -> None:
                     "the publish step must not swallow its own failure — explaining a "
                     "failure is not the same as tolerating it"
                 )
+
+
+def _fake_store(tmp_path: Path, revisions: str) -> tuple[Path, Path]:
+    """A stand-in `snapcraft` whose `revisions` table is fixed by the caller.
+
+    Returns the directory to put on PATH and the file every mutating call appends
+    to, so a test can assert on *which* store operations happened rather than only
+    on the exit code. That distinction is the whole subject here: the defect was an
+    upload that should not have been made, and it exited 0 every time.
+    """
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir(exist_ok=True)
+    calls = tmp_path / "snapcraft-calls"
+    snapcraft = fake_bin / "snapcraft"
+    snapcraft.write_text(
+        f"""#!/bin/sh
+set -eu
+case "$1" in
+  upload)
+    printf '%s\\n' "$*" >> "$SNAPCRAFT_CALLS"
+    ;;
+  revisions)
+    printf 'Rev.\\tUploaded\\tArches\\tVersion\\tChannels\\n'
+{revisions}
+    ;;
+  release)
+    printf '%s\\n' "$*" >> "$SNAPCRAFT_CALLS"
+    ;;
+  status)
+    printf 'yazses %s stable 2.31.0\\n' "$ARCH"
+    ;;
+  *)
+    exit 2
+    ;;
+esac
+""",
+        encoding="utf-8",
+    )
+    snapcraft.chmod(0o755)
+    return fake_bin, calls
+
+
+def _run_publish(tmp_path: Path, fake_bin: Path, calls: Path, arch: str, **extra: str):
+    env = os.environ.copy()
+    env.update(
+        {
+            "ARCH": arch,
+            "PATH": f"{fake_bin}{os.pathsep}{env['PATH']}",
+            "SNAPCRAFT_CALLS": str(calls),
+            "SNAPCRAFT_STORE_CREDENTIALS": "test-only",
+            "SNAP_FILE": f"yazses_2.31.0_{arch}.snap",
+        }
+    )
+    env.update(extra)
+    return subprocess.run(
+        ["bash", "-e", "-c", _publish_script()],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+
+
+@needs_the_workflow_runner
+@pytest.mark.parametrize("arch,revision", [("amd64", "388"), ("arm64", "389")])
+def test_a_published_version_is_released_not_uploaded_again(
+    tmp_path: Path, arch: str, revision: str
+) -> None:
+    """Re-running the job for a version the store already publishes must upload nothing.
+
+    A tag is immutable and the version comes from the tag, so a re-run can only be
+    the same release. The old form uploaded anyway, and every duplicate entered the
+    store's review queue on its own: 2.30.0 collected twenty revisions and 2.31.0
+    eighteen, of which eight never took a channel. Each one the queue did not clear
+    became a rejected revision and one more "Status update for version … of YazSes
+    has been rejected" email — about two hundred of them, all from this.
+
+    Both arches are exercised because the guard is per-architecture; a lookup that
+    ignored `Arches` would let one arch's publish suppress the other's upload, which
+    is issue #267 again from the other direction.
+    """
+    table = (
+        "    printf '388\\t2026-08-24T11:43:49Z\\tamd64\\t2.31.0\\tlatest/edge,latest/stable\\n'\n"
+        "    printf '389\\t2026-08-24T11:43:52Z\\tarm64\\t2.31.0\\tlatest/edge,latest/stable\\n'"
+    )
+    fake_bin, calls = _fake_store(tmp_path, table)
+    result = _run_publish(tmp_path, fake_bin, calls, arch)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert calls.read_text(encoding="utf-8") == f"release yazses {revision} stable,edge\n", (
+        "the store already publishes this version/arch, so the only call may be the "
+        "release of the existing revision — an upload here is the duplicate"
+    )
+    assert "already publishes" in result.stdout
+
+
+@needs_the_workflow_runner
+def test_a_channel_less_revision_does_not_block_the_retry(tmp_path: Path) -> None:
+    """The guard must not refuse the one case a re-run is actually for.
+
+    `snapcraft revisions` renders "still in review" and "rejected" identically, as
+    `-` in the Channels column. Keying the guard on *any* revision would therefore
+    make a rejected upload permanently unretryable, so it is keyed on a revision
+    that already holds a channel.
+    """
+    table = "    printf '390\\t2026-08-24T11:46:49Z\\tamd64\\t2.31.0\\t-\\n'"
+    fake_bin, calls = _fake_store(tmp_path, table)
+    result = _run_publish(tmp_path, fake_bin, calls, "amd64")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert calls.read_text(encoding="utf-8") == (
+        "upload yazses_2.31.0_amd64.snap --release=stable,edge\n"
+        "release yazses 390 stable,edge\n"
+    )
+
+
+@needs_the_workflow_runner
+def test_force_upload_overrides_the_guard(tmp_path: Path) -> None:
+    """A packaging-only rebuild at an unchanged version needs a way through.
+
+    The guard is the right default and the wrong absolute, so `force_upload` exists.
+    Without it the only escape from a bad published revision would be a version bump.
+    """
+    table = (
+        "    printf '388\\t2026-08-24T11:43:49Z\\tamd64\\t2.31.0\\tlatest/edge,latest/stable\\n'"
+    )
+    fake_bin, calls = _fake_store(tmp_path, table)
+    result = _run_publish(tmp_path, fake_bin, calls, "amd64", FORCE_UPLOAD="true")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert calls.read_text(encoding="utf-8").startswith(
+        "upload yazses_2.31.0_amd64.snap --release=stable,edge\n"
+    ), "force_upload must reach the upload"
+
+
+def test_force_upload_is_reachable_from_the_workflow_ui() -> None:
+    """A guard with an escape hatch nobody can press is a guard with none.
+
+    The step reads `$FORCE_UPLOAD`; the value has to come from a declared
+    `workflow_dispatch` input and be wired into the step's env, or the only way
+    past the guard would be to edit the workflow.
+    """
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    triggers = workflow[True] if True in workflow else workflow["on"]
+    inputs = triggers["workflow_dispatch"]["inputs"]
+    assert "force_upload" in inputs, (
+        "the publish step consults $FORCE_UPLOAD but no workflow_dispatch input "
+        "declares it — the hatch is unreachable from the Actions UI"
+    )
+    assert inputs["force_upload"].get("default") in (False, "false"), (
+        "force_upload must default to off; the guard is the point"
+    )
+
+    publish = next(
+        s for job in workflow["jobs"].values() for s in job.get("steps", [])
+        if s.get("id") == "publish"
+    )
+    assert "FORCE_UPLOAD" in publish.get("env", {}), (
+        "the input is declared but never reaches the step's environment"
+    )

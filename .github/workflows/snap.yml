@@ -13,6 +13,11 @@ on:
         description: "Version to build (without 'v' prefix). Defaults to current snapcraft.yaml value."
         required: false
         type: string
+      force_upload:
+        description: "Upload a new revision even when the store already publishes this version/arch."
+        required: false
+        default: false
+        type: boolean
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -135,6 +140,7 @@ jobs:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
           SNAP_FILE: ${{ steps.snap-build.outputs.snap }}
           ARCH: ${{ matrix.arch }}
+          FORCE_UPLOAD: ${{ inputs.force_upload || false }}
         # This used to be `snapcore/action-publish` with `release: stable,edge`,
         # i.e. `snapcraft upload <snap> --release stable,edge`. That form is back,
         # but it is NOT what this job relies on -- see the note below the failure
@@ -175,18 +181,10 @@ jobs:
           set -uo pipefail
           command -v snapcraft >/dev/null || sudo snap install snapcraft --classic
 
-          # snapcraft exits 120 when its final stdout flush loses the pipe after
-          # a long store-review poll.  `bash -e` has still aborted this step in
-          # practice despite the old trailing `|| true`, before the revision
-          # lookup below could run.  Disable errexit explicitly around the one
-          # command whose status is deliberately advisory, then restore it.
-          set +e
-          timeout 900 snapcraft upload "$SNAP_FILE" --release=stable,edge 2>&1 | tee upload.log
-          UPLOAD_STATUS=${PIPESTATUS[0]}
-          set -e
-          if (( UPLOAD_STATUS != 0 )); then
-            echo "::notice::snapcraft upload exited $UPLOAD_STATUS; checking the store for the accepted revision"
-          fi
+          # `set -u` is on and a tag push supplies no `inputs.force_upload`, so
+          # give it the safe value here rather than relying on every caller to
+          # remember it.  The safe value is "do not force".
+          FORCE_UPLOAD="${FORCE_UPLOAD:-false}"
 
           # From the filename, which the arch check above has already proved.
           VERSION=$(basename "$SNAP_FILE" | sed -E "s/^yazses_(.+)_${ARCH}\.snap$/\1/")
@@ -194,26 +192,68 @@ jobs:
           # Read the revision back from the store rather than parsing upload.log:
           # the log is exactly what gets truncated when the poll is killed, and the
           # revision exists whether or not the client lived to be told about it.
-          REV=""
-          for _ in $(seq 1 10); do
-            # Capture first, parse second.  `set -e` is back on by this point,
-            # and under it a failing command substitution in an assignment aborts
-            # the step -- so with `pipefail`, one transient nonzero exit from
-            # `snapcraft revisions` (a store blip, a lost pipe on its final flush,
-            # the exit 120 described above) killed the release on the first pass of
-            # the very loop written to retry it.  Assigning the raw output through
-            # `if` makes that failure a skipped iteration instead of a dead job.
-            if REVISION_ROWS=$(snapcraft revisions yazses 2>/dev/null); then
-              REV=$(awk -v v="$VERSION" -v a="$ARCH" \
-                    '$3 == a && $4 == v && !found { revision = $1; found = 1 } \
-                     END { if (found) print revision }' <<<"$REVISION_ROWS")
+          #
+          # Capture first, parse second.  `set -e` is on around every caller, and
+          # under it a failing command substitution in an assignment aborts the
+          # step -- so with `pipefail`, one transient nonzero exit from `snapcraft
+          # revisions` (a store blip, a lost pipe on its final flush, the exit 120
+          # described below) killed the release on the first pass of the very loop
+          # written to retry it.  Swallowing the status here makes that failure an
+          # empty answer, which every caller already treats as "not yet".
+          #
+          # `$5` is the Channels column and is `-` for a revision that holds no
+          # channel.  `published_only` therefore means "this version/arch has
+          # already been released once", which is a different question from "the
+          # store has heard of it" and the two are asked in different places.
+          store_revision() {
+            local published_only="$1" rows
+            rows=$(snapcraft revisions yazses 2>/dev/null) || return 0
+            awk -v v="$VERSION" -v a="$ARCH" -v pub="$published_only" \
+              '$3 == a && $4 == v && !found && (pub != "1" || $5 != "-") \
+                 { revision = $1; found = 1 } \
+               END { if (found) print revision }' <<<"$rows"
+          }
+
+          # Idempotence.  Re-running this job for a version the store has already
+          # PUBLISHED used to upload a second revision of what can only be the same
+          # release -- a tag is immutable, and the version comes from the tag.  Each
+          # duplicate enters the store's review queue on its own, and every one the
+          # queue does not clear becomes a rejected revision and one more "Status
+          # update for version ... has been rejected" email.  That is how 2.30.0
+          # accumulated twenty revisions and 2.31.0 eighteen, eight of which never
+          # took a channel.
+          #
+          # The guard is keyed on a revision that already HOLDS a channel, not on
+          # any revision at all: a channel-less one is either still in review or was
+          # rejected, and `snapcraft revisions` renders both as `-`.  Skipping on
+          # those would refuse to retry the exact case a retry is for.
+          REV=$(store_revision 1)
+          if [ -n "$REV" ] && [ "$FORCE_UPLOAD" != "true" ]; then
+            echo "::notice::the store already publishes $VERSION/$ARCH as revision $REV; releasing that revision instead of uploading a duplicate (re-run with force_upload to upload anyway)"
+          else
+            # snapcraft exits 120 when its final stdout flush loses the pipe after
+            # a long store-review poll.  `bash -e` has still aborted this step in
+            # practice despite the old trailing `|| true`, before the revision
+            # lookup below could run.  Disable errexit explicitly around the one
+            # command whose status is deliberately advisory, then restore it.
+            set +e
+            timeout 900 snapcraft upload "$SNAP_FILE" --release=stable,edge 2>&1 | tee upload.log
+            UPLOAD_STATUS=${PIPESTATUS[0]}
+            set -e
+            if (( UPLOAD_STATUS != 0 )); then
+              echo "::notice::snapcraft upload exited $UPLOAD_STATUS; checking the store for the accepted revision"
             fi
-            [ -n "$REV" ] && break
-            sleep 15
-          done
-          if [ -z "$REV" ]; then
-            echo "::error::the store holds no revision for yazses $VERSION/$ARCH — the upload itself failed, not the wait"
-            exit 1
+
+            REV=""
+            for _ in $(seq 1 10); do
+              REV=$(store_revision 0)
+              [ -n "$REV" ] && break
+              sleep 15
+            done
+            if [ -z "$REV" ]; then
+              echo "::error::the store holds no revision for yazses $VERSION/$ARCH — the upload itself failed, not the wait"
+              exit 1
+            fi
           fi
           echo "Store revision for $VERSION/$ARCH is $REV"
 
