@@ -140,13 +140,31 @@ jobs:
           # nothing else, even if some future step leaves something else in the tree.
           git commit -m "chore(deps): regenerate sbom.cdx.json for this lockfile" -- sbom.cdx.json
           git push origin "HEAD:${{ steps.pr.outputs.ref }}"
-          # ⚠ Known and accepted: a push made with GITHUB_TOKEN does not start a new
-          # workflow run, by design (GitHub's recursion guard). So `test.yml` will not
-          # re-run itself on the commit this step just pushed, and the PR keeps showing
-          # the check result from the head it had on arrival. That is tolerable here and
-          # nowhere near tolerable in general: this repository has no required checks
-          # (Scorecard reports Branch-Protection 3/10), so nothing merges on the strength
-          # of a green tick — the maintainer reads the run. What the push buys is that
-          # the *next* run, whenever it is triggered, starts from a lockfile and an SBOM
-          # that agree. If required checks are ever turned on, this needs a PAT or an app
-          # token instead, and the stale result stops being cosmetic.
+          # ⚠ What this push does to the PR's checks, measured on #324 rather than
+          # assumed. The note here used to say a GITHUB_TOKEN push starts no workflow
+          # run at all (GitHub's recursion guard), so the PR would keep showing the
+          # result from the head it arrived with. That is not what happens on this
+          # repository, and the real behaviour is worse.
+          #
+          # On #324 the push to `797c2de` *did* create four runs -- Tests, CodeQL,
+          # Dependency review, Campaign preflight -- all on the `pull_request` event.
+          # Every one of them completed as `action_required`: held, never executed,
+          # waiting for a maintainer to press "Approve and run workflows". The reason
+          # is the actor. The runs on Dependabot's own head `32e800b8` have
+          # `actor: dependabot[bot]` and ran; the runs on the head this step pushes
+          # have `actor: github-actions[bot]`, and that actor falls under the
+          # approval gate.
+          #
+          # So the PR shows **no** check results rather than stale ones, and
+          # `gh pr checks` answers "no checks reported on the branch" -- which reads
+          # like a workflow-configuration bug rather than a queue waiting on a click.
+          # The PR sat that way from 2026-08-30 until the runs were approved by hand
+          # on 2026-08-31.
+          #
+          # It is still not a merge hazard: this repository has no required checks
+          # (Scorecard reports Branch-Protection 3/10), so nothing merges on the
+          # strength of a green tick -- the maintainer reads the run. What the push
+          # buys is that the run, once approved, starts from a lockfile and an SBOM
+          # that agree. To remove the manual click, push with a PAT or an app token so
+          # the actor is not `github-actions[bot]`; that is also what required checks
+          # would need.
