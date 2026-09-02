@@ -56,7 +56,10 @@ Any setup is welcome — beginner or power user. 💛
 - **OS / desktop:** Windows 11
 - **Mic:** Laptop built-in microphone
 - **Apps you dictate into:** Web browser, VS Code, PowerShell, GitHub
-- **How you use YazSes:** Tested YazSes on Windows 11 while working on an open-source contribution. I used it for writing GitHub comments, typing commands and notes in PowerShell, and writing in VS Code. Dictation successfully converted speech to text and injected it into the tested applications. It worked well as a hands-free text input method for everyday development tasks.
-
+- **How you use YazSes:** Tested YazSes on Windows 11 while working on an open-source
+  contribution. I used it for writing GitHub comments, typing commands and notes in
+  PowerShell, and writing in VS Code. Dictation successfully converted speech to text
+  and injected it into the tested applications. It worked well as a hands-free text
+  input method for everyday development tasks.
 
 <!-- Add your entry above this line's section by appending a new ### block at the end. -->
