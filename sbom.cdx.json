@@ -2051,14 +2051,14 @@
     {
       "type": "library",
       "name": "platformdirs",
-      "version": "4.11.4",
-      "purl": "pkg:pypi/platformdirs@4.11.4",
-      "bom-ref": "pkg:pypi/platformdirs@4.11.4",
+      "version": "4.11.5",
+      "purl": "pkg:pypi/platformdirs@4.11.5",
+      "bom-ref": "pkg:pypi/platformdirs@4.11.5",
       "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "f3373be828247211d0febabea97e238c3dfde8a60b3c90c32756fb52cb21556d"
+          "content": "e8b31f4f8bcbbedef91a6b57a706255e4f148d2a4e01648382a0a47342539173"
         }
       ]
     },
@@ -2847,14 +2847,14 @@
     {
       "type": "library",
       "name": "ruff",
-      "version": "0.16.4",
-      "purl": "pkg:pypi/ruff@0.16.4",
-      "bom-ref": "pkg:pypi/ruff@0.16.4",
+      "version": "0.16.5",
+      "purl": "pkg:pypi/ruff@0.16.5",
+      "bom-ref": "pkg:pypi/ruff@0.16.5",
       "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "13171aa9d9af2240ee3504e639de73122c67e74036de5ba2e1d01422cd17e3dc"
+          "content": "1b88500f9ffbcab3dedb0082c9f9492e91ec3d618aac1236a3e0189938f7040b"
         }
       ]
     },
@@ -3399,14 +3399,14 @@
     {
       "type": "library",
       "name": "typer",
-      "version": "0.27.1",
-      "purl": "pkg:pypi/typer@0.27.1",
-      "bom-ref": "pkg:pypi/typer@0.27.1",
+      "version": "0.27.2",
+      "purl": "pkg:pypi/typer@0.27.2",
+      "bom-ref": "pkg:pypi/typer@0.27.2",
       "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "a79bef8469a79c45498e7b814ecf8d603cc7644e9acbd9e19cac0334240b18df"
+          "content": "269b7eb9d3c202ca84b4bc9618cb04ebb43d3d4d1e567e4c768607232c05f945"
         }
       ]
     },
