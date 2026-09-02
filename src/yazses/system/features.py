@@ -187,6 +187,7 @@ def _registry() -> list[_Def]:
     co_on, co_off = _bool("cocktail")
     # Gaze: enabling also turns on routing, so the feature actually targets the
     # looked-at pane (enabled alone samples the camera but changes nothing).
+    fg_on, fg_off = _bool("facegesture")
     g_on = (("gaze", "enabled", "true", False), ("gaze", "route_dictation", "true", False))
     g_off = (("gaze", "enabled", "false", False), ("gaze", "route_dictation", "false", False))
     pg_on, pg_off = _bool("polyglot")
@@ -1008,6 +1009,12 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "Uses the webcam to route dictation to the pane you look at. "
              "Experimental; needs a webcam + X11.",
              lambda c: c.gaze.enabled, g_on, g_off),
+        _Def("facegesture", "Face-Gesture Switch (camera)",
+             "[facegesture] — hold a face, not a key", EXPERIMENTAL,
+             "Opens the mic while you hold a facial movement (jaw open, brows raised) "
+             "instead of a key — switch access for people who can speak but cannot "
+             "press one. Needs a webcam; experimental. Off by default.",
+             lambda c: c.facegesture.enabled, fg_on, fg_off),
     ]
     return [_attach_deps(d) for d in defs]
 
@@ -1026,6 +1033,10 @@ _ONNXRUNTIME = (
 
 _FEATURE_DEPS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     "gaze": (("cv2", "mediapipe"), ("mediapipe>=0.10.35", "opencv-python>=5.0")),
+    # The same two packages and the same FaceLandmarker asset as Glance-Type: the
+    # face-gesture switch reads blendshapes off the model gaze already downloads,
+    # so enabling it after gaze installs nothing.
+    "facegesture": (("cv2", "mediapipe"), ("mediapipe>=0.10.35", "opencv-python>=5.0")),
     "overlay": (("PySide6",), ("PySide6>=6.11.1",)),
     # Same Qt dependency as the overlay. Registered separately because PySide6 is
     # no longer a base dependency (it is the `desktop` extra), so enabling the tray
@@ -1335,6 +1346,7 @@ _EXAMPLES: dict[str, str] = {
     "bridge": "Pair smart glasses to relay audio to the desktop (experimental).",
     "modality": "Route dictation vs commands to different targets by role.",
     "gaze": "Glance at a screen zone to choose where the next dictation lands.",
+    "facegesture": "Open your jaw to start dictating, close it to stop — no key at all.",
 }
 
 
@@ -1496,6 +1508,7 @@ _USE_CASES: dict[str, str] = {
     "bridge": "When you want to dictate from a paired phone or glasses mic while your desktop does STT.",
     "modality": "When you have EMG or gaze hardware and want each input assigned to its fastest role.",
     "gaze": "When you have several panes open and want dictation to land in whichever one you look at.",
+    "facegesture": "When you cannot hold a key — a facial movement becomes the hotkey, using only the webcam.",
     "self_repair": "When you catch a slip mid-sentence and naturally say 'no I mean X' instead of editing.",
     "corpus_scrub": "When you enable the learning corpus but want stored audio stripped of your voice identity.",
     "readback_clone": "When you want read-back spoken in a clone of your own voice, not a generic TTS voice.",
@@ -1565,7 +1578,7 @@ _CATEGORIES: dict[str, str] = {
     "overlay-reduced-motion": CAT_ACCESS,
     "readback_clone": CAT_ACCESS, "voicehealth": CAT_ACCESS, "loadguard": CAT_ACCESS,
     "voicetimer": CAT_ACCESS, "spatialvad": CAT_ACCESS, "modality": CAT_ACCESS,
-    "gaze": CAT_ACCESS, "mousegrid": CAT_ACCESS,
+    "gaze": CAT_ACCESS, "mousegrid": CAT_ACCESS, "facegesture": CAT_ACCESS,
     # Learning, memory & analytics.
     "learning": CAT_LEARN, "personalize": CAT_LEARN, "coach": CAT_LEARN,
     "sentiment": CAT_LEARN, "recall": CAT_LEARN, "rag": CAT_LEARN,

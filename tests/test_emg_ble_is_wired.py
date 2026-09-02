@@ -39,6 +39,15 @@ class _Daemon:
     def _on_command_hold_start(self, leaked: int) -> None: ...
     def _on_command_hold_end(self) -> None: ...
 
+    # The seam grew a second, camera-driven source (#102) and the EMG factory now
+    # starts from its list. Delegated to the real method rather than stubbed to [],
+    # so this stays a test of the real factory: with no `facegesture` on the config
+    # stub it returns [], which is what an unconfigured machine gets.
+    def _build_face_gesture_source(self, cfg) -> list:
+        from yazses.core.daemon import Daemon
+
+        return Daemon._build_face_gesture_source(self, cfg)
+
 
 def _sources(monkeypatch: pytest.MonkeyPatch, **emg):
     """Run the real factory against a config stub, with both backends faked."""

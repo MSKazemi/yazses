@@ -27,6 +27,8 @@ import types
 import typing
 from dataclasses import dataclass
 
+from yazses.facegesture.detector import gesture_names as _gesture_names
+
 __all__ = ["ConfigProblem", "build_section", "coerce_value"]
 
 _TRUE = {"true", "yes", "on", "1"}
@@ -184,6 +186,10 @@ def negative_is_impossible(field) -> bool:
     return default >= 0
 
 
+#: The face-gesture switch's supported gestures, read from their definition rather
+#: than restated, so this file cannot fall behind it.
+_FACE_GESTURES: tuple[str, ...] = _gesture_names()
+
 #: Settings whose documented values are a closed set, keyed by ``section.key``.
 #:
 #: Type coercion accepts any string for a `str` field, so a typo was stored verbatim,
@@ -271,6 +277,12 @@ _ENUMS: dict[str, tuple[str, ...]] = {
     # the documented default here, and `core/daemon.py` warns if it ever sees another
     # value anyway.
     "emg.mode": ("command", "full_text"),
+    # The same pair on the camera activation source. `gesture` is derived from
+    # `facegesture.detector.GESTURES` rather than restated: a hand-written copy of a
+    # set that already exists is the thing that drifts, and the value names a facial
+    # movement the daemon has to be watching for the switch to work at all.
+    "facegesture.mode": ("command", "full_text"),
+    "facegesture.gesture": _FACE_GESTURES,
     # Five more, each read at its consumer first. They share one shape: the value is
     # compared against a single name and *everything else* takes the other branch, so a
     # typo is not rejected, it silently selects the alternative.

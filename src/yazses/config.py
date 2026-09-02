@@ -505,6 +505,32 @@ class GazeConfig:
 
 
 @dataclass
+class FacegestureConfig:
+    """Face-gesture switch access — a held facial movement as the hotkey (#102).
+
+    The switch-access half of the hands-free bundle: MediaPipe's FaceLandmarker (the
+    model Glance-Type already downloads) reports 52 blendshape activations per frame,
+    and one of them becomes the key you hold. For someone who can speak but cannot
+    press a key, this is the activation source that needs no hardware beyond the
+    webcam already in the lid — eViacam and Google Project Gameface, the two tools
+    that used to cover this on Linux, are unmaintained and archived respectively.
+
+    OFF by default; needs a webcam + the ``gaze`` extra (opencv + mediapipe). Frames
+    are processed in-RAM and never stored or transmitted (ADR-011).
+    """
+    enabled: bool = False
+    gesture: str = "jaw_open"         # jaw_open | brow_raise | mouth_pucker | smile | eyes_closed
+    mode: str = "full_text"           # full_text (dictate) | command (force command mode)
+    camera_index: int = 0
+    model_path: str = ""              # override the FaceLandmarker asset; "" = auto-download
+    hold_threshold: float = 0.5       # open the mic at/above this blendshape score
+    release_threshold: float = 0.35   # close it below this one (must be lower — hysteresis)
+    min_hold_frames: int = 3          # frames above hold_threshold before the mic opens
+    min_release_frames: int = 2       # frames below release_threshold before it closes
+    fps: int = 15                     # camera sampling rate (1..60)
+
+
+@dataclass
 class CocktailConfig:
     """v2 — Cocktail Filter (spec-cocktail-filter), P1 personal-VAD gate (§3.2).
 
@@ -1829,6 +1855,7 @@ class Config:
     tts: TtsConfig = field(default_factory=TtsConfig)
     voiceprint: VoiceprintConfig = field(default_factory=VoiceprintConfig)
     gaze: GazeConfig = field(default_factory=GazeConfig)
+    facegesture: FacegestureConfig = field(default_factory=FacegestureConfig)
     cocktail: CocktailConfig = field(default_factory=CocktailConfig)
     personalize: PersonalizeConfig = field(default_factory=PersonalizeConfig)
     polyglot: PolyglotConfig = field(default_factory=PolyglotConfig)

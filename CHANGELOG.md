@@ -6,6 +6,49 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — a face you hold instead of a key you press
+
+`yazses features enable facegesture --force` makes a held facial movement the
+hotkey: open your jaw (or raise your brows) and the mic opens; relax and it
+closes. It is the third activation source through the seam ADR-v2-129 built for
+exactly this, so the transcript, the guards and the injector are reached
+unchanged — only the trigger is different (#102).
+
+It costs nothing new to install. Glance-Type already downloads MediaPipe's
+FaceLandmarker, and that model already reports 52 blendshape activations per
+frame beside the landmarks gaze uses; nothing read them. Same extra, same model
+asset, same camera — enabling this after gaze fetches nothing at all, which
+`yazses features info facegesture` now prices correctly for both.
+
+The reason it exists is the users the other two triggers exclude: EMG needs an
+armband you can buy and wear, the keyboard hook needs a key you can press, and
+someone who can speak and move their face may have neither. The free Linux stack
+for that is a graveyard — eViacam unmaintained since ~2019, Google's Project
+Gameface archived in 2025 — while commercial eye-gaze AAC devices are
+$10,000–20,000 and Windows/iPad-locked.
+
+Two parameters carry the whole thing, and both are decisions rather than tuning.
+**Hysteresis:** a blendshape score is continuous and noisy, so a gesture held at
+a single threshold crosses it several times a second and each crossing would be
+a separate recording — a burst of one-word transcripts instead of one sentence.
+The mic opens at `hold_threshold`, and closes only below `release_threshold`.
+**A frame-count debounce:** talking, laughing and yawning all spike `jawOpen`
+briefly, so `min_hold_frames` is what separates a held gesture from the
+Midas-touch problem — and the latency it costs is affordable *here* because the
+audio path already prepends `[accessibility] pre_speech_padding_ms` of buffered
+audio, so the words spoken during the debounce are still in the recording. A
+frame with no reading counts toward release, never toward hold: the alternative
+to letting go when you leave the camera is a microphone that stays open until
+you come back.
+
+The activation policy is pure (`facegesture/detector.py`) and tested frame by
+frame with no camera, no model and no mediapipe; the capture loop
+(`facegesture/backend.py`) duck-types `HotkeyBackend` like both EMG transports.
+Off by default, experimental, and honestly so: the thresholds are reasoned, not
+measured on real faces. Frames are processed in RAM and never stored or sent
+(ADR-011). ADR-v2-135.
+
+
 ### Fixed — the release-day guard that was right about the wrong bytes
 
 `docker.yml` waits for PyPI before building, because the image pins
