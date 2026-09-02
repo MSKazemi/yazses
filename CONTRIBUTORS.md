@@ -88,6 +88,9 @@ found defects that no amount of reading the code here would have surfaced.
 - [@Prithvi4904](https://github.com/Prithvi4904) — first README translation (Hindi), and the
   language switcher that makes every later translation reachable
 - [@slegarraga](https://github.com/slegarraga) — see **Testing & field reports** above
+- [@visheshbpatel](https://github.com/visheshbpatel) (Vishesh Patel) — Windows 11 showcase entry:
+  dictation into PowerShell, VS Code and the browser, on the platform this project has
+  the least evidence for ([#327](https://github.com/MSKazemi/yazses/pull/327))
 - [@waterlemonnn](https://github.com/MSKazemi/yazses/commits?author=waterlemonnn)
 
 <!-- New contributors: added on merge, alphabetical. Want to be here? See CONTRIBUTING.md and grab a

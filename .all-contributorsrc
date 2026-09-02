@@ -189,6 +189,16 @@
       "contributions": [
         "doc"
       ]
+    },
+    {
+      "login": "visheshbpatel",
+      "name": "Vishesh Patel",
+      "avatar_url": "https://avatars.githubusercontent.com/u/206997413?v=4?s=100",
+      "profile": "https://github.com/visheshbpatel",
+      "contributions": [
+        "doc",
+        "userTesting"
+      ]
     }
   ]
 }
