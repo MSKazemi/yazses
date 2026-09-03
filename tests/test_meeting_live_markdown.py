@@ -65,6 +65,33 @@ def _read(p):
     return p.read_text(encoding="utf-8")
 
 
+def _wait_for(predicate, timeout=30.0, interval=0.01):
+    """Wait for the live worker's side effect without ending the meeting.
+
+    The worker is a thread with no completion signal a caller can wait on. Every other
+    test in this file reaches the decoded state by calling `stop_capture`, which drains
+    it; this one cannot, because the property under test is that the file is readable
+    *while capture is still running*, and draining would destroy what is being measured.
+
+    So it polls -- but on the postcondition itself rather than on the file existing.
+    The header is written before the first utterance line is appended, so "the file is
+    there" becomes true a moment before the content the assertions need, and waiting on
+    existence alone is a race that reads an empty or header-only file.
+
+    The timeout is a ceiling on failure, never a cost on success: a healthy run returns
+    on the first interval and only a genuinely stuck worker waits the whole budget. It
+    is generous because the slowest leg in CI is a FreeBSD VM driven over ssh, where the
+    previous 10s was not enough -- the test failed there on a pull request that changed
+    nothing but a markdown file, and passed on re-run from the same commit.
+    """
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        time.sleep(interval)
+    return predicate()
+
+
 # --- the invariant that ties the two writers together ----------------------------
 
 
@@ -126,12 +153,16 @@ def test_the_transcript_is_on_disk_before_the_meeting_is_stopped(tmp_path):
     # file is readable while capture is still running, so `stop_capture` (which drains
     # the worker) must not be what makes it appear.
     live_md = store.live_markdown_path(ctl.dir)
-    deadline = time.monotonic() + 10.0
-    while not live_md.exists() and time.monotonic() < deadline:
-        time.sleep(0.01)
+    decoded = _wait_for(
+        lambda: live_md.exists() and "sentence number 1" in _read(live_md)
+    )
     body = _read(live_md) if live_md.exists() else ""
     ctl.stop_capture()
 
+    assert decoded, (
+        "the live worker did not write the utterance within the budget -- "
+        f"exists={live_md.exists()} body={body!r}"
+    )
     assert "# Live transcript — m1" in body
     assert "sentence number 1" in body
 

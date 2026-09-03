@@ -14,6 +14,28 @@ from yazses.platform.base import TrayState
 from yazses.postprocess.prosody import Word
 
 
+def _wait_for_finalize(d, timeout=60.0, interval=0.02):
+    """Wait for the background finalize thread to clear ``_meeting_finalizing``.
+
+    The flag *is* the postcondition, so the polling shape was right; the budget was
+    not. This was ``range(200)`` at 0.02s -- four seconds for a post-pass that
+    transcribes, optionally diarizes, renders and then deletes the recording. Four
+    seconds is comfortable on an idle runner and not comfortable on a loaded one, so
+    the tests failed as a function of what else the machine was doing.
+
+    The timeout is a ceiling on failure, never a cost on success: a healthy finalize
+    returns on the first interval. Returns whether it finished, so a caller can say
+    "the finalize never completed" instead of asserting on the state it left behind
+    and reporting the symptom.
+    """
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if not d._meeting_finalizing:
+            return True
+        time.sleep(interval)
+    return not d._meeting_finalizing
+
+
 def _start(daemon, **params):
     """Call the `meeting_start` handler the way the IPC server does.
 
@@ -119,10 +141,7 @@ def test_start_warns_when_diarization_models_absent(tmp_path, monkeypatch):
     assert "warning" in started and "not be attributed" in started["warning"]
     # status also surfaces the unavailability when idle
     d._handle_meeting_stop(None)
-    for _ in range(200):
-        if not d._meeting_finalizing:
-            break
-        time.sleep(0.02)
+    assert _wait_for_finalize(d), "the background finalize never completed"
     idle = d._handle_meeting_status(None)
     assert idle["diarization"]["ready"] is False
 
@@ -148,10 +167,7 @@ def test_full_start_feed_stop_finalize(tmp_path, monkeypatch):
     stopped = d._handle_meeting_stop(None)
     assert stopped["ok"] is True and stopped["finalizing"] is True
 
-    for _ in range(200):  # wait for the background finalize thread
-        if not d._meeting_finalizing:
-            break
-        time.sleep(0.02)
+    assert _wait_for_finalize(d), "the background finalize never completed"
     assert d._meeting_finalizing is False
     assert d._state.state == TrayState.IDLE
 
@@ -192,13 +208,6 @@ def _capture_wav_path(controller, monkeypatch):
 
     monkeypatch.setattr(controller, "stop_capture", _spy)
     return seen
-
-
-def _wait_for_finalize(d):
-    for _ in range(200):
-        if not d._meeting_finalizing:
-            return
-        time.sleep(0.02)
 
 
 def test_recording_is_kept_when_finalize_fails(tmp_path, monkeypatch):
