@@ -173,7 +173,7 @@ def _collapse_replicates(comparisons: list[dict]) -> list[dict]:
 
 
 def _report(res: dict) -> None:
-    print(f"McNemar, paired by utterance, against lead=0 within each arm and cut")
+    print("McNemar, paired by utterance, against lead=0 within each arm and cut")
     print(f"source: {res['source']}   comparisons: {res['n_comparisons']}\n")
     print(f"{'baseline vs cell':<52} {'base':>5} {'cell':>5} {'b':>3} {'c':>3} {'p':>8}")
     for c in res["comparisons"]:

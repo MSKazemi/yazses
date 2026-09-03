@@ -445,6 +445,12 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# `paper/benchmark/probes/` is an archived record, not maintained code. Its own README says
+# "Read them; do not run them": the scripts hardcode absolute paths on hosts that no longer
+# exist, and several were edited between runs — which version produced which artifact is
+# exactly the thing the archive preserves. Linting would rewrite that record. The maintained
+# harness beside them (`paper/benchmark/*.py`) IS linted, and is in the gate.
+extend-exclude = ["paper/benchmark/probes"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I"]
