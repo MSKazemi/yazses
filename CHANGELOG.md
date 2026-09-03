@@ -6,6 +6,33 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a contributor's one-line cask fix could only ever have been reverted
+
+Every `brew` call touching the tap printed a deprecation warning naming this
+project: `depends_on macos: ">= :big_sur"` uses the string comparison format
+Homebrew retired in 5.1.15. Two separate field reports on
+[#182](https://github.com/MSKazemi/yazses/issues/182) pasted it back at us, which
+makes it the first thing a new macOS user sees rather than a lint nit.
+
+The fix is one line — the symbol form `depends_on macos: :big_sur`, which
+Homebrew's own warning names as the replacement and which the Cask Cookbook
+defines as the *minimum* compatible release, so the requirement is unchanged.
+[@slegarraga](https://github.com/slegarraga) wrote it on 2026-08-21 as
+[homebrew-yazses#1](https://github.com/MSKazemi/homebrew-yazses/pull/1).
+
+It landed nowhere, and merging it would not have helped. The publish job does
+`cp packaging/homebrew/yazses.rb tap/Casks/yazses.rb` — a whole-file overwrite —
+so a cask edit made in the tap is discarded by the next release. Two releases
+have shipped since. The fix therefore had to land in
+`packaging/homebrew/yazses.rb`, and now has.
+
+`tests/test_cask_macos_dependency_form.py` pins the spelling by scanning every
+`.rb` under `packaging/` rather than naming the cask, and refuses to pass on an
+empty scan. `test_spec_minimum_system_version_matches_cask` read the floor with a
+regex that recognised only the retired spelling; it now reads both, because a
+parser that knows one spelling turns a correct cask into a failure while proving
+nothing about the invariant it exists to guard.
+
 ### Added — a face you hold instead of a key you press
 
 `yazses features enable facegesture --force` makes a held facial movement the

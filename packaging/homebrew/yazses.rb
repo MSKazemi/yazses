@@ -40,7 +40,18 @@ cask "yazses" do
 
   # Matches LSMinimumSystemVersion "11.0" declared by the app bundle itself in
   # packaging/macos/yazses.spec — keep the two in step.
-  depends_on macos: ">= :big_sur"
+  #
+  # SYMBOL form, not the string ">= :big_sur". Homebrew deprecated the string
+  # comparison format in 5.1.15 and warns on EVERY brew call that touches this
+  # tap, so the first thing a new macOS user saw was a deprecation notice
+  # naming this project. The symbol already means "this release or newer" --
+  # Homebrew's own warning names it as the replacement -- so the requirement is
+  # unchanged. Reported and fixed by @slegarraga (homebrew-yazses#1); it must
+  # land HERE rather than in the tap, because publish-channels.yml does
+  # `cp packaging/homebrew/yazses.rb tap/Casks/yazses.rb` -- a whole-file
+  # overwrite, so a fix merged only into the tap is reverted by the next
+  # release. That is exactly what would have happened to theirs.
+  depends_on macos: :big_sur
 
   # Apple Silicon only, and this is a statement of fact about the artefact, not
   # a preference. The .dmg is built by .github/workflows/build-macos.yml on

@@ -52,8 +52,10 @@ found defects that no amount of reading the code here would have surfaced.
   cask route end to end on an Apple M4, the route this project had marked "never
   executed", and found that Homebrew's new tap-trust gate makes the **documented
   one-liner fail for every new user** without `brew trust`
-  ([#182](https://github.com/MSKazemi/yazses/issues/182)); also fixed the tap's
-  deprecated `depends_on macos:` warning upstream. Notably declined to claim `doctor`
+  ([#182](https://github.com/MSKazemi/yazses/issues/182)); also wrote the one-line fix
+  for the tap's deprecated `depends_on macos:` warning
+  ([homebrew-yazses#1](https://github.com/MSKazemi/homebrew-yazses/pull/1)), now carried
+  by the cask source of truth. Notably declined to claim `doctor`
   output that could not be captured from a sandbox — a report that says where it stops
   is worth more than one that guesses.
 - [@hoti-code](https://github.com/hoti-code) — ran the Homebrew cask on an M5 and reported
