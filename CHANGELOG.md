@@ -26,6 +26,16 @@ so a cask edit made in the tap is discarded by the next release. Two releases
 have shipped since. The fix therefore had to land in
 `packaging/homebrew/yazses.rb`, and now has.
 
+The same shape is in the AUR job — `cp packaging/arch/PKGBUILD
+packaging/arch/.SRCINFO aur/` — where a downstream patch is *more* likely, since the
+AUR package repo is where co-maintainers push. Nothing has been lost there only
+because the package has never published. `packaging/arch/PKGBUILD` and
+`yazses.install` now carry the same source-of-truth header the cask always had, and
+`tests/test_downstream_copies_declare_source_of_truth.py` derives the list of
+downstream-copied files from the workflows rather than naming the channels, so a
+third channel of this shape is guarded the day it is added. It fails rather than
+passes if the publish jobs change shape enough that it can no longer find them.
+
 `tests/test_cask_macos_dependency_form.py` pins the spelling by scanning every
 `.rb` under `packaging/` rather than naming the cask, and refuses to pass on an
 empty scan. `test_spec_minimum_system_version_matches_cask` read the floor with a
