@@ -70,6 +70,10 @@ found defects that no amount of reading the code here would have surfaced.
 - [@4nmus](https://github.com/4nmus) — Russian README translation, the project's first in
   Cyrillic script
 - [@AshSgDe29071999](https://github.com/AshSgDe29071999)
+- [@fall-water-zxc](https://github.com/fall-water-zxc) — Windows 11 showcase entry:
+  dictation into Notepad, the browser, the terminal and VS Code, with a laptop's
+  built-in microphone and not sitting close to it
+  ([#328](https://github.com/MSKazemi/yazses/pull/328))
 - [@HeaTTap](https://github.com/HeaTTap)
 - [@jackie-cqz](https://github.com/jackie-cqz)
 - [@jayavandhiniMK](https://github.com/jayavandhiniMK) (Jayavandhini M K) — Windows 11
