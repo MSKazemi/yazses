@@ -62,4 +62,11 @@ Any setup is welcome — beginner or power user. 💛
   and injected it into the tested applications. It worked well as a hands-free text
   input method for everyday development tasks.
 
+### @fall-water-zxc
+- **OS / desktop:** Windows 11 Home
+- **Mic:** Laptop built-in microphone
+- **Apps you dictate into:** Notepad, web browser, terminal, VS Code, 
+- **How you use YazSes:** I found YazSes very convenient for everyday tasks like browser searches and writing emails.
+It worked reliably even when I was not sitting close to the laptop, and it could accurately recognize my speech without me having to speak loudly.
+
 <!-- Add your entry above this line's section by appending a new ### block at the end. -->
