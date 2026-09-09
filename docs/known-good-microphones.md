@@ -23,7 +23,7 @@ nothing here is tested by the maintainers.
 
 | Microphone | Type | OS / desktop | `vad_threshold` | Notes |
 |---|---|---|---|---|
-| _(your entry here)_ | | | | |
+| Dell Inspiron 15 3520 built-in | built-in | Ubuntu 24.04 LTS / GNOME (Wayland) | 0.010 | Clean speech capture at normal typing distance (~45–50 cm); default 0.010 threshold cleanly rejects ambient fan/room noise. |
 
 ## Add yours
 
