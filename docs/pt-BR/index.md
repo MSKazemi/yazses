@@ -9,10 +9,13 @@ alternates:
 <!-- yazses-l10n: locale=pt-BR; source=README.md; source_sha=3baacb8; scope=partial; status=draft -->
 
 > ⚠️ **Tradução preliminar** — Assistida por máquina e ainda não revisada por um falante nativo.
+> Leia, corrija o que soar estranho e abra um PR. Veja a [issue #349](https://github.com/MSKazemi/yazses/issues/349).
 >
 > *This is a machine-assisted **draft** translation, not yet reviewed by a native
 > speaker. English is authoritative: [README.md](https://github.com/MSKazemi/yazses#readme). Improving it is a
-> welcome first contribution — see [issue #174](https://github.com/MSKazemi/yazses/issues/174).*
+> welcome first contribution — see [issue #349](https://github.com/MSKazemi/yazses/issues/349).*
+
+You'll also need to: (1) revert the README.md change (remove the added `> 🇧🇷` banner line), and (2) change the PR body from `Fixes #349` to `Ref #349` so the issue stays open for the actual translation review work.
 
 # YazSes
 
