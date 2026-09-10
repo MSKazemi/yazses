@@ -871,14 +871,14 @@
     {
       "type": "library",
       "name": "httpcore2",
-      "version": "2.9.1",
-      "purl": "pkg:pypi/httpcore2@2.9.1",
-      "bom-ref": "pkg:pypi/httpcore2@2.9.1",
+      "version": "2.12.0",
+      "purl": "pkg:pypi/httpcore2@2.12.0",
+      "bom-ref": "pkg:pypi/httpcore2@2.12.0",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "4d8acbf8b306f48c9d6046591fd5ba4037d1b1b1000d140fc2c3eab1e9a0c0e2"
+          "content": "9293522bba0aa7c4c8e9e3f040c16575bd8868e155a77fa30c7a9085a5eae648"
         }
       ]
     },
@@ -899,14 +899,28 @@
     {
       "type": "library",
       "name": "httpx2",
-      "version": "2.9.1",
-      "purl": "pkg:pypi/httpx2@2.9.1",
-      "bom-ref": "pkg:pypi/httpx2@2.9.1",
+      "version": "2.12.0",
+      "purl": "pkg:pypi/httpx2@2.12.0",
+      "bom-ref": "pkg:pypi/httpx2@2.12.0",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "1932a768737e3666291582833da748cc4e563c337cf96706fccc04fa6e58764a"
+          "content": "7631fe9887a8a2275f4a2540e053aa670fcc50742864a9ae7c66e609fdcf12cf"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "httpx2-jsfetch",
+      "version": "1.0",
+      "purl": "pkg:pypi/httpx2-jsfetch@1.0",
+      "bom-ref": "pkg:pypi/httpx2-jsfetch@1.0",
+      "scope": "optional",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "70a0e3eabfef7cce5ad9c629f7d01ca05e418f586646f4ddf14782e4c1454c60"
         }
       ]
     },
