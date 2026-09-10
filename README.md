@@ -52,7 +52,7 @@ Not sure yet? **[Try it without installing](https://mskazemi.com/yazses/try-with
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21856271.svg)](https://doi.org/10.5281/zenodo.21856271)
 [![Documentation](https://img.shields.io/badge/docs-mskazemi.com%2Fyazses-5e35b1)](https://mskazemi.com/yazses/)
 [![Open Source Helpers](https://www.codetriage.com/mskazemi/yazses/badges/users.svg)](https://www.codetriage.com/mskazemi/yazses)
-[![All Contributors](https://img.shields.io/badge/all_contributors-21-orange.svg?style=flat-square)](#contributors)
+[![All Contributors](https://img.shields.io/badge/all_contributors-22-orange.svg?style=flat-square)](#contributors)
 
 [![Get it from the Snap Store](https://snapcraft.io/en/light/install.svg)](https://snapcraft.io/yazses) **X11 only — use the Linux installer on Wayland.**
 
@@ -719,6 +719,9 @@ Thanks to these people for helping build YazSes ✨ — every bug report, doc fi
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/visheshbpatel"><img src="https://avatars.githubusercontent.com/u/206997413?v=4?s=100" width="100px;" alt="Vishesh Patel"/><br /><sub><b>Vishesh Patel</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=visheshbpatel" title="Documentation">📖</a> <a href="#userTesting-visheshbpatel" title="User Testing">📓</a> <a href="https://github.com/MSKazemi/yazses/issues?q=author%3Avisheshbpatel" title="Bug reports">🐛</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/fall-water-zxc"><img src="https://avatars.githubusercontent.com/u/210990993?v=4?s=100" width="100px;" alt="fall-water-zxc"/><br /><sub><b>fall-water-zxc</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=fall-water-zxc" title="Documentation">📖</a> <a href="#userTesting-fall-water-zxc" title="User Testing">📓</a> <a href="https://github.com/MSKazemi/yazses/issues?q=author%3Afall-water-zxc" title="Bug reports">🐛</a> <a href="#platform-fall-water-zxc" title="Packaging/porting to new platform">📦</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/greatlord"><img src="https://avatars.githubusercontent.com/u/2506501?v=4?s=100" width="100px;" alt="Magnus Olsen"/><br /><sub><b>Magnus Olsen</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/issues?q=author%3Agreatlord" title="Bug reports">🐛</a> <a href="#ideas-greatlord" title="Ideas, Planning, & Feedback">🤔</a></td>
+    </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Akgithub2028"><img src="https://avatars.githubusercontent.com/u/181275449?v=4?s=100" width="100px;" alt="Aayaann Kausar"/><br /><sub><b>Aayaann Kausar</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=Akgithub2028" title="Documentation">📖</a> <a href="#userTesting-Akgithub2028" title="User Testing">📓</a></td>
     </tr>
   </tbody>
 </table>

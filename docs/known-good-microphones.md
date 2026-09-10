@@ -11,10 +11,11 @@ real microphones, on real machines, with the `vad_threshold` that actually worke
 **Adding your microphone is a genuinely useful two-minute contribution**, and you do not need
 to know any Python. See [Add yours](#add-yours) below.
 
-!!! note "No entries yet — be the first"
+!!! tip "One row is a real contribution — yours is welcome next"
 
-    This page was created so people can append to it without waiting for anyone. If the table
-    below is still empty when you read this, add the first row.
+    Every row is one person's measurement on one machine, and the list is only useful because
+    it is broad. If your microphone, OS or desktop is not represented, add it — it takes about
+    two minutes, needs no Python, and can be done entirely in the GitHub web editor.
 
 ## The list
 

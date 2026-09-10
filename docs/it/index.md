@@ -87,6 +87,9 @@ Il resto della documentazione è per ora in inglese.
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/fall-water-zxc"><img src="https://avatars.githubusercontent.com/u/210990993?v=4?s=100" width="100px;" alt="fall-water-zxc"/><br /><sub><b>fall-water-zxc</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=fall-water-zxc" title="Documentation">📖</a> <a href="#userTesting-fall-water-zxc" title="User Testing">📓</a> <a href="https://github.com/MSKazemi/yazses/issues?q=author%3Afall-water-zxc" title="Bug reports">🐛</a> <a href="#platform-fall-water-zxc" title="Packaging/porting to new platform">📦</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/greatlord"><img src="https://avatars.githubusercontent.com/u/2506501?v=4?s=100" width="100px;" alt="Magnus Olsen"/><br /><sub><b>Magnus Olsen</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/issues?q=author%3Agreatlord" title="Bug reports">🐛</a> <a href="#ideas-greatlord" title="Ideas, Planning, & Feedback">🤔</a></td>
     </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Akgithub2028"><img src="https://avatars.githubusercontent.com/u/181275449?v=4?s=100" width="100px;" alt="Aayaann Kausar"/><br /><sub><b>Aayaann Kausar</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=Akgithub2028" title="Documentation">📖</a> <a href="#userTesting-Akgithub2028" title="User Testing">📓</a></td>
+    </tr>
   </tbody>
 </table>
 

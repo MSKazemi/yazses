@@ -112,6 +112,12 @@ found defects that no amount of reading the code here would have surfaced.
   same bug seen from the opposite side, and neither report alone would have shown that.
 
 ## Contributors
+- [@Akgithub2028](https://github.com/Akgithub2028) (Aayaann Kausar) — the **first real entry**
+  on the known-good microphone list, which had been asking for one since it was created: the
+  Dell Inspiron 15 3520 built-in on Ubuntu 24.04 / GNOME Wayland, measured rather than guessed
+  ([#333](https://github.com/MSKazemi/yazses/pull/333)). Recorded the half that makes the page
+  worth having — the distance it held speech at and the room noise it rejected — instead of
+  "works fine"
 - [@4nmus](https://github.com/4nmus) — Russian README translation, the project's first in
   Cyrillic script
 - [@AshSgDe29071999](https://github.com/AshSgDe29071999)

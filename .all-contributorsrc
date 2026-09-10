@@ -11,7 +11,7 @@
   "commitConvention": "angular",
   "contributorsPerLine": 7,
   "contributorsSortAlphabetically": false,
-  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-21-orange.svg?style=flat-square)](#contributors)",
+  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-22-orange.svg?style=flat-square)](#contributors)",
   "contributors": [
     {
       "login": "MSKazemi",
@@ -223,6 +223,16 @@
       "contributions": [
         "bug",
         "ideas"
+      ]
+    },
+    {
+      "login": "Akgithub2028",
+      "name": "Aayaann Kausar",
+      "avatar_url": "https://avatars.githubusercontent.com/u/181275449?v=4",
+      "profile": "https://github.com/Akgithub2028",
+      "contributions": [
+        "doc",
+        "userTesting"
       ]
     }
   ]
