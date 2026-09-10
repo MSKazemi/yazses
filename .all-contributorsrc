@@ -11,7 +11,7 @@
   "commitConvention": "angular",
   "contributorsPerLine": 7,
   "contributorsSortAlphabetically": false,
-  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-16-orange.svg?style=flat-square)](#contributors)",
+  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-21-orange.svg?style=flat-square)](#contributors)",
   "contributors": [
     {
       "login": "MSKazemi",
@@ -98,7 +98,9 @@
       "avatar_url": "https://avatars.githubusercontent.com/u/64795732?v=4",
       "profile": "https://github.com/slegarraga",
       "contributions": [
-        "code"
+        "code",
+        "userTesting",
+        "platform"
       ]
     },
     {
@@ -173,7 +175,7 @@
     {
       "login": "hoti-code",
       "name": "hoti-code",
-      "avatar_url": "https://avatars.githubusercontent.com/u/320443384?v=4?s=100",
+      "avatar_url": "https://avatars.githubusercontent.com/u/320443384?v=4",
       "profile": "https://github.com/hoti-code",
       "contributions": [
         "userTesting",
@@ -184,7 +186,7 @@
     {
       "login": "jayavandhiniMK",
       "name": "Jayavandhini M K",
-      "avatar_url": "https://avatars.githubusercontent.com/u/221181058?v=4?s=100",
+      "avatar_url": "https://avatars.githubusercontent.com/u/221181058?v=4",
       "profile": "https://github.com/jayavandhiniMK",
       "contributions": [
         "doc"
@@ -193,21 +195,34 @@
     {
       "login": "visheshbpatel",
       "name": "Vishesh Patel",
-      "avatar_url": "https://avatars.githubusercontent.com/u/206997413?v=4?s=100",
+      "avatar_url": "https://avatars.githubusercontent.com/u/206997413?v=4",
       "profile": "https://github.com/visheshbpatel",
       "contributions": [
         "doc",
-        "userTesting"
+        "userTesting",
+        "bug"
       ]
     },
     {
       "login": "fall-water-zxc",
       "name": "fall-water-zxc",
-      "avatar_url": "https://avatars.githubusercontent.com/u/210990993?v=4?s=100",
+      "avatar_url": "https://avatars.githubusercontent.com/u/210990993?v=4",
       "profile": "https://github.com/fall-water-zxc",
       "contributions": [
         "doc",
-        "userTesting"
+        "userTesting",
+        "bug",
+        "platform"
+      ]
+    },
+    {
+      "login": "greatlord",
+      "name": "Magnus Olsen",
+      "avatar_url": "https://avatars.githubusercontent.com/u/2506501?v=4",
+      "profile": "https://github.com/greatlord",
+      "contributions": [
+        "bug",
+        "ideas"
       ]
     }
   ]

@@ -22,6 +22,27 @@ argument, and the record of it is the decision it altered.
   meaning-destroying bugs on its first run ([#146](https://github.com/MSKazemi/yazses/issues/146))
   while all 191 parity vectors were green. Also raised the agency-preserving uncertainty
   invariant for graded EMG activation ([#103](https://github.com/MSKazemi/yazses/issues/103)).
+  Since then, specified a **pre-recruitment corpus gate** for the dysfluent-speech study
+  ([#255](https://github.com/MSKazemi/yazses/issues/255)) — a paired error taxonomy that
+  separates destructive semantic transformations from benign cleanup, run over a frozen
+  SEP-28k sample with byte-identical input to both conditions, so the filter can be checked
+  against real disfluent speech before anyone is asked to donate their time. It converted an
+  issue that read "needs participants someday" into one with a runnable checkpoint, and the
+  protocol is now the shape of the issue rather than an appendix to it.
+
+- [@greatlord](https://github.com/greatlord) (Magnus Olsen) — found that dictation on
+  Wayland silently drops `å`, `ä`, `ö` and every other non-ASCII character, and correctly
+  placed the cause at the injector rather than the recogniser: ydotool presses keycodes
+  against the active layout, and a character with no keycode has nothing to press
+  ([#314](https://github.com/MSKazemi/yazses/discussions/314) →
+  [#329](https://github.com/MSKazemi/yazses/issues/329)). This one contradicted a promise
+  the project already makes — `[stt] language` is supported, Whisper transcribes Swedish
+  correctly, and 28 locales ship — so a non-English user was understood and then watched
+  their own alphabet disappear, with nothing erroring. Did not stop at the report: built
+  [`fake-ydotool`](https://github.com/greatlord/fake-ydotool), a working proof that
+  `libxkbcommon` + `/dev/uinput` can inject arbitrary Unicode where ydotool declines to,
+  and offered to dual-license it. The demonstration is what turned "we should replace the
+  injector" from an aspiration into a decided fix direction.
 
 ## Testing & field reports
 
@@ -52,10 +73,13 @@ found defects that no amount of reading the code here would have surfaced.
   cask route end to end on an Apple M4, the route this project had marked "never
   executed", and found that Homebrew's new tap-trust gate makes the **documented
   one-liner fail for every new user** without `brew trust`
-  ([#182](https://github.com/MSKazemi/yazses/issues/182)); also fixed the tap's
-  deprecated `depends_on macos:` warning upstream. Notably declined to claim `doctor`
-  output that could not be captured from a sandbox — a report that says where it stops
-  is worth more than one that guesses.
+  ([#182](https://github.com/MSKazemi/yazses/issues/182)); and found that the tap's
+  cask still uses the deprecated `depends_on macos:` string form, with the fix written and
+  verified ([homebrew-yazses#1](https://github.com/MSKazemi/homebrew-yazses/pull/1) — open,
+  and it turns out it could not have held there: the release workflow copies
+  `packaging/homebrew/yazses.rb` over the tap's cask on every tag, so a downstream copy
+  cannot carry a fix). Notably declined to claim `doctor` output that could not be captured
+  from a sandbox — a report that says where it stops is worth more than one that guesses.
 - [@hoti-code](https://github.com/hoti-code) — ran the Homebrew cask on an M5 and reported
   every symptom precisely: no Accessibility, Input Monitoring or Microphone prompt, no
   menu-bar icon, a dead hotkey, and `doctor` unable to name its own version
@@ -66,6 +90,27 @@ found defects that no amount of reading the code here would have surfaced.
   against the previous release and a permanently-stale channel is its own baseline. A
   faithful list of symptoms was worth more here than a diagnosis would have been.
 
+- [@fall-water-zxc](https://github.com/fall-water-zxc) — took the Scoop manifest through a
+  clean Windows 11 machine, the step [#79](https://github.com/MSKazemi/yazses/issues/79) had
+  been blocked on for a month, and proved two things nobody knew: `scoop install` works, and
+  `yazses update --check` correctly self-identifies as `via scoop` — a branch of
+  `system/updater.py` that had never been executed by anything. Then hit a wall and
+  **reproduced it on pipx before filing it**, which is what proved it was not Scoop's fault
+  ([#330](https://github.com/MSKazemi/yazses/issues/330)). The report is worth more than the
+  two symptoms in it: chasing them down found that `platform/windows/ipc.py` declares its
+  *own* `IpcUnreachableError`, unrelated to the one `cli.py` catches, so **14** error
+  handlers across `status`, `stop`, `doctor`, `logs` and the tray are dead code on Windows —
+  which is a good deal of why Windows has felt rougher than the other two platforms without
+  anyone being able to say why.
+- [@visheshbpatel](https://github.com/visheshbpatel) (Vishesh Patel) — the first end-to-end
+  Windows 11 report on this project: the whole procedure written down rather than a verdict,
+  with the model, compute type, injection backend and the four applications tried
+  ([#183](https://github.com/MSKazemi/yazses/issues/183)). The one warning reported almost as
+  a footnote — that YazSes had not set itself to start at login — turned out to be a real
+  defect, and one only visible from that end: `yazses start` installs the login entry *after*
+  the line that raises on Windows, so it never gets there. Read together with #330 it is the
+  same bug seen from the opposite side, and neither report alone would have shown that.
+
 ## Contributors
 - [@4nmus](https://github.com/4nmus) — Russian README translation, the project's first in
   Cyrillic script
@@ -73,7 +118,8 @@ found defects that no amount of reading the code here would have surfaced.
 - [@fall-water-zxc](https://github.com/fall-water-zxc) — Windows 11 showcase entry:
   dictation into Notepad, the browser, the terminal and VS Code, with a laptop's
   built-in microphone and not sitting close to it
-  ([#328](https://github.com/MSKazemi/yazses/pull/328))
+  ([#328](https://github.com/MSKazemi/yazses/pull/328)); also see
+  **Testing & field reports** above
 - [@HeaTTap](https://github.com/HeaTTap)
 - [@jackie-cqz](https://github.com/jackie-cqz)
 - [@jayavandhiniMK](https://github.com/jayavandhiniMK) (Jayavandhini M K) — Windows 11
@@ -94,7 +140,8 @@ found defects that no amount of reading the code here would have surfaced.
 - [@slegarraga](https://github.com/slegarraga) — see **Testing & field reports** above
 - [@visheshbpatel](https://github.com/visheshbpatel) (Vishesh Patel) — Windows 11 showcase entry:
   dictation into PowerShell, VS Code and the browser, on the platform this project has
-  the least evidence for ([#327](https://github.com/MSKazemi/yazses/pull/327))
+  the least evidence for ([#327](https://github.com/MSKazemi/yazses/pull/327)); also see
+  **Testing & field reports** above
 - [@waterlemonnn](https://github.com/MSKazemi/yazses/commits?author=waterlemonnn)
 
 <!-- New contributors: added on merge, alphabetical. Want to be here? See CONTRIBUTING.md and grab a
