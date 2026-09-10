@@ -4,6 +4,8 @@
 
 ## Hold a key, speak, and your words are typed into any app. Nothing leaves your computer by default.
 
+> 🇧🇷 **Falantes de português do Brasil?** A [tradução para pt-BR](docs/pt-BR/index.md) precisa de revisão por falantes nativos — leia, corrija o que soar estranho e abra um PR. Veja a [issue #349](https://github.com/MSKazemi/yazses/issues/349).
+
 **More than a dictation box** — it also takes voice commands, transcribes recordings you already
 have, and can capture a whole meeting with speaker labels. Everything runs offline on your own
 CPU. Dictation works out of the box; the extras beyond it are opt-in and off by default.
