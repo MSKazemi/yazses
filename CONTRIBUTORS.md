@@ -121,6 +121,17 @@ found defects that no amount of reading the code here would have surfaced.
 - [@4nmus](https://github.com/4nmus) — Russian README translation, the project's first in
   Cyrillic script
 - [@AshSgDe29071999](https://github.com/AshSgDe29071999)
+- [@auroraxo](https://github.com/auroraxo) (Aurora) — found that **two different classes
+  called `IpcUnreachableError`** existed with no relationship between them, so the fourteen
+  `except IpcUnreachableError:` handlers in `cli.py` — plus the tray, the MCP server and the
+  Windows lifecycle — were dead code on Windows while behaving correctly on Linux and macOS
+  ([#330](https://github.com/MSKazemi/yazses/issues/330) →
+  [#360](https://github.com/MSKazemi/yazses/pull/360)). Also found the `SIGKILL` guard that
+  was *unreachable* rather than missing, because Python evaluates an argument before the
+  call that would have returned early. Both defects were Windows-only and both causes were
+  plain Python, and the thirteen tests that come with the fix prove them on Linux — including
+  the one that asserts the Linux force-kill sequence is unchanged, so a platform fix could not
+  quietly weaken the platform it was not about
 - [@fall-water-zxc](https://github.com/fall-water-zxc) — Windows 11 showcase entry:
   dictation into Notepad, the browser, the terminal and VS Code, with a laptop's
   built-in microphone and not sitting close to it
