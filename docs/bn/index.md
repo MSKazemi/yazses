@@ -12,7 +12,7 @@ alternates:
 >
 > *This is a machine-assisted **draft** translation, not yet reviewed by a native
 > speaker. English is authoritative: [README.md](https://github.com/MSKazemi/yazses#readme). Improving it is a
-> welcome first contribution — see [issue #191](https://github.com/MSKazemi/yazses/issues/191).*
+> welcome first contribution — see [issue #335](https://github.com/MSKazemi/yazses/issues/335).*
 
 # YazSes
 
@@ -90,6 +90,7 @@ yazses start
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Akgithub2028"><img src="https://avatars.githubusercontent.com/u/181275449?v=4?s=100" width="100px;" alt="Aayaann Kausar"/><br /><sub><b>Aayaann Kausar</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=Akgithub2028" title="Documentation">📖</a> <a href="#userTesting-Akgithub2028" title="User Testing">📓</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/auroraxo"><img src="https://avatars.githubusercontent.com/u/325296939?v=4?s=100" width="100px;" alt="Aurora"/><br /><sub><b>Aurora</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=auroraxo" title="Code">💻</a> <a href="https://github.com/MSKazemi/yazses/commits?author=auroraxo" title="Tests">⚠️</a> <a href="#platform-auroraxo" title="Packaging/porting to new platform">📦</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/YuuGR1337"><img src="https://avatars.githubusercontent.com/u/241930202?v=4?s=100" width="100px;" alt="Elkero"/><br /><sub><b>Elkero</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=YuuGR1337" title="Documentation">📖</a> <a href="#translation-YuuGR1337" title="Translation">🌍</a> <a href="https://github.com/MSKazemi/yazses/issues?q=author%3AYuuGR1337" title="Bug reports">🐛</a></td>
     </tr>
   </tbody>
 </table>

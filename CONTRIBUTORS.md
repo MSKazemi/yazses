@@ -160,6 +160,14 @@ found defects that no amount of reading the code here would have surfaced.
   the least evidence for ([#327](https://github.com/MSKazemi/yazses/pull/327)); also see
   **Testing & field reports** above
 - [@waterlemonnn](https://github.com/MSKazemi/yazses/commits?author=waterlemonnn)
+- [@YuuGR1337](https://github.com/YuuGR1337) (Elkero) — found that the "improving this
+  translation is a welcome first contribution" link on **every** draft translation page pointed
+  at that locale's *closed* `Translate the README` issue, so the one line whose whole job is to
+  recruit a reviewer sent readers to finished, locked work
+  ([#359](https://github.com/MSKazemi/yazses/pull/359)). Fixed it for Brazilian Portuguese and
+  the pattern held for all 25 locales. Also wrote the first localized recruiting sentence, in
+  Portuguese, next to the ⚠️ draft banner — the page that a Brazilian reader actually lands on,
+  rather than the English README — which is now the template for the other 24
 
 <!-- New contributors: added on merge, alphabetical. Want to be here? See CONTRIBUTING.md and grab a
      good first issue: https://github.com/MSKazemi/yazses/labels/good%20first%20issue

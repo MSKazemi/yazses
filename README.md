@@ -52,7 +52,7 @@ Not sure yet? **[Try it without installing](https://mskazemi.com/yazses/try-with
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21856271.svg)](https://doi.org/10.5281/zenodo.21856271)
 [![Documentation](https://img.shields.io/badge/docs-mskazemi.com%2Fyazses-5e35b1)](https://mskazemi.com/yazses/)
 [![Open Source Helpers](https://www.codetriage.com/mskazemi/yazses/badges/users.svg)](https://www.codetriage.com/mskazemi/yazses)
-[![All Contributors](https://img.shields.io/badge/all_contributors-23-orange.svg?style=flat-square)](#contributors)
+[![All Contributors](https://img.shields.io/badge/all_contributors-24-orange.svg?style=flat-square)](#contributors)
 
 [![Get it from the Snap Store](https://snapcraft.io/en/light/install.svg)](https://snapcraft.io/yazses) **X11 only — use the Linux installer on Wayland.**
 
@@ -723,6 +723,7 @@ Thanks to these people for helping build YazSes ✨ — every bug report, doc fi
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Akgithub2028"><img src="https://avatars.githubusercontent.com/u/181275449?v=4?s=100" width="100px;" alt="Aayaann Kausar"/><br /><sub><b>Aayaann Kausar</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=Akgithub2028" title="Documentation">📖</a> <a href="#userTesting-Akgithub2028" title="User Testing">📓</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/auroraxo"><img src="https://avatars.githubusercontent.com/u/325296939?v=4?s=100" width="100px;" alt="Aurora"/><br /><sub><b>Aurora</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=auroraxo" title="Code">💻</a> <a href="https://github.com/MSKazemi/yazses/commits?author=auroraxo" title="Tests">⚠️</a> <a href="#platform-auroraxo" title="Packaging/porting to new platform">📦</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/YuuGR1337"><img src="https://avatars.githubusercontent.com/u/241930202?v=4?s=100" width="100px;" alt="Elkero"/><br /><sub><b>Elkero</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=YuuGR1337" title="Documentation">📖</a> <a href="#translation-YuuGR1337" title="Translation">🌍</a> <a href="https://github.com/MSKazemi/yazses/issues?q=author%3AYuuGR1337" title="Bug reports">🐛</a></td>
     </tr>
   </tbody>
 </table>
