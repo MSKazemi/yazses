@@ -954,18 +954,39 @@ def _main(
     pass
 
 
+def _force_kill_signal():
+    """The strongest available termination signal, or ``None`` where none is.
+
+    ``signal.SIGKILL`` is POSIX-only: Python's ``signal`` module does not define
+    it on Windows, so naming it there raises ``AttributeError``. ``_restart_daemon``
+    used to write ``_kill_yazses_daemons(signal.SIGKILL)``, and the argument is
+    evaluated *before* the call — so the ``sys.platform != "linux"`` guard inside
+    the function was unreachable on Windows and ``yazses restart`` crashed for the
+    whole life of the guard. Reported as #330.
+
+    Returning ``None`` rather than falling back to ``SIGTERM`` is deliberate: the
+    caller has already sent ``SIGTERM``, and a second one is not a force-kill.
+    """
+    import signal
+
+    return getattr(signal, "SIGKILL", None)
+
+
 def _kill_yazses_daemons(sig) -> int:
     """Linux: signal every yazses daemon process (systemd + detached `yazses.main`).
 
     Returns the count signalled. The detached `yazses start` path reparents to the
     systemd user manager and survives `systemctl stop`, so a clean restart must hunt
     them by command line, not just the PID file.
+
+    ``sig`` of ``None`` is a no-op, so a platform with no force-kill signal can call
+    this without the caller having to branch (see :func:`_force_kill_signal`).
     """
     import os
     import subprocess
     import sys
 
-    if sys.platform != "linux":
+    if sys.platform != "linux" or sig is None:
         return 0
     # Exclude this process AND the shell that launched us, so a command line that
     # happens to contain the pattern can never get itself killed.
@@ -1026,7 +1047,7 @@ def _restart_daemon(platform) -> None:
             pass
     _kill_yazses_daemons(signal.SIGTERM)
     time.sleep(1)
-    _kill_yazses_daemons(signal.SIGKILL)  # force any survivor
+    _kill_yazses_daemons(_force_kill_signal())  # force any survivor (no-op where unavailable)
     try:
         (platform.paths.data_dir / "daemon.lock").unlink(missing_ok=True)
     except Exception:
