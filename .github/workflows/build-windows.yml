@@ -291,6 +291,24 @@ jobs:
 
       - name: Attest build provenance for the .exe
         id: attest
+        # Skipped on a PR from a fork, which is the one context where this cannot
+        # work: GitHub does not grant `id-token: write` to a `pull_request` run from
+        # a fork no matter what the job declares, so the step failed with `missing
+        # "id-token" permission` and put a red X on a first-time contributor's PR
+        # for something their change had nothing to do with. #360 was the first
+        # external fork PR ever to reach this job — every prior success here was a
+        # tag push or a `dependabot/*` branch, both of which live in this repo.
+        #
+        # Not narrowed to tags only, even though the two steps below are: attesting
+        # on same-repo PRs is what would have caught the `subject-path` bug recorded
+        # above *before* a release depended on it, and that smoke test is worth more
+        # than the noise it costs.
+        # Explicit about the non-PR case rather than relying on the null-vs-true
+        # comparison: a tag push silently losing its provenance would be a much
+        # worse bug than the red X this is fixing.
+        if: >-
+          github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.fork != true
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           # dist/, not the repo root — same defect as build-macos.yml. The glob

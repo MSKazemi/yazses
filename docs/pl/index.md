@@ -89,6 +89,7 @@ Reszta dokumentacji jest na razie po angielsku.
     </tr>
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Akgithub2028"><img src="https://avatars.githubusercontent.com/u/181275449?v=4?s=100" width="100px;" alt="Aayaann Kausar"/><br /><sub><b>Aayaann Kausar</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=Akgithub2028" title="Documentation">📖</a> <a href="#userTesting-Akgithub2028" title="User Testing">📓</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/auroraxo"><img src="https://avatars.githubusercontent.com/u/325296939?v=4?s=100" width="100px;" alt="Aurora"/><br /><sub><b>Aurora</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=auroraxo" title="Code">💻</a> <a href="https://github.com/MSKazemi/yazses/commits?author=auroraxo" title="Tests">⚠️</a> <a href="#platform-auroraxo" title="Packaging/porting to new platform">📦</a></td>
     </tr>
   </tbody>
 </table>

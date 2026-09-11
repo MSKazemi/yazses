@@ -11,7 +11,7 @@
   "commitConvention": "angular",
   "contributorsPerLine": 7,
   "contributorsSortAlphabetically": false,
-  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-22-orange.svg?style=flat-square)](#contributors)",
+  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-23-orange.svg?style=flat-square)](#contributors)",
   "contributors": [
     {
       "login": "MSKazemi",
@@ -233,6 +233,17 @@
       "contributions": [
         "doc",
         "userTesting"
+      ]
+    },
+    {
+      "login": "auroraxo",
+      "name": "Aurora",
+      "avatar_url": "https://avatars.githubusercontent.com/u/325296939?v=4",
+      "profile": "https://github.com/auroraxo",
+      "contributions": [
+        "code",
+        "test",
+        "platform"
       ]
     }
   ]
