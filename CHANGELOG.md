@@ -6,6 +6,38 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — every translated page recruited reviewers to a closed issue
+
+All 25 draft translation pages carried the line *"Improving it is a welcome first
+contribution — see issue #N"*, and in every single case `#N` was that locale's
+**closed** `Translate the README into <language>` issue. It was closed the day the
+translation landed. The live work — the 25 open `Review the <language>
+translation` issues, #334–#358 — was reachable from none of them.
+
+So the one sentence on each page whose entire purpose is to recruit a reviewer
+sent every reader who clicked it to finished, locked work. This project has had
+exactly this shape of bug before somewhere else: the first-issue greeting bot once
+pointed every newcomer at a label with zero open issues.
+
+Found by [@YuuGR1337](https://github.com/YuuGR1337), who corrected it for
+Brazilian Portuguese ([#359](https://github.com/MSKazemi/yazses/pull/359)); the
+pattern turned out to hold for all 25, and the remaining 24 were repointed on
+merge. The mapping is verified rather than assumed — each locale links the review
+issue whose title names *that* locale's language, each confirmed open — because a
+transposition here would send Arabic readers to the Bengali issue and look
+perfectly fine.
+
+`docs/hi`, `docs/ru` and `docs/zh-CN` are untouched: they carry the `status=active`
+banner and have no such line, being partial translations rather than unreviewed
+drafts.
+
+The pt-BR page also gains the recruiting call **in Portuguese**, next to the
+localized ⚠️ banner rather than on the English README — the reader who can fix a
+Portuguese translation has by definition already reached a Portuguese page. That
+sentence is @YuuGR1337's, and it is now the template for the other 24, tracked for
+each locale's reviewer to add in their own language rather than machine-written
+here.
+
 ### Fixed — fourteen `except IpcUnreachableError:` handlers were dead code on Windows
 
 `yazses start` printed an `IpcUnreachableError` traceback while the daemon it was

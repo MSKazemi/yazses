@@ -11,7 +11,7 @@
   "commitConvention": "angular",
   "contributorsPerLine": 7,
   "contributorsSortAlphabetically": false,
-  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-23-orange.svg?style=flat-square)](#contributors)",
+  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-24-orange.svg?style=flat-square)](#contributors)",
   "contributors": [
     {
       "login": "MSKazemi",
@@ -244,6 +244,17 @@
         "code",
         "test",
         "platform"
+      ]
+    },
+    {
+      "login": "YuuGR1337",
+      "name": "Elkero",
+      "avatar_url": "https://avatars.githubusercontent.com/u/241930202?v=4",
+      "profile": "https://github.com/YuuGR1337",
+      "contributions": [
+        "doc",
+        "translation",
+        "bug"
       ]
     }
   ]
