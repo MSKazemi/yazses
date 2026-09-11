@@ -235,3 +235,79 @@ def test_restart_still_force_kills_on_posix(monkeypatch):
         cli._restart_daemon(_Platform(Path(tmp)))
 
     assert sent == [signal.SIGTERM, signal.SIGKILL]
+
+
+# ---- The general form: no platform transport may shadow a shared IPC name ----
+#
+# The two assertions above name `platform.windows.ipc` explicitly, which locks
+# the bug that was reported and nothing else. But the defect was never really
+# "Windows declared a class"; it was that **an exception is caught by identity**,
+# so any transport that re-declares a name its callers import from
+# `yazses.ipc.client` silently disables every `except` site for that platform —
+# with no import error, no lint warning and no failing test to say so.
+#
+# `platform/linux/ipc.py` and `platform/macos/ipc.py` cannot hit this today
+# because they reuse `JsonRpcClient` and therefore raise the shared errors by
+# construction. That is a property of how they happen to be written, not a rule
+# anything enforces, and the next transport (a BSD one, a socket-activated one,
+# a test double) gets no warning at all.
+#
+# So derive the region rather than listing it: every `ipc.py` under
+# `platform/`, discovered by glob, is checked against every public name in
+# `yazses.ipc.client`. A new OS is covered the day its module appears.
+
+
+def _platform_ipc_modules():
+    """Every platform IPC module, found by globbing rather than by memory."""
+    import importlib
+    from pathlib import Path
+
+    import yazses.platform as platform_pkg
+
+    root = Path(platform_pkg.__file__).parent
+    found = {}
+    for path in sorted(root.glob("*/ipc.py")):
+        name = f"yazses.platform.{path.parent.name}.ipc"
+        found[name] = importlib.import_module(name)
+    return found
+
+
+def test_the_platform_ipc_module_scan_finds_something():
+    """A guard that iterates is green on an empty collection.
+
+    If the glob ever stops matching -- a rename, a package move, a layout
+    change -- the shadowing test below would pass by checking nothing. Fail
+    here instead, loudly, rather than reporting compliance we did not verify.
+    """
+    modules = _platform_ipc_modules()
+    assert len(modules) >= 3, f"expected linux/macos/windows IPC modules, found {sorted(modules)}"
+
+
+def test_no_platform_transport_shadows_a_shared_ipc_name():
+    """A platform module may subclass a shared IPC name, never redeclare it.
+
+    This is the generalisation of #330: `windows.ipc` declared its own
+    `IpcUnreachableError`, unrelated by inheritance to the one all fourteen
+    `except` sites in `cli.py` import, so those handlers were dead code on
+    Windows while behaving correctly on Linux and macOS.
+    """
+    import yazses.ipc.client as shared
+
+    shared_names = {
+        name: obj for name, obj in vars(shared).items() if not name.startswith("_") and isinstance(obj, type)
+    }
+    offenders = []
+    for mod_name, mod in _platform_ipc_modules().items():
+        for name, shared_obj in shared_names.items():
+            local = getattr(mod, name, None)
+            if local is None or local is shared_obj:
+                continue  # absent, or the shared class re-exported -- both fine
+            if not (isinstance(local, type) and issubclass(local, shared_obj)):
+                offenders.append(f"{mod_name}.{name} shadows yazses.ipc.client.{name} without subclassing it")
+    assert not offenders, "\n".join(
+        [
+            "A platform transport redeclared a name its callers catch by identity.",
+            "Subclass the shared class instead of declaring a new one:",
+            *offenders,
+        ]
+    )
