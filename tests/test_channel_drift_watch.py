@@ -138,11 +138,22 @@ def test_it_may_write_issues_and_may_not_write_the_repository(doc: dict):
 # check passes on a fragment that never runs.
 
 
-def _run_step(steps: list[dict], name_fragment: str, tmp_path, **outputs):
+def _run_step(steps: list[dict], name_fragment: str, tmp_path, checker_exit=0, **outputs):
     """Execute one step's `run:` body with a recording `python3` on PATH.
 
     `${{ ... }}` expressions are substituted the way Actions would, which is
     textually and before bash sees them.
+
+    Two details here are load-bearing rather than incidental, and both were wrong
+    in the first version of this harness -- which is why it could not see the
+    defect that made the watcher silent for 17 days:
+
+    * **The body runs under `bash -e`**, because that is literally how Actions
+      invokes it (`/usr/bin/bash -e {0}`). Running it as a plain `bash -c` makes
+      every `-e` interaction untestable, and `-e` is exactly what broke the step.
+    * **`checker_exit` is settable**, because the checker signals drift by exiting
+      1. A stub hardcoded to `exit 0` can only ever exercise the path where there
+      is nothing to report, so the reporting path was never run by any test.
     """
     import os
     import re
@@ -161,7 +172,8 @@ def _run_step(steps: list[dict], name_fragment: str, tmp_path, **outputs):
     bin_dir.mkdir()
     shim = bin_dir / "python3"
     shim.write_text(
-        '#!/bin/sh\nprintf "%s\\n" "$@" > "$ARGV_LOG"\nexit 0\n', encoding="utf-8"
+        f'#!/bin/sh\nprintf "%s\\n" "$@" > "$ARGV_LOG"\nexit {checker_exit}\n',
+        encoding="utf-8",
     )
     shim.chmod(shim.stat().st_mode | stat.S_IEXEC)
 
@@ -173,10 +185,20 @@ def _run_step(steps: list[dict], name_fragment: str, tmp_path, **outputs):
         "GITHUB_OUTPUT": str(tmp_path / "out"),
         "GITHUB_STEP_SUMMARY": str(tmp_path / "summary"),
     }
+    # `-e` and a file argument, exactly as Actions runs it.
+    script = tmp_path / "step.sh"
+    script.write_text(body, encoding="utf-8")
     proc = subprocess.run(
-        ["bash", "-c", body], cwd=tmp_path, env=env, capture_output=True, text=True
+        ["/usr/bin/bash", "-e", str(script)],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
     )
-    assert proc.returncode == 0, proc.stderr
+    assert proc.returncode == 0, (
+        f"the step died (exit {proc.returncode}). Under Actions this skips every "
+        f"downstream step, so nothing is reported.\nstderr: {proc.stderr}"
+    )
     return argv_log.read_text(encoding="utf-8").splitlines()
 
 
@@ -206,3 +228,70 @@ def test_with_no_previous_release_it_falls_back_to_plain_completeness(
     argv = _run_step(steps, "ask every channel", tmp_path, version="2.31.0", previous="")
     assert "--compare-with" not in argv
     assert argv[argv.index("--version") + 1] == "2.31.0"
+
+
+# --- the footgun that actually silenced the watcher --------------------------
+#
+# The checker exits 1 to *mean* "a channel is behind". The step is written to
+# capture that into an output rather than die on it, and the comment in the
+# workflow says so explicitly. But Actions runs the body as `/usr/bin/bash -e`,
+# and `set -uo pipefail` does not clear a `-e` that arrived with the invocation.
+# So the step died on the exact input it exists to handle, "Report or clear" was
+# skipped as downstream of a failure, and the watcher filed nothing at all in its
+# first 17 days -- going green whenever there was no drift and red-and-silent the
+# single day there was.
+
+
+@posix_only
+def test_a_reporting_checker_does_not_kill_the_step(steps: list[dict], tmp_path):
+    """Exit 1 from the checker is a finding to record, never a dead step."""
+    _run_step(
+        steps,
+        "ask every channel",
+        tmp_path,
+        checker_exit=1,
+        version="2.36.0",
+        previous="2.35.0",
+    )
+    outputs = (tmp_path / "out").read_text(encoding="utf-8")
+    assert "drift=1" in outputs, (
+        "the checker reported drift and the step did not record it; "
+        f"GITHUB_OUTPUT was {outputs!r}"
+    )
+
+
+@posix_only
+def test_the_report_reaches_the_step_summary_when_there_is_drift(
+    steps: list[dict], tmp_path
+):
+    """`cat report.md` is after the capture, so it dies with it.
+
+    The report is the only human-readable half of the finding. A step that exits
+    before this line reports a number and no reason.
+    """
+    _run_step(
+        steps,
+        "ask every channel",
+        tmp_path,
+        checker_exit=1,
+        version="2.36.0",
+        previous="2.35.0",
+    )
+    assert (tmp_path / "summary").exists(), "no step summary written on the drift path"
+
+
+def test_the_step_clears_e_rather_than_only_setting_u_and_pipefail(steps: list[dict]):
+    """Pin the mechanism, not just the behaviour.
+
+    `set -uo pipefail` reads like it establishes the step's error handling and
+    silently does not clear `-e`. Someone tidying this back to the shorter form
+    would reintroduce a bug whose only symptom is a watcher that never reports,
+    which is indistinguishable from a watcher with nothing to report.
+    """
+    body = next(
+        s["run"] for s in steps if "ask every channel" in s.get("name", "").lower()
+    )
+    assert "set +e" in body, (
+        "the step must clear `-e` explicitly; Actions invokes this body as "
+        "`/usr/bin/bash -e {0}` and the checker exits 1 by design"
+    )
