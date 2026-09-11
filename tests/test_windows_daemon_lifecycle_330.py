@@ -130,13 +130,24 @@ def test_wait_until_ready_keeps_polling_through_a_windows_pipe_error():
 # ---- Bug 2: no SIGKILL where there is no SIGKILL --------------------------
 
 
-def test_force_kill_signal_is_sigkill_on_posix():
-    assert cli._force_kill_signal() is signal.SIGKILL
+# Both directions inject the attribute rather than reading the host's, because the
+# host is the one thing these tests must not depend on. Reading `signal.SIGKILL`
+# inside the assertion made the *test* raise `AttributeError` on Windows -- the one
+# platform this whole file is about -- and `delattr(..., raising=True)` failed there
+# for the opposite reason: the attribute is already gone. Injecting also makes the
+# assertion stronger, since it proves `_force_kill_signal` returns whatever `getattr`
+# found rather than a constant that happens to match.
+_SENTINEL_SIGKILL = 9
+
+
+def test_force_kill_signal_returns_the_signal_where_one_exists(monkeypatch):
+    monkeypatch.setattr(signal, "SIGKILL", _SENTINEL_SIGKILL, raising=False)
+    assert cli._force_kill_signal() == _SENTINEL_SIGKILL
 
 
 def test_force_kill_signal_is_none_where_the_attribute_is_absent(monkeypatch):
-    """Simulate Windows by removing the attribute Windows does not have."""
-    monkeypatch.delattr(signal, "SIGKILL", raising=True)
+    """Windows has no `SIGKILL`; `raising=False` so this also holds *on* Windows."""
+    monkeypatch.delattr(signal, "SIGKILL", raising=False)
     assert cli._force_kill_signal() is None
 
 
@@ -160,7 +171,7 @@ def test_restart_does_not_touch_sigkill_on_a_platform_without_it(monkeypatch):
     the daemon was left running with the *old* config, which is the stale
     `right_ctrl` hotkey the reporter saw.
     """
-    monkeypatch.delattr(signal, "SIGKILL", raising=True)
+    monkeypatch.delattr(signal, "SIGKILL", raising=False)
     monkeypatch.setattr(cli, "_systemd_managed", lambda: False)
     monkeypatch.setattr(cli, "_kill_yazses_daemons", lambda _sig: 0)
 
@@ -201,8 +212,13 @@ def test_restart_does_not_touch_sigkill_on_a_platform_without_it(monkeypatch):
     assert spawned == [plat], "restart must still end with exactly one daemon spawned"
 
 
-def test_restart_still_force_kills_on_posix(monkeypatch):
-    """The fix must not quietly weaken the Linux path it was protecting."""
+def test_restart_still_force_kills_where_a_kill_signal_exists(monkeypatch):
+    """The fix must not quietly weaken the Linux path it was protecting.
+
+    The signal is injected for the same reason as above: this assertion used to
+    name `signal.SIGKILL` directly and therefore could not run on Windows.
+    """
+    monkeypatch.setattr(signal, "SIGKILL", _SENTINEL_SIGKILL, raising=False)
     monkeypatch.setattr(cli, "_systemd_managed", lambda: False)
     sent = []
     monkeypatch.setattr(cli, "_kill_yazses_daemons", lambda sig: sent.append(sig) or 0)
@@ -234,7 +250,7 @@ def test_restart_still_force_kills_on_posix(monkeypatch):
     with tempfile.TemporaryDirectory() as tmp:
         cli._restart_daemon(_Platform(Path(tmp)))
 
-    assert sent == [signal.SIGTERM, signal.SIGKILL]
+    assert sent == [signal.SIGTERM, _SENTINEL_SIGKILL]
 
 
 # ---- The general form: no platform transport may shadow a shared IPC name ----
