@@ -15,8 +15,6 @@ alternates:
 > speaker. English is authoritative: [README.md](https://github.com/MSKazemi/yazses#readme). Improving it is a
 > welcome first contribution — see [issue #349](https://github.com/MSKazemi/yazses/issues/349).*
 
-You'll also need to: (1) revert the README.md change (remove the added `> 🇧🇷` banner line), and (2) change the PR body from `Fixes #349` to `Ref #349` so the issue stays open for the actual translation review work.
-
 # YazSes
 
 O YazSes é um daemon de ditado por voz livre, de código aberto e offline, para Linux, macOS e Windows. Segure uma tecla, fale e solte: o texto aparece onde você estiver digitando. Tudo roda na sua própria máquina: sem nuvem, sem conta e sem assinatura.

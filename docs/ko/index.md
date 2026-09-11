@@ -12,7 +12,7 @@ alternates:
 >
 > *This is a machine-assisted **draft** translation, not yet reviewed by a native
 > speaker. English is authoritative: [README.md](https://github.com/MSKazemi/yazses#readme). Improving it is a
-> welcome first contribution — see [issue #198](https://github.com/MSKazemi/yazses/issues/198).*
+> welcome first contribution — see [issue #346](https://github.com/MSKazemi/yazses/issues/346).*
 
 # YazSes
 

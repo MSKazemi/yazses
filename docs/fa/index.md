@@ -15,7 +15,7 @@ alternates:
 >
 > *This is a machine-assisted **draft** translation, not yet reviewed by a native
 > speaker. English is authoritative: [README.md](https://github.com/MSKazemi/yazses#readme). Improving it is a
-> welcome first contribution — see [issue #199](https://github.com/MSKazemi/yazses/issues/199).*
+> welcome first contribution — see [issue #340](https://github.com/MSKazemi/yazses/issues/340).*
 
 # YazSes
 
