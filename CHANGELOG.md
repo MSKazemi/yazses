@@ -6,6 +6,52 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — fourteen `except IpcUnreachableError:` handlers were dead code on Windows
+
+`yazses start` printed an `IpcUnreachableError` traceback while the daemon it was
+polling came up perfectly a second later, and `yazses restart` crashed outright on
+`signal.SIGKILL`. Reported by [@fall-water-zxc](https://github.com/fall-water-zxc)
+on two independent install routes, which is what ruled out Scoop as the cause
+([#330](https://github.com/MSKazemi/yazses/issues/330)); fixed by
+[@auroraxo](https://github.com/auroraxo) ([#360](https://github.com/MSKazemi/yazses/pull/360)).
+
+**Two classes had the same name and no relationship.** Every caller imports
+`IpcUnreachableError` from `yazses.ipc.client`; the named-pipe client raised a
+second, identically-named class declared in `yazses.platform.windows.ipc`. An
+exception is caught by identity, so the handler that exists specifically to mean
+"not up yet, keep polling" could not catch what the Windows transport threw. That
+is **fourteen** `except IpcUnreachableError:` sites in `cli.py` — `status`, `stop`,
+`doctor`, `logs` among them — plus `tray/app.py`, `mcp/server.py` and
+`platform/windows/lifecycle.py`: all of them graceful on Linux and macOS, all of
+them dead on Windows. It is a good explanation for why Windows felt rougher than
+the other two without anyone being able to point at why. The Windows class now
+subclasses the shared one and keeps its `pipe_name`, because an error that says
+"socket" on Windows is the sort of small lie that costs somebody an afternoon.
+
+**The `SIGKILL` guard was unreachable, not absent.** `_kill_yazses_daemons` opens
+with `if sys.platform != "linux": return 0`, but the call site read
+`_kill_yazses_daemons(signal.SIGKILL)` and Python evaluates the argument first —
+so the `AttributeError` fired before the guard could return, for the entire life of
+the guard. The signal is now resolved through `_force_kill_signal()`, which returns
+`None` where `signal` has no `SIGKILL`; `None` is a no-op, so no caller branches on
+the platform. It returns `None` rather than falling back to `SIGTERM` deliberately:
+the caller sent `SIGTERM` one second earlier, and a second `SIGTERM` is not a
+force-kill. A test asserts the Linux sequence is still `[SIGTERM, SIGKILL]`, so the
+fix cannot quietly weaken the path it was protecting.
+
+The stale `right_ctrl` hotkey in the same report was a *consequence* of the second
+bug rather than a third one: `restart` is the command that reloads the config, so a
+crashing `restart` leaves the old daemon and the old hotkey in place.
+
+Thirteen tests come with it, all running on Linux — the defects were Windows-only
+but their causes are plain Python, so nothing here needs Windows, pywin32, a named
+pipe or a daemon, and Windows' absence of `SIGKILL` is simulated with
+`monkeypatch.delattr`. Nine of them fail against the previous commit. Two are the
+generalisation added on merge: the reported bug was *a* transport shadowing a shared
+name, and nothing stopped the next one doing it again, so the region is now derived
+by globbing every `platform/*/ipc.py` rather than naming Windows — a new OS is
+covered the day its module appears.
+
 ### Fixed — the release-day guard that was right about the wrong bytes
 
 `docker.yml` waits for PyPI before building, because the image pins

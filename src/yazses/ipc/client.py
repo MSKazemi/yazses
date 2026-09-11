@@ -19,9 +19,14 @@ class IpcCallError(RuntimeError):
 
 
 class IpcUnreachableError(IpcCallError):
-    """Raised when the daemon socket isn't listening."""
+    """Raised when the daemon socket isn't listening.
 
-    def __init__(self, socket_path: Path, cause: Exception | None = None) -> None:
+    ``socket_path`` is typed ``Path | str`` because it is only ever formatted
+    into the message, and the Windows transport's identifier is a named pipe
+    (``\\\\.\\pipe\\yazses-…``) rather than a filesystem path.
+    """
+
+    def __init__(self, socket_path: Path | str, cause: Exception | None = None) -> None:
         super().__init__(RpcError(code=NOT_REACHABLE, message=f"Daemon not reachable at {socket_path}"))
         self.socket_path = socket_path
         self.cause = cause
