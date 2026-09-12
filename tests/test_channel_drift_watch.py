@@ -14,6 +14,7 @@ into something that reports nothing or reports the same thing forever.
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -149,8 +150,14 @@ def _run_step(steps: list[dict], name_fragment: str, tmp_path, checker_exit=0, *
     defect that made the watcher silent for 17 days:
 
     * **The body runs under `bash -e`**, because that is literally how Actions
-      invokes it (`/usr/bin/bash -e {0}`). Running it as a plain `bash -c` makes
-      every `-e` interaction untestable, and `-e` is exactly what broke the step.
+      invokes it (`bash -e {0}`, per its documented default shell). Running it
+      as a plain `bash -c` makes every `-e` interaction untestable, and `-e` is
+      exactly what broke the step. The interpreter itself is resolved from
+      `PATH` rather than hardcoded, because the path to it is not the same
+      binary Actions runs -- `/usr/bin/bash` on a Linux runner, `/bin/bash` on
+      macOS -- and hardcoding either one passes on the runner it was written on
+      and fails everywhere else with a `FileNotFoundError` that looks nothing
+      like the `-e` bug this test exists to catch.
     * **`checker_exit` is settable**, because the checker signals drift by exiting
       1. A stub hardcoded to `exit 0` can only ever exercise the path where there
       is nothing to report, so the reporting path was never run by any test.
@@ -185,11 +192,16 @@ def _run_step(steps: list[dict], name_fragment: str, tmp_path, checker_exit=0, *
         "GITHUB_OUTPUT": str(tmp_path / "out"),
         "GITHUB_STEP_SUMMARY": str(tmp_path / "summary"),
     }
-    # `-e` and a file argument, exactly as Actions runs it.
+    # `-e` and a file argument, exactly as Actions runs it. `bash` is resolved
+    # from PATH -- its absolute path differs by OS (see the docstring above) --
+    # so this test exercises the same interpreter on every runner instead of
+    # only the one it happened to be written on.
+    bash = shutil.which("bash")
+    assert bash is not None, "no bash on PATH; cannot reproduce Actions' shell"
     script = tmp_path / "step.sh"
     script.write_text(body, encoding="utf-8")
     proc = subprocess.run(
-        ["/usr/bin/bash", "-e", str(script)],
+        [bash, "-e", str(script)],
         cwd=tmp_path,
         env=env,
         capture_output=True,
@@ -234,7 +246,7 @@ def test_with_no_previous_release_it_falls_back_to_plain_completeness(
 #
 # The checker exits 1 to *mean* "a channel is behind". The step is written to
 # capture that into an output rather than die on it, and the comment in the
-# workflow says so explicitly. But Actions runs the body as `/usr/bin/bash -e`,
+# workflow says so explicitly. But Actions runs the body as `bash -e {0}`,
 # and `set -uo pipefail` does not clear a `-e` that arrived with the invocation.
 # So the step died on the exact input it exists to handle, "Report or clear" was
 # skipped as downstream of a failure, and the watcher filed nothing at all in its
@@ -293,5 +305,5 @@ def test_the_step_clears_e_rather_than_only_setting_u_and_pipefail(steps: list[d
     )
     assert "set +e" in body, (
         "the step must clear `-e` explicitly; Actions invokes this body as "
-        "`/usr/bin/bash -e {0}` and the checker exits 1 by design"
+        "`bash -e {0}` and the checker exits 1 by design"
     )
