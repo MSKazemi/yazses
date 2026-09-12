@@ -1,55 +1,49 @@
 ---
 title: "YazSes — 한국어"
-description: "YazSes는 Linux, macOS, Windows용 무료 오픈소스 오프라인 음성 받아쓰기 데몬입니다. 키를 누른 채 말하고 놓으면, 입력 중이던 곳에 글자가 나타납니다. 모든 처리는 사용자의 컴퓨터에서 이루어지며 클라우드도, 계정도, 구독도 필요하지 않습니다."
+description: "YazSes는 Linux, macOS, Windows에서 사용할 수 있는 무료 오픈소스 음성 받아쓰기 도구입니다. 키를 누른 채 말한 뒤 놓으면, 현재 사용 중인 앱에 말한 내용이 텍스트로 입력됩니다. 음성 처리는 기본적으로 사용자의 컴퓨터에서 이루어지며, 클라우드 서비스나 계정, 구독이 필요하지 않습니다."
 alternates:
   en: index.md
 ---
 
 **Read this in other languages:** [English](../index.md) · [Deutsch](../de/index.md) · [Nederlands](../nl/index.md) · [Tiếng Việt](../vi/index.md) · [Türkçe](../tr/index.md) · [bahasa Indonesia](../id/index.md) · [español](../es/index.md) · [français](../fr/index.md) · [italiano](../it/index.md) · [polski](../pl/index.md) · [português do Brasil](../pt-BR/index.md) · [svenska](../sv/index.md) · [čeština](../cs/index.md) · [ελληνικά](../el/index.md) · [Русский](../ru/index.md) · [українська](../uk/index.md) · [עברית](../he/index.md) · [اردو](../ur/index.md) · [العربية](../ar/index.md) · [فارسی](../fa/index.md) · [हिंदी](../hi/index.md) · [বাংলা](../bn/index.md) · [தமிழ்](../ta/index.md) · [తెలుగు](../te/index.md) · [ไทย](../th/index.md) · [日本語](../ja/index.md) · [简体中文](../zh-CN/index.md) · [繁體中文](../zh-TW/index.md) · 한국어
-<!-- yazses-l10n: locale=ko; source=README.md; source_sha=3baacb8; scope=partial; status=draft -->
-
-> ⚠️ **초안 번역** — 기계 보조로 작성되었으며 아직 원어민의 검토를 거치지 않았습니다.
->
-> *This is a machine-assisted **draft** translation, not yet reviewed by a native
-> speaker. English is authoritative: [README.md](https://github.com/MSKazemi/yazses#readme). Improving it is a
-> welcome first contribution — see [issue #346](https://github.com/MSKazemi/yazses/issues/346).*
+<!-- yazses-l10n: locale=ko; source=README.md; source_sha=3baacb8; scope=partial; status=active; reviewer=@doeil1614-ops -->
 
 # YazSes
 
-YazSes는 Linux, macOS, Windows용 무료 오픈소스 오프라인 음성 받아쓰기 데몬입니다. 키를 누른 채 말하고 놓으면, 입력 중이던 곳에 글자가 나타납니다. 모든 처리는 사용자의 컴퓨터에서 이루어지며 클라우드도, 계정도, 구독도 필요하지 않습니다.
+YazSes는 Linux, macOS, Windows에서 사용할 수 있는 무료 오픈소스 음성 받아쓰기 도구입니다. 키를 누른 채 말한 뒤 놓으면, 현재 활성화된 창에 말한 내용이 텍스트로 입력됩니다. 기본적으로 음성 처리는 사용자의 컴퓨터에서 이루어지며, 클라우드 서비스나 계정, 구독이 필요하지 않습니다.
 
 ## 설치
 
-| 플랫폼 | 명령 |
+| 플랫폼 | 명령어 |
 |---|---|
 | **Linux** | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)` |
 | **Linux** (Debian/Ubuntu, APT) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)` |
-| **모든 운영체제** (Python ≥ 3.11) | `pipx install yazses` |
+| **운영체제 공통** (Python 3.11 이상) | `pipx install yazses` |
 
 ```bash
 yazses quickstart
 yazses start
 ```
 
-처음 실행할 때 음성 모델(약 148 MB)을 한 번 내려받습니다. 그 뒤로는 네트워크가 전혀 필요하지 않습니다.
+처음 실행할 때 음성 모델(약 148 MB)을 한 번 다운로드합니다. 이후에는 네트워크 연결 없이 사용할 수 있습니다.
 
 ## 할 수 있는 일
 
-- **받아쓰기** — 키를 누른 채 말하고 놓으세요. 글자가 활성 창에 입력됩니다.
-- **음성 명령** — “파일 저장”이나 “40번째 줄로 이동”이라고 말하면 그 말을 적는 대신 실행합니다.
-- **회의와 녹음** — 오디오 파일을 받아쓰거나 회의 전체를 화자 표시와 함께 기록할 수 있습니다. 모두 오프라인입니다.
+- **받아쓰기** — 키를 누른 채 말한 뒤 놓으면, 현재 활성화된 창에 말한 내용이 텍스트로 입력됩니다.
+- **음성 명령** — "파일 저장"이나 "40번째 줄로 이동" 같은 명령을 말하면, 해당 문구를 입력하는 대신 명령을 실행합니다.
+- **회의 및 녹음** — 오디오 파일을 텍스트로 변환하거나, 회의 전체를 화자별로 구분해 기록할 수 있습니다. 모든 처리는 사용자의 컴퓨터에서 이루어집니다.
 
 ## 개인정보
 
-음성은 사용자의 컴퓨터에서 처리되며 어디에도 전송되지 않습니다. 원격 측정도, 클라우드 경로도 없습니다.
+음성은 사용자의 컴퓨터에서 처리되며 외부로 전송되지 않습니다. 원격 측정(텔레메트리)이나 클라우드 전송 경로도 없습니다.
 
 ## 더 보기
 
-나머지 문서는 현재 영어로 되어 있습니다.
+나머지 문서는 현재 영어로 제공됩니다.
 
 - [문서](https://mskazemi.com/yazses/)
 - [영어 전체 README](https://github.com/MSKazemi/yazses#readme)
-- [이슈와 질문](https://github.com/MSKazemi/yazses/issues)
+- [이슈 및 질문](https://github.com/MSKazemi/yazses/issues)
 
 ---
 
