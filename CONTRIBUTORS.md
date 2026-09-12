@@ -132,6 +132,11 @@ found defects that no amount of reading the code here would have surfaced.
   plain Python, and the thirteen tests that come with the fix prove them on Linux — including
   the one that asserts the Linux force-kill sequence is unchanged, so a platform fix could not
   quietly weaken the platform it was not about
+- [@doeil1614-ops](https://github.com/doeil1614-ops) — native-speaker review of the Korean
+  page, read in full against the English source and `i18n/glossary.yml`, with commands, code,
+  the project name and the contributor-wall markup deliberately left untouched
+  ([#346](https://github.com/MSKazemi/yazses/issues/346) →
+  [#365](https://github.com/MSKazemi/yazses/pull/365))
 - [@fall-water-zxc](https://github.com/fall-water-zxc) — Windows 11 showcase entry:
   dictation into Notepad, the browser, the terminal and VS Code, with a laptop's
   built-in microphone and not sitting close to it
