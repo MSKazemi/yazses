@@ -92,9 +92,14 @@ want, so please open an issue rather than assuming.
 
 ### `lightning` ≤ 2.6.5 (CVE-2026-58659) — code execution from a checkpoint
 
-**Reachable in principle, and bounded by three things this repository controls.**
-No patched release exists: 2.6.5 is the newest on PyPI and the fix is an
-unreleased upstream commit, so this one cannot be closed by a version bump.
+**Patched at the dependency level as of 2026-09-12, and independently bounded by
+three things this repository controls.** `lightning` 2.6.6, released upstream
+2026-09-10, restricts the `_instantiator` hyperparameter to an allowlist and
+rejects a `_class_path` that does not resolve to an already-imported subclass —
+fixing this CVE directly. `uv.lock` now resolves `lightning>=2.6.6`. Until this
+release shipped, no patched version existed at all, which is why the three
+bounds below were written as the entire mitigation rather than as
+defense-in-depth; they remain true and are kept for that reason.
 
 This entry is deliberately worded less comfortably than the `diskcache` one above,
 because the honest answer is different. `diskcache` is unreachable — nothing here
@@ -135,7 +140,9 @@ change, so it is the one the tests pin: adding a `[meeting] pyannote_model`
 config key would be an ordinary-looking feature that silently converts a
 supply-chain precondition into "point it at a repo". The suite fails if the ids
 stop being literals, if the loader is called with anything else, or if
-`pyannote.audio` becomes a base dependency.
+`pyannote.audio` becomes a base dependency. It also pins the version floor
+itself, so a future re-pin or downgrade cannot silently drop back below 2.6.6
+and reopen a CVE this project once could not close by any means.
 
 **Residual risk, stated plainly.** If those upstream repositories are compromised,
 you execute their code. That is true here *independently of this CVE* — pyannote
