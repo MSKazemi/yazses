@@ -6,6 +6,24 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security — `lightning` (CVE-2026-58659) now has a patched release; upgraded
+
+`.github/SECURITY.md` previously assessed this advisory as reachable through the
+opt-in pyannote diarization backend and bounded only by three preconditions this
+project controls, because no patched release existed anywhere — 2.6.5 was the
+newest on PyPI and the fix was an unreleased upstream commit. That changed
+2026-09-10: `lightning` 2.6.6 restricts the checkpoint `_instantiator`
+hyperparameter to an allowlist and rejects a `_class_path` that does not resolve
+to an already-imported subclass, fixing this CVE directly.
+
+`uv.lock` now resolves `lightning>=2.6.6`. The three compensating controls
+(opt-in extra, non-default backend, hardcoded checkpoint ids) are unchanged and
+still documented — they remain true and this is defense in depth, not a
+replacement for them. `tests/test_dependency_advisories.py` gained a version-floor
+test mirroring the existing `setuptools` one, proved red on a sabotaged floor and
+green on revert, so a future re-pin or transitive downgrade cannot silently drop
+back below the patched release.
+
 ### Fixed — every translated page recruited reviewers to a closed issue
 
 All 25 draft translation pages carried the line *"Improving it is a welcome first

@@ -1193,14 +1193,14 @@
     {
       "type": "library",
       "name": "lightning",
-      "version": "2.6.5",
-      "purl": "pkg:pypi/lightning@2.6.5",
-      "bom-ref": "pkg:pypi/lightning@2.6.5",
+      "version": "2.6.6",
+      "purl": "pkg:pypi/lightning@2.6.6",
+      "bom-ref": "pkg:pypi/lightning@2.6.6",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "16a30310ed69afde3748491feb5d13508908effd70390d2bfc203dc0812a4b4a"
+          "content": "1c6329e241f8a85f29fedead89c1ee138b36caa08de60c260c6a7eaee81c8295"
         }
       ]
     },
