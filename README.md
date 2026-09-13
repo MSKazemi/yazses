@@ -54,7 +54,7 @@ Not sure yet? **[Try it without installing](https://mskazemi.com/yazses/try-with
 [![Open Source Helpers](https://www.codetriage.com/mskazemi/yazses/badges/users.svg)](https://www.codetriage.com/mskazemi/yazses)
 [![All Contributors](https://img.shields.io/badge/all_contributors-22-orange.svg?style=flat-square)](#contributors)
 
-[![Get it from the Snap Store](https://snapcraft.io/en/light/install.svg)](https://snapcraft.io/yazses) **X11 only — use the Linux installer on Wayland.**
+[![Get it from the Snap Store](https://snapcraft.io/en/light/install.svg)](https://snapcraft.io/yazses) **Two `snap connect` lines are required after install — see [§Snap](docs/install-linux.md#3-snap).**
 
 **No audio, no text, nothing leaves your machine by default.** Offline voice dictation that types into any app, transcribes a recording, or captures a whole meeting with speaker names and minutes — all on your own CPU. No cloud. No API key. No subscription.
 
@@ -117,9 +117,11 @@ provisions every system prerequisite (audio, keystroke injection, clipboard, `in
 Wayland `ydotoold`), and finishes by running **`yazses doctor`** so any missing tool surfaces
 *during* install. The APT script
 (`bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)`)
-and `pipx` paths install the last tagged release. An X11-only build is also on the
-[Snap Store](https://snapcraft.io/yazses); Wayland users should use the recommended
-Linux installer instead.
+and `pipx` paths install the last tagged release. There is also a
+[Snap Store](https://snapcraft.io/yazses) build, which works on X11 and — via the
+`xdg-desktop-portal` RemoteDesktop API — on GNOME and KDE Wayland. It needs two
+`snap connect` lines after install, because a snap cannot grant itself
+permissions. The Linux installer remains the most-tested path.
 
 **Just want to transcribe a recording?** There is a container for that — no install at
 all: `docker run --rm -v "$PWD:/data" ghcr.io/mskazemi/yazses transcribe /data/talk.m4a
@@ -505,7 +507,7 @@ pipx install yazses
 # group so you can test before logging out).
 bash scripts/dev-install.sh
 
-# Snap Store — X11 only; use the APT script or pipx on Wayland.
+# Snap Store — X11, and Wayland via the desktop portal (GNOME/KDE).
 # All three privileged lines are required. A snap cannot connect its own interfaces, and the
 # daemon starts and looks healthy without them — it just never hears you, or never
 # sees the key.

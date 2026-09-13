@@ -4,6 +4,7 @@
     "cryptography",
     "evdev",
     "faster-whisper",
+    "jeepney",
     "numpy",
     "Pillow",
     "platformdirs",
@@ -20,6 +21,7 @@
   ],
   "base_dependency_markers": {
     "evdev": "sys_platform == \"linux\"",
+    "jeepney": "sys_platform == \"linux\" or platform_system == \"FreeBSD\" or platform_system == \"OpenBSD\" or platform_system == \"NetBSD\" or platform_system == \"DragonFly\"",
     "pillow": "sys_platform == \"win32\"",
     "pyobjc-framework-applicationservices": "sys_platform == \"darwin\"",
     "pyobjc-framework-avfoundation": "sys_platform == \"darwin\"",
@@ -30,5 +32,5 @@
     "pywin32": "sys_platform == \"win32\"",
     "rumps": "sys_platform == \"darwin\""
   },
-  "import_time_budget_us": 220308
+  "import_time_budget_us": 1172375
 }

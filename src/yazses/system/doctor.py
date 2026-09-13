@@ -87,6 +87,7 @@ def _injection_readiness(
     `tests/test_doctor_names_the_injector_in_use.py` can hold the two derivations equal.
     """
     from yazses.inject.auto import ydotool_ready, ydotool_socket_path
+    from yazses.inject.portal import portal_available
 
     configured = (configured or "auto").strip().lower()
     out: list[_Check] = []
@@ -129,9 +130,23 @@ def _injection_readiness(
         desktop = os.environ.get("XDG_CURRENT_DESKTOP", "").lower()
         gnome_like = any(d in desktop for d in _UINPUT_ONLY_DESKTOPS)
         sock = ydotool_socket_path()
+        # Mirrors get_injector's Wayland order exactly -- ydotool, then the
+        # RemoteDesktop portal, then wtype. A doctor that reports a different
+        # backend from the one the daemon will choose is worse than no doctor:
+        # it certifies a path that is not taken.
+        portal_ok = portal_available()
         if ydotool_ready():
             out.append(("ydotoold", "OK", f"running ({sock})"))
             out.append(("Injection", "OK", "ydotool — works on any Wayland compositor"))
+        elif portal_ok:
+            if shutil.which("ydotool"):
+                out.append(("ydotoold", "WARN",
+                            f"not running (no socket at {sock}) — not needed, the "
+                            "desktop portal is being used instead"))
+            out.append(("Injection", "OK",
+                        "xdg-desktop-portal RemoteDesktop — works on GNOME and KDE "
+                        "Wayland, and needs no /dev/uinput. The first dictation asks "
+                        "once for permission; approve it and the answer is remembered."))
         elif shutil.which("ydotool"):
             out.append(("ydotoold", "FAIL" if gnome_like else "WARN",
                         f"not running (no socket at {sock}) — run `yazses setup`"))
@@ -758,6 +773,43 @@ def _input_group_pending_relogin() -> bool:
         return False
 
 
+def _snap_interface_checks() -> list[_Check]:
+    """Report any required snap interface that is definitively disconnected.
+
+    This is the failure this project has been losing users to. Both interfaces
+    are manual-connect, a snap cannot connect its own, and the daemon starts
+    perfectly without them -- it reports IDLE, the model loads, the hotkey
+    backend binds, and then it silently never hears a word or never sees the
+    key. To the user that is indistinguishable from the app being broken, and
+    the only evidence was a paragraph in the store description.
+
+    Emits nothing outside a snap, and nothing when the state cannot be
+    determined: an unrun probe must not report a finding.
+    """
+    from yazses.system.snap import REQUIRED_INTERFACES, in_snap, interface_connected
+
+    if not in_snap():
+        return []
+    out: list[_Check] = []
+    for plug, why in REQUIRED_INTERFACES:
+        state = interface_connected(plug)
+        if state is True:
+            out.append((f"snap:{plug}", "OK", f"connected — grants {why}"))
+        elif state is False:
+            out.append((
+                f"snap:{plug}", "FAIL",
+                f"NOT connected, so YazSes cannot use {why}. Fix with:  "
+                f"sudo snap connect $SNAP_INSTANCE_NAME:{plug} && yazses restart",
+            ))
+        else:
+            out.append((
+                f"snap:{plug}", "WARN",
+                "could not determine (snapctl unavailable) — verify with "
+                f"`snap connections yazses | grep {plug}`",
+            ))
+    return out
+
+
 def _keyboard_capture_check(perms, platform_name: str) -> _Check:
     """Report keyboard-capture access with an actionable permission fix."""
     state = perms.check_keyboard_capture()
@@ -1266,6 +1318,11 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     # Install/lifecycle sanity: duplicate installs + a systemd ExecStart that
     # points at a missing/different binary (the silent "restart starts nothing").
     checks.extend(_install_consistency_checks())
+
+    # Snap interface connections. Before keyboard capture on purpose: a
+    # disconnected `raw-input` is the *cause* of the capture failure reported
+    # below, and a user reading top-down should meet the cause first.
+    checks.extend(_snap_interface_checks())
 
     # Keyboard capture
     checks.append(_keyboard_capture_check(perms, platform.name))

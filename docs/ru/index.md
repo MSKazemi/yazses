@@ -427,7 +427,7 @@ pipx install yazses
 # group so you can test before logging out).
 bash scripts/dev-install.sh
 
-# Snap Store — X11 only; use the Linux installer or pipx on Wayland.
+# Snap Store — X11, and Wayland via the desktop portal (GNOME/KDE).
 # All three privileged lines are required. A snap cannot connect its own interfaces, and the
 # daemon starts and looks healthy without them — it just never hears you, or never
 # sees the key.

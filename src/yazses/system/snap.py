@@ -13,6 +13,8 @@ Pure and import-light on purpose: this is consulted from ``yazses doctor``.
 from __future__ import annotations
 
 import os
+import shutil
+import subprocess
 from collections.abc import Iterable, Mapping
 
 # snapd reports the confinement the snap is actually running under. Only these
@@ -68,6 +70,88 @@ def dependency_install_advice(
     )
 
 
+# The two interfaces without which the snap cannot dictate, and what each one
+# costs the user when it is missing. Both are manual-connect: snapd will not
+# auto-connect them for a snap that has no store declaration, and **a snap
+# cannot connect its own interfaces**.
+REQUIRED_INTERFACES: tuple[tuple[str, str], ...] = (
+    ("audio-record", "the microphone — without it YazSes records silence"),
+    ("raw-input", "the hold-to-talk key — without it nothing ever starts recording"),
+)
+
+
+def interface_connected(plug: str, env: Mapping[str, str] | None = None) -> bool | None:
+    """Whether ``plug`` is connected. ``None`` means *could not determine*.
+
+    The three-valued answer is the point. A connected/not-connected boolean
+    would have to invent an answer when ``snapctl`` is absent or fails, and
+    inventing "connected" hides the very failure this exists to surface while
+    inventing "not connected" sends an unconfined user chasing a command that
+    does not apply to them. ``None`` lets the caller say "could not check".
+    """
+    if not in_snap(env):
+        return None
+    if not shutil.which("snapctl"):
+        return None
+    try:
+        proc = subprocess.run(
+            ["snapctl", "is-connected", plug],
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+    except Exception:
+        return None
+    # snapctl is-connected exits 0 when connected and 1 when not. Anything else
+    # (unknown plug, snapd too old for the subcommand) is not an answer.
+    if proc.returncode == 0:
+        return True
+    if proc.returncode == 1:
+        return False
+    return None
+
+
+def missing_interfaces(
+    env: Mapping[str, str] | None = None,
+) -> list[tuple[str, str]]:
+    """The required interfaces that are known to be disconnected.
+
+    Only definitively-disconnected ones: an interface whose state could not be
+    determined is left out, so this never manufactures a problem.
+    """
+    return [
+        (plug, why)
+        for plug, why in REQUIRED_INTERFACES
+        if interface_connected(plug, env) is False
+    ]
+
+
+def connection_advice(
+    missing: Iterable[tuple[str, str]], env: Mapping[str, str] | None = None
+) -> str:
+    """The exact commands that fix a disconnected install.
+
+    Written as a copy-pasteable block because this is the message a first-time
+    snap user sees at the moment nothing works, and the state it describes --
+    a daemon that started cleanly, reports healthy, and silently never hears a
+    word -- is indistinguishable from the app simply being broken.
+    """
+    environ = os.environ if env is None else env
+    name = environ.get("SNAP_INSTANCE_NAME") or environ.get("SNAP_NAME") or "yazses"
+    items = list(missing)
+    if not items:
+        return ""
+    lines = [
+        "This snap is installed but not permitted to do its job. A snap cannot "
+        "connect its own interfaces, so these have to be run once, by you:",
+        "",
+    ]
+    lines += [f"    sudo snap connect {name}:{plug}" for plug, _ in items]
+    lines += ["    yazses restart", ""]
+    lines += [f"  {plug} grants {why}." for plug, why in items]
+    return "\n".join(lines)
+
+
 def keyboard_capture_advice(env: Mapping[str, str] | None = None) -> str:
     """The only advice that can actually restore keyboard capture in a snap."""
     environ = os.environ if env is None else env
@@ -83,8 +167,12 @@ def keyboard_capture_advice(env: Mapping[str, str] | None = None) -> str:
 
 
 __all__ = [
+    "REQUIRED_INTERFACES",
+    "connection_advice",
     "dependency_install_advice",
     "in_snap",
     "in_strict_snap",
+    "interface_connected",
     "keyboard_capture_advice",
+    "missing_interfaces",
 ]

@@ -6,6 +6,83 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the snap can type on Wayland, which is where almost all of its users are
+
+The Snap Store description said it in its own words: *"this strictly-confined
+snap supports hold-to-talk dictation on X11 only."* Store metrics say who read
+that. Of 59 installs on 2026-09-10, **at least 39 were on a desktop that
+defaults to Wayland** — ubuntu 24.04 (20) and ubuntu 26.04 (19) — rising to 43
+with debian 13, fedora 44 and ubuntu 25.04, and the largest remaining group is
+zorin 18 (10). Meanwhile the base was shrinking: 11 new against **15 lost** per
+week, up from 3 lost/week in July. People installed it, it could not type, and
+they removed it.
+
+`inject/portal.py` is a new injection backend built on
+`org.freedesktop.portal.RemoteDesktop`. It is the one Wayland route that
+survives strict confinement, and the alternatives do not:
+
+- **ydotool**, which the unconfined install uses, needs `ydotoold` to own
+  `/dev/uinput`. Ubuntu's `ydotool` package ships only `/usr/bin/ydotool` and no
+  daemon, and `/dev/uinput` is `0600 root:root` — it needs a udev rule that a
+  strict snap has no way to install.
+- **wtype** needs `virtual-keyboard-manager-v1`, which wlroots compositors
+  implement and GNOME's Mutter and KDE's KWin deliberately do not. That is
+  precisely the two desktops this user base runs, so selecting it there is
+  selecting a silent no-op.
+- **The portal** needs no device node, no udev rule and **no extra
+  `snap connect`**: access rides on the `desktop` plug the snap already
+  declared. The cost is one consent dialog, and `persist_mode=2` plus the
+  returned restore token makes it once-ever rather than once-per-session.
+
+It types by **keysym**, not keycode, so it is layout-independent — a keycode
+backend types `qwerty` into an AZERTY user's editor, and dictation is the one
+input method whose user never chose their characters by position.
+
+Selection order on Wayland is ydotool → portal → wtype, and both halves are
+deliberate: after ydotool so an unconfined install that works today is never
+handed a consent dialog it did not used to see, before wtype for the reason
+above. **X11 is untouched** and still picks xdotool.
+
+`yazses doctor` reports the portal, and mirrors `get_injector`'s order exactly —
+a doctor that names a different backend from the one the daemon will pick
+certifies a path that is not taken.
+
+### Added — a snap that cannot hear you now says so, on the desktop
+
+Both interfaces YazSes needs are manual-connect, a snap cannot connect its own,
+and without them the daemon starts *perfectly*: the model loads, the state
+machine reaches IDLE, `yazses status` reports healthy, and the microphone is
+never opened or the key is never seen. The only signal was a paragraph in the
+store description.
+
+`system/snap.py` gained `interface_connected()` / `missing_interfaces()` /
+`connection_advice()`, wired into `yazses doctor` and into daemon startup. The
+answer is deliberately **three-valued** — connected / not connected / could not
+determine — because both ways of collapsing it are wrong: inventing "connected"
+hides the failure, and inventing "not connected" sends an unconfined user
+chasing a command that does not apply to them. An unrun probe reports that it
+could not run, never a finding.
+
+The desktop notification is the load-bearing half. A snap installed from App
+Center or the snapcraft.io web button never passes through a terminal, so the
+log line, the store description and `doctor` all reach only a user who already
+suspects something and knows where to look. Whoever the toast reaches has not
+been told anything yet.
+
+### Changed — the store listing led with its own caveats
+
+The description spent its middle telling the reader the snap would not work and
+to go install something else, and the summary — the main text Snap Store search
+indexes — carried none of the words people actually type. "YazSes" is a coined
+name nobody searches for. The summary is now *"Offline voice dictation and
+speech to text — hold a key, speak, it types"*, and the description leads with
+what the app does before what the user must do.
+
+The five places in `README.md` and `docs/` that told Wayland users not to use
+the snap were corrected for the same reason they existed: they were true, and
+they are not any more. Historical release notes are left alone.
+
+
 ### Fixed — the release-day guard that was right about the wrong bytes
 
 `docker.yml` waits for PyPI before building, because the image pins

@@ -5110,10 +5110,52 @@ def run() -> None:
     except Exception:  # noqa: BLE001 — config seeding must never block startup
         pass
     _report_config_problems()
+    _report_snap_interfaces()
     try:
         Daemon().run()
     except KeyboardInterrupt:
         sys.exit(0)
+
+
+def _report_snap_interfaces() -> None:
+    """Warn -- in the log *and* on the desktop -- about a crippled snap install.
+
+    This is the single largest source of "I installed it and nothing happened".
+    Both interfaces the snap needs are manual-connect, a snap cannot connect its
+    own, and without them the daemon starts perfectly: the model loads, the
+    state machine reaches IDLE, `yazses status` says healthy, and the microphone
+    is never opened or the key is never seen.
+
+    The desktop notification is the load-bearing half. A snap installed from App
+    Center or the snapcraft.io web button never passes through a terminal, so
+    every existing signal -- the log line, the store description, `doctor` --
+    reaches only a user who already suspects something and knows where to look.
+    Whoever the toast reaches has not been told anything yet.
+
+    Never raises: this is diagnostics on the startup path.
+    """
+    try:
+        from yazses.system.snap import connection_advice, missing_interfaces
+
+        missing = missing_interfaces()
+        if not missing:
+            return
+        advice = connection_advice(missing)
+        for line in advice.splitlines():
+            log.warning("%s", line)
+        try:
+            from yazses.system.notify import notify
+
+            plugs = ", ".join(plug for plug, _ in missing)
+            notify(
+                "YazSes cannot hear you yet",
+                f"Missing permission: {plugs}. Run `yazses doctor` in a terminal "
+                "for the one command that fixes it.",
+            )
+        except Exception:  # noqa: BLE001 — a toast must never block startup
+            pass
+    except Exception:  # noqa: BLE001 — diagnostics must never block startup
+        pass
 
 
 def _report_config_problems() -> None:

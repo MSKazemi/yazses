@@ -1,6 +1,6 @@
 ---
 title: Install offline voice dictation on Linux (Ubuntu, Debian, Fedora, Arch)
-description: Step-by-step install of YazSes offline voice dictation on Linux — the recommended installer, apt, X11-only snap, or pipx, with microphone, hotkey, and text-injection setup.
+description: Step-by-step install of YazSes offline voice dictation on Linux — the recommended installer, apt, snap, or pipx, with microphone, hotkey, and text-injection setup.
 ---
 
 # Installing YazSes on Linux
@@ -40,7 +40,7 @@ That is the whole install. Skip to [§2](#2-finish-setup).
 |---|---|---|
 | **Universal script** (recommended) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)` | Latest code from git. Installs `uv` if absent. Provisions everything. |
 | **APT** (Debian/Ubuntu) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)` | Last tagged release. The script adds the YazSes apt repo, installs the runtime deps, joins you to the `input` group and sets up `ydotoold`; the `.deb`'s post-install step then `pipx`-installs the Python package and enables the user service. |
-| **Snap (X11 only)** | `sudo snap install yazses`<br>`sudo snap connect yazses:audio-record`<br>`sudo snap connect yazses:raw-input`<br>`yazses doctor` | **Do not use this channel on Wayland.** All three privileged commands are required: a snap cannot connect its own interfaces, so without `audio-record` it has no microphone and without `raw-input` the hold-to-talk key does nothing ([#44](https://github.com/MSKazemi/yazses/issues/44)). `yazses setup` is not required: confinement blocks host package, group, and service changes, while the snap already bundles its X11 dependencies. See [what the snap can and cannot do](#3e-what-the-snap-can-and-cannot-do). |
+| **Snap** | `sudo snap install yazses`<br>`sudo snap connect yazses:audio-record`<br>`sudo snap connect yazses:raw-input`<br>`yazses doctor` | **Works on X11, and on GNOME/KDE Wayland via the desktop portal** (approve the one-time permission prompt at first dictation). All three privileged commands are required: a snap cannot connect its own interfaces, so without `audio-record` it has no microphone and without `raw-input` the hold-to-talk key does nothing ([#44](https://github.com/MSKazemi/yazses/issues/44)). `yazses setup` is not required: confinement blocks host package, group, and service changes, while the snap already bundles its X11 dependencies. See [what the snap can and cannot do](#3e-what-the-snap-can-and-cannot-do). |
 | **pipx** (any distro, Python ≥ 3.11) | `pipx install yazses` | Installs **only** the Python package — needs `build-essential python3-dev` to compile `evdev`, and you must then run `yazses setup` yourself ([§3](#3-installing-by-hand-what-the-installer-did-for-you)). |
 
 Already installed and want the newest release?
@@ -208,9 +208,18 @@ an editable install plus provisioning plus start, in one command.
 A strictly confined snap cannot install packages on the host, change group
 membership, or configure the host's `ydotoold` service. Therefore:
 
-- hold-to-talk dictation is supported on **X11 only**, after manually connecting
-  both `audio-record` and `raw-input` as shown in [§1](#1-install--one-command);
-- Wayland users must use the universal installer, APT, or `pipx`;
+- hold-to-talk dictation works on **X11**, and on **GNOME/KDE Wayland** through
+  the `xdg-desktop-portal` RemoteDesktop API — the one Wayland injection route
+  that needs no `/dev/uinput`, no udev rule and no extra interface, because
+  portal access rides on the `desktop` plug the snap already has. The first
+  dictation asks once for permission; approve it and the answer is remembered.
+  Both cases still require manually connecting `audio-record` and `raw-input`
+  as shown in [§1](#1-install--one-command);
+- `wtype` is **not** a Wayland fallback here: it needs `virtual-keyboard-manager-v1`,
+  which GNOME's Mutter and KDE's KWin do not implement. The portal is what covers
+  those two desktops;
+- the unconfined installers (universal, APT, `pipx`) remain the most-tested
+  Wayland path, and use `ydotool` + `ydotoold` instead of the portal;
 - `yazses setup` cannot provision a Snap install; current builds only use it to
   print the manual interface checklist.
 

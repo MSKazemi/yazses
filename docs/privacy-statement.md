@@ -384,7 +384,7 @@ receive from what only the maintainer builds with:
 
 | `scope` | Count | What it means for you |
 |---|---|---|
-| `required` | 57 | Installed by `pip install yazses`, across every supported platform |
+| `required` | 58 | Installed by `pip install yazses`, across every supported platform |
 | `optional` | 167 | Installed only if you enable the matching feature (`yazses features enable …`) |
 | `excluded` | 54 | Test, type-check, benchmark and docs tooling. Never installed by a user |
 
