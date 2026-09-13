@@ -40,5 +40,13 @@ corrected in `0e45007` — *"the Snap Store showed a different logo from every o
 surface"* — the fix reached `snap/gui/` and stopped there, because a recipe a human runs
 is a recipe nobody re-runs. The Store box art stayed on the **retired blue
 speech-bubble logo** for a month. `tests/test_store_art_assets.py` now binds both assets
-to the generator and fails the build on drift, comparing decoded pixels rather than
-bytes (PNG encoding is not reproducible across platforms).
+to the generator and fails the build on drift.
+
+The comparison is tolerant and scoped, because an exact one is wrong three times over:
+PNG **bytes** are not reproducible across platforms, decoded **pixels** are not either
+(CI proved the text-free box art differs on `ubuntu-24.04-arm` from the same generator on
+x86, since `render_mark` supersamples in floating point), and the poster's wordmark uses a
+**system font** that differs in version or is absent between platforms — so only the mark
+above the text is compared. The tolerance was measured against the regression it exists to
+catch: identical images differ by 0.0, an aggressively resampled copy by 0.15, and the
+retired blue logo by **73.4**.

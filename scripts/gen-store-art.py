@@ -29,10 +29,23 @@ Usage
     python scripts/gen-store-art.py            # write the assets
     python scripts/gen-store-art.py --check    # verify, write nothing (exit 1 on drift)
 
-``--check`` compares **decoded pixels, never bytes**: PNG output is not reproducible
-across platforms -- a different zlib or Pillow build re-encodes identical pixels into a
-different stream -- and byte comparison is what once turned the Windows and macOS legs
-red on correct assets.
+``--check`` compares decoded pixels **within a tolerance**, and only over the region that
+is deterministic. Three separate things make an exact comparison wrong here:
+
+* PNG bytes are not reproducible -- a different zlib or Pillow build re-encodes identical
+  pixels into a different stream. That is what once turned the Windows and macOS release
+  legs red on correct assets.
+* Decoded *pixels* are not reproducible either. ``render_mark`` supersamples and
+  downsamples in floating point, and CI proved the box art -- which contains no text at
+  all -- differs on ``ubuntu-24.04-arm`` from the same generator on x86.
+* The poster's wordmark is drawn with a **system font**, which differs in version or is
+  absent entirely between platforms. So the text region is not compared at all; only the
+  mark above it is.
+
+The tolerance was measured rather than guessed, against the regression it exists to catch:
+identical images differ by 0.0, an aggressively resampled copy by **0.15**, and the retired
+blue speech-bubble logo by **73.4**. ``MEAN_TOLERANCE`` sits at 2.0 -- an order of magnitude
+above the noise and well below the signal.
 """
 
 from __future__ import annotations
@@ -42,7 +55,7 @@ import io
 import sys
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageStat
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -58,6 +71,14 @@ POSTER = OUT_DIR / "poster-720x1080.png"
 # anything that is not exactly the declared aspect.
 BOXART_SIZE = (1080, 1080)
 POSTER_SIZE = (720, 1080)
+
+# Mean absolute per-channel difference tolerated between a committed asset and a fresh
+# render. See the module docstring for the measurements behind this number.
+MEAN_TOLERANCE = 2.0
+
+# The poster region that is pure geometry. The wordmark and subtitle start below this,
+# and they are font-dependent, so they are deliberately outside the comparison.
+POSTER_DETERMINISTIC = (0, 0, POSTER_SIZE[0], round(POSTER_SIZE[1] * 0.64))
 
 # The listing sits on white, as the previous box art did and as most Store tiles do.
 # The mark carries its own brand-gradient plate, so painting a gradient *behind* it
@@ -122,7 +143,16 @@ def build_poster() -> Image.Image:
     return img
 
 
-TARGETS = ((BOXART, build_boxart, BOXART_SIZE), (POSTER, build_poster, POSTER_SIZE))
+def mean_difference(a: Image.Image, b: Image.Image) -> float:
+    """Largest per-channel mean absolute difference between two same-size images."""
+    return max(ImageStat.Stat(ImageChops.difference(a.convert("RGB"), b.convert("RGB"))).mean)
+
+
+# (path, builder, exact size, region compared by --check or None for the whole image)
+TARGETS = (
+    (BOXART, build_boxart, BOXART_SIZE, None),
+    (POSTER, build_poster, POSTER_SIZE, POSTER_DETERMINISTIC),
+)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -131,16 +161,27 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     drift = []
-    for path, build, size in TARGETS:
+    for path, build, size, region in TARGETS:
         img = build()
         assert img.size == size, f"{path.name}: built {img.size}, want {size}"
         if args.check:
             if not path.exists():
                 drift.append(f"{path.relative_to(ROOT)}: missing")
                 continue
-            # Decoded pixels, never bytes -- see the module docstring.
-            if list(Image.open(path).convert("RGB").getdata()) != list(img.convert("RGB").getdata()):
-                drift.append(f"{path.relative_to(ROOT)}: pixels differ from the generator")
+            committed = Image.open(path)
+            if committed.size != size:
+                drift.append(f"{path.relative_to(ROOT)}: is {committed.size}, want {size}")
+                continue
+            a, b = (committed, img) if region is None else (committed.crop(region), img.crop(region))
+            delta = mean_difference(a, b)
+            scope = "" if region is None else " (mark region)"
+            if delta > MEAN_TOLERANCE:
+                drift.append(
+                    f"{path.relative_to(ROOT)}: differs from the generator{scope} by "
+                    f"{delta:.2f}, tolerance {MEAN_TOLERANCE}"
+                )
+            else:
+                print(f"{path.relative_to(ROOT)}  ok{scope}  (delta {delta:.3f})")
             continue
         buf = io.BytesIO()
         img.save(buf, "PNG", optimize=True)
