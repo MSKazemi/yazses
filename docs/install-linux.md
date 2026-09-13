@@ -313,15 +313,34 @@ sudo dnf install yazses
 yazses doctor
 ```
 
+The repository is **live** at
+[copr.fedorainfracloud.org/coprs/mskazemi/yazses](https://copr.fedorainfracloud.org/coprs/mskazemi/yazses/),
+serving **2.36.0** for Fedora 43 and 44 (x86_64 and aarch64) and EPEL 10 (x86_64).
+
+**EPEL 9 is not offered**, and that is a limitation rather than an oversight: it ships
+Python 3.9, so `python3-devel >= 3.11` cannot be satisfied there. RHEL 9 users need
+another route — `pipx install yazses` under a Python 3.11+ interpreter (RHEL 9 ships
+`python3.11` as a separate package) is the practical one. The three commands above were run end to end in a clean
+`fedora:43` container: `dnf copr enable` → `dnf install` → `yazses --version`
+printing `yazses 2.36.0`.
+
 The spec lives at
-[`packaging/fedora/yazses.spec`](https://github.com/MSKazemi/yazses/blob/main/packaging/fedora/yazses.spec)
-and builds a package that has been installed and run on a clean Fedora 41
-container — `packaging/fedora/build-and-test.sh` is that test, and it is meant to
-be run in a container rather than on your machine:
+[`packaging/fedora/yazses.spec`](https://github.com/MSKazemi/yazses/blob/main/packaging/fedora/yazses.spec).
+`packaging/fedora/build-and-test.sh` builds and installs it locally, and is meant
+to be run in a container rather than on your machine:
 
 ```bash
-podman run --rm -v "$PWD:/src:z" fedora:41 /src/packaging/fedora/build-and-test.sh
+podman run --rm -v "$PWD:/src:z" fedora:43 /src/packaging/fedora/build-and-test.sh
 ```
+
+!!! note "That local test cannot catch everything"
+
+    Docker and podman give a build network access by default; COPR does not. Because
+    `%install` runs pip to populate the bundled virtualenv, the first COPR build failed
+    where the container build had passed — and it failed as
+    `No matching distribution found for hatchling`, which reads like a missing
+    dependency rather than a missing network. The project now sets
+    `--enable-net on`. Only a real COPR build could have found it.
 
 Two honest notes about this package:
 
