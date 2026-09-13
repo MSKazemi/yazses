@@ -128,6 +128,10 @@ icons:
 	@echo "▶  Redrawing every shipped icon from the brand mark…"
 	uv run python scripts/gen-icons.py
 
+store-art:
+	@echo "▶  Redrawing the Microsoft Store artwork from the brand mark…"
+	uv run python scripts/gen-store-art.py
+
 # Re-render the five tray-badge states shown in docs/tray-and-overlay.md. Derived from
 # `icon_spec` + the shared brand renderer, never hand-drawn, so the page cannot end up
 # teaching a colour the badge no longer uses. A test fails when they drift.
