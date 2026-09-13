@@ -3,6 +3,7 @@ import shutil
 
 from yazses.inject.base import BaseInjector
 from yazses.inject.clipboard import ClipboardInjector
+from yazses.inject.unicode import UnicodeInjector
 from yazses.inject.wtype import WtypeInjector
 from yazses.inject.xdotool import XdotoolInjector
 from yazses.inject.ydotool import YdotoolInjector
@@ -42,7 +43,7 @@ def get_injector(prefer: str = "auto") -> BaseInjector:
     """Select an injection backend.
 
     ``prefer`` = ``"auto"`` (default) | ``"type"``/``"ydotool"`` | ``"clipboard"``
-    | ``"wtype"``. With ``"auto"`` an override may be supplied via the
+    | ``"wtype"`` | ``"unicode"``. With ``"auto"`` an override may be supplied via the
     ``YAZSES_INJECTOR`` environment variable.
 
     On Wayland, ``auto`` **types** the text with ydotool — this works in *every*
@@ -59,6 +60,8 @@ def get_injector(prefer: str = "auto") -> BaseInjector:
 
     if prefer == "clipboard":
         return ClipboardInjector()
+    if prefer == "unicode":
+        return UnicodeInjector()
 
     is_wayland = bool(os.environ.get("WAYLAND_DISPLAY"))
     if is_wayland:

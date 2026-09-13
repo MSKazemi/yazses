@@ -91,6 +91,26 @@ def _injection_readiness(
     configured = (configured or "auto").strip().lower()
     out: list[_Check] = []
 
+    if configured == "unicode":
+        from yazses.inject.unicode import runtime_availability
+        from yazses.system.backends import probe_backend
+
+        status = probe_backend(
+            "unicode",
+            adapter="yazses.inject.unicode",
+            requires=(),
+            runtime=runtime_availability,
+        )
+        if status.available:
+            out.append((
+                "Injection",
+                "OK",
+                "unicode — forced by `[injection] backend = unicode`",
+            ))
+        else:
+            out.append(("Injection", "FAIL", status.message))
+        return out
+
     if configured == "clipboard":
         # get_injector returns ClipboardInjector before it looks at anything else, so
         # the session probes below would describe a backend that is not going to run.
