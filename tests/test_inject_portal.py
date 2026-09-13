@@ -9,6 +9,8 @@ connect.
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 
 from yazses.inject import auto, portal
@@ -104,13 +106,18 @@ def test_parse_combo_drops_an_unknown_modifier_but_keeps_the_key() -> None:
 class FakeSession:
     """Records (keysym, state) instead of talking to D-Bus."""
 
-    def __init__(self) -> None:
+    def __init__(self, fail: bool = False) -> None:
         self.events: list[tuple[int, int]] = []
         self.started = 0
         self.closed = 0
+        self.budgets: list[float] = []
+        self.fail = fail
 
-    def ensure_started(self) -> None:
+    def ensure_started(self, start_timeout: float = portal.START_TIMEOUT_S) -> None:
         self.started += 1
+        self.budgets.append(start_timeout)
+        if self.fail:
+            raise portal.PortalUnavailable("nope")
 
     def notify_keysym(self, keysym: int, state: int) -> None:
         self.events.append((keysym, state))
@@ -304,3 +311,104 @@ def test_portal_available_is_false_without_a_display(monkeypatch) -> None:
     monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
     monkeypatch.delenv("DISPLAY", raising=False)
     assert portal.portal_available() is False
+
+
+# ------------------------------------------------------- negotiation timing
+
+
+def test_the_hot_path_never_waits_on_a_human(fake_injector) -> None:
+    """A dictation must not block for the consent-dialog budget.
+
+    Measured against the real portal: `Start` does not answer until someone
+    clicks, and the portal cannot even parent its dialog when parent_window is
+    empty, so it can be raised behind the window the user is looking at. The
+    full budget on the hot path would freeze the daemon mid-sentence.
+    """
+    injector, session = fake_injector
+    injector.inject("x")
+    assert session.budgets == [portal.HOT_PATH_TIMEOUT_S]
+    assert portal.HOT_PATH_TIMEOUT_S < portal.START_TIMEOUT_S / 10
+
+
+def test_warm_uses_the_generous_budget(fake_injector) -> None:
+    """Ahead of time, the user *should* be given time to find the dialog."""
+    injector, session = fake_injector
+    assert injector.warm() is True
+    assert session.budgets == [portal.START_TIMEOUT_S]
+
+
+def test_warm_never_raises(fake_injector) -> None:
+    """It runs on a daemon startup thread; an exception there kills nothing useful."""
+    injector = portal.PortalInjector(session=FakeSession(fail=True))
+    assert injector.warm() is False
+
+
+def test_a_failed_session_propagates_so_the_clipboard_fallback_engages() -> None:
+    """LinuxInjector falls back on an exception -- so inject must NOT swallow it."""
+    injector = portal.PortalInjector(session=FakeSession(fail=True))
+    with pytest.raises(portal.PortalUnavailable):
+        injector.inject("hello")
+
+
+# ------------------------------------------------------- daemon warm-up
+
+
+class _Primary:
+    def __init__(self, result: bool | BaseException = True) -> None:
+        self.result = result
+        self.calls = 0
+
+    def warm(self) -> bool:
+        self.calls += 1
+        if isinstance(self.result, BaseException):
+            raise self.result
+        return self.result
+
+
+def _run_warm(injector) -> list:
+    """Drive Daemon._warm_portal_session with a stub self, synchronously."""
+    import types
+
+    from yazses.core.daemon import Daemon
+
+    threads = []
+
+    class _Thread:
+        def __init__(self, target, name=None, daemon=None):
+            self._target = target
+            threads.append(self)
+
+        def start(self):
+            self._target()
+
+    stub = types.SimpleNamespace(_injector=injector)
+    with patch("yazses.core.daemon.threading.Thread", _Thread):
+        Daemon._warm_portal_session(stub)
+    return threads
+
+
+def test_daemon_warms_the_portal_through_the_wrapped_primary() -> None:
+    """The daemon holds a LinuxInjector; warm() lives on the backend it wraps."""
+    primary = _Primary(True)
+    wrapper = types_simple(primary)
+    _run_warm(wrapper)
+    assert primary.calls == 1
+
+
+def test_daemon_does_nothing_for_a_backend_without_warm() -> None:
+    """xdotool has no portal session; startup must not care."""
+    wrapper = types_simple(object())
+    assert _run_warm(wrapper) == []
+
+
+def test_daemon_startup_survives_a_raising_warm() -> None:
+    """A startup thread that raises would take nothing useful down -- prove it."""
+    primary = _Primary(RuntimeError("boom"))
+    _run_warm(types_simple(primary))
+    assert primary.calls == 1
+
+
+def types_simple(primary):
+    import types
+
+    return types.SimpleNamespace(_primary=primary)

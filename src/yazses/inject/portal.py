@@ -59,9 +59,21 @@ TOKEN_FILENAME = "portal_remote_desktop_token"
 # Override with YAZSES_PORTAL_KEY_DELAY when a compositor wants it slower.
 DEFAULT_KEY_DELAY_S = 0.004
 
-# The consent dialog is modal and the user has to find and click it.
+# The consent dialog has to be found and clicked by a human, so the negotiation
+# budget is generous -- but ONLY when it is being run ahead of time by `warm()`.
 START_TIMEOUT_S = 120.0
 REQUEST_TIMEOUT_S = 30.0
+
+# The budget when a *dictation* finds the session not yet negotiated. It is two
+# orders of magnitude smaller than START_TIMEOUT_S on purpose. Measured against
+# the real portal: Start does not answer until the user clicks, and the portal
+# log shows it cannot even parent its dialog to a window when parent_window is
+# empty ("Failed to associate portal window with parent window"), so the dialog
+# can be raised behind whatever the user is looking at. Waiting the full budget
+# on the hot path would freeze the daemon mid-sentence for two minutes with no
+# explanation. Failing fast hands the burst to the clipboard fallback instead,
+# which is a visible, recoverable outcome.
+HOT_PATH_TIMEOUT_S = 5.0
 
 
 class PortalUnavailable(RuntimeError):
@@ -239,14 +251,29 @@ class _PortalSession:
 
     # -- lifecycle --------------------------------------------------------
 
-    def ensure_started(self) -> None:
-        """Negotiate the session if it is not already running. Idempotent."""
-        with self._lock:
+    def ensure_started(self, start_timeout: float = START_TIMEOUT_S) -> None:
+        """Negotiate the session if it is not already running. Idempotent.
+
+        The lock is acquired with the *same* budget as the negotiation, so a
+        dictation arriving while `warm()` is still waiting on the consent dialog
+        fails fast to the clipboard instead of queueing behind it. Blocking
+        would be the worst of both: the user sees no dialog answer and no text.
+        """
+        if self._session_handle:
+            return
+        if not self._lock.acquire(timeout=start_timeout):
+            raise PortalUnavailable(
+                "another thread is still negotiating the portal session "
+                "(the permission dialog is probably still waiting for an answer)"
+            )
+        try:
             if self._session_handle:
                 return
-            self._start_locked()
+            self._start_locked(start_timeout)
+        finally:
+            self._lock.release()
 
-    def _start_locked(self) -> None:
+    def _start_locked(self, start_timeout: float = START_TIMEOUT_S) -> None:
         try:
             from jeepney.io.blocking import open_dbus_connection
         except Exception as exc:
@@ -288,7 +315,7 @@ class _PortalSession:
         # parent_window is "" -- there is no yazses window to parent the dialog
         # to, and the portal is specified to accept an empty string for that.
         started = self._call_with_response(
-            "Start", "osa{sv}", (self._session_handle, "", {}), START_TIMEOUT_S
+            "Start", "osa{sv}", (self._session_handle, "", {}), start_timeout
         )
         token = started.get("restore_token")
         token_value = token[1] if isinstance(token, tuple) else token
@@ -348,8 +375,25 @@ class PortalInjector:
         self._session = session if session is not None else _PortalSession()
 
     def _ready(self) -> _PortalSession:
-        self._session.ensure_started()
+        """The hot path. Never waits on a human."""
+        self._session.ensure_started(HOT_PATH_TIMEOUT_S)
         return self._session
+
+    def warm(self) -> bool:
+        """Negotiate the session ahead of time. Never raises.
+
+        Called from daemon startup so the consent dialog is answered at login
+        rather than in the middle of the user's first sentence. Without this the
+        dialog is raised by the first hold-to-talk release -- the one moment the
+        user is looking at the text field they just dictated into, not hunting
+        for an unparented permission window.
+        """
+        try:
+            self._session.ensure_started(START_TIMEOUT_S)
+            return True
+        except Exception as exc:
+            logger.info("portal session not established: %s", exc)
+            return False
 
     def inject(self, text: str) -> None:
         if not text:

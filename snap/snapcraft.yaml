@@ -92,6 +92,11 @@ platforms:
 apps:
   yazses:
     command: bin/yazses-wrapper
+    # The application-grid launcher. Without a `desktop:` key snapd exports no
+    # .desktop file at all, so every GUI install (App Center, KDE Discover, the
+    # snapcraft.io web button) ended with nothing to click -- see
+    # snap/local/yazses.desktop for why it opens Settings rather than dictating.
+    desktop: share/applications/yazses.desktop
     # ALSA/PulseAudio paths are arch-dependent and this block cannot expand the
     # multiarch triplet, so the wrapper sets them -- see snap/local/snap-env.sh.
     plugs:
@@ -257,6 +262,9 @@ parts:
       # ALSA config so PortAudio can initialise under strict confinement (routes
       # the default device through PulseAudio). Referenced by ALSA_CONFIG_PATH.
       install -Dm644 snap/local/asound.conf "$CRAFT_PART_INSTALL/etc/asound.conf"
+      # The app-grid launcher declared by apps.yazses.desktop above.
+      install -Dm644 snap/local/yazses.desktop \
+        "$CRAFT_PART_INSTALL/share/applications/yazses.desktop"
       # XDG autostart so the daemon's DISPLAY is populated on every graphical login
       install -Dm644 contrib/yazses-session.desktop \
         "$CRAFT_PART_INSTALL/etc/xdg/autostart/yazses-session.desktop"

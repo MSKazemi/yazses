@@ -1,0 +1,39 @@
+# The application-grid launcher for the snap.
+#
+# Its absence was a first-run cliff, not a cosmetic gap. Four apps were declared
+# in snapcraft.yaml and not one carried a `desktop:` key, so snapd exported
+# nothing to /var/lib/snapd/desktop/applications/ — firefox, vlc and snap-store
+# are all there, yazses was not. Anyone installing from App Center, KDE Discover
+# or the snapcraft.io web button therefore finished the install with nothing to
+# click and no indication that a terminal was required.
+#
+# It opens the settings window rather than starting dictation, for the reason
+# the Flathub launcher records: an activation from an app grid has no terminal,
+# and hold-to-talk is a background daemon with nothing to show. A launcher that
+# appears to do nothing is worse than a launcher that opens the one window where
+# the hotkey, the microphone and every capability can be set — and, in a snap,
+# it is also the one surface that can say the interfaces are not connected.
+#
+# Exec must name the snap's own command so snapd will rewrite it to
+# /snap/bin/yazses; an absolute path here is rejected at build time.
+#
+# `desktop-file-validate` reports the ${SNAP} Icon as "looks like a relative
+# path". That warning applies to every snap and is expected: snapd rewrites
+# ${SNAP} to the mount point at export time. Verified against the installed
+# snaps on a real machine -- firefox ships `Icon=${SNAP}/default256.png` and
+# vlc `Icon=${SNAP}/usr/share/icons/.../vlc.png`, and the exported copies read
+# `Icon=/snap/firefox/current/default256.png`. Do not "fix" it to a bare icon
+# name: the host icon theme does not search inside the snap, so the launcher
+# would render with no icon at all.
+[Desktop Entry]
+Type=Application
+Name=YazSes
+GenericName=Voice dictation
+Comment=Offline voice dictation — hold a key, speak, and your words are typed
+Exec=yazses settings
+Icon=${SNAP}/meta/gui/yazses.png
+Terminal=false
+Categories=Utility;Accessibility;
+Keywords=voice;dictation;speech;transcription;accessibility;microphone;typing;
+StartupNotify=true
+StartupWMClass=yazses

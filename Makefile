@@ -16,7 +16,7 @@ LOG_FILE := $(HOME)/.local/state/yazses/log/daemon.log
 # `campaign` and `hygiene` must be listed: `campaign/` is also a directory, so without
 # this make sees an up-to-date file target and silently does nothing.
 .PHONY: all install check test lint lint-fix types docs docs-serve man inbox \
-        feature-sizes research-watch adr-index icons tray-states \
+        feature-sizes research-watch adr-index icons tray-states store-check \
         start stop restart status logs doctor overlay build clean help \
         hygiene campaign campaign-generate campaign-stats campaign-queue campaign-validate
 
@@ -108,6 +108,19 @@ docs-serve:
 man:
 	@echo "▶  Regenerating man/yazses.1…"
 	uv run python scripts/gen-man.py
+
+# Diff the LIVE Snap Store page against snap/snapcraft.yaml. Needs no credentials
+# (the store's read API is public) and is deliberately not part of any gate that
+# must pass offline: an unreachable store exits 2, never 0.
+#
+# It exists because the published listing drifted from the manifest for a month
+# across three releases and nothing could see it — nothing in this repository
+# reads the page, and no workflow, script or target has ever run
+# `snapcraft upload-metadata`. On 2026-09-13 the page still told every visitor to
+# run `yazses setup`, which strict confinement forbids.
+store-check:
+	@echo "▶  Diffing the live Snap Store listing against snapcraft.yaml…"
+	uv run python scripts/check-store-listing.py
 
 # Per-feature download sizes for `yazses features` (ADR-018). Slow — it resolves every
 # feature's full dependency closure against a clean environment and prices each
@@ -231,6 +244,7 @@ help:
 	@echo "  Maintainer"
 	@echo "    make inbox       open threads waiting on YOUR reply (ARGS=--all for bots)"
 	@echo "    make feature-sizes  reprice every feature's dependency closure (slow)"
+	@echo "    make store-check     diff the live Snap Store page against snapcraft.yaml"
 	@echo "    make research-watch sweep arXiv into a dated digest under design/research/"
 	@echo ""
 	@echo "  Daemon"

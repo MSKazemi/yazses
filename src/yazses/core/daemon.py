@@ -464,6 +464,7 @@ class Daemon:
                 self._device_monitor.start()
                 log.info("Watching for audio-input device changes.")
             self._start_update_watcher()
+            self._warm_portal_session()
             self._hotkey.run()
         finally:
             self._shutdown()
@@ -627,6 +628,56 @@ class Daemon:
                 log.exception("Tray supervisor iteration failed")
 
     # ---- update watcher ---------------------------------------------------
+
+    def _warm_portal_session(self) -> None:
+        """Negotiate the Wayland portal session now, not mid-sentence.
+
+        The RemoteDesktop portal asks the user's permission once, and `Start`
+        does not return until they answer. Left lazy, that question is asked by
+        the *first hold-to-talk release* -- the one moment the user is watching
+        the text field they just dictated into rather than hunting for a
+        permission window. Worse, the portal logs "Failed to associate portal
+        window with parent window" for our empty `parent_window`, so the dialog
+        can be raised behind whatever is in front.
+
+        Doing it at startup moves the question to login, where a dialog is
+        expected. On a background thread because it blocks until answered, and
+        the daemon must reach IDLE and be ready for the hotkey regardless.
+
+        A refusal is not fatal: `LinuxInjector` falls back to clipboard paste,
+        and the hot path uses a short budget so it degrades in seconds.
+        """
+        injector = getattr(self, "_injector", None)
+        backend = getattr(injector, "_primary", injector)
+        warm = getattr(backend, "warm", None)
+        if warm is None:
+            return
+
+        def _run() -> None:
+            try:
+                if warm():
+                    log.info("Wayland portal session established.")
+                    return
+                log.warning(
+                    "The desktop asked for permission to type and did not get an "
+                    "answer, so dictation will paste to the clipboard instead. "
+                    "Look for a permission dialog (it may be behind another "
+                    "window), then run `yazses restart`."
+                )
+                try:
+                    from yazses.system.notify import notify
+
+                    notify(
+                        "YazSes needs permission to type",
+                        "Approve the desktop permission dialog — it may be hidden "
+                        "behind another window — then run `yazses restart`.",
+                    )
+                except Exception:  # noqa: BLE001 — a toast must never matter here
+                    pass
+            except Exception:  # noqa: BLE001 — a startup thread must never crash
+                log.debug("portal warm-up failed", exc_info=True)
+
+        threading.Thread(target=_run, name="portal-warm", daemon=True).start()
 
     def _start_update_watcher(self) -> None:
         """Start the opt-in "a newer YazSes is out" watcher.

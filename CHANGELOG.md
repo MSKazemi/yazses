@@ -47,6 +47,24 @@ above. **X11 is untouched** and still picks xdotool.
 a doctor that names a different backend from the one the daemon will pick
 certifies a path that is not taken.
 
+**Verified end to end**, not merely wired: an X11 probe window took input focus,
+`PortalInjector` typed through the real GNOME portal, and the probe read back
+every character from the X11 `KeyPress` events the display server delivered —
+`sent 'yazsesportalok'` / `received 'yazsesportalok'`. The restore token
+persisted (36 bytes, mode 0600) and a second and third run completed in **4
+seconds with no dialog**, so `persist_mode=2` delivers a once-ever prompt rather
+than a once-per-session one.
+
+The session is negotiated at **daemon startup** on a background thread, not
+lazily on first injection. Testing found the reason: `Start` does not return
+until the user answers, and the portal logs *"Failed to associate portal window
+with parent window"* for our empty `parent_window`, so the dialog can be raised
+behind whatever is in front. Left lazy, that question arrives on the first
+hold-to-talk release — the one moment the user is watching the text field they
+just dictated into. The hot path now uses a 5-second budget against the
+120-second negotiation budget, so an unanswered dialog degrades to the clipboard
+fallback in seconds instead of freezing the daemon mid-sentence.
+
 ### Added — a snap that cannot hear you now says so, on the desktop
 
 Both interfaces YazSes needs are manual-connect, a snap cannot connect its own,
@@ -68,6 +86,22 @@ Center or the snapcraft.io web button never passes through a terminal, so the
 log line, the store description and `doctor` all reach only a user who already
 suspects something and knows where to look. Whoever the toast reaches has not
 been told anything yet.
+
+### Fixed — the snap had no application launcher, in any desktop, ever
+
+`snapcraft.yaml` declared four apps and not one carried a `desktop:` key, so
+snapd exported nothing to `/var/lib/snapd/desktop/applications/`. Verified on a
+real machine: firefox, vlc, snap-store and firmware-updater are all in that
+directory and yazses is not. Every install from GNOME App Center, KDE Discover
+or the snapcraft.io web button therefore finished with **nothing to click**, and
+nothing anywhere said a terminal was required.
+
+The launcher opens the Settings window rather than starting dictation, for the
+reason the Flathub launcher already recorded: an app-grid activation has no
+terminal and hold-to-talk is a background daemon with nothing to show, so a
+launcher that appears to do nothing is worse than one that opens the window
+where the hotkey, the microphone and every capability can be set — and in a
+snap, it is also the one surface that can say the interfaces are not connected.
 
 ### Changed — the store listing led with its own caveats
 
