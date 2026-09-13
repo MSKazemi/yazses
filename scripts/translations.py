@@ -325,32 +325,6 @@ LOCALES: dict[str, dict] = {
         link_docs="Τεκμηρίωση", link_readme="Το πλήρες αγγλικό README",
         link_issues="Ζητήματα και ερωτήσεις")},
 
-    "tr": {"name": "Türkçe", "issue": 203, "strings": _t(
-        draft_title="Taslak çeviri",
-        draft_body="Makine destekli ve henüz ana dili konuşan biri tarafından gözden geçirilmedi.",
-        pitch=(
-            "YazSes; Linux, macOS ve Windows için özgür, açık kaynaklı ve çevrimdışı "
-            "çalışan bir sesli yazdırma servisidir. Bir tuşu basılı tutun, konuşun, "
-            "bırakın — metin yazmakta olduğunuz yerde belirir. Her şey kendi "
-            "bilgisayarınızda çalışır: bulut yok, hesap yok, abonelik yok."),
-        install_heading="Kurulum", platform="Platform", command="Komut",
-        any_os="Herhangi bir sistem",
-        first_run=("İlk çalıştırma bir kez konuşma modelini indirir (yaklaşık 148 MB). "
-                   "Sonrasında hiç ağ gerekmez."),
-        does_heading="Ne yapar", does_1_title="Dikte",
-        does_1="Tuşu basılı tutun, konuşun, bırakın. Metin etkin pencereye yazılır.",
-        does_2_title="Sesli komutlar",
-        does_2="“dosyayı kaydet” ya da “40. satıra git” deyin; sözcükleri yazmak yerine işlemi yapar.",
-        does_3_title="Toplantılar ve kayıtlar",
-        does_3=("Bir ses dosyasını yazıya dökün ya da tüm bir toplantıyı konuşmacı "
-                "etiketleriyle kaydedin — tamamen çevrimdışı."),
-        privacy_heading="Gizlilik",
-        privacy=("Ses kendi bilgisayarınızda yazıya dökülür ve hiçbir yere gönderilmez. "
-                 "Telemetri yoktur ve buluta giden bir yol yoktur."),
-        more_heading="Dahası", more="Belgelerin geri kalanı şimdilik İngilizcedir.",
-        link_docs="Belgeler", link_readme="Tam İngilizce README",
-        link_issues="Sorunlar ve sorular")},
-
     "uk": {"name": "українська", "issue": 204, "strings": _t(
         draft_title="Чернетковий переклад",
         draft_body="Створено за допомогою машини й ще не перевірено носієм мови.",
@@ -697,5 +671,6 @@ HUMAN_LOCALES: dict[str, str] = {
     "hi": "हिंदी",
     "ko": "한국어",
     "ru": "Русский",
+    "tr": "Türkçe",
     "zh-CN": "简体中文",
 }
