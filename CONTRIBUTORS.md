@@ -151,6 +151,13 @@ found defects that no amount of reading the code here would have surfaced.
 - [@Mr-Neutr0n](https://github.com/Mr-Neutr0n) — the VS Code app profile
   ([#43](https://github.com/MSKazemi/yazses/issues/43)), the project's first Electron editor
   and the one most people asked for
+- [@musabustun](https://github.com/musabustun) (Musab Yusuf Üstün) — native-speaker review of
+  the Turkish page, and the one that caught a real mistranslation rather than only phrasing:
+  the hero line described YazSes as a *sesli yazdırma servisi*, which a Turkish reader parses
+  as a voice-triggered **printing** service — corrected to *sesli dikte servisi*, matching the
+  page's own "Dikte" heading
+  ([#354](https://github.com/MSKazemi/yazses/issues/354) →
+  [#372](https://github.com/MSKazemi/yazses/pull/372))
 - [@Parinitha-26](https://github.com/Parinitha-26)
 - [@Prithvi4904](https://github.com/Prithvi4904) — first README translation (Hindi), and the
   language switcher that makes every later translation reachable
