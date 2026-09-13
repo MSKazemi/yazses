@@ -372,6 +372,7 @@ nav:
       - Privacy statement: privacy-statement.md
       - Offline-inference challenge: launch/offline-challenge.md
       - Code signing & verification: code-signing.md
+      - Microsoft Store submission: store-submission.md
       - Architecture:
           - Overview: architecture.md
           - Diagrams: diagrams/index.md

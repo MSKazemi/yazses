@@ -107,7 +107,16 @@ jobs:
         # the issue does not say better. `continue-on-error` would still paint the
         # run red, so the status is captured instead.
         run: |
-          set -uo pipefail
+          # `set +e` explicitly, not merely `-uo pipefail`. GitHub invokes this as
+          # `/usr/bin/bash -e {0}`, and `set -uo pipefail` does NOT clear a `-e`
+          # that came from the shell invocation -- only `set +e` does. Without it
+          # the script's exit 1 killed the step at the line below, so `drift=$?`
+          # was never written, `report.md` never reached the summary, and "Report
+          # or clear" was skipped for being downstream of a failed step. The
+          # watcher could therefore only ever succeed while it had nothing to
+          # report: in its first 17 days it filed zero issues and went red the one
+          # day it actually found drift.
+          set +e -uo pipefail
           # --compare-with is what keeps this from crying wolf. Six channels have
           # no credential wired up and are absent for every version; asking only
           # about channels the PREVIOUS release actually reached turns a standing

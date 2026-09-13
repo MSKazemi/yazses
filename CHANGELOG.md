@@ -144,6 +144,101 @@ The five places in `README.md` and `docs/` that told Wayland users not to use
 the snap were corrected for the same reason they existed: they were true, and
 they are not any more. Historical release notes are left alone.
 
+### Security — `lightning` (CVE-2026-58659) now has a patched release; upgraded
+
+`.github/SECURITY.md` previously assessed this advisory as reachable through the
+opt-in pyannote diarization backend and bounded only by three preconditions this
+project controls, because no patched release existed anywhere — 2.6.5 was the
+newest on PyPI and the fix was an unreleased upstream commit. That changed
+2026-09-10: `lightning` 2.6.6 restricts the checkpoint `_instantiator`
+hyperparameter to an allowlist and rejects a `_class_path` that does not resolve
+to an already-imported subclass, fixing this CVE directly.
+
+`uv.lock` now resolves `lightning>=2.6.6`. The three compensating controls
+(opt-in extra, non-default backend, hardcoded checkpoint ids) are unchanged and
+still documented — they remain true and this is defense in depth, not a
+replacement for them. `tests/test_dependency_advisories.py` gained a version-floor
+test mirroring the existing `setuptools` one, proved red on a sabotaged floor and
+green on revert, so a future re-pin or transitive downgrade cannot silently drop
+back below the patched release.
+
+### Fixed — every translated page recruited reviewers to a closed issue
+
+All 25 draft translation pages carried the line *"Improving it is a welcome first
+contribution — see issue #N"*, and in every single case `#N` was that locale's
+**closed** `Translate the README into <language>` issue. It was closed the day the
+translation landed. The live work — the 25 open `Review the <language>
+translation` issues, #334–#358 — was reachable from none of them.
+
+So the one sentence on each page whose entire purpose is to recruit a reviewer
+sent every reader who clicked it to finished, locked work. This project has had
+exactly this shape of bug before somewhere else: the first-issue greeting bot once
+pointed every newcomer at a label with zero open issues.
+
+Found by [@YuuGR1337](https://github.com/YuuGR1337), who corrected it for
+Brazilian Portuguese ([#359](https://github.com/MSKazemi/yazses/pull/359)); the
+pattern turned out to hold for all 25, and the remaining 24 were repointed on
+merge. The mapping is verified rather than assumed — each locale links the review
+issue whose title names *that* locale's language, each confirmed open — because a
+transposition here would send Arabic readers to the Bengali issue and look
+perfectly fine.
+
+`docs/hi`, `docs/ru` and `docs/zh-CN` are untouched: they carry the `status=active`
+banner and have no such line, being partial translations rather than unreviewed
+drafts.
+
+The pt-BR page also gains the recruiting call **in Portuguese**, next to the
+localized ⚠️ banner rather than on the English README — the reader who can fix a
+Portuguese translation has by definition already reached a Portuguese page. That
+sentence is @YuuGR1337's, and it is now the template for the other 24, tracked for
+each locale's reviewer to add in their own language rather than machine-written
+here.
+
+### Fixed — fourteen `except IpcUnreachableError:` handlers were dead code on Windows
+
+`yazses start` printed an `IpcUnreachableError` traceback while the daemon it was
+polling came up perfectly a second later, and `yazses restart` crashed outright on
+`signal.SIGKILL`. Reported by [@fall-water-zxc](https://github.com/fall-water-zxc)
+on two independent install routes, which is what ruled out Scoop as the cause
+([#330](https://github.com/MSKazemi/yazses/issues/330)); fixed by
+[@auroraxo](https://github.com/auroraxo) ([#360](https://github.com/MSKazemi/yazses/pull/360)).
+
+**Two classes had the same name and no relationship.** Every caller imports
+`IpcUnreachableError` from `yazses.ipc.client`; the named-pipe client raised a
+second, identically-named class declared in `yazses.platform.windows.ipc`. An
+exception is caught by identity, so the handler that exists specifically to mean
+"not up yet, keep polling" could not catch what the Windows transport threw. That
+is **fourteen** `except IpcUnreachableError:` sites in `cli.py` — `status`, `stop`,
+`doctor`, `logs` among them — plus `tray/app.py`, `mcp/server.py` and
+`platform/windows/lifecycle.py`: all of them graceful on Linux and macOS, all of
+them dead on Windows. It is a good explanation for why Windows felt rougher than
+the other two without anyone being able to point at why. The Windows class now
+subclasses the shared one and keeps its `pipe_name`, because an error that says
+"socket" on Windows is the sort of small lie that costs somebody an afternoon.
+
+**The `SIGKILL` guard was unreachable, not absent.** `_kill_yazses_daemons` opens
+with `if sys.platform != "linux": return 0`, but the call site read
+`_kill_yazses_daemons(signal.SIGKILL)` and Python evaluates the argument first —
+so the `AttributeError` fired before the guard could return, for the entire life of
+the guard. The signal is now resolved through `_force_kill_signal()`, which returns
+`None` where `signal` has no `SIGKILL`; `None` is a no-op, so no caller branches on
+the platform. It returns `None` rather than falling back to `SIGTERM` deliberately:
+the caller sent `SIGTERM` one second earlier, and a second `SIGTERM` is not a
+force-kill. A test asserts the Linux sequence is still `[SIGTERM, SIGKILL]`, so the
+fix cannot quietly weaken the path it was protecting.
+
+The stale `right_ctrl` hotkey in the same report was a *consequence* of the second
+bug rather than a third one: `restart` is the command that reloads the config, so a
+crashing `restart` leaves the old daemon and the old hotkey in place.
+
+Thirteen tests come with it, all running on Linux — the defects were Windows-only
+but their causes are plain Python, so nothing here needs Windows, pywin32, a named
+pipe or a daemon, and Windows' absence of `SIGKILL` is simulated with
+`monkeypatch.delattr`. Nine of them fail against the previous commit. Two are the
+generalisation added on merge: the reported bug was *a* transport shadowing a shared
+name, and nothing stopped the next one doing it again, so the region is now derived
+by globbing every `platform/*/ipc.py` rather than naming Windows — a new OS is
+covered the day its module appears.
 
 ### Fixed — the release-day guard that was right about the wrong bytes
 

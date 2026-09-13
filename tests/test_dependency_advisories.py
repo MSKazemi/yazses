@@ -270,6 +270,10 @@ def test_the_setuptools_assessment_is_actually_published():
 #: The package that carries the advisory, and the one that drags it in.
 LIGHTNING_VIA = "pyannote.audio"
 
+#: The release that patches CVE-2026-58659, shipped 2026-09-10 -- restricts
+#: `_instantiator` to an allowlist and rejects an unresolvable `_class_path`.
+LIGHTNING_PATCHED = (2, 6, 6)
+
 #: The module whose constants bound the assessment.
 PYANNOTE_BACKEND = SRC / "recimport" / "pyannote_backend.py"
 
@@ -467,6 +471,26 @@ def test_a_default_export_contains_no_lightning():
     assert "lightning" not in reach and "pyannote-audio" not in reach, (
         "a default install now resolves lightning/pyannote. SECURITY.md tells "
         "readers CVE-2026-58659 is only reachable if they install an extra by name."
+    )
+
+
+def test_the_resolved_lightning_is_at_or_above_the_patched_release():
+    """A patched release now exists; the lock must not fall behind it.
+
+    Written when this advisory could not be closed by a version bump at all --
+    the fix was an unreleased upstream commit and 2.6.5 was the newest release
+    on PyPI. It has since shipped as 2.6.6. This pins the resolution the same
+    way `test_the_resolved_setuptools_is_at_or_above_the_patched_release` does,
+    so a future re-pin or transitive downgrade cannot silently reopen a CVE this
+    project once had no way to close by any means.
+    """
+    got = _locked_version("lightning")
+    assert got >= LIGHTNING_PATCHED, (
+        f"uv.lock resolves lightning {'.'.join(map(str, got))}, below the patched "
+        f"{'.'.join(map(str, LIGHTNING_PATCHED))} (CVE-2026-58659). The compensating "
+        "controls elsewhere in this file (hardcoded checkpoint ids, opt-in extra) "
+        "still apply, but there is no reason to run an unpatched lightning now "
+        "that a fix has shipped."
     )
 
 
