@@ -84,9 +84,16 @@
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">
+        <!--
+          Wide310x150Logo is mandatory once Square310x310Logo is present: makeappx
+          rejects the package with "The DefaultTile element must specify the
+          Wide310x150Logo attribute if the Square310x310Logo attribute is specified".
+          The msix-validate workflow found this; it is not checkable off Windows.
+        -->
         <uap:DefaultTile
           Square71x71Logo="Assets\Square71x71Logo.png"
-          Square310x310Logo="Assets\Square310x310Logo.png" />
+          Square310x310Logo="Assets\Square310x310Logo.png"
+          Wide310x150Logo="Assets\Wide310x150Logo.png" />
       </uap:VisualElements>
     </Application>
   </Applications>
@@ -106,10 +113,12 @@
       Microphone is the only device capability declared, deliberately.
 
       The webcam-driven features (Glance-Type gaze targeting, the Face-Gesture Switch) are
-      experimental, off by default, and depend on mediapipe, which is an optional extra that
-      the PyInstaller bundle does not ship. Declaring `webcam` would therefore ask the user
-      and a Store reviewer to grant camera access for code that cannot run in this package.
-      An unused capability is a review question with no upside.
+      experimental and off by default. Their adapters are part of YazSes and work on a normal
+      install, where `yazses features enable gaze` installs the `gaze` extra. This package is
+      a frozen bundle built without optional extras, and an MSIX has no pip to add them
+      afterwards, so those camera paths are unreachable in this package specifically.
+      Declaring `webcam` would ask a user and a reviewer to grant camera access nobody here
+      can benefit from. An unused capability is a review question with no upside.
     -->
     <DeviceCapability Name="microphone" />
   </Capabilities>

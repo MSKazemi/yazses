@@ -85,6 +85,11 @@ MSIX_ASSETS = {
     "StoreLogo.png": 50,
 }
 
+# The one non-square tile. It is not optional-if-you-want-it: makeappx rejects the package
+# outright with "The DefaultTile element must specify the Wide310x150Logo attribute if the
+# Square310x310Logo attribute is specified". Declaring the large tile obliges the wide one.
+MSIX_WIDE_ASSETS = {"Wide310x150Logo.png": (310, 150)}
+
 # The frames Windows picks between. 16/20/24/32 are the small-icon sizes for
 # 100/125/150/200% display scaling — an exact frame always beats Explorer's own
 # scaler, and they cost about a kilobyte each. 48 is medium icons, 256 extra-large.
@@ -132,6 +137,25 @@ def build_png(size: int) -> bytes:
     return buf.getvalue()
 
 
+def build_wide_png(width: int, height: int) -> bytes:
+    """A non-square tile: the square mark centred on a transparent canvas.
+
+    The mark is square by construction, so a wide tile cannot simply be a bigger render.
+    Centring rather than stretching is the point -- a stretched brand mark is a distorted
+    brand mark, and the tile background is transparent so the Start menu accent shows
+    through the margins exactly as it does around the square tiles.
+    """
+    from PIL import Image as PilImage
+
+    side = min(width, height)
+    canvas = PilImage.new("RGBA", (width, height), (0, 0, 0, 0))
+    mark = render_mark(side)
+    canvas.paste(mark, ((width - side) // 2, (height - side) // 2), mark)
+    buf = io.BytesIO()
+    canvas.save(buf, format="PNG", optimize=True)
+    return buf.getvalue()
+
+
 def wanted_assets() -> dict[Path, bytes]:
     """Every icon this repo ships, and the bytes it should contain.
 
@@ -145,6 +169,8 @@ def wanted_assets() -> dict[Path, bytes]:
     assets[SNAP_ICON_PATH] = build_png(SNAP_ICON_SIZE)
     for filename, size in MSIX_ASSETS.items():
         assets[MSIX_ASSET_DIR / filename] = build_png(size)
+    for filename, (width, height) in MSIX_WIDE_ASSETS.items():
+        assets[MSIX_ASSET_DIR / filename] = build_wide_png(width, height)
     return assets
 
 

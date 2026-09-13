@@ -82,14 +82,16 @@ def test_run_full_trust_capability_is_declared(manifest: ET.Element) -> None:
 def test_microphone_is_declared_and_webcam_is_not(manifest: ET.Element) -> None:
     """Microphone is required. Webcam is deliberately absent.
 
-    The gaze and face-gesture features need mediapipe, an optional extra the PyInstaller
-    bundle does not ship, so a webcam capability would ask the user and a Store reviewer
-    to grant camera access for code that cannot run in this package.
+    The gaze and face-gesture adapters are part of YazSes and work on a normal install.
+    This package is a frozen bundle built without optional extras and an MSIX cannot add
+    them afterwards, so a webcam capability here would ask the user and a Store reviewer
+    to grant camera access nobody using this package could benefit from.
     """
     devices = [c.get("Name") for c in manifest.findall("d:Capabilities/d:DeviceCapability", NS)]
     assert "microphone" in devices, f"microphone capability missing; got {devices}"
     assert "webcam" not in devices, (
-        "webcam is declared but the bundle ships no camera-using code; an unused "
+        "webcam is declared, but this frozen bundle carries no optional extras and an "
+        "MSIX cannot add them, so no camera code path is reachable here; an unused "
         "capability is a certification question with no upside"
     )
 

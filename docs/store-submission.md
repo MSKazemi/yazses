@@ -85,10 +85,17 @@ does and where to check it:
 | `runFullTrust` | above |
 | `microphone` | recording while the hotkey is held |
 
-**`webcam` is deliberately not declared.** The gaze (Glance-Type) and Face-Gesture features
-depend on `mediapipe`, an optional extra the PyInstaller bundle does not ship, so those
-code paths cannot run in the Store package. Asking for camera access for code that is not
-present would be a certification question with no benefit to the user.
+**`webcam` is deliberately not declared.** The gaze (Glance-Type) and Face-Gesture
+adapters *are* part of YazSes and work on a normal install — `yazses features enable gaze`
+installs the `gaze` extra (`mediapipe`, `opencv-python`) and they run.
+
+What differs here is the packaging, not the product. The Store package is a frozen
+PyInstaller bundle built without optional extras, and an MSIX has no pip to add them
+afterwards, so those camera code paths are unreachable **in this package specifically**.
+Requesting camera access a user could never benefit from is a certification question with
+no upside. Anyone who wants gaze should install from
+[winget, Scoop or the direct installer](windows-install.md), where enabling it works
+normally.
 
 ## Building the package
 
