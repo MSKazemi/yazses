@@ -132,6 +132,16 @@ store-art:
 	@echo "▶  Redrawing the Microsoft Store artwork from the brand mark…"
 	uv run python scripts/gen-store-art.py
 
+# Build the Store MSIX. Windows-only (needs makeappx.exe from the Windows SDK).
+# IDENTITY_NAME / PUBLISHER / PUBLISHER_DISPLAY_NAME come from Partner Center and cannot
+# be guessed; build-msix.ps1 aborts rather than shipping a placeholder identity.
+msix:
+	@echo "▶  Packaging YazSes as MSIX for the Microsoft Store…"
+	pwsh ./scripts/build-msix.ps1 -Version "$(VERSION)" \
+		-IdentityName "$(IDENTITY_NAME)" \
+		-Publisher "$(PUBLISHER)" \
+		-PublisherDisplayName "$(PUBLISHER_DISPLAY_NAME)"
+
 # Re-render the five tray-badge states shown in docs/tray-and-overlay.md. Derived from
 # `icon_spec` + the shared brand renderer, never hand-drawn, so the page cannot end up
 # teaching a colour the badge no longer uses. A test fails when they drift.

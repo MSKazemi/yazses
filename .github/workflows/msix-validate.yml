@@ -1,0 +1,103 @@
+name: msix-validate
+
+# Prove that makeappx accepts the Store manifest, on every change to it.
+#
+# This job deliberately does NOT publish. It packs with a throwaway identity purely to
+# exercise the real toolchain, because everything upstream of makeappx can look correct and
+# still fail: an unparseable manifest, a logo the manifest names but the package lacks, a
+# schema violation, a BOM before the XML declaration. `tests/test_msix_manifest.py` covers
+# the parts that are checkable without Windows; this covers the part that is not.
+#
+# The throwaway identity is the point of the placeholder scheme working in reverse: if the
+# substitution or the abort-on-leftover guard ever breaks, this job fails here rather than
+# the failure surfacing during a Store submission.
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "packaging/windows/msix/**"
+      - "scripts/build-msix.ps1"
+      - "scripts/gen-icons.py"
+      - ".github/workflows/msix-validate.yml"
+  pull_request:
+    paths:
+      - "packaging/windows/msix/**"
+      - "scripts/build-msix.ps1"
+      - "scripts/gen-icons.py"
+      - ".github/workflows/msix-validate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pack:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Locate makeappx from the Windows SDK
+        shell: pwsh
+        run: |
+          $sdk = Get-ChildItem 'C:/Program Files (x86)/Windows Kits/10/bin' -Recurse `
+            -Filter makeappx.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $sdk) { throw "makeappx.exe not present on this runner" }
+          Write-Host "makeappx: $($sdk.FullName)"
+          "MAKEAPPX=$($sdk.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Stand in for the PyInstaller output
+        shell: pwsh
+        run: |
+          # build-msix.ps1 packages dist/YazSes. Building the real bundle here would cost
+          # ten minutes to test a manifest, so a stub with the one file the manifest names
+          # is enough: makeappx validates the manifest against the package contents, not
+          # the contents against reality.
+          New-Item -ItemType Directory -Force -Path dist/YazSes | Out-Null
+          Set-Content -Path dist/YazSes/YazSesApp.exe -Value 'stub'
+
+      - name: Pack with a throwaway identity
+        shell: pwsh
+        run: |
+          ./scripts/build-msix.ps1 -Version 0.0.1 `
+            -IdentityName 'CIValidation.YazSes' `
+            -Publisher 'CN=CI Validation, O=CI, C=GB' `
+            -PublisherDisplayName 'CI Validation' `
+            -Architecture x64
+
+      - name: The package must exist, and must be unsigned
+        shell: pwsh
+        run: |
+          $pkg = 'dist/YazSes-0.0.1-windows-x64.msix'
+          if (-not (Test-Path $pkg)) { throw "$pkg was not produced" }
+          Write-Host "packed: $((Get-Item $pkg).Length) bytes"
+          # An MSIX is a zip. A signed one carries AppxSignature.p7x; this one must not,
+          # because the Store signs it and a certificate is exactly what we are not buying.
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zip = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $pkg))
+          $names = $zip.Entries | ForEach-Object { $_.FullName }
+          $zip.Dispose()
+          if ($names -contains 'AppxSignature.p7x') { throw "package is signed; it must not be" }
+          foreach ($need in @('AppxManifest.xml', 'Assets/Square150x150Logo.png')) {
+            if ($names -notcontains $need) { throw "package is missing $need" }
+          }
+          Write-Host "contains AppxManifest.xml and its logos; no signature. Correct."
+
+      - name: A leftover placeholder must abort the build
+        shell: pwsh
+        run: |
+          # The guard that makes the placeholder scheme safe. Verified by removing a
+          # substitution and asserting the script refuses, rather than trusting that it
+          # would -- an untested abort path is an abort path that does not run.
+          $manifest = 'packaging/windows/msix/AppxManifest.xml'
+          (Get-Content $manifest -Raw).Replace('__PUBLISHER__', '__NEVER_SUBSTITUTED__') |
+            Set-Content $manifest -NoNewline
+          $failed = $false
+          try {
+            ./scripts/build-msix.ps1 -Version 0.0.2 -IdentityName 'a.b' `
+              -Publisher 'CN=x' -PublisherDisplayName 'x' -Architecture x64
+          } catch {
+            $failed = $true
+            Write-Host "correctly refused: $($_.Exception.Message)"
+          }
+          if (-not $failed) { throw "build succeeded with a leftover placeholder" }
