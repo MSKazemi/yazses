@@ -14,7 +14,7 @@ CPU. Dictation works out of the box; the extras beyond it are opt-in and off by 
 |---|---|---|
 | 🐧 **Linux** | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)` | **[Linux install →](https://mskazemi.com/yazses/install-linux.html)** |
 | 🍎 **macOS** | `pipx install yazses` | **[macOS install →](https://mskazemi.com/yazses/macos-install.html)** |
-| 🪟 **Windows** | `pipx install yazses` | **[Windows install →](https://mskazemi.com/yazses/windows-install.html)** |
+| 🪟 **Windows** | `winget install MSKazemi.YazSes` | **[Windows install →](https://mskazemi.com/yazses/windows-install.html)** |
 
 Then run these two:
 

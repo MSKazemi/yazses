@@ -5,7 +5,7 @@ description: "Install YazSes on Windows for offline speech-to-text: pipx install
 
 # YazSes on Windows — install & first-run guide
 
-> **Version:** Applies to the current YazSes release (v2.x). Install the latest with `pipx install yazses`.
+> **Version:** Applies to the current YazSes release (v2.x). Install the latest with `winget install MSKazemi.YazSes`.
 
 > **Developer preview.** Windows builds are **unsigned**. Windows SmartScreen
 > warns on first launch; the steps below show how to bypass it safely. Code
@@ -18,6 +18,29 @@ description: "Install YazSes on Windows for offline speech-to-text: pipx install
 - A microphone
 
 ## Install
+
+### The one-line way — winget (recommended)
+
+YazSes is in the Windows Package Manager, which ships with Windows 10 21H2 and
+Windows 11. Open Terminal or PowerShell and run:
+
+```powershell
+winget install MSKazemi.YazSes
+```
+
+That resolves both x64 and ARM64 automatically, verifies the installer's SHA256
+against the published manifest, and installs per-user with no administrator
+rights. `winget upgrade MSKazemi.YazSes` moves you to a new release later.
+
+!!! note "Which version winget gives you"
+
+    The winget catalogue is updated per release rather than continuously, so it can
+    trail the newest tag by a few days while Microsoft's moderators merge the
+    version bump. `winget install` always gives you a working, checksum-verified
+    build; if you need the very newest one the same day it ships, use the installer
+    below or Scoop.
+
+### Manual installer
 
 1. Download the installer for your machine from the
    [Releases](https://github.com/MSKazemi/yazses/releases) page:
@@ -65,13 +88,13 @@ host: `yazses update --check` correctly reports the install as `via scoop` and
 offers `scoop update yazses`. The direct installer above is verified the same way
 (`via windows-installer`).
 
-**winget is not available yet.** The manifests
+**winget works.** The submission to `microsoft/winget-pkgs` was
+moderator-approved and merged on 2026-09-10, so `winget install MSKazemi.YazSes`
+resolves against Microsoft's own catalogue. The manifests are authored here in
 ([`packaging/winget/`](https://github.com/MSKazemi/yazses/tree/main/packaging/winget))
-are written and versioned here and pass every winget validation check, but the
-submission to `microsoft/winget-pkgs` is still waiting on a community moderator, so
-`winget install MSKazemi.YazSes` does not resolve yet. Progress is tracked in
-[issue #78](https://github.com/MSKazemi/yazses/issues/78); Scoop notes go in
-[#79](https://github.com/MSKazemi/yazses/issues/79).
+and their checksums are derived from the real release assets rather than copied by
+hand. Notes go in [issue #78](https://github.com/MSKazemi/yazses/issues/78); Scoop
+notes go in [#79](https://github.com/MSKazemi/yazses/issues/79).
 
 The `.exe` is not code-signed yet, so SmartScreen warns on first launch whichever
 route you take.
