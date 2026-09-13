@@ -18,7 +18,7 @@ language fixes it.
 | हिंदी (`hi`) | [docs/hi/index.md](https://mskazemi.com/yazses/hi/index.html) | full | @Sushanttmishraa — *account deleted* | `96711bc` (2026-08-13) | active | **a new native reviewer is wanted**; the translation itself is unaffected |
 | 简体中文 (`zh-CN`) | [docs/zh-CN/index.md](https://mskazemi.com/yazses/zh-CN/index.html) | partial | *needed* | `96711bc` (2026-08-13) | active | covers install + quickstart only; a native reviewer is wanted |
 | Русский (`ru`) | [docs/ru/index.md](https://mskazemi.com/yazses/ru/index.html) | full | [@4nmus](https://github.com/4nmus) | `96711bc` (2026-08-13) | active | re-check against English when the README changes materially |
-| Türkçe (`tr`) | [docs/tr/index.md](https://mskazemi.com/yazses/tr/index.html) | partial | [@musabustun](https://github.com/musabustun) | `119a9c4` | active | covers the hero, install and quickstart, "what it does" and privacy only; re-check against English when the README changes materially |
+| Türkçe (`tr`) | [docs/tr/index.md](https://mskazemi.com/yazses/tr/index.html) | partial | [@musabustun](https://github.com/musabustun) | `119a9c4` (2026-09-13) | active | covers the hero, install and quickstart, "what it does" and privacy only; re-check against English when the README changes materially |
 
 
 <!-- generated-drafts:start -->
