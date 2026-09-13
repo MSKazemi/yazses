@@ -103,6 +103,34 @@ launcher that appears to do nothing is worse than one that opens the window
 where the hotkey, the microphone and every capability can be set — and in a
 snap, it is also the one surface that can say the interfaces are not connected.
 
+### Fixed — the new launcher opened a window that could not explain the problem
+
+Adding an application-grid launcher created a gap it had to close itself. The
+launcher is the only route a GUI user has into YazSes: they arrived from App
+Center, never opened a terminal, and so never see `yazses doctor`, the startup
+log line or the store description. They would click the new icon, meet a
+perfectly ordinary Settings window, and still not know the microphone was not
+connected.
+
+The Settings window now carries a missing-permission banner above everything
+else, with the exact commands, selectable so they can be copied — retyping
+`sudo snap connect yazses:audio-record` from a screenshot is where people give
+up. It appears only for a *definitely* disconnected interface: an unknown state
+paints no banner, because an unrun probe must not redden a working install.
+
+### Fixed — the GUI job selected its tests from a hand-written list
+
+The GUI (Qt) job exists because PySide6 is not a base dependency, so every Qt
+test in the suite is skipped by the ordinary job — the settings window's tests
+had once never executed anywhere. It then selected its files by naming nine of
+them. A tenth was added and joined nothing: its Qt cases would have run only
+where PySide6 is absent, which is to say nowhere, restoring the exact hole the
+job was built to close.
+
+It now globs `tests/test_settingsui_*.py`, and a test holds that true — it fails
+if the glob is replaced by a list again. A set that has to be remembered is the
+defect.
+
 ### Changed — the store listing led with its own caveats
 
 The description spent its middle telling the reader the snap would not work and

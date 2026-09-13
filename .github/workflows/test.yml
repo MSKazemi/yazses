@@ -220,16 +220,16 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
+          # The settings-window family is a GLOB, not a hand-written list. It
+          # was a list of nine filenames, and a tenth
+          # (tests/test_settingsui_snap_banner.py) was added without anyone
+          # noticing it had joined nothing: it would have run only on a
+          # developer's machine, where PySide6 is absent and it skips. A set
+          # that has to be remembered is the defect; derive the region instead.
+          # tests/test_gui_covers_every_settingsui_file.py fails if this stops
+          # matching the family.
           uv run python -m pytest -v -rs \
-            tests/test_settingsui_window.py \
-            tests/test_settingsui_help.py \
-            tests/test_settingsui_search.py \
-            tests/test_settingsui_model.py \
-            tests/test_settingsui_controller.py \
-            tests/test_settingsui_controls.py \
-            tests/test_settingsui_restart.py \
-            tests/test_settingsui_deps.py \
-            tests/test_settingsui_launch.py \
+            tests/test_settingsui_*.py \
             tests/test_gui_entry_points.py \
             tests/test_tray_settings_parity.py \
             tests/test_tray_about.py 2>&1 | tee gui-tests.txt
