@@ -1,22 +1,16 @@
 ---
 title: "YazSes — Türkçe"
-description: "YazSes; Linux, macOS ve Windows için özgür, açık kaynaklı ve çevrimdışı çalışan bir sesli yazdırma servisidir. Bir tuşu basılı tutun, konuşun, bırakın — metin yazmakta olduğunuz yerde belirir. Her şey kendi bilgisayarınızda çalışır: bulut yok, hesap yok, abonelik yok."
+description: "YazSes; Linux, macOS ve Windows için özgür, açık kaynaklı ve çevrimdışı çalışan bir sesli dikte servisidir. Bir tuşu basılı tutun, konuşun, bırakın — metin, o an yazmakta olduğunuz yere yazılır. Her şey kendi bilgisayarınızda çalışır: bulut yok, hesap yok, abonelik yok."
 alternates:
   en: index.md
 ---
 
 **Read this in other languages:** [English](../index.md) · [Deutsch](../de/index.md) · [Nederlands](../nl/index.md) · [Tiếng Việt](../vi/index.md) · Türkçe · [bahasa Indonesia](../id/index.md) · [español](../es/index.md) · [français](../fr/index.md) · [italiano](../it/index.md) · [polski](../pl/index.md) · [português do Brasil](../pt-BR/index.md) · [svenska](../sv/index.md) · [čeština](../cs/index.md) · [ελληνικά](../el/index.md) · [Русский](../ru/index.md) · [українська](../uk/index.md) · [עברית](../he/index.md) · [اردو](../ur/index.md) · [العربية](../ar/index.md) · [فارسی](../fa/index.md) · [हिंदी](../hi/index.md) · [বাংলা](../bn/index.md) · [தமிழ்](../ta/index.md) · [తెలుగు](../te/index.md) · [ไทย](../th/index.md) · [日本語](../ja/index.md) · [简体中文](../zh-CN/index.md) · [繁體中文](../zh-TW/index.md) · [한국어](../ko/index.md)
-<!-- yazses-l10n: locale=tr; source=README.md; source_sha=3baacb8; scope=partial; status=draft -->
-
-> ⚠️ **Taslak çeviri** — Makine destekli ve henüz ana dili konuşan biri tarafından gözden geçirilmedi.
->
-> *This is a machine-assisted **draft** translation, not yet reviewed by a native
-> speaker. English is authoritative: [README.md](https://github.com/MSKazemi/yazses#readme). Improving it is a
-> welcome first contribution — see [issue #354](https://github.com/MSKazemi/yazses/issues/354).*
+<!-- yazses-l10n: locale=tr; source=README.md; source_sha=119a9c4; scope=partial; status=active; reviewer=@musabustun -->
 
 # YazSes
 
-YazSes; Linux, macOS ve Windows için özgür, açık kaynaklı ve çevrimdışı çalışan bir sesli yazdırma servisidir. Bir tuşu basılı tutun, konuşun, bırakın — metin yazmakta olduğunuz yerde belirir. Her şey kendi bilgisayarınızda çalışır: bulut yok, hesap yok, abonelik yok.
+YazSes; Linux, macOS ve Windows için özgür, açık kaynaklı ve çevrimdışı çalışan bir sesli dikte servisidir. Bir tuşu basılı tutun, konuşun, bırakın — metin, o an yazmakta olduğunuz yere yazılır. Her şey kendi bilgisayarınızda çalışır: bulut yok, hesap yok, abonelik yok.
 
 ## Kurulum
 
@@ -31,7 +25,7 @@ yazses quickstart
 yazses start
 ```
 
-İlk çalıştırma bir kez konuşma modelini indirir (yaklaşık 148 MB). Sonrasında hiç ağ gerekmez.
+İlk çalıştırmada konuşma modeli bir kez indirilir (yaklaşık 148 MB). Bundan sonra hiç ağ bağlantısına gerek kalmaz.
 
 ## Ne yapar
 
@@ -41,9 +35,9 @@ yazses start
 
 ## Gizlilik
 
-Ses kendi bilgisayarınızda yazıya dökülür ve hiçbir yere gönderilmez. Telemetri yoktur ve buluta giden bir yol yoktur.
+Ses kendi bilgisayarınızda yazıya dökülür ve hiçbir yere gönderilmez. Telemetri yoktur, bulutla hiçbir bağlantı yoktur.
 
-## Dahası
+## Daha fazlası
 
 Belgelerin geri kalanı şimdilik İngilizcedir.
 
