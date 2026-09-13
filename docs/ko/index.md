@@ -88,6 +88,7 @@ yazses start
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Guruharishb"><img src="https://avatars.githubusercontent.com/u/170197232?v=4?s=100" width="100px;" alt="Guruharishb"/><br /><sub><b>Guruharishb</b></sub></a><br /><a href="#translation-Guruharishb" title="Translation">🌍</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://x.com/WEFramework"><img src="https://avatars.githubusercontent.com/u/248577390?v=4?s=100" width="100px;" alt="DeliberateEnsemble"/><br /><sub><b>DeliberateEnsemble</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=vortsghost2025" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/doeil1614-ops"><img src="https://avatars.githubusercontent.com/u/298136347?v=4?s=100" width="100px;" alt="doeil1614-ops"/><br /><sub><b>doeil1614-ops</b></sub></a><br /><a href="#translation-doeil1614-ops" title="Translation">🌍</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/musabustun"><img src="https://avatars.githubusercontent.com/u/59414375?v=4?s=100" width="100px;" alt="Musab Yusuf Üstün"/><br /><sub><b>Musab Yusuf Üstün</b></sub></a><br /><a href="#translation-musabustun" title="Translation">🌍</a></td>
     </tr>
   </tbody>
 </table>
