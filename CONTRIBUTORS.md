@@ -137,6 +137,12 @@ found defects that no amount of reading the code here would have surfaced.
   built-in microphone and not sitting close to it
   ([#328](https://github.com/MSKazemi/yazses/pull/328)); also see
   **Testing & field reports** above
+- [@Guruharishb](https://github.com/Guruharishb) — native-speaker review of the Tamil
+  page (`docs/ta/index.md`), extending it well past a wording pass to full parity with
+  the current English docs site — the "Why YazSes", use-cases, "when not to use it",
+  "how it works" and FAQ sections the original machine draft never had
+  ([#351](https://github.com/MSKazemi/yazses/issues/351) →
+  [#363](https://github.com/MSKazemi/yazses/pull/363))
 - [@HeaTTap](https://github.com/HeaTTap)
 - [@jackie-cqz](https://github.com/jackie-cqz)
 - [@jayavandhiniMK](https://github.com/jayavandhiniMK) (Jayavandhini M K) — Windows 11

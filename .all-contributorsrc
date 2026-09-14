@@ -11,7 +11,7 @@
   "commitConvention": "angular",
   "contributorsPerLine": 7,
   "contributorsSortAlphabetically": false,
-  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-24-orange.svg?style=flat-square)](#contributors)",
+  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-25-orange.svg?style=flat-square)](#contributors)",
   "contributors": [
     {
       "login": "MSKazemi",
@@ -255,6 +255,15 @@
         "doc",
         "translation",
         "bug"
+      ]
+    },
+    {
+      "login": "Guruharishb",
+      "name": "Guruharishb",
+      "avatar_url": "https://avatars.githubusercontent.com/u/170197232?v=4",
+      "profile": "https://github.com/Guruharishb",
+      "contributions": [
+        "translation"
       ]
     }
   ]
