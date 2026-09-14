@@ -14,7 +14,7 @@ CPU. Dictation works out of the box; the extras beyond it are opt-in and off by 
 |---|---|---|
 | 🐧 **Linux** | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)` | **[Linux install →](https://mskazemi.com/yazses/install-linux.html)** |
 | 🍎 **macOS** | `pipx install yazses` | **[macOS install →](https://mskazemi.com/yazses/macos-install.html)** |
-| 🪟 **Windows** | `pipx install yazses` | **[Windows install →](https://mskazemi.com/yazses/windows-install.html)** |
+| 🪟 **Windows** | `winget install MSKazemi.YazSes` | **[Windows install →](https://mskazemi.com/yazses/windows-install.html)** |
 
 Then run these two:
 
@@ -52,9 +52,9 @@ Not sure yet? **[Try it without installing](https://mskazemi.com/yazses/try-with
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21856271.svg)](https://doi.org/10.5281/zenodo.21856271)
 [![Documentation](https://img.shields.io/badge/docs-mskazemi.com%2Fyazses-5e35b1)](https://mskazemi.com/yazses/)
 [![Open Source Helpers](https://www.codetriage.com/mskazemi/yazses/badges/users.svg)](https://www.codetriage.com/mskazemi/yazses)
-[![All Contributors](https://img.shields.io/badge/all_contributors-24-orange.svg?style=flat-square)](#contributors)
+[![All Contributors](https://img.shields.io/badge/all_contributors-25-orange.svg?style=flat-square)](#contributors)
 
-[![Get it from the Snap Store](https://snapcraft.io/en/light/install.svg)](https://snapcraft.io/yazses) **X11 only — use the Linux installer on Wayland.**
+[![Get it from the Snap Store](https://snapcraft.io/en/light/install.svg)](https://snapcraft.io/yazses) **Two `snap connect` lines are required after install — see [§Snap](docs/install-linux.md#3-snap).**
 
 **No audio, no text, nothing leaves your machine by default.** Offline voice dictation that types into any app, transcribes a recording, or captures a whole meeting with speaker names and minutes — all on your own CPU. No cloud. No API key. No subscription.
 
@@ -117,9 +117,11 @@ provisions every system prerequisite (audio, keystroke injection, clipboard, `in
 Wayland `ydotoold`), and finishes by running **`yazses doctor`** so any missing tool surfaces
 *during* install. The APT script
 (`bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)`)
-and `pipx` paths install the last tagged release. An X11-only build is also on the
-[Snap Store](https://snapcraft.io/yazses); Wayland users should use the recommended
-Linux installer instead.
+and `pipx` paths install the last tagged release. There is also a
+[Snap Store](https://snapcraft.io/yazses) build, which works on X11 and — via the
+`xdg-desktop-portal` RemoteDesktop API — on GNOME and KDE Wayland. It needs two
+`snap connect` lines after install, because a snap cannot grant itself
+permissions. The Linux installer remains the most-tested path.
 
 **Just want to transcribe a recording?** There is a container for that — no install at
 all: `docker run --rm -v "$PWD:/data" ghcr.io/mskazemi/yazses transcribe /data/talk.m4a
@@ -505,7 +507,7 @@ pipx install yazses
 # group so you can test before logging out).
 bash scripts/dev-install.sh
 
-# Snap Store — X11 only; use the APT script or pipx on Wayland.
+# Snap Store — X11, and Wayland via the desktop portal (GNOME/KDE).
 # All three privileged lines are required. A snap cannot connect its own interfaces, and the
 # daemon starts and looks healthy without them — it just never hears you, or never
 # sees the key.
@@ -724,6 +726,7 @@ Thanks to these people for helping build YazSes ✨ — every bug report, doc fi
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Akgithub2028"><img src="https://avatars.githubusercontent.com/u/181275449?v=4?s=100" width="100px;" alt="Aayaann Kausar"/><br /><sub><b>Aayaann Kausar</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=Akgithub2028" title="Documentation">📖</a> <a href="#userTesting-Akgithub2028" title="User Testing">📓</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/auroraxo"><img src="https://avatars.githubusercontent.com/u/325296939?v=4?s=100" width="100px;" alt="Aurora"/><br /><sub><b>Aurora</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=auroraxo" title="Code">💻</a> <a href="https://github.com/MSKazemi/yazses/commits?author=auroraxo" title="Tests">⚠️</a> <a href="#platform-auroraxo" title="Packaging/porting to new platform">📦</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/YuuGR1337"><img src="https://avatars.githubusercontent.com/u/241930202?v=4?s=100" width="100px;" alt="Elkero"/><br /><sub><b>Elkero</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=YuuGR1337" title="Documentation">📖</a> <a href="#translation-YuuGR1337" title="Translation">🌍</a> <a href="https://github.com/MSKazemi/yazses/issues?q=author%3AYuuGR1337" title="Bug reports">🐛</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Guruharishb"><img src="https://avatars.githubusercontent.com/u/170197232?v=4?s=100" width="100px;" alt="Guruharishb"/><br /><sub><b>Guruharishb</b></sub></a><br /><a href="#translation-Guruharishb" title="Translation">🌍</a></td>
     </tr>
   </tbody>
 </table>

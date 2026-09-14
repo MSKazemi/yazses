@@ -206,6 +206,11 @@ class InjectionConfig:
     # no-op in terminals where Ctrl+V is literal), "wtype" is Wayland-only and is
     # ignored on X11, and "unicode" is an opt-in Linux XKB/uinput path. `yazses doctor`
     # names the one that will actually be used.
+    #
+    # "portal" forces the xdg-desktop-portal RemoteDesktop API (inject/portal.py).
+    # `auto` already picks it on Wayland when ydotoold is not running, which is
+    # the case inside a strictly confined snap; force it when a session has a
+    # stale ydotoold socket that wins the probe but cannot actually inject.
     backend: str = "auto"
     fallback_to_clipboard: bool = True
     # Successive hold-to-talk bursts within this window are treated as one

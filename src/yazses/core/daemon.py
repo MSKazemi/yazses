@@ -464,6 +464,7 @@ class Daemon:
                 self._device_monitor.start()
                 log.info("Watching for audio-input device changes.")
             self._start_update_watcher()
+            self._warm_portal_session()
             self._hotkey.run()
         finally:
             self._shutdown()
@@ -627,6 +628,56 @@ class Daemon:
                 log.exception("Tray supervisor iteration failed")
 
     # ---- update watcher ---------------------------------------------------
+
+    def _warm_portal_session(self) -> None:
+        """Negotiate the Wayland portal session now, not mid-sentence.
+
+        The RemoteDesktop portal asks the user's permission once, and `Start`
+        does not return until they answer. Left lazy, that question is asked by
+        the *first hold-to-talk release* -- the one moment the user is watching
+        the text field they just dictated into rather than hunting for a
+        permission window. Worse, the portal logs "Failed to associate portal
+        window with parent window" for our empty `parent_window`, so the dialog
+        can be raised behind whatever is in front.
+
+        Doing it at startup moves the question to login, where a dialog is
+        expected. On a background thread because it blocks until answered, and
+        the daemon must reach IDLE and be ready for the hotkey regardless.
+
+        A refusal is not fatal: `LinuxInjector` falls back to clipboard paste,
+        and the hot path uses a short budget so it degrades in seconds.
+        """
+        injector = getattr(self, "_injector", None)
+        backend = getattr(injector, "_primary", injector)
+        warm = getattr(backend, "warm", None)
+        if warm is None:
+            return
+
+        def _run() -> None:
+            try:
+                if warm():
+                    log.info("Wayland portal session established.")
+                    return
+                log.warning(
+                    "The desktop asked for permission to type and did not get an "
+                    "answer, so dictation will paste to the clipboard instead. "
+                    "Look for a permission dialog (it may be behind another "
+                    "window), then run `yazses restart`."
+                )
+                try:
+                    from yazses.system.notify import notify
+
+                    notify(
+                        "YazSes needs permission to type",
+                        "Approve the desktop permission dialog — it may be hidden "
+                        "behind another window — then run `yazses restart`.",
+                    )
+                except Exception:  # noqa: BLE001 — a toast must never matter here
+                    pass
+            except Exception:  # noqa: BLE001 — a startup thread must never crash
+                log.debug("portal warm-up failed", exc_info=True)
+
+        threading.Thread(target=_run, name="portal-warm", daemon=True).start()
 
     def _start_update_watcher(self) -> None:
         """Start the opt-in "a newer YazSes is out" watcher.
@@ -5110,10 +5161,52 @@ def run() -> None:
     except Exception:  # noqa: BLE001 — config seeding must never block startup
         pass
     _report_config_problems()
+    _report_snap_interfaces()
     try:
         Daemon().run()
     except KeyboardInterrupt:
         sys.exit(0)
+
+
+def _report_snap_interfaces() -> None:
+    """Warn -- in the log *and* on the desktop -- about a crippled snap install.
+
+    This is the single largest source of "I installed it and nothing happened".
+    Both interfaces the snap needs are manual-connect, a snap cannot connect its
+    own, and without them the daemon starts perfectly: the model loads, the
+    state machine reaches IDLE, `yazses status` says healthy, and the microphone
+    is never opened or the key is never seen.
+
+    The desktop notification is the load-bearing half. A snap installed from App
+    Center or the snapcraft.io web button never passes through a terminal, so
+    every existing signal -- the log line, the store description, `doctor` --
+    reaches only a user who already suspects something and knows where to look.
+    Whoever the toast reaches has not been told anything yet.
+
+    Never raises: this is diagnostics on the startup path.
+    """
+    try:
+        from yazses.system.snap import connection_advice, missing_interfaces
+
+        missing = missing_interfaces()
+        if not missing:
+            return
+        advice = connection_advice(missing)
+        for line in advice.splitlines():
+            log.warning("%s", line)
+        try:
+            from yazses.system.notify import notify
+
+            plugs = ", ".join(plug for plug, _ in missing)
+            notify(
+                "YazSes cannot hear you yet",
+                f"Missing permission: {plugs}. Run `yazses doctor` in a terminal "
+                "for the one command that fixes it.",
+            )
+        except Exception:  # noqa: BLE001 — a toast must never block startup
+            pass
+    except Exception:  # noqa: BLE001 — diagnostics must never block startup
+        pass
 
 
 def _report_config_problems() -> None:

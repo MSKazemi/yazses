@@ -84,6 +84,14 @@ dependencies = [
     # version on a BSD ("freebsd14", "freebsd15"), and PEP 508 markers have no
     # prefix operator, so a sys_platform list would silently stop matching at the
     # next FreeBSD release. platform_system is the unversioned "FreeBSD".
+    # jeepney: the D-Bus client for the xdg-desktop-portal RemoteDesktop API,
+    # which is how a strictly confined snap types on Wayland (inject/portal.py).
+    # Pure Python, no C extension and no build step, so unlike every other
+    # Linux-only dependency here it publishes one universal wheel -- which is
+    # what lets snapcraft.yaml bundle it for amd64 AND arm64, a hard requirement
+    # there. Linux-only because the portal is a freedesktop API; the BSDs run
+    # the same desktops, so they are included for the same reason python-xlib is.
+    'jeepney>=0.9.0; sys_platform == "linux" or platform_system == "FreeBSD" or platform_system == "OpenBSD" or platform_system == "NetBSD" or platform_system == "DragonFly"',
     'python-xlib>=0.33; sys_platform == "linux" or platform_system == "FreeBSD" or platform_system == "OpenBSD" or platform_system == "NetBSD" or platform_system == "DragonFly"',
     # macOS
     'pyobjc-framework-Quartz>=12.2.1; sys_platform == "darwin"',
@@ -482,7 +490,7 @@ files = ["src"]
 # third-party packages that simply ship no type stubs.
 [[tool.mypy.overrides]]
 module = [
-    "bleak.*", "cv2.*", "df.*", "faster_whisper.*", "kokoro_onnx.*", "l2cs.*",
+    "bleak.*", "cv2.*", "df.*", "faster_whisper.*", "jeepney.*", "kokoro_onnx.*", "l2cs.*",
     "brainflow.*", "llama_cpp.*", "mediapipe.*", "moonshine_onnx.*", "noisereduce.*",
     "opencc.*",
     "pyannote.*", "pyatspi.*", "pynvim.*",

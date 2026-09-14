@@ -66,6 +66,39 @@ PADDING_MIN_MS = 0
 PADDING_MAX_MS = 2000
 
 
+def snap_interface_banner() -> str | None:
+    """The banner text when this snap is missing a permission, else ``None``.
+
+    Added with the application-grid launcher, and it is the other half of that
+    fix. The launcher is the only route a GUI user has into YazSes -- they never
+    open a terminal, so they never see `yazses doctor`, the startup log line or
+    the store description. Without this they would click the new icon, meet a
+    perfectly ordinary settings window, and still have no idea the microphone is
+    not connected.
+
+    Qt-free so it tests without a display, the same split the tray uses between
+    deciding an icon and painting it.
+    """
+    from yazses.system.snap import connection_advice, in_snap, missing_interfaces
+
+    if not in_snap():
+        return None
+    missing = missing_interfaces()
+    if not missing:
+        return None
+    plugs = ", ".join(plug for plug, _ in missing)
+    return (
+        f"⚠  YazSes is missing permission: {plugs}.\n"
+        "Until this is granted it will start normally and never hear you. "
+        "A snap cannot grant itself permissions, so this has to be run in a "
+        "terminal, once:\n\n"
+        + "\n".join(
+            line for line in connection_advice(missing).splitlines()
+            if line.strip().startswith(("sudo ", "yazses "))
+        )
+    )
+
+
 def compute_type_choices(device: str = "cpu", current: str = "") -> list[str]:
     """The quantisations *this machine* can actually run, plus what is configured.
 

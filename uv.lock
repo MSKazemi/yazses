@@ -1837,6 +1837,15 @@ wheels = [
 ]
 
 [[package]]
+name = "jeepney"
+version = "0.9.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/7b/6f/357efd7602486741aa73ffc0617fb310a29b588ed0fd69c2399acbb85b0c/jeepney-0.9.0.tar.gz", hash = "sha256:cf0e9e845622b81e4a28df94c40345400256ec608d0e55bb8a3feaa9163f5732", size = 106758, upload-time = "2025-02-27T18:51:01.684Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b2/a3/e137168c9c44d18eff0376253da9f1e9234d0239e0ee230d2fee6cea8e55/jeepney-0.9.0-py3-none-any.whl", hash = "sha256:97e5714520c16fc0a45695e5365a2e11b81ea79bba796e26f9f1d178cb182683", size = 49010, upload-time = "2025-02-27T18:51:00.104Z" },
+]
+
+[[package]]
 name = "jinja2"
 version = "3.1.6"
 source = { registry = "https://pypi.org/simple" }
@@ -6621,6 +6630,7 @@ dependencies = [
     { name = "cryptography" },
     { name = "evdev", marker = "sys_platform == 'linux'" },
     { name = "faster-whisper" },
+    { name = "jeepney", marker = "platform_system == 'DragonFly' or platform_system == 'FreeBSD' or platform_system == 'NetBSD' or platform_system == 'OpenBSD' or sys_platform == 'linux'" },
     { name = "numpy" },
     { name = "pillow", marker = "sys_platform == 'win32'" },
     { name = "platformdirs" },
@@ -6773,6 +6783,7 @@ requires-dist = [
     { name = "cryptography", specifier = ">=50.0.0" },
     { name = "evdev", marker = "sys_platform == 'linux'", specifier = ">=1.9.3" },
     { name = "faster-whisper", specifier = ">=1.2.1" },
+    { name = "jeepney", marker = "platform_system == 'DragonFly' or platform_system == 'FreeBSD' or platform_system == 'NetBSD' or platform_system == 'OpenBSD' or sys_platform == 'linux'", specifier = ">=0.9.0" },
     { name = "kokoro-onnx", marker = "extra == 'all'", specifier = ">=0.5.0" },
     { name = "kokoro-onnx", marker = "extra == 'tts'", specifier = ">=0.5.0" },
     { name = "llama-cpp-python", marker = "extra == 'all'", specifier = ">=0.3.33" },

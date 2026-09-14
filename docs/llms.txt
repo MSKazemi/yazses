@@ -77,8 +77,10 @@ yazses start      # start the dictation daemon
 
 **What GPU do I need?** None — it runs on CPU. 4 GB RAM minimum, 8 GB comfortable.
 
-**Does it work with Wayland?** Yes, via wtype or ydotool when installed with the
-universal installer, APT, or pipx. The strictly confined Snap is X11-only.
+**Does it work with Wayland?** Yes. Installed with the universal installer, APT
+or pipx it uses ydotool (or wtype on wlroots compositors). The strictly confined
+Snap uses the xdg-desktop-portal RemoteDesktop API instead, which works on
+GNOME and KDE Wayland and needs no /dev/uinput.
 
 **Is it a replacement for Talon?** YazSes focuses on offline dictation plus a practical command grammar. Talon has far more advanced scripting. They can coexist.
 

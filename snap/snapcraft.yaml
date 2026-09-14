@@ -8,37 +8,64 @@ base: core24
 # the project shipped 2.29.0, so all 188 of its builds were stamped with a
 # version twelve releases old and *lower* than what `latest/stable` served.
 version: "2.36.0"
-summary: Local, offline-by-default voice dictation for Linux
+summary: Offline voice dictation and speech to text — hold a key, speak, it types
 description: |
-  YazSes is offline-by-default, on-device voice dictation. Hold a key (Space by
-  default), speak, release — your words are transcribed locally and typed into
-  whatever app has focus. No cloud, no API key, no subscription; no audio and no
-  text leave your machine by default.
+  Hold a key, speak, release — your words are typed into whatever app has focus.
+  Voice typing, speech to text and dictation that runs entirely on your own
+  machine: no cloud, no account, no API key, no subscription. No audio and no
+  text leave your computer by default.
 
-  - Offline speech-to-text with faster-whisper (CPU, int8) — no GPU needed
+  Transcription is done on-device by faster-whisper (CPU, int8). A laptop is
+  enough — no GPU, and it keeps working with the network unplugged.
+
+  WHAT YOU CAN DO WITH IT
+
+  - Dictate into any focused text field — editors, browsers, terminals, chat,
+    email, documents, forms.
   - Voice commands for editors and terminals: "undo that", "save file",
-    "go to line 42", "run the tests", "rename this to user_id"
-  - Personal vocabulary and multi-step macros
-  - Works in any focused text field — editors, browsers, terminals, chat
+    "go to line 42", "run the tests", "rename this to user_id".
+  - Transcribe an existing audio or video file to text, Markdown or subtitles
+    (SRT/VTT), optionally tagging who spoke each line.
+  - Record a whole meeting hands-free and get back a speaker-labelled
+    transcript, and optional minutes, without anything being uploaded.
+  - Teach it the words it gets wrong — names, jargon, acronyms — with a
+    personal dictionary, and build multi-step macros.
 
-  Important: this strictly-confined snap supports hold-to-talk dictation on X11
-  only. Wayland keystroke injection is unavailable. On Wayland, use the Linux
-  installer instead:
-  https://mskazemi.com/yazses/install-linux.html
+  WHO IT IS FOR
 
-  Install on X11 — all three commands are required. A snap cannot connect its own
-  interfaces, and the daemon starts and looks healthy without them; it simply
-  never hears you, or never sees the key:
+  People with RSI, hand or wrist pain, or limited hand mobility who need to
+  work without typing; anyone who thinks faster than they type; and anyone who
+  will not send their voice to someone else's server. It is also useful simply
+  as an offline transcription tool.
+
+  PRIVACY
+
+  Offline by default and built that way rather than configured that way. The
+  only outbound connection a default install makes is the one-time download of
+  the speech model; the optional update check ships switched off. Every
+  network path in the codebase is enumerated and enforced by a test that fails
+  the build if a new one appears.
+
+  AFTER INSTALLING — TWO PERMISSIONS ARE REQUIRED
+
+  A snap cannot grant itself permissions, and YazSes starts and looks healthy
+  without them while never hearing a word. Run these once:
 
     sudo snap install yazses
-    sudo snap connect yazses:audio-record   # microphone; without it, no audio
-    sudo snap connect yazses:raw-input      # hold-to-talk key; without it, nothing fires
+    sudo snap connect yazses:audio-record   # the microphone
+    sudo snap connect yazses:raw-input      # the hold-to-talk key
+    yazses restart
 
-  `yazses setup` is not an installation step for the snap: strict confinement
-  prevents host package, group, or service changes, so it can only print the
-  manual permission checklist. The snap already bundles its X11 dependencies.
-  Run `yazses doctor` as your normal desktop user after connecting the interfaces.
-  Never run YazSes itself with sudo; doing so loses the desktop session environment.
+  Then run `yazses doctor` as your normal desktop user — it checks both
+  permissions and tells you exactly what to fix. Do not run YazSes with sudo;
+  that loses your desktop session and it will not be able to type.
+
+  `yazses setup` is not an installation step for the snap: confinement prevents
+  host package, group or service changes, so it can only print a checklist.
+  Everything the snap needs is already bundled.
+
+  Free software, Apache-2.0. Source, documentation and issue tracker:
+  https://github.com/MSKazemi/yazses
 
 title: YazSes
 icon: snap/gui/yazses.png
@@ -65,6 +92,11 @@ platforms:
 apps:
   yazses:
     command: bin/yazses-wrapper
+    # The application-grid launcher. Without a `desktop:` key snapd exports no
+    # .desktop file at all, so every GUI install (App Center, KDE Discover, the
+    # snapcraft.io web button) ended with nothing to click -- see
+    # snap/local/yazses.desktop for why it opens Settings rather than dictating.
+    desktop: share/applications/yazses.desktop
     # ALSA/PulseAudio paths are arch-dependent and this block cannot expand the
     # multiarch triplet, so the wrapper sets them -- see snap/local/snap-env.sh.
     plugs:
@@ -230,6 +262,9 @@ parts:
       # ALSA config so PortAudio can initialise under strict confinement (routes
       # the default device through PulseAudio). Referenced by ALSA_CONFIG_PATH.
       install -Dm644 snap/local/asound.conf "$CRAFT_PART_INSTALL/etc/asound.conf"
+      # The app-grid launcher declared by apps.yazses.desktop above.
+      install -Dm644 snap/local/yazses.desktop \
+        "$CRAFT_PART_INSTALL/share/applications/yazses.desktop"
       # XDG autostart so the daemon's DISPLAY is populated on every graphical login
       install -Dm644 contrib/yazses-session.desktop \
         "$CRAFT_PART_INSTALL/etc/xdg/autostart/yazses-session.desktop"

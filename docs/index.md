@@ -232,10 +232,12 @@ focused app. **No cloud. No API key. No subscription. Nothing leaves your machin
     bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)
     ```
 
-!!! warning "Not the snap"
-    The strictly confined snap supports dictation on **X11 only**. On Wayland,
-    use the APT script or `pipx` above because the snap cannot configure or use
-    the host `ydotoold` service needed for keystroke injection.
+!!! note "The snap on Wayland"
+    The strictly confined snap dictates on X11, and on **GNOME/KDE Wayland**
+    through the `xdg-desktop-portal` RemoteDesktop API. It cannot configure or
+    use the host `ydotoold` service, so the portal is the route it takes; the
+    first dictation asks once for permission and the answer is remembered. The
+    unconfined installs above remain the most-tested Wayland path.
 
     On X11, connect both required interfaces after installing:
 

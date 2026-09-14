@@ -169,6 +169,13 @@ class SettingsWindow:
         central = QWidget()
         outer = QVBoxLayout(central)
 
+        # A snap missing `audio-record` or `raw-input` starts normally and never
+        # hears a word. This window is the only surface a GUI user reaches --
+        # they came from the app grid, not a terminal -- so it is the only place
+        # that can tell them. Above the tooltip hint on purpose: it is the one
+        # thing that matters more than discovering hovering.
+        self._add_snap_banner(outer)
+
         # Tooltips are invisible until you already suspect they exist, so say so
         # once at the top rather than hoping every user discovers hovering.
         intro = QLabel(
@@ -256,6 +263,31 @@ class SettingsWindow:
         outer.addLayout(buttons)
 
         self._win.setCentralWidget(central)
+
+    def _add_snap_banner(self, outer) -> None:
+        """Show the missing-permission banner, if there is one. Never raises."""
+        from PySide6.QtCore import Qt
+        from PySide6.QtWidgets import QLabel
+
+        try:
+            from yazses.settingsui.controls import snap_interface_banner
+
+            text = snap_interface_banner()
+        except Exception:  # noqa: BLE001 — a diagnostic must not stop the window
+            return
+        if not text:
+            return
+        banner = QLabel(text)
+        banner.setWordWrap(True)
+        # Selectable, because the fix is a command the user has to copy into a
+        # terminal and retyping `sudo snap connect yazses:audio-record` by hand
+        # from a screenshot is exactly where people give up.
+        banner.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        banner.setStyleSheet(
+            "QLabel { background: #7a2d2d; color: #ffffff; padding: 10px; "
+            "border-radius: 6px; font-weight: 600; }"
+        )
+        outer.addWidget(banner)
 
     def _build_hotkey_row(self, current: str):
         """The hold-to-talk key picker — the one setting everybody changes.

@@ -6,6 +6,144 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the snap can type on Wayland, which is where almost all of its users are
+
+The Snap Store description said it in its own words: *"this strictly-confined
+snap supports hold-to-talk dictation on X11 only."* Store metrics say who read
+that. Of 59 installs on 2026-09-10, **at least 39 were on a desktop that
+defaults to Wayland** — ubuntu 24.04 (20) and ubuntu 26.04 (19) — rising to 43
+with debian 13, fedora 44 and ubuntu 25.04, and the largest remaining group is
+zorin 18 (10). Meanwhile the base was shrinking: 11 new against **15 lost** per
+week, up from 3 lost/week in July. People installed it, it could not type, and
+they removed it.
+
+`inject/portal.py` is a new injection backend built on
+`org.freedesktop.portal.RemoteDesktop`. It is the one Wayland route that
+survives strict confinement, and the alternatives do not:
+
+- **ydotool**, which the unconfined install uses, needs `ydotoold` to own
+  `/dev/uinput`. Ubuntu's `ydotool` package ships only `/usr/bin/ydotool` and no
+  daemon, and `/dev/uinput` is `0600 root:root` — it needs a udev rule that a
+  strict snap has no way to install.
+- **wtype** needs `virtual-keyboard-manager-v1`, which wlroots compositors
+  implement and GNOME's Mutter and KDE's KWin deliberately do not. That is
+  precisely the two desktops this user base runs, so selecting it there is
+  selecting a silent no-op.
+- **The portal** needs no device node, no udev rule and **no extra
+  `snap connect`**: access rides on the `desktop` plug the snap already
+  declared. The cost is one consent dialog, and `persist_mode=2` plus the
+  returned restore token makes it once-ever rather than once-per-session.
+
+It types by **keysym**, not keycode, so it is layout-independent — a keycode
+backend types `qwerty` into an AZERTY user's editor, and dictation is the one
+input method whose user never chose their characters by position.
+
+Selection order on Wayland is ydotool → portal → wtype, and both halves are
+deliberate: after ydotool so an unconfined install that works today is never
+handed a consent dialog it did not used to see, before wtype for the reason
+above. **X11 is untouched** and still picks xdotool.
+
+`yazses doctor` reports the portal, and mirrors `get_injector`'s order exactly —
+a doctor that names a different backend from the one the daemon will pick
+certifies a path that is not taken.
+
+**Verified end to end**, not merely wired: an X11 probe window took input focus,
+`PortalInjector` typed through the real GNOME portal, and the probe read back
+every character from the X11 `KeyPress` events the display server delivered —
+`sent 'yazsesportalok'` / `received 'yazsesportalok'`. The restore token
+persisted (36 bytes, mode 0600) and a second and third run completed in **4
+seconds with no dialog**, so `persist_mode=2` delivers a once-ever prompt rather
+than a once-per-session one.
+
+The session is negotiated at **daemon startup** on a background thread, not
+lazily on first injection. Testing found the reason: `Start` does not return
+until the user answers, and the portal logs *"Failed to associate portal window
+with parent window"* for our empty `parent_window`, so the dialog can be raised
+behind whatever is in front. Left lazy, that question arrives on the first
+hold-to-talk release — the one moment the user is watching the text field they
+just dictated into. The hot path now uses a 5-second budget against the
+120-second negotiation budget, so an unanswered dialog degrades to the clipboard
+fallback in seconds instead of freezing the daemon mid-sentence.
+
+### Added — a snap that cannot hear you now says so, on the desktop
+
+Both interfaces YazSes needs are manual-connect, a snap cannot connect its own,
+and without them the daemon starts *perfectly*: the model loads, the state
+machine reaches IDLE, `yazses status` reports healthy, and the microphone is
+never opened or the key is never seen. The only signal was a paragraph in the
+store description.
+
+`system/snap.py` gained `interface_connected()` / `missing_interfaces()` /
+`connection_advice()`, wired into `yazses doctor` and into daemon startup. The
+answer is deliberately **three-valued** — connected / not connected / could not
+determine — because both ways of collapsing it are wrong: inventing "connected"
+hides the failure, and inventing "not connected" sends an unconfined user
+chasing a command that does not apply to them. An unrun probe reports that it
+could not run, never a finding.
+
+The desktop notification is the load-bearing half. A snap installed from App
+Center or the snapcraft.io web button never passes through a terminal, so the
+log line, the store description and `doctor` all reach only a user who already
+suspects something and knows where to look. Whoever the toast reaches has not
+been told anything yet.
+
+### Fixed — the snap had no application launcher, in any desktop, ever
+
+`snapcraft.yaml` declared four apps and not one carried a `desktop:` key, so
+snapd exported nothing to `/var/lib/snapd/desktop/applications/`. Verified on a
+real machine: firefox, vlc, snap-store and firmware-updater are all in that
+directory and yazses is not. Every install from GNOME App Center, KDE Discover
+or the snapcraft.io web button therefore finished with **nothing to click**, and
+nothing anywhere said a terminal was required.
+
+The launcher opens the Settings window rather than starting dictation, for the
+reason the Flathub launcher already recorded: an app-grid activation has no
+terminal and hold-to-talk is a background daemon with nothing to show, so a
+launcher that appears to do nothing is worse than one that opens the window
+where the hotkey, the microphone and every capability can be set — and in a
+snap, it is also the one surface that can say the interfaces are not connected.
+
+### Fixed — the new launcher opened a window that could not explain the problem
+
+Adding an application-grid launcher created a gap it had to close itself. The
+launcher is the only route a GUI user has into YazSes: they arrived from App
+Center, never opened a terminal, and so never see `yazses doctor`, the startup
+log line or the store description. They would click the new icon, meet a
+perfectly ordinary Settings window, and still not know the microphone was not
+connected.
+
+The Settings window now carries a missing-permission banner above everything
+else, with the exact commands, selectable so they can be copied — retyping
+`sudo snap connect yazses:audio-record` from a screenshot is where people give
+up. It appears only for a *definitely* disconnected interface: an unknown state
+paints no banner, because an unrun probe must not redden a working install.
+
+### Fixed — the GUI job selected its tests from a hand-written list
+
+The GUI (Qt) job exists because PySide6 is not a base dependency, so every Qt
+test in the suite is skipped by the ordinary job — the settings window's tests
+had once never executed anywhere. It then selected its files by naming nine of
+them. A tenth was added and joined nothing: its Qt cases would have run only
+where PySide6 is absent, which is to say nowhere, restoring the exact hole the
+job was built to close.
+
+It now globs `tests/test_settingsui_*.py`, and a test holds that true — it fails
+if the glob is replaced by a list again. A set that has to be remembered is the
+defect.
+
+### Changed — the store listing led with its own caveats
+
+The description spent its middle telling the reader the snap would not work and
+to go install something else, and the summary — the main text Snap Store search
+indexes — carried none of the words people actually type. "YazSes" is a coined
+name nobody searches for. The summary is now *"Offline voice dictation and
+speech to text — hold a key, speak, it types"*, and the description leads with
+what the app does before what the user must do.
+
+The five places in `README.md` and `docs/` that told Wayland users not to use
+the snap were corrected for the same reason they existed: they were true, and
+they are not any more. Historical release notes are left alone.
+
 ### Security — `lightning` (CVE-2026-58659) now has a patched release; upgraded
 
 `.github/SECURITY.md` previously assessed this advisory as reachable through the

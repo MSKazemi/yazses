@@ -73,11 +73,13 @@ In brief:
     pipx install yazses
     ```
 
-!!! warning "The Snap is X11-only"
-    The strictly confined Snap cannot perform Wayland keystroke injection and
-    cannot run `yazses setup` to configure host packages or services. Use the
-    installer, APT, or `pipx` for Wayland. On X11, follow the
-    [Snap-specific steps](../install-linux.md#1-install--one-command).
+!!! note "The Snap on Wayland"
+    The strictly confined Snap cannot run `yazses setup` to configure host
+    packages or services, so it injects on Wayland through the
+    `xdg-desktop-portal` RemoteDesktop API instead of `ydotoold` — approve the
+    one-time permission prompt at first dictation. It works on X11 either way.
+    The installer, APT and `pipx` paths remain the most-tested on Wayland.
+    Follow the [Snap-specific steps](../install-linux.md#1-install--one-command).
 
 !!! warning "Two Linux-specific gotchas"
     - `libportaudio2` is required for microphone capture and is **not** pulled in

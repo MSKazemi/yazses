@@ -3,6 +3,7 @@ import shutil
 
 from yazses.inject.base import BaseInjector
 from yazses.inject.clipboard import ClipboardInjector
+from yazses.inject.portal import PortalInjector, portal_available
 from yazses.inject.unicode import UnicodeInjector
 from yazses.inject.wtype import WtypeInjector
 from yazses.inject.xdotool import XdotoolInjector
@@ -43,8 +44,8 @@ def get_injector(prefer: str = "auto") -> BaseInjector:
     """Select an injection backend.
 
     ``prefer`` = ``"auto"`` (default) | ``"type"``/``"ydotool"`` | ``"clipboard"``
-    | ``"wtype"`` | ``"unicode"``. With ``"auto"`` an override may be supplied via the
-    ``YAZSES_INJECTOR`` environment variable.
+    | ``"wtype"`` | ``"portal"`` | ``"unicode"``. With ``"auto"`` an override may be
+    supplied via the ``YAZSES_INJECTOR`` environment variable.
 
     On Wayland, ``auto`` **types** the text with ydotool — this works in *every*
     focused app, terminals included, and does not touch the clipboard.
@@ -63,6 +64,9 @@ def get_injector(prefer: str = "auto") -> BaseInjector:
     if prefer == "unicode":
         return UnicodeInjector()
 
+    if prefer == "portal":
+        return PortalInjector()
+
     is_wayland = bool(os.environ.get("WAYLAND_DISPLAY"))
     if is_wayland:
         if prefer == "wtype" and shutil.which("wtype"):
@@ -70,6 +74,20 @@ def get_injector(prefer: str = "auto") -> BaseInjector:
         # auto / type / ydotool: prefer typing — works everywhere, incl. terminals.
         if ydotool_ready():
             return YdotoolInjector()
+        # The RemoteDesktop portal is tried BEFORE wtype and AFTER ydotool, and
+        # both halves of that order are deliberate. After ydotool, because an
+        # unconfined install that already has ydotoold running works today and
+        # must not be handed a consent dialog it never used to see. Before
+        # wtype, because wtype needs `virtual-keyboard-manager-v1`, which the
+        # two desktops this user base actually runs — GNOME/Mutter and KDE/KWin
+        # — do not implement, so choosing it there is choosing a silent no-op.
+        #
+        # This branch is what makes the strictly confined snap able to type on
+        # Wayland at all: it needs no /dev/uinput, no udev rule and no extra
+        # `snap connect`, because portal access rides on the already-declared
+        # `desktop` plug.
+        if portal_available():
+            return PortalInjector()
         if shutil.which("wtype"):
             return WtypeInjector()
     else:

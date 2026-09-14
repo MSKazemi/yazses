@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+  MSIX package manifest for the Microsoft Store.
+
+  Why this exists
+  ===============
+  Store policy 10.2.9 requires an EXE/MSI submission to be signed with a certificate
+  chaining to the Microsoft Trusted Root Program. That costs money we are not spending.
+  It applies only to the direct-download path: an MSIX submitted to the Store is signed
+  by Microsoft during certification, so this route needs no purchased certificate.
+
+  The decision this reverses
+  ==========================
+  This project previously ruled MSIX out on the grounds that "the MSIX AppContainer
+  blocks a global SetWindowsHookExW hook, raw microphone capture, and SendInput into
+  other apps' windows". That premise is wrong. AppContainer is OPT-IN for desktop apps
+  (uap10:TrustLevel="appContainer"). The default, and what this manifest declares, is
+  uap10:TrustLevel="mediumIL" — a full-trust app that, in Microsoft's words, "runs with
+  the same permissions as a standard desktop app" and does NOT run in an AppContainer.
+  SendInput is governed by UIPI, which permits injection into equal-or-lesser integrity
+  levels; medium IL is exactly what the current unpackaged .exe already runs at, so
+  packaging costs no capability.
+
+  Identity is substituted at build time
+  =====================================
+  __IDENTITY_NAME__, __PUBLISHER__ and __PUBLISHER_DISPLAY_NAME__ are NOT invented here.
+  They must match the values Partner Center shows for the product, exactly, or the Store
+  rejects the upload. scripts/build-msix.ps1 substitutes them and refuses to build if any
+  placeholder is still present — a package built with a placeholder identity would fail
+  late, during submission, rather than at build time.
+
+  __VERSION__ is a four-part version. The Store requires the fourth part to be 0; it
+  reserves that field for its own use.
+-->
+
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap10 rescap">
+
+  <Identity
+    Name="__IDENTITY_NAME__"
+    Publisher="__PUBLISHER__"
+    Version="__VERSION__"
+    ProcessorArchitecture="__ARCHITECTURE__" />
+
+  <Properties>
+    <DisplayName>YazSes</DisplayName>
+    <PublisherDisplayName>__PUBLISHER_DISPLAY_NAME__</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <Description>Offline hold-to-talk voice dictation. Hold a key, speak, release, and your words are typed into whatever application has focus. Speech is transcribed on your own CPU; no cloud, no account, no API key.</Description>
+  </Properties>
+
+  <Dependencies>
+    <!--
+      10.0.19041.0 is not a round number either: uap10:RuntimeBehavior and uap10:TrustLevel
+      were introduced in Windows 10 version 2004 (build 19041). Declaring an older minimum
+      would let the package install on a system that cannot honour the trust level it asks
+      for. docs/windows-install.md already states Windows 10 21H2 as the floor, which is
+      higher than this, so nothing is lost.
+    -->
+    <TargetDeviceFamily
+      Name="Windows.Desktop"
+      MinVersion="10.0.19041.0"
+      MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application
+      Id="YazSes"
+      Executable="YazSesApp.exe"
+      uap10:RuntimeBehavior="packagedClassicApp"
+      uap10:TrustLevel="mediumIL">
+      <uap:VisualElements
+        DisplayName="YazSes"
+        Description="Offline voice dictation — hold a key, speak, release."
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <!--
+          Wide310x150Logo is mandatory once Square310x310Logo is present: makeappx
+          rejects the package with "The DefaultTile element must specify the
+          Wide310x150Logo attribute if the Square310x310Logo attribute is specified".
+          The msix-validate workflow found this; it is not checkable off Windows.
+        -->
+        <uap:DefaultTile
+          Square71x71Logo="Assets\Square71x71Logo.png"
+          Square310x310Logo="Assets\Square310x310Logo.png"
+          Wide310x150Logo="Assets\Wide310x150Logo.png" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <!--
+      runFullTrust is what makes this a medium-IL app rather than an AppContainer one. It
+      is a restricted capability: Store certification allows it but asks the publisher to
+      justify it. The justification is in docs/store-submission.md, and it is the same
+      disclosure the SignPath application makes — a global hook plus synthetic keystrokes
+      is the signature of a keylogger to a reviewer, so it is stated up front rather than
+      discovered.
+    -->
+    <rescap:Capability Name="runFullTrust" />
+
+    <!--
+      Microphone is the only device capability declared, deliberately.
+
+      The webcam-driven features (Glance-Type gaze targeting, the Face-Gesture Switch) are
+      experimental and off by default. Their adapters are part of YazSes and work on a normal
+      install, where `yazses features enable gaze` installs the `gaze` extra. This package is
+      a frozen bundle built without optional extras, and an MSIX has no pip to add them
+      afterwards, so those camera paths are unreachable in this package specifically.
+      Declaring `webcam` would ask a user and a reviewer to grant camera access nobody here
+      can benefit from. An unused capability is a review question with no upside.
+    -->
+    <DeviceCapability Name="microphone" />
+  </Capabilities>
+</Package>

@@ -16,15 +16,29 @@ import urllib.request
 REPO = "MSKazemi/yazses"
 
 
+def exe_name(version: str) -> str:
+    """The one asset this package installs.
+
+    Single source of truth on purpose. The URL and the checksum used to be built
+    independently -- the URL hardcoded ``windows-x64.exe`` while the checksum took
+    the first ``.exe`` line in SHA256SUMS.txt, which is **arm64**, because the file
+    is not ordered by architecture. Chocolatey then refused every install with a
+    checksum mismatch. Deriving both from this function is what makes that class of
+    mismatch unrepresentable rather than merely fixed.
+    """
+    return f"YazSes-{version}-windows-x64.exe"
+
+
 def sha_for_exe(version: str) -> str:
     url = f"https://github.com/{REPO}/releases/download/v{version}/SHA256SUMS.txt"
     with urllib.request.urlopen(url, timeout=60) as r:
         text = r.read().decode()
+    wanted = exe_name(version)
     for line in text.splitlines():
         digest, _, name = line.partition("  ")
-        if name.strip().endswith(".exe"):
+        if name.strip() == wanted:
             return digest.strip()
-    raise SystemExit(f"no .exe line in SHA256SUMS.txt for v{version}:\n{text}")
+    raise SystemExit(f"no {wanted} line in SHA256SUMS.txt for v{version}:\n{text}")
 
 
 def main(version: str, nuspec: str, install: str) -> int:
@@ -37,7 +51,7 @@ def main(version: str, nuspec: str, install: str) -> int:
     open(nuspec, "w", encoding="utf-8").write(s)
 
     p = open(install, encoding="utf-8").read()
-    exe = f"YazSes-{version}-windows-x64.exe"
+    exe = exe_name(version)
     p, a = re.subn(
         r"(url64bit\s*=\s*')[^']+(')",
         rf"\1https://github.com/{REPO}/releases/download/v{version}/{exe}\2", p, count=1)
