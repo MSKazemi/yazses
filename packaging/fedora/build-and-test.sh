@@ -5,8 +5,8 @@
 # build on a clean Fedora, install the RPM, run `yazses doctor`. It is meant to
 # be executed INSIDE a Fedora container so nothing touches the host:
 #
-#   podman run --rm -v "$PWD:/src:z" fedora:41 /src/packaging/fedora/build-and-test.sh
-#   docker run --rm -v "$PWD:/src"    fedora:41 /src/packaging/fedora/build-and-test.sh
+#   podman run --rm -v "$PWD:/src:z" fedora:43 /src/packaging/fedora/build-and-test.sh
+#   docker run --rm -v "$PWD:/src"    fedora:43 /src/packaging/fedora/build-and-test.sh
 #
 # `yazses doctor` exits non-zero on a container (no audio device, no session), and
 # that is the correct answer there — what is being verified is that the package

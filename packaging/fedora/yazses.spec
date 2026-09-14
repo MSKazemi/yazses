@@ -17,7 +17,25 @@
 # much larger job than this file.
 #
 # Build and test it exactly the way CI does:
-#   podman run --rm -v "$PWD:/src:z" fedora:41 /src/packaging/fedora/build-and-test.sh
+#   podman run --rm -v "$PWD:/src:z" fedora:43 /src/packaging/fedora/build-and-test.sh
+#
+# ⚠ COPR REQUIRES `--enable-net on` FOR THIS PACKAGE.
+#
+# %install runs pip to populate the bundled virtualenv, so the build needs to reach
+# PyPI. COPR disables network in the mock chroot by default, and the failure is not
+# obviously about networking -- it surfaces as "ERROR: No matching distribution found
+# for hatchling", which reads like a missing BuildRequires. The real message is further
+# up the log: "Failed to establish a new connection: [Errno -3] Temporary failure in
+# name resolution".
+#
+# A container build passes regardless, because Docker and podman give the build network
+# by default. So the local harness above CANNOT catch this; only a real COPR build can.
+# It cost one failed build (10980673) to find, and the fix is a project setting rather
+# than a spec change:
+#
+#   copr-cli modify yazses --enable-net on
+#
+# Live: https://copr.fedorainfracloud.org/coprs/mskazemi/yazses/
 
 %global appname yazses
 %global venvdir %{_libdir}/%{appname}
