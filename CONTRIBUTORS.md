@@ -165,6 +165,13 @@ found defects that no amount of reading the code here would have surfaced.
   dictation into PowerShell, VS Code and the browser, on the platform this project has
   the least evidence for ([#327](https://github.com/MSKazemi/yazses/pull/327)); also see
   **Testing & field reports** above
+- [@vortsghost2025](https://github.com/vortsghost2025) — the opt-in `unicode` injector
+  backend (`src/yazses/inject/unicode.py`): resolves characters through
+  `libxkbcommon` XKB state and emits key events via a private `/dev/uinput`
+  keyboard, so `å`, `ö`, `é` and the rest of what the Wayland `ydotool` path
+  silently dropped now type correctly
+  ([#329](https://github.com/MSKazemi/yazses/issues/329) →
+  [#364](https://github.com/MSKazemi/yazses/pull/364))
 - [@waterlemonnn](https://github.com/MSKazemi/yazses/commits?author=waterlemonnn)
 - [@YuuGR1337](https://github.com/YuuGR1337) (Elkero) — found that the "improving this
   translation is a welcome first contribution" link on **every** draft translation page pointed

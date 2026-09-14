@@ -11,7 +11,7 @@
   "commitConvention": "angular",
   "contributorsPerLine": 7,
   "contributorsSortAlphabetically": false,
-  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-25-orange.svg?style=flat-square)](#contributors)",
+  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-26-orange.svg?style=flat-square)](#contributors)",
   "contributors": [
     {
       "login": "MSKazemi",
@@ -264,6 +264,15 @@
       "profile": "https://github.com/Guruharishb",
       "contributions": [
         "translation"
+      ]
+    },
+    {
+      "login": "vortsghost2025",
+      "name": "DeliberateEnsemble",
+      "avatar_url": "https://avatars.githubusercontent.com/u/248577390?v=4",
+      "profile": "https://x.com/WEFramework",
+      "contributions": [
+        "code"
       ]
     }
   ]
