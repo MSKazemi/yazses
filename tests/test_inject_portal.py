@@ -9,6 +9,7 @@ connect.
 
 from __future__ import annotations
 
+import sys
 from unittest.mock import patch
 
 import pytest
@@ -217,6 +218,7 @@ def test_token_round_trips_through_the_sandboxed_data_dir(tmp_path, monkeypatch)
     assert portal.read_token() == "restore-me"
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows has no POSIX mode bits")
 def test_token_file_is_owner_only(tmp_path, monkeypatch) -> None:
     """The token authorises silent input injection; it is not world-readable."""
     monkeypatch.setenv("YAZSES_DATA_DIR", str(tmp_path))

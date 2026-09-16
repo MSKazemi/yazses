@@ -9,6 +9,7 @@ touch the network, so the store being down cannot redden CI.
 from __future__ import annotations
 
 import importlib.util
+import sys
 import urllib.error
 from pathlib import Path
 
@@ -26,6 +27,7 @@ def mod():
     return module
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows checkouts have no executable bit")
 def test_the_script_exists_and_is_executable() -> None:
     assert SCRIPT.is_file()
     assert SCRIPT.stat().st_mode & 0o111, "should be runnable directly"
