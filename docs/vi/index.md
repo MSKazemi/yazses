@@ -93,6 +93,7 @@ Phần tài liệu còn lại hiện vẫn bằng tiếng Anh.
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/YuuGR1337"><img src="https://avatars.githubusercontent.com/u/241930202?v=4?s=100" width="100px;" alt="Elkero"/><br /><sub><b>Elkero</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=YuuGR1337" title="Documentation">📖</a> <a href="#translation-YuuGR1337" title="Translation">🌍</a> <a href="https://github.com/MSKazemi/yazses/issues?q=author%3AYuuGR1337" title="Bug reports">🐛</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Guruharishb"><img src="https://avatars.githubusercontent.com/u/170197232?v=4?s=100" width="100px;" alt="Guruharishb"/><br /><sub><b>Guruharishb</b></sub></a><br /><a href="#translation-Guruharishb" title="Translation">🌍</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://x.com/WEFramework"><img src="https://avatars.githubusercontent.com/u/248577390?v=4?s=100" width="100px;" alt="DeliberateEnsemble"/><br /><sub><b>DeliberateEnsemble</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=vortsghost2025" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/doeil1614-ops"><img src="https://avatars.githubusercontent.com/u/298136347?v=4?s=100" width="100px;" alt="doeil1614-ops"/><br /><sub><b>doeil1614-ops</b></sub></a><br /><a href="#translation-doeil1614-ops" title="Translation">🌍</a></td>
     </tr>
   </tbody>
 </table>

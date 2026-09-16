@@ -403,32 +403,6 @@ LOCALES: dict[str, dict] = {
         link_docs="ドキュメント", link_readme="英語版の完全な README",
         link_issues="課題と質問")},
 
-    "ko": {"name": "한국어", "issue": 198, "strings": _t(
-        draft_title="초안 번역",
-        draft_body="기계 보조로 작성되었으며 아직 원어민의 검토를 거치지 않았습니다.",
-        pitch=(
-            "YazSes는 Linux, macOS, Windows용 무료 오픈소스 오프라인 음성 받아쓰기 "
-            "데몬입니다. 키를 누른 채 말하고 놓으면, 입력 중이던 곳에 글자가 나타납니다. "
-            "모든 처리는 사용자의 컴퓨터에서 이루어지며 클라우드도, 계정도, 구독도 "
-            "필요하지 않습니다."),
-        install_heading="설치", platform="플랫폼", command="명령",
-        any_os="모든 운영체제",
-        first_run=("처음 실행할 때 음성 모델(약 148 MB)을 한 번 내려받습니다. "
-                   "그 뒤로는 네트워크가 전혀 필요하지 않습니다."),
-        does_heading="할 수 있는 일", does_1_title="받아쓰기",
-        does_1="키를 누른 채 말하고 놓으세요. 글자가 활성 창에 입력됩니다.",
-        does_2_title="음성 명령",
-        does_2="“파일 저장”이나 “40번째 줄로 이동”이라고 말하면 그 말을 적는 대신 실행합니다.",
-        does_3_title="회의와 녹음",
-        does_3=("오디오 파일을 받아쓰거나 회의 전체를 화자 표시와 함께 기록할 수 "
-                "있습니다. 모두 오프라인입니다."),
-        privacy_heading="개인정보",
-        privacy=("음성은 사용자의 컴퓨터에서 처리되며 어디에도 전송되지 않습니다. "
-                 "원격 측정도, 클라우드 경로도 없습니다."),
-        more_heading="더 보기", more="나머지 문서는 현재 영어로 되어 있습니다.",
-        link_docs="문서", link_readme="영어 전체 README",
-        link_issues="이슈와 질문")},
-
     "id": {"name": "bahasa Indonesia", "issue": 179, "strings": _t(
         draft_title="Terjemahan draf",
         draft_body="Dibantu mesin dan belum ditinjau oleh penutur asli.",
@@ -721,6 +695,7 @@ LOCALES.pop("ru-note", None)
 # them, or adding a generated locale silently drops them from every README.
 HUMAN_LOCALES: dict[str, str] = {
     "hi": "हिंदी",
+    "ko": "한국어",
     "ru": "Русский",
     "zh-CN": "简体中文",
 }
