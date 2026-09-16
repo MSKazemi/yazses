@@ -11,7 +11,7 @@
   "commitConvention": "angular",
   "contributorsPerLine": 7,
   "contributorsSortAlphabetically": false,
-  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-27-orange.svg?style=flat-square)](#contributors)",
+  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-28-orange.svg?style=flat-square)](#contributors)",
   "contributors": [
     {
       "login": "MSKazemi",
@@ -280,6 +280,15 @@
       "name": "doeil1614-ops",
       "avatar_url": "https://avatars.githubusercontent.com/u/298136347?v=4",
       "profile": "https://github.com/doeil1614-ops",
+      "contributions": [
+        "translation"
+      ]
+    },
+    {
+      "login": "musabustun",
+      "name": "Musab Yusuf Üstün",
+      "avatar_url": "https://avatars.githubusercontent.com/u/59414375?v=4",
+      "profile": "https://github.com/musabustun",
       "contributions": [
         "translation"
       ]
