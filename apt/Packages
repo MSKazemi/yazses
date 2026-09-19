@@ -1,14 +1,14 @@
 Package: yazses
-Version: 2.36.0
+Version: 2.37.0
 Architecture: all
 Maintainer: Mohsen Seyedkazemi Ardebili <mohsen.seyedkazemi@gmail.com>
 Depends: python3 (>= 3.11), python3-pip, python3-dev, build-essential, libportaudio2, pipx, xdotool | ydotool | wtype, xclip | wl-clipboard
 Recommends: xdotool, xclip
-Filename: ./yazses_2.36.0_amd64.deb
-Size: 30894
-MD5sum: 218b5377a6ce6c2565ef6379469e2347
-SHA1: 0146d6a57625322ccc5a441ffa58c47b0729c206
-SHA256: b5360b0ce8994dc67210067ef96edeece0ec80675930b0b2b0e0b26d376c6035
+Filename: ./yazses_2.37.0_amd64.deb
+Size: 30900
+MD5sum: 5540a629bba96fc99b39f1c35c17ddda
+SHA1: b89adb6bfbe36f08b00ae6b040491d454197e100
+SHA256: 5711a18a795120a0ab373868a7fd91740ab0bfda04556ca8e2b1e553b2cc7898
 Homepage: https://github.com/MSKazemi/yazses
 Description: Local, offline-by-default voice dictation daemon for Linux
  Hold Space anywhere on your desktop, speak, then release Space.
