@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.37.2] - 2026-09-19
+
 ### Fixed — the winget publish job expected the manifest it was supposed to generate
 
 `publish-channels.yml`'s `winget` job required `packaging/winget/manifests/m/MSKazemi/

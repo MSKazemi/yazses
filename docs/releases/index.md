@@ -23,8 +23,11 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.37.1](v2.37.1.md)** — three `anyio` advisories, including one critical, opened
-within minutes of v2.37.0 shipping and are closed here by a patch-version bump.
+**[YazSes 2.37.2](v2.37.2.md)** — the update button was quietly downgrading your
+dictation. `uv tool upgrade` — what the tray's own "Install update" runs — rebuilds a
+`uv tool` install from its own recorded manifest, and an optional feature (like the
+Parakeet STT engine) enabled after install was never on it, so every update silently
+deleted it with no visible error. Fixed, and `doctor` now catches it if it happens again.
 Install it with:
 
 ```sh
@@ -34,6 +37,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.37.2](v2.37.2.md) — the tray's own "Install update" silently deleted an enabled STT engine on every `uv tool` update; `doctor` now catches a configured engine whose dependency has gone missing; winget's publish job now generates its own manifest instead of expecting one that cannot exist yet.
 - [v2.37.1](v2.37.1.md) — `anyio` bumped past three advisories (one critical) opened right after v2.37.0 shipped; the `lightning` alert re-flagged by the same scan was already patched.
 - [v2.37.0](v2.37.0.md) — the confined snap could not type, could not be launched, and could not say why: Wayland keystroke injection now works under strict confinement; no application launcher had ever been exported; Chocolatey checksummed arm64 and downloaded x64; the Fedora COPR served a release seventeen versions old; the Microsoft Store route reopened via MSIX; `lightning` CVE-2026-58659 patched.
 - [v2.36.0](v2.36.0.md) — the failures that reported success: a UTF-8 BOM discarded every setting in `config.toml` and blamed line 1; a typo in `[redaction] mode` shipped the secret it hides; a dictated `rm -rf` skipped its gate in command mode; the mic-change watcher could not fire on ALSA/PipeWire; the PPA advertised for two years never existed.
