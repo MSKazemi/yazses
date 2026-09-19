@@ -6,6 +6,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.37.1] - 2026-09-19
+
+### Security — `anyio` bumped past three advisories opened right after v2.37.0 shipped
+
+GitHub's Dependabot scan of the v2.37.0 push surfaced three advisories against `anyio`
+4.14.1 — CVE-2026-63349 (high), CVE-2026-63374 (critical), and CVE-2026-64847 (medium) —
+all patched upstream in 4.14.2. `uv.lock` now resolves `anyio` 4.15.1, the current stable.
+`anyio` is a transitive dependency (via `httpx`, `mcp`, `httpcore2`, `starlette`, all under
+the opt-in `agent` extra), not something this project imports directly.
+
+The same scan re-flagged `lightning` (CVE-2026-58659) against `uv.lock`, which was already
+patched to `>=2.6.6` in [2.37.0] — Dependabot had not yet rescanned the lockfile at the time
+of that alert, and it closes on its own. `diskcache` (CVE-2025-69872) remains open with no
+upstream patch available; it was already assessed as unreachable in `SECURITY.md` before this
+release and that assessment is unchanged.
+
 ## [2.37.0] - 2026-09-19
 
 ### Added — the snap can type on Wayland, which is where almost all of its users are

@@ -6,9 +6,9 @@
     "component": {
       "type": "application",
       "name": "yazses",
-      "version": "2.37.0",
-      "purl": "pkg:pypi/yazses@2.37.0",
-      "bom-ref": "pkg:pypi/yazses@2.37.0",
+      "version": "2.37.1",
+      "purl": "pkg:pypi/yazses@2.37.1",
+      "bom-ref": "pkg:pypi/yazses@2.37.1",
       "description": "Offline, on-device voice dictation and speech-to-text for Linux, macOS and Windows.",
       "licenses": [
         {
@@ -141,14 +141,14 @@
     {
       "type": "library",
       "name": "anyio",
-      "version": "4.14.1",
-      "purl": "pkg:pypi/anyio@4.14.1",
-      "bom-ref": "pkg:pypi/anyio@4.14.1",
+      "version": "4.15.1",
+      "purl": "pkg:pypi/anyio@4.15.1",
+      "bom-ref": "pkg:pypi/anyio@4.15.1",
       "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "8d648a3544c1a700e3ff78615cd679e4c5c3f149904287e73687b2596963629e"
+          "content": "9f28306018cbd6d329e64a36d58256edff76dd996fe423bc957326e578b82a94"
         }
       ]
     },
