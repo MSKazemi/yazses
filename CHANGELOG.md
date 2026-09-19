@@ -6,6 +6,20 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the winget publish job expected the manifest it was supposed to generate
+
+`publish-channels.yml`'s `winget` job required `packaging/winget/manifests/m/MSKazemi/
+YazSes/<version>/` to already be committed on the tag being released, and errored with
+"run scripts/refresh-package-manifests.py first" when it was not — advice nothing in the
+job itself ever followed. That directory cannot exist on the tag being released: its
+checksums come from release assets this same workflow's siblings are still uploading when
+the job starts. Both v2.37.0 and v2.37.1 failed here on their first automatic run.
+
+The `homebrew` and `aur` jobs already avoid this by calling
+`refresh-package-manifests.py --version <v>` themselves before using its output; `winget`
+now does the same, matching them rather than depending on a maintainer's separate
+`chore(release):` commit landing first.
+
 ## [2.37.1] - 2026-09-19
 
 ### Security — `anyio` bumped past three advisories opened right after v2.37.0 shipped

@@ -177,9 +177,18 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          # Regenerate from the release first, the same way the homebrew and aur
+          # jobs already do. This job used to instead require the manifest
+          # directory to already be committed on the tag being released, which
+          # cannot be true: the checksums it needs do not exist until the tag is
+          # pushed and this workflow's own siblings publish the release assets --
+          # so on both v2.37.0 and v2.37.1 it failed with "no winget manifests for
+          # <version> ... run scripts/refresh-package-manifests.py first", which
+          # was correct advice that nothing in the job itself ever followed.
+          python scripts/refresh-package-manifests.py --version $env:VERSION
           $dir = "packaging/winget/manifests/m/MSKazemi/YazSes/$env:VERSION"
           if (-not (Test-Path $dir)) {
-            Write-Error "no winget manifests for $env:VERSION at $dir -- run scripts/refresh-package-manifests.py first"
+            Write-Error "refresh-package-manifests.py ran but $dir still does not exist -- inspect its output above."
           }
           # Download the standalone exe rather than `winget install`. winget is a
           # Store-delivered app and is not dependably present on a hosted Windows
