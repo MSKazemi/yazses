@@ -482,10 +482,21 @@ picks one automatically (`src/yazses/inject/`):
 - **clipboard** — copies the text and pastes it. A pragmatic fallback, but a
   no-op inside terminals (paste means something different there) and it clobbers
   your clipboard.
+- **portal** (`inject/portal.py`) — types through
+  `org.freedesktop.portal.RemoteDesktop`, the one Wayland route that survives
+  **strict snap confinement**: it needs no `/dev/uinput` device node and no
+  `snap connect`, since access rides on the `desktop` plug the snap already
+  declares. Selected on the snap build's Wayland path, after ydotool and before
+  wtype; types by keysym so it stays layout-independent.
+- **unicode** (`inject/unicode_injector.py`, opt-in) — resolves each character
+  through `libxkbcommon`'s XKB state and emits key events via a private
+  `/dev/uinput` keyboard, to type the non-ASCII characters (accented letters,
+  most non-Latin scripts) the ydotool path silently drops on Wayland. Ships
+  non-default pending real hardware validation.
 
 At startup, `auto.py` probes the environment and selects the best available
 backend; you can override the choice with the `[injection] backend` config key
-(`auto` | `type` | `clipboard` | `wtype`).
+(`auto` | `type` | `clipboard` | `wtype` | `portal` | `unicode`).
 
 **Why Wayland needs ydotool.** Wayland deliberately isolates applications from
 one another for security, so an app generally can't synthesise input into a

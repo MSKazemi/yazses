@@ -23,12 +23,11 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.36.0](v2.36.0.md)** — the failures that reported success. A UTF-8 byte-order
-mark — what Windows PowerShell writes by default — threw away every setting in
-`config.toml` and blamed a line that looks correct on screen. A one-letter typo in
-`[redaction] mode` fell through to not redacting, so the setting that removes a secret was
-the one that shipped it. And a dictated `rm -rf` skipped its confirmation gate in the one
-mode that presses Return.
+**[YazSes 2.37.0](v2.37.0.md)** — the confined snap could not type, could not be launched,
+and could not say why. Strict confinement blocked Wayland keystroke injection for most of
+the snap's own user base, and the snap had no application launcher, on any desktop, ever.
+Chocolatey checksummed one architecture's binary while downloading another, so every install
+would have failed. And a patched release closes the one reachable CVE in this tree.
 Install it with:
 
 ```sh
@@ -38,6 +37,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.37.0](v2.37.0.md) — the confined snap could not type, could not be launched, and could not say why: Wayland keystroke injection now works under strict confinement; no application launcher had ever been exported; Chocolatey checksummed arm64 and downloaded x64; the Fedora COPR served a release seventeen versions old; the Microsoft Store route reopened via MSIX; `lightning` CVE-2026-58659 patched.
 - [v2.36.0](v2.36.0.md) — the failures that reported success: a UTF-8 BOM discarded every setting in `config.toml` and blamed line 1; a typo in `[redaction] mode` shipped the secret it hides; a dictated `rm -rf` skipped its gate in command mode; the mic-change watcher could not fire on ALSA/PipeWire; the PPA advertised for two years never existed.
 - [v2.35.0](v2.35.0.md) — the update check could not report an update: a Windows balloon over 255 characters is discarded whole, so only "you are up to date" could ever render; a macOS `.app` was told to download a Windows `.exe`.
 - [v2.34.0](v2.34.0.md) — Windows and macOS never had a GUI at all: Settings, the sonar overlay and the tray were gated on X11 variables those platforms never set; the tray polled too slowly to see a short dictation; every Scoop install silently had no Start Menu entry.

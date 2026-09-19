@@ -282,7 +282,7 @@ class SettingsWindow:
         # Selectable, because the fix is a command the user has to copy into a
         # terminal and retyping `sudo snap connect yazses:audio-record` by hand
         # from a screenshot is exactly where people give up.
-        banner.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        banner.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         banner.setStyleSheet(
             "QLabel { background: #7a2d2d; color: #ffffff; padding: 10px; "
             "border-radius: 6px; font-weight: 600; }"
